@@ -487,7 +487,7 @@
 %>
 
 <div class="rd-page-shell">
-  <a href="/guardian/reports" class="rd-back-link">← Back to Reports</a>
+  <a href="/guardian/reports" class="rd-back-link">← Back to Messages</a>
 
   <div class="rd-modal-body">
     <h2 class="rd-title"><%= report.subject %></h2>
@@ -519,8 +519,8 @@
           <div class="rd-msg-menu-wrap" id="msgMenu-report-root">
             <button type="button" class="rd-msg-menu-btn" onclick="toggleMsgMenu('report-root')" aria-label="Message actions">⋯</button>
             <div class="rd-msg-menu-dropdown">
-              <form id="deleteReportForm" action="/guardian/reports/<%= report.report_id %>/delete" method="POST" onsubmit="return confirm('Delete this report and all its replies? This cannot be undone.')">
-                <a href="#" class="rd-msg-menu-text" onclick="return submitInlineForm('deleteReportForm')">Delete report</a>
+              <form id="deleteReportForm" action="/guardian/reports/<%= report.report_id %>/delete" method="POST" onsubmit="return confirm('Delete this conversation and all its replies? This cannot be undone.')">
+                <a href="#" class="rd-msg-menu-text" onclick="return submitInlineForm('deleteReportForm')">Delete conversation</a>
               </form>
             </div>
           </div>
@@ -599,7 +599,7 @@
       var list = document.getElementById('rdCcTooltipList');
       if (!list) return;
       if (!recipients.length) {
-        renderGuardianCcTooltipState('No staff were CC\'d on this report.');
+        renderGuardianCcTooltipState('No staff were copied on this conversation.');
         return;
       }
       var html = '';

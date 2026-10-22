@@ -868,8 +868,11 @@ async function notifyReportRecipients(db, { orgId, reportId, type, title, body, 
       userIds = fallback.rows.map((r) => r.user_id);
     }
 
+    // Callers pass the conversation link (/common/parent-messages/:id), which
+    // routes each person to their class page or Mail Room. Without one, fall
+    // back to the student's class page.
     let resolvedLink = link;
-    try {
+    if (!resolvedLink) try {
       const classRow = await db.query(
         `SELECT s.class_id
          FROM guardian_reports r
@@ -893,7 +896,7 @@ async function notifyReportRecipients(db, { orgId, reportId, type, title, body, 
       title,
       body,
       link: resolvedLink,
-      refId,
+      refId: refId || reportId,
     }));
     if (list.length) await createNotifications(db, list);
   } catch (err) {

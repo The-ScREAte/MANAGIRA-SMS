@@ -54,10 +54,13 @@ router.post('/employment/:id/apply', (req, res, next) => {
 	});
 }, legalController.submitEmploymentApplication);
 router.get('/donations', legalController.donationsPage);
+const appDemoController = require('../controllers/appDemoController');
 router.get('/app-demo', (req, res, next) => {
 	res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
-	return legalController.appDemo(req, res, next);
+	return appDemoController.publicPage(req, res, next);
 });
+router.get('/app-demo/media/:id(\\d+)/file', appDemoController.serveFile);
+router.get('/app-demo/play/:id(\\d+)', appDemoController.playerPage);
 router.get('/request-demo', legalController.requestDemoPage);
 router.post('/request-demo', legalController.submitDemoRequest);
 router.get('/user-documentation/api/search', documentationController.documentationSearchJson);

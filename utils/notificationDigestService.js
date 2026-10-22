@@ -5,6 +5,11 @@ const {
   renderCleanEmail,
   escapeHtml,
 } = require("./emailHelper");
+
+// Staff open a parent conversation through one link: Mail Room users land in
+// its inbox, teachers in the class's Parent Messages (see /common/parent-messages/:id).
+const parentMessageUrl = (reportId) =>
+  `${String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "")}/common/parent-messages/${Number(reportId)}`;
 const {
   isUserEmailEnabled,
   isGuardianEmailEnabled,
@@ -2436,22 +2441,17 @@ async function notifyStaffOnGuardianReportCreated(database, {
   for (const email of optedIn) {
     const guardianDisplayName = escapeHtml(`${report.guardian_first_name || "Parent"} ${report.guardian_last_name || ""}`.trim());
     const html = renderCleanEmail({
-      title: `${organizationName}: New message from a parent/guardian`,
-      greeting: `Message from ${guardianDisplayName}:`,
+      title: `New message from ${guardianDisplayName}`,
+      greeting: "Hello,",
       paragraphs: [
-        `A parent/guardian has submitted a new report. Please review the details below and respond through the report workflow.`,
+        `${guardianDisplayName} sent a message about ${escapeHtml(`${report.student_first_name || "their child"} ${report.student_last_name || ""}`.trim())}. Reply in Managira so the whole conversation stays in one place.`,
       ],
       details: [
-        { label: "Report ID", value: `#${report.report_id}` },
-        {
-          label: "Student",
-          value: escapeHtml(`${report.student_first_name || "Student"} ${report.student_last_name || ""}`.trim()),
-        },
-        { label: "Guardian", value: guardianDisplayName },
-        { label: "Subject", value: escapeHtml(report.subject || "General report") },
+        { label: "Subject", value: escapeHtml(report.subject || "Message") },
         { label: "Message", value: escapeHtml(report.message || "") },
       ],
-      note: "Please review and respond in the report workflow.",
+      cta: { url: parentMessageUrl(report.report_id), text: "Open conversation" },
+      note: "You receive this because you are in charge of this student or were copied on the message.",
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -2460,7 +2460,7 @@ async function notifyStaffOnGuardianReportCreated(database, {
       eventKey: String(report.report_id),
       recipientEmail: email,
       recipientKind: "staff",
-      subject: `${organizationName}: New parent report (#${report.report_id})`,
+      subject: `New message from ${`${report.guardian_first_name || "a parent"} ${report.guardian_last_name || ""}`.trim()}: ${report.subject || "Message"}`,
       html,
       payload: { reportId: report.report_id },
       context: "Guardian Report Created",
@@ -2541,17 +2541,16 @@ async function notifyStaffOnGuardianReply(database, {
   let sent = 0;
   for (const email of optedIn) {
     const html = renderCleanEmail({
-      title: `${organizationName}: New reply from a parent/guardian`,
-      greeting: `Reply from a parent/guardian on report #${reportId}:`,
+      title: "A parent replied",
+      greeting: "Hello,",
       paragraphs: [
-        `A parent/guardian has sent a new reply. Please review the conversation and continue follow-up where needed.`,
+        `There is a new reply in the conversation “${escapeHtml(reportRes.rows[0].subject || "Message")}”.`,
       ],
       details: [
-        { label: "Report ID", value: `#${reportId}` },
-        { label: "Subject", value: escapeHtml(reportRes.rows[0].subject || "General report") },
         { label: "Reply", value: escapeHtml(replyMessage || "") },
       ],
-      note: "Please review the conversation and continue follow-up where needed.",
+      cta: { url: parentMessageUrl(reportId), text: "Open conversation" },
+      note: "You receive this because you are part of this conversation.",
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -2560,7 +2559,7 @@ async function notifyStaffOnGuardianReply(database, {
       eventKey: String(reportId),
       recipientEmail: email,
       recipientKind: "staff",
-      subject: `${organizationName}: New guardian reply on report #${reportId}`,
+      subject: `New reply: ${reportRes.rows[0].subject || "Message"}`,
       html,
       payload: { reportId },
       context: "Guardian Report Reply",

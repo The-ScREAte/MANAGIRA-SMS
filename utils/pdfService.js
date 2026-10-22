@@ -642,6 +642,7 @@ function sessionCookieFromHeader(cookieHeader) {
 }
 
 module.exports = {
+  withPage,
   renderReportCardsPdf,
   renderReportCardsPerStudent,
   renderTranscriptPdf,

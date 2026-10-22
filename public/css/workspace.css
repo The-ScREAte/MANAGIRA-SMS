@@ -198,6 +198,7 @@ body .cal-main .fc .fc-list-day > * { background: #f8fafc; }
 .fc .cal-ev.cal-ev--rose, .ws-peek .cal-ev--rose { --c: #e11d48; } .fc .cal-ev.cal-ev--green, .ws-peek .cal-ev--green { --c: #16a34a; } .fc .cal-ev.cal-ev--slate, .ws-peek .cal-ev--slate { --c: #475569; }
 .fc .cal-ev.cal-ev--announcement, .ws-peek .cal-ev--announcement { --c: #9333ea; }
 .fc .cal-ev.cal-ev--task, .ws-peek .cal-ev--task { --c: #0369a1; }
+.fc .cal-ev.cal-ev--lesson, .ws-peek .cal-ev--lesson { --c: #b45309; }
 .fc .cal-ev.cal-ev--task.is-high { --c: #dc2626; }
 .fc .cal-ev--task.is-done { opacity: .55; text-decoration: line-through; }
 .ws-swatch--teal { background: #0f766e; } .ws-swatch--blue { background: #2563eb; } .ws-swatch--violet { background: #7c3aed; } .ws-swatch--amber { background: #d97706; }

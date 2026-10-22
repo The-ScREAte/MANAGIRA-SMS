@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title><%= title %> · Interactive preview</title>
+  <%# Start downloading the capture before the player script runs. %>
+  <link rel="preload" href="<%= dataUrl %>" as="fetch" crossorigin="anonymous" />
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #f3f6f8; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    .pl { --accent: #14b8a6; position: relative; width: 100%; height: 100%; overflow: hidden; }
+    .pl__frame { position: absolute; top: 0; left: 0; border: 0; background: #fff; transform-origin: 0 0; opacity: 0; transition: opacity .25s ease; }
+    .pl.is-ready .pl__frame { opacity: 1; }
+    /* Loading: a thin line in the highlight colour; the cover (an exact picture of the first view) shows meanwhile. */
+    .pl__loading { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; z-index: 3; background: color-mix(in srgb, var(--accent) 18%, transparent); }
+    .pl__loading::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: var(--accent); border-radius: 2px; animation: load 1.1s cubic-bezier(.4, 0, .2, 1) infinite; }
+    .pl.is-ready .pl__loading { display: none; }
+    /* The cover stays over the live page until its images arrive (at most ~1s), then fades away. */
+    .pl__poster { position: absolute; top: 0; left: 0; z-index: 1; width: 100%; height: auto; display: block; transition: opacity .3s ease; pointer-events: none; }
+    .pl.is-settled .pl__poster { opacity: 0; }
+    .pl__layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+
+    /* Highlight ring around the element to click */
+    .pl-ring {
+      position: absolute; border: 2px solid var(--accent); border-radius: 10px; pointer-events: none;
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+      animation: ring 1.8s cubic-bezier(.4, 0, .2, 1) infinite;
+      transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+    }
+    .pl-ring--soft { border-width: 1.5px; animation-duration: 2.4s; }
+
+    /* Explanation beside it */
+    .pl-tip {
+      position: absolute; width: 280px; max-width: calc(100% - 20px); padding: 14px 14px 12px; border-radius: 12px; pointer-events: auto;
+      background: #fff; color: #0b1b2b; box-shadow: 0 1px 2px rgba(11, 27, 43, .08), 0 18px 40px -12px rgba(11, 27, 43, .35);
+      border-top: 3px solid var(--accent); animation: tip-in .22s ease both;
+    }
+    .pl-tip--free { left: 50%; bottom: 16px; transform: translateX(-50%); }
+    /* Explore mode: the explanation appears on hover, without buttons */
+    .pl-tip--hover { width: auto; max-width: 260px; padding: 10px 12px; pointer-events: none; animation-duration: .15s; }
+    .pl-tip--hover p { font-size: 13px; }
+    .pl-tip p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #1e2b3a; }
+    .pl-tip:not(.pl-tip--hover) p { padding-right: 22px; }
+    .pl-tip__close {
+      all: unset; position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
+      color: #8a99aa; font-size: 17px; line-height: 1; cursor: pointer;
+    }
+    .pl-tip__close:hover { background: #f1f5f8; color: #0b1b2b; }
+    .pl-tip__close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .pl-tip__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+    .pl-tip__foot > span { font-size: 11.5px; font-weight: 600; color: #6b7a8c; font-variant-numeric: tabular-nums; }
+    .pl-tip__arrow { position: absolute; top: -9px; width: 12px; height: 12px; margin-left: -6px; background: var(--accent); transform: rotate(45deg); border-radius: 2px; }
+    .pl-tip.is-above { border-top: 0; border-bottom: 3px solid var(--accent); }
+    .pl-tip.is-above .pl-tip__arrow { top: auto; bottom: -9px; }
+    .pl-tip--free .pl-tip__arrow { display: none; }
+    .pl-tip.is-left .pl-tip__arrow, .pl-tip.is-right .pl-tip__arrow { margin: -6px 0 0; background: #fff; box-shadow: 1px -1px 0 rgba(11, 27, 43, .06); }
+    .pl-tip.is-left .pl-tip__arrow { left: auto; right: -6px; }
+    .pl-tip.is-right .pl-tip__arrow { left: -6px; box-shadow: -1px 1px 0 rgba(11, 27, 43, .06); }
+    .pl-btns { display: flex; gap: 6px; }
+    .pl-btn {
+      all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 8px;
+      font-size: 12.5px; font-weight: 600; color: #3b4a5c; border: 1px solid #d3dbe4; background: #fff; cursor: pointer; transition: background-color .15s, filter .15s;
+    }
+    .pl-btn:hover { background: #f5f7f9; }
+    .pl-btn:disabled { opacity: .4; cursor: default; }
+    .pl-btn--primary { background: var(--accent); border-color: transparent; color: #fff; }
+    .pl-btn--primary:hover { background: var(--accent); filter: brightness(.92); }
+    .pl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .pl-end {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: grid; gap: 4px; width: 300px; max-width: calc(100% - 20px);
+      padding: 14px; border-radius: 12px; background: #fff; pointer-events: auto; border-top: 3px solid var(--accent);
+      box-shadow: 0 1px 2px rgba(11, 27, 43, .08), 0 18px 40px -12px rgba(11, 27, 43, .35); animation: tip-in .22s ease both;
+    }
+    .pl-end strong { padding-right: 24px; font-size: 14px; color: #0b1b2b; }
+    .pl-end span { font-size: 12.5px; color: #6b7a8c; }
+    .pl-end .pl-btns { justify-content: flex-end; margin-top: 8px; }
+
+    /* Corner controls once the walkthrough is skipped (or in explore mode) */
+    .pl__controls {
+      position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
+      background: rgba(11, 27, 43, .86); box-shadow: 0 8px 24px -8px rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .pl__controls[hidden] { display: none; }
+    .pl__controls button {
+      all: unset; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 999px;
+      color: #cbd5e1; font-size: 11.5px; font-weight: 600; cursor: pointer;
+    }
+    .pl__controls button:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+    .pl__controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .pl__controls .is-primary { background: var(--accent); color: #fff; }
+    .pl__controls .is-primary:hover { background: var(--accent); filter: brightness(.95); }
+    .pl__controls i { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
+    .pl__controls [aria-pressed="true"] i { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+    .pl__toast {
+      position: absolute; left: 50%; top: 14px; transform: translate(-50%, -8px); opacity: 0; transition: .2s; pointer-events: none;
+      padding: 8px 12px; border-radius: 9px; background: #0b1b2b; color: #fff; font-size: 12.5px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .4);
+    }
+    .pl__toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+    .pl__error { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 7px 12px; border-radius: 999px; background: rgba(11, 27, 43, .82); color: #fff; font-size: 12px; white-space: nowrap; }
+    @keyframes load { to { left: 100%; } }
+    @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); } }
+    @keyframes tip-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .pl-ring, .pl-tip, .pl-end { animation: none; transition: none; } }
+  </style>
+</head>
+<body>
+  <div class="pl" id="pl" data-src="<%= dataUrl %>" data-w="<%= width %>" data-h="<%= height %>">
+    <% if (poster) { %><img class="pl__poster" src="<%= poster %>" alt="" decoding="async" fetchpriority="high" /><% } %>
+    <div class="pl__loading" role="progressbar" aria-label="Loading interactive preview"></div>
+    <%# No allow-scripts: nothing inside the capture can run. %>
+    <iframe class="pl__frame" sandbox="allow-same-origin" title="Interactive preview of <%= title %>"></iframe>
+    <div class="pl__layer" aria-live="polite"></div>
+    <div class="pl__controls" hidden></div>
+    <div class="pl__toast" role="status"></div>
+  </div>
+  <script type="application/json" id="pl-config"><%- JSON.stringify({ accent, guided, texts: guideTexts }).replace(/</g, '\\u003c') %></script>
+  <script src="<%= assetUrl('/js/appDemoPlayer.js') %>"></script>
+</body>
+</html>

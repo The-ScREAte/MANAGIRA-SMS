@@ -11,6 +11,12 @@ const {
   notifyStaffOnGuardianReply,
 } = require("../utils/notificationDigestService");
 const notifSvc = require("../utils/notificationService");
+
+// Staff open a parent message through one link that picks the right place:
+// Mail Room's inbox for Mail Room users, the class's Parent Messages for teachers.
+async function reportThreadLink(db, reportId) {
+  return `/common/parent-messages/${Number.parseInt(reportId, 10)}`;
+}
 const {
   ensureEmailPreferencesSchema,
   getGuardianPreferences,
@@ -1193,14 +1199,14 @@ module.exports = {
       }));
 
       return res.render("guardian/report", {
-        title: "Submit Report",
+        title: "Message the school",
         children: childrenWithDisplayName,
         staff: staffWithDisplayName,
         messages: req.flash(),
         req,
       });
     } catch (error) {
-            req.flash('error', 'Error loading report page');
+            req.flash('error', 'Error loading the message page');
       return res.redirect('/guardian/dashboard');
     }
   },
@@ -1299,15 +1305,15 @@ module.exports = {
         orgId: Number(organizationId),
         reportId,
         type: 'guardian_report_new',
-        title: `New report: ${subject}`,
+        title: `New message: ${subject}`,
         body: String(message || '').substring(0, 120),
-        link: `/common/reports`,
+        link: await reportThreadLink(db, reportId),
       }).catch(err => console.error('[Notif] guardian_report_new failed:', err.message));
 
-      req.flash('success', 'Report submitted successfully! The school will review and respond soon.');
+      req.flash('success', 'Message sent. The school will reply here soon.');
       return res.redirect('/guardian/report');
     } catch (error) {
-            req.flash('error', 'Error submitting report');
+            req.flash('error', 'Your message could not be sent. Please try again.');
       return res.redirect('/guardian/report');
     }
   },
@@ -1863,7 +1869,7 @@ module.exports = {
       const mergedNotifUnread = Math.max(existingNotifUnread, reportUnreadTotal);
 
       res.render('guardian/reports', {
-        title: 'My Reports',
+        title: 'Messages',
         reports: reports.rows,
         students,
         reportUnreadTotal,
@@ -1872,7 +1878,7 @@ module.exports = {
         req
       });
     } catch (error) {
-            req.flash('error', 'Error loading reports');
+            req.flash('error', 'Error loading messages');
       res.redirect('/guardian/dashboard');
     }
   },
@@ -2002,15 +2008,15 @@ module.exports = {
         orgId: Number(organizationId),
         reportId,
         type: 'guardian_report_new',
-        title: `New report: ${subject}`,
+        title: `New message: ${subject}`,
         body: String(message || '').substring(0, 120),
-        link: `/common/reports`,
+        link: await reportThreadLink(db, reportId),
       }).catch(err => console.error('[Notif] guardian_report_new failed:', err.message));
 
-      req.flash('success', 'Report submitted successfully');
+      req.flash('success', 'Message sent');
       res.redirect(`/guardian/reports/${reportId}`);
     } catch (error) {
-            req.flash('error', 'Error submitting report');
+            req.flash('error', 'Your message could not be sent. Please try again.');
       res.redirect('/guardian/reports/new');
     }
   },
@@ -2038,7 +2044,7 @@ module.exports = {
       );
 
       if (reportQuery.rows.length === 0) {
-        req.flash('error', 'Report not found');
+        req.flash('error', 'Conversation not found');
         return res.redirect('/guardian/reports');
       }
 
@@ -2087,14 +2093,14 @@ module.exports = {
       );
 
       res.render('guardian/reportDetails', {
-        title: 'Report Details',
+        title: 'Conversation',
         report,
         replies: repliesQuery.rows,
         messages: req.flash(),
         req
       });
     } catch (error) {
-            req.flash('error', 'Error loading report');
+            req.flash('error', 'Error loading the conversation');
       res.redirect('/guardian/reports');
     }
   },
@@ -2117,7 +2123,7 @@ module.exports = {
       );
 
       if (!accessResult.rows.length) {
-        return res.status(404).json({ success: false, error: 'Report not found' });
+        return res.status(404).json({ success: false, error: 'Conversation not found' });
       }
 
       const recipientsResult = await db.query(
@@ -2160,9 +2166,9 @@ module.exports = {
 
       if (reportCheck.rows.length === 0) {
         if (wantsJson) {
-          return res.status(404).json({ success: false, error: 'Report not found' });
+          return res.status(404).json({ success: false, error: 'Conversation not found' });
         }
-        req.flash('error', 'Report not found');
+        req.flash('error', 'Conversation not found');
         return res.redirect('/guardian/reports');
       }
 
@@ -2201,9 +2207,9 @@ module.exports = {
         orgId: Number(organizationId),
         reportId: Number.parseInt(reportId, 10),
         type: 'guardian_reply',
-        title: 'Guardian replied to a report',
+        title: 'A parent replied',
         body: String(message || '').substring(0, 120),
-        link: `/common/reports`,
+        link: await reportThreadLink(db, reportId),
       }).catch(err => console.error('[Notif] guardian_reply failed:', err.message));
 
       // Update report status to in_progress if it was open
@@ -2259,7 +2265,7 @@ module.exports = {
       );
 
       if (reportCheck.rows.length === 0) {
-        req.flash('error', 'Report not found');
+        req.flash('error', 'Conversation not found');
         return res.redirect('/guardian/reports');
       }
 
@@ -2300,7 +2306,7 @@ module.exports = {
       );
 
       if (check.rows.length === 0) {
-        req.flash('error', 'Report not found');
+        req.flash('error', 'Conversation not found');
         return res.redirect('/guardian/reports');
       }
 
@@ -2310,10 +2316,10 @@ module.exports = {
       await db.query(`DELETE FROM guardian_report_reads WHERE report_id = $1`, [reportId]);
       await db.query(`DELETE FROM guardian_reports WHERE report_id = $1 AND guardian_id = $2 AND organization_id = $3`, [reportId, guardianId, organizationId]);
 
-      req.flash('success', 'Report deleted');
+      req.flash('success', 'Conversation deleted');
       return res.redirect('/guardian/reports');
     } catch (error) {
-      req.flash('error', 'Error deleting report');
+      req.flash('error', 'Could not delete the conversation. Please try again.');
       return res.redirect('/guardian/reports');
     }
   },

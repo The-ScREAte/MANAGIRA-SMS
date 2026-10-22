@@ -1,0 +1,1135 @@
+<style>
+  .ade {
+    --a-ink: #0b1b2b;
+    --a-text: #3b4a5c;
+    --a-muted: #6b7a8c;
+    --a-line: #e4e9ef;
+    --a-line-strong: #d3dbe4;
+    --a-soft: #f6f8fa;
+    --a-brand: #01535b;
+    --a-brand-hover: #013f45;
+    --a-brand-soft: #e7f1f1;
+    --a-danger: #b42318;
+    --a-danger-soft: #fef3f2;
+    --a-shadow-sm: 0 1px 2px rgba(11, 27, 43, 0.06);
+    --a-shadow: 0 1px 2px rgba(11, 27, 43, 0.04), 0 12px 32px -12px rgba(11, 27, 43, 0.14);
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 24px 64px;
+    color: var(--a-text);
+    font-family: var(--font-family, "Inter", system-ui, sans-serif);
+    font-size: 13.5px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .ade *, .ade *::before, .ade *::after { box-sizing: border-box; }
+  /* Undo the app-wide element styles (style.css) without outranking the classes below. */
+  :where(.ade) button { width: auto; margin: 0; }
+  :where(.ade) label { margin: 0; }
+  .ade h1 { text-align: left; }
+  .ade h1, .ade h2, .ade h3, .ade p, .ade ol { margin: 0; }
+  .ade svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ade [hidden] { display: none !important; }
+
+  .ade-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 36px; padding: 0 13px; border-radius: 9px; border: 1px solid transparent;
+    font: inherit; font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap;
+    text-decoration: none; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s;
+  }
+  .ade-btn--primary { background: var(--a-brand); color: #fff; }
+  .ade-btn--primary:hover { background: var(--a-brand-hover); color: #fff; }
+  .ade-btn--ghost { background: #fff; color: var(--a-ink); border-color: var(--a-line-strong); box-shadow: var(--a-shadow-sm); }
+  .ade-btn--ghost:hover { background: var(--a-soft); color: var(--a-ink); }
+  .ade-btn--danger { background: #fff; color: var(--a-danger); border-color: #f4c7c3; }
+  .ade-btn--danger:hover { background: var(--a-danger-soft); color: var(--a-danger); }
+  .ade-btn--sm { height: 30px; padding: 0 10px; font-size: 12.5px; border-radius: 8px; }
+  .ade-btn:disabled { opacity: .5; cursor: default; }
+  .ade-btn:focus-visible, .ade-icon:focus-visible, .ade-row:focus-visible, .ade-group__head:focus-visible { outline: 2px solid var(--a-brand); outline-offset: 2px; }
+
+  .ade-icon {
+    display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0;
+    border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--a-muted); cursor: pointer;
+  }
+  .ade-icon svg { width: 15px; height: 15px; }
+  .ade-icon:hover { background: var(--a-soft); color: var(--a-ink); }
+  .ade-icon:disabled { opacity: .3; cursor: default; background: transparent; }
+  .ade-icon--danger:hover { background: var(--a-danger-soft); color: var(--a-danger); }
+
+  /* Header */
+  .ade-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+  .ade-eyebrow { color: var(--a-brand); font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+  .ade-head h1 { margin-top: 6px; color: var(--a-ink); font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .ade-head p.ade-sub { margin-top: 5px; color: var(--a-muted); font-size: 13.5px; }
+  .ade-head p.ade-sub a { color: var(--a-brand); font-weight: 600; text-decoration: none; }
+  .ade-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .ade-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 22px; align-items: start; }
+  .ade-card { background: #fff; border: 1px solid var(--a-line); border-radius: 14px; box-shadow: var(--a-shadow-sm); }
+
+  /* Sections and features */
+  .ade-list { position: sticky; top: 84px; max-height: calc(100vh - 110px); display: flex; flex-direction: column; overflow: hidden; }
+  .ade-list__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--a-line); }
+  .ade-list__head h2 { color: var(--a-ink); font-size: 14px; font-weight: 650; }
+  .ade-list__head span { color: var(--a-muted); font-size: 12px; font-weight: 500; margin-left: 6px; }
+  .ade-groups { overflow-y: auto; padding: 6px 8px 10px; }
+  .ade-group + .ade-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--a-line); }
+  .ade-group__head {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 6px 6px 8px;
+    border: 0; border-radius: 8px; background: transparent; color: var(--a-muted); font: inherit; text-align: left; cursor: pointer;
+  }
+  .ade-group__head:hover { background: var(--a-soft); color: var(--a-ink); }
+  .ade-group__head.is-selected { background: var(--a-brand-soft); color: var(--a-brand); }
+  .ade-group__name { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ade-group__count { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ade-group__edit { opacity: 0; transition: opacity .15s; display: grid; place-items: center; }
+  .ade-group__edit svg { width: 13px; height: 13px; }
+  .ade-group__head:hover .ade-group__edit, .ade-group__head.is-selected .ade-group__edit { opacity: 1; }
+  .ade-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+  .ade-row {
+    display: grid; grid-template-columns: 14px 52px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+    padding: 6px 8px 6px 4px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; user-select: none;
+    transition: background-color .15s, border-color .15s;
+  }
+  .ade-row:hover { background: var(--a-soft); }
+  .ade-row.is-selected { background: var(--a-brand-soft); border-color: rgba(1, 83, 91, .18); }
+  .ade-row.is-dragging { opacity: .4; }
+  .ade-row.is-drop-before { box-shadow: inset 0 2px 0 var(--a-brand); }
+  .ade-row.is-drop-after { box-shadow: inset 0 -2px 0 var(--a-brand); }
+  .ade-grip { color: #a6b2bf; cursor: grab; display: grid; place-items: center; }
+  .ade-grip svg { width: 13px; height: 13px; }
+  .ade-thumb {
+    width: 52px; height: 33px; border-radius: 5px; overflow: hidden; background: var(--a-soft);
+    border: 1px solid var(--a-line); display: grid; place-items: center; color: var(--a-brand); font-size: 9.5px; font-weight: 700;
+  }
+  .ade-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .ade-row__text { min-width: 0; }
+  .ade-row__text strong { display: block; color: var(--a-ink); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ade-row__text span { display: block; margin-top: 1px; color: var(--a-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ade-pill { padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; }
+  .ade-pill--live { background: #e6f6ee; color: #067647; }
+  .ade-pill--hidden { background: #f1f3f5; color: var(--a-muted); }
+  .ade-pill--empty { background: #fff6e6; color: #b54708; }
+  .ade-rows__empty { padding: 8px 10px 10px 30px; color: var(--a-muted); font-size: 12px; }
+
+  /* Editor */
+  .ade-editor { display: grid; gap: 18px; min-width: 0; }
+  .ade-placeholder { padding: 56px 24px; text-align: center; color: var(--a-muted); }
+  .ade-placeholder strong { display: block; color: var(--a-ink); font-size: 15px; margin-bottom: 6px; }
+  .ade-section { padding: 20px 22px; }
+  .ade-section + .ade-section { border-top: 1px solid var(--a-line); }
+  .ade-section__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .ade-section__head h2 { color: var(--a-ink); font-size: 15.5px; font-weight: 650; letter-spacing: -.01em; }
+  .ade-section__head h2 small { color: var(--a-muted); font-size: 13px; font-weight: 500; }
+  .ade-section__head p { margin-top: 3px; color: var(--a-muted); font-size: 12.5px; max-width: 560px; line-height: 1.5; }
+  .ade-section__tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .ade-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .ade-field { display: grid; gap: 5px; align-content: start; }
+  .ade-field--full { grid-column: 1 / -1; }
+  .ade-field label { color: var(--a-ink); font-size: 12.5px; font-weight: 600; }
+  .ade-field small { color: var(--a-muted); font-size: 11.5px; }
+  .ade-input, .ade-textarea, .ade-select {
+    width: 100%; border: 1px solid var(--a-line-strong); border-radius: 9px; background: #fff;
+    color: var(--a-ink); font: inherit; font-size: 13.5px; padding: 8px 11px; transition: border-color .15s, box-shadow .15s;
+  }
+  .ade-input, .ade-select { height: 38px; margin: 0; }
+  .ade-select { appearance: auto; padding-right: 8px; }
+  .ade-textarea { resize: vertical; height: auto; min-height: 76px; margin: 0; line-height: 1.55; }
+  .ade-input:focus, .ade-textarea:focus, .ade-select:focus { outline: none; border-color: var(--a-brand); box-shadow: 0 0 0 3px rgba(1, 83, 91, .14); }
+  .ade-field__foot { display: flex; justify-content: space-between; gap: 8px; }
+  .ade-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .ade-status { color: var(--a-muted); font-size: 12.5px; }
+  .ade-status.is-ok { color: #067647; }
+
+  .ade-switch { position: relative; display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--a-ink); }
+  .ade-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .ade-switch__track { position: relative; width: 34px; height: 19px; border-radius: 999px; background: #cfd6de; transition: background-color .15s; }
+  .ade-switch__track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .ade-switch input:checked + .ade-switch__track { background: var(--a-brand); }
+  .ade-switch input:checked + .ade-switch__track::after { transform: translateX(15px); }
+  .ade-switch input:focus-visible + .ade-switch__track { outline: 2px solid var(--a-brand); outline-offset: 2px; }
+
+  /* Steps */
+  .ade-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .ade-step { display: grid; gap: 10px; padding: 12px 12px 14px; border: 1px solid var(--a-line); border-radius: 12px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+  .ade-step:hover { border-color: var(--a-line-strong); }
+  .ade-step.is-dragging { opacity: .4; }
+  .ade-step.is-drop-before { box-shadow: 0 -3px 0 var(--a-brand); }
+  .ade-step.is-drop-after { box-shadow: 0 3px 0 var(--a-brand); }
+  .ade-step__head { display: grid; grid-template-columns: 16px 24px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+  .ade-step__num { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--a-ink); color: #fff; font-size: 11.5px; font-weight: 700; }
+  .ade-step__head .ade-input { font-weight: 600; height: 34px; }
+  .ade-step__tools { display: flex; gap: 1px; }
+  .ade-step__body { display: grid; gap: 10px; padding-left: 48px; }
+  .ade-step__body .ade-textarea { min-height: 56px; font-size: 13px; }
+  .ade-step__save { min-height: 14px; color: var(--a-muted); font-size: 11.5px; }
+  .ade-step__save.is-ok { color: #067647; }
+
+  .ade-versions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ade-version { position: relative; display: grid; gap: 6px; width: 168px; }
+  .ade-version__media {
+    position: relative; aspect-ratio: 16 / 10; border-radius: 8px; overflow: hidden; border: 1px solid var(--a-line);
+    background: var(--a-soft); display: grid; place-items: center; color: var(--a-brand);
+  }
+  .ade-version__media img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .ade-version__media > a { position: absolute; inset: 0; }
+  .ade-version__pdf { display: grid; justify-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; }
+  .ade-version__pdf svg { width: 24px; height: 24px; stroke-width: 1.5; }
+  .ade-version__first { position: absolute; left: 6px; top: 6px; padding: 2px 6px; border-radius: 999px; background: rgba(11, 27, 43, .8); color: #fff; font-size: 10px; font-weight: 600; pointer-events: none; }
+  .ade-version__tools {
+    position: absolute; right: 5px; top: 5px; display: flex; gap: 2px; padding: 2px; border-radius: 8px;
+    background: rgba(255, 255, 255, .95); box-shadow: var(--a-shadow-sm); opacity: 0; transition: opacity .15s;
+  }
+  .ade-version:hover .ade-version__tools, .ade-version:focus-within .ade-version__tools { opacity: 1; }
+  .ade-version__tools .ade-icon { width: 24px; height: 24px; }
+  .ade-version__tools .ade-icon svg { width: 13px; height: 13px; }
+  .ade-version .ade-input { height: 30px; font-size: 12px; padding: 4px 8px; border-radius: 7px; }
+  .ade-version--add {
+    display: grid; place-content: center; justify-items: center; gap: 4px; aspect-ratio: 16 / 10; width: 168px; height: auto; padding: 8px;
+    border: 1.5px dashed var(--a-line-strong); border-radius: 8px; background: var(--a-soft); color: var(--a-muted);
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s;
+  }
+  .ade-version--add small { font-size: 11px; font-weight: 500; }
+  .ade-version--add:hover { border-color: var(--a-brand); background: var(--a-brand-soft); color: var(--a-brand); }
+
+  .ade-drop {
+    display: grid; place-items: center; gap: 6px; margin-top: 12px; padding: 24px 16px; text-align: center;
+    border: 1.5px dashed var(--a-line-strong); border-radius: 12px; background: var(--a-soft); color: var(--a-muted); font-size: 12.5px;
+    cursor: pointer; transition: border-color .15s, background-color .15s;
+  }
+  .ade-drop:hover, .ade-drop.is-over { border-color: var(--a-brand); background: var(--a-brand-soft); }
+  .ade-drop strong { color: var(--a-ink); font-size: 13.5px; }
+  .ade-drop__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #fff; border: 1px solid var(--a-line); color: var(--a-brand); }
+  .ade-progress { width: min(320px, 100%); height: 5px; border-radius: 999px; background: #dfe5ea; overflow: hidden; }
+  .ade-progress i { display: block; height: 100%; width: 0; background: var(--a-brand); transition: width .2s; }
+
+  .ade-danger { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .ade-danger strong { display: block; color: var(--a-ink); font-size: 13.5px; }
+  .ade-danger span { color: var(--a-muted); font-size: 12.5px; }
+
+  .ade-modal { position: fixed; inset: 0; z-index: 9998; display: grid; place-items: center; padding: 16px; background: rgba(8, 18, 28, .5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .ade-modal__card { width: min(560px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 16px; background: #fff; box-shadow: 0 40px 100px -20px rgba(0,0,0,.45); }
+  .ade-modal__head { padding: 20px 22px 6px; }
+  .ade-modal__head h2 { color: var(--a-ink); font-size: 16.5px; font-weight: 650; }
+  .ade-modal__head p { margin-top: 4px; color: var(--a-muted); font-size: 12.5px; line-height: 1.5; }
+  .ade-modal__body { padding: 12px 22px 16px; overflow: auto; display: grid; gap: 16px; }
+  .ade-modal__foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; border-top: 1px solid var(--a-line); }
+  .ade-modal__foot .ade-status { margin-right: auto; }
+  .ade-switch--block { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--a-line); border-radius: 10px; }
+  .ade-switch--block .ade-switch__track { margin-top: 1px; }
+  .ade-switch--block b { display: block; font-size: 13px; font-weight: 600; color: var(--a-ink); }
+  .ade-switch--block small { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 400; line-height: 1.45; color: var(--a-muted); }
+  .ade-guide { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .ade-guide li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; }
+  .ade-guide__n { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; background: var(--ade-accent, #14b8a6); color: #fff; font-size: 11.5px; font-weight: 700; }
+  .ade-guide em { display: block; margin-bottom: 5px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--a-text); }
+  .ade-guide .ade-textarea { min-height: 54px; font-size: 13px; }
+  .ade-swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ade-sw { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); cursor: pointer; }
+  .ade-sw[aria-pressed="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--c); }
+  .ade-sw-custom { position: relative; display: inline-flex; align-items: center; height: 28px; padding: 0 10px 0 32px; border-radius: 999px; background: var(--a-soft); font-size: 12px; font-weight: 600; color: var(--a-text); cursor: pointer; }
+  .ade-sw-custom input { position: absolute; left: 4px; top: 4px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+  .ade-sw-custom input::-webkit-color-swatch-wrapper { padding: 0; }
+  .ade-sw-custom input::-webkit-color-swatch { border: 0; border-radius: 50%; }
+
+  .ade-toast {
+    position: fixed; right: 24px; bottom: 24px; z-index: 9999; max-width: 380px; padding: 11px 15px;
+    border-radius: 11px; background: var(--a-ink); color: #fff; font-size: 13px; box-shadow: var(--a-shadow);
+    transform: translateY(16px); opacity: 0; transition: transform .2s, opacity .2s; pointer-events: none;
+  }
+  .ade-toast.is-on { transform: none; opacity: 1; }
+  .ade-toast.is-error { background: var(--a-danger); }
+
+  /* Interactive capture */
+  .ade-capture { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 16px 18px; margin-bottom: 22px; }
+  .ade-capture__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--a-brand-soft); color: var(--a-brand); }
+  .ade-capture__icon svg { width: 19px; height: 19px; }
+  .ade-capture.is-on .ade-capture__icon { background: #fef3f2; color: #d92d20; }
+  .ade-capture__text strong { display: flex; align-items: center; gap: 8px; color: var(--a-ink); font-size: 14px; font-weight: 650; }
+  .ade-capture__text span { display: block; margin-top: 3px; color: var(--a-muted); font-size: 12.5px; line-height: 1.5; }
+  .ade-capture__controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .ade-capture__controls .ade-select { width: 220px; height: 34px; font-size: 13px; }
+  .ade-live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: #fef3f2; color: #b42318; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ade-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #f04438; animation: ade-blink 1.2s ease-in-out infinite; }
+  @keyframes ade-blink { 50% { opacity: .3; } }
+  .ade-version__badge { position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; background: #14b8a6; color: #04201d; font-size: 10px; font-weight: 700; pointer-events: none; }
+  .ade-version__live { display: grid; justify-items: center; gap: 4px; color: var(--a-brand); font-size: 10.5px; font-weight: 700; }
+  .ade-version__live svg { width: 22px; height: 22px; stroke-width: 1.6; }
+
+  @media (max-width: 980px) {
+    .ade-capture { grid-template-columns: auto minmax(0, 1fr); }
+    .ade-capture__controls { grid-column: 1 / -1; justify-content: flex-start; }
+    .ade { padding: 20px 16px 48px; }
+    .ade-layout { grid-template-columns: minmax(0, 1fr); }
+    .ade-list { position: static; max-height: 420px; }
+    .ade-fields { grid-template-columns: minmax(0, 1fr); }
+    .ade-section { padding: 18px 16px; }
+    .ade-step__head { grid-template-columns: 24px minmax(0, 1fr) auto; }
+    .ade-step__head .ade-grip { display: none; }
+    .ade-step__body { padding-left: 0; }
+    .ade-version, .ade-version--add { width: calc(50% - 5px); }
+    .ade-version__tools { opacity: 1; }
+  }
+</style>
+
+<div class="ade" id="adeRoot">
+  <header class="ade-head">
+    <div>
+      <p class="ade-eyebrow">Public page</p>
+      <h1>App Demo</h1>
+      <p class="ade-sub">Build the guided product tour on <a href="/legal/app-demo" target="_blank" rel="noopener">/legal/app-demo</a>. Every change is live right away.</p>
+    </div>
+    <div class="ade-head__actions">
+      <a class="ade-btn ade-btn--ghost" href="/legal/app-demo" target="_blank" rel="noopener">
+        View live page
+        <svg viewBox="0 0 20 20"><path d="M8 4H4v12h12v-4M11 4h5v5M16 4l-7 7" /></svg>
+      </a>
+      <button type="button" class="ade-btn ade-btn--primary" data-ade-new>
+        <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" /></svg>
+        New feature
+      </button>
+    </div>
+  </header>
+
+  <%- include('../partials/flash') %>
+
+  <section class="ade-card ade-capture" data-ade-capture aria-label="Interactive capture"></section>
+
+  <div class="ade-layout">
+    <section class="ade-card ade-list" aria-label="Sections and features">
+      <div class="ade-list__head">
+        <h2>Sections<span data-ade-count></span></h2>
+        <button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-ade-new-section>
+          <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" /></svg>
+          Section
+        </button>
+      </div>
+      <div class="ade-groups" data-ade-groups></div>
+    </section>
+
+    <section class="ade-editor" data-ade-editor aria-live="polite"></section>
+  </div>
+
+  <input type="file" data-ade-upload accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" multiple hidden />
+  <input type="file" data-ade-version-upload accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" multiple hidden />
+  <input type="file" data-ade-replace accept="image/png,image/jpeg,image/webp,image/gif,application/pdf" hidden />
+  <div class="ade-toast" data-ade-toast role="status"></div>
+</div>
+
+<script type="application/json" id="adeData"><%- JSON.stringify(sections).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="adeCapture"><%- JSON.stringify({ window: captureWindow, minutes: captureMinutes, schools }).replace(/</g, '\\u003c') %></script>
+<script>
+(function () {
+  const root = document.getElementById('adeRoot');
+  if (!root) return;
+
+  let sections = JSON.parse(document.getElementById('adeData').textContent || '[]');
+  // What the editor shows: { type: 'feature' | 'section' | 'new-feature' | 'new-section', id }
+  let view = { type: 'feature', id: null };
+  let uploading = false;
+  let versionTarget = null; // step id for "Add version"
+  let replaceTarget = null; // version id for "Replace"
+
+  const groupsEl = root.querySelector('[data-ade-groups]');
+  const editorEl = root.querySelector('[data-ade-editor]');
+  const uploadInput = root.querySelector('[data-ade-upload]');
+  const versionInput = root.querySelector('[data-ade-version-upload]');
+  const replaceInput = root.querySelector('[data-ade-replace]');
+  const toastEl = root.querySelector('[data-ade-toast]');
+
+  const ICON = {
+    grip: '<svg viewBox="0 0 20 20"><path d="M7 5h.01M13 5h.01M7 10h.01M13 10h.01M7 15h.01M13 15h.01" stroke-width="3"/></svg>',
+    up: '<svg viewBox="0 0 20 20"><path d="M5 12l5-5 5 5"/></svg>',
+    down: '<svg viewBox="0 0 20 20"><path d="M5 8l5 5 5-5"/></svg>',
+    swap: '<svg viewBox="0 0 20 20"><path d="M4 7h11l-3-3M16 13H5l3 3"/></svg>',
+    trash: '<svg viewBox="0 0 20 20"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/></svg>',
+    upload: '<svg viewBox="0 0 20 20"><path d="M10 13V4M6 8l4-4 4 4M4 13v3h12v-3"/></svg>',
+    doc: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+    eye: '<svg viewBox="0 0 20 20"><path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z"/><circle cx="10" cy="10" r="2.5"/></svg>',
+    edit: '<svg viewBox="0 0 20 20"><path d="M13 4l3 3-8 8H5v-3z"/></svg>',
+    plus: '<svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg>',
+    first: '<svg viewBox="0 0 20 20"><path d="M10 3l2.2 4.5 4.8.7-3.5 3.4.8 4.9L10 14.2l-4.3 2.3.8-4.9L3 8.2l4.8-.7z"/></svg>',
+    cursor: '<svg viewBox="0 0 20 20"><path d="M5 3l10 6-4.5 1.2L13 16l-2 1-2.5-5.6L5 14z"/></svg>',
+    guide: '<svg viewBox="0 0 20 20"><path d="M4 5h12M4 10h8M4 15h5"/><circle cx="15" cy="14" r="2.5"/></svg>',
+    camera: '<svg viewBox="0 0 20 20"><path d="M3 7h3l1.5-2h5L14 7h3v9H3z"/><circle cx="10" cy="11" r="3"/></svg>',
+  };
+
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
+  const allFeatures = () => sections.flatMap((s) => s.features);
+  const findFeature = (id) => allFeatures().find((f) => f.id === id) || null;
+  const findSection = (id) => sections.find((s) => s.id === id) || null;
+  const sectionOf = (featureId) => sections.find((s) => s.features.some((f) => f.id === featureId)) || null;
+  const coverOf = (f) => {
+    for (const s of f.screens) {
+      const m = s.media.find((x) => x.media_type === 'image' || (x.media_type === 'html' && x.poster_url));
+      if (m) return { file_url: m.media_type === 'html' ? m.poster_url : m.file_url };
+    }
+    return null;
+  };
+
+  let toastTimer = null;
+  function toast(message, isError) {
+    toastEl.textContent = message;
+    toastEl.classList.toggle('is-error', Boolean(isError));
+    toastEl.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), isError ? 5000 : 2400);
+  }
+
+  async function post(url, body) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body || {}),
+    });
+    const data = await res.json().catch(() => ({ success: false, message: 'Unexpected response from the server.' }));
+    if (!res.ok || !data.success) throw new Error(data.message || 'Something went wrong.');
+    if (Array.isArray(data.sections)) sections = data.sections;
+    return data;
+  }
+
+  function upload(url, formData, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch (_) { data = { message: 'Unexpected response from the server.' }; }
+        if (xhr.status >= 400 || !data.success) return reject(new Error(data.message || 'Upload failed.'));
+        if (Array.isArray(data.sections)) sections = data.sections;
+        resolve(data);
+      };
+      xhr.onerror = () => reject(new Error('Network error. Check your connection and try again.'));
+      xhr.send(formData);
+    });
+  }
+
+  function checkFiles(files) {
+    const allowed = /^(image\/(png|jpeg|webp|gif)|application\/pdf)$/;
+    const bad = files.find((file) => !allowed.test(file.type) || file.size > 25 * 1024 * 1024);
+    if (bad) return '"' + bad.name + '" is not a PNG, JPG, WebP, GIF or PDF under 25 MB.';
+    if (files.length > 20) return 'Upload up to 20 files at a time.';
+    return null;
+  }
+
+  // ---------- Sections and features list ----------
+
+  function renderList() {
+    const features = allFeatures();
+    const live = features.filter((f) => f.is_active && f.screens.length).length;
+    root.querySelector('[data-ade-count]').textContent = features.length ? live + ' of ' + features.length + ' features live' : '';
+    groupsEl.innerHTML = sections.map((s, i) => {
+      const realSection = s.id !== null;
+      const rows = s.features.map((f) => {
+        const cover = coverOf(f);
+        const status = !f.screens.length ? ['empty', 'No steps'] : f.is_active ? ['live', 'Live'] : ['hidden', 'Hidden'];
+        const selected = view.type === 'feature' && view.id === f.id;
+        return '<li class="ade-row' + (selected ? ' is-selected' : '') + '" draggable="true" tabindex="0" data-id="' + f.id + '">'
+          + '<span class="ade-grip" aria-hidden="true">' + ICON.grip + '</span>'
+          + '<span class="ade-thumb">' + (cover ? '<img src="' + esc(cover.file_url) + '" alt="" loading="lazy">' : (f.screens.length ? 'PDF' : '')) + '</span>'
+          + '<span class="ade-row__text"><strong>' + esc(f.title) + '</strong><span>' + esc(f.category || 'No label') + ' · ' + plural(f.screens.length, 'step') + '</span></span>'
+          + '<span class="ade-pill ade-pill--' + status[0] + '">' + status[1] + '</span>'
+          + '</li>';
+      }).join('');
+      const selected = view.type === 'section' && view.id === s.id;
+      return '<div class="ade-group" data-section="' + (realSection ? s.id : '') + '">'
+        + '<button type="button" class="ade-group__head' + (selected ? ' is-selected' : '') + '"' + (realSection ? ' data-edit-section="' + s.id + '"' : ' disabled') + ' title="Edit section">'
+        +   '<span class="ade-group__name">' + esc(s.name) + '</span>'
+        +   '<span class="ade-group__count">' + s.features.length + '</span>'
+        +   (realSection ? '<span class="ade-group__edit" aria-hidden="true">' + ICON.edit + '</span>' : '')
+        + '</button>'
+        + '<ol class="ade-rows" data-rows="' + i + '">' + (rows || '<li class="ade-rows__empty">No features yet</li>') + '</ol>'
+        + '</div>';
+    }).join('');
+
+    groupsEl.querySelectorAll('[data-rows]').forEach((list) => sortable(list, '.ade-row', (ids) => saveFeatureOrder(ids)));
+  }
+
+  groupsEl.addEventListener('click', (e) => {
+    const head = e.target.closest('[data-edit-section]');
+    if (head) return show({ type: 'section', id: Number(head.dataset.editSection) });
+    const row = e.target.closest('.ade-row');
+    if (row) show({ type: 'feature', id: Number(row.dataset.id) });
+  });
+  groupsEl.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.ade-row');
+    if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); show({ type: 'feature', id: Number(row.dataset.id) }); }
+  });
+
+  function show(next) {
+    if (!confirmLeave()) return;
+    view = next;
+    renderList();
+    renderEditor();
+  }
+
+  function saveFeatureOrder(ids) {
+    post('/admin/app-demo/features/reorder', { ids }).then(() => { renderList(); toast('Order saved'); }).catch((err) => { renderList(); toast(err.message, true); });
+  }
+
+  // Drag-and-drop reordering for features and steps.
+  function sortable(container, itemSelector, onDrop) {
+    let dragId = null;
+    const items = () => Array.from(container.children).filter((n) => n.matches(itemSelector));
+    const clear = () => items().forEach((n) => n.classList.remove('is-drop-before', 'is-drop-after'));
+    container.addEventListener('dragstart', (e) => {
+      const item = e.target.closest(itemSelector);
+      if (!item || item.parentNode !== container || e.target.closest('input, textarea')) return;
+      dragId = Number(item.dataset.id);
+      item.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragId));
+    });
+    container.addEventListener('dragover', (e) => {
+      const item = e.target.closest(itemSelector);
+      if (dragId === null || !item || item.parentNode !== container) return;
+      e.preventDefault();
+      clear();
+      const r = item.getBoundingClientRect();
+      item.classList.add(e.clientY < r.top + r.height / 2 ? 'is-drop-before' : 'is-drop-after');
+    });
+    container.addEventListener('dragleave', (e) => { if (!container.contains(e.relatedTarget)) clear(); });
+    container.addEventListener('drop', (e) => {
+      const item = e.target.closest(itemSelector);
+      if (dragId === null || !item || item.parentNode !== container) return;
+      e.preventDefault();
+      const after = item.classList.contains('is-drop-after');
+      const targetId = Number(item.dataset.id);
+      clear();
+      const ids = items().map((n) => Number(n.dataset.id)).filter((id) => id !== dragId);
+      if (targetId !== dragId) {
+        ids.splice(ids.indexOf(targetId) + (after ? 1 : 0), 0, dragId);
+        onDrop(ids);
+      }
+    });
+    container.addEventListener('dragend', () => {
+      clear();
+      items().forEach((n) => n.classList.remove('is-dragging'));
+      dragId = null;
+    });
+  }
+
+  // ---------- Editor ----------
+
+  function renderEditor() {
+    if (view.type === 'section' || view.type === 'new-section') return renderSectionEditor(view.type === 'section' ? findSection(view.id) : null);
+    const f = view.type === 'feature' ? findFeature(view.id) : null;
+    if (view.type === 'feature' && !f) {
+      editorEl.innerHTML = '<div class="ade-card ade-placeholder"><strong>Nothing selected</strong>Choose a feature on the left, or create a new one.</div>';
+      return;
+    }
+    let html = '<div class="ade-card">' + detailsHtml(f) + (f ? stepsHtml(f) : '') + '</div>';
+    if (f) {
+      html += '<div class="ade-card ade-section ade-danger"><div><strong>Delete this feature</strong>'
+        + '<span>Removes it and all of its steps from the tour. This cannot be undone.</span></div>'
+        + '<button type="button" class="ade-btn ade-btn--danger ade-btn--sm" data-ade-delete>' + ICON.trash + 'Delete feature</button></div>';
+    }
+    editorEl.innerHTML = html;
+    bindFeature(f);
+  }
+
+  // ----- Section editor -----
+
+  function renderSectionEditor(s) {
+    const count = s ? s.features.length : 0;
+    let html = '<div class="ade-card"><form class="ade-section" data-ade-details novalidate>'
+      + '<div class="ade-section__head"><div><h2>' + (s ? 'Section' : 'New section') + '</h2>'
+      + '<p>Sections group features on the page by who uses them, for example School Management, Parents, Students or Mira.</p></div></div>'
+      + '<div class="ade-fields">'
+      +   '<div class="ade-field"><label for="adeName">Name</label><input id="adeName" class="ade-input" name="name" maxlength="60" required placeholder="e.g. Parents" value="' + esc(s ? s.name : '') + '"></div>'
+      +   '<div class="ade-field ade-field--full"><label for="adeDescription">Description</label>'
+      +     '<textarea id="adeDescription" class="ade-textarea" name="description" maxlength="240" rows="2" placeholder="One sentence on who this section is for.">' + esc(s ? s.description || '' : '') + '</textarea>'
+      +     '<small>Shown under the section name on the page.</small></div>'
+      + '</div>'
+      + '<div class="ade-actions"><span class="ade-status" data-ade-status></span>'
+      +   (s ? '' : '<button type="button" class="ade-btn ade-btn--ghost" data-ade-cancel>Cancel</button>')
+      +   '<button type="submit" class="ade-btn ade-btn--primary" data-ade-save' + (s ? ' disabled' : '') + '>' + (s ? 'Save changes' : 'Create section') + '</button></div>'
+      + '</form>';
+    if (s) {
+      const index = sections.findIndex((x) => x.id === s.id);
+      const realCount = sections.filter((x) => x.id !== null).length;
+      html += '<div class="ade-section"><div class="ade-section__head" style="margin:0"><div><h2>Position <small>· ' + (index + 1) + ' of ' + realCount + '</small></h2>'
+        + '<p>Sections appear on the page in this order. ' + plural(count, 'feature') + ' in this section.</p></div>'
+        + '<div class="ade-section__tools">'
+        +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-section-move="-1"' + (index === 0 ? ' disabled' : '') + '>' + ICON.up + 'Move up</button>'
+        +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-section-move="1"' + (index >= realCount - 1 ? ' disabled' : '') + '>' + ICON.down + 'Move down</button>'
+        +   '<button type="button" class="ade-btn ade-btn--primary ade-btn--sm" data-section-add>' + ICON.plus + 'Add feature</button>'
+        + '</div></div></div></div>'
+        + '<div class="ade-card ade-section ade-danger"><div><strong>Delete this section</strong>'
+        + '<span>' + (count ? 'Move or delete its ' + plural(count, 'feature') + ' first.' : 'It has no features, so nothing else is removed.') + '</span></div>'
+        + '<button type="button" class="ade-btn ade-btn--danger ade-btn--sm" data-ade-delete' + (count ? ' disabled' : '') + '>' + ICON.trash + 'Delete section</button></div>';
+    } else {
+      html += '</div>';
+    }
+    editorEl.innerHTML = html;
+
+    const form = editorEl.querySelector('[data-ade-details]');
+    bindDirty(form, ['name', 'description'], Boolean(s));
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = { name: form.name.value, description: form.description.value };
+      if (!body.name.trim()) { form.name.focus(); return toast('Give the section a name.', true); }
+      await saveForm(form, async () => {
+        if (s) {
+          await post('/admin/app-demo/sections/' + s.id, body);
+          renderList();
+        } else {
+          const data = await post('/admin/app-demo/sections', body);
+          view = { type: 'section', id: data.id };
+          renderList();
+          renderEditor();
+          toast('Section created. Add features to it next.');
+        }
+      });
+    });
+    const cancel = form.querySelector('[data-ade-cancel]');
+    if (cancel) cancel.addEventListener('click', () => { view = { type: 'feature', id: null }; renderList(); renderEditor(); });
+    if (!s) { form.name.focus(); return; }
+
+    editorEl.querySelectorAll('[data-section-move]').forEach((btn) => btn.addEventListener('click', () => {
+      const ids = sections.filter((x) => x.id !== null).map((x) => x.id);
+      const i = ids.indexOf(s.id);
+      const j = i + Number(btn.dataset.sectionMove);
+      ids.splice(j, 0, ids.splice(i, 1)[0]);
+      post('/admin/app-demo/sections/reorder', { ids }).then(() => { renderList(); renderEditor(); toast('Order saved'); }).catch((err) => toast(err.message, true));
+    }));
+    editorEl.querySelector('[data-section-add]').addEventListener('click', () => show({ type: 'new-feature', sectionId: s.id }));
+    editorEl.querySelector('[data-ade-delete]').addEventListener('click', async () => {
+      if (!window.confirm('Delete the section "' + s.name + '"?')) return;
+      try {
+        await post('/admin/app-demo/sections/' + s.id + '/delete');
+        view = { type: 'feature', id: null };
+        renderList();
+        renderEditor();
+        toast('Section deleted');
+      } catch (err) { toast(err.message, true); }
+    });
+  }
+
+  // ----- Shared form helpers -----
+
+  function bindDirty(form, names, track) {
+    const saveBtn = form.querySelector('[data-ade-save]');
+    const status = form.querySelector('[data-ade-status]');
+    const snapshot = () => names.map((n) => form[n].value).join('\u0000');
+    form._baseline = snapshot();
+    form._snapshot = snapshot;
+    form.dataset.dirty = '';
+    form.addEventListener('input', () => {
+      const chars = form.querySelector('[data-ade-chars]');
+      if (chars) chars.textContent = form.summary.value.length + ' / 600';
+      if (!track) return;
+      const dirty = snapshot() !== form._baseline;
+      form.dataset.dirty = dirty ? '1' : '';
+      saveBtn.disabled = !dirty;
+      status.textContent = dirty ? 'Unsaved changes' : '';
+      status.classList.remove('is-ok');
+    });
+    form.addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') form.dispatchEvent(new Event('input')); });
+  }
+
+  async function saveForm(form, task) {
+    const saveBtn = form.querySelector('[data-ade-save]');
+    const status = form.querySelector('[data-ade-status]');
+    saveBtn.disabled = true;
+    status.textContent = 'Saving…';
+    status.classList.remove('is-ok');
+    try {
+      await task();
+      if (document.contains(form)) {
+        form._baseline = form._snapshot();
+        form.dataset.dirty = '';
+        status.textContent = 'Saved';
+        status.classList.add('is-ok');
+      }
+    } catch (err) {
+      saveBtn.disabled = false;
+      status.textContent = '';
+      toast(err.message, true);
+    }
+  }
+
+  function confirmLeave() {
+    const form = editorEl.querySelector('[data-ade-details]');
+    return !(form && form.dataset.dirty) || window.confirm('Discard your unsaved changes?');
+  }
+
+  // ----- Feature editor -----
+
+  function detailsHtml(f) {
+    const tags = Array.from(new Set(allFeatures().map((x) => x.category).filter(Boolean)));
+    const current = f ? sectionOf(f.id) : findSection(view.sectionId) || sections.find((s) => s.id !== null);
+    const summary = f ? f.summary || '' : '';
+    const options = sections.filter((s) => s.id !== null)
+      .map((s) => '<option value="' + s.id + '"' + (current && current.id === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('')
+      + (current && current.id === null ? '<option value="" selected>Unsorted</option>' : '');
+    return ''
+      + '<form class="ade-section" data-ade-details novalidate>'
+      +   '<div class="ade-section__head">'
+      +     '<div><h2>' + (f ? 'Details' : 'New feature') + '</h2>'
+      +     '<p>' + (f ? 'What visitors read on the feature card and beside the steps.' : 'Start with the basics. You will add its steps right after.') + '</p></div>'
+      +     (f ? '<label class="ade-switch"><input type="checkbox" data-ade-active' + (f.is_active ? ' checked' : '') + '><span class="ade-switch__track"></span>Show on tour</label>' : '')
+      +   '</div>'
+      +   '<div class="ade-fields">'
+      +     '<div class="ade-field ade-field--full"><label for="adeTitle">Title</label><input id="adeTitle" class="ade-input" name="title" maxlength="120" required placeholder="e.g. Attendance" value="' + esc(f ? f.title : '') + '"></div>'
+      +     '<div class="ade-field"><label for="adeSectionId">Section</label><select id="adeSectionId" class="ade-select" name="category_id">' + options + '</select>'
+      +       '<small>Who uses this feature.</small></div>'
+      +     '<div class="ade-field"><label for="adeCategory">Label</label><input id="adeCategory" class="ade-input" name="category" maxlength="40" list="adeTags" placeholder="e.g. Finance" value="' + esc(f ? f.category || '' : '') + '">'
+      +       '<datalist id="adeTags">' + tags.map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist>'
+      +       '<small>The small word above the title on the card.</small></div>'
+      +     '<div class="ade-field ade-field--full"><label for="adeSummary">Summary</label>'
+      +       '<textarea id="adeSummary" class="ade-textarea" name="summary" maxlength="600" rows="3" placeholder="One or two sentences on what this feature does for a school.">' + esc(summary) + '</textarea>'
+      +       '<div class="ade-field__foot"><small>Shown on the card and at the top of the steps.</small><small data-ade-chars>' + summary.length + ' / 600</small></div></div>'
+      +   '</div>'
+      +   '<div class="ade-actions">'
+      +     '<span class="ade-status" data-ade-status></span>'
+      +     (f ? '' : '<button type="button" class="ade-btn ade-btn--ghost" data-ade-cancel>Cancel</button>')
+      +     '<button type="submit" class="ade-btn ade-btn--primary" data-ade-save' + (f ? ' disabled' : '') + '>' + (f ? 'Save changes' : 'Create feature') + '</button>'
+      +   '</div>'
+      + '</form>';
+  }
+
+  function mediaThumb(m) {
+    if (m.media_type === 'html') {
+      return (m.poster_url ? '<img src="' + esc(m.poster_url) + '" alt="" loading="lazy">' : '<span class="ade-version__live">' + ICON.cursor + 'Interactive</span>')
+        + '<span class="ade-version__badge">' + ICON.cursor + (m.guided === false ? 'Explore' : 'Guided') + '</span>';
+    }
+    return m.media_type === 'pdf'
+      ? '<span class="ade-version__pdf">' + ICON.doc + 'PDF</span>'
+      : '<img src="' + esc(m.file_url) + '" alt="" loading="lazy">';
+  }
+
+  function stepsHtml(f) {
+    const items = f.screens.map((s, i) => {
+      const versions = s.media.map((m, j) => ''
+        + '<div class="ade-version" data-id="' + m.id + '">'
+        +   '<div class="ade-version__media">' + mediaThumb(m)
+        +     '<a href="' + esc(m.file_url) + '" target="_blank" rel="noopener" aria-label="Open file"></a>'
+        +     (s.media.length > 1 && j === 0 ? '<span class="ade-version__first">Shown first</span>' : '')
+        +     '<span class="ade-version__tools">'
+        +       (j > 0 ? '<button type="button" class="ade-icon" data-version-first title="Show first" aria-label="Show this version first">' + ICON.first + '</button>' : '')
+        +       (m.media_type === 'html' ? '<button type="button" class="ade-icon" data-version-guide title="Walkthrough" aria-label="Edit walkthrough">' + ICON.guide + '</button>' : '')
+        +       '<button type="button" class="ade-icon" data-version-replace title="Replace file" aria-label="Replace file">' + ICON.swap + '</button>'
+        +       '<button type="button" class="ade-icon ade-icon--danger" data-version-delete title="Delete version" aria-label="Delete version"' + (s.media.length < 2 ? ' disabled' : '') + '>' + ICON.trash + '</button>'
+        +     '</span>'
+        +   '</div>'
+        +   '<input class="ade-input" data-version-label maxlength="30" placeholder="' + (s.media.length > 1 ? 'Version ' + (j + 1) : 'Name, e.g. Light') + '" value="' + esc(m.label || '') + '" aria-label="Version name">'
+        + '</div>').join('');
+      return '<li class="ade-step" draggable="true" data-id="' + s.id + '">'
+        + '<div class="ade-step__head">'
+        +   '<span class="ade-grip" title="Drag to reorder">' + ICON.grip + '</span>'
+        +   '<span class="ade-step__num">' + (i + 1) + '</span>'
+        +   '<input class="ade-input" data-field="label" maxlength="80" placeholder="Step title, e.g. Take attendance" value="' + esc(s.label || '') + '" aria-label="Step ' + (i + 1) + ' title">'
+        +   '<span class="ade-step__tools">'
+        +     '<button type="button" class="ade-icon" data-step-move="-1" title="Move up" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>' + ICON.up + '</button>'
+        +     '<button type="button" class="ade-icon" data-step-move="1" title="Move down" aria-label="Move down"' + (i === f.screens.length - 1 ? ' disabled' : '') + '>' + ICON.down + '</button>'
+        +     '<button type="button" class="ade-icon ade-icon--danger" data-step-delete title="Delete step" aria-label="Delete step">' + ICON.trash + '</button>'
+        +   '</span>'
+        + '</div>'
+        + '<div class="ade-step__body">'
+        +   '<textarea class="ade-textarea" data-field="caption" maxlength="400" rows="2" placeholder="Explain what the visitor is looking at and why it matters." aria-label="Step ' + (i + 1) + ' explanation">' + esc(s.caption || '') + '</textarea>'
+        +   '<div class="ade-versions" data-versions>' + versions
+        +     '<button type="button" class="ade-version--add" data-version-add>' + ICON.plus + 'Add version<small>e.g. dark mode</small></button>'
+        +   '</div>'
+        +   '<span class="ade-step__save" data-save-state></span>'
+        + '</div>'
+        + '</li>';
+    }).join('');
+
+    return ''
+      + '<div class="ade-section">'
+      +   '<div class="ade-section__head">'
+      +     '<div><h2>Steps <small>· ' + f.screens.length + '</small></h2>'
+      +     '<p>Visitors walk through these in order. Give each a short title and a sentence explaining it. Add versions, like light and dark mode, to let visitors switch.</p></div>'
+      +     '<div class="ade-section__tools"><a class="ade-btn ade-btn--ghost ade-btn--sm" href="/legal/app-demo#feature-' + f.id + '" target="_blank" rel="noopener">' + ICON.eye + 'Preview</a></div>'
+      +   '</div>'
+      +   (items ? '<ol class="ade-steps" data-ade-steps>' + items + '</ol>' : '')
+      +   '<div class="ade-drop" data-ade-drop role="button" tabindex="0">'
+      +     '<span class="ade-drop__icon">' + ICON.upload + '</span>'
+      +     '<strong>' + (items ? 'Add more steps' : 'Add the first steps') + '</strong>'
+      +     '<span>Drop images or a PDF here, or click to browse. Each file becomes a step. PNG, JPG, WebP, GIF or PDF, up to 25 MB each.</span>'
+      +     '<span class="ade-progress" data-ade-progress hidden><i></i></span>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  function bindFeature(f) {
+    const form = editorEl.querySelector('[data-ade-details]');
+    bindDirty(form, ['title', 'category_id', 'category', 'summary'], Boolean(f));
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = { title: form.title.value, category_id: form.category_id.value || null, category: form.category.value, summary: form.summary.value };
+      if (!body.title.trim()) { form.title.focus(); return toast('Give the feature a title.', true); }
+      await saveForm(form, async () => {
+        if (f) {
+          await post('/admin/app-demo/features/' + f.id, body);
+          renderList();
+        } else {
+          const data = await post('/admin/app-demo/features', body);
+          view = { type: 'feature', id: data.id };
+          renderList();
+          renderEditor();
+          toast('Feature created. Now add its steps.');
+          const drop = editorEl.querySelector('[data-ade-drop]');
+          if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+
+    const cancel = form.querySelector('[data-ade-cancel]');
+    if (cancel) cancel.addEventListener('click', () => { view = { type: 'feature', id: null }; renderList(); renderEditor(); });
+    if (!f) { form.title.focus(); return; }
+
+    form.querySelector('[data-ade-active]').addEventListener('change', async (e) => {
+      const on = e.target.checked;
+      try {
+        await post('/admin/app-demo/features/' + f.id, { is_active: on });
+        renderList();
+        toast(on ? (f.screens.length ? 'Now showing on the tour' : 'Visible once it has steps') : 'Hidden from the tour');
+      } catch (err) {
+        e.target.checked = !on;
+        toast(err.message, true);
+      }
+    });
+
+    editorEl.querySelector('[data-ade-delete]').addEventListener('click', async () => {
+      if (!window.confirm('Delete "' + f.title + '" and its ' + plural(f.screens.length, 'step') + '? This cannot be undone.')) return;
+      try {
+        await post('/admin/app-demo/features/' + f.id + '/delete');
+        view = { type: 'feature', id: null };
+        renderList();
+        renderEditor();
+        toast('Feature deleted');
+      } catch (err) { toast(err.message, true); }
+    });
+
+    bindSteps(f.id);
+  }
+
+  function bindSteps(featureId) {
+    const list = editorEl.querySelector('[data-ade-steps]');
+    const drop = editorEl.querySelector('[data-ade-drop]');
+    const feature = () => findFeature(featureId);
+
+    drop.addEventListener('click', () => { if (!uploading) uploadInput.click(); });
+    drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drop.click(); } });
+    drop.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); drop.classList.add('is-over'); } });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+    drop.addEventListener('drop', (e) => {
+      if (!e.dataTransfer.files.length) return;
+      e.preventDefault();
+      drop.classList.remove('is-over');
+      addSteps(featureId, e.dataTransfer.files);
+    });
+
+    if (!list) return;
+    sortable(list, '.ade-step', (ids) => saveStepOrder(featureId, ids));
+
+    list.addEventListener('click', (e) => {
+      const stepEl = e.target.closest('.ade-step');
+      if (!stepEl) return;
+      const stepId = Number(stepEl.dataset.id);
+      const versionEl = e.target.closest('.ade-version');
+      const versionId = versionEl ? Number(versionEl.dataset.id) : null;
+
+      const move = e.target.closest('[data-step-move]');
+      if (move) {
+        const ids = feature().screens.map((s) => s.id);
+        const i = ids.indexOf(stepId);
+        ids.splice(i + Number(move.dataset.stepMove), 0, ids.splice(i, 1)[0]);
+        return saveStepOrder(featureId, ids);
+      }
+      if (e.target.closest('[data-step-delete]')) {
+        if (!window.confirm('Delete this step and all of its versions?')) return;
+        return post('/admin/app-demo/screens/' + stepId + '/delete')
+          .then(() => { renderList(); renderEditor(); toast('Step deleted'); })
+          .catch((err) => toast(err.message, true));
+      }
+      if (e.target.closest('[data-version-add]')) {
+        versionTarget = stepId;
+        return versionInput.click();
+      }
+      if (e.target.closest('[data-version-first]')) {
+        const step = feature().screens.find((s) => s.id === stepId);
+        const ids = [versionId].concat(step.media.map((m) => m.id).filter((id) => id !== versionId));
+        return saveVersionOrder(stepId, ids);
+      }
+      if (e.target.closest('[data-version-guide]')) {
+        const step = feature().screens.find((s) => s.id === stepId);
+        return openGuide(step.media.find((m) => m.id === versionId));
+      }
+      if (e.target.closest('[data-version-replace]')) {
+        replaceTarget = versionId;
+        return replaceInput.click();
+      }
+      if (e.target.closest('[data-version-delete]')) {
+        if (!window.confirm('Delete this version?')) return;
+        post('/admin/app-demo/media/' + versionId + '/delete')
+          .then(() => { renderList(); renderEditor(); toast('Version deleted'); })
+          .catch((err) => toast(err.message, true));
+      }
+    });
+
+    // Titles, explanations and version names save on their own when a field is left.
+    list.addEventListener('change', (e) => {
+      const stepEl = e.target.closest('.ade-step');
+      if (!stepEl) return;
+      const state = stepEl.querySelector('[data-save-state]');
+      let request = null;
+      if (e.target.dataset.field) {
+        request = post('/admin/app-demo/screens/' + stepEl.dataset.id, { [e.target.dataset.field]: e.target.value });
+      } else if (e.target.hasAttribute('data-version-label')) {
+        request = post('/admin/app-demo/media/' + e.target.closest('.ade-version').dataset.id, { label: e.target.value });
+      }
+      if (!request) return;
+      state.textContent = 'Saving…';
+      state.classList.remove('is-ok');
+      request
+        .then(() => { state.textContent = 'Saved'; state.classList.add('is-ok'); setTimeout(() => { state.textContent = ''; }, 2000); })
+        .catch((err) => { state.textContent = ''; toast(err.message, true); });
+    });
+  }
+
+  function saveStepOrder(featureId, ids) {
+    const f = findFeature(featureId);
+    f.screens.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    renderEditor();
+    post('/admin/app-demo/features/' + featureId + '/screens/reorder', { ids })
+      .then(() => { renderList(); renderEditor(); toast('Order saved'); })
+      .catch((err) => toast(err.message, true));
+  }
+
+  function saveVersionOrder(stepId, ids) {
+    post('/admin/app-demo/screens/' + stepId + '/media/reorder', { ids })
+      .then(() => { renderList(); renderEditor(); toast('Order saved'); })
+      .catch((err) => toast(err.message, true));
+  }
+
+  async function addSteps(featureId, fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length || uploading) return;
+    const problem = checkFiles(files);
+    if (problem) return toast(problem, true);
+
+    const fd = new FormData();
+    files.forEach((file) => fd.append('files', file));
+    const drop = editorEl.querySelector('[data-ade-drop]');
+    const bar = drop.querySelector('[data-ade-progress]');
+    const title = drop.querySelector('strong');
+    uploading = true;
+    bar.hidden = false;
+    title.textContent = 'Uploading ' + plural(files.length, 'file') + '…';
+    try {
+      await upload('/admin/app-demo/features/' + featureId + '/screens', fd, (p) => {
+        bar.firstChild.style.width = Math.round(p * 100) + '%';
+        if (p >= 1) title.textContent = 'Optimizing…';
+      });
+      renderList();
+      renderEditor();
+      toast(plural(files.length, 'step') + ' added. Give each a title and explanation.');
+    } catch (err) {
+      toast(err.message, true);
+      renderEditor();
+    } finally {
+      uploading = false;
+    }
+  }
+
+  uploadInput.addEventListener('change', () => {
+    if (view.type === 'feature' && view.id) addSteps(view.id, uploadInput.files);
+    uploadInput.value = '';
+  });
+
+  versionInput.addEventListener('change', async () => {
+    const files = Array.from(versionInput.files);
+    versionInput.value = '';
+    if (!files.length || !versionTarget) return;
+    const problem = checkFiles(files);
+    if (problem) return toast(problem, true);
+    const fd = new FormData();
+    files.forEach((file) => fd.append('files', file));
+    toast('Uploading…');
+    try {
+      await upload('/admin/app-demo/screens/' + versionTarget + '/media', fd);
+      renderList();
+      renderEditor();
+      toast(files.length === 1 ? 'Version added. Give it a name, like Dark.' : plural(files.length, 'version') + ' added.');
+    } catch (err) { toast(err.message, true); }
+  });
+
+  replaceInput.addEventListener('change', async () => {
+    const file = replaceInput.files[0];
+    replaceInput.value = '';
+    if (!file || !replaceTarget) return;
+    const problem = checkFiles([file]);
+    if (problem) return toast(problem, true);
+    const fd = new FormData();
+    fd.append('file', file);
+    toast('Uploading…');
+    try {
+      await upload('/admin/app-demo/media/' + replaceTarget, fd);
+      renderList();
+      renderEditor();
+      toast('File replaced');
+    } catch (err) { toast(err.message, true); }
+  });
+
+  root.querySelector('[data-ade-new]').addEventListener('click', () => {
+    const sectionId = view.type === 'section' ? view.id : (view.type === 'feature' && view.id ? (sectionOf(view.id) || {}).id : undefined);
+    show({ type: 'new-feature', sectionId });
+    editorEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  root.querySelector('[data-ade-new-section]').addEventListener('click', () => show({ type: 'new-section' }));
+
+  // ---------- Walkthrough of an interactive version ----------
+
+  const SWATCHES = ['#14b8a6', '#3b82f6', '#8b5cf6', '#f59e0b', '#f43f5e', '#0b1b2b'];
+  // Older captures kept counts and arrows in their labels ("Teachers 15 ›").
+  const cleanLabel = (v) => String(v || '').replace(/(\s*([›»→⌄▾▸▼•·|×]|\d+\+?))+$/u, '').trim();
+
+  async function openGuide(m) {
+    if (!m) return;
+    let guide = [];
+    try {
+      const res = await fetch('/legal/app-demo/media/' + m.id + '/file', { credentials: 'same-origin' });
+      guide = ((await res.json()).guide) || [];
+    } catch (_) {
+      return toast('Could not load this capture.', true);
+    }
+    const texts = Array.isArray(m.guide) ? m.guide.map((g) => (g && g.text) || '') : [];
+    let accent = m.accent || SWATCHES[0];
+    const wrap = document.createElement('div');
+    wrap.className = 'ade-modal';
+    wrap.innerHTML = '<div class="ade-modal__card" role="dialog" aria-modal="true" aria-labelledby="adeGuideTitle">'
+      + '<div class="ade-modal__head"><h2 id="adeGuideTitle">Walkthrough</h2>'
+      + '<p>Explain each recorded click. Leave one empty to show a short default.</p></div>'
+      + '<div class="ade-modal__body">'
+      +   (guide.length
+            ? '<label class="ade-switch ade-switch--block"><input type="checkbox" data-guided' + (m.guided === false ? '' : ' checked') + '><span class="ade-switch__track"></span>'
+              + '<span><b>Guide visitors step by step</b><small>Each explanation shows beside the highlight, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>'
+            : '')
+      +   (guide.length
+            ? '<ol class="ade-guide">' + guide.map((g, i) => '<li><span class="ade-guide__n">' + (i + 1) + '</span><div><em>' + (cleanLabel(g.label) ? 'Click “' + esc(cleanLabel(g.label)) + '”' : 'Recorded click') + '</em>'
+              + '<textarea class="ade-textarea" data-guide-text="' + i + '" maxlength="240" rows="2" placeholder="Explain this step, e.g. See every teacher in the class.">' + esc(texts[i] || '') + '</textarea></div></li>').join('') + '</ol>'
+            : '<p style="margin:0;color:var(--a-muted)">No clicks were recorded in this capture, so it plays without a walkthrough.</p>')
+      +   '<div class="ade-field"><label>Highlight colour</label><div class="ade-swatches">'
+      +     SWATCHES.map((c) => '<button type="button" class="ade-sw" data-sw="' + c + '" style="--c:' + c + '" aria-label="' + c + '"></button>').join('')
+      +     '<label class="ade-sw-custom"><input type="color" data-sw-custom value="' + esc(accent) + '">Custom</label></div></div>'
+      + '</div>'
+      + '<div class="ade-modal__foot"><span class="ade-status" data-guide-status></span>'
+      +   '<a class="ade-btn ade-btn--ghost ade-btn--sm" href="' + esc(m.file_url) + '" target="_blank" rel="noopener">' + ICON.eye + 'Preview</a>'
+      +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-guide-cancel>Cancel</button>'
+      +   '<button type="button" class="ade-btn ade-btn--primary ade-btn--sm" data-guide-save>Save</button></div>'
+      + '</div>';
+    root.appendChild(wrap); // inside .ade so its colours and resets apply
+    const pick = (c) => {
+      accent = c;
+      wrap.style.setProperty('--ade-accent', c);
+      wrap.querySelectorAll('[data-sw]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sw === c ? 'true' : 'false'));
+    };
+    pick(accent);
+    wrap.querySelectorAll('[data-sw]').forEach((b) => b.addEventListener('click', () => pick(b.dataset.sw)));
+    wrap.querySelector('[data-sw-custom]').addEventListener('input', (e) => pick(e.target.value));
+    const close = () => wrap.remove();
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+    wrap.querySelector('[data-guide-cancel]').addEventListener('click', close);
+    wrap.querySelector('[data-guide-save]').addEventListener('click', async (e) => {
+      e.currentTarget.disabled = true;
+      wrap.querySelector('[data-guide-status]').textContent = 'Saving…';
+      try {
+        const guidedBox = wrap.querySelector('[data-guided]');
+        await post('/admin/app-demo/media/' + m.id + '/guide', {
+          accent,
+          guided: guidedBox ? guidedBox.checked : true,
+          texts: [...wrap.querySelectorAll('[data-guide-text]')].map((t) => t.value),
+        });
+        close();
+        renderEditor();
+        toast('Walkthrough saved');
+      } catch (err) {
+        e.currentTarget.disabled = false;
+        wrap.querySelector('[data-guide-status]').textContent = '';
+        toast(err.message, true);
+      }
+    });
+    const first = wrap.querySelector('[data-guide-text]');
+    if (first) first.focus();
+  }
+
+  // ---------- Interactive capture window ----------
+
+  const captureEl = root.querySelector('[data-ade-capture]');
+  const captureInfo = JSON.parse(document.getElementById('adeCapture').textContent || '{}');
+  let captureWindow = captureInfo.window;
+  let captureTimer = null;
+
+  function renderCapture() {
+    clearInterval(captureTimer);
+    const on = captureWindow && new Date(captureWindow.endsAt) > new Date();
+    captureEl.classList.toggle('is-on', Boolean(on));
+    const intro = '<span class="ade-capture__icon">' + ICON.camera + '</span>';
+    if (on) {
+      captureEl.innerHTML = intro
+        + '<div class="ade-capture__text"><strong>Interactive capture <span class="ade-live" data-capture-left></span></strong>'
+        + '<span>Staff signed in to <b>' + esc(captureWindow.school) + '</b> see a "Capture this page" bar. Record a page and the toggles, tabs and expanders visitors should try, then save it to a step.</span></div>'
+        + '<div class="ade-capture__controls">'
+        +   '<a class="ade-btn ade-btn--ghost ade-btn--sm" href="/admin/org/' + captureWindow.schoolId + '" target="_blank" rel="noopener">Open school</a>'
+        +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-capture-extend>Restart ' + captureInfo.minutes + ' min</button>'
+        +   '<button type="button" class="ade-btn ade-btn--danger ade-btn--sm" data-capture-stop>Turn off</button>'
+        + '</div>';
+      const tick = () => {
+        const ms = new Date(captureWindow.endsAt) - new Date();
+        if (ms <= 0) { captureWindow = null; return renderCapture(); }
+        const s = Math.ceil(ms / 1000);
+        captureEl.querySelector('[data-capture-left]').textContent = 'On · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' left';
+      };
+      tick();
+      captureTimer = setInterval(tick, 1000);
+      captureEl.querySelector('[data-capture-extend]').addEventListener('click', () => startCapture(captureWindow.schoolId));
+      captureEl.querySelector('[data-capture-stop]').addEventListener('click', async () => {
+        try {
+          await post('/admin/app-demo/capture/stop');
+          captureWindow = null;
+          renderCapture();
+          toast('Capture turned off');
+        } catch (err) { toast(err.message, true); }
+      });
+      return;
+    }
+    captureEl.innerHTML = intro
+      + '<div class="ade-capture__text"><strong>Interactive capture</strong>'
+      + '<span>Let visitors click through real pages instead of screenshots. Turn it on for one school for ' + captureInfo.minutes + ' minutes; it switches off by itself.</span></div>'
+      + '<div class="ade-capture__controls">'
+      +   '<select class="ade-select" data-capture-school aria-label="School"><option value="">Choose a school…</option>'
+      +     (captureInfo.schools || []).map((o) => '<option value="' + o.id + '">' + esc(o.name) + '</option>').join('') + '</select>'
+      +   '<button type="button" class="ade-btn ade-btn--primary ade-btn--sm" data-capture-start>Turn on</button>'
+      + '</div>';
+    captureEl.querySelector('[data-capture-start]').addEventListener('click', () => {
+      const id = captureEl.querySelector('[data-capture-school]').value;
+      if (!id) return toast('Choose a school first.', true);
+      startCapture(id);
+    });
+  }
+
+  async function startCapture(schoolId) {
+    try {
+      const data = await post('/admin/app-demo/capture', { organization_id: schoolId });
+      captureWindow = data.window;
+      renderCapture();
+      toast('Capture is on for ' + captureWindow.school);
+    } catch (err) { toast(err.message, true); }
+  }
+
+  renderCapture();
+
+  const first = allFeatures()[0];
+  view = { type: 'feature', id: first ? first.id : null };
+  renderList();
+  renderEditor();
+})();
+</script>

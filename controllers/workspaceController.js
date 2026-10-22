@@ -24,6 +24,7 @@ const {
 } = require("../utils/workspace");
 const { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents } = require("../utils/calendarSync");
 const calConnect = require("../utils/calendarConnect");
+const { lessonItems } = require("../utils/lessonCalendar");
 
 const PLATFORM_ROLES = ["admin", "internal worker", "mini admin"];
 
@@ -294,6 +295,15 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
       },
     });
   });
+
+  // The viewer's lessons from the class timetables.
+  if (actor.id) {
+    try {
+      items.push(...await lessonItems(db, { organizationId, userId: actor.id, start, end }));
+    } catch (err) {
+      console.error("[Calendar] lessons failed:", err.message);
+    }
+  }
 
   const errors = [];
   if (includeImports && actor.id) {
@@ -746,10 +756,17 @@ module.exports = {
       const site = baseUrl(req);
       const ics = buildIcs(
         items
-          .filter((it) => ["event", "personal", "task"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
+          .filter((it) => ["event", "personal", "task", "lesson"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
           .map((it) => {
             const p = it.extendedProps;
             const timed = !it.allDay;
+            if (p.kind === "lesson") {
+              return {
+                uid: `lesson-${p.recordId}`, title: it.title, details: p.details, location: p.location,
+                date: p.date, endDate: p.date, startTime: p.startTime, endTime: p.endTime, allDay: false,
+                url: `${site}/common/classDashboard/${p.classId}`,
+              };
+            }
             return {
               uid: `${p.kind}-${p.recordId}`,
               title: p.kind === "task" ? `Task: ${it.title}` : it.title,

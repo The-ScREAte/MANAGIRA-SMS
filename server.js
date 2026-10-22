@@ -845,6 +845,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// Demo capture bar for the school an Admin opened a capture window for (utils/appDemoCapture.js).
+const appDemoCapture = require("./utils/appDemoCapture");
+app.use(appDemoCapture.captureLocals(db));
+
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
@@ -1020,6 +1024,20 @@ app.use("/print", printRoute);
 // Mira AI service, never reachable from a browser session.
 app.use("/internal/api", internalApiRoute);
 app.use("/legal", legalRoute);
+// Saving interactive page captures to the product tour (utils/appDemoCapture.js).
+{
+  const appDemoController = require("./controllers/appDemoController");
+  const captureUpload = multer({ dest: "uploads/", limits: { fileSize: 40 * 1024 * 1024, files: 1 } });
+  const captureFile = (req, res, next) => captureUpload.single("capture")(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === "LIMIT_FILE_SIZE" ? "This page is too large to capture (over 40 MB)." : "Upload failed.";
+    return res.status(400).json({ success: false, message });
+  });
+  const captureSession = appDemoCapture.requireCaptureSession(db);
+  app.get("/app-demo-capture/status", appDemoCapture.captureStatus(db));
+  app.get("/app-demo-capture/targets", captureSession, appDemoController.captureTargets);
+  app.post("/app-demo-capture/save", captureSession, captureFile, appDemoController.saveCapture);
+}
 // Disabled: School Directory page is hidden for now, so the /directory alias is commented out too.
 // Short-URL alias so the path Google has been trying (/directory) resolves with a 301 to the canonical page.
 // app.get("/directory", (req, res) => res.redirect(301, "/legal/directory"));

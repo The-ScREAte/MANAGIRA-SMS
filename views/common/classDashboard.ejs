@@ -2335,9 +2335,58 @@ main {
   font-size: 12px;
   font-weight: 600;
 }
+/* Transportation panel: riders by route; details open on demand */
+.pr-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pr-head-actions .nav-link { display: inline-flex; align-items: center; width: auto; height: 32px; margin: 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface, #fff); font-size: 13px; }
+.pr-mailroom { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface, #fff); color: var(--primary, #01535b); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.pr-mailroom:hover { background: var(--surface-soft, #f6f8fa); }
+.pr-mailroom svg { width: 15px; height: 15px; }
+.tp-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.tp-stats span { padding: 5px 11px; border-radius: 999px; background: var(--surface-soft, #f6f8fa); border: 1px solid var(--border); font-size: 12px; color: var(--text-muted, #64748b); }
+.tp-stats strong { color: var(--text, #0f172a); font-weight: 700; }
+.tp-routes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 12px; align-items: start; }
+.tp-route { border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #fff); overflow: hidden; }
+.tp-route__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; list-style: none; cursor: pointer; user-select: none; background: linear-gradient(90deg, color-mix(in srgb, var(--route) 9%, transparent), transparent 70%); transition: background-color .15s; }
+.tp-route__head::-webkit-details-marker { display: none; }
+.tp-route__head:hover { background-color: color-mix(in srgb, var(--route) 5%, transparent); }
+.tp-route__head:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; border-radius: 12px; }
+.tp-route[open] > .tp-route__head { border-bottom: 1px solid var(--border); border-radius: 0; }
+.tp-route__chev { width: 16px; height: 16px; flex: none; color: var(--text-muted, #64748b); transition: transform .2s ease; }
+.tp-route[open] .tp-route__chev { transform: rotate(180deg); }
+.tp-route__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--route); box-shadow: 0 0 0 3px color-mix(in srgb, var(--route) 22%, transparent); flex: none; }
+.tp-route__title { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.tp-route__title strong { font-size: 14px; color: var(--text, #0f172a); }
+.tp-route__title span { font-size: 12px; color: var(--text-muted, #64748b); }
+.tp-route__count { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748b); white-space: nowrap; }
+.tp-live { padding: 2px 8px; border-radius: 999px; background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; }
+.tp-riders { display: grid; }
+.tp-rider { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) 76px 76px; gap: 10px; align-items: center; padding: 9px 14px; font-size: 13px; color: var(--text, #0f172a); border-top: 1px solid var(--border); cursor: pointer; transition: background-color .15s; }
+.tp-rider:first-child + .tp-rider { border-top: 0; }
+.tp-rider:hover, .tp-rider:focus-visible { background: color-mix(in srgb, var(--route) 7%, transparent); }
+.tp-rider:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; }
+.tp-rider--head { cursor: default; padding-top: 8px; padding-bottom: 6px; border-top: 0; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted, #64748b); }
+.tp-rider--head:hover { background: none; }
+.tp-rider__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-rider__stop { color: var(--text-muted, #475569); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-rider__time { font-variant-numeric: tabular-nums; color: var(--text, #0f172a); }
+.tp-none { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding: 10px 14px; border: 1px dashed var(--border); border-radius: 12px; }
+.tp-none__label { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748b); }
+.tp-none__names { display: flex; gap: 6px; flex-wrap: wrap; }
+.tp-none__names span { padding: 3px 9px; border-radius: 999px; background: var(--surface-soft, #f6f8fa); font-size: 12px; color: var(--text, #334155); }
+.tp-map { margin-top: 16px; display: grid; gap: 8px; }
+.tp-map__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.tp-map__legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.tp-map__legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted, #64748b); }
+.tp-map__legend span::before { content: ""; width: 14px; height: 3px; border-radius: 2px; background: var(--route); }
+@media (max-width: 640px) {
+  .tp-routes { grid-template-columns: minmax(0, 1fr); }
+  .tp-rider { grid-template-columns: minmax(0, 1fr) 64px 64px; }
+  .tp-rider__stop { display: none; }
+  .tp-rider--head span:nth-child(2) { display: none; }
+}
 .transport-mini-map {
   width: 100%;
-  height: 240px;
+  height: 320px;
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
@@ -3793,9 +3842,9 @@ main {
             <li>
               <button class="nav-link" type="button" id="reports-nav-link" data-nav-key="reports" onclick="toggleReportsPanel(event)">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span>
-                <span class="nav-link-label">Reports</span>
+                <span class="nav-link-label">Parent Messages</span>
                 <% if ((classReportsCount || 0) > 0) { %>
-                  <span class="files-badge" title="Reports"><%= classReportsCount %></span>
+                  <span class="files-badge" title="Parent messages"><%= classReportsCount %></span>
                 <% } %>
               </button>
             </li>
@@ -4004,7 +4053,7 @@ main {
                   <div class="overview-count-chip">
                     <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span>
                     <div class="count-text">
-                      <span class="count-label">Reports</span>
+                      <span class="count-label">Messages</span>
                       <span class="count-num"><%= classReportsCount || 0 %></span>
                     </div>
                   </div>
@@ -4132,10 +4181,18 @@ main {
             <section class="workspace-panel" id="panel-reports" data-panel-key="reports">
               <div class="workspace-panel-head">
                 <div>
-                  <h2 class="card-title">Parent Reports</h2>
-                  <p class="card-subtext">Open a report thread without leaving the class workspace.</p>
+                  <h2 class="card-title">Parent Messages</h2>
+                  <p class="card-subtext">Conversations with parents about individual students. They also appear in Mail Room's inbox.</p>
                 </div>
-                <button class="nav-link" type="button" onclick="loadClassReports()">Refresh</button>
+                <div class="pr-head-actions">
+                  <% if (Array.isArray(locals.userPermissions) && locals.userPermissions.includes('mailroom')) { %>
+                  <a class="pr-mailroom" href="/common/mailroom?class=<%= encodeURIComponent(className || '') %>" data-no-spa>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6 12 13 2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
+                    Message all parents
+                  </a>
+                  <% } %>
+                  <button class="nav-link" type="button" onclick="loadClassReports()">Refresh</button>
+                </div>
               </div>
               <div id="reports-list-content">
                 <p style="color:#6b7280;font-size:13px;">Open the reports tab to load active report threads.</p>
@@ -4166,53 +4223,92 @@ main {
 
             <% if (transportActive) { %>
             <section class="workspace-panel" id="panel-transportation" data-panel-key="transportation">
+              <%
+                // Riders grouped by route (in pickup order); details load on demand when a rider is opened.
+                const tpTime = (t) => {
+                  if (!t) return '';
+                  const [h, m] = String(t).split(':').map(Number);
+                  if (!Number.isFinite(h)) return '';
+                  return ((h % 12) || 12) + ':' + String(m || 0).padStart(2, '0') + (h < 12 ? ' AM' : ' PM');
+                };
+                const tpColors = ['#0f766e', '#2563eb', '#d97706', '#7c3aed', '#db2777', '#0891b2'];
+                const tpRoutes = [];
+                const tpNonRiders = [];
+                classTransportRows.forEach((row) => {
+                  if (!row.routeId) { tpNonRiders.push(row); return; }
+                  let route = tpRoutes.find((r) => r.id === row.routeId);
+                  if (!route) {
+                    route = { id: row.routeId, name: row.routeName || 'Route', bus: row.busNumber, driver: row.driverName, live: false, riders: [] };
+                    tpRoutes.push(route);
+                  }
+                  if (!route.driver && row.driverName) route.driver = row.driverName;
+                  if (row.liveRecordedAt) route.live = true;
+                  route.riders.push(row);
+                });
+                tpRoutes.forEach((r, i) => {
+                  r.color = tpColors[i % tpColors.length];
+                  r.riders.sort((a, b) => String(a.pickupTime || '').localeCompare(String(b.pickupTime || '')) || String(a.studentName).localeCompare(String(b.studentName)));
+                });
+                const tpRiderCount = tpRoutes.reduce((n, r) => n + r.riders.length, 0);
+              %>
               <div class="workspace-panel-head">
                 <div>
-                  <h2 class="card-title">Transportation Snapshot</h2>
-                  <p class="card-subtext">Student transport assignments, bus routes, stops, drivers, and live activity for this class.</p>
+                  <h2 class="card-title">Transportation</h2>
+                  <p class="card-subtext">Who rides, where they board, and when. Select a student for full details and their route on the map.</p>
                 </div>
+                <% if (classTransportRows.length) { %>
+                <div class="tp-stats">
+                  <span><strong><%= tpRiderCount %></strong> of <%= classTransportRows.length %> ride</span>
+                  <span><strong><%= tpRoutes.length %></strong> <%= tpRoutes.length === 1 ? 'route' : 'routes' %></span>
+                </div>
+                <% } %>
               </div>
-              <% if (classTransportRows.length) { %>
-              <div class="table-scroll" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
-                <table style="width:100%;border-collapse:collapse;font-size:12px;" data-global-sort-ready="true">
-                  <thead>
-                    <tr style="background:#f8fafc;">
-                      <th style="padding:8px;text-align:left;">Student</th>
-                      <th style="padding:8px;text-align:left;">Bus</th>
-                      <th style="padding:8px;text-align:left;">Route</th>
-                      <th style="padding:8px;text-align:left;">Stop</th>
-                      <th style="padding:8px;text-align:left;">Driver</th>
-                      <th style="padding:8px;text-align:left;">Schedule</th>
-                      <th style="padding:8px;text-align:left;">Pickup</th>
-                      <th style="padding:8px;text-align:left;">Dropoff</th>
-                      <th style="padding:8px;text-align:left;">Live</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <% classTransportRows.forEach(function(row) { %>
-                    <tr>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.studentName || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.busNumber || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.routeName || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.stopName || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.driverName || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= [row.scheduleDayOfWeek, row.scheduleStartTime, row.scheduleEndTime].filter(Boolean).join(' ') || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.pickupTime || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.dropoffTime || '-' %></td>
-                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.liveRecordedAt ? new Date(row.liveRecordedAt).toLocaleTimeString() : '-' %></td>
-                    </tr>
+              <% if (tpRiderCount) { %>
+              <div class="tp-routes">
+                <% tpRoutes.forEach(function(route) { %>
+                <details class="tp-route" style="--route:<%= route.color %>">
+                  <summary class="tp-route__head">
+                    <span class="tp-route__dot" aria-hidden="true"></span>
+                    <div class="tp-route__title">
+                      <strong><%= route.name %></strong>
+                      <span><%= [route.bus, route.driver].filter(Boolean).join(' · ') || 'No bus assigned' %></span>
+                    </div>
+                    <% if (route.live) { %><span class="tp-live">Live</span><% } %>
+                    <span class="tp-route__count"><%= route.riders.length %> <%= route.riders.length === 1 ? 'rider' : 'riders' %></span>
+                    <svg class="tp-route__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                  </summary>
+                  <div class="tp-riders" role="list">
+                    <div class="tp-rider tp-rider--head" aria-hidden="true"><span>Student</span><span>Stop</span><span>Pick-up</span><span>Drop-off</span></div>
+                    <% route.riders.forEach(function(row) { %>
+                    <button type="button" class="tp-rider" role="listitem"
+                      onclick="openStudentTransportModal(<%= row.studentId %>, '<%= String(row.studentName || '').replace(/'/g, "\\'") %>', event)">
+                      <span class="tp-rider__name"><%= row.studentName %></span>
+                      <span class="tp-rider__stop"><%= row.stopName || '—' %></span>
+                      <span class="tp-rider__time"><%= tpTime(row.pickupTime) || '—' %></span>
+                      <span class="tp-rider__time"><%= tpTime(row.dropoffTime) || '—' %></span>
+                    </button>
                     <% }); %>
-                  </tbody>
-                </table>
+                  </div>
+                </details>
+                <% }); %>
               </div>
+              <% if (tpNonRiders.length) { %>
+              <div class="tp-none">
+                <span class="tp-none__label">Not on a bus · <%= tpNonRiders.length %></span>
+                <div class="tp-none__names"><% tpNonRiders.forEach(function(row) { %><span><%= row.studentName %></span><% }); %></div>
+              </div>
+              <% } %>
               <% if (classTransportationMapRows.length) { %>
-              <div style="margin-top:14px;display:grid;gap:8px;">
-                <div class="card-subtext">Class transportation map</div>
-                <div id="classDashboardTransportMap" class="transport-mini-map"></div>
+              <div class="tp-map">
+                <div class="tp-map__head">
+                  <span class="card-subtext">Routes map</span>
+                  <div class="tp-map__legend"><% tpRoutes.forEach(function(route) { %><span style="--route:<%= route.color %>"><%= route.name %></span><% }); %></div>
+                </div>
+                <div id="classDashboardTransportMap" class="transport-mini-map" data-routes="<%= JSON.stringify(tpRoutes.map(function(r) { return { id: r.id, color: r.color }; })) %>"></div>
               </div>
               <% } %>
               <% } else { %>
-              <p class="card-subtext">No transportation assignments in this class yet.</p>
+              <p class="card-subtext">No students in this class ride a bus yet.</p>
               <% } %>
             </section>
             <% } %>
@@ -4704,12 +4800,18 @@ main {
       function getWorkspaceReportsTab() {
         return {
           id: 'reports',
-          title: 'Reports',
+          title: 'Parent Messages',
           panelId: 'panel-reports',
           routePath: workspaceContext.basePath + '/reports',
           sidebarKey: 'reports',
           onActivate: function() {
             loadClassReports();
+            // Opened from a notification: show that conversation straight away (once).
+            var linked = Number(new URLSearchParams(window.location.search).get('report'));
+            if (linked > 0 && !window.__openedLinkedReport) {
+              window.__openedLinkedReport = true;
+              openReportDetail(linked);
+            }
           },
         };
       }
@@ -5849,6 +5951,11 @@ main {
           if (!map || !layerGroup) return;
           var rows = <%- JSON.stringify(classTransportationMapRows || []) %>;
           var school = <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>;
+          var routeColors = {};
+          try {
+            JSON.parse(document.getElementById('classDashboardTransportMap').getAttribute('data-routes') || '[]')
+              .forEach(function(r) { routeColors[r.id] = r.color; });
+          } catch (_) { /* default colour */ }
           var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
           var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
           var rowsByRoute = {};
@@ -5879,7 +5986,8 @@ main {
               var stopLng = normalizeCoord(row.stopLongitude, 'lng');
               if (stopLat === null || stopLng === null) return;
               boundsSource.push([stopLat, stopLng]);
-              L.circleMarker([stopLat, stopLng], { radius: 6, color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.92, weight: 2 })
+              var stopColor = routeColors[Number(routeIdKey)] || '#2563eb';
+              L.circleMarker([stopLat, stopLng], { radius: 6, color: '#fff', fillColor: stopColor, fillOpacity: 1, weight: 2 })
                 .bindPopup((row.studentName || 'Student') + '<br/>' + (row.stopName || 'Stop') + '<br/>Driver: ' + (row.driverName || '-'))
                 .addTo(layerGroup);
             });
@@ -5887,7 +5995,7 @@ main {
             return fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
               (roadLatLngs.length ? roadLatLngs : routeLatLngs).forEach(function(latlng) { boundsSource.push(latlng); });
               if (roadLatLngs.length >= 2) {
-                L.polyline(roadLatLngs, { color: '#0f5a66', weight: 3, opacity: 0.65 }).addTo(layerGroup);
+                L.polyline(roadLatLngs, { color: routeColors[Number(routeIdKey)] || '#0f5a66', weight: 4, opacity: 0.75 }).addTo(layerGroup);
               }
               startClassRouteLivePolling(Number(routeIdKey), layerGroup, L);
             });
@@ -5895,9 +6003,22 @@ main {
 
           Promise.all(routePromises).then(function() {
             if (schoolLat !== null && schoolLng !== null) boundsSource.push([schoolLat, schoolLng]);
-            if (boundsSource.length) {
+            if (!boundsSource.length) return;
+            var bounds = L.latLngBounds(boundsSource).pad(0.15);
+            var fit = function() {
+              var el = document.getElementById('classDashboardTransportMap');
+              if (!el || !el.offsetWidth) return;
               map.invalidateSize();
-              map.fitBounds(L.latLngBounds(boundsSource).pad(0.2));
+              map.fitBounds(bounds);
+            };
+            fit();
+            // The map is drawn while its panel may be hidden: redraw at the right size once it shows.
+            var mapEl = document.getElementById('classDashboardTransportMap');
+            if (mapEl && window.ResizeObserver) {
+              var lastWidth = mapEl.offsetWidth;
+              new ResizeObserver(function() {
+                if (mapEl.offsetWidth && mapEl.offsetWidth !== lastWidth) { lastWidth = mapEl.offsetWidth; fit(); }
+              }).observe(mapEl);
             }
           });
         });
@@ -6208,7 +6329,7 @@ main {
       fetch('/common/classReportDetail?reportId=' + reportId)
         .then(function(r) { return r.json(); })
         .then(function(d) {
-          if (!d.success) { content.innerHTML = '<p style="color:#e74c3c;">Report not found.</p>'; return; }
+          if (!d.success) { content.innerHTML = '<p style="color:#e74c3c;">Conversation not found.</p>'; return; }
           var rp = d.report;
           var prCls = 'rd-priority-' + (rp.priority || 'normal');
           var priorityKey = String(rp.priority || 'normal').toLowerCase();
@@ -6240,13 +6361,16 @@ main {
           var threadCount = replyCount + 1;
           html += '<div class="rd-section"><div class="rd-section-title" id="rdConversationTitle">Conversation (' + threadCount + ')</div><div class="rd-thread-scroll ' + threadSeverityCls + '" id="rdThreadList">';
 
-          // Original report message appears first in the thread
-          html += '<div class="rd-reply is-guardian is-theirs">' +
+          // Original report message appears first in the thread. Staff can file a
+          // report too (Staff Report …); then it is theirs, not the parent's.
+          var filedByStaff = Boolean(rp.filed_by_user_id || rp.filed_by_name);
+          var openerMine = filedByStaff && Number(rp.filed_by_user_id || 0) === currentStaffUserId;
+          html += '<div class="rd-reply ' + (filedByStaff ? 'is-staff ' + (openerMine ? 'is-mine' : 'is-theirs') : 'is-guardian is-theirs') + '">' +
             '<div class="rd-reply-header">' +
               '<span class="rd-reply-sender">' +
-                '<span class="sender-dot guardian"></span>' +
-                '<span class="sender-name">' + esc(rp.guardian_name) + '</span>' +
-                '<span class="sender-label">Parent</span>' +
+                '<span class="sender-dot ' + (filedByStaff ? 'staff' : 'guardian') + '"></span>' +
+                '<span class="sender-name">' + esc(filedByStaff ? (rp.filed_by_name || 'Staff') : rp.guardian_name) + '</span>' +
+                '<span class="sender-label">' + (filedByStaff ? 'Staff' : 'Parent') + '</span>' +
               '</span>' +
             '</div>' +
             '<p class="rd-reply-msg">' + esc(rp.message) + '</p>' +

@@ -36,6 +36,11 @@ function normalizeDateInput(value) {
     return value;
   }
 
+  // A calendar date ("2026-09-15") is that day wherever the server runs;
+  // new Date() would read it as UTC midnight, the day before in the Americas.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value).trim());
+  if (dateOnly) return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return null;

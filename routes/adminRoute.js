@@ -402,6 +402,46 @@ module.exports = (db) => {
     router.post("/announcements/ads/:id(\\d+)", isAuthenticated, ensureAdmin, loginAdFile, loginAdsController.update);
     router.post("/announcements/ads/:id(\\d+)/delete", isAuthenticated, ensureAdmin, loginAdsController.remove);
 
+    // Public product tour (/legal/app-demo): sections, features, steps and their versions.
+    const appDemoController = require('../controllers/appDemoController');
+    const appDemoLimits = require('../utils/appDemo');
+    const appDemoUpload = multer({
+        dest: 'uploads/',
+        limits: { fileSize: appDemoLimits.MAX_FILE_BYTES, files: appDemoLimits.MAX_FILES_PER_UPLOAD },
+        fileFilter: (req, file, cb) => cb(null, Boolean(appDemoLimits.MEDIA_TYPES[file.mimetype])),
+    });
+    const appDemoFiles = (field, many) => (req, res, next) => {
+        const handler = many ? appDemoUpload.array(field, appDemoLimits.MAX_FILES_PER_UPLOAD) : appDemoUpload.single(field);
+        handler(req, res, (err) => {
+            if (!err) return next();
+            const message = err.code === 'LIMIT_FILE_SIZE' ? 'Each file must be 25 MB or smaller.'
+                : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE' ? `Upload up to ${appDemoLimits.MAX_FILES_PER_UPLOAD} files at a time.`
+                : 'Upload failed.';
+            return res.status(400).json({ success: false, message });
+        });
+    };
+    const appDemoAdmin = [isAuthenticated, ensureAdmin];
+    router.get("/app-demo", ...appDemoAdmin, appDemoController.adminPage);
+    router.post("/app-demo/sections", ...appDemoAdmin, appDemoController.createSection);
+    router.post("/app-demo/sections/reorder", ...appDemoAdmin, appDemoController.reorderSections);
+    router.post("/app-demo/sections/:id(\\d+)", ...appDemoAdmin, appDemoController.updateSection);
+    router.post("/app-demo/sections/:id(\\d+)/delete", ...appDemoAdmin, appDemoController.deleteSection);
+    router.post("/app-demo/features", ...appDemoAdmin, appDemoController.createFeature);
+    router.post("/app-demo/features/reorder", ...appDemoAdmin, appDemoController.reorderFeatures);
+    router.post("/app-demo/features/:id(\\d+)", ...appDemoAdmin, appDemoController.updateFeature);
+    router.post("/app-demo/features/:id(\\d+)/delete", ...appDemoAdmin, appDemoController.deleteFeature);
+    router.post("/app-demo/features/:id(\\d+)/screens", ...appDemoAdmin, appDemoFiles('files', true), appDemoController.addScreens);
+    router.post("/app-demo/features/:id(\\d+)/screens/reorder", ...appDemoAdmin, appDemoController.reorderScreens);
+    router.post("/app-demo/screens/:id(\\d+)", ...appDemoAdmin, appDemoController.updateScreen);
+    router.post("/app-demo/screens/:id(\\d+)/delete", ...appDemoAdmin, appDemoController.deleteScreen);
+    router.post("/app-demo/screens/:id(\\d+)/media", ...appDemoAdmin, appDemoFiles('files', true), appDemoController.addMedia);
+    router.post("/app-demo/screens/:id(\\d+)/media/reorder", ...appDemoAdmin, appDemoController.reorderMedia);
+    router.post("/app-demo/media/:id(\\d+)", ...appDemoAdmin, appDemoFiles('file', false), appDemoController.updateMedia);
+    router.post("/app-demo/media/:id(\\d+)/delete", ...appDemoAdmin, appDemoController.deleteMedia);
+    router.post("/app-demo/media/:id(\\d+)/guide", ...appDemoAdmin, appDemoController.updateGuide);
+    router.post("/app-demo/capture", ...appDemoAdmin, appDemoController.startCapture);
+    router.post("/app-demo/capture/stop", ...appDemoAdmin, appDemoController.stopCapture);
+
     router.post("/announcements", isAuthenticated, ensureAdmin, (req, res) => {
         req.flash("info", 'Dashboard notices are now created with "New Announcement" (choose Dashboard notice).');
         res.redirect("/admin/announcements");

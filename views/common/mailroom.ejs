@@ -23,6 +23,56 @@
   }
   #mailroomRoot * { box-sizing: border-box; }
   .mr-header { margin-bottom: 16px; text-align: left; }
+  .mr-header--tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .mr-tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--mr-line); border-radius: 12px; background: var(--mr-panel); }
+  .mr-tab { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--mr-muted); cursor: pointer; }
+  .mr-tab:hover { color: var(--mr-text); background: var(--mr-bg); }
+  .mr-tab.is-active { background: var(--mr-primary); color: #fff; }
+  .mr-tab:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: 2px; }
+  .mr-tab-badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 999px; background: #e11d48; color: #fff; font-size: 11px; font-weight: 800; }
+  #mailroomRoot.is-inbox .mr-send-only { display: none !important; }
+  .mr-inbox { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .mr-inbox[hidden] { display: none; }
+  .mr-inbox-head { display: grid; gap: 10px; padding: 14px; border-bottom: 1px solid var(--mr-line); }
+  .mr-inbox-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mr-inbox-rows { max-height: calc(100vh - 260px); overflow-y: auto; }
+  .mr-inbox-row { all: unset; box-sizing: border-box; display: grid; gap: 3px; width: 100%; padding: 12px 14px; border-bottom: 1px solid var(--mr-line); cursor: pointer; }
+  .mr-inbox-row:hover { background: var(--mr-bg); }
+  .mr-inbox-row.is-active { background: color-mix(in srgb, var(--mr-primary) 8%, #fff); box-shadow: inset 3px 0 0 var(--mr-primary); }
+  .mr-inbox-row:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: -2px; }
+  .mr-inbox-top { display: flex; align-items: center; gap: 8px; }
+  .mr-inbox-top strong { flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mr-inbox-time { font-size: 11.5px; color: var(--mr-muted); white-space: nowrap; }
+  .mr-inbox-subject { font-size: 13px; font-weight: 600; color: var(--mr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mr-inbox-snippet { font-size: 12.5px; color: var(--mr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mr-inbox-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 3px; font-size: 11.5px; color: var(--mr-muted); }
+  .mr-dot-new { width: 8px; height: 8px; border-radius: 50%; background: #e11d48; flex: none; }
+  .mr-chip { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .mr-chip--needs { background: #fff1f2; color: #be123c; }
+  .mr-chip--open { background: #eff6ff; color: #1d4ed8; }
+  .mr-chip--in_progress { background: #fffbeb; color: #b45309; }
+  .mr-chip--resolved { background: #ecfdf5; color: #047857; }
+  .mr-thread { display: flex; flex-direction: column; min-height: 520px; max-height: calc(100vh - 170px); }
+  .mr-thread-empty { margin: auto; }
+  .mr-thread-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--mr-line); }
+  .mr-thread-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--mr-text); }
+  .mr-thread-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--mr-muted); }
+  .mr-thread-actions { display: flex; gap: 6px; flex: none; align-items: center; }
+  .mr-thread-actions a, .mr-thread-actions button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: 1px solid var(--mr-line); border-radius: 8px; font-size: 12.5px; font-weight: 700; color: var(--mr-text); cursor: pointer; background: #fff; }
+  .mr-thread-actions a:hover, .mr-thread-actions button:hover { background: var(--mr-bg); }
+  .mr-thread-msgs { flex: 1; overflow-y: auto; padding: 16px 18px; display: grid; gap: 12px; align-content: start; background: var(--mr-bg); }
+  .mr-msg { max-width: 78%; padding: 10px 13px; border-radius: 12px; background: #fff; border: 1px solid var(--mr-line); }
+  .mr-msg--staff { justify-self: end; background: color-mix(in srgb, var(--mr-primary) 9%, #fff); border-color: color-mix(in srgb, var(--mr-primary) 20%, #fff); }
+  .mr-msg-who { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; font-size: 12px; }
+  .mr-msg-who strong { color: var(--mr-text); }
+  .mr-msg-who span { color: var(--mr-muted); }
+  .mr-msg p { margin: 0; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; color: var(--mr-text); }
+  #mrReplyForm.mr-reply { display: flex; align-items: flex-end; margin: 0; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--mr-line); background: #fff; border-radius: 0 0 var(--mr-radius) var(--mr-radius); }
+  #mrReplyForm.mr-reply textarea { flex: 1 1 auto; width: auto; height: 44px; margin: 0; box-sizing: border-box; min-height: 44px; max-height: 160px; resize: vertical; padding: 10px 12px; border: 1px solid var(--mr-line); border-radius: 10px; font: inherit; font-size: 13.5px; }
+  #mrReplyForm.mr-reply textarea:focus { outline: none; border-color: var(--mr-primary); }
+  #mrReplyForm.mr-reply button { flex: 0 0 auto; width: auto; margin: 0; align-self: flex-end; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--mr-primary); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
+  #mrReplyForm.mr-reply button:disabled { opacity: .5; cursor: default; }
+  @media (max-width: 980px) { .mr-inbox { grid-template-columns: minmax(0, 1fr); } .mr-thread { min-height: 420px; } }
   .mr-header h1 { margin: 0 0 4px; padding: 0; font-size: 22px; font-weight: 800; color: var(--mr-primary); text-align: left; }
   .mr-header p { margin: 0; color: var(--mr-muted); font-size: 13.5px; }
 
@@ -248,19 +298,42 @@
 </style>
 
 <div id="mailroomRoot">
-  <div class="mr-header">
-    <h1>Mailroom</h1>
-    <p>Message guardians by email, text or WhatsApp.</p>
+  <div class="mr-header mr-header--tabs">
+    <div>
+      <h1>Mailroom</h1>
+      <p>Message families by email, text or WhatsApp, and answer the messages parents send.</p>
+    </div>
+    <div class="mr-tabs" role="tablist" aria-label="Mailroom">
+      <button type="button" class="mr-tab is-active" role="tab" aria-selected="true" data-mr-view="send">Send</button>
+      <button type="button" class="mr-tab" role="tab" aria-selected="false" data-mr-view="inbox">Inbox <span class="mr-tab-badge" id="mrInboxBadge" hidden></span></button>
+    </div>
   </div>
 
-  <div class="mr-setup-banner" id="mrSetupBanner">
+  <div class="mr-inbox" id="mrInbox" hidden>
+    <section class="mr-panel mr-inbox-list">
+      <div class="mr-inbox-head">
+        <div class="mr-inbox-filters" role="group" aria-label="Show">
+          <button type="button" class="mr-filter-chip mr-filter-active" data-inbox-filter="needs">Needs reply</button>
+          <button type="button" class="mr-filter-chip" data-inbox-filter="open">Open</button>
+          <button type="button" class="mr-filter-chip" data-inbox-filter="all">All</button>
+        </div>
+        <input type="text" id="mrInboxSearch" class="mr-search" placeholder="Search parent, student, class, subject..." aria-label="Search messages">
+      </div>
+      <div class="mr-inbox-rows" id="mrInboxRows"><div class="mr-empty">Loading messages...</div></div>
+    </section>
+    <section class="mr-panel mr-thread" id="mrThread">
+      <div class="mr-empty mr-thread-empty">Select a conversation to read and reply.</div>
+    </section>
+  </div>
+
+  <div class="mr-setup-banner mr-send-only" id="mrSetupBanner">
     <span id="mrSetupBannerText">Text and WhatsApp aren't set up for this school yet — only Email can be used to reach guardians.</span>
     <a href="/common/management?panel=integrations&page=%2Faccount%2Fsettings%3Fsection%3Dintegrations&label=Integrations">Activate in Integrations</a>
   </div>
 
   <div class="mr-drawer-backdrop" id="mrDrawerBackdrop"></div>
 
-  <div class="mr-directory-open-row">
+  <div class="mr-directory-open-row mr-send-only">
     <button type="button" class="mr-directory-toggle" id="mrDirectoryToggle" aria-expanded="false" aria-controls="mrDirectory">
       <span class="mr-directory-toggle-label">
         <span>Contacts</span>
@@ -270,7 +343,7 @@
     </button>
   </div>
 
-  <div class="mr-layout">
+  <div class="mr-layout mr-send-only">
     <section class="mr-panel mr-directory" id="mrDirectory">
       <div class="mr-directory-head">
         <button type="button" class="mr-directory-close" id="mrDirectoryClose" aria-label="Close">&times;</button>
@@ -481,6 +554,14 @@
     const select = $('mrClassFilter');
     select.innerHTML = '<option value="">All classes</option>' + classes.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
     $('mrFilterRow').hidden = classes.length < 2;
+    // Opened from a class ("Message all parents"): start with that class's families selected.
+    const wanted = new URLSearchParams(window.location.search).get('class');
+    if (wanted && classes.includes(wanted) && !state.classPreset) {
+      state.classPreset = true;
+      select.value = wanted;
+      state.contacts.filter((c) => (c.classNames || []).includes(wanted)).forEach((c) => state.selected.set(c.id, c));
+      updateRecipientCount();
+    }
   }
 
   // ---- Compose ----
@@ -1013,5 +1094,158 @@
   loadChannelStatus();
   loadContacts();
   loadHistory();
+})();
+</script>
+<script>
+// Mailroom Inbox: the messages parents send (parent portal "Messages"), school-wide.
+(function () {
+  const root = document.getElementById('mailroomRoot');
+  if (!root || root.__inbox) return;
+  root.__inbox = true;
+  const byId = (id) => document.getElementById(id);
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const STATUS = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
+  const when = (v) => {
+    const d = new Date(v);
+    const today = new Date();
+    return d.toDateString() === today.toDateString()
+      ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+  let threads = [];
+  let filter = 'needs';
+  let activeId = null;
+
+  function setView(view) {
+    const inbox = view === 'inbox';
+    root.classList.toggle('is-inbox', inbox);
+    byId('mrInbox').hidden = !inbox;
+    root.querySelectorAll('[data-mr-view]').forEach((b) => {
+      const on = b.dataset.mrView === view;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const url = new URL(location.href);
+    if (inbox) url.searchParams.set('view', 'inbox'); else { url.searchParams.delete('view'); url.searchParams.delete('thread'); }
+    history.replaceState(history.state, '', url);
+  }
+  root.querySelectorAll('[data-mr-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.mrView)));
+
+  async function loadInbox() {
+    try {
+      const res = await fetch('/common/mailroom/inbox', { headers: { Accept: 'application/json' } });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      threads = data.threads;
+      const badge = byId('mrInboxBadge');
+      badge.textContent = data.needsReply;
+      badge.hidden = !data.needsReply;
+      renderList();
+    } catch (_) {
+      byId('mrInboxRows').innerHTML = '<div class="mr-empty">Messages could not be loaded.</div>';
+    }
+  }
+
+  function renderList() {
+    const q = (byId('mrInboxSearch').value || '').trim().toLowerCase();
+    const list = threads.filter((t) => {
+      if (filter === 'needs' && !t.needs_reply) return false;
+      if (filter === 'open' && t.status === 'resolved') return false;
+      if (!q) return true;
+      return `${t.guardian_name} ${t.student_name} ${t.class_name} ${t.subject}`.toLowerCase().includes(q);
+    });
+    byId('mrInboxRows').innerHTML = list.length ? list.map((t) => `
+      <button type="button" class="mr-inbox-row${t.report_id === activeId ? ' is-active' : ''}" data-thread="${t.report_id}">
+        <span class="mr-inbox-top">${t.needs_reply ? '<span class="mr-dot-new" title="Needs reply"></span>' : ''}<strong>${esc(t.guardian_name)}</strong><span class="mr-inbox-time">${esc(when(t.last_at))}</span></span>
+        <span class="mr-inbox-subject">${esc(t.subject)}</span>
+        <span class="mr-inbox-snippet">${t.last_sender_type === 'staff' ? 'You: ' : ''}${esc(t.last_message)}</span>
+        <span class="mr-inbox-meta">${esc(t.student_name)}${t.class_name ? ' · ' + esc(t.class_name) : ''} <span class="mr-chip mr-chip--${t.needs_reply ? 'needs' : t.status}">${t.needs_reply ? 'Needs reply' : STATUS[t.status] || 'Open'}</span></span>
+      </button>`).join('')
+      : `<div class="mr-empty">${filter === 'needs' ? 'All caught up. No messages are waiting for a reply.' : 'No messages here.'}</div>`;
+  }
+
+  byId('mrInboxRows').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-thread]');
+    if (row) openThread(Number(row.dataset.thread));
+  });
+  root.querySelectorAll('[data-inbox-filter]').forEach((b) => b.addEventListener('click', () => {
+    filter = b.dataset.inboxFilter;
+    root.querySelectorAll('[data-inbox-filter]').forEach((x) => x.classList.toggle('mr-filter-active', x === b));
+    renderList();
+  }));
+  byId('mrInboxSearch').addEventListener('input', renderList);
+
+  async function openThread(id) {
+    activeId = id;
+    renderList();
+    const url = new URL(location.href);
+    url.searchParams.set('view', 'inbox');
+    url.searchParams.set('thread', id);
+    history.replaceState(history.state, '', url);
+    const pane = byId('mrThread');
+    pane.innerHTML = '<div class="mr-empty mr-thread-empty">Loading conversation...</div>';
+    try {
+      const res = await fetch('/common/classReportDetail?reportId=' + id, { headers: { Accept: 'application/json' } });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      const r = d.report;
+      const t = threads.find((x) => x.report_id === id) || {};
+      const opener = r.filed_by_name
+        ? { staff: true, name: r.filed_by_name }
+        : { staff: false, name: r.guardian_name };
+      const msgs = [{ staff: opener.staff, name: opener.name, message: r.message, at: r.created_at }]
+        .concat((d.replies || []).map((x) => ({ staff: x.sender_type !== 'guardian', name: x.sender_name, message: x.message, at: x.created_at })));
+      pane.innerHTML = `
+        <div class="mr-thread-head">
+          <div>
+            <h2>${esc(r.subject)}</h2>
+            <p>${esc(r.student_name)}${t.class_name ? ' · ' + esc(t.class_name) : ''} · Parent: ${esc(r.guardian_name)} · <span class="mr-chip mr-chip--${esc(r.status)}">${STATUS[r.status] || 'Open'}</span></p>
+          </div>
+          <div class="mr-thread-actions">
+            ${t.class_id ? `<a href="/common/classDashboard/${t.class_id}/reports?report=${id}" data-no-spa>Open in class</a>` : ''}
+            <button type="button" data-status="${r.status === 'resolved' ? 'in_progress' : 'resolved'}">${r.status === 'resolved' ? 'Reopen' : 'Mark resolved'}</button>
+          </div>
+        </div>
+        <div class="mr-thread-msgs" id="mrThreadMsgs">
+          ${msgs.map((m) => `<div class="mr-msg${m.staff ? ' mr-msg--staff' : ''}"><div class="mr-msg-who"><strong>${esc(m.name || (m.staff ? 'Staff' : 'Parent'))}</strong><span>${m.staff ? 'Staff' : 'Parent'} · ${esc(new Date(m.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</span></div><p>${esc(m.message)}</p></div>`).join('')}
+        </div>
+        <form class="mr-reply" id="mrReplyForm">
+          <textarea id="mrReplyText" placeholder="Write a reply to ${esc(r.guardian_name)}..." aria-label="Reply" required></textarea>
+          <button type="submit">Send reply</button>
+        </form>`;
+      const msgsEl = byId('mrThreadMsgs');
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+      pane.querySelector('[data-status]').addEventListener('click', async (e) => {
+        const status = e.currentTarget.dataset.status;
+        const resp = await fetch('/common/parent-messages/' + id + '/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+        if (resp.ok) { await loadInbox(); openThread(id); }
+      });
+      byId('mrReplyForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = byId('mrReplyText').value.trim();
+        if (!text) return;
+        const btn = e.currentTarget.querySelector('button');
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        const resp = await fetch('/common/staffReplyToReport', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportId: id, message: text }) });
+        const out = await resp.json().catch(() => ({}));
+        if (!resp.ok || out.success === false) {
+          btn.disabled = false;
+          btn.textContent = 'Send reply';
+          alert((out && out.error) || 'Your reply could not be sent.');
+          return;
+        }
+        await loadInbox();
+        openThread(id);
+      });
+    } catch (_) {
+      pane.innerHTML = '<div class="mr-empty mr-thread-empty">This conversation could not be loaded.</div>';
+    }
+  }
+
+  const params = new URLSearchParams(location.search);
+  const startThread = Number(params.get('thread'));
+  if (params.get('view') === 'inbox' || startThread) setView('inbox');
+  loadInbox().then(() => { if (startThread) openThread(startThread); });
 })();
 </script>

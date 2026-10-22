@@ -838,17 +838,6 @@ const legalController = {
         });
     },
 
-    appDemo: (req, res) => {
-        res.render('legal&Compliance/appDemo', {
-            title: 'App Demo - Explore Managira',
-            description: 'Explore Managira through an interactive visual demo covering the dashboard, student management, attendance, fees, reports, and settings.',
-            keywords: 'managira demo, school management software demo, dashboard demo, attendance demo, fees demo, reports demo',
-            canonicalUrl: 'https://managira.com/legal/app-demo',
-            showFooterTopSection: false,
-            hideGlobalHeader: true,
-            hideGlobalFooter: true
-        });
-    },
 
     requestDemoPage: (req, res) => {
         res.render('legal&Compliance/requestDemo', {

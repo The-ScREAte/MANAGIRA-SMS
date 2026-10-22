@@ -270,6 +270,10 @@ module.exports = (db) => {
   router.post("/classReportReplies/:replyId/delete", checkFeatureAccess, isAuthenticated, express.json(), (req, res) =>
     commonController.classReportReplyDelete(req, res, db)
   );
+  // Parent messages: one link for notifications, Mail Room's inbox, and status.
+  router.get("/parent-messages/:id(\\d+)", isAuthenticated, (req, res) => commonController.parentMessageOpen(req, res, db));
+  router.post("/parent-messages/:id(\\d+)/status", isAuthenticated, express.json(), (req, res) => commonController.parentMessageStatus(req, res, db));
+  router.get("/mailroom/inbox", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) => commonController.mailroomInbox(req, res, db));
   router.get("/classReports", isAuthenticated, (req, res) =>
     commonController.classReports(req, res, db)
   );

@@ -17042,7 +17042,8 @@ NUMBERING:
         hideGlobalFooter: true,
       });
     } catch (err) {
-            res.status(500).send("Error loading class dashboard");
+      console.error("[ClassDashboard] load failed:", err);
+      res.status(500).send("Error loading class dashboard");
     }
   },
 
@@ -22214,7 +22215,7 @@ NUMBERING:
 
       const normalizedReportType = String(reportType || 'general').trim().toLowerCase();
       const reportTypeLabel = normalizedReportType.charAt(0).toUpperCase() + normalizedReportType.slice(1);
-      const subject = `Staff Report (${reportTypeLabel}): ${studentName}`;
+      const subject = `${reportTypeLabel} update: ${studentName}`;
 
       const staffFullName = `${staff.first_name} ${staff.last_name}`.trim();
 
@@ -22329,6 +22330,90 @@ NUMBERING:
   /**
    * Staff replies to an existing guardian report — inserts a reply and notifies the guardian.
    */
+  // ---------- Parent messages (guardian_reports): Mail Room inbox ----------
+
+  // One link for notifications: Mail Room users land in its inbox, teachers in the class's Parent Messages.
+  parentMessageOpen: async (req, res, db) => {
+    const id = Number.parseInt(req.params.id, 10);
+    try {
+      const { rows } = await db.query(
+        `SELECT s.class_id FROM guardian_reports r JOIN students s ON s.student_id = r.student_id
+          WHERE r.report_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL`,
+        [id, req.session.organizationId]
+      );
+      if (!rows.length) {
+        req.flash("error", "That conversation is no longer available.");
+        return res.redirect("/common/orgDashboard");
+      }
+      const canMailroom = Array.isArray(res.locals.userPermissions) && res.locals.userPermissions.includes("mailroom");
+      if (canMailroom) return res.redirect(`/common/mailroom?thread=${id}`);
+      return res.redirect(`/common/classDashboard/${rows[0].class_id}/reports?report=${id}`);
+    } catch (error) {
+      console.error("parentMessageOpen error:", error);
+      return res.redirect("/common/orgDashboard");
+    }
+  },
+
+  // Every parent conversation in the school, newest activity first, for Mail Room's inbox.
+  mailroomInbox: async (req, res, db) => {
+    try {
+      const { rows } = await db.query(
+        `SELECT r.report_id, r.subject, r.status, r.priority, r.created_at,
+                s.first_name || ' ' || s.last_name AS student_name, c.class_name, c.class_id,
+                COALESCE(gp.first_name || ' ' || gp.last_name, 'Parent') AS guardian_name,
+                r.filed_by_name,
+                last.sender_type AS last_sender_type, last.sender_name AS last_sender_name,
+                COALESCE(last.created_at, r.created_at) AS last_at,
+                LEFT(COALESCE(last.message, r.message), 160) AS last_message,
+                (SELECT COUNT(*)::int FROM guardian_report_replies x WHERE x.report_id = r.report_id) AS reply_count
+           FROM guardian_reports r
+           JOIN students s ON s.student_id = r.student_id
+           LEFT JOIN classes c ON c.class_id = s.class_id
+           LEFT JOIN guardian_profiles gp ON gp.guardian_id = r.guardian_id AND gp.organization_id = r.organization_id
+           LEFT JOIN LATERAL (
+             SELECT sender_type, sender_name, message, created_at FROM guardian_report_replies x
+              WHERE x.report_id = r.report_id ORDER BY created_at DESC, reply_id DESC LIMIT 1
+           ) last ON TRUE
+          WHERE r.organization_id = $1 AND r.deleted_at IS NULL
+          ORDER BY COALESCE(last.created_at, r.created_at) DESC
+          LIMIT 300`,
+        [req.session.organizationId]
+      );
+      const threads = rows.map((t) => {
+        const startedByStaff = Boolean(t.filed_by_name);
+        const lastFromParent = t.last_sender_type ? t.last_sender_type === "guardian" : !startedByStaff;
+        return { ...t, needs_reply: t.status !== "resolved" && lastFromParent };
+      });
+      return res.json({ success: true, threads, needsReply: threads.filter((t) => t.needs_reply).length });
+    } catch (error) {
+      console.error("mailroomInbox error:", error);
+      return res.status(500).json({ success: false, error: "Could not load messages." });
+    }
+  },
+
+  // Open / in progress / resolved, from Mail Room or by someone in the conversation.
+  parentMessageStatus: async (req, res, db) => {
+    const id = Number.parseInt(req.params.id, 10);
+    const status = String((req.body && req.body.status) || "");
+    if (!["open", "in_progress", "resolved"].includes(status)) return res.status(400).json({ success: false, error: "Unknown status." });
+    try {
+      const userId = req.session.userId;
+      const canMailroom = Array.isArray(res.locals.userPermissions) && res.locals.userPermissions.includes("mailroom");
+      const { rowCount } = await db.query(
+        `UPDATE guardian_reports r
+            SET status = $1, updated_at = NOW(), resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE NULL END
+          WHERE r.report_id = $2 AND r.organization_id = $3 AND r.deleted_at IS NULL
+            AND ($4::boolean OR EXISTS (SELECT 1 FROM guardian_report_recipients x WHERE x.report_id = r.report_id AND x.user_id = $5))`,
+        [status, id, req.session.organizationId, canMailroom, userId]
+      );
+      if (!rowCount) return res.status(404).json({ success: false, error: "Conversation not found." });
+      return res.json({ success: true, status });
+    } catch (error) {
+      console.error("parentMessageStatus error:", error);
+      return res.status(500).json({ success: false, error: "Could not update the conversation." });
+    }
+  },
+
   staffReplyToReport: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
@@ -22395,6 +22480,14 @@ NUMBERING:
         `UPDATE guardian_reports SET status = 'in_progress', updated_at = NOW() WHERE report_id = $1`,
         [reportId]
       );
+
+      // Whoever replies is part of the conversation from now on (notified of the parent's answers).
+      await db.query(
+        `INSERT INTO guardian_report_recipients (report_id, user_id, user_name, user_role)
+         SELECT $1, $2, $3, (SELECT account_type FROM users WHERE user_id = $2)
+          WHERE NOT EXISTS (SELECT 1 FROM guardian_report_recipients WHERE report_id = $1 AND user_id = $2)`,
+        [reportId, userId, staffName]
+      ).catch(() => {});
 
       // Get guardian email and student name for notification
       const guardianInfo = await db.query(
@@ -22516,6 +22609,7 @@ NUMBERING:
       // Get report + verify this user has access (is a recipient or class teacher)
       const reportResult = await db.query(
         `SELECT r.report_id, r.subject, r.message, r.status, r.priority, r.created_at,
+                r.filed_by_user_id, r.filed_by_name,
                 s.first_name || ' ' || s.last_name AS student_name,
                 COALESCE(gp.first_name || ' ' || gp.last_name, 'Parent') AS guardian_name,
                 (
@@ -22529,9 +22623,9 @@ NUMBERING:
          LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id AND grr.user_id = $3
          LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
          WHERE r.report_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL
-           AND (grr.user_id IS NOT NULL OR uc.user_id IS NOT NULL)
+           AND (grr.user_id IS NOT NULL OR uc.user_id IS NOT NULL OR $4::boolean)
          LIMIT 1`,
-        [reportId, organizationId, userId]
+        [reportId, organizationId, userId, Array.isArray(res.locals.userPermissions) && res.locals.userPermissions.includes("mailroom")]
       );
 
       if (!reportResult.rows.length) {

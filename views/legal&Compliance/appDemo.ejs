@@ -1,2018 +1,269 @@
 <%
-  const demoPages = [
-    {
-      title: 'Organization Dashboard',
-      tagline: 'School overview',
-      description: 'Get an at-a-glance view of school activity, priority items, and operational updates from one central hub. All staff can access the platform from here and move directly into their assigned areas without friction.',
-      image: '/Demo%20Images/Organization%20Dashboard.png',
-      mediaType: 'image',
-      accent: '#0f766e'
-    },
-    {
-      title: 'School Website',
-      tagline: 'Public presence',
-      description: 'Present your school\'s public-facing website in a format built and customized for your institution. Give prospective families, students, and the community a professional first impression with your identity and information front and center.',
-      image: '/Demo%20Images/School%20Website.png',
-      mediaType: 'image',
-      accent: '#0f766e'
-    },
-    {
-      title: 'Organization Statistics',
-      tagline: 'Performance summary',
-      description: 'Monitor school-wide performance, enrollment trends, student progress, and key operational metrics in one consolidated view. Supports leadership reporting and feeds directly into the weekly email digest with a live snapshot of school activity.',
-      image: '/Demo%20Images/Organization%20Statistics.png',
-      mediaType: 'image',
-      accent: '#2563eb'
-    },
-    {
-      title: 'Class Dashboard',
-      tagline: 'Class operations',
-      description: 'Manage all classroom activity from one central workspace - schedules, reporting, attendance, assessments, payments, and documents in one place. Swipe through seven screens to see how a teacher navigates a complete school day.',
-      image: '/Demo%20Images/Class%20Dashboard.png',
-      mediaType: 'gallery',
-      accent: '#0f766e',
-      images: [
-        {
-          src: '/Demo%20Images/Class%20Dashboard.png',
-          label: 'Class Dashboard',
-          caption: 'The central class workspace with quick access to all teaching actions, updates, and class tools in one view.'
-        },
-        {
-          src: '/Demo%20Images/Reporting%20Page.png',
-          label: 'Reporting Page',
-          caption: 'Review class and student performance data with organised summaries to support teaching decisions and progress tracking.'
-        },
-        {
-          src: '/Demo%20Images/Class%20Schedule.png',
-          label: 'Class Schedule',
-          caption: 'View the weekly lesson timetable for the class with clear subject and timing breakdowns across the school day.'
-        },
-        {
-          src: '/Demo%20Images/Internal%20PayGira%20View.png',
-          label: 'My PayGira',
-          caption: 'Collectors and overseers manage bill assignments, record payments, and monitor outstanding balances directly from the class workspace.'
-        },
-        {
-          src: '/Demo%20Images/Attendance.png',
-          label: 'Attendance',
-          caption: 'Capture daily attendance quickly and flag absences for follow-up without disrupting classroom routines.'
-        },
-        {
-          src: '/Demo%20Images/Assessment.png',
-          label: 'Assessment',
-          caption: 'Enter and review student scores in a consistent grading interface that keeps academic records accurate and organised.'
-        },
-        {
-          src: '/Demo%20Images/Documents%20Page.png',
-          label: 'Documents',
-          caption: 'Access and manage class-level documents, shared resources, and official files from a structured document page.'
-        }
-      ]
-    },
-    {
-      title: 'PayGira Finance',
-      tagline: 'School billing & payments',
-      description: 'Run your full payment cycle from one place - create bills, track collections, manage school-wide charges, and configure payment settings with ease. Swipe through six screens to see how finance administrators handle PayGira end to end.',
-      image: '/Demo%20Images/PayGira%20Overview.png',
-      mediaType: 'gallery',
-      accent: '#d97706',
-      images: [
-        {
-          src: '/Demo%20Images/PayGira%20Overview.png',
-          label: 'Overview',
-          caption: 'A summary of all active bills, outstanding balances, and recent payment activity across the school.'
-        },
-        {
-          src: '/Demo%20Images/PayGira%20Bill%20Management.png',
-          label: 'Bill Management',
-          caption: 'Create, edit, and manage individual bills with full control over amounts, due dates, and student assignments.'
-        },
-        {
-          src: '/Demo%20Images/PayGira%20Org%20Wide%20Stats.png',
-          label: 'Org-Wide Bills',
-          caption: 'View and manage bills that apply across the entire organisation, including bulk charges and institution-level fees.'
-        },
-        {
-          src: '/Demo%20Images/PayGira%20Payment%20Tracking.png',
-          label: 'Payment Tracking',
-          caption: 'Monitor payment statuses in real time, identify outstanding accounts, and keep collection records up to date.'
-        },
-        {
-          src: '/Demo%20Images/PayGira%20Fee%20Recovery.png',
-          label: 'Fee Recovery',
-          caption: 'Follow up on overdue accounts and manage arrears recovery workflows to reduce unpaid balances.'
-        },
-        {
-          src: '/Demo%20Images/PayGira%20Settings.png',
-          label: 'Payment Settings',
-          caption: 'Configure payment providers, payout destinations, and school-specific billing preferences from one settings panel.'
-        }
-      ]
-    },
-    {
-      title: 'Student Enrollment',
-      tagline: 'Admissions workflow',
-      description: 'Register new students through a structured, step-by-step admissions workflow that ensures accurate placement and complete record capture from the very first submission.',
-      image: '/Demo%20Images/Student%20Enrollment.png',
-      mediaType: 'image',
-      accent: '#0284c7'
-    },
-    {
-      title: 'Student Portal',
-      tagline: 'Learner access',
-      description: 'Keep student information readily accessible through a focused portal that brings academic records, transcript details, and guardian information together in one clear view.',
-      image: '/Demo%20Images/Student%20Portal.png',
-      mediaType: 'image',
-      accent: '#1d4ed8'
-    },
-    {
-      title: 'Report Card',
-      tagline: 'Printable results',
-      description: 'Generate polished, professional report cards presenting grades, teacher remarks, and summary data in a clean digital format. Share results directly via email or the parent portal - no reliance on printed copies required.',
-      image: '/Demo%20Images/ReportCard.png',
-      mediaType: 'image',
-      accent: '#4338ca'
-    },
-    {
-      title: 'Merit Sheet',
-      tagline: 'Academic ranking',
-      description: 'Review class rankings and comparative performance in a clear merit sheet format designed for academic analysis and printing.',
-      image: '/Demo%20Images/Merit%20Sheet.png',
-      mediaType: 'image',
-      accent: '#be123c'
-    },
-    {
-      title: 'Transcript',
-      tagline: 'Academic record',
-      description: 'Produce formal transcript documents presenting a student\'s complete academic history in a clean, professional format suitable for internal review, printing, and official use.',
-      image: '/Demo%20Images/Transcript.pdf',
-      mediaType: 'pdf',
-      accent: '#334155'
-    },
-    {
-      title: 'Report Digest',
-      tagline: 'Automated email reports',
-      description: 'Schools, hubs, parents, and teachers receive scheduled summary emails surfacing attendance highlights, performance updates, and operational notes automatically, without anyone running a report manually. Swipe through five digest screens to see exactly what each audience receives.',
-      image: '/Demo%20Images/weekly%20school%20Performance.png',
-      mediaType: 'gallery',
-      accent: '#0ea5e9',
-      images: [
-        {
-          src: '/Demo%20Images/weekly%20school%20Performance.png',
-          label: 'Weekly school performance',
-          caption: 'Sent every Monday to school leadership with attendance, term averages, and at-risk classes.'
-        },
-        {
-          src: '/Demo%20Images/weekly%20teachers%20Summary.png',
-          label: 'Weekly teacher summary',
-          caption: 'Each teacher gets their own sections, follow-up list, and grading backlog in one email.'
-        },
-        {
-          src: '/Demo%20Images/Weekly%20Parent%20Update.png',
-          label: 'Weekly parent update',
-          caption: 'Parents see every child\u2019s class, term average, attendance, and what is coming up next week.'
-        },
-        {
-          src: '/Demo%20Images/Monthly%20school%20Overview.png',
-          label: 'Monthly school overview',
-          caption: 'Sent on the 1st of the month with enrollment, attendance, billing, and department-level breakdowns.'
-        },
-        {
-          src: '/Demo%20Images/weekly%20Hub%20Overview.png',
-          label: 'Weekly hub overview',
-          caption: 'Hub directors see every member school side-by-side with totals and status flags.'
-        }
-      ]
+  const tourSections = (typeof sections !== 'undefined' && Array.isArray(sections) ? sections : []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description || '',
+    features: s.features.map((f) => ({
+      id: f.id,
+      title: f.title,
+      tag: f.category || '',
+      summary: f.summary || '',
+      screens: f.screens.map((sc) => ({
+        label: sc.label || '',
+        caption: sc.caption || '',
+        media: sc.media.map((m) => ({ label: m.label || (m.media_type === 'html' ? 'Interactive' : ''), type: m.media_type, url: m.file_url, w: m.media_width || null, h: m.media_height || null, poster: m.poster_url || null })),
+      })),
+    })),
+  }));
+  const allFeatures = tourSections.flatMap((s) => s.features);
+  const coverOf = (f) => {
+    for (const sc of f.screens) {
+      const m = sc.media.find((x) => x.type === 'image' || (x.type === 'html' && x.poster));
+      if (m) return { media: { url: m.type === 'html' ? m.poster : m.url }, screen: sc };
     }
-  ];
-  const featuredDemo = demoPages[0];
-  const platformPoints = [
-    {
-      title: 'All in one platform',
-      text: 'Admissions, academics, reporting, and records - unified in one complete system so nothing falls through the cracks.'
-    },
-    {
-      title: 'Built for everyone',
-      text: 'Designed for school administrators, teaching staff, families, and the wider community who interact with the school every day.'
-    }
-  ];
+    return null;
+  };
+  const screenCount = allFeatures.reduce((n, f) => n + f.screens.length, 0);
+  const heroFeature = allFeatures.find(coverOf);
+  const hero = heroFeature ? coverOf(heroFeature) : null;
+  const pad = (n) => String(n).padStart(2, '0');
+  const tourJson = JSON.stringify(tourSections).replace(/</g, '\\u003c');
 %>
+<link rel="stylesheet" href="<%= assetUrl('/css/appDemo.css') %>" />
 
-<section class="app-demo-page">
-  <div class="app-demo-orb app-demo-orb--left"></div>
-  <div class="app-demo-orb app-demo-orb--right"></div>
+<div class="tour" data-no-spa>
+  <div class="tour-nav">
+    <a class="tour-nav__brand" href="/">
+      <img src="/images/managira-logo-sm.png" alt="" width="26" height="26" />
+      <span>Managira</span>
+      <span class="tour-nav__divider" aria-hidden="true"></span>
+      <span class="tour-nav__section">Product tour</span>
+    </a>
+    <nav class="tour-nav__links" aria-label="Product tour">
+      <a class="tour-nav__link" href="/legal/user-documentation">Documentation</a>
+      <a class="tour-btn tour-btn--ghost tour-btn--sm" href="/account/service-plan">View plans</a>
+      <a class="tour-btn tour-btn--primary tour-btn--sm" href="/legal/request-demo">Book a live demo</a>
+    </nav>
+  </div>
 
-  <div class="app-demo-shell">
-    <section class="app-demo-hero">
-      <div class="app-demo-hero__copy">
-        <p class="app-demo-kicker">Managira Platform Tour</p>
-        <h1>Explore the features that help your school operate at a higher level.</h1>
+  <section class="tour-hero">
+    <div class="tour-hero__copy">
+      <span class="tour-eyebrow"><span class="tour-eyebrow__dot" aria-hidden="true"></span>Interactive product tour</span>
+      <h1>See how Managira runs a school, <span>one screen at a time.</span></h1>
+      <p class="tour-lead">
+        A guided walkthrough for everyone in the school community: the team that runs it, the parents
+        who follow along, and the students who learn there. Pick a feature and follow the steps.
+      </p>
+      <div class="tour-hero__actions">
+        <% if (allFeatures.length) { %>
+          <button type="button" class="tour-btn tour-btn--primary tour-btn--lg" data-tour-start>
+            Start the tour
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" /></svg>
+          </button>
+          <a class="tour-btn tour-btn--ghost tour-btn--lg" href="#tour-features">Browse features</a>
+        <% } else { %>
+          <a class="tour-btn tour-btn--primary tour-btn--lg" href="/legal/request-demo">Book a live demo</a>
+        <% } %>
+      </div>
+      <% if (allFeatures.length) { %>
+        <dl class="tour-stats">
+          <div><dt>Sections</dt><dd><%= tourSections.length %></dd></div>
+          <div><dt>Features</dt><dd><%= allFeatures.length %></dd></div>
+          <div><dt>Screens</dt><dd><%= screenCount %></dd></div>
+        </dl>
+      <% } %>
+    </div>
 
-        <div class="app-demo-highlights" aria-label="Managira platform highlights">
-          <% platformPoints.forEach((point) => { %>
-            <article>
-              <strong><%= point.title %></strong>
-              <span><%= point.text %></span>
-            </article>
+    <% if (hero) { %>
+      <a class="tour-hero__visual" href="#feature-<%= heroFeature.id %>" data-tour-card="<%= heroFeature.id %>" aria-label="Open <%= heroFeature.title %>">
+        <div class="tour-frame">
+          <div class="tour-frame__chrome" aria-hidden="true"><i></i><i></i><i></i><span>managira.com</span></div>
+          <div class="tour-frame__screen">
+            <img src="<%= hero.media.url %>" alt="<%= heroFeature.title %>" decoding="async" fetchpriority="high" />
+          </div>
+        </div>
+        <div class="tour-hero__note">
+          <span class="tour-hero__note-step">Step 1</span>
+          <strong><%= hero.screen.label || heroFeature.title %></strong>
+          <span><%= hero.screen.caption || heroFeature.summary %></span>
+        </div>
+      </a>
+    <% } %>
+  </section>
+
+  <% if (allFeatures.length) { %>
+    <section class="tour-how" aria-label="How the tour works">
+      <ol>
+        <li>
+          <span class="tour-how__num">01</span>
+          <div><strong>Choose a feature</strong><p>Features are grouped by who uses them: school management, parents, students and Mira.</p></div>
+        </li>
+        <li>
+          <span class="tour-how__num">02</span>
+          <div><strong>Follow the steps</strong><p>Every screen comes with a short explanation. Use Next, the arrow keys, or swipe.</p></div>
+        </li>
+        <li>
+          <span class="tour-how__num">03</span>
+          <div><strong>Look closer</strong><p>Zoom in, switch between light and dark versions, or hide the steps to focus.</p></div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="tour-library" id="tour-features">
+      <div class="tour-library__head">
+        <h2>Explore the platform</h2>
+        <p>One connected system for everyone in the school. Choose a section, then open any feature.</p>
+      </div>
+
+      <% if (tourSections.length > 1) { %>
+        <div class="tour-tabs" role="tablist" aria-label="Sections">
+          <button type="button" class="tour-tab is-active" role="tab" aria-selected="true" data-tour-filter="">
+            All <span><%= allFeatures.length %></span>
+          </button>
+          <% tourSections.forEach((s) => { %>
+            <button type="button" class="tour-tab" role="tab" aria-selected="false" data-tour-filter="<%= s.id %>">
+              <%= s.name %> <span><%= s.features.length %></span>
+            </button>
           <% }) %>
         </div>
+      <% } %>
 
-        <div class="app-demo-actions">
-          <button type="button" class="app-demo-primary" data-open-demo="0">Start Tour</button>
-        </div>
-      </div>
+      <% tourSections.forEach((s, si) => { %>
+        <section class="tour-section" data-tour-section="<%= s.id %>" aria-labelledby="tour-section-<%= si %>">
+          <div class="tour-section__head">
+            <span class="tour-section__num"><%= pad(si + 1) %></span>
+            <div>
+              <h3 id="tour-section-<%= si %>"><%= s.name %></h3>
+              <% if (s.description) { %><p><%= s.description %></p><% } %>
+            </div>
+            <span class="tour-section__count"><%= s.features.length %> <%= s.features.length === 1 ? 'feature' : 'features' %></span>
+          </div>
 
-      <div class="app-demo-hero__logo-panel">
-        <img src="/images/managira.png" alt="Managira logo" class="app-demo-hero__logo-panel-image" />
-        <div class="app-demo-hero__logo-panel-copy">
-          <span>Managira</span>
-          <strong>Interactive Platform Demo</strong>
-        </div>
-      </div>
-    </section>
-
-    <section class="app-demo-gallery">
-      <div class="app-demo-section-heading">
-        <div>
-          <p class="app-demo-kicker">Explore the platform</p>
-          <h2>Open any screen and navigate through the product at your own pace.</h2>
-        </div>
-      </div>
-
-      <div id="app-demo-grid" class="app-demo-grid">
-        <% demoPages.forEach((page, index) => { %>
-          <button
-            type="button"
-            class="app-demo-card"
-            data-demo-index="<%= index %>"
-            data-demo-title="<%- page.title %>"
-            data-demo-tagline="<%- page.tagline %>"
-            data-demo-description="<%- page.description %>"
-            data-demo-image="<%- page.image %>"
-            data-demo-type="<%- page.mediaType %>"
-            data-demo-accent="<%- page.accent %>"
-            aria-label="Open <%= page.title %> preview"
-          >
-            <span class="app-demo-card__glow" style="--card-accent: <%= page.accent %>"></span>
-            <div class="app-demo-card__media">
-              <% if (page.mediaType === 'pdf') { %>
-                <div class="app-demo-card__file-preview">
-                  <span class="app-demo-file-badge">PDF</span>
-                  <strong><%= page.title %></strong>
-                  <p>Official academic record</p>
+          <div class="tour-grid">
+            <% s.features.forEach((f, i) => { const cover = coverOf(f); %>
+              <a class="tour-card" href="#feature-<%= f.id %>" data-tour-card="<%= f.id %>">
+                <div class="tour-card__media">
+                  <% if (cover) { %>
+                    <img src="<%= cover.media.url %>" alt="" loading="<%= si === 0 && i < 6 ? 'eager' : 'lazy' %>" decoding="async" />
+                  <% } else { %>
+                    <div class="tour-card__doc" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>
+                      <span>PDF document</span>
+                    </div>
+                  <% } %>
+                  <span class="tour-card__count"><%= f.screens.length %> <%= f.screens.length === 1 ? 'screen' : 'steps' %></span>
                 </div>
-              <% } else { %>
-                <img src="<%= page.image %>" alt="<%= page.title %> preview" loading="lazy" decoding="async" />
-                <% if (page.mediaType === 'gallery' && Array.isArray(page.images)) { %>
-                  <span class="app-demo-card__count-badge"><%= page.images.length %> screens · swipe</span>
-                <% } %>
-              <% } %>
-            </div>
-            <div class="app-demo-card__body">
-              <div class="app-demo-card__meta">
-                <span><%= String(index + 1).padStart(2, '0') %></span>
-                <span><%= page.tagline %></span>
-              </div>
-              <h3><%= page.title %></h3>
-              <p><%= page.description %></p>
-            </div>
-          </button>
-        <% }) %>
-      </div>
+                <div class="tour-card__body">
+                  <% if (f.tag) { %><span class="tour-card__cat"><%= f.tag %></span><% } %>
+                  <h4><%= f.title %></h4>
+                  <p><%= f.summary %></p>
+                  <span class="tour-card__go">
+                    Open tour
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" /></svg>
+                  </span>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+        </section>
+      <% }) %>
     </section>
+  <% } else { %>
+    <section class="tour-empty">
+      <h2>The tour is being refreshed</h2>
+      <p>New screens are on the way. In the meantime, our team can walk you through the platform live.</p>
+    </section>
+  <% } %>
 
-    <section class="app-demo-platform-info" aria-label="Why schools use Managira">
-      <p class="app-demo-kicker">Why Managira</p>
-      <h2>A complete management platform built specifically for your school.</h2>
-      <p>
-        The features above represent just a portion of what Managira offers. The platform comes with many more tools designed to support the full range of daily school operations - across administration, academics, reporting, and communication.
-      </p>
-      <p>
-        Managira helps schools manage student records, classroom activity, assessments, report generation, and official documentation within one professional system. It gives school leaders, teaching staff, families, and the wider school community a more connected and efficient way to work together.
-      </p>
-      <a href="https://managira.com/account/service-plan" class="app-demo-primary app-demo-platform-info__cta">
-        <span>View Plans</span>
-        <span aria-hidden="true">↗</span>
-      </a>
-    </section>
+  <section class="tour-cta">
+    <div>
+      <h2>See it with your own school.</h2>
+      <p>Book a live session and we will walk your team through Managira using your classes, fees and reports.</p>
+    </div>
+    <div class="tour-cta__actions">
+      <a class="tour-btn tour-btn--light tour-btn--lg" href="/legal/request-demo">Book a live demo</a>
+      <a class="tour-btn tour-btn--outline-light tour-btn--lg" href="/account/service-plan">View plans</a>
+    </div>
+  </section>
+
+  <div class="tour-foot">
+    <span>&copy; <%= new Date().getFullYear() %> Managira</span>
+    <nav aria-label="Legal">
+      <a href="/legal/help">Help</a>
+      <a href="/legal/privacy-policy">Privacy</a>
+      <a href="/legal/terms-of-service">Terms</a>
+    </nav>
   </div>
-</section>
+</div>
 
-<div class="app-demo-modal" data-demo-modal hidden aria-hidden="true">
-  <div class="app-demo-modal__scrim" data-demo-close></div>
-  <div class="app-demo-modal__panel" role="dialog" aria-modal="true" aria-labelledby="app-demo-modal-title">
-    <div class="app-demo-modal__topbar">
-      <div>
-        <p class="app-demo-modal__eyebrow">App Demo</p>
-        <span id="app-demo-modal-count" class="app-demo-modal__count"></span>
+<div class="tv" data-tour-viewer hidden>
+  <div class="tv__panel" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="tv-title">
+    <div class="tv__bar">
+      <div class="tv__heading">
+        <span class="tv__cat" data-tv="section"></span>
+        <h2 class="tv__title" id="tv-title" data-tv="title"></h2>
+        <span class="tv__pos" data-tv="position"></span>
       </div>
-      <div class="app-demo-modal__topbar-actions">
-        <button type="button" class="app-demo-icon-btn" data-demo-expand aria-label="Expand app demo" title="Expand preview">&#x26F6;</button>
-        <button type="button" class="app-demo-icon-btn" data-demo-close aria-label="Close app demo">&times;</button>
+      <div class="tv__tools">
+        <div class="tv__zoom" role="group" aria-label="Zoom">
+          <button type="button" class="tv__icon" data-tv-zoom="-1" aria-label="Zoom out"><svg viewBox="0 0 20 20"><path d="M5 10h10" /></svg></button>
+          <button type="button" class="tv__zoom-label" data-tv-zoom="0" title="Reset zoom" data-tv="zoom">100%</button>
+          <button type="button" class="tv__icon" data-tv-zoom="1" aria-label="Zoom in"><svg viewBox="0 0 20 20"><path d="M5 10h10M10 5v10" /></svg></button>
+        </div>
+        <button type="button" class="tv__icon tv__icon--wide" data-tv-focus aria-label="Hide steps" title="Focus mode">
+          <svg viewBox="0 0 20 20"><path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4" /></svg>
+        </button>
+        <button type="button" class="tv__icon tv__icon--close" data-tv-close aria-label="Close tour">
+          <svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15" /></svg>
+        </button>
       </div>
     </div>
 
-    <div class="app-demo-modal__header">
-      <div>
-        <p id="app-demo-modal-tagline" class="app-demo-modal__tagline"></p>
-        <h2 id="app-demo-modal-title"></h2>
-        <p id="app-demo-modal-description" class="app-demo-modal__description"></p>
-      </div>
-    </div>
+    <div class="tv__body">
+      <aside class="tv__rail">
+        <p class="tv__summary" data-tv="summary"></p>
+        <p class="tv__rail-label">Steps</p>
+        <ol class="tv__steps" data-tv="steps"></ol>
+      </aside>
 
-    <div class="app-demo-gallery-caption-inline" id="app-demo-gallery-caption-inline">
-      <strong id="app-demo-gallery-label-inline"></strong>
-      <span id="app-demo-gallery-text-inline"></span>
-    </div>
-
-    <div class="app-demo-modal__viewer" id="app-demo-viewer">
-      <div class="app-demo-modal__canvas" id="app-demo-canvas">
-        <img id="app-demo-modal-image" src="" alt="" />
-        <div id="app-demo-modal-document" class="app-demo-modal__document" hidden>
-          <div id="app-demo-pdf-pages" class="app-demo-pdf-pages"></div>
-          <p class="app-demo-modal__document-note">
-            Trouble loading?
-            <a id="app-demo-modal-pdf-link" href="#" target="_blank" rel="noopener">open the file directly</a>.
-          </p>
+      <div class="tv__stage" data-tv="stage">
+        <div class="tv__frame">
+          <div class="tour-frame__chrome">
+            <i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i>
+            <span data-tv="crumb" aria-hidden="true">managira.com</span>
+            <div class="tv__versions" data-tv="versions" role="group" aria-label="Version" hidden></div>
+          </div>
+          <div class="tv__canvas" data-tv="canvas">
+            <img data-tv="image" alt="" />
+            <iframe class="tv__live" data-tv="live" title="Interactive preview" hidden></iframe>
+            <div class="tv__pdf" data-tv="pdf" hidden></div>
+          </div>
         </div>
       </div>
-      <div class="app-demo-gallery-overlay" id="app-demo-gallery-overlay" hidden>
-        <button type="button" class="app-demo-gallery-chevron app-demo-gallery-chevron--prev" data-demo-gallery="prev" aria-label="Previous report">&#8249;</button>
-        <button type="button" class="app-demo-gallery-chevron app-demo-gallery-chevron--next" data-demo-gallery="next" aria-label="Next report">&#8250;</button>
-        <div class="app-demo-gallery-caption">
-          <strong id="app-demo-gallery-label"></strong>
-          <span id="app-demo-gallery-text"></span>
-        </div>
-      </div>
     </div>
 
-    <div class="app-demo-gallery-dots-bar" id="app-demo-gallery-dots-bar" hidden>
-      <div class="app-demo-gallery-dots" id="app-demo-gallery-dots" role="tablist" aria-label="Report screens"></div>
-    </div>
-
-    <div class="app-demo-modal__toolbar">
-      <div class="app-demo-zoom-controls" aria-label="Zoom controls">
-        <button type="button" class="app-demo-icon-btn" data-demo-zoom="out" aria-label="Zoom out">-</button>
-        <span id="app-demo-zoom-label">100%</span>
-        <button type="button" class="app-demo-icon-btn" data-demo-zoom="in" aria-label="Zoom in">+</button>
+    <div class="tv__foot">
+      <div class="tv__caption" data-tv="caption">
+        <strong data-tv="caption-label"></strong>
+        <span data-tv="caption-text"></span>
       </div>
-
-      <div class="app-demo-nav-controls" aria-label="Page navigation">
-        <button type="button" class="app-demo-nav-btn" data-demo-prev>Previous</button>
-        <button type="button" class="app-demo-nav-btn app-demo-nav-btn--solid" data-demo-next>Next</button>
+      <div class="tv__progress" data-tv="progress" aria-hidden="true"></div>
+      <div class="tv__nav">
+        <button type="button" class="tour-btn tour-btn--ghost" data-tv-prev>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13 4l-6 6 6 6" /></svg>
+          <span>Previous</span>
+        </button>
+        <span class="tv__count" data-tv="count"></span>
+        <button type="button" class="tour-btn tour-btn--primary" data-tv-next>
+          <span data-tv="next-label">Next step</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" /></svg>
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<script id="app-demo-data" type="application/json"><%- JSON.stringify(demoPages) %></script>
-
-<style>
-  .app-demo-page {
-    position: relative;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
-      radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 30%),
-      linear-gradient(180deg, #f7f8f4 0%, #eef2f6 52%, #ffffff 100%);
-    color: #0f172a;
-  }
-
-  .app-demo-shell {
-    position: relative;
-    z-index: 1;
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 48px 20px 64px;
-  }
-
-  .app-demo-orb {
-    position: absolute;
-    border-radius: 999px;
-    filter: blur(10px);
-    opacity: 0.8;
-    pointer-events: none;
-  }
-
-  .app-demo-orb--left {
-    width: 240px;
-    height: 240px;
-    left: -80px;
-    top: 120px;
-    background: radial-gradient(circle, rgba(15, 118, 110, 0.26), rgba(15, 118, 110, 0));
-  }
-
-  .app-demo-orb--right {
-    width: 280px;
-    height: 280px;
-    right: -70px;
-    top: 320px;
-    background: radial-gradient(circle, rgba(217, 119, 6, 0.2), rgba(217, 119, 6, 0));
-  }
-
-  .app-demo-hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-    gap: 24px;
-    align-items: center;
-    margin-bottom: 32px;
-  }
-
-  .app-demo-hero__copy {
-    width: min(100%, 780px);
-    margin: 0 auto 0 0;
-  }
-
-  .app-demo-kicker,
-  .app-demo-modal__eyebrow,
-  .app-demo-modal__tagline {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 11px;
-    font-weight: 700;
-    color: #0f766e;
-  }
-
-  .app-demo-hero h1 {
-    margin: 10px 0 12px;
-    max-width: 14ch;
-    font-size: clamp(1.8rem, 3.4vw, 2.8rem);
-    line-height: 1.05;
-    letter-spacing: -0.04em;
-    text-align: left;
-  }
-
-  .app-demo-hero__copy > p {
-    font-size: 0.95rem;
-    line-height: 1.65;
-    color: #475569;
-  }
-
-  .app-demo-hero__logo-panel {
-    display: grid;
-    place-items: center;
-    gap: 18px;
-    position: relative;
-    isolation: isolate;
-    min-height: 100%;
-    padding: 42px 28px;
-    border-radius: 24px;
-    background:
-      radial-gradient(circle at 50% 42%, rgba(14, 165, 233, 0.12), transparent 42%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(241, 245, 249, 0.88) 100%);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
-    text-align: center;
-    overflow: hidden;
-  }
-
-  .app-demo-hero__logo-panel::before,
-  .app-demo-hero__logo-panel::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .app-demo-hero__logo-panel::before {
-    background:
-      radial-gradient(128% 82% at 18% 20%, rgba(34, 211, 238, 0.24), transparent 38%),
-      radial-gradient(104% 72% at 84% 16%, rgba(59, 130, 246, 0.24), transparent 40%),
-      radial-gradient(94% 70% at 32% 84%, rgba(14, 165, 233, 0.18), transparent 42%),
-      conic-gradient(from 216deg at 24% 40%, transparent 0deg 28deg, rgba(56, 189, 248, 0.18) 28deg 54deg, transparent 54deg 360deg),
-      conic-gradient(from 20deg at 76% 58%, transparent 0deg 22deg, rgba(45, 212, 191, 0.18) 22deg 46deg, transparent 46deg 360deg),
-      conic-gradient(from 160deg at 58% 28%, transparent 0deg 32deg, rgba(96, 165, 250, 0.14) 32deg 50deg, transparent 50deg 360deg);
-    opacity: 0.96;
-    transform: scale(1.03);
-    filter: blur(1.5px);
-    animation: app-demo-hero-bg-drift 14s ease-in-out infinite alternate;
-  }
-
-  @keyframes app-demo-hero-bg-drift {
-    0%   { transform: scale(1.03) translate3d(0, 0, 0); }
-    50%  { transform: scale(1.06) translate3d(-1.2%, 0.8%, 0); }
-    100% { transform: scale(1.03) translate3d(1.2%, -0.6%, 0); }
-  }
-
-  .app-demo-hero__logo-panel::after {
-    background:
-      radial-gradient(74% 24% at 50% 16%, rgba(255, 255, 255, 0.76), transparent 64%),
-      radial-gradient(42% 58% at 22% 44%, rgba(125, 211, 252, 0.2), transparent 70%),
-      radial-gradient(48% 60% at 80% 58%, rgba(59, 130, 246, 0.18), transparent 72%),
-      radial-gradient(40% 48% at 58% 74%, rgba(45, 212, 191, 0.12), transparent 76%);
-    mix-blend-mode: screen;
-    animation: app-demo-electric-pulse 4.8s ease-in-out infinite;
-  }
-
-  .app-demo-hero__logo-panel > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .app-demo-hero__logo-panel-image {
-    display: block;
-    width: min(100%, 360px);
-    height: auto;
-    object-fit: contain;
-    transform-origin: center center;
-    will-change: transform;
-    animation: app-demo-hero-spin 2.6s ease-in-out infinite;
-  }
-
-  @keyframes app-demo-hero-spin {
-    0% { transform: rotate(-3deg); }
-    50% { transform: rotate(3deg); }
-    100% { transform: rotate(-3deg); }
-  }
-
-  .app-demo-hero__logo-panel-copy {
-    animation: app-demo-hero-float 4.8s ease-in-out infinite;
-  }
-
-  .app-demo-hero__logo-panel-copy span {
-    display: inline-block;
-    animation: app-demo-hero-text-shift 6.4s ease-in-out infinite;
-  }
-
-  .app-demo-hero__logo-panel-copy strong {
-    display: inline-block;
-    animation: app-demo-hero-text-shift 6.4s ease-in-out infinite;
-    animation-delay: 0.4s;
-  }
-
-  @keyframes app-demo-hero-float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
-  }
-
-  @keyframes app-demo-hero-text-shift {
-    0%, 100% { transform: translateY(0); letter-spacing: inherit; }
-    50% { transform: translateY(-2px); letter-spacing: 0.02em; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .app-demo-hero__logo-panel::before,
-    .app-demo-hero__logo-panel-image,
-    .app-demo-hero__logo-panel-copy,
-    .app-demo-hero__logo-panel-copy span,
-    .app-demo-hero__logo-panel-copy strong {
-      animation: none;
-    }
-  }
-
-  .app-demo-hero__logo-panel-copy {
-    display: grid;
-    gap: 6px;
-  }
-
-  .app-demo-hero__logo-panel-copy span {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: #0f766e;
-  }
-
-  .app-demo-hero__logo-panel-copy strong {
-    font-size: clamp(1.35rem, 2.4vw, 1.8rem);
-    letter-spacing: -0.04em;
-    color: #0f172a;
-  }
-
-  .app-demo-highlights {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    margin: 28px 0;
-  }
-
-  .app-demo-highlights article,
-  .app-demo-platform-info,
-  .app-demo-modal__panel {
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
-    backdrop-filter: blur(12px);
-  }
-
-  .app-demo-highlights article {
-    padding: 18px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.72);
-  }
-
-  .app-demo-highlights strong {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 0.98rem;
-  }
-
-  .app-demo-highlights span {
-    color: #64748b;
-    font-size: 0.84rem;
-    line-height: 1.6;
-  }
-
-  .app-demo-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-  }
-
-  .app-demo-primary,
-  .app-demo-secondary,
-  .app-demo-nav-btn,
-  .app-demo-icon-btn,
-  .app-demo-card {
-    font: inherit;
-  }
-
-  .app-demo-primary,
-  .app-demo-secondary,
-  .app-demo-nav-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    padding: 0 16px;
-    border-radius: 999px;
-    text-decoration: none;
-    transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-  }
-
-  .app-demo-primary {
-    border: none;
-    color: #ffffff;
-    background: linear-gradient(135deg, #0f766e, #0f172a);
-    box-shadow: 0 14px 30px rgba(15, 118, 110, 0.28);
-  }
-
-  .app-demo-secondary,
-  .app-demo-nav-btn {
-    border: 1px solid rgba(15, 23, 42, 0.14);
-    background: rgba(255, 255, 255, 0.72);
-    color: #0f172a;
-  }
-
-  .app-demo-nav-btn--solid {
-    border-color: transparent;
-    background: #0f172a;
-    color: #ffffff;
-  }
-
-  .app-demo-primary:hover,
-  .app-demo-secondary:hover,
-  .app-demo-nav-btn:hover,
-  .app-demo-icon-btn:hover {
-    transform: translateY(-2px);
-  }
-  .app-demo-card__file-preview {
-    display: grid;
-    place-items: center;
-    text-align: center;
-    gap: 10px;
-    min-height: 100%;
-    padding: 26px 22px;
-    aspect-ratio: 16 / 10;
-    background: linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
-    border: 1px solid rgba(15, 23, 42, 0.06);
-    border-radius: 10px;
-  }
-
-  .app-demo-file-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 56px;
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 999px;
-    background: #0f172a;
-    color: #ffffff;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-  }
-
-  .app-demo-card__file-preview strong {
-    font-size: 1rem;
-    letter-spacing: -0.02em;
-    color: #0f172a;
-  }
-
-  .app-demo-card__file-preview p {
-    margin: 0;
-    max-width: 28ch;
-    color: #475569;
-    line-height: 1.6;
-  }
-
-  .app-demo-platform-info p,
-  .app-demo-note,
-  .app-demo-card p,
-  .app-demo-modal__description,
-  .app-demo-modal__count {
-    color: #64748b;
-  }
-
-  .app-demo-section-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-    align-items: end;
-    margin-bottom: 22px;
-  }
-
-  .app-demo-section-heading h2 {
-    margin: 8px 0 0;
-    font-size: clamp(1.25rem, 2vw, 1.7rem);
-    letter-spacing: -0.02em;
-  }
-
-  .app-demo-note {
-    max-width: 34ch;
-    margin: 0;
-    line-height: 1.7;
-  }
-
-  .app-demo-platform-info {
-    display: block;
-    margin-top: 34px;
-    padding: 28px;
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.82);
-  }
-
-  .app-demo-platform-info h2 {
-    margin: 8px 0 12px;
-    font-size: clamp(1.3rem, 2.2vw, 1.85rem);
-    letter-spacing: -0.02em;
-  }
-
-  .app-demo-platform-info p {
-    margin: 0;
-    line-height: 1.65;
-    font-size: 0.93rem;
-  }
-
-  .app-demo-platform-info p + p {
-    margin-top: 14px;
-  }
-
-  .app-demo-platform-info__cta {
-    margin-top: 20px;
-    width: fit-content;
-    max-width: 100%;
-    gap: 10px;
-    padding: 0 18px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
-
-  .app-demo-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-  }
-
-  .app-demo-card {
-    position: relative;
-    overflow: hidden;
-    appearance: none;
-    -webkit-appearance: none;
-    padding: 0;
-    border-radius: 16px;
-    border: 1px solid rgba(15, 23, 42, 0.09);
-    background: #ffffff;
-    background-color: #ffffff;
-    background-image: none;
-    color: inherit;
-    cursor: pointer;
-    text-align: left;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 16px rgba(15, 23, 42, 0.05);
-    transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                box-shadow 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                border-color 240ms ease;
-  }
-
-  .app-demo-card::before {
-    content: none;
-  }
-
-  .app-demo-card:hover,
-  .app-demo-card:active {
-    transform: translateY(-4px);
-    border-color: rgba(15, 23, 42, 0.13);
-    background: #ffffff;
-    background-color: #ffffff;
-    color: inherit;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06),
-                0 20px 44px rgba(15, 23, 42, 0.10);
-  }
-
-  .app-demo-card:focus-visible {
-    outline: 2px solid #0f766e;
-    outline-offset: 3px;
-  }
-
-  .app-demo-card__glow {
-    display: none;
-  }
-
-  .app-demo-card__media {
-    position: relative;
-    padding: 12px 12px 0;
-    overflow: hidden;
-  }
-
-  .app-demo-card__media img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 10;
-    object-fit: cover;
-    object-position: top center;
-    border-radius: 10px;
-    background: #f1f5f9;
-    border: 1px solid rgba(15, 23, 42, 0.06);
-    transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .app-demo-card:hover .app-demo-card__media img {
-    transform: scale(1.025);
-  }
-
-  .app-demo-card__body {
-    position: relative;
-    padding: 14px 16px 18px;
-  }
-
-  .app-demo-card__meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 6px;
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-weight: 700;
-    color: #64748b;
-  }
-
-  .app-demo-card__meta span:first-child {
-    color: #94a3b8;
-    letter-spacing: 0.08em;
-  }
-
-  .app-demo-card h3 {
-    margin: 0 0 6px;
-    font-size: 1rem;
-    line-height: 1.3;
-    letter-spacing: -0.02em;
-    color: #0f172a;
-    font-weight: 700;
-  }
-
-  .app-demo-card p,
-  .app-demo-modal__description {
-    margin: 0;
-    line-height: 1.55;
-    font-size: 0.84rem;
-    color: #64748b;
-  }
-
-  .app-demo-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1200;
-    display: grid;
-    place-items: stretch;
-    padding: 12px 80px;
-    /* Disable browser pinch / double-tap zoom inside the modal — use the +/- controls */
-    touch-action: pan-x pan-y;
-    -ms-touch-action: pan-x pan-y;
-  }
-
-  .app-demo-modal,
-  .app-demo-modal * {
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-  }
-  .app-demo-modal__viewer,
-  .app-demo-modal__viewer * {
-    touch-action: pan-x pan-y;
-  }
-
-  .app-demo-modal[hidden] {
-    display: none;
-  }
-
-  .app-demo-modal__scrim {
-    position: absolute;
-    inset: 0;
-    background: rgba(2, 6, 23, 0.7);
-    backdrop-filter: blur(10px);
-    animation: app-demo-fade-in 180ms ease;
-  }
-
-  .app-demo-modal__panel {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    max-height: 100%;
-    border-radius: 18px;
-    overflow: hidden;
-    background: rgba(248, 250, 252, 0.97);
-    animation: app-demo-rise-in 220ms ease;
-  }
-
-  .app-demo-modal__topbar,
-  .app-demo-modal__header {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 18px;
-    flex-shrink: 0;
-  }
-
-  .app-demo-modal__header { padding: 10px 22px 12px; }
-
-  .app-demo-modal__topbar {
-    align-items: start;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
-  }
-
-  .app-demo-modal__topbar-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .app-demo-modal__header {
-    align-items: end;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  }
-
-  .app-demo-modal__header h2 {
-    margin: 4px 0 6px;
-    font-size: clamp(1.35rem, 2.3vw, 1.95rem);
-    letter-spacing: -0.04em;
-  }
-
-  .app-demo-modal__header p:first-child {
-    margin-top: 0;
-  }
-
-  .app-demo-modal__toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px 10px;
-    border-top: 1px solid rgba(148, 163, 184, 0.18);
-    background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
-    overflow: hidden;
-  }
-
-  .app-demo-zoom-controls,
-  .app-demo-nav-controls {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.86);
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    flex: 0 0 auto;
-    font-size: 12px;
-  }
-
-  .app-demo-nav-btn {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 12px;
-  }
-
-  .app-demo-icon-btn {
-    display: inline-grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    font-size: 13px;
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    border-radius: 999px;
-    background: #ffffff;
-    color: #0f172a;
-    cursor: pointer;
-    transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
-  }
-
-  .app-demo-modal__viewer {
-    position: relative;
-    isolation: isolate;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    background:
-      radial-gradient(circle at 12% 18%, rgba(34, 211, 238, 0.12), transparent 22%),
-      radial-gradient(circle at 84% 22%, rgba(59, 130, 246, 0.12), transparent 24%),
-      linear-gradient(180deg, #edf4fb 0%, #dfe7ef 100%);
-    padding: 10px 6px 14px;
-    scrollbar-width: thin;
-  }
-
-  .app-demo-modal__panel--zoomed .app-demo-modal__viewer {
-    overflow-x: auto;
-  }
-
-  .app-demo-modal__viewer::-webkit-scrollbar { width: 8px; height: 8px; }
-  .app-demo-modal__viewer::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.25); border-radius: 999px; }
-  .app-demo-modal__viewer::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,0.4); }
-  .app-demo-modal__viewer::-webkit-scrollbar-track { background: transparent; }
-
-  .app-demo-modal__panel--viewer-expanded .app-demo-modal__header {
-    display: none;
-  }
-
-  .app-demo-modal__panel--viewer-expanded .app-demo-modal__viewer {
-    padding: 18px 22px 22px;
-  }
-
-  .app-demo-modal__panel--viewer-expanded .app-demo-modal__document iframe {
-    min-height: calc(min(96vh, 980px) - 148px);
-  }
-
-  .app-demo-modal__viewer::before,
-  .app-demo-modal__viewer::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .app-demo-modal__viewer::before {
-    background:
-      radial-gradient(120% 74% at 14% 20%, rgba(34, 211, 238, 0.12), transparent 38%),
-      radial-gradient(94% 62% at 82% 18%, rgba(59, 130, 246, 0.12), transparent 40%),
-      conic-gradient(from 212deg at 22% 38%, transparent 0deg 30deg, rgba(56, 189, 248, 0.12) 30deg 54deg, transparent 54deg 360deg),
-      conic-gradient(from 26deg at 78% 62%, transparent 0deg 24deg, rgba(45, 212, 191, 0.1) 24deg 44deg, transparent 44deg 360deg);
-    opacity: 0.95;
-    filter: blur(1.2px);
-  }
-
-  .app-demo-modal__viewer::after {
-    background:
-      radial-gradient(48% 42% at 26% 62%, rgba(125, 211, 252, 0.12), transparent 72%),
-      radial-gradient(42% 38% at 74% 54%, rgba(96, 165, 250, 0.12), transparent 72%);
-    mix-blend-mode: screen;
-    animation: app-demo-electric-pulse 5.6s ease-in-out infinite;
-  }
-
-  .app-demo-modal__canvas {
-    position: relative;
-    z-index: 1;
-    width: calc(var(--app-demo-base-width, 100%) * var(--app-demo-zoom, 1));
-    max-width: none;
-    margin: 0 auto;
-    transform-origin: top center;
-  }
-
-  .app-demo-modal__canvas img {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-width: 100%;
-    margin: 0 auto;
-    border-radius: 14px;
-    box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
-    background: #ffffff;
-  }
-
-  .app-demo-modal__document {
-    width: calc(var(--app-demo-base-width, 1024px) * var(--app-demo-zoom, 1));
-    margin: 0 auto;
-  }
-
-  .app-demo-pdf-pages {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .app-demo-pdf-pages canvas {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-width: 100%;
-    border-radius: 12px;
-    background: #ffffff;
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
-  }
-
-  .app-demo-pdf-loading {
-    margin: 24px 0;
-    text-align: center;
-    color: #475569;
-    font-size: 13px;
-  }
-
-  .app-demo-modal__document iframe {
-    display: block;
-    width: 100%;
-    min-height: 78vh;
-    border: 0;
-    border-radius: 16px;
-    background: #ffffff;
-    box-shadow: 0 32px 90px rgba(15, 23, 42, 0.18);
-  }
-
-  .app-demo-modal__document-note {
-    margin: 14px 0 0;
-    text-align: center;
-    color: #475569;
-    line-height: 1.7;
-  }
-
-  .app-demo-modal__document-note a {
-    color: #0f766e;
-    font-weight: 700;
-  }
-
-  .app-demo-modal-open {
-    overflow: hidden;
-  }
-
-  @keyframes app-demo-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes app-demo-rise-in {
-    from {
-      opacity: 0;
-      transform: translateY(18px) scale(0.985);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @keyframes app-demo-electric-pulse {
-    0%, 100% {
-      opacity: 0.58;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.03);
-    }
-  }
-
-  @media (max-width: 1080px) {
-    .app-demo-hero,
-    .app-demo-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .app-demo-hero {
-      align-items: start;
-    }
-
-    .app-demo-hero__logo-panel {
-      padding: 34px 24px;
-    }
-
-    .app-demo-hero__logo-panel-image {
-      width: min(100%, 300px);
-    }
-
-    .app-demo-modal__viewer {
-      padding: 12px;
-    }
-
-    .app-demo-modal {
-      padding: 12px 24px;
-    }
-
-  }
-
-  @media (min-width: 781px) {
-    /* On large screens the caption is viewport-fixed so it never drifts when
-       the viewer scrolls or the page scrolls behind the modal. bottom/right
-       are set by JS (pinCaption) based on the viewer's bounding rect. */
-    .app-demo-gallery-caption {
-      position: fixed;
-    }
-  }
-
-  @media (max-width: 780px) {
-    .app-demo-shell {
-      padding: 48px 16px 64px;
-    }
-
-    .app-demo-hero__logo-panel {
-      order: -1;
-      min-height: 0;
-      padding: 24px 18px;
-      gap: 12px;
-    }
-
-    .app-demo-hero__logo-panel-image {
-      width: min(100%, 190px);
-    }
-
-    .app-demo-hero__logo-panel-copy strong {
-      font-size: 1.2rem;
-    }
-
-    .app-demo-hero__logo-panel-copy span {
-      font-size: 0.7rem;
-    }
-
-    .app-demo-hero__copy {
-      width: 100%;
-      margin: 0;
-    }
-
-    .app-demo-hero,
-    .app-demo-grid,
-    .app-demo-highlights {
-      grid-template-columns: 1fr;
-    }
-
-    .app-demo-hero h1 {
-      max-width: 100%;
-      font-size: clamp(2.3rem, 13vw, 3.4rem);
-      text-align: left;
-    }
-
-    .app-demo-section-heading,
-    .app-demo-modal__header,
-    .app-demo-modal__topbar {
-      flex-direction: column;
-      align-items: start;
-    }
-
-    .app-demo-modal__toolbar {
-      width: 100%;
-      justify-content: space-between;
-      padding: 8px 10px 10px;
-    }
-
-    .app-demo-zoom-controls,
-    .app-demo-nav-controls {
-      width: auto;
-      justify-content: center;
-      flex-wrap: nowrap;
-    }
-
-    .app-demo-nav-btn {
-      min-height: 40px;
-      padding: 0 14px;
-    }
-
-    .app-demo-modal {
-      padding: 0;
-    }
-
-    .app-demo-modal__panel {
-      width: 100%;
-      height: 100%;
-      max-height: 100%;
-      border-radius: 0;
-    }
-
-    .app-demo-modal__viewer {
-      padding: 14px;
-    }
-
-    .app-demo-modal__canvas img,
-    .app-demo-modal__document {
-      width: calc(var(--app-demo-base-width, 1000px) * var(--app-demo-zoom, 1));
-    }
-
-    .app-demo-modal__document iframe {
-      width: 100%;
-    }
-
-    .app-demo-modal__document iframe {
-      min-height: 62vh;
-    }
-  }
-
-  @media (max-width: 520px) {
-    .app-demo-shell {
-      padding: 40px 14px 56px;
-    }
-
-    .app-demo-hero h1 {
-      font-size: clamp(2rem, 11vw, 2.7rem);
-    }
-
-    .app-demo-highlights article,
-    .app-demo-platform-info,
-    .app-demo-card__body {
-      padding-left: 16px;
-      padding-right: 16px;
-    }
-
-    .app-demo-card__media {
-      min-height: 132px;
-      padding: 10px 10px 0;
-    }
-
-    .app-demo-modal__header,
-    .app-demo-modal__topbar {
-      padding: 16px;
-    }
-
-    .app-demo-modal__toolbar {
-      padding: 10px;
-    }
-
-    .app-demo-icon-btn {
-      width: 30px;
-      height: 30px;
-      font-size: 0.92rem;
-    }
-
-    .app-demo-modal__topbar-actions {
-      gap: 6px;
-    }
-
-    .app-demo-zoom-controls,
-    .app-demo-nav-controls {
-      gap: 4px;
-      padding: 3px;
-    }
-
-    .app-demo-zoom-controls {
-      width: auto;
-      margin-right: auto;
-    }
-
-    .app-demo-nav-controls {
-      width: auto;
-      margin-left: auto;
-    }
-
-    #app-demo-zoom-label {
-      min-width: 42px;
-      text-align: center;
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: #475569;
-    }
-
-    .app-demo-nav-btn {
-      min-height: 34px;
-      padding: 0 12px;
-      font-size: 0.82rem;
-    }
-
-    .app-demo-modal__panel--viewer-expanded .app-demo-modal__viewer {
-      padding: 10px 10px 14px;
-    }
-
-    .app-demo-modal__panel--viewer-expanded .app-demo-modal__document iframe {
-      min-height: calc(94vh - 120px);
-    }
-
-    .app-demo-card h3 {
-      font-size: 1rem;
-    }
-
-    .app-demo-card p {
-      font-size: 0.84rem;
-    }
-  }
-
-  .app-demo-card__media {
-    position: relative;
-  }
-
-  .app-demo-card__count-badge {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-    background: rgba(15, 23, 42, 0.78);
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 4px 9px;
-    border-radius: 999px;
-    backdrop-filter: blur(4px);
-  }
-
-  .app-demo-gallery-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 4;
-  }
-
-  .app-demo-gallery-overlay > * {
-    pointer-events: auto;
-  }
-
-  .app-demo-gallery-caption {
-    position: absolute;
-    right: 18px;
-    bottom: 18px;
-    max-width: min(46%, 320px);
-    background: rgba(15, 23, 42, 0.78);
-    color: #f8fafc;
-    padding: 8px 12px;
-    border-radius: 10px;
-    text-align: left;
-    backdrop-filter: blur(6px);
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.25);
-  }
-
-  .app-demo-gallery-caption strong {
-    display: block;
-    font-size: 12px;
-    color: #ffffff;
-    margin-bottom: 2px;
-    letter-spacing: 0.02em;
-  }
-
-  .app-demo-gallery-caption span {
-    display: block;
-    font-size: 11px;
-    color: rgba(248, 250, 252, 0.85);
-    line-height: 1.4;
-  }
-
-  .app-demo-gallery-dots-bar {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 8px 12px;
-    border-top: 1px solid rgba(148, 163, 184, 0.18);
-    background: rgba(255, 255, 255, 0.6);
-    flex-shrink: 0;
-  }
-  .app-demo-gallery-dots-bar[hidden] { display: none; }
-
-  .app-demo-gallery-dots {
-    display: flex;
-    gap: 6px;
-  }
-
-  .app-demo-gallery-dots button {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(15, 23, 42, 0.35);
-    cursor: pointer;
-    padding: 0;
-    transition: background 0.2s ease, transform 0.2s ease;
-  }
-
-  .app-demo-gallery-dots button[aria-selected="true"] {
-    background: #0ea5e9;
-    transform: scale(1.3);
-  }
-
-  .app-demo-gallery-chevron {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(15, 23, 42, 0.55);
-    color: #ffffff;
-    font-size: 22px;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s ease, transform 0.2s ease;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
-  }
-
-  .app-demo-gallery-chevron:hover {
-    background: rgba(15, 23, 42, 0.85);
-    transform: translateY(-50%) scale(1.06);
-  }
-
-  .app-demo-gallery-chevron--prev { left: 14px; }
-  .app-demo-gallery-chevron--next { right: 14px; }
-
-  /* Gallery mode: image is fit-to-viewer at default zoom; scrollbars appear only when zoomed past the viewer */
-  .app-demo-modal__panel--gallery .app-demo-modal__viewer {
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding: 12px 12px 14px;
-  }
-
-  .app-demo-modal__panel--gallery.app-demo-modal__panel--zoomed .app-demo-modal__viewer {
-    overflow: auto;
-  }
-
-  .app-demo-modal__panel--gallery .app-demo-modal__canvas {
-    box-sizing: border-box;
-    width: 100% !important;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .app-demo-modal__panel--gallery.app-demo-modal__panel--zoomed .app-demo-modal__canvas {
-    min-width: calc(var(--app-demo-base-width, 100%) * var(--app-demo-gallery-zoom, 1));
-    min-height: calc(var(--app-demo-gallery-height, 70vh) * var(--app-demo-gallery-zoom, 1));
-  }
-
-  .app-demo-modal__panel--gallery .app-demo-modal__canvas img {
-    width: auto;
-    height: auto;
-    max-width: var(--app-demo-base-width, 100%);
-    max-height: var(--app-demo-gallery-height, 70vh);
-    object-fit: contain;
-    transform: scale(var(--app-demo-gallery-zoom, 1));
-    transform-origin: center center;
-    transition: transform 180ms ease, max-width 180ms ease, max-height 180ms ease;
-  }
-
-  /* Inline caption shown above the viewer on small screens (overlay caption hidden) */
-  .app-demo-gallery-caption-inline {
-    display: none;
-    margin: 0 0 10px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: #f8fafc;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
-  }
-  .app-demo-gallery-caption-inline strong {
-    display: block;
-    font-size: 12px;
-    color: #ffffff;
-    margin-bottom: 2px;
-    letter-spacing: 0.02em;
-  }
-  .app-demo-gallery-caption-inline span {
-    display: block;
-    font-size: 11.5px;
-    color: rgba(248, 250, 252, 0.88);
-    line-height: 1.45;
-  }
-
-  @media (max-width: 640px) {
-    .app-demo-gallery-chevron { width: 30px; height: 30px; font-size: 18px; }
-    .app-demo-gallery-chevron--prev { left: 4px; }
-    .app-demo-gallery-chevron--next { right: 4px; }
-    /* Hide absolute overlay caption on small screens; show inline caption above viewer instead */
-    .app-demo-modal__panel--gallery .app-demo-gallery-caption { display: none; }
-    .app-demo-modal__panel--gallery .app-demo-gallery-caption-inline { display: block; margin: 0 12px 10px; }
-    /* Tighter modal layout for phones */
-    .app-demo-modal__panel { border-radius: 14px; }
-    .app-demo-modal__topbar { padding: 8px 12px; }
-    .app-demo-modal__header { padding: 6px 12px 8px; }
-    .app-demo-modal__header h2 { font-size: 18px; line-height: 1.25; }
-    .app-demo-modal__description { font-size: 12.5px; line-height: 1.45; }
-    .app-demo-modal__panel--gallery .app-demo-modal__viewer { padding: 8px; }
-    .app-demo-modal__toolbar { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
-    .app-demo-zoom-controls, .app-demo-nav-controls { gap: 6px; }
-    .app-demo-nav-btn { padding: 6px 12px; font-size: 13px; }
-  }
-</style>
-
-<script>
-  (function () {
-    const dataNode = document.getElementById('app-demo-data');
-    const pages = dataNode ? JSON.parse(dataNode.textContent) : [];
-    const modal = document.querySelector('[data-demo-modal]');
-    const titleNode = document.getElementById('app-demo-modal-title');
-    const taglineNode = document.getElementById('app-demo-modal-tagline');
-    const descriptionNode = document.getElementById('app-demo-modal-description');
-    const countNode = document.getElementById('app-demo-modal-count');
-    const imageNode = document.getElementById('app-demo-modal-image');
-    const documentNode = document.getElementById('app-demo-modal-document');
-    const pdfPagesNode = document.getElementById('app-demo-pdf-pages');
-    const pdfLinkNode = document.getElementById('app-demo-modal-pdf-link');
-    const zoomLabel = document.getElementById('app-demo-zoom-label');
-    const panel = modal.querySelector('.app-demo-modal__panel');
-    const canvas = document.getElementById('app-demo-canvas');
-    const viewer = document.getElementById('app-demo-viewer');
-    const openButtons = document.querySelectorAll('[data-demo-index], [data-open-demo]');
-    const closeButtons = document.querySelectorAll('[data-demo-close]');
-    const nextButton = document.querySelector('[data-demo-next]');
-    const prevButton = document.querySelector('[data-demo-prev]');
-    const expandButton = document.querySelector('[data-demo-expand]');
-    const zoomButtons = document.querySelectorAll('[data-demo-zoom]');
-    const ZOOM_MIN = 30;
-    const ZOOM_MAX = 200;
-    const ZOOM_STEP = 5;
-    const GALLERY_ZOOM_DEFAULT = 100;
-    const ZOOM_DEFAULT_DESKTOP = 75;
-    const ZOOM_DEFAULT_SMALL = 85;
-    const SMALL_SCREEN_BREAKPOINT = 780;
-    function getDefaultZoom() {
-      return window.innerWidth <= SMALL_SCREEN_BREAKPOINT ? ZOOM_DEFAULT_SMALL : ZOOM_DEFAULT_DESKTOP;
-    }
-    const ZOOM_DEFAULT = getDefaultZoom();
-
-    const galleryOverlay = document.getElementById('app-demo-gallery-overlay');
-    const galleryCaption = galleryOverlay ? galleryOverlay.querySelector('.app-demo-gallery-caption') : null;
-    const galleryDots = document.getElementById('app-demo-gallery-dots');
-    const galleryLabel = document.getElementById('app-demo-gallery-label');
-    const galleryText = document.getElementById('app-demo-gallery-text');
-
-    function pinCaption() {
-      if (!galleryCaption || !viewer || window.innerWidth <= SMALL_SCREEN_BREAKPOINT) return;
-      const rect = viewer.getBoundingClientRect();
-      galleryCaption.style.bottom = (window.innerHeight - rect.bottom + 18) + 'px';
-      galleryCaption.style.right  = (window.innerWidth  - rect.right  + 18) + 'px';
-    }
-    const galleryButtons = document.querySelectorAll('[data-demo-gallery]');
-
-    let activeIndex = 0;
-    let galleryIndex = 0;
-    let currentGallery = null;
-    let zoomPercent = getDefaultZoom();
-    let lastTrigger = null;
-    let isExpanded = false;
-    let touchStartX = null;
-    let pdfDocument = null;
-    let pdfRenderToken = 0;
-
-    function syncBaseWidth() {
-      if (!viewer || !canvas) {
-        return;
-      }
-
-      const viewerStyles = window.getComputedStyle(viewer);
-      const viewerPaddingX = (parseFloat(viewerStyles.paddingLeft) || 0) + (parseFloat(viewerStyles.paddingRight) || 0);
-      const viewerPaddingY = (parseFloat(viewerStyles.paddingTop) || 0) + (parseFloat(viewerStyles.paddingBottom) || 0);
-      const maxBaseWidth = isExpanded ? 1920 : 1680;
-      const availableWidth = Math.max(320, viewer.clientWidth - viewerPaddingX);
-      const availableHeight = Math.max(260, Math.min(window.innerHeight * 0.68, viewer.clientHeight - viewerPaddingY || 0));
-      const baseWidth = Math.min(maxBaseWidth, availableWidth);
-      canvas.style.setProperty('--app-demo-base-width', baseWidth + 'px');
-      canvas.style.setProperty('--app-demo-gallery-height', availableHeight + 'px');
-    }
-
-    function setExpanded(nextExpanded) {
-      isExpanded = Boolean(nextExpanded);
-      if (panel) {
-        panel.classList.toggle('app-demo-modal__panel--viewer-expanded', isExpanded);
-      }
-      syncBaseWidth();
-      if (expandButton) {
-        expandButton.setAttribute('aria-label', isExpanded ? 'Collapse viewer' : 'Expand viewer');
-        expandButton.setAttribute('title', isExpanded ? 'Collapse preview' : 'Expand preview');
-        expandButton.textContent = isExpanded ? '−' : '+';
-      }
-    }
-
-    function setZoom(nextZoomPercent) {
-      zoomPercent = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(nextZoomPercent)));
-      const zoom = zoomPercent / 100;
-      const galleryZoom = zoomPercent / GALLERY_ZOOM_DEFAULT;
-      canvas.style.setProperty('--app-demo-zoom', String(zoom));
-      canvas.style.setProperty('--app-demo-gallery-zoom', String(galleryZoom));
-      zoomLabel.textContent = zoomPercent + '%';
-      if (panel) {
-        panel.classList.toggle('app-demo-modal__panel--zoomed', currentGallery ? zoomPercent > GALLERY_ZOOM_DEFAULT : zoomPercent > 100);
-      }
-      if (pdfDocument) {
-        renderPdfPages();
-      }
-    }
-
-    async function ensurePdfJs() {
-      if (window.pdfjsLib) return window.pdfjsLib;
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-      if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-      return window.pdfjsLib;
-    }
-
-    async function renderPdfPages() {
-      if (!pdfDocument || !pdfPagesNode) return;
-      const token = ++pdfRenderToken;
-      const containerWidth = Math.max(280, pdfPagesNode.clientWidth || 800);
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const zoomFactor = zoomPercent / 100;
-      pdfPagesNode.innerHTML = '';
-      for (let i = 1; i <= pdfDocument.numPages; i++) {
-        if (token !== pdfRenderToken) return;
-        const page = await pdfDocument.getPage(i);
-        const baseViewport = page.getViewport({ scale: 1 });
-        const fitScale = (containerWidth / baseViewport.width) * zoomFactor;
-        const viewport = page.getViewport({ scale: fitScale * dpr });
-        const cv = document.createElement('canvas');
-        cv.width = viewport.width;
-        cv.height = viewport.height;
-        cv.style.width = (viewport.width / dpr) + 'px';
-        cv.style.height = (viewport.height / dpr) + 'px';
-        pdfPagesNode.appendChild(cv);
-        const ctx = cv.getContext('2d');
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        if (token !== pdfRenderToken) return;
-      }
-    }
-
-    async function loadPdf(url) {
-      pdfDocument = null;
-      pdfRenderToken++;
-      pdfPagesNode.innerHTML = '<p class="app-demo-pdf-loading">Loading document…</p>';
-      try {
-        const pdfjsLib = await ensurePdfJs();
-        if (!pdfjsLib) throw new Error('PDF.js failed to load');
-        const task = pdfjsLib.getDocument(url);
-        pdfDocument = await task.promise;
-        await renderPdfPages();
-      } catch (err) {
-        pdfPagesNode.innerHTML = '<p class="app-demo-pdf-loading">Could not load the document. <a href="' + url + '" target="_blank" rel="noopener">Open it directly</a>.</p>';
-      }
-    }
-
-    function renderGallerySlide() {
-      if (!currentGallery) return;
-      const slide = currentGallery[galleryIndex];
-      if (!slide) return;
-      imageNode.src = slide.src;
-      imageNode.alt = slide.label || 'Demo screen ' + (galleryIndex + 1);
-      if (galleryLabel) galleryLabel.textContent = slide.label || '';
-      if (galleryText) galleryText.textContent = slide.caption || '';
-      const inlineLabel = document.getElementById('app-demo-gallery-label-inline');
-      const inlineText = document.getElementById('app-demo-gallery-text-inline');
-      if (inlineLabel) inlineLabel.textContent = slide.label || '';
-      if (inlineText) inlineText.textContent = slide.caption || '';
-      if (galleryDots) {
-        Array.from(galleryDots.children).forEach((dot, i) => {
-          dot.setAttribute('aria-selected', i === galleryIndex ? 'true' : 'false');
-        });
-      }
-      if (viewer) {
-        viewer.scrollTop = 0;
-        viewer.scrollLeft = 0;
-      }
-      pinCaption();
-    }
-
-    function buildGalleryDots(count) {
-      if (!galleryDots) return;
-      galleryDots.innerHTML = '';
-      for (let i = 0; i < count; i++) {
-        const dot = document.createElement('button');
-        dot.type = 'button';
-        dot.setAttribute('role', 'tab');
-        dot.setAttribute('aria-label', 'Go to screen ' + (i + 1));
-        dot.addEventListener('click', () => {
-          galleryIndex = i;
-          renderGallerySlide();
-        });
-        galleryDots.appendChild(dot);
-      }
-    }
-
-    function moveGallery(step) {
-      if (!currentGallery) return;
-      galleryIndex = (galleryIndex + step + currentGallery.length) % currentGallery.length;
-      renderGallerySlide();
-    }
-
-    function renderModal(index) {
-      const page = pages[index];
-      if (!page) {
-        return;
-      }
-
-      activeIndex = index;
-      titleNode.textContent = page.title;
-      taglineNode.textContent = page.tagline;
-      descriptionNode.textContent = page.description;
-      countNode.textContent = 'Screen ' + (index + 1) + ' of ' + pages.length;
-
-      // reset gallery state
-      currentGallery = null;
-      galleryIndex = 0;
-      if (galleryOverlay) galleryOverlay.hidden = true;
-      const dotsBar = document.getElementById('app-demo-gallery-dots-bar');
-      if (dotsBar) dotsBar.hidden = true;
-      if (panel) panel.classList.remove('app-demo-modal__panel--gallery');
-
-      if (page.mediaType === 'pdf') {
-        imageNode.hidden = true;
-        imageNode.src = '';
-        imageNode.alt = '';
-        documentNode.hidden = false;
-        pdfLinkNode.href = page.image;
-        loadPdf(page.image);
-      } else if (page.mediaType === 'gallery' && Array.isArray(page.images) && page.images.length) {
-        documentNode.hidden = true;
-        pdfDocument = null;
-        pdfRenderToken++;
-        if (pdfPagesNode) pdfPagesNode.innerHTML = '';
-        pdfLinkNode.href = '#';
-        imageNode.hidden = false;
-        if (zoomPercent === getDefaultZoom()) {
-          zoomPercent = GALLERY_ZOOM_DEFAULT;
-        }
-        currentGallery = page.images;
-        buildGalleryDots(currentGallery.length);
-        renderGallerySlide();
-        if (galleryOverlay) galleryOverlay.hidden = false;
-        pinCaption();
-        const dotsBarShow = document.getElementById('app-demo-gallery-dots-bar');
-        if (dotsBarShow) dotsBarShow.hidden = false;
-        if (panel) panel.classList.add('app-demo-modal__panel--gallery');
-      } else {
-        documentNode.hidden = true;
-        pdfDocument = null;
-        pdfRenderToken++;
-        if (pdfPagesNode) pdfPagesNode.innerHTML = '';
-        pdfLinkNode.href = '#';
-        imageNode.hidden = false;
-        imageNode.src = page.image;
-        imageNode.alt = page.title + ' full-page preview';
-      }
-
-      // Keep current zoom across slide changes (sticky); only refresh CSS var + label.
-      setZoom(zoomPercent);
-      syncBaseWidth();
-      viewer.scrollTop = 0;
-      viewer.scrollLeft = 0;
-    }
-
-    function openModal(index, trigger) {
-      lastTrigger = trigger || document.activeElement;
-      modal.hidden = false;
-      modal.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('app-demo-modal-open');
-      setExpanded(false);
-      // Reset zoom to the screen-appropriate default each time the modal opens.
-      zoomPercent = getDefaultZoom();
-      renderModal(index);
-      const closeButton = modal.querySelector('[data-demo-close]');
-      if (closeButton) {
-        closeButton.focus();
-      }
-    }
-
-    // Suppress browser double-tap zoom and pinch gestures inside the modal.
-    // The explicit +/- buttons remain the only zoom controls.
-    if (modal) {
-      modal.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
-      modal.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
-      modal.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
-      modal.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
-      // Prevent the second tap of a double-tap from firing zoom on iOS Safari.
-      let lastTouchEnd = 0;
-      modal.addEventListener('touchend', function (e) {
-        const now = Date.now();
-        if (now - lastTouchEnd <= 350) {
-          e.preventDefault();
-        }
-        lastTouchEnd = now;
-      }, { passive: false });
-    }
-
-    function closeModal() {
-      modal.hidden = true;
-      modal.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('app-demo-modal-open');
-      imageNode.src = '';
-      pdfDocument = null;
-      pdfRenderToken++;
-      if (pdfPagesNode) pdfPagesNode.innerHTML = '';
-      documentNode.hidden = true;
-      imageNode.hidden = false;
-      setExpanded(false);
-      if (lastTrigger && typeof lastTrigger.focus === 'function') {
-        lastTrigger.focus();
-      }
-    }
-
-    function move(step) {
-      const nextIndex = (activeIndex + step + pages.length) % pages.length;
-      renderModal(nextIndex);
-    }
-
-    openButtons.forEach((button) => {
-      button.addEventListener('click', function () {
-        const rawIndex = button.getAttribute('data-demo-index') || button.getAttribute('data-open-demo') || '0';
-        const index = Number.parseInt(rawIndex, 10) || 0;
-        openModal(index, button);
-      });
-    });
-
-    closeButtons.forEach((button) => {
-      button.addEventListener('click', closeModal);
-    });
-
-    if (nextButton) {
-      nextButton.addEventListener('click', function () {
-        move(1);
-      });
-    }
-
-    if (prevButton) {
-      prevButton.addEventListener('click', function () {
-        move(-1);
-      });
-    }
-
-    if (expandButton) {
-      expandButton.addEventListener('click', function () {
-        setExpanded(!isExpanded);
-      });
-    }
-
-    zoomButtons.forEach((button) => {
-      button.addEventListener('click', function () {
-        const direction = button.getAttribute('data-demo-zoom');
-        setZoom(zoomPercent + (direction === 'in' ? ZOOM_STEP : -ZOOM_STEP));
-      });
-    });
-
-    document.addEventListener('keydown', function (event) {
-      if (modal.hidden) {
-        return;
-      }
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeModal();
-      }
-
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        if (currentGallery) moveGallery(1); else move(1);
-      }
-
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        if (currentGallery) moveGallery(-1); else move(-1);
-      }
-    });
-
-    galleryButtons.forEach((button) => {
-      button.addEventListener('click', function () {
-        moveGallery(button.getAttribute('data-demo-gallery') === 'next' ? 1 : -1);
-      });
-    });
-
-    if (canvas) {
-      canvas.addEventListener('touchstart', function (e) {
-        if (!currentGallery || !e.touches || !e.touches[0]) return;
-        touchStartX = e.touches[0].clientX;
-      }, { passive: true });
-      canvas.addEventListener('touchend', function (e) {
-        if (!currentGallery || touchStartX === null) return;
-        const endX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : null;
-        if (endX === null) { touchStartX = null; return; }
-        const dx = endX - touchStartX;
-        touchStartX = null;
-        if (Math.abs(dx) > 40) {
-          moveGallery(dx < 0 ? 1 : -1);
-        }
-      });
-    }
-
-    if (imageNode) {
-      imageNode.addEventListener('load', function () {
-        if (modal.hidden) {
-          return;
-        }
-        syncBaseWidth();
-        pinCaption();
-      });
-    }
-
-    window.addEventListener('resize', function () {
-      if (!modal.hidden) {
-        syncBaseWidth();
-        pinCaption();
-      }
-    });
-  })();
-</script>
+<%# spa-router.js clears the hash before deferred scripts run; keep it for deep links. %>
+<script>window.__tourHash = location.hash;</script>
+<script id="tour-data" type="application/json"><%- tourJson %></script>
+<script src="<%= assetUrl('/js/appDemo.js') %>" defer></script>

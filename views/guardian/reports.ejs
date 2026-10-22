@@ -402,11 +402,11 @@
   <div class="reports-hero">
     <div class="reports-header">
       <div>
-        <h1>Guardian Reports</h1>
-        <p class="reports-subtitle">Track conversations with school staff and submit new concerns quickly.</p>
+        <h1>Messages</h1>
+        <p class="reports-subtitle">Your conversations with the school, all in one place.</p>
       </div>
       <div class="reports-header-actions">
-        <a href="/guardian/reports" class="btn-email-indicator" title="Unread report messages">
+        <a href="/guardian/reports" class="btn-email-indicator" title="Unread messages">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
             <path d="M3 7l9 6 9-6"></path>
@@ -414,7 +414,7 @@
           Messages
           <span class="btn-email-count"><%= (typeof reportUnreadTotal !== 'undefined' ? reportUnreadTotal : statusTotals.unread) %></span>
         </a>
-        <button class="btn-new-report" onclick="openModal()">+ New Report</button>
+        <button class="btn-new-report" onclick="openModal()">+ New message</button>
       </div>
     </div>
 
@@ -480,22 +480,22 @@
     </div>
     <div class="empty-state" id="reportsNoMatch" style="display:none; margin-top: 10px;">
       <span class="empty-state-icon">🔎</span>
-      <h3>No matching reports.</h3>
+      <h3>No matching messages.</h3>
       <p>Try a different search word or status.</p>
     </div>
   <% } else { %>
     <div class="empty-state">
       <span class="empty-state-icon">📋</span>
-      <h3>No reports yet.</h3>
-      <p>Submit a report to communicate with school staff.</p>
+      <h3>No messages yet.</h3>
+      <p>Send a message to start a conversation with your child's teachers.</p>
     </div>
   <% } %>
 </div>
 
-<!-- New Report Modal -->
+<!-- New Message Modal -->
 <div class="modal-overlay" id="reportModal">
   <div class="modal-box">
-    <h2>Submit a Report</h2>
+    <h2>New message</h2>
     <form action="/guardian/reports/create" method="POST">
       <div class="fg">
         <label>Student <span class="req">*</span></label>
@@ -531,7 +531,7 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button type="submit" class="btn-submit">Submit Report</button>
+        <button type="submit" class="btn-submit">Send message</button>
         <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
       </div>
     </form>
