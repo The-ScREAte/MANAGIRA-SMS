@@ -118,3 +118,51 @@ body.org-themed .cal-main { background: var(--oc-surface) !important; border-col
 body.org-themed #calendar { --fc-border-color: var(--oc-line); --fc-page-bg-color: var(--oc-surface); }
 body.org-themed #calendar .fc-button { background: #fffaf2; border-color: var(--oc-line-strong); color: #000; }
 body.org-themed #calendar .fc-button-primary.fc-button-active { background: var(--org-primary-color); color: #fff; }
+
+/* ---- Polish: simple, flat, readable ---- */
+.cal-side__head p { margin: 4px 0 0; font-size: .9rem; color: var(--ws-muted, #64748b); line-height: 1.4; }
+.cal-layer__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-layer__icon { width: 16px; height: 16px; flex-shrink: 0; }
+.cal-up li { padding: 0; }
+.cal-up li > button {
+  width: 100%; display: grid; grid-template-columns: 10px 1fr; column-gap: 10px; row-gap: 2px;
+  padding: 8px 6px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 8px; color: inherit; font: inherit;
+}
+.cal-up li > button:hover { background: var(--ws-soft, #f8fafc); }
+.cal-up__dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; grid-row: span 2; }
+.cal-up__title { font-weight: 600; color: var(--ws-ink, #0f172a); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-up__when { font-size: .8rem; color: var(--ws-muted, #64748b); }
+.cal-conn-notice:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+#calendar .fc-toolbar-title { font-size: 1.15rem; }
+#calendar .fc-button { border-radius: 8px; font-size: .88rem; }
+#calendar .fc-button-group > .fc-button { border-radius: 0; }
+#calendar .fc-button-group > .fc-button:first-child { border-radius: 8px 0 0 8px; }
+#calendar .fc-button-group > .fc-button:last-child { border-radius: 0 8px 8px 0; }
+#calendar .fc-button:focus { box-shadow: none; }
+#calendar .fc-col-header-cell { background: var(--ws-soft, #f8fafc); }
+#calendar .fc-col-header-cell-cushion { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ws-muted, #64748b); }
+#calendar .fc-daygrid-day-number { font-size: .85rem; padding: 6px 8px; }
+#calendar .fc-day-today .fc-daygrid-day-number { background: var(--ws-brand); color: #fff; border-radius: 999px; min-width: 26px; text-align: center; margin: 4px; padding: 3px 6px; }
+#calendar .fc-event { font-size: .8rem; font-weight: 600; }
+#calendar .fc-event-title, #calendar .fc-event-time { overflow: hidden; text-overflow: ellipsis; }
+#calendar .fc-daygrid-more-link { font-size: .78rem; font-weight: 600; color: var(--ws-brand); }
+#calendar .fc-list-event-title, #calendar .fc-list-day-text, #calendar .fc-list-day-side-text { color: var(--ws-ink, #0f172a); text-decoration: none; }
+
+@media (max-width: 640px) {
+  .cal-page { padding: 10px; gap: 12px; }
+  .cal-main { padding: 10px; }
+  #calendar .fc-toolbar { flex-direction: column; align-items: stretch; }
+  #calendar .fc-toolbar-chunk { display: flex; justify-content: center; }
+  #calendar .fc-toolbar-title { font-size: 1.05rem; text-align: center; }
+  #calendar .fc-button { padding: 6px 10px; font-size: .82rem; }
+}
+
+body.org-themed .cal-side__head h1,
+body.org-themed .cal-card__title,
+body.org-themed .cal-layer,
+body.org-themed .cal-up__title,
+body.org-themed #calendar .fc-toolbar-title,
+body.org-themed #calendar .fc-daygrid-day-number { color: #111827 !important; }
+body.org-themed #calendar .fc-day-today .fc-daygrid-day-number { background: var(--org-primary-color); color: #fff !important; }
+body.org-themed .cal-side__head p, body.org-themed .cal-up__when { color: #374151 !important; }
