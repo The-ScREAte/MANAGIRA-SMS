@@ -919,6 +919,36 @@
       height: 360px;
     }
   }
+  /* ---- Polish: flat, readable, flexible on every screen and theme ---- */
+  .tm-sidebar, .tm-card, .tm-stat { box-shadow: none; border-radius: 12px; }
+  .tm-card { padding: 16px; min-width: 0; }
+  .tm-head h2 { font-size: 1.25rem; line-height: 1.3; color: var(--tm-text); }
+  .tm-card h3, .tm-card-summary h3 { font-size: 1rem; color: var(--tm-text); }
+  .tm-stat-k, .tm-badge, .tm-map-note, .tm-map-legend, .tm-student-access-tag { font-size: 12px; }
+  .tm-stat-k, .tm-map-note { color: var(--tm-muted); }
+  .tm-nav-btn { color: var(--tm-text); }
+  .tm-nav-btn:hover { background: var(--tm-bg); }
+  .tm-nav-btn.active { background: var(--tm-bg); border-color: var(--tm-border); }
+  .tm-list li, .tm-item-row, .tm-student-row { min-width: 0; overflow-wrap: anywhere; }
+  .tm-card table { width: 100%; border-collapse: collapse; }
+  .tm-card .table-wrap, .tm-card:has(> table) { overflow-x: auto; }
+  .tm-btn, .tm-row button { min-height: 40px; }
+  .tm-row input, .tm-row select, .tm-row textarea { font-size: 16px; min-height: 40px; }
+  .tm-modal-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  @media (max-width: 760px) {
+    .tm-app { padding: 12px; gap: 12px; }
+    .tm-card { padding: 14px; }
+    .tm-toolbar, .tm-class-toolbar { flex-wrap: wrap; gap: 8px; }
+    .tm-toolbar .tm-btn, .tm-class-toolbar .tm-btn { flex: 1 1 140px; justify-content: center; }
+    .tm-modal-card { width: calc(100vw - 20px); max-width: none; }
+  }
+  body.org-themed .tm-sidebar,
+  body.org-themed .tm-card,
+  body.org-themed .tm-stat { background: var(--oc-surface, #fff) !important; border-color: var(--oc-line, var(--tm-border)) !important; }
+  body.org-themed .tm-head h2,
+  body.org-themed .tm-card h3,
+  body.org-themed .tm-nav-btn,
+  body.org-themed .tm-stat-v { color: #111827 !important; }
 </style>
 
 <div class="tm-app">
