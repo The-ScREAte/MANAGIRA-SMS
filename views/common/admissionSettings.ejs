@@ -85,7 +85,16 @@
   #asRoot .as-filter button { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--as-muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
   #asRoot .as-filter button:hover { color: var(--as-text); background: none; }
   #asRoot .as-filter button.is-on { background: var(--as-primary); color: #fff; }
-  .as-list { display: grid; gap: 6px; }
+  .as-list { display: grid; gap: 14px; }
+  .as-group { border: 1px solid var(--as-line); border-radius: 12px; padding: 10px; background: #fbfcfd; }
+  .as-group__head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; }
+  .as-group__head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #334155; }
+  .as-group__head span { font-size: 12px; color: var(--as-muted); }
+  .as-group__add { margin-left: auto; border: 0; background: none; color: #01535b; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+  .as-group__add:hover { background: #e6f0f1; }
+  .as-group__list { display: grid; gap: 6px; min-height: 40px; }
+  .as-group__empty { display: grid; place-items: center; min-height: 40px; border: 1px dashed var(--as-line); border-radius: 10px; font-size: 12px; color: var(--as-muted); }
+  .as-group__empty[hidden] { display: none; }
   .as-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 4px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
   .as-row:hover { border-color: #d3dbe3; box-shadow: 0 1px 3px rgba(16, 32, 48, .05); }
   .as-row.is-obsolete { background: #fafbfc; }
@@ -243,7 +252,7 @@
       <div class="as-card__head">
         <div>
           <h2>Your fields</h2>
-          <p>Extra details your school collects, like medical notes, previous school or transport needs. Drag to change the order.</p>
+          <p>Extra details your school collects, like medical notes, previous school or transport needs. Group them under the part of the Add Student form where they belong. Drag to reorder or move between parts.</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <% if (hasWebsite) { %>
@@ -273,7 +282,7 @@
 
 <div id="asDialog" role="dialog" aria-modal="true" aria-labelledby="asDialogTitle"><div class="as-dlg" id="asDlg"></div></div>
 
-<script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, hasWebsite }).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, sections: (typeof fieldSections !== 'undefined' ? fieldSections : { more: 'More Details' }), hasWebsite }).replace(/</g, '\\u003c') %></script>
 <script>
 (function () {
   const root = document.getElementById('asRoot');
@@ -282,6 +291,8 @@
   const data = JSON.parse(document.getElementById('asData').textContent);
   let fields = data.fields;
   const TYPES = data.types;
+  const SECTIONS = data.sections || { more: 'More Details' };
+  const secOf = (f) => (SECTIONS[f.section] ? f.section : (SECTIONS.more ? 'more' : Object.keys(SECTIONS)[0]));
   const hasWebsite = data.hasWebsite;
   let filter = 'all';
   const list = document.getElementById('asList');
@@ -338,9 +349,17 @@
   }
   function render() {
     const visible = fields.filter(shown);
-    list.innerHTML = visible.length
-      ? visible.map(rowHtml).join('')
-      : `<div class="as-empty"><strong>${fields.length ? 'No fields on this form yet' : 'No extra fields yet'}</strong><span>Add a field to collect more details about students.</span></div>`;
+    if (!fields.length) {
+      list.innerHTML = '<div class="as-empty"><strong>No extra fields yet</strong><span>Add a field to collect more details about students.</span></div>';
+      return;
+    }
+    list.innerHTML = Object.entries(SECTIONS).map(([key, name]) => {
+      const rows = visible.filter((f) => secOf(f) === key);
+      return `<div class="as-group" data-section="${key}">
+        <div class="as-group__head"><h3>${esc(name)}</h3><span>${rows.length || ''}</span><button type="button" class="as-group__add" data-add-in="${key}" aria-label="Add field to ${esc(name)}">+ Add</button></div>
+        <div class="as-group__list" data-group-list="${key}">${rows.map(rowHtml).join('') || '<div class="as-group__empty">Drop a field here</div>'}</div>
+      </div>`;
+    }).join('');
   }
 
   let toastTimer = null;
@@ -368,7 +387,7 @@
   // ---------- field dialog ----------
   let submitFn = null;
   function closeDialog() { dialog.classList.remove('is-open'); submitFn = null; }
-  function fieldDialog(f) {
+  function fieldDialog(f, presetSection) {
     const locked = f && f.used > 0;
     let type = f ? f.type : 'text';
     const onStudent = f ? f.onStudentForm : filter !== 'application';
@@ -382,6 +401,9 @@
         </div>
         ${locked ? '<p class="as-dlg__hint">This field has answers, so its type stays the same.</p>' : ''}
         <label class="as-field" data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices <small>one per line</small></span><textarea name="options" rows="4" placeholder="Bus&#10;Walk&#10;Parent drop-off">${esc(f ? f.options.join('\n') : '')}</textarea></label>
+        <label class="as-field">Show under
+          <select name="section">${Object.entries(SECTIONS).map(([k, v]) => `<option value="${k}" ${k === (f ? secOf(f) : (presetSection || 'more')) ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+        </label>
         <div class="as-field">Ask on
           <div class="as-checks">
             <label class="as-check"><input type="checkbox" name="onStudentForm" ${onStudent ? 'checked' : ''}><span>Add Student form<small>When staff add a student</small></span></label>
@@ -404,7 +426,7 @@
       const app = form.querySelector('[name="onApplication"]');
       await call(f ? `/common/admissionSettings/fields/${f.id}` : '/common/admissionSettings/fields', {
         label: form.label.value, type, options: form.options.value, helpText: form.helpText.value,
-        required: form.required.checked, onStudentForm: form.onStudentForm.checked,
+        required: form.required.checked, onStudentForm: form.onStudentForm.checked, section: form.section.value,
         onApplication: app ? app.checked : (f ? f.onApplication : false),
       });
       toast(f ? 'Field saved' : 'Field added');
@@ -430,6 +452,8 @@
 
   root.querySelector('[data-as-add]').addEventListener('click', () => fieldDialog(null));
   list.addEventListener('click', async (e) => {
+    const addIn = e.target.closest('[data-add-in]');
+    if (addIn) return fieldDialog(null, addIn.dataset.addIn);
     const row = e.target.closest('[data-field]');
     const f = row && fields.find((x) => x.id === Number(row.dataset.field));
     if (!f) return;
@@ -462,7 +486,8 @@
     const rect = item.getBoundingClientRect();
     const offsetY = e.clientY - rect.top;
     const order = () => [...list.querySelectorAll('[data-field]')].map((el) => Number(el.dataset.field));
-    const before = order().join(',');
+    const sectionMap = () => { const m = {}; list.querySelectorAll('[data-group-list]').forEach((g) => g.querySelectorAll('[data-field]').forEach((el) => { m[el.dataset.field] = g.dataset.groupList; })); return m; };
+    const before = order().join(',') + JSON.stringify(sectionMap());
     const ghost = item.cloneNode(true);
     ghost.classList.add('as-ghost');
     Object.assign(ghost.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px' });
@@ -472,9 +497,13 @@
     const middle = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
     function move(ev) {
       ghost.style.top = (ev.clientY - offsetY) + 'px';
-      const rows = [...list.querySelectorAll('[data-field]')].filter((r) => r !== item);
+      const groups = [...list.querySelectorAll('[data-group-list]')];
+      const target = groups.find((g) => { const r = g.closest('.as-group').getBoundingClientRect(); return ev.clientY >= r.top && ev.clientY <= r.bottom; })
+        || (ev.clientY < groups[0].getBoundingClientRect().top ? groups[0] : groups[groups.length - 1]);
+      const rows = [...target.querySelectorAll('[data-field]')].filter((r) => r !== item);
       const next = rows.find((r) => ev.clientY < middle(r)) || null;
-      if (item.nextSibling !== next) list.insertBefore(item, next);
+      if (item.parentNode !== target || item.nextSibling !== next) target.insertBefore(item, next);
+      groups.forEach((g) => { const e2 = g.querySelector('.as-group__empty'); if (e2) e2.hidden = g.querySelectorAll('[data-field]').length > 0; });
       if (ev.clientY < 60) window.scrollBy(0, -14);
       else if (ev.clientY > window.innerHeight - 60) window.scrollBy(0, 14);
     }
@@ -486,14 +515,15 @@
       item.classList.remove('as-placeholder');
       document.documentElement.classList.remove('as-dragging');
       const now = order();
-      if (now.join(',') === before) return;
+      const sections = sectionMap();
+      if (now.join(',') + JSON.stringify(sections) === before) return;
       // With a filter on, keep hidden fields where they were.
       const visible = new Set(now);
       const full = fields.map((f) => f.id);
       let i = 0;
       const ids = full.map((id) => (visible.has(id) ? now[i++] : id));
       try {
-        await call('/common/admissionSettings/fields/order', { ids });
+        await call('/common/admissionSettings/fields/order', { ids, sections });
         toast('Order saved');
       } catch (err) {
         toast(err.message);

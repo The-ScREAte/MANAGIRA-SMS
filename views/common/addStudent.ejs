@@ -2527,6 +2527,9 @@
               </div>
             </div>
 
+            <% const _cfAll = (typeof customFields !== 'undefined' && Array.isArray(customFields)) ? customFields : [];
+               const _cfIn = (sec) => _cfAll.filter((f) => (f.section || 'more') === sec);
+               const _cfMore = _cfIn('more'); %>
             <!-- ── Section: Student Information ─────────────────── -->
             <div class="form-section">
               <div class="form-section-header">
@@ -2574,16 +2577,17 @@
                   <label class="form-label">Student Email</label>
                   <input type="email" class="form-input" name="studentEmail___INDEX__" placeholder="student@example.com">
                 </div>
+              <% if (_cfIn('student').length) { %><div class="scf-grid"><%- include('../partials/studentCustomFields', { customFields: _cfIn('student'), nameSuffix: '___INDEX__', customValues: {} }) %></div><% } %>
             </div>
 
-            <% if (typeof customFields !== 'undefined' && customFields.length) { %>
+            <% if (_cfMore.length) { %>
             <!-- ── Section: the school's own fields (Admission Settings > Forms) ── -->
             <div class="form-section">
               <div class="form-section-header">
                 <h3 class="form-section-title">More Details</h3>
               </div>
               <div class="scf-grid">
-                <%- include('../partials/studentCustomFields', { customFields, nameSuffix: '___INDEX__', customValues: {} }) %>
+                <%- include('../partials/studentCustomFields', { customFields: _cfMore, nameSuffix: '___INDEX__', customValues: {} }) %>
               </div>
             </div>
             <% } %>
@@ -2613,6 +2617,7 @@
                   </select>
                 </div>
               </div>
+              <% if (_cfIn('academic').length) { %><div class="scf-grid"><%- include('../partials/studentCustomFields', { customFields: _cfIn('academic'), nameSuffix: '___INDEX__', customValues: {} }) %></div><% } %>
             </div>
 
             <!-- ── Section: Subjects (progressive disclosure) ───── -->
@@ -2689,6 +2694,7 @@
                 <div class="guardians-container"></div>
                 <button type="button" class="secondary-button guardian-add-btn" onclick="addGuardian(this)" style="display: none;">+ Add Another Guardian</button>
               </div>
+              <% if (_cfIn('guardian').length) { %><div class="scf-grid" style="margin-top:14px"><%- include('../partials/studentCustomFields', { customFields: _cfIn('guardian'), nameSuffix: '___INDEX__', customValues: {} }) %></div><% } %>
             </div>
 
           </div>
