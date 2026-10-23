@@ -89,13 +89,19 @@ const isAuthenticated = async (req, res, next) => {
             return res.redirect('/account/login');
         }
 
+        // 2-3. Organization and user status, looked up at once (each is a
+        // round trip to the database); the organization is still checked first.
+        const [org, user] = await Promise.all([
+            req.session.organizationId
+                ? db.query('SELECT deleted, on_hold FROM organizations WHERE organization_id = $1', [req.session.organizationId])
+                : null,
+            req.session.userId
+                ? db.query('SELECT on_hold FROM users WHERE user_id = $1', [req.session.userId])
+                : null,
+        ]);
+
         // 2. Validate organization status first
-        if (req.session.organizationId) {
-            const org = await db.query(
-                'SELECT deleted, on_hold FROM organizations WHERE organization_id = $1',
-                [req.session.organizationId]
-            );
-            
+        if (org) {
             if (org.rows.length === 0) {
                 safeFlash(req, 'error', 'Organization not found');
                 return destroySessionAndRedirect(req, res, '/');
@@ -123,12 +129,7 @@ const isAuthenticated = async (req, res, next) => {
         }
 
         // 3. Validate user status
-        if (req.session.userId) {
-            const user = await db.query(
-                'SELECT on_hold FROM users WHERE user_id = $1',
-                [req.session.userId]
-            );
-            
+        if (user) {
             if (user.rows.length === 0) {
                 safeFlash(req, 'error', 'User not found');
                 return destroySessionAndRedirect(req, res, '/account/login');

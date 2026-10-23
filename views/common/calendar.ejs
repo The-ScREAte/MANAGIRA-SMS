@@ -6,6 +6,25 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/calendar.css') %>" />
 <div class="cal-flash"><%- include('../partials/flash') %></div>
+<script>
+  // Ask for the first month's items now, while the calendar library is still
+  // downloading. Same range the month view requests (6 weeks from the Monday
+  // on or before the 1st); the agenda view's month fits inside it.
+  (function () {
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    var key = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(<%- JSON.stringify(typeof initialDate !== 'undefined' && initialDate ? String(initialDate) : '') %>);
+    var base = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date();
+    var start = new Date(base.getFullYear(), base.getMonth(), 1);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    var end = new Date(start); end.setDate(end.getDate() + 42);
+    window.__calPrefetch = {
+      start: key(start), end: key(end),
+      items: fetch('/common/calendar/feed?start=' + key(start) + '&end=' + key(end), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { if (!r.ok) throw new Error('feed'); return r.json(); }),
+    };
+  })();
+</script>
 
 <div class="cal-page" data-cal
   data-can-publish="<%= _canPublish ? '1' : '0' %>"
@@ -165,8 +184,16 @@
         };
         if (useCache && feedCache.key === key) { useCache = false; deliver(feedCache.items); return; }
         useCache = false;
-        fetch(`/common/calendar/feed?start=${info.startStr.slice(0, 10)}&end=${info.endStr.slice(0, 10)}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-          .then((r) => { if (!r.ok) throw new Error('feed'); return r.json(); })
+        // First load: use the request the page started early, when it covers this range.
+        const early = window.__calPrefetch;
+        window.__calPrefetch = null;
+        const from = info.startStr.slice(0, 10);
+        const to = info.endStr.slice(0, 10);
+        const request = early && early.start <= from && early.end >= to
+          ? early.items
+          : fetch(`/common/calendar/feed?start=${from}&end=${to}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then((r) => { if (!r.ok) throw new Error('feed'); return r.json(); });
+        request
           .then(deliver)
           .catch((err) => { failure(err); W.toast('The calendar could not load. Try again.'); });
       },

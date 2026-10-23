@@ -8,6 +8,7 @@ const checkFeatureAccess = require("../middleware/checkFeatureAccess");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const websiteController = require("../controllers/websiteController");
 const workspaceController = require("../controllers/workspaceController");
+const contactsController = require("../controllers/contactsController");
 const { isOrgMember } = require("../utils/workspace");
 const multer = require('multer');
 const path = require('path');
@@ -274,6 +275,20 @@ module.exports = (db) => {
   router.get("/parent-messages/:id(\\d+)", isAuthenticated, (req, res) => commonController.parentMessageOpen(req, res, db));
   router.post("/parent-messages/:id(\\d+)/status", isAuthenticated, express.json(), (req, res) => commonController.parentMessageStatus(req, res, db));
   router.get("/mailroom/inbox", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) => commonController.mailroomInbox(req, res, db));
+
+  // Contact cards (Mail Room) and the contact template (Management Tools).
+  // Permission checks (see / edit contacts, edit template) are in the controller.
+  router.get("/contacts/card", isAuthenticated, blockGuardians, contactsController.card);
+  router.post("/contacts/card", isAuthenticated, blockGuardians, express.json(), contactsController.saveCard);
+  router.get("/contact-template", isAuthenticated, blockGuardians, contactsController.templatePage);
+  router.post("/contact-template/fields", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("create"));
+  router.post("/contact-template/fields/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("update"));
+  router.post("/contact-template/fields/:id(\\d+)/status", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("status"));
+  router.post("/contact-template/fields/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("delete"));
+  router.post("/contact-template/sections", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("createSection"));
+  router.post("/contact-template/sections/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("renameSection"));
+  router.post("/contact-template/sections/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("deleteSection"));
+  router.post("/contact-template/order", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("order"));
   router.get("/classReports", isAuthenticated, (req, res) =>
     commonController.classReports(req, res, db)
   );

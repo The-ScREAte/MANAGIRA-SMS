@@ -18,8 +18,24 @@ function addDays(key, n) {
   return d.toISOString().slice(0, 10);
 }
 
-// Closed days in [from, to] for a term: date key -> label.
-async function closedDays(db, organizationId, termId, from, to) {
+// Closed days in [from, to] for a term: date key -> label. Kept for a minute:
+// looking them up takes three database round trips and every calendar load
+// asks for them, while closures change rarely.
+const CLOSED_TTL_MS = 60 * 1000;
+const closedCache = new Map();
+
+function closedDays(db, organizationId, termId, from, to) {
+  const key = `${organizationId}|${termId}|${from}|${to}`;
+  const hit = closedCache.get(key);
+  if (hit && Date.now() - hit.at < CLOSED_TTL_MS) return hit.days;
+  const days = loadClosedDays(db, organizationId, termId, from, to);
+  closedCache.set(key, { at: Date.now(), days });
+  days.catch(() => closedCache.delete(key));
+  if (closedCache.size > 500) closedCache.delete(closedCache.keys().next().value);
+  return days;
+}
+
+async function loadClosedDays(db, organizationId, termId, from, to) {
   const profile = await getAttendanceCalendarProfile(db, organizationId, termId);
   if (!profile) return new Map();
   const dayMap = buildCalendarDayMap(await getAttendanceCalendarDays(db, profile.calendar_id, from, to));

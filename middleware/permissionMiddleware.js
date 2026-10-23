@@ -27,6 +27,9 @@ const PERMISSIONS = {
   MANAGE_SETTINGS: "manage_settings",
   MANAGE_PAYGIRA: "manage_paygira",
   MAILROOM: "mailroom",
+  SEE_CONTACTS: "see_contacts",
+  EDIT_CONTACTS: "edit_contacts",
+  EDIT_CONTACT_TEMPLATE: "edit_contact_template",
   USE_MIRA: "use_mira",
 };
 
@@ -57,6 +60,9 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings" },
   { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira (Finance & Billing)" },
   { key: PERMISSIONS.MAILROOM, label: "Mailroom (Send SMS/WhatsApp/Email)" },
+  { key: PERMISSIONS.SEE_CONTACTS, label: "See Contacts (open contact cards)" },
+  { key: PERMISSIONS.EDIT_CONTACTS, label: "Edit Contacts" },
+  { key: PERMISSIONS.EDIT_CONTACT_TEMPLATE, label: "Edit Contact Template (custom fields)" },
   { key: PERMISSIONS.USE_MIRA, label: "Use Mira (AI Assistant)" },
 ];
 

@@ -26,6 +26,7 @@ module.exports = {
             "manage_promotions", "approve_promotions", "approve_admissions", "publish_events_announcements",
             "manage_school_year_terms", "manage_classes_subjects", "generate_transcripts",
             "manage_billing", "manage_settings", "manage_paygira", "mailroom",
+            "see_contacts", "edit_contacts", "edit_contact_template",
           ],
         },
         description: "Optional. Never invent these - only include what the user explicitly asked to grant. Granting \"mailroom\" gives org-wide guardian-contact access (the per-class-restricted option isn't available via Mira).",

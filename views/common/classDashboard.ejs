@@ -2427,14 +2427,24 @@ main {
   font-weight: 700;
   color: #0f172a;
 }
-.transport-modal-close {
+#studentTransportModal .transport-modal-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
   border: none;
+  border-radius: 8px;
   background: transparent;
-  font-size: 28px;
+  box-shadow: none;
+  font-size: 22px;
   line-height: 1;
   color: #64748b;
   cursor: pointer;
 }
+#studentTransportModal .transport-modal-close:hover { background: #f1f5f9; color: #0f172a; }
 .transport-modal-body {
   padding: 12px 14px 14px;
   display: grid;
@@ -5260,8 +5270,8 @@ main {
             ['Driver', snapshot.driverName || '-'],
             ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
             ['Stop', snapshot.stop && snapshot.stop.stopName ? snapshot.stop.stopName : '-'],
-            ['Pickup', snapshot.pickupTime || '-'],
-            ['Dropoff', snapshot.dropoffTime || '-'],
+            ['Pick-up', formatTransportClock(snapshot.pickupTime) || '-'],
+            ['Drop-off', formatTransportClock(snapshot.dropoffTime) || '-'],
             ['Live', snapshot.live && snapshot.live.recordedAt ? new Date(snapshot.live.recordedAt).toLocaleString() : 'No live update yet'],
             ['School', snapshot.school && snapshot.school.address ? snapshot.school.address : '-'],
             ['Home', snapshot.homeAddress || '-']
@@ -5275,6 +5285,14 @@ main {
         } catch (error) {
           statusEl.textContent = error && error.message ? error.message : 'Unable to load transportation details.';
         }
+      }
+
+      // "07:37:00" -> "7:37 AM"
+      function formatTransportClock(value) {
+        var m = /^(\d{1,2}):(\d{2})/.exec(String(value || ''));
+        if (!m) return value || '';
+        var h = Number(m[1]);
+        return ((h % 12) || 12) + ':' + m[2] + (h < 12 ? ' AM' : ' PM');
       }
 
       function setStudentTeacherRemarkStatus(message, tone) {

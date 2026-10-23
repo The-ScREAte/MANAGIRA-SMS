@@ -1,6 +1,7 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getMessagingChannelStatus } = require("./../utils/guardianMessaging");
 const websiteExtrasUtil = require("../utils/websiteExtras");
+const { saveGuardianBaseInfo } = require("../utils/contacts");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
@@ -19401,6 +19402,7 @@ NUMBERING:
         PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS,
         PERMISSIONS.MARK_ATTENDANCE,
         PERMISSIONS.MANAGE_EMPLOYEES,
+        PERMISSIONS.EDIT_CONTACT_TEMPLATE,
       ]);
       const localPermissions = Array.isArray(res.locals.userPermissions)
         ? res.locals.userPermissions
@@ -19460,6 +19462,17 @@ NUMBERING:
         },
         PERMISSIONS.SET_ASSESSMENT_QUESTIONS
       );
+      const canEditContactTemplate = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: req.session.organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.EDIT_CONTACT_TEMPLATE
+      );
       const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
       const canAccessAssessmentQuestions =
         canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
@@ -19495,6 +19508,7 @@ NUMBERING:
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
+        canEditContactTemplate,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");
@@ -21649,103 +21663,16 @@ NUMBERING:
       const guardianId = req.params.guardianId;
       const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
       const { firstName, lastName, email, phone, address, hometown, dateOfBirth } = req.body;
-      const cleanedPhone = phone ? String(phone).replace(/[^\d+]/g, '') : null;
-
       let imageUrl = null;
       if (req.file) {
         const s3Key = `images/guardianimages/${organizationId}/${Date.now()}_${req.file.originalname}`;
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 
-      if (guardianSource === 'profile') {
-        // Read old profile name so we can cross-sync the legacy guardians table
-        const oldProfileRow = (await db.query(
-          `SELECT first_name, last_name FROM guardian_profiles WHERE guardian_id=$1 AND organization_id=$2`,
-          [guardianId, organizationId]
-        )).rows[0];
-
-        const updateProfileQuery = imageUrl
-          ? `UPDATE guardian_profiles
-             SET first_name = $1, last_name = $2, email = $3, phone = $4,
-             address = $5, hometown = $6, date_of_birth = $7, image_url = $8, updated_at = NOW()
-           WHERE guardian_id = $9 AND organization_id = $10`
-          : `UPDATE guardian_profiles
-             SET first_name = $1, last_name = $2, email = $3, phone = $4,
-             address = $5, hometown = $6, date_of_birth = $7, updated_at = NOW()
-           WHERE guardian_id = $8 AND organization_id = $9`;
-
-        const profileParams = imageUrl
-          ? [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null, imageUrl, guardianId, organizationId]
-          : [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null, guardianId, organizationId];
-
-        await db.query(updateProfileQuery, profileParams);
-        await db.query(
-          `UPDATE guardian_accounts
-           SET login_email = $1, login_phone = $2, updated_at = NOW()
-           WHERE guardian_id = $3 AND organization_id = $4`,
-          [email || null, cleanedPhone, guardianId, organizationId]
-        );
-
-        // Sync to legacy guardians table (name-based match using old name)
-        if (oldProfileRow) {
-          await db.query(
-            `UPDATE guardians
-               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, date_of_birth = $7
-             WHERE organization_id = $8
-               AND LOWER(TRIM(first_name)) = LOWER(TRIM($9))
-               AND LOWER(TRIM(last_name))  = LOWER(TRIM($10))`,
-            [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null,
-             organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
-          );
-        }
-      } else {
-        // Read old guardian data so we can cross-sync guardian_profiles / guardian_accounts
-        const oldGuardianRow = (await db.query(
-          `SELECT first_name, last_name FROM guardians WHERE guardian_id=$1 AND organization_id=$2`,
-          [guardianId, organizationId]
-        )).rows[0];
-
-        const updateQuery = imageUrl
-          ? `UPDATE guardians
-             SET first_name = $1, last_name = $2, email = $3, phone = $4,
-             address = $5, hometown = $6, date_of_birth = $7, image_url = $8
-           WHERE guardian_id = $9 AND organization_id = $10`
-          : `UPDATE guardians
-             SET first_name = $1, last_name = $2, email = $3, phone = $4,
-             address = $5, hometown = $6, date_of_birth = $7
-           WHERE guardian_id = $8 AND organization_id = $9`;
-
-        const params = imageUrl
-          ? [firstName, lastName, email || null, phone, address, hometown, dateOfBirth || null, imageUrl, guardianId, organizationId]
-          : [firstName, lastName, email || null, phone, address, hometown, dateOfBirth || null, guardianId, organizationId];
-
-        await db.query(updateQuery, params);
-
-        // Sync to guardian_profiles and guardian_accounts by old name match
-        if (oldGuardianRow) {
-          await db.query(
-            `UPDATE guardian_profiles
-               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, date_of_birth = $7, updated_at = NOW()
-             WHERE organization_id = $8
-               AND LOWER(TRIM(first_name)) = LOWER(TRIM($9))
-               AND LOWER(TRIM(last_name))  = LOWER(TRIM($10))`,
-            [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null,
-             organizationId, oldGuardianRow.first_name, oldGuardianRow.last_name]
-          );
-          await db.query(
-            `UPDATE guardian_accounts
-               SET login_email = $1, login_phone = $2, updated_at = NOW()
-             WHERE organization_id = $3
-               AND guardian_id IN (
-                 SELECT guardian_id FROM guardian_profiles
-                 WHERE organization_id = $3
-                   AND LOWER(TRIM(first_name)) = LOWER(TRIM($4))
-                   AND LOWER(TRIM(last_name))  = LOWER(TRIM($5))
-               )`,
-            [email || null, cleanedPhone, organizationId, firstName, lastName]
-          );
-        }
-      }
+      await saveGuardianBaseInfo(db, {
+        organizationId, guardianId, source: guardianSource,
+        firstName, lastName, email, phone, address, hometown, dateOfBirth, imageUrl,
+      });
 
       req.flash('success', 'Guardian information updated successfully');
       return res.redirect(`/common/guardianDetails?guardianId=${guardianId}&source=${guardianSource}`);
@@ -24354,10 +24281,23 @@ NUMBERING:
   // gated by the "mailroom" permission (see middleware/permissionMiddleware.js).
   mailroomHub: async (req, res, db) => {
     try {
+      const who = {
+        userId: req.session.user?.user_id || req.session.userId || null,
+        userRole: req.session.userRole || req.session.user?.account_type || null,
+        organizationId: req.session.organizationId || null,
+        accountType: req.session.accountType || req.session.user?.account_type || null,
+        userEmail: req.session.user?.email || null,
+      };
+      // Names in the contact list open a contact card for people who may see contacts.
+      const [canSeeContacts, canEditContacts] = await Promise.all([
+        userHasPermission(db, who, PERMISSIONS.SEE_CONTACTS).catch(() => false),
+        userHasPermission(db, who, PERMISSIONS.EDIT_CONTACTS).catch(() => false),
+      ]);
       res.render("common/mailroom", {
         title: "Mailroom",
         disableMainZoom: true,
         organizationId: req.session.organizationId,
+        canSeeContacts: canSeeContacts || canEditContacts,
         messages: req.flash(),
       });
     } catch (error) {

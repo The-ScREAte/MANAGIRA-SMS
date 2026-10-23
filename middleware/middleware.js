@@ -69,12 +69,17 @@ async function isAuthenticated(req, res, next) {
             return res.redirect('/account/login');
         }
 
-        if (req.session.organizationId) {
-            const orgResult = await db.query(
-                'SELECT organization_id, deleted FROM organizations WHERE organization_id = $1',
-                [req.session.organizationId]
-            );
+        // Both checks run at once: each is a round trip to the database.
+        const [orgResult, userResult] = await Promise.all([
+            req.session.organizationId
+                ? db.query('SELECT organization_id, deleted FROM organizations WHERE organization_id = $1', [req.session.organizationId])
+                : null,
+            req.session.userId
+                ? db.query('SELECT user_id, on_hold FROM users WHERE user_id = $1', [req.session.userId])
+                : null,
+        ]);
 
+        if (orgResult) {
             if (orgResult.rows.length === 0 || orgResult.rows[0].deleted) {
                 if (expectsJsonResponse(req)) {
                     return res.status(403).json({ success: false, message: 'Your organization is no longer available.' });
@@ -84,12 +89,7 @@ async function isAuthenticated(req, res, next) {
             }
         }
 
-        if (req.session.userId) {
-            const userResult = await db.query(
-                'SELECT user_id, on_hold FROM users WHERE user_id = $1',
-                [req.session.userId]
-            );
-
+        if (userResult) {
             if (userResult.rows.length === 0 || userResult.rows[0].on_hold) {
                 if (expectsJsonResponse(req)) {
                     return res.status(401).json({ success: false, message: 'Your account is no longer active. Please log in again.' });

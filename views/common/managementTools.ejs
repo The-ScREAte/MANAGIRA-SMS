@@ -560,6 +560,14 @@
             <span>Parents &amp; guardians</span>
           </a>
         </li>
+        <% if (typeof canEditContactTemplate !== 'undefined' && canEditContactTemplate) { %>
+        <li>
+          <a class="nav-link" href="/common/contact-template" data-no-spa data-section="contact-template" data-embed-url="/common/contact-template" data-embed-label="Contact Template">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.6-1.8 2-2.8 3.5-2.8s2.9 1 3.5 2.8M15 9h3M15 13h3"/></svg></span>
+            <span>Contact template</span>
+          </a>
+        </li>
+        <% } %>
         <% if (hasTransportationIntegration) { %>
         <li>
           <a class="nav-link" href="/transportation/manage" data-no-spa data-section="transportation" data-embed-url="/transportation/manage" data-embed-label="Transportation">
@@ -710,6 +718,17 @@
           </div>
         </div>
       </section>
+
+      <% if (typeof canEditContactTemplate !== 'undefined' && canEditContactTemplate) { %>
+      <section class="management-section" id="contact-template">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M15 9h3M15 13h3"/></svg>
+            <p>Loading Contact Template…</p>
+          </div>
+        </div>
+      </section>
+      <% } %>
 
       <% if (hasTransportationIntegration) { %>
       <section class="management-section" id="transportation">

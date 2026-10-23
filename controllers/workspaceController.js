@@ -202,35 +202,51 @@ function eventItem(row, { kind, tags, editable, layer, owner }) {
 
 // All calendar items one person can see in a date range.
 async function collectItems(db, { organizationId, actor, start, end, canPublish, includeImports = true }) {
-  const owners = await sharedOwners(db, organizationId, actor.id);
-  const ownerIds = owners.map((o) => o.id);
-  const ownerName = new Map(owners.map((o) => [o.id, o.name]));
+  // Each query is a round trip to the database, so they all run at once. Only
+  // personal events and tasks wait for the calendars shared with this person.
+  const ownersP = sharedOwners(db, organizationId, actor.id);
+  const afterOwners = (run) => ownersP.then((list) => run(list.map((o) => o.id)));
+  const lessonsP = actor.id
+    ? lessonItems(db, { organizationId, userId: actor.id, start, end }).catch((err) => {
+      console.error("[Calendar] lessons failed:", err.message);
+      return [];
+    })
+    : [];
+  const connsP = includeImports && actor.id
+    ? calConnect.ensureConnectSchema(db).then(() => db.query(
+      `SELECT * FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 AND show_in_managira`,
+      [organizationId, actor.id]
+    ))
+    : { rows: [] };
+  const eventsP = db.query(
+    `SELECT id, name, event_date, end_date, start_time, end_time, all_day, location, color, details, visibility
+       FROM school_events
+      WHERE organization_id = $1 AND event_date IS NOT NULL
+        AND event_date < $3::date AND COALESCE(end_date, event_date) >= $2::date
+      ORDER BY event_date, start_time NULLS FIRST`,
+    [organizationId, start, end]
+  );
+  const personalP = afterOwners((ownerIds) => db.query(
+    `SELECT p.*, (p.owner_id = $4) AS mine,
+            EXISTS (SELECT 1 FROM personal_event_tags t WHERE t.event_id = p.id AND t.user_id = $4) AS tagged
+       FROM personal_events p
+      WHERE p.organization_id = $1
+        AND p.event_date < $3::date AND COALESCE(p.end_date, p.event_date) >= $2::date
+        AND (p.owner_id = $4 OR p.owner_id = ANY($5::int[])
+             OR EXISTS (SELECT 1 FROM personal_event_tags t WHERE t.event_id = p.id AND t.user_id = $4))`,
+    [organizationId, start, end, actor.id, ownerIds]
+  ));
 
-  const [events, personal, announcements, tasks, imports] = await Promise.all([
-    db.query(
-      `SELECT id, name, event_date, end_date, start_time, end_time, all_day, location, color, details, visibility
-         FROM school_events
-        WHERE organization_id = $1 AND event_date IS NOT NULL
-          AND event_date < $3::date AND COALESCE(end_date, event_date) >= $2::date
-        ORDER BY event_date, start_time NULLS FIRST`,
-      [organizationId, start, end]
-    ),
-    db.query(
-      `SELECT p.*, (p.owner_id = $4) AS mine,
-              EXISTS (SELECT 1 FROM personal_event_tags t WHERE t.event_id = p.id AND t.user_id = $4) AS tagged
-         FROM personal_events p
-        WHERE p.organization_id = $1
-          AND p.event_date < $3::date AND COALESCE(p.end_date, p.event_date) >= $2::date
-          AND (p.owner_id = $4 OR p.owner_id = ANY($5::int[])
-               OR EXISTS (SELECT 1 FROM personal_event_tags t WHERE t.event_id = p.id AND t.user_id = $4))`,
-      [organizationId, start, end, actor.id, ownerIds]
-    ),
+  const [owners, events, personal, announcements, tasks, imports, lessons, conns, eventTags, personalTags] = await Promise.all([
+    ownersP,
+    eventsP,
+    personalP,
     db.query(
       `SELECT announcement_id, message, visibility, created_at FROM announcements
         WHERE organization_id = $1 AND created_at >= $2::date AND created_at < $3::date ORDER BY created_at`,
       [organizationId, start, end]
     ),
-    db.query(
+    afterOwners((ownerIds) => db.query(
       `SELECT t.task_id, t.title, t.details, t.due_date, t.due_time, t.priority, t.created_by, t.created_by_name, t.updated_at,
               me.status AS my_status,
               (SELECT COUNT(*)::int FROM org_task_assignees x WHERE x.task_id = t.task_id) AS assignees,
@@ -242,16 +258,17 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
           AND (t.created_by = $4 OR me.user_id IS NOT NULL
                OR EXISTS (SELECT 1 FROM org_task_assignees x WHERE x.task_id = t.task_id AND x.user_id = ANY($5::int[])))`,
       [organizationId, start, end, actor.id, ownerIds]
-    ),
+    )),
     includeImports
       ? db.query(`SELECT import_id, label, provider, url FROM calendar_imports WHERE organization_id = $1 AND user_id = $2`, [organizationId, actor.id])
       : { rows: [] },
+    lessonsP,
+    connsP,
+    // Tags load as soon as their events arrive.
+    eventsP.then((r) => tagsFor(db, "school_event_tags", r.rows.map((e) => e.id))),
+    personalP.then((r) => tagsFor(db, "personal_event_tags", r.rows.map((e) => e.id))),
   ]);
-
-  const [eventTags, personalTags] = await Promise.all([
-    tagsFor(db, "school_event_tags", events.rows.map((e) => e.id)),
-    tagsFor(db, "personal_event_tags", personal.rows.map((e) => e.id)),
-  ]);
+  const ownerName = new Map(owners.map((o) => [o.id, o.name]));
 
   const items = [];
   events.rows.forEach((e) => items.push(eventItem(e, { kind: "event", layer: "event", tags: eventTags.get(e.id), editable: canPublish })));
@@ -297,40 +314,35 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
   });
 
   // The viewer's lessons from the class timetables.
-  if (actor.id) {
-    try {
-      items.push(...await lessonItems(db, { organizationId, userId: actor.id, start, end }));
-    } catch (err) {
-      console.error("[Calendar] lessons failed:", err.message);
-    }
-  }
+  items.push(...lessons);
 
+  // Connected and subscribed calendars are fetched from outside services, all at once.
   const errors = [];
-  if (includeImports && actor.id) {
-    await calConnect.ensureConnectSchema(db);
-    const conns = await db.query(`SELECT * FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 AND show_in_managira`, [organizationId, actor.id]);
-    for (const conn of conns.rows) {
-      try {
-        items.push(...await calConnect.pullEvents(db, conn, start, end));
-        if (conn.last_error && conn.last_synced_at) db.query(`UPDATE calendar_connections SET last_error = NULL WHERE connection_id = $1`, [conn.connection_id]).catch(() => {});
-      } catch (err) {
-        const msg = calConnect.friendlyError(err);
-        errors.push({ provider: conn.provider, error: msg });
-        db.query(`UPDATE calendar_connections SET last_error = $2 WHERE connection_id = $1`, [conn.connection_id, msg]).catch(() => {});
-      }
+  const connected = (includeImports && actor.id ? conns.rows : []).map(async (conn) => {
+    try {
+      const pulled = await calConnect.pullEvents(db, conn, start, end);
+      if (conn.last_error && conn.last_synced_at) db.query(`UPDATE calendar_connections SET last_error = NULL WHERE connection_id = $1`, [conn.connection_id]).catch(() => {});
+      return pulled;
+    } catch (err) {
+      const msg = calConnect.friendlyError(err);
+      errors.push({ provider: conn.provider, error: msg });
+      db.query(`UPDATE calendar_connections SET last_error = $2 WHERE connection_id = $1`, [conn.connection_id, msg]).catch(() => {});
+      return [];
     }
-  }
-  for (const imp of imports.rows) {
+  });
+  const subscribed = imports.rows.map(async (imp) => {
     try {
       const ext = await importedEvents(imp, start, end);
       ext.forEach((x) => { x.extendedProps.layer = `ext-${imp.import_id}`; });
-      items.push(...ext);
       db.query(`UPDATE calendar_imports SET last_synced_at = NOW(), last_error = NULL WHERE import_id = $1`, [imp.import_id]).catch(() => {});
+      return ext;
     } catch (err) {
       errors.push({ id: imp.import_id, label: imp.label, error: err.message });
       db.query(`UPDATE calendar_imports SET last_error = $2 WHERE import_id = $1`, [imp.import_id, String(err.message).slice(0, 300)]).catch(() => {});
+      return [];
     }
-  }
+  });
+  (await Promise.all([...connected, ...subscribed])).forEach((list) => items.push(...list));
   return { items, owners, errors };
 }
 

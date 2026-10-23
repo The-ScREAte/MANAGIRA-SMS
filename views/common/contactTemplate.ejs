@@ -1,0 +1,437 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = Object.fromEntries(Object.entries(themePalette).map(([k, v]) => [k, v.primary]));
+  const primary = themeColors[themeColor] || themeColors.teal;
+%>
+<style>
+  #ctRoot, #ctDialog {
+    --ct-primary: <%= primary %>;
+    --ct-bg: #f4f6f8;
+    --ct-panel: #fff;
+    --ct-line: #e4e9ee;
+    --ct-text: #13202b;
+    --ct-muted: #667788;
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    color: var(--ct-text);
+  }
+  #ctRoot { background: var(--ct-bg); min-height: 100%; padding: 20px 24px 40px; box-sizing: border-box; }
+  #ctRoot *, #ctDialog * { box-sizing: border-box; }
+  #ctRoot :where(button), #ctDialog :where(button) { width: auto; margin: 0; font-family: inherit; line-height: 1.2; }
+  .ct-wrap { display: grid; gap: 14px; }
+  .ct-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+  .ct-head h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; text-align: left; color: var(--ct-text); }
+  .ct-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--ct-muted); max-width: 640px; }
+  .ct-head__actions { display: flex; gap: 8px; }
+
+  .ct-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--ct-line); border-radius: 10px; background: #fff; color: var(--ct-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s; }
+  .ct-btn:hover { background: #f8fafb; border-color: #d4dce4; }
+  .ct-btn svg { width: 15px; height: 15px; }
+  .ct-btn--primary { background: var(--ct-primary); border-color: transparent; color: #fff; }
+  .ct-btn--primary:hover { background: var(--ct-primary); filter: brightness(.94); }
+  .ct-btn:disabled { opacity: .45; cursor: default; }
+  .ct-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ct-muted); cursor: pointer; }
+  .ct-icon-btn:hover { background: #eef2f5; color: var(--ct-text); }
+  .ct-icon-btn--danger:hover { background: #fdecec; color: #c0262d; }
+  .ct-icon-btn svg { width: 16px; height: 16px; }
+  .ct-link { height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--ct-primary); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .ct-link:hover { background: color-mix(in srgb, var(--ct-primary) 8%, #fff); }
+
+  .ct-card { background: var(--ct-panel); border: 1px solid var(--ct-line); border-radius: 14px; }
+  .ct-sec__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+  .ct-sec__title { flex: 1; min-width: 0; display: grid; gap: 1px; }
+  .ct-sec__title strong { font-size: 14.5px; font-weight: 800; }
+  .ct-sec__title span { font-size: 12px; color: var(--ct-muted); }
+  .ct-sec__actions { display: flex; align-items: center; gap: 2px; }
+  .ct-lock { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--ct-primary) 10%, #fff); color: var(--ct-primary); flex: none; }
+  .ct-lock svg { width: 15px; height: 15px; }
+  .ct-base { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px 54px; }
+  .ct-base span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; background: #f4f6f8; font-size: 12.5px; font-weight: 600; color: #334252; }
+  .ct-base em { font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--ct-primary); text-transform: uppercase; letter-spacing: .03em; }
+
+  .ct-sections { display: grid; gap: 14px; }
+  .ct-fields { display: grid; gap: 6px; padding: 0 12px 12px; min-height: 52px; }
+  .ct-fields:empty::before { content: "Drag fields here, or add one."; display: grid; place-items: center; height: 52px; border: 1.5px dashed var(--ct-line); border-radius: 10px; font-size: 12.5px; color: #8796a5; }
+  .ct-row { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 4px; border: 1px solid var(--ct-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+  .ct-row:hover { border-color: #d3dbe3; box-shadow: 0 1px 3px rgba(16, 32, 48, .05); }
+  .ct-row.is-obsolete { background: #fafbfc; }
+  .ct-row.is-obsolete .ct-row__main strong { color: #8796a5; }
+  .ct-grip { display: grid; place-items: center; width: 24px; height: 30px; border-radius: 7px; color: #a8b4c0; cursor: grab; touch-action: none; flex: none; }
+  .ct-grip:hover { background: #eef2f5; color: var(--ct-text); }
+  .ct-grip svg { width: 14px; height: 14px; }
+  .ct-type { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: #f1f4f7; color: #4a5b6c; flex: none; }
+  .ct-type svg { width: 16px; height: 16px; }
+  .ct-row__main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+  .ct-row__main strong { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ct-row__main span { font-size: 12px; color: var(--ct-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ct-chip { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; flex: none; }
+  .ct-chip--obsolete { background: #fdf3dc; color: #8a5a00; }
+  .ct-row__actions { display: flex; gap: 2px; flex: none; }
+
+  /* While dragging */
+  .ct-dragging, .ct-dragging * { cursor: grabbing !important; user-select: none; }
+  .ct-placeholder { opacity: .35; }
+  .ct-ghost { position: fixed; z-index: 20000; margin: 0; pointer-events: none; box-shadow: 0 16px 40px -10px rgba(16, 32, 48, .35); transform: rotate(.6deg); opacity: .97; }
+
+  .ct-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 12.5px; line-height: 1.5; color: var(--ct-muted); }
+  .ct-note svg { flex: none; width: 15px; height: 15px; margin-top: 2px; }
+  .ct-toast { position: fixed; left: 50%; bottom: 22px; z-index: 20001; transform: translate(-50%, 10px); opacity: 0; padding: 9px 14px; border-radius: 10px; background: #13202b; color: #fff; font-size: 13px; font-weight: 600; transition: .2s; pointer-events: none; }
+  .ct-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+  /* Dialog */
+  #ctDialog { position: fixed; inset: 0; z-index: 20002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+  #ctDialog.is-open { display: flex; }
+  .ct-dlg { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); overflow: auto; border-radius: 16px; background: #fff; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45); }
+  .ct-dlg__head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 6px; }
+  .ct-dlg__head h2 { margin: 0; font-size: 16px; font-weight: 800; text-align: left; }
+  .ct-dlg__body { display: grid; gap: 12px; padding: 10px 20px 4px; }
+  .ct-dlg label, .ct-dlg__label { display: grid; gap: 5px; margin: 0; font-size: 12px; font-weight: 700; color: #556676; }
+  .ct-dlg label small { margin-left: 4px; font-weight: 500; color: #8796a5; }
+  #ctDialog [hidden] { display: none !important; }
+  #ctDialog :is(input, select, textarea) { width: 100%; height: auto; margin: 0; padding: 9px 11px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: #13202b; font: inherit; font-size: 13.5px; }
+  #ctDialog :is(input, select, textarea):focus { outline: none; border-color: var(--ct-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-primary) 15%, transparent); }
+  #ctDialog textarea { min-height: 96px; resize: vertical; }
+  .ct-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  #ctDialog .ct-types button { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: #334252; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; }
+  #ctDialog .ct-types button svg { width: 15px; height: 15px; color: #6b7c8d; flex: none; }
+  #ctDialog .ct-types button.is-on { border-color: var(--ct-primary); background: color-mix(in srgb, var(--ct-primary) 7%, #fff); color: var(--ct-text); box-shadow: 0 0 0 1px var(--ct-primary) inset; }
+  #ctDialog .ct-types button.is-on svg { color: var(--ct-primary); }
+  #ctDialog .ct-types button:disabled { cursor: default; opacity: .45; }
+  #ctDialog .ct-types button.is-on:disabled { opacity: 1; }
+  .ct-dlg__hint { margin: -4px 0 0; font-size: 12px; color: #8796a5; }
+  .ct-dlg__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px 18px; }
+  .ct-dlg__foot > div { display: flex; gap: 8px; }
+  .ct-error { min-height: 18px; margin: 0; font-size: 12.5px; color: #c0262d; }
+
+  @media (max-width: 640px) {
+    #ctRoot { padding: 14px 12px 32px; }
+    .ct-head__actions { width: 100%; }
+    .ct-head__actions .ct-btn { flex: 1; justify-content: center; }
+    .ct-base { padding-left: 14px; }
+    .ct-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ct-type { display: none; }
+  }
+</style>
+
+<div id="ctRoot">
+  <div class="ct-wrap">
+    <div class="ct-head">
+      <div>
+        <h1>Contact template</h1>
+        <p>What you keep for every parent and guardian. Each section is a tab on the contact card in Mail Room. Drag to arrange.</p>
+      </div>
+      <div class="ct-head__actions">
+        <button type="button" class="ct-btn" data-add-section>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>
+          Add section
+        </button>
+        <button type="button" class="ct-btn ct-btn--primary" data-add-field>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add field
+        </button>
+      </div>
+    </div>
+
+    <section class="ct-card">
+      <header class="ct-sec__head">
+        <span class="ct-lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <div class="ct-sec__title"><strong>Contact info</strong><span>Standard details on every contact. Always collected and can't be changed.</span></div>
+      </header>
+      <div class="ct-base">
+        <% baseFields.forEach(function (f) { %>
+          <span title="<%= f.note || (f.required ? 'Required' : 'Optional') %>"><%= f.label %><% if (f.required) { %><em>Required</em><% } %></span>
+        <% }) %>
+      </div>
+    </section>
+
+    <div class="ct-sections" id="ctSections"></div>
+
+    <p class="ct-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+      <span>Rename fields, change choices and rearrange at any time. A field that has been filled in for someone can't be deleted. Make it obsolete instead: it leaves the form, and saved answers stay on the card.</span>
+    </p>
+  </div>
+  <div class="ct-toast" id="ctToast" role="status"></div>
+</div>
+
+<div id="ctDialog" role="dialog" aria-modal="true" aria-labelledby="ctDialogTitle"><div class="ct-dlg" id="ctDlg"></div></div>
+
+<script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes }).replace(/</g, '\\u003c') %></script>
+<script>
+(function () {
+  const root = document.getElementById('ctRoot');
+  if (!root || root.dataset.ready) return;
+  root.dataset.ready = '1';
+  const data = JSON.parse(document.getElementById('ctData').textContent);
+  let sections = data.template.sections;
+  let fields = data.template.fields;
+  const TYPES = data.types;
+  const host = document.getElementById('ctSections');
+  const dialog = document.getElementById('ctDialog');
+  const dlg = document.getElementById('ctDlg');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const svg = (d, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 2}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ICON = {
+    grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+    edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+    archive: svg('<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>'),
+    restore: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
+    trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
+    close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+  };
+  const TYPE_ICON = {
+    text: svg('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>'),
+    long_text: svg('<path d="M4 6h16M4 10h16M4 14h16M4 18h10"/>'),
+    number: svg('<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>'),
+    date: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>'),
+    choice: svg('<circle cx="5" cy="7" r="1.4"/><circle cx="5" cy="12" r="1.4"/><circle cx="5" cy="17" r="1.4"/><path d="M10 7h10M10 12h10M10 17h10"/>'),
+    yes_no: svg('<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>'),
+  };
+
+  // ---------- render ----------
+  function rowHtml(f) {
+    const obsolete = f.status !== 'active';
+    const meta = [TYPES[f.type] || 'Short text', f.type === 'choice' ? f.options.join(', ') : '', f.used ? 'In use' : ''].filter(Boolean).join(' · ');
+    return `<div class="ct-row ${obsolete ? 'is-obsolete' : ''}" data-field="${f.id}">
+      <span class="ct-grip" data-grip="field" title="Drag to move" aria-hidden="true">${ICON.grip}</span>
+      <span class="ct-type" aria-hidden="true">${TYPE_ICON[f.type] || TYPE_ICON.text}</span>
+      <div class="ct-row__main"><strong>${esc(f.label)}</strong><span>${esc(meta)}</span></div>
+      ${obsolete ? '<span class="ct-chip ct-chip--obsolete">Obsolete</span>' : ''}
+      <div class="ct-row__actions">
+        <button type="button" class="ct-icon-btn" data-edit title="Edit" aria-label="Edit ${esc(f.label)}">${ICON.edit}</button>
+        ${obsolete
+          ? `<button type="button" class="ct-icon-btn" data-status="active" title="Restore" aria-label="Restore ${esc(f.label)}">${ICON.restore}</button>`
+          : `<button type="button" class="ct-icon-btn" data-status="obsolete" title="Make obsolete" aria-label="Make ${esc(f.label)} obsolete">${ICON.archive}</button>`}
+        ${f.used ? '' : `<button type="button" class="ct-icon-btn ct-icon-btn--danger" data-delete title="Delete" aria-label="Delete ${esc(f.label)}">${ICON.trash}</button>`}
+      </div>
+    </div>`;
+  }
+
+  function sectionHtml(sec) {
+    const list = fields.filter((f) => (f.sectionId || 0) === sec.id);
+    const custom = sec.id !== 0;
+    const count = `${list.length} field${list.length === 1 ? '' : 's'}`;
+    return `<section class="ct-card ct-sec" data-section="${sec.id}">
+      <header class="ct-sec__head">
+        ${custom ? `<span class="ct-grip" data-grip="section" title="Drag to move" aria-hidden="true">${ICON.grip}</span>` : ''}
+        <div class="ct-sec__title"><strong>${esc(sec.name)}</strong><span>${custom ? `${count} · its own tab on the contact card` : `${count} · fields that aren't in a section`}</span></div>
+        <div class="ct-sec__actions">
+          <button type="button" class="ct-link" data-add-field-in="${sec.id}">+ Add field</button>
+          ${custom ? `<button type="button" class="ct-icon-btn" data-rename title="Rename section" aria-label="Rename ${esc(sec.name)}">${ICON.edit}</button>
+          <button type="button" class="ct-icon-btn ct-icon-btn--danger" data-delete-section title="Delete section" aria-label="Delete ${esc(sec.name)}">${ICON.trash}</button>` : ''}
+        </div>
+      </header>
+      <div class="ct-fields" data-zone="${sec.id}">${list.map(rowHtml).join('')}</div>
+    </section>`;
+  }
+
+  // "More details" holds fields without a section; it's shown when it has any
+  // (or when there are no sections yet), always last.
+  function render() {
+    const loose = fields.some((f) => !f.sectionId);
+    const all = sections.concat(loose || !sections.length ? [{ id: 0, name: 'More details' }] : []);
+    host.innerHTML = all.map(sectionHtml).join('');
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    const t = document.getElementById('ctToast');
+    t.textContent = text;
+    t.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('is-on'), 2200);
+  }
+
+  async function call(url, body) {
+    const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body || {}) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.success) throw new Error(out.error || 'Something went wrong. Try again.');
+    sections = out.sections;
+    fields = out.fields;
+    return out;
+  }
+
+  // ---------- dialogs ----------
+  let dialogSubmit = null;
+  function openDialog(html, onSubmit) {
+    dlg.innerHTML = html;
+    dialogSubmit = onSubmit;
+    dialog.classList.add('is-open');
+    const first = dlg.querySelector('input, textarea');
+    if (first) first.focus();
+  }
+  function closeDialog() { dialog.classList.remove('is-open'); dialogSubmit = null; }
+  function dialogFrame(title, body, action) {
+    return `<form data-dlg-form novalidate>
+      <div class="ct-dlg__head"><h2 id="ctDialogTitle">${title}</h2><button type="button" class="ct-icon-btn" data-dlg-close aria-label="Close">${ICON.close}</button></div>
+      <div class="ct-dlg__body">${body}</div>
+      <div class="ct-dlg__foot"><p class="ct-error" data-dlg-error role="alert"></p><div><button type="button" class="ct-btn" data-dlg-close>Cancel</button><button type="submit" class="ct-btn ct-btn--primary">${action}</button></div></div>
+    </form>`;
+  }
+
+  function fieldDialog(f, sectionId) {
+    const locked = f && f.used > 0;
+    let type = f ? f.type : 'text';
+    const secId = f ? (f.sectionId || 0) : (sectionId || 0);
+    const body = `
+      <label>Field name<input name="label" maxlength="80" value="${esc(f ? f.label : '')}" placeholder="e.g. Emergency contact" autocomplete="off"></label>
+      <div class="ct-dlg__label">Type
+        <div class="ct-types">${Object.entries(TYPES).map(([k, v]) => `<button type="button" data-type="${k}" class="${k === type ? 'is-on' : ''}" ${locked ? 'disabled' : ''}>${TYPE_ICON[k]}${esc(v)}</button>`).join('')}</div>
+      </div>
+      ${locked ? '<p class="ct-dlg__hint">This field has answers, so its type stays the same.</p>' : ''}
+      <label data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices <small>one per line</small></span><textarea name="options" placeholder="English&#10;Spanish&#10;French">${esc(f ? f.options.join('\n') : '')}</textarea></label>
+      <label>Section<select name="sectionId"><option value="0">More details</option>${sections.map((s) => `<option value="${s.id}" ${s.id === secId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
+      <label><span>Help text <small>optional, shown under the field</small></span><input name="helpText" maxlength="200" value="${esc(f ? f.helpText : '')}" autocomplete="off"></label>`;
+    openDialog(dialogFrame(f ? 'Edit field' : 'New field', body, f ? 'Save' : 'Add field'), async (form) => {
+      await call(f ? `/common/contact-template/fields/${f.id}` : '/common/contact-template/fields', {
+        label: form.label.value, type, options: form.options.value,
+        sectionId: Number(form.sectionId.value) || null, helpText: form.helpText.value,
+      });
+      toast(f ? 'Field saved' : 'Field added');
+    });
+    dlg.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
+      type = b.dataset.type;
+      dlg.querySelectorAll('[data-type]').forEach((x) => x.classList.toggle('is-on', x === b));
+      dlg.querySelector('[data-options]').hidden = type !== 'choice';
+    }));
+  }
+
+  function sectionDialog(sec) {
+    const body = `<label>Section name<input name="name" maxlength="60" value="${esc(sec ? sec.name : '')}" placeholder="e.g. Emergency & pickup" autocomplete="off"></label>
+      <p class="ct-dlg__hint">Each section is its own tab on the contact card.</p>`;
+    openDialog(dialogFrame(sec ? 'Rename section' : 'New section', body, sec ? 'Save' : 'Add section'), async (form) => {
+      await call(sec ? `/common/contact-template/sections/${sec.id}` : '/common/contact-template/sections', { name: form.name.value });
+      toast(sec ? 'Section renamed' : 'Section added');
+    });
+  }
+
+  dialog.addEventListener('click', (e) => { if (e.target === dialog || e.target.closest('[data-dlg-close]')) closeDialog(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialog.classList.contains('is-open')) closeDialog(); });
+  dialog.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!dialogSubmit) return;
+    const form = e.target;
+    const btn = form.querySelector('[type="submit"]');
+    btn.disabled = true;
+    try {
+      await dialogSubmit(form);
+      closeDialog();
+      render();
+    } catch (err) {
+      form.querySelector('[data-dlg-error]').textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+
+  // ---------- actions ----------
+  root.querySelector('[data-add-field]').addEventListener('click', () => fieldDialog(null, 0));
+  root.querySelector('[data-add-section]').addEventListener('click', () => sectionDialog(null));
+  host.addEventListener('click', async (e) => {
+    const secEl = e.target.closest('[data-section]');
+    const rowEl = e.target.closest('[data-field]');
+    const f = rowEl && fields.find((x) => x.id === Number(rowEl.dataset.field));
+    const sec = secEl && sections.find((x) => x.id === Number(secEl.dataset.section));
+    const addIn = e.target.closest('[data-add-field-in]');
+    try {
+      if (addIn) return fieldDialog(null, Number(addIn.dataset.addFieldIn));
+      if (f && e.target.closest('[data-edit]')) return fieldDialog(f);
+      if (sec && !f && e.target.closest('[data-rename]')) return sectionDialog(sec);
+      const status = f && e.target.closest('[data-status]');
+      if (status) {
+        await call(`/common/contact-template/fields/${f.id}/status`, { status: status.dataset.status });
+        toast(status.dataset.status === 'active' ? 'Field restored' : 'Field is now obsolete');
+        return render();
+      }
+      if (f && e.target.closest('[data-delete]')) {
+        if (!confirm(`Delete "${f.label}"? It hasn't been filled in for anyone yet.`)) return;
+        await call(`/common/contact-template/fields/${f.id}/delete`);
+        toast('Field deleted');
+        return render();
+      }
+      if (sec && !f && e.target.closest('[data-delete-section]')) {
+        const n = fields.filter((x) => x.sectionId === sec.id).length;
+        if (!confirm(n ? `Delete the "${sec.name}" section? Its ${n} field${n === 1 ? '' : 's'} will move to More details.` : `Delete the "${sec.name}" section?`)) return;
+        await call(`/common/contact-template/sections/${sec.id}/delete`);
+        toast('Section deleted');
+        return render();
+      }
+    } catch (err) {
+      toast(err.message);
+      render();
+    }
+  });
+
+  // ---------- drag to arrange (mouse and touch) ----------
+  // Fields move within and between sections; sections move among themselves
+  // ("More details" stays last). The new layout is saved when the drag ends.
+  function layout() {
+    return {
+      sections: [...host.querySelectorAll('[data-section]')].map((el) => Number(el.dataset.section)).filter(Boolean),
+      fields: [...host.querySelectorAll('[data-zone]')].flatMap((zone) => [...zone.querySelectorAll('[data-field]')]
+        .map((el) => ({ id: Number(el.dataset.field), sectionId: Number(zone.dataset.zone) || null }))),
+    };
+  }
+
+  host.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest('[data-grip]');
+    if (!grip || e.button > 0) return;
+    e.preventDefault();
+    const kind = grip.dataset.grip;
+    const item = grip.closest(kind === 'field' ? '[data-field]' : '[data-section]');
+    const rect = item.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const before = JSON.stringify(layout());
+    const ghost = item.cloneNode(true);
+    ghost.classList.add('ct-ghost');
+    Object.assign(ghost.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px' });
+    document.body.appendChild(ghost);
+    item.classList.add('ct-placeholder');
+    document.documentElement.classList.add('ct-dragging');
+
+    const middle = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+    function place(x, y) {
+      ghost.style.top = (y - offsetY) + 'px';
+      const under = document.elementFromPoint(x, y);
+      if (!under) return;
+      if (kind === 'field') {
+        const sectionEl = under.closest('[data-section]');
+        const zone = under.closest('[data-zone]') || (sectionEl && sectionEl.querySelector('[data-zone]'));
+        if (!zone) return;
+        const rows = [...zone.querySelectorAll('[data-field]')].filter((r) => r !== item);
+        const next = rows.find((r) => y < middle(r)) || null;
+        if (item.parentNode !== zone || item.nextSibling !== next) zone.insertBefore(item, next);
+      } else {
+        const target = under.closest('[data-section]');
+        if (!target || target === item || !Number(target.dataset.section)) return;
+        host.insertBefore(item, y < middle(target) ? target : target.nextSibling);
+      }
+    }
+    function move(ev) {
+      place(ev.clientX, ev.clientY);
+      if (ev.clientY < 60) window.scrollBy(0, -14);
+      else if (ev.clientY > window.innerHeight - 60) window.scrollBy(0, 14);
+    }
+    async function end() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      ghost.remove();
+      item.classList.remove('ct-placeholder');
+      document.documentElement.classList.remove('ct-dragging');
+      const now = layout();
+      if (JSON.stringify(now) === before) return;
+      try {
+        await call('/common/contact-template/order', now);
+        toast('Saved');
+      } catch (err) {
+        toast(err.message);
+      }
+      render();
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+
+  render();
+})();
+</script>
