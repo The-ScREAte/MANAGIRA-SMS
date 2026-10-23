@@ -1,0 +1,46 @@
+<%#
+  The school's own student fields (Admissions > Admission Settings > Forms).
+  Locals: customFields (from utils/studentFormFields), nameSuffix (appended to
+  each input name, e.g. "___INDEX__"), customValues ({ fieldId: value }),
+  groupClass / labelClass / inputClass (the host form's classes).
+%>
+<%
+  const _cf = Array.isArray(locals.customFields) ? customFields : [];
+  const _suffix = locals.nameSuffix || '';
+  const _vals = locals.customValues || {};
+  const _group = locals.groupClass || 'form-field-group';
+  const _label = locals.labelClass || 'form-label';
+  const _input = locals.inputClass || 'form-input';
+  const _req = locals.requiredMark || '<span class="req">*</span>';
+%>
+<% _cf.forEach(function (f) {
+  const name = 'cf' + f.id + _suffix;
+  const v = _vals[f.id] != null ? String(_vals[f.id]) : '';
+  const req = f.required ? 'required' : '';
+%>
+  <div class="<%= _group %> scf-field<%= f.type === 'long_text' ? ' scf-wide' : '' %>">
+    <label class="<%= _label %>"><%= f.label %><% if (f.required) { %><%- _req %><% } %></label>
+    <% if (f.type === 'long_text') { %>
+      <textarea class="<%= _input %>" name="<%= name %>" rows="3" maxlength="4000" <%= req %>><%= v %></textarea>
+    <% } else if (f.type === 'number') { %>
+      <input type="number" step="any" class="<%= _input %>" name="<%= name %>" value="<%= v %>" <%= req %>>
+    <% } else if (f.type === 'date') { %>
+      <input type="date" class="<%= _input %>" name="<%= name %>" value="<%= v %>" <%= req %>>
+    <% } else if (f.type === 'choice') { %>
+      <select class="<%= _input %>" name="<%= name %>" <%= req %>>
+        <option value="">Select</option>
+        <% f.options.forEach(function (o) { %><option value="<%= o %>" <%= o === v ? 'selected' : '' %>><%= o %></option><% }) %>
+        <% if (v && f.options.indexOf(v) === -1) { %><option value="<%= v %>" selected><%= v %></option><% } %>
+      </select>
+    <% } else if (f.type === 'yes_no') { %>
+      <select class="<%= _input %>" name="<%= name %>" <%= req %>>
+        <option value="">Select</option>
+        <option value="yes" <%= v === 'yes' ? 'selected' : '' %>>Yes</option>
+        <option value="no" <%= v === 'no' ? 'selected' : '' %>>No</option>
+      </select>
+    <% } else { %>
+      <input type="text" class="<%= _input %>" name="<%= name %>" value="<%= v %>" maxlength="500" <%= req %>>
+    <% } %>
+    <% if (f.helpText) { %><small class="scf-help"><%= f.helpText %></small><% } %>
+  </div>
+<% }) %>

@@ -77,7 +77,6 @@ To **conditionally show a link in the navigation header**, modify the header fil
   </a>
   <ul class="management-links submenu" id="reports-submenu">
     <li><a href="/common/management">📑 Term Management</a></li>
-    <li><a href="/print/migration">📚 Data Migration</a></li>
 
     <% if (allowedFeatures.includes("Statistics")) { %>
       <li><a href="/stats/organization">📊 Organization Stats</a></li>

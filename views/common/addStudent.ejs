@@ -7,6 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Add New Students</title>
     <style>
+      /* The school's own fields: two columns, paragraphs full width. */
+      .scf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+      .scf-grid .scf-wide { grid-column: 1 / -1; }
+      .scf-help { display: block; margin-top: 4px; font-size: 12px; color: #6b7280; }
+      @media (max-width: 640px) { .scf-grid { grid-template-columns: minmax(0, 1fr); } }
       :root {
         --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       }
@@ -2570,6 +2575,18 @@
                   <input type="email" class="form-input" name="studentEmail___INDEX__" placeholder="student@example.com">
                 </div>
             </div>
+
+            <% if (typeof customFields !== 'undefined' && customFields.length) { %>
+            <!-- ── Section: the school's own fields (Admission Settings > Forms) ── -->
+            <div class="form-section">
+              <div class="form-section-header">
+                <h3 class="form-section-title">More Details</h3>
+              </div>
+              <div class="scf-grid">
+                <%- include('../partials/studentCustomFields', { customFields, nameSuffix: '___INDEX__', customValues: {} }) %>
+              </div>
+            </div>
+            <% } %>
 
             <!-- ── Section: Academic Placement ──────────────────── -->
             <div class="form-section">

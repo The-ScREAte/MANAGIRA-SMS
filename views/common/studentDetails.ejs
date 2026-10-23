@@ -649,6 +649,9 @@
           <% if (student.email) { %>
           <p><strong>Email:</strong> <%= student.email %></p>
           <% } %>
+          <% (locals.customAnswers || []).forEach(function (f) { %>
+          <p><strong><%= f.label %>:</strong> <span style="white-space: pre-wrap"><%= f.display %></span></p>
+          <% }) %>
           </div>
         </div>
       </div>

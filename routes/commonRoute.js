@@ -9,6 +9,7 @@ const { requirePermission, PERMISSIONS } = require("../middleware/permissionMidd
 const websiteController = require("../controllers/websiteController");
 const workspaceController = require("../controllers/workspaceController");
 const contactsController = require("../controllers/contactsController");
+const admissionSettingsController = require("../controllers/admissionSettingsController");
 const { isOrgMember } = require("../utils/workspace");
 const multer = require('multer');
 const path = require('path');
@@ -275,6 +276,15 @@ module.exports = (db) => {
   router.get("/parent-messages/:id(\\d+)", isAuthenticated, (req, res) => commonController.parentMessageOpen(req, res, db));
   router.post("/parent-messages/:id(\\d+)/status", isAuthenticated, express.json(), (req, res) => commonController.parentMessageStatus(req, res, db));
   router.get("/mailroom/inbox", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) => commonController.mailroomInbox(req, res, db));
+
+  // Admissions > Admission Settings (online admission + student form fields).
+  // Permission (Manage Settings) is checked in the controller.
+  router.get("/admissionSettings", checkFeatureAccess, isAuthenticated, blockGuardians, admissionSettingsController.page);
+  router.post("/admissionSettings/fields", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("create"));
+  router.post("/admissionSettings/fields/order", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("order"));
+  router.post("/admissionSettings/fields/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("update"));
+  router.post("/admissionSettings/fields/:id(\\d+)/status", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("status"));
+  router.post("/admissionSettings/fields/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("delete"));
 
   // Contact cards (Mail Room) and the contact template (Management Tools).
   // Permission checks (see / edit contacts, edit template) are in the controller.

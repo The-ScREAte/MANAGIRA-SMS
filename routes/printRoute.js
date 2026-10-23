@@ -90,16 +90,6 @@ module.exports = (db) => {
     router.post('/savePaygiraReportOverrides', isAuthenticated, express.json(), printController.savePaygiraReportOverrides);
     router.post('/saveDisplaySettings', isAuthenticated, express.json(), printController.saveDisplaySettings);
 
-   // Migration Page (Upload + Search)
-   router.get("/migration", checkFeatureAccess, isAuthenticated, printController.migrationPage);
-   // Upload File to S3
-   router.post("/upload", isAuthenticated, upload.single("file"), printController.uploadFile);
-   // Search File Content
-   router.get("/search", isAuthenticated, printController.searchFile);
-   // Preview File
-   router.get("/preview/:key", checkFeatureAccess, isAuthenticated, printController.previewFile);
-   router.get("/delete/:key",  checkFeatureAccess, isAuthenticated, printController.deleteFile);
-   
    // Email reports
     router.get('/emailHistoryPage', isAuthenticated, (req, res) => {
         const { classId = '', termId = '' } = req.query;

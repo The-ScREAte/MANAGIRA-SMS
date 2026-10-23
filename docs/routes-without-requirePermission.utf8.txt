@@ -240,7 +240,6 @@ GET	http://localhost:4000/print/generateMeritSheet	printRoute.js
 POST	http://localhost:4000/print/generateMeritSheet	printRoute.js
 GET	http://localhost:4000/print/getGuardianEmails	printRoute.js
 GET	http://localhost:4000/print/meritSheetPage	printRoute.js
-GET	http://localhost:4000/print/migration	printRoute.js
 GET	http://localhost:4000/print/preview/:key	printRoute.js
 GET	http://localhost:4000/print/printStudentReport	printRoute.js
 GET	http://localhost:4000/print/reportSettings	printRoute.js

@@ -2,6 +2,7 @@ const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getMessagingChannelStatus } = require("./../utils/guardianMessaging");
 const websiteExtrasUtil = require("../utils/websiteExtras");
 const { saveGuardianBaseInfo } = require("../utils/contacts");
+const studentFormFields = require("../utils/studentFormFields");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
@@ -4736,8 +4737,10 @@ const commonController = {
         studentIdSettings.student_id_start_number || null
       );
 
+      const customFields = await studentFormFields.formFields(db, req.session.organizationId, "student").catch(() => []);
       res.render("common/addStudent", {
         title: "Add New Student",
+        customFields,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -4777,6 +4780,8 @@ const commonController = {
       [organizationId]
     );
     const idSettings = orgIdSettingsResult.rows[0] || {};
+    // The school's own fields on this form (Admission Settings > Forms).
+    const customFields = await studentFormFields.formFields(db, organizationId, "student").catch(() => []);
 
     const indexes = [];
     const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|dateOfBirthUnknown|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_+(\d+)$/;
@@ -5136,6 +5141,11 @@ const commonController = {
           throw new Error("Student insert failed.");
         const studentId = studentInsert.rows[0].student_id;
         studentsSavedCount += 1;
+
+        if (customFields.length) {
+          const answers = studentFormFields.readAnswers(customFields, getStudentField);
+          await studentFormFields.saveStudentAnswers(client, organizationId, studentId, answers, createdBy);
+        }
 
         await upsertStudentTransportationAssignment(client, {
           organizationId,
@@ -6085,6 +6095,8 @@ const commonController = {
         footerThemeColor: await require("../utils/orgTheme").getOrgThemeColor(db, organizationId).catch(() => "teal"),
         title: "Public Student Registration",
         registrationState,
+        // The school's own fields asked on the application (Admission Settings > Forms).
+        customFields: await studentFormFields.formFields(db, organizationId, "application").catch(() => []),
         classes: classResult.rows,
         graduationYearGroups: graduationYearGroupResult.rows,
         subjects: subjectResult.rows,
@@ -6132,6 +6144,18 @@ const commonController = {
         return res
           .status(400)
           .json({ success: false, error: "Missing required fields." });
+      }
+
+      // The school's own fields: check the answers before saving anything.
+      const applicationFields = await studentFormFields.formFields(db, organizationId, "application");
+      let applicationAnswers = [];
+      try {
+        applicationAnswers = studentFormFields.readAnswers(applicationFields, (name) => body[name], { strict: true });
+      } catch (fieldError) {
+        if (fieldError instanceof studentFormFields.FieldError) {
+          return res.status(400).json({ success: false, error: fieldError.message });
+        }
+        throw fieldError;
       }
       const orgResult = await db.query(
         `SELECT public_registration_price, public_registration_currency, public_registration_enabled,
@@ -6206,6 +6230,7 @@ const commonController = {
       );
 
       const pendingStudentId = insertResult.rows[0].pending_id;
+      await studentFormFields.saveApplicationAnswers(db, organizationId, pendingStudentId, applicationAnswers);
 
       // Check if using existing guardian or creating new
       if (body.existingGuardianId) {
@@ -7366,6 +7391,10 @@ const commonController = {
         classes: classResult.rows || [],
         graduationYearGroups: gradGroupResult.rows || [],
         schoolYears, // ✅ now passed to frontend
+        // Answers to the school's own application fields.
+        customAnswers: (await studentFormFields.answersFor(db, organizationId, { pendingId: Number(id) }, "application").catch(() => []))
+          .filter((f) => f.value)
+          .map((f) => ({ label: f.label, value: f.display })),
       });
     } catch (err) {
       // ...removed error log for clean background operation...
@@ -7580,6 +7609,10 @@ const commonController = {
       );
 
       const studentId = inserted.rows[0].student_id;
+
+      // The application's answers to the school's own fields go to the student.
+      await studentFormFields.ensureStudentFormFieldsSchema(db);
+      await studentFormFields.copyApplicationAnswers(client, organizationId, Number(id), studentId);
 
       // ✅ Enrollment
       let enrollmentId;
@@ -8292,6 +8325,9 @@ const commonController = {
       res.render("common/studentDetails", {
         isEmbedded,
         archiveStatus: await getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
+        // The school's own fields that have an answer for this student.
+        customAnswers: (await studentFormFields.answersFor(db, req.session.organizationId, { studentId: student.student_id }, "student").catch(() => []))
+          .filter((f) => f.value),
         title: "Student Details",
         student,
         studentIdSettings,
@@ -8384,7 +8420,7 @@ const commonController = {
       // Archived students (graduated or left) are kept as they were.
       const archiveStatus = await getStudentArchiveStatus(db, organizationId, Number.parseInt(studentId, 10));
       if (archiveStatus) {
-        req.flash("error", `This student has ${archiveStatus.kind === "left" ? "left the school" : "graduated"} and can't be edited.${archiveStatus.permanent ? "" : " To change their details, restore them from Graduates & Former Students first."}`);
+        req.flash("error", `This student has ${archiveStatus.kind === "left" ? "left the school" : "graduated"} and can't be edited.${archiveStatus.permanent ? "" : " To change their details, restore them from Graduates & Alumni first."}`);
         return res.redirect(`/common/studentDetails?studentId=${encodeURIComponent(studentId)}&termId=${encodeURIComponent(queryTermId || req.session.currentTermId || "")}`);
       }
 
@@ -8484,9 +8520,13 @@ const commonController = {
         [organizationId]
       );
       const studentIdSettings = editOrgIdSettingsResult.rows[0] || {};
+      // The school's own fields, with this student's answers.
+      const customAnswers = await studentFormFields.answersFor(db, organizationId, { studentId: Number(studentId) }, "student").catch(() => []);
 
       res.render("common/editStudent", {
         title: "Edit Student",
+        customFields: customAnswers.filter((f) => f.status === "active"),
+        customValues: Object.fromEntries(customAnswers.map((f) => [f.id, f.value])),
         hideGlobalHeader: true,
         hideGlobalFooter: true,
         student,
@@ -8517,7 +8557,7 @@ const commonController = {
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
       if (await getStudentArchiveStatus(db, sessionOrganizationId, Number.parseInt(studentId, 10))) {
-        req.flash("error", "This student has graduated or left the school and can't be edited. Restore them from Graduates & Former Students first.");
+        req.flash("error", "This student has graduated or left the school and can't be edited. Restore them from Graduates & Alumni first.");
         return res.redirect("/common/archivedStudents");
       }
       const {
@@ -8833,6 +8873,13 @@ const commonController = {
         homeLongitude: homeLongitude || studentHomeLongitude || transportHomeLongitude,
       });
 
+      // The school's own fields (Admission Settings > Forms).
+      const editCustomFields = await studentFormFields.formFields(db, sessionOrganizationId, "student");
+      if (editCustomFields.length) {
+        const answers = studentFormFields.readAnswers(editCustomFields, (name) => req.body[name]);
+        await studentFormFields.saveStudentAnswers(client, sessionOrganizationId, Number(studentId), answers, req.session.userId || null);
+      }
+
       await client.query("COMMIT");
 
       // Notify guardians if class changed
@@ -8873,7 +8920,7 @@ const commonController = {
 
       // Ensure `studentId` is referenced in error handling
       const studentIdFallback = req.params.studentId || "unknown";
-      req.flash("error", "Failed to update student.");
+      req.flash("error", error instanceof studentFormFields.FieldError ? error.message : "Failed to update student.");
       res.redirect("/common/editStudent?studentId=" + studentIdFallback);
     } finally {
       client.release();
@@ -20765,7 +20812,7 @@ NUMBERING:
         ),
       ]);
 
-      // Graduates and students who left move to Graduates & Former Students;
+      // Graduates and students who left move to Graduates & Alumni;
       // here each group lists only its active students (and says how many moved).
       const withCounts = (group, students) => {
         const archivedCount = students.filter((student) => student.is_archived).length;
@@ -20789,7 +20836,7 @@ NUMBERING:
         .map(([name, students]) => withCounts({ id: `class:${name}`, name, isClass: true }, students));
 
       res.render("common/closeGraduationYearGroup", {
-        title: "Graduate / Archive",
+        title: "Graduate & Withdraw",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -20882,7 +20929,7 @@ NUMBERING:
       req.flash(
         "success",
         count
-          ? `${count} student${count === 1 ? "" : "s"} ${what} . They are now under Graduates & Former Students, where you can undo this within ${STUDENT_UNDO_HOURS} hours.`
+          ? `${count} student${count === 1 ? "" : "s"} ${what} . They are now under Graduates & Alumni, where you can undo this within ${STUDENT_UNDO_HOURS} hours.`
           : "Those students were already graduated or recorded as having left."
       );
     } catch (error) {
@@ -20946,7 +20993,7 @@ NUMBERING:
       });
 
       res.render("common/archivedStudents", {
-        title: "Graduates & Former Students",
+        title: "Graduates & Alumni",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,

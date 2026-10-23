@@ -1,4 +1,9 @@
 <style>
+  .pa-answers dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 0; }
+  .pa-answers dt { font-size: 12px; font-weight: 600; color: #64748b; }
+  .pa-answers dd { margin: 2px 0 0; font-size: 14px; color: #0f172a; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 640px) { .pa-answers dl { grid-template-columns: minmax(0, 1fr); } }
+
   :root {
     --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --primary: var(--org-primary-color, #01535b);
@@ -687,6 +692,9 @@ function initStudentDetailsDrawer() {
 }
 initStudentDetailsDrawer();
 
+// Escapes applicant text before it goes into the review form.
+const paEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 async function loadStudentDetails(id) {
   const overlay = document.getElementById('studentDetailsOverlay');
   const container = document.getElementById('studentDetailsContainer');
@@ -810,6 +818,14 @@ async function loadStudentDetails(id) {
               `).join('')}
             </div>
           </div>
+
+          ${(data.customAnswers || []).length ? `
+          <fieldset class="guardian-section pa-answers">
+            <legend>📝 More details</legend>
+            <dl>
+              ${data.customAnswers.map((a) => `<div><dt>${paEsc(a.label)}</dt><dd>${paEsc(a.value)}</dd></div>`).join('')}
+            </dl>
+          </fieldset>` : ''}
 
           <fieldset class="guardian-section">
             <legend>👨‍👩‍👧 Guardians</legend>

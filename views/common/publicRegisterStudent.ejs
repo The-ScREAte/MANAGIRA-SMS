@@ -21,6 +21,9 @@
     || (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
 %>
 <style>
+  .scf-wide { grid-column: 1 / -1; }
+  .scf-help { display: block; margin-top: 4px; font-size: 12px; color: #64748b; }
+
   :root {
     --font-family: "<%= String(_prFontFamily).trim() %>", sans-serif;
     --pr-blue: <%= _prThemeColor %>;
@@ -720,6 +723,7 @@
                   <label>Student Photo *</label>
                   <input type="file" name="studentImage" accept="image/*" required />
                 </div>
+                <%- include('../partials/studentCustomFields', { customFields: (typeof customFields !== 'undefined' ? customFields : []), nameSuffix: '', groupClass: 'form-group', labelClass: '', inputClass: '', requiredMark: ' *' }) %>
               </div>
             </div>
           </div>

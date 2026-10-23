@@ -15,8 +15,8 @@
 <div class="gp-page">
   <header class="gp-head">
     <div>
-      <h1 class="gp-title">Graduate / Archive</h1>
-      <p class="gp-sub">Select students who graduated or left the school. Their records are kept.</p>
+      <h1 class="gp-title">Graduate &amp; Withdraw</h1>
+      <p class="gp-sub">Choose current students who are graduating or leaving the school. They move to Graduates &amp; Alumni, and their records are kept.</p>
     </div>
   </header>
 
@@ -55,7 +55,7 @@
               </span>
             </summary>
             <% if (!group.students.length) { %>
-              <div class="gp-group__empty"><%= group.archivedCount ? 'Everyone in this group has graduated or left. See Graduates & former students.' : 'No students are assigned to this group yet.' %></div>
+              <div class="gp-group__empty"><%= group.archivedCount ? 'Everyone in this group has graduated or left. See Graduates & Alumni.' : 'No students are assigned to this group yet.' %></div>
             <% } else { %>
               <table class="gp-table">
                 <thead>

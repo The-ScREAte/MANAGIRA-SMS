@@ -6,29 +6,26 @@
   const hasPendingAdmissions = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'));
   const _perms = Array.isArray(locals.userPermissions) ? locals.userPermissions : [];
   const _canStudents = _perms.includes('manage_students');
-  // Dropdown groups: everything about online admission, and about students
-  // who graduated or left, each in one place.
+  // Menu order: All Students, Add Student, Online Applications, the Graduate &
+  // Former Students dropdown, then Admission Settings.
+  const _onlineLinks = [
+    hasPendingAdmissions && { id: 'pending', url: '/common/admissionPending', label: 'Online Applications', hint: 'Applications sent from the school website', icon: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/>' },
+  ].filter(Boolean);
   const _groups = [
-    hasPendingAdmissions && {
-      id: 'pending', label: 'Online Admission',
-      icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-      links: [
-        { panel: 'pending', url: '/common/admissionPending', label: 'Applications', icon: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/>' },
-        _perms.includes('manage_settings') && { panel: 'online-admission-settings', url: '/account/managePublicContent?focus=registration', label: 'Online admission settings', icon: '<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2"/>' },
-      ].filter(Boolean),
-    },
     (_canStudents || _perms.includes('manage_school_year_terms')) && {
       id: 'graduate-former', label: 'Graduate & Former Students',
       icon: '<path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>',
       links: [
-        _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate / Archive', icon: '<path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>' },
-        _canStudents && { panel: 'former-students', url: '/common/archivedStudents', label: 'Former students', icon: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M10 13h4"/>' },
+        _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate & Withdraw', icon: '<path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>' },
+        _canStudents && { panel: 'former-students', url: '/common/archivedStudents', label: 'Graduates & Alumni', icon: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M10 13h4"/>' },
       ].filter(Boolean),
     },
   ].filter((g) => g && g.links.length);
-  const _extraLinks = [
-    _canStudents && { id: 'import-data', url: '/print/migration', label: 'Import Students', hint: 'Bring students and records in from a spreadsheet', icon: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>' },
+  const _settingsLinks = [
+    _perms.includes('manage_settings') && { id: 'online-admission-settings', url: '/common/admissionSettings', label: 'Admission Settings', hint: 'Online admission and the fields on student forms', icon: '<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2"/>' },
   ].filter(Boolean);
+  // Plain (non-dropdown) links, for their panels.
+  const _extraLinks = _onlineLinks.concat(_settingsLinks);
 %>
 
 <style>
@@ -627,9 +624,17 @@
         <li>
           <a class="nav-link" href="/common/addStudent" data-no-spa data-section="create-student" data-embed-url="/common/addStudent" data-embed-label="Add New Student">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg></span>
-            <span>Create Student</span>
+            <span>Add Student</span>
           </a>
         </li>
+        <% _onlineLinks.forEach(function (x) { %>
+        <li>
+          <a class="nav-link" href="<%= x.url %>" data-no-spa data-section="<%= x.id %>" data-embed-url="<%= x.url %>" data-embed-label="<%= x.label %>" title="<%= x.hint %>">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- x.icon %></svg></span>
+            <span><%= x.label %></span>
+          </a>
+        </li>
+        <% }) %>
         <% _groups.forEach(function (g) { %>
         <li>
           <button type="button" class="nav-link nav-group-toggle" data-section="<%= g.links[0].panel %>" aria-expanded="false">
@@ -649,7 +654,7 @@
           </ul>
         </li>
         <% }) %>
-        <% _extraLinks.forEach(function (x) { %>
+        <% _settingsLinks.forEach(function (x) { %>
         <li>
           <a class="nav-link" href="<%= x.url %>" data-no-spa data-section="<%= x.id %>" data-embed-url="<%= x.url %>" data-embed-label="<%= x.label %>" title="<%= x.hint %>">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- x.icon %></svg></span>

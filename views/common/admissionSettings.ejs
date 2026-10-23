@@ -1,0 +1,510 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = Object.fromEntries(Object.entries(themePalette).map(([k, v]) => [k, v.primary]));
+  const primary = themeColors[themeColor] || themeColors.teal;
+  const _embedded = typeof isEmbeddedFrame !== 'undefined' && isEmbeddedFrame;
+  const _ymd = (d) => { if (!d) return ''; const x = new Date(d); return isNaN(x) ? '' : [x.getFullYear(), String(x.getMonth() + 1).padStart(2, '0'), String(x.getDate()).padStart(2, '0')].join('-'); };
+  const _cur = org.public_registration_currency || 'USD';
+  const _rs = registrationStatus || { open: false, message: '' };
+  const _flash = (typeof messages !== 'undefined' && messages) || {};
+%>
+<style>
+  #asRoot, #asDialog {
+    --as-primary: <%= primary %>;
+    --as-bg: #f4f6f8;
+    --as-line: #e4e9ee;
+    --as-text: #13202b;
+    --as-muted: #667788;
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    color: var(--as-text);
+  }
+  #asRoot { min-height: 100%; padding: 22px 24px 48px; background: var(--as-bg); box-sizing: border-box; }
+  #asRoot *, #asDialog * { box-sizing: border-box; }
+  #asRoot :where(button), #asDialog :where(button) { width: auto; margin: 0; font-family: inherit; line-height: 1.2; }
+  #asRoot :where(input, select, textarea), #asDialog :where(input, select, textarea) { width: 100%; height: auto; margin: 0; padding: 9px 11px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: var(--as-text); font: inherit; font-size: 13.5px; }
+  #asRoot :where(input, select, textarea):focus, #asDialog :where(input, select, textarea):focus { outline: none; border-color: var(--as-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--as-primary) 15%, transparent); }
+  #asRoot input[type="checkbox"], #asDialog input[type="checkbox"] { width: 16px; height: 16px; padding: 0; accent-color: var(--as-primary); box-shadow: none; }
+
+  .as-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .as-head h1 { margin: 0; font-size: 22px; font-weight: 800; text-align: left; color: var(--as-text); }
+  .as-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--as-muted); }
+  .as-tabs { display: flex; gap: 4px; margin: 18px 0 18px; border-bottom: 1px solid var(--as-line); }
+  #asRoot .as-tab { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border: 0; border-bottom: 2.5px solid transparent; border-radius: 0; background: none; color: var(--as-muted); font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  #asRoot .as-tab:hover { color: var(--as-text); background: none; }
+  #asRoot .as-tab.is-on { color: var(--as-primary); border-bottom-color: var(--as-primary); }
+  #asRoot .as-tab:focus { outline: none; }
+  .as-tab svg { width: 16px; height: 16px; }
+  .as-panel[hidden] { display: none; }
+
+  .as-card { background: #fff; border: 1px solid var(--as-line); border-radius: 14px; }
+  .as-card + .as-card { margin-top: 14px; }
+  .as-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 18px 0; }
+  .as-card__head h2 { margin: 0; font-size: 15px; font-weight: 800; text-align: left; }
+  .as-card__head p { margin: 2px 0 0; font-size: 12.5px; color: var(--as-muted); }
+  .as-card__body { padding: 14px 18px 18px; }
+
+  .as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; color: var(--as-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
+  .as-btn:hover { background: #f8fafb; border-color: #d4dce4; color: var(--as-text); }
+  .as-btn svg { width: 15px; height: 15px; }
+  .as-btn--primary { background: var(--as-primary); border-color: transparent; color: #fff; }
+  .as-btn--primary:hover { background: var(--as-primary); color: #fff; filter: brightness(.94); }
+  .as-btn:disabled { opacity: .45; cursor: default; }
+  .as-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--as-muted); cursor: pointer; }
+  .as-icon-btn:hover { background: #eef2f5; color: var(--as-text); }
+  .as-icon-btn--danger:hover { background: #fdecec; color: #c0262d; }
+  .as-icon-btn svg { width: 16px; height: 16px; }
+
+  /* Online admission */
+  .as-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; font-size: 13.5px; }
+  .as-status.is-open { background: #ecfdf3; color: #166534; }
+  .as-status.is-closed { background: #f4f6f8; color: #4a5b6c; }
+  .as-status strong { margin-right: 6px; }
+  .as-status a { color: inherit; font-weight: 700; }
+  .as-switch { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--as-line); border-radius: 12px; cursor: pointer; }
+  .as-switch strong { display: block; font-size: 14px; }
+  .as-switch span { font-size: 12.5px; color: var(--as-muted); }
+  .as-toggle { position: relative; flex: none; width: 40px; height: 22px; }
+  #asRoot .as-toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .as-toggle i { position: absolute; inset: 0; border-radius: 999px; background: #cfd8e1; transition: background-color .15s; pointer-events: none; }
+  .as-toggle i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .as-toggle input:checked + i { background: var(--as-primary); }
+  .as-toggle input:checked + i::after { transform: translateX(18px); }
+  .as-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+  .as-field { display: grid; gap: 5px; margin: 0; font-size: 12px; font-weight: 700; color: #556676; }
+  .as-hint { margin: 12px 0 0; font-size: 12.5px; color: var(--as-muted); line-height: 1.5; }
+  .as-hint a { color: var(--as-primary); font-weight: 700; }
+  .as-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--as-line); }
+
+  /* Forms */
+  .as-std { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .as-std__col h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--as-muted); text-align: left; }
+  .as-std__col h3 svg { width: 13px; height: 13px; }
+  .as-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .as-chips span { padding: 5px 10px; border-radius: 8px; background: #f4f6f8; font-size: 12.5px; font-weight: 600; color: #334252; }
+  .as-filter { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; }
+  #asRoot .as-filter button { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--as-muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  #asRoot .as-filter button:hover { color: var(--as-text); background: none; }
+  #asRoot .as-filter button.is-on { background: var(--as-primary); color: #fff; }
+  .as-list { display: grid; gap: 6px; }
+  .as-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 4px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+  .as-row:hover { border-color: #d3dbe3; box-shadow: 0 1px 3px rgba(16, 32, 48, .05); }
+  .as-row.is-obsolete { background: #fafbfc; }
+  .as-row.is-obsolete .as-row__main strong { color: #8796a5; }
+  .as-grip { display: grid; place-items: center; width: 24px; height: 30px; border-radius: 7px; color: #a8b4c0; cursor: grab; touch-action: none; flex: none; }
+  .as-grip:hover { background: #eef2f5; color: var(--as-text); }
+  .as-grip svg { width: 14px; height: 14px; }
+  .as-type { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #f1f4f7; color: #4a5b6c; flex: none; }
+  .as-type svg { width: 16px; height: 16px; }
+  .as-row__main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .as-row__main strong { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .as-row__main strong em { margin-left: 4px; font-style: normal; color: #d0453c; }
+  .as-row__main span { font-size: 12px; color: var(--as-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .as-badges { display: flex; gap: 4px; flex: none; }
+  .as-badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--as-primary) 10%, #fff); color: var(--as-primary); }
+  .as-badge--obsolete { background: #fdf3dc; color: #8a5a00; }
+  .as-row__actions { display: flex; gap: 2px; flex: none; }
+  .as-empty { display: grid; justify-items: center; gap: 6px; padding: 34px 16px; border: 1.5px dashed var(--as-line); border-radius: 12px; text-align: center; color: var(--as-muted); font-size: 13px; }
+  .as-empty strong { color: var(--as-text); font-size: 14px; }
+  .as-note { display: flex; gap: 8px; align-items: flex-start; margin: 12px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--as-muted); }
+  .as-note svg { flex: none; width: 15px; height: 15px; margin-top: 2px; }
+  .as-dragging, .as-dragging * { cursor: grabbing !important; user-select: none; }
+  .as-placeholder { opacity: .35; }
+  .as-ghost { position: fixed; z-index: 20000; margin: 0; pointer-events: none; box-shadow: 0 16px 40px -10px rgba(16, 32, 48, .35); opacity: .97; }
+  .as-flash { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600; }
+  .as-flash--success { background: #ecfdf3; color: #166534; }
+  .as-flash--error { background: #fdecec; color: #b42318; }
+  .as-toast { position: fixed; left: 50%; bottom: 22px; z-index: 20001; transform: translate(-50%, 10px); opacity: 0; padding: 9px 14px; border-radius: 10px; background: #13202b; color: #fff; font-size: 13px; font-weight: 600; transition: .2s; pointer-events: none; }
+  .as-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+  /* Field dialog */
+  #asDialog { position: fixed; inset: 0; z-index: 20002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+  #asDialog.is-open { display: flex; }
+  #asDialog [hidden] { display: none !important; }
+  .as-dlg { width: 100%; max-width: 500px; max-height: calc(100vh - 32px); overflow: auto; border-radius: 16px; background: #fff; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45); }
+  .as-dlg__head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 6px; }
+  .as-dlg__head h2 { margin: 0; font-size: 16px; font-weight: 800; text-align: left; }
+  .as-dlg__body { display: grid; gap: 14px; padding: 10px 20px 4px; }
+  .as-dlg label.as-field small, .as-dlg .as-field small { margin-left: 4px; font-weight: 500; color: #8796a5; }
+  .as-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  #asDialog .as-types button { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: #334252; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; }
+  #asDialog .as-types button svg { width: 15px; height: 15px; color: #6b7c8d; flex: none; }
+  #asDialog .as-types button.is-on { border-color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 7%, #fff); color: var(--as-text); box-shadow: 0 0 0 1px var(--as-primary) inset; }
+  #asDialog .as-types button.is-on svg { color: var(--as-primary); }
+  #asDialog .as-types button:disabled { cursor: default; opacity: .45; }
+  #asDialog .as-types button.is-on:disabled { opacity: 1; }
+  .as-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .as-check { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border: 1px solid #dfe5eb; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--as-text); }
+  .as-check small { display: block; margin-top: 1px; font-weight: 500; color: var(--as-muted); }
+  .as-check:has(input:checked) { border-color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 5%, #fff); }
+  .as-dlg__hint { margin: -6px 0 0; font-size: 12px; color: #8796a5; }
+  .as-dlg__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px 18px; }
+  .as-dlg__foot > div { display: flex; gap: 8px; }
+  .as-error { min-height: 18px; margin: 0; font-size: 12.5px; color: #c0262d; }
+
+  @media (max-width: 900px) { .as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) {
+    #asRoot { padding: 14px 12px 32px; }
+    .as-grid, .as-std, .as-checks { grid-template-columns: minmax(0, 1fr); }
+    .as-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .as-type, .as-badges { display: none; }
+  }
+</style>
+
+<div id="asRoot">
+  <div class="as-head">
+    <div>
+      <h1>Admission Settings</h1>
+      <p>How families apply online, and the details you collect for every student.</p>
+    </div>
+  </div>
+
+  <nav class="as-tabs" role="tablist">
+    <% if (hasWebsite) { %>
+    <button type="button" class="as-tab <%= tab === 'online' ? 'is-on' : '' %>" role="tab" data-as-tab="online">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+      Online admission
+    </button>
+    <% } %>
+    <button type="button" class="as-tab <%= tab === 'forms' ? 'is-on' : '' %>" role="tab" data-as-tab="forms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      Forms
+    </button>
+  </nav>
+
+  <% if (_flash.success && _flash.success.length) { %><p class="as-flash as-flash--success"><%= _flash.success[0] %></p><% } %>
+  <% if (_flash.error && _flash.error.length) { %><p class="as-flash as-flash--error"><%= _flash.error[0] %></p><% } %>
+
+  <% if (hasWebsite) { %>
+  <section class="as-panel" data-as-panel="online" <%= tab === 'online' ? '' : 'hidden' %>>
+    <div class="as-card">
+      <div class="as-card__head">
+        <div>
+          <h2>Online applications</h2>
+          <p>Families apply from the Apply Now button on your website. Applications appear in Admissions → Online Applications.</p>
+        </div>
+      </div>
+      <div class="as-card__body">
+        <div class="as-status <%= _rs.open ? 'is-open' : 'is-closed' %>">
+          <span><strong><%= _rs.open ? 'Open' : 'Closed' %></strong><%= _rs.message %></span>
+          <a href="/common/publicRegister?organizationId=<%= organizationId %>" target="_blank" rel="noopener">Preview the application form ↗</a>
+        </div>
+        <form action="/account/updatePublicRegistration" method="POST" style="margin-top:14px">
+          <input type="hidden" name="returnTo" value="admissionSettings" />
+          <input type="hidden" name="embed" value="<%= _embedded ? 'workspace' : '' %>" />
+          <label class="as-switch">
+            <span class="as-toggle"><input type="checkbox" name="enabled" <%= org.public_registration_enabled ? 'checked' : '' %> /><i></i></span>
+            <span><strong>Accept applications online</strong><span>Turn off to close the form without changing the dates.</span></span>
+          </label>
+          <div class="as-grid">
+            <label class="as-field">Opens on<input type="date" name="startDate" value="<%= _ymd(org.registration_start_date) %>" /></label>
+            <label class="as-field">Closes on<input type="date" name="endDate" value="<%= _ymd(org.registration_end_date) %>" /></label>
+            <label class="as-field">Currency
+              <select name="currency">
+                <% ['USD','GHS','NGN','KES','ZAR','UGX','TZS','RWF','XAF','XOF','EUR','GBP'].forEach((code) => { %>
+                <option value="<%= code %>" <%= _cur === code ? 'selected' : '' %>><%= code %></option>
+                <% }) %>
+              </select>
+            </label>
+            <label class="as-field">Application fee<input type="number" min="0" step="0.01" name="price" value="<%= Number(org.public_registration_price) > 0 ? org.public_registration_price : '' %>" placeholder="0 (free)" /></label>
+          </div>
+          <p class="as-hint">Leave the fee empty for free applications. For a paid fee, set up the school's payout account in <a href="/account/settings?section=billing" target="_top">Settings › Billing</a> first, or families won't be able to pay.</p>
+          <div class="as-actions"><button type="submit" class="as-btn as-btn--primary">Save online admission</button></div>
+        </form>
+      </div>
+    </div>
+  </section>
+  <% } %>
+
+  <section class="as-panel" data-as-panel="forms" <%= tab === 'forms' ? '' : 'hidden' %>>
+    <div class="as-card">
+      <div class="as-card__head">
+        <div>
+          <h2>Standard fields</h2>
+          <p>Always on the forms. These can't be changed.</p>
+        </div>
+      </div>
+      <div class="as-card__body">
+        <div class="as-std">
+          <div class="as-std__col">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Add Student form</h3>
+            <div class="as-chips"><% standardFields.student.forEach((f) => { %><span><%= f %></span><% }) %></div>
+          </div>
+          <% if (hasWebsite) { %>
+          <div class="as-std__col">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Online application</h3>
+            <div class="as-chips"><% standardFields.application.forEach((f) => { %><span><%= f %></span><% }) %></div>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="as-card">
+      <div class="as-card__head">
+        <div>
+          <h2>Your fields</h2>
+          <p>Extra details your school collects, like medical notes, previous school or transport needs. Drag to change the order.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <% if (hasWebsite) { %>
+          <div class="as-filter" role="group" aria-label="Show fields for">
+            <button type="button" class="is-on" data-as-filter="all">All</button>
+            <button type="button" data-as-filter="student">Add Student</button>
+            <button type="button" data-as-filter="application">Online application</button>
+          </div>
+          <% } %>
+          <button type="button" class="as-btn as-btn--primary" data-as-add>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add field
+          </button>
+        </div>
+      </div>
+      <div class="as-card__body">
+        <div class="as-list" id="asList"></div>
+        <p class="as-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+          <span>Answers from an online application move to the student when you approve it. A field that has answers can't be deleted. Make it obsolete instead: it leaves the forms, and saved answers stay on the student's record.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+  <div class="as-toast" id="asToast" role="status"></div>
+</div>
+
+<div id="asDialog" role="dialog" aria-modal="true" aria-labelledby="asDialogTitle"><div class="as-dlg" id="asDlg"></div></div>
+
+<script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, hasWebsite }).replace(/</g, '\\u003c') %></script>
+<script>
+(function () {
+  const root = document.getElementById('asRoot');
+  if (!root || root.dataset.ready) return;
+  root.dataset.ready = '1';
+  const data = JSON.parse(document.getElementById('asData').textContent);
+  let fields = data.fields;
+  const TYPES = data.types;
+  const hasWebsite = data.hasWebsite;
+  let filter = 'all';
+  const list = document.getElementById('asList');
+  const dialog = document.getElementById('asDialog');
+  const dlg = document.getElementById('asDlg');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const svg = (d, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 2}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ICON = {
+    grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+    edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+    archive: svg('<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>'),
+    restore: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
+    trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
+    close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+  };
+  const TYPE_ICON = {
+    text: svg('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>'),
+    long_text: svg('<path d="M4 6h16M4 10h16M4 14h16M4 18h10"/>'),
+    number: svg('<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>'),
+    date: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>'),
+    choice: svg('<circle cx="5" cy="7" r="1.4"/><circle cx="5" cy="12" r="1.4"/><circle cx="5" cy="17" r="1.4"/><path d="M10 7h10M10 12h10M10 17h10"/>'),
+    yes_no: svg('<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>'),
+  };
+
+  // ---------- tabs ----------
+  root.querySelectorAll('[data-as-tab]').forEach((t) => t.addEventListener('click', () => {
+    const id = t.dataset.asTab;
+    root.querySelectorAll('[data-as-tab]').forEach((x) => x.classList.toggle('is-on', x === t));
+    root.querySelectorAll('[data-as-panel]').forEach((p) => { p.hidden = p.dataset.asPanel !== id; });
+    const url = new URL(location.href);
+    url.searchParams.set('tab', id);
+    history.replaceState(history.state, '', url);
+  }));
+
+  // ---------- list ----------
+  const shown = (f) => filter === 'all' || (filter === 'student' ? f.onStudentForm : f.onApplication);
+  function rowHtml(f) {
+    const obsolete = f.status !== 'active';
+    const meta = [TYPES[f.type] || 'Short text', f.type === 'choice' ? f.options.join(', ') : '', f.used ? 'In use' : ''].filter(Boolean).join(' · ');
+    const badges = [f.onStudentForm ? 'Add Student' : '', hasWebsite && f.onApplication ? 'Online application' : ''].filter(Boolean);
+    return `<div class="as-row ${obsolete ? 'is-obsolete' : ''}" data-field="${f.id}">
+      <span class="as-grip" data-grip title="Drag to move" aria-hidden="true">${ICON.grip}</span>
+      <span class="as-type" aria-hidden="true">${TYPE_ICON[f.type] || TYPE_ICON.text}</span>
+      <div class="as-row__main"><strong>${esc(f.label)}${f.required ? '<em title="Required">*</em>' : ''}</strong><span>${esc(meta)}</span></div>
+      <div class="as-badges">${obsolete ? '<span class="as-badge as-badge--obsolete">Obsolete</span>' : badges.map((b) => `<span class="as-badge">${b}</span>`).join('')}</div>
+      <div class="as-row__actions">
+        <button type="button" class="as-icon-btn" data-edit title="Edit" aria-label="Edit ${esc(f.label)}">${ICON.edit}</button>
+        ${obsolete
+          ? `<button type="button" class="as-icon-btn" data-status="active" title="Restore" aria-label="Restore ${esc(f.label)}">${ICON.restore}</button>`
+          : `<button type="button" class="as-icon-btn" data-status="obsolete" title="Make obsolete" aria-label="Make ${esc(f.label)} obsolete">${ICON.archive}</button>`}
+        ${f.used ? '' : `<button type="button" class="as-icon-btn as-icon-btn--danger" data-delete title="Delete" aria-label="Delete ${esc(f.label)}">${ICON.trash}</button>`}
+      </div>
+    </div>`;
+  }
+  function render() {
+    const visible = fields.filter(shown);
+    list.innerHTML = visible.length
+      ? visible.map(rowHtml).join('')
+      : `<div class="as-empty"><strong>${fields.length ? 'No fields on this form yet' : 'No extra fields yet'}</strong><span>Add a field to collect more details about students.</span></div>`;
+  }
+
+  let toastTimer = null;
+  function toast(text) {
+    const t = document.getElementById('asToast');
+    t.textContent = text;
+    t.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('is-on'), 2200);
+  }
+  async function call(url, body) {
+    const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body || {}) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok || !out.success) throw new Error(out.error || 'Something went wrong. Try again.');
+    fields = out.fields;
+    return out;
+  }
+
+  root.querySelectorAll('[data-as-filter]').forEach((b) => b.addEventListener('click', () => {
+    filter = b.dataset.asFilter;
+    root.querySelectorAll('[data-as-filter]').forEach((x) => x.classList.toggle('is-on', x === b));
+    render();
+  }));
+
+  // ---------- field dialog ----------
+  let submitFn = null;
+  function closeDialog() { dialog.classList.remove('is-open'); submitFn = null; }
+  function fieldDialog(f) {
+    const locked = f && f.used > 0;
+    let type = f ? f.type : 'text';
+    const onStudent = f ? f.onStudentForm : filter !== 'application';
+    const onApp = f ? f.onApplication : (hasWebsite && filter !== 'student');
+    dlg.innerHTML = `<form novalidate>
+      <div class="as-dlg__head"><h2 id="asDialogTitle">${f ? 'Edit field' : 'New field'}</h2><button type="button" class="as-icon-btn" data-close aria-label="Close">${ICON.close}</button></div>
+      <div class="as-dlg__body">
+        <label class="as-field">Field name<input name="label" maxlength="80" value="${esc(f ? f.label : '')}" placeholder="e.g. Previous school" autocomplete="off"></label>
+        <div class="as-field">Type
+          <div class="as-types">${Object.entries(TYPES).map(([k, v]) => `<button type="button" data-type="${k}" class="${k === type ? 'is-on' : ''}" ${locked ? 'disabled' : ''}>${TYPE_ICON[k]}${esc(v)}</button>`).join('')}</div>
+        </div>
+        ${locked ? '<p class="as-dlg__hint">This field has answers, so its type stays the same.</p>' : ''}
+        <label class="as-field" data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices <small>one per line</small></span><textarea name="options" rows="4" placeholder="Bus&#10;Walk&#10;Parent drop-off">${esc(f ? f.options.join('\n') : '')}</textarea></label>
+        <div class="as-field">Ask on
+          <div class="as-checks">
+            <label class="as-check"><input type="checkbox" name="onStudentForm" ${onStudent ? 'checked' : ''}><span>Add Student form<small>When staff add a student</small></span></label>
+            ${hasWebsite ? `<label class="as-check"><input type="checkbox" name="onApplication" ${onApp ? 'checked' : ''}><span>Online application<small>When families apply</small></span></label>` : ''}
+          </div>
+        </div>
+        <label class="as-check"><input type="checkbox" name="required" ${f && f.required ? 'checked' : ''}><span>Required<small>The form can't be sent without it</small></span></label>
+        <label class="as-field"><span>Help text <small>optional, shown under the field</small></span><input name="helpText" maxlength="200" value="${esc(f ? f.helpText : '')}" autocomplete="off"></label>
+      </div>
+      <div class="as-dlg__foot"><p class="as-error" data-error role="alert"></p><div><button type="button" class="as-btn" data-close>Cancel</button><button type="submit" class="as-btn as-btn--primary">${f ? 'Save' : 'Add field'}</button></div></div>
+    </form>`;
+    dialog.classList.add('is-open');
+    dlg.querySelector('[name="label"]').focus();
+    dlg.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
+      type = b.dataset.type;
+      dlg.querySelectorAll('[data-type]').forEach((x) => x.classList.toggle('is-on', x === b));
+      dlg.querySelector('[data-options]').hidden = type !== 'choice';
+    }));
+    submitFn = async (form) => {
+      const app = form.querySelector('[name="onApplication"]');
+      await call(f ? `/common/admissionSettings/fields/${f.id}` : '/common/admissionSettings/fields', {
+        label: form.label.value, type, options: form.options.value, helpText: form.helpText.value,
+        required: form.required.checked, onStudentForm: form.onStudentForm.checked,
+        onApplication: app ? app.checked : (f ? f.onApplication : false),
+      });
+      toast(f ? 'Field saved' : 'Field added');
+    };
+  }
+  dialog.addEventListener('click', (e) => { if (e.target === dialog || e.target.closest('[data-close]')) closeDialog(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialog.classList.contains('is-open')) closeDialog(); });
+  dialog.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!submitFn) return;
+    const form = e.target;
+    const btn = form.querySelector('[type="submit"]');
+    btn.disabled = true;
+    try {
+      await submitFn(form);
+      closeDialog();
+      render();
+    } catch (err) {
+      form.querySelector('[data-error]').textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+
+  root.querySelector('[data-as-add]').addEventListener('click', () => fieldDialog(null));
+  list.addEventListener('click', async (e) => {
+    const row = e.target.closest('[data-field]');
+    const f = row && fields.find((x) => x.id === Number(row.dataset.field));
+    if (!f) return;
+    try {
+      if (e.target.closest('[data-edit]')) return fieldDialog(f);
+      const status = e.target.closest('[data-status]');
+      if (status) {
+        await call(`/common/admissionSettings/fields/${f.id}/status`, { status: status.dataset.status });
+        toast(status.dataset.status === 'active' ? 'Field restored' : 'Field is now obsolete');
+        return render();
+      }
+      if (e.target.closest('[data-delete]')) {
+        if (!confirm(`Delete "${f.label}"? No one has answered it yet.`)) return;
+        await call(`/common/admissionSettings/fields/${f.id}/delete`);
+        toast('Field deleted');
+        return render();
+      }
+    } catch (err) {
+      toast(err.message);
+      render();
+    }
+  });
+
+  // ---------- drag to reorder (mouse and touch) ----------
+  list.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest('[data-grip]');
+    if (!grip || e.button > 0) return;
+    e.preventDefault();
+    const item = grip.closest('[data-field]');
+    const rect = item.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const order = () => [...list.querySelectorAll('[data-field]')].map((el) => Number(el.dataset.field));
+    const before = order().join(',');
+    const ghost = item.cloneNode(true);
+    ghost.classList.add('as-ghost');
+    Object.assign(ghost.style, { left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px' });
+    document.body.appendChild(ghost);
+    item.classList.add('as-placeholder');
+    document.documentElement.classList.add('as-dragging');
+    const middle = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+    function move(ev) {
+      ghost.style.top = (ev.clientY - offsetY) + 'px';
+      const rows = [...list.querySelectorAll('[data-field]')].filter((r) => r !== item);
+      const next = rows.find((r) => ev.clientY < middle(r)) || null;
+      if (item.nextSibling !== next) list.insertBefore(item, next);
+      if (ev.clientY < 60) window.scrollBy(0, -14);
+      else if (ev.clientY > window.innerHeight - 60) window.scrollBy(0, 14);
+    }
+    async function end() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      ghost.remove();
+      item.classList.remove('as-placeholder');
+      document.documentElement.classList.remove('as-dragging');
+      const now = order();
+      if (now.join(',') === before) return;
+      // With a filter on, keep hidden fields where they were.
+      const visible = new Set(now);
+      const full = fields.map((f) => f.id);
+      let i = 0;
+      const ids = full.map((id) => (visible.has(id) ? now[i++] : id));
+      try {
+        await call('/common/admissionSettings/fields/order', { ids });
+        toast('Order saved');
+      } catch (err) {
+        toast(err.message);
+      }
+      render();
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+
+  render();
+})();
+</script>

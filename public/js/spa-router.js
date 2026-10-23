@@ -103,7 +103,6 @@
       '/print/transcript',
       '/print/modifyStatusSettings',
       '/print/meritSheetPage',
-      '/print/migration',
       '/print/emailHistoryPage',
       '/promotion/apply',
       '/promotion/closeGraduationYearGroup',

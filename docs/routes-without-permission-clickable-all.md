@@ -241,7 +241,6 @@ Format: METHOD | Clickable URL | Source route file
 - POST | [http://localhost:4000/print/generateMeritSheet](http://localhost:4000/print/generateMeritSheet) | printRoute.js
 - GET | [http://localhost:4000/print/getGuardianEmails](http://localhost:4000/print/getGuardianEmails) | printRoute.js
 - GET | [http://localhost:4000/print/meritSheetPage](http://localhost:4000/print/meritSheetPage) | printRoute.js
-- GET | [http://localhost:4000/print/migration](http://localhost:4000/print/migration) | printRoute.js
 - GET | [http://localhost:4000/print/preview/sample-key](http://localhost:4000/print/preview/sample-key) | printRoute.js
 - GET | [http://localhost:4000/print/printStudentReport](http://localhost:4000/print/printStudentReport) | printRoute.js
 - GET | [http://localhost:4000/print/reportSettings](http://localhost:4000/print/reportSettings) | printRoute.js

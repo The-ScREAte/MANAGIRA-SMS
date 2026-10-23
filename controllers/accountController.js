@@ -7912,6 +7912,10 @@ const accountController = {
     const { enabled, startDate, endDate, price, currency } = req.body;
 
     const organizationId = req.session.organizationId;
+    // Saved from Admissions > Admission Settings: go back there.
+    const back = req.body.returnTo === "admissionSettings"
+      ? `/common/admissionSettings?tab=online${req.body.embed === "workspace" ? "&embed=workspace" : ""}`
+      : "/account/managePublicContent";
 
     const isOn = enabled === "on" || enabled === true || enabled === "true";
     const fee = price === undefined || price === null || price === "" ? 0 : Number(price);
@@ -7923,7 +7927,7 @@ const accountController = {
     else if (!Number.isFinite(fee) || fee < 0) problem = "The application fee must be 0 or more.";
     if (problem) {
       req.flash("error", problem);
-      return res.redirect("/account/managePublicContent");
+      return res.redirect(back);
     }
 
     try {
@@ -7961,11 +7965,11 @@ const accountController = {
 
       // ✅ Instead of manually rendering with empty data, redirect:
 
-      res.redirect("/account/managePublicContent");
+      res.redirect(back);
     } catch (error) {
             req.flash("error", "Could not update registration settings.");
 
-      res.redirect("/account/managePublicContent");
+      res.redirect(back);
     }
   },
 
