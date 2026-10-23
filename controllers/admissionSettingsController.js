@@ -61,6 +61,7 @@ module.exports = {
         formFields: list,
         fieldTypes: fields.FIELD_TYPES,
         standardFields: fields.STANDARD_FIELDS,
+        fieldSections: fields.SECTIONS,
         messages: req.flash(),
       });
     } catch (err) {
@@ -81,7 +82,7 @@ module.exports = {
       if (action === "update") await fields.updateField(db, organizationId, id, body);
       if (action === "status") await fields.setFieldStatus(db, organizationId, id, body.status);
       if (action === "delete") await fields.deleteField(db, organizationId, id);
-      if (action === "order") await fields.saveOrder(db, organizationId, body.ids);
+      if (action === "order") await fields.saveOrder(db, organizationId, body.ids, body.sections);
       return res.json({ success: true, fields: await fields.listFields(db, organizationId) });
     } catch (err) {
       return fail(res, err, "Could not save the form.");

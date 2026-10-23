@@ -23,6 +23,17 @@ const STANDARD_FIELDS = {
   application: ["First name", "Last name", "Date of birth", "Gender", "Class", "Hometown", "Email", "Photo", "Guardian"],
 };
 
+// Where a field sits on the Add Student form. Every key matches a section of
+// that form; "more" is its own section after Student Information.
+const SECTIONS = {
+  student: "Student Information",
+  more: "More Details",
+  academic: "Academic Placement",
+  guardian: "Guardian Details",
+};
+const DEFAULT_SECTION = "more";
+const sectionOf = (v) => (Object.prototype.hasOwnProperty.call(SECTIONS, v) ? v : DEFAULT_SECTION);
+
 const MAX_FIELDS = 60;
 const MAX_OPTIONS = 40;
 
@@ -61,6 +72,7 @@ async function createSchema(db) {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`);
+    await client.query(`ALTER TABLE student_form_fields ADD COLUMN IF NOT EXISTS section VARCHAR(20) NOT NULL DEFAULT 'more'`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_student_form_fields_org ON student_form_fields (organization_id, position)`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS student_field_values (
@@ -112,6 +124,7 @@ function toField(r) {
     required: r.is_required,
     onStudentForm: r.on_student_form,
     onApplication: r.on_application,
+    section: sectionOf(r.section),
     status: r.status,
     used: Number(r.used || 0),
   };
@@ -161,7 +174,7 @@ function readFieldInput(body) {
   const onStudentForm = truthy(body.onStudentForm);
   const onApplication = truthy(body.onApplication);
   if (!onStudentForm && !onApplication) throw new FieldError("Choose at least one form to show this field on.");
-  return { label, type, options, helpText: clean(body.helpText, 200) || null, required: truthy(body.required), onStudentForm, onApplication };
+  return { label, type, options, helpText: clean(body.helpText, 200) || null, required: truthy(body.required), onStudentForm, onApplication, section: sectionOf(body.section) };
 }
 
 async function assertLabelFree(db, organizationId, label, exceptId) {
@@ -194,9 +207,9 @@ async function createField(db, organizationId, body, userId) {
   if (count.rows[0].n >= MAX_FIELDS) throw new FieldError(`You can have up to ${MAX_FIELDS} fields.`);
   await assertLabelFree(db, organizationId, f.label);
   await db.query(
-    `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by)
-     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10)`,
-    [organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, count.rows[0].last + 1, userId || null]
+    `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section)
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11)`,
+    [organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, count.rows[0].last + 1, userId || null, f.section]
   );
 }
 
@@ -222,9 +235,9 @@ async function updateField(db, organizationId, fieldId, body) {
   await db.query(
     `UPDATE student_form_fields
         SET label = $3, field_type = $4, options = $5::jsonb, help_text = $6, is_required = $7,
-            on_student_form = $8, on_application = $9, updated_at = NOW()
+            on_student_form = $8, on_application = $9, section = $10, updated_at = NOW()
       WHERE field_id = $1 AND organization_id = $2`,
-    [fieldId, organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication]
+    [fieldId, organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, f.section]
   );
 }
 
@@ -242,15 +255,19 @@ async function deleteField(db, organizationId, fieldId) {
   await db.query(`DELETE FROM student_form_fields WHERE field_id = $1 AND organization_id = $2`, [fieldId, organizationId]);
 }
 
-async function saveOrder(db, organizationId, ids) {
+// ids: the new order. sections (optional): { fieldId: section } for fields
+// dragged into another section of the form.
+async function saveOrder(db, organizationId, ids, sections) {
   await ensureStudentFormFieldsSchema(db);
   const list = (Array.isArray(ids) ? ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
   if (!list.length) return;
+  const map = sections && typeof sections === "object" ? sections : {};
+  const secs = list.map((id) => (map[id] != null ? sectionOf(map[id]) : null));
   await db.query(
-    `UPDATE student_form_fields f SET position = o.pos
-       FROM unnest($2::int[]) WITH ORDINALITY AS o(id, pos)
+    `UPDATE student_form_fields f SET position = o.pos, section = COALESCE(o.sec, f.section)
+       FROM unnest($2::int[], $3::text[]) WITH ORDINALITY AS o(id, sec, pos)
       WHERE f.field_id = o.id AND f.organization_id = $1`,
-    [organizationId, list]
+    [organizationId, list, secs]
   );
 }
 
@@ -363,6 +380,8 @@ module.exports = {
   FIELD_TYPES,
   STANDARD_FIELDS,
   FieldError,
+  SECTIONS,
+  DEFAULT_SECTION,
   ensureStudentFormFieldsSchema,
   listFields,
   formFields,
