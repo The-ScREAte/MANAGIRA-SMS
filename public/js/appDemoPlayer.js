@@ -5,9 +5,8 @@
 // clicks a recorded element.
 //
 // Guided (the admin's choice, on by default): visitors are walked through the
-// recorded clicks: a ring around the element to click and a tooltip beside it
-// with the explanation, Back and Next. Explore: every recorded element is
-// ringed, can be clicked in any order, and shows its explanation on hover.
+// recorded clicks with an explanation, Back and Next. Explore mode keeps every
+// recorded click available in any order, without drawing highlights over the page.
 (function () {
   "use strict";
 
@@ -23,7 +22,6 @@
   let steps = []; // every recorded click, in order (their explanations)
   let guided = false; // the capture has a guided walkthrough
   let skipped = false; // the visitor closed it
-  let rings = true; // highlights shown (visitors can hide them)
   let guide = []; // the same steps when the walkthrough is guided, otherwise empty
   let current = -1;
   let step = -1; // index into guide; guide.length = finished
@@ -218,7 +216,7 @@
 
   const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-  // ---------- Overlay: rings and the tooltip ----------
+  // ---------- Overlay: walkthrough tips ----------
 
   let placeQueued = false;
   function schedulePlace() {
@@ -238,7 +236,7 @@
         const g = guide[step];
         const el = findEl(g.el);
         const box = el ? boxOf(el) : null;
-        const text = explanation(g.el) || "Click the highlighted area.";
+        const text = explanation(g.el) || "Select this control to continue.";
         const tip = `<div class="pl-tip" role="dialog" aria-live="polite" aria-label="Step ${step + 1} of ${guide.length}">
           <button type="button" class="pl-tip__close" data-pl="skip" aria-label="Skip walkthrough" title="Skip walkthrough (Esc)">×</button>
           <p>${esc(text)}</p>
@@ -246,19 +244,12 @@
             <div class="pl-btns"><button type="button" class="pl-btn" data-pl="back"${step === 0 ? " disabled" : ""}>Back</button>
             <button type="button" class="pl-btn pl-btn--primary" data-pl="next">${step === guide.length - 1 ? "Finish" : "Next"}</button></div></div>
           <i class="pl-tip__arrow"></i></div>`;
-        if (box && box.w && box.h) html = `<div class="pl-ring" style="left:${box.x - 5}px;top:${box.y - 5}px;width:${box.w + 10}px;height:${box.h + 10}px"></div>` + tip;
-        else html = tip.replace('class="pl-tip"', 'class="pl-tip pl-tip--free"');
-        layer.innerHTML = html;
+        layer.innerHTML = tip;
         if (box && box.w && box.h) positionTip(layer.querySelector(".pl-tip"), box);
+        else layer.querySelector(".pl-tip").classList.add("pl-tip--free");
         return;
       }
-    } else if (rings) {
-      new Set(data.links.map((l) => l.el)).forEach((id) => {
-        if (linkFor(id) === current) return;
-        const el = findEl(id);
-        const box = el && boxOf(el);
-        if (box && isVisible(box)) html += `<div class="pl-ring pl-ring--soft" style="left:${box.x - 4}px;top:${box.y - 4}px;width:${box.w + 8}px;height:${box.h + 8}px"></div>`;
-      });
+    } else {
       // Explore mode: the explanation of the recorded element under the pointer.
       const text = hovered && explanation(hovered);
       const el = hovered && findEl(hovered);
@@ -286,7 +277,7 @@
   let hovered = null;
   function onHover(e) {
     settle();
-    if (guide.length || !rings) return;
+    if (guide.length) return;
     let id = null;
     for (let n = e.target; n && n.nodeType === 1; n = n.parentElement) {
       const v = n.getAttribute("data-mcap-el");
@@ -354,13 +345,12 @@
     else if (act === "skip") skip();
   });
 
-  // ---------- Skip: hide the walkthrough and every highlight ----------
+  // ---------- Skip: hide the walkthrough ----------
 
   function skip() {
     settle();
     if (!guide.length) return;
     skipped = true;
-    rings = false;
     guide = [];
     step = -1;
     hovered = null;
@@ -370,7 +360,6 @@
 
   function resume() {
     skipped = false;
-    rings = true;
     guide = steps;
     renderControls();
     const k = guide.findIndex((g) => g.from === current);
@@ -383,8 +372,8 @@
     if (guided && !skipped) { box.hidden = true; return; }
     if (!links) { box.hidden = true; return; }
     box.innerHTML = guided
-      ? '<button type="button" class="is-primary" data-c="guide">Show guide</button><button type="button" data-c="reset">Reset</button>'
-      : '<button type="button" data-c="rings" aria-pressed="' + rings + '"><i></i>Highlights</button><button type="button" data-c="reset">Reset</button>';
+      ? '<button type="button" class="is-primary" data-c="guide">Show guide</button><button type="button" data-c="reset">Reset preview</button>'
+      : '<button type="button" data-c="reset">Reset preview</button>';
     box.hidden = false;
   }
 
@@ -393,7 +382,6 @@
     if (!btn) return;
     if (btn.dataset.c === "guide") resume();
     else if (btn.dataset.c === "reset") restart();
-    else if (btn.dataset.c === "rings") { rings = !rings; hovered = null; place(); renderControls(); }
   });
 
   function restart() {
@@ -467,7 +455,7 @@
     }
     if (start.closest("button, [role='button'], [role='tab'], [role='menuitem'], [onclick]")) {
       e.preventDefault();
-      toast(guide.length ? "Not part of this preview. Follow the highlighted steps, or press × to skip."
+      toast(guide.length ? "Not part of this preview. Follow the walkthrough, or press × to explore."
         : hot.size ? "Not part of this preview." : "This preview shows the page as it looks.");
     }
   }
@@ -496,6 +484,10 @@
       clearTimeout(timer);
       data = json;
       data.links = data.links || [];
+      if (Array.isArray(config.guideIndexes)) {
+        const allowedIndexes = new Set(config.guideIndexes);
+        data.guide = (data.guide || []).filter((_, index) => allowedIndexes.has(index));
+      }
       steps = (data.guide || []).filter((g) => g.from >= 0 && g.from < data.states.length && g.to >= 0 && g.to < data.states.length);
       guided = config.guided !== false && steps.length > 0;
       guide = guided ? steps : [];

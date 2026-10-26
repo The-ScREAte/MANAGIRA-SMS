@@ -489,7 +489,7 @@ const legalController = {
             showFooterTopSection: true,
             // So Google/social previews for this page show the Mira logo
             // instead of the generic Managira share image.
-            shareImage: 'https://www.managira.com/images/miralogo.png',
+            shareImage: 'https://managira.com/images/miralogo.png',
             shareImageWidth: '756',
             shareImageHeight: '692',
             shareImageType: 'image/png'

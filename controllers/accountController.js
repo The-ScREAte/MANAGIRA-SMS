@@ -2474,6 +2474,7 @@ const accountController = {
 
       res.render("account/servicePlan", {
         title: "Choose Your Plan",
+        description: `Managira pricing: school management software priced per school, per month, in local currency by country and number of students.${freeTrialEnabled && freeTrialLengthLabel ? ` Free trial: ${freeTrialLengthLabel}.` : ""}`,
 
         plans: plansWithDefaultDisplayPrice,
 

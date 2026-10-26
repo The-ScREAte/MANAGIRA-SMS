@@ -12,7 +12,7 @@
  * IndexNow docs: https://www.indexnow.org/
  * Requires env var: INDEXNOW_KEY
  * The key verification file must be served at:
- *   https://www.managira.com/<INDEXNOW_KEY>.txt  (plain text containing just the key)
+ *   https://managira.com/<INDEXNOW_KEY>.txt  (plain text containing just the key)
  */
 const https = require("https");
 
@@ -49,12 +49,12 @@ function pingSchoolUrl(nickname) {
   if (!key) return;
 
   const schoolUrl = `https://${nickname}.managira.com/`;
-  const sitemapUrl = "https://www.managira.com/sitemap-schools.xml";
+  const sitemapUrl = "https://managira.com/sitemap-schools.xml";
 
   const body = {
     host: "managira.com",
     key,
-    keyLocation: `https://www.managira.com/${key}.txt`,
+    keyLocation: `https://managira.com/${key}.txt`,
     urlList: [schoolUrl],
   };
 
@@ -74,7 +74,7 @@ function pingSchoolUrl(nickname) {
 function pingSearchEngines() {
   if (process.env.NODE_ENV !== "production") return;
 
-  const sitemapUrl = encodeURIComponent("https://www.managira.com/sitemap-schools.xml");
+  const sitemapUrl = encodeURIComponent("https://managira.com/sitemap-schools.xml");
   _fireAndForget(`https://www.bing.com/ping?sitemap=${sitemapUrl}`);
 }
 

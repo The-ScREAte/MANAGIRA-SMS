@@ -1820,3 +1820,45 @@ body[data-page="publicDashboard"] .chatbot-container {
     font-size: 16px !important;
   }
 }
+
+/* Final overrides keep Mira's compact layout ahead of legacy responsive rules. */
+.chatbot-container:not(.minimized) {
+  width: min(780px, calc(100vw - 40px)) !important;
+  height: min(720px, calc(100vh - 120px)) !important;
+  min-height: 440px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 16px 44px rgba(15, 23, 42, .18) !important;
+}
+.chatbot-container.active:not(.minimized) { right: 22px !important; bottom: 22px !important; }
+.chatbot-header { min-height: 48px !important; padding: 8px 14px !important; background: #172b45 !important; }
+.chatbot-header h3 { font-size: 15px !important; font-weight: 600 !important; }
+.chatbot-controls { gap: 5px !important; }
+.chatbot-minimize, .chatbot-close { width: 28px !important; height: 28px !important; padding: 0 !important; border-radius: 6px !important; font-size: 17px !important; }
+.chatbot-content { flex: 1 1 auto !important; min-height: 0 !important; height: auto !important; background: #f8fafc !important; }
+.chatbot-messages { min-height: 0 !important; padding: 16px !important; background: #f8fafc !important; }
+.welcome-message { padding: 12px 14px !important; margin: 0 0 14px !important; border: 1px solid #dbe3ec !important; border-radius: 9px !important; background: #fff !important; box-shadow: none !important; text-align: left !important; }
+.welcome-message h4 { margin: 0 0 3px !important; font-size: 14px !important; font-weight: 650 !important; }
+.welcome-message p { font-size: 13px !important; line-height: 1.45 !important; }
+.popular-questions { margin: 0 !important; }
+.popular-questions h5 { margin: 0 0 7px !important; font-size: 11px !important; letter-spacing: .06em !important; }
+.popular-question--link, .popular-question { margin: 0 0 6px !important; padding: 9px 11px !important; border: 1px solid #dbe3ec !important; border-radius: 8px !important; background: #fff !important; color: #26364a !important; font-size: 13px !important; line-height: 1.4 !important; text-align: left !important; box-shadow: none !important; transform: none !important; }
+.popular-question--link:hover, .popular-question:hover { background: #f1f5f9 !important; border-color: #aab9ca !important; color: #172b45 !important; }
+.chatbot-input-area { gap: 8px !important; padding: 10px 12px !important; border-top: 1px solid #dbe3ec !important; background: #fff !important; }
+.chatbot-input, .chatbot-input:focus { min-height: 40px !important; height: 40px !important; padding: 8px 13px !important; border: 1px solid #cbd5e1 !important; border-radius: 9px !important; background: #fff !important; color: #172b45 !important; font-size: 16px !important; }
+.chatbot-input:focus { border-color: #647b99 !important; box-shadow: 0 0 0 3px rgba(100, 123, 153, .14) !important; }
+.chatbot-send { width: 38px !important; height: 38px !important; min-width: 38px !important; min-height: 38px !important; box-shadow: none !important; }
+.chatbot-send svg { width: 15px !important; height: 15px !important; }
+.chatbot-container.minimized { width: min(300px, calc(100vw - 100px)) !important; height: 48px !important; min-height: 0 !important; border-radius: 10px !important; }
+.chatbot-container.minimized .chatbot-header { min-height: 46px !important; padding: 8px 10px !important; }
+@media (max-width: 768px) {
+  .chatbot-container:not(.minimized), .chatbot-container.active:not(.minimized), .chatbot-container.keyboard-active:not(.minimized) {
+    width: calc(100vw - 20px) !important; height: min(78svh, 680px) !important; max-height: min(78svh, 680px) !important; min-height: min(400px, calc(100svh - 40px)) !important;
+    left: 50% !important; right: auto !important; bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important; transform: translateX(-50%) !important; border-radius: 12px !important;
+  }
+  .chatbot-container.minimized { width: min(270px, calc(100vw - 90px)) !important; height: 46px !important; min-height: 0 !important; left: auto !important; right: 76px !important; transform: none !important; }
+  .chatbot-header { min-height: 46px !important; padding: 7px 11px !important; }
+  .chatbot-messages { padding: 12px !important; }
+  .chatbot-input-area { padding: 8px 10px !important; }
+}

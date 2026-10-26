@@ -185,7 +185,7 @@ async function createSchema(db) {
     }
     // Interactive captures (media_type 'html') keep a rendered cover image, and
     // admins open capture windows for one school at a time.
-    // guide: the explanation for each recorded click ([{ text }]); accent: highlight colour;
+    // guide: selected recorded clicks and their explanations ([{ index, text }]); accent: highlight colour;
     // guided: walk visitors through the clicks with Back / Next (otherwise they explore freely).
     await client.query(`
       ALTER TABLE app_demo_screen_media

@@ -1,25 +1,86 @@
+# Managira (https://managira.com) - all-in-one school management software.
+# Public pages are open to search engines and AI assistants. Signed-in areas
+# (school data, accounts, portals) are private and never crawlable.
+# A plain-language summary for AI systems: https://managira.com/llms.txt
+# Full product reference for AI systems:  https://managira.com/llms-full.txt
+
 User-agent: *
 Allow: /
 Allow: /legal/
-Allow: /common/publicDashboard
 Allow: /account/service-plan
-
-# Block access to admin and private areas
-Disallow: /directory
-Disallow: /legal/directory
-Disallow: /legal/app-demo
-Disallow: /admin/
+Allow: /common/publicDashboard
+Allow: /llms.txt
+Allow: /llms-full.txt
 Disallow: /account/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /common/
+Disallow: /directory
+Disallow: /documents/
 Disallow: /enrollment/
-Disallow: /common/orgDashboard
-Disallow: /common/addStudent
-Disallow: /common/manageRecords
+Disallow: /finance/
+Disallow: /guardian/
+Disallow: /hub/
+Disallow: /legal/app-demo
+Disallow: /legal/directory
+Disallow: /notifications/
 Disallow: /print/
 Disallow: /promotion/
 Disallow: /stats/
+Disallow: /student/
 Disallow: /transcript/
+Disallow: /transportation/
+Disallow: /driver/
 
-# Sitemaps
+# AI search engines and assistants: same public pages, same private areas.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: GoogleOther
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: Bingbot
+User-agent: DuckAssistBot
+User-agent: meta-externalagent
+User-agent: Amazonbot
+User-agent: cohere-ai
+User-agent: MistralAI-User
+User-agent: YouBot
+User-agent: CCBot
+Allow: /
+Allow: /legal/
+Allow: /account/service-plan
+Allow: /common/publicDashboard
+Allow: /llms.txt
+Allow: /llms-full.txt
+Disallow: /account/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /common/
+Disallow: /directory
+Disallow: /documents/
+Disallow: /enrollment/
+Disallow: /finance/
+Disallow: /guardian/
+Disallow: /hub/
+Disallow: /legal/app-demo
+Disallow: /legal/directory
+Disallow: /notifications/
+Disallow: /print/
+Disallow: /promotion/
+Disallow: /stats/
+Disallow: /student/
+Disallow: /transcript/
+Disallow: /transportation/
+Disallow: /driver/
+
 Sitemap: https://managira.com/sitemap.xml
 Sitemap: https://managira.com/sitemap-schools.xml
 Sitemap: https://managira.com/sitemap-schools-index.xml

@@ -943,7 +943,7 @@ module.exports = {
       const taskId = Number(req.params.id);
       const ok = await db.query(`SELECT 1 FROM org_tasks WHERE task_id = $1 AND organization_id = $2`, [taskId, organizationId]);
       if (!ok.rowCount) return fail(res, 404, "Task not found.");
-      const r = await db.query(`SELECT comment_id, author_id, author_name, body, created_at FROM org_task_comments WHERE task_id = $1 ORDER BY created_at LIMIT 200`, [taskId]);
+      const r = await db.query(`SELECT comment_id, author_id, author_name, body, created_at FROM org_task_comments WHERE task_id = $1 ORDER BY created_at, comment_id`, [taskId]);
       res.json({ success: true, comments: r.rows });
     } catch (err) {
       fail(res, 500, "Could not load replies.");

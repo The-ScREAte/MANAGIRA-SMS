@@ -2,7 +2,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <style>
   /* Make the scrolling-header h1 and logo-section images smaller on small screens */
-  .scrolling-header h1 {
+  .scrolling-header h1, .scrolling-header .scrolling-title {
+    text-align: center;
     font-size: 1.08rem;
     font-weight: 600;
     margin: 0.3em 0;
@@ -20,7 +21,7 @@
     transition: font-size 0.2s, margin 0.2s;
   }
   @media (max-width: 600px) {
-    .scrolling-header h1 {
+    .scrolling-header h1, .scrolling-header .scrolling-title {
       font-size: 1.08rem;
     }
     .logo-section .logo-container img {
@@ -1278,17 +1279,8 @@ a {
 }
     </style>
 
-    <meta name="description" content="Managira is an all-in-one school management platform. Paygira by Managira helps schools collect fees with mobile money, cards, and secure online payments.">
-    <meta name="keywords" content="Paygira, Paygira by Managira, Managira, school management software, school payments, mobile money payments, Google Classroom integration, WhatsApp school communication">
-    <meta property="og:title" content="Managira | Paygira by Managira">
-    <meta property="og:description" content="Paygira by Managira helps schools accept mobile money and card payments while managing classes, attendance, and assessments in one secure platform.">
-    <meta property="og:image" content="https://www.managira.com/images/schoolslogo/paygira.svg">
-    <meta property="og:url" content="https://www.managira.com/">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Paygira by Managira">
-    <meta name="twitter:description" content="Secure school payments and management in one platform.">
-    <meta name="twitter:image" content="https://www.managira.com/images/schoolslogo/paygira.svg">
-    
+
     <!-- SPA Router for smooth navigation -->
     <script src="/js/spa-router.js" defer></script>
 </head>
@@ -1302,7 +1294,7 @@ a {
         <h1>Managira</h1>
         <h2>Manage Smarter, Not Harder</h2>
             <!-- <p>Managira is your complete school management solution. Track students, connect teachers and parents, and simplify school operations— all in one place.</p> -->
-            <p>Empowering schools to manage, connect, and grow securely and effortlessly, every day</p>
+            <p>All-in-one school management software for admissions, attendance, report cards, fees and parent communication, with Mira, a built-in AI assistant.</p>
             <div class="button-group">
                 <a href="/account/service-plan" class="secondary-button">Pricing</a>
           <!-- Hidden for now: School Directory page is disabled in production.
@@ -1354,10 +1346,10 @@ a {
 
      <!-- Scrolling Info Section -->
      <div class="scrolling-header">
-        <h1>
+        <h2 class="scrolling-title">
           <!-- Secured & Certified by -->
           Secured & Registered by
-        </h1>
+        </h2>
     </div>
       
 <section class="logo-section">
@@ -1803,118 +1795,98 @@ a {
     </section>
 
     <!-- JSON-LD Structured Data -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Managira",
-        "url": "https://www.managira.com",
-        "logo": "https://www.managira.com/images/managira.png",
-        "description": "All-in-one school management platform that streamlines student enrollment, academic records, reporting, and administrative tools.",
-        "foundingDate": "2024",
-        "contactPoint": {
-            "@type": "ContactPoint",
-            "contactType": "Customer Service",
-            "url": "https://www.managira.com/legal/help"
-        },
-        "sameAs": [
-            "https://www.linkedin.com/company/managira",
-            "https://www.youtube.com/@managira"
+    <%# One connected description of Managira for search engines and AI
+        assistants (schema.org). Prices come from the live plans (see server.js). %>
+    <%
+      const _site = 'https://managira.com';
+      const _pricing = (typeof homePricing !== 'undefined' && homePricing) ? homePricing : null;
+      const _ld = {
+        '@context': 'https://schema.org',
+        '@graph': [
+          {
+            '@type': 'Organization',
+            '@id': _site + '/#organization',
+            name: 'Managira',
+            url: _site + '/',
+            logo: { '@type': 'ImageObject', url: _site + '/images/managira.png', width: 512, height: 512 },
+            description: 'Managira makes all-in-one school management software for schools, school districts and multi-school networks.',
+            foundingDate: '2024',
+            sameAs: ['https://www.linkedin.com/company/managira', 'https://www.youtube.com/@managira'],
+            contactPoint: { '@type': 'ContactPoint', contactType: 'sales', url: _site + '/legal/request-demo' },
+          },
+          {
+            '@type': 'WebSite',
+            '@id': _site + '/#website',
+            name: 'Managira',
+            url: _site + '/',
+            publisher: { '@id': _site + '/#organization' },
+            inLanguage: 'en',
+          },
+          {
+            '@type': 'SoftwareApplication',
+            '@id': _site + '/#software',
+            name: 'Managira',
+            alternateName: 'Managira School Management System',
+            url: _site + '/',
+            applicationCategory: 'BusinessApplication',
+            applicationSubCategory: 'School management software',
+            operatingSystem: 'Web browser (desktop and mobile)',
+            description: 'All-in-one school management software: admissions and student records, attendance, assessments and report cards, promotion, staff and permissions, fee collection (PayGira), transportation, parent and student portals, messaging by email, SMS and WhatsApp, a school website, and Mira, a built-in AI assistant.',
+            publisher: { '@id': _site + '/#organization' },
+            featureList: [
+              'Admissions, online applications and student records',
+              'Classes, subjects, terms and school years',
+              'Attendance tracking',
+              'Assessments, grading, report cards and transcripts',
+              'Promotion between terms and graduation',
+              'Staff accounts with individual permissions',
+              'Fee billing and online payments with PayGira (cards and mobile money)',
+              'School transportation with routes, stops and live bus tracking',
+              'Parent (guardian) portal and student portal',
+              'Mail Room messaging by email, SMS and WhatsApp',
+              'Shared calendar synced with class timetables',
+              'Public school website with online admission',
+              'Multi-school hubs for districts and school networks',
+              'Mira, a built-in AI assistant that works with the school\'s own data',
+            ],
+            ...(_pricing ? {
+              offers: {
+                '@type': 'AggregateOffer',
+                priceCurrency: 'USD',
+                lowPrice: _pricing.lowPrice,
+                highPrice: _pricing.highPrice,
+                offerCount: _pricing.offerCount,
+                url: _site + '/account/service-plan',
+                description: 'Monthly base price per school. Prices vary by country and number of students.',
+              },
+            } : {}),
+          },
+          {
+            '@type': 'SoftwareApplication',
+            '@id': _site + '/#paygira',
+            name: 'PayGira by Managira',
+            url: _site + '/',
+            applicationCategory: 'FinanceApplication',
+            operatingSystem: 'Web browser',
+            description: 'School fee billing and collection built into Managira: bills per class or student, card and mobile money payments, receipts, arrears and payment tracking.',
+            isPartOf: { '@id': _site + '/#software' },
+            publisher: { '@id': _site + '/#organization' },
+          },
+          {
+            '@type': 'SoftwareApplication',
+            '@id': _site + '/legal/mira-ai-assistant#mira',
+            name: 'Mira by Managira',
+            url: _site + '/legal/mira-ai-assistant',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web browser',
+            description: 'AI assistant built into Managira that carries out school administration tasks on the school\'s own data, within each staff member\'s permissions, with every change recorded in the activity log.',
+            isPartOf: { '@id': _site + '/#software' },
+            publisher: { '@id': _site + '/#organization' },
+          },
         ],
-        "hasOfferCatalog": {
-            "@type": "OfferCatalog",
-            "name": "School Management Services",
-            "itemListElement": [
-                {
-                    "@type": "Offer",
-                    "itemOffered": {
-                        "@type": "Service",
-                        "name": "Student Information System",
-                        "description": "Comprehensive student enrollment and academic record management"
-                    }
-                },
-                {
-                    "@type": "Offer", 
-                    "itemOffered": {
-                        "@type": "Service",
-                        "name": "Administrative Tools",
-                        "description": "Attendance tracking, grade recording, and automated notifications"
-                    }
-                },
-                {
-                    "@type": "Offer",
-                    "itemOffered": {
-                        "@type": "Service", 
-                        "name": "Analytics & Reporting",
-                        "description": "Data-driven insights and detailed reports for informed decision making"
-                    }
-                }
-            ]
-        }
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Managira",
-      "url": "https://www.managira.com",
-      "description": "School management software for enrollment, classes, assessments, reporting, and communication.",
-      "publisher": {
-        "@type": "Organization",
-        "name": "Managira",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://www.managira.com/images/managira.png",
-          "width": 512,
-          "height": 512
-        }
-      }
-    }
-    </script>
-    
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Managira",
-        "description": "All-in-one school management platform that streamlines student enrollment, academic records, reporting, and administrative tools.",
-        "url": "https://www.managira.com",
-        "applicationCategory": "Educational Software",
-        "operatingSystem": "Web Browser",
-        "offers": {
-            "@type": "Offer",
-            "priceCurrency": "USD",
-            "description": "School management platform with various pricing tiers"
-        },
-        "creator": {
-            "@type": "Organization",
-            "name": "Managira"
-        }
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      "name": "Paygira by Managira",
-      "brand": {
-        "@type": "Brand",
-        "name": "Managira"
-      },
-      "image": "https://www.managira.com/images/schoolslogo/paygira.svg",
-      "url": "https://www.managira.com/",
-      "description": "Paygira by Managira enables schools to accept mobile money and card payments with secure tracking and integrated school finance workflows.",
-      "category": "Education Payment Software",
-      "isRelatedTo": {
-        "@type": "SoftwareApplication",
-        "name": "Managira",
-        "url": "https://www.managira.com/"
-      }
-    }
-    </script>
+      };
+    %>
+    <script type="application/ld+json"><%- JSON.stringify(_ld).replace(/</g, '\\u003c') %></script>
 
     <script>
       (() => {

@@ -46,7 +46,7 @@ class ManagiraChatbot {
     container.className = 'chatbot-container';
     container.innerHTML = `
       <div class="chatbot-header">
-        <h3>Managira Assistant</h3>
+        <h3>Mira Assistant</h3>
         <div class="chatbot-controls">
           <button class="chatbot-minimize">−</button>
           <button class="chatbot-close">&times;</button>
@@ -610,7 +610,7 @@ class ManagiraChatbot {
     const welcomeDiv = document.createElement('div');
     welcomeDiv.className = 'welcome-message';
     welcomeDiv.innerHTML = `
-      <h4>Managira Help</h4>
+      <h4>Mira Assistant</h4>
       <p>Ask anything and I'll try to help.</p>
     `;
     

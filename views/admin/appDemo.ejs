@@ -222,7 +222,11 @@
   .ade-guide { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .ade-guide li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; }
   .ade-guide__n { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; background: var(--ade-accent, #14b8a6); color: #fff; font-size: 11.5px; font-weight: 700; }
+  .ade-guide__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .ade-guide em { display: block; margin-bottom: 5px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--a-text); }
+  .ade-guide__remove { flex: none; padding: 2px 5px; border: 0; border-radius: 5px; background: transparent; color: var(--a-danger); font: inherit; font-size: 11.5px; cursor: pointer; }
+  .ade-guide__remove:hover { background: var(--a-danger-soft); }
+  .ade-guide__remove:focus-visible { outline: 2px solid var(--a-danger); outline-offset: 1px; }
   .ade-guide .ade-textarea { min-height: 54px; font-size: 13px; }
   .ade-swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .ade-sw { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); cursor: pointer; }
@@ -1001,23 +1005,32 @@
     } catch (_) {
       return toast('Could not load this capture.', true);
     }
-    const texts = Array.isArray(m.guide) ? m.guide.map((g) => (g && g.text) || '') : [];
+    const saved = Array.isArray(m.guide) ? m.guide : null;
+    const savedByIndex = saved && new Map(saved.map((g, i) => [Number.isInteger(g && g.index) ? g.index : i, g]));
+    const guideSteps = guide.flatMap((g, index) => {
+      if (savedByIndex && !savedByIndex.has(index)) return [];
+      const savedStep = savedByIndex && savedByIndex.get(index);
+      return [{ index, label: g.label, text: savedStep ? (savedStep.text || '') : '' }];
+    });
     let accent = m.accent || SWATCHES[0];
     const wrap = document.createElement('div');
     wrap.className = 'ade-modal';
     wrap.innerHTML = '<div class="ade-modal__card" role="dialog" aria-modal="true" aria-labelledby="adeGuideTitle">'
       + '<div class="ade-modal__head"><h2 id="adeGuideTitle">Walkthrough</h2>'
-      + '<p>Explain each recorded click. Leave one empty to show a short default.</p></div>'
+      + '<p>Explain each recorded click, or remove steps visitors do not need. Leave one empty to show a short default.</p></div>'
       + '<div class="ade-modal__body">'
-      +   (guide.length
+      +   (guideSteps.length
             ? '<label class="ade-switch ade-switch--block"><input type="checkbox" data-guided' + (m.guided === false ? '' : ' checked') + '><span class="ade-switch__track"></span>'
-              + '<span><b>Guide visitors step by step</b><small>Each explanation shows beside the highlight, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>'
+              + '<span><b>Guide visitors step by step</b><small>Each explanation appears beside the control, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>'
             : '')
-      +   (guide.length
-            ? '<ol class="ade-guide">' + guide.map((g, i) => '<li><span class="ade-guide__n">' + (i + 1) + '</span><div><em>' + (cleanLabel(g.label) ? 'Click “' + esc(cleanLabel(g.label)) + '”' : 'Recorded click') + '</em>'
-              + '<textarea class="ade-textarea" data-guide-text="' + i + '" maxlength="240" rows="2" placeholder="Explain this step, e.g. See every teacher in the class.">' + esc(texts[i] || '') + '</textarea></div></li>').join('') + '</ol>'
-            : '<p style="margin:0;color:var(--a-muted)">No clicks were recorded in this capture, so it plays without a walkthrough.</p>')
-      +   '<div class="ade-field"><label>Highlight colour</label><div class="ade-swatches">'
+      +   (guideSteps.length
+            ? '<ol class="ade-guide" data-guide-list>' + guideSteps.map((g, i) => '<li data-guide-step="' + g.index + '"><span class="ade-guide__n">' + (i + 1) + '</span><div><div class="ade-guide__row"><em>' + (cleanLabel(g.label) ? 'Click “' + esc(cleanLabel(g.label)) + '”' : 'Recorded click') + '</em>'
+              + '<button type="button" class="ade-guide__remove" data-guide-remove="' + g.index + '" aria-label="Remove click step ' + (i + 1) + '">Remove</button></div>'
+              + '<textarea class="ade-textarea" data-guide-text="' + g.index + '" maxlength="240" rows="2" placeholder="Explain this step, e.g. See every teacher in the class.">' + esc(g.text) + '</textarea></div></li>').join('') + '</ol>'
+            : guide.length
+              ? '<p style="margin:0;color:var(--a-muted)" data-guide-empty>All recorded clicks are removed. Save to keep this capture without a walkthrough.</p>'
+              : '<p style="margin:0;color:var(--a-muted)" data-guide-empty>No clicks were recorded in this capture, so it plays without a walkthrough.</p>')
+      +   '<div class="ade-field"><label>Guide accent colour</label><div class="ade-swatches">'
       +     SWATCHES.map((c) => '<button type="button" class="ade-sw" data-sw="' + c + '" style="--c:' + c + '" aria-label="' + c + '"></button>').join('')
       +     '<label class="ade-sw-custom"><input type="color" data-sw-custom value="' + esc(accent) + '">Custom</label></div></div>'
       + '</div>'
@@ -1038,6 +1051,23 @@
     const close = () => wrap.remove();
     wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
     wrap.querySelector('[data-guide-cancel]').addEventListener('click', close);
+    wrap.addEventListener('click', (e) => {
+      const remove = e.target.closest('[data-guide-remove]');
+      if (!remove) return;
+      const step = wrap.querySelector('[data-guide-step="' + remove.dataset.guideRemove + '"]');
+      if (step) step.remove();
+      wrap.querySelectorAll('[data-guide-step]').forEach((item, i) => {
+        item.querySelector('.ade-guide__n').textContent = String(i + 1);
+        item.querySelector('.ade-guide__remove').setAttribute('aria-label', 'Remove click step ' + (i + 1));
+      });
+      if (!wrap.querySelector('[data-guide-step]')) {
+        const empty = document.createElement('p');
+        empty.dataset.guideEmpty = '';
+        empty.style.cssText = 'margin:0;color:var(--a-muted)';
+        empty.textContent = 'All recorded clicks are removed. Save to keep this capture without a walkthrough.';
+        wrap.querySelector('.ade-guide')?.replaceWith(empty);
+      }
+    });
     wrap.querySelector('[data-guide-save]').addEventListener('click', async (e) => {
       e.currentTarget.disabled = true;
       wrap.querySelector('[data-guide-status]').textContent = 'Saving…';
@@ -1046,7 +1076,7 @@
         await post('/admin/app-demo/media/' + m.id + '/guide', {
           accent,
           guided: guidedBox ? guidedBox.checked : true,
-          texts: [...wrap.querySelectorAll('[data-guide-text]')].map((t) => t.value),
+          steps: [...wrap.querySelectorAll('[data-guide-text]')].map((t) => ({ index: Number(t.dataset.guideText), text: t.value })),
         });
         close();
         renderEditor();

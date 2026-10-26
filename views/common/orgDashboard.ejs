@@ -129,8 +129,8 @@
   .od [hidden] { display: none !important; }
   .od-row-empty { display: none !important; }
 
-  .od-pair { display: flex; gap: 20px 24px; align-items: flex-start; }
-  .od-pair > * { flex: 1 1 0; min-width: 0; }
+  .od-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; align-items: stretch; }
+  .od-pair > * { min-width: 0; }
 
   .od-card {
     border: 1px solid var(--od-border); border-radius: 14px; padding: 20px; min-width: 0;
@@ -266,14 +266,17 @@
   .od-past > summary:hover { color: var(--od-primary); }
   .od-past > .od-list { margin-top: 4px; }
 
-  .od-ann { padding: 12px 0; }
-  .od-ann:first-child { padding-top: 0; }
-  .od-ann__text { font-size: 0.92rem; color: #1e293b; line-height: 1.55; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .od-ann.is-open .od-ann__text { display: block; -webkit-line-clamp: unset; white-space: pre-line; }
-  .od-ann__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
-  .od-ann__date { font-size: 0.78rem; color: var(--od-muted); }
-  .od-ann__toggle { color: var(--od-primary) !important; font-size: 0.82rem; }
-  .od-ann__toggle:hover { text-decoration: underline; }
+  .od-ann { padding: 7px 0; border-bottom: 1px solid var(--od-line); }
+  .od-ann:last-child { border-bottom: 0; }
+  .od-ann__summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; }
+  .od-ann__summary::-webkit-details-marker { display: none; }
+  .od-ann__summary::marker { content: ""; }
+  .od-ann__title { flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 650; color: var(--od-text); overflow-wrap: anywhere; }
+  .od-ann__title::after { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 0 2px 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .55; }
+  .od-ann[open] .od-ann__title::after { transform: rotate(225deg); margin-bottom: -1px; }
+  .od-ann__summary:hover .od-ann__title { color: var(--od-primary); }
+  .od-ann__date { flex: 0 0 auto; margin-left: auto; font-size: 0.74rem; color: var(--od-muted); white-space: nowrap; }
+  .od-ann__message { margin: 5px 0 0; font-size: 0.84rem; color: var(--od-muted); line-height: 1.45; overflow-wrap: anywhere; white-space: pre-line; }
 
   .od-alert { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; }
   .od-alert:first-child { padding-top: 0; }
@@ -303,12 +306,11 @@
   /* Activity & Announcements */
   .od-newtask { display: inline-flex !important; align-items: center; gap: 6px; padding: 6px 10px !important; border-radius: 8px !important; }
   .od-newtask:hover { background: var(--od-soft) !important; text-decoration: none !important; }
-  .od-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--od-line); margin: -4px 0 12px; }
-  .od-tab { display: inline-flex !important; align-items: center; gap: 7px; padding: 8px 10px !important; margin-bottom: -1px !important; border-bottom: 2px solid transparent !important; color: var(--od-muted) !important; font-size: 0.9rem; }
+  .od-tabs { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--od-line); margin: -4px 0 4px; }
+  .od-tab { display: inline-flex !important; align-items: center; gap: 6px; padding: 6px 9px !important; margin-bottom: -1px !important; border-bottom: 2px solid transparent !important; color: var(--od-muted) !important; font-size: 0.86rem; }
   .od-tab.is-active { color: var(--od-primary) !important; border-bottom-color: var(--od-primary) !important; }
   .od-tab:hover { color: var(--od-text) !important; }
-  .od-tabs__manage { margin-left: auto; font-size: 0.84rem; }
-  .od-ann-manage { display: inline-block; margin-top: 10px; font-size: 0.84rem; }
+  .od-ann-manage { display: inline-block; margin-top: 5px; font-size: 0.8rem; }
   .od-feed-empty { display: grid; justify-items: center; gap: 4px; padding: 22px 10px; text-align: center; color: var(--od-muted); }
   .od-feed-empty i { font-size: 1.6rem; color: var(--od-primary); opacity: .7; }
   .od-feed-empty p { color: var(--od-text); font-weight: 600; }
@@ -319,7 +321,8 @@
   .od-tagged__name { color: var(--od-text) !important; }
   .od-tagged__name:hover { color: var(--od-primary) !important; text-decoration: underline; }
   .od-tagged + .od-tasks { border-top: 1px solid var(--od-line); }
-  .od-task { padding: 12px 0; scroll-margin-top: 90px; }
+  .od-task { padding: 9px 0; scroll-margin-top: 90px; border-bottom: 1px solid var(--od-line); }
+  .od-task:last-child { border-bottom: 0; }
   .od-card__links { display: inline-flex; gap: 14px; }
   .od-event__row--link { color: inherit !important; border-radius: 10px; width: 100% !important; text-align: left; }
   .od-event__row--link:hover .od-event__name { color: var(--od-primary); }
@@ -337,51 +340,69 @@
   .od-person i { font-size: 0.62rem; }
   .od-task.is-flash { animation: od-flash 1.8s ease; border-radius: 10px; }
   @keyframes od-flash { 0%, 40% { background: var(--od-soft); } 100% { background: transparent; } }
-  .od-task__row { display: flex; gap: 12px; align-items: flex-start; }
+  .od-task__row { display: flex; gap: 9px; align-items: flex-start; }
   .od-task__check {
-    flex: 0 0 22px; width: 22px !important; height: 22px; margin-top: 1px !important; border-radius: 50% !important;
+    flex: 0 0 24px; width: 24px !important; height: 24px; margin-top: 2px !important; border-radius: 50% !important;
     border: 2px solid color-mix(in srgb, var(--od-primary) 45%, #cbd5e1) !important; display: grid !important; place-items: center;
     color: transparent !important; font-size: 0.66rem; transition: background-color .15s ease, border-color .15s ease;
   }
   .od-task__check:hover { border-color: var(--od-primary) !important; color: var(--od-primary) !important; }
   .od-task__check[aria-pressed="true"] { background: var(--od-primary) !important; border-color: var(--od-primary) !important; color: #fff !important; }
-  .od-task__main { flex: 1; min-width: 0; display: grid; gap: 4px; }
-  .od-task__title { font-weight: 700; font-size: 0.95rem; overflow-wrap: anywhere; }
+  .od-task__main { flex: 1; min-width: 0; }
+  .od-task__disclosure { min-width: 0; }
+  .od-task__summary { display: grid; gap: 5px; min-width: 0; cursor: pointer; list-style: none; }
+  .od-task__summary::-webkit-details-marker { display: none; }
+  .od-task__summary::marker { content: ""; }
+  .od-task__title { font-weight: 700; font-size: 1rem; line-height: 1.35; overflow-wrap: anywhere; }
+  .od-task__title::after { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 0 2px 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .55; }
+  .od-task__disclosure[open] .od-task__title::after { transform: rotate(225deg); margin-bottom: -1px; }
   .od-task.is-done .od-task__title { color: var(--od-muted); text-decoration: line-through; }
-  .od-task__meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--od-muted); }
+  .od-task__meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; font-size: 0.8rem; color: var(--od-muted); }
+  .od-task__expanded { padding-top: 3px; }
   .od-task__due.is-late { color: #b91c1c; font-weight: 600; }
-  .od-task__flag { padding: 0 7px; border-radius: 999px; background: #fef2f2; color: #b91c1c; font-weight: 700; font-size: 0.72rem; }
-  .od-task__details { font-size: 0.9rem; color: #334155; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+  .od-task__flag { padding: 1px 7px; border-radius: 999px; background: var(--od-soft); color: var(--od-muted); font-weight: 650; font-size: 0.74rem; }
+  .od-task__flag.is-high { background: color-mix(in srgb, #ef4444 10%, transparent); color: #b91c1c; }
+  .od-task__context { margin: 4px 0 0; font-size: 0.72rem; color: var(--od-muted); line-height: 1.35; }
+  .od-task__context .od-person { margin-left: 3px; font-size: 0.7rem; vertical-align: middle; }
+  .od-task__details { margin: 6px 0 0; font-size: 0.9rem; color: var(--od-muted); line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
   .od-mention { color: var(--od-primary); font-weight: 600; background: var(--od-soft); padding: 0 3px; border-radius: 4px; }
-  .od-task__bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-  .od-reacts { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-  .od-react { display: inline-flex !important; align-items: center; gap: 4px; padding: 2px 8px !important; border-radius: 999px !important; border: 1px solid var(--od-line) !important; background: #fff !important; font-size: 0.82rem; }
-  .od-react span { font-size: 0.76rem; color: var(--od-muted); font-weight: 700; }
+  .od-task__bar { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin: 4px 0 0; }
+  .od-reacts { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+  .od-react { display: inline-flex !important; align-items: center; gap: 5px; padding: 3px 9px !important; border-radius: 999px !important; border: 1px solid var(--od-line) !important; background: transparent !important; font-size: 0.9rem; }
+  .od-react span { font-size: 0.78rem; color: var(--od-muted); font-weight: 700; }
   .od-react.is-mine { border-color: var(--od-primary) !important; background: var(--od-soft) !important; }
   .od-react.is-mine span { color: var(--od-primary); }
-  .od-task__act { display: inline-flex !important; align-items: center; gap: 6px; padding: 4px 8px !important; border-radius: 8px !important; color: var(--od-muted) !important; font-size: 0.82rem; }
+  .od-task__act { display: inline-flex !important; align-items: center; justify-content: center; gap: 4px; padding: 4px 6px !important; border-radius: 8px !important; color: var(--od-muted) !important; font-size: 0.84rem; }
   .od-task__act:hover { background: var(--od-soft) !important; color: var(--od-primary) !important; }
+  .od-task__react-open { width: 28px !important; height: 28px; font-size: 0.9rem !important; }
+  .od-task__reply { flex: 0 0 auto; margin-left: auto; white-space: nowrap; font-size: 0.84rem !important; }
+  .od-task__reply-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--od-soft); color: var(--od-muted); font-size: 0.72rem; line-height: 18px; text-align: center; }
   .od-react-pick { position: relative; display: inline-flex; }
-  .od-react-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20; display: flex; gap: 2px; padding: 5px; background: #fff; border: 1px solid var(--od-border); border-radius: 999px; box-shadow: 0 10px 24px rgba(15, 23, 42, .14); }
+  .od-react-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20; display: grid; gap: 5px; min-width: max-content; padding: 7px; background: color-mix(in srgb, var(--od-primary) 3%, #fff); border: 1px solid var(--od-border); border-radius: 10px; box-shadow: 0 10px 24px rgba(15, 23, 42, .14); }
   .od-react-menu[hidden] { display: none; }
-  .od-react-menu button { width: 32px !important; height: 32px; border-radius: 50% !important; font-size: 1.05rem; display: grid !important; place-items: center; }
-  .od-react-menu button:hover { background: var(--od-soft) !important; transform: scale(1.12); }
-  .od-thread { margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: #f8fafc; border: 1px solid var(--od-line); display: grid; gap: 8px; }
-  .od-thread__list { display: grid; gap: 10px; }
+  .od-react-menu__choices { display: flex; gap: 2px; }
+  .od-react-menu__choices button { width: 30px !important; height: 30px; border-radius: 50% !important; font-size: 1.05rem; display: grid !important; place-items: center; }
+  .od-react-menu__choices button:hover { background: var(--od-soft) !important; transform: scale(1.12); }
+  .od-thread { margin-top: 5px; padding: 5px 0 0; border-top: 1px solid var(--od-line); display: grid; gap: 6px; }
+  .od-thread__list { display: grid; gap: 5px; }
   .od-thread__list:empty { display: none; }
-  .od-comment { display: flex; gap: 8px; align-items: flex-start; }
-  .od-comment__avatar { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--od-soft); color: var(--od-primary); font-size: 0.7rem; font-weight: 700; }
-  .od-comment__body { display: grid; gap: 1px; min-width: 0; }
-  .od-comment__who { font-size: 0.8rem; font-weight: 700; }
-  .od-comment__who small { font-weight: 500; color: var(--od-muted); margin-left: 6px; }
-  .od-comment__text { font-size: 0.88rem; color: #334155; white-space: pre-line; overflow-wrap: anywhere; }
-  .od-thread__form { display: flex; gap: 6px; margin: 0; }
-  .od-thread__input { flex: 1; min-width: 0; margin: 0; padding: 8px 12px; border: 1px solid #d5dde6; border-radius: 999px; font: inherit; font-size: 0.88rem; background: #fff; }
+  .od-comment { display: grid; gap: 1px; padding: 3px 0; }
+  .od-comment + .od-comment { border-top: 1px solid var(--od-line); padding-top: 6px; }
+  .od-comment__who { display: flex; align-items: baseline; gap: 8px; font-size: 0.76rem; font-weight: 650; color: var(--od-text); }
+  .od-comment__who time { font-size: 0.7rem; font-weight: 400; color: var(--od-muted); }
+  .od-comment__text { font-size: 0.82rem; color: var(--od-muted); white-space: pre-line; overflow-wrap: anywhere; }
+  .od-thread__form { display: flex; gap: 5px; margin: 1px 0 0; }
+  .od-thread__input { flex: 1; min-width: 0; margin: 0; padding: 6px 10px; border: 1px solid var(--od-border); border-radius: 999px; font: inherit; font-size: 0.82rem; background: transparent; color: var(--od-text); }
   .od-thread__input:focus { outline: none; border-color: var(--od-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--od-primary) 15%, transparent); }
-  .od-thread__send { flex: 0 0 36px; width: 36px !important; height: 36px; border-radius: 50% !important; background: var(--od-primary) !important; color: #fff !important; display: grid !important; place-items: center; font-size: 0.8rem; }
+  @media (max-width: 480px) {
+    .od-ann__summary { flex-wrap: wrap; gap: 2px 8px; }
+    .od-ann__date { font-size: 0.7rem; }
+    .od-task__summary { align-items: flex-start; }
+  }
+  .od-thread__send { flex: 0 0 30px; width: 30px !important; height: 30px; border-radius: 50% !important; background: var(--od-primary) !important; color: #fff !important; display: grid !important; place-items: center; font-size: 0.72rem; }
   .od-thread__send:hover { background: var(--od-primary-hover) !important; }
   @media (max-width: 900px) {
-    .od-pair { flex-direction: column; align-items: stretch; }
+    .od-pair { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 768px) {
     #orgDashboardSection { padding: 0 16px; }
@@ -404,7 +425,6 @@
   }
 
   /* Smart fill: school year + numbers share the right column; flat, calm cards */
-  .od-pair { align-items: stretch; }
   .od-stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
   .od-stack > .od-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; flex: 1; align-content: start; }
   .od-kpi { background: #fff !important; box-shadow: none !important; border: 1px solid var(--od-line, #e2e8f0) !important; border-left: 3px solid var(--k) !important; border-radius: 12px; padding: 14px 16px; transform: none !important; }
@@ -889,7 +909,6 @@
           <div class="od-tabs" role="tablist">
             <button type="button" class="od-tab<%= _defaultTab === 'you' ? ' is-active' : '' %>" role="tab" data-od-tab="you" aria-selected="<%= _defaultTab === 'you' %>">For you <% if (_openForMe) { %><span class="od-count"><%= _openForMe %></span><% } %></button>
             <button type="button" class="od-tab<%= _defaultTab === 'ann' ? ' is-active' : '' %>" role="tab" data-od-tab="ann" aria-selected="<%= _defaultTab === 'ann' %>">Announcements <span class="od-count"><%= _allAnnouncements.length %></span></button>
-            <% if (_canPublish) { %><a class="od-link od-tabs__manage" href="/common/calendar">Calendar</a><% } %>
           </div>
 
           <div class="od-tabpane" data-od-pane="you"<%= _defaultTab === 'you' ? '' : ' hidden' %>>
@@ -935,44 +954,52 @@
                         </button>
                       <% } %>
                       <div class="od-task__main">
-                        <div class="od-task__title"><%= t.title %></div>
-                        <div class="od-task__meta">
-                          <% if (st.isCreator && !st.isAssignee) { %>
-                            <span class="od-task__people"><% others.forEach(function(a) { %><span class="od-person<%= a.status === 'done' ? ' is-done' : '' %>" title="<%= a.name %><%= a.status === 'done' ? ' · done' : ' · open' %>"><% if (a.status === 'done') { %><i class="fa-solid fa-check" aria-hidden="true"></i><% } %><%= a.first || a.name %></span><% }) %></span>
-                          <% } else { %>
-                            <span>From <%= st.isCreator ? 'you' : (t.created_by_name || 'a colleague') %><%= others.length > 1 ? ' · with ' + others.filter((a) => Number(a.id) !== _me).map((a) => a.first || a.name).join(', ') : '' %></span>
-                          <% } %>
-                          <% if (due) { %><span class="od-task__due<%= due.overdue && !st.closed ? ' is-late' : '' %>"><i class="fa-regular fa-clock" aria-hidden="true"></i> <%= due.text %></span><% } %>
-                          <% if (t.priority === 'high') { %><span class="od-task__flag">High</span><% } %>
-                          <% if (st.total > 1) { %><span><%= st.done %>/<%= st.total %> done</span><% } %>
-                        </div>
-                        <% if (t.details && String(t.details).trim() !== String(t.title).trim()) { %>
-                          <p class="od-task__details"><%- _mentionify(t.details) %></p>
-                        <% } %>
+                        <details class="od-task__disclosure" data-task-disclosure>
+                          <summary class="od-task__summary">
+                            <span class="od-task__title"><%= t.title %></span>
+                            <span class="od-task__meta">
+                              <% if (due) { %><span class="od-task__due<%= due.overdue && !st.closed ? ' is-late' : '' %>"><i class="fa-regular fa-clock" aria-hidden="true"></i> <%= due.text %></span><% } %>
+                              <span class="od-task__flag<%= t.priority === 'high' ? ' is-high' : '' %>"><%= String(t.priority || 'normal').charAt(0).toUpperCase() + String(t.priority || 'normal').slice(1) %></span>
+                              <% if (st.total > 0) { %><span><%= st.done %>/<%= st.total %> done</span><% } %>
+                            </span>
+                          </summary>
+                          <div class="od-task__expanded">
+                            <p class="od-task__details"><% if (t.details && String(t.details).trim() !== String(t.title).trim()) { %><%- _mentionify(t.details) %><% } else { %>No description provided.<% } %></p>
+                            <p class="od-task__context">
+                              <% if (st.isCreator && !st.isAssignee && others.length) { %>
+                                Assigned to <% others.forEach(function(a, i) { %><%= i ? ', ' : '' %><span class="od-person<%= a.status === 'done' ? ' is-done' : '' %>" title="<%= a.name %><%= a.status === 'done' ? ' · done' : ' · open' %>"><% if (a.status === 'done') { %><i class="fa-solid fa-check" aria-hidden="true"></i><% } %><%= a.first || a.name %></span><% }) %>
+                              <% } else { %>
+                                From <%= st.isCreator ? 'you' : (t.created_by_name || 'a colleague') %><%= others.length > 1 ? ' · with ' + others.filter((a) => Number(a.id) !== _me).map((a) => a.first || a.name).join(', ') : '' %>
+                              <% } %>
+                            </p>
+                          </div>
+                          <div class="od-thread" data-thread>
+                            <ul class="od-thread__list" data-thread-list></ul>
+                            <form class="od-thread__form" data-thread-form>
+                              <input type="text" class="od-thread__input" name="body" placeholder="Write a reply…" maxlength="2000" autocomplete="off" aria-label="Write a reply">
+                              <button type="submit" class="od-thread__send" aria-label="Send reply"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
+                            </form>
+                          </div>
+                        </details>
                         <div class="od-task__bar">
-                          <span class="od-reacts" data-reacts>
-                            <% (t.reactions || []).forEach(function(r) { %>
-                              <button type="button" class="od-react<%= r.mine ? ' is-mine' : '' %>" data-react="<%= r.emoji %>"><%= r.emoji %> <span><%= r.n %></span></button>
-                            <% }) %>
-                          </span>
                           <span class="od-react-pick">
-                            <button type="button" class="od-task__act" data-react-open aria-label="Add a reaction" title="React"><i class="fa-regular fa-face-smile" aria-hidden="true"></i></button>
+                            <button type="button" class="od-task__act od-task__react-open" data-react-open aria-label="Add or view reactions" title="Reactions"><i class="fa-regular fa-face-smile" aria-hidden="true"></i></button>
                             <span class="od-react-menu" hidden>
-                              <% ['👍', '✅', '🙌', '❤️', '👀'].forEach(function(e) { %><button type="button" data-react="<%= e %>"><%= e %></button><% }) %>
+                              <span class="od-reacts" data-reacts>
+                                <% (t.reactions || []).forEach(function(r) { %>
+                                  <button type="button" class="od-react<%= r.mine ? ' is-mine' : '' %>" data-react="<%= r.emoji %>" aria-label="<%= r.n %> <%= r.emoji %> reactions"><%= r.emoji %> <span><%= r.n %></span></button>
+                                <% }) %>
+                              </span>
+                              <span class="od-react-menu__choices">
+                                <% ['👍', '✅', '🙌', '❤️', '👀'].forEach(function(e) { %><button type="button" data-react="<%= e %>" aria-label="React with <%= e %>"><%= e %></button><% }) %>
+                              </span>
                             </span>
                           </span>
-                          <button type="button" class="od-task__act" data-thread-toggle>
-                            <i class="fa-regular fa-comment" aria-hidden="true"></i> Reply<% if (t.comment_count) { %> · <span data-comment-count><%= t.comment_count %></span><% } %>
-                          </button>
-                        </div>
-                        <div class="od-thread" data-thread hidden>
-                          <ul class="od-thread__list" data-thread-list></ul>
-                          <form class="od-thread__form" data-thread-form>
-                            <input type="text" class="od-thread__input" name="body" placeholder="Write a reply…" maxlength="2000" autocomplete="off" aria-label="Write a reply">
-                            <button type="submit" class="od-thread__send" aria-label="Send reply"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
-                          </form>
                         </div>
                       </div>
+                      <button type="button" class="od-task__act od-task__reply" data-thread-toggle aria-label="Reply to <%= t.title %>">
+                        <i class="fa-regular fa-comment" aria-hidden="true"></i><span class="od-task__reply-count" data-comment-count><%= Number(t.comment_count) || 0 %></span>
+                      </button>
                     </div>
                   </li>
                 <% }) %>
@@ -984,11 +1011,11 @@
             <% const _toMe = _tasks.filter((t) => _taskState(t).isAssignee); const _byMe = _tasks.filter((t) => { const st = _taskState(t); return st.isCreator && !st.isAssignee; }); %>
             <div id="tasks"></div>
             <% if (_toMe.length) { %>
-              <h3 class="od-sublabel od-feed-label"><i class="fa-solid fa-inbox" aria-hidden="true"></i> Assigned to you <span><%= _toMe.filter((t) => !_taskState(t).closed).length %> open</span></h3>
+              <h3 class="od-sublabel od-feed-label"><i class="fa-solid fa-inbox" aria-hidden="true"></i> Assigned to you</h3>
               <% _taskList(_toMe) %>
             <% } %>
             <% if (_byMe.length) { %>
-              <h3 class="od-sublabel od-feed-label"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> You assigned <span><%= _byMe.filter((t) => !_taskState(t).closed).length %> open</span></h3>
+              <h3 class="od-sublabel od-feed-label"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> You assigned</h3>
               <% _taskList(_byMe) %>
             <% } %>
           </div>
@@ -996,13 +1023,20 @@
           <div class="od-tabpane" data-od-pane="ann"<%= _defaultTab === 'ann' ? '' : ' hidden' %>>
             <% if (_allAnnouncements.length) { %>
               <ul class="od-list">
-                <% _allAnnouncements.forEach(function(announcement, index) { %>
-                  <li class="od-ann<%= index >= _LIST_LIMIT ? ' od-extra' : '' %>">
-                    <p class="od-ann__text"><%= String(announcement.message || '') %></p>
-                    <div class="od-ann__foot">
-                      <span class="od-ann__date"><%= announcement.created_at ? 'Posted ' + _fmtDate(announcement.created_at) : '' %></span>
-                      <button type="button" class="od-ann__toggle" data-od-expand aria-expanded="false" hidden>Read more</button>
-                    </div>
+                <% _allAnnouncements.forEach(function(announcement, index) {
+                  const message = String(announcement.message || '').trim();
+                  const colonIndex = message.indexOf(':');
+                  const hasInlineTitle = colonIndex > 0 && colonIndex < 100 && /\s/.test(message.charAt(colonIndex + 1));
+                  const title = String(announcement.title || '').trim() || (hasInlineTitle ? message.slice(0, colonIndex).trim() : (message.length > 72 ? message.slice(0, 72).trimEnd() + '…' : message));
+                %>
+                  <li class="od-ann-item<%= index >= _LIST_LIMIT ? ' od-extra' : '' %>">
+                    <details class="od-ann">
+                      <summary class="od-ann__summary">
+                        <span class="od-ann__title"><%= title || 'Announcement' %></span>
+                        <% if (announcement.created_at) { %><time class="od-ann__date" datetime="<%= new Date(announcement.created_at).toISOString() %>">Posted <%= _fmtDate(announcement.created_at) %></time><% } %>
+                      </summary>
+                      <p class="od-ann__message"><%= message %></p>
+                    </details>
                   </li>
                 <% }) %>
               </ul>
@@ -1104,18 +1138,6 @@
         more.textContent = open ? 'Show less' : more.dataset.more;
         return;
       }
-      const expand = e.target.closest('[data-od-expand]');
-      if (expand) {
-        const item = expand.closest('.od-ann');
-        const open = item.classList.toggle('is-open');
-        expand.textContent = open ? 'Show less' : 'Read more';
-        expand.setAttribute('aria-expanded', open ? 'true' : 'false');
-      }
-    });
-    root.querySelectorAll('.od-ann').forEach(function (item) {
-      const text = item.querySelector('.od-ann__text');
-      const btn = item.querySelector('[data-od-expand]');
-      if (text && btn && text.scrollHeight > text.clientHeight + 2) btn.hidden = false;
     });
 
     // ---- Teacher lists: one open at a time ----
@@ -1197,47 +1219,47 @@
       body: JSON.stringify(body || {}),
     }).then((r) => r.json().catch(() => ({})).then((d) => { if (!r.ok || d.success === false) throw new Error(d.error || 'Something went wrong.'); return d; }));
     const say = (msg) => { if (window.Workspace) window.Workspace.toast(msg); };
-    function detectClamp(scope) {
-      (scope || root).querySelectorAll('.od-ann').forEach(function (item) {
-        const text = item.querySelector('.od-ann__text');
-        const btn = item.querySelector('[data-od-expand]');
-        if (text && btn && !item.classList.contains('is-open')) btn.hidden = !(text.scrollHeight > text.clientHeight + 2);
-      });
-    }
-    function timeAgoShort(iso) {
-      const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-      if (m < 1) return 'just now';
-      if (m < 60) return m + 'm';
-      const h = Math.round(m / 60); if (h < 24) return h + 'h';
-      return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    }
     function commentHtml(c) {
       const name = c.author_name || 'Someone';
-      const init = name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
-      return `<li class="od-comment"><span class="od-comment__avatar">${escText(init)}</span><span class="od-comment__body"><span class="od-comment__who">${escText(name)}<small>${escText(timeAgoShort(c.created_at))}</small></span><span class="od-comment__text">${escText(c.body)}</span></span></li>`;
+      const date = new Date(c.created_at);
+      const dateText = Number.isNaN(date.getTime()) ? String(c.created_at || '') : date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return `<li class="od-comment"><span class="od-comment__who">${escText(name)}<time datetime="${escText(c.created_at)}">${escText(dateText)}</time></span><span class="od-comment__text">${escText(c.body)}</span></li>`;
     }
     async function openThread(task, focus) {
       const thread = task.querySelector('[data-thread]');
-      thread.hidden = false;
       const list = thread.querySelector('[data-thread-list]');
-      if (!thread.dataset.loaded) {
-        list.innerHTML = '<li class="od-comment__text" style="color:#94a3b8">Loading…</li>';
+      const input = thread.querySelector('input');
+      if (!thread.dataset.loaded && !thread.dataset.loading) {
+        thread.dataset.loading = '1';
+        input.disabled = true;
+        list.innerHTML = '<li class="od-comment__text">Loading replies…</li>';
         try {
           const r = await fetch(`/common/tasks/${task.dataset.taskId}/comments`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
           const d = await r.json();
+          if (!r.ok || d.success === false) throw new Error(d.error || 'Could not load replies.');
           list.innerHTML = (d.comments || []).map(commentHtml).join('');
           thread.dataset.loaded = '1';
-        } catch (_e) { list.innerHTML = ''; }
+        } catch (err) {
+          list.innerHTML = '<li class="od-comment__text">Replies could not be loaded. Close and reopen this task to retry.</li>';
+          say(err.message);
+        } finally {
+          delete thread.dataset.loading;
+          input.disabled = false;
+        }
       }
-      if (focus) thread.querySelector('input').focus();
+      if (focus) input.focus();
     }
     if (feed) {
+      feed.querySelectorAll('[data-task-disclosure]').forEach((disclosure) => {
+        disclosure.addEventListener('toggle', function () {
+          if (disclosure.open) openThread(disclosure.closest('[data-task-id]'), false);
+        });
+      });
       feed.addEventListener('click', async function (e) {
         const tab = e.target.closest('[data-od-tab]');
         if (tab) {
           feed.querySelectorAll('[data-od-tab]').forEach((t) => { const on = t === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
           feed.querySelectorAll('[data-od-pane]').forEach((p) => { p.hidden = p.dataset.odPane !== tab.dataset.odTab; });
-          detectClamp(feed);
           return;
         }
         const task = e.target.closest('[data-task-id]');
@@ -1265,13 +1287,14 @@
           task.querySelectorAll('.od-react-menu').forEach((m) => { m.hidden = true; });
           try {
             const d = await postJson(`/common/tasks/${id}/react`, { emoji: reactBtn.dataset.react });
-            task.querySelector('[data-reacts]').innerHTML = (d.reactions || []).map((r) => `<button type="button" class="od-react${r.mine ? ' is-mine' : ''}" data-react="${escText(r.emoji)}">${escText(r.emoji)} <span>${r.n}</span></button>`).join('');
+            task.querySelector('[data-reacts]').innerHTML = (d.reactions || []).map((r) => `<button type="button" class="od-react${r.mine ? ' is-mine' : ''}" data-react="${escText(r.emoji)}" aria-label="${r.n} ${escText(r.emoji)} reactions">${escText(r.emoji)} <span>${r.n}</span></button>`).join('');
           } catch (err) { say(err.message); }
           return;
         }
         if (e.target.closest('[data-thread-toggle]')) {
-          const thread = task.querySelector('[data-thread]');
-          if (thread.hidden) openThread(task, true); else thread.hidden = true;
+          const disclosure = task.querySelector('[data-task-disclosure]');
+          disclosure.open = true;
+          openThread(task, true);
         }
       });
       feed.addEventListener('submit', async function (e) {
@@ -1289,8 +1312,7 @@
           input.value = '';
           const btn = task.querySelector('[data-thread-toggle]');
           const count = btn.querySelector('[data-comment-count]');
-          if (count) count.textContent = Number(count.textContent || 0) + 1;
-          else btn.insertAdjacentHTML('beforeend', ' · <span data-comment-count>1</span>');
+          count.textContent = Number(count.textContent || 0) + 1;
         } catch (err) { say(err.message); }
         input.disabled = false;
         input.focus();

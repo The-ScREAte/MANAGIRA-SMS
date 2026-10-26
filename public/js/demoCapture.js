@@ -18,7 +18,6 @@
   let school = (script && script.dataset.school) || "";
   if (!(endsAt > new Date())) return;
 
-  const MAX_STATES = 40;
   const SWATCHES = ["#14b8a6", "#3b82f6", "#8b5cf6", "#f59e0b", "#f43f5e", "#0b1b2b"];
   const STRIP = [
     "script", "noscript", "template", "[data-mcap-ui]", ".page-loading-overlay", "#spa-progress",
@@ -44,37 +43,41 @@
       :host { all: initial; }
       [hidden] { display: none !important; }
       * { box-sizing: border-box; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
-      .bar { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 14px; background: #0b1b2b; color: #e6edf3;
-             box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 16px 40px -12px rgba(0,0,0,.45); font-size: 13px; line-height: 1.3; max-width: calc(100vw - 40px); }
-      .dot { width: 8px; height: 8px; border-radius: 50%; background: #2dd4bf; flex: none; box-shadow: 0 0 0 3px rgba(45,212,191,.2); }
-      .dot.rec { background: #f43f5e; box-shadow: 0 0 0 3px rgba(244,63,94,.25); animation: blink 1.2s ease-in-out infinite; }
+      .bar { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: rgba(255,255,255,.97); color: #334155;
+             box-shadow: 0 8px 28px -12px rgba(15,23,42,.3), 0 2px 6px rgba(15,23,42,.08); font-size: 13px; line-height: 1.3; max-width: calc(100vw - 40px); }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: #0f9f8f; flex: none; box-shadow: 0 0 0 3px rgba(20,184,166,.14); }
+      .dot.rec { background: #e11d48; box-shadow: 0 0 0 3px rgba(225,29,72,.14); animation: blink 1.2s ease-in-out infinite; }
       .txt { display: grid; gap: 1px; min-width: 0; }
-      .txt strong { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; }
-      .txt span { font-size: 11.5px; color: #93a4b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
-      .sep { width: 1px; align-self: stretch; background: rgba(255,255,255,.12); }
+      .txt strong { font-size: 13px; font-weight: 650; color: #0f172a; white-space: nowrap; }
+      .txt span { font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+      .sep { width: 1px; align-self: stretch; background: #e2e8f0; }
       button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px;
                border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background-color .15s, opacity .15s; }
       button:focus-visible { outline: 2px solid #2dd4bf; outline-offset: 2px; }
       button:disabled { opacity: .5; cursor: default; }
       .primary { background: #14b8a6; color: #04201d; }
       .primary:hover { background: #2dd4bf; }
-      .ghost { color: #cbd5e1; }
-      .ghost:hover { background: rgba(255,255,255,.08); color: #fff; }
-      .icon { width: 32px; padding: 0; color: #93a4b8; }
-      .icon:hover { background: rgba(255,255,255,.08); color: #fff; }
+      .ghost { color: #475569; }
+      .ghost:hover { background: #f1f5f9; color: #0f172a; }
+      .icon { width: 32px; padding: 0; color: #64748b; }
+      .icon:hover { background: #f1f5f9; color: #0f172a; }
       svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .mini { padding: 6px; }
       .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 12px); opacity: 0; transition: .2s; pointer-events: none;
                padding: 10px 14px; border-radius: 10px; background: #0b1b2b; color: #fff; font-size: 13px; box-shadow: 0 12px 32px -8px rgba(0,0,0,.4); max-width: 440px; text-align: center; }
       .toast.on { opacity: 1; transform: translate(-50%, 0); }
       .toast.err { background: #b42318; }
-      .scrim { position: fixed; inset: 0; background: rgba(8,18,28,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; }
-      .modal { width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; border-radius: 16px; background: #fff; color: #3b4a5c; box-shadow: 0 40px 100px -20px rgba(0,0,0,.5); }
-      .m-head { padding: 20px 22px 4px; }
+      .scrim { position: fixed; inset: 0; background: rgba(15,23,42,.34); backdrop-filter: blur(2px); display: grid; place-items: center; padding: 16px; }
+      .modal { position: relative; width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; color: #3b4a5c; box-shadow: 0 24px 64px -24px rgba(15,23,42,.35); }
+      .m-head { padding: 20px 56px 4px 22px; }
       .m-head h2 { margin: 0; font-size: 17px; font-weight: 650; color: #0b1b2b; letter-spacing: -.01em; }
       .m-head p { margin: 6px 0 0; font-size: 13px; color: #6b7a8c; line-height: 1.5; }
+      .m-close { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; padding: 0; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #64748b; font-size: 20px; line-height: 1; }
+      .m-close:hover { background: #f8fafc; color: #0f172a; }
+      .m-close:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
       .stats { display: flex; gap: 8px; padding: 14px 22px 0; flex-wrap: wrap; }
       .stat { padding: 5px 10px; border-radius: 999px; background: #f1f5f8; font-size: 12px; font-weight: 600; color: #3b4a5c; }
+      .limit-note { margin: 10px 22px 0; color: #64748b; font-size: 11.5px; }
       .m-body { display: grid; gap: 14px; padding: 18px 22px; }
       .field { display: grid; gap: 6px; }
       .field > span { font-size: 12.5px; font-weight: 600; color: #0b1b2b; }
@@ -120,7 +123,7 @@
       .done h2 { margin: 0; font-size: 17px; color: #0b1b2b; }
       .done p { margin: 6px 0 0; font-size: 13px; color: #6b7a8c; }
       .links { display: flex; justify-content: center; gap: 8px; padding: 16px 22px 22px; }
-      .links a { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none; }
+      .links a, .links button { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none; }
       .links a.primary { background: #01535b; color: #fff; }
       .links a.ghost { border: 1px solid #d3dbe4; color: #0b1b2b; }
       @keyframes blink { 50% { opacity: .35; } }
@@ -170,7 +173,12 @@
         <span>Click the toggles, tabs and expanders visitors should try. Wait for each change to finish.</span></span>
         <span class="sep"></span>
         <button class="ghost" data-act="cancel">Cancel</button>
+        <button class="icon" data-act="cancel" title="Cancel capture" aria-label="Cancel capture">×</button>
         <button class="primary" data-act="finish">${ICON.check}Finish</button>`;
+      return;
+    }
+    if (mode === "saving") {
+      bar.innerHTML = `<span class="dot"></span><span class="txt"><strong>Preparing capture</strong><span>Saving every recorded view and click…</span></span>`;
       return;
     }
     if (minimized) {
@@ -189,7 +197,9 @@
     if (!act) return;
     const a = act.dataset.act;
     if (a === "start") start();
-    else if (a === "cancel") stop(false);
+    else if (a === "cancel") {
+      if (window.confirm("Discard this capture? Your recorded views and clicks will be lost.")) stop(false);
+    }
     else if (a === "finish") stop(true);
     else if (a === "minimize") { minimized = true; renderBar(); }
     else if (a === "expand") { minimized = false; renderBar(); }
@@ -417,7 +427,6 @@
       rec.states[i] = state;
       return i;
     }
-    if (rec.states.length >= MAX_STATES) return -1;
     rec.states.push(state);
     rec.keys.set(key, rec.states.length - 1);
     return rec.states.length - 1;
@@ -506,10 +515,7 @@
     }
     const state = takeSnapshot();
     linkPending(state);
-    if (state < 0) {
-      toast("This recording has reached " + MAX_STATES + " views. Finish to save it.", true);
-      return;
-    }
+    if (state < 0) return toast("Could not save this view. Finish the capture and try again.", true);
     rec.pending = { from: state, el: id, label: labelOf(target) };
     renderBar();
     loadStylesheets(); // new panes may bring new stylesheets
@@ -552,11 +558,11 @@
       toast("Capture discarded");
       return;
     }
+    mode = "saving";
+    renderBar();
     await loadStylesheets();
     linkPending(takeSnapshot());
     cleanupStamps();
-    mode = "saving";
-    renderBar();
     const data = {
       v: 1,
       title: document.title,
@@ -645,6 +651,7 @@
 
   async function openSaveDialog(data) {
     layer.innerHTML = `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mcap-title">
+      <button type="button" class="m-close" data-act="close-dialog" aria-label="Close save dialog" title="Close">×</button>
       <div class="m-head"><h2 id="mcap-title">Save to the product tour</h2>
         <p>Visitors will be able to click through this page on the public tour.</p></div>
       <div class="stats"><span class="stat">${data.guide.length} ${data.guide.length === 1 ? "step" : "steps"}</span>
@@ -657,10 +664,14 @@
     const bodyEl = modal.querySelector(".m-body");
     const saveBtn = modal.querySelector('[data-act="save"]');
     const statusEl = modal.querySelector(".status");
-    modal.querySelector('[data-act="discard"]').addEventListener("click", () => {
-      if (!window.confirm("Discard this capture?")) return;
+    let uploading = false;
+    const discard = () => {
+      if (uploading) return;
+      if (!window.confirm("Discard this capture? Your recorded views and clicks will be lost.")) return;
       closeDialog();
-    });
+    };
+    modal.querySelector('[data-act="discard"]').addEventListener("click", discard);
+    modal.querySelector('[data-act="close-dialog"]').addEventListener("click", discard);
 
     let sections = [];
     try {
@@ -690,11 +701,11 @@
       <div class="field"><span>Walkthrough</span>
         ${data.guide.length
           ? `<label class="switch"><input type="checkbox" data-f="guided" checked><span class="track"></span>
-               <span class="switch-text"><b>Guide visitors step by step</b><small>Each explanation shows beside the highlight, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>
+               <span class="switch-text"><b>Guide visitors step by step</b><small>Each explanation appears beside the control, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>
              <ol class="guide">${data.guide.map((g, i) => `<li><span class="n">${i + 1}</span><div><em>${g.label ? "Click “" + esc(g.label) + "”" : "Recorded click"}</em>
                <input data-guide="${i}" maxlength="240" placeholder="Explain this step, e.g. See every teacher in the class."></div></li>`).join("")}</ol>`
           : `<small>No clicks were recorded, so visitors see the page without a walkthrough.</small>`}</div>
-      <div class="field"><span>Highlight colour</span>
+      <div class="field"><span>Guide accent colour</span>
         <div class="swatches">${SWATCHES.map((c, i) => `<button type="button" class="sw" data-color="${c}" style="--c:${c}" aria-label="${c}" aria-pressed="${i === 0}"></button>`).join("")}
           <label class="sw sw--custom" title="Custom colour"><input type="color" data-f="custom" value="${SWATCHES[0]}"><span>Custom</span></label></div></div>
       <div class="note">This page becomes public on the product tour. Make sure it shows demo data only.</div>`;
@@ -741,7 +752,9 @@
       try { localStorage.setItem("mcap:last", JSON.stringify({ feature: featureSel.value })); } catch (_) { /* ignore */ }
 
       saveBtn.disabled = true;
+      uploading = true;
       modal.querySelector('[data-act="discard"]').disabled = true;
+      modal.querySelector('[data-act="close-dialog"]').disabled = true;
       statusEl.textContent = "Uploading…";
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/app-demo-capture/save");
@@ -752,26 +765,31 @@
         statusEl.textContent = p < 100 ? "Uploading " + p + "%" : "Creating the cover image…";
       };
       xhr.onload = () => {
+        uploading = false;
         let json = {};
         try { json = JSON.parse(xhr.responseText); } catch (_) { json = { message: "Unexpected response from the server." }; }
         if (xhr.status >= 400 || !json.success) {
           statusEl.textContent = "";
           saveBtn.disabled = false;
           modal.querySelector('[data-act="discard"]').disabled = false;
+          modal.querySelector('[data-act="close-dialog"]').disabled = false;
           toast(json.message || "Could not save the capture.", true);
           return;
         }
-        modal.innerHTML = `<div class="done"><div class="ok">${ICON.check}</div><h2>Saved to the tour</h2>
+        modal.innerHTML = `<button type="button" class="m-close" data-act="done-close" aria-label="Close save confirmation" title="Close">×</button>
+          <div class="done"><div class="ok">${ICON.check}</div><h2>Saved to the tour</h2>
           <p>It is live now. Captures can be renamed, reordered or removed in Admin → App Demo.</p></div>
           <div class="links"><a class="ghost" href="/legal/app-demo#feature-${json.featureId}" target="_blank" rel="noopener">View on the tour</a>
-          <a class="primary" href="#" data-act="close">Done</a></div>`;
-        // Recording leaves menus and panels open: start again from a clean page.
-        modal.querySelector('[data-act="close"]').addEventListener("click", (e) => { e.preventDefault(); location.reload(); });
+          <button type="button" class="primary" data-act="done">Done</button></div>`;
+        modal.querySelector('[data-act="done-close"]').addEventListener("click", closeDialog);
+        modal.querySelector('[data-act="done"]').addEventListener("click", closeDialog);
       };
       xhr.onerror = () => {
+        uploading = false;
         statusEl.textContent = "";
         saveBtn.disabled = false;
         modal.querySelector('[data-act="discard"]').disabled = false;
+        modal.querySelector('[data-act="close-dialog"]').disabled = false;
         toast("Network error. Check your connection and try again.", true);
       };
       xhr.send(fd);
@@ -783,4 +801,15 @@
     mode = "idle";
     renderBar();
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (mode === "recording") {
+      e.preventDefault();
+      if (window.confirm("Discard this capture? Your recorded views and clicks will be lost.")) stop(false);
+    } else if (layer.querySelector('[data-act="close-dialog"]:not(:disabled)')) {
+      e.preventDefault();
+      layer.querySelector('[data-act="close-dialog"]:not(:disabled)').click();
+    }
+  });
 })();

@@ -137,7 +137,7 @@ const managiraFAQ = [
     id: 35,
     category: "Security & Access",
     question: "Is student data secured?",
-    answer: "Yes. Managira uses encrypted transport and role-based access controls.",
+    answer: "Yes. All traffic uses HTTPS, and each school's data is kept separate so staff and parents only see their own school. Every staff account has individually granted permissions, sessions end after inactivity, sending messages to families requires the sender's password, and staff actions are recorded in the school's activity log. Card payments are processed by Stripe and Paystack, and Managira never stores full card numbers.",
     keywords: ["security", "data protection", "encryption"]
   },
   {
@@ -258,6 +258,83 @@ const managiraFAQ = [
     question: "How do I turn Mira on for my school?",
     answer: "Activate Mira from Integrations once your school is set up in Managira, or contact Managira to see it first via a live demo.",
     keywords: ["activate mira", "enable mira", "turn on mira ai", "mira setup"]
+  },
+  {
+    id: 200,
+    category: "Getting Started",
+    question: "What makes Managira different from other school management systems?",
+    answer: "Managira puts the whole school in one system: admissions, records, attendance, grading and report cards, promotion, staff permissions, fee collection (PayGira), transportation with live bus tracking, parent and student portals, messaging by email, SMS and WhatsApp, a school website, and Mira, an AI assistant that carries out tasks on the school's own data within each person's permissions. It is priced in local currency, accepts card and mobile money payments, and supports districts and school networks through Hubs.",
+    keywords: ["managira vs", "compare school software", "why managira", "school management system comparison", "best school management software"]
+  },
+  {
+    id: 201,
+    category: "Mira AI Assistant",
+    question: "Which school management software has a built-in AI assistant?",
+    answer: "Managira includes Mira, an AI assistant built into the platform. Staff ask in plain language and Mira does the work on the school's live data, such as adding students, managing enrollment and promotion, and producing and emailing report cards. It only does what the staff member is allowed to do, records every change in the activity log, and asks before anything irreversible.",
+    keywords: ["ai school management", "school software with ai", "ai assistant for schools", "school ai"]
+  },
+  {
+    id: 202,
+    category: "Billing & Subscription",
+    question: "Can parents pay school fees online with mobile money or card?",
+    answer: "Yes. With PayGira, schools create bills for classes or individual students, and parents pay online by card or mobile money through Stripe or Paystack. Payments go to the school's own payout account, receipts are issued automatically, and staff can track what is paid and what is outstanding.",
+    keywords: ["mobile money school fees", "pay school fees online", "paygira", "school fee collection", "card payments"]
+  },
+  {
+    id: 203,
+    category: "Getting Started",
+    question: "Is Managira a good fit for schools in Ghana, Nigeria and the rest of Africa?",
+    answer: "Managira is built for it: prices are shown in local currency, parents can pay fees by mobile money or card through Paystack, schools can text parents through Arkesel (Ghana) or Africa's Talking, and WhatsApp messaging uses the school's own WhatsApp Business number. It runs in any web browser, including on phones.",
+    keywords: ["school software ghana", "school management system nigeria", "school software africa", "mobile money"]
+  },
+  {
+    id: 204,
+    category: "Getting Started",
+    question: "Does Managira work for schools in the United States?",
+    answer: "Yes. Managira has US pricing, card payments through Stripe, text messages through Twilio, Google Classroom, Google Calendar and Outlook integrations, and transcripts and report cards that can be printed or emailed.",
+    keywords: ["us school software", "american schools", "school management system usa"]
+  },
+  {
+    id: 205,
+    category: "Hub Management",
+    question: "Can one organization manage several schools or a whole district?",
+    answer: "Yes. Hubs let a school district or network oversee many member schools from one place, including central billing, while each school keeps its own staff, students and records.",
+    keywords: ["school district software", "multi-school management", "school network", "hub"]
+  },
+  {
+    id: 206,
+    category: "Parents & Guardians",
+    question: "Is there a parent portal?",
+    answer: "Yes. Parents sign in to see their children's report cards, attendance and bills, pay fees online, message the school, and follow the school bus live on a map when the school uses transportation.",
+    keywords: ["parent portal", "guardian portal", "parent app"]
+  },
+  {
+    id: 207,
+    category: "Technical & Platform",
+    question: "Can Managira track school buses?",
+    answer: "Yes. Schools set up buses, routes and stops and assign riders. Drivers use the driver portal, and staff and parents can see the bus's live location on a map.",
+    keywords: ["school bus tracking", "transportation", "bus routes", "live bus location"]
+  },
+  {
+    id: 208,
+    category: "Student Management",
+    question: "Can schools add their own fields to the student and admission forms?",
+    answer: "Yes. In Admissions > Admission Settings > Forms, a school can add its own fields, such as previous school or medical notes, and choose whether each appears on the Add Student form, the online application, or both. Answers from an approved application move to the student's record.",
+    keywords: ["custom fields", "admission form", "student form fields", "custom student information"]
+  },
+  {
+    id: 209,
+    category: "Technical & Platform",
+    question: "Can schools message parents by SMS and WhatsApp?",
+    answer: "Yes. From the Mail Room, staff message families by email, SMS or WhatsApp, and answer parents' messages in one inbox. Schools connect their own SMS provider (Twilio, Arkesel or Africa's Talking) and WhatsApp Business number, and pay the provider directly with no markup from Managira.",
+    keywords: ["sms parents", "whatsapp school", "message parents", "school communication"]
+  },
+  {
+    id: 210,
+    category: "Billing & Subscription",
+    question: "Is there a free trial?",
+    answer: "New schools can start with a free trial when one is offered. Current plans, prices and trial details are on the pricing page: https://managira.com/account/service-plan",
+    keywords: ["free trial", "try managira", "demo"]
   }
 ];
 

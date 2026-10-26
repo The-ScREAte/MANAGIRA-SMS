@@ -1077,7 +1077,7 @@ const TAG_TEXT_REPLACEMENTS = [
 
 function buildCanonicalDocumentationUrl(slug = '') {
   const suffix = slug ? `/${slug}` : '';
-  return `https://www.managira.com/legal/user-documentation${suffix}`;
+  return `https://managira.com/legal/user-documentation${suffix}`;
 }
 
 function collapseWhitespace(value) {

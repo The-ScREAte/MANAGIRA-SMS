@@ -82,6 +82,7 @@ const { preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
 const financeController = require("./controllers/financeController");
 const { commonController } = require("./controllers/commonController");
+const aiDiscovery = require("./utils/aiDiscovery");
 const {
   createOrganizationActivityLogMiddleware,
   ensureOrganizationActivityLogSchema,
@@ -575,7 +576,18 @@ app.get("/sitemap.xml", async (req, res, next) => {
   const host = String(req.hostname || "").toLowerCase();
   const isRootHost = host === "managira.com" || host === "www.managira.com" ||
                      host === "localhost" || host.startsWith("127.");
-  if (isRootHost || !req.schoolDetails) return next(); // serve static file
+  if (isRootHost || !req.schoolDetails) {
+    // managira.com: key pages plus every published help article (utils/aiDiscovery.js).
+    try {
+      const xml = await aiDiscovery.rootSitemap(db);
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      return res.send(xml);
+    } catch (err) {
+      console.error("[sitemap] root sitemap failed, serving the static one:", err.message);
+      return next();
+    }
+  }
 
   const nickname = req.schoolDetails.nickname;
   const today = new Date().toISOString().split("T")[0];
@@ -598,6 +610,26 @@ app.get("/sitemap.xml", async (req, res, next) => {
   res.setHeader("Cache-Control", "public, max-age=3600");
   res.send(xml);
 });
+
+// ── llms.txt / llms-full.txt (managira.com only) ──────────────────────────────
+// Plain-text summaries of Managira for AI assistants and answer engines, built
+// from the live help center (utils/aiDiscovery.js). School subdomains don't
+// serve these; their content is the school's own.
+const serveAiText = (build, fallbackFile) => async (req, res, next) => {
+  if (req.schoolDetails) return next();
+  try {
+    const text = await build(db);
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("X-Robots-Tag", "noindex"); // for AI readers, not search results
+    return res.send(text);
+  } catch (err) {
+    console.error(`[ai-discovery] ${req.path} failed:`, err.message);
+    return fallbackFile ? res.sendFile(path.join(__dirname, "public", fallbackFile)) : next();
+  }
+};
+app.get("/llms.txt", serveAiText(aiDiscovery.llmsTxt, "llms.txt"));
+app.get("/llms-full.txt", serveAiText(aiDiscovery.llmsFullTxt));
 
 // Enable gzip compression for faster loading
 app.use(compression());
@@ -1209,18 +1241,42 @@ app.get("/test-flash", (req, res) => {
   res.redirect("/account/login");
 });
 
+// Price range of the active plans (monthly base price per school, all
+// regions), for the homepage's structured data. Cached for an hour.
+let homePricingCache = { at: 0, value: null };
+async function getHomePricing() {
+  if (Date.now() - homePricingCache.at < 60 * 60 * 1000) return homePricingCache.value;
+  let value = null;
+  try {
+    const { rows } = await db.query(
+      `SELECT MIN(x.base_price_usd)::numeric(10,2) AS low, MAX(x.base_price_usd)::numeric(10,2) AS high, COUNT(DISTINCT p.id)::int AS plans
+         FROM plan_region_prices x
+         JOIN plans p ON p.id = x.plan_id
+         JOIN pricing_regions r ON r.id = x.region_id
+        WHERE x.is_active AND p.is_active AND r.is_active AND x.base_price_usd > 0`
+    );
+    const row = rows[0];
+    if (row && row.low && row.high) value = { lowPrice: String(row.low), highPrice: String(row.high), offerCount: row.plans };
+  } catch (err) {
+    console.error("[home] pricing for structured data failed:", err.message);
+  }
+  homePricingCache = { at: Date.now(), value };
+  return value;
+}
+
 // Home route
 app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
   const homeSeo = {
-    title: "Managira | All-in-One School Management Platform",
+    title: "Managira | All-in-One School Management Software",
     description:
-      "Manage enrollment, classes, attendance, assessments, communication, billing, analytics, and reporting in one school platform.",
+      "All-in-one school management software for admissions, attendance, report cards, fees (PayGira), parent portal and messaging, with Mira, a built-in AI assistant.",
     keywords:
       "school management system, school management software, management system for schools, student information system, school ERP, school portal, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, education management software, Managira",
     canonicalUrl: "https://managira.com/",
     showFooterTopSection: true,
+    homePricing: null,
   };
 
   // ...removed log for clean background operation...
@@ -1238,6 +1294,8 @@ app.get("/", async (req, res) => {
   if (!isSchoolSubdomain && req.session && (req.session.organizationId || req.session.userId)) {
     return res.redirect("/common/orgDashboard");
   }
+
+  if (!req.schoolDetails) homeSeo.homePricing = await getHomePricing();
 
   // ✅ Case 1: Production root domain (e.g. managira.com or www)
   if (isProduction && req.isRootDomain) {
@@ -1266,7 +1324,7 @@ app.get("/", async (req, res) => {
   // ...removed log for clean background operation...
     return res.render("index", {
       ...homeSeo,
-      title: "Managira | All-in-One School Management Platform [DEV]",
+      title: "Managira | All-in-One School Management Software [DEV]",
     });
   }
 

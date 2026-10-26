@@ -139,17 +139,23 @@ function reorderHandler(table, label, scopeSql) {
 
 // ---------- Interactive captures (see utils/appDemoCapture.js) ----------
 
-const MAX_STATES = 40;
-const MAX_GUIDE = 60;
 const DEFAULT_ACCENT = "#14b8a6";
 const toFlag = (v, fallback) => (v === undefined || v === null || v === "" ? fallback : v === true || v === "true" || v === "1" || v === 1);
 const cleanAccent = (v) => (/^#[0-9a-f]{6}$/i.test(String(v || "").trim()) ? String(v).trim().toLowerCase() : DEFAULT_ACCENT);
-// One explanation per recorded click; missing ones fall back to a default in the player.
-function cleanGuideTexts(raw, length) {
+// Keep each explanation tied to its original recorded click, even after removals.
+function cleanGuideEntries(raw, length) {
   let list = raw;
   if (typeof raw === "string") { try { list = JSON.parse(raw); } catch (_) { list = []; } }
   if (!Array.isArray(list)) list = [];
-  return Array.from({ length }, (_, i) => ({ text: String((list[i] && (list[i].text != null ? list[i].text : list[i])) || "").trim().slice(0, 240) }));
+  const seen = new Set();
+  const entries = [];
+  list.forEach((entry, position) => {
+    const index = entry && Number.isInteger(Number(entry.index)) ? Number(entry.index) : position;
+    if (index < 0 || index >= length || seen.has(index)) return;
+    seen.add(index);
+    entries.push({ index, text: String((entry && (entry.text != null ? entry.text : entry)) || "").trim().slice(0, 240) });
+  });
+  return entries;
 }
 const isPlainObject = (v) => v && typeof v === "object" && !Array.isArray(v);
 const attrsOf = (v) => (isPlainObject(v) ? Object.fromEntries(Object.entries(v).filter(([k, x]) => /^[a-z][a-z0-9:_-]*$/i.test(k) && !/^on/i.test(k) && typeof x === "string").slice(0, 40)) : {});
@@ -164,7 +170,7 @@ function parseCapture(raw) {
   if (!(w >= 320 && w <= 3840 && h >= 240 && h <= 2400)) return null;
   const heads = Array.isArray(data.heads) ? data.heads.filter((x) => typeof x === "string") : [];
   const states = Array.isArray(data.states) ? data.states : [];
-  if (!heads.length || !states.length || heads.length > MAX_STATES || states.length > MAX_STATES) return null;
+  if (!heads.length || !states.length) return null;
   const cleanStates = [];
   for (const st of states) {
     const head = parseInt(st && st.head, 10);
@@ -172,14 +178,12 @@ function parseCapture(raw) {
     cleanStates.push({ head, body: st.body, htmlAttrs: attrsOf(st.htmlAttrs), bodyAttrs: attrsOf(st.bodyAttrs), scrollY: Math.max(0, parseInt(st.scrollY, 10) || 0) });
   }
   const links = (Array.isArray(data.links) ? data.links : [])
-    .map((l) => ({ from: parseInt(l && l.from, 10), to: parseInt(l && l.to, 10), el: String((l && l.el) || "").slice(0, 12) }))
-    .filter((l) => l.from >= 0 && l.from < cleanStates.length && l.to >= 0 && l.to < cleanStates.length && l.from !== l.to && /^\d+$/.test(l.el))
-    .slice(0, 400);
+    .map((l) => ({ from: parseInt(l && l.from, 10), to: parseInt(l && l.to, 10), el: String((l && l.el) || "") }))
+    .filter((l) => l.from >= 0 && l.from < cleanStates.length && l.to >= 0 && l.to < cleanStates.length && l.from !== l.to && /^\d+$/.test(l.el));
   // The recorded clicks in order: the guided walkthrough.
   const guide = (Array.isArray(data.guide) ? data.guide : [])
-    .map((g) => ({ from: parseInt(g && g.from, 10), to: parseInt(g && g.to, 10), el: String((g && g.el) || "").slice(0, 12), label: String((g && g.label) || "").slice(0, 80) }))
-    .filter((g) => g.from >= 0 && g.from < cleanStates.length && g.to >= 0 && g.to < cleanStates.length && g.from !== g.to && /^\d+$/.test(g.el))
-    .slice(0, MAX_GUIDE);
+    .map((g) => ({ from: parseInt(g && g.from, 10), to: parseInt(g && g.to, 10), el: String((g && g.el) || ""), label: String((g && g.label) || "").slice(0, 80) }))
+    .filter((g) => g.from >= 0 && g.from < cleanStates.length && g.to >= 0 && g.to < cleanStates.length && g.from !== g.to && /^\d+$/.test(g.el));
   return {
     v: 1,
     guide,
@@ -631,7 +635,7 @@ module.exports = {
          VALUES ($1, $2, 'html', $3, $4, 'application/json', $5, $6, $7, $8, $9, $10, $11,
                  (SELECT COALESCE(MIN(sort_order), 1) - 1 FROM app_demo_screen_media WHERE screen_id = $1))`,
         [targetScreen, versionLabel, stored.Location, stored.Key, data.viewport.w, data.viewport.h, poster ? poster.url : null, poster ? poster.key : null,
-          JSON.stringify(cleanGuideTexts(req.body.guide, data.guide.length)), cleanAccent(req.body.accent), toFlag(req.body.guided, true)]
+          JSON.stringify(cleanGuideEntries(req.body.guide, data.guide.length)), cleanAccent(req.body.accent), toFlag(req.body.guided, true)]
       );
       await db.query(`UPDATE app_demo_features SET updated_at = NOW() WHERE id = $1`, [featureId]);
       invalidateTourCache();
@@ -642,15 +646,26 @@ module.exports = {
     }
   },
 
-  // Admin: the explanations and highlight colour of an interactive capture.
+  // Admin: the explanations and guide accent of an interactive capture.
   updateGuide: async (req, res) => {
     const id = parseInt(req.params.id, 10);
-    const texts = Array.isArray(req.body && req.body.texts) ? req.body.texts : [];
+    const steps = Array.isArray(req.body && req.body.steps) ? req.body.steps : [];
     try {
       await ensureAppDemoSchema(db);
+      const { rows: captureRows } = await db.query(
+        `SELECT m.s3_key FROM app_demo_screen_media m WHERE m.id = $1 AND m.media_type = 'html'`,
+        [id]
+      );
+      if (!captureRows.length) return notFound(res, "Interactive version");
+      if (!captureRows[0].s3_key) return badRequest(res, "The interactive capture file is missing.");
+      const captureObject = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: captureRows[0].s3_key }));
+      const captureBuffer = await captureObject.Body.transformToByteArray();
+      const captureData = parseCapture(zlib.gunzipSync(captureBuffer).toString("utf8"));
+      if (!captureData) return badRequest(res, "The interactive capture could not be read.");
+      const guide = cleanGuideEntries(steps, captureData.guide.length);
       const { rowCount } = await db.query(
         `UPDATE app_demo_screen_media SET guide = $1, accent = $2, guided = $3 WHERE id = $4 AND media_type = 'html'`,
-        [JSON.stringify(cleanGuideTexts(texts, Math.min(texts.length, MAX_GUIDE))), cleanAccent(req.body && req.body.accent), toFlag(req.body && req.body.guided, true), id]
+        [JSON.stringify(guide), cleanAccent(req.body && req.body.accent), toFlag(req.body && req.body.guided, true), id]
       );
       if (!rowCount) return notFound(res, "Interactive version");
       return respondWithTour(res);
@@ -684,6 +699,7 @@ module.exports = {
         accent: cleanAccent(media.accent),
         guided: media.guided !== false,
         poster: media.poster_url || null,
+        guideIndexes: Array.isArray(media.guide) ? media.guide.map((g, i) => Number.isInteger(g && g.index) ? g.index : i) : null,
         guideTexts: Array.isArray(media.guide) ? media.guide.map((g) => String((g && g.text) || "")) : [],
       });
     } catch (err) {
