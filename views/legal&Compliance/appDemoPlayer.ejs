@@ -70,7 +70,7 @@
 
     /* Light, unobtrusive controls once the walkthrough is skipped or disabled. */
     .pl__controls {
-      position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
+      position: absolute; right: 10px; top: 10px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 20px); align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
       background: rgba(255,255,255,.96); border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(15,23,42,.12); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
     }
     .pl__controls[hidden] { display: none; }
@@ -80,6 +80,12 @@
     }
     .pl__controls button:hover { background: #f1f5f9; color: #0f172a; }
     .pl__controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .pl__controls i { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
+    .pl__controls [aria-pressed="true"] i { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+    .pl__controls [aria-pressed="false"] { color: #94a3b8; }
+    .pl-ring { position: absolute; border: 2px solid var(--accent); border-radius: 10px; pointer-events: none; animation: ring 1.8s cubic-bezier(.4,0,.2,1) infinite; }
+    .pl-ring--soft { border-width: 1.5px; animation-duration: 2.4s; }
+    @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
     .pl__controls .is-primary { background: var(--accent); color: #fff; }
     .pl__controls .is-primary:hover { background: var(--accent); filter: brightness(.95); }
     .pl__toast {
@@ -90,7 +96,7 @@
     .pl__error { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 7px 12px; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #475569; font-size: 12px; white-space: nowrap; box-shadow: 0 4px 16px rgba(15,23,42,.12); }
     @keyframes load { to { left: 100%; } }
     @keyframes tip-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
-    @media (prefers-reduced-motion: reduce) { .pl-tip, .pl-end { animation: none; transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .pl-ring, .pl-tip, .pl-end { animation: none; transition: none; } }
   </style>
 </head>
 <body>
