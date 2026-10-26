@@ -22,6 +22,12 @@
   let steps = []; // every recorded click, in order (their explanations)
   let guided = false; // the capture has a guided walkthrough
   let skipped = false; // the visitor closed it
+  // Visitor display choices, remembered between visits: the ring (indicator) and
+  // the explanation turn off independently; with both off the page is clicked freely.
+  const pref = (k) => { try { return localStorage.getItem("mcap:" + k) !== "0"; } catch (_) { return true; } };
+  const savePref = (k, v) => { try { localStorage.setItem("mcap:" + k, v ? "1" : "0"); } catch (_) { /* ignore */ } };
+  let rings = pref("rings");
+  let tips = pref("tips");
   let guide = []; // the same steps when the walkthrough is guided, otherwise empty
   let current = -1;
   let step = -1; // index into guide; guide.length = finished
@@ -244,14 +250,23 @@
             <div class="pl-btns"><button type="button" class="pl-btn" data-pl="back"${step === 0 ? " disabled" : ""}>Back</button>
             <button type="button" class="pl-btn pl-btn--primary" data-pl="next">${step === guide.length - 1 ? "Finish" : "Next"}</button></div></div>
           <i class="pl-tip__arrow"></i></div>`;
-        layer.innerHTML = tip;
-        if (box && box.w && box.h) positionTip(layer.querySelector(".pl-tip"), box);
-        else layer.querySelector(".pl-tip").classList.add("pl-tip--free");
+        const hasBox = box && box.w && box.h;
+        if (hasBox && rings) html = `<div class="pl-ring" style="left:${box.x - 5}px;top:${box.y - 5}px;width:${box.w + 10}px;height:${box.h + 10}px"></div>`;
+        if (tips) html += tip;
+        layer.innerHTML = html;
+        const tipEl = layer.querySelector(".pl-tip");
+        if (tipEl) { if (hasBox) positionTip(tipEl, box); else tipEl.classList.add("pl-tip--free"); }
         return;
       }
     } else {
+      if (rings) new Set(data.links.map((l) => l.el)).forEach((id) => {
+        if (linkFor(id) === current) return;
+        const el = findEl(id);
+        const box = el && boxOf(el);
+        if (box && isVisible(box)) html += `<div class="pl-ring pl-ring--soft" style="left:${box.x - 4}px;top:${box.y - 4}px;width:${box.w + 8}px;height:${box.h + 8}px"></div>`;
+      });
       // Explore mode: the explanation of the recorded element under the pointer.
-      const text = hovered && explanation(hovered);
+      const text = tips && hovered && explanation(hovered);
       const el = hovered && findEl(hovered);
       const box = el && boxOf(el);
       if (text && box && isVisible(box)) {
@@ -369,11 +384,11 @@
   function renderControls() {
     const box = root.querySelector(".pl__controls");
     const links = data && data.links.length;
-    if (guided && !skipped) { box.hidden = true; return; }
     if (!links) { box.hidden = true; return; }
-    box.innerHTML = guided
-      ? '<button type="button" class="is-primary" data-c="guide">Show guide</button><button type="button" data-c="reset">Reset preview</button>'
-      : '<button type="button" data-c="reset">Reset preview</button>';
+    box.innerHTML = (guided && skipped ? '<button type="button" class="is-primary" data-c="guide">Show guide</button>' : "")
+      + '<button type="button" data-c="rings" aria-pressed="' + rings + '" title="Show or hide the ring around what to click"><i></i>Indicator</button>'
+      + '<button type="button" data-c="tips" aria-pressed="' + tips + '" title="Show or hide the explanations"><i></i>Explanation</button>'
+      + '<button type="button" data-c="reset">Restart</button>';
     box.hidden = false;
   }
 
@@ -382,6 +397,8 @@
     if (!btn) return;
     if (btn.dataset.c === "guide") resume();
     else if (btn.dataset.c === "reset") restart();
+    else if (btn.dataset.c === "rings") { rings = !rings; savePref("rings", rings); place(); renderControls(); }
+    else if (btn.dataset.c === "tips") { tips = !tips; savePref("tips", tips); hovered = null; place(); renderControls(); }
   });
 
   function restart() {
