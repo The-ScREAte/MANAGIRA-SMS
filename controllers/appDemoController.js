@@ -184,8 +184,14 @@ function parseCapture(raw) {
   const guide = (Array.isArray(data.guide) ? data.guide : [])
     .map((g) => ({ from: parseInt(g && g.from, 10), to: parseInt(g && g.to, 10), el: String((g && g.el) || ""), label: String((g && g.label) || "").slice(0, 80) }))
     .filter((g) => g.from >= 0 && g.from < cleanStates.length && g.to >= 0 && g.to < cleanStates.length && g.from !== g.to && /^\d+$/.test(g.el));
+  // Captures that carry their appearance hold the page's own colors; the player shows them light or dark.
+  const look = isPlainObject(data.appearance) ? data.appearance : null;
+  const appearance = look && ["white", "gray", "dark"].includes(look.mode)
+    ? { mode: look.mode, light: look.light === "gray" ? "gray" : "white" }
+    : undefined;
   return {
     v: 1,
+    appearance,
     guide,
     title: String(data.title || "").slice(0, 200),
     url: String(data.url || "").slice(0, 500),
@@ -202,13 +208,21 @@ const stateHtml = (data, i) => {
   return `<!DOCTYPE html><html${attrString(st.htmlAttrs)}><head>${data.heads[st.head]}</head><body${attrString(st.bodyAttrs)}>${st.body}</body></html>`;
 };
 
-// Renders the first state with scripts off, as visitors first see it, for the cover image.
+// Renders the first state, as visitors first see it, for the cover image: the
+// capture has no scripts; only the appearance script runs, for gray or dark.
 async function renderCapturePoster(data) {
   const { withPage } = require("../utils/pdfService");
+  const mode = data.appearance ? data.appearance.mode : "white";
   const shot = await withPage(async (page) => {
-    await page.setJavaScriptEnabled(false);
+    await page.setJavaScriptEnabled(mode !== "white");
     await page.setViewport({ width: data.viewport.w, height: data.viewport.h, deviceScaleFactor: 1 });
-    await page.setContent(stateHtml(data, 0), { waitUntil: "networkidle0", timeout: 25000 }).catch(() => {});
+    const html = mode === "white" ? stateHtml(data, 0) : stateHtml(data, 0).replace(/^<!DOCTYPE html><html([^>]*?) data-appearance="[^"]*"/, "<!DOCTYPE html><html$1").replace(/^<!DOCTYPE html><html/, `<!DOCTYPE html><html data-appearance="${mode}"`);
+    await page.setContent(html, { waitUntil: "networkidle0", timeout: 25000 }).catch(() => {});
+    if (mode !== "white") {
+      await page.addScriptTag({ path: path.join(__dirname, "../public/js/appearance.js") }).catch(() => {});
+      await page.waitForFunction(() => document.documentElement.classList.contains("ap-ready"), { timeout: 5000 }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 150));
+    }
     return page.screenshot({ type: "png" });
   });
   const name = `app-demo-cover-${Date.now()}-${Math.random().toString(36).slice(2)}`;

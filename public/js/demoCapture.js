@@ -5,7 +5,9 @@
 //
 // A capture is a self-contained copy of the page: styles are inlined, scripts
 // and event handlers are removed, form values, charts (canvas) and embedded
-// panes (same-origin iframes) are kept. Each clicked element is stamped with
+// panes (same-origin iframes) are kept. Everything on the page is kept except
+// this bar. Colors are saved as the page's own (white) design with the
+// appearance it was recorded in; the player shows it light or dark. Each clicked element is stamped with
 // data-mcap-el so the player can replay the same click on the same element.
 (function () {
   "use strict";
@@ -19,11 +21,8 @@
   if (!(endsAt > new Date())) return;
 
   const SWATCHES = ["#14b8a6", "#3b82f6", "#8b5cf6", "#f59e0b", "#f43f5e", "#0b1b2b"];
-  const STRIP = [
-    "script", "noscript", "template", "[data-mcap-ui]", ".page-loading-overlay", "#spa-progress",
-    ".chatbot-container", ".chatbot-toggle", "#ann-banner-stack", "#ann-modal-overlay", ".ss-root",
-    ".back-to-admin-chip", "[class^='mfb']",
-  ].join(",");
+  // Only this bar and things that never show (scripts, loading indicators) are left out.
+  const STRIP = ["script", "noscript", "template", "[data-mcap-ui]", ".page-loading-overlay", "#spa-progress"].join(",");
   const INTERACTIVE = [
     "a[href]", "button", "summary", "label", "select", "input", "textarea",
     "[role='button']", "[role='tab']", "[role='switch']", "[role='menuitem']", "[role='option']", "[role='checkbox']",
@@ -48,6 +47,10 @@
       * { box-sizing: border-box; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
       .bar { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: rgba(255,255,255,.97); color: #334155;
              box-shadow: 0 8px 28px -12px rgba(15,23,42,.3), 0 2px 6px rgba(15,23,42,.08); font-size: 13px; line-height: 1.3; max-width: calc(100vw - 40px); }
+      .bar.dragging { box-shadow: 0 18px 40px -12px rgba(15,23,42,.4), 0 2px 6px rgba(15,23,42,.1); }
+      .grip { width: 10px; height: 18px; margin-left: -6px; flex: none; cursor: grab; opacity: .5; touch-action: none;
+              background: radial-gradient(circle, #64748b 1.2px, transparent 1.6px) 0 0 / 5px 5px; }
+      .bar.dragging .grip { cursor: grabbing; }
       .dot { width: 8px; height: 8px; border-radius: 50%; background: #0f9f8f; flex: none; box-shadow: 0 0 0 3px rgba(20,184,166,.14); }
       .dot.rec { background: #e11d48; box-shadow: 0 0 0 3px rgba(225,29,72,.14); animation: blink 1.2s ease-in-out infinite; }
       .txt { display: grid; gap: 1px; min-width: 0; }
@@ -170,30 +173,65 @@
   let rec = null;
 
   function renderBar() {
+    const grip = '<span class="grip" title="Drag to move" aria-hidden="true"></span>';
     if (mode === "recording") {
-      bar.innerHTML = `<span class="dot rec"></span>
-        <span class="txt"><strong>${(() => { const n = rec.guide.length + (rec.pending ? 1 : 0); return n ? "Recording · " + n + (n === 1 ? " step" : " steps") : "Recording"; })()}</strong>
-        <span>Click what visitors should try; click empty space to close a menu. Expanders you skip still open in the preview.</span></span>
+      const n = rec.guide.length + (rec.pending ? 1 : 0);
+      bar.innerHTML = `${grip}<span class="dot rec"></span>
+        <span class="txt"><strong>Recording${n ? " · " + n + (n === 1 ? " step" : " steps") : ""}</strong>
+        <span title="Click empty space to close a menu. Expanders you don't open still open in the preview.">Click what visitors should try</span></span>
         <span class="sep"></span>
         <button class="ghost" data-act="cancel">Cancel</button>
-        <button class="icon" data-act="cancel" title="Cancel capture" aria-label="Cancel capture">×</button>
         <button class="primary" data-act="finish">${ICON.check}Finish</button>`;
       return;
     }
     if (mode === "saving") {
-      bar.innerHTML = `<span class="dot"></span><span class="txt"><strong>Preparing capture</strong><span>Saving every recorded view and click…</span></span>`;
+      bar.innerHTML = `${grip}<span class="dot"></span><span class="txt"><strong>Preparing capture</strong><span>Saving every recorded view and click…</span></span>`;
       return;
     }
     if (minimized) {
-      bar.innerHTML = `<button class="icon mini" data-act="expand" title="Demo capture">${ICON.camera}</button>`;
+      bar.innerHTML = `<button class="icon mini" data-act="expand" title="Demo capture" aria-label="Show demo capture">${ICON.camera}</button>`;
       return;
     }
-    bar.innerHTML = `<span class="dot"></span>
+    bar.innerHTML = `${grip}<span class="dot"></span>
       <span class="txt"><strong>Demo capture</strong><span>${esc(school)} · <b data-clock>${clock(left())}</b> left</span></span>
       <span class="sep"></span>
       <button class="primary" data-act="start"${mode === "preparing" ? " disabled" : ""}>${ICON.camera}${mode === "preparing" ? "Preparing…" : "Capture this page"}</button>
       <button class="icon" data-act="minimize" title="Minimize" aria-label="Minimize">${ICON.min}</button>`;
   }
+
+  // The bar can be dragged by its grip; the spot is kept for the next page.
+  const placeBar = (x, y) => {
+    const r = host.getBoundingClientRect();
+    x = Math.max(8, Math.min(x, window.innerWidth - r.width - 8));
+    y = Math.max(8, Math.min(y, window.innerHeight - r.height - 8));
+    host.style.left = x + "px";
+    host.style.top = y + "px";
+    host.style.bottom = "auto";
+    return { x, y };
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("mcap:bar") || "null");
+    if (saved) requestAnimationFrame(() => placeBar(saved.x * window.innerWidth, saved.y * window.innerHeight));
+  } catch (_) { /* default corner */ }
+  bar.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !e.target.closest(".grip, .txt, .dot")) return;
+    e.preventDefault();
+    const r = host.getBoundingClientRect();
+    const dx = e.clientX - r.left;
+    const dy = e.clientY - r.top;
+    bar.setPointerCapture(e.pointerId);
+    bar.classList.add("dragging");
+    const move = (ev) => placeBar(ev.clientX - dx, ev.clientY - dy);
+    const end = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.classList.remove("dragging");
+      const p = host.getBoundingClientRect();
+      try { localStorage.setItem("mcap:bar", JSON.stringify({ x: p.left / window.innerWidth, y: p.top / window.innerHeight })); } catch (_) { /* ignore */ }
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", end, { once: true });
+    bar.addEventListener("pointercancel", end, { once: true });
+  });
 
   bar.addEventListener("click", (e) => {
     const act = e.target.closest("[data-act]");
@@ -301,6 +339,8 @@
   function snapshotDoc(doc) {
     const root = doc.documentElement;
     const clone = root.cloneNode(true);
+    // Colors the appearance script changed (gray and dark) go back to the page's own.
+    const themed = doc.defaultView && doc.defaultView.__apChanged;
     const src = root.querySelectorAll("*");
     const dst = clone.querySelectorAll("*");
     const swaps = [];
@@ -356,12 +396,21 @@
           break;
         default:
       }
+      const own = themed && themed.get(o);
+      if (own) Object.keys(own).forEach((prop) => { const [v, p] = own[prop]; if (v) c.style.setProperty(prop, v, p); else c.style.removeProperty(prop); });
+      if (c.hasAttribute && c.hasAttribute("style") && !c.getAttribute("style").trim()) c.removeAttribute("style");
       if (o.scrollTop > 0 || o.scrollLeft > 0) c.setAttribute("data-mcap-scroll", Math.round(o.scrollTop) + "," + Math.round(o.scrollLeft));
     }
     swaps.forEach(([c, n]) => c.replaceWith(n));
     clone.querySelectorAll(STRIP).forEach((n) => n.remove());
-    // Scroll locks left by removed pop-ups, and appearance.js's brief transition guard.
-    [clone, clone.querySelector("body")].forEach((n) => { if (n) n.classList.remove("mfb-open", "modal-open", "ann-modal-open", "no-scroll", "ap-still"); });
+    clone.querySelectorAll("style[data-ap-copy]").forEach((n) => n.remove());
+    [clone, clone.querySelector("body")].forEach((n) => { if (n) n.classList.remove("ap-still", "ap-ready"); });
+    if (clone.hasAttribute("data-appearance")) clone.setAttribute("data-appearance", "white");
+    if (themed) {
+      clone.style.removeProperty("--org-primary-color"); // lifted for dark pages; the page's own value is in its styles
+      clone.style.removeProperty("--org-primary-hover");
+      if (!clone.getAttribute("style")) clone.removeAttribute("style");
+    }
     clone.querySelectorAll("link").forEach((l) => {
       const rel = (l.getAttribute("rel") || "").toLowerCase();
       if (!/stylesheet|icon/.test(rel)) { l.remove(); return; }
@@ -369,6 +418,7 @@
       if (/stylesheet/.test(rel) && cssCache.has(href)) {
         const style = doc.createElement("style");
         if (l.media) style.setAttribute("media", l.media);
+        if (/\/css\/appearance\.css/.test(href)) style.setAttribute("data-ap-base", "");
         style.textContent = cssCache.get(href);
         l.replaceWith(style);
       } else {
@@ -489,11 +539,15 @@
     });
   }
 
+  let labelClick = null; // a label's click is followed by one on its checkbox: one step, not two
   function onClick(e) {
     if (mode !== "recording") return;
     if (e.composedPath().includes(host)) return;
     const el = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement;
     if (!el) return;
+    if (labelClick && labelClick.control === el && performance.now() - labelClick.at < 300) { labelClick = null; return; }
+    const label = el.closest("label");
+    labelClick = label && label.control && label.control !== el ? { control: label.control, at: performance.now() } : null;
     const target = clickTarget(el);
     const doc = target.ownerDocument;
     const outside = !el.closest(INTERACTIVE) && doc.defaultView.getComputedStyle(el).cursor !== "pointer";
@@ -572,6 +626,11 @@
       title: document.title,
       url: location.href,
       viewport: { w: window.innerWidth, h: window.innerHeight },
+      // How it looked while recording; "light" is what this page shows when not dark.
+      appearance: {
+        mode: document.documentElement.getAttribute("data-appearance") || "white",
+        light: document.body.classList.contains("org-appearance") ? "gray" : "white",
+      },
       heads: rec.heads,
       states: rec.states,
       links: rec.links,
@@ -589,7 +648,9 @@
   function sameElementKey(el) {
     if (el.id) return el.tagName + "#" + el.id;
     const cls = (el.getAttribute("class") || "").split(/\s+/).filter((c) => c && !/^(is-|has-)|^(open|opened|active|show|shown|expanded|collapsed|selected|current|hidden)$/.test(c)).sort().join(".");
-    return el.tagName + "." + cls + "|" + (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    // Controls without text (checkboxes, icon buttons) are told apart by what they are for.
+    const what = Array.from(el.attributes).filter((a) => /^(name|type|value|href|for|role|aria-label|title)$|^data-(?!mcap-)/.test(a.name)).map((a) => a.name + "=" + a.value).sort().join("&");
+    return el.tagName + "." + cls + "|" + what + "|" + (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
   }
 
   // A view only carries the stamps of clicks made before it was saved; mark

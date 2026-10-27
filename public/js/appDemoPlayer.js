@@ -13,6 +13,10 @@
 // Pages can declare small effects for the preview: data-demo-hide="<selector>" on a
 // checkbox hides the matches while unchecked, data-demo-reset="<selector>" checks
 // every such box inside the match again.
+//
+// Light / dark: captures that carry their appearance hold the page's own colors;
+// the visitor picks light or dark, and the app's appearance script
+// (public/js/appearance.js, loaded by this page) colors the captured page.
 (function () {
   "use strict";
 
@@ -68,8 +72,39 @@
   const attrString = (attrs) => Object.entries(attrs || {}).map(([k, v]) => ` ${k}="${String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"`).join("");
   const stateHtml = (i) => {
     const st = data.states[i];
-    return `<!DOCTYPE html><html${attrString(st.htmlAttrs)}><head>${data.heads[st.head]}</head><body${attrString(st.bodyAttrs)}>${st.body}</body></html>`;
+    return `<!DOCTYPE html><html${attrString(htmlAttrsOf(st))}><head>${data.heads[st.head]}</head><body${attrString(st.bodyAttrs)}>${st.body}</body></html>`;
   };
+
+  // ---------- Light / dark ----------
+
+  let look = (() => { try { return localStorage.getItem("mcap:look"); } catch (_) { return null; } })(); // the visitor's pick
+  if (look) root.classList.add("is-settled"); // the cover shows the recorded look, which may not be the one picked
+  const canLook = () => Boolean(data && data.appearance);
+  const isDark = () => (look === "dark" || look === "light" ? look === "dark" : data.appearance.mode === "dark");
+  // The data-appearance the captured page is drawn with (null: as it was saved).
+  const lookMode = () => (canLook() ? (isDark() ? "dark" : data.appearance.light) : null);
+  const htmlAttrsOf = (st) => (lookMode() ? Object.assign({}, st.htmlAttrs, { "data-appearance": lookMode() }) : st.htmlAttrs);
+
+  function applyLook(d) {
+    const mode = lookMode();
+    if (!mode || !d || !d.documentElement || d.__mcapLook === mode) return;
+    d.__mcapLook = mode;
+    d.documentElement.setAttribute("data-appearance", mode);
+    if (mode !== "white" && typeof window.__apRun === "function") {
+      try { window.__apRun(d.defaultView, d); } catch (_) { /* the page keeps its own colors */ }
+    }
+  }
+  // Content shown without a class or style change (expanders) gets its colors too.
+  function refreshLook(d) {
+    try { if (d && d.defaultView && typeof d.defaultView.__apRefresh === "function") d.defaultView.__apRefresh(); } catch (_) { /* ignore */ }
+  }
+  function setLook(next) {
+    look = next;
+    try { localStorage.setItem("mcap:look", next); } catch (_) { /* ignore */ }
+    root.classList.add("is-settled"); // the cover shows the recorded look only
+    render(current, () => place(), true);
+    renderControls();
+  }
 
   function setAttrs(el, attrs) {
     Array.from(el.attributes).forEach((a) => { if (!(a.name in attrs)) el.removeAttribute(a.name); });
@@ -80,23 +115,32 @@
   function settle() { root.classList.add("is-settled"); }
 
   // Draws state i. The first draw opens at the top of the page; later ones keep the scroll.
-  function render(i, done) {
+  // fresh: draw again from scratch where the visitor is (after a light / dark switch).
+  function render(i, done, fresh) {
     const prev = current;
     if (prev >= 0) settle();
     current = i;
     hot = new Map(data.links.filter((l) => l.from === i).map((l) => [l.el, l.to]));
     const st = data.states[i];
     const doc = frame.contentDocument;
-    if (prev >= 0 && doc && doc.body && data.states[prev].head === st.head) {
-      const scrollEl = doc.scrollingElement || doc.documentElement;
+    const scrollOf = (dd) => dd.scrollingElement || dd.documentElement;
+    if (!fresh && prev >= 0 && doc && doc.body && data.states[prev].head === st.head) {
+      const scrollEl = scrollOf(doc);
       const y = scrollEl.scrollTop;
       const parsed = new DOMParser().parseFromString(stateHtml(i), "text/html");
-      setAttrs(doc.documentElement, st.htmlAttrs);
+      const attrs = Object.assign({}, htmlAttrsOf(st));
+      if (doc.__mcapLook && doc.__mcapLook !== "white") {
+        // Keep what the appearance script set on the page root.
+        attrs.class = ((attrs.class || "") + " ap-ready").trim();
+        if (doc.documentElement.hasAttribute("style")) attrs.style = doc.documentElement.getAttribute("style");
+      }
+      setAttrs(doc.documentElement, attrs);
       doc.documentElement.replaceChild(doc.importNode(parsed.body, true), doc.body);
       scrollEl.scrollTop = y;
       wire(doc, done);
       return;
     }
+    const keepY = fresh && doc && doc.documentElement ? scrollOf(doc).scrollTop : 0;
     // Written straight into the frame: the page shows as soon as it is parsed,
     // without waiting for its images, fonts and panes (a load event can take long).
     const d = frame.contentDocument;
@@ -104,10 +148,12 @@
     d.write(stateHtml(i));
     d.close();
     d.__mcapWired = false; // document.open() drops the listeners
+    d.__mcapLook = null;
+    applyLook(d);
     if (d.defaultView) d.defaultView.addEventListener("load", () => { settle(); schedulePlace(); }, { once: true }); // late images move things
     setTimeout(settle, 1200);
     wire(d, () => {
-      (d.scrollingElement || d.documentElement).scrollTop = 0;
+      scrollOf(d).scrollTop = keepY;
       root.classList.add("is-ready");
       if (done) done();
     });
@@ -133,7 +179,7 @@
         d.addEventListener("mouseover", onHover, true);
       }
       d.querySelectorAll("iframe").forEach((f) => {
-        const ready = () => { try { visit(f.contentDocument); } catch (_) { /* ignore */ } schedulePlace(); };
+        const ready = () => { try { applyLook(f.contentDocument); visit(f.contentDocument); } catch (_) { /* ignore */ } schedulePlace(); };
         f.addEventListener("load", ready, { once: true });
         try { if (f.contentDocument && f.contentDocument.readyState === "complete" && f.contentDocument.body && f.contentDocument.body.childElementCount) ready(); } catch (_) { /* ignore */ }
       });
@@ -263,7 +309,7 @@
         if (tips) html += tip;
         layer.innerHTML = html;
         const tipEl = layer.querySelector(".pl-tip");
-        if (tipEl) { if (hasBox) positionTip(tipEl, box); else tipEl.classList.add("pl-tip--free"); }
+        if (tipEl) { if (hasBox) positionTip(tipEl, box, menuBoxOf(el)); else tipEl.classList.add("pl-tip--free"); }
         return;
       }
     } else {
@@ -313,7 +359,23 @@
   // Header and corner controls (menus, profile, notifications) get the tooltip
   // beside them, so what opens below stays visible. Everything else: below the
   // element if it fits, otherwise above. Always kept inside the player.
-  function positionTip(tip, box) {
+  // The open menu or panel a control sits in (positioned over the page), if any.
+  function menuBoxOf(el) {
+    if (!el) return null;
+    const win = el.ownerDocument.defaultView;
+    for (let n = el.parentElement; n && n !== el.ownerDocument.body; n = n.parentElement) {
+      const cs = win.getComputedStyle(n);
+      if (cs.position !== "absolute" && cs.position !== "fixed") continue;
+      const r = n.getBoundingClientRect();
+      if (r.width >= 100 && r.height >= 28) return boxOf(n);
+    }
+    return null;
+  }
+
+  // A control inside an open menu gets its tooltip beside the menu, so the
+  // menu's other options stay visible and clickable.
+  function positionTip(tip, box, menu) {
+    if (menu && placeBeside(tip, box, menu)) return;
     const pad = 10;
     const gap = 14;
     const tw = tip.offsetWidth;
@@ -359,6 +421,28 @@
     arrow.style.left = Math.max(16, Math.min(cx - left, tw - 16)) + "px";
   }
 
+  function placeBeside(tip, box, menu) {
+    const pad = 10;
+    const gap = 14;
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    const cy = box.y + box.h / 2;
+    let left;
+    let side;
+    if (menu.x - gap - tw >= pad) { left = menu.x - gap - tw; side = "is-left"; }
+    else if (menu.x + menu.w + gap + tw <= root.clientWidth - pad) { left = menu.x + menu.w + gap; side = "is-right"; }
+    else return false;
+    const top = Math.max(pad, Math.min(cy - 22, root.clientHeight - th - pad));
+    const arrow = tip.querySelector(".pl-tip__arrow");
+    tip.classList.remove("is-above", "is-left", "is-right");
+    tip.classList.add(side);
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+    arrow.style.left = "";
+    arrow.style.top = Math.max(14, Math.min(cy - top, th - 14)) + "px";
+    return true;
+  }
+
   layer.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-pl]");
     if (!btn) return;
@@ -397,16 +481,23 @@
   let controlsShown = false;
   let foldTimer = null;
 
+  const ICON_MOON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 12.5A6.5 6.5 0 0 1 7.5 4a6.5 6.5 0 1 0 8.5 8.5z"/></svg>';
+  const ICON_SUN = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.2"/><path d="M10 2.5v1.8M10 15.7v1.8M2.5 10h1.8M15.7 10h1.8M4.7 4.7l1.3 1.3M14 14l1.3 1.3M4.7 15.3 6 14M14 6l1.3-1.3"/></svg>';
+
   function renderControls() {
     const links = data && data.links.length;
-    if (!links) { controls.hidden = true; return; }
+    if (!links && !canLook()) { controls.hidden = true; return; }
     const open = !controls.classList.contains("is-folded");
     controls.innerHTML = '<button type="button" class="pl__handle" data-c="open" aria-expanded="' + open + '" aria-label="Preview options" title="Preview options · drag to move">' + ICON_OPTS + '</button>'
       + '<div class="pl__opts" role="group" aria-label="Preview options"><span class="pl__grip" aria-hidden="true" title="Drag to move"></span>'
       + (guided && skipped ? '<button type="button" class="is-primary" data-c="guide">Show guide</button>' : "")
-      + '<button type="button" data-c="rings" aria-pressed="' + rings + '" title="Show or hide the ring around what to click"><i></i>Indicator</button>'
-      + '<button type="button" data-c="tips" aria-pressed="' + tips + '" title="Show or hide the explanations"><i></i>Explanation</button>'
-      + '<button type="button" data-c="reset" title="Start the preview again">Restart</button></div>';
+      + (links ? '<button type="button" data-c="rings" aria-pressed="' + rings + '" title="Show or hide the ring around what to click"><i></i>Indicator</button>'
+        + '<button type="button" data-c="tips" aria-pressed="' + tips + '" title="Show or hide the explanations"><i></i>Explanation</button>'
+        + '<button type="button" data-c="reset" title="Start the preview again">Restart</button>' : "")
+      + (canLook() ? (links ? '<span class="pl__sep" aria-hidden="true"></span>' : "")
+        + '<button type="button" class="pl__look" data-c="look" title="' + (isDark() ? "Switch to light" : "Switch to dark") + '">'
+        + (isDark() ? ICON_SUN + "Light" : ICON_MOON + "Dark") + "</button>" : "")
+      + "</div>";
     controls.hidden = false;
     if (!controlsShown) { controlsShown = true; unfold(2000); }
     keepInside();
@@ -438,6 +529,7 @@
     if (c === "open") { unfold(2600); const first = controls.querySelector(".pl__opts button"); if (first && e.detail === 0) first.focus(); return; }
     if (c === "guide") resume();
     else if (c === "reset") restart();
+    else if (c === "look") setLook(isDark() ? "light" : "dark");
     else if (c === "rings") { rings = !rings; savePref("rings", rings); place(); renderControls(); }
     else if (c === "tips") { tips = !tips; savePref("tips", tips); hovered = null; place(); renderControls(); }
     clearTimeout(foldTimer);
@@ -514,7 +606,9 @@
   function sameElementKey(el) {
     if (el.id) return el.tagName + "#" + el.id;
     const cls = (el.getAttribute("class") || "").split(/\s+/).filter((c) => c && !/^(is-|has-)|^(open|opened|active|show|shown|expanded|collapsed|selected|current|hidden)$/.test(c)).sort().join(".");
-    return el.tagName + "." + cls + "|" + (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    // Controls without text (checkboxes, icon buttons) are told apart by what they are for.
+    const what = Array.from(el.attributes).filter((a) => /^(name|type|value|href|for|role|aria-label|title)$|^data-(?!mcap-)/.test(a.name)).map((a) => a.name + "=" + a.value).sort().join("&");
+    return el.tagName + "." + cls + "|" + what + "|" + (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
   }
   let recordedKeys = null; // element key -> recorded element id
   function recordedIdOf(el) {
@@ -560,7 +654,7 @@
       follow(OUTSIDE, hot.get(OUTSIDE));
       return;
     }
-    if (closeOutside(start)) schedulePlace();
+    if (closeOutside(start)) { refreshLook(start.ownerDocument); schedulePlace(); }
     const reset = start.closest("[data-demo-reset]");
     if (reset) {
       e.preventDefault();
@@ -570,10 +664,11 @@
     const toggle = start.closest("[aria-expanded]");
     if (toggle && setOpen(toggle, toggle.getAttribute("aria-expanded") !== "true")) {
       e.preventDefault();
+      refreshLook(start.ownerDocument);
       schedulePlace();
       return;
     }
-    if (start.closest("summary")) { setTimeout(schedulePlace, 0); return; } // works without scripts
+    if (start.closest("summary")) { setTimeout(() => { refreshLook(start.ownerDocument); schedulePlace(); }, 0); return; } // works without scripts
     if (start.closest("input, select, textarea, label")) return;
     if (start.closest("a[href]")) {
       e.preventDefault();
@@ -655,6 +750,7 @@
     const box = e.target;
     if (!box || !box.matches || !box.matches("input[data-demo-hide]")) return;
     applyHide(box);
+    refreshLook(box.ownerDocument);
     settle();
     schedulePlace();
   }
@@ -690,6 +786,8 @@
       clearTimeout(timer);
       data = json;
       data.links = data.links || [];
+      // The cover shows the recorded look; hide it when the visitor picked the other one.
+      if (canLook() && isDark() !== (data.appearance.mode === "dark")) root.classList.add("is-settled");
       if (Array.isArray(config.guideIndexes)) {
         const allowedIndexes = new Set(config.guideIndexes);
         data.guide = (data.guide || []).filter((_, index) => allowedIndexes.has(index));
