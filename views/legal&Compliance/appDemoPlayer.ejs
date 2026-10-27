@@ -27,7 +27,7 @@
       background: #fff; color: #0b1b2b; box-shadow: 0 1px 2px rgba(11, 27, 43, .08), 0 18px 40px -12px rgba(11, 27, 43, .35);
       border-top: 3px solid var(--accent); animation: tip-in .22s ease both;
     }
-    .pl-tip--free { left: 50%; bottom: 16px; transform: translateX(-50%); }
+    .pl-tip--free { left: 50%; bottom: 62px; transform: translateX(-50%); }
     /* Explore mode: the explanation appears on hover, without buttons */
     .pl-tip--hover { width: auto; max-width: 260px; padding: 10px 12px; pointer-events: none; animation-duration: .15s; }
     .pl-tip--hover p { font-size: 13px; }
@@ -60,7 +60,7 @@
     .pl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .pl-end {
-      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: grid; gap: 4px; width: 300px; max-width: calc(100% - 20px);
+      position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%); display: grid; gap: 4px; width: 300px; max-width: calc(100% - 20px);
       padding: 14px; border-radius: 12px; background: #fff; pointer-events: auto; border-top: 3px solid var(--accent);
       box-shadow: 0 1px 2px rgba(11, 27, 43, .08), 0 18px 40px -12px rgba(11, 27, 43, .35); animation: tip-in .22s ease both;
     }
@@ -68,18 +68,34 @@
     .pl-end span { font-size: 12.5px; color: #6b7a8c; }
     .pl-end .pl-btns { justify-content: flex-end; margin-top: 8px; }
 
-    /* Light, unobtrusive controls once the walkthrough is skipped or disabled. */
+    /* Preview options: a floating bar at the bottom, shown briefly, then folded to a small button.
+       Draggable; once moved it keeps its spot (left/top set by the script). */
     .pl__controls {
-      position: absolute; right: 10px; top: 10px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 20px); align-items: center; gap: 2px; padding: 3px; border-radius: 999px;
-      background: rgba(255,255,255,.96); border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(15,23,42,.12); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      position: absolute; left: 50%; bottom: 14px; z-index: 4; display: flex; align-items: center; gap: 2px; padding: 4px; max-width: calc(100% - 20px);
+      border-radius: 999px; background: rgba(255,255,255,.97); border: 1px solid #e2e8f0; box-shadow: 0 10px 30px -10px rgba(15,23,42,.35), 0 2px 6px rgba(15,23,42,.08);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transform: translateX(-50%); touch-action: none; user-select: none; -webkit-user-select: none;
+      animation: tip-in .22s ease both;
     }
+    .pl__controls.is-placed { bottom: auto; transform: none; }
+    .pl__controls.is-dragging { cursor: grabbing; box-shadow: 0 18px 40px -12px rgba(15,23,42,.45), 0 2px 6px rgba(15,23,42,.1); }
     .pl__controls[hidden] { display: none; }
+    .pl.is-pressing .pl__frame { pointer-events: none; }
     .pl__controls button {
-      all: unset; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 999px;
-      color: #475569; font-size: 11.5px; font-weight: 600; cursor: pointer;
+      all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px;
+      color: #475569; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background-color .15s, color .15s;
     }
     .pl__controls button:hover { background: #f1f5f9; color: #0f172a; }
     .pl__controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .pl__opts { display: flex; align-items: center; gap: 2px; }
+    .pl__grip { width: 10px; height: 16px; margin: 0 4px 0 6px; cursor: grab; opacity: .55;
+      background: radial-gradient(circle, #64748b 1.2px, transparent 1.6px) 0 0 / 5px 5px; }
+    .pl__controls .pl__handle { position: relative; display: none; width: 34px; height: 34px; padding: 0; justify-content: center; color: #334155; cursor: grab; }
+    .pl__handle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+    .pl__controls.is-folded { padding: 3px; }
+    .pl__controls.is-folded .pl__opts { display: none; }
+    .pl__controls.is-folded .pl__handle { display: inline-flex; }
+    .pl__controls.is-folded .pl__handle::after { content: ""; position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px #fff; }
+    .pl__controls.is-folded:hover { box-shadow: 0 12px 30px -10px rgba(15,23,42,.45), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
     .pl__controls i { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
     .pl__controls [aria-pressed="true"] i { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
     .pl__controls [aria-pressed="false"] { color: #94a3b8; }
@@ -96,7 +112,7 @@
     .pl__error { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 7px 12px; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; color: #475569; font-size: 12px; white-space: nowrap; box-shadow: 0 4px 16px rgba(15,23,42,.12); }
     @keyframes load { to { left: 100%; } }
     @keyframes tip-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
-    @media (prefers-reduced-motion: reduce) { .pl-ring, .pl-tip, .pl-end { animation: none; transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .pl-ring, .pl-tip, .pl-end, .pl__controls { animation: none; transition: none; } }
   </style>
 </head>
 <body>

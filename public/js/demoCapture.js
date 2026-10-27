@@ -29,6 +29,9 @@
     "[role='button']", "[role='tab']", "[role='switch']", "[role='menuitem']", "[role='option']", "[role='checkbox']",
     "[aria-expanded]", "[aria-controls]", "[data-toggle]", "[data-bs-toggle]", "[onclick]", "[tabindex]:not([tabindex='-1'])",
   ].join(",");
+  // A click on empty space (to close a menu or panel): replayed by a click anywhere
+  // outside. Recorded elements are numbered from 1, so 0 never names one.
+  const OUTSIDE = "0";
   // Files anyone can load; other same-origin images are copied into the capture.
   const PUBLIC_PATHS = /^\/(images|css|js|vendor|fonts|icons|Demo%20Images|Demo Images|favicon)/i;
 
@@ -170,7 +173,7 @@
     if (mode === "recording") {
       bar.innerHTML = `<span class="dot rec"></span>
         <span class="txt"><strong>${(() => { const n = rec.guide.length + (rec.pending ? 1 : 0); return n ? "Recording · " + n + (n === 1 ? " step" : " steps") : "Recording"; })()}</strong>
-        <span>Click the toggles, tabs and expanders visitors should try. Wait for each change to finish.</span></span>
+        <span>Click what visitors should try; click empty space to close a menu. Expanders you skip still open in the preview.</span></span>
         <span class="sep"></span>
         <button class="ghost" data-act="cancel">Cancel</button>
         <button class="icon" data-act="cancel" title="Cancel capture" aria-label="Cancel capture">×</button>
@@ -493,6 +496,7 @@
     if (!el) return;
     const target = clickTarget(el);
     const doc = target.ownerDocument;
+    const outside = !el.closest(INTERACTIVE) && doc.defaultView.getComputedStyle(el).cursor !== "pointer";
 
     // Leaving the page would end the recording.
     const a = target.closest("a[href]");
@@ -508,7 +512,7 @@
       }
     }
 
-    let id = target.getAttribute("data-mcap-el");
+    let id = outside ? OUTSIDE : target.getAttribute("data-mcap-el");
     if (!id) {
       id = String(rec.nextEl++);
       target.setAttribute("data-mcap-el", id);
@@ -516,7 +520,7 @@
     const state = takeSnapshot();
     linkPending(state);
     if (state < 0) return toast("Could not save this view. Finish the capture and try again.", true);
-    rec.pending = { from: state, el: id, label: labelOf(target) };
+    rec.pending = { from: state, el: id, label: outside ? "" : labelOf(target) };
     renderBar();
     loadStylesheets(); // new panes may bring new stylesheets
     watchFrames();
@@ -702,7 +706,7 @@
         ${data.guide.length
           ? `<label class="switch"><input type="checkbox" data-f="guided" checked><span class="track"></span>
                <span class="switch-text"><b>Guide visitors step by step</b><small>Each explanation appears beside the control, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>
-             <ol class="guide">${data.guide.map((g, i) => `<li><span class="n">${i + 1}</span><div><em>${g.label ? "Click “" + esc(g.label) + "”" : "Recorded click"}</em>
+             <ol class="guide">${data.guide.map((g, i) => `<li><span class="n">${i + 1}</span><div><em>${g.el === OUTSIDE ? "Click outside to close" : g.label ? "Click “" + esc(g.label) + "”" : "Recorded click"}</em>
                <input data-guide="${i}" maxlength="240" placeholder="Explain this step, e.g. See every teacher in the class."></div></li>`).join("")}</ol>`
           : `<small>No clicks were recorded, so visitors see the page without a walkthrough.</small>`}</div>
       <div class="field"><span>Guide accent colour</span>

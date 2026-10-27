@@ -128,15 +128,15 @@
   .od a { text-decoration: none; }
   .od [hidden] { display: none !important; }
   .od-row-empty { display: none !important; }
+  .od :is(.od-pair, .od-kpis):has(> [data-od-section]):not(:has(> [data-od-section]:not([hidden]))) { display: none !important; }
 
   .od-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; align-items: stretch; }
   .od-pair > * { min-width: 0; }
 
   .od-card {
     border: 1px solid var(--od-border); border-radius: 14px; padding: 20px; min-width: 0;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--od-primary) 9%, #ffffff) 0, color-mix(in srgb, var(--od-primary) 3%, #ffffff) 74px, color-mix(in srgb, var(--od-primary) 3%, #ffffff) 100%);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px color-mix(in srgb, var(--od-primary) 7%, transparent);
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04);
   }
   .od-card .od-card__head { padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--od-primary) 14%, #eef2f6); }
   .od-scope { margin-left: 4px; padding: 2px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--od-line); color: var(--od-muted); font-size: 0.72rem; font-weight: 600; }
@@ -216,9 +216,9 @@
   .od-kpi {
     --k: var(--od-primary);
     display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px; border-radius: 14px; color: var(--od-text) !important;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--k) 13%, #ffffff), color-mix(in srgb, var(--k) 4%, #ffffff));
+    background: #ffffff;
     border: 1px solid color-mix(in srgb, var(--k) 30%, #e2e8f0);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px color-mix(in srgb, var(--k) 10%, transparent);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04);
     transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
   }
   .od-kpi--admissions { --k: #2563eb; }
@@ -226,7 +226,7 @@
   .od-kpi--fees { --k: #059669; }
   .od-kpi--transport { --k: #d97706; }
   a.od-kpi:hover { border-color: var(--od-soft-border); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
-  .od-kpi__icon { flex: 0 0 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #fff; color: var(--k); box-shadow: 0 2px 6px color-mix(in srgb, var(--k) 18%, transparent); }
+  .od-kpi__icon { flex: 0 0 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--k) 10%, #ffffff); color: var(--k); }
   .od-kpi__label { color: color-mix(in srgb, var(--k) 70%, #334155) !important; }
   .od-kpi__bar > span { background: var(--k) !important; }
   a.od-kpi:hover { border-color: color-mix(in srgb, var(--k) 55%, #e2e8f0) !important; }
@@ -234,7 +234,7 @@
   .od-kpi__label { font-size: 0.8rem; color: var(--od-muted); font-weight: 600; }
   .od-kpi__value { font-size: 1.45rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
   .od-kpi__note { font-size: 0.78rem; color: var(--od-muted); }
-  .od-kpi__bar { height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); overflow: hidden; margin: 4px 0 2px; }
+  .od-kpi__bar { height: 5px; border-radius: 999px; background: #eef2f6; overflow: hidden; margin: 4px 0 2px; }
   .od-kpi__bar > span { display: block; height: 100%; background: var(--od-primary); border-radius: inherit; }
 
   /* Lists: events, announcements, alerts, activity */
@@ -503,7 +503,7 @@
           <div class="od-dd__title">Customize your dashboard</div>
           <p class="od-dd__hint" style="margin:0 8px 6px;">Pick what to show. Keep at least 3.</p>
           <div data-od-checks></div>
-          <div class="od-dd__foot"><button type="button" class="od-dd__reset" data-od-reset>Show everything</button></div>
+          <div class="od-dd__foot"><button type="button" class="od-dd__reset" data-od-reset data-demo-reset="[data-od-checks]">Show everything</button></div>
         </div>
       </div>
     </div>
@@ -1395,8 +1395,11 @@
       if (!el) { el = document.createElement('style'); el.id = 'od-hidden-style'; document.head.appendChild(el); }
       return el;
     };
+    // Sections are hidden with the hidden attribute (the early style only covers the first paint),
+    // so a demo capture of this page can switch them without scripts (see public/js/appDemoPlayer.js).
     function applyHidden(hidden) {
-      styleEl().textContent = hidden.map(function (k) { return '[data-od-section="' + k.replace(/[^a-z0-9-]/gi, '') + '"]{display:none!important}'; }).join('');
+      styleEl().textContent = '';
+      sections.forEach(function (s) { s.hidden = hidden.includes(s.dataset.odSection); });
       // Hide rows whose sections are all switched off, so no empty gaps remain.
       root.querySelectorAll('.od-pair, .od-kpis').forEach(function (row) {
         const kids = Array.from(row.querySelectorAll(':scope > [data-od-section]'));
@@ -1421,7 +1424,7 @@
       const esc = (v) => String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
       checks.innerHTML = sections.map(function (s) {
         const key = s.dataset.odSection;
-        return '<label class="od-check"><input type="checkbox" data-od-toggle="' + esc(key) + '"' + (hidden.includes(key) ? '' : ' checked') + '> ' + esc(s.dataset.odLabel || key) + '</label>';
+        return '<label class="od-check"><input type="checkbox" data-od-toggle="' + esc(key) + '" data-demo-hide="[data-od-section=&quot;' + esc(key) + '&quot;]"' + (hidden.includes(key) ? '' : ' checked') + '> ' + esc(s.dataset.odLabel || key) + '</label>';
       }).join('');
       checks.addEventListener('change', function (e) {
         const boxes = Array.from(checks.querySelectorAll('[data-od-toggle]'));

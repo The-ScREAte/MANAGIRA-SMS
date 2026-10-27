@@ -7,6 +7,12 @@
 // Guided (the admin's choice, on by default): visitors are walked through the
 // recorded clicks with an explanation, Back and Next. Explore mode keeps every
 // recorded click available in any order, without drawing highlights over the page.
+//
+// Expanders and menus that were not recorded still work: <details> natively, and
+// [aria-expanded] toggles with their panel here; menus close on a click outside.
+// Pages can declare small effects for the preview: data-demo-hide="<selector>" on a
+// checkbox hides the matches while unchecked, data-demo-reset="<selector>" checks
+// every such box inside the match again.
 (function () {
   "use strict";
 
@@ -15,6 +21,7 @@
   const layer = root.querySelector(".pl__layer");
   const toastEl = root.querySelector(".pl__toast");
   const W = Number(root.dataset.w) || 1440;
+  const OUTSIDE = "0"; // a recorded click on empty space (see public/js/demoCapture.js)
   const config = JSON.parse(document.getElementById("pl-config").textContent || "{}");
   root.style.setProperty("--accent", config.accent || "#14b8a6");
 
@@ -120,6 +127,7 @@
       if (!d.__mcapWired) {
         d.__mcapWired = true;
         d.addEventListener("click", onClick, true);
+        d.addEventListener("change", onChange, true);
         d.addEventListener("submit", (e) => e.preventDefault(), true);
         d.addEventListener("scroll", schedulePlace, true);
         d.addEventListener("mouseover", onHover, true);
@@ -285,6 +293,7 @@
     const i = steps.findIndex((g) => g.el === id && g.from === current);
     const k = i >= 0 ? i : steps.findIndex((g) => g.el === id);
     if (k < 0) return "";
+    if (id === OUTSIDE) return (config.texts && config.texts[k]) || "Click anywhere outside to close it.";
     const label = cleanLabel(steps[k].label);
     return (config.texts && config.texts[k]) || (label ? "Click “" + label + "”." : "");
   }
@@ -381,25 +390,112 @@
     if (k >= 0) goStep(k); else restart();
   }
 
+  // ---------- Controls: a small floating bar, shown briefly, then folded to a button ----------
+
+  const controls = root.querySelector(".pl__controls");
+  const ICON_OPTS = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h7M15 6h1M4 14h1M9 14h7"/><circle cx="13" cy="6" r="2"/><circle cx="7" cy="14" r="2"/></svg>';
+  let controlsShown = false;
+  let foldTimer = null;
+
   function renderControls() {
-    const box = root.querySelector(".pl__controls");
     const links = data && data.links.length;
-    if (!links) { box.hidden = true; return; }
-    box.innerHTML = (guided && skipped ? '<button type="button" class="is-primary" data-c="guide">Show guide</button>' : "")
+    if (!links) { controls.hidden = true; return; }
+    const open = !controls.classList.contains("is-folded");
+    controls.innerHTML = '<button type="button" class="pl__handle" data-c="open" aria-expanded="' + open + '" aria-label="Preview options" title="Preview options · drag to move">' + ICON_OPTS + '</button>'
+      + '<div class="pl__opts" role="group" aria-label="Preview options"><span class="pl__grip" aria-hidden="true" title="Drag to move"></span>'
+      + (guided && skipped ? '<button type="button" class="is-primary" data-c="guide">Show guide</button>' : "")
       + '<button type="button" data-c="rings" aria-pressed="' + rings + '" title="Show or hide the ring around what to click"><i></i>Indicator</button>'
       + '<button type="button" data-c="tips" aria-pressed="' + tips + '" title="Show or hide the explanations"><i></i>Explanation</button>'
-      + '<button type="button" data-c="reset">Restart</button>';
-    box.hidden = false;
+      + '<button type="button" data-c="reset" title="Start the preview again">Restart</button></div>';
+    controls.hidden = false;
+    if (!controlsShown) { controlsShown = true; unfold(2000); }
+    keepInside();
   }
 
-  root.querySelector(".pl__controls").addEventListener("click", (e) => {
+  function fold() {
+    if (controls.matches(":hover") || controls.querySelector(":focus-visible") || drag) return;
+    controls.classList.add("is-folded");
+    const h = controls.querySelector(".pl__handle");
+    if (h) h.setAttribute("aria-expanded", "false");
+  }
+  function unfold(ms) {
+    controls.classList.remove("is-folded");
+    const h = controls.querySelector(".pl__handle");
+    if (h) h.setAttribute("aria-expanded", "true");
+    keepInside();
+    clearTimeout(foldTimer);
+    foldTimer = setTimeout(fold, ms || 1800);
+  }
+  controls.addEventListener("mouseenter", () => clearTimeout(foldTimer));
+  controls.addEventListener("mouseleave", () => { if (!controls.classList.contains("is-folded")) { clearTimeout(foldTimer); foldTimer = setTimeout(fold, 1400); } });
+  controls.addEventListener("focusout", () => { clearTimeout(foldTimer); foldTimer = setTimeout(fold, 1800); });
+
+  controls.addEventListener("click", (e) => {
+    if (dragged) { dragged = false; e.preventDefault(); e.stopPropagation(); return; }
     const btn = e.target.closest("[data-c]");
     if (!btn) return;
-    if (btn.dataset.c === "guide") resume();
-    else if (btn.dataset.c === "reset") restart();
-    else if (btn.dataset.c === "rings") { rings = !rings; savePref("rings", rings); place(); renderControls(); }
-    else if (btn.dataset.c === "tips") { tips = !tips; savePref("tips", tips); hovered = null; place(); renderControls(); }
+    const c = btn.dataset.c;
+    if (c === "open") { unfold(2600); const first = controls.querySelector(".pl__opts button"); if (first && e.detail === 0) first.focus(); return; }
+    if (c === "guide") resume();
+    else if (c === "reset") restart();
+    else if (c === "rings") { rings = !rings; savePref("rings", rings); place(); renderControls(); }
+    else if (c === "tips") { tips = !tips; savePref("tips", tips); hovered = null; place(); renderControls(); }
+    clearTimeout(foldTimer);
   });
+
+  // Drag anywhere on the bar (a short press still clicks); the spot is remembered.
+  let drag = null;
+  let dragged = false;
+  let spot = (() => { try { return JSON.parse(localStorage.getItem("mcap:spot") || "null"); } catch (_) { return null; } })();
+
+  function keepInside() {
+    if (!spot || controls.hidden) return;
+    const pad = 8;
+    const x = Math.max(pad, Math.min(spot.x * root.clientWidth, root.clientWidth - controls.offsetWidth - pad));
+    const y = Math.max(pad, Math.min(spot.y * root.clientHeight, root.clientHeight - controls.offsetHeight - pad));
+    controls.classList.add("is-placed");
+    controls.style.left = x + "px";
+    controls.style.top = y + "px";
+  }
+  window.addEventListener("resize", keepInside);
+
+  controls.addEventListener("pointerdown", (e) => {
+    dragged = false;
+    if (e.button !== 0) return;
+    const r = controls.getBoundingClientRect();
+    const pr = root.getBoundingClientRect();
+    drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, pr, moving: false };
+    root.classList.add("is-pressing"); // the page frame would otherwise take the pointer
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moving) {
+      if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) < 5) return;
+      drag.moving = true;
+      controls.classList.add("is-dragging");
+      clearTimeout(foldTimer);
+    }
+    const pad = 8;
+    const x = Math.max(pad, Math.min(e.clientX - drag.pr.left - drag.dx, root.clientWidth - controls.offsetWidth - pad));
+    const y = Math.max(pad, Math.min(e.clientY - drag.pr.top - drag.dy, root.clientHeight - controls.offsetHeight - pad));
+    spot = { x: x / root.clientWidth, y: y / root.clientHeight };
+    controls.classList.add("is-placed");
+    controls.style.left = x + "px";
+    controls.style.top = y + "px";
+  });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (drag.moving) {
+      dragged = true; // swallow the click that ends the drag
+      controls.classList.remove("is-dragging");
+      try { localStorage.setItem("mcap:spot", JSON.stringify(spot)); } catch (_) { /* ignore */ }
+    }
+    drag = null;
+    root.classList.remove("is-pressing");
+    if (!controls.matches(":hover")) { clearTimeout(foldTimer); foldTimer = setTimeout(fold, 1400); }
+  };
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", endDrag);
 
   function restart() {
     render(guide.length ? guide[0].from : 0, () => {
@@ -453,18 +549,32 @@
       if (to === null || to === current) continue;
       e.preventDefault();
       e.stopPropagation();
-      const g = guide[step];
-      if (g && g.el === id && g.from === current) { next(); return; }
-      // Another recorded click (or explore mode): follow it, and pick up the walkthrough where it fits.
-      hovered = null;
-      render(to, () => {
-        const k = guide.findIndex((x) => x.from === to);
-        if (guide.length && k >= 0) goStep(k); else { step = guide.length ? guide.length : -1; place(); }
-      });
+      follow(id, to);
       return;
     }
     if (!start) return;
-    if (start.closest("summary") || start.closest("input, select, textarea, label")) return; // work without scripts
+    const control = start.closest(CONTROLS);
+    // A recorded click on empty space (closing a menu): any click outside the controls.
+    if (!control && hot.has(OUTSIDE)) {
+      e.preventDefault();
+      follow(OUTSIDE, hot.get(OUTSIDE));
+      return;
+    }
+    if (closeOutside(start)) schedulePlace();
+    const reset = start.closest("[data-demo-reset]");
+    if (reset) {
+      e.preventDefault();
+      resetBoxes(reset);
+      return;
+    }
+    const toggle = start.closest("[aria-expanded]");
+    if (toggle && setOpen(toggle, toggle.getAttribute("aria-expanded") !== "true")) {
+      e.preventDefault();
+      schedulePlace();
+      return;
+    }
+    if (start.closest("summary")) { setTimeout(schedulePlace, 0); return; } // works without scripts
+    if (start.closest("input, select, textarea, label")) return;
     if (start.closest("a[href]")) {
       e.preventDefault();
       toast("This link opens another page in the full app.");
@@ -475,6 +585,85 @@
       toast(guide.length ? "Not part of this preview. Follow the walkthrough, or press × to explore."
         : hot.size ? "Not part of this preview." : "This preview shows the page as it looks.");
     }
+  }
+
+  // Follows a recorded click, and picks up the walkthrough where it fits.
+  function follow(id, to) {
+    const g = guide[step];
+    if (g && g.el === id && g.from === current) { next(); return; }
+    hovered = null;
+    render(to, () => {
+      const k = guide.findIndex((x) => x.from === to);
+      if (guide.length && k >= 0) goStep(k); else { step = guide.length ? guide.length : -1; place(); }
+    });
+  }
+
+  // ---------- Expanders, menus and demo effects (no scripts run in the page) ----------
+
+  const CONTROLS = "a[href], button, summary, input, select, textarea, label, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [role='checkbox'], [role='switch'], [aria-expanded], [onclick]";
+  const isShown = (el) => !el.hidden && el.ownerDocument.defaultView.getComputedStyle(el).display !== "none";
+  const isPopup = (el) => /^(absolute|fixed)$/.test(el.ownerDocument.defaultView.getComputedStyle(el).position);
+
+  // The panel an [aria-expanded] control opens: the one it names, or the element right after it.
+  function panelOf(btn) {
+    const doc = btn.ownerDocument;
+    const ref = (btn.getAttribute("aria-controls") || "").split(/\s+/)[0]
+      || btn.getAttribute("data-bs-target") || btn.getAttribute("data-target")
+      || (/^#[\w-]+$/.test(btn.getAttribute("href") || "") ? btn.getAttribute("href") : "");
+    let panel = null;
+    try { panel = ref ? (ref.charAt(0) === "#" ? doc.querySelector(ref) : doc.getElementById(ref)) : null; } catch (_) { /* bad selector */ }
+    return panel || btn.nextElementSibling;
+  }
+
+  // Opens or closes a panel; false when this control's panel cannot be told apart safely.
+  function setOpen(btn, open) {
+    const panel = panelOf(btn);
+    if (!panel || panel.contains(btn)) return false;
+    if (open === isShown(panel)) return false; // the control is not what shows this panel
+    const wasHidden = panel.hidden;
+    panel.hidden = !open;
+    if (panel.classList.contains("collapse")) panel.classList.toggle("show", open);
+    if (open && !isShown(panel)) { panel.hidden = wasHidden; return false; } // shown some other way
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (btn.parentElement && btn.parentElement === panel.parentElement) btn.parentElement.classList.toggle("is-open", open);
+    return true;
+  }
+
+  // Open menus and pop-up lists close on a click outside them, as in the app.
+  function closeOutside(target) {
+    const doc = target.ownerDocument;
+    let closed = false;
+    doc.querySelectorAll('[aria-expanded="true"]').forEach((btn) => {
+      const panel = panelOf(btn);
+      if (!panel || btn.contains(target) || panel.contains(target) || !isShown(panel) || !isPopup(panel)) return;
+      if (setOpen(btn, false)) closed = true;
+    });
+    doc.querySelectorAll("details[open]").forEach((d) => {
+      const list = d.lastElementChild;
+      if (d.contains(target) || !list || list.tagName === "SUMMARY" || !isPopup(list)) return;
+      d.open = false;
+      closed = true;
+    });
+    return closed;
+  }
+
+  function applyHide(box) {
+    try { box.ownerDocument.querySelectorAll(box.getAttribute("data-demo-hide")).forEach((n) => { n.hidden = !box.checked; }); } catch (_) { /* bad selector */ }
+  }
+
+  function onChange(e) {
+    const box = e.target;
+    if (!box || !box.matches || !box.matches("input[data-demo-hide]")) return;
+    applyHide(box);
+    settle();
+    schedulePlace();
+  }
+
+  function resetBoxes(btn) {
+    let scope = null;
+    try { scope = btn.ownerDocument.querySelector(btn.getAttribute("data-demo-reset")); } catch (_) { /* bad selector */ }
+    (scope || btn.ownerDocument).querySelectorAll("input[data-demo-hide]").forEach((box) => { box.checked = true; applyHide(box); });
+    schedulePlace();
   }
 
   document.addEventListener("keydown", (e) => {
