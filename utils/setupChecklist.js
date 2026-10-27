@@ -228,19 +228,21 @@ async function getSetupChecklist(db, organizationId, features = []) {
   const skipped = new Set(skips.rows.map((r) => r.step_key));
   const list = Array.isArray(features) ? features : [];
 
-  const steps = [];
-  for (const step of STEPS) {
-    if (step.feature && !hasFeature(list, step.feature)) continue;
-    let done = false;
-    if (!step.needsTerm || termId) {
-      try {
-        const { rows } = await db.query(step.sql, step.needsTerm ? [organizationId, termId] : [organizationId]);
-        done = Boolean(rows[0] && rows[0].done);
-      } catch (error) {
-        // A table the school doesn't use yet: not done.
-        done = false;
-      }
+  // Each step is its own small check: ask them all at once.
+  const shown = STEPS.filter((step) => !step.feature || hasFeature(list, step.feature));
+  const doneFlags = await Promise.all(shown.map(async (step) => {
+    if (step.needsTerm && !termId) return false;
+    try {
+      const { rows } = await db.query(step.sql, step.needsTerm ? [organizationId, termId] : [organizationId]);
+      return Boolean(rows[0] && rows[0].done);
+    } catch (error) {
+      // A table the school doesn't use yet: not done.
+      return false;
     }
+  }));
+  const steps = [];
+  shown.forEach((step, index) => {
+    const done = doneFlags[index];
     steps.push({
       key: step.key,
       title: step.title,
@@ -250,7 +252,7 @@ async function getSetupChecklist(db, organizationId, features = []) {
       done,
       skipped: !done && !step.required && skipped.has(step.key),
     });
-  }
+  });
   const requiredLeft = steps.filter((s) => s.required && !s.done).length;
   const optionalLeft = steps.filter((s) => !s.required && !s.done && !s.skipped).length;
   const value = {

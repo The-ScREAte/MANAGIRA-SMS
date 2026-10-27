@@ -8432,9 +8432,133 @@ const accountController = {
         }
       }
 
-      const stripeSettings = await getStripeSettings(db).catch(() => ({ mode: 'test' }));
-      const platformFeeSettings = await getPlatformFeeSettings(db).catch(() => ({ percentage: 0 }));
-      await ensureStripeConnectAccountSchema(db);
+      // Most of this page's lookups don't depend on each other. Start them all
+      // now and wait for each one where it's used, instead of one at a time.
+      // (A failure still surfaces at that same place; the empty catch only
+      // stops Node from reporting it as unhandled in the meantime.)
+      const startEarly = (load) => {
+        const pending = Promise.resolve().then(load);
+        pending.catch(() => {});
+        return pending;
+      };
+      const stripeSettingsPending = startEarly(() => getStripeSettings(db).catch(() => ({ mode: 'test' })));
+      const platformFeeSettingsPending = startEarly(() => getPlatformFeeSettings(db).catch(() => ({ percentage: 0 })));
+      const planDetailsPending = startEarly(() => orgId
+        ? db.query(
+            `SELECT o.plan_id, p.plan_name, o.pending_plan_id, o.pending_plan_effective_date, p2.plan_name AS pending_plan_name
+             FROM organizations o
+             JOIN plans p ON o.plan_id = p.id
+             LEFT JOIN plans p2 ON o.pending_plan_id = p2.id
+             WHERE o.organization_id = $1`,
+            [orgId]
+          )
+        : { rows: [] });
+      const plansPending = startEarly(() => orgId
+        ? db.query(`
+            SELECT p.id AS plan_id, p.plan_name, p.description,
+            COALESCE(
+              JSON_AGG(
+                json_build_object('feature_name', f.feature_name)
+                ORDER BY f.feature_name
+              ) FILTER (WHERE f.id IS NOT NULL), '[]'
+            ) AS features,
+            COALESCE(SUM(f.price_usd), 0) AS total_price
+            FROM plans p
+            LEFT JOIN plan_features pf ON p.id = pf.plan_id
+            LEFT JOIN features f ON pf.feature_id = f.id
+            WHERE p.is_active = TRUE
+            GROUP BY p.id, p.plan_name, p.description
+            ORDER BY p.id;
+          `)
+        : { rows: [] });
+      const studentCountPending = startEarly(() => getOrganizationStudentCount(db, orgId));
+      const billingPeriodsPending = startEarly(() => getActivePlanBillingPeriods(db));
+      const userPending = startEarly(() => (userId && orgId)
+        ? db.query(
+            `SELECT first_name, last_name, email, account_type, image_url
+             FROM users 
+             WHERE user_id = $1 AND organization_id = $2`,
+            [userId, orgId]
+          )
+        : { rows: [] });
+      const studentIdSettingsPending = startEarly(async () => {
+        if (!orgId) return {};
+        await ensureStudentIdSettingsSchema(db);
+        const sidResult = await db.query(
+          `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
+           FROM organizations WHERE organization_id = $1`,
+          [orgId]
+        );
+        return sidResult.rows[0] || {};
+      });
+      const nextStudentIdPending = startEarly(async () => {
+        const sid = await studentIdSettingsPending;
+        return orgId
+          ? getNextSuggestedStudentIdNumber(db, orgId, sid.student_id_counter || 0, sid.student_id_start_number || null)
+          : null;
+      });
+      const paystackSubaccountsPending = startEarly(() => orgId
+        ? db.query(
+            `SELECT * FROM paystack_subaccounts` +
+              ` WHERE organization_id = $1` +
+              ` ORDER BY account_type, is_primary DESC, created_at`,
+            [orgId]
+          ).then((result) => result.rows)
+        : []);
+      const storedCardsPending = startEarly(() => (orgId ? getStoredCardPaymentMethods(db, orgId, null) : []));
+      const activeSystemProviderPending = startEarly(() => getActivePaymentProvider());
+      const termBoundsPending = startEarly(() => orgId
+        ? db.query(
+            `
+              SELECT MIN(start_date) AS min_start_date, MAX(end_date) AS max_end_date
+              FROM terms
+              WHERE organization_id = $1
+            `,
+            [orgId]
+          )
+        : { rows: [] });
+      const attendanceProfilePending = startEarly(() => (orgId ? getAttendanceCalendarProfile(db, orgId, null) : null));
+      const dashboardOrderPending = startEarly(() => orgId
+        ? db.query("SELECT order_data FROM organization_dashboard WHERE organization_id = $1", [orgId])
+        : { rows: [] });
+      const latestPaymentPending = startEarly(() => orgId
+        ? db.query(
+            `SELECT p.billing_period_key, p.amount_paid, p.status, p.created_at,
+                    p.is_trial, p.trial_starts_at, p.trial_ends_at, p.next_payment_end_date,
+                    p.failed_attempts, p.last_failed_payment,
+                    dbc.label AS period_label, dbc.months AS period_months, dbc.discount_percentage
+             FROM payments p
+             LEFT JOIN dynamic_billing_cycles dbc ON dbc.cycle_key = p.billing_period_key
+             WHERE p.organization_id = $1
+               AND (p.status IN ('active', 'completed', 'failed') OR $2)
+             ORDER BY p.created_at DESC
+             LIMIT 1`,
+            [orgId, Boolean(req.session.onHoldRestricted)]
+          )
+        : { rows: [] });
+      const userEmailPrefsPending = startEarly(async () => {
+        await ensureEmailPreferencesSchema(db);
+        return userId ? getUserPreferenceMap(db, userId) : {};
+      });
+      const orgEmailPrefsPending = startEarly(async () => {
+        await ensureEmailPreferencesSchema(db);
+        return orgId ? getOrgPreferenceMap(db, orgId) : {};
+      });
+      const orgSwitchRestrictionPending = startEarly(() => getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false })));
+      const stripePublishableKeyPending = startEarly(() => getActiveStripePublicKey());
+      const paystackCountriesPending = startEarly(() => getCachedPaystackCountries().catch(() => []));
+      const payoutContextPending = startEarly(() => orgId
+        ? require("../utils/payoutDestination")
+            .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
+            .catch(() => null)
+        : null);
+      const appInvoicesPending = startEarly(() => (orgId ? listAppInvoices(db, orgId, 12) : []));
+
+      const [stripeSettings, platformFeeSettings] = await Promise.all([
+        stripeSettingsPending,
+        platformFeeSettingsPending,
+        ensureStripeConnectAccountSchema(db),
+      ]);
 
       const orgResult = orgId
         ? await db.query(
@@ -8450,16 +8574,7 @@ const accountController = {
         applyDisplayPreferencesToSession(req.session, orgResult.rows[0]);
       }
 
-      const planDetailsResult = orgId
-        ? await db.query(
-            `SELECT o.plan_id, p.plan_name, o.pending_plan_id, o.pending_plan_effective_date, p2.plan_name AS pending_plan_name
-             FROM organizations o
-             JOIN plans p ON o.plan_id = p.id
-             LEFT JOIN plans p2 ON o.pending_plan_id = p2.id
-             WHERE o.organization_id = $1`,
-            [orgId]
-          )
-        : { rows: [] };
+      const planDetailsResult = await planDetailsPending;
 
       const currentPlan = planDetailsResult.rows.length
         ? {
@@ -8547,27 +8662,9 @@ const accountController = {
         }
       }
 
-      const plansResult = orgId
-        ? await db.query(`
-            SELECT p.id AS plan_id, p.plan_name, p.description,
-            COALESCE(
-              JSON_AGG(
-                json_build_object('feature_name', f.feature_name)
-                ORDER BY f.feature_name
-              ) FILTER (WHERE f.id IS NOT NULL), '[]'
-            ) AS features,
-            COALESCE(SUM(f.price_usd), 0) AS total_price
-            FROM plans p
-            LEFT JOIN plan_features pf ON p.id = pf.plan_id
-            LEFT JOIN features f ON pf.feature_id = f.id
-            WHERE p.is_active = TRUE
-            GROUP BY p.id, p.plan_name, p.description
-            ORDER BY p.id;
-          `)
-        : { rows: [] };
-
-      const organizationStudentCount = await getOrganizationStudentCount(db, orgId);
-      const billingPeriods = await getActivePlanBillingPeriods(db);
+      const plansResult = await plansPending;
+      const organizationStudentCount = await studentCountPending;
+      const billingPeriods = await billingPeriodsPending;
 
       const plans = await Promise.all(
         (plansResult.rows || []).map(async (plan) => {
@@ -8623,12 +8720,7 @@ const accountController = {
 
       let user = null;
       if (userId && orgId) {
-        const userResult = await db.query(
-          `SELECT first_name, last_name, email, account_type, image_url
-           FROM users 
-           WHERE user_id = $1 AND organization_id = $2`,
-          [userId, orgId]
-        );
+        const userResult = await userPending;
         if (userResult.rows.length > 0) {
           user = userResult.rows[0];
         }
@@ -8669,9 +8761,13 @@ const accountController = {
             [orgRow.hub_id]
           )).rows[0];
           if (hubRow) {
-            const assigned = (await db.query('SELECT hub_contact_id FROM organizations WHERE organization_id = $1', [orgId]).catch(() => ({ rows: [] }))).rows[0];
+            const [assignedResult, hubContacts] = await Promise.all([
+              db.query('SELECT hub_contact_id FROM organizations WHERE organization_id = $1', [orgId]).catch(() => ({ rows: [] })),
+              hubAccess.getContacts(db, hubRow.hub_id),
+            ]);
+            const assigned = assignedResult.rows[0];
             const assignedId = assigned && assigned.hub_contact_id;
-            const contacts = (await hubAccess.getContacts(db, hubRow.hub_id))
+            const contacts = hubContacts
               .filter((c) => c.share_with_schools || c.contact_id === assignedId)
               .map((c) => ({ ...c, is_yours: c.contact_id === assignedId }))
               .sort((a, b) => (b.is_yours ? 1 : 0) - (a.is_yours ? 1 : 0));
@@ -8698,24 +8794,8 @@ const accountController = {
       }
 
       // Fetch student ID settings for the Student ID Settings card
-      let studentIdSettings = {};
-      if (orgId) {
-        await ensureStudentIdSettingsSchema(db);
-        const sidResult = await db.query(
-          `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
-           FROM organizations WHERE organization_id = $1`,
-          [orgId]
-        );
-        studentIdSettings = sidResult.rows[0] || {};
-      }
-      const nextAvailableStudentIdNumber = orgId
-        ? await getNextSuggestedStudentIdNumber(
-            db,
-            orgId,
-            studentIdSettings.student_id_counter || 0,
-            studentIdSettings.student_id_start_number || null
-          )
-        : null;
+      const studentIdSettings = await studentIdSettingsPending;
+      const nextAvailableStudentIdNumber = await nextStudentIdPending;
 
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
       const stripeCustomerId = orgRow.stripe_customer_id || null;
@@ -8723,7 +8803,7 @@ const accountController = {
       // example) only that section shows, so the saved cards and invoices
       // (calls to Stripe/Paystack, the slowest part of this page) aren't needed.
       const needsLiveBilling = !(isEmbedded && activeSettingsSection && activeSettingsSection !== 'billing');
-      const activeSystemProvider = await getActivePaymentProvider();
+      const activeSystemProvider = await activeSystemProviderPending;
       const paymentProvider = orgRow.billing_provider || activeSystemProvider || 'paystack';
       let paymentMethods = [];
       let defaultPaymentMethod = null;
@@ -8734,18 +8814,12 @@ const accountController = {
 
       if (orgId) {
         try {
-          const paystackSubaccountsResult = await db.query(
-            `SELECT * FROM paystack_subaccounts` +
-              ` WHERE organization_id = $1` +
-              ` ORDER BY account_type, is_primary DESC, created_at`,
-            [orgId]
-          );
-          paystackSubaccounts = paystackSubaccountsResult.rows;
+          paystackSubaccounts = await paystackSubaccountsPending;
         } catch (err) {
                   }
 
         try {
-          storedCardMethods = await getStoredCardPaymentMethods(db, orgId, null);
+          storedCardMethods = await storedCardsPending;
         } catch (err) {
                   }
       }
@@ -8753,6 +8827,8 @@ const accountController = {
       if (needsLiveBilling && orgId && !isHubMember && stripeCustomerId) {
         try {
           const stripe = await getStripeClient(db);
+          // Saved cards and invoices are separate Stripe calls: ask for both at once.
+          const invoicesPending = startEarly(() => listStripeInvoices(stripe, stripeCustomerId, 12));
           const paymentMethodResult = await stripe.paymentMethods.list({
             customer: stripeCustomerId,
             type: 'card',
@@ -8786,14 +8862,14 @@ const accountController = {
             })
             .map(({ fingerprint, ...rest }) => rest);
 
-          stripeInvoices = await listStripeInvoices(stripe, stripeCustomerId, 12);
+          stripeInvoices = await invoicesPending;
         } catch (_) {
         }
       }
 
       if (orgId && !isHubMember) {
         try {
-          appInvoices = await listAppInvoices(db, orgId, 12);
+          appInvoices = await appInvoicesPending;
         } catch (_) {
           appInvoices = [];
         }
@@ -8892,17 +8968,10 @@ const accountController = {
       let publicDashboardTheme = "classic";
 
       if (orgId) {
-        const orgTermBoundsResult = await db.query(
-          `
-            SELECT MIN(start_date) AS min_start_date, MAX(end_date) AS max_end_date
-            FROM terms
-            WHERE organization_id = $1
-          `,
-          [orgId]
-        );
+        const orgTermBoundsResult = await termBoundsPending;
         orgTermDateBounds = orgTermBoundsResult.rows[0] || null;
 
-        attendanceCalendarProfile = await getAttendanceCalendarProfile(db, orgId, null);
+        attendanceCalendarProfile = await attendanceProfilePending;
 
         if (attendanceCalendarProfile) {
           const shouldRefreshHolidays = activeSettingsSection === "attendance";
@@ -8937,10 +9006,7 @@ const accountController = {
         }
 
         try {
-          const dashRow = await db.query(
-            "SELECT order_data FROM organization_dashboard WHERE organization_id = $1",
-            [orgId]
-          );
+          const dashRow = await dashboardOrderPending;
 
           if (dashRow.rows.length > 0) {
             let raw = dashRow.rows[0].order_data;
@@ -8980,19 +9046,7 @@ const accountController = {
       let billingRetryHistory = [];
       if (orgId) {
         try {
-          const billingResult = await db.query(
-            `SELECT p.billing_period_key, p.amount_paid, p.status, p.created_at,
-                    p.is_trial, p.trial_starts_at, p.trial_ends_at, p.next_payment_end_date,
-                    p.failed_attempts, p.last_failed_payment,
-                    dbc.label AS period_label, dbc.months AS period_months, dbc.discount_percentage
-             FROM payments p
-             LEFT JOIN dynamic_billing_cycles dbc ON dbc.cycle_key = p.billing_period_key
-             WHERE p.organization_id = $1
-               AND (p.status IN ('active', 'completed', 'failed') OR $2)
-             ORDER BY p.created_at DESC
-             LIMIT 1`,
-            [orgId, Boolean(req.session.onHoldRestricted)]
-          );
+          const billingResult = await latestPaymentPending;
           if (billingResult.rows.length > 0) {
             billingInfo = billingResult.rows[0];
 
@@ -9075,11 +9129,10 @@ const accountController = {
       let notificationPrefs = [];
       let savedNotificationPrefs = {};
       try {
-        await ensureEmailPreferencesSchema(db);
         const accountType = (user && user.account_type) || null;
         notificationPrefs = getStaffPreferencesForRole(accountType);
         if (notificationPrefs.length && userId) {
-          savedNotificationPrefs = await getUserPreferenceMap(db, userId);
+          savedNotificationPrefs = await userEmailPrefsPending;
         }
       } catch (_) {
         notificationPrefs = [];
@@ -9093,10 +9146,9 @@ const accountController = {
       let orgNotificationPrefs = [];
       let savedOrgNotificationPrefs = {};
       try {
-        await ensureEmailPreferencesSchema(db);
         orgNotificationPrefs = getOrgPreferences();
         if (orgNotificationPrefs.length && orgId) {
-          savedOrgNotificationPrefs = await getOrgPreferenceMap(db, orgId);
+          savedOrgNotificationPrefs = await orgEmailPrefsPending;
         }
       } catch (_) {
         orgNotificationPrefs = [];
@@ -9175,7 +9227,7 @@ const accountController = {
       // Access, not a real Admin/Mini Admin) gets full org-admin session
       // rights everywhere else — Billing/Security/PayGira here are locked
       // down unless explicitly granted, independent of the checks above.
-      const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false }));
+      const orgSwitchRestriction = await orgSwitchRestrictionPending;
       if (orgSwitchRestriction.isRestricted) {
         canAccessBillingSettings = canAccessBillingSettings && orgSwitchRestriction.flags.canViewBilling;
         canAccessPaygiraSettings = canAccessPaygiraSettings && orgSwitchRestriction.flags.canViewPaygira;
@@ -9190,6 +9242,7 @@ const accountController = {
           resolvedTransportationIntegration,
           resolvedSmsIntegration,
           resolvedMiraIntegration,
+          latestIntegrationActivity,
         ] = await Promise.all([
           getGoogleIntegrationStatus(db, orgId),
           getWhatsappIntegrationStatus(db, orgId),
@@ -9197,6 +9250,18 @@ const accountController = {
           getTransportationIntegrationStatus(db, orgId),
           getSmsIntegrationStatus(db, orgId),
           getMiraIntegrationStatus(db, orgId),
+          getLatestIntegrationActivity(db, orgId, [
+            "Student Portal",
+            "Transportation",
+            "Google Maps",
+            "Maps",
+            "Google Classroom",
+            "WhatsApp",
+            "Arkesel SMS",
+            "Africa's Talking SMS",
+            "Twilio SMS",
+            "Mira",
+          ]).catch(() => ({})),
         ]);
         googleIntegration = resolvedGoogleIntegration;
         whatsappIntegration = initialWhatsappIntegration;
@@ -9205,18 +9270,7 @@ const accountController = {
         smsIntegration = resolvedSmsIntegration;
         miraIntegration = resolvedMiraIntegration;
 
-        integrationActivity = await getLatestIntegrationActivity(db, orgId, [
-          "Student Portal",
-          "Transportation",
-          "Google Maps",
-          "Maps",
-          "Google Classroom",
-          "WhatsApp",
-          "Arkesel SMS",
-          "Africa's Talking SMS",
-          "Twilio SMS",
-          "Mira",
-        ]).catch(() => ({}));
+        integrationActivity = latestIntegrationActivity;
 
         if (
           whatsappIntegration &&
@@ -9239,14 +9293,9 @@ const accountController = {
         defaultRecipient: "",
       };
 
-      const payoutDestinationUtils = require("../utils/payoutDestination");
       const [payoutContext, paystackCountries] = await Promise.all([
-        orgId
-          ? payoutDestinationUtils
-              .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
-              .catch(() => null)
-          : Promise.resolve(null),
-        getCachedPaystackCountries().catch(() => []),
+        payoutContextPending,
+        paystackCountriesPending,
       ]);
 
       const isOnHoldRestricted = Boolean(req.session.onHoldRestricted);
@@ -9273,7 +9322,7 @@ const accountController = {
         paymentMethods,
         paymentProvider,
         defaultPaymentMethod,
-        stripePublishableKey: await getActiveStripePublicKey(),
+        stripePublishableKey: await stripePublishableKeyPending,
         stripeInvoices,
         appInvoices,
         paystackSubaccounts,

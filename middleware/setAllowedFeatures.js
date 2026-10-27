@@ -6,11 +6,17 @@ const ALLOWED_FEATURES_CACHE_TTL_SEC = Number(process.env.ALLOWED_FEATURES_CACHE
 
 const setAllowedFeatures = async (req, res, next) => {
     res.locals.allowedFeatures = []; // Always ensure it's an array
-    req.session.allowedFeatures = [];
 
     if (!req.session.organizationId) {
+        // Leave a visitor's untouched session alone: writing to it makes
+        // express-session store it, one database row per anonymous request
+        // (website visitors, crawlers, health checks).
+        if (Array.isArray(req.session.allowedFeatures) && req.session.allowedFeatures.length) {
+            req.session.allowedFeatures = [];
+        }
         return next(); // Continue without breaking
     }
+    req.session.allowedFeatures = [];
 
     try {
         const planContext = await resolvePlanForOrganization(db, req.session.organizationId);

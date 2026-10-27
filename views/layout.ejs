@@ -76,7 +76,7 @@
          reserved for the handful of hub shells that host an iframe AND
          poll its geometry/position (managementTools, reportsHub,
          admissionsHub, mailroom) - CSS zoom throws off that math. -->
-    <link rel="stylesheet" href="/css/globalScale.css">
+    <link rel="stylesheet" href="<%= assetUrl('/css/globalScale.css') %>">
     <% } %>
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>

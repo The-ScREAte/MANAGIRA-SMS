@@ -282,18 +282,18 @@
     %>;
   </script>
   
-  <script src="/js/turbo-init.js"></script>
-  <script src="/js/spa-router.js" defer></script>
-  <script src="/js/spa-user-info.js" defer></script>
-  <script src="/js/globalTableSort.js" defer></script>
-  <script src="/js/script.js" defer></script>
-  <script src="/js/index.js" defer></script>
-  <script src="/js/classDashboard.js" defer></script>
-  <script src="/js/manageRecords.js" defer></script>
-  <script src="/js/createEmployee.js" defer></script>
-  <script src="/js/management.js" defer></script>
+  <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>
+  <script src="<%= assetUrl('/js/spa-router.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/spa-user-info.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/globalTableSort.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/script.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/index.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/classDashboard.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/manageRecords.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/createEmployee.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/management.js') %>" defer></script>
   <% if (!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) { %>
-  <script src="/js/chatbot.js?v=3" defer></script>
+  <script src="<%= assetUrl('/js/chatbot.js') %>" defer></script>
   <% } %>
 
   <!-- PWA: register service worker (static assets, and workspace panels you come back to; never intercepts auth or API) -->

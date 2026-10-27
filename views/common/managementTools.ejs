@@ -571,13 +571,13 @@
         <% if (hasTransportationIntegration) { %>
         <li>
           <a class="nav-link" href="/transportation/manage" data-no-spa data-section="transportation" data-embed-url="/transportation/manage" data-embed-label="Transportation">
-            <span class="nav-link-icon"><img src="/images/transportation-logo.png" alt="Transportation" /></span>
+            <span class="nav-link-icon"><img src="/images/icons/transportation-logo-256.png" alt="Transportation" /></span>
             <span>Transportation</span>
           </a>
         </li>
         <% } %>
         <% if (!hasTransportationIntegration || !hasMiraIntegration) { %>
-        <% [!hasTransportationIntegration && { name: 'Transportation', icon: '/images/transportation-logo.png' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: '/images/miralogo.png' }].filter(Boolean).forEach(function (off) { %>
+        <% [!hasTransportationIntegration && { name: 'Transportation', icon: '/images/icons/transportation-logo-256.png' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: '/images/icons/miralogo-256.png' }].filter(Boolean).forEach(function (off) { %>
         <li>
           <a class="nav-link nav-link--off" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations" title="<%= off.name %> isn't turned on. Turn it on in Integrations.">
             <span class="nav-link-icon"><img src="<%= off.icon %>" alt="" /></span>
@@ -589,7 +589,7 @@
         <% if (hasMiraIntegration) { %>
         <li>
           <a class="nav-link" href="/account/mira" data-no-spa data-section="mira" data-embed-url="/account/mira" data-embed-label="Mira">
-            <span class="nav-link-icon"><img src="/images/miralogo.png" alt="Mira" /></span>
+            <span class="nav-link-icon"><img src="/images/icons/miralogo-256.png" alt="Mira" /></span>
             <span>Mira (AI Assistant)</span>
           </a>
         </li>
@@ -745,7 +745,7 @@
       <section class="management-section" id="mira">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
-            <img src="/images/miralogo.png" alt="" style="width:40px;height:40px;border-radius:50%;" />
+            <img src="/images/icons/miralogo-256.png" alt="" style="width:40px;height:40px;border-radius:50%;" />
             <p>Loading Mira…</p>
           </div>
         </div>

@@ -58,7 +58,13 @@ const pool = new Pool({
   // hop + large form submissions like promotion scheduling) avoid queueing
   // on a small pool.
   max: parseInt(process.env.DB_POOL_MAX || '30', 10),
+  // Keep a few connections open between visits: opening one costs a TLS
+  // handshake, which made the first page after a quiet spell noticeably slow.
+  // Only connections above this number close after 30 s idle.
+  min: parseInt(process.env.DB_POOL_MIN || '6', 10),
   idleTimeoutMillis: 30000,
+  // Idle connections don't keep a script alive; the server stays up anyway.
+  allowExitOnIdle: true,
   connectionTimeoutMillis: 10000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
@@ -131,7 +137,33 @@ async function queryWithRetry(args) {
   }
 }
 
+// Pages keep their tables up to date as they load (CREATE TABLE/INDEX IF NOT
+// EXISTS, ALTER TABLE ... ADD COLUMN IF NOT EXISTS, DO blocks). Once one of
+// these has succeeded in this process, running it again changes nothing, yet
+// ALTER TABLE still takes the table's strongest lock: it waits for any slow
+// query on that table and every other query then queues behind it. So each
+// statement runs once per process; repeats (and concurrent copies) share it.
+const SCHEMA_SQL = /^\s*(create\s+(unique\s+)?index\s+(concurrently\s+)?if\s+not\s+exists|create\s+(table|sequence|extension)\s+if\s+not\s+exists|alter\s+table\b|do\s+\$)/i;
+const schemaRuns = new Map();
+
+function runSchemaOnce(args) {
+  const sql = typeof args[0] === 'string' ? args[0] : '';
+  const hasValues = args.length > 1 && typeof args[1] !== 'function' && !(Array.isArray(args[1]) && args[1].length === 0);
+  if (!sql || hasValues || typeof args[args.length - 1] === 'function' || !SCHEMA_SQL.test(sql)) return null;
+  let run = schemaRuns.get(sql);
+  if (!run) {
+    run = queryWithRetry(args).catch((error) => {
+      schemaRuns.delete(sql);
+      throw error;
+    });
+    schemaRuns.set(sql, run);
+  }
+  return run;
+}
+
 pool.query = async (...args) => {
+  const schemaRun = runSchemaOnce(args);
+  if (schemaRun) return schemaRun;
   const startedAt = process.hrtime.bigint();
   try {
     return await queryWithRetry(args);

@@ -635,12 +635,56 @@ app.get("/llms-full.txt", serveAiText(aiDiscovery.llmsFullTxt));
 app.use(compression());
 app.use(createRequestLatencyMonitor());
 
+// These answer before express.static (which would otherwise serve the service
+// worker and manifest with its one-day cache) and before the session middleware.
+// Service worker — must be served with no-cache headers so the browser always
+// picks up the latest version and the SW scope is correct (root of the app).
+app.get("/service-worker.js", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.sendFile(path.join(__dirname, "public", "service-worker.js"));
+});
+
+// Web app manifest — explicit route ensures correct MIME type on all hosts
+// (some CDNs/proxies serve .webmanifest as text/plain which breaks PWA install)
+app.get("/images/favicon_io/site.webmanifest", (req, res) => {
+  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.sendFile(path.join(__dirname, "public", "images", "favicon_io", "site.webmanifest"));
+});
+
+// Health check endpoint for keep-alive pings
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
 // Static files with long-term caching should bypass session middleware.
+// A URL from assetUrl() carries the file's content hash (?v=...): it changes
+// whenever the file does, so that copy can be kept for a year. Anything else,
+// including hand-written ?v=2 links, keeps the one-day cache.
+const { assetUrl: versionedAssetUrl } = require("./utils/assetUrl");
 app.use(express.static("public", {
   maxAge: '1d',
   etag: true,
-  lastModified: true
+  lastModified: true,
+  setHeaders: (res) => {
+    const req = res.req;
+    const version = req && req.query && req.query.v;
+    if (typeof version === "string" && version && versionedAssetUrl(req.path) === `${req.path}?v=${version}`) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    }
+  },
 }));
+
+// The shared stylesheet bundle is a static file too: serve it here, before the
+// session and the per-request database lookups (it used to run all of them,
+// and gave first-time visitors a session just for fetching a stylesheet).
+const { cssBundleUrl, serveCssBundle } = require("./utils/cssBundle");
+app.get("/css/:name.css", serveCssBundle);
 
 // Older school logos are still read from /uploads. That folder is also where every
 // upload waits before it goes to S3 (documents, captures, student files), so only
@@ -892,9 +936,7 @@ app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
 app.locals.brandColorChoices = require("./utils/themePalette").BRAND_COLOR_OPTIONS;
 app.locals.footerPaletteFor = require("./utils/themePalette").footerPaletteFor;
 app.locals.canSeeSetupSteps = require("./utils/setupChecklist").canSeeSetupSteps;
-const { cssBundleUrl, serveCssBundle } = require("./utils/cssBundle");
 app.locals.cssBundleUrl = cssBundleUrl;
-app.get("/css/:name.css", serveCssBundle);
 // Phone browsers zoom the page into a form field (sign-in, search, any form)
 // when it is tapped. maximum-scale=1 stops that on every browser; on iPhone and
 // iPad people can still pinch to zoom. Every page reads it as
@@ -915,22 +957,6 @@ app.get("/r/:code", async (req, res) => {
   } catch (error) {
     return res.status(500).send("Unable to open this link right now.");
   }
-});
-
-// Service worker — must be served with no-cache headers so the browser always
-// picks up the latest version and the SW scope is correct (root of the app).
-app.get("/service-worker.js", (req, res) => {
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-  res.sendFile(path.join(__dirname, "public", "service-worker.js"));
-});
-
-// Web app manifest — explicit route ensures correct MIME type on all hosts
-// (some CDNs/proxies serve .webmanifest as text/plain which breaks PWA install)
-app.get("/images/favicon_io/site.webmanifest", (req, res) => {
-  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.sendFile(path.join(__dirname, "public", "images", "favicon_io", "site.webmanifest"));
 });
 
 // Dynamic favicon for subdomains: root domain keeps default favicon,
@@ -1129,15 +1155,6 @@ app.use("/notifications", notificationsRoute);
 
 // Admin feedback requests and announcements for signed-in school users
 app.use("/notices", require("./routes/noticesRoute"));
-
-// Health check endpoint for keep-alive pings
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
 
 // Only list a school's subdomain in the sitemap if its plan actually has the
 // "School Website" feature active — otherwise the public URL just renders a
@@ -1364,7 +1381,10 @@ const logServerHostInfo = (port) => {
 
 const logStartupDbStatus = async () => {
   try {
-    await db.query('SELECT 1');
+    // Open the pool's standing connections now, so the first visitors don't
+    // wait for them.
+    const warmConnections = Math.max(1, Number(db.options && db.options.min) || 1);
+    await Promise.all(Array.from({ length: warmConnections }, () => db.query('SELECT 1')));
     // Pre-warm the permissions schema DDL once at startup so the Promise
     // singleton is already settled before any HTTP request arrives.
     // This prevents the double-log caused by two concurrent first callers.

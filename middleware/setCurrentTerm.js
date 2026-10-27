@@ -19,7 +19,7 @@ module.exports = async function setCurrentTerm(req, res, next) {
   try {
     const termResult = await db.query(
       `
-        SELECT t.term_id, t.term_name, t.start_date, t.end_date
+        SELECT t.term_id, t.term_name, t.start_date, t.end_date, t.school_year_id
         FROM terms t
         JOIN school_years sy ON t.school_year_id = sy.id
         WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE

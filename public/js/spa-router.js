@@ -226,6 +226,10 @@
 
       // Track in-flight preloads so we can cap concurrency and dedupe.
       this._preloadsInFlight = new Set();
+      // path -> promise of the preloaded HTML (null if it failed), so a click
+      // on a page that is still preloading waits for it instead of asking the
+      // server for the same page a second time.
+      this._preloadRequests = new Map();
       // Track in-flight navigation fetches keyed by path (request dedupe).
       this._pendingNavigations = new Map();
       // Spinner-delay timer (set by _showProgress, cleared by _hideProgress).
@@ -540,6 +544,14 @@
 
       try {
         let html = noCache ? null : this.cache.get(normalizedPath);
+
+        if (!html && !noCache && this._preloadRequests.has(normalizedPath)) {
+          // Wait a few seconds at most; a preload that stalls is asked for again.
+          html = await Promise.race([
+            this._preloadRequests.get(normalizedPath),
+            new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+          ]);
+        }
 
         if (!html) {
           this.abortController = new AbortController();
@@ -1098,6 +1110,10 @@
     // ── Preloading ────────────────────────────────────────────────────
 
     _preload(path) {
+      // A workspace pane (iframe) never navigates through the router, so a
+      // page it preloads is never used: with three panes open that was four
+      // copies of every priority page fetched on each load.
+      if (window.self !== window.top) return;
       const normalized = this._normalizePath(path);
       if (this._isNoCache(normalized)) return;
       if (this.cache.has(normalized)) return;
@@ -1106,7 +1122,7 @@
 
       this._preloadsInFlight.add(normalized);
 
-      fetch(path, {
+      const request = fetch(path, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'text/html',
@@ -1118,9 +1134,13 @@
           if (res.ok) return res.text();
           throw new Error('Preload failed');
         })
-        .then(html => this._cacheSet(normalized, html))
-        .catch(() => { /* Silently fail preloads */ })
-        .finally(() => { this._preloadsInFlight.delete(normalized); });
+        .then(html => { this._cacheSet(normalized, html); return html; })
+        .catch(() => null /* Silently fail preloads */)
+        .finally(() => {
+          this._preloadsInFlight.delete(normalized);
+          this._preloadRequests.delete(normalized);
+        });
+      this._preloadRequests.set(normalized, request);
     }
 
     // Data saver on, or a 2G/3G connection: background warm-up is skipped

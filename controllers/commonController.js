@@ -3491,6 +3491,16 @@ const commonController = {
       const url = req.url;
       const isSuperAdminSwitch = req.session.superAdminOrgSwitch;
 
+      // The logo and "Home" land here. setCurrentTerm has already found the
+      // current term, so show its dashboard straight away instead of
+      // redirecting (a redirect is a second full request).
+      const knownTerm = res.locals.currentTerm;
+      if (knownTerm && knownTerm.school_year_id && knownTerm.term_id) {
+        req.params.schoolYearId = String(knownTerm.school_year_id);
+        req.params.termId = String(knownTerm.term_id);
+        return commonController.orgDashboardRestricted(req, res, db);
+      }
+
       const orgCountryResult = await db.query(
         "SELECT organization_country FROM organizations WHERE organization_id = $1",
         [organizationId]
@@ -3673,15 +3683,6 @@ const commonController = {
         return res.redirect("/");
       }
 
-      const orgCountryResult = await db.query(
-        "SELECT organization_country FROM organizations WHERE organization_id = $1",
-        [organizationId]
-      );
-      const dashboardCountryCode = String(orgCountryResult.rows[0]?.organization_country || "")
-        .trim()
-        .toUpperCase();
-      const dashboardCountryName = COUNTRY_NAME_LOOKUP[dashboardCountryCode] || dashboardCountryCode || "";
-
       const url = req.url;
       const { schoolYearId, termId } = req.params;
       const userSession = req.session.user || req.session.orgUser;
@@ -3691,32 +3692,42 @@ const commonController = {
         (userSession ? userSession.user_id || userSession.organization_id : null);
       const isOrgAccount = !!req.session.orgUser;
 
+      // These three lookups don't depend on each other: run them together.
+      const [orgCountryResult, roleResult, schoolYearResult] = await Promise.all([
+        db.query(
+          "SELECT organization_country FROM organizations WHERE organization_id = $1",
+          [organizationId]
+        ),
+        currentUserId && !isOrgAccount
+          ? db.query(
+              "SELECT account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1",
+              [currentUserId, organizationId]
+            )
+          : Promise.resolve({ rows: [] }),
+        db.query(
+          `
+            SELECT sy.id as school_year_id, sy.year_label, t.term_id, t.term_name, t.start_date, t.end_date, t.current
+            FROM school_years sy
+            LEFT JOIN terms t ON sy.id = t.school_year_id
+            WHERE sy.id = $1 AND t.term_id = $2 AND sy.organization_id = $3
+          `,
+          [schoolYearId, termId, organizationId]
+        ),
+      ]);
+      const dashboardCountryCode = String(orgCountryResult.rows[0]?.organization_country || "")
+        .trim()
+        .toUpperCase();
+      const dashboardCountryName = COUNTRY_NAME_LOOKUP[dashboardCountryCode] || dashboardCountryCode || "";
+
       let effectiveDashboardRole = String(req.session.userRole || "").trim().toLowerCase();
-      if (currentUserId && !isOrgAccount) {
-        const roleResult = await db.query(
-          "SELECT account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1",
-          [currentUserId, organizationId]
-        );
-        if (roleResult.rows.length > 0 && roleResult.rows[0].account_type) {
-          effectiveDashboardRole = String(roleResult.rows[0].account_type).trim().toLowerCase();
-        }
+      if (roleResult.rows.length > 0 && roleResult.rows[0].account_type) {
+        effectiveDashboardRole = String(roleResult.rows[0].account_type).trim().toLowerCase();
       }
 
       const shouldRestrictToAssignedClasses =
         effectiveDashboardRole === "teacher" ||
         effectiveDashboardRole === "supervisor" ||
         effectiveDashboardRole === "superviser";
-
-      // Fetch current school year and term
-      const schoolYearResult = await db.query(
-        `
-          SELECT sy.id as school_year_id, sy.year_label, t.term_id, t.term_name, t.start_date, t.end_date, t.current
-          FROM school_years sy
-          LEFT JOIN terms t ON sy.id = t.school_year_id
-          WHERE sy.id = $1 AND t.term_id = $2 AND sy.organization_id = $3
-        `,
-        [schoolYearId, termId, organizationId]
-      );
 
       let schoolYear = null;
       let currentTerm = null;
@@ -3743,195 +3754,202 @@ const commonController = {
         return res.redirect("/common/orgDashboard");
       }
 
-      let todayAttendanceStatus = null;
-
+      // Everything below needs only the term, so it loads in parallel: today's
+      // attendance status, the term's classes, events, announcements, this
+      // person's activity, the next term and the header details.
       // Build today's attendance status label (weekend/holiday/manual/school day)
       // using the same source data as attendance collection.
-      try {
-        await ensureAttendanceCalendarSchema(db);
-        const attendanceCalendarProfile = await getAttendanceCalendarProfile(
-          db,
-          organizationId,
-          currentTerm.term_id
-        );
-
-        if (attendanceCalendarProfile) {
-          const attendanceCalendarDays = await getAttendanceCalendarDays(
+      const todayAttendanceStatusPromise = (async () => {
+        try {
+          await ensureAttendanceCalendarSchema(db);
+          const attendanceCalendarProfile = await getAttendanceCalendarProfile(
             db,
-            attendanceCalendarProfile.calendar_id,
-            currentTerm.start_date,
-            currentTerm.end_date
+            organizationId,
+            currentTerm.term_id
           );
-          const dayMap = buildCalendarDayMap(attendanceCalendarDays);
-          const todayKey = toDateKey(new Date());
-          const matchedDay = dayMap.get(todayKey);
 
-          let label = "School Day";
-          let countsForAttendance = true;
-
-          if (matchedDay && String(matchedDay.source || "").toLowerCase() === "manual") {
-            countsForAttendance = Boolean(matchedDay.counts_for_attendance);
-            label = matchedDay.label || (countsForAttendance ? "School Day" : "Excluded");
-          } else if (
-            matchedDay &&
-            String(matchedDay.source || "").toLowerCase() === "public_holiday" &&
-            Boolean(attendanceCalendarProfile.include_public_holidays)
-          ) {
-            label = matchedDay.label || "Public Holiday";
-            countsForAttendance = false;
-          } else {
-            const weekendDays = new Set(
-              ((attendanceCalendarProfile && attendanceCalendarProfile.weekend_days) || [])
-                .map((day) => Number(day))
-                .filter((day) => Number.isInteger(day))
+          if (attendanceCalendarProfile) {
+            const attendanceCalendarDays = await getAttendanceCalendarDays(
+              db,
+              attendanceCalendarProfile.calendar_id,
+              currentTerm.start_date,
+              currentTerm.end_date
             );
-            const todayDow = new Date(`${todayKey}T00:00:00.000Z`).getUTCDay();
+            const dayMap = buildCalendarDayMap(attendanceCalendarDays);
+            const todayKey = toDateKey(new Date());
+            const matchedDay = dayMap.get(todayKey);
 
-            if (weekendDays.has(todayDow)) {
-              label = "Weekend";
+            let label = "School Day";
+            let countsForAttendance = true;
+
+            if (matchedDay && String(matchedDay.source || "").toLowerCase() === "manual") {
+              countsForAttendance = Boolean(matchedDay.counts_for_attendance);
+              label = matchedDay.label || (countsForAttendance ? "School Day" : "Excluded");
+            } else if (
+              matchedDay &&
+              String(matchedDay.source || "").toLowerCase() === "public_holiday" &&
+              Boolean(attendanceCalendarProfile.include_public_holidays)
+            ) {
+              label = matchedDay.label || "Public Holiday";
               countsForAttendance = false;
+            } else {
+              const weekendDays = new Set(
+                ((attendanceCalendarProfile && attendanceCalendarProfile.weekend_days) || [])
+                  .map((day) => Number(day))
+                  .filter((day) => Number.isInteger(day))
+              );
+              const todayDow = new Date(`${todayKey}T00:00:00.000Z`).getUTCDay();
+
+              if (weekendDays.has(todayDow)) {
+                label = "Weekend";
+                countsForAttendance = false;
+              }
             }
+
+            return {
+              label,
+              countsForAttendance,
+            };
           }
-
-          todayAttendanceStatus = {
-            label,
-            countsForAttendance,
-          };
+          return null;
+        } catch (_calendarError) {
+          return null;
         }
-      } catch (_calendarError) {
-        todayAttendanceStatus = null;
-      }
-
-      let classes = [];
-
-      await ensureClassDashboardLayoutSchema(db);
+      })();
 
       req.session.currentTermId = currentTerm.term_id;
-      // ...removed log for clean background operation...
-      // ...removed log for clean background operation...
 
-      if (!currentUserId) {
-        // ...removed error log for clean background operation...
-      }
+      const classesPromise = (async () => {
+        let classes = [];
 
-      const activeEnrollmentResult = await db.query(
-        `
-          SELECT enrollment_id
-          FROM enrollments
-          WHERE term_id = $1
-            AND school_year_id = $2
-            AND organization_id = $3
-          ORDER BY enrollment_id ASC
-          LIMIT 1
-        `,
-        [termId, schoolYearId, organizationId]
-      );
-      const activeEnrollmentId = Number(activeEnrollmentResult.rows[0]?.enrollment_id) || null;
+        await ensureClassDashboardLayoutSchema(db);
+        // ...removed log for clean background operation...
+        // ...removed log for clean background operation...
 
-      const enrolledClassesResult = activeEnrollmentId
-        ? await db.query(
+        if (!currentUserId) {
+          // ...removed error log for clean background operation...
+        }
+
+        const activeEnrollmentResult = await db.query(
+          `
+            SELECT enrollment_id
+            FROM enrollments
+            WHERE term_id = $1
+              AND school_year_id = $2
+              AND organization_id = $3
+            ORDER BY enrollment_id ASC
+            LIMIT 1
+          `,
+          [termId, schoolYearId, organizationId]
+        );
+        const activeEnrollmentId = Number(activeEnrollmentResult.rows[0]?.enrollment_id) || null;
+
+        const enrolledClassesResult = activeEnrollmentId
+          ? await db.query(
+              `
+                SELECT DISTINCT ec.class_id
+                FROM enrolled_classes ec
+                WHERE ec.enrollment_id = $1
+              `,
+              [activeEnrollmentId]
+            )
+          : { rows: [] };
+        const enrolledClassIdSet = new Set(
+          enrolledClassesResult.rows
+            .map((row) => Number(row.class_id))
+            .filter((classId) => Number.isInteger(classId))
+        );
+
+        if (shouldRestrictToAssignedClasses) {
+          const teacherClassesResult = await db.query(
             `
-              SELECT DISTINCT ec.class_id
-              FROM enrolled_classes ec
-              WHERE ec.enrollment_id = $1
+              SELECT uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
+                  json_agg(
+                      json_build_object(
+                          'user_id', u.user_id,
+                          'first_name', u.first_name,
+                          'last_name', u.last_name,
+                          'name', u.first_name || ' ' || u.last_name,
+                          'main', uc.main,
+                          'on_hold', u.on_hold,
+                          'reset_password_token', u.reset_password_token
+                      ) ORDER BY u.user_id
+                  ) AS employees
+              FROM user_classes uc
+              INNER JOIN classes c ON uc.class_id = c.class_id
+              INNER JOIN users u ON u.user_id = uc.user_id
+              WHERE uc.class_id IN (
+                  SELECT class_id FROM user_classes WHERE user_id = $1
+              )
+              AND u.organization_id = $2
+              GROUP BY uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
+              ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, uc.class_id ASC
             `,
+            [currentUserId, organizationId]
+          );
+
+          const assignedClasses = teacherClassesResult.rows;
+
+          // Match assigned classes with enrolled classes for this selected term.
+          classes = assignedClasses.filter((cls) =>
+            enrolledClassIdSet.has(Number(cls.class_id))
+          );
+        } else {
+          // Fetch all enrolled classes for manager-like roles
+          const termEnrolledClassesResult = activeEnrollmentId
+            ? await db.query(
+            `
+                      SELECT c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
+                      json_agg(
+                          json_build_object(
+                              'user_id', u.user_id,
+                              'first_name', u.first_name,
+                              'last_name', u.last_name,
+                              'name', u.first_name || ' ' || u.last_name,
+                              'main', uc.main,
+                              'on_hold', u.on_hold,
+                              'reset_password_token', u.reset_password_token
+                          ) ORDER BY u.user_id
+                      ) AS employees
+                  FROM enrolled_classes ec
+                  INNER JOIN classes c ON ec.class_id = c.class_id
+                  LEFT JOIN user_classes uc ON c.class_id = uc.class_id
+                  LEFT JOIN users u ON u.user_id = uc.user_id
+                  WHERE ec.enrollment_id = $1
+                  GROUP BY c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
+                  ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
+
+                  `,
             [activeEnrollmentId]
           )
-        : { rows: [] };
-      const enrolledClassIdSet = new Set(
-        enrolledClassesResult.rows
-          .map((row) => Number(row.class_id))
-          .filter((classId) => Number.isInteger(classId))
-      );
+            : { rows: [] };
+          classes = termEnrolledClassesResult.rows;
+        }
 
-      if (shouldRestrictToAssignedClasses) {
-        const teacherClassesResult = await db.query(
-          `
-            SELECT uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
-                json_agg(
-                    json_build_object(
-                        'user_id', u.user_id,
-                        'first_name', u.first_name,
-                        'last_name', u.last_name,
-                        'name', u.first_name || ' ' || u.last_name,
-                        'main', uc.main,
-                        'on_hold', u.on_hold,
-                        'reset_password_token', u.reset_password_token
-                    ) ORDER BY u.user_id
-                ) AS employees
-            FROM user_classes uc
-            INNER JOIN classes c ON uc.class_id = c.class_id
-            INNER JOIN users u ON u.user_id = uc.user_id
-            WHERE uc.class_id IN (
-                SELECT class_id FROM user_classes WHERE user_id = $1
-            )
-            AND u.organization_id = $2
-            GROUP BY uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
-            ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, uc.class_id ASC
-          `,
-          [currentUserId, organizationId]
-        );
-
-        const assignedClasses = teacherClassesResult.rows;
-
-        // Match assigned classes with enrolled classes for this selected term.
-        classes = assignedClasses.filter((cls) =>
+        // Hard gate: dashboard must only include classes enrolled for selected term/year.
+        classes = (classes || []).filter((cls) =>
           enrolledClassIdSet.has(Number(cls.class_id))
         );
-      } else {
-        // Fetch all enrolled classes for manager-like roles
-        const termEnrolledClassesResult = activeEnrollmentId
-          ? await db.query(
-          `
-                    SELECT c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
-                    json_agg(
-                        json_build_object(
-                            'user_id', u.user_id,
-                            'first_name', u.first_name,
-                            'last_name', u.last_name,
-                            'name', u.first_name || ' ' || u.last_name,
-                            'main', uc.main,
-                            'on_hold', u.on_hold,
-                            'reset_password_token', u.reset_password_token
-                        ) ORDER BY u.user_id
-                    ) AS employees
-                FROM enrolled_classes ec
-                INNER JOIN classes c ON ec.class_id = c.class_id
-                LEFT JOIN user_classes uc ON c.class_id = uc.class_id
-                LEFT JOIN users u ON u.user_id = uc.user_id
-                WHERE ec.enrollment_id = $1
-                GROUP BY c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
-                ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
 
-                `,
-          [activeEnrollmentId]
-        )
-          : { rows: [] };
-        classes = termEnrolledClassesResult.rows;
-      }
-
-      // Hard gate: dashboard must only include classes enrolled for selected term/year.
-      classes = (classes || []).filter((cls) =>
-        enrolledClassIdSet.has(Number(cls.class_id))
-      );
-
-      classes = (classes || []).map((cls) => ({
-        ...cls,
-        employees: Array.isArray(cls.employees)
-          ? cls.employees
-              .filter(Boolean)
-              .map((employee) => ({
-                ...employee,
-                name:
-                  formatDisplayName(employee, orgNameDisplayFormat) ||
-                  employee.name ||
-                  [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim(),
-              }))
-          : [],
-      }));
+        classes = (classes || []).map((cls) => ({
+          ...cls,
+          employees: Array.isArray(cls.employees)
+            ? cls.employees
+                .filter(Boolean)
+                .map((employee) => ({
+                  ...employee,
+                  name:
+                    formatDisplayName(employee, orgNameDisplayFormat) ||
+                    employee.name ||
+                    [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim(),
+                }))
+            : [],
+        }));
+        return classes;
+      })();
 
       // Events and announcements
-      const eventsResult = await db.query(
+      const eventsPromise = db.query(
         `
           SELECT * FROM school_events 
           WHERE organization_id = $1 
@@ -3940,9 +3958,8 @@ const commonController = {
         `,
         [organizationId]
       );
-      const events = eventsResult.rows;
 
-      const announcementsResult = await db.query(
+      const announcementsPromise = db.query(
         `
           SELECT * FROM announcements 
           WHERE organization_id = $1 
@@ -3951,16 +3968,81 @@ const commonController = {
         `,
         [organizationId]
       );
-      const announcements = announcementsResult.rows;
 
       // Tasks and tagged events for this person ("Activity & Announcements").
-      const viewerActivity = await loadViewerActivity(db, {
+      const viewerActivityPromise = loadViewerActivity(db, {
         organizationId: Number(organizationId),
         actorId: resolveWorkspaceActor(req).id,
       }).catch((err) => {
         console.error("[orgDashboard] activity failed:", err.message);
         return null;
       });
+
+      let orgHeaderName = null;
+      let orgHeaderLogo = null;
+      let orgHeaderNickname = null;
+      let orgHeaderNicknameDisplay = null;
+      let nextTermSuggestion = null;
+
+      const nextTermPromise = currentTerm && currentTerm.end_date
+        ? db.query(
+          `
+            SELECT
+              t.term_id,
+              t.term_name,
+              t.school_year_id,
+              sy.year_label,
+              t.start_date,
+              t.end_date
+            FROM terms t
+            JOIN school_years sy ON sy.id = t.school_year_id
+            WHERE t.organization_id = $1
+              AND t.start_date > $2::date
+            ORDER BY t.start_date ASC
+            LIMIT 1
+          `,
+          [organizationId, currentTerm.end_date]
+        )
+        : Promise.resolve({ rows: [] });
+      const orgHeaderPromise = req.session.superAdminOrgSwitch
+        ? db.query(
+            "SELECT organization_name, logo, nickname, nickname_display FROM organizations WHERE organization_id = $1",
+            [organizationId]
+          )
+        : Promise.resolve(null);
+
+      const [
+        todayAttendanceStatus,
+        classes,
+        eventsResult,
+        announcementsResult,
+        viewerActivity,
+        nextTermResult,
+        orgResult,
+        workspaceMember,
+      ] = await Promise.all([
+        todayAttendanceStatusPromise,
+        classesPromise,
+        eventsPromise,
+        announcementsPromise,
+        viewerActivityPromise,
+        nextTermPromise,
+        orgHeaderPromise,
+        isWorkspaceMember(db, req),
+      ]);
+      const events = eventsResult.rows;
+      const announcements = announcementsResult.rows;
+      if (nextTermResult.rows.length > 0) {
+        nextTermSuggestion = nextTermResult.rows[0];
+      }
+      if (orgResult) {
+        if (orgResult.rows.length > 0) {
+          orgHeaderName = orgResult.rows[0].organization_name;
+          orgHeaderLogo = orgResult.rows[0].logo;
+          orgHeaderNickname = orgResult.rows[0].nickname;
+          orgHeaderNicknameDisplay = (orgResult.rows[0].nickname_display && String(orgResult.rows[0].nickname_display).trim()) || orgResult.rows[0].nickname;
+        }
+      }
 
       // Numbers, alerts and recent activity (each gated by permission; activity scoped by role).
       let dashboardInsights = null;
@@ -3982,49 +4064,6 @@ const commonController = {
         }).catch(() => null);
       }
 
-      let orgHeaderName = null;
-      let orgHeaderLogo = null;
-      let orgHeaderNickname = null;
-      let orgHeaderNicknameDisplay = null;
-      let nextTermSuggestion = null;
-
-      if (currentTerm && currentTerm.end_date) {
-        const nextTermResult = await db.query(
-          `
-            SELECT
-              t.term_id,
-              t.term_name,
-              t.school_year_id,
-              sy.year_label,
-              t.start_date,
-              t.end_date
-            FROM terms t
-            JOIN school_years sy ON sy.id = t.school_year_id
-            WHERE t.organization_id = $1
-              AND t.start_date > $2::date
-            ORDER BY t.start_date ASC
-            LIMIT 1
-          `,
-          [organizationId, currentTerm.end_date]
-        );
-
-        if (nextTermResult.rows.length > 0) {
-          nextTermSuggestion = nextTermResult.rows[0];
-        }
-      }
-
-      if (req.session.superAdminOrgSwitch) {
-        const orgResult = await db.query(
-          "SELECT organization_name, logo, nickname, nickname_display FROM organizations WHERE organization_id = $1",
-          [organizationId]
-        );
-        if (orgResult.rows.length > 0) {
-          orgHeaderName = orgResult.rows[0].organization_name;
-          orgHeaderLogo = orgResult.rows[0].logo;
-          orgHeaderNickname = orgResult.rows[0].nickname;
-          orgHeaderNicknameDisplay = (orgResult.rows[0].nickname_display && String(orgResult.rows[0].nickname_display).trim()) || orgResult.rows[0].nickname;
-        }
-      }
       res.render("common/orgDashboard", {
         title: "Organization Dashboard",
         url,
@@ -4036,7 +4075,7 @@ const commonController = {
         dashboardInsights,
         viewerActivity,
         workspaceActorId: resolveWorkspaceActor(req).id,
-        workspaceMember: await isWorkspaceMember(db, req),
+        workspaceMember,
         organizationId,
         messages: req.flash(), // ✅ pass flash messages to the view
         showOrgHeader: req.session.superAdminOrgSwitch || false,
@@ -16613,7 +16652,9 @@ NUMBERING:
   classDashboard: async (req, res, db, csrfToken) => {
     const classId = req.params.classId || req.query.classId;
     const requestedTermId = Number.parseInt(req.query.termId || req.session.currentTermId, 10);
-    if (!classId) {
+    // A missing or malformed class id (an old or mistyped link) goes home
+    // instead of failing in the class lookup with a server error.
+    if (!classId || !/^\d+$/.test(String(classId))) {
       res.redirect("/common/orgDashboard");
       return;
     }
