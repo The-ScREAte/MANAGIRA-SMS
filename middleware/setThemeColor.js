@@ -15,7 +15,7 @@ function isPrintRender(req) {
 }
 
 const setThemeColor = async (req, res, next) => {
-    res.locals.appearance = 'gray';
+    res.locals.appearance = 'light';
     res.locals.appearanceOwner = false;
     res.locals.isPrintRender = isPrintRender(req);
 
@@ -28,7 +28,7 @@ const setThemeColor = async (req, res, next) => {
             req.session.appearanceKey = ownerKey;
         } catch (err) {
             console.error('Unable to load appearance:', err.message);
-            req.session.appearance = 'gray';
+            req.session.appearance = 'light';
         }
     }
     if (owner) {

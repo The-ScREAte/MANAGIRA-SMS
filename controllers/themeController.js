@@ -41,12 +41,12 @@ const updateThemePost = async (req, res) => {
   }
 };
 
-// POST /account/appearance — the signed-in person's own look (white, gray or dark).
+// POST /account/appearance — the signed-in person's own look: light, classic or dark.
 const updateAppearancePost = async (req, res) => {
   const wantsJson = req.xhr || String(req.get('accept') || '').includes('application/json');
   try {
     const raw = String((req.body && req.body.appearanceMode) || '');
-    const mode = await saveAppearance(db, req.session, raw === 'light' ? 'gray' : raw);
+    const mode = await saveAppearance(db, req.session, raw);
     req.session.appearance = mode;
     if (wantsJson) return res.json({ success: true, mode });
     req.flash('success', 'Appearance updated.');

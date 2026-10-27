@@ -81,9 +81,13 @@
   let look = (() => { try { return localStorage.getItem("mcap:look"); } catch (_) { return null; } })(); // the visitor's pick
   if (look) root.classList.add("is-settled"); // the cover shows the recorded look, which may not be the one picked
   const canLook = () => Boolean(data && data.appearance);
-  const isDark = () => (look === "dark" || look === "light" ? look === "dark" : data.appearance.mode === "dark");
+  // Three looks, as in the app: Light (white), Classic (brownish gray), Dark.
+  const LOOKS = ["light", "classic", "dark"];
+  const asLook = (v) => (LOOKS.includes(v) ? v : "light");
+  const recordedLook = () => ({ dark: "dark", gray: "classic" })[data.appearance.mode] || "light";
+  const currentLook = () => (LOOKS.includes(look) ? look : recordedLook());
   // The data-appearance the captured page is drawn with (null: as it was saved).
-  const lookMode = () => (canLook() ? (isDark() ? "dark" : data.appearance.light) : null);
+  const lookMode = () => (canLook() ? { light: "white", classic: "gray", dark: "dark" }[currentLook()] : null);
   const htmlAttrsOf = (st) => (lookMode() ? Object.assign({}, st.htmlAttrs, { "data-appearance": lookMode() }) : st.htmlAttrs);
 
   function applyLook(d) {
@@ -91,7 +95,7 @@
     if (!mode || !d || !d.documentElement || d.__mcapLook === mode) return;
     d.__mcapLook = mode;
     d.documentElement.setAttribute("data-appearance", mode);
-    if (mode !== "white" && typeof window.__apRun === "function") {
+    if (typeof window.__apRun === "function") {
       try { window.__apRun(d.defaultView, d); } catch (_) { /* the page keeps its own colors */ }
     }
   }
@@ -100,16 +104,16 @@
     try { if (d && d.defaultView && typeof d.defaultView.__apRefresh === "function") d.defaultView.__apRefresh(); } catch (_) { /* ignore */ }
   }
   function setLook(next, then) {
-    const changes = (next === "dark") !== isDark();
-    look = next;
+    const changes = asLook(next) !== currentLook();
+    look = asLook(next);
     try { localStorage.setItem("mcap:look", next); } catch (_) { /* ignore */ }
     if (!changes) { if (then) then(); return; }
     root.classList.add("is-settled"); // the cover shows the recorded look only
-    // Gray <-> dark in place, as the app does: open menus and panels stay as they are.
+    // Every look in place, as the app does: open menus and panels stay as they are.
     const d = frame.contentDocument;
     const mode = lookMode();
     const win = d && d.defaultView;
-    if (d && d.__mcapLook && d.__mcapLook !== "white" && mode !== "white" && win && typeof win.__apSetMode === "function") {
+    if (d && d.__mcapLook && mode && win && typeof win.__apSetMode === "function") {
       try {
         win.__apSetMode(mode); // panes inside the page follow it
         d.__mcapLook = mode;
@@ -122,16 +126,27 @@
     }
     render(current, () => { place(); if (then) then(); }, true);
   }
-  // The page's own appearance controls (the header menu's Dark mode switch, the
-  // settings picker) show the look in use.
+  // The page's own appearance controls (the header menu's three stops, the settings
+  // picker) show the look in use. Older captures have a two-way Dark mode switch.
   function syncLookControls(d) {
     if (!canLook() || !d) return;
-    const dark = isDark();
+    const lk = currentLook();
     d.querySelectorAll("[data-ap-set]").forEach((b) => {
-      b.setAttribute("aria-checked", String(dark));
-      b.setAttribute("data-ap-set", dark ? "light" : "dark");
+      if (b.getAttribute("role") === "switch") {
+        b.setAttribute("aria-checked", String(lk === "dark"));
+        b.setAttribute("data-ap-set", lk === "dark" ? "light" : "dark");
+      } else {
+        b.setAttribute("aria-checked", String(b.getAttribute("data-ap-set") === lk));
+      }
     });
-    d.querySelectorAll('[data-ap-picker] input[name="appearanceMode"]').forEach((i) => { i.checked = i.value === (dark ? "dark" : "light"); });
+    d.querySelectorAll('[data-ap-picker] input[name="appearanceMode"]').forEach((i) => { i.checked = i.value === lk; });
+  }
+  // The look a click on one of those controls asks for.
+  function lookWanted(control) {
+    const input = control.querySelector('input[name="appearanceMode"]');
+    if (input) return asLook(input.value);
+    if (control.getAttribute("role") === "switch") return currentLook() === "dark" ? "light" : "dark";
+    return asLook(control.getAttribute("data-ap-set"));
   }
 
   function setAttrs(el, attrs) {
@@ -291,7 +306,7 @@
 
   // ---------- Walkthrough steps on the page's own light / dark switch ----------
 
-  const lookTargets = new Map(); // guide step -> the look it switches to ("light" / "dark"), or null
+  const lookTargets = new Map(); // guide step -> the look it switches to (light / classic / dark), or null
   function lookTarget(g) {
     if (!g || !canLook()) return null;
     if (lookTargets.has(g)) return lookTargets.get(g);
@@ -305,8 +320,8 @@
       const set = tag.match(/data-ap-set="(\w+)"/);
       const choice = !set && /class="[^"]*\bap-choice\b/.test(tag) && body.slice(at, at + 800).match(/<input[^>]*name="appearanceMode"[^>]*>/);
       const value = choice && choice[0].match(/value="(\w+)"/);
-      if (set) t = set[1] === "dark" ? "dark" : "light";
-      else if (value) t = value[1] === "dark" ? "dark" : "light";
+      if (set) t = asLook(set[1]);
+      else if (value) t = asLook(value[1]);
     }
     lookTargets.set(g, t);
     return t;
@@ -314,7 +329,7 @@
   const hasLookSteps = () => guide.some((g) => lookTarget(g));
   // The look before step k: as recorded, then as each earlier switch step left it.
   function lookBefore(k) {
-    let m = data.appearance.mode === "dark" ? "dark" : "light";
+    let m = recordedLook();
     for (let i = 0; i < k && i < guide.length; i++) m = lookTarget(guide[i]) || m;
     return m;
   }
@@ -701,8 +716,7 @@
     if (apControl) {
       e.preventDefault();
       e.stopPropagation();
-      const input = apControl.querySelector('input[name="appearanceMode"]');
-      const want = input ? input.value : (isDark() ? "light" : "dark");
+      const want = lookWanted(apControl);
       const id = apControl.getAttribute("data-mcap-el") || recordedIdOf(apControl);
       const g = guide[step];
       hovered = null;
@@ -882,7 +896,7 @@
         });
       }
       // The cover shows the recorded look; hide it when the visitor picked the other one.
-      if (canLook() && isDark() !== (data.appearance.mode === "dark")) root.classList.add("is-settled");
+      if (canLook() && currentLook() !== recordedLook()) root.classList.add("is-settled");
       if (Array.isArray(config.guideIndexes)) {
         const allowedIndexes = new Set(config.guideIndexes);
         data.guide = (data.guide || []).filter((_, index) => allowedIndexes.has(index));

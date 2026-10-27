@@ -53,8 +53,8 @@ async function setPublicSiteAppearance(db, organizationId, mode) {
 // Signed-in viewer: their own choice (dark, otherwise light).
 // Everyone else: the school's website mode.
 function resolvePublicSiteAppearance({ viewerSignedIn, viewerAppearance, schoolMode }) {
-  if (viewerSignedIn) return viewerAppearance === "dark" ? "dark" : "gray";
-  return schoolMode === "dark" ? "dark" : "gray";
+  if (viewerSignedIn) return ({ classic: "gray", dark: "dark" })[viewerAppearance] || "white";
+  return schoolMode === "dark" ? "dark" : "white";
 }
 
 module.exports = { getPublicSiteAppearance, setPublicSiteAppearance, resolvePublicSiteAppearance };

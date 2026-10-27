@@ -1,9 +1,11 @@
-<%# Dark mode switch in the header menu. Saved for the signed-in person only. %>
-<% const _apDark = (typeof appearance !== 'undefined' && appearance === 'dark'); %>
-<a href="#" class="management-link ap-switch" role="switch" aria-checked="<%= _apDark %>" data-ap-set="<%= _apDark ? 'light' : 'dark' %>" data-no-spa>
-  <svg class="ap-switch__icon" style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-  </svg>
-  <span class="ap-switch__label">Dark mode</span>
-  <span class="ap-switch__track" aria-hidden="true" data-ap-skip><span class="ap-switch__knob"></span></span>
-</a>
+<%# Appearance in the header menu: three color dots (Light, Classic, Dark). Saved for the signed-in person only. %>
+<% const _apLookNow = ['classic', 'dark'].includes(typeof appearance !== 'undefined' ? appearance : '') ? appearance : 'light'; %>
+<div class="ap-dots-row">
+  <span class="ap-dots-label">Appearance</span>
+  <div class="ap-dots" role="radiogroup" aria-label="Appearance" data-ap-skip>
+    <% [['light', 'Light'], ['classic', 'Classic'], ['dark', 'Dark']].forEach(function (s) { %>
+      <%# Links, not buttons: the header menu lets link clicks through to the page's handler. %>
+      <a href="#" class="ap-dot ap-dot--<%= s[0] %>" role="radio" aria-checked="<%= _apLookNow === s[0] %>" aria-label="<%= s[1] %>" title="<%= s[1] %>" data-ap-set="<%= s[0] %>" data-no-spa></a>
+    <% }) %>
+  </div>
+</div>

@@ -9,7 +9,8 @@
   const _go = `/hub/billing/setup/${token}/go`;
 %>
 <!doctype html>
-<html lang="en" data-appearance="gray">
+<% const _apLook = locals.isPrintRender ? 'white' : (({ classic: 'gray', dark: 'dark' })[locals.appearanceOwner ? locals.appearance : ''] || 'white'); %>
+<html lang="en" data-appearance="<%= _apLook %>">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
@@ -38,9 +39,9 @@
     .btn--light:hover { background: #f1f5f9; }
     .secure { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; color: var(--muted); font-size: .82rem; }
   </style>
-  <%# The soft light look used across the app (public/js/appearance.js). %>
+  <%# The person's look: Light, Classic or Dark (public/js/appearance.js). %>
   <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
-  <script src="<%= assetUrl('/js/appearance.js') %>" defer></script>
+  <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
 </head>
 <body>
   <main class="card">

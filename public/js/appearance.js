@@ -18,7 +18,7 @@
     // A page shown inside another one (the hubs' panels) follows that page's light or dark.
     try {
       const up = window.parent !== window ? window.parent.document.documentElement.getAttribute('data-appearance') : null;
-      if (MODE !== 'white' && (up === 'gray' || up === 'dark') && up !== MODE) { MODE = up; root.setAttribute('data-appearance', MODE); }
+      if ((up === 'white' || up === 'gray' || up === 'dark') && up !== MODE) { MODE = up; root.setAttribute('data-appearance', MODE); }
     } catch (_e) { /* a page from another site */ }
     let DARK = MODE === 'dark';
     // White is the normal design: only text that is clearly hard to read is darkened.
@@ -92,25 +92,28 @@
     }
 
     // ---------- the three remaps (each one leaves its own output unchanged) ----------
-    // Neutral surfaces take a tint: a barely warm grayish white in light, a cool blue-gray in dark.
+    // Light: crisp white surfaces and neutral lines. Classic: two calm greige tones (a
+    // lighter one for cards and panels, one for the page). Dark: blue-gray planes.
+    // Every remap maps its own output to itself, so a page looks the same however often
+    // it is checked, and every page keeps the same proportions.
     const TINT_H = 255;
-    const tint = (c, k) => (c.C < 0.012 ? (DARK ? { C: 0.008, h: TINT_H } : { C: 0.0035, h: 78 }) : { C: Math.min(c.C, 0.06) * k, h: c.h });
+    const tint = (c, k) => (c.C < 0.012 ? { C: 0.008, h: TINT_H } : { C: Math.min(c.C, 0.06) * k, h: c.h });
+    const CLASSIC_CARD = { L: 0.982, C: 0.0045, h: 84 };
+    const CLASSIC_PAGE = { L: 0.94, C: 0.0075, h: 80 };
     function mapBg(c) {
-      if (!c || c.a < 0.03) return null;
+      // Translucent fills (progress tracks, hover tints, overlays) adapt to whatever is
+      // under them, so they keep their own color in every look.
+      if (!c || c.a < 0.25) return null;
       const o = toLch(c);
       if (DARK) {
         if (o.L >= 0.8 && o.C <= 0.12) { const t = tint(o, 0.55); return fromLch(0.205 + (o.L - 0.8) * 0.25, t.C, t.h, c.a); }
         if (o.L >= 0.55 && o.C <= 0.035) { const t = tint(o, 1); return fromLch(0.31 + (o.L - 0.55) * 0.3, t.C, t.h, c.a); }
         return null;
       }
-      // Light: near-whites keep their lightness (so pages, cards and tinted chips keep their
-    // steps) and take the faintest warm touch; pure white is held just below white. Applying it
-    // again changes nothing, so every page ends up the same however often it is checked.
-    if (o.L >= 0.958 && o.C <= 0.06) {
-      const t = o.C < 0.012 ? { C: 0.0015, h: 85 } : { C: o.C, h: o.h };
-      return fromLch(Math.min(o.L, 0.982), t.C, t.h, c.a);
-    }
-      return null;
+      if (o.L < 0.94 || o.C > 0.03) return null; // colors, pastels and darker grays keep theirs
+      if (WHITE) return o.L >= 0.965 ? { r: 255, g: 255, b: 255, a: c.a } : fromLch(o.L, 0, 0, c.a);
+      const tone = o.L >= 0.975 ? CLASSIC_CARD : CLASSIC_PAGE;
+      return fromLch(tone.L, tone.C, tone.h, c.a);
     }
     function mapText(c) {
       if (!c || c.a < 0.03 || !DARK) return null;
@@ -126,8 +129,8 @@
         if (o.L >= 0.7 && o.C <= 0.1) { const t = tint(o, 0.7); return fromLch(0.33 + (o.L - 0.7) * 0.25, t.C, t.h, c.a); }
         return null;
       }
-      if (o.L >= 0.88 && o.C <= 0.06) return fromLch(0.84 + (o.L - 0.88) * 0.3, o.C, o.h, c.a);
-      return null;
+      if (o.L < 0.85 || o.C > 0.06) return null;
+      return WHITE ? fromLch(Math.min(o.L, 0.905), 0, 0, c.a) : fromLch(Math.min(o.L, 0.87), 0.008, 78, c.a);
     }
     const COLOR_RE = /#[0-9a-f]{3,8}\b|(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\([^()]*\)|\b(?:white|black|whitesmoke|gainsboro|ghostwhite|snow|ivory|aliceblue|azure|beige|linen|seashell|honeydew|mintcream|lavender|floralwhite|oldlace|lightgray|lightgrey|silver)\b/gi;
     // Split "a, b, c" at top-level commas (gradient layers, or stops inside one).
@@ -387,6 +390,26 @@
         }
       }
       writes.forEach(([el, prop, value]) => setStyle(el, prop, value, 'important'));
+      if (!DARK) liftCards(scope);
+    }
+
+    // ---------- Light and Classic: cards and panels lift off the page with a soft shadow ----------
+    // A bordered, rounded, light box of some size with no shadow of its own is a card; one
+    // inside a card already lifted stays flat, so nothing doubles up.
+    const CARD_SHADOW = '0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06)';
+    function liftCards(scope) {
+      for (const el of elementsOf(scope)) {
+        if (SKIP_TAGS.has(el.tagName) || /^(INPUT|SELECT|TEXTAREA|BUTTON|A|LABEL|TD|TH|TR|LI|SUMMARY|HEADER|NAV)$/.test(el.tagName) || el.closest(SKIP_SEL)) continue;
+        if (el.parentElement && el.parentElement.closest('[data-ap-card]')) continue;
+        const s = getComputedStyle(el);
+        if (s.boxShadow !== 'none' || s.position === 'fixed' || parseFloat(s.borderTopWidth) < 0.5 || parseFloat(s.borderTopLeftRadius) < 6) continue;
+        const bg = parse(s.backgroundColor);
+        if (!bg || bg.a < 0.9 || toLch(bg).L < 0.93) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 160 || r.height < 56) continue;
+        el.setAttribute('data-ap-card', '');
+        setStyle(el, 'box-shadow', CARD_SHADOW, 'important');
+      }
     }
 
     // ---------- last check: text that is still hard to read ----------
@@ -443,6 +466,16 @@
         if (!color || color.a < 0.35) continue;
         const bg = backgroundOf(el, memo);
         if (bg === 'image') continue;
+        // Light and Classic: gray text on a light, calm background reads as near-black (crisp, not faded).
+        if (!DARK && !isIcon) {
+          const t = toLch(color), b = toLch(bg);
+          if (t.C < 0.065 && t.L > 0.3 && t.L < 0.8 && b.L > 0.85 && b.C < 0.05) { // grays, slate grays included
+            const ink = css(fromLch(0.17 + (t.L - 0.3) * 0.12, 0, 0, 1));
+            writes.push([el, 'color', ink]);
+            if (fill && fill !== s.color) writes.push([el, '-webkit-text-fill-color', ink]);
+            continue;
+          }
+        }
         // Brand and status fills keep their designed text (white on a brand button);
         // only text that is truly hard to read there is changed.
         const branded = toLch(bg).C > 0.08;
@@ -463,7 +496,7 @@
     let stillFrame = 0;
     function settle(scope) {
       root.classList.add('ap-still');
-      if (!WHITE) fixSurfaces(scope);
+      fixSurfaces(scope);
       checkContrast(scope);
       if (!stillFrame) stillFrame = requestAnimationFrame(() => requestAnimationFrame(() => { stillFrame = 0; quiet(() => root.classList.remove('ap-still')); }));
     }
@@ -509,27 +542,26 @@
       try { fn(); } finally { if (observer) observer.takeRecords(); busy = false; }
     }
     function pass(scopes) {
-      if (WHITE) return;
       quiet(() => {
         dropOrphans();
         copyAll(document);
         (scopes || [document.body]).forEach(fixInlineIn);
       });
     }
-    // Pages designed dark (the marketing homepage) keep their own look: the soft
-    // light look is for light pages. Read the page's own background without ours.
+    // Pages designed dark (the marketing homepage) keep their own look: Light and
+    // Classic are for light pages. Read the page's own background without ours.
     function designedDark() {
-      root.setAttribute('data-appearance', 'white');
+      root.setAttribute('data-appearance', 'none');
       const own = [document.body, root].map((n) => parse(getComputedStyle(n).backgroundColor)).find((c) => c && c.a > 0.5);
       root.setAttribute('data-appearance', MODE);
       return Boolean(own) && toLch(own).L < 0.5;
     }
 
+    let passive = false; // a page designed dark: left exactly as it is
     function start() {
-      if (MODE === 'gray' && designedDark()) {
-        MODE = 'white';
-        WHITE = true;
-        root.setAttribute('data-appearance', 'white');
+      if (!DARK && designedDark()) {
+        passive = true;
+        root.setAttribute('data-appearance', 'none');
         root.classList.add('ap-ready');
         return;
       }
@@ -565,14 +597,14 @@
         if (!touched.size && !sheetsChanged) return;
         // Fixed before the next paint, so nothing flashes light.
         quiet(() => {
-          if (sheetsChanged && !WHITE) { dropOrphans(); copyAll(document); }
+          if (sheetsChanged) { dropOrphans(); copyAll(document); }
           if (recolor.size) changed.forEach((_, el) => { for (let up = el; up; up = up.parentElement) if (recolor.has(up)) { restore(el); break; } });
           const roots = Array.from(touched).filter((n) => {
             if (!n.isConnected) return false;
             for (let up = n.parentElement; up; up = up.parentElement) if (touched.has(up)) return false;
             return true;
           });
-          roots.forEach((n) => { if (!WHITE) fixInlineIn(n); settle(n); });
+          roots.forEach((n) => { fixInlineIn(n); settle(n); });
           if (sheetsChanged && !roots.length) settle(document.body);
         });
       });
@@ -598,21 +630,22 @@
     // Colors again for content shown without a class or style change (the demo player's expanders).
     window.__apRefresh = function () { if (observer) quiet(() => settle(document.body)); };
 
-    // Light <-> dark in place (the header switch and the settings picker), so the
-    // page doesn't have to load again: undo every change, then run in the new mode.
+    // Light, Classic and Dark in place (the header menu and the settings picker), so
+    // the page doesn't load again: undo every change, then run in the new mode.
     // Pages shown inside this one change with it.
     window.__apSetMode = function (next) {
-      if (next !== 'gray' && next !== 'dark') return;
-      if (next !== MODE) {
+      if (next !== 'white' && next !== 'gray' && next !== 'dark') return;
+      if (next !== MODE && !passive) {
         quiet(() => {
           root.classList.add('ap-still');
           changed.forEach((_, el) => restore(el));
+          document.querySelectorAll('[data-ap-card]').forEach((el) => el.removeAttribute('data-ap-card'));
           copies.forEach((style) => style.remove());
           copies.clear();
           resolved.clear();
           root.style.removeProperty('--org-primary-color');
           root.style.removeProperty('--org-primary-hover');
-          MODE = next; DARK = MODE === 'dark'; WHITE = false;
+          MODE = next; DARK = MODE === 'dark'; WHITE = MODE === 'white';
           root.setAttribute('data-appearance', MODE);
         });
         liftBrand();

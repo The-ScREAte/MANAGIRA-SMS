@@ -236,6 +236,17 @@
       <% } %>
     </div>
   </div>
+  <% if (locals.appearanceOwner) { %>
+  <div class="profile-card notif-card">
+    <div class="profile-card__header">
+      <div>
+        <h2>Appearance</h2>
+        <p class="profile-card__role" style="margin-top:4px;">How Managira looks for you on every page.</p>
+      </div>
+    </div>
+    <div class="profile-card__body"><%- include('../partials/appearancePicker') %></div>
+  </div>
+  <% } %>
 </div>
 
 <script src="/js/dialCodes.js"></script>

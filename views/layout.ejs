@@ -8,23 +8,22 @@
   }
 %>
 <%
-  // The signed-in person's own look on school pages: light (a soft grayish
-  // brown, the default) or dark. Admin and public pages use the same light look;
-  // PDFs and prints always use the plain white design.
+  // The signed-in person's own look: Light (clean white, the default), Classic
+  // (soft brownish gray) or Dark. Visitors see Light. PDFs and prints are always white.
+  // <html data-appearance>: light -> white, classic -> gray, dark -> dark.
   const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
   const _isPublicPath = _appearancePath === '/' || _appearancePath === ''
     || /^\/(legal|account\/([a-z-]*login|register|forgot|reset|set-?password|verify)|common\/(publicDashboard|publicRegister|setPassword)|hub\/(login|setup-password|billing\/setup))/i.test(_appearancePath);
   const _isOrgThemed = !!locals.appearanceOwner && !_appearancePath.startsWith('/admin') && !_isPublicPath;
-  // Every page uses the soft light look (or the person's dark choice on school pages);
-  // only PDFs and prints stay white.
-  let _appearance = locals.isPrintRender ? 'white' : (_isOrgThemed && locals.appearance === 'dark' ? 'dark' : 'gray');
+  const _htmlLook = (look) => ({ classic: 'gray', dark: 'dark' })[look] || 'white';
+  let _appearance = locals.isPrintRender ? 'white' : _htmlLook(locals.appearanceOwner ? locals.appearance : 'light');
   // School website pages (online registration): a signed-in visitor sees
   // their own light/dark choice; everyone else sees the school's Website Mode.
   // Same rule as utils/publicSiteAppearance.js resolvePublicSiteAppearance().
   if (typeof locals.publicSiteAppearance === 'string' && !locals.isPrintRender) {
     _appearance = locals.appearanceOwner
-      ? (locals.appearance === 'dark' ? 'dark' : 'gray')
-      : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'gray');
+      ? _htmlLook(locals.appearance)
+      : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white');
   }
 %>
 <!DOCTYPE html>
@@ -80,7 +79,7 @@
     <link rel="stylesheet" href="/css/globalScale.css">
     <% } %>
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
-    <% if (_appearance !== 'white') { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+    <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
 </head>
 <body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
@@ -354,22 +353,22 @@
     if (window.__apSaveReady) return;
     window.__apSaveReady = true;
     var root = document.documentElement;
-    var wanted = '<%= locals.appearance === 'dark' ? 'dark' : 'light' %>';
-    // Every switch and picker on the page shows the mode in use.
+    var LOOKS = ['light', 'classic', 'dark'];
+    var wanted = '<%= ['classic', 'dark'].includes(locals.appearance) ? locals.appearance : 'light' %>';
+    // Every control on the page (the header menu's three stops, the settings picker) shows the look in use.
     function sync() {
-      var dark = wanted === 'dark';
       document.querySelectorAll('[data-ap-set]').forEach(function (b) {
-        b.setAttribute('aria-checked', String(dark));
-        b.setAttribute('data-ap-set', dark ? 'light' : 'dark');
+        b.setAttribute('aria-checked', String(b.getAttribute('data-ap-set') === wanted));
       });
       document.querySelectorAll('[data-ap-picker] input[name="appearanceMode"]').forEach(function (i) { i.checked = i.value === wanted; });
     }
     function status(text) {
       document.querySelectorAll('[data-ap-status]').forEach(function (s) { s.textContent = text; });
     }
+    // Every look switches in place, without loading the page again.
     function paint(mode) {
-      if (typeof window.__apSetMode !== 'function' || root.getAttribute('data-appearance') === 'white') return false;
-      window.__apSetMode(mode === 'dark' ? 'dark' : 'gray');
+      if (typeof window.__apSetMode !== 'function') return false;
+      window.__apSetMode(mode === 'dark' ? 'dark' : mode === 'classic' ? 'gray' : 'white');
       return true;
     }
     // One save at a time; quick taps in between only keep the newest choice, and
@@ -414,7 +413,7 @@
       try {
         if (window.parent !== window && typeof window.parent.__apChoose === 'function') { window.parent.__apChoose(mode); return; }
       } catch (_) {}
-      mode = mode === 'dark' ? 'dark' : 'light';
+      mode = LOOKS.indexOf(mode) >= 0 ? mode : 'light';
       if (mode === wanted) { sync(); return; }
       wanted = mode;
       live = paint(mode);
@@ -437,13 +436,13 @@
     });
     window.addEventListener('spa:pageLoaded', sync);
     // Changed from the page around this one (or by this page's own switch).
-    window.addEventListener('ap:mode', function (e) { wanted = e.detail === 'dark' ? 'dark' : 'light'; sync(); });
+    window.addEventListener('ap:mode', function (e) { wanted = e.detail === 'dark' ? 'dark' : e.detail === 'gray' ? 'classic' : 'light'; sync(); });
     // Back/forward can bring back a page kept from before a change: show the latest choice.
     window.addEventListener('pageshow', function (e) {
       if (!e.persisted) return;
       var last = null;
       try { last = sessionStorage.getItem('managira-appearance'); } catch (_) {}
-      if ((last === 'dark' || last === 'light') && last !== wanted) { wanted = saved = last; paint(last); }
+      if (LOOKS.indexOf(last) >= 0 && last !== wanted) { wanted = saved = last; if (!paint(last)) window.location.reload(); }
       sync();
     });
   })();

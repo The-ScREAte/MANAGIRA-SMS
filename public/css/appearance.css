@@ -1,26 +1,41 @@
-/* Each person's look for school pages: white (default), gray or dark.
-   <html data-appearance> is set by views/layout.ejs. White is the normal design
-   and needs nothing here. Gray and dark: this file sets the page planes and a
-   few widgets the theme script can't read (other-site stylesheets), and
-   public/js/appearance.js remaps every page's own colors. Screen only, so
-   prints and PDFs always come out white. */
+/* Each person's look: Light (white), Classic (gray) or Dark, on <html data-appearance>
+   (set by views/layout.ejs). This file sets the page planes, the header and a few
+   widgets the theme script can't read (other-site stylesheets); public/js/appearance.js
+   remaps every page's own colors. Screen only, so prints and PDFs come out as designed. */
 
 @media screen {
-  /* Light: a soft grayish white (the faintest warm touch) instead of bright white. */
-  html[data-appearance="gray"] {
-    --ap-page: oklch(0.963 0.0015 85);
-    --ap-surface: oklch(0.982 0.001 85);
-    --ap-surface-2: oklch(0.972 0.0012 85);
-    --ap-header: oklch(0.952 0.0018 85);
-    --ap-line: oklch(0.89 0.003 85);
-    --ap-text: oklch(0.22 0.012 60);
-    --ap-muted: oklch(0.44 0.014 60);
+  /* Light: crisp, plain white with neutral lines and near-black text. */
+  html[data-appearance="white"] {
+    --ap-page: #ffffff;
+    --ap-surface: #ffffff;
+    --ap-surface-2: #f6f6f6;
+    --ap-header: #ffffff;
+    --ap-line: #e4e4e7;
+    --ap-text: #111111;
+    --ap-muted: #3f3f46;
   }
-  /* The app header sits just below "white", so the color script leaves it alone: set it here. */
-  /* A light line with a soft shadow under the header, so header and page read apart. */
+  /* Classic: calm, warm ivory; cards and panels sit a step lighter than the page. */
+  html[data-appearance="gray"] {
+    --ap-page: oklch(0.94 0.0075 80);
+    --ap-surface: oklch(0.982 0.0045 84);
+    --ap-surface-2: oklch(0.962 0.006 82);
+    --ap-header: oklch(0.975 0.005 83);
+    --ap-line: oklch(0.87 0.008 78);
+    --ap-text: oklch(0.2 0.008 60);
+    --ap-muted: oklch(0.42 0.01 60);
+  }
+  /* The header: frosted (a light blur of the page behind it), a fine line and a soft shadow. */
+  html[data-appearance="white"] header#top-header {
+    background: rgba(255, 255, 255, 0.82) !important;
+    -webkit-backdrop-filter: saturate(1.6) blur(14px) !important;
+    backdrop-filter: saturate(1.6) blur(14px) !important;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08), 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+  }
   html[data-appearance="gray"] header#top-header {
-    background: var(--ap-header) !important;
-    box-shadow: 0 1px 0 oklch(0.87 0.003 85), 0 3px 10px rgba(15, 23, 42, 0.08) !important;
+    background: color-mix(in oklch, var(--ap-header) 84%, transparent) !important;
+    -webkit-backdrop-filter: saturate(1.4) blur(14px) !important;
+    backdrop-filter: saturate(1.4) blur(14px) !important;
+    box-shadow: 0 1px 0 oklch(0.85 0.009 78), 0 4px 18px rgba(60, 45, 30, 0.08) !important;
   }
   html[data-appearance="dark"] {
     --ap-page: oklch(0.185 0.006 255);
@@ -37,18 +52,18 @@
     --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 80%, white);
   }
 
-  html:is([data-appearance="gray"], [data-appearance="dark"]),
-  html:is([data-appearance="gray"], [data-appearance="dark"]) body {
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]),
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]) body {
     background: var(--ap-page) !important;
     color: var(--ap-text);
   }
   /* Page planes take the page color; cards sit on top of them. */
-  html:is([data-appearance="gray"], [data-appearance="dark"]) :is(#app-scale-root, main) {
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]) :is(#app-scale-root, main) {
     background: transparent !important;
   }
 
   /* Hold the first paint until the colors are in place (never more than 1.2s). */
-  html:is([data-appearance="gray"], [data-appearance="dark"]):not(.ap-ready) body {
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]):not(.ap-ready) body {
     opacity: 0;
     animation: ap-reveal 0s linear 1.2s forwards;
   }
@@ -78,34 +93,47 @@
 }
 
 /* ---------- The picker (settings pages) and the header menu switch ---------- */
-.ap-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; max-width: 380px; }
+.ap-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; max-width: 520px; }
 .ap-choice { position: relative; display: grid; gap: 8px; margin: 0; padding: 8px 8px 10px; border: 1px solid var(--ap-line, #d5d9e0); color: inherit; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: .9rem; text-align: center; transition: border-color .15s ease; }
 .ap-choice:hover { border-color: #94a3b8; }
 .ap-choice:has(input:checked) { border-color: var(--org-primary-color, #01535b); box-shadow: inset 0 0 0 1px var(--org-primary-color, #01535b); }
 .ap-choice input { position: absolute; opacity: 0; pointer-events: none; }
 .ap-choice__preview { display: grid; grid-template-columns: 26% 1fr; gap: 5px; height: 64px; padding: 6px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, .12); }
 .ap-choice__preview i { display: block; border-radius: 4px; }
-.ap-choice--light .ap-choice__preview { background: #e3e5e9 !important; }
-.ap-choice--light .ap-choice__preview i { background: #f2f3f5 !important; box-shadow: 0 0 0 1px #d4d7dc; }
+.ap-choice--light .ap-choice__preview { background: #ffffff !important; }
+.ap-choice--light .ap-choice__preview i { background: #ffffff !important; box-shadow: 0 0 0 1px #e4e4e7; }
+.ap-choice--classic .ap-choice__preview { background: #e9e5de !important; }
+.ap-choice--classic .ap-choice__preview i { background: #faf9f6 !important; box-shadow: 0 0 0 1px #dcd7ce; }
 .ap-choice--dark .ap-choice__preview { background: #16181c !important; border-color: #16181c; }
 .ap-choice--dark .ap-choice__preview i { background: #25282e !important; box-shadow: 0 0 0 1px #33373e; }
+.ap-choice__name { display: grid; gap: 1px; }
+.ap-choice__name small { font-size: .74rem; font-weight: 500; color: #64748b; }
 .ap-choice__check { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; display: none; place-items: center; background: var(--org-primary-color, #01535b); color: #fff; font-size: 10px; }
 .ap-choice:has(input:checked) .ap-choice__check { display: grid; }
 .ap-status:empty { display: none; }
 .ap-status { margin: 10px 0 0; font-size: .84rem; color: #64748b; }
 
 .ap-menu-item { list-style: none; }
-/* Header menu: one "Dark mode" row in the school color, with an on/off switch. */
-.ap-switch { display: flex !important; align-items: center; gap: 8px; cursor: pointer; text-decoration: none; }
-.ap-switch__label { flex: 1 1 auto; }
-.ap-switch__track { position: relative; flex: 0 0 auto; width: 34px; height: 20px; border-radius: 999px; background: #cbd2db; transition: background-color .2s ease; }
-.ap-switch__knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .3); transition: transform .2s ease; }
-.ap-switch[aria-checked="true"] .ap-switch__track { background: var(--org-primary-color, #01535b); }
-.ap-switch[aria-checked="true"] .ap-switch__knob { transform: translateX(14px); }
-html[data-appearance="dark"] .ap-switch__track { background: var(--ap-line); }
-html[data-appearance="dark"] .ap-switch[aria-checked="true"] .ap-switch__track { background: var(--org-primary-color, #01535b); }
+/* Header menu: Appearance as a row of three color dots (Light, Classic, Dark). No hover colors. */
+.ap-dots-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
+.ap-dots-label { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #52525b; }
+.ap-dots { display: inline-flex; align-items: center; gap: 10px; }
+/* Header menus style their links (padding, colors, hover); the dots keep their own. */
+.ap-dots .ap-dot {
+  display: inline-block !important; flex: none; width: 20px !important; height: 20px !important; min-height: 0 !important;
+  margin: 0 !important; padding: 0 !important; border-radius: 50% !important; border: 1px solid rgba(0, 0, 0, 0.18) !important;
+  cursor: pointer; text-decoration: none !important; transition: box-shadow .15s ease;
+}
+.ap-dots .ap-dot--light { background: #ffffff !important; }
+.ap-dots .ap-dot--classic { background: #e4dfd6 !important; }
+.ap-dots .ap-dot--dark { background: #1f2329 !important; border-color: #1f2329 !important; }
+.ap-dots .ap-dot:hover { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08); }
+.ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--org-primary-color, #01535b) !important; }
+.ap-dots .ap-dot:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 3px; }
+html[data-appearance="dark"] .ap-dots-label { color: var(--ap-muted); }
+html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--ap-surface), 0 0 0 4px var(--org-primary-color, #2aa7b2) !important; }
 @media (max-width: 520px) {
-  .ap-picker { gap: 8px; }
+  .ap-picker { gap: 8px; grid-template-columns: minmax(0, 1fr); }
   .ap-choice__preview { height: 48px; }
 }
 

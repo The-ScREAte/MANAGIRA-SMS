@@ -6,8 +6,8 @@
   const pdAppearance = locals.isPrintRender
     ? 'white'
     : (locals.appearanceOwner
-        ? (locals.appearance === 'dark' ? 'dark' : 'gray')
-        : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'gray'));
+        ? (({ classic: 'gray', dark: 'dark' })[locals.appearance] || 'white')
+        : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white'));
 %>
 <html lang="en" data-appearance="<%= pdAppearance %>">
   <%
@@ -173,7 +173,7 @@ body[data-page="publicDashboard"] #top-header #tools #loginbutton { min-height: 
     </style>
 
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
-    <% if (pdAppearance !== 'white') { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+    <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
   </head>
   <body data-page="publicDashboard" data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>" data-sw-layout="<%= site.layout %>">
     <%- include('../partials/header') %>

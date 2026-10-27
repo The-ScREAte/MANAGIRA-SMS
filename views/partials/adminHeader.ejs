@@ -45,6 +45,7 @@
                 <div class="admin-profile-dropdown__name"><%= session.firstName %><% if (session.lastName) { %> <%= session.lastName %><% } %></div>
                 <div class="admin-profile-dropdown__role"><%= session.accountType %></div>
               </div>
+              <% if (locals.appearanceOwner) { %><%- include('appearanceToggle') %><% } %>
               <a href="/admin/profile" class="admin-profile-dropdown__item" role="menuitem" data-no-spa>⚙️ Profile Settings</a>
               <a href="/account/logout" class="admin-profile-dropdown__item admin-profile-dropdown__item--danger" data-no-spa role="menuitem">↩ Logout</a>
             </div>
@@ -132,6 +133,7 @@
               <% }) %>
             </div>
             <div class="admin-menu__foot">
+              <% if (locals.appearanceOwner) { %><%- include('appearanceToggle') %><% } %>
               <a href="/admin/profile" class="admin-menu__link<%= _ahActive('/admin/profile') ? ' is-active' : '' %>"<%- _ahIsInternal ? ' data-no-spa' : '' %>><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Profile Settings</span></a>
               <a href="/account/logout" class="admin-menu__link admin-menu__link--danger" data-no-spa><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span>Logout</span></a>
             </div>
