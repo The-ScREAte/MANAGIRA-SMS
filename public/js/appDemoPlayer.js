@@ -296,14 +296,18 @@
     if (!g || !canLook()) return null;
     if (lookTargets.has(g)) return lookTargets.get(g);
     let t = null;
-    try {
-      const doc = new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + data.states[g.from].body + "</body></html>", "text/html");
-      const el = doc.querySelector('[data-mcap-el="' + g.el + '"]');
-      const ctl = el && el.closest("[data-ap-set], [data-ap-picker] .ap-choice");
-      const input = ctl && ctl.querySelector('input[name="appearanceMode"]');
-      // The header switch names the look it turns on; a picker choice is its value.
-      if (ctl) t = input ? (input.value === "dark" ? "dark" : "light") : (ctl.getAttribute("data-ap-set") === "dark" ? "dark" : "light");
-    } catch (_) { /* not one */ }
+    // Read straight from the markup (no parsing): the recorded tag is the switch itself
+    // (data-ap-set names the look it turns on) or a picker choice holding its radio.
+    const body = data.states[g.from].body;
+    const at = body.indexOf('data-mcap-el="' + g.el + '"');
+    if (at >= 0) {
+      const tag = body.slice(body.lastIndexOf("<", at), body.indexOf(">", at) + 1);
+      const set = tag.match(/data-ap-set="(\w+)"/);
+      const choice = !set && /class="[^"]*\bap-choice\b/.test(tag) && body.slice(at, at + 800).match(/<input[^>]*name="appearanceMode"[^>]*>/);
+      const value = choice && choice[0].match(/value="(\w+)"/);
+      if (set) t = set[1] === "dark" ? "dark" : "light";
+      else if (value) t = value[1] === "dark" ? "dark" : "light";
+    }
     lookTargets.set(g, t);
     return t;
   }
@@ -679,7 +683,7 @@
         });
       });
     }
-    return recordedKeys.get(sameElementKey(el)) || null;
+    return el ? recordedKeys.get(sameElementKey(el)) || null : null;
   }
 
   function linkFor(id) {
@@ -870,6 +874,13 @@
       clearTimeout(timer);
       data = json;
       data.links = data.links || [];
+      // Packed captures store each piece of markup once; a view is put together when drawn.
+      if (Array.isArray(data.pool)) {
+        data.states.forEach((st) => {
+          const parts = st.parts || [];
+          Object.defineProperty(st, "body", { get: () => parts.map((k) => data.pool[k]).join("") });
+        });
+      }
       // The cover shows the recorded look; hide it when the visitor picked the other one.
       if (canLook() && isDark() !== (data.appearance.mode === "dark")) root.classList.add("is-settled");
       if (Array.isArray(config.guideIndexes)) {
@@ -884,6 +895,9 @@
       render(guide.length ? guide[0].from : 0, () => {
         if (guide.length) goStep(0); else place();
         renderControls();
+        // Read every view's recorded controls while the visitor looks, not on their first click.
+        const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 400));
+        idle(() => recordedIdOf(null));
       });
     })
     .catch(() => {

@@ -812,7 +812,15 @@
     fillSteps();
     saveBtn.disabled = false;
 
-    saveBtn.addEventListener("click", () => {
+    saveBtn.addEventListener("click", async () => {
+      if (uploading) return;
+      uploading = true;
+      saveBtn.disabled = true;
+      // Sent gzipped where the browser can (a page's views repeat most of their markup).
+      let capture = new Blob([JSON.stringify(data)], { type: "application/json" });
+      if (typeof CompressionStream === "function") {
+        try { capture = await new Response(capture.stream().pipeThrough(new CompressionStream("gzip"))).blob(); } catch (_) { /* send it as it is */ }
+      }
       const fd = new FormData();
       fd.append("feature_id", featureSel.value);
       if (addMode === "version" && screenSel.value) fd.append("screen_id", screenSel.value);
@@ -822,11 +830,9 @@
       const guidedBox = bodyEl.querySelector('[data-f="guided"]');
       fd.append("guided", guidedBox && !guidedBox.checked ? "0" : "1");
       fd.append("guide", JSON.stringify([...bodyEl.querySelectorAll("[data-guide]")].map((i) => i.value)));
-      fd.append("capture", new Blob([JSON.stringify(data)], { type: "application/json" }), "capture.json");
+      fd.append("capture", capture, "capture.json");
       try { localStorage.setItem("mcap:last", JSON.stringify({ feature: featureSel.value })); } catch (_) { /* ignore */ }
 
-      saveBtn.disabled = true;
-      uploading = true;
       modal.querySelector('[data-act="discard"]').disabled = true;
       modal.querySelector('[data-act="close-dialog"]').disabled = true;
       statusEl.textContent = "Uploading…";

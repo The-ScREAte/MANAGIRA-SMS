@@ -4,6 +4,7 @@ const sharp = require("sharp");
 const db = require("../config/db");
 const { uploadToS3, deleteFromS3, s3Client, GetObjectCommand } = require("../config/s3");
 const zlib = require("zlib");
+const crypto = require("crypto");
 const { MEDIA_TYPES, ensureAppDemoSchema, getTour, invalidateTourCache } = require("../utils/appDemo");
 const capture = require("../utils/appDemoCapture");
 
@@ -202,6 +203,63 @@ function parseCapture(raw) {
   };
 }
 
+// ---------- Packing: a capture's views repeat almost all of their markup ----------
+// Each view's body is cut into pieces after a ">" where the 24 characters before
+// it hash to a marker, so cuts fall in the same places in every view and a change
+// only touches the pieces around it. Pieces are stored once (data.pool) and each
+// view lists its own (state.parts): a 17 MB capture packs to well under 1 MB.
+function splitMarkup(html) {
+  const out = [];
+  let start = 0;
+  for (let i = 0; i < html.length; i++) {
+    if (html.charCodeAt(i) !== 62) continue; // ">"
+    const len = i + 1 - start;
+    if (len < 200) continue;
+    let h = 0;
+    for (let j = Math.max(start, i - 24); j <= i; j++) h = (Math.imul(h, 31) + html.charCodeAt(j)) | 0;
+    if ((h & 31) === 0 || len >= 8192) { out.push(html.slice(start, i + 1)); start = i + 1; }
+  }
+  if (start < html.length) out.push(html.slice(start));
+  return out;
+}
+function packCapture(data) {
+  if (Array.isArray(data.pool)) return data;
+  const pool = [];
+  const ids = new Map();
+  const idOf = (piece) => {
+    let k = ids.get(piece);
+    if (k === undefined) { k = pool.length; pool.push(piece); ids.set(piece, k); }
+    return k;
+  };
+  const states = data.states.map(({ body, ...rest }) => ({ ...rest, parts: splitMarkup(body).map(idOf) }));
+  return { ...data, states, pool };
+}
+
+// Packed and compressed captures, kept in memory (newest last): the player's data
+// is served without a trip to S3, as brotli when the browser takes it.
+const capturesInMemory = new Map();
+function compressedCapture(key) {
+  let entry = capturesInMemory.get(key);
+  if (entry) {
+    capturesInMemory.delete(key);
+  } else {
+    entry = (async () => {
+      const obj = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key }));
+      const stored = Buffer.from(await obj.Body.transformToByteArray());
+      const json = JSON.stringify(packCapture(JSON.parse(zlib.gunzipSync(stored).toString("utf8"))));
+      return {
+        etag: `"c1-${crypto.createHash("sha1").update(key).digest("hex").slice(0, 16)}"`,
+        gzip: zlib.gzipSync(json, { level: 9 }),
+        br: zlib.brotliCompressSync(json, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: json.length } }),
+      };
+    })();
+    entry.catch(() => capturesInMemory.delete(key));
+  }
+  capturesInMemory.set(key, entry);
+  if (capturesInMemory.size > 24) capturesInMemory.delete(capturesInMemory.keys().next().value);
+  return entry;
+}
+
 const attrString = (attrs) => Object.entries(attrs || {}).map(([k, v]) => ` ${k}="${String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"`).join("");
 const stateHtml = (data, i) => {
   const st = data.states[i];
@@ -253,8 +311,8 @@ module.exports = {
     });
   },
 
-  // Streams an uploaded PDF (for PDF.js) or an interactive capture (stored
-  // gzipped, for the player) from S3.
+  // Streams an uploaded PDF (for PDF.js) from S3, or serves an interactive
+  // capture (packed and compressed, from memory) to the player.
   serveFile: async (req, res) => {
     const id = parseInt(req.params.id, 10);
     try {
@@ -269,15 +327,20 @@ module.exports = {
       const media = rows[0];
       const isAdmin = req.session && req.session.accountType === "Admin";
       if (!media || !media.s3_key || (!media.is_active && !isAdmin)) return res.sendStatus(404);
-      const obj = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: media.s3_key }));
-      if (media.media_type === "html") {
-        res.set("Content-Type", "application/json; charset=utf-8");
-        res.set("Content-Encoding", "gzip");
-        res.set("X-Content-Type-Options", "nosniff");
-      } else {
-        res.set("Content-Type", media.mime_type || "application/pdf");
-      }
       res.set("Cache-Control", media.is_active ? "public, max-age=3600" : "private, no-store");
+      if (media.media_type === "html") {
+        const capture = await compressedCapture(media.s3_key);
+        res.set("ETag", capture.etag);
+        res.set("Vary", "Accept-Encoding");
+        if (req.headers["if-none-match"] === capture.etag) return res.status(304).end();
+        const br = /\bbr\b/.test(req.headers["accept-encoding"] || "");
+        res.set("Content-Type", "application/json; charset=utf-8");
+        res.set("Content-Encoding", br ? "br" : "gzip");
+        res.set("X-Content-Type-Options", "nosniff");
+        return res.end(br ? capture.br : capture.gzip);
+      }
+      const obj = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: media.s3_key }));
+      res.set("Content-Type", media.mime_type || "application/pdf");
       if (obj.ContentLength) res.set("Content-Length", String(obj.ContentLength));
       obj.Body.on("error", () => res.end());
       obj.Body.pipe(res);
@@ -603,7 +666,10 @@ module.exports = {
     const versionLabel = text(req.body.version_label, 30) || "Interactive";
     let tempFiles = [file];
     try {
-      const data = parseCapture(await fsp.readFile(path.join(UPLOAD_DIR, path.basename(file.filename)), "utf8"));
+      // The capture bar uploads it gzipped (CompressionStream) where the browser can.
+      let raw = await fsp.readFile(path.join(UPLOAD_DIR, path.basename(file.filename)));
+      if (raw[0] === 0x1f && raw[1] === 0x8b) raw = zlib.gunzipSync(raw, { maxOutputLength: 200 * 1024 * 1024 });
+      const data = parseCapture(raw.toString("utf8"));
       if (!data) {
         removeTempFiles(tempFiles);
         return badRequest(res, "The capture could not be read. Please capture the page again.");
@@ -622,9 +688,9 @@ module.exports = {
         }
       }
 
-      // Stored gzipped (captures repeat a lot of markup); served with Content-Encoding.
+      // Stored packed and gzipped; the player gets it from compressedCapture().
       const gzName = `${path.basename(file.filename)}-gz`;
-      await fsp.writeFile(path.join(UPLOAD_DIR, gzName), zlib.gzipSync(JSON.stringify(data), { level: 9 }));
+      await fsp.writeFile(path.join(UPLOAD_DIR, gzName), zlib.gzipSync(JSON.stringify(packCapture(data)), { level: 9 }));
       removeTempFiles([file]);
       tempFiles = [];
       const stored = await uploadToS3({ filename: gzName, mimetype: "application/json", originalname: "app-demo-capture.json", cacheControl: CACHE_CONTROL });
