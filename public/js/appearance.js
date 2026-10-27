@@ -92,7 +92,7 @@
     }
 
     // ---------- the three remaps (each one leaves its own output unchanged) ----------
-    // Neutral surfaces take a tint: a soft grayish brown in light, a cool blue-gray in dark.
+    // Neutral surfaces take a tint: a barely warm grayish white in light, a cool blue-gray in dark.
     const TINT_H = 255;
     const tint = (c, k) => (c.C < 0.012 ? (DARK ? { C: 0.008, h: TINT_H } : { C: 0.0035, h: 78 }) : { C: Math.min(c.C, 0.06) * k, h: c.h });
     function mapBg(c) {
@@ -104,10 +104,10 @@
         return null;
       }
       // Light: near-whites keep their lightness (so pages, cards and tinted chips keep their
-    // steps) and take a soft warm tint; pure white is held just below white. Applying it
+    // steps) and take the faintest warm touch; pure white is held just below white. Applying it
     // again changes nothing, so every page ends up the same however often it is checked.
     if (o.L >= 0.958 && o.C <= 0.06) {
-      const t = o.C < 0.012 ? { C: 0.0035, h: 78 } : { C: o.C, h: o.h };
+      const t = o.C < 0.012 ? { C: 0.0015, h: 85 } : { C: o.C, h: o.h };
       return fromLch(Math.min(o.L, 0.982), t.C, t.h, c.a);
     }
       return null;

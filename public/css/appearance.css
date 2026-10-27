@@ -6,13 +6,13 @@
    prints and PDFs always come out white. */
 
 @media screen {
-  /* Light: a soft grayish brown instead of bright white, easier on the eyes. */
+  /* Light: a soft grayish white (the faintest warm touch) instead of bright white. */
   html[data-appearance="gray"] {
-    --ap-page: oklch(0.963 0.004 78);
-    --ap-surface: oklch(0.982 0.003 80);
-    --ap-surface-2: oklch(0.972 0.0035 78);
-    --ap-header: oklch(0.952 0.005 76);
-    --ap-line: oklch(0.89 0.006 75);
+    --ap-page: oklch(0.963 0.0015 85);
+    --ap-surface: oklch(0.982 0.001 85);
+    --ap-surface-2: oklch(0.972 0.0012 85);
+    --ap-header: oklch(0.952 0.0018 85);
+    --ap-line: oklch(0.89 0.003 85);
     --ap-text: oklch(0.22 0.012 60);
     --ap-muted: oklch(0.44 0.014 60);
   }
@@ -20,7 +20,7 @@
   /* A light line with a soft shadow under the header, so header and page read apart. */
   html[data-appearance="gray"] header#top-header {
     background: var(--ap-header) !important;
-    box-shadow: 0 1px 0 oklch(0.87 0.007 72), 0 3px 10px rgba(40, 30, 20, 0.08) !important;
+    box-shadow: 0 1px 0 oklch(0.87 0.003 85), 0 3px 10px rgba(15, 23, 42, 0.08) !important;
   }
   html[data-appearance="dark"] {
     --ap-page: oklch(0.185 0.006 255);

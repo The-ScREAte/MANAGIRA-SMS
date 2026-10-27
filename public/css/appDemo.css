@@ -7,10 +7,10 @@
   --t-ink: #0b1b2b;
   --t-text: #26364a;
   --t-muted: #4a5a6c;
-  --t-line: #e2dcd3;
-  --t-line-strong: #d1c9bd;
-  --t-bg: #f4f2f0; /* the app's light page color (public/css/appearance.css) */
-  --t-soft: #ebe8e3;
+  --t-line: #dfdedb;
+  --t-line-strong: #cdccc8;
+  --t-bg: #f3f3f2; /* the app's light page color (public/css/appearance.css) */
+  --t-soft: #eae9e7;
   --t-brand: #01535b;
   --t-brand-hover: #013f45;
   --t-brand-soft: #e7f1f1;
