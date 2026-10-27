@@ -44,7 +44,8 @@ async function pingSelf() {
 
 // Only run keep-alive in production to avoid unnecessary pings in development
 if (process.env.NODE_ENV === "production" && BASE_URL && KEEP_ALIVE_ENABLED) {
-  pingSelf();
+  // The first ping waits a full interval: at startup this instance isn't serving yet,
+  // so pinging straight away only logged a 502.
   setInterval(pingSelf, pingIntervalMs);
 
   console.log(

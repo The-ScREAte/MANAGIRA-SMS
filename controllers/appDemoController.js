@@ -7,6 +7,7 @@ const zlib = require("zlib");
 const crypto = require("crypto");
 const { MEDIA_TYPES, ensureAppDemoSchema, getTour, invalidateTourCache } = require("../utils/appDemo");
 const capture = require("../utils/appDemoCapture");
+const { pack: packCapture, bodyOf } = require("../public/js/capturePack");
 
 const UPLOAD_DIR = path.resolve(__dirname, "../uploads"); // multer's dest; also where uploadToS3 reads from
 // Every key is new (timestamped), so browsers may keep the file for good.
@@ -172,11 +173,17 @@ function parseCapture(raw) {
   const heads = Array.isArray(data.heads) ? data.heads.filter((x) => typeof x === "string") : [];
   const states = Array.isArray(data.states) ? data.states : [];
   if (!heads.length || !states.length) return null;
+  // Packed (public/js/capturePack.js): each view lists its pieces of markup from the pool.
+  const pool = Array.isArray(data.pool) ? data.pool : null;
+  if (pool && !pool.every((x) => typeof x === "string")) return null;
+  const isPart = (k) => Number.isInteger(k) && k >= 0 && k < pool.length;
   const cleanStates = [];
   for (const st of states) {
     const head = parseInt(st && st.head, 10);
-    if (!isPlainObject(st) || typeof st.body !== "string" || !(head >= 0 && head < heads.length)) return null;
-    cleanStates.push({ head, body: st.body, htmlAttrs: attrsOf(st.htmlAttrs), bodyAttrs: attrsOf(st.bodyAttrs), scrollY: Math.max(0, parseInt(st.scrollY, 10) || 0) });
+    if (!isPlainObject(st) || !(head >= 0 && head < heads.length)) return null;
+    const markup = pool ? { parts: Array.isArray(st.parts) && st.parts.every(isPart) ? st.parts : null } : { body: typeof st.body === "string" ? st.body : null };
+    if (markup.parts === null || markup.body === null) return null;
+    cleanStates.push({ head, ...markup, htmlAttrs: attrsOf(st.htmlAttrs), bodyAttrs: attrsOf(st.bodyAttrs), scrollY: Math.max(0, parseInt(st.scrollY, 10) || 0) });
   }
   const links = (Array.isArray(data.links) ? data.links : [])
     .map((l) => ({ from: parseInt(l && l.from, 10), to: parseInt(l && l.to, 10), el: String((l && l.el) || "") }))
@@ -200,43 +207,51 @@ function parseCapture(raw) {
     heads,
     states: cleanStates,
     links,
+    ...(pool ? { pool } : {}),
   };
 }
 
-// ---------- Packing: a capture's views repeat almost all of their markup ----------
-// Each view's body is cut into pieces after a ">" where the 24 characters before
-// it hash to a marker, so cuts fall in the same places in every view and a change
-// only touches the pieces around it. Pieces are stored once (data.pool) and each
-// view lists its own (state.parts): a 17 MB capture packs to well under 1 MB.
-function splitMarkup(html) {
-  const out = [];
-  let start = 0;
-  for (let i = 0; i < html.length; i++) {
-    if (html.charCodeAt(i) !== 62) continue; // ">"
-    const len = i + 1 - start;
-    if (len < 200) continue;
-    let h = 0;
-    for (let j = Math.max(start, i - 24); j <= i; j++) h = (Math.imul(h, 31) + html.charCodeAt(j)) | 0;
-    if ((h & 31) === 0 || len >= 8192) { out.push(html.slice(start, i + 1)); start = i + 1; }
+// The first bytes of a gzipped file (stops decompressing once it has enough).
+function gunzipStart(buffer, limit) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    let size = 0;
+    const done = () => resolve(Buffer.concat(chunks));
+    const unzip = zlib.createGunzip();
+    unzip.on("data", (chunk) => {
+      chunks.push(chunk);
+      size += chunk.length;
+      if (size >= limit) { unzip.destroy(); done(); }
+    });
+    unzip.on("end", done);
+    unzip.on("error", done);
+    unzip.end(buffer);
+  });
+}
+
+// The walkthrough of a stored capture, read from the start of the file: the
+// guide comes before the views, so a large capture is never parsed whole.
+function storedGuide(text) {
+  const at = text.indexOf('"guide":[');
+  if (at < 0) return [];
+  let depth = 0;
+  let inString = false;
+  for (let i = at + 8; i < text.length; i++) {
+    const c = text[i];
+    if (inString) { if (c === "\\") i++; else if (c === '"') inString = false; continue; }
+    if (c === '"') inString = true;
+    else if (c === "[") depth++;
+    else if (c === "]" && --depth === 0) { try { return JSON.parse(text.slice(at + 8, i + 1)); } catch (_) { return []; } }
   }
-  if (start < html.length) out.push(html.slice(start));
-  return out;
-}
-function packCapture(data) {
-  if (Array.isArray(data.pool)) return data;
-  const pool = [];
-  const ids = new Map();
-  const idOf = (piece) => {
-    let k = ids.get(piece);
-    if (k === undefined) { k = pool.length; pool.push(piece); ids.set(piece, k); }
-    return k;
-  };
-  const states = data.states.map(({ body, ...rest }) => ({ ...rest, parts: splitMarkup(body).map(idOf) }));
-  return { ...data, states, pool };
+  return [];
 }
 
-// Packed and compressed captures, kept in memory (newest last): the player's data
-// is served without a trip to S3, as brotli when the browser takes it.
+// Captures kept in memory (newest last), so the player's data is served without
+// a trip to S3. They are stored packed and gzipped and sent as they are, with a
+// brotli copy for small ones. Only older, unpacked captures are packed here, and
+// only when small enough: the server never parses a large capture.
+const UNPACK_LIMIT = 40 * 1024 * 1024;
+const BROTLI_LIMIT = 16 * 1024 * 1024;
 const capturesInMemory = new Map();
 function compressedCapture(key) {
   let entry = capturesInMemory.get(key);
@@ -246,24 +261,30 @@ function compressedCapture(key) {
     entry = (async () => {
       const obj = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key }));
       const stored = Buffer.from(await obj.Body.transformToByteArray());
-      const json = JSON.stringify(packCapture(JSON.parse(zlib.gunzipSync(stored).toString("utf8"))));
-      return {
-        etag: `"c1-${crypto.createHash("sha1").update(key).digest("hex").slice(0, 16)}"`,
-        gzip: zlib.gzipSync(json, { level: 9 }),
-        br: zlib.brotliCompressSync(json, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: json.length } }),
-      };
+      const out = { etag: `"c2-${crypto.createHash("sha1").update(key).digest("hex").slice(0, 16)}"`, gzip: stored, br: null };
+      let raw;
+      try { raw = zlib.gunzipSync(stored, { maxOutputLength: UNPACK_LIMIT }); } catch (_) { return out; } // too large: as stored
+      if (raw.lastIndexOf('"pool":[') < 0) {
+        const json = JSON.stringify(packCapture(JSON.parse(raw.toString("utf8"))));
+        raw = Buffer.from(json);
+        out.gzip = zlib.gzipSync(raw, { level: 9 });
+      }
+      if (raw.length <= BROTLI_LIMIT) {
+        out.br = zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: raw.length > 4 * 1024 * 1024 ? 6 : 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
+      }
+      return out;
     })();
     entry.catch(() => capturesInMemory.delete(key));
   }
   capturesInMemory.set(key, entry);
-  if (capturesInMemory.size > 24) capturesInMemory.delete(capturesInMemory.keys().next().value);
+  if (capturesInMemory.size > 12) capturesInMemory.delete(capturesInMemory.keys().next().value);
   return entry;
 }
 
 const attrString = (attrs) => Object.entries(attrs || {}).map(([k, v]) => ` ${k}="${String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"`).join("");
 const stateHtml = (data, i) => {
   const st = data.states[i];
-  return `<!DOCTYPE html><html${attrString(st.htmlAttrs)}><head>${data.heads[st.head]}</head><body${attrString(st.bodyAttrs)}>${st.body}</body></html>`;
+  return `<!DOCTYPE html><html${attrString(st.htmlAttrs)}><head>${data.heads[st.head]}</head><body${attrString(st.bodyAttrs)}>${bodyOf(data, i)}</body></html>`;
 };
 
 // Renders the first state, as visitors first see it, for the cover image: the
@@ -333,7 +354,7 @@ module.exports = {
         res.set("ETag", capture.etag);
         res.set("Vary", "Accept-Encoding");
         if (req.headers["if-none-match"] === capture.etag) return res.status(304).end();
-        const br = /\bbr\b/.test(req.headers["accept-encoding"] || "");
+        const br = Boolean(capture.br) && /\bbr\b/.test(req.headers["accept-encoding"] || "");
         res.set("Content-Type", "application/json; charset=utf-8");
         res.set("Content-Encoding", br ? "br" : "gzip");
         res.set("X-Content-Type-Options", "nosniff");
@@ -548,6 +569,28 @@ module.exports = {
 
   reorderScreens: reorderHandler("app_demo_screens", "step", "AND t.feature_id = $2"),
 
+  // Moves a step, with its versions, to the end of another feature.
+  moveScreen: async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const featureId = parseInt(req.body && req.body.feature_id, 10);
+    if (!Number.isInteger(featureId)) return badRequest(res, "Choose a feature.");
+    try {
+      await ensureAppDemoSchema(db);
+      const target = await db.query(`SELECT 1 FROM app_demo_features WHERE id = $1`, [featureId]);
+      if (!target.rowCount) return notFound(res, "Feature");
+      const { rowCount } = await db.query(
+        `UPDATE app_demo_screens
+            SET feature_id = $1, sort_order = (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM app_demo_screens WHERE feature_id = $1)
+          WHERE id = $2`,
+        [featureId, id]
+      );
+      if (!rowCount) return notFound(res, "Step");
+      return respondWithTour(res);
+    } catch (err) {
+      return fail(res, err, "Could not move the step");
+    }
+  },
+
   // ---------- Versions of a step (e.g. Light / Dark) ----------
 
   addMedia: async (req, res) => {
@@ -668,7 +711,12 @@ module.exports = {
     try {
       // The capture bar uploads it gzipped (CompressionStream) where the browser can.
       let raw = await fsp.readFile(path.join(UPLOAD_DIR, path.basename(file.filename)));
-      if (raw[0] === 0x1f && raw[1] === 0x8b) raw = zlib.gunzipSync(raw, { maxOutputLength: 200 * 1024 * 1024 });
+      if (raw[0] === 0x1f && raw[1] === 0x8b) raw = zlib.gunzipSync(raw, { maxOutputLength: 120 * 1024 * 1024 });
+      // The capture bar packs before uploading; an unpacked one this large comes from an old copy of the page.
+      if (raw.length > UNPACK_LIMIT && raw.lastIndexOf('"pool":[') < 0) {
+        removeTempFiles(tempFiles);
+        return badRequest(res, "This capture is too large. Reload the page and capture it again.");
+      }
       const data = parseCapture(raw.toString("utf8"));
       if (!data) {
         removeTempFiles(tempFiles);
@@ -739,10 +787,10 @@ module.exports = {
       if (!captureRows.length) return notFound(res, "Interactive version");
       if (!captureRows[0].s3_key) return badRequest(res, "The interactive capture file is missing.");
       const captureObject = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: captureRows[0].s3_key }));
-      const captureBuffer = await captureObject.Body.transformToByteArray();
-      const captureData = parseCapture(zlib.gunzipSync(captureBuffer).toString("utf8"));
-      if (!captureData) return badRequest(res, "The interactive capture could not be read.");
-      const guide = cleanGuideEntries(steps, captureData.guide.length);
+      const captureBuffer = Buffer.from(await captureObject.Body.transformToByteArray());
+      // Only the start of the file is needed: the guide comes before the views.
+      const head = (await gunzipStart(captureBuffer, 4 * 1024 * 1024)).toString("utf8");
+      const guide = cleanGuideEntries(steps, storedGuide(head).length);
       const { rowCount } = await db.query(
         `UPDATE app_demo_screen_media SET guide = $1, accent = $2, guided = $3 WHERE id = $4 AND media_type = 'html'`,
         [JSON.stringify(guide), cleanAccent(req.body && req.body.accent), toFlag(req.body && req.body.guided, true), id]

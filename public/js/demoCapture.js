@@ -816,8 +816,10 @@
       if (uploading) return;
       uploading = true;
       saveBtn.disabled = true;
-      // Sent gzipped where the browser can (a page's views repeat most of their markup).
-      let capture = new Blob([JSON.stringify(data)], { type: "application/json" });
+      // Sent gzipped where the browser can.
+      // Packed (public/js/capturePack.js): each piece of markup once, however many views repeat it.
+      const packed = window.ManagiraCapturePack ? window.ManagiraCapturePack.pack(data) : data;
+      let capture = new Blob([JSON.stringify(packed)], { type: "application/json" });
       if (typeof CompressionStream === "function") {
         try { capture = await new Response(capture.stream().pipeThrough(new CompressionStream("gzip"))).blob(); } catch (_) { /* send it as it is */ }
       }

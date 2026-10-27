@@ -448,6 +448,7 @@
 </script>
 <% } %>
 <% if (locals.demoCapture && !locals.isEmbeddedFrame && !locals.isPrintRender) { %>
+<script src="<%= assetUrl('/js/capturePack.js') %>" defer></script>
 <script src="<%= assetUrl('/js/demoCapture.js') %>" data-ends-at="<%= locals.demoCapture.endsAt %>" data-school="<%= locals.demoCapture.school %>" defer></script>
 <% } %>
 </body>

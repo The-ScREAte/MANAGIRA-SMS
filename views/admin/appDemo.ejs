@@ -360,6 +360,7 @@
     cursor: '<svg viewBox="0 0 20 20"><path d="M5 3l10 6-4.5 1.2L13 16l-2 1-2.5-5.6L5 14z"/></svg>',
     guide: '<svg viewBox="0 0 20 20"><path d="M4 5h12M4 10h8M4 15h5"/><circle cx="15" cy="14" r="2.5"/></svg>',
     camera: '<svg viewBox="0 0 20 20"><path d="M3 7h3l1.5-2h5L14 7h3v9H3z"/><circle cx="10" cy="11" r="3"/></svg>',
+    moveTo: '<svg viewBox="0 0 20 20"><path d="M4 10h11M11 6l4 4-4 4"/><path d="M4 5v10"/></svg>',
   };
 
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -734,6 +735,7 @@
         +   '<span class="ade-step__tools">'
         +     '<button type="button" class="ade-icon" data-step-move="-1" title="Move up" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>' + ICON.up + '</button>'
         +     '<button type="button" class="ade-icon" data-step-move="1" title="Move down" aria-label="Move down"' + (i === f.screens.length - 1 ? ' disabled' : '') + '>' + ICON.down + '</button>'
+        +     '<button type="button" class="ade-icon" data-step-to title="Move to another feature" aria-label="Move step to another feature">' + ICON.moveTo + '</button>'
         +     '<button type="button" class="ade-icon ade-icon--danger" data-step-delete title="Delete step" aria-label="Delete step">' + ICON.trash + '</button>'
         +   '</span>'
         + '</div>'
@@ -850,6 +852,7 @@
         ids.splice(i + Number(move.dataset.stepMove), 0, ids.splice(i, 1)[0]);
         return saveStepOrder(featureId, ids);
       }
+      if (e.target.closest('[data-step-to]')) return moveStepTo(stepId, featureId);
       if (e.target.closest('[data-step-delete]')) {
         if (!window.confirm('Delete this step and all of its versions?')) return;
         return post('/admin/app-demo/screens/' + stepId + '/delete')
@@ -899,6 +902,43 @@
         .then(() => { state.textContent = 'Saved'; state.classList.add('is-ok'); setTimeout(() => { state.textContent = ''; }, 2000); })
         .catch((err) => { state.textContent = ''; toast(err.message, true); });
     });
+  }
+
+  // Moves a step (with its versions) to the end of another feature, then shows it there.
+  function moveStepTo(stepId, fromFeatureId) {
+    const step = (findFeature(fromFeatureId) || { screens: [] }).screens.find((s) => s.id === stepId);
+    const wrap = document.createElement('div');
+    wrap.className = 'ade-modal';
+    wrap.innerHTML = '<div class="ade-modal__card" role="dialog" aria-modal="true" aria-labelledby="adeMoveTitle" style="width:min(420px,100%)">'
+      + '<div class="ade-modal__head"><h2 id="adeMoveTitle">Move step</h2><p>' + esc(step && step.label ? step.label : 'This step') + ' goes to the end of the feature you choose.</p></div>'
+      + '<div class="ade-modal__body"><div class="ade-field"><label for="adeMoveTo">Feature</label><select id="adeMoveTo" class="ade-select">'
+      +   sections.map((s) => '<optgroup label="' + esc(s.name) + '">' + s.features.map((f) => '<option value="' + f.id + '"' + (f.id === fromFeatureId ? ' disabled' : '') + '>' + esc(f.title) + (f.id === fromFeatureId ? ' (here now)' : '') + '</option>').join('') + '</optgroup>').join('')
+      + '</select></div></div>'
+      + '<div class="ade-modal__foot"><button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-move-cancel>Cancel</button><button type="button" class="ade-btn ade-btn--primary ade-btn--sm" data-move-go>Move</button></div></div>';
+    root.appendChild(wrap);
+    const select = wrap.querySelector('select');
+    const firstOther = Array.from(select.options).find((o) => !o.disabled);
+    if (firstOther) select.value = firstOther.value;
+    const close = () => wrap.remove();
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+    wrap.querySelector('[data-move-cancel]').addEventListener('click', close);
+    wrap.querySelector('[data-move-go]').addEventListener('click', async (e) => {
+      const to = Number(select.value);
+      if (!to) return;
+      e.currentTarget.disabled = true;
+      try {
+        await post('/admin/app-demo/screens/' + stepId + '/move', { feature_id: to });
+        close();
+        view = { type: 'feature', id: to };
+        renderList();
+        renderEditor();
+        toast('Moved to ' + ((findFeature(to) || {}).title || 'the feature') + '. Drag it to reorder.');
+      } catch (err) {
+        e.currentTarget.disabled = false;
+        toast(err.message, true);
+      }
+    });
+    select.focus();
   }
 
   function saveStepOrder(featureId, ids) {

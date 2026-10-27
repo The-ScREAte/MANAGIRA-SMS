@@ -434,6 +434,7 @@ module.exports = (db) => {
     router.post("/app-demo/features/:id(\\d+)/screens/reorder", ...appDemoAdmin, appDemoController.reorderScreens);
     router.post("/app-demo/screens/:id(\\d+)", ...appDemoAdmin, appDemoController.updateScreen);
     router.post("/app-demo/screens/:id(\\d+)/delete", ...appDemoAdmin, appDemoController.deleteScreen);
+    router.post("/app-demo/screens/:id(\\d+)/move", ...appDemoAdmin, appDemoController.moveScreen);
     router.post("/app-demo/screens/:id(\\d+)/media", ...appDemoAdmin, appDemoFiles('files', true), appDemoController.addMedia);
     router.post("/app-demo/screens/:id(\\d+)/media/reorder", ...appDemoAdmin, appDemoController.reorderMedia);
     router.post("/app-demo/media/:id(\\d+)", ...appDemoAdmin, appDemoFiles('file', false), appDemoController.updateMedia);

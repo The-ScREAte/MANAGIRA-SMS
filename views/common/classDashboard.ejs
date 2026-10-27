@@ -1840,6 +1840,9 @@ main {
   width: 100%;
   max-width: none;
   display: grid;
+  /* One column held to the space left of the sidebar: a long row of open tabs
+     scrolls inside the tab bar instead of widening every panel below it. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   justify-self: stretch;
 }
@@ -3817,6 +3820,63 @@ main {
   #panel-overview .overview-count-chip { padding: 4px 2px; }
   #panel-overview .overview-count-chip .count-num { font-size: 11.5px; }
 }
+
+/* ---------- Overview: calm, aligned controls (no hover colours) ---------- */
+/* Teachers row: a plain disclosure row, not a coloured button. */
+.teachers-mobile-toggle,
+.teachers-mobile-toggle:hover,
+.teachers-mobile-toggle:focus { background: transparent; color: var(--text); box-shadow: none; }
+.teachers-mobile-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+.teachers-mobile-toggle .teachers-mobile-meta > span:first-child { min-width: 22px; padding: 1px 8px; border-radius: 999px; background: var(--surface-soft, #f1f5f9); color: var(--muted); font-weight: 700; text-align: center; }
+.teachers-mobile-toggle .teachers-mobile-chevron,
+.student-arrow { display: inline-flex; width: 16px; height: 16px; color: #94a3b8; }
+.teachers-mobile-toggle .teachers-mobile-chevron svg,
+.student-arrow svg { width: 16px; height: 16px; }
+.teachers-mobile-toggle[aria-expanded="true"] .teachers-mobile-chevron { color: var(--muted); }
+
+/* Student rows: one column of same-sized line icons, whether or not a student rides a bus. */
+.students-numbered-list li { flex-wrap: nowrap; gap: 2px; }
+.student-row,
+.student-row:hover { background: transparent; }
+.student-row:hover .student-name { color: var(--text); }
+.student-row:hover .student-arrow { color: #94a3b8; transform: none; }
+.student-row.has-remark .student-name { color: var(--primary); }
+.student-transport-btn,
+.student-remark-btn,
+.student-action-slot {
+  flex: 0 0 30px; width: 30px; height: 30px; margin: 0; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 8px; background: transparent; color: #64748b; transform: none;
+}
+.student-transport-btn:hover, .student-transport-btn:focus,
+.student-remark-btn:hover, .student-remark-btn:focus { background: transparent; border-color: transparent; color: #64748b; transform: none; }
+.student-remark-btn.has-remark, .student-remark-btn.has-remark:hover { color: var(--primary); }
+.student-transport-btn:focus-visible,
+.student-remark-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.student-transport-btn svg,
+.student-remark-btn svg { width: 17px; height: 17px; }
+
+/* Header: the class-details and options buttons share one size and shape. */
+.workspace-meta-toggle,
+.term-view-dots {
+  width: 30px; height: 30px; padding: 0; border: 1px solid var(--border, #e5e7eb); border-radius: 8px;
+  background: transparent; color: var(--muted, #64748b);
+}
+.workspace-meta-toggle:hover,
+.term-view-dots:hover { background: transparent; color: var(--muted, #64748b); border-color: var(--border, #e5e7eb); }
+.workspace-meta-toggle[aria-expanded="true"],
+.term-view-dots[aria-expanded="true"] { background: transparent; color: var(--text, #0f172a); border-color: #94a3b8; }
+.workspace-meta-toggle .workspace-meta-toggle-icon,
+.term-view-dots svg { width: 16px; height: 16px; }
+@media (max-width: 768px) {
+  .workspace-meta-toggle { width: 30px; height: 30px; }
+  .workspace-header-line { align-items: center; }
+  .workspace-title-row { align-items: center; flex-wrap: nowrap; }
+}
+@media (max-width: 640px) {
+  .term-view-dots { width: 30px; height: 30px; }
+  .workspace-meta-wrap { align-items: center; }
+}
 </style>
 
 <body>
@@ -4074,7 +4134,7 @@ main {
                     <span class="section-title">Teachers</span>
                     <span class="teachers-mobile-meta">
                       <span><%= employees.length %></span>
-                      <span class="teachers-mobile-chevron" aria-hidden="true">›</span>
+                      <span class="teachers-mobile-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
                     </span>
                   </button>
                   <div class="teachers-head">
@@ -4124,7 +4184,7 @@ main {
                             <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
                               <span class="student-index"><%= i + 1 %></span>
                               <span class="student-name"><%= studentFullName %></span>
-                              <span class="student-arrow" aria-hidden="true">›</span>
+                              <span class="student-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
                             </button>
                             <% if (hasTransportAccess) { %>
                             <button
@@ -4133,8 +4193,10 @@ main {
                               title="Transportation details"
                               aria-label="Transportation details for <%= studentFullName %>"
                               onclick="openStudentTransportModal(<%= student.student_id %>, '<%= studentFullName.replace(/'/g, "\\'") %>', event)">
-                              🚌
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
                             </button>
+                            <% } else { %>
+                            <span class="student-action-slot" aria-hidden="true"></span>
                             <% } %>
                             <button
                               class="student-remark-btn"
@@ -4144,7 +4206,7 @@ main {
                               data-student-id="<%= student.student_id %>"
                               data-student-name="<%= studentFullName %>"
                               onclick="openStudentTeacherRemarkModal(this, event)">
-                              ✎
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                             </button>
                           </li>
                         <% }); %>
