@@ -15,6 +15,8 @@
 }
 .ss-root[hidden] { display: none; }
 .ss-root button { width: auto; margin: 0; font: inherit; box-shadow: none; }
+/* The floating bar keeps a soft shadow so it stands out from the page. */
+.ss-root .ss-bar { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10), 0 8px 22px rgba(15, 23, 42, 0.16); }
 
 .ss-bar {
   display: inline-flex;

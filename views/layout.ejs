@@ -8,21 +8,23 @@
   }
 %>
 <%
-  // The signed-in person's own look: light (a soft gray, the default) or dark.
-  // Platform admin pages, public pages (school website, legal, sign-in),
+  // The signed-in person's own look on school pages: light (a soft grayish
+  // brown, the default) or dark. Admin and public pages use the same light look;
   // PDFs and prints always use the plain white design.
   const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
   const _isPublicPath = _appearancePath === '/' || _appearancePath === ''
     || /^\/(legal|account\/([a-z-]*login|register|forgot|reset|set-?password|verify)|common\/(publicDashboard|publicRegister|setPassword)|hub\/(login|setup-password|billing\/setup))/i.test(_appearancePath);
   const _isOrgThemed = !!locals.appearanceOwner && !_appearancePath.startsWith('/admin') && !_isPublicPath;
-  let _appearance = _isOrgThemed && !locals.isPrintRender ? (locals.appearance === 'dark' ? 'dark' : 'gray') : 'white';
+  // Every page uses the soft light look (or the person's dark choice on school pages);
+  // only PDFs and prints stay white.
+  let _appearance = locals.isPrintRender ? 'white' : (_isOrgThemed && locals.appearance === 'dark' ? 'dark' : 'gray');
   // School website pages (online registration): a signed-in visitor sees
   // their own light/dark choice; everyone else sees the school's Website Mode.
   // Same rule as utils/publicSiteAppearance.js resolvePublicSiteAppearance().
   if (typeof locals.publicSiteAppearance === 'string' && !locals.isPrintRender) {
     _appearance = locals.appearanceOwner
-      ? (locals.appearance === 'dark' ? 'dark' : 'white')
-      : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white');
+      ? (locals.appearance === 'dark' ? 'dark' : 'gray')
+      : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'gray');
   }
 %>
 <!DOCTYPE html>

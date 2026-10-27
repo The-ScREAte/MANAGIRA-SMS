@@ -101,7 +101,7 @@
 .ah-cap { display: flex; flex-direction: column; gap: 6px; min-width: 96px; }
 .ah-cap__text { font-weight: 600; color: var(--ah-ink); text-decoration: none; }
 .ah-cap__text:hover { color: var(--ah-brand); text-decoration: underline; }
-.ah-cap__bar { height: 6px; border-radius: 99px; background: #eef2f6; overflow: hidden; }
+.ah-cap__bar { height: 6px; border-radius: 99px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
 .ah-cap__bar span { display: block; height: 100%; background: var(--ah-brand); border-radius: 99px; }
 
 .ah-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; font-size: .78rem; font-weight: 600; background: #dcfce7; color: #166534; white-space: nowrap; }

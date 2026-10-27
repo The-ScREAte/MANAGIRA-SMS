@@ -1,3 +1,4 @@
+const { localPath } = require("../utils/localPath");
 const db = require('../config/db');
 const { saveAppearance } = require('../utils/organizationAppearance');
 
@@ -15,12 +16,12 @@ const updateThemePost = async (req, res) => {
 
     if (!themeColor || !validThemes.includes(themeColor)) {
       req.flash("error", "Invalid theme color selected.");
-      return res.redirect(redirectTo || "/account/personalization");
+      return res.redirect(localPath(redirectTo, "/account/personalization"));
     }
 
     if (!orgId) {
       req.flash("error", "Organization not found.");
-      return res.redirect(redirectTo || "/account/personalization");
+      return res.redirect(localPath(redirectTo, "/account/personalization"));
     }
 
     await db.query(
@@ -33,10 +34,10 @@ const updateThemePost = async (req, res) => {
     req.session.themeColor = themeColor;
     
     req.flash("success", "Theme color updated successfully.");
-    return res.redirect(redirectTo || "/account/personalization");
+    return res.redirect(localPath(redirectTo, "/account/personalization"));
   } catch (err) {
         req.flash("error", "Failed to update theme color.");
-    return res.redirect(req.body.redirectTo || "/account/personalization");
+    return res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
   }
 };
 

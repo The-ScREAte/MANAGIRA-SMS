@@ -92,8 +92,9 @@
     }
 
     // ---------- the three remaps (each one leaves its own output unchanged) ----------
+    // Neutral surfaces take a tint: a soft grayish brown in light, a cool blue-gray in dark.
     const TINT_H = 255;
-    const tint = (c, k) => (c.C < 0.012 ? { C: DARK ? 0.008 : 0.003, h: TINT_H } : { C: Math.min(c.C, 0.06) * k, h: c.h });
+    const tint = (c, k) => (c.C < 0.012 ? (DARK ? { C: 0.008, h: TINT_H } : { C: 0.0035, h: 78 }) : { C: Math.min(c.C, 0.06) * k, h: c.h });
     function mapBg(c) {
       if (!c || c.a < 0.03) return null;
       const o = toLch(c);
@@ -102,7 +103,13 @@
         if (o.L >= 0.55 && o.C <= 0.035) { const t = tint(o, 1); return fromLch(0.31 + (o.L - 0.55) * 0.3, t.C, t.h, c.a); }
         return null;
       }
-      if (o.L >= 0.958 && o.C <= 0.06) { const t = tint(o, 0.8); return fromLch(0.93 + (o.L - 0.958) * 0.6, t.C, t.h, c.a); }
+      // Light: near-whites keep their lightness (so pages, cards and tinted chips keep their
+    // steps) and take a soft warm tint; pure white is held just below white. Applying it
+    // again changes nothing, so every page ends up the same however often it is checked.
+    if (o.L >= 0.958 && o.C <= 0.06) {
+      const t = o.C < 0.012 ? { C: 0.0035, h: 78 } : { C: o.C, h: o.h };
+      return fromLch(Math.min(o.L, 0.982), t.C, t.h, c.a);
+    }
       return null;
     }
     function mapText(c) {
@@ -509,7 +516,23 @@
         (scopes || [document.body]).forEach(fixInlineIn);
       });
     }
+    // Pages designed dark (the marketing homepage) keep their own look: the soft
+    // light look is for light pages. Read the page's own background without ours.
+    function designedDark() {
+      root.setAttribute('data-appearance', 'white');
+      const own = [document.body, root].map((n) => parse(getComputedStyle(n).backgroundColor)).find((c) => c && c.a > 0.5);
+      root.setAttribute('data-appearance', MODE);
+      return Boolean(own) && toLch(own).L < 0.5;
+    }
+
     function start() {
+      if (MODE === 'gray' && designedDark()) {
+        MODE = 'white';
+        WHITE = true;
+        root.setAttribute('data-appearance', 'white');
+        root.classList.add('ap-ready');
+        return;
+      }
       liftBrand();
       pass();
       quiet(() => settle(document.body));

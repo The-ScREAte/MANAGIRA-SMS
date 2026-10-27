@@ -619,7 +619,8 @@ router.post("/update-plan", isAuthenticated, requirePermission(PERMISSIONS.MANAG
 router.get("/whatsapp/webhook", (req, res) =>
   accountController.whatsappWebhookVerifyGet(req, res)
 );
-router.post("/whatsapp/webhook", express.json({ type: "application/json" }), (req, res) =>
+// The raw body is kept so the controller can check Meta's X-Hub-Signature-256.
+router.post("/whatsapp/webhook", express.json({ type: "application/json", verify: (req, res, buf) => { req.rawBody = buf; } }), (req, res) =>
   accountController.whatsappWebhookPost(req, res)
 );
 

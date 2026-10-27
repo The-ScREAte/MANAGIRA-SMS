@@ -203,7 +203,7 @@
   .od-pill--ended { background: #fff7ed; color: #c2410c; }
   .term-duration { margin-top: 18px; }
   .term-duration__row { display: flex; align-items: center; gap: 12px; }
-  .term-duration__bar { flex: 1; height: 10px; border-radius: 999px; background: #eef2f6; overflow: hidden; }
+  .term-duration__bar { flex: 1; height: 10px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
   .term-duration__pct { flex: 0 0 auto; min-width: 52px; text-align: center; padding: 3px 9px; border-radius: 999px; background: var(--od-soft); color: var(--od-primary); font-size: 0.85rem; font-weight: 800; }
   .term-duration__bar > span { display: block; height: 100%; border-radius: inherit; background: var(--od-primary); }
   .term-duration__meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; font-size: 0.8rem; color: var(--od-muted); }
@@ -234,7 +234,7 @@
   .od-kpi__label { font-size: 0.8rem; color: var(--od-muted); font-weight: 600; }
   .od-kpi__value { font-size: 1.45rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
   .od-kpi__note { font-size: 0.78rem; color: var(--od-muted); }
-  .od-kpi__bar { height: 5px; border-radius: 999px; background: #eef2f6; overflow: hidden; margin: 4px 0 2px; }
+  .od-kpi__bar { height: 5px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; margin: 4px 0 2px; }
   .od-kpi__bar > span { display: block; height: 100%; background: var(--od-primary); border-radius: inherit; }
 
   /* Lists: events, announcements, alerts, activity */
@@ -433,7 +433,7 @@
   .od-kpi__label { font-size: 0.78rem; }
   .od-kpi__value { font-size: 1.3rem; color: #0f172a; }
   .od-kpi__note { color: #475569 !important; }
-  .od-kpi__bar { background: #eef2f6; }
+  .od-kpi__bar { background: color-mix(in srgb, currentColor 12%, transparent); }
   .od-pair > .od-card { align-self: stretch; }
   /* Events & announcements */
   .od-event > details > summary, .od-event > .od-event__row { padding: 12px 6px; border-radius: 10px; }

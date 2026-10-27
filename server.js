@@ -642,8 +642,13 @@ app.use(express.static("public", {
   lastModified: true
 }));
 
-// Middleware to serve static files from the uploads directory with caching
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Older school logos are still read from /uploads. That folder is also where every
+// upload waits before it goes to S3 (documents, captures, student files), so only
+// plain images are served from it: no SVG (it can carry scripts), no other files.
+app.use("/uploads", (req, res, next) => {
+  if (!/^\/[^/]+\.(png|jpe?g|gif|webp)$/i.test(req.path)) return res.sendStatus(404);
+  return next();
+}, express.static(path.join(__dirname, "uploads"), { dotfiles: "deny", index: false }));
 
 if (process.env.NODE_ENV === "production") {
   // Production: subdomain sharing
@@ -1234,11 +1239,6 @@ ${urls.join("\n")}
     console.error("[sitemap-schools] Error generating school sitemap:", err.message);
     res.status(500).send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
   }
-});
-
-app.get("/test-flash", (req, res) => {
-  req.flash("success", "Test flash successful!");
-  res.redirect("/account/login");
 });
 
 // Price range of the active plans (monthly base price per school, all

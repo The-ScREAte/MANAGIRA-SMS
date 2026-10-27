@@ -332,6 +332,7 @@ const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { deriveOrgNickname, normalizeDisplayName } = require("../utils/orgNicknameSlug");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const crypto = require("crypto");
+const { localPath } = require("../utils/localPath");
 
 const path = require("path");
 
@@ -3981,6 +3982,15 @@ const accountController = {
   },
 
   whatsappWebhookPost: async (req, res) => {
+    // Only Meta may post here: the body must carry its signature made with our app secret.
+    const appSecret = process.env.META_APP_SECRET;
+    if (appSecret) {
+      const expected = Buffer.from("sha256=" + crypto.createHmac("sha256", appSecret).update(req.rawBody || Buffer.alloc(0)).digest("hex"), "utf8");
+      const given = Buffer.from(String(req.headers["x-hub-signature-256"] || ""), "utf8");
+      if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+        return res.status(401).json({ received: false });
+      }
+    }
     // Always ack quickly so Meta does not retry; process in the background.
     res.status(200).json({ received: true });
 
@@ -6597,12 +6607,12 @@ const accountController = {
 
     if (!normalizedFirstName || !normalizedLastName) {
       req.flash("error", "First name and last name are required.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     if (isOrgAccount && normalizedCountry && !/^[A-Z]{2}$/.test(normalizedCountry)) {
       req.flash("error", "Organization country must be a valid 2-letter country code.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     try {
@@ -6642,10 +6652,10 @@ const accountController = {
       req.session.save();
 
       req.flash("success", "Profile updated successfully.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     } catch (error) {
             req.flash("error", "Failed to update profile.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
   },
 
@@ -6661,12 +6671,12 @@ const accountController = {
 
     if (!req.file) {
       req.flash("error", "Please select an image to upload.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     if (!sessionUserId) {
       req.flash("error", "Unable to identify user for profile image update.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     try {
@@ -6725,10 +6735,10 @@ const accountController = {
       req.session.save();
 
       req.flash("success", "Profile picture updated successfully!");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     } catch (error) {
             req.flash("error", "Failed to update profile picture.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
   },
 
@@ -6745,7 +6755,7 @@ const accountController = {
 
           if (!sessionUserId) {
             req.flash("error", "Unable to identify user for image deletion.");
-            return res.redirect(redirectTo || "/account/settings");
+            return res.redirect(localPath(redirectTo, "/account/settings"));
           }
 
           try {
@@ -6800,10 +6810,10 @@ const accountController = {
             req.session.save();
 
             req.flash("success", "Profile picture removed successfully.");
-            return res.redirect(redirectTo || "/account/settings");
+            return res.redirect(localPath(redirectTo, "/account/settings"));
           } catch (error) {
             req.flash("error", "Failed to remove profile picture.");
-            return res.redirect(redirectTo || "/account/settings");
+            return res.redirect(localPath(redirectTo, "/account/settings"));
           }
         },
 
@@ -6820,7 +6830,7 @@ const accountController = {
 
     if (!email) {
       req.flash("error", "Email is required.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     try {
@@ -6838,7 +6848,7 @@ const accountController = {
 
       if (emailCheckResult.rows.length > 0) {
         req.flash("error", "Email is already in use by another account.");
-        return res.redirect(redirectTo || "/account/settings");
+        return res.redirect(localPath(redirectTo, "/account/settings"));
       }
 
       if (isOrgAccount) {
@@ -6859,10 +6869,10 @@ const accountController = {
       req.session.save();
 
       req.flash("success", "Email updated successfully.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     } catch (error) {
             req.flash("error", "Failed to update email.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
   },
 
@@ -6879,12 +6889,12 @@ const accountController = {
 
     if (!password || !confirmPassword) {
       req.flash("error", "Password and confirmation are required.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     if (password !== confirmPassword) {
       req.flash("error", "Passwords do not match.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
     try {
@@ -6912,10 +6922,10 @@ const accountController = {
       });
 
       req.flash("success", "Password updated successfully.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     } catch (error) {
             req.flash("error", "Failed to update password.");
-      return res.redirect(redirectTo || "/account/settings");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
     }
   },
 
@@ -7001,7 +7011,7 @@ const accountController = {
         "An error occurred while updating personalization. Please try again."
       );
 
-      res.redirect(req.body.redirectTo || "/account/personalization");
+      res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
     }
   },
 
@@ -7017,17 +7027,17 @@ const accountController = {
 
       if (!normalizedOrgName || !orgId) {
         req.flash("error", "Organization name is required.");
-        return res.redirect(redirectTo || "/account/personalization");
+        return res.redirect(localPath(redirectTo, "/account/personalization"));
       }
 
       if (!normalizedOrgCountry) {
         req.flash("error", "Organization country is required.");
-        return res.redirect(redirectTo || "/account/personalization");
+        return res.redirect(localPath(redirectTo, "/account/personalization"));
       }
 
       if (!/^[A-Z]{2}$/.test(normalizedOrgCountry) || !COUNTRY_NAME_LOOKUP[normalizedOrgCountry]) {
         req.flash("error", "Please select a valid country from the list.");
-        return res.redirect(redirectTo || "/account/personalization");
+        return res.redirect(localPath(redirectTo, "/account/personalization"));
       }
 
       await ensureOrganizationCurrencySchema(db);
@@ -7065,10 +7075,10 @@ const accountController = {
 
       req.session.organizationName = normalizedOrgName;
       req.flash("success", "Organization name, location, and currency updated successfully.");
-      return res.redirect(redirectTo || "/account/personalization");
+      return res.redirect(localPath(redirectTo, "/account/personalization"));
     } catch (err) {
             req.flash("error", "Failed to update organization name.");
-      return res.redirect(req.body.redirectTo || "/account/personalization");
+      return res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
     }
   },
 
@@ -7079,7 +7089,7 @@ const accountController = {
 
       if (!font || !orgId) {
         req.flash("error", "Font selection is required.");
-        return res.redirect(redirectTo || "/account/personalization");
+        return res.redirect(localPath(redirectTo, "/account/personalization"));
       }
 
       await db.query(
@@ -7089,17 +7099,17 @@ const accountController = {
 
       req.session.fontStyle = font;
       req.flash("success", "Font updated successfully.");
-      return res.redirect(redirectTo || "/account/personalization");
+      return res.redirect(localPath(redirectTo, "/account/personalization"));
     } catch (err) {
             req.flash("error", "Failed to update font.");
-      return res.redirect(req.body.redirectTo || "/account/personalization");
+      return res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
     }
   },
 
   updateDisplayPreferencesPost: async (req, res, db) => {
     try {
       const orgId = req.session.organizationId;
-      const redirectTo = req.body.redirectTo || "/account/settings?section=customize";
+      const redirectTo = localPath(req.body.redirectTo, "/account/settings?section=customize");
 
       if (!orgId) {
         req.flash("error", "Unauthorized.");
@@ -7129,7 +7139,7 @@ const accountController = {
       return res.redirect(redirectTo);
     } catch (error) {
       req.flash("error", "Failed to update display settings.");
-      return res.redirect(req.body.redirectTo || "/account/settings?section=customize");
+      return res.redirect(localPath(req.body.redirectTo, "/account/settings?section=customize"));
     }
   },
 
@@ -7165,12 +7175,12 @@ const accountController = {
         [useCustom, safePrefix, autoGenerate, orgId, safeStartingNumber]
       );
 
-      const redirectTo = req.body.redirectTo || "/account/settings";
+      const redirectTo = localPath(req.body.redirectTo, "/account/settings");
       req.flash("success", "Student ID settings updated.");
       return res.redirect(redirectTo);
     } catch (err) {
       req.flash("error", "Failed to update student ID settings.");
-      return res.redirect(req.body.redirectTo || "/account/settings");
+      return res.redirect(localPath(req.body.redirectTo, "/account/settings"));
     }
   },
 
@@ -7182,7 +7192,7 @@ const accountController = {
     if (!file) {
       req.flash("error", "No file uploaded. Please select a file to upload.");
 
-      return res.redirect(req.body.redirectTo || "/account/personalization");
+      return res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
     }
 
     try {
@@ -7235,7 +7245,7 @@ const accountController = {
 
       req.flash("success", "Logo updated successfully.");
 
-      res.redirect(req.body.redirectTo || "/account/personalization");
+      res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
     } catch (err) {
             req.flash(
         "error",
@@ -7243,7 +7253,7 @@ const accountController = {
         "An error occurred while updating the logo. Please try again."
       );
 
-      res.redirect(req.body.redirectTo || "/account/personalization");
+      res.redirect(localPath(req.body.redirectTo, "/account/personalization"));
     }
   },
 
@@ -7254,7 +7264,7 @@ const accountController = {
     // do NOT clear sessions, and do NOT post a URL-change announcement.
     const { orgNickName } = req.body;
     const orgId = req.session?.organizationId;
-    const redirectTo = req.body.redirectTo || "/account/personalization";
+    const redirectTo = localPath(req.body.redirectTo, "/account/personalization");
 
     const display = normalizeDisplayName(orgNickName);
 
@@ -9949,7 +9959,7 @@ const accountController = {
   updatePlanPost: async (req, res) => {
     try {
       const { newPlanId, newBillingPeriod, redirectTo } = req.body;
-      const safeRedirect = redirectTo || "/account/update-plan";
+      const safeRedirect = localPath(redirectTo, "/account/update-plan");
 
       const orgId = req.session.organizationId;
       const actorUserId = Number(req.session?.user?.user_id || req.session?.userId || 0) || null;
@@ -10420,7 +10430,7 @@ const accountController = {
     } catch (error) {
       console.error("[Billing][updatePlanPost] failed:", error);
       req.flash("error", "❌ Failed to update plan.");
-      return res.redirect(req.body.redirectTo || "/account/update-plan");
+      return res.redirect(localPath(req.body.redirectTo, "/account/update-plan"));
     }
   },
 

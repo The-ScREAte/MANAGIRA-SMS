@@ -113,6 +113,8 @@ const {
   suggestNearestStop,
 } = require("../utils/transportation");
 const { getMiraIntegrationStatus } = require("../utils/miraIntegration");
+const { checkRateLimit } = require("../utils/rateLimiter");
+const { clientIp } = require("../utils/authRateLimit");
 const {
   getStudentTransportationSnapshot,
   getClassTransportationSnapshot,
@@ -6232,7 +6234,8 @@ const commonController = {
       const pendingStudentId = insertResult.rows[0].pending_id;
       await studentFormFields.saveApplicationAnswers(db, organizationId, pendingStudentId, applicationAnswers);
 
-      // Check if using existing guardian or creating new
+      // Check if using existing guardian or creating new (kept only once it is found in this school)
+      let existingGuardianId = null;
       if (body.existingGuardianId) {
         // Fetch existing guardian's info and create a record in pending_guardians
         const existingGuardian = await db.query(
@@ -6243,6 +6246,7 @@ const commonController = {
         );
 
         if (existingGuardian.rows.length > 0) {
+          existingGuardianId = Number(body.existingGuardianId);
           const g = existingGuardian.rows[0];
           await db.query(
             `INSERT INTO pending_guardians (pending_id, first_name, last_name, phone, email, hometown)
@@ -6291,7 +6295,7 @@ const commonController = {
 
       // Save pending student ID in session
       req.session.pendingStudentId = pendingStudentId;
-      req.session.publicRegistrationExistingGuardianId = body.existingGuardianId || null;
+      req.session.publicRegistrationExistingGuardianId = existingGuardianId;
 
       // Send admission received confirmation to guardian
       const guardianEmail = body.guardianEmail0 || body.existingGuardianEmail || null;
@@ -6334,7 +6338,7 @@ const commonController = {
   //   Parent → Managira platform → School connected account
   // Platform fee is pulled from app_settings (set in admin service pricing).
   createPaymentIntent: async (req, res, db) => {
-    const { amount, payoutAccountId } = req.body;
+    const { payoutAccountId } = req.body;
     const requestOrigin = `${req.protocol}://${req.get("host")}`;
     const configuredProdBaseUrl =
       process.env.BASE_URL_PRODUCTION ||
@@ -6366,7 +6370,7 @@ const commonController = {
       // 2. Get org details including Stripe connected account
       await ensureStripeConnectAccountSchema(db);
       const orgResult = await db.query(
-        `SELECT public_registration_currency, organization_name, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
+        `SELECT public_registration_price, public_registration_currency, organization_name, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live
            FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
@@ -6422,8 +6426,8 @@ const commonController = {
       const primaryGuardian = guardianResult.rows[0] || null;
       const guardianEmail = primaryGuardian?.email || null;
 
-      // 4. Convert amount to Stripe charge currency
-      const requestedAmount = roundCurrencyAmount(parseFloat(amount));
+      // 4. The school's own registration price (never the amount the browser sent)
+      const requestedAmount = roundCurrencyAmount(parseFloat(orgRow?.public_registration_price));
       if (!(requestedAmount > 0)) {
         return res.status(400).json({ success: false, error: 'Invalid registration amount.' });
       }
@@ -24449,69 +24453,40 @@ NUMBERING:
   // Public guardian search (no authentication required)
   // Hardened: requires an exact phone or email match to prevent
   // unauthenticated enumeration of guardian PII by name fragments.
+  // Public registration: a returning parent finds their own record by their exact
+  // email or phone. Never a name search (that listed other parents' contacts),
+  // and only what is needed to confirm it is them: no raw phone, email or photo.
   searchGuardiansPublic: async (req, res, db) => {
     try {
-      const organizationId = req.query.organizationId;
-      const q = (req.query.q || "").trim();
+      const organizationId = parseInt(req.query.organizationId, 10);
+      const q = String(req.query.q || "").trim().slice(0, 120);
+      if (!Number.isInteger(organizationId) || organizationId <= 0) return res.status(400).json({ guardians: [] });
+      if (!checkRateLimit(`guardian-lookup:${organizationId}:${clientIp(req)}`, { max: 15, windowMs: 10 * 60 * 1000 }).allowed) return res.status(429).json({ guardians: [], message: "Too many searches. Try again in a few minutes." });
 
-      if (!organizationId) return res.status(400).json({ guardians: [] });
-      if (q.length < 2) return res.json({ guardians: [] });
-
-      const looksLikeEmail = /@/.test(q) && /\./.test(q);
-      const looksLikePhone = /^\+?[0-9\s\-()]{5,}$/.test(q);
-      const normalizedPhone = looksLikePhone ? q.replace(/[\s\-()]/g, "") : null;
-      const namePattern = (!looksLikeEmail && !looksLikePhone) ? '%' + q.toLowerCase() + '%' : null;
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q);
+      const phone = /^\+?[0-9\s\-()]{7,}$/.test(q) ? q.replace(/[\s\-()]/g, "") : null;
+      if (!isEmail && !phone) return res.json({ guardians: [] });
 
       const result = await db.query(
-        `
-        WITH ranked AS (
-          SELECT guardian_id, first_name, last_name, phone, email, image_url, updated_at,
-            ROW_NUMBER() OVER (
-              PARTITION BY organization_id, LOWER(first_name), LOWER(last_name), LOWER(COALESCE(email, ''))
-              ORDER BY updated_at DESC, guardian_id DESC
-            ) AS rn
-          FROM guardian_profiles
+        `SELECT guardian_id, first_name, last_name, phone, email
+           FROM guardian_profiles
           WHERE organization_id = $1
-            AND (
-              ($2::text IS NOT NULL AND LOWER(email) = LOWER($2))
-              OR ($3::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $3)
-              OR ($4::text IS NOT NULL AND (
-                LOWER(CONCAT(first_name, ' ', last_name)) LIKE $4
-                OR LOWER(CONCAT(last_name, ', ', first_name)) LIKE $4
-                OR LOWER(first_name) LIKE $4
-                OR LOWER(last_name) LIKE $4
-              ))
-            )
-        )
-        SELECT guardian_id, first_name, last_name, phone, email, image_url
-        FROM ranked
-        WHERE rn = 1
-        ORDER BY updated_at DESC, guardian_id DESC
-        LIMIT 10
-        `,
-        [organizationId, looksLikeEmail ? q : null, normalizedPhone, namePattern]
+            AND (($2::text IS NOT NULL AND LOWER(email) = LOWER($2))
+              OR ($3::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $3))
+          ORDER BY updated_at DESC, guardian_id DESC
+          LIMIT 1`,
+        [organizationId, isEmail ? q : null, phone]
       );
-
-      let orgNameDisplayFormat = "first_last";
-      try {
-        const orgSettings = await db.query(
-          `SELECT name_display_format FROM organizations WHERE organization_id = $1 LIMIT 1`,
-          [organizationId]
-        );
-        if (orgSettings.rows.length > 0) {
-          orgNameDisplayFormat = String(orgSettings.rows[0].name_display_format || "first_last");
-        }
-      } catch (_) {}
-
+      const mask = (v, keep) => (v ? "•••• " + String(v).slice(-keep) : "");
       return res.json({
-        guardians: result.rows.map((guardian) => ({
-          ...guardian,
-          display_name:
-            formatDisplayName(guardian, orgNameDisplayFormat) ||
-            [guardian.first_name, guardian.last_name].filter(Boolean).join(" ").trim(),
+        guardians: result.rows.map((g) => ({
+          guardian_id: g.guardian_id,
+          display_name: [g.first_name, g.last_name ? String(g.last_name).charAt(0) + "." : ""].filter(Boolean).join(" "),
+          contact: isEmail ? mask(String(g.email || "").split("@")[1] ? "@" + String(g.email).split("@")[1] : "", 40) : mask(String(g.phone || "").replace(/\D/g, ""), 3),
         })),
       });
-    } catch (e) {
+    } catch (error) {
+      console.error("Error searching guardians (public):", error.message);
       return res.status(500).json({ guardians: [] });
     }
   },

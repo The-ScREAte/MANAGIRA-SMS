@@ -319,7 +319,7 @@ module.exports = {
       console.error("[appDemo] tour load failed:", err.message);
     }
     res.render("legal&Compliance/appDemo", {
-      title: "Product Tour - Managira",
+      title: "See Managira in action - Managira",
       description: "Take a guided tour of Managira for school management, parents, students and Mira, the AI assistant.",
       keywords: "managira demo, school management software demo, product tour, parent portal, student portal, school ai assistant",
       canonicalUrl: "https://managira.com/legal/app-demo",

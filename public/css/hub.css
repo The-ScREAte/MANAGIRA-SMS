@@ -142,7 +142,7 @@ a.hub-kpi:hover { border-color: color-mix(in srgb, var(--k) 45%, #e2e8f0); box-s
 .hub-kpi__icon { flex: 0 0 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--k) 12%, #fff); color: var(--k); font-size: 0.9rem; }
 .hub-kpi__label { font-size: 0.86rem; font-weight: 700; color: var(--hub-ink-2); }
 .hub-kpi__value { margin-top: 8px; font-size: 1.9rem; font-weight: 800; line-height: 1.1; color: var(--hub-ink); }
-.hub-kpi__bar { height: 6px; border-radius: 999px; background: #eef2f6; overflow: hidden; margin-top: 8px; }
+.hub-kpi__bar { height: 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; margin-top: 8px; }
 .hub-kpi__bar > span { display: block; height: 100%; border-radius: inherit; background: var(--k); }
 .hub-kpi__note { margin-top: 6px; font-size: 0.8rem; color: var(--hub-muted); }
 .hub-kpi--blue { --k: #2563eb; } .hub-kpi--green { --k: #059669; } .hub-kpi--violet { --k: #7c3aed; }
@@ -222,7 +222,7 @@ a.hub-kpi:hover { border-color: color-mix(in srgb, var(--k) 45%, #e2e8f0); box-s
 .hub-bars { display: grid; gap: 12px; }
 .hub-bar { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr) 64px; align-items: center; gap: 4px 12px; }
 .hub-bar__name { font-size: 0.88rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hub-bar__track { display: block; height: 10px; border-radius: 999px; background: #eef2f6; overflow: hidden; }
+.hub-bar__track { display: block; height: 10px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
 .hub-bar__fill { display: block; height: 100%; border-radius: inherit; background: var(--hub-accent); }
 .hub-bar__fill--good { background: #059669; } .hub-bar__fill--mid { background: #d97706; } .hub-bar__fill--low { background: #dc2626; }
 .hub-bar__value { text-align: right; font-weight: 700; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
@@ -323,7 +323,7 @@ a.hub-kpi:hover { border-color: color-mix(in srgb, var(--k) 45%, #e2e8f0); box-s
 .hub-choice__title { font-size: 1.02rem; font-weight: 800; color: var(--hub-ink); }
 .hub-choice__text { font-size: 0.86rem; color: var(--hub-muted); line-height: 1.5; }
 .hub-capacity { display: flex; align-items: center; gap: 14px; }
-.hub-capacity__bar { flex: 1; height: 8px; border-radius: 999px; background: #eef2f6; overflow: hidden; }
+.hub-capacity__bar { flex: 1; height: 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
 .hub-capacity__bar > span { display: block; height: 100%; background: var(--hub-accent); border-radius: inherit; }
 .hub-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--hub-border); border-radius: 12px; }
 .hub-result + .hub-result { margin-top: 8px; }

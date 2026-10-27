@@ -635,13 +635,13 @@
       <div id="guardianSearchSection" style="display: none;">
         <div class="guardian-search-container">
           <h4 style="margin-bottom: 6px; color: #10b981; font-size:.82rem;">&#128269; Find Your Profile</h4>
-          <p style="color: #64748b; margin-bottom: 8px; font-size:.78rem;">Search by name, phone, or email to link your existing guardian profile.</p>
+          <p style="color: #64748b; margin-bottom: 8px; font-size:.78rem;">Enter the full email or phone number your school has for you.</p>
           <div class="search-wrapper">
             <input 
               type="text" 
               id="guardianSearchInput" 
               class="guardian-search-input" 
-              placeholder="Search by name, phone, or email..."
+              placeholder="Your email or phone number"
               autocomplete="off"
             />
             <div id="guardianSuggestions" class="guardian-suggestions"></div>
@@ -1343,7 +1343,7 @@
       input.addEventListener('input', function () {
         clearTimeout(searchTimeout);
         const q = this.value.trim();
-        if (q.length < 2) { document.getElementById('guardianSuggestions').classList.remove('show'); return; }
+        if (!/@.+\./.test(q) && q.replace(/\D/g, '').length < 7) { document.getElementById('guardianSuggestions').classList.remove('show'); return; }
         searchTimeout = setTimeout(() => searchGuardians(q), 300);
       });
     });
@@ -1358,19 +1358,17 @@
           data.guardians.forEach(g => {
             const item = document.createElement('div');
             item.className = 'guardian-suggestion-item';
-            const imgUrl = g.image_url && g.image_url !== 'profilePlaceholder.png'
-              ? escapeHtml(g.image_url) : '/images/profilePlaceholder.png';
             item.innerHTML = `
-              <img src="${imgUrl}" alt="Guardian" onerror="this.src='/images/profilePlaceholder.png'">
+              <img src="/images/profilePlaceholder.png" alt="">
               <div class="guardian-suggestion-info">
-                <div class="guardian-suggestion-name">${escapeHtml(g.display_name || `${g.first_name||''} ${g.last_name||''}`.trim())}</div>
-                <div class="guardian-suggestion-details">${escapeHtml(buildGuardianContactPreview(g.phone, g.email))}</div>
+                <div class="guardian-suggestion-name">${escapeHtml(g.display_name || '')}</div>
+                <div class="guardian-suggestion-details">${escapeHtml(g.contact || '')}</div>
               </div>`;
             item.onclick = (e) => { e.stopPropagation(); selectGuardian(g); };
             suggestionsDiv.appendChild(item);
           });
         } else {
-          suggestionsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:#666;">No guardians found</div>';
+          suggestionsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:#666;">' + escapeHtml(data.message || 'No profile matches that email or phone.') + '</div>';
         }
         suggestionsDiv.classList.add('show');
       } catch (_) {
@@ -1383,11 +1381,9 @@
       document.getElementById('guardianSuggestions').classList.remove('show');
       document.getElementById('guardianSearchInput').value = '';
       const img = document.getElementById('selectedGuardianImg');
-      img.src = (guardian.image_url && guardian.image_url !== 'profilePlaceholder.png')
-        ? guardian.image_url : '/images/profilePlaceholder.png';
-      img.onerror = () => { img.src = '/images/profilePlaceholder.png'; };
-      document.getElementById('selectedGuardianName').textContent    = (guardian.display_name || `${guardian.first_name||''} ${guardian.last_name||''}`.trim());
-      document.getElementById('selectedGuardianDetails').textContent = buildGuardianContactPreview(guardian.phone, guardian.email);
+      img.src = '/images/profilePlaceholder.png';
+      document.getElementById('selectedGuardianName').textContent    = guardian.display_name || '';
+      document.getElementById('selectedGuardianDetails').textContent = guardian.contact || '';
       document.getElementById('selectedGuardianDisplay').classList.add('show');
       document.getElementById('existingGuardianId').value = guardian.guardian_id;
     }
@@ -1411,27 +1407,6 @@
       return d.innerHTML;
     }
 
-    function maskPhoneNumber(phone) {
-      const digits = String(phone || '').replace(/\D/g, '');
-      if (!digits) return '';
-      if (digits.length <= 3) return digits;
-      return `${'*'.repeat(digits.length - 3)}${digits.slice(-3)}`;
-    }
-
-    function maskEmailAddress(email) {
-      const value = String(email || '').trim();
-      if (!value || !value.includes('@')) return '';
-      const [localPart, domain] = value.split('@');
-      const visibleLocal = localPart.slice(0, 3);
-      return `${visibleLocal}${localPart.length > 3 ? '***' : ''}@${domain}`;
-    }
-
-    function buildGuardianContactPreview(phone, email) {
-      const maskedPhone = maskPhoneNumber(phone);
-      const maskedEmail = maskEmailAddress(email);
-      if (maskedPhone && maskedEmail) return `${maskedPhone} • ${maskedEmail}`;
-      return maskedPhone || maskedEmail || '';
-    }
   </script>
 <% } %>
     

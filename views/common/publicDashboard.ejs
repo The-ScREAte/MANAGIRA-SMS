@@ -6,8 +6,8 @@
   const pdAppearance = locals.isPrintRender
     ? 'white'
     : (locals.appearanceOwner
-        ? (locals.appearance === 'dark' ? 'dark' : 'white')
-        : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white'));
+        ? (locals.appearance === 'dark' ? 'dark' : 'gray')
+        : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'gray'));
 %>
 <html lang="en" data-appearance="<%= pdAppearance %>">
   <%

@@ -15,7 +15,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 4px 20px var(--org-primary-soft-shadow, rgba(1, 83, 91, 0.24)) !important;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.14), 0 8px 22px rgba(15, 23, 42, 0.18), 0 4px 20px var(--org-primary-soft-shadow, rgba(1, 83, 91, 0.24)) !important;
   transition: all 0.3s ease !important;
   z-index: 1000 !important;
   padding: 0 !important;
