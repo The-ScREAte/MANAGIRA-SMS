@@ -31,6 +31,7 @@ const {
   sendWhatsappDocumentMessage,
 } = require("../utils/whatsappIntegration");
 const { getSmsIntegrationStatus, getTenantSmsCredentials, sendSms } = require("../utils/smsIntegration");
+const { normalizeWhatsappPhoneNumber } = require("../utils/phoneNumber");
 const { ensureObsoleteSchema, usesOf, inUseMessage, obsoleteSignaturePaths, wantsJson } = require("../utils/obsolete");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -386,73 +387,7 @@ function parsePositiveIntArray(value) {
     .filter((entry) => Number.isFinite(entry) && entry > 0))];
 }
 
-const COUNTRY_DIALING_CODES = {
-  US: "1",
-  CA: "1",
-  GB: "44",
-  GH: "233",
-  NG: "234",
-  KE: "254",
-  ZA: "27",
-  RW: "250",
-  UG: "256",
-  TZ: "255",
-  IN: "91",
-  AU: "61",
-  NZ: "64",
-  AE: "971",
-};
-
-function normalizeWhatsappPhoneNumber(value, countryCode = "") {
-  const raw = String(value || "").trim();
-  if (!raw) {
-    return { normalized: "", valid: false, reason: "Phone number is required." };
-  }
-
-  let hadInternationalPrefix = false;
-  let candidate = raw;
-
-  if (candidate.startsWith("+")) {
-    hadInternationalPrefix = true;
-    candidate = candidate.slice(1);
-  } else if (candidate.startsWith("00")) {
-    hadInternationalPrefix = true;
-    candidate = candidate.slice(2);
-  }
-
-  let digits = candidate.replace(/\D+/g, "");
-  if (!digits) {
-    return { normalized: "", valid: false, reason: "Phone number must contain digits." };
-  }
-
-  if (!hadInternationalPrefix) {
-    const normalizedCountry = String(countryCode || "").trim().toUpperCase();
-    const dialCode = COUNTRY_DIALING_CODES[normalizedCountry] || "";
-    if (dialCode) {
-      if (!digits.startsWith(dialCode)) {
-        if (digits.startsWith("0")) {
-          digits = `${dialCode}${digits.slice(1)}`;
-        } else {
-          digits = `${dialCode}${digits}`;
-        }
-      }
-    }
-  }
-
-  if (!/^\d{8,15}$/.test(digits)) {
-    return {
-      normalized: digits,
-      valid: false,
-      reason: "Phone number must be in WhatsApp international format (8 to 15 digits).",
-    };
-  }
-
-  return {
-    normalized: digits,
-    valid: true,
-    reason: "",
-  };
-}
+// Phone numbers for WhatsApp: utils/phoneNumber.js (any country).
 
 function normalizeClassroomRemarkTypes(value) {
   const allowedTypes = ["teacher", "conduct", "interest", "attitude"];

@@ -2814,6 +2814,37 @@
         border-radius: 10px;
       }
 
+      /* One tile size for every logo, so the cards line up. */
+      #integrations .student-portal-logo,
+      #integrations .transportation-logo,
+      #integrations .sms-provider-logo-chip {
+        width: 56px;
+        height: 56px;
+        padding: 7px;
+        box-sizing: border-box;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e9edf3;
+        object-fit: contain;
+      }
+
+      #integrations .sms-provider-logo-chip img {
+        object-fit: contain;
+      }
+
+      #integrations .google-classroom-logo,
+      #integrations .google-classroom-logo--compact {
+        width: 56px;
+        height: 56px;
+      }
+
+      #integrations .sms-coverage-note {
+        display: block;
+        margin-top: 6px;
+        color: #b45309;
+        font-weight: 600;
+      }
+
       /* Status pill - a small color dot reads cleaner than a solid block. */
       #integrations .card > h4 .pill {
         padding: 4px 11px 4px 9px;
@@ -4389,7 +4420,7 @@
             <h4>
               <span class="google-classroom-title">
                 <span class="sms-provider-logo-chip">
-                  <img src="/images/google maps.png" alt="Google Maps logo" />
+                  <img src="/images/icons/google-maps-192.png" alt="Google Maps logo" />
                 </span>
                 <span>Google Maps</span>
               </span>
@@ -4439,7 +4470,7 @@
             <h4>
               <span class="google-classroom-title">
                 <span class="sms-provider-logo-chip">
-                  <img src="/images/maps.png" alt="Apple Maps logo" />
+                  <img src="/images/icons/apple-maps-192.png" alt="Apple Maps logo" />
                 </span>
                 <span>Maps</span>
               </span>
@@ -4559,19 +4590,19 @@
                 {
                   key: 'twilio',
                   label: 'Twilio SMS',
-                  logo: '/images/twilio.png',
+                  logo: '/images/icons/twilio-192.png',
                   description: "Text parents and staff from your school's own Twilio number. Your Twilio account pays for each message.",
                 },
                 {
                   key: 'arkesel',
                   label: 'Arkesel SMS',
-                  logo: '/images/arkesel.png',
+                  logo: '/images/icons/arkesel-192.png',
                   description: "Text parents and staff in Ghana from your school's own Arkesel account. Your Arkesel wallet pays for each message.",
                 },
                 {
                   key: 'africastalking',
                   label: "Africa's Talking SMS",
-                  logo: '/images/africantalking.png',
+                  logo: '/images/icons/africastalking-192.png',
                   description: "Text parents and staff across Africa from your school's own Africa's Talking account. Your account pays for each message.",
                 },
               ];
@@ -4593,13 +4624,17 @@
                   class="pill sms-status-pill"
                   data-activated="<%= psActivated ? '1' : '0' %>"
                   style="background:<%= psIsActive ? '#dcfce7' : '#fef3c7' %>;color:<%= psIsActive ? '#166534' : '#92400e' %>">
-                  <%= psIsActive ? 'Active' : (psConfigured ? 'Configured (Inactive)' : (psActivated ? 'Setup Required' : 'Inactive')) %>
+                  <%= psIsActive ? 'Sends your texts' : (psConfigured ? 'Ready (not in use)' : (psActivated ? 'Setup Required' : 'Inactive')) %>
                 </span>
                 <%- integrationCoverageBadge(def.key) %>
               </h4>
               <small class="google-integration-description">
                 <%= def.description %>
                 <% if (ps.lastError) { %><br><span style="color:#b91c1c;">Last error: <%= ps.lastError %></span><% } %>
+                <% const psCoverage = integrationCoverage[def.key]; %>
+                <% if (psIsActive && orgCountryCode && Array.isArray(psCoverage) && !psCoverage.includes(orgCountryCode)) { %>
+                <span class="sms-coverage-note"><%= def.label.replace(/ SMS$/, '') %> doesn't cover <%= orgCountryName || orgCountryCode %>. Texts to local numbers may not arrive; switch to a provider marked Available.</span>
+                <% } %>
                 <%- integrationActivityLine(def.label) %>
               </small>
 
@@ -5825,9 +5860,27 @@
     </div>
     <div class="settings-nav-overlay"></div>
     <% const resolvedStripePublishableKey = typeof stripePublishableKey !== 'undefined' ? stripePublishableKey : ''; %>
-    <% if (resolvedStripePublishableKey) { %>
-    <script src="https://js.stripe.com/v3/"></script>
-    <% } %>
+    <script>
+      // Stripe.js (~270KB) is only needed once a card form opens, so it loads
+      // then instead of with every Settings visit.
+      window.loadStripeJs = window.loadStripeJs || (function () {
+        let pending = null;
+        return function loadStripeJs() {
+          if (typeof window.Stripe === "function") return Promise.resolve(window.Stripe);
+          if (!pending) {
+            pending = new Promise(function (resolve, reject) {
+              const script = document.createElement("script");
+              script.src = "https://js.stripe.com/v3/";
+              script.async = true;
+              script.onload = function () { resolve(window.Stripe); };
+              script.onerror = function () { pending = null; reject(new Error("Unable to load Stripe.")); };
+              document.head.appendChild(script);
+            });
+          }
+          return pending;
+        };
+      })();
+    </script>
     <script>
     (function () {
       const orgEmail = <%- JSON.stringify(org?.email || "") %>;
@@ -7597,13 +7650,26 @@
         }
 
         if (hasWhatsappMetaConfig) {
-          // Preload SDK at idle time to keep the Connect click as close as possible
-          // to a direct popup action and reduce browser popup-blocking behavior.
-          setTimeout(() => {
+          // Have the SDK ready before Connect is clicked (so the popup opens
+          // straight from the click and isn't blocked), but only once the
+          // WhatsApp card is on screen: most Settings visits never need it.
+          const preloadMetaSdk = () => {
             loadMetaSdk().catch((error) => {
               setWhatsappInlineError(error?.message || "Unable to initialize Meta SDK.");
             });
-          }, 0);
+          };
+          const whatsappConnectButton = document.getElementById("whatsapp-connect-link");
+          if (whatsappConnectButton && "IntersectionObserver" in window) {
+            const whatsappCardObserver = new IntersectionObserver((entries) => {
+              if (entries.some((entry) => entry.isIntersecting)) {
+                whatsappCardObserver.disconnect();
+                preloadMetaSdk();
+              }
+            }, { rootMargin: "300px" });
+            whatsappCardObserver.observe(whatsappConnectButton.closest(".integration-card, section, .card") || whatsappConnectButton);
+          } else {
+            setTimeout(preloadMetaSdk, 0);
+          }
         }
 
         (() => {
@@ -8221,6 +8287,8 @@
             }
           }
 
+          // Builds the card field once Stripe.js has loaded (see loadStripeJs).
+          const mountCard = () => {
           if (!stripePublishableKey || typeof Stripe !== "function") {
             setStatus("Stripe is not available right now. Check your Stripe public key and try again.", "error");
             submitBtn.disabled = true;
@@ -8302,6 +8370,22 @@
               }
             });
           }
+          };
+
+          if (stripePublishableKey && typeof Stripe !== "function") {
+            submitBtn.disabled = true;
+            setStatus("Loading secure card form…");
+            window.loadStripeJs().then(() => {
+              if (!modal.parentNode) return; // closed while loading
+              setStatus("");
+              submitBtn.disabled = false;
+              mountCard();
+            }).catch(() => {
+              setStatus("Stripe is not available right now. Check your connection and try again.", "error");
+            });
+          } else {
+            mountCard();
+          }
 
           modal.querySelector(".close-modal").addEventListener("click", closeStripeModal);
           modal.addEventListener("click", (e) => {
@@ -8378,7 +8462,10 @@
           if (isBank) loadSaBanks();
 
           // Mount/destroy Stripe card element based on visibility
-          if (isStripeCard && stripePublishableKey) {
+          if (isStripeCard && stripePublishableKey && typeof Stripe !== "function") {
+            // Load Stripe.js first, then come back here if the card option is still chosen.
+            window.loadStripeJs().then(toggleSchoolAccountFields).catch(() => {});
+          } else if (isStripeCard && stripePublishableKey) {
             if (!saStripeElements) {
               const saStripe = Stripe(stripePublishableKey);
               const saElements = saStripe.elements();

@@ -4,7 +4,8 @@
 // every page checks readiness and sends the same way, instead of each
 // page re-implementing its own provider plumbing.
 const { getSmsIntegrationStatus, getTenantSmsCredentials, sendSms } = require("./smsIntegration");
-const { getWhatsappIntegrationStatus, getWhatsappMessagingCredentials, sendWhatsappTextMessage, sendWhatsappDocumentMessage, normalizePhoneDigits } = require("./whatsappIntegration");
+const { getWhatsappIntegrationStatus, getWhatsappMessagingCredentials, sendWhatsappTextMessage, sendWhatsappDocumentMessage } = require("./whatsappIntegration");
+const { toInternationalPhone, INVALID_PHONE_MESSAGE } = require("./phoneNumber");
 const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
 
 function safeString(value) {
@@ -153,8 +154,8 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
         push({ phone: "", guardianName: recipient.guardianName || "", success: false, error: "Missing phone number." });
         continue;
       }
-      if (!isValidPhoneNumber(phone)) {
-        push({ phone, guardianName: recipient.guardianName || "", success: false, error: "Invalid phone number — include the country code (e.g. +233...)." });
+      if (!toInternationalPhone(phone, tenant.countryCode)) {
+        push({ phone, guardianName: recipient.guardianName || "", success: false, error: INVALID_PHONE_MESSAGE });
         continue;
       }
       try {
@@ -208,16 +209,17 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
 
   for (const recipient of list) {
     const rawPhone = safeString(recipient.phone);
-    const phone = normalizePhoneDigits(recipient.phone);
     const message = renderMessageTemplate(messageTemplate, { ...recipient, schoolName });
-    if (!phone) {
+    if (!rawPhone) {
       push({ phone: "", guardianName: recipient.guardianName || "", success: false, error: "Missing phone number." });
       continue;
     }
-    if (rawPhone && !isValidPhoneNumber(rawPhone)) {
-      push({ phone, guardianName: recipient.guardianName || "", success: false, error: "Invalid phone number — include the country code (e.g. +233...)." });
+    const international = toInternationalPhone(rawPhone, credentials.countryCode);
+    if (!international) {
+      push({ phone: rawPhone, guardianName: recipient.guardianName || "", success: false, error: INVALID_PHONE_MESSAGE });
       continue;
     }
+    const phone = international.slice(1);
     try {
       if (documentUrl) {
         // eslint-disable-next-line no-await-in-loop

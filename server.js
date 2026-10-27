@@ -1080,6 +1080,33 @@ app.use("/common", commonRoute);
 app.use("/announcements", announcementRoute);
 // Canonical end-user feed path per spec; alias of GET /announcements/me.
 app.get("/me/announcements", announcementController.getMyAnnouncements);
+
+// The hint under phone fields (public/js/phoneField.js): how a typed number
+// will be dialled for texts and WhatsApp, using the school's country.
+const { describePhone } = require("./utils/phoneNumber");
+const phoneCountryCache = new Map();
+app.get("/phone-check", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const number = String(req.query.n || "").slice(0, 40);
+  let country = req.schoolDetails?.organization_country || "";
+  const orgId = Number(req.session?.organizationId) || null;
+  if (orgId) {
+    const hit = phoneCountryCache.get(orgId);
+    if (hit && Date.now() - hit.at < 10 * 60 * 1000) {
+      country = hit.country;
+    } else {
+      try {
+        const { rows } = await db.query("SELECT organization_country FROM organizations WHERE organization_id = $1", [orgId]);
+        country = String(rows[0]?.organization_country || "");
+        phoneCountryCache.set(orgId, { country, at: Date.now() });
+      } catch (_) { /* fall back to the school site's country */ }
+    }
+  }
+  if (!country && /^[A-Za-z]{2}$/.test(String(req.query.country || ""))) country = String(req.query.country);
+  // No country known and no country code typed: say nothing rather than guess.
+  if (!country && !/^\s*(\+|00)/.test(number)) return res.json({ valid: null });
+  return res.json(describePhone(number, country));
+});
 // In-app ad card receipts (seen / dismiss / click) - see announcementFeed.js.
 app.post("/me/ads/:id(\\d+)/:action(seen|dismiss|click)", require("./controllers/loginAdsController").recordViewerEvent);
 app.use("/print", printRoute);
@@ -1096,10 +1123,10 @@ app.use("/legal", legalRoute);
     const message = err.code === "LIMIT_FILE_SIZE" ? "This page is too large to capture (over 40 MB)." : "Upload failed.";
     return res.status(400).json({ success: false, message });
   });
-  const captureSession = appDemoCapture.requireCaptureSession(db);
   app.get("/app-demo-capture/status", appDemoCapture.captureStatus(db));
-  app.get("/app-demo-capture/targets", captureSession, appDemoController.captureTargets);
-  app.post("/app-demo-capture/save", captureSession, captureFile, appDemoController.saveCapture);
+  const captureSaveSession = appDemoCapture.requireCaptureSession(db, { allowExpired: true });
+  app.get("/app-demo-capture/targets", captureSaveSession, appDemoController.captureTargets);
+  app.post("/app-demo-capture/save", captureSaveSession, captureFile, appDemoController.saveCapture);
 }
 // Disabled: School Directory page is hidden for now, so the /directory alias is commented out too.
 // Short-URL alias so the path Google has been trying (/directory) resolves with a 301 to the canonical page.

@@ -1,3 +1,4 @@
+const { toInternationalPhone } = require("./phoneNumber");
 const axios = require("axios");
 
 let whatsappSchemaReady = false;
@@ -20,6 +21,13 @@ function safeString(value) {
 
 function normalizePhoneDigits(value) {
   return safeString(value).replace(/\D+/g, "");
+}
+
+// WhatsApp wants the number with its country code, as digits. A number saved
+// the local way gets the school's country code (payload.defaultCountry).
+function whatsappRecipient(value, defaultCountry) {
+  const international = toInternationalPhone(value, defaultCountry);
+  return international ? international.slice(1) : normalizePhoneDigits(value);
 }
 
 function getMetaGraphApiVersion() {
@@ -383,7 +391,8 @@ async function getWhatsappMessagingCredentials(dbClient, organizationId) {
        whatsapp_configured,
        whatsapp_phone_number_id,
        whatsapp_access_token,
-       whatsapp_token_expires_at
+       whatsapp_token_expires_at,
+       organization_country
      FROM organizations
      WHERE organization_id = $1
      LIMIT 1`,
@@ -392,6 +401,7 @@ async function getWhatsappMessagingCredentials(dbClient, organizationId) {
 
   const row = result.rows[0] || {};
   return {
+    countryCode: safeString(row.organization_country).toUpperCase(),
     configured: parseBoolean(row.whatsapp_configured, false),
     phoneNumberId: safeString(row.whatsapp_phone_number_id),
     accessToken: safeString(row.whatsapp_access_token),
@@ -673,7 +683,7 @@ async function resolveWhatsappSignupIdentifiers(accessToken, seed = {}) {
 async function sendWhatsappTemplateMessage(accessToken, phoneNumberId, payload = {}) {
   const normalizedPhoneNumberId = safeString(phoneNumberId);
   const normalizedAccessToken = safeString(accessToken);
-  const recipient = normalizePhoneDigits(payload.to);
+  const recipient = whatsappRecipient(payload.to, payload.defaultCountry);
   const templateName = safeString(payload.templateName);
   const languageCode = safeString(payload.languageCode) || "en_US";
   const bodyParameters = Array.isArray(payload.bodyParameters)
@@ -736,7 +746,7 @@ async function sendWhatsappTemplateMessage(accessToken, phoneNumberId, payload =
 async function sendWhatsappTextMessage(accessToken, phoneNumberId, payload = {}) {
   const normalizedPhoneNumberId = safeString(phoneNumberId);
   const normalizedAccessToken = safeString(accessToken);
-  const recipient = normalizePhoneDigits(payload.to);
+  const recipient = whatsappRecipient(payload.to, payload.defaultCountry);
   const text = safeString(payload.text);
 
   if (!normalizedAccessToken) {
@@ -782,7 +792,7 @@ async function sendWhatsappTextMessage(accessToken, phoneNumberId, payload = {})
 async function sendWhatsappDocumentMessage(accessToken, phoneNumberId, payload = {}) {
   const normalizedPhoneNumberId = safeString(phoneNumberId);
   const normalizedAccessToken = safeString(accessToken);
-  const recipient = normalizePhoneDigits(payload.to);
+  const recipient = whatsappRecipient(payload.to, payload.defaultCountry);
   const documentLink = safeString(payload.documentLink);
   const caption = safeString(payload.caption);
   const filename = safeString(payload.filename);
@@ -990,6 +1000,7 @@ module.exports = {
   extractSignupSeedFromPayload,
   resolveWhatsappSignupIdentifiers,
   normalizePhoneDigits,
+  whatsappRecipient,
   sendWhatsappTemplateMessage,
   sendWhatsappTextMessage,
   sendWhatsappDocumentMessage,

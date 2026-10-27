@@ -85,12 +85,34 @@ function captureStatus(db) {
   };
 }
 
-// For the capture API: rejects anyone outside the open window.
-function requireCaptureSession(db) {
+// A recording started before the window ran out can still be saved for a while
+// afterwards. Only when time ran out: an Admin turning capture off still ends it.
+const SAVE_GRACE_MINUTES = 120;
+async function recentlyExpiredWindow(db, organizationId) {
+  if (!organizationId) return null;
+  const { rows } = await db.query(
+    `SELECT w.id, w.organization_id, w.ends_at, o.organization_name
+       FROM app_demo_capture_windows w
+       JOIN organizations o ON o.organization_id = w.organization_id
+      WHERE w.organization_id = $1 AND w.ended_at IS NULL
+        AND w.ends_at > NOW() - make_interval(mins => $2)
+      ORDER BY w.id DESC LIMIT 1`,
+    [organizationId, SAVE_GRACE_MINUTES]
+  );
+  return rows[0] || null;
+}
+
+// For the capture API: rejects anyone outside the open window (saving also
+// accepts a window that ran out while the capture was being made).
+function requireCaptureSession(db, { allowExpired = false } = {}) {
   return async (req, res, next) => {
     try {
       const window = await activeWindow(db);
       if (isCaptureSession(req, window)) return next();
+      if (allowExpired) {
+        const recent = await recentlyExpiredWindow(db, Number(req.session && req.session.organizationId));
+        if (isCaptureSession(req, recent)) return next();
+      }
     } catch (_) { /* fall through */ }
     return res.status(403).json({ success: false, message: "Demo capture is not turned on for this school, or it has ended." });
   };

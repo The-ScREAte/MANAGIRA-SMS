@@ -7,7 +7,12 @@ const zlib = require("zlib");
 const crypto = require("crypto");
 const { MEDIA_TYPES, ensureAppDemoSchema, getTour, invalidateTourCache } = require("../utils/appDemo");
 const capture = require("../utils/appDemoCapture");
-const { pack: packCapture, bodyOf } = require("../public/js/capturePack");
+const { pack: packCapture, bodyOf, headOf } = require("../public/js/capturePack");
+const { promisify } = require("util");
+// Large captures are compressed on libuv's thread pool, so other requests keep flowing.
+const gzipAsync = promisify(zlib.gzip);
+const gunzipAsync = promisify(zlib.gunzip);
+const brotliAsync = promisify(zlib.brotliCompress);
 
 const UPLOAD_DIR = path.resolve(__dirname, "../uploads"); // multer's dest; also where uploadToS3 reads from
 // Every key is new (timestamped), so browsers may keep the file for good.
@@ -170,13 +175,15 @@ function parseCapture(raw) {
   const w = parseInt(data.viewport.w, 10);
   const h = parseInt(data.viewport.h, 10);
   if (!(w >= 320 && w <= 3840 && h >= 240 && h <= 2400)) return null;
-  const heads = Array.isArray(data.heads) ? data.heads.filter((x) => typeof x === "string") : [];
   const states = Array.isArray(data.states) ? data.states : [];
-  if (!heads.length || !states.length) return null;
-  // Packed (public/js/capturePack.js): each view lists its pieces of markup from the pool.
+  // Packed (public/js/capturePack.js): each view and head lists its pieces of markup from the pool.
   const pool = Array.isArray(data.pool) ? data.pool : null;
   if (pool && !pool.every((x) => typeof x === "string")) return null;
   const isPart = (k) => Number.isInteger(k) && k >= 0 && k < pool.length;
+  const headParts = pool && Array.isArray(data.headParts) ? data.headParts : null;
+  if (headParts && !headParts.every((parts) => Array.isArray(parts) && parts.every(isPart))) return null;
+  const heads = headParts || (Array.isArray(data.heads) ? data.heads.filter((x) => typeof x === "string") : []);
+  if (!heads.length || !states.length) return null;
   const cleanStates = [];
   for (const st of states) {
     const head = parseInt(st && st.head, 10);
@@ -204,7 +211,7 @@ function parseCapture(raw) {
     title: String(data.title || "").slice(0, 200),
     url: String(data.url || "").slice(0, 500),
     viewport: { w, h },
-    heads,
+    ...(headParts ? { headParts } : { heads }),
     states: cleanStates,
     links,
     ...(pool ? { pool } : {}),
@@ -248,10 +255,10 @@ function storedGuide(text) {
 
 // Captures kept in memory (newest last), so the player's data is served without
 // a trip to S3. They are stored packed and gzipped and sent as they are, with a
-// brotli copy for small ones. Only older, unpacked captures are packed here, and
+// brotli copy (much smaller: views repeat each other beyond gzip's reach). Only older, unpacked captures are packed here, and
 // only when small enough: the server never parses a large capture.
 const UNPACK_LIMIT = 40 * 1024 * 1024;
-const BROTLI_LIMIT = 16 * 1024 * 1024;
+const BROTLI_LIMIT = UNPACK_LIMIT;
 const capturesInMemory = new Map();
 function compressedCapture(key) {
   let entry = capturesInMemory.get(key);
@@ -263,14 +270,16 @@ function compressedCapture(key) {
       const stored = Buffer.from(await obj.Body.transformToByteArray());
       const out = { etag: `"c2-${crypto.createHash("sha1").update(key).digest("hex").slice(0, 16)}"`, gzip: stored, br: null };
       let raw;
-      try { raw = zlib.gunzipSync(stored, { maxOutputLength: UNPACK_LIMIT }); } catch (_) { return out; } // too large: as stored
-      if (raw.lastIndexOf('"pool":[') < 0) {
-        const json = JSON.stringify(packCapture(JSON.parse(raw.toString("utf8"))));
-        raw = Buffer.from(json);
-        out.gzip = zlib.gzipSync(raw, { level: 9 });
+      try { raw = await gunzipAsync(stored, { maxOutputLength: UNPACK_LIMIT }); } catch (_) { return out; } // too large: as stored
+      // Older captures (unpacked, or packed before heads shared the pool) are packed the current way.
+      if (raw.lastIndexOf('"headParts":[') < 0) {
+        try {
+          raw = Buffer.from(JSON.stringify(packCapture(JSON.parse(raw.toString("utf8")))));
+          out.gzip = await gzipAsync(raw, { level: 9 });
+        } catch (_) { /* serve it as stored */ }
       }
       if (raw.length <= BROTLI_LIMIT) {
-        out.br = zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: raw.length > 4 * 1024 * 1024 ? 6 : 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
+        out.br = await brotliAsync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: raw.length > 16 * 1024 * 1024 ? 9 : 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
       }
       return out;
     })();
@@ -284,7 +293,7 @@ function compressedCapture(key) {
 const attrString = (attrs) => Object.entries(attrs || {}).map(([k, v]) => ` ${k}="${String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"`).join("");
 const stateHtml = (data, i) => {
   const st = data.states[i];
-  return `<!DOCTYPE html><html${attrString(st.htmlAttrs)}><head>${data.heads[st.head]}</head><body${attrString(st.bodyAttrs)}>${bodyOf(data, i)}</body></html>`;
+  return `<!DOCTYPE html><html${attrString(st.htmlAttrs)}><head>${headOf(data, st.head)}</head><body${attrString(st.bodyAttrs)}>${bodyOf(data, i)}</body></html>`;
 };
 
 // Renders the first state, as visitors first see it, for the cover image: the
@@ -711,7 +720,7 @@ module.exports = {
     try {
       // The capture bar uploads it gzipped (CompressionStream) where the browser can.
       let raw = await fsp.readFile(path.join(UPLOAD_DIR, path.basename(file.filename)));
-      if (raw[0] === 0x1f && raw[1] === 0x8b) raw = zlib.gunzipSync(raw, { maxOutputLength: 120 * 1024 * 1024 });
+      if (raw[0] === 0x1f && raw[1] === 0x8b) raw = await gunzipAsync(raw, { maxOutputLength: 120 * 1024 * 1024 });
       // The capture bar packs before uploading; an unpacked one this large comes from an old copy of the page.
       if (raw.length > UNPACK_LIMIT && raw.lastIndexOf('"pool":[') < 0) {
         removeTempFiles(tempFiles);
@@ -738,7 +747,7 @@ module.exports = {
 
       // Stored packed and gzipped; the player gets it from compressedCapture().
       const gzName = `${path.basename(file.filename)}-gz`;
-      await fsp.writeFile(path.join(UPLOAD_DIR, gzName), zlib.gzipSync(JSON.stringify(packCapture(data)), { level: 9 }));
+      await fsp.writeFile(path.join(UPLOAD_DIR, gzName), await gzipAsync(JSON.stringify(packCapture(data)), { level: 9 }));
       removeTempFiles([file]);
       tempFiles = [];
       const stored = await uploadToS3({ filename: gzName, mimetype: "application/json", originalname: "app-demo-capture.json", cacheControl: CACHE_CONTROL });
@@ -836,3 +845,6 @@ module.exports = {
     }
   },
 };
+
+// For tests: the check every uploaded capture goes through.
+module.exports.parseCapture = parseCapture;

@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { toInternationalPhone, INVALID_PHONE_MESSAGE } = require("./phoneNumber");
 const { encryptSecret, decryptSecret, maskSecret } = require("./encryption");
 
 const PROVIDERS = ["arkesel", "africastalking", "twilio"];
@@ -301,6 +302,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
     return {
       organizationId,
       provider,
+      countryCode: safeString(row.organization_country).toUpperCase(),
       apiKey,
       senderId: safeString(row.sms_arkesel_sender_id),
     };
@@ -312,6 +314,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
     return {
       organizationId,
       provider,
+      countryCode: safeString(row.organization_country).toUpperCase(),
       apiKey,
       username: safeString(row.sms_africastalking_username),
       senderId: safeString(row.sms_africastalking_sender_id),
@@ -324,6 +327,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
   return {
     organizationId,
     provider,
+    countryCode: safeString(row.organization_country).toUpperCase(),
     authToken,
     accountSid: safeString(row.sms_twilio_account_sid),
     fromNumber: safeString(row.sms_twilio_from_number),
@@ -477,13 +481,18 @@ async function sendViaTwilio(tenant, message, recipients) {
 // tenant's own provider wallet is debited (never a shared Managira account).
 async function sendSms(tenant, message, recipients, { callbackUrl } = {}) {
   const normalizedMessage = safeString(message);
-  const normalizedRecipients = normalizeRecipients(recipients);
-
   if (!normalizedMessage) throw new Error("Message text is required.");
-  if (!normalizedRecipients.length) throw new Error("At least one recipient is required.");
+  if (!normalizeRecipients(recipients).length) throw new Error("At least one recipient is required.");
   if (!tenant || !isValidProvider(tenant.provider)) {
     throw new Error("This school has no active SMS provider configured.");
   }
+  // Numbers saved the local way get the school's country code. Arkesel takes
+  // the digits without "+"; the other providers want "+".
+  const normalizedRecipients = normalizeRecipients(recipients).map((value) => {
+    const international = toInternationalPhone(value, tenant.countryCode);
+    if (!international) throw new Error(INVALID_PHONE_MESSAGE);
+    return tenant.provider === "arkesel" ? international.slice(1) : international;
+  });
 
   if (tenant.provider === "arkesel") {
     return sendViaArkesel(tenant, normalizedMessage, normalizedRecipients, callbackUrl);

@@ -12032,6 +12032,7 @@ const accountController = {
           phoneNumberId,
           {
             to: recipient,
+            defaultCountry: credentials.countryCode,
             text: textMessage,
           }
         );
@@ -12086,6 +12087,7 @@ const accountController = {
         phoneNumberId,
         {
           to: recipient,
+          defaultCountry: credentials.countryCode,
           templateName,
           languageCode,
           bodyParameters,
@@ -12211,6 +12213,7 @@ const accountController = {
         credentials.phoneNumberId,
         {
           to: recipient,
+          defaultCountry: credentials.countryCode,
           templateName,
           languageCode,
           bodyParameters: ["Managira", "DIAG-RECIPIENT", new Date().toISOString().slice(0, 10)],

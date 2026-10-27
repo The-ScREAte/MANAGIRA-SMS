@@ -1,3 +1,4 @@
+const { normalizeWhatsappPhoneNumber } = require("./phoneNumber");
 const db = require("../config/db");
 const { ensureTransportationSchema, calculateDistanceKm } = require("./transportation");
 const { sendEmailInBackground, renderCleanEmail } = require("./emailHelper");
@@ -8,38 +9,6 @@ const {
 
 const APPROACHING_ETA_MINUTES = 5;
 const ARRIVED_DISTANCE_KM = 0.15; // ~150 meters
-
-const COUNTRY_DIALING_CODES = {
-  US: "1", CA: "1", GB: "44", GH: "233", NG: "234", KE: "254", ZA: "27",
-  RW: "250", UG: "256", TZ: "255", IN: "91", AU: "61", NZ: "64", AE: "971",
-};
-
-function normalizeWhatsappPhoneNumber(value, countryCode = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return { normalized: "", valid: false };
-
-  let hadInternationalPrefix = false;
-  let candidate = raw;
-  if (candidate.startsWith("+")) {
-    hadInternationalPrefix = true;
-    candidate = candidate.slice(1);
-  } else if (candidate.startsWith("00")) {
-    hadInternationalPrefix = true;
-    candidate = candidate.slice(2);
-  }
-
-  let digits = candidate.replace(/\D+/g, "");
-  if (!digits) return { normalized: "", valid: false };
-
-  if (!hadInternationalPrefix) {
-    const dialCode = COUNTRY_DIALING_CODES[String(countryCode || "").trim().toUpperCase()] || "";
-    if (dialCode && !digits.startsWith(dialCode)) {
-      digits = digits.startsWith("0") ? `${dialCode}${digits.slice(1)}` : `${dialCode}${digits}`;
-    }
-  }
-
-  return { normalized: digits, valid: /^\d{8,15}$/.test(digits) };
-}
 
 async function reserveNotificationEvent(database, { organizationId, tripId, studentId, eventType }) {
   const result = await database.query(

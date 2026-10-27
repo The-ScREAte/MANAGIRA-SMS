@@ -894,6 +894,8 @@
           const parts = st.parts || [];
           Object.defineProperty(st, "body", { get: () => parts.map((k) => data.pool[k]).join("") });
         });
+        // Heads share the pool too (a page's head is the same in nearly every view).
+        if (Array.isArray(data.headParts)) data.heads = data.headParts.map((parts) => parts.map((k) => data.pool[k]).join(""));
       }
       // The cover shows the recorded look; hide it when the visitor picked the other one.
       if (canLook() && currentLook() !== recordedLook()) root.classList.add("is-settled");

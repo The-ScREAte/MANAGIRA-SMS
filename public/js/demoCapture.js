@@ -12,6 +12,9 @@
 (function () {
   "use strict";
   if (window.top !== window || window.__managiraDemoCapture) return;
+  // Packing (public/js/capturePack.js, loaded just before this script).
+  const Pack = window.ManagiraCapturePack;
+  if (!Pack) return;
   window.__managiraDemoCapture = true;
 
   const script = document.currentScript || document.querySelector("script[data-ends-at]");
@@ -250,6 +253,11 @@
 
   const ticker = setInterval(() => {
     const ms = left();
+    if (ms <= 0 && mode === "recording") {
+      // Keep the recording: it can still be finished and saved.
+      if (!timeUpShown) { timeUpShown = true; toast("Capture time is up. Click Finish to save what you recorded.", true); }
+      return;
+    }
     if (ms <= 0 && mode !== "saving") return shutDown("The capture time is up.");
     const c = shadow.querySelector("[data-clock]");
     if (c) c.textContent = clock(ms);
@@ -258,6 +266,7 @@
   // ---------- On / off (checked with the server) ----------
 
   let shutting = false;
+  let timeUpShown = false;
   function shutDown(message) {
     if (shutting) return;
     shutting = true;
@@ -280,7 +289,14 @@
     try {
       const res = await fetch("/app-demo-capture/status", { credentials: "same-origin", cache: "no-store", headers: { Accept: "application/json" } });
       const status = await res.json();
-      if (!status.active) return shutDown(active ? "It was turned off or has ended." : "");
+      if (!status.active) {
+        // Time ran out mid-recording: keep what was recorded so it can still be saved.
+        if (mode === "recording") {
+          if (!timeUpShown) { timeUpShown = true; toast("Capture time is up. Click Finish to save what you recorded.", true); }
+          return;
+        }
+        return shutDown(active ? "It was turned off or has ended." : "");
+      }
       endsAt = new Date(status.endsAt);
       if (status.school) school = status.school;
       if (!active) {
@@ -374,7 +390,7 @@
             const img = doc.createElement("img");
             for (const a of Array.from(o.attributes)) if (a.name !== "width" && a.name !== "height") img.setAttribute(a.name, a.value);
             const r = o.getBoundingClientRect();
-            img.src = o.toDataURL("image/png");
+            img.src = o.toDataURL("image/webp", 0.92); // PNG where WebP is not supported
             img.style.width = (r.width || o.width) + "px";
             img.style.height = (r.height || o.height) + "px";
             swaps.push([c, img]);
@@ -472,9 +488,16 @@
 
   function takeSnapshot() {
     const snap = snapshotDoc(document);
-    let head = rec.heads.indexOf(snap.head);
-    if (head < 0) { rec.heads.push(snap.head); head = rec.heads.length - 1; }
-    const state = { head, body: snap.body, htmlAttrs: snap.htmlAttrs, bodyAttrs: snap.bodyAttrs, scrollY: snap.scrollY };
+    // Views are kept as pieces in a shared pool (public/js/capturePack.js), not as
+    // whole pages: a long recording only grows by what actually changed.
+    const headKey = hashOf(snap.head);
+    let head = rec.headKeys.get(headKey);
+    if (head === undefined || Pack.headOf({ pool: rec.packer.pool, headParts: rec.headParts }, head) !== snap.head) {
+      rec.headParts.push(rec.packer.add(snap.head));
+      head = rec.headParts.length - 1;
+      rec.headKeys.set(headKey, head);
+    }
+    const state = { head, parts: rec.packer.add(snap.body), htmlAttrs: snap.htmlAttrs, bodyAttrs: snap.bodyAttrs, scrollY: snap.scrollY };
     const key = head + "|" + hashOf(unstamped(snap.body) + JSON.stringify(snap.bodyAttrs) + JSON.stringify(snap.htmlAttrs));
     if (rec.keys.has(key)) {
       // Same view as before: keep the newer copy, which carries every stamp so far.
@@ -596,7 +619,8 @@
       await loadStylesheets();
       // The first view is taken at the first click (or at Finish), so it matches
       // exactly the page that was clicked.
-      rec = { heads: [], states: [], keys: new Map(), links: [], guide: [], pending: null, nextEl: 1,
+      const packer = Pack.createPacker();
+      rec = { packer, headParts: [], headKeys: new Map(), states: [], keys: new Map(), links: [], guide: [], pending: null, nextEl: 1,
         // How the page looked when recording began (switching to dark can be one of the steps);
         // "light" is what this page shows when not dark.
         appearance: {
@@ -640,15 +664,17 @@
       url: location.href,
       viewport: { w: window.innerWidth, h: window.innerHeight },
       appearance: rec.appearance,
-      heads: rec.heads,
+      headParts: rec.headParts,
       states: rec.states,
+      pool: rec.packer.pool,
       links: rec.links,
       guide: rec.guide,
     };
+    const packer = rec.packer;
     rec = null;
-    try { markEverywhere(data); } catch (_) { /* clicks still work from the views they were recorded in */ }
+    try { markEverywhere(data, packer); } catch (_) { /* clicks still work from the views they were recorded in */ }
     try {
-      await inlinePrivateImages(data);
+      await inlinePrivateImages(data, packer);
     } catch (_) { /* images stay as links */ }
     openSaveDialog(data);
   }
@@ -665,30 +691,39 @@
   // A view only carries the stamps of clicks made before it was saved; mark
   // every recorded element in every view it appears in, so visitors can click
   // them in any order.
-  function markEverywhere(data) {
-    const parsed = data.states.map((st) => new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + st.body + "</body></html>", "text/html"));
+  // One view is parsed at a time, so long recordings don't hold every page in memory at once.
+  function markEverywhere(data, packer) {
+    const parse = (i) => new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + Pack.bodyOf(data, i) + "</body></html>", "text/html");
     const keys = new Map();
-    parsed.forEach((doc) => doc.querySelectorAll("[data-mcap-el]").forEach((el) => {
-      const id = el.getAttribute("data-mcap-el");
-      if (!keys.has(id)) keys.set(id, sameElementKey(el));
-    }));
-    parsed.forEach((doc, i) => {
+    const present = data.states.map((_, i) => {
+      const ids = new Set();
+      parse(i).querySelectorAll("[data-mcap-el]").forEach((el) => {
+        const id = el.getAttribute("data-mcap-el");
+        ids.add(id);
+        if (!keys.has(id)) keys.set(id, sameElementKey(el));
+      });
+      return ids;
+    });
+    data.states.forEach((st, i) => {
+      if ([...keys.keys()].every((id) => present[i].has(id))) return;
+      const doc = parse(i);
       let changed = false;
       keys.forEach((key, id) => {
-        if (doc.querySelector('[data-mcap-el="' + id + '"]')) return;
+        if (present[i].has(id)) return;
         const tag = key.split(/[#.]/)[0];
         const matches = [...doc.body.getElementsByTagName(tag)].filter((el) => !el.hasAttribute("data-mcap-el") && sameElementKey(el) === key);
         if (matches.length === 1) { matches[0].setAttribute("data-mcap-el", id); changed = true; }
       });
-      if (changed) data.states[i].body = doc.body.innerHTML;
+      if (changed) st.parts = packer.add(doc.body.innerHTML);
     });
   }
 
   // Images behind a login (or on signed, expiring links) are copied into the capture.
-  async function inlinePrivateImages(data) {
-    const all = data.heads.concat(data.states.map((s) => s.body));
+  async function inlinePrivateImages(data, packer) {
     const found = new Set();
-    all.forEach((html) => html.replace(/<img\b[^>]*?\ssrc="([^"]+)"/gi, (m, src) => { found.add(src); return m; }));
+    const collect = (html) => html.replace(/<img\b[^>]*?\ssrc="([^"]+)"/gi, (m, src) => { found.add(src); return m; });
+    data.headParts.forEach((_, i) => collect(Pack.headOf(data, i)));
+    data.states.forEach((_, i) => collect(Pack.bodyOf(data, i)));
     const swaps = new Map();
     await Promise.all([...found].map(async (raw) => {
       const src = raw.replace(/&amp;/g, "&");
@@ -713,8 +748,16 @@
     }));
     if (!swaps.size) return;
     const swap = (html) => html.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/gi, (m, a, src, b) => (swaps.has(src) ? a + swaps.get(src) + b : m));
-    data.heads = data.heads.map(swap);
-    data.states.forEach((s) => { s.body = swap(s.body); });
+    data.headParts = data.headParts.map((parts, i) => {
+      const html = Pack.headOf(data, i);
+      const swapped = swap(html);
+      return swapped === html ? parts : packer.add(swapped);
+    });
+    data.states.forEach((st, i) => {
+      const html = Pack.bodyOf(data, i);
+      const swapped = swap(html);
+      if (swapped !== html) st.parts = packer.add(swapped);
+    });
   }
 
   // ---------- Save ----------
@@ -817,7 +860,7 @@
       saveBtn.disabled = true;
       // Sent gzipped where the browser can.
       // Packed (public/js/capturePack.js): each piece of markup once, however many views repeat it.
-      const packed = window.ManagiraCapturePack ? window.ManagiraCapturePack.pack(data) : data;
+      const packed = Pack.pack(data);
       let capture = new Blob([JSON.stringify(packed)], { type: "application/json" });
       if (typeof CompressionStream === "function") {
         try { capture = await new Response(capture.stream().pipeThrough(new CompressionStream("gzip"))).blob(); } catch (_) { /* send it as it is */ }
