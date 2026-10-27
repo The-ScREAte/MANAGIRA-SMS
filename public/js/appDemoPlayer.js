@@ -105,6 +105,21 @@
     try { localStorage.setItem("mcap:look", next); } catch (_) { /* ignore */ }
     if (!changes) { if (then) then(); return; }
     root.classList.add("is-settled"); // the cover shows the recorded look only
+    // Gray <-> dark in place, as the app does: open menus and panels stay as they are.
+    const d = frame.contentDocument;
+    const mode = lookMode();
+    const win = d && d.defaultView;
+    if (d && d.__mcapLook && d.__mcapLook !== "white" && mode !== "white" && win && typeof win.__apSetMode === "function") {
+      try {
+        win.__apSetMode(mode); // panes inside the page follow it
+        d.__mcapLook = mode;
+        d.querySelectorAll("iframe").forEach((f) => { try { if (f.contentDocument) f.contentDocument.__mcapLook = mode; } catch (_) { /* ignore */ } });
+        syncLookControls(d);
+        place();
+        if (then) then();
+        return;
+      } catch (_) { /* draw again below */ }
+    }
     render(current, () => { place(); if (then) then(); }, true);
   }
   // The page's own appearance controls (the header menu's Dark mode switch, the
@@ -743,9 +758,9 @@
     hovered = null;
     render(to, () => {
       const k = guide.findIndex((x) => x.from === to);
-      // Jumping to a step shows the page as it looks at that point (light or dark).
-      if (guide.length && k >= 0) { if (hasLookSteps()) setLook(lookBefore(k), () => goStep(k)); else goStep(k); }
-      else { step = guide.length ? guide.length : -1; place(); }
+      // The look stays as the visitor has it: only the page's own switch (and Back over
+      // that step, or Restart) changes light / dark.
+      if (guide.length && k >= 0) goStep(k); else { step = guide.length ? guide.length : -1; place(); }
     });
   }
 

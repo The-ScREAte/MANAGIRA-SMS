@@ -38,7 +38,8 @@
 
   const host = document.createElement("div");
   host.setAttribute("data-mcap-ui", "");
-  host.style.cssText = "position:fixed;left:20px;bottom:20px;z-index:2147483000;";
+  // Bottom centre: clear of the setup steps (bottom left) and the chat button (bottom right).
+  host.style.cssText = "position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483000;";
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = `
     <style>
@@ -207,6 +208,7 @@
     host.style.left = x + "px";
     host.style.top = y + "px";
     host.style.bottom = "auto";
+    host.style.transform = "none";
     return { x, y };
   };
   try {
@@ -514,16 +516,21 @@
 
   // A short name for the walkthrough editor, e.g. "Teachers" or "Menu".
   function labelOf(el) {
-    let text = el.getAttribute("aria-label") || el.getAttribute("title") || el.innerText || el.value || el.getAttribute("placeholder") || el.getAttribute("alt") || "";
+    // The first line is the name ("Setup steps", not "Setup steps 1 of 2 done").
+    const firstLine = String(el.innerText || "").split(/\n/).map((t) => t.trim()).find(Boolean) || "";
+    let text = el.getAttribute("aria-label") || el.getAttribute("title") || firstLine || el.value || el.getAttribute("placeholder") || el.getAttribute("alt") || "";
     text = String(text).replace(/\s+/g, " ").trim()
-      .replace(/(\s*([›»→⌄▾▸▼•·|×]|\d+\+?))+$/u, "") // trailing counts, badges and arrows
+      .replace(/(\s*([›»→⌄▾▸▼•·|×−–-]|\d+\+?))+$/u, "") // trailing counts, badges and arrows
       .trim();
+    if (!/[\p{L}\p{N}]/u.test(text)) text = ""; // only a symbol (×, −)
     if (!text) {
       const hint = (el.id + " " + (typeof el.className === "string" ? el.className : "")).toLowerCase();
       if (/hamburger|menu|nav-toggle/.test(hint)) text = "Menu";
+      else if (/chatbot|chat-|assistant/.test(hint) && /toggle|open|launcher|button/.test(hint)) text = "Mira assistant";
       else if (/search/.test(hint)) text = "Search";
       else if (/notif|bell/.test(hint)) text = "Notifications";
       else if (/close/.test(hint)) text = "Close";
+      else if (/minimi/.test(hint)) text = "Minimize";
       else if (/profile|avatar|user/.test(hint)) text = "Profile";
     }
     return text.length > 48 ? text.slice(0, 46).trim() + "…" : text;

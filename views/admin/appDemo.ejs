@@ -56,10 +56,9 @@
   .ade-icon--danger:hover { background: var(--a-danger-soft); color: var(--a-danger); }
 
   /* Header */
-  .ade-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
-  .ade-eyebrow { color: var(--a-brand); font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
-  .ade-head h1 { margin-top: 6px; color: var(--a-ink); font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
-  .ade-head p.ade-sub { margin-top: 5px; color: var(--a-muted); font-size: 13.5px; }
+  .ade-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  .ade-head h1 { color: var(--a-ink); font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .ade-head p.ade-sub { margin-top: 3px; color: var(--a-muted); font-size: 12.5px; }
   .ade-head p.ade-sub a { color: var(--a-brand); font-weight: 600; text-decoration: none; }
   .ade-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -164,6 +163,7 @@
   .ade-step__body .ade-textarea { min-height: 56px; font-size: 13px; }
   .ade-step__save { min-height: 14px; color: var(--a-muted); font-size: 11.5px; }
   .ade-step__save.is-ok { color: #067647; }
+  .ade-step__save:empty { display: none; }
 
   .ade-versions { display: flex; flex-wrap: wrap; gap: 10px; }
   .ade-version { position: relative; display: grid; gap: 6px; width: 168px; }
@@ -189,23 +189,27 @@
     border: 1.5px dashed var(--a-line-strong); border-radius: 8px; background: var(--a-soft); color: var(--a-muted);
     font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s;
   }
-  .ade-version--add small { font-size: 11px; font-weight: 500; }
   .ade-version--add:hover { border-color: var(--a-brand); background: var(--a-brand-soft); color: var(--a-brand); }
 
   .ade-drop {
-    display: grid; place-items: center; gap: 6px; margin-top: 12px; padding: 24px 16px; text-align: center;
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 10px; margin-top: 12px; padding: 14px 16px; text-align: center;
     border: 1.5px dashed var(--a-line-strong); border-radius: 12px; background: var(--a-soft); color: var(--a-muted); font-size: 12.5px;
     cursor: pointer; transition: border-color .15s, background-color .15s;
   }
   .ade-drop:hover, .ade-drop.is-over { border-color: var(--a-brand); background: var(--a-brand-soft); }
   .ade-drop strong { color: var(--a-ink); font-size: 13.5px; }
-  .ade-drop__icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #fff; border: 1px solid var(--a-line); color: var(--a-brand); }
-  .ade-progress { width: min(320px, 100%); height: 5px; border-radius: 999px; background: #dfe5ea; overflow: hidden; }
+  .ade-drop__icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: #fff; border: 1px solid var(--a-line); color: var(--a-brand); }
+  .ade-progress { flex-basis: 100%; max-width: 320px; width: 100%; height: 5px; border-radius: 999px; background: #dfe5ea; overflow: hidden; }
   .ade-progress i { display: block; height: 100%; width: 0; background: var(--a-brand); transition: width .2s; }
 
-  .ade-danger { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .ade-danger strong { display: block; color: var(--a-ink); font-size: 13.5px; }
-  .ade-danger span { color: var(--a-muted); font-size: 12.5px; }
+  /* Save appears once something changed. */
+  .ade-actions[data-ade-quiet]:not(.is-dirty):not(.is-saved) { display: none; }
+  .ade-foot { display: flex; justify-content: flex-end; padding: 10px 22px 14px; border-top: 1px solid var(--a-line); }
+  .ade-link-danger { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--a-muted); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .ade-link-danger svg { width: 14px; height: 14px; }
+  .ade-link-danger:hover:not(:disabled) { background: var(--a-danger-soft); color: var(--a-danger); }
+  .ade-link-danger:disabled { opacity: .5; cursor: default; }
+  .ade-link-danger:focus-visible { outline: 2px solid var(--a-danger); outline-offset: 1px; }
 
   .ade-modal { position: fixed; inset: 0; z-index: 9998; display: grid; place-items: center; padding: 16px; background: rgba(8, 18, 28, .5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
   .ade-modal__card { width: min(560px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 16px; background: #fff; box-shadow: 0 40px 100px -20px rgba(0,0,0,.45); }
@@ -245,12 +249,13 @@
   .ade-toast.is-error { background: var(--a-danger); }
 
   /* Interactive capture */
-  .ade-capture { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 16px 18px; margin-bottom: 22px; }
-  .ade-capture__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--a-brand-soft); color: var(--a-brand); }
-  .ade-capture__icon svg { width: 19px; height: 19px; }
+  .ade-capture { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; margin-bottom: 18px; }
+  .ade-capture__icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--a-brand-soft); color: var(--a-brand); }
+  .ade-capture__icon svg { width: 16px; height: 16px; }
   .ade-capture.is-on .ade-capture__icon { background: #fef3f2; color: #d92d20; }
-  .ade-capture__text strong { display: flex; align-items: center; gap: 8px; color: var(--a-ink); font-size: 14px; font-weight: 650; }
-  .ade-capture__text span { display: block; margin-top: 3px; color: var(--a-muted); font-size: 12.5px; line-height: 1.5; }
+  .ade-capture__text { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+  .ade-capture__text strong { color: var(--a-ink); font-size: 13.5px; font-weight: 650; }
+  .ade-capture__text > span:not(.ade-live) { color: var(--a-muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ade-capture__controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .ade-capture__controls .ade-select { width: 220px; height: 34px; font-size: 13px; }
   .ade-live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: #fef3f2; color: #b42318; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -279,9 +284,8 @@
 <div class="ade" id="adeRoot">
   <header class="ade-head">
     <div>
-      <p class="ade-eyebrow">Public page</p>
       <h1>App Demo</h1>
-      <p class="ade-sub">Build the guided product tour on <a href="/legal/app-demo" target="_blank" rel="noopener">/legal/app-demo</a>. Every change is live right away.</p>
+      <p class="ade-sub">The product tour at <a href="/legal/app-demo" target="_blank" rel="noopener">/legal/app-demo</a> · changes are live</p>
     </div>
     <div class="ade-head__actions">
       <a class="ade-btn ade-btn--ghost" href="/legal/app-demo" target="_blank" rel="noopener">
@@ -435,7 +439,7 @@
         return '<li class="ade-row' + (selected ? ' is-selected' : '') + '" draggable="true" tabindex="0" data-id="' + f.id + '">'
           + '<span class="ade-grip" aria-hidden="true">' + ICON.grip + '</span>'
           + '<span class="ade-thumb">' + (cover ? '<img src="' + esc(cover.file_url) + '" alt="" loading="lazy">' : (f.screens.length ? 'PDF' : '')) + '</span>'
-          + '<span class="ade-row__text"><strong>' + esc(f.title) + '</strong><span>' + esc(f.category || 'No label') + ' · ' + plural(f.screens.length, 'step') + '</span></span>'
+          + '<span class="ade-row__text"><strong>' + esc(f.title) + '</strong><span>' + (f.category ? esc(f.category) + ' · ' : '') + plural(f.screens.length, 'step') + '</span></span>'
           + '<span class="ade-pill ade-pill--' + status[0] + '">' + status[1] + '</span>'
           + '</li>';
       }).join('');
@@ -526,12 +530,9 @@
       editorEl.innerHTML = '<div class="ade-card ade-placeholder"><strong>Nothing selected</strong>Choose a feature on the left, or create a new one.</div>';
       return;
     }
-    let html = '<div class="ade-card">' + detailsHtml(f) + (f ? stepsHtml(f) : '') + '</div>';
-    if (f) {
-      html += '<div class="ade-card ade-section ade-danger"><div><strong>Delete this feature</strong>'
-        + '<span>Removes it and all of its steps from the tour. This cannot be undone.</span></div>'
-        + '<button type="button" class="ade-btn ade-btn--danger ade-btn--sm" data-ade-delete>' + ICON.trash + 'Delete feature</button></div>';
-    }
+    let html = '<div class="ade-card">' + detailsHtml(f) + (f ? stepsHtml(f) : '');
+    if (f) html += '<div class="ade-foot"><button type="button" class="ade-link-danger" data-ade-delete title="Removes it and all of its steps from the tour. This cannot be undone.">' + ICON.trash + 'Delete feature</button></div>';
+    html += '</div>';
     editorEl.innerHTML = html;
     bindFeature(f);
   }
@@ -542,30 +543,26 @@
     const count = s ? s.features.length : 0;
     let html = '<div class="ade-card"><form class="ade-section" data-ade-details novalidate>'
       + '<div class="ade-section__head"><div><h2>' + (s ? 'Section' : 'New section') + '</h2>'
-      + '<p>Sections group features on the page by who uses them, for example School Management, Parents, Students or Mira.</p></div></div>'
+      + (s ? '' : '<p>Groups features by who uses them, e.g. Parents or Students.</p>') + '</div></div>'
       + '<div class="ade-fields">'
       +   '<div class="ade-field"><label for="adeName">Name</label><input id="adeName" class="ade-input" name="name" maxlength="60" required placeholder="e.g. Parents" value="' + esc(s ? s.name : '') + '"></div>'
       +   '<div class="ade-field ade-field--full"><label for="adeDescription">Description</label>'
-      +     '<textarea id="adeDescription" class="ade-textarea" name="description" maxlength="240" rows="2" placeholder="One sentence on who this section is for.">' + esc(s ? s.description || '' : '') + '</textarea>'
-      +     '<small>Shown under the section name on the page.</small></div>'
+      +     '<textarea id="adeDescription" class="ade-textarea" name="description" maxlength="240" rows="2" placeholder="One sentence on who this section is for, shown under its name.">' + esc(s ? s.description || '' : '') + '</textarea></div>'
       + '</div>'
-      + '<div class="ade-actions"><span class="ade-status" data-ade-status></span>'
+      + '<div class="ade-actions"' + (s ? ' data-ade-quiet' : '') + '><span class="ade-status" data-ade-status></span>'
       +   (s ? '' : '<button type="button" class="ade-btn ade-btn--ghost" data-ade-cancel>Cancel</button>')
       +   '<button type="submit" class="ade-btn ade-btn--primary" data-ade-save' + (s ? ' disabled' : '') + '>' + (s ? 'Save changes' : 'Create section') + '</button></div>'
       + '</form>';
     if (s) {
       const index = sections.findIndex((x) => x.id === s.id);
       const realCount = sections.filter((x) => x.id !== null).length;
-      html += '<div class="ade-section"><div class="ade-section__head" style="margin:0"><div><h2>Position <small>· ' + (index + 1) + ' of ' + realCount + '</small></h2>'
-        + '<p>Sections appear on the page in this order. ' + plural(count, 'feature') + ' in this section.</p></div>'
+      html += '<div class="ade-section"><div class="ade-section__head" style="margin:0"><div><h2>Position <small>· ' + (index + 1) + ' of ' + realCount + ' · ' + plural(count, 'feature') + '</small></h2></div>'
         + '<div class="ade-section__tools">'
         +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-section-move="-1"' + (index === 0 ? ' disabled' : '') + '>' + ICON.up + 'Move up</button>'
         +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-section-move="1"' + (index >= realCount - 1 ? ' disabled' : '') + '>' + ICON.down + 'Move down</button>'
         +   '<button type="button" class="ade-btn ade-btn--primary ade-btn--sm" data-section-add>' + ICON.plus + 'Add feature</button>'
-        + '</div></div></div></div>'
-        + '<div class="ade-card ade-section ade-danger"><div><strong>Delete this section</strong>'
-        + '<span>' + (count ? 'Move or delete its ' + plural(count, 'feature') + ' first.' : 'It has no features, so nothing else is removed.') + '</span></div>'
-        + '<button type="button" class="ade-btn ade-btn--danger ade-btn--sm" data-ade-delete' + (count ? ' disabled' : '') + '>' + ICON.trash + 'Delete section</button></div>';
+        + '</div></div></div>'
+        + '<div class="ade-foot"><button type="button" class="ade-link-danger" data-ade-delete' + (count ? ' disabled title="Move or delete its ' + plural(count, 'feature') + ' first"' : '') + '>' + ICON.trash + 'Delete section</button></div></div>';
     } else {
       html += '</div>';
     }
@@ -630,6 +627,9 @@
       const dirty = snapshot() !== form._baseline;
       form.dataset.dirty = dirty ? '1' : '';
       saveBtn.disabled = !dirty;
+      const actions = form.querySelector('.ade-actions');
+      actions.classList.toggle('is-dirty', dirty);
+      actions.classList.remove('is-saved');
       status.textContent = dirty ? 'Unsaved changes' : '';
       status.classList.remove('is-ok');
     });
@@ -649,6 +649,11 @@
         form.dataset.dirty = '';
         status.textContent = 'Saved';
         status.classList.add('is-ok');
+        // "Saved" shows for a moment, then the row folds away again.
+        const actions = form.querySelector('.ade-actions');
+        actions.classList.remove('is-dirty');
+        actions.classList.add('is-saved');
+        setTimeout(() => { if (!form.dataset.dirty) actions.classList.remove('is-saved'); }, 1600);
       }
     } catch (err) {
       saveBtn.disabled = false;
@@ -675,21 +680,19 @@
       + '<form class="ade-section" data-ade-details novalidate>'
       +   '<div class="ade-section__head">'
       +     '<div><h2>' + (f ? 'Details' : 'New feature') + '</h2>'
-      +     '<p>' + (f ? 'What visitors read on the feature card and beside the steps.' : 'Start with the basics. You will add its steps right after.') + '</p></div>'
+      +     (f ? '' : '<p>Add its steps right after.</p>') + '</div>'
       +     (f ? '<label class="ade-switch"><input type="checkbox" data-ade-active' + (f.is_active ? ' checked' : '') + '><span class="ade-switch__track"></span>Show on tour</label>' : '')
       +   '</div>'
       +   '<div class="ade-fields">'
       +     '<div class="ade-field ade-field--full"><label for="adeTitle">Title</label><input id="adeTitle" class="ade-input" name="title" maxlength="120" required placeholder="e.g. Attendance" value="' + esc(f ? f.title : '') + '"></div>'
-      +     '<div class="ade-field"><label for="adeSectionId">Section</label><select id="adeSectionId" class="ade-select" name="category_id">' + options + '</select>'
-      +       '<small>Who uses this feature.</small></div>'
-      +     '<div class="ade-field"><label for="adeCategory">Label</label><input id="adeCategory" class="ade-input" name="category" maxlength="40" list="adeTags" placeholder="e.g. Finance" value="' + esc(f ? f.category || '' : '') + '">'
-      +       '<datalist id="adeTags">' + tags.map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist>'
-      +       '<small>The small word above the title on the card.</small></div>'
+      +     '<div class="ade-field"><label for="adeSectionId" title="Who uses this feature">Section</label><select id="adeSectionId" class="ade-select" name="category_id">' + options + '</select></div>'
+      +     '<div class="ade-field"><label for="adeCategory" title="The small word above the title on the card">Label</label><input id="adeCategory" class="ade-input" name="category" maxlength="40" list="adeTags" placeholder="e.g. Finance" value="' + esc(f ? f.category || '' : '') + '">'
+      +       '<datalist id="adeTags">' + tags.map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist></div>'
       +     '<div class="ade-field ade-field--full"><label for="adeSummary">Summary</label>'
       +       '<textarea id="adeSummary" class="ade-textarea" name="summary" maxlength="600" rows="3" placeholder="One or two sentences on what this feature does for a school.">' + esc(summary) + '</textarea>'
-      +       '<div class="ade-field__foot"><small>Shown on the card and at the top of the steps.</small><small data-ade-chars>' + summary.length + ' / 600</small></div></div>'
+      +       '<div class="ade-field__foot"><span></span><small data-ade-chars>' + summary.length + ' / 600</small></div></div>'
       +   '</div>'
-      +   '<div class="ade-actions">'
+      +   '<div class="ade-actions"' + (f ? ' data-ade-quiet' : '') + '>'
       +     '<span class="ade-status" data-ade-status></span>'
       +     (f ? '' : '<button type="button" class="ade-btn ade-btn--ghost" data-ade-cancel>Cancel</button>')
       +     '<button type="submit" class="ade-btn ade-btn--primary" data-ade-save' + (f ? ' disabled' : '') + '>' + (f ? 'Save changes' : 'Create feature') + '</button>'
@@ -737,7 +740,7 @@
         + '<div class="ade-step__body">'
         +   '<textarea class="ade-textarea" data-field="caption" maxlength="400" rows="2" placeholder="Explain what the visitor is looking at and why it matters." aria-label="Step ' + (i + 1) + ' explanation">' + esc(s.caption || '') + '</textarea>'
         +   '<div class="ade-versions" data-versions>' + versions
-        +     '<button type="button" class="ade-version--add" data-version-add>' + ICON.plus + 'Add version<small>e.g. dark mode</small></button>'
+        +     '<button type="button" class="ade-version--add" data-version-add title="Another version visitors can switch to, e.g. a screenshot in dark mode">' + ICON.plus + 'Version</button>'
         +   '</div>'
         +   '<span class="ade-step__save" data-save-state></span>'
         + '</div>'
@@ -747,15 +750,14 @@
     return ''
       + '<div class="ade-section">'
       +   '<div class="ade-section__head">'
-      +     '<div><h2>Steps <small>· ' + f.screens.length + '</small></h2>'
-      +     '<p>Visitors walk through these in order. Give each a short title and a sentence explaining it. Add versions, like light and dark mode, to let visitors switch.</p></div>'
+      +     '<div><h2>Steps <small>· ' + f.screens.length + '</small></h2></div>'
       +     '<div class="ade-section__tools"><a class="ade-btn ade-btn--ghost ade-btn--sm" href="/legal/app-demo#feature-' + f.id + '" target="_blank" rel="noopener">' + ICON.eye + 'Preview</a></div>'
       +   '</div>'
       +   (items ? '<ol class="ade-steps" data-ade-steps>' + items + '</ol>' : '')
       +   '<div class="ade-drop" data-ade-drop role="button" tabindex="0">'
       +     '<span class="ade-drop__icon">' + ICON.upload + '</span>'
-      +     '<strong>' + (items ? 'Add more steps' : 'Add the first steps') + '</strong>'
-      +     '<span>Drop images or a PDF here, or click to browse. Each file becomes a step. PNG, JPG, WebP, GIF or PDF, up to 25 MB each.</span>'
+      +     '<strong>' + (items ? 'Add steps' : 'Add the first steps') + '</strong>'
+      +     '<span title="Each file becomes a step. PNG, JPG, WebP, GIF or PDF, up to 25 MB each.">Drop images or a PDF, or click to browse</span>'
       +     '<span class="ade-progress" data-ade-progress hidden><i></i></span>'
       +   '</div>'
       + '</div>';
@@ -1017,11 +1019,11 @@
     wrap.className = 'ade-modal';
     wrap.innerHTML = '<div class="ade-modal__card" role="dialog" aria-modal="true" aria-labelledby="adeGuideTitle">'
       + '<div class="ade-modal__head"><h2 id="adeGuideTitle">Walkthrough</h2>'
-      + '<p>Explain each recorded click, or remove steps visitors do not need. Leave one empty to show a short default.</p></div>'
+      + '<p>Explain each click. Empty ones show a short default.</p></div>'
       + '<div class="ade-modal__body">'
       +   (guideSteps.length
             ? '<label class="ade-switch ade-switch--block"><input type="checkbox" data-guided' + (m.guided === false ? '' : ' checked') + '><span class="ade-switch__track"></span>'
-              + '<span><b>Guide visitors step by step</b><small>Each explanation appears beside the control, with Back and Next. Turn off to let visitors explore freely and read explanations on hover.</small></span></label>'
+              + '<span title="Off: visitors explore freely and read explanations on hover."><b>Guide visitors step by step</b><small>Explanations appear beside each control, with Back and Next.</small></span></label>'
             : '')
       +   (guideSteps.length
             ? '<ol class="ade-guide" data-guide-list>' + guideSteps.map((g, i) => '<li data-guide-step="' + g.index + '"><span class="ade-guide__n">' + (i + 1) + '</span><div><div class="ade-guide__row"><em>' + (cleanLabel(g.label) ? 'Click “' + esc(cleanLabel(g.label)) + '”' : 'Recorded click') + '</em>'
@@ -1105,18 +1107,18 @@
     const intro = '<span class="ade-capture__icon">' + ICON.camera + '</span>';
     if (on) {
       captureEl.innerHTML = intro
-        + '<div class="ade-capture__text"><strong>Interactive capture <span class="ade-live" data-capture-left></span></strong>'
-        + '<span>Staff signed in to <b>' + esc(captureWindow.school) + '</b> see a "Capture this page" bar. Record a page and the toggles, tabs and expanders visitors should try, then save it to a step.</span></div>'
+        + '<div class="ade-capture__text" title="Staff signed in to this school see a Capture this page bar. Record a page and the clicks visitors should try, then save it to a step.">'
+        + '<strong>Capturing at ' + esc(captureWindow.school) + '</strong><span class="ade-live" data-capture-left></span></div>'
         + '<div class="ade-capture__controls">'
         +   '<a class="ade-btn ade-btn--ghost ade-btn--sm" href="/admin/org/' + captureWindow.schoolId + '" target="_blank" rel="noopener">Open school</a>'
-        +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-capture-extend>Restart ' + captureInfo.minutes + ' min</button>'
+        +   '<button type="button" class="ade-btn ade-btn--ghost ade-btn--sm" data-capture-extend title="Start the ' + captureInfo.minutes + ' minutes again">Extend</button>'
         +   '<button type="button" class="ade-btn ade-btn--danger ade-btn--sm" data-capture-stop>Turn off</button>'
         + '</div>';
       const tick = () => {
         const ms = new Date(captureWindow.endsAt) - new Date();
         if (ms <= 0) { captureWindow = null; return renderCapture(); }
         const s = Math.ceil(ms / 1000);
-        captureEl.querySelector('[data-capture-left]').textContent = 'On · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' left';
+        captureEl.querySelector('[data-capture-left]').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' left';
       };
       tick();
       captureTimer = setInterval(tick, 1000);
@@ -1132,8 +1134,8 @@
       return;
     }
     captureEl.innerHTML = intro
-      + '<div class="ade-capture__text"><strong>Interactive capture</strong>'
-      + '<span>Let visitors click through real pages instead of screenshots. Turn it on for one school for ' + captureInfo.minutes + ' minutes; it switches off by itself.</span></div>'
+      + '<div class="ade-capture__text" title="Let visitors click through real pages instead of screenshots. It switches off by itself after ' + captureInfo.minutes + ' minutes.">'
+      + '<strong>Interactive capture</strong><span>Record real pages for ' + captureInfo.minutes + ' min</span></div>'
       + '<div class="ade-capture__controls">'
       +   '<select class="ade-select" data-capture-school aria-label="School"><option value="">Choose a school…</option>'
       +     (captureInfo.schools || []).map((o) => '<option value="' + o.id + '">' + esc(o.name) + '</option>').join('') + '</select>'
