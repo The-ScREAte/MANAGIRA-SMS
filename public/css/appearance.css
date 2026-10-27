@@ -129,6 +129,11 @@
 .ap-dots .ap-dot--dark { background: #1f2329 !important; border-color: #1f2329 !important; }
 .ap-dots .ap-dot:hover { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08); }
 .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--org-primary-color, #01535b) !important; }
+/* Touch screens: bigger dots, easy to tap. */
+@media (pointer: coarse) {
+  .ap-dots { gap: 14px; }
+  .ap-dots .ap-dot { width: 26px !important; height: 26px !important; }
+}
 .ap-dots .ap-dot:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 3px; }
 html[data-appearance="dark"] .ap-dots-label { color: var(--ap-muted); }
 html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--ap-surface), 0 0 0 4px var(--org-primary-color, #2aa7b2) !important; }
