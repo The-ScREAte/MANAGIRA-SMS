@@ -762,10 +762,9 @@
       bodyEl.innerHTML = '<p style="margin:0;font-size:13px">Create a feature in Admin → App Demo first, then save the capture to it.</p>';
       return;
     }
-    const last = (() => { try { return JSON.parse(localStorage.getItem("mcap:last") || "{}"); } catch (_) { return {}; } })();
     bodyEl.innerHTML = `
-      <label class="field"><span>Feature</span>
-        <select data-f="feature">${sections.map((s) => `<optgroup label="${esc(s.name)}">${s.features.map((f) => `<option value="${f.id}">${esc(f.title)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+      <label class="field"><span>Save to</span>
+        <select data-f="feature"><option value="" selected disabled>Choose a feature…</option>${sections.map((s) => `<optgroup label="${esc(s.name)}">${s.features.map((f) => `<option value="${f.id}">${esc(f.title)}</option>`).join("")}</optgroup>`).join("")}</select></label>
       <div class="field"><span>Add as</span>
         <div class="seg"><button type="button" data-mode="new" aria-pressed="true">New step</button><button type="button" data-mode="version" aria-pressed="false">Version of a step</button></div></div>
       <label class="field" data-show="new"><span>Step title</span><input data-f="step" maxlength="80" value="${esc(cleanTitle(data.title))}" placeholder="e.g. Class dashboard"></label>
@@ -793,7 +792,6 @@
     const featureSel = bodyEl.querySelector('[data-f="feature"]');
     const screenSel = bodyEl.querySelector('[data-f="screen"]');
     let addMode = "new";
-    if (last.feature && features.some((f) => String(f.id) === String(last.feature))) featureSel.value = String(last.feature);
     const fillSteps = () => {
       const f = features.find((x) => String(x.id) === featureSel.value);
       const steps = f ? f.steps : [];
@@ -808,12 +806,13 @@
       bodyEl.querySelectorAll("[data-show]").forEach((n) => { n.hidden = n.dataset.show !== m; });
     };
     bodyEl.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-    featureSel.addEventListener("change", fillSteps);
+    // Where it goes is always chosen here (nothing is pre-selected), and can be changed later in Admin → App Demo.
+    featureSel.addEventListener("change", () => { fillSteps(); saveBtn.disabled = !featureSel.value; });
     fillSteps();
-    saveBtn.disabled = false;
+    saveBtn.disabled = true;
 
     saveBtn.addEventListener("click", async () => {
-      if (uploading) return;
+      if (uploading || !featureSel.value) return;
       uploading = true;
       saveBtn.disabled = true;
       // Sent gzipped where the browser can.
@@ -833,7 +832,6 @@
       fd.append("guided", guidedBox && !guidedBox.checked ? "0" : "1");
       fd.append("guide", JSON.stringify([...bodyEl.querySelectorAll("[data-guide]")].map((i) => i.value)));
       fd.append("capture", capture, "capture.json");
-      try { localStorage.setItem("mcap:last", JSON.stringify({ feature: featureSel.value })); } catch (_) { /* ignore */ }
 
       modal.querySelector('[data-act="discard"]').disabled = true;
       modal.querySelector('[data-act="close-dialog"]').disabled = true;

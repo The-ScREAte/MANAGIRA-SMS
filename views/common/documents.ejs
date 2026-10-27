@@ -42,6 +42,7 @@ main { padding: 0 !important; max-width: none !important; }
 
 .docs-header h1 {
   margin: 0;
+  text-align: left;
   font-size: 24px;
   font-weight: 700;
   color: var(--text);
@@ -78,9 +79,8 @@ main { padding: 0 !important; max-width: none !important; }
   color: #fff;
 }
 .btn-primary:hover {
-  background: var(--primary-hover-fill, var(--primary-hover));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: var(--primary);
+  color: #fff;
 }
 
 .btn-outline {
@@ -89,8 +89,9 @@ main { padding: 0 !important; max-width: none !important; }
   border: 1px solid var(--border);
 }
 .btn-outline:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: #fff;
+  border-color: #d1d5db;
+  color: var(--text);
 }
 
 .btn-danger {
@@ -111,7 +112,7 @@ main { padding: 0 !important; max-width: none !important; }
 /* Documents Grid */
 .docs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -123,13 +124,13 @@ main { padding: 0 !important; max-width: none !important; }
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  min-width: 0; /* long titles shorten with "…" instead of widening the card */
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .doc-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
-  transform: translateY(-2px);
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
 .doc-card-icon {
@@ -155,6 +156,7 @@ main { padding: 0 !important; max-width: none !important; }
 
 .doc-card h3 {
   margin: 0 0 6px;
+  padding-right: 30px; /* clear of the delete button */
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
@@ -207,33 +209,28 @@ main { padding: 0 !important; max-width: none !important; }
   right: 12px;
   display: flex;
   gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
 }
 
-.doc-card:hover .doc-card-actions {
-  opacity: 1;
-}
-
+/* Always visible (touch screens and demo recordings have no hover), and quiet. */
 .doc-card-actions button {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: #fff;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #9ca3af;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  transition: all 0.15s;
 }
 
-.doc-card-actions button:hover {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
+.doc-card-actions button:hover,
+.doc-card-actions button:focus { background: transparent; border-color: var(--border); color: #4b5563; }
+.doc-card-actions button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 .empty-state {
   text-align: center;
@@ -369,7 +366,7 @@ main { padding: 0 !important; max-width: none !important; }
   .docs-header { flex-direction: column; align-items: flex-start; padding: 14px; }
   .docs-header h1 { font-size: 22px; }
   .docs-grid { grid-template-columns: 1fr; }
-  .doc-card-actions { opacity: 1; }
+  
 }
 
 @media (max-width: 480px) {

@@ -50,10 +50,7 @@
     <div class="tour-hero__copy">
       <span class="tour-eyebrow"><span class="tour-eyebrow__dot" aria-hidden="true"></span>Interactive product tour</span>
       <h1>See how Managira runs a school, <span>one screen at a time.</span></h1>
-      <p class="tour-lead">
-        A guided walkthrough for everyone in the school community: the team that runs it, the parents
-        who follow along, and the students who learn there. Pick a feature and follow the steps.
-      </p>
+      <p class="tour-lead">Click through real Managira screens, step by step.</p>
       <div class="tour-hero__actions">
         <% if (allFeatures.length) { %>
           <button type="button" class="tour-btn tour-btn--primary tour-btn--lg" data-tour-start>
@@ -92,27 +89,9 @@
   </section>
 
   <% if (allFeatures.length) { %>
-    <section class="tour-how" aria-label="How the tour works">
-      <ol>
-        <li>
-          <span class="tour-how__num">01</span>
-          <div><strong>Choose a feature</strong><p>Features are grouped by who uses them: school management, parents, students and Mira.</p></div>
-        </li>
-        <li>
-          <span class="tour-how__num">02</span>
-          <div><strong>Follow the steps</strong><p>Every screen comes with a short explanation. Use Next, the arrow keys, or swipe.</p></div>
-        </li>
-        <li>
-          <span class="tour-how__num">03</span>
-          <div><strong>Look closer</strong><p>Zoom in, switch between light and dark versions, or hide the steps to focus.</p></div>
-        </li>
-      </ol>
-    </section>
-
     <section class="tour-library" id="tour-features">
       <div class="tour-library__head">
         <h2>Explore the platform</h2>
-        <p>One connected system for everyone in the school. Choose a section, then open any feature.</p>
       </div>
 
       <% if (tourSections.length > 1) { %>
@@ -178,7 +157,7 @@
   <section class="tour-cta">
     <div>
       <h2>See it with your own school.</h2>
-      <p>Book a live session and we will walk your team through Managira using your classes, fees and reports.</p>
+      <p>Book a live session with our team.</p>
     </div>
     <div class="tour-cta__actions">
       <a class="tour-btn tour-btn--light tour-btn--lg" href="/legal/request-demo">Book a live demo</a>

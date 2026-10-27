@@ -3,13 +3,14 @@
 
 .tour,
 .tv {
+  /* Readable on the soft gray page and on white cards (WCAG AA or better). */
   --t-ink: #0b1b2b;
-  --t-text: #3b4a5c;
-  --t-muted: #6b7a8c;
-  --t-line: #e4e9ef;
-  --t-line-strong: #d3dbe4;
-  --t-bg: #ffffff;
-  --t-soft: #f5f7f9;
+  --t-text: #26364a;
+  --t-muted: #4a5a6c;
+  --t-line: #d8dfe7;
+  --t-line-strong: #c4ced9;
+  --t-bg: #eef1f4;
+  --t-soft: #e6eaef;
   --t-brand: #01535b;
   --t-brand-hover: #013f45;
   --t-brand-soft: #e7f1f1;
@@ -51,10 +52,7 @@
 
 .tour {
   position: relative;
-  background:
-    radial-gradient(900px 420px at 85% -80px, rgba(1, 83, 91, 0.09), transparent 70%),
-    radial-gradient(700px 360px at -10% 0, rgba(14, 165, 233, 0.06), transparent 70%),
-    var(--t-bg);
+  background: var(--t-bg);
   min-height: 100vh;
 }
 
@@ -310,41 +308,12 @@
 
 /* ---------- How it works ---------- */
 
-.tour-how { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-.tour-how ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid var(--t-line);
-  border-radius: var(--t-radius);
-  background: rgba(255, 255, 255, 0.7);
-}
-.tour-how li { display: flex; gap: 14px; padding: 20px 22px; }
-.tour-how li + li { border-left: 1px solid var(--t-line); }
-.tour-how__num {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: var(--t-brand-soft);
-  color: var(--t-brand);
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.tour-how strong { display: block; color: var(--t-ink); font-size: 14px; font-weight: 600; }
-.tour-how p { margin-top: 4px; font-size: 13px; line-height: 1.55; color: var(--t-muted); }
 
 /* ---------- Feature library ---------- */
 
 .tour-library { max-width: 1200px; margin: 0 auto; padding: 80px 24px 8px; scroll-margin-top: 64px; }
 .tour-library__head { margin-bottom: 24px; }
 .tour-library h2 { color: var(--t-ink); font-size: 26px; letter-spacing: -0.025em; font-weight: 700; }
-.tour-library__head p { margin-top: 6px; color: var(--t-muted); font-size: 15px; }
 
 .tour-tabs {
   display: flex;
@@ -795,11 +764,7 @@ body.tv-open { overflow: hidden; }
   .tour-hero__visual:hover .tour-frame { transform: none; }
   .tour-hero__note { left: 12px; right: 12px; max-width: none; }
   .tour-stats { gap: 28px; }
-  .tour-how { padding: 0 16px; }
-  .tour-how ol { grid-template-columns: minmax(0, 1fr); }
-  .tour-how li { padding: 18px; }
-  .tour-how li + li { border-left: 0; border-top: 1px solid var(--t-line); }
-  .tour-library { padding: 64px 16px 16px; }
+          .tour-library { padding: 64px 16px 16px; }
   .tour-library h2 { font-size: 23px; }
   .tour-tabs { width: auto; }
   .tour-section { padding-top: 32px; }
@@ -850,3 +815,6 @@ body.tv-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .tour *, .tv * { animation: none !important; transition: none !important; }
 }
+
+/* Cards: two lines of summary at most, so the grid stays calm. */
+.tour-card__body p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
