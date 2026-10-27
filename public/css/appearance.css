@@ -14,15 +14,16 @@
     --ap-text: #111111;
     --ap-muted: #3f3f46;
   }
-  /* Classic: calm, warm ivory; cards and panels sit a step lighter than the page. */
+  /* Classic: warm-white cards (#fdfbf6) on a cream work area (#f2eee1), ivory panels and header (#f8f6ef),
+     crisp neutral lines and near-black text. */
   html[data-appearance="gray"] {
-    --ap-page: oklch(0.94 0.0075 80);
-    --ap-surface: oklch(0.982 0.0045 84);
-    --ap-surface-2: oklch(0.962 0.006 82);
-    --ap-header: oklch(0.975 0.005 83);
-    --ap-line: oklch(0.87 0.008 78);
-    --ap-text: oklch(0.2 0.008 60);
-    --ap-muted: oklch(0.42 0.01 60);
+    --ap-page: #f2eee1;
+    --ap-surface: #fdfbf6;
+    --ap-surface-2: #f8f6ef;
+    --ap-header: #f8f6ef;
+    --ap-line: #d5d5d5;
+    --ap-text: #161616;
+    --ap-muted: #3d3d3d;
   }
   /* The header: frosted (a light blur of the page behind it), a fine line and a soft shadow. */
   html[data-appearance="white"] header#top-header {
@@ -32,10 +33,10 @@
     box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08), 0 4px 18px rgba(15, 23, 42, 0.06) !important;
   }
   html[data-appearance="gray"] header#top-header {
-    background: color-mix(in oklch, var(--ap-header) 84%, transparent) !important;
-    -webkit-backdrop-filter: saturate(1.4) blur(14px) !important;
-    backdrop-filter: saturate(1.4) blur(14px) !important;
-    box-shadow: 0 1px 0 oklch(0.85 0.009 78), 0 4px 18px rgba(60, 45, 30, 0.08) !important;
+    background: rgba(248, 246, 239, 0.92) !important;
+    -webkit-backdrop-filter: saturate(1.3) blur(12px) !important;
+    backdrop-filter: saturate(1.3) blur(12px) !important;
+    box-shadow: 0 1px 0 #d5d5d5, 0 2px 10px rgba(22, 22, 22, 0.04) !important;
   }
   html[data-appearance="dark"] {
     --ap-page: oklch(0.185 0.006 255);
@@ -102,8 +103,9 @@
 .ap-choice__preview i { display: block; border-radius: 4px; }
 .ap-choice--light .ap-choice__preview { background: #ffffff !important; }
 .ap-choice--light .ap-choice__preview i { background: #ffffff !important; box-shadow: 0 0 0 1px #e4e4e7; }
-.ap-choice--classic .ap-choice__preview { background: #e9e5de !important; }
-.ap-choice--classic .ap-choice__preview i { background: #faf9f6 !important; box-shadow: 0 0 0 1px #dcd7ce; }
+.ap-choice--classic .ap-choice__preview { background: #f2eee1 !important; }
+.ap-choice--classic .ap-choice__preview i { background: #fdfbf6 !important; box-shadow: 0 0 0 1px #d5d5d5; }
+.ap-choice--classic .ap-choice__preview i:first-child { background: #f8f6ef !important; }
 .ap-choice--dark .ap-choice__preview { background: #16181c !important; border-color: #16181c; }
 .ap-choice--dark .ap-choice__preview i { background: #25282e !important; box-shadow: 0 0 0 1px #33373e; }
 .ap-choice__name { display: grid; gap: 1px; }
@@ -125,7 +127,7 @@
   cursor: pointer; text-decoration: none !important; transition: box-shadow .15s ease;
 }
 .ap-dots .ap-dot--light { background: #ffffff !important; }
-.ap-dots .ap-dot--classic { background: #e4dfd6 !important; }
+.ap-dots .ap-dot--classic { background: #f2eee1 !important; }
 .ap-dots .ap-dot--dark { background: #1f2329 !important; border-color: #1f2329 !important; }
 .ap-dots .ap-dot:hover { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08); }
 .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--org-primary-color, #01535b) !important; }

@@ -98,8 +98,12 @@
     // it is checked, and every page keeps the same proportions.
     const TINT_H = 255;
     const tint = (c, k) => (c.C < 0.012 ? { C: 0.008, h: TINT_H } : { C: Math.min(c.C, 0.06) * k, h: c.h });
-    const CLASSIC_CARD = { L: 0.982, C: 0.0045, h: 84 };
-    const CLASSIC_PAGE = { L: 0.94, C: 0.0075, h: 80 };
+    // Classic, three levels: warm-white cards and inputs (#fdfbf6), ivory panels (#f8f6ef),
+    // a cream work area (#f2eee1). Every near-white lands on one of them, the same way on
+    // every page (each level maps to itself).
+    const CLASSIC_CARD = { r: 253, g: 251, b: 246 };
+    const CLASSIC_PANEL = { r: 248, g: 246, b: 239 };
+    const CLASSIC_PAGE = { r: 242, g: 238, b: 225 };
     function mapBg(c) {
       // Translucent fills (progress tracks, hover tints, overlays) adapt to whatever is
       // under them, so they keep their own color in every look.
@@ -112,8 +116,7 @@
       }
       if (o.L < 0.94 || o.C > 0.03) return null; // colors, pastels and darker grays keep theirs
       if (WHITE) return o.L >= 0.965 ? { r: 255, g: 255, b: 255, a: c.a } : fromLch(o.L, 0, 0, c.a);
-      const tone = o.L >= 0.975 ? CLASSIC_CARD : CLASSIC_PAGE;
-      return fromLch(tone.L, tone.C, tone.h, c.a);
+      return Object.assign({}, o.L >= 0.982 ? CLASSIC_CARD : o.L >= 0.962 ? CLASSIC_PANEL : CLASSIC_PAGE, { a: c.a });
     }
     function mapText(c) {
       if (!c || c.a < 0.03 || !DARK) return null;
@@ -130,7 +133,7 @@
         return null;
       }
       if (o.L < 0.85 || o.C > 0.06) return null;
-      return WHITE ? fromLch(Math.min(o.L, 0.905), 0, 0, c.a) : fromLch(Math.min(o.L, 0.87), 0.008, 78, c.a);
+      return fromLch(Math.min(o.L, WHITE ? 0.905 : 0.9), 0, 0, c.a); // crisp neutral lines
     }
     const COLOR_RE = /#[0-9a-f]{3,8}\b|(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\([^()]*\)|\b(?:white|black|whitesmoke|gainsboro|ghostwhite|snow|ivory|aliceblue|azure|beige|linen|seashell|honeydew|mintcream|lavender|floralwhite|oldlace|lightgray|lightgrey|silver)\b/gi;
     // Split "a, b, c" at top-level commas (gradient layers, or stops inside one).
