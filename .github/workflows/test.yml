@@ -19,8 +19,11 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Check package-lock.json matches package.json
+        run: node scripts/check-lockfile.js
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run tests
         run: npm test

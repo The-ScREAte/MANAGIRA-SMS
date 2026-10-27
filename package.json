@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "check:lockfile": "node scripts/check-lockfile.js",
     "start": "node server.js",
     "worker": "node worker.js",
     "security:check": "node scripts/securityCheck.js",
