@@ -589,7 +589,13 @@
       await loadStylesheets();
       // The first view is taken at the first click (or at Finish), so it matches
       // exactly the page that was clicked.
-      rec = { heads: [], states: [], keys: new Map(), links: [], guide: [], pending: null, nextEl: 1 };
+      rec = { heads: [], states: [], keys: new Map(), links: [], guide: [], pending: null, nextEl: 1,
+        // How the page looked when recording began (switching to dark can be one of the steps);
+        // "light" is what this page shows when not dark.
+        appearance: {
+          mode: document.documentElement.getAttribute("data-appearance") || "white",
+          light: document.body.classList.contains("org-appearance") ? "gray" : "white",
+        } };
       mode = "recording";
       watchFrames();
       frameTimer = setInterval(watchFrames, 800);
@@ -626,11 +632,7 @@
       title: document.title,
       url: location.href,
       viewport: { w: window.innerWidth, h: window.innerHeight },
-      // How it looked while recording; "light" is what this page shows when not dark.
-      appearance: {
-        mode: document.documentElement.getAttribute("data-appearance") || "white",
-        light: document.body.classList.contains("org-appearance") ? "gray" : "white",
-      },
+      appearance: rec.appearance,
       heads: rec.heads,
       states: rec.states,
       links: rec.links,

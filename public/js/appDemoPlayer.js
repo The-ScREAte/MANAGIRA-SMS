@@ -14,8 +14,9 @@
 // checkbox hides the matches while unchecked, data-demo-reset="<selector>" checks
 // every such box inside the match again.
 //
-// Light / dark: captures that carry their appearance hold the page's own colors;
-// the visitor picks light or dark, and the app's appearance script
+// Light / dark: captures that carry their appearance hold the page's own colors.
+// The page's own switch (Dark mode in the header menu, or the settings picker)
+// changes the look, as in the app; the app's appearance script
 // (public/js/appearance.js, loaded by this page) colors the captured page.
 (function () {
   "use strict";
@@ -98,12 +99,24 @@
   function refreshLook(d) {
     try { if (d && d.defaultView && typeof d.defaultView.__apRefresh === "function") d.defaultView.__apRefresh(); } catch (_) { /* ignore */ }
   }
-  function setLook(next) {
+  function setLook(next, then) {
+    const changes = (next === "dark") !== isDark();
     look = next;
     try { localStorage.setItem("mcap:look", next); } catch (_) { /* ignore */ }
+    if (!changes) { if (then) then(); return; }
     root.classList.add("is-settled"); // the cover shows the recorded look only
-    render(current, () => place(), true);
-    renderControls();
+    render(current, () => { place(); if (then) then(); }, true);
+  }
+  // The page's own appearance controls (the header menu's Dark mode switch, the
+  // settings picker) show the look in use.
+  function syncLookControls(d) {
+    if (!canLook() || !d) return;
+    const dark = isDark();
+    d.querySelectorAll("[data-ap-set]").forEach((b) => {
+      b.setAttribute("aria-checked", String(dark));
+      b.setAttribute("data-ap-set", dark ? "light" : "dark");
+    });
+    d.querySelectorAll('[data-ap-picker] input[name="appearanceMode"]').forEach((i) => { i.checked = i.value === (dark ? "dark" : "light"); });
   }
 
   function setAttrs(el, attrs) {
@@ -164,6 +177,7 @@
   function wire(doc, done) {
     const visit = (d) => {
       if (!d || !d.documentElement) return;
+      syncLookControls(d);
       d.querySelectorAll("[data-mcap-scroll]").forEach((n) => {
         if (n === d.documentElement) return;
         const [top, left] = n.getAttribute("data-mcap-scroll").split(",").map(Number);
@@ -177,6 +191,8 @@
         d.addEventListener("submit", (e) => e.preventDefault(), true);
         d.addEventListener("scroll", schedulePlace, true);
         d.addEventListener("mouseover", onHover, true);
+        // Esc closes the walkthrough from inside the page too (other keys stay with its fields).
+        d.addEventListener("keydown", (e) => { if (e.key === "Escape" && guide.length) { e.preventDefault(); skip(); } }, true);
       }
       d.querySelectorAll("iframe").forEach((f) => {
         const ready = () => { try { applyLook(f.contentDocument); visit(f.contentDocument); } catch (_) { /* ignore */ } schedulePlace(); };
@@ -247,11 +263,41 @@
   function next() {
     if (step < 0 || step >= guide.length) return;
     const g = guide[step];
-    render(g.to, () => goStep(step + 1));
+    const go = () => render(g.to, () => goStep(step + 1));
+    const t = lookTarget(g);
+    if (t) setLook(t, go); else go(); // a "Dark mode" step switches the look too
   }
 
   function back() {
-    if (step > 0) goStep(step - 1);
+    if (step <= 0) return;
+    const k = step - 1;
+    if (hasLookSteps()) setLook(lookBefore(k), () => goStep(k)); else goStep(k);
+  }
+
+  // ---------- Walkthrough steps on the page's own light / dark switch ----------
+
+  const lookTargets = new Map(); // guide step -> the look it switches to ("light" / "dark"), or null
+  function lookTarget(g) {
+    if (!g || !canLook()) return null;
+    if (lookTargets.has(g)) return lookTargets.get(g);
+    let t = null;
+    try {
+      const doc = new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + data.states[g.from].body + "</body></html>", "text/html");
+      const el = doc.querySelector('[data-mcap-el="' + g.el + '"]');
+      const ctl = el && el.closest("[data-ap-set], [data-ap-picker] .ap-choice");
+      const input = ctl && ctl.querySelector('input[name="appearanceMode"]');
+      // The header switch names the look it turns on; a picker choice is its value.
+      if (ctl) t = input ? (input.value === "dark" ? "dark" : "light") : (ctl.getAttribute("data-ap-set") === "dark" ? "dark" : "light");
+    } catch (_) { /* not one */ }
+    lookTargets.set(g, t);
+    return t;
+  }
+  const hasLookSteps = () => guide.some((g) => lookTarget(g));
+  // The look before step k: as recorded, then as each earlier switch step left it.
+  function lookBefore(k) {
+    let m = data.appearance.mode === "dark" ? "dark" : "light";
+    for (let i = 0; i < k && i < guide.length; i++) m = lookTarget(guide[i]) || m;
+    return m;
   }
 
   // Open menus, dropdowns and popovers: positioned boxes floating over the page.
@@ -481,12 +527,9 @@
   let controlsShown = false;
   let foldTimer = null;
 
-  const ICON_MOON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 12.5A6.5 6.5 0 0 1 7.5 4a6.5 6.5 0 1 0 8.5 8.5z"/></svg>';
-  const ICON_SUN = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.2"/><path d="M10 2.5v1.8M10 15.7v1.8M2.5 10h1.8M15.7 10h1.8M4.7 4.7l1.3 1.3M14 14l1.3 1.3M4.7 15.3 6 14M14 6l1.3-1.3"/></svg>';
-
   function renderControls() {
     const links = data && data.links.length;
-    if (!links && !canLook()) { controls.hidden = true; return; }
+    if (!links) { controls.hidden = true; return; }
     const open = !controls.classList.contains("is-folded");
     controls.innerHTML = '<button type="button" class="pl__handle" data-c="open" aria-expanded="' + open + '" aria-label="Preview options" title="Preview options · drag to move">' + ICON_OPTS + '</button>'
       + '<div class="pl__opts" role="group" aria-label="Preview options"><span class="pl__grip" aria-hidden="true" title="Drag to move"></span>'
@@ -494,9 +537,6 @@
       + (links ? '<button type="button" data-c="rings" aria-pressed="' + rings + '" title="Show or hide the ring around what to click"><i></i>Indicator</button>'
         + '<button type="button" data-c="tips" aria-pressed="' + tips + '" title="Show or hide the explanations"><i></i>Explanation</button>'
         + '<button type="button" data-c="reset" title="Start the preview again">Restart</button>' : "")
-      + (canLook() ? (links ? '<span class="pl__sep" aria-hidden="true"></span>' : "")
-        + '<button type="button" class="pl__look" data-c="look" title="' + (isDark() ? "Switch to light" : "Switch to dark") + '">'
-        + (isDark() ? ICON_SUN + "Light" : ICON_MOON + "Dark") + "</button>" : "")
       + "</div>";
     controls.hidden = false;
     if (!controlsShown) { controlsShown = true; unfold(2000); }
@@ -529,7 +569,6 @@
     if (c === "open") { unfold(2600); const first = controls.querySelector(".pl__opts button"); if (first && e.detail === 0) first.focus(); return; }
     if (c === "guide") resume();
     else if (c === "reset") restart();
-    else if (c === "look") setLook(isDark() ? "light" : "dark");
     else if (c === "rings") { rings = !rings; savePref("rings", rings); place(); renderControls(); }
     else if (c === "tips") { tips = !tips; savePref("tips", tips); hovered = null; place(); renderControls(); }
     clearTimeout(foldTimer);
@@ -590,10 +629,11 @@
   window.addEventListener("pointercancel", endDrag);
 
   function restart() {
-    render(guide.length ? guide[0].from : 0, () => {
+    const go = () => render(guide.length ? guide[0].from : 0, () => {
       (frame.contentDocument.scrollingElement || frame.contentDocument.documentElement).scrollTop = 0;
       if (guide.length) goStep(0); else place();
     });
+    if (hasLookSteps()) setLook(lookBefore(0), go); else go();
   }
 
   // ---------- Clicks inside the page ----------
@@ -637,6 +677,20 @@
 
   function onClick(e) {
     const start = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement;
+    // The page's own light / dark switch changes the look of the whole preview.
+    const apControl = canLook() && start && start.closest("[data-ap-set], [data-ap-picker] .ap-choice");
+    if (apControl) {
+      e.preventDefault();
+      e.stopPropagation();
+      const input = apControl.querySelector('input[name="appearanceMode"]');
+      const want = input ? input.value : (isDark() ? "light" : "dark");
+      const id = apControl.getAttribute("data-mcap-el") || recordedIdOf(apControl);
+      const g = guide[step];
+      hovered = null;
+      if (g && g.from === current && id && g.el === id) { next(); return; } // the walkthrough's switch step
+      setLook(want, () => { syncLookControls(frame.contentDocument); place(); });
+      return;
+    }
     for (let n = start; n && n.nodeType === 1; n = n.parentElement) {
       const id = n.getAttribute("data-mcap-el") || (n.tagName !== "BODY" && n.tagName !== "HTML" ? recordedIdOf(n) : null);
       const to = linkFor(id);
@@ -689,7 +743,9 @@
     hovered = null;
     render(to, () => {
       const k = guide.findIndex((x) => x.from === to);
-      if (guide.length && k >= 0) goStep(k); else { step = guide.length ? guide.length : -1; place(); }
+      // Jumping to a step shows the page as it looks at that point (light or dark).
+      if (guide.length && k >= 0) { if (hasLookSteps()) setLook(lookBefore(k), () => goStep(k)); else goStep(k); }
+      else { step = guide.length ? guide.length : -1; place(); }
     });
   }
 
@@ -710,16 +766,29 @@
     return panel || btn.nextElementSibling;
   }
 
-  // Opens or closes a panel; false when this control's panel cannot be told apart safely.
+  // Opens or closes a panel the way pages usually do it (the hidden attribute, a
+  // "show" class, an inline display); false when it can't be shown or hidden safely.
   function setOpen(btn, open) {
     const panel = panelOf(btn);
     if (!panel || panel.contains(btn)) return false;
     if (open === isShown(panel)) return false; // the control is not what shows this panel
-    const wasHidden = panel.hidden;
-    panel.hidden = !open;
-    if (panel.classList.contains("collapse")) panel.classList.toggle("show", open);
-    if (open && !isShown(panel)) { panel.hidden = wasHidden; return false; } // shown some other way
+    const before = { hidden: panel.hidden, cls: panel.getAttribute("class"), style: panel.getAttribute("style") };
+    const tries = open
+      ? [() => { panel.hidden = false; if (panel.style.display === "none") panel.style.removeProperty("display"); },
+        () => panel.classList.add("show"),
+        () => { panel.style.display = "block"; }]
+      : [() => panel.classList.remove("show"),
+        () => { if (panel.style.display) panel.style.display = "none"; },
+        () => { panel.hidden = true; }];
+    for (const step of tries) { step(); if (isShown(panel) === open) break; }
+    if (isShown(panel) !== open) {
+      panel.hidden = before.hidden;
+      if (before.cls === null) panel.removeAttribute("class"); else panel.setAttribute("class", before.cls);
+      if (before.style === null) panel.removeAttribute("style"); else panel.setAttribute("style", before.style);
+      return false;
+    }
     btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (/hamburger|burger/i.test(btn.getAttribute("class") || "")) btn.classList.toggle("active", open);
     if (btn.parentElement && btn.parentElement === panel.parentElement) btn.parentElement.classList.toggle("is-open", open);
     return true;
   }
@@ -795,6 +864,8 @@
       steps = (data.guide || []).filter((g) => g.from >= 0 && g.from < data.states.length && g.to >= 0 && g.to < data.states.length);
       guided = config.guided !== false && steps.length > 0;
       guide = guided ? steps : [];
+      // A walkthrough that shows the switch to dark starts as it was recorded.
+      if (hasLookSteps()) look = lookBefore(0);
       render(guide.length ? guide[0].from : 0, () => {
         if (guide.length) goStep(0); else place();
         renderControls();

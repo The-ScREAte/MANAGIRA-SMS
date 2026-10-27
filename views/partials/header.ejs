@@ -2441,7 +2441,7 @@
         </div>
       </div>
       <div class="hamburger-container">
-        <div class="hamburger header-hamburger" id="header-hamburger">
+        <div class="hamburger header-hamburger" id="header-hamburger" aria-label="Open menu" role="button" tabindex="0" aria-expanded="false" aria-controls="header-nav-menu">
           <span class="bar"></span>
           <span class="bar"></span>
           <span class="bar"></span>
@@ -2720,7 +2720,7 @@
       <a class="public-expert-button" href="/legal/request-demo">Talk to an Expert</a>
       <a id="loginbutton" title="Click to log in" href="/account/login">Login / Sign Up</a>
       <div class="hamburger-container">
-        <div class="hamburger header-hamburger" id="header-hamburger" aria-label="Open menu" role="button" tabindex="0">
+        <div class="hamburger header-hamburger" id="header-hamburger" aria-label="Open menu" role="button" tabindex="0" aria-expanded="false" aria-controls="header-nav-menu">
           <span class="bar"></span>
           <span class="bar"></span>
           <span class="bar"></span>
@@ -3226,9 +3226,12 @@
     // Hamburger menu toggle with stopPropagation to prevent conflicts
     // Only add listeners if elements exist (prevents errors on hub pages)
     if (hamburger && navMenu) {
+      // aria-expanded also lets a demo capture of the page open the menu without scripts.
       const toggleNavMenu = (open) => {
         navMenu.classList.toggle("show", open);
         navMenu.style.display = open ? "block" : "none";
+        const toggle = document.getElementById("header-hamburger");
+        if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
       };
 
       // Initialize closed state explicitly - ensure hamburger is in normal state
