@@ -118,7 +118,7 @@
     pdfDoc = null;
     pdfToken++;
     ui.image.removeAttribute("src");
-    ui.live.removeAttribute("src");
+    hideLiveFrames(); // kept loaded: reopening is instant
     if (!fromHistory) {
       if (pushedHash) history.back();
       else history.replaceState(history.state, "", location.pathname + location.search);
@@ -210,6 +210,44 @@
     });
   }
 
+  // Interactive captures stay loaded once opened (up to LIVE_KEEP of them), so
+  // moving between steps, or closing and reopening the viewer, shows them at
+  // once instead of loading them again (that was a blank pause on every switch).
+  const LIVE_KEEP = 4;
+  const liveFrames = new Map(); // url -> iframe, oldest first
+  ui.live.remove();
+  function liveFrameFor(url, show) {
+    let frameEl = liveFrames.get(url);
+    if (frameEl) {
+      liveFrames.delete(url);
+    } else {
+      frameEl = document.createElement("iframe");
+      frameEl.className = "tv__live";
+      frameEl.title = "Interactive preview";
+      frameEl.hidden = true;
+      frameEl.addEventListener("load", () => {
+        frameEl.dataset.ready = "1";
+        // Shown now if it is the step being looked at (see showMedia).
+        if (frameEl === wantedFrame) liveFrames.forEach((other) => { other.hidden = other !== frameEl; });
+      }, { once: true });
+      frameEl.setAttribute("src", url);
+      ui.canvas.appendChild(frameEl);
+    }
+    liveFrames.set(url, frameEl); // most recent last
+    while (liveFrames.size > LIVE_KEEP) {
+      const [oldUrl, oldFrame] = liveFrames.entries().next().value;
+      if (oldFrame === frameEl || (!oldFrame.hidden && !show)) break;
+      oldFrame.remove();
+      liveFrames.delete(oldUrl);
+    }
+    return frameEl;
+  }
+  let wantedFrame = null;
+  function hideLiveFrames() {
+    wantedFrame = null;
+    liveFrames.forEach((frameEl) => { frameEl.hidden = true; });
+  }
+
   function showMedia(m, s) {
     if (m.type === "html") {
       // Interactive capture: its player keeps the page's own proportions.
@@ -220,13 +258,16 @@
       ui.image.hidden = true;
       ui.image.removeAttribute("src");
       ui.canvas.classList.remove("is-loading");
-      ui.live.style.aspectRatio = (m.w || 16) + " / " + (m.h || 10);
-      if (ui.live.getAttribute("src") !== m.url) ui.live.setAttribute("src", m.url);
-      ui.live.hidden = false;
+      const frameEl = liveFrameFor(m.url, true);
+      frameEl.style.aspectRatio = (m.w || 16) + " / " + (m.h || 10);
+      wantedFrame = frameEl;
+      // A demo still loading appears once it has loaded; until then the one on
+      // screen stays (no blank window). With nothing on screen it shows at once.
+      const showing = [...liveFrames.values()].some((other) => !other.hidden);
+      if (frameEl.dataset.ready || !showing) liveFrames.forEach((other) => { other.hidden = other !== frameEl; });
       return;
     }
-    ui.live.hidden = true;
-    ui.live.removeAttribute("src");
+    hideLiveFrames();
     if (m.type === "pdf") {
       ui.image.hidden = true;
       ui.image.removeAttribute("src");
@@ -256,6 +297,10 @@
     s.media.forEach((m) => { if (m.type === "image") new Image().src = m.url; });
     const next = f.screens[stepIndex + 1] || (byId(order[featureIndex + 1]) || { screens: [] }).screens[0];
     if (next && next.media[0] && next.media[0].type === "image") new Image().src = next.media[0].url;
+    // The next interactive step loads quietly in the background, so Next is instant.
+    if (next && next.media[0] && next.media[0].type === "html" && !liveFrames.has(next.media[0].url)) {
+      setTimeout(() => { if (isOpen) liveFrameFor(next.media[0].url, false); }, 1200);
+    }
   }
 
   function goToStep(i) {

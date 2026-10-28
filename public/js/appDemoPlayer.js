@@ -888,6 +888,15 @@
       clearTimeout(timer);
       data = json;
       data.links = data.links || [];
+      // A capture recorded on a developer's machine points its images and
+      // styles at localhost; visitors load them from this site instead.
+      const recordedOrigin = (() => { try { return new URL(data.url).origin; } catch (_) { return ""; } })();
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(recordedOrigin) && recordedOrigin !== location.origin) {
+        const fix = (text) => (typeof text === "string" ? text.split(recordedOrigin).join(location.origin) : text);
+        if (Array.isArray(data.pool)) data.pool = data.pool.map(fix);
+        if (Array.isArray(data.heads)) data.heads = data.heads.map(fix);
+        (data.states || []).forEach((st) => { if (typeof st.body === "string") st.body = fix(st.body); });
+      }
       // Packed captures store each piece of markup once; a view is put together when drawn.
       if (Array.isArray(data.pool)) {
         data.states.forEach((st) => {
