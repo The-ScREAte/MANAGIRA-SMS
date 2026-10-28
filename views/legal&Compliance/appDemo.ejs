@@ -37,11 +37,6 @@
       <img src="/images/managira-logo-sm.png" alt="" width="26" height="26" />
       <span>Managira</span>
     </a>
-    <nav class="tour-nav__links" aria-label="Tour links">
-      <a class="tour-nav__link" href="/legal/user-documentation">Documentation</a>
-      <a class="tour-btn tour-btn--ghost tour-btn--sm" href="/account/service-plan">View plans</a>
-      <a class="tour-btn tour-btn--primary tour-btn--sm" href="/legal/request-demo">Book a live demo</a>
-    </nav>
   </div>
 
   <section class="tour-hero">
@@ -55,8 +50,6 @@
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" /></svg>
           </button>
           <a class="tour-btn tour-btn--ghost tour-btn--lg" href="#tour-features">Browse features</a>
-        <% } else { %>
-          <a class="tour-btn tour-btn--primary tour-btn--lg" href="/legal/request-demo">Book a live demo</a>
         <% } %>
       </div>
       <% if (allFeatures.length) { %>
@@ -147,18 +140,17 @@
   <% } else { %>
     <section class="tour-empty">
       <h2>The tour is being refreshed</h2>
-      <p>New screens are on the way. In the meantime, our team can walk you through the platform live.</p>
+      <p>New screens are on the way.</p>
     </section>
   <% } %>
 
   <section class="tour-cta">
     <div>
-      <h2>See it with your own school.</h2>
-      <p>Book a live session with our team.</p>
+      <h2>Ready to run your school on Managira?</h2>
+      <p>Pick the plan that fits your school.</p>
     </div>
     <div class="tour-cta__actions">
-      <a class="tour-btn tour-btn--light tour-btn--lg" href="/legal/request-demo">Book a live demo</a>
-      <a class="tour-btn tour-btn--outline-light tour-btn--lg" href="/account/service-plan">View plans</a>
+      <a class="tour-btn tour-btn--light tour-btn--lg" href="/account/service-plan">View plans</a>
     </div>
   </section>
 

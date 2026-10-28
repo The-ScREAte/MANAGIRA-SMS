@@ -44,7 +44,9 @@
   all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; margin-bottom: -1px;
   font-size: 0.9rem; font-weight: 600; color: var(--ws-muted); border-bottom: 2px solid transparent;
 }
-.ws-tab:hover { color: var(--ws-text); }
+/* The site-wide button:hover fill (purple, white text) is not for tabs. */
+.ws-tabs .ws-tab:hover, .ws-tabs .ws-tab:focus { color: var(--ws-text); background: none; box-shadow: none; }
+.ws-tabs .ws-tab.is-active:hover { color: var(--ws-primary); }
 .ws-tab.is-active { color: var(--ws-primary); border-bottom-color: var(--ws-primary); }
 .ws-tab[hidden] { display: none; }
 .ws-dialog__body { padding: 18px 20px; overflow-y: auto; display: grid; gap: 14px; }

@@ -130,6 +130,40 @@ async function servePanel(event, key = event.request.url) {
 }
 
 // File extensions that get cache-first treatment
+// ── Product tour (/legal/app-demo) ───────────────────────────────────────────
+// The tour page, each player page and each capture's data are kept on the
+// device: they open at once from the copy, a fresh copy is fetched in the
+// background for next time, and when the server can't answer (restarting,
+// a 502) the copy is shown instead of an error page.
+const TOUR_CACHE = 'managira-tour-v1';
+const TOUR_PATHS = [/^\/legal\/app-demo\/?$/, /^\/legal\/app-demo\/play\/\d+$/, /^\/legal\/app-demo\/media\/\d+\/file$/];
+function isTourRequest(request, url) {
+  return request.method === 'GET'
+    && url.origin === self.location.origin
+    && TOUR_PATHS.some((pattern) => pattern.test(url.pathname));
+}
+async function serveTour(event, url) {
+  const { request } = event;
+  // Key without the #hash or tracking query, so every visit shares one copy.
+  const key = url.origin + url.pathname.replace(/\/$/, '');
+  const cache = await caches.open(TOUR_CACHE);
+  const cached = await cache.match(key);
+  const refresh = fetch(request, { credentials: 'same-origin' })
+    .then(async (response) => {
+      if (response && response.ok && !response.redirected) {
+        await cache.put(key, response.clone());
+        return response;
+      }
+      return cached || response; // 502 / 503: keep showing the copy
+    })
+    .catch(() => cached || Response.error());
+  if (cached) {
+    event.waitUntil(refresh.catch(() => {}));
+    return cached;
+  }
+  return refresh;
+}
+
 const STATIC_EXT = /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)(\?.*)?$/i;
 
 // URL path patterns that must ALWAYS go to the network (never cached)
@@ -175,7 +209,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== CACHE_NAME && k !== PANEL_CACHE)
+            .filter((k) => k !== CACHE_NAME && k !== PANEL_CACHE && k !== TOUR_CACHE)
             .map((k) => caches.delete(k))
         )
       )
@@ -197,6 +231,10 @@ self.addEventListener('fetch', (event) => {
 
   if (isWorkspacePanel(request, requestUrl)) {
     event.respondWith(servePanel(event).catch(() => fetch(request)));
+    return;
+  }
+  if (isTourRequest(request, requestUrl)) {
+    event.respondWith(serveTour(event, requestUrl).catch(() => fetch(request)));
     return;
   }
   if (isHubPage(request, requestUrl)) {

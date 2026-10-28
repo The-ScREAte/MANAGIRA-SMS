@@ -2,7 +2,7 @@ const path = require("path");
 const fsp = require("fs").promises;
 const sharp = require("sharp");
 const db = require("../config/db");
-const { uploadToS3, deleteFromS3, s3Client, GetObjectCommand } = require("../config/s3");
+const { uploadToS3, deleteFromS3, s3Client, GetObjectCommand, PutObjectCommand } = require("../config/s3");
 const zlib = require("zlib");
 const crypto = require("crypto");
 const { MEDIA_TYPES, ensureAppDemoSchema, getTour, invalidateTourCache } = require("../utils/appDemo");
@@ -276,6 +276,11 @@ function compressedCapture(key) {
         try {
           raw = Buffer.from(JSON.stringify(packCapture(JSON.parse(raw.toString("utf8")))));
           out.gzip = await gzipAsync(raw, { level: 9 });
+          // Stored the new way too (same content, much smaller), so this
+          // upgrade happens once instead of after every restart.
+          if (process.env.APP_DEMO_STORE_REPACKED !== "false") s3Client.send(new PutObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME, Key: key, Body: out.gzip, ContentType: "application/json", CacheControl: CACHE_CONTROL,
+          })).catch((err) => console.error("[appDemo] could not store the repacked capture:", err.message));
         } catch (_) { /* serve it as stored */ }
       }
       if (raw.length <= BROTLI_LIMIT) {
@@ -327,6 +332,8 @@ module.exports = {
     } catch (err) {
       console.error("[appDemo] tour load failed:", err.message);
     }
+    // The page carries signed-in details (header), so only the visitor's own browser keeps it.
+    res.set("Cache-Control", "private, max-age=120, stale-while-revalidate=86400");
     res.render("legal&Compliance/appDemo", {
       title: "See Managira in action - Managira",
       description: "Take a guided tour of Managira for school management, parents, students and Mira, the AI assistant.",
@@ -362,6 +369,9 @@ module.exports = {
         const capture = await compressedCapture(media.s3_key);
         res.set("ETag", capture.etag);
         res.set("Vary", "Accept-Encoding");
+        // Kept by browsers (and the service worker) between visits; a stale copy
+        // may be shown while the server is restarting rather than an error.
+        res.set("Cache-Control", "public, max-age=600, stale-while-revalidate=604800, stale-if-error=604800");
         if (req.headers["if-none-match"] === capture.etag) return res.status(304).end();
         const br = Boolean(capture.br) && /\bbr\b/.test(req.headers["accept-encoding"] || "");
         res.set("Content-Type", "application/json; charset=utf-8");

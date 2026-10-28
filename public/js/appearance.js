@@ -377,10 +377,33 @@
     const SKIP_SEL = 'svg, canvas, video, [data-ap-skip]';
     const SIDES = ['top', 'right', 'bottom', 'left'];
     const elementsOf = (scope) => (scope.nodeType === 1 ? [scope, ...scope.querySelectorAll('*')] : Array.from(scope.querySelectorAll('body *')));
+    // A control under the pointer, pressed or focused shows its passing look
+    // (a hover fill, a focus ring). Colors read then would stay after it ends,
+    // e.g. a tab clicked in Classic kept the hover's white text on a light
+    // background. Such a control is read once it is back at rest.
+    const CONTROL_SEL = 'button, a, [role="button"], [role="tab"], summary, label, input, select, textarea';
+    function busyControl(el) {
+      const c = el.closest(CONTROL_SEL);
+      if (!c || !c.matches(':hover, :active, :focus')) return null;
+      if (!c.__apLater) {
+        c.__apLater = true;
+        const later = () => {
+          if (c.matches(':hover, :active, :focus')) return;
+          c.removeEventListener('pointerleave', later);
+          c.removeEventListener('focusout', later);
+          c.__apLater = false;
+          setTimeout(() => { if (c.isConnected) quiet(() => settle(c)); }, 0);
+        };
+        c.addEventListener('pointerleave', later);
+        c.addEventListener('focusout', later);
+      }
+      return c;
+    }
+
     function fixSurfaces(scope) {
       const writes = [];
       for (const el of elementsOf(scope)) {
-        if (SKIP_TAGS.has(el.tagName) || el.closest(SKIP_SEL)) continue;
+        if (SKIP_TAGS.has(el.tagName) || el.closest(SKIP_SEL) || busyControl(el)) continue;
         const s = getComputedStyle(el);
         const bg = mapBg(parse(s.backgroundColor));
         if (bg) writes.push([el, 'background-color', css(bg)]);
@@ -462,6 +485,7 @@
         const isField = /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(el.tagName);
         const isIcon = el.tagName === 'I' && /\bfa-/.test(el.className || '');
         if (!isField && !isIcon && !hasText(el)) continue;
+        if (busyControl(el)) continue;
         const s = getComputedStyle(el);
         if (s.visibility === 'hidden' || s.display === 'none') continue;
         const fill = s.webkitTextFillColor;

@@ -42,14 +42,18 @@
   const host = document.createElement("div");
   host.setAttribute("data-mcap-ui", "");
   // Bottom centre: clear of the setup steps (bottom left) and the chat button (bottom right).
-  host.style.cssText = "position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483000;";
+  // The host is a click-through layer over the window with no transform of its
+  // own: a transform would make it the box that the dialog's full-screen
+  // backdrop and the toasts are placed in (they came out bar-sized). The bar
+  // itself is positioned and dragged.
+  host.style.cssText = "position:fixed;inset:0;z-index:2147483000;pointer-events:none;";
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
       [hidden] { display: none !important; }
       * { box-sizing: border-box; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
-      .bar { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: rgba(255,255,255,.97); color: #334155;
+      .bar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: rgba(255,255,255,.97); color: #334155;
              box-shadow: 0 8px 28px -12px rgba(15,23,42,.3), 0 2px 6px rgba(15,23,42,.08); font-size: 13px; line-height: 1.3; max-width: calc(100vw - 40px); }
       .bar.dragging { box-shadow: 0 18px 40px -12px rgba(15,23,42,.4), 0 2px 6px rgba(15,23,42,.1); }
       .grip { width: 10px; height: 18px; margin-left: -6px; flex: none; cursor: grab; opacity: .5; touch-action: none;
@@ -77,8 +81,9 @@
                padding: 10px 14px; border-radius: 10px; background: #0b1b2b; color: #fff; font-size: 13px; box-shadow: 0 12px 32px -8px rgba(0,0,0,.4); max-width: 440px; text-align: center; }
       .toast.on { opacity: 1; transform: translate(-50%, 0); }
       .toast.err { background: #b42318; }
+      .layer { pointer-events: auto; }
       .scrim { position: fixed; inset: 0; background: rgba(15,23,42,.34); backdrop-filter: blur(2px); display: grid; place-items: center; padding: 16px; }
-      .modal { position: relative; width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; color: #3b4a5c; box-shadow: 0 24px 64px -24px rgba(15,23,42,.35); }
+      .modal { position: relative; width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; color: #3b4a5c; box-shadow: 0 24px 64px -24px rgba(15,23,42,.35); }
       .m-head { padding: 20px 56px 4px 22px; }
       .m-head h2 { margin: 0; font-size: 17px; font-weight: 650; color: #0b1b2b; letter-spacing: -.01em; }
       .m-head p { margin: 6px 0 0; font-size: 13px; color: #6b7a8c; line-height: 1.5; }
@@ -88,7 +93,9 @@
       .stats { display: flex; gap: 8px; padding: 14px 22px 0; flex-wrap: wrap; }
       .stat { padding: 5px 10px; border-radius: 999px; background: #f1f5f8; font-size: 12px; font-weight: 600; color: #3b4a5c; }
       .limit-note { margin: 10px 22px 0; color: #64748b; font-size: 11.5px; }
-      .m-body { display: grid; gap: 14px; padding: 18px 22px; }
+      /* Title and buttons stay in view; only the middle scrolls. */
+      .m-body { display: grid; gap: 14px; padding: 18px 22px; overflow-y: auto; min-height: 0; flex: 1 1 auto; overscroll-behavior: contain; }
+      .m-head, .stats, .m-foot { flex: none; }
       .field { display: grid; gap: 6px; }
       .field > span { font-size: 12.5px; font-weight: 600; color: #0b1b2b; }
       .field small { font-size: 11.5px; color: #6b7a8c; }
@@ -205,13 +212,13 @@
 
   // The bar can be dragged by its grip; the spot is kept for the next page.
   const placeBar = (x, y) => {
-    const r = host.getBoundingClientRect();
+    const r = bar.getBoundingClientRect();
     x = Math.max(8, Math.min(x, window.innerWidth - r.width - 8));
     y = Math.max(8, Math.min(y, window.innerHeight - r.height - 8));
-    host.style.left = x + "px";
-    host.style.top = y + "px";
-    host.style.bottom = "auto";
-    host.style.transform = "none";
+    bar.style.left = x + "px";
+    bar.style.top = y + "px";
+    bar.style.bottom = "auto";
+    bar.style.transform = "none";
     return { x, y };
   };
   try {
@@ -221,7 +228,7 @@
   bar.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || !e.target.closest(".grip, .txt, .dot")) return;
     e.preventDefault();
-    const r = host.getBoundingClientRect();
+    const r = bar.getBoundingClientRect();
     const dx = e.clientX - r.left;
     const dy = e.clientY - r.top;
     bar.setPointerCapture(e.pointerId);
@@ -230,7 +237,7 @@
     const end = () => {
       bar.removeEventListener("pointermove", move);
       bar.classList.remove("dragging");
-      const p = host.getBoundingClientRect();
+      const p = bar.getBoundingClientRect();
       try { localStorage.setItem("mcap:bar", JSON.stringify({ x: p.left / window.innerWidth, y: p.top / window.innerHeight })); } catch (_) { /* ignore */ }
     };
     bar.addEventListener("pointermove", move);

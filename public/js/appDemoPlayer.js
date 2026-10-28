@@ -921,3 +921,11 @@
       unavailable();
     });
 })();
+
+// The player page has no app layout: register the service worker here too, so
+// the tour and its captures are kept on the device (public/service-worker.js).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(() => { /* works without it */ });
+  });
+}
