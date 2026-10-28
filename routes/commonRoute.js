@@ -200,6 +200,9 @@ module.exports = (db) => {
   router.post("/admissionPending/reject/:id", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
     commonController.rejectPendingStudent(req, res, db)
   );
+  router.post("/admissionPending/reverse/:id(\\d+)", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
+    commonController.reversePendingRejection(req, res, db)
+  );
   router.get("/getPendingStudentDetails/:id", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
     commonController.getPendingStudentDetails(req, res, db)
   );

@@ -212,7 +212,7 @@ async function getGuardianPendingStudents(db, guardianId, organizationId, nameDi
              c.class_name, c.class_id, 'pending' as status
       FROM pending_students ps
       LEFT JOIN classes c ON ps.class_id = c.class_id
-      WHERE ps.organization_id = $2
+      WHERE ps.organization_id = $2 AND ps.status = 'pending'
         AND EXISTS (
           SELECT 1 FROM pending_student_guardians psg
           WHERE psg.pending_student_id = ps.pending_id
@@ -2333,7 +2333,7 @@ module.exports = {
                 pg.phone as guardian_phone, pg.email as guardian_email
          FROM pending_students ps
          JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
-         WHERE ps.pending_id = $1 AND ps.organization_id = $2`,
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.status = 'pending'`,
         [pendingId, organizationId]
       );
 
@@ -2405,7 +2405,7 @@ module.exports = {
                 pg.phone as guardian_phone, pg.email as guardian_email
          FROM pending_students ps
          JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
-         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.approved = false`,
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.approved = false AND ps.status = 'pending'`,
         [pendingId, organizationId]
       );
 
@@ -2474,7 +2474,7 @@ module.exports = {
                 pg.phone as guardian_phone, pg.email as guardian_email
          FROM pending_students ps
          JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
-         WHERE ps.pending_id = $1 AND ps.organization_id = $2`,
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.status = 'pending'`,
         [pendingId, organizationId]
       );
 

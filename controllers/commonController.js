@@ -38,6 +38,7 @@ const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/
 const assessmentEntry = require("../utils/assessmentEntry");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
+const { REJECTED_KEEP_DAYS, ensureAdmissionStatusSchema, rejectApplication, reverseRejection } = require("../utils/admissionRejections");
 const {
   toDateKey,
   ensureAttendanceCalendarSchema,
@@ -7450,19 +7451,33 @@ const commonController = {
       const organizationId = req.session.organizationId;
       const isEmbedded = isEmbeddedRequest(req, "admissionPending");
 
-      const result = await db.query(
-        `
-        SELECT ps.*, c.class_name, g.name AS graduation_group
-        FROM pending_students ps
-        LEFT JOIN classes c ON ps.class_id = c.class_id
-        LEFT JOIN graduation_year_groups g ON ps.graduation_year_group_id = g.id
-        WHERE ps.organization_id = $1
-        ORDER BY ps.submitted_at DESC
-      `,
-        [organizationId]
-      );
+      await ensureAdmissionStatusSchema(db);
+      const view = req.query.view === "rejected" ? "rejected" : "pending";
+      const [result, counts] = await Promise.all([
+        db.query(
+          `
+          SELECT ps.*, c.class_name, g.name AS graduation_group,
+                 GREATEST(0, CEIL(EXTRACT(EPOCH FROM (ps.rejected_at + make_interval(days => $3) - NOW())) / 86400))::int AS days_left
+          FROM pending_students ps
+          LEFT JOIN classes c ON ps.class_id = c.class_id
+          LEFT JOIN graduation_year_groups g ON ps.graduation_year_group_id = g.id
+          WHERE ps.organization_id = $1 AND ps.status = $2
+          ORDER BY ${view === "rejected" ? "ps.rejected_at DESC" : "ps.submitted_at DESC"}
+        `,
+          [organizationId, view, REJECTED_KEEP_DAYS]
+        ),
+        db.query(
+          `SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+                  COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
+             FROM pending_students WHERE organization_id = $1`,
+          [organizationId]
+        ),
+      ]);
 
       res.render("common/admissionPending", {
+        applicationView: view,
+        applicationCounts: counts.rows[0] || { pending: 0, rejected: 0 },
+        rejectedKeepDays: REJECTED_KEEP_DAYS,
         title: "Admission Pending",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -7618,9 +7633,10 @@ const commonController = {
 
       // ✅ Now re-fetch the updated pending record
       const pending = await client.query(
-        `SELECT * FROM pending_students WHERE pending_id = $1 AND organization_id = $2`,
+        `SELECT * FROM pending_students WHERE pending_id = $1 AND organization_id = $2 AND status = 'pending'`,
         [id, organizationId]
       );
+      // A rejected application has to be reversed (moved back to Pending) first.
       if (!pending.rows.length) throw new Error("No such pending student.");
 
       const student = pending.rows[0];
@@ -7866,19 +7882,16 @@ const commonController = {
         orgName = orgRes.rows[0]?.organization_name || orgName;
       }
 
-      await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [
-        id,
-      ]);
-      await db.query(
-        `DELETE FROM pending_student_subjects WHERE pending_student_id = $1`,
-        [id]
-      );
-      await db.query(`DELETE FROM pending_students WHERE pending_id = $1 AND organization_id = $2`, [
-        id,
-        sessionOrgId,
-      ]);
+      // Kept (not deleted) for 60 days under "Rejected", where the decision
+      // can be reversed; utils/admissionRejections.js removes it after that.
+      const byName = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ").trim() || null;
+      const rejected = await rejectApplication(db, { pendingId: id, organizationId: sessionOrgId, byName });
+      if (!rejected) {
+        req.flash("info", "This application was already rejected.");
+        return res.redirect("/common/admissionPending?view=rejected");
+      }
 
-      req.flash("info", "Student application rejected and deleted.");
+      req.flash("info", `Application rejected. It stays under Rejected for ${REJECTED_KEEP_DAYS} days, where you can reverse the decision.`);
 
       if (guardians.rows.length && pending.rows.length) {
         const guardianEmails = guardians.rows
@@ -7947,6 +7960,22 @@ const commonController = {
       // ...removed error log for clean background operation...
       req.flash("error", "Failed to reject student.");
       res.redirect("/common/admissionPending");
+    }
+  },
+
+  // Rejected → back to waiting for a decision (within the 60 days it is kept).
+  reversePendingRejection: async (req, res, db) => {
+    try {
+      const restored = await reverseRejection(db, { pendingId: req.params.id, organizationId: req.session.organizationId });
+      if (!restored) {
+        req.flash("error", "That application is no longer under Rejected.");
+        return res.redirect("/common/admissionPending?view=rejected");
+      }
+      req.flash("success", `${restored.first_name} ${restored.last_name}'s application is back under Pending.`);
+      return res.redirect("/common/admissionPending");
+    } catch (err) {
+      req.flash("error", "Could not reverse the decision. Please try again.");
+      return res.redirect("/common/admissionPending?view=rejected");
     }
   },
 

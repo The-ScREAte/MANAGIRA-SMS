@@ -1416,6 +1416,8 @@ const logStartupDbStatus = async () => {
     // singleton is already settled before any HTTP request arrives.
     // This prevents the double-log caused by two concurrent first callers.
     await ensurePermissionsSchema(db);
+    // Rejected online applications are kept (with a status) for 60 days.
+    await require("./utils/admissionRejections").ensureAdmissionStatusSchema(db);
     // Idempotent: adds the 'Driver' user_role enum value if it isn't there yet.
     await db.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Driver'`);
   } catch (error) {

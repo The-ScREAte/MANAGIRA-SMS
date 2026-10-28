@@ -7705,7 +7705,7 @@ async function resolvePendingAdmission(organizationId, { pendingId, studentName 
        FROM pending_students ps
        LEFT JOIN classes c ON ps.class_id = c.class_id
        LEFT JOIN graduation_year_groups g ON ps.graduation_year_group_id = g.id
-       WHERE ps.pending_id = $1 AND ps.organization_id = $2`,
+       WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.status = 'pending'`,
       [pendingId, organizationId]
     );
     if (!rows.rows.length) {
@@ -7726,7 +7726,7 @@ async function resolvePendingAdmission(organizationId, { pendingId, studentName 
      FROM pending_students ps
      LEFT JOIN classes c ON ps.class_id = c.class_id
      LEFT JOIN graduation_year_groups g ON ps.graduation_year_group_id = g.id
-     WHERE ps.organization_id = $1 AND (ps.first_name || ' ' || ps.last_name) ILIKE $2`,
+     WHERE ps.organization_id = $1 AND ps.status = 'pending' AND (ps.first_name || ' ' || ps.last_name) ILIKE $2`,
     [organizationId, `%${trimmed}%`]
   );
   if (!rows.rows.length) {
@@ -7751,7 +7751,7 @@ async function listPendingAdmissionsApi(req, res) {
        FROM pending_students ps
        LEFT JOIN classes c ON ps.class_id = c.class_id
        LEFT JOIN graduation_year_groups g ON ps.graduation_year_group_id = g.id
-       WHERE ps.organization_id = $1
+       WHERE ps.organization_id = $1 AND ps.status = 'pending'
        ORDER BY ps.submitted_at DESC`,
       [organizationId]
     );

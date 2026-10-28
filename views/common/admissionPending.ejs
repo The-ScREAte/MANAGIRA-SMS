@@ -503,10 +503,23 @@
   </div>
 
   <% const _classNames = Array.from(new Set(pendingStudents.map((x) => x.class_name).filter(Boolean))).sort(); %>
+  <% const _view = typeof applicationView !== 'undefined' ? applicationView : 'pending'; %>
+  <% const _counts = typeof applicationCounts !== 'undefined' ? applicationCounts : { pending: pendingStudents.length, rejected: 0 }; %>
+  <% const _keepDays = typeof rejectedKeepDays !== 'undefined' ? rejectedKeepDays : 60; %>
+  <% const _embedQs = (typeof isEmbedded !== 'undefined' && isEmbedded) ? '&embed=workspace' : ''; %>
+  <nav class="pa-tabs" aria-label="Applications">
+    <a href="?view=pending<%= _embedQs %>" class="pa-tab<%= _view === 'pending' ? ' is-active' : '' %>"<%- _view === 'pending' ? ' aria-current="page"' : '' %>>Pending <span><%= _counts.pending %></span></a>
+    <a href="?view=rejected<%= _embedQs %>" class="pa-tab<%= _view === 'rejected' ? ' is-active' : '' %>"<%- _view === 'rejected' ? ' aria-current="page"' : '' %>>Rejected <span><%= _counts.rejected %></span></a>
+  </nav>
   <header class="pa-head">
     <div>
+      <% if (_view === 'rejected') { %>
+      <h1>Rejected applications <span class="pa-count"><%= pendingStudents.length %></span></h1>
+      <p>Kept for <%= _keepDays %> days after the decision, then deleted for good. Reverse a decision to move it back to Pending.</p>
+      <% } else { %>
       <h1>Pending admissions <span class="pa-count"><%= pendingStudents.length %></span></h1>
       <p>Applications waiting for review. Click one to approve or decline it.</p>
+      <% } %>
     </div>
     <% if (pendingStudents.length) { %>
       <div class="pa-tools">
@@ -518,7 +531,9 @@
     <% } %>
   </header>
 
-  <% if (!pendingStudents.length) { %>
+  <% if (!pendingStudents.length && _view === 'rejected') { %>
+    <div class="pa-empty"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><h2>No rejected applications</h2><p>Applications you reject stay here for <%= _keepDays %> days.</p></div>
+  <% } else if (!pendingStudents.length) { %>
     <div class="pa-empty"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><h2>All caught up</h2><p>New applications appear here for review.</p></div>
   <% } else { %>
   <div class="pending-table-card">
@@ -530,7 +545,7 @@
           <th>Gender <button type="button" class="pending-sort-btn" data-sort-key="gender" data-sort-label="genders" data-sort-direction="asc" aria-label="Sort genders descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th>Class <button type="button" class="pending-sort-btn" data-sort-key="className" data-sort-label="classes" data-sort-direction="asc" aria-label="Sort classes descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th>Year Group <button type="button" class="pending-sort-btn" data-sort-key="yearGroup" data-sort-label="year groups" data-sort-direction="asc" aria-label="Sort year groups descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
-          <th>Action</th>
+          <th><%= _view === 'rejected' ? 'Decision' : 'Action' %></th>
         </tr>
       </thead>
       <tbody id="pendingStudentsBody">
@@ -547,9 +562,19 @@
           <td data-label="Gender"><%= student.gender %></td>
           <td data-label="Class"><%= student.class_name %></td>
           <td data-label="Year Group"><%= student.graduation_group || "—" %></td>
+          <% if (_view === 'rejected') { %>
+          <td data-label="Decision">
+            <div class="pa-decision">
+              <span class="pa-rejected">Rejected <%= student.rejected_at ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.rejected_at) : new Date(student.rejected_at).toISOString().split('T')[0]) : '' %><%= student.rejected_by_name ? ' by ' + student.rejected_by_name : '' %></span>
+              <small>Deleted in <%= student.days_left %> <%= student.days_left === 1 ? 'day' : 'days' %></small>
+            </div>
+            <button type="button" class="view-btn pa-reverse" data-reverse="<%= student.pending_id %>" data-name="<%= pendingStudentDisplayName %>">Reverse decision</button>
+          </td>
+          <% } else { %>
           <td data-label="Action">
             <button type="button" class="view-btn" onclick="loadStudentDetails(<%= student.pending_id %>)">Review <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </td>
+          <% } %>
         </tr>
         <% }) %>
       </tbody>
@@ -559,6 +584,14 @@
   <% } %>
 </div>
 <style>
+  .pa-tabs { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+  .pa-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9px; color: #475569; font-size: .88rem; font-weight: 600; text-decoration: none; }
+  .pa-tab span { padding: 0 7px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: .75rem; }
+  .pa-tab.is-active { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+  .pa-tab.is-active span { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 13%, transparent); color: var(--org-primary-color, #0f5a66); }
+  .pa-decision { display: inline-flex; flex-direction: column; margin-right: 10px; vertical-align: middle; }
+  .pa-rejected { color: #b91c1c; font-weight: 600; font-size: .85rem; }
+  .pa-decision small { color: #64748b; font-size: .75rem; }
   .pa-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
   .pa-head h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.35rem; text-align: left; }
   .pa-head p { margin: 4px 0 0; color: #64748b; font-size: .9rem; }
@@ -912,8 +945,19 @@ function confirmApprove(e, id) {
   return false;
 }
 
+// Rejected applications move to the Rejected tab (kept 60 days); this puts one back.
+document.addEventListener('click', function (event) {
+  const btn = event.target.closest('[data-reverse]');
+  if (!btn) return;
+  if (!confirm('Move ' + btn.dataset.name + "'s application back to Pending?")) return;
+  btn.disabled = true;
+  fetch('/common/admissionPending/reverse/' + btn.dataset.reverse, { method: 'POST' })
+    .then(function (res) { if (!res.ok) throw new Error(); location.reload(); })
+    .catch(function () { btn.disabled = false; alert('Could not reverse the decision. Please try again.'); });
+});
+
 function rejectStudent(id) {
-  if (confirm("⚠️ Are you sure you want to reject this application?")) {
+  if (confirm("Reject this application? It moves to Rejected, where you can reverse the decision for 60 days.")) {
     fetch(`/common/admissionPending/reject/${id}`, { method: 'POST' })
       .then(() => location.reload())
       .catch(() => alert("❌ Failed to reject student."));

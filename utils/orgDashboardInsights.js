@@ -84,7 +84,7 @@ async function loadOrgDashboardInsights(db, opts) {
         ).then((r) => r.rows[0]))
       : null,
     show.admissions
-      ? safe(db.query(`SELECT COUNT(*)::int AS n FROM pending_students WHERE organization_id = $1`, [organizationId]).then((r) => r.rows[0].n))
+      ? safe(db.query(`SELECT COUNT(*)::int AS n FROM pending_students WHERE organization_id = $1 AND status = 'pending'`, [organizationId]).then((r) => r.rows[0].n))
       : null,
     show.attendance && isSchoolDay
       ? safe(db.query(

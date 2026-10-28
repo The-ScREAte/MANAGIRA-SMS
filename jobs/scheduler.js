@@ -218,6 +218,20 @@ if (shouldRunScheduler) {
   });
 }
 
+// Daily: rejected online applications are removed 60 days after the decision
+// (until then they stay under Admissions → Online Applications → Rejected).
+if (shouldRunScheduler) {
+  cron.schedule('40 2 * * *', async () => {
+    try {
+      const { purgeOldRejections } = require('../utils/admissionRejections');
+      const summary = await purgeOldRejections(require('../config/db'));
+      if (summary.deleted > 0) console.log(`[Admissions] Removed ${summary.deleted} applications rejected over 60 days ago.`);
+    } catch (error) {
+      console.error('[Admissions] Rejected application cleanup failed:', error.message);
+    }
+  });
+}
+
 // Midnight: apply scheduled account holds, then remind managers of on-hold accounts.
 const shouldRunScheduledHolds = process.env.NODE_ENV === 'production' || process.env.ENABLE_SCHEDULED_HOLDS_CRON === 'true';
 if (shouldRunScheduledHolds) {
