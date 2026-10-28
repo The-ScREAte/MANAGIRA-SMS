@@ -566,14 +566,48 @@
     return text.length > 48 ? text.slice(0, 46).trim() + "…" : text;
   }
 
+  // Every document is watched: the page and each pane. Keyed by document, not
+  // window: a pane that opens another page keeps its window but gets a new
+  // document, whose clicks were otherwise never recorded.
   const watched = new WeakSet();
+  // When anything on the page or in a pane last changed (see settleAfterClick).
+  let activityAt = 0;
+  const markActivity = () => { activityAt = Date.now(); };
+  const activityObserver = new MutationObserver((records) => {
+    if (records.some((r) => !(r.target && r.target.closest && r.target.closest("[data-mcap-ui]")))) markActivity();
+  });
   function watchFrames() {
     frameDocs(document).forEach((d) => {
-      const win = d.defaultView;
-      if (!win || watched.has(win)) return;
-      watched.add(win);
-      win.addEventListener("click", onClick, true);
+      if (watched.has(d)) return;
+      watched.add(d);
+      if (d.documentElement) activityObserver.observe(d.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+      d.addEventListener("click", onClick, true);
+      d.addEventListener("click", guardLeaving, false);
+      // A pane that finishes loading another page is watched at once.
+      d.addEventListener("load", (e) => { if (e.target && e.target.tagName === "IFRAME") { markActivity(); watchFrames(); } }, true);
     });
+  }
+
+  // Runs after the page's own handlers: menus and panes that open their pages
+  // in place (the Reports menu, workspace panes, in-app page switches) do so as
+  // usual. Only a link that would really leave the page, which ends the
+  // recording, or open a new tab is stopped.
+  function guardLeaving(e) {
+    if (mode !== "recording" || e.defaultPrevented) return;
+    const node = e.target && (e.target.nodeType === 1 ? e.target : e.target.parentElement);
+    const a = node && node.closest("a[href]");
+    if (!a) return;
+    const href = a.getAttribute("href") || "";
+    if (!href || href.startsWith("#") || /^javascript:/i.test(href)) return;
+    const doc = a.ownerDocument;
+    const target = String(a.getAttribute("target") || "").toLowerCase();
+    const samePage = absUrl(href, doc.baseURI).split("#")[0] === doc.location.href.split("#")[0];
+    const newTab = target === "_blank";
+    // In a pane a plain link only changes the pane, which is recorded.
+    const leaves = doc === document ? !samePage : ((target === "_top" || target === "_parent") && !samePage);
+    if (!newTab && !leaves) return;
+    e.preventDefault();
+    toast(newTab ? "Links that open a new tab aren't recorded." : "This link leaves the page, which would end the recording. Finish here, then capture that page separately.");
   }
 
   let labelClick = null; // a label's click is followed by one on its checkbox: one step, not two
@@ -589,19 +623,7 @@
     const doc = target.ownerDocument;
     const outside = !el.closest(INTERACTIVE) && doc.defaultView.getComputedStyle(el).cursor !== "pointer";
 
-    // Leaving the page would end the recording.
-    const a = target.closest("a[href]");
-    if (a && doc === document) {
-      const href = a.getAttribute("href") || "";
-      const url = absUrl(href, document.baseURI);
-      const leaves = !href.startsWith("#") && !/^javascript:/i.test(href) && (a.target === "_blank" || url.split("#")[0] !== location.href.split("#")[0]);
-      if (leaves) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        toast("Links to other pages aren't recorded. Finish here, then capture that page separately.");
-        return;
-      }
-    }
+    // Links are checked after the page has handled them (guardLeaving).
 
     let id = outside ? OUTSIDE : target.getAttribute("data-mcap-el");
     if (!id) {
@@ -615,6 +637,30 @@
     renderBar();
     loadStylesheets(); // new panes may bring new stylesheets
     watchFrames();
+    settleAfterClick(rec.pending);
+  }
+
+  // What a click led to is saved once the page has settled (a pane finished
+  // loading, nothing changed for a moment), not only at the next click: with
+  // quick clicking, a view that hadn't appeared yet used to lose its step.
+  let settleTimer = null;
+  function settleAfterClick(pending) {
+    clearTimeout(settleTimer);
+    const started = Date.now();
+    markActivity();
+    const check = () => {
+      if (mode !== "recording" || !rec || rec.pending !== pending) return;
+      watchFrames();
+      const quiet = Date.now() - activityAt >= 500;
+      const loading = frameDocs(document).some((d) => d.readyState !== "complete");
+      if ((quiet && !loading) || Date.now() - started > 6000) {
+        const state = takeSnapshot();
+        if (state !== pending.from) { linkPending(state); renderBar(); }
+        return;
+      }
+      settleTimer = setTimeout(check, 150);
+    };
+    settleTimer = setTimeout(check, 250);
   }
 
   let frameTimer = null;
@@ -647,6 +693,7 @@
 
   function cleanupStamps() {
     clearInterval(frameTimer);
+    clearTimeout(settleTimer);
     frameDocs(document).forEach((d) => d.querySelectorAll("[data-mcap-el]").forEach((n) => n.removeAttribute("data-mcap-el")));
   }
 
