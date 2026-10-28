@@ -21,7 +21,9 @@
   // Updated from the server: an Admin can restart (extend) or turn off capture at any time.
   let endsAt = new Date(script && script.dataset.endsAt);
   let school = (script && script.dataset.school) || "";
-  if (!(endsAt > new Date())) return;
+  // The end time written in the page can be old: Reports, Management and
+  // Admissions are reopened from the service worker's copy. The server is asked
+  // a moment later (checkStatus) and says whether capture is still on.
 
   const SWATCHES = ["#14b8a6", "#3b82f6", "#8b5cf6", "#f59e0b", "#f43f5e", "#0b1b2b"];
   // Only this bar and things that never show (scripts, loading indicators) are left out.
@@ -259,6 +261,7 @@
   });
 
   const ticker = setInterval(() => {
+    if (!active) return; // not confirmed by the server yet
     const ms = left();
     if (ms <= 0 && mode === "recording") {
       // Keep the recording: it can still be finished and saved.
@@ -627,7 +630,11 @@
 
     let id = outside ? OUTSIDE : target.getAttribute("data-mcap-el");
     if (!id) {
-      id = String(rec.nextEl++);
+      // The same control met again (a pane reloaded its page, so its stamp is
+      // gone) keeps the id it had: one step in any view it appears in.
+      const key = sameElementKey(target);
+      id = rec.elementIds.get(key) || String(rec.nextEl++);
+      rec.elementIds.set(key, id);
       target.setAttribute("data-mcap-el", id);
     }
     const state = takeSnapshot();
@@ -673,7 +680,7 @@
       // The first view is taken at the first click (or at Finish), so it matches
       // exactly the page that was clicked.
       const packer = Pack.createPacker();
-      rec = { packer, headParts: [], headKeys: new Map(), states: [], keys: new Map(), links: [], guide: [], pending: null, nextEl: 1,
+      rec = { packer, headParts: [], headKeys: new Map(), states: [], keys: new Map(), links: [], guide: [], pending: null, nextEl: 1, elementIds: new Map(),
         // How the page looked when recording began (switching to dark can be one of the steps);
         // "light" is what this page shows when not dark.
         appearance: {
@@ -746,29 +753,51 @@
   // every recorded element in every view it appears in, so visitors can click
   // them in any order.
   // One view is parsed at a time, so long recordings don't hold every page in memory at once.
+  // A view includes the pages shown in its panes (iframe srcdoc), at any depth:
+  // clicks made inside a pane are marked in every view that pane appears in.
   function markEverywhere(data, packer) {
-    const parse = (i) => new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + Pack.bodyOf(data, i) + "</body></html>", "text/html");
+    const parseView = (i) => {
+      const docs = [{ doc: new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + Pack.bodyOf(data, i) + "</body></html>", "text/html"), frame: null, parent: -1 }];
+      for (let k = 0; k < docs.length; k++) {
+        docs[k].doc.querySelectorAll("iframe[srcdoc]").forEach((frame) => {
+          docs.push({ doc: new DOMParser().parseFromString(frame.getAttribute("srcdoc"), "text/html"), frame, parent: k });
+        });
+      }
+      return docs;
+    };
     const keys = new Map();
     const present = data.states.map((_, i) => {
       const ids = new Set();
-      parse(i).querySelectorAll("[data-mcap-el]").forEach((el) => {
+      parseView(i).forEach(({ doc }) => doc.querySelectorAll("[data-mcap-el]").forEach((el) => {
         const id = el.getAttribute("data-mcap-el");
         ids.add(id);
         if (!keys.has(id)) keys.set(id, sameElementKey(el));
-      });
+      }));
       return ids;
     });
     data.states.forEach((st, i) => {
       if ([...keys.keys()].every((id) => present[i].has(id))) return;
-      const doc = parse(i);
-      let changed = false;
+      const docs = parseView(i);
+      const dirty = new Set();
       keys.forEach((key, id) => {
         if (present[i].has(id)) return;
         const tag = key.split(/[#.]/)[0];
-        const matches = [...doc.body.getElementsByTagName(tag)].filter((el) => !el.hasAttribute("data-mcap-el") && sameElementKey(el) === key);
-        if (matches.length === 1) { matches[0].setAttribute("data-mcap-el", id); changed = true; }
+        const matches = [];
+        docs.forEach((entry, k) => {
+          [...entry.doc.getElementsByTagName(tag)].forEach((el) => {
+            if (!el.hasAttribute("data-mcap-el") && sameElementKey(el) === key) matches.push([el, k]);
+          });
+        });
+        if (matches.length !== 1) return;
+        matches[0][0].setAttribute("data-mcap-el", id);
+        for (let k = matches[0][1]; k >= 0; k = docs[k].parent) dirty.add(k);
       });
-      if (changed) st.parts = packer.add(doc.body.innerHTML);
+      if (!dirty.size) return;
+      // Inner panes first, so each outer page takes the updated markup.
+      for (let k = docs.length - 1; k > 0; k--) {
+        if (dirty.has(k)) docs[k].frame.setAttribute("srcdoc", "<!DOCTYPE html>" + docs[k].doc.documentElement.outerHTML);
+      }
+      st.parts = packer.add(docs[0].doc.body.innerHTML);
     });
   }
 

@@ -829,6 +829,20 @@
     // Guards against "about:blank" (the browser's own placeholder for an
     // iframe that hasn't finished navigating yet) so a load event racing
     // ahead of the real navigation can never get captured as a real page.
+    // A pane whose page moved on (a link inside it, e.g. a report card) keeps its
+    // src; clicking its menu item again brings it back to the section's page.
+    function paneMovedAway(iframe, url) {
+      try {
+        const now = iframe.contentWindow && iframe.contentWindow.location.href;
+        if (!now || now === 'about:blank') return false;
+        const at = new URL(stripEmbedFlag(now), window.location.href);
+        const home = new URL(url, window.location.href);
+        return at.pathname !== home.pathname; // filters (the query) may change in place
+      } catch (_) {
+        return false;
+      }
+    }
+
     function stripEmbedFlag(href) {
       if (!href || href === 'about:blank') return null;
       try {
@@ -947,7 +961,7 @@
 
       // Already loaded in this panel — just make sure it's the visible/
       // active one and skip straight past the fetch + spinner entirely.
-      if (loadedPanelUrls[group] === url && panel.querySelector('.embed-iframe')) {
+      if (loadedPanelUrls[group] === url && panel.querySelector('.embed-iframe') && !paneMovedAway(panel.querySelector('.embed-iframe'), url)) {
         if (!background) {
           setEmbedLinkActive(url);
           if (pushHistory !== false) {
@@ -980,7 +994,8 @@
       // normal, not leave the sub-page showing.)
       const inFlightIframe = panel.querySelector('.embed-iframe');
       const inFlightMatchesTarget = inFlightIframe
-        && inFlightIframe.src === new URL(withEmbedFlag(url), window.location.href).href;
+        && inFlightIframe.src === new URL(withEmbedFlag(url), window.location.href).href
+        && !paneMovedAway(inFlightIframe, url);
       if (inFlightMatchesTarget) {
         if (!background) {
           setEmbedLinkActive(url);
