@@ -172,8 +172,10 @@
       const y = scrollEl.scrollTop;
       const parsed = new DOMParser().parseFromString(stateHtml(i), "text/html");
       const attrs = Object.assign({}, htmlAttrsOf(st));
-      if (doc.__mcapLook && doc.__mcapLook !== "white") {
-        // Keep what the appearance script set on the page root.
+      if (doc.__mcapLook) {
+        // Keep what the appearance script set on the page root, in every look:
+        // without "ap-ready" appearance.css holds the page invisible for up to
+        // 1.2s, so in Light each click blanked the demo before it came back.
         attrs.class = ((attrs.class || "") + " ap-ready").trim();
         if (doc.documentElement.hasAttribute("style")) attrs.style = doc.documentElement.getAttribute("style");
       }
