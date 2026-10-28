@@ -148,7 +148,7 @@ async function serveTour(event, url) {
   const key = url.origin + url.pathname.replace(/\/$/, '');
   const cache = await caches.open(TOUR_CACHE);
   const cached = await cache.match(key);
-  const refresh = fetch(request, { credentials: 'same-origin' })
+  const refresh = fetch(request)
     .then(async (response) => {
       if (response && response.ok && !response.redirected) {
         await cache.put(key, response.clone());

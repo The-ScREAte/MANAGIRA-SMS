@@ -260,15 +260,40 @@ function storedGuide(text) {
 const UNPACK_LIMIT = 40 * 1024 * 1024;
 const BROTLI_LIMIT = UNPACK_LIMIT;
 const capturesInMemory = new Map();
+// Prepared captures are also kept on this server's disk, so a restart serves
+// them at once instead of downloading and preparing them again.
+const CAPTURE_DISK_DIR = path.join(require("os").tmpdir(), "managira-app-demo");
+const diskName = (key) => path.join(CAPTURE_DISK_DIR, crypto.createHash("sha1").update(key).digest("hex"));
+async function captureFromDisk(key, etag) {
+  try {
+    const base = diskName(key);
+    const [gzip, br] = await Promise.all([fsp.readFile(base + ".gz"), fsp.readFile(base + ".br").catch(() => null)]);
+    return { etag, gzip, br };
+  } catch (_) {
+    return null;
+  }
+}
+function captureToDisk(key, entry) {
+  const base = diskName(key);
+  fsp.mkdir(CAPTURE_DISK_DIR, { recursive: true })
+    .then(() => Promise.all([
+      fsp.writeFile(base + ".gz.part", entry.gzip).then(() => fsp.rename(base + ".gz.part", base + ".gz")),
+      entry.br ? fsp.writeFile(base + ".br.part", entry.br).then(() => fsp.rename(base + ".br.part", base + ".br")) : null,
+    ]))
+    .catch((err) => console.error("[appDemo] could not keep the capture on disk:", err.message));
+}
 function compressedCapture(key) {
   let entry = capturesInMemory.get(key);
   if (entry) {
     capturesInMemory.delete(key);
   } else {
     entry = (async () => {
+      const etag = `"c2-${crypto.createHash("sha1").update(key).digest("hex").slice(0, 16)}"`;
+      const kept = await captureFromDisk(key, etag);
+      if (kept) return kept;
       const obj = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key }));
       const stored = Buffer.from(await obj.Body.transformToByteArray());
-      const out = { etag: `"c2-${crypto.createHash("sha1").update(key).digest("hex").slice(0, 16)}"`, gzip: stored, br: null };
+      const out = { etag, gzip: stored, br: null };
       let raw;
       try { raw = await gunzipAsync(stored, { maxOutputLength: UNPACK_LIMIT }); } catch (_) { return out; } // too large: as stored
       // Older captures (unpacked, or packed before heads shared the pool) are packed the current way.
@@ -286,6 +311,7 @@ function compressedCapture(key) {
       if (raw.length <= BROTLI_LIMIT) {
         out.br = await brotliAsync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: raw.length > 16 * 1024 * 1024 ? 9 : 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
       }
+      captureToDisk(key, out);
       return out;
     })();
     entry.catch(() => capturesInMemory.delete(key));
@@ -858,3 +884,20 @@ module.exports = {
 
 // For tests: the check every uploaded capture goes through.
 module.exports.parseCapture = parseCapture;
+
+// After the server starts: prepares the newest captures one at a time in the
+// background, so the first visitor after a restart doesn't wait for them.
+module.exports.warmCaptures = async () => {
+  try {
+    await ensureAppDemoSchema(db);
+    const { rows } = await db.query(
+      `SELECT s3_key FROM app_demo_screen_media WHERE media_type = 'html' AND s3_key IS NOT NULL ORDER BY id DESC LIMIT 12`
+    );
+    for (const { s3_key: key } of rows) {
+      // eslint-disable-next-line no-await-in-loop
+      await compressedCapture(key).catch(() => {});
+    }
+  } catch (err) {
+    console.error("[appDemo] capture warm-up skipped:", err.message);
+  }
+};

@@ -1404,6 +1404,8 @@ const logStartupDbStatus = async () => {
     await ensurePermissionsSchema(db);
     // Rejected online applications are kept (with a status) for 60 days.
     await require("./utils/admissionRejections").ensureAdmissionStatusSchema(db);
+    // Product tour captures ready before the first visitor asks for one.
+    setTimeout(() => require("./controllers/appDemoController").warmCaptures(), 5000).unref();
     // Idempotent: adds the 'Driver' user_role enum value if it isn't there yet.
     await db.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Driver'`);
   } catch (error) {
