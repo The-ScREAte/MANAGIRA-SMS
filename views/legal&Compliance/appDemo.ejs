@@ -35,8 +35,7 @@
   <%# No header bar: its logo led signed-in visitors into their school's dashboard. %>
   <section class="tour-hero">
     <div class="tour-hero__copy">
-      <h1>See how Managira runs a school, <span>one screen at a time.</span></h1>
-      <p class="tour-lead">Click through real Managira screens, step by step.</p>
+      <h1>See how Managira runs a school, <span>all in one place.</span></h1>
       <div class="tour-hero__actions">
         <% if (allFeatures.length) { %>
           <button type="button" class="tour-btn tour-btn--primary tour-btn--lg" data-tour-start>
@@ -46,13 +45,6 @@
           <a class="tour-btn tour-btn--ghost tour-btn--lg" href="#tour-features">Browse features</a>
         <% } %>
       </div>
-      <% if (allFeatures.length) { %>
-        <dl class="tour-stats">
-          <div><dt>Sections</dt><dd><%= tourSections.length %></dd></div>
-          <div><dt>Features</dt><dd><%= allFeatures.length %></dd></div>
-          <div><dt>Screens</dt><dd><%= screenCount %></dd></div>
-        </dl>
-      <% } %>
     </div>
 
     <% if (hero) { %>
