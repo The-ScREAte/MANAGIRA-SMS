@@ -164,7 +164,10 @@ window.initPhoneCountryCombos = function initPhoneCountryCombos(root) {
 
     input.placeholder = "Phone number";
 
-    const defaultIso2 = (combo.dataset.defaultIso2 || "GH").toUpperCase();
+    // The school's own country first (set in views/partials/head.ejs), when the list has it.
+    const schoolIso2 = String(window.MANAGIRA_SCHOOL_COUNTRY || "").toUpperCase();
+    const hasSchoolIso2 = schoolIso2 && window.MANAGIRA_DIAL_CODES.some((c) => c.iso2 === schoolIso2);
+    const defaultIso2 = (hasSchoolIso2 ? schoolIso2 : (combo.dataset.defaultIso2 || "GH")).toUpperCase();
     select.innerHTML = window.MANAGIRA_DIAL_CODES
       .map((c) => `<option value="${c.dial}" data-iso2="${c.iso2}">${c.name} (+${c.dial})</option>`)
       .join("");
@@ -267,8 +270,14 @@ window.combinePhoneCountryCombos = function combinePhoneCountryCombos(root) {
     const select = combo.querySelector(".phone-dial-select");
     const input = combo.querySelector(".phone-local-input");
     if (!select || !input) return;
-    const digits = String(input.value || "").replace(/[^\d]/g, "");
+    const raw = String(input.value || "").trim();
+    let digits = raw.replace(/[^\d]/g, "");
     if (!digits) return;
+    // Typed with its own country code: keep it as it is.
+    if (raw.startsWith("+")) { input.value = `+${digits}`; return; }
+    // The local leading 0 ("0244 123 456") is not dialled after a country
+    // code; Italy is the exception.
+    if (digits.length > 6 && digits.startsWith("0") && select.value !== "39") digits = digits.slice(1);
     input.value = `+${select.value}${digits}`;
   });
 };

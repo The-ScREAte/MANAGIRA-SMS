@@ -1893,6 +1893,7 @@ const hubController = {
         [organization_name, organization_address, organization_country || null, organization_province || null, organization_phone, organizationId,
          await hubContactIdFrom(hub.hub_id, req.body.hub_contact_id)]
       );
+      require("../utils/schoolCountry").forgetSchoolCountry(organizationId);
 
       // The plan the hub gives this school ('' = the hub's default plan).
       if (req.body.hub_plan_id !== undefined) {

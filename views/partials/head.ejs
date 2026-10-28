@@ -280,6 +280,8 @@
         '"organization"'
       ) : '"public"'
     %>;
+    // Phone fields start on the school's country (public/js/dialCodes.js).
+    window.MANAGIRA_SCHOOL_COUNTRY = <%- JSON.stringify(/^[A-Z]{2}$/.test(locals.schoolCountry || '') ? locals.schoolCountry : '') %>;
   </script>
   
   <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>

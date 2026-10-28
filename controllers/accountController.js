@@ -6399,6 +6399,7 @@ const accountController = {
         }
 
         await db.query(updateQuery, params);
+        require("../utils/schoolCountry").forgetSchoolCountry(orgId);
 
         // Auto-geocode updated address for local SEO (fire-and-forget)
         autoGeocodeOrg(db, orgId, orgAddress, orgProvince, orgCountry);

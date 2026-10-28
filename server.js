@@ -1084,24 +1084,10 @@ app.get("/me/announcements", announcementController.getMyAnnouncements);
 // The hint under phone fields (public/js/phoneField.js): how a typed number
 // will be dialled for texts and WhatsApp, using the school's country.
 const { describePhone } = require("./utils/phoneNumber");
-const phoneCountryCache = new Map();
 app.get("/phone-check", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const number = String(req.query.n || "").slice(0, 40);
-  let country = req.schoolDetails?.organization_country || "";
-  const orgId = Number(req.session?.organizationId) || null;
-  if (orgId) {
-    const hit = phoneCountryCache.get(orgId);
-    if (hit && Date.now() - hit.at < 10 * 60 * 1000) {
-      country = hit.country;
-    } else {
-      try {
-        const { rows } = await db.query("SELECT organization_country FROM organizations WHERE organization_id = $1", [orgId]);
-        country = String(rows[0]?.organization_country || "");
-        phoneCountryCache.set(orgId, { country, at: Date.now() });
-      } catch (_) { /* fall back to the school site's country */ }
-    }
-  }
+  let country = res.locals.schoolCountry || req.schoolDetails?.organization_country || "";
   if (!country && /^[A-Za-z]{2}$/.test(String(req.query.country || ""))) country = String(req.query.country);
   // No country known and no country code typed: say nothing rather than guess.
   if (!country && !/^\s*(\+|00)/.test(number)) return res.json({ valid: null });

@@ -199,261 +199,117 @@
     flex-direction: column;
   }
 
-  #studentDetailsContainer main {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
+  /* Review drawer (built in loadStudentDetails). */
+  #studentDetailsContainer .rv { display: flex; flex-direction: column; height: 100%; min-height: 0; color: #0f172a; }
+  .rv-loading { display: flex; align-items: center; justify-content: center; gap: 10px; height: 100%; color: #64748b; font-size: .95rem; }
+  .rv-loading.is-error { color: #b91c1c; }
+  .rv-spinner { width: 18px; height: 18px; border: 2px solid #cbd5e1; border-top-color: var(--primary); border-radius: 50%; animation: rvSpin .8s linear infinite; }
+  @keyframes rvSpin { to { transform: rotate(360deg); } }
 
-  #studentDetailsContainer h1 {
-    background: linear-gradient(135deg, var(--primary, #01535b) 0%, #0a7a86 100%);
-    color: white;
-    margin: 0;
-    padding: calc(20px + env(safe-area-inset-top, 0px)) 28px 20px;
-    font-size: 1.25rem;
-    flex-shrink: 0;
-  }
+  .rv-head { display: flex; align-items: center; gap: 14px; padding: calc(18px + env(safe-area-inset-top, 0px)) 22px 18px; border-bottom: 1px solid #e8edf3; background: #fff; flex-shrink: 0; }
+  .rv-avatar { width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0; overflow: hidden; display: grid; place-items: center;
+    background: color-mix(in srgb, var(--primary) 12%, #fff); color: var(--primary); font-weight: 700; font-size: 1.1rem; }
+  .rv-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .rv-title { min-width: 0; flex: 1; }
+  .rv-eyebrow { display: block; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
+  .rv-title h1 { margin: 2px 0 2px; font-size: 1.3rem; line-height: 1.25; color: #0f172a; overflow-wrap: anywhere; }
+  .rv-title p { margin: 0; font-size: .86rem; color: #64748b; }
+  .rv-close { width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #475569; cursor: pointer; display: grid; place-items: center; }
+  .rv-close:hover { background: #f1f5f9; color: #0f172a; }
 
-  #studentDetailsContainer form {
-    padding: 28px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-  }
+  .rv-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px 28px; background: #f8fafc; display: flex; flex-direction: column; gap: 14px; }
+  .rv-section { background: #fff; border: 1px solid #e8edf3; border-radius: 14px; padding: 16px 18px 18px; }
+  .rv-section h2 { margin: 0 0 12px; font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #64748b; }
+  .rv-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .rv-section-head h2 { margin: 0; }
+  .rv-count { padding: 1px 8px; border-radius: 999px; background: #eef2f7; color: #475569; font-size: .75rem; font-weight: 700; }
+  .rv-muted { margin: 0; color: #64748b; font-size: .9rem; }
 
-  #studentDetailsContainer .form-group {
-    margin-bottom: 20px;
-  }
+  .rv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+  .rv-grid + .rv-grid { margin-top: 12px; }
+  .rv-span { grid-column: 1 / -1; }
+  .rv-field { display: flex; flex-direction: column; gap: 6px; margin: 0; min-width: 0; }
+  .rv-field > span { font-size: .8rem; font-weight: 600; color: #334155; }
+  .rv input[type="text"], .rv input[type="email"], .rv input[type="tel"], .rv input[type="date"], .rv select, .rv input[type="file"] {
+    width: 100%; height: 42px; margin: 0; padding: 0 12px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff;
+    color: #0f172a; font: inherit; font-size: .92rem; box-shadow: none; transition: border-color .15s, box-shadow .15s; }
+  .rv input[type="file"] { padding: 8px 10px; height: auto; }
+  .rv input:focus, .rv select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent); }
+  .rv .phone-combo { height: 42px; border-radius: 10px; }
+  .rv .phone-combo .phone-local-input { height: 100%; border: 0; box-shadow: none; }
 
-  #studentDetailsContainer label {
-    display: block;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-  }
+  .rv-photo { display: flex; align-items: center; gap: 14px; }
+  .rv-photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 12px; border: 1px solid #e2e8f0; }
+  .rv-link { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .rv-link.is-danger { color: #b91c1c; }
 
-  #studentDetailsContainer input[type="text"],
-  #studentDetailsContainer input[type="date"],
-  #studentDetailsContainer input[type="file"],
-  #studentDetailsContainer select {
-    width: 100%;
-    padding: 12px 16px;
-    border: 2px solid var(--border);
-    border-radius: 10px;
-    font-size: 0.95rem;
-    font-family: inherit;
-    transition: border-color 0.2s;
-  }
+  .rv-segment { display: inline-flex; padding: 4px; gap: 4px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; width: fit-content; }
+  .rv-segment label { margin: 0; cursor: pointer; }
+  .rv-segment input { position: absolute; opacity: 0; pointer-events: none; }
+  .rv-segment span { display: block; padding: 7px 14px; border-radius: 9px; font-size: .86rem; font-weight: 600; color: #475569; }
+  .rv-segment input:checked + span { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
+  .rv-segment input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 1px; }
 
-  #studentDetailsContainer input:focus,
-  #studentDetailsContainer select:focus {
-    outline: none;
-    border-color: var(--primary, #01535b);
-  }
+  .rv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rv-chip { margin: 0; cursor: pointer; }
+  .rv-chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .rv-chip span { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid #d7dee8; border-radius: 999px; background: #fff; font-size: .86rem; font-weight: 600; color: #334155; transition: all .15s; }
+  .rv-chip input:checked + span { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, #fff); color: var(--primary); }
+  .rv-chip input:checked + span::before { content: "✓"; font-size: .8rem; }
+  .rv-chip input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-  #studentDetailsContainer .checkbox-group {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
-    padding: 12px;
-    background: #f8fafc;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-  }
+  .rv-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
+  .rv-answers dt { font-size: .78rem; font-weight: 600; color: #64748b; }
+  .rv-answers dd { margin: 3px 0 0; font-size: .92rem; white-space: pre-wrap; word-break: break-word; }
 
-  #studentDetailsContainer .checkbox-group label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 500;
-    font-size: 0.9rem;
-    margin: 0;
-  }
+  .rv-guardians { display: flex; flex-direction: column; gap: 12px; }
+  .rv-guardian { border: 1px solid #e8edf3; border-radius: 12px; padding: 14px; background: #fcfdfe; }
+  .rv-guardian-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .rv-guardian-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: .85rem;
+    background: color-mix(in srgb, var(--primary) 12%, #fff); color: var(--primary); }
+  .rv-guardian-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .rv-guardian-name strong { font-size: .98rem; overflow-wrap: anywhere; }
+  .rv-guardian-name span { font-size: .78rem; color: #64748b; }
+  .rv-guardian-actions { display: flex; gap: 6px; }
+  .rv-icon-btn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #475569; cursor: pointer; text-decoration: none; font-size: .85rem; }
+  .rv-icon-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .rv-icon-btn.is-danger:hover { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+  .rv-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 12px; padding: 11px; border: 1.5px dashed #cbd5e1; border-radius: 12px; background: #fff; color: #334155; font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
+  .rv-add:hover { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, #fff); }
 
-  #studentDetailsContainer .guardian-section {
-    background: #f8fafc;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    border-radius: 0;
-    padding: 20px 28px;
-    margin: 24px -28px;
-    width: auto;
-  }
+  .rv-foot { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 14px 22px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid #e8edf3; background: #fff; }
+  .rv-status { flex: 1; min-width: 0; text-align: right; font-size: .84rem; color: #64748b; }
+  .rv-status[data-tone="warn"] { color: #b45309; }
+  .rv-status[data-tone="ok"] { color: #15803d; }
+  .rv-status[data-tone="error"] { color: #b91c1c; }
+  #studentDetailsContainer .rv-btn { height: 40px; padding: 0 16px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  #studentDetailsContainer .rv-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+  #studentDetailsContainer .rv-btn.is-reject { border-color: transparent; background: transparent; color: #b91c1c; padding: 0 10px; }
+  #studentDetailsContainer .rv-btn.is-reject:hover { background: #fef2f2; }
+  /* buttons.css styles every submit button with !important; Approve is the main action here. */
+  #studentDetailsContainer .rv-btn.is-primary { background: var(--primary) !important; border-color: var(--primary) !important; color: #fff !important; }
+  #studentDetailsContainer .rv-btn.is-primary:hover { filter: brightness(1.06); }
 
-  #studentDetailsContainer .guardian-fields {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
-  }
+  /* Nothing floats over the drawer (the Setup steps button, the chat button). */
+  body.pa-drawer-open .ss-root, body.pa-drawer-open #chatbot-toggle, body.pa-drawer-open .chatbot-toggle { display: none !important; }
+  #studentDetailsContainer .rv-btn { width: auto; margin: 0; }
+  /* The site-wide heading and select rules (centred, large, full width) don't apply here. */
+  #studentDetailsContainer .rv-title h1 { text-align: left; font-size: 1.3rem; letter-spacing: -0.01em; }
+  #studentDetailsContainer .rv-section h2 { width: auto; margin: 0 0 12px; text-align: left; font-family: inherit; font-size: .74rem; line-height: 1.2; letter-spacing: .08em; }
+  #studentDetailsContainer .rv-section-head h2 { margin: 0; }
+  #studentDetailsContainer .rv-link { width: auto; min-width: 0; margin: 0 0 0 auto; padding: 0; height: auto; background: none; box-shadow: none; }
+  .pa-tools .pa-search input { width: 240px; }
+  .pa-tools select { width: auto; min-width: 150px; height: 38px; }
+  .pa-filters .pa-tools { align-items: center; }
 
-  #studentDetailsContainer .guardian-section legend {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--text-primary);
-    padding: 0 8px;
-  }
-
-  #studentDetailsContainer .guardian {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-    transition: box-shadow 0.2s, border-color 0.2s;
-  }
-
-  #studentDetailsContainer .guardian:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-  }
-
-  #studentDetailsContainer .guardian:last-child {
-    margin-bottom: 0;
-  }
-
-  #studentDetailsContainer .guardian-card-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-
-  #studentDetailsContainer .guardian-card-head h4 {
-    margin: 0;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  #studentDetailsContainer .guardian-remove-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-    flex-shrink: 0;
-  }
-
-  #studentDetailsContainer .guardian-remove-btn:hover {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: var(--error);
-  }
-
-  #studentDetailsContainer .guardian-remove-btn svg {
-    width: 15px;
-    height: 15px;
-  }
-
-  #studentDetailsContainer .add-guardian-btn {
-    display: inline-flex;
-    width: auto;
-    align-items: center;
-    gap: 5px;
-    margin-top: 12px;
-    background: #fff;
-    color: var(--text-primary);
-    border: 2px solid #94a3b8;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.82rem;
-    line-height: 1.3;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  #studentDetailsContainer .add-guardian-btn:hover {
-    background: #f8fafc;
-    border-color: var(--primary);
-    color: var(--primary);
-    transform: translateY(-1px);
-  }
-
-  #studentDetailsContainer .form-actions {
-    display: flex;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-    padding: 14px 28px calc(14px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid var(--border);
-    background: var(--bg-card);
-  }
-
-  #studentDetailsContainer .form-actions button {
-    display: inline-flex;
-    align-items: center;
-    width: auto;
-    padding: 9px 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-    background: #fff;
-    color: var(--text-primary);
-    border: 2px solid #94a3b8;
-  }
-
-  /* buttons.css (loaded globally) sets button[type="submit"] colors with
-     !important, which otherwise beats this rule regardless of specificity —
-     match it with !important + a more specific selector so the Approve
-     button (the only type="submit" here) matches its siblings instead of
-     falling back to the site-wide solid theme-color submit style. */
-  #studentDetailsContainer .form-actions button[type="submit"] {
-    background: #fff !important;
-    color: var(--text-primary) !important;
-    border-color: #94a3b8 !important;
-  }
-
-  #studentDetailsContainer .form-actions button:hover {
-    background: #f8fafc;
-    border-color: var(--primary);
-    color: var(--primary);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  }
-
-  #studentDetailsContainer .form-actions button[type="submit"]:hover {
-    background: #f8fafc !important;
-    color: var(--primary) !important;
-    border-color: var(--primary) !important;
-  }
-
-  .close-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.2);
-    color: white;
-    font-size: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .close-btn:hover {
-    background: rgba(255,255,255,0.3);
+  @media (max-width: 560px) {
+    .rv-grid, .rv-answers { grid-template-columns: minmax(0, 1fr); }
+    .rv-head, .rv-body, .rv-foot { padding-left: 16px; padding-right: 16px; }
+    .rv-foot { flex-wrap: wrap; gap: 8px; }
+    .rv-status { order: -1; flex-basis: 100%; text-align: left; }
+    .rv-status:empty { display: none; }
+    #studentDetailsContainer .rv-btn { width: auto; flex: 0 0 auto; margin: 0; }
+    #studentDetailsContainer .rv-btn.is-primary { flex: 1 1 auto; }
   }
 
   @media (max-width: 768px) {
@@ -507,32 +363,41 @@
   <% const _counts = typeof applicationCounts !== 'undefined' ? applicationCounts : { pending: pendingStudents.length, rejected: 0 }; %>
   <% const _keepDays = typeof rejectedKeepDays !== 'undefined' ? rejectedKeepDays : 60; %>
   <% const _embedQs = (typeof isEmbedded !== 'undefined' && isEmbedded) ? '&embed=workspace' : ''; %>
-  <nav class="pa-tabs" aria-label="Applications">
-    <a href="?view=pending<%= _embedQs %>" class="pa-tab<%= _view === 'pending' ? ' is-active' : '' %>"<%- _view === 'pending' ? ' aria-current="page"' : '' %>>Pending <span><%= _counts.pending %></span></a>
-    <a href="?view=rejected<%= _embedQs %>" class="pa-tab<%= _view === 'rejected' ? ' is-active' : '' %>"<%- _view === 'rejected' ? ' aria-current="page"' : '' %>>Rejected <span><%= _counts.rejected %></span></a>
-  </nav>
+  <% const _all = (_counts.pending || 0) + (_counts.rejected || 0); %>
   <header class="pa-head">
     <div>
+      <h1>Online applications <span class="pa-count"><%= pendingStudents.length %></span></h1>
       <% if (_view === 'rejected') { %>
-      <h1>Rejected applications <span class="pa-count"><%= pendingStudents.length %></span></h1>
-      <p>Kept for <%= _keepDays %> days after the decision, then deleted for good. Reverse a decision to move it back to Pending.</p>
+      <p>Rejected applications are kept for <%= _keepDays %> days, then deleted for good. Reverse a decision to move one back to Pending.</p>
+      <% } else if (_view === 'all') { %>
+      <p>Every application, waiting and rejected.</p>
       <% } else { %>
-      <h1>Pending admissions <span class="pa-count"><%= pendingStudents.length %></span></h1>
-      <p>Applications waiting for review. Click one to approve or decline it.</p>
+      <p>Applications waiting for review. Click one to approve or reject it.</p>
       <% } %>
     </div>
-    <% if (pendingStudents.length) { %>
-      <div class="pa-tools">
-        <label class="pa-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="paSearch" placeholder="Search by name" aria-label="Search by name" /></label>
-        <% if (_classNames.length > 1) { %>
-          <select id="paClass" aria-label="Class"><option value="">All classes</option><% _classNames.forEach((c) => { %><option value="<%= c.toLowerCase() %>"><%= c %></option><% }) %></select>
-        <% } %>
-      </div>
-    <% } %>
   </header>
+
+  <div class="pa-filters">
+    <nav class="pa-status" aria-label="Show applications">
+      <a href="?view=pending<%= _embedQs %>" class="<%= _view === 'pending' ? 'is-active' : '' %>"<%- _view === 'pending' ? ' aria-current="page"' : '' %>>Pending <span><%= _counts.pending %></span></a>
+      <a href="?view=rejected<%= _embedQs %>" class="<%= _view === 'rejected' ? 'is-active' : '' %>"<%- _view === 'rejected' ? ' aria-current="page"' : '' %>>Rejected <span><%= _counts.rejected %></span></a>
+      <a href="?view=all<%= _embedQs %>" class="<%= _view === 'all' ? 'is-active' : '' %>"<%- _view === 'all' ? ' aria-current="page"' : '' %>>All <span><%= _all %></span></a>
+    </nav>
+    <% if (pendingStudents.length) { %>
+    <div class="pa-tools">
+      <label class="pa-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="paSearch" placeholder="Search by name" aria-label="Search by name" /></label>
+      <select id="paGender" aria-label="Gender"><option value="">All genders</option><option value="male">Male</option><option value="female">Female</option></select>
+      <% if (_classNames.length > 1) { %>
+        <select id="paClass" aria-label="Class"><option value="">All classes</option><% _classNames.forEach((c) => { %><option value="<%= c.toLowerCase() %>"><%= c %></option><% }) %></select>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
 
   <% if (!pendingStudents.length && _view === 'rejected') { %>
     <div class="pa-empty"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><h2>No rejected applications</h2><p>Applications you reject stay here for <%= _keepDays %> days.</p></div>
+  <% } else if (!pendingStudents.length && _view === 'all') { %>
+    <div class="pa-empty"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><h2>No applications yet</h2><p>Applications sent from your school website appear here.</p></div>
   <% } else if (!pendingStudents.length) { %>
     <div class="pa-empty"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><h2>All caught up</h2><p>New applications appear here for review.</p></div>
   <% } else { %>
@@ -545,7 +410,7 @@
           <th>Gender <button type="button" class="pending-sort-btn" data-sort-key="gender" data-sort-label="genders" data-sort-direction="asc" aria-label="Sort genders descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th>Class <button type="button" class="pending-sort-btn" data-sort-key="className" data-sort-label="classes" data-sort-direction="asc" aria-label="Sort classes descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th>Year Group <button type="button" class="pending-sort-btn" data-sort-key="yearGroup" data-sort-label="year groups" data-sort-direction="asc" aria-label="Sort year groups descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
-          <th><%= _view === 'rejected' ? 'Decision' : 'Action' %></th>
+          <th><%= _view === 'pending' ? 'Action' : 'Status' %></th>
         </tr>
       </thead>
       <tbody id="pendingStudentsBody">
@@ -562,7 +427,7 @@
           <td data-label="Gender"><%= student.gender %></td>
           <td data-label="Class"><%= student.class_name %></td>
           <td data-label="Year Group"><%= student.graduation_group || "—" %></td>
-          <% if (_view === 'rejected') { %>
+          <% if (student.status === 'rejected') { %>
           <td data-label="Decision">
             <div class="pa-decision">
               <span class="pa-rejected">Rejected <%= student.rejected_at ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.rejected_at) : new Date(student.rejected_at).toISOString().split('T')[0]) : '' %><%= student.rejected_by_name ? ' by ' + student.rejected_by_name : '' %></span>
@@ -584,11 +449,12 @@
   <% } %>
 </div>
 <style>
-  .pa-tabs { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
-  .pa-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9px; color: #475569; font-size: .88rem; font-weight: 600; text-decoration: none; }
-  .pa-tab span { padding: 0 7px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: .75rem; }
-  .pa-tab.is-active { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
-  .pa-tab.is-active span { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 13%, transparent); color: var(--org-primary-color, #0f5a66); }
+  .pa-filters { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+  .pa-status { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+  .pa-status a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9px; color: #475569; font-size: .88rem; font-weight: 600; text-decoration: none; }
+  .pa-status a span { padding: 0 7px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: .75rem; }
+  .pa-status a.is-active { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+  .pa-status a.is-active span { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 13%, transparent); color: var(--org-primary-color, #0f5a66); }
   .pa-decision { display: inline-flex; flex-direction: column; margin-right: 10px; vertical-align: middle; }
   .pa-rejected { color: #b91c1c; font-weight: 600; font-size: .85rem; }
   .pa-decision small { color: #64748b; font-size: .75rem; }
@@ -596,7 +462,7 @@
   .pa-head h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.35rem; text-align: left; }
   .pa-head p { margin: 4px 0 0; color: #64748b; font-size: .9rem; }
   .pa-count { padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 13%, transparent); color: var(--org-primary-color, #0f5a66); font-size: .8rem; }
-  .pa-tools { display: flex; gap: 8px; }
+  .pa-tools { display: flex; flex-wrap: wrap; gap: 8px; }
   .pa-search { position: relative; margin: 0; }
   .pa-search i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .8rem; }
   .pa-search input, .pa-tools select { height: 38px; margin: 0; padding: 0 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font: inherit; font-size: .9rem; }
@@ -613,11 +479,11 @@
 </style>
 <script>
 (function () {
-  var search = document.getElementById('paSearch'), cls = document.getElementById('paClass');
+  var search = document.getElementById('paSearch'), cls = document.getElementById('paClass'), gender = document.getElementById('paGender');
   function filter() {
-    var q = search ? search.value.trim().toLowerCase() : '', c = cls ? cls.value : '', shown = 0;
+    var q = search ? search.value.trim().toLowerCase() : '', c = cls ? cls.value : '', g = gender ? gender.value : '', shown = 0;
     document.querySelectorAll('#pendingStudentsBody tr').forEach(function (row) {
-      var hit = (!q || row.dataset.studentName.indexOf(q) !== -1) && (!c || row.dataset.className === c);
+      var hit = (!q || row.dataset.studentName.indexOf(q) !== -1) && (!c || row.dataset.className === c) && (!g || row.dataset.gender === g);
       row.hidden = !hit;
       if (hit) shown++;
     });
@@ -626,6 +492,7 @@
   }
   if (search) search.addEventListener('input', filter);
   if (cls) cls.addEventListener('change', filter);
+  if (gender) gender.addEventListener('change', filter);
   var body = document.getElementById('pendingStudentsBody');
   if (body) body.addEventListener('click', function (e) {
     if (e.target.closest('button')) return;
@@ -636,7 +503,7 @@
 })();
 </script>
 
-<script src="/js/dialCodes.js"></script>
+<script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
 <script>
 let hasChanges = false;
 
@@ -728,184 +595,227 @@ initStudentDetailsDrawer();
 // Escapes applicant text before it goes into the review form.
 const paEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// Initials for an avatar ("Rachel Bennett" -> "RB").
+const paInitials = (first, last) => ((String(first || '').trim()[0] || '') + (String(last || '').trim()[0] || '')).toUpperCase() || '?';
+const paAge = (dob) => {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  let age = now.getFullYear() - d.getUTCFullYear();
+  if (now.getMonth() < d.getUTCMonth() || (now.getMonth() === d.getUTCMonth() && now.getDate() < d.getUTCDate())) age--;
+  return age >= 0 ? 'Age ' + age : '';
+};
+const paDate = (v) => {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+// One parent / guardian card. Field names are what the server reads.
+function guardianCardHtml(g, i) {
+  const name = [g.first_name, g.last_name].filter(Boolean).join(' ').trim();
+  const phone = String(g.phone || '').trim();
+  const email = String(g.email || '').trim();
+  return `
+    <article class="rv-guardian">
+      <header class="rv-guardian-head">
+        <span class="rv-guardian-avatar" aria-hidden="true">${paEsc(paInitials(g.first_name, g.last_name))}</span>
+        <div class="rv-guardian-name">
+          <strong>${paEsc(name || 'New parent or guardian')}</strong>
+          <span>Parent / guardian ${i + 1}</span>
+        </div>
+        <div class="rv-guardian-actions">
+          ${phone ? `<a class="rv-icon-btn" href="tel:${paEsc(phone.replace(/[^\d+]/g, ''))}" title="Call ${paEsc(phone)}" aria-label="Call ${paEsc(name || 'guardian')}"><i class="fa-solid fa-phone" aria-hidden="true"></i></a>` : ''}
+          ${email ? `<a class="rv-icon-btn" href="mailto:${paEsc(email)}" title="Email ${paEsc(email)}" aria-label="Email ${paEsc(name || 'guardian')}"><i class="fa-solid fa-envelope" aria-hidden="true"></i></a>` : ''}
+          <button type="button" class="rv-icon-btn is-danger" data-remove-guardian title="Remove" aria-label="Remove ${paEsc(name || 'this guardian')}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+      </header>
+      <div class="rv-grid">
+        <label class="rv-field"><span>First name</span><input type="text" name="guardianFirstName${i}" value="${paEsc(g.first_name)}" autocomplete="off"></label>
+        <label class="rv-field"><span>Last name</span><input type="text" name="guardianLastName${i}" value="${paEsc(g.last_name)}" autocomplete="off"></label>
+        <div class="rv-field rv-span"><span>Phone</span>
+          <div class="phone-combo" data-default-iso2="GH">
+            <select class="phone-dial-select" aria-label="Country code"></select>
+            <input type="tel" class="phone-local-input" name="guardianPhone${i}" value="${paEsc(phone)}" aria-label="Phone number">
+          </div>
+        </div>
+        <label class="rv-field"><span>Email</span><input type="email" name="guardianEmail${i}" value="${paEsc(email)}" autocomplete="off"></label>
+        <label class="rv-field"><span>Hometown</span><input type="text" name="guardianHometown${i}" value="${paEsc(g.hometown)}" autocomplete="off"></label>
+      </div>
+    </article>`;
+}
+
+// The server reads guardianFirstName0, 1, 2… and stops at a gap, so after a
+// card was removed the remaining ones are numbered again before sending.
+function renumberGuardians(form) {
+  form.querySelectorAll('.rv-guardian').forEach((card, i) => {
+    card.querySelectorAll('[name^="guardian"]').forEach((input) => {
+      input.name = input.name.replace(/\d+$/, String(i));
+    });
+  });
+}
+
+function setReviewStatus(text, tone) {
+  const el = document.getElementById('rvStatus');
+  if (!el) return;
+  el.textContent = text || '';
+  el.dataset.tone = tone || '';
+}
+
 async function loadStudentDetails(id) {
   const overlay = document.getElementById('studentDetailsOverlay');
   const container = document.getElementById('studentDetailsContainer');
-  container.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;">Loading...</div>';
+  container.innerHTML = '<div class="rv-loading"><span class="rv-spinner" aria-hidden="true"></span>Loading application…</div>';
   overlay.classList.add('is-open');
   document.body.style.overflow = 'hidden';
+  document.body.classList.add('pa-drawer-open');
+  hasChanges = false;
 
   try {
     const res = await fetch(`/common/getPendingStudentDetails/${id}`);
     const data = await res.json();
     const student = data.student;
-    const guardians = data.guardians;
-    const subjects = data.subjects;
-    const allSubjects = data.allSubjects;
-    const classes = data.classes;
-    const gradGroups = data.graduationYearGroups;
-    const schoolYears = data.schoolYears;
-    const studentSubjects = subjects.map(s => s.subject_id);
-    const imageUrl = student.image_url && student.image_url !== 'profilePlaceholder.png'
-      ? student.image_url : '/images/profilePlaceholder.png';
+    const guardians = data.guardians || [];
+    const allSubjects = data.allSubjects || [];
+    const classes = data.classes || [];
+    const gradGroups = data.graduationYearGroups || [];
+    const schoolYears = data.schoolYears || [];
+    const studentSubjects = (data.subjects || []).map(s => s.subject_id);
+    const hasPhoto = student.image_url && student.image_url !== 'profilePlaceholder.png';
+    const fullName = [student.first_name, student.last_name].filter(Boolean).join(' ');
+    const className = (classes.find(c => c.class_id === student.class_id) || {}).class_name || '';
+    const meta = [className, paAge(student.date_of_birth), student.submitted_at ? 'Applied ' + paDate(student.submitted_at) : ''].filter(Boolean);
+    const isFuture = student.enrollment_type === 'future';
 
     container.innerHTML = `
-      <main>
-        <button type="button" class="close-btn" onclick="closeStudentForm()">×</button>
-        <h1 id="studentDetailsTitle">📝 Review Student Application</h1>
-        <form id="pendingReviewForm" method="POST" enctype="multipart/form-data">
-          <div class="form-group">
-            <label>Enrollment Type:</label>
-            <div style="display: flex; gap: 20px; margin-top: 8px;">
-              <label style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
-                <input type="radio" name="enrollmentType" value="current" ${student.enrollment_type === 'current' ? 'checked' : ''}> Current Term
+      <main class="rv">
+        <header class="rv-head">
+          <div class="rv-avatar">${hasPhoto ? `<img src="${paEsc(student.image_url)}" alt="">` : `<span>${paEsc(paInitials(student.first_name, student.last_name))}</span>`}</div>
+          <div class="rv-title">
+            <span class="rv-eyebrow">Online application</span>
+            <h1 id="studentDetailsTitle">${paEsc(fullName)}</h1>
+            <p>${meta.map(paEsc).join(' · ')}</p>
+          </div>
+          <button type="button" class="rv-close" onclick="closeStudentForm()" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </header>
+
+        <form id="pendingReviewForm" method="POST" enctype="multipart/form-data" class="rv-body">
+          <section class="rv-section">
+            <h2>Student</h2>
+            <div class="rv-grid">
+              <label class="rv-field"><span>First name</span><input type="text" name="first_name" value="${paEsc(student.first_name)}" required></label>
+              <label class="rv-field"><span>Last name</span><input type="text" name="last_name" value="${paEsc(student.last_name)}" required></label>
+              <label class="rv-field"><span>Date of birth</span><input type="date" name="date_of_birth" value="${new Date(student.date_of_birth).toISOString().split('T')[0]}"></label>
+              <label class="rv-field"><span>Gender</span>
+                <select name="gender">
+                  <option value="Male" ${student.gender === 'Male' ? 'selected' : ''}>Male</option>
+                  <option value="Female" ${student.gender === 'Female' ? 'selected' : ''}>Female</option>
+                </select>
               </label>
-              <label style="display: flex; align-items: center; gap: 6px; font-weight: 500;">
-                <input type="radio" name="enrollmentType" value="future" ${student.enrollment_type === 'future' ? 'checked' : ''}> Future Term
+              <label class="rv-field rv-span"><span>Hometown</span><input type="text" name="hometown" value="${paEsc(student.hometown)}"></label>
+              <div class="rv-field rv-span"><span>Photo</span>
+                ${hasPhoto
+                  ? `<div class="rv-photo"><img src="${paEsc(student.image_url)}" alt="Student photo"><button type="button" class="rv-link is-danger" onclick="deleteStudentImage(${Number(student.pending_id)})">Remove photo</button></div>`
+                  : `<input type="file" name="studentImage" accept="image/*">`}
+              </div>
+            </div>
+          </section>
+
+          <section class="rv-section">
+            <h2>Placement</h2>
+            <div class="rv-grid">
+              <label class="rv-field"><span>Class</span>
+                <select name="class_id">
+                  ${classes.map(c => `<option value="${c.class_id}" ${c.class_id === student.class_id ? 'selected' : ''}>${paEsc(c.class_name)}</option>`).join('')}
+                </select>
+              </label>
+              <label class="rv-field"><span>Graduation year group</span>
+                <select name="graduation_year_group_id">
+                  <option value="" ${!student.graduation_year_group_id ? 'selected' : ''}>None</option>
+                  ${gradGroups.map(g => `<option value="${g.id}" ${g.id === student.graduation_year_group_id ? 'selected' : ''}>${paEsc(g.name)}</option>`).join('')}
+                </select>
+              </label>
+              <div class="rv-field rv-span"><span>Starts</span>
+                <div class="rv-segment" role="radiogroup" aria-label="When the student starts">
+                  <label><input type="radio" name="enrollmentType" value="current" ${!isFuture ? 'checked' : ''}><span>This term</span></label>
+                  <label><input type="radio" name="enrollmentType" value="future" ${isFuture ? 'checked' : ''}><span>A later term</span></label>
+                </div>
+              </div>
+            </div>
+            <div class="rv-grid future-enrollment-section">
+              <label class="rv-field"><span>School year</span>
+                <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
+                  <option value="">Select school year</option>
+                  ${schoolYears.map(year => `<option value="${year.school_year_id}" data-terms='${paEsc(JSON.stringify(year.terms))}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${paEsc(year.year_label)}</option>`).join('')}
+                </select>
+              </label>
+              <label class="rv-field"><span>Term</span>
+                <select name="termId" id="termSelect">
+                  <option value="">Select term</option>
+                  ${(schoolYears.find(y => y.school_year_id === student.school_year_id)?.terms || []).map(term => `<option value="${term.term_id}" ${term.term_id === student.term_id ? 'selected' : ''}>${paEsc(term.term_name)}</option>`).join('')}
+                </select>
               </label>
             </div>
-          </div>
+          </section>
 
-          <div class="future-enrollment-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="form-group">
-              <label>School Year:</label>
-              <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
-                <option value="">Select School Year</option>
-                ${schoolYears.map(year => `
-                  <option value="${year.school_year_id}" data-terms='${JSON.stringify(year.terms)}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${year.year_label}</option>
-                `).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Term:</label>
-              <select name="termId" id="termSelect">
-                <option value="">Select Term</option>
-                ${(schoolYears.find(y => y.school_year_id === student.school_year_id)?.terms || []).map(term => `
-                  <option value="${term.term_id}" ${term.term_id === student.term_id ? 'selected' : ''}>${term.term_name}</option>
-                `).join('')}
-              </select>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="form-group">
-              <label>First Name:</label>
-              <input type="text" name="first_name" value="${student.first_name}" onchange="hasChanges=true">
-            </div>
-            <div class="form-group">
-              <label>Last Name:</label>
-              <input type="text" name="last_name" value="${student.last_name}" onchange="hasChanges=true">
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="form-group">
-              <label>Date of Birth:</label>
-              <input type="date" name="date_of_birth" value="${new Date(student.date_of_birth).toISOString().split('T')[0]}" onchange="hasChanges=true">
-            </div>
-            <div class="form-group">
-              <label>Gender:</label>
-              <select name="gender" onchange="hasChanges=true">
-                <option value="Male" ${student.gender === 'Male' ? 'selected' : ''}>Male</option>
-                <option value="Female" ${student.gender === 'Female' ? 'selected' : ''}>Female</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Hometown:</label>
-            <input type="text" name="hometown" value="${student.hometown || ''}" onchange="hasChanges=true">
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="form-group">
-              <label>Class:</label>
-              <select name="class_id" onchange="hasChanges=true">
-                ${classes.map(c => `<option value="${c.class_id}" ${c.class_id === student.class_id ? 'selected' : ''}>${c.class_name}</option>`).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Graduation Year Group:</label>
-              <select name="graduation_year_group_id" onchange="hasChanges=true">
-                <option value="" ${!student.graduation_year_group_id ? 'selected' : ''}>— None —</option>
-                ${gradGroups.map(g => `<option value="${g.id}" ${g.id === student.graduation_year_group_id ? 'selected' : ''}>${g.name}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Student Image:</label>
-            ${student.image_url && student.image_url !== 'profilePlaceholder.png'
-              ? `<div style="display: flex; align-items: center; gap: 16px;">
-                  <img src="${imageUrl}" width="80" style="border-radius: 10px; border: 1px solid #e2e8f0;">
-                  <a href="#" onclick="deleteStudentImage(${student.pending_id}); return false;" style="color: #dc2626; font-weight: 600;">Delete Image</a>
-                </div>`
-              : `<input type="file" name="studentImage" />`}
-          </div>
-
-          <div class="form-group">
-            <label>Subjects:</label>
-            <div class="checkbox-group">
-              ${allSubjects.map(s => `
-                <label><input type="checkbox" name="subjects" value="${s.subject_id}" ${studentSubjects.includes(s.subject_id) ? 'checked' : ''}> ${s.subject_name}</label>
-              `).join('')}
-            </div>
-          </div>
+          <section class="rv-section">
+            <div class="rv-section-head"><h2>Subjects</h2>${allSubjects.length ? '<button type="button" class="rv-link" data-all-subjects>Select all</button>' : ''}</div>
+            ${allSubjects.length
+              ? `<div class="rv-chips">${allSubjects.map(s => `<label class="rv-chip"><input type="checkbox" name="subjects" value="${s.subject_id}" ${studentSubjects.includes(s.subject_id) ? 'checked' : ''}><span>${paEsc(s.subject_name)}</span></label>`).join('')}</div>`
+              : '<p class="rv-muted">This class has no subjects yet.</p>'}
+          </section>
 
           ${(data.customAnswers || []).length ? `
-          <fieldset class="guardian-section pa-answers">
-            <legend>📝 More details</legend>
-            <dl>
+          <section class="rv-section">
+            <h2>More details</h2>
+            <dl class="rv-answers">
               ${data.customAnswers.map((a) => `<div><dt>${paEsc(a.label)}</dt><dd>${paEsc(a.value)}</dd></div>`).join('')}
             </dl>
-          </fieldset>` : ''}
+          </section>` : ''}
 
-          <fieldset class="guardian-section">
-            <legend>👨‍👩‍👧 Guardians</legend>
-            <div id="guardiansContainer">
-              ${guardians.map((g, i) => `
-                <div class="guardian">
-                  <div class="guardian-card-head">
-                    <h4>Guardian ${i + 1}</h4>
-                    <button type="button" class="guardian-remove-btn" onclick="this.closest('.guardian').remove(); hasChanges=true;" title="Remove guardian" aria-label="Remove guardian">
-                      <svg viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    </button>
-                  </div>
-                  <div class="guardian-fields">
-                    <div><label>First Name:</label><input type="text" name="guardianFirstName${i}" value="${g.first_name || ''}" onchange="hasChanges=true"></div>
-                    <div><label>Last Name:</label><input type="text" name="guardianLastName${i}" value="${g.last_name || ''}" onchange="hasChanges=true"></div>
-                    <div><label>Phone:</label>
-                      <div class="phone-combo" data-default-iso2="GH">
-                        <select class="phone-dial-select"></select>
-                        <input type="text" class="phone-local-input" name="guardianPhone${i}" value="${g.phone || ''}" onchange="hasChanges=true">
-                      </div>
-                    </div>
-                    <div><label>Email:</label><input type="text" name="guardianEmail${i}" value="${g.email || ''}" onchange="hasChanges=true"></div>
-                  </div>
-                  <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${i}" value="${g.hometown || ''}" onchange="hasChanges=true"></div>
-                </div>
-              `).join('')}
+          <section class="rv-section">
+            <div class="rv-section-head"><h2>Parents &amp; guardians</h2><span class="rv-count" id="rvGuardianCount">${guardians.length}</span></div>
+            <div id="guardiansContainer" class="rv-guardians">
+              ${guardians.length ? guardians.map((g, i) => guardianCardHtml(g, i)).join('') : ''}
             </div>
-            <button type="button" class="add-guardian-btn" onclick="addGuardian()">➕ Add Guardian</button>
-          </fieldset>
+            <button type="button" class="rv-add" onclick="addGuardian()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add parent or guardian</button>
+          </section>
         </form>
 
-        <div class="form-actions">
-          <button type="button" onclick="saveChanges(${student.pending_id})">💾 Save Changes</button>
-          <button type="submit" form="pendingReviewForm" onclick="return confirmApprove(event, ${student.pending_id})">✅ Approve</button>
-          <button type="button" onclick="rejectStudent(${student.pending_id})">❌ Reject</button>
-        </div>
+        <footer class="rv-foot">
+          <button type="button" class="rv-btn is-reject" onclick="rejectStudent(${Number(student.pending_id)})">Reject</button>
+          <span class="rv-status" id="rvStatus" role="status"></span>
+          <button type="button" class="rv-btn" onclick="saveChanges(${Number(student.pending_id)})">Save changes</button>
+          <button type="submit" class="rv-btn is-primary" form="pendingReviewForm" onclick="return confirmApprove(event, ${Number(student.pending_id)})">Approve</button>
+        </footer>
       </main>
     `;
 
+    const form = document.getElementById('pendingReviewForm');
     if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(container);
-    toggleEnrollmentFields();
-    document.querySelectorAll('input[name="enrollmentType"]').forEach(el => {
-      el.addEventListener("change", toggleEnrollmentFields);
+    // Any edit counts, as it is typed.
+    const markChanged = () => { if (!hasChanges) { hasChanges = true; setReviewStatus('Unsaved changes', 'warn'); } };
+    form.addEventListener('input', markChanged);
+    form.addEventListener('change', markChanged);
+    form.addEventListener('click', (e) => {
+      const remove = e.target.closest('[data-remove-guardian]');
+      if (remove) {
+        remove.closest('.rv-guardian').remove();
+        document.getElementById('rvGuardianCount').textContent = form.querySelectorAll('.rv-guardian').length;
+        markChanged();
+        return;
+      }
+      if (e.target.closest('[data-all-subjects]')) {
+        const boxes = [...form.querySelectorAll('input[name="subjects"]')];
+        const all = boxes.every(b => b.checked);
+        boxes.forEach(b => { b.checked = !all; });
+        markChanged();
+      }
     });
+    toggleEnrollmentFields();
+    form.querySelectorAll('input[name="enrollmentType"]').forEach(el => el.addEventListener('change', toggleEnrollmentFields));
   } catch (err) {
     console.error(err);
-    container.innerHTML = '<div style="padding: 40px; text-align: center; color: #dc2626;">Error loading student details.</div>';
+    container.innerHTML = '<div class="rv-loading is-error">Could not load this application. Close and try again.</div>';
   }
 }
 
@@ -931,12 +841,13 @@ function updateTermOptions(selectEl) {
 function confirmApprove(e, id) {
   if (hasChanges) {
     e.preventDefault();
-    alert("⚠️ Please save your changes first before approving.");
+    setReviewStatus('Save your changes before approving.', 'error');
     return false;
   }
-  const confirmed = confirm("✅ Are you sure you want to approve this admission?");
+  const confirmed = confirm("Approve this application? The student is added to the school and the parents are notified.");
   if (confirmed) {
     const form = document.getElementById('pendingReviewForm');
+    renumberGuardians(form);
     if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
     form.action = `/common/admissionPending/approve/${id}`;
     return true;
@@ -960,63 +871,61 @@ function rejectStudent(id) {
   if (confirm("Reject this application? It moves to Rejected, where you can reverse the decision for 60 days.")) {
     fetch(`/common/admissionPending/reject/${id}`, { method: 'POST' })
       .then(() => location.reload())
-      .catch(() => alert("❌ Failed to reject student."));
+      .catch(() => setReviewStatus('Could not reject. Please try again.', 'error'));
   }
 }
 
 function deleteStudentImage(pendingId) {
-  if (!confirm("🗑️ Delete this student's profile image?")) return;
+  if (!confirm("Remove this student's photo?")) return;
   fetch(`/common/deletePendingStudentImage/${pendingId}`, { method: 'POST' })
-    .then(res => { if (res.ok) loadStudentDetails(pendingId); else alert("❌ Failed to delete image."); })
-    .catch(() => alert("❌ Error deleting image."));
+    .then(res => { if (res.ok) loadStudentDetails(pendingId); else setReviewStatus('Could not remove the photo.', 'error'); })
+    .catch(() => setReviewStatus('Could not remove the photo.', 'error'));
 }
 
 function saveChanges(id) {
-  if (!confirm("💾 Save changes?")) return;
   const form = document.getElementById("pendingReviewForm");
+  if (!form.reportValidity()) return;
+  renumberGuardians(form);
+  // Sends full numbers (+country code), then puts the boxes back as typed.
+  const phoneInputs = [...form.querySelectorAll('.phone-local-input')];
+  const typed = phoneInputs.map(i => i.value);
   if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
   const formData = new FormData(form);
+  phoneInputs.forEach((i, k) => { i.value = typed[k]; });
+  setReviewStatus('Saving…', '');
   fetch(`/common/savePendingStudentChanges/${id}`, { method: "POST", body: formData })
     .then(res => res.json())
-    .then(data => { if (data.success) { alert("✅ Saved!"); hasChanges = false; } else alert("❌ Failed to save."); })
-    .catch(() => alert("❌ Failed to save."));
+    .then(data => {
+      if (data.success) { hasChanges = false; setReviewStatus('Saved', 'ok'); }
+      else setReviewStatus('Could not save. Please try again.', 'error');
+    })
+    .catch(() => setReviewStatus('Could not save. Please try again.', 'error'));
 }
 
 function closeStudentForm() {
+  if (hasChanges && !confirm("Close without saving your changes?")) return;
   const overlay = document.getElementById("studentDetailsOverlay");
   const container = document.getElementById("studentDetailsContainer");
   overlay.classList.remove('is-open');
   document.body.style.overflow = '';
+  document.body.classList.remove('pa-drawer-open');
   container.innerHTML = '';
   hasChanges = false;
 }
 
 function addGuardian() {
   const container = document.getElementById("guardiansContainer");
-  const index = container.querySelectorAll(".guardian").length;
-  const div = document.createElement("div");
-  div.className = "guardian";
-  div.innerHTML = `
-    <div class="guardian-card-head">
-      <h4>Guardian ${index + 1}</h4>
-      <button type="button" class="guardian-remove-btn" onclick="this.closest('.guardian').remove(); hasChanges=true;" title="Remove guardian" aria-label="Remove guardian">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <div class="guardian-fields">
-      <div><label>First Name:</label><input type="text" name="guardianFirstName${index}" onchange="hasChanges=true"></div>
-      <div><label>Last Name:</label><input type="text" name="guardianLastName${index}" onchange="hasChanges=true"></div>
-      <div><label>Phone:</label>
-        <div class="phone-combo" data-default-iso2="GH">
-          <select class="phone-dial-select"></select>
-          <input type="text" class="phone-local-input" name="guardianPhone${index}" onchange="hasChanges=true">
-        </div>
-      </div>
-      <div><label>Email:</label><input type="text" name="guardianEmail${index}" onchange="hasChanges=true"></div>
-    </div>
-    <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${index}" onchange="hasChanges=true"></div>
-  `;
-  container.appendChild(div);
-  if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(div);
+  // Names must not repeat after a removal: use the next free index.
+  let index = 0;
+  while (container.querySelector(`[name="guardianFirstName${index}"]`)) index++;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = guardianCardHtml({}, index).trim();
+  const card = wrap.firstElementChild;
+  container.appendChild(card);
+  if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(card);
+  document.getElementById('rvGuardianCount').textContent = container.querySelectorAll('.rv-guardian').length;
+  hasChanges = true;
+  setReviewStatus('Unsaved changes', 'warn');
+  card.querySelector('input').focus();
 }
 </script>

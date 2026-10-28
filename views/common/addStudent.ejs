@@ -2711,7 +2711,7 @@
       studentIdNextAvailableStart: Number(nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))
     }).replace(/</g, '\\u003c') %></script>
 
-    <script src="/js/dialCodes.js"></script>
+    <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
     <script>
       // Helper functions for guardian autocomplete
       function escapeHtml(str) {

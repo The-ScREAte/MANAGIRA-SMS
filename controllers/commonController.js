@@ -7452,7 +7452,7 @@ const commonController = {
       const isEmbedded = isEmbeddedRequest(req, "admissionPending");
 
       await ensureAdmissionStatusSchema(db);
-      const view = req.query.view === "rejected" ? "rejected" : "pending";
+      const view = ["rejected", "all"].includes(req.query.view) ? req.query.view : "pending";
       const [result, counts] = await Promise.all([
         db.query(
           `
@@ -7461,7 +7461,7 @@ const commonController = {
           FROM pending_students ps
           LEFT JOIN classes c ON ps.class_id = c.class_id
           LEFT JOIN graduation_year_groups g ON ps.graduation_year_group_id = g.id
-          WHERE ps.organization_id = $1 AND ps.status = $2
+          WHERE ps.organization_id = $1 AND ($2 = 'all' OR ps.status = $2)
           ORDER BY ${view === "rejected" ? "ps.rejected_at DESC" : "ps.submitted_at DESC"}
         `,
           [organizationId, view, REJECTED_KEEP_DAYS]

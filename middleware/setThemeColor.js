@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { getOrgThemeColor } = require('../utils/orgTheme');
+const { getSchoolCountry } = require('../utils/schoolCountry');
 const { appearanceOwner, loadAppearance, normalizeAppearance } = require('../utils/organizationAppearance');
 
 /**
@@ -34,6 +35,16 @@ const setThemeColor = async (req, res, next) => {
     if (owner) {
         res.locals.appearanceOwner = true;
         res.locals.appearance = normalizeAppearance(req.session.appearance);
+    }
+
+    // The school's country, for phone fields (see public/js/dialCodes.js): the
+    // signed-in school's, or the school whose website this is.
+    try {
+        res.locals.schoolCountry = req.session.organizationId
+            ? await getSchoolCountry(db, req.session.organizationId)
+            : String(req.schoolDetails?.organization_country || '').trim().toUpperCase();
+    } catch (_) {
+        res.locals.schoolCountry = '';
     }
 
     // Skip if no organization is logged in
