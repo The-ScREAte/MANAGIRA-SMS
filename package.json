@@ -46,7 +46,7 @@
     "express-session": "^1.18.1",
     "express-validator": "^7.3.0",
     "googleapis": "^173.0.0",
-    "he": "^1.2.0",
+    "he": "^2.0.0",
     "http-proxy-middleware": "^2.0.10",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
