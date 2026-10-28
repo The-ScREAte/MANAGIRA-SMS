@@ -118,7 +118,9 @@
 .ap-menu-item { list-style: none; }
 /* Header menu: Appearance as a row of three color dots (Light, Classic, Dark). No hover colors. */
 .ap-dots-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
-.ap-dots-label { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #52525b; }
+/* The label reads like the menu's other items: the school's color, an icon, normal case. */
+.ap-dots-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--org-primary-color, #01535b); font-size: .88rem; font-weight: 600; line-height: 1.3; }
+.ap-dots-label svg { width: 14px; height: 14px; flex: none; opacity: .92; }
 .ap-dots { display: inline-flex; align-items: center; gap: 10px; }
 /* Header menus style their links (padding, colors, hover); the dots keep their own. */
 .ap-dots .ap-dot {
@@ -137,9 +139,17 @@
   .ap-dots .ap-dot { width: 26px !important; height: 26px !important; }
 }
 .ap-dots .ap-dot:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 3px; }
-html[data-appearance="dark"] .ap-dots-label { color: var(--ap-muted); }
 html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--ap-surface), 0 0 0 4px var(--org-primary-color, #2aa7b2) !important; }
 @media (max-width: 520px) {
+  /* Phone menus are narrow: smaller dots so all three fit; the invisible
+     margin around each keeps it easy to tap. */
+  .ap-dots-row { gap: 8px; padding: 8px 10px; }
+  .ap-dots-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ap-dots { flex: none; gap: 12px; }
+  .ap-dots .ap-dot { position: relative; width: 18px !important; height: 18px !important; }
+  .ap-dots .ap-dot::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
+  .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px var(--org-primary-color, #01535b) !important; }
+  html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--ap-surface), 0 0 0 3.5px var(--org-primary-color, #2aa7b2) !important; }
   .ap-picker { gap: 8px; grid-template-columns: minmax(0, 1fr); }
   .ap-choice__preview { height: 48px; }
 }
