@@ -5468,6 +5468,7 @@
     const addGradeRuleRowBtn = document.getElementById('addGradeRuleRowBtn');
 
     const enrolledClassesForScore = <%- JSON.stringify(enrolledClasses) %>;
+    const activeClassesForUniformScaling = enrolledClassesForScore.filter((cls) => !cls.obsolete_at);
     const sortedEnrolledClassesForScore = [...enrolledClassesForScore];
     const classOrderIndexById = new Map(
       sortedEnrolledClassesForScore.map((cls, idx) => [Number(cls.class_id), idx])
@@ -7029,6 +7030,47 @@
       return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+    function normalizeUniformSubjectScalingState(value) {
+      const baseValue = Number(value?.baseMaxScore);
+      return {
+        enabled: value?.enabled === true,
+        baseMaxScore: Number.isFinite(baseValue) && baseValue > 0 ? baseValue : 100,
+        applyToClasses: Array.isArray(value?.applyToClasses)
+          ? [...new Set(value.applyToClasses.map((id) => parseInt(id, 10)).filter((id) => Number.isFinite(id) && id > 0))]
+          : [],
+      };
+    }
+
+    function buildUniformScalingApplyClassesHtml(currentClassId, selectedClassIds) {
+      const selected = new Set((Array.isArray(selectedClassIds) ? selectedClassIds : [])
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isFinite(id) && id > 0));
+      selected.add(parseInt(currentClassId, 10));
+      const allSelected = activeClassesForUniformScaling.length > 0
+        && activeClassesForUniformScaling.every((cls) => selected.has(Number(cls.class_id)));
+      const classOptions = activeClassesForUniformScaling
+        .slice()
+        .sort((a, b) => {
+          const aIndex = classOrderIndexById.get(Number(a.class_id));
+          const bIndex = classOrderIndexById.get(Number(b.class_id));
+          return Number.isFinite(aIndex) && Number.isFinite(bIndex) ? aIndex - bIndex : Number(a.class_id) - Number(b.class_id);
+        })
+        .map((cls) => {
+          const classIdNum = Number(cls.class_id);
+          const isCurrent = String(classIdNum) === String(currentClassId);
+          const checked = selected.has(classIdNum);
+          return `<label class="paygira-apply-class">
+            <input type="checkbox" class="ds-uniform-apply-class" value="${classIdNum}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''} ${isCurrent ? 'disabled' : ''}>
+            <span>${dsEsc(cls.class_name)}${isCurrent ? ' (current)' : ''}</span>
+          </label>`;
+        })
+        .join('');
+      return `<label class="paygira-apply-class" style="font-weight:700;color:#0f172a;">
+          <input type="checkbox" class="ds-uniform-select-all" style="accent-color:var(--primary);" ${allSelected ? 'checked' : ''}>
+          <span>Select All</span>
+        </label>${classOptions}`;
+    }
+
     function buildPaygiraApplyClassesHtml(rowId, selectedClassIds, currentClassId) {
       const selected = new Set((Array.isArray(selectedClassIds) ? selectedClassIds : [])
         .map((id) => parseInt(id, 10))
@@ -7116,6 +7158,32 @@
       const classItems = catMap['Class Assessment'] || [];
       const examsItems = [...(catMap['Exams Assessment'] || []), ...(catMap['Exam Assessment'] || [])];
       const otherItems = [...(catMap['Other'] || []), ...(catMap['Other Assessment'] || [])];
+      const uniformScaling = normalizeUniformSubjectScalingState(ds.sections.uniformSubjectScaling);
+      const uniformScalingHtml = `
+        <section style="margin:0 0 12px;padding:12px;border:1px solid #dbe5ed;border-radius:9px;background:#f8fafc;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:700;color:#173042;">
+            <input type="checkbox" id="ds-uniform-scaling-enabled" style="accent-color:var(--primary);" ${uniformScaling.enabled ? 'checked' : ''}>
+            Enable Uniform Subject Scaling
+          </label>
+          <div style="display:grid;grid-template-columns:minmax(180px,260px) minmax(200px,1fr);gap:10px 16px;align-items:end;margin:10px 0 0 26px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--muted);">
+              Base Max Score per Subject
+              <input type="number" id="ds-uniform-scaling-base" min="0.01" step="any" value="${uniformScaling.baseMaxScore}" style="max-width:180px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" ${uniformScaling.enabled ? '' : 'disabled'}>
+            </label>
+            <div style="font-size:0.75rem;color:var(--muted);">Selected subjects will each use this maximum, based on their assessment weights.</div>
+            <div style="grid-column:1/-1;">
+              <label for="ds-uniform-scaling-classes" style="display:block;margin-bottom:4px;font-size:0.78rem;font-weight:600;color:#334155;">Apply to Classes</label>
+              <details id="ds-uniform-scaling-classes" style="max-width:420px;">
+                <summary style="cursor:pointer;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.82rem;">
+                  Choose classes to apply this setting to
+                </summary>
+                <div class="paygira-apply-classes-grid" style="max-height:190px;overflow:auto;margin-top:4px;padding:8px;border:1px solid var(--border);border-radius:6px;background:#fff;">
+                  ${buildUniformScalingApplyClassesHtml(classId, uniformScaling.applyToClasses)}
+                </div>
+              </details>
+            </div>
+          </div>
+        </section>`;
 
       const flatCols = [['totalScore','Total Score'],['scaledScore','Scaled Score'],['totalPercentage','Overall %'],['grade','Grade'],['position','Position'],['remarksCol','Remarks Col']];
       const flatColsHtml = flatCols.map(([key,lbl]) => `
@@ -7335,6 +7403,7 @@
 
       panel.dataset.classId = String(classId);
       panel.innerHTML = `
+        ${uniformScalingHtml}
         <div class="ds-adv-grid">
           <div>
             <p class="ds-adv-section-label">Score Columns</p>
@@ -7363,6 +7432,29 @@
           const group = this.closest('.ds-adv-group');
           if (!group) return;
           this.checked ? dsAdvMasterOn(group) : dsAdvMasterOff(group, true);
+        });
+
+        const uniformScalingEnabled = document.getElementById('ds-uniform-scaling-enabled');
+        const uniformScalingBase = document.getElementById('ds-uniform-scaling-base');
+        const uniformScalingSync = () => {
+          if (!uniformScalingEnabled || !uniformScalingBase) return;
+          uniformScalingBase.disabled = !uniformScalingEnabled.checked;
+          if (uniformScalingEnabled.checked && !uniformScalingBase.value.trim()) {
+            uniformScalingBase.value = '100';
+          }
+        };
+        uniformScalingEnabled?.addEventListener('change', uniformScalingSync);
+        panel.querySelector('.ds-uniform-select-all')?.addEventListener('change', function() {
+          panel.querySelectorAll('.ds-uniform-apply-class:not(:disabled)').forEach((checkbox) => {
+            checkbox.checked = this.checked;
+          });
+        });
+        panel.querySelectorAll('.ds-uniform-apply-class:not(:disabled)').forEach((checkbox) => {
+          checkbox.addEventListener('change', () => {
+            const selectable = Array.from(panel.querySelectorAll('.ds-uniform-apply-class:not(:disabled)'));
+            const selectAll = panel.querySelector('.ds-uniform-select-all');
+            if (selectAll) selectAll.checked = selectable.length > 0 && selectable.every((item) => item.checked);
+          });
         });
       });
 
@@ -7958,6 +8050,26 @@
       });
       sections.customRemarksVisibility = customRemarksVisibility;
       sections.gradePresentation = gradePresentationOverride || getGradePresentationPayloadFromControls();
+      const uniformScalingEnabled = !!document.getElementById('ds-uniform-scaling-enabled')?.checked;
+      const uniformScalingBaseInput = document.getElementById('ds-uniform-scaling-base');
+      const uniformScalingBase = Number(uniformScalingBaseInput?.value);
+      if (uniformScalingEnabled && (!Number.isFinite(uniformScalingBase) || uniformScalingBase <= 0)) {
+        alert('Enter a base maximum score greater than zero.');
+        uniformScalingBaseInput?.focus();
+        return false;
+      }
+      const uniformScalingApplyToClasses = Array.from(panel.querySelectorAll('.ds-uniform-apply-class:checked'))
+        .map((checkbox) => parseInt(checkbox.value, 10))
+        .filter((id) => Number.isFinite(id) && id > 0);
+      const currentScalingClassId = parseInt(classId, 10);
+      if (Number.isFinite(currentScalingClassId) && !uniformScalingApplyToClasses.includes(currentScalingClassId)) {
+        uniformScalingApplyToClasses.unshift(currentScalingClassId);
+      }
+      sections.uniformSubjectScaling = {
+        enabled: uniformScalingEnabled,
+        baseMaxScore: Number.isFinite(uniformScalingBase) && uniformScalingBase > 0 ? uniformScalingBase : 100,
+        applyToClasses: uniformScalingApplyToClasses,
+      };
       logGradeNumericTotal('saveAdvanced:payload', {
         classId,
         termId: '<%= termId %>',
@@ -8085,7 +8197,16 @@
           status: resp.status,
           result,
         });
-        if (result.success) { allDisplaySettingsMap[String(classId)] = { columns, sections }; return true; }
+        if (result.success) {
+          allDisplaySettingsMap[String(classId)] = { columns, sections };
+          uniformScalingApplyToClasses.forEach((targetClassId) => {
+            const target = allDisplaySettingsMap[String(targetClassId)];
+            if (!target) return;
+            target.sections = target.sections || {};
+            target.sections.uniformSubjectScaling = sections.uniformSubjectScaling;
+          });
+          return true;
+        }
         return false;
       } catch(e) {
         console.error('[DS] saveAdvancedDisplaySettings failed', {
@@ -8216,6 +8337,16 @@
         })(),
         gradeKey: !!document.getElementById('ds-adv-gradeKey')?.checked,
         gradePresentation,
+        uniformSubjectScaling: (() => {
+          const enabled = !!document.getElementById('ds-uniform-scaling-enabled')?.checked;
+          const baseValue = Number(document.getElementById('ds-uniform-scaling-base')?.value);
+          const applyToClasses = Array.from(document.querySelectorAll('.ds-uniform-apply-class:checked'))
+            .map((checkbox) => parseInt(checkbox.value, 10))
+            .filter((id) => Number.isFinite(id) && id > 0);
+          const currentId = parseInt(classId, 10);
+          if (Number.isFinite(currentId) && !applyToClasses.includes(currentId)) applyToClasses.unshift(currentId);
+          return normalizeUniformSubjectScalingState({ enabled, baseMaxScore: baseValue, applyToClasses });
+        })(),
         attendance: !!document.getElementById('ds-adv-attendance')?.checked,
         turnOffAutoAttendance: turnOffAutoAttendanceOn,
         manualAttendanceOutOf,
@@ -8266,6 +8397,7 @@
           })(),
           gradeKey: secs.gradeKey !== false,
           gradePresentation: normalizeGradePresentationState(secs.gradePresentation || {}),
+          uniformSubjectScaling: normalizeUniformSubjectScalingState(secs.uniformSubjectScaling || {}),
           attendance: secs.attendance !== false,
           turnOffAutoAttendance: secs.turnOffAutoAttendance === true,
           manualAttendanceOutOf: Number.isFinite(Number(secs.manualAttendanceOutOf)) && Number(secs.manualAttendanceOutOf) > 0

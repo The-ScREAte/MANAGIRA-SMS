@@ -35,6 +35,7 @@ const { normalizeWhatsappPhoneNumber } = require("../utils/phoneNumber");
 const { ensureStudentContactMethodsSchema } = require("../utils/studentContactMethods");
 const { ensureObsoleteSchema, usesOf, inUseMessage, obsoleteSignaturePaths, setSignatureObsolete, signatureStillUsed, wantsJson } = require("../utils/obsolete");
 const { REPORT_SIGNATURE_TERM_ID, ensurePersistentReportSignatures } = require("../utils/reportSignature");
+const { UNIFORM_SUBJECT_SCALING_TERM_ID, normalizeUniformSubjectScaling, calculateUniformSubjectScores } = require("../utils/uniformSubjectScaling");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -1661,13 +1662,16 @@ const printController = (db) => ({
              CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_image_path ELSE current.signature_image_path END AS signature_image_path,
              CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_name ELSE current.signature_name END AS signature_name,
              CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_title ELSE current.signature_title END AS signature_title,
-             current.display_settings
+             current.display_settings,
+             uniform.display_settings AS persistent_display_settings
            FROM (SELECT 1) seed
            LEFT JOIN report_settings current
              ON current.class_id = $1 AND current.term_id = $2 AND current.organization_id = $3
            LEFT JOIN report_settings persistent
-             ON persistent.class_id = $1 AND persistent.term_id = $4 AND persistent.organization_id = $3`,
-          [parsedClassId, parsedTermId, organizationId, REPORT_SIGNATURE_TERM_ID]
+             ON persistent.class_id = $1 AND persistent.term_id = $4 AND persistent.organization_id = $3
+           LEFT JOIN report_settings uniform
+             ON uniform.class_id = $1 AND uniform.term_id = $5 AND uniform.organization_id = $3`,
+          [parsedClassId, parsedTermId, organizationId, REPORT_SIGNATURE_TERM_ID, UNIFORM_SUBJECT_SCALING_TERM_ID]
         ),
         db.query(
           `SELECT student_id, COUNT(*) FILTER (WHERE status = 'Present') AS present_days
@@ -1704,7 +1708,7 @@ const printController = (db) => ({
           [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
-          `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base,
+          `SELECT assessment_id, subject_id, title, category, max_score, weight, COALESCE(scale_base, 100) AS scale_base,
                   COALESCE(entry_mode, 'score') AS entry_mode, choice_options
              FROM assessments
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
@@ -1739,7 +1743,14 @@ const printController = (db) => ({
       });
 
       // --- Build display settings with defaults (undefined or null = ON) ---
-      const rawDS = reportSettingsResult.rows[0]?.display_settings || {};
+      const rawDisplaySettings = reportSettingsResult.rows[0]?.display_settings || {};
+      const persistentScaling = reportSettingsResult.rows[0]?.persistent_display_settings?.sections?.uniformSubjectScaling;
+      const rawDS = persistentScaling
+        ? {
+            ...rawDisplaySettings,
+            sections: { ...(rawDisplaySettings.sections || {}), uniformSubjectScaling: persistentScaling },
+          }
+        : rawDisplaySettings;
       const colVis = rawDS.columns || {};
       const secVis = rawDS.sections || {};
       const paygiraBillsRaw = secVis.paygiraBills || {};
@@ -1752,6 +1763,7 @@ const printController = (db) => ({
       const paygiraManualTotalsRaw = Array.isArray(paygiraManualRaw.totals) ? paygiraManualRaw.totals : [];
       const paygiraManualTotals = normalizePaygiraManualTotals(paygiraManualTotalsRaw, paygiraManualFields.map((field) => field.key));
       const gradePresentation = normalizeGradePresentationConfig(secVis.gradePresentation);
+      const uniformSubjectScaling = normalizeUniformSubjectScaling(secVis.uniformSubjectScaling);
       const displaySettings = {
         columns: {
           classScore:      colVis.classScore      !== false,
@@ -1772,6 +1784,7 @@ const printController = (db) => ({
           customRemarksVisibility: normalizeCustomRemarkVisibilityMap(secVis.customRemarksVisibility, customRemarkTypes),
           gradeKey:        secVis.gradeKey        !== false,
           gradePresentation,
+          uniformSubjectScaling,
           attendance:      secVis.attendance      !== false,
           turnOffAutoAttendance: secVis.turnOffAutoAttendance === true,
           manualAttendanceOutOf: Number.isFinite(Number(secVis.manualAttendanceOutOf)) && Number(secVis.manualAttendanceOutOf) > 0
@@ -1998,15 +2011,37 @@ const printController = (db) => ({
           : "-";
 
         student.subjects = allSubjects.map((subject) => {
-          const classScore = getFilteredScore(student.student_id, subject.subject_id, enabledClassIds);
-          const examsScore = getFilteredScore(student.student_id, subject.subject_id, enabledExamsIds);
-          const otherScore = getFilteredScore(student.student_id, subject.subject_id, enabledOtherIds);
+          const enabledAllIds = new Set([...enabledClassIds, ...enabledExamsIds, ...enabledOtherIds]);
+          let classScore = getFilteredScore(student.student_id, subject.subject_id, enabledClassIds);
+          let examsScore = getFilteredScore(student.student_id, subject.subject_id, enabledExamsIds);
+          let otherScore = getFilteredScore(student.student_id, subject.subject_id, enabledOtherIds);
+          let totalScore = classScore + examsScore + otherScore;
+          let filteredMaxScore = getFilteredMaxScore(subject.subject_id, enabledAllIds);
 
-          const totalScore = classScore + examsScore + otherScore;
+          if (uniformSubjectScaling.enabled) {
+            const subjectAssessments = allAssessments.filter((assessment) =>
+              assessment.subject_id === subject.subject_id
+              && enabledAllIds.has(assessment.assessment_id)
+              && assessment.entry_mode !== "choice"
+            );
+            const scaled = calculateUniformSubjectScores(
+              subjectAssessments,
+              (assessment) => indivScoresMap[`${student.student_id}_${assessment.assessment_id}`] || 0,
+              uniformSubjectScaling.baseMaxScore,
+              (assessment) => CLASS_CATS.includes(assessment.category)
+                ? "class"
+                : EXAMS_CATS.includes(assessment.category)
+                  ? "exams"
+                  : "other"
+            );
+            classScore = scaled.categoryScores.class || 0;
+            examsScore = scaled.categoryScores.exams || 0;
+            otherScore = scaled.categoryScores.other || 0;
+            totalScore = scaled.totalScore;
+            filteredMaxScore = scaled.maxScore;
+          }
 
           // Recalculate percentage from enabled max scores
-          const enabledAllIds = new Set([...enabledClassIds, ...enabledExamsIds, ...enabledOtherIds]);
-          const filteredMaxScore = getFilteredMaxScore(subject.subject_id, enabledAllIds);
           const totalPercentage = filteredMaxScore > 0
             ? parseFloat((totalScore / filteredMaxScore * 100).toFixed(2))
             : 0;
@@ -2025,7 +2060,9 @@ const printController = (db) => ({
           // Recalculate remarks column
           const remarks = totalScore > 0 ? (matchingRule ? matchingRule.remark : "-") : "-";
 
-          const scaleBase = scaleBasesMap[subject.subject_id] || 100;
+          const scaleBase = uniformSubjectScaling.enabled
+            ? uniformSubjectScaling.baseMaxScore
+            : (scaleBasesMap[subject.subject_id] || 100);
           const scaledScore = totalScore > 0
             ? `${(totalPercentage / 100 * scaleBase).toFixed(2)} / ${scaleBase}` : "-";
 
@@ -2540,7 +2577,7 @@ const printController = (db) => ({
     try {
       // Obsolete classes only show when they already have report settings.
       const organizationClassesResult = await db.query(
-        `SELECT class_id, class_name FROM classes c
+        `SELECT class_id, class_name, obsolete_at FROM classes c
           WHERE organization_id = $1
             AND (obsolete_at IS NULL
                  OR EXISTS (SELECT 1 FROM report_settings rs WHERE rs.organization_id = c.organization_id AND rs.class_id = c.class_id))
@@ -2706,18 +2743,21 @@ const printController = (db) => ({
              CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_image_path ELSE current.signature_image_path END AS signature_image_path,
              CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_name ELSE current.signature_name END AS signature_name,
              CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_title ELSE current.signature_title END AS signature_title,
-             current.display_settings
+             current.display_settings,
+             uniform.display_settings AS persistent_display_settings
            FROM (SELECT 1) seed
            LEFT JOIN report_settings current
              ON current.organization_id = $1 AND current.class_id = $2 AND current.term_id = $3
            LEFT JOIN report_settings persistent
-             ON persistent.organization_id = $1 AND persistent.class_id = $2 AND persistent.term_id = $4`,
-          [organizationId, parsedClassId, parsedTermId, REPORT_SIGNATURE_TERM_ID]
+             ON persistent.organization_id = $1 AND persistent.class_id = $2 AND persistent.term_id = $4
+           LEFT JOIN report_settings uniform
+             ON uniform.organization_id = $1 AND uniform.class_id = $2 AND uniform.term_id = $5`,
+          [organizationId, parsedClassId, parsedTermId, REPORT_SIGNATURE_TERM_ID, UNIFORM_SUBJECT_SCALING_TERM_ID]
         ),
         db.query(
-          `SELECT class_id, display_settings FROM report_settings
-           WHERE organization_id = $1 AND term_id = $2 AND class_id = ANY($3::int[])`,
-          [organizationId, parsedTermId, enrolledClassIds]
+          `SELECT class_id, term_id, display_settings FROM report_settings
+           WHERE organization_id = $1 AND term_id IN ($2, $3) AND class_id = ANY($4::int[])`,
+          [organizationId, parsedTermId, UNIFORM_SUBJECT_SCALING_TERM_ID, enrolledClassIds]
         ),
         db.query(
           `SELECT class_id, subject_id, subject_name
@@ -2806,8 +2846,14 @@ const printController = (db) => ({
       // Fetch display settings for ALL enrolled classes (for the dynamic per-class Advanced panel)
       const allDisplaySettingsMap = {};
       enrolledClasses.forEach(cls => {
-        const row = allClassDsResult.rows.find(r => r.class_id === cls.class_id);
-        const raw = row?.display_settings || {};
+        const row = allClassDsResult.rows.find(r => r.class_id === cls.class_id && Number(r.term_id) === parsedTermId)
+          || allClassDsResult.rows.find(r => r.class_id === cls.class_id);
+        const persistentRow = allClassDsResult.rows.find(r => r.class_id === cls.class_id && Number(r.term_id) === UNIFORM_SUBJECT_SCALING_TERM_ID);
+        const rawCurrent = row?.display_settings || {};
+        const persistentScaling = persistentRow?.display_settings?.sections?.uniformSubjectScaling;
+        const raw = persistentScaling
+          ? { ...rawCurrent, sections: { ...(rawCurrent.sections || {}), uniformSubjectScaling: persistentScaling } }
+          : rawCurrent;
         const col = raw.columns || {};
         const sec = raw.sections || {};
         const paygiraBillsRaw = sec.paygiraBills || {};
@@ -2844,6 +2890,7 @@ const printController = (db) => ({
             classroomRemarkTypes: organizationClassroomRemarkTypes,
             gradeKey:        sec.gradeKey        !== false,
             gradePresentation,
+            uniformSubjectScaling: normalizeUniformSubjectScaling(sec.uniformSubjectScaling),
             attendance:      sec.attendance      !== false,
             turnOffAutoAttendance: sec.turnOffAutoAttendance === true,
             manualAttendanceOutOf: Number.isFinite(Number(sec.manualAttendanceOutOf)) && Number(sec.manualAttendanceOutOf) > 0
@@ -2994,7 +3041,11 @@ const printController = (db) => ({
       });
 
       // Build display settings with defaults for the settings UI
-      const rawDS2 = reportSettings?.display_settings || {};
+      const persistentScaling2 = reportSettings?.persistent_display_settings?.sections?.uniformSubjectScaling;
+      const rawDisplaySettings2 = reportSettings?.display_settings || {};
+      const rawDS2 = persistentScaling2
+        ? { ...rawDisplaySettings2, sections: { ...(rawDisplaySettings2.sections || {}), uniformSubjectScaling: persistentScaling2 } }
+        : rawDisplaySettings2;
       const colVis2 = rawDS2.columns || {};
       const secVis2 = rawDS2.sections || {};
       const paygiraBillsRaw2 = secVis2.paygiraBills || {};
@@ -3031,6 +3082,7 @@ const printController = (db) => ({
           classroomRemarkTypes: organizationClassroomRemarkTypes,
           gradeKey:        secVis2.gradeKey        !== false,
           gradePresentation: gradePresentation2,
+          uniformSubjectScaling: normalizeUniformSubjectScaling(secVis2.uniformSubjectScaling),
           attendance:      secVis2.attendance      !== false,
           turnOffAutoAttendance: secVis2.turnOffAutoAttendance === true,
           manualAttendanceOutOf: Number.isFinite(Number(secVis2.manualAttendanceOutOf)) && Number(secVis2.manualAttendanceOutOf) > 0
@@ -3169,10 +3221,11 @@ const printController = (db) => ({
         return res.status(400).json({ error: 'Invalid classId or termId' });
       }
 
-      const [scopedClassIds, scopedTerm, organizationClassesResult] = await Promise.all([
+      const [scopedClassIds, scopedTerm, organizationClassesResult, activeOrganizationClassesResult] = await Promise.all([
         getScopedClassIds(db, organizationId, [parsedClassId]),
         getScopedTermRecord(db, organizationId, parsedTermId),
         db.query(`SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY class_id ASC`, [organizationId]),
+        db.query(`SELECT class_id FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY class_id ASC`, [organizationId]),
       ]);
 
       if (!scopedClassIds.length || !scopedTerm) {
@@ -3181,6 +3234,11 @@ const printController = (db) => ({
 
       const organizationClassIdSet = new Set(
         organizationClassesResult.rows
+          .map((row) => Number(row.class_id))
+          .filter((classIdValue) => Number.isFinite(classIdValue) && classIdValue > 0)
+      );
+      const activeOrganizationClassIdSet = new Set(
+        activeOrganizationClassesResult.rows
           .map((row) => Number(row.class_id))
           .filter((classIdValue) => Number.isFinite(classIdValue) && classIdValue > 0)
       );
@@ -3200,6 +3258,15 @@ const printController = (db) => ({
       const gradePresentationRaw = sections.gradePresentation && typeof sections.gradePresentation === 'object'
         ? sections.gradePresentation
         : {};
+      const uniformSubjectScalingRaw = sections.uniformSubjectScaling && typeof sections.uniformSubjectScaling === 'object'
+        ? sections.uniformSubjectScaling
+        : {};
+      if (uniformSubjectScalingRaw.enabled === true) {
+        const baseMaxScore = Number(uniformSubjectScalingRaw.baseMaxScore);
+        if (!Number.isFinite(baseMaxScore) || baseMaxScore <= 0) {
+          return res.status(400).json({ success: false, error: 'Base max score per subject must be greater than zero.' });
+        }
+      }
       const normalizedManualFields = normalizePaygiraManualFields(paygiraManual.fields, parsedClassId)
         .map((field) => ({
           ...field,
@@ -3242,6 +3309,7 @@ const printController = (db) => ({
             },
           },
           gradePresentation: normalizeGradePresentationConfig(gradePresentationRaw),
+          uniformSubjectScaling: normalizeUniformSubjectScaling(uniformSubjectScalingRaw),
         },
       };
 
@@ -3257,6 +3325,30 @@ const printController = (db) => ({
       });
       normalizedDisplaySettings.sections.gradePresentation = normalizedGradePresentation;
 
+      const uniformScalingTargets = parsePositiveIntArray(normalizedDisplaySettings.sections.uniformSubjectScaling.applyToClasses)
+        .filter((targetClassId) => activeOrganizationClassIdSet.has(targetClassId));
+      if (!uniformScalingTargets.includes(parsedClassId)) {
+        uniformScalingTargets.unshift(parsedClassId);
+      }
+      normalizedDisplaySettings.sections.uniformSubjectScaling = {
+        ...normalizedDisplaySettings.sections.uniformSubjectScaling,
+        applyToClasses: uniformScalingTargets,
+      };
+
+      const existingScalingResult = await db.query(
+        `SELECT display_settings
+         FROM report_settings
+         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+         LIMIT 1`,
+        [organizationId, parsedClassId, UNIFORM_SUBJECT_SCALING_TERM_ID]
+      );
+      const existingScaling = normalizeUniformSubjectScaling(
+        existingScalingResult.rows[0]?.display_settings?.sections?.uniformSubjectScaling
+      );
+      const removedScalingTargets = existingScaling.applyToClasses.filter((targetClassId) =>
+        organizationClassIdSet.has(targetClassId) && !uniformScalingTargets.includes(targetClassId)
+      );
+
       await db.query(
         `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
          VALUES ($1, $2, $3, $4)
@@ -3264,6 +3356,55 @@ const printController = (db) => ({
          DO UPDATE SET display_settings = $4`,
         [organizationId, parsedClassId, parsedTermId, JSON.stringify(normalizedDisplaySettings)]
       );
+
+      const persistentScalingSettings = JSON.stringify({
+        sections: {
+          uniformSubjectScaling: normalizedDisplaySettings.sections.uniformSubjectScaling,
+        },
+      });
+      for (const targetClassId of uniformScalingTargets) {
+        await db.query(
+          `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (organization_id, class_id, term_id)
+           DO UPDATE SET display_settings = jsonb_set(
+             COALESCE(report_settings.display_settings, '{}'::jsonb),
+             '{sections}',
+             COALESCE(report_settings.display_settings->'sections', '{}'::jsonb)
+               || jsonb_build_object('uniformSubjectScaling', $4::jsonb #> '{sections,uniformSubjectScaling}'),
+             TRUE
+           )`,
+          [organizationId, targetClassId, UNIFORM_SUBJECT_SCALING_TERM_ID, persistentScalingSettings]
+        );
+      }
+      for (const targetClassId of removedScalingTargets) {
+        await db.query(
+          `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (organization_id, class_id, term_id)
+           DO UPDATE SET display_settings = jsonb_set(
+             COALESCE(report_settings.display_settings, '{}'::jsonb),
+             '{sections}',
+             COALESCE(report_settings.display_settings->'sections', '{}'::jsonb)
+               || jsonb_build_object('uniformSubjectScaling', $4::jsonb #> '{sections,uniformSubjectScaling}'),
+             TRUE
+           )`,
+          [
+            organizationId,
+            targetClassId,
+            UNIFORM_SUBJECT_SCALING_TERM_ID,
+            JSON.stringify({
+              sections: {
+                uniformSubjectScaling: {
+                  enabled: false,
+                  baseMaxScore: existingScaling.baseMaxScore,
+                  applyToClasses: [targetClassId],
+                },
+              },
+            }),
+          ]
+        );
+      }
 
       const gradePresentationTargets = requestedGradeApplyToClasses.filter((targetClassId) => targetClassId !== parsedClassId);
       for (const targetClassId of gradePresentationTargets) {
@@ -3291,6 +3432,34 @@ const printController = (db) => ({
           },
         };
 
+        await db.query(
+          `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (organization_id, class_id, term_id)
+           DO UPDATE SET display_settings = $4`,
+          [organizationId, targetClassId, parsedTermId, JSON.stringify(targetMergedDisplaySettings)]
+        );
+      }
+
+      for (const targetClassId of uniformScalingTargets.filter((targetId) => targetId !== parsedClassId)) {
+        const targetExistingResult = await db.query(
+          `SELECT display_settings
+           FROM report_settings
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+           LIMIT 1`,
+          [organizationId, targetClassId, parsedTermId]
+        );
+        const targetExistingDisplaySettings = targetExistingResult.rows[0]?.display_settings || {};
+        const targetExistingSections = targetExistingDisplaySettings.sections && typeof targetExistingDisplaySettings.sections === 'object'
+          ? targetExistingDisplaySettings.sections
+          : {};
+        const targetMergedDisplaySettings = {
+          ...targetExistingDisplaySettings,
+          sections: {
+            ...targetExistingSections,
+            uniformSubjectScaling: normalizedDisplaySettings.sections.uniformSubjectScaling,
+          },
+        };
         await db.query(
           `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
            VALUES ($1, $2, $3, $4)
