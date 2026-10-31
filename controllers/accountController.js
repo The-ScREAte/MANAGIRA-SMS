@@ -12452,9 +12452,11 @@ const accountController = {
         await saveArkeselSettings(db, orgId, { apiKey, senderId });
       } else if (provider === "africastalking") {
         const apiKey = String(req.body.apiKey || "").trim();
-        const username = String(req.body.username || "").trim();
         const senderId = String(req.body.senderId || "").trim();
-        const sandbox = String(req.body.sandbox || "").trim() === "1";
+        const sandbox = req.body.sandbox === undefined
+          ? providerStatus.sandbox
+          : String(req.body.sandbox).trim() === "1";
+        const username = sandbox ? "" : String(req.body.username || "").trim();
         if (!apiKey && !providerStatus.configured) {
           return res.status(400).json({ success: false, message: "API key is required." });
         }
@@ -13873,8 +13875,6 @@ accountController.sendInvoiceEmail = sendInvoiceEmail;
 accountController.sendCancellationEmail = sendCancellationEmail;
 
 module.exports = accountController;
-
-
 
 
 

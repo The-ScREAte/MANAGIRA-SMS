@@ -216,7 +216,7 @@ async function saveAfricasTalkingSettings(dbClient, organizationId, { username, 
   await ensureSmsIntegrationSchema(dbClient);
 
   const normalizedUsername = safeString(username);
-  if (!normalizedUsername) throw new Error("Username is required.");
+  if (!normalizedUsername && !sandbox) throw new Error("Username is required for live mode.");
 
   const normalizedSenderId = safeString(senderId).slice(0, 11);
   const normalizedApiKey = safeString(apiKey);
@@ -225,7 +225,7 @@ async function saveAfricasTalkingSettings(dbClient, organizationId, { username, 
   await dbClient.query(
     `UPDATE organizations
      SET sms_africastalking_configured = TRUE,
-         sms_africastalking_username = $2,
+         sms_africastalking_username = COALESCE(NULLIF($2, ''), sms_africastalking_username),
          sms_africastalking_sender_id = NULLIF($3, ''),
          sms_africastalking_api_key_encrypted = COALESCE($4, sms_africastalking_api_key_encrypted),
          sms_africastalking_sandbox = $5,
@@ -383,7 +383,7 @@ async function sendViaArkesel(tenant, message, recipients, callbackUrl) {
 
 async function sendViaAfricasTalking(tenant, message, recipients, callbackUrl) {
   if (!tenant.apiKey) throw new Error("Africa's Talking API key is missing.");
-  if (!tenant.username) throw new Error("Africa's Talking username is missing.");
+  if (!tenant.sandbox && !tenant.username) throw new Error("Africa's Talking username is missing.");
 
   const baseUrl = tenant.sandbox
     ? "https://api.sandbox.africastalking.com/version1/messaging"
@@ -539,11 +539,14 @@ async function getProviderCredentials(dbClient, organizationId, provider, overri
     return { provider, apiKey: pick(overrides.apiKey, decryptSecret(row.sms_arkesel_api_key_encrypted)) };
   }
   if (provider === "africastalking") {
+    const sandbox = overrides.sandbox !== undefined
+      ? parseBoolean(overrides.sandbox, false)
+      : parseBoolean(row.sms_africastalking_sandbox, false);
     return {
       provider,
       apiKey: pick(overrides.apiKey, decryptSecret(row.sms_africastalking_api_key_encrypted)),
-      username: pick(overrides.username, row.sms_africastalking_username),
-      sandbox: overrides.sandbox !== undefined ? !!overrides.sandbox : parseBoolean(row.sms_africastalking_sandbox, false),
+      username: sandbox ? "sandbox" : pick(overrides.username, row.sms_africastalking_username),
+      sandbox,
     };
   }
   throw new Error("Unsupported SMS provider.");
@@ -592,15 +595,28 @@ async function verifySmsConnection(creds) {
     }
   }
   if (creds.provider === "africastalking") {
-    if (!creds.username) return { ok: false, message: "Add your Africa's Talking username." };
+    const sandbox = parseBoolean(creds.sandbox, false);
+    if (!sandbox && !creds.username) return { ok: false, message: "Add your Africa's Talking live API username." };
     if (!creds.apiKey) return { ok: false, message: "Add your Africa's Talking API key." };
-    const host = creds.sandbox ? "https://api.sandbox.africastalking.com" : "https://api.africastalking.com";
+    const host = sandbox ? "https://api.sandbox.africastalking.com" : "https://api.africastalking.com";
+    const username = sandbox ? "sandbox" : creds.username;
     try {
-      const data = (await axios.get(`${host}/version1/user`, { params: { username: creds.username }, headers: { apiKey: creds.apiKey, Accept: "application/json" }, timeout: 12000 })).data || {};
+      const data = (await axios.get(`${host}/version1/user`, { params: { username }, headers: { apiKey: creds.apiKey, Accept: "application/json" }, timeout: 12000 })).data || {};
       const bal = data.UserData && data.UserData.balance;
       return { ok: true, message: `Connected to Africa's Talking${bal ? `. Balance: ${bal}` : ""}.` };
     } catch (err) {
-      if ([401, 403].includes(status(err))) return { ok: false, message: "Africa's Talking didn't accept this username and API key. Make sure both are from the same app (live, not sandbox)." };
+      if ([401, 403].includes(status(err))) {
+        return {
+          ok: false,
+          message: `Africa's Talking rejected the ${sandbox ? "sandbox" : "live"} credentials. Check that the API key belongs to the selected environment and that the username is correct${sandbox ? " (sandbox uses the username \"sandbox\")" : ""}.`,
+        };
+      }
+      if (status(err) === 400) {
+        return {
+          ok: false,
+          message: `Africa's Talking rejected the ${sandbox ? "sandbox" : "live"} request. Check the username and selected environment${sandbox ? " (sandbox uses the username \"sandbox\")" : ""}.`,
+        };
+      }
       return offline("Africa's Talking");
     }
   }

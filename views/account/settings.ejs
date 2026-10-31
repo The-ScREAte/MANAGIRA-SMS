@@ -4723,9 +4723,9 @@
                         <li>Go to <strong>API</strong> in the left menu, choose <strong>Generate new key</strong> and copy it.</li>
                         <li>Paste it below and press <strong>Save and test</strong>.</li>
                       <% } else { %>
-                        <li>Sign in at <a href="https://account.africastalking.com" target="_blank" rel="noopener">account.africastalking.com</a> and open your live app (not sandbox).</li>
-                        <li>Go to Settings › API Key and generate a key. Your <strong>username</strong> is the app's username.</li>
-                        <li>Paste both below and press <strong>Save and test</strong>.</li>
+                        <li>Sign in at <a href="https://account.africastalking.com" target="_blank" rel="noopener">account.africastalking.com</a> and open the app for the environment you want to use.</li>
+                        <li>Copy the API key for that environment. In live mode, also use the API username shown in Africa's Talking; the app display name is not the username.</li>
+                        <li>Choose the matching environment below, then press <strong>Save and test</strong>.</li>
                       <% } %>
                     </ol>
                     <% if (def.key === 'twilio') { %>
@@ -4736,8 +4736,16 @@
                     <% } %>
                     <% if (def.key === 'africastalking') { %>
                     <div>
-                      <label class="form-label" for="sms-africastalking-username">Username<span class="form-required-mark">*</span></label>
-                      <input id="sms-africastalking-username" class="form-input" type="text" placeholder="Your live Team username (not \"sandbox\")" value="<%= ps.username || '' %>" />
+                      <label class="form-label" for="sms-africastalking-environment">Environment<span class="form-required-mark">*</span></label>
+                      <select id="sms-africastalking-environment" class="form-input">
+                        <option value="live" <%= ps.sandbox ? '' : 'selected' %>>Live</option>
+                        <option value="sandbox" <%= ps.sandbox ? 'selected' : '' %>>Sandbox</option>
+                      </select>
+                      <small style="display:block;margin-top:4px;color:#64748b;">Use a key from the selected environment. Sandbox automatically uses the username <strong>sandbox</strong>.</small>
+                    </div>
+                    <div id="sms-africastalking-live-username-field" style="display:<%= ps.sandbox ? 'none' : 'block' %>;">
+                      <label class="form-label" for="sms-africastalking-username">Live API username<span class="form-required-mark">*</span></label>
+                      <input id="sms-africastalking-username" class="form-input" type="text" placeholder="Your Africa's Talking API username" value="<%= ps.username || '' %>" autocomplete="off" spellcheck="false" />
                     </div>
                     <% } %>
 
@@ -9342,8 +9350,12 @@
             } else if (provider === "africastalking") {
               const usernameInput = document.getElementById("sms-africastalking-username");
               const senderInput = document.getElementById("sms-africastalking-sender-id");
-              payload.username = usernameInput ? usernameInput.value.trim() : "";
+              const environmentInput = document.getElementById("sms-africastalking-environment");
+              payload.username = environmentInput && environmentInput.value === "sandbox"
+                ? ""
+                : (usernameInput ? usernameInput.value.trim() : "");
               payload.senderId = senderInput ? senderInput.value.trim() : "";
+              payload.sandbox = environmentInput && environmentInput.value === "sandbox" ? "1" : "0";
               payload.apiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
             } else if (provider === "twilio") {
               const accountSidInput = document.getElementById("sms-twilio-account-sid");
@@ -9476,6 +9488,16 @@
             button.textContent = isHidden ? "Hide Credentials" : button.dataset.defaultLabel;
           });
         });
+
+        const africaTalkingEnvironment = document.getElementById("sms-africastalking-environment");
+        if (africaTalkingEnvironment) {
+          africaTalkingEnvironment.addEventListener("change", () => {
+            const liveUsernameField = document.getElementById("sms-africastalking-live-username-field");
+            if (liveUsernameField) {
+              liveUsernameField.style.display = africaTalkingEnvironment.value === "sandbox" ? "none" : "block";
+            }
+          });
+        }
 
         document.querySelectorAll(".sms-compose-toggle").forEach((button) => {
           button.dataset.defaultLabel = button.textContent;
