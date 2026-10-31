@@ -4051,7 +4051,19 @@
                   <div class="current-plan-price-grid">
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label">Next payment</div>
-                      <div class="current-plan-price-value"><%= formatCurrentPlanAmount(billingCycleTotal) %></div>
+                      <div>
+                        <div class="current-plan-price-value"><%= formatCurrentPlanAmount(billingCycleTotal) %></div>
+                        <% const paymentDueDateValue = hasBillingInfo
+                          ? (billingInfo.next_payment_end_date || billingInfo.trial_ends_at)
+                          : null; %>
+                        <% const paymentDueDate = paymentDueDateValue ? new Date(paymentDueDateValue) : null; %>
+                        <% if (paymentDueDate && !Number.isNaN(paymentDueDate.getTime())) { %>
+                          <div class="current-plan-price-value-sub">
+                            <%= paymentDueDate < new Date() ? 'Past due since' : 'Due' %>
+                            <%= paymentDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
+                          </div>
+                        <% } %>
+                      </div>
                     </div>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label">Billing</div>
