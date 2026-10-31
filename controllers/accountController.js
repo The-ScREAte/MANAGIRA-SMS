@@ -516,6 +516,7 @@ const {
 } = require("../utils/smsIntegration");
 const { checkRateLimit } = require("../utils/rateLimiter");
 const { countActiveStudents } = require("../utils/activeStudents");
+const { isSettingsEncryptionKeyConfigured } = require("../utils/encryption");
 const {
   syncGoogleClassroomForOrganization,
   pushPendingAssessmentsForOrganization,
@@ -9414,6 +9415,7 @@ const accountController = {
         studentPortalIntegration,
         transportationIntegration,
         smsIntegration,
+        settingsEncryptionKeyConfigured: isSettingsEncryptionKeyConfigured(),
         miraIntegration,
         twilioAvailableForCountry: isTwilioAvailableForCountry(orgRow?.organization_country),
         integrationActivity,
@@ -12498,8 +12500,20 @@ const accountController = {
       if (!status.providers[provider].configured) return res.status(400).json({ success: false, message: "Add and save the credentials first." });
       const check = await verifySmsConnection(await getProviderCredentials(db, orgId, provider));
       await markSmsProviderTestResult(db, orgId, provider, { success: check.ok, errorMessage: check.ok ? null : check.message });
-      return res.status(check.ok ? 200 : 400).json({ success: check.ok, message: check.message });
+      const refreshedStatus = await getSmsIntegrationStatus(db, orgId);
+      return res.status(check.ok ? 200 : 400).json({
+        success: check.ok,
+        message: check.message,
+        firstConnectedAt: refreshedStatus.providers[provider].firstConnectedAt,
+      });
     } catch (error) {
+      const provider = String(req.body.provider || "").trim().toLowerCase();
+      if (["arkesel", "africastalking", "twilio"].includes(provider)) {
+        await markSmsProviderTestResult(db, orgId, provider, {
+          success: false,
+          errorMessage: error?.message || "Couldn't check the connection.",
+        }).catch(() => {});
+      }
       return res.status(400).json({ success: false, message: error?.message || "Couldn't check the connection." });
     }
   },
@@ -13875,8 +13889,6 @@ accountController.sendInvoiceEmail = sendInvoiceEmail;
 accountController.sendCancellationEmail = sendCancellationEmail;
 
 module.exports = accountController;
-
-
 
 
 

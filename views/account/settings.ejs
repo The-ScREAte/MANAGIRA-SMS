@@ -2955,7 +2955,9 @@
 
       .sms-steps { margin: 0 0 6px; padding-left: 20px; color: #475569; font-size: 13px; line-height: 1.6; }
       .sms-steps a { color: inherit; font-weight: 600; }
-      .sms-check-result[hidden] { display: none !important; }
+      .sms-connection-state { font-size: 12px; color: #64748b; font-weight: 600; }
+      .sms-connection-state.is-success { color: #15803d; }
+      .sms-connection-state.is-error { color: #b91c1c; }
       /* Nested "setup checklist" / "test message" sub-cards (WhatsApp) read
          as a secondary, slightly recessed panel instead of a second card. */
       #integrations .card #whatsapp-setup-checklist-card,
@@ -4214,7 +4216,12 @@
         <% if (_canCustomizeSettings && !_isOnHoldRestricted) { %>
         <section id="integrations" class="settings-section">
           <h1><i class="fa-solid fa-plug settings-h1-icon" aria-hidden="true"></i> Integrations</h1>
-          <p class="lead">Activate and connect third-party services used across your academic workspace.</p>
+          <p class="lead">Connect the services your school uses.</p>
+          <% if (settingsEncryptionKeyConfigured === false) { %>
+          <div class="notice is-visible" role="alert" style="margin-bottom:16px;">
+            Integration credentials cannot be saved or checked. Set a valid <code>SETTINGS_ENCRYPTION_KEY</code> in the server environment and restart the app.
+          </div>
+          <% } %>
 
           <% const gi = (typeof googleIntegration !== 'undefined' && googleIntegration) ? googleIntegration : {}; %>
           <% const giActivated = !!gi.activated; %>
@@ -4613,7 +4620,7 @@
                   key: 'africastalking',
                   label: "Africa's Talking SMS",
                   logo: '/images/icons/africastalking-192.png',
-                  description: "Text parents and staff across Africa from your school's own Africa's Talking account. Your account pays for each message.",
+                  description: "Send school texts with your Africa's Talking account.",
                 },
               ];
             %>
@@ -4640,7 +4647,16 @@
               </h4>
               <small class="google-integration-description">
                 <%= def.description %>
-                <% if (ps.lastError) { %><br><span style="color:#b91c1c;">Last error: <%= ps.lastError %></span><% } %>
+                <% if (psConfigured) { %>
+                <br><span class="sms-connection-state <%= ps.credentialsReadable === false || ps.lastStatus === 'error' ? 'is-error' : (ps.lastStatus === 'success' ? 'is-success' : '') %>" data-provider="<%= def.key %>">
+                  <% if (ps.credentialsReadable === false) { %><%= ps.credentialError || 'Saved key cannot be read. Restore the original server encryption key or enter a new key.' %>
+                  <% } else if (ps.lastStatus === 'success') { %>Connection verified
+                  <% } else if (ps.lastStatus === 'error') { %>Last connection check failed
+                  <% } else { %>Connection not checked yet<% } %>
+                  <% if (ps.firstConnectedAt && ps.credentialsReadable !== false && ps.lastStatus === 'success') { %> · <%= new Date(ps.firstConnectedAt).toLocaleString() %><% } %>
+                </span>
+                <% } %>
+                <% if (ps.lastError && ps.credentialsReadable !== false) { %><br><span style="color:#b91c1c;"><%= ps.lastError %></span><% } %>
                 <% const psCoverage = integrationCoverage[def.key]; %>
                 <% if (psIsActive && orgCountryCode && Array.isArray(psCoverage) && !psCoverage.includes(orgCountryCode)) { %>
                 <span class="sms-coverage-note"><%= def.label.replace(/ SMS$/, '') %> doesn't cover <%= orgCountryName || orgCountryCode %>. Texts to local numbers may not arrive; switch to a provider marked Available.</span>
@@ -4650,18 +4666,11 @@
 
               <div class="google-integration-toolbar">
                 <div class="google-integration-actions">
-                  <a href="#" class="integration-readmore-link" data-integration="<%= def.key %>">Read more</a>
-                  <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                    <summary class="google-actions-toggle" aria-label="<%= def.label %> actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
-                    <div class="google-actions-menu-list">
-                      <% if (def.key === 'twilio' && !twilioAvailableForCountry && !psActivated) { %>
-                      <span class="google-action-item" aria-disabled="true" style="color:#b91c1c;cursor:not-allowed;">Unavailable in Africa</span>
-                      <% } else { %>
-                      <a class="google-action-item sms-open-activate" href="#" data-provider="<%= def.key %>" style="display:<%= psActivated ? 'none' : 'block' %>">Activate</a>
-                      <% } %>
-                      <a class="google-action-item sms-open-deactivate" href="#" data-provider="<%= def.key %>" style="display:<%= psActivated ? 'block' : 'none' %>">Deactivate</a>
-                    </div>
-                  </details>
+                  <% if (def.key === 'twilio' && !twilioAvailableForCountry && !psActivated) { %>
+                  <span class="google-action-item" aria-disabled="true" style="color:#b91c1c;cursor:not-allowed;">Unavailable in Africa</span>
+                  <% } else if (!psActivated) { %>
+                  <a class="google-action-item sms-open-activate" href="#" data-provider="<%= def.key %>">Activate</a>
+                  <% } %>
                 </div>
               </div>
 
@@ -4669,9 +4678,6 @@
 
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                 <% if (psConfigured) { %>
-                <button type="button" class="btn-link sms-check-button" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
-                  Test connection
-                </button>
                 <button type="button" class="btn-link sms-compose-toggle" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
                   Send a test text
                 </button>
@@ -4681,7 +4687,6 @@
                 </button>
               </div>
 
-              <small class="sms-check-result" data-provider="<%= def.key %>" hidden style="display:block;margin-top:8px;font-weight:600;"></small>
               <div class="sms-panel-row" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-top:10px;">
                 <% if (psConfigured) { %>
                 <div class="sms-compose-panel" data-provider="<%= def.key %>" style="display:none;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
@@ -4712,6 +4717,9 @@
                   autocomplete="off"
                 >
                   <div style="display:grid;gap:8px;">
+                    <% if (def.key === 'africastalking') { %>
+                    <p class="sms-steps">Get the API key from your <a href="https://account.africastalking.com" target="_blank" rel="noopener">Africa's Talking app</a>. For Live, use its API username—not the app name.</p>
+                    <% } else { %>
                     <ol class="sms-steps">
                       <% if (def.key === 'twilio') { %>
                         <li>Sign in at <a href="https://console.twilio.com" target="_blank" rel="noopener">console.twilio.com</a>.</li>
@@ -4722,12 +4730,9 @@
                         <li>Sign in at <a href="https://sms.arkesel.com" target="_blank" rel="noopener">sms.arkesel.com</a>.</li>
                         <li>Go to <strong>API</strong> in the left menu, choose <strong>Generate new key</strong> and copy it.</li>
                         <li>Paste it below and press <strong>Save and test</strong>.</li>
-                      <% } else { %>
-                        <li>Sign in at <a href="https://account.africastalking.com" target="_blank" rel="noopener">account.africastalking.com</a> and open the app for the environment you want to use.</li>
-                        <li>Copy the API key for that environment. In live mode, also use the API username shown in Africa's Talking; the app display name is not the username.</li>
-                        <li>Choose the matching environment below, then press <strong>Save and test</strong>.</li>
                       <% } %>
                     </ol>
+                    <% } %>
                     <% if (def.key === 'twilio') { %>
                     <div>
                       <label class="form-label" for="sms-twilio-account-sid">Account SID<span class="form-required-mark">*</span></label>
@@ -4741,7 +4746,7 @@
                         <option value="live" <%= ps.sandbox ? '' : 'selected' %>>Live</option>
                         <option value="sandbox" <%= ps.sandbox ? 'selected' : '' %>>Sandbox</option>
                       </select>
-                      <small style="display:block;margin-top:4px;color:#64748b;">Use a key from the selected environment. Sandbox automatically uses the username <strong>sandbox</strong>.</small>
+                      <small style="display:block;margin-top:4px;color:#64748b;">Sandbox uses the username <strong>sandbox</strong>.</small>
                     </div>
                     <div id="sms-africastalking-live-username-field" style="display:<%= ps.sandbox ? 'none' : 'block' %>;">
                       <label class="form-label" for="sms-africastalking-username">Live API username<span class="form-required-mark">*</span></label>
@@ -4781,10 +4786,26 @@
                           data-provider="<%= def.key %>"
                           data-mode="change"
                           style="position:absolute;top:6px;right:6px;padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;line-height:1;cursor:pointer;"
-                        >Change</button>
+                        >Change                        </button>
                         <% } %>
                       </div>
-                      <small style="display:block;margin-top:4px;color:#94a3b8;">Stored encrypted. Never shown again in full.</small>
+                      <% if (psConfigured) { %>
+                      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+                        <button type="button" class="btn-link sms-check-button" data-provider="<%= def.key %>" style="font-size:12px;padding:5px 8px;">
+                          Check connection
+                        </button>
+                        <small class="sms-check-result" data-provider="<%= def.key %>" aria-live="polite" style="color:#64748b;">
+                          Checks credentials only. No SMS is sent or credit used.
+                        </small>
+                      </div>
+                      <% } %>
+                      <small style="display:block;margin-top:4px;color:#94a3b8;">
+                        <% if (ps.credentialsReadable === false) { %>
+                          Saved key can't be read. Restore the original server encryption key or enter a replacement.
+                        <% } else { %>
+                          Saved securely; only the last four characters are shown.
+                        <% } %>
+                      </small>
                     </div>
 
                     <% if (def.key === 'twilio') { %>
@@ -9237,15 +9258,13 @@
         };
 
         let pendingSmsProvider = null;
-        let pendingSmsActivate = true;
 
-        function openSmsPasswordModal(provider, activate) {
+        function openSmsPasswordModal(provider) {
           if (!smsModal) return;
           pendingSmsProvider = provider;
-          pendingSmsActivate = activate;
           const label = providerLabels[provider] || "this SMS provider";
           if (smsModalCopy) {
-            smsModalCopy.textContent = `Please confirm your password to ${activate ? "activate" : "deactivate"} ${label}.`;
+            smsModalCopy.textContent = `Please confirm your password to activate ${label}.`;
           }
           if (smsModalInput) smsModalInput.value = "";
           if (smsModalError) smsModalError.textContent = "";
@@ -9256,13 +9275,7 @@
         document.querySelectorAll(".sms-open-activate").forEach((el) => {
           el.addEventListener("click", (event) => {
             event.preventDefault();
-            openSmsPasswordModal(el.dataset.provider, true);
-          });
-        });
-        document.querySelectorAll(".sms-open-deactivate").forEach((el) => {
-          el.addEventListener("click", (event) => {
-            event.preventDefault();
-            openSmsPasswordModal(el.dataset.provider, false);
+            openSmsPasswordModal(el.dataset.provider);
           });
         });
 
@@ -9273,12 +9286,6 @@
           smsModal.addEventListener("click", (event) => {
             if (event.target === smsModal) closeModal(smsModal);
           });
-        }
-
-        function setSmsCardActivationState(provider, activated) {
-          const card = document.querySelector(`.sms-provider-card[data-sms-provider="${provider}"]`);
-          if (!card) return;
-          window.location.reload();
         }
 
         if (smsModalSubmit) {
@@ -9305,7 +9312,7 @@
                 },
                 body: new URLSearchParams({
                   provider: pendingSmsProvider,
-                  activate: pendingSmsActivate ? "1" : "0",
+                  activate: "1",
                   integrationPassword: password,
                 }),
               });
@@ -9317,7 +9324,7 @@
               }
 
               closeModal(smsModal);
-              setSmsCardActivationState(pendingSmsProvider, pendingSmsActivate);
+              window.location.reload();
             } catch (error) {
               if (smsModalError) smsModalError.textContent = "Unable to update this SMS integration right now.";
             } finally {
@@ -9399,35 +9406,6 @@
           });
         });
 
-        // Test connection: asks the provider if the saved details still work (no message sent).
-        document.querySelectorAll(".sms-check-button").forEach((button) => {
-          button.addEventListener("click", async () => {
-            const provider = button.dataset.provider;
-            const previousLabel = button.textContent;
-            button.disabled = true;
-            button.textContent = "Checking…";
-            const statusEl = document.querySelector(`.sms-check-result[data-provider="${provider}"]`);
-            try {
-              const response = await fetch("/account/sms/check", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
-                body: new URLSearchParams({ provider }),
-              });
-              const result = await response.json().catch(() => ({}));
-              if (statusEl) {
-                statusEl.textContent = (result.success ? "✓ " : "✕ ") + (result.message || (result.success ? "Connected." : "Couldn't connect."));
-                statusEl.style.color = result.success ? "#15803d" : "#b91c1c";
-                statusEl.hidden = false;
-              }
-            } catch (error) {
-              if (statusEl) { statusEl.textContent = "✕ Couldn't check right now. Try again."; statusEl.style.color = "#b91c1c"; statusEl.hidden = false; }
-            } finally {
-              button.disabled = false;
-              button.textContent = previousLabel.trim() || "Test connection";
-            }
-          });
-        });
-
         document.querySelectorAll(".sms-test-button").forEach((button) => {
           button.addEventListener("click", async () => {
             const provider = button.dataset.provider;
@@ -9473,6 +9451,64 @@
             } finally {
               button.disabled = false;
               button.textContent = previousLabel || "Send";
+            }
+          });
+        });
+
+        document.querySelectorAll(".sms-check-button").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const provider = button.dataset.provider;
+            const previousLabel = button.textContent;
+            const statusEl = document.querySelector(`.sms-check-result[data-provider="${provider}"]`);
+            const connectionEl = document.querySelector(`.sms-connection-state[data-provider="${provider}"]`);
+            button.disabled = true;
+            button.textContent = "Checking...";
+            if (statusEl) {
+              statusEl.textContent = "Checking credentials...";
+              statusEl.style.color = "#64748b";
+            }
+
+            try {
+              const response = await fetch("/account/sms/check", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({ provider }),
+              });
+              const result = await response.json().catch(() => ({}));
+              const connected = response.ok && result.success;
+              if (statusEl) {
+                statusEl.textContent = result.message || (connected ? "Connection verified." : "Connection check failed.");
+                statusEl.style.color = connected ? "#15803d" : "#b91c1c";
+              }
+              if (connectionEl) {
+                connectionEl.classList.toggle("is-success", connected);
+                connectionEl.classList.toggle("is-error", !connected);
+                if (connected) {
+                  const checkedAt = result.firstConnectedAt
+                    ? new Date(result.firstConnectedAt).toLocaleString()
+                    : "";
+                  connectionEl.textContent = `Connection verified${checkedAt ? ` · ${checkedAt}` : ""}`;
+                } else {
+                  connectionEl.textContent = result.message || "Connection check failed.";
+                }
+              }
+            } catch (error) {
+              if (statusEl) {
+                statusEl.textContent = "Could not check the connection. Please try again.";
+                statusEl.style.color = "#b91c1c";
+              }
+              if (connectionEl) {
+                connectionEl.classList.remove("is-success");
+                connectionEl.classList.add("is-error");
+                connectionEl.textContent = "Connection check failed.";
+              }
+            } finally {
+              button.disabled = false;
+              button.textContent = previousLabel.trim() || "Check connection";
             }
           });
         });

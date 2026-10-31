@@ -62,6 +62,7 @@ Key variables required in .env:
 - PAYSTACK_SECRET_KEY  Paystack secret key
 - AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / S3_BUCKET  AWS S3 credentials
 - EMAIL_USER / EMAIL_PASS  SMTP credentials
+- SETTINGS_ENCRYPTION_KEY  32-byte key used to encrypt saved integration credentials; generate once with `openssl rand -hex 32` and keep the same value in the server environment
 - META_APP_ID  Meta app ID for WhatsApp Embedded Signup
 - META_APP_SECRET  Meta app secret for exchanging the Embedded Signup code
 - WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID  Meta Embedded Signup configuration ID
@@ -74,3 +75,5 @@ The app is deployed as a standard Node.js server. Ensure all environment variabl
 ```sh
 npm start
 ```
+
+Keep `SETTINGS_ENCRYPTION_KEY` stable across deploys. Changing it makes previously stored integration credentials unreadable; never commit the key or replace it casually.

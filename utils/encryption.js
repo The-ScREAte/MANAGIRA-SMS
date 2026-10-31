@@ -19,6 +19,13 @@ function loadKey() {
   return key;
 }
 
+function isSettingsEncryptionKeyConfigured() {
+  const raw = String(process.env.SETTINGS_ENCRYPTION_KEY || "").trim();
+  if (!raw) return false;
+  const key = /^[0-9a-fA-F]{64}$/.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
+  return key.length === 32;
+}
+
 // Encrypts a secret for at-rest storage. Returns "<iv>:<authTag>:<ciphertext>" (all base64),
 // or "" for empty input so callers can store NULL without special-casing.
 function encryptSecret(plainText) {
@@ -36,12 +43,14 @@ function encryptSecret(plainText) {
 
 // Decrypts a value produced by encryptSecret. Returns "" for empty/malformed input
 // rather than throwing, since callers treat "" as "not configured".
-function decryptSecret(storedValue) {
+function decryptSecretStatus(storedValue) {
   const value = String(storedValue || "");
-  if (!value) return "";
+  if (!value) return { value: "", stored: false, readable: true, error: "" };
 
   const parts = value.split(":");
-  if (parts.length !== 3) return "";
+  if (parts.length !== 3) {
+    return { value: "", stored: true, readable: false, error: "Stored credential data is invalid." };
+  }
 
   try {
     const key = loadKey();
@@ -53,10 +62,28 @@ function decryptSecret(storedValue) {
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(authTag);
     const plainText = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    return plainText.toString("utf8");
-  } catch (_) {
-    return "";
+    return { value: plainText.toString("utf8"), stored: true, readable: true, error: "" };
+  } catch (error) {
+    const message = String(error?.message || "");
+    const errorMessage = message.includes("SETTINGS_ENCRYPTION_KEY")
+      ? message
+      : "Saved credential cannot be decrypted with this server encryption key.";
+    return { value: "", stored: true, readable: false, error: errorMessage };
   }
+}
+
+function decryptSecret(storedValue) {
+  return decryptSecretStatus(storedValue).value;
+}
+
+function decryptSecretOrThrow(storedValue) {
+  const result = decryptSecretStatus(storedValue);
+  if (!result.readable) {
+    throw new Error(
+      `${result.error} Restore the original SETTINGS_ENCRYPTION_KEY or enter and save the credential again.`
+    );
+  }
+  return result.value;
 }
 
 // Shows only the last 4 characters — enough for a school to recognize their
@@ -71,5 +98,8 @@ function maskSecret(plainText) {
 module.exports = {
   encryptSecret,
   decryptSecret,
+  decryptSecretStatus,
+  decryptSecretOrThrow,
   maskSecret,
+  isSettingsEncryptionKeyConfigured,
 };

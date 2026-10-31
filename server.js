@@ -6,6 +6,11 @@ const multer = require("multer");
 const flash = require("connect-flash");
 const path = require("path");
 require("dotenv").config();
+const { isSettingsEncryptionKeyConfigured } = require("./utils/encryption");
+
+if (!isSettingsEncryptionKeyConfigured()) {
+  console.error("[Settings encryption] SETTINGS_ENCRYPTION_KEY is missing or invalid. Integration credentials cannot be safely stored or read.");
+}
 
 const suppressCronMissedExecutionLogs = process.env.SUPPRESS_NODE_CRON_MISSED_LOGS !== "false";
 if (suppressCronMissedExecutionLogs) {

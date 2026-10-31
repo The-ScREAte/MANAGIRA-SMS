@@ -1,6 +1,11 @@
 const axios = require("axios");
 const { toInternationalPhone, INVALID_PHONE_MESSAGE } = require("./phoneNumber");
-const { encryptSecret, decryptSecret, maskSecret } = require("./encryption");
+const {
+  encryptSecret,
+  decryptSecretStatus,
+  decryptSecretOrThrow,
+  maskSecret,
+} = require("./encryption");
 
 const PROVIDERS = ["arkesel", "africastalking", "twilio"];
 const AFRICAN_COUNTRY_CODES = new Set([
@@ -50,6 +55,7 @@ async function ensureSmsIntegrationSchema(dbClient) {
       ADD COLUMN IF NOT EXISTS sms_arkesel_last_status TEXT,
       ADD COLUMN IF NOT EXISTS sms_arkesel_last_error TEXT,
       ADD COLUMN IF NOT EXISTS sms_arkesel_last_tested_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS sms_arkesel_first_connected_at TIMESTAMPTZ,
 
       ADD COLUMN IF NOT EXISTS sms_africastalking_activated BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS sms_africastalking_configured BOOLEAN NOT NULL DEFAULT FALSE,
@@ -60,6 +66,7 @@ async function ensureSmsIntegrationSchema(dbClient) {
       ADD COLUMN IF NOT EXISTS sms_africastalking_last_status TEXT,
       ADD COLUMN IF NOT EXISTS sms_africastalking_last_error TEXT,
       ADD COLUMN IF NOT EXISTS sms_africastalking_last_tested_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS sms_africastalking_first_connected_at TIMESTAMPTZ,
 
       ADD COLUMN IF NOT EXISTS sms_twilio_activated BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS sms_twilio_configured BOOLEAN NOT NULL DEFAULT FALSE,
@@ -68,7 +75,21 @@ async function ensureSmsIntegrationSchema(dbClient) {
       ADD COLUMN IF NOT EXISTS sms_twilio_auth_token_encrypted TEXT,
       ADD COLUMN IF NOT EXISTS sms_twilio_last_status TEXT,
       ADD COLUMN IF NOT EXISTS sms_twilio_last_error TEXT,
-      ADD COLUMN IF NOT EXISTS sms_twilio_last_tested_at TIMESTAMPTZ
+      ADD COLUMN IF NOT EXISTS sms_twilio_last_tested_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS sms_twilio_first_connected_at TIMESTAMPTZ
+  `);
+  await dbClient.query(`
+    UPDATE organizations
+    SET sms_arkesel_first_connected_at = COALESCE(sms_arkesel_first_connected_at, sms_arkesel_last_tested_at)
+    WHERE sms_arkesel_last_status = 'success' AND sms_arkesel_first_connected_at IS NULL;
+
+    UPDATE organizations
+    SET sms_africastalking_first_connected_at = COALESCE(sms_africastalking_first_connected_at, sms_africastalking_last_tested_at)
+    WHERE sms_africastalking_last_status = 'success' AND sms_africastalking_first_connected_at IS NULL;
+
+    UPDATE organizations
+    SET sms_twilio_first_connected_at = COALESCE(sms_twilio_first_connected_at, sms_twilio_last_tested_at)
+    WHERE sms_twilio_last_status = 'success' AND sms_twilio_first_connected_at IS NULL
   `);
 
   await dbClient.query(`
@@ -98,41 +119,57 @@ async function ensureSmsIntegrationSchema(dbClient) {
 
 function buildSmsIntegrationStatus(row = {}) {
   const activeProvider = safeString(row.sms_active_provider).toLowerCase();
+  const arkeselSecret = decryptSecretStatus(row.sms_arkesel_api_key_encrypted);
+  const africasTalkingSecret = decryptSecretStatus(row.sms_africastalking_api_key_encrypted);
+  const twilioSecret = decryptSecretStatus(row.sms_twilio_auth_token_encrypted);
+  const arkeselApiKey = arkeselSecret.value;
+  const africasTalkingApiKey = africasTalkingSecret.value;
+  const twilioAuthToken = twilioSecret.value;
 
   const arkesel = {
     provider: "arkesel",
     activated: parseBoolean(row.sms_arkesel_activated, false),
     configured: parseBoolean(row.sms_arkesel_configured, false),
+    credentialsReadable: arkeselSecret.readable && Boolean(arkeselApiKey),
+    credentialError: arkeselSecret.error,
     senderId: safeString(row.sms_arkesel_sender_id),
-    maskedApiKey: maskSecret(decryptSecret(row.sms_arkesel_api_key_encrypted)),
+    maskedApiKey: maskSecret(arkeselApiKey),
     lastStatus: safeString(row.sms_arkesel_last_status) || "idle",
     lastError: safeString(row.sms_arkesel_last_error),
     lastTestedAt: row.sms_arkesel_last_tested_at || null,
+    firstConnectedAt: row.sms_arkesel_first_connected_at || null,
   };
 
   const africastalking = {
     provider: "africastalking",
     activated: parseBoolean(row.sms_africastalking_activated, false),
     configured: parseBoolean(row.sms_africastalking_configured, false),
+    credentialsReadable: africasTalkingSecret.readable && Boolean(africasTalkingApiKey) &&
+      (parseBoolean(row.sms_africastalking_sandbox, false) || Boolean(safeString(row.sms_africastalking_username))),
+    credentialError: africasTalkingSecret.error,
     username: safeString(row.sms_africastalking_username),
     senderId: safeString(row.sms_africastalking_sender_id),
     sandbox: parseBoolean(row.sms_africastalking_sandbox, false),
-    maskedApiKey: maskSecret(decryptSecret(row.sms_africastalking_api_key_encrypted)),
+    maskedApiKey: maskSecret(africasTalkingApiKey),
     lastStatus: safeString(row.sms_africastalking_last_status) || "idle",
     lastError: safeString(row.sms_africastalking_last_error),
     lastTestedAt: row.sms_africastalking_last_tested_at || null,
+    firstConnectedAt: row.sms_africastalking_first_connected_at || null,
   };
 
   const twilio = {
     provider: "twilio",
     activated: parseBoolean(row.sms_twilio_activated, false),
     configured: parseBoolean(row.sms_twilio_configured, false),
+    credentialsReadable: twilioSecret.readable && Boolean(twilioAuthToken),
+    credentialError: twilioSecret.error,
     accountSid: safeString(row.sms_twilio_account_sid),
     fromNumber: safeString(row.sms_twilio_from_number),
-    maskedAuthToken: maskSecret(decryptSecret(row.sms_twilio_auth_token_encrypted)),
+    maskedAuthToken: maskSecret(twilioAuthToken),
     lastStatus: safeString(row.sms_twilio_last_status) || "idle",
     lastError: safeString(row.sms_twilio_last_error),
     lastTestedAt: row.sms_twilio_last_tested_at || null,
+    firstConnectedAt: row.sms_twilio_first_connected_at || null,
   };
 
   return {
@@ -144,12 +181,13 @@ function buildSmsIntegrationStatus(row = {}) {
 const SMS_INTEGRATION_COLUMNS = `
   sms_active_provider,
   sms_arkesel_activated, sms_arkesel_configured, sms_arkesel_sender_id, sms_arkesel_api_key_encrypted,
-  sms_arkesel_last_status, sms_arkesel_last_error, sms_arkesel_last_tested_at,
+  sms_arkesel_last_status, sms_arkesel_last_error, sms_arkesel_last_tested_at, sms_arkesel_first_connected_at,
   sms_africastalking_activated, sms_africastalking_configured, sms_africastalking_username,
   sms_africastalking_sender_id, sms_africastalking_api_key_encrypted, sms_africastalking_sandbox,
-  sms_africastalking_last_status, sms_africastalking_last_error, sms_africastalking_last_tested_at,
+  sms_africastalking_last_status, sms_africastalking_last_error, sms_africastalking_last_tested_at, sms_africastalking_first_connected_at,
   sms_twilio_activated, sms_twilio_configured, sms_twilio_account_sid, sms_twilio_from_number,
-  sms_twilio_auth_token_encrypted, sms_twilio_last_status, sms_twilio_last_error, sms_twilio_last_tested_at
+  sms_twilio_auth_token_encrypted, sms_twilio_last_status, sms_twilio_last_error, sms_twilio_last_tested_at,
+  sms_twilio_first_connected_at
 `;
 
 async function getSmsIntegrationStatus(dbClient, organizationId) {
@@ -269,7 +307,11 @@ async function markSmsProviderTestResult(dbClient, organizationId, provider, { s
     `UPDATE organizations
      SET sms_${normalizedProvider}_last_status = $2,
          sms_${normalizedProvider}_last_error = $3,
-         sms_${normalizedProvider}_last_tested_at = NOW()
+         sms_${normalizedProvider}_last_tested_at = NOW(),
+         sms_${normalizedProvider}_first_connected_at = CASE
+           WHEN $2 = 'success' THEN COALESCE(sms_${normalizedProvider}_first_connected_at, NOW())
+           ELSE sms_${normalizedProvider}_first_connected_at
+         END
      WHERE organization_id = $1`,
     [organizationId, success ? "success" : "error", success ? null : safeString(errorMessage).slice(0, 800)]
   );
@@ -297,7 +339,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
   }
 
   if (provider === "arkesel") {
-    const apiKey = decryptSecret(row.sms_arkesel_api_key_encrypted);
+    const apiKey = decryptSecretOrThrow(row.sms_arkesel_api_key_encrypted);
     if (!apiKey) throw new Error("Arkesel API key is missing. Re-save your Arkesel settings.");
     return {
       organizationId,
@@ -309,7 +351,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
   }
 
   if (provider === "africastalking") {
-    const apiKey = decryptSecret(row.sms_africastalking_api_key_encrypted);
+    const apiKey = decryptSecretOrThrow(row.sms_africastalking_api_key_encrypted);
     if (!apiKey) throw new Error("Africa's Talking API key is missing. Re-save your settings.");
     return {
       organizationId,
@@ -322,7 +364,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
     };
   }
 
-  const authToken = decryptSecret(row.sms_twilio_auth_token_encrypted);
+  const authToken = decryptSecretOrThrow(row.sms_twilio_auth_token_encrypted);
   if (!authToken) throw new Error("Twilio auth token is missing. Re-save your Twilio settings.");
   return {
     organizationId,
@@ -527,16 +569,25 @@ async function getProviderCredentials(dbClient, organizationId, provider, overri
     [organizationId]
   )).rows[0] || {};
   const pick = (typed, saved) => safeString(typed) || safeString(saved);
+  const pickEncrypted = (typed, encrypted) => (
+    safeString(typed) || decryptSecretOrThrow(encrypted)
+  );
   if (provider === "twilio") {
     return {
       provider,
       accountSid: pick(overrides.accountSid, row.sms_twilio_account_sid),
-      authToken: pick(overrides.authToken, decryptSecret(row.sms_twilio_auth_token_encrypted)),
+      authToken: pickEncrypted(
+        overrides.authToken,
+        row.sms_twilio_auth_token_encrypted
+      ),
       fromNumber: pick(overrides.fromNumber, row.sms_twilio_from_number),
     };
   }
   if (provider === "arkesel") {
-    return { provider, apiKey: pick(overrides.apiKey, decryptSecret(row.sms_arkesel_api_key_encrypted)) };
+    return {
+      provider,
+      apiKey: pickEncrypted(overrides.apiKey, row.sms_arkesel_api_key_encrypted),
+    };
   }
   if (provider === "africastalking") {
     const sandbox = overrides.sandbox !== undefined
@@ -544,7 +595,7 @@ async function getProviderCredentials(dbClient, organizationId, provider, overri
       : parseBoolean(row.sms_africastalking_sandbox, false);
     return {
       provider,
-      apiKey: pick(overrides.apiKey, decryptSecret(row.sms_africastalking_api_key_encrypted)),
+      apiKey: pickEncrypted(overrides.apiKey, row.sms_africastalking_api_key_encrypted),
       username: sandbox ? "sandbox" : pick(overrides.username, row.sms_africastalking_username),
       sandbox,
     };
