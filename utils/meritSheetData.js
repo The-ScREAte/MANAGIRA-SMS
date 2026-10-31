@@ -57,6 +57,14 @@ function resolveScoreBand(bands, percentage) {
   return best;
 }
 
+function formatMeritSheetGrade(label, mode = "letters") {
+  const original = String(label || "").trim();
+  if (!original) return "-";
+  if (mode !== "numbers") return original;
+  const numberMatch = original.match(/-?\d+(?:\.\d+)?/);
+  return numberMatch ? String(Number(numberMatch[0])) : original;
+}
+
 function getOrdinalSuffix(n) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -78,6 +86,7 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
     studentsResult,
     scoresResult,
     scoreBandsResult,
+    gradeDisplaySettingsResult,
   ] = await Promise.all([
     db.query(
       `
@@ -169,6 +178,12 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
      WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
       [organizationId, classId, termId]
     ),
+    db.query(
+      `SELECT display_settings
+       FROM report_settings
+       WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+      [organizationId, classId, termId]
+    ),
   ]);
 
   const organization = organizationResult.rows[0] || null;
@@ -190,6 +205,12 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
 
   const students = studentsResult.rows;
   const scoreBands = scoreBandsResult.rows;
+  const displaySettings = gradeDisplaySettingsResult.rows[0]?.display_settings || {};
+  const gradeMode = displaySettings.sections?.gradePresentation?.mode === "numbers"
+    ? "numbers"
+    : displaySettings.sections?.gradePresentation?.mode === "both"
+      ? "both"
+      : "letters";
 
   // Scores indexed by student, subject and assessment title.
   const scoreByKey = new Map();
@@ -259,7 +280,7 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
       averageScore: averageScore.toFixed(2),
       percentage: percentageValue === null ? "-" : `${percentageValue.toFixed(2)}%`,
       gender: genderText ? genderText.charAt(0).toUpperCase() + genderText.slice(1).toLowerCase() : "-",
-      overallGrade: scoreBand?.grade_label || "-",
+      overallGrade: formatMeritSheetGrade(scoreBand?.grade_label, gradeMode),
       remark: scoreBand?.remark || "-",
     };
   });
@@ -303,5 +324,6 @@ module.exports = {
   parseMeritSheetColumns,
   meritSheetColumnFlags,
   resolveScoreBand,
+  formatMeritSheetGrade,
   buildMeritSheetData,
 };

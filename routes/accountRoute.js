@@ -488,6 +488,12 @@ router.get(
   guardianMessagingController.mailroomDirectory
 );
 router.post(
+  "/messaging/mailroomDeleteStudentContact",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MAILROOM),
+  guardianMessagingController.mailroomDeleteStudentContact
+);
+router.post(
   "/messaging/mailroomSend",
   isAuthenticated,
   requirePermission(PERMISSIONS.MAILROOM),

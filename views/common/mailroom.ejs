@@ -127,6 +127,11 @@
   .mr-contact input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--mr-primary); flex: 0 0 15px; }
   .mr-contact.disabled { opacity: 0.4; cursor: not-allowed; }
   .mr-contact-body { min-width: 0; flex: 1; }
+  .mr-contact-actions { display: flex; align-items: flex-start; margin-left: auto; }
+  .mr-contact-delete { width: 28px; height: 28px; display: inline-grid; place-items: center; padding: 0; border: 1px solid #fee2e2; border-radius: 8px; background: #fff; color: #b91c1c; cursor: pointer; flex: 0 0 28px; }
+  .mr-contact-delete:hover { background: #fef2f2; border-color: #fecaca; }
+  .mr-contact-delete:disabled { opacity: .55; cursor: wait; }
+  .mr-contact-delete svg { width: 15px; height: 15px; }
   .mr-contact-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mr-contact-sub { font-size: 11px; color: var(--mr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
   .mr-pill-row { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -609,10 +614,14 @@
       const checked = state.selected.has(c.id);
       const students = (c.studentNames || []).join(', ');
       const classes = (c.classNames || []).join(', ');
+      const studentContactIds = (c.keys || [])
+        .filter((key) => key.startsWith('student_contact:'))
+        .map((key) => Number(key.slice('student_contact:'.length)))
+        .filter((id) => Number.isInteger(id) && id > 0);
       return `<label class="mr-contact" data-key="${escapeHtml(c.id)}">
         <input type="checkbox" ${checked ? 'checked' : ''} aria-label="Select ${escapeHtml(c.guardianName)}">
         <div class="mr-contact-body">
-          ${canSeeContacts
+          ${canSeeContacts && c.source !== 'student_contact'
             ? `<button type="button" class="mr-contact-open" data-open-contact title="Open contact card">${escapeHtml(c.guardianName)}</button>`
             : `<div class="mr-contact-name">${escapeHtml(c.guardianName)}</div>`}
           <div class="mr-contact-sub" title="${escapeHtml(students)}">${classes ? `<span class="mr-contact-classes">${escapeHtml(classes)}</span> · ` : ''}${escapeHtml(students || 'No linked student on file')}</div>
@@ -621,6 +630,7 @@
             <span class="mr-pill ${c.email ? '' : 'mr-pill-missing'}">${c.email ? escapeHtml(c.email) : 'No email'}</span>
           </div>
         </div>
+        ${studentContactIds.length ? `<span class="mr-contact-actions"><button type="button" class="mr-contact-delete" data-delete-student-contact title="Permanently delete this saved contact" aria-label="Permanently delete ${escapeHtml(c.guardianName)}" data-contact-method-ids="${studentContactIds.join(',')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg></button></span>` : ''}
       </label>`;
     }).join('') + (remaining > 0
       ? `<button type="button" class="mr-more-btn" data-action="more-contacts">Show ${Math.min(CONTACT_PAGE, remaining)} more (${remaining} not shown)</button>`
@@ -641,6 +651,19 @@
     updateRecipientCount();
   });
   $('mrContactList').addEventListener('click', (e) => {
+    const deleteButton = e.target.closest('[data-delete-student-contact]');
+    if (deleteButton) {
+      e.preventDefault();
+      e.stopPropagation();
+      const card = deleteButton.closest('.mr-contact');
+      const contact = state.contacts.find((entry) => entry.id === card?.getAttribute('data-key'));
+      const ids = String(deleteButton.dataset.contactMethodIds || '')
+        .split(',')
+        .map((value) => Number(value))
+        .filter((id) => Number.isInteger(id) && id > 0);
+      if (contact && ids.length) deleteStudentContact(contact, ids, deleteButton);
+      return;
+    }
     const opener = e.target.closest('[data-open-contact]');
     if (opener) {
       e.preventDefault();
@@ -653,6 +676,31 @@
       renderContacts();
     }
   });
+
+  async function deleteStudentContact(contact, contactMethodIds, button) {
+    const confirmed = confirm(`Permanently delete the saved contact "${contact.guardianName}"? This cannot be undone.`);
+    if (!confirmed) return;
+
+    button.disabled = true;
+    try {
+      const res = await fetch('/account/messaging/mailroomDeleteStudentContact', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ contactMethodIds }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out.success) throw new Error(out.message || 'The contact could not be deleted.');
+
+      state.selected.delete(contact.id);
+      await loadContacts();
+      updateRecipientCount();
+      showStatus(out.message || 'Contact permanently deleted.', true);
+    } catch (error) {
+      button.disabled = false;
+      showStatus(error.message || 'The contact could not be deleted.', false);
+    }
+  }
 
   // ---- Contact card ----
   // Opened from a name in the contact list (needs "See Contacts"). With "Edit

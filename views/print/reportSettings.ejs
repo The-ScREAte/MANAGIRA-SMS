@@ -2874,10 +2874,10 @@
 
       <div class="card">
         <h2>Signature Management</h2>
-        <div class="notice">Signatures printed on report cards. One per class.</div>
+        <div class="notice">One signature per class, across all terms and school years. Changes apply to future reports; saved report files remain unchanged.</div>
         
         <% if (signatureGroups && Object.keys(signatureGroups).length) { %>
-          <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current</div>
+          <div class="section-title" style="margin-top:0;margin-bottom:12px;">In use across all terms</div>
           <div style="display:grid;gap:12px;margin-bottom:20px;">
             <% Object.keys(signatureGroups).forEach(signaturePath => { const sig = signatureGroups[signaturePath]; %>
               <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">

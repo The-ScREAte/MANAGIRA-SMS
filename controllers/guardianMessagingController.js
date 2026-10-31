@@ -11,6 +11,7 @@ const { ensureTranscriptPdfLink } = require("../utils/transcriptPdf");
 const { ensureReportPdfLink } = require("../utils/reportPdf");
 const { recordMessageSent, getSentRecipientSet, recordDeliveryAuditRow, updateDeliveryAuditRowStatus } = require("../utils/messageDeliveryLog");
 const { MAILROOM_ALL_ACCESS_KEY, isManagerLikeRole, getUserPermissions } = require("../middleware/permissionMiddleware");
+const { ensureStudentContactMethodsSchema } = require("../utils/studentContactMethods");
 
 function safeString(value) {
   return String(value == null ? "" : value).trim();
@@ -51,16 +52,19 @@ async function getMailroomAllowedClassIdsFor({ orgId, userId, userRole, accountT
 }
 
 // Same directory the left-hand contact list is built from, keyed by
-// "source:guardianId" — used server-side to validate that a send request's
-// recipients are real, org-scoped, permission-scoped guardian contacts
+// "source:id" — used server-side to validate that a send request's
+// recipients are real, org-scoped, permission-scoped contacts
 // rather than trusting whatever phone/email the client happened to submit.
 async function getMailroomContactsMap(orgId, restrictedClassIds) {
+  await ensureStudentContactMethodsSchema(db);
   const restrictClause = restrictedClassIds ? "AND s.class_id = ANY($2::int[])" : "";
   const params = restrictedClassIds ? [orgId, restrictedClassIds] : [orgId];
   const joinType = restrictedClassIds ? "JOIN" : "LEFT JOIN";
 
   const result = await db.query(
-    `SELECT DISTINCT gp.guardian_id, 'profile' AS source, NULLIF(TRIM(gp.phone), '') AS phone, NULLIF(TRIM(gp.email), '') AS email
+    `SELECT DISTINCT gp.guardian_id, 'profile' AS source,
+            NULLIF(TRIM(gp.phone), '') AS phone, NULLIF(TRIM(gp.email), '') AS email,
+            COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS contact_name
      FROM guardian_profiles gp
      ${joinType} guardian_students gs ON gs.guardian_id = gp.guardian_id
      ${joinType} students s ON s.student_id = gs.student_id AND s.organization_id = $1
@@ -68,16 +72,32 @@ async function getMailroomContactsMap(orgId, restrictedClassIds) {
 
      UNION ALL
 
-     SELECT DISTINCT g.guardian_id, 'legacy' AS source, NULLIF(TRIM(g.phone), '') AS phone, NULLIF(TRIM(g.email), '') AS email
+     SELECT DISTINCT g.guardian_id, 'legacy' AS source,
+            NULLIF(TRIM(g.phone), '') AS phone, NULLIF(TRIM(g.email), '') AS email,
+            COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS contact_name
      FROM guardians g
      ${joinType} students s ON s.student_id = g.student_id AND s.organization_id = $1
-     WHERE g.organization_id = $1 ${restrictClause}`,
+     WHERE g.organization_id = $1 ${restrictClause}
+
+     UNION ALL
+
+     SELECT DISTINCT scm.contact_method_id AS guardian_id, 'student_contact' AS source,
+            CASE WHEN scm.contact_type = 'phone' THEN NULLIF(TRIM(scm.value), '') END AS phone,
+            CASE WHEN scm.contact_type = 'email' THEN NULLIF(TRIM(scm.value), '') END AS email,
+            COALESCE(NULLIF(TRIM(scm.contact_name), ''), 'Student contact') AS contact_name
+     FROM student_contact_methods scm
+     JOIN students s ON s.student_id = scm.student_id AND s.organization_id = $1
+     WHERE scm.organization_id = $1 ${restrictClause}`,
     params
   );
 
   const map = new Map();
   (result.rows || []).forEach((row) => {
-    map.set(`${row.source}:${row.guardian_id}`, { phone: safeString(row.phone), email: safeString(row.email) });
+    map.set(`${row.source}:${row.guardian_id}`, {
+      phone: safeString(row.phone),
+      email: safeString(row.email),
+      contactName: safeString(row.contact_name) || "Guardian",
+    });
   });
   return map;
 }
@@ -88,6 +108,7 @@ async function getMailroomContactsMap(orgId, restrictedClassIds) {
 // merged into one contact (keys lists every underlying "source:guardianId").
 // null restrictedClassIds = every guardian in the school.
 async function loadMailroomDirectory(orgId, restrictedClassIds) {
+  await ensureStudentContactMethodsSchema(db);
   const restrictClause = restrictedClassIds ? "AND s.class_id = ANY($2::int[])" : "";
   const params = restrictedClassIds ? [orgId, restrictedClassIds] : [orgId];
   const joinType = restrictedClassIds ? "JOIN" : "LEFT JOIN";
@@ -120,6 +141,21 @@ async function loadMailroomDirectory(orgId, restrictedClassIds) {
      LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = $1
      WHERE g.organization_id = $1
        AND (TRIM(COALESCE(g.phone, '')) <> '' OR TRIM(COALESCE(g.email, '')) <> '')
+       ${restrictClause}
+
+     UNION ALL
+
+     SELECT scm.contact_method_id AS guardian_id, 'student_contact' AS source,
+            COALESCE(NULLIF(TRIM(scm.contact_name), ''), 'Student contact') AS guardian_name,
+            CASE WHEN scm.contact_type = 'phone' THEN NULLIF(TRIM(scm.value), '') END AS phone,
+            CASE WHEN scm.contact_type = 'email' THEN NULLIF(TRIM(scm.value), '') END AS email,
+            NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '') AS student_name,
+            c.class_name
+     FROM student_contact_methods scm
+     JOIN students s ON s.student_id = scm.student_id AND s.organization_id = $1
+     LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = $1
+     WHERE scm.organization_id = $1
+       AND TRIM(COALESCE(scm.value, '')) <> ''
        ${restrictClause}`,
     params
   );
@@ -182,9 +218,11 @@ function buildOverrideRecipients(overrides, studentMetaById, fieldName) {
   const list = [];
   Object.entries(overrides || {}).forEach(([studentId, values]) => {
     const meta = studentMetaById[String(studentId)] || {};
-    (Array.isArray(values) ? values : []).forEach((raw) => {
+    (Array.isArray(values) ? values : []).forEach((entry) => {
+      const raw = entry && typeof entry === "object" ? entry.value : entry;
       const value = safeString(raw);
       if (!value) return;
+      const contactName = safeString(entry && typeof entry === "object" ? entry.contactName : "");
       list.push({
         [fieldName]: value,
         studentId: Number(studentId),
@@ -192,8 +230,8 @@ function buildOverrideRecipients(overrides, studentMetaById, fieldName) {
         className: meta.className || "",
         term: meta.term || "",
         shortLink: meta.shortLink || "",
-        guardianName: "Guardian",
-        guardianTitleLastName: "Guardian",
+        guardianName: contactName || "Guardian",
+        guardianTitleLastName: contactName || "Guardian",
       });
     });
   });
@@ -238,10 +276,12 @@ async function getSchoolName(dbClient, organizationId) {
 // the guardian's full name — this codebase doesn't store an honorific/
 // gender field, so "Mr./Mrs. Lastname" can't be reliably generated.
 async function getGuardiansForStudent(dbClient, organizationId, studentId) {
+  await ensureStudentContactMethodsSchema(dbClient);
   const result = await dbClient.query(
-    `SELECT DISTINCT ON (COALESCE(phone, '') || '|' || COALESCE(email, '')) guardian_name, phone, email, student_name
+    `SELECT DISTINCT ON (COALESCE(phone, '') || '|' || COALESCE(email, '')) guardian_name, contact_name, phone, email, student_name
      FROM (
        SELECT COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name,
+              COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS contact_name,
               NULLIF(TRIM(gp.phone), '') AS phone,
               NULLIF(TRIM(gp.email), '') AS email,
               TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
@@ -252,10 +292,24 @@ async function getGuardiansForStudent(dbClient, organizationId, studentId) {
 
        UNION ALL
 
-       SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name, NULLIF(TRIM(g.phone), '') AS phone, NULLIF(TRIM(g.email), '') AS email, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
+       SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name,
+              COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS contact_name,
+              NULLIF(TRIM(g.phone), '') AS phone, NULLIF(TRIM(g.email), '') AS email, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
        FROM guardians g
        JOIN students s ON s.student_id = g.student_id
        WHERE g.student_id = $1 AND g.organization_id = $2
+
+       UNION ALL
+
+       SELECT COALESCE(NULLIF(TRIM(scm.contact_name), ''), 'Student contact') AS guardian_name,
+              COALESCE(NULLIF(TRIM(scm.contact_name), ''), 'Student contact') AS contact_name,
+              CASE WHEN scm.contact_type = 'phone' THEN NULLIF(TRIM(scm.value), '') END AS phone,
+              CASE WHEN scm.contact_type = 'email' THEN NULLIF(TRIM(scm.value), '') END AS email,
+              TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
+       FROM student_contact_methods scm
+       JOIN students s ON s.student_id = scm.student_id
+       WHERE scm.student_id = $1
+         AND scm.organization_id = $2
      ) contacts
      WHERE phone IS NOT NULL OR email IS NOT NULL`,
     [studentId, organizationId]
@@ -264,8 +318,8 @@ async function getGuardiansForStudent(dbClient, organizationId, studentId) {
   return result.rows.map((row) => ({
     phone: safeString(row.phone),
     email: safeString(row.email),
-    guardianName: safeString(row.guardian_name) || "Guardian",
-    guardianTitleLastName: safeString(row.guardian_name) || "Guardian",
+    guardianName: safeString(row.contact_name || row.guardian_name) || "Guardian",
+    guardianTitleLastName: safeString(row.contact_name || row.guardian_name) || "Guardian",
     studentName: safeString(row.student_name) || "your child",
   }));
 }
@@ -700,6 +754,63 @@ module.exports = {
     }
   },
 
+  mailroomDeleteStudentContact: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.status(401).json({ success: false, message: "Not authenticated." });
+    try {
+      await ensureStudentContactMethodsSchema(db);
+      const ids = [...new Set(
+        (Array.isArray(req.body?.contactMethodIds) ? req.body.contactMethodIds : [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0)
+      )].slice(0, 30);
+      if (!ids.length) {
+        return res.status(400).json({ success: false, message: "Select a saved student contact to delete." });
+      }
+
+      const restrictedClassIds = await getMailroomAllowedClassIds(req);
+      const params = [ids, orgId];
+      let scopeClause = "";
+      if (restrictedClassIds !== null) {
+        params.push(restrictedClassIds);
+        scopeClause = `AND s.class_id = ANY($3::int[])`;
+      }
+
+      const result = await db.query(
+        `DELETE FROM student_contact_methods scm
+         USING students s
+         WHERE scm.student_id = s.student_id
+           AND scm.contact_method_id = ANY($1::int[])
+           AND scm.organization_id = $2
+           AND s.organization_id = $2
+           ${scopeClause}
+           AND cardinality($1::int[]) = (
+             SELECT COUNT(*)
+             FROM student_contact_methods authorized_contact
+             JOIN students authorized_student ON authorized_student.student_id = authorized_contact.student_id
+             WHERE authorized_contact.contact_method_id = ANY($1::int[])
+               AND authorized_contact.organization_id = $2
+               AND authorized_student.organization_id = $2
+               ${restrictedClassIds !== null ? "AND authorized_student.class_id = ANY($3::int[])" : ""}
+           )
+         RETURNING scm.contact_method_id`,
+        params
+      );
+      if (!result.rowCount) {
+        return res.status(404).json({ success: false, message: "That saved student contact was not found or is outside your Mailroom access." });
+      }
+
+      return res.json({
+        success: true,
+        deleted: result.rowCount,
+        message: `Permanently deleted ${result.rowCount} saved contact${result.rowCount === 1 ? "" : "s"}.`,
+      });
+    } catch (error) {
+      console.error("[Mailroom] Unable to delete student contact:", error?.message || error);
+      return res.status(500).json({ success: false, message: "Unable to delete the saved contact." });
+    }
+  },
+
   // Ad-hoc send to any selection of guardian contacts, not tied to a
   // class/term/student context — password-gated like every other send in
   // this app, logged to the same delivery_audit_history table so it shows
@@ -761,8 +872,8 @@ module.exports = {
         normalizedRecipients.push({
           phone: field === "phone" ? value : "",
           email: field === "email" ? value : "",
-          guardianName: safeString(r.guardianName) || "Guardian",
-          guardianTitleLastName: safeString(r.guardianName) || "Guardian",
+          guardianName: allowed.contactName || "Guardian",
+          guardianTitleLastName: allowed.contactName || "Guardian",
           studentName: safeString(r.studentName) || "",
         });
       });
@@ -946,6 +1057,10 @@ module.exports = {
       return res.json({
         success: true,
         recipientCount: recipients.length,
+        recipientCounts: {
+          email: recipients.filter((recipient) => safeString(recipient.email)).length,
+          phone: recipients.filter((recipient) => safeString(recipient.phone)).length,
+        },
         recipientDescription,
         defaultMessage,
         posted: Boolean(posted),
@@ -1199,66 +1314,97 @@ module.exports = {
     }
   },
 
-  // Persists edits made in the "Edit contacts" drawer back to the actual
-  // guardian record, so a corrected number/email doesn't need re-entering
-  // on the next report send. Only touches rows the client can trace back
-  // to a specific guardian_id/source — a brand-new value typed for a
-  // student with no guardian on file has nowhere to be saved (skipped,
-  // reported back so the UI can say so honestly rather than pretend).
+  // Persists report contact edits. New values are stored as student-linked
+  // contact methods; edits never replace a guardian's primary details.
   saveContacts: async (req, res) => {
     const orgId = req.session.organizationId;
     if (!orgId) return res.status(401).json({ success: false, message: "Not authenticated." });
     try {
+      await ensureStudentContactMethodsSchema(db);
       const type = safeString(req.body?.type).toLowerCase();
       const changes = Array.isArray(req.body?.changes) ? req.body.changes : [];
-      const password = safeString(req.body?.password);
       if (!["email", "phone"].includes(type)) {
         return res.status(400).json({ success: false, message: "Invalid contact type." });
       }
       if (!changes.length) {
         return res.json({ success: true, saved: 0, failed: 0, skipped: 0 });
       }
-      if (!password) return res.status(400).json({ success: false, message: "Enter your password to confirm." });
-      const passwordOk = await verifyActorPassword(req, password);
-      if (!passwordOk) return res.status(401).json({ success: false, message: "Incorrect password." });
 
-      const column = type === "email" ? "email" : "phone";
       let saved = 0;
       let failed = 0;
       let skipped = 0;
+      const savedRows = [];
+      const actorUserId = Number(req.session.userId || req.session.user?.user_id) || null;
 
       for (const change of changes) {
-        const guardianId = Number(change?.guardianId || 0);
+        const contactMethodId = Number(change?.contactMethodId || 0);
+        const studentId = Number(change?.studentId || 0);
         const source = safeString(change?.source).toLowerCase();
+        const contactName = safeString(change?.contactName).slice(0, 160);
         const value = safeString(change?.value);
-        if (!guardianId || !["profile", "legacy"].includes(source) || !value) {
+        const normalizedValue = type === "phone" ? value.replace(/[()\s-]/g, "") : value;
+        const isValidValue = type === "email"
+          ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)
+          : /^\+[1-9]\d{7,14}$/.test(normalizedValue);
+        if (!value || !isValidValue) {
+          skipped += 1;
+          continue;
+        }
+        if (!contactName) {
           skipped += 1;
           continue;
         }
         try {
-          const table = source === "profile" ? "guardian_profiles" : "guardians";
-          // eslint-disable-next-line no-await-in-loop
-          const result = await db.query(
-            `UPDATE ${table} SET ${column} = $1 WHERE guardian_id = $2 AND organization_id = $3`,
-            [value, guardianId, orgId]
-          );
-          if (result.rowCount > 0) saved += 1;
-          else skipped += 1;
+          let result;
+          if (["new", "profile", "legacy"].includes(source) && studentId) {
+            // eslint-disable-next-line no-await-in-loop
+            result = await db.query(
+              `INSERT INTO student_contact_methods (organization_id, student_id, contact_type, contact_name, value, created_by)
+               SELECT $1, s.student_id, $2, $3, $4, $5
+               FROM students s
+               WHERE s.student_id = $6 AND s.organization_id = $1
+               ON CONFLICT (organization_id, student_id, contact_type, LOWER(value))
+               DO UPDATE SET contact_name = EXCLUDED.contact_name, updated_at = NOW()
+               RETURNING contact_method_id`,
+              [orgId, type, contactName, normalizedValue, actorUserId, studentId]
+            );
+          } else if (source === "student_contact" && contactMethodId) {
+            // eslint-disable-next-line no-await-in-loop
+            result = await db.query(
+              `UPDATE student_contact_methods
+               SET value = $1, contact_name = $2, updated_at = NOW()
+               WHERE contact_method_id = $3 AND student_id = $4 AND organization_id = $5 AND contact_type = $6
+               RETURNING contact_method_id`,
+              [normalizedValue, contactName, contactMethodId, studentId, orgId, type]
+            );
+          }
+          if (result?.rowCount > 0) {
+            saved += 1;
+            savedRows.push({
+              rowId: safeString(change?.rowId),
+              source: source === "student_contact" ? source : "student_contact",
+              guardianId: Number(result.rows[0]?.contact_method_id) || contactMethodId || null,
+              contactMethodId: Number(result.rows[0]?.contact_method_id) || contactMethodId || null,
+              contactName,
+            });
+          } else failed += 1;
         } catch (error) {
+          console.error("[saveContacts] Unable to save a contact method:", error?.message || error);
           failed += 1;
         }
       }
 
       return res.json({
-        success: failed === 0,
+        success: failed === 0 && skipped === 0,
         saved,
         failed,
         skipped,
+        savedRows,
         message: failed
-          ? `Saved ${saved}, ${failed} failed to save.`
+          ? `Saved ${saved}; ${failed} could not be saved. Check that the contact is valid and not already listed.`
           : skipped
-            ? `Saved ${saved}. ${skipped} had no existing guardian record to update, so ${skipped === 1 ? "it" : "they"} only applied to this send.`
-            : `Saved ${saved} contact${saved === 1 ? "" : "s"} for next time.`,
+              ? `Saved ${saved}. ${skipped} contact${skipped === 1 ? " needs" : "s need"} a valid name and ${type === "email" ? "email address" : "phone number"}.`
+              : `Saved ${saved} contact${saved === 1 ? "" : "s"} for next time. Added contacts are available in Mailroom.`,
       });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to save contacts." });

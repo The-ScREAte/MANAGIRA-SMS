@@ -32,7 +32,9 @@ const {
 } = require("../utils/whatsappIntegration");
 const { getSmsIntegrationStatus, getTenantSmsCredentials, sendSms } = require("../utils/smsIntegration");
 const { normalizeWhatsappPhoneNumber } = require("../utils/phoneNumber");
-const { ensureObsoleteSchema, usesOf, inUseMessage, obsoleteSignaturePaths, wantsJson } = require("../utils/obsolete");
+const { ensureStudentContactMethodsSchema } = require("../utils/studentContactMethods");
+const { ensureObsoleteSchema, usesOf, inUseMessage, obsoleteSignaturePaths, setSignatureObsolete, signatureStillUsed, wantsJson } = require("../utils/obsolete");
+const { REPORT_SIGNATURE_TERM_ID, ensurePersistentReportSignatures } = require("../utils/reportSignature");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -1337,7 +1339,15 @@ async function signatureDeleteBlocker(organizationId, termId, signaturePath) {
           WHERE rs.organization_id = $1 AND rs.term_id = $2 AND rs.signature_image_path = $3`,
         params
       )
-    : await db.query(
+    : Number(termId) === REPORT_SIGNATURE_TERM_ID
+      ? await db.query(
+          `SELECT COUNT(DISTINCT ar.student_id)::int AS n
+             FROM report_settings rs
+             JOIN assessment_results ar ON ar.class_id = rs.class_id AND ar.organization_id = rs.organization_id
+            WHERE rs.organization_id = $1 AND rs.term_id = $2 AND rs.signature_image_path = $3`,
+          params
+        )
+      : await db.query(
         `SELECT COUNT(DISTINCT ar.student_id)::int AS n
            FROM report_settings rs
            JOIN assessment_results ar ON ar.class_id = rs.class_id AND ar.term_id = rs.term_id AND ar.organization_id = rs.organization_id
@@ -1441,6 +1451,7 @@ const printController = (db) => ({
     if (!termId || isNaN(termId)) {
       return res.status(400).send("Invalid or missing termId.");
     }
+    await ensurePersistentReportSignatures(db, organizationId);
 
     const parsedClassId = parseInt(classId, 10);
     const parsedTermId = parseInt(termId, 10);
@@ -1646,8 +1657,17 @@ const printController = (db) => ({
           [organizationId, parsedClassId, parsedTermId]
         ),
         db.query(
-          "SELECT signature_image_path, signature_name, signature_title, display_settings FROM report_settings WHERE class_id = $1 AND term_id = $2 AND organization_id = $3",
-          [parsedClassId, parsedTermId, organizationId]
+          `SELECT
+             CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_image_path ELSE current.signature_image_path END AS signature_image_path,
+             CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_name ELSE current.signature_name END AS signature_name,
+             CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_title ELSE current.signature_title END AS signature_title,
+             current.display_settings
+           FROM (SELECT 1) seed
+           LEFT JOIN report_settings current
+             ON current.class_id = $1 AND current.term_id = $2 AND current.organization_id = $3
+           LEFT JOIN report_settings persistent
+             ON persistent.class_id = $1 AND persistent.term_id = $4 AND persistent.organization_id = $3`,
+          [parsedClassId, parsedTermId, organizationId, REPORT_SIGNATURE_TERM_ID]
         ),
         db.query(
           `SELECT student_id, COUNT(*) FILTER (WHERE status = 'Present') AS present_days
@@ -2494,7 +2514,13 @@ const printController = (db) => ({
       }
       res.render("print/printStudentReport", reportLocals);
     } catch (error) {
-            res.status(500).send("Failed to generate student report.");
+      console.error("[printStudentReport] Error:", {
+        organizationId,
+        classId,
+        termId,
+        error,
+      });
+      res.status(500).send("Failed to generate student report.");
     }
   },
 
@@ -2639,6 +2665,7 @@ const printController = (db) => ({
       // Everything below needs only the organization, class and term, so the
       // reads run together instead of one after another.
       const enrolledClassIds = enrolledClasses.map(c => c.class_id);
+      await ensurePersistentReportSignatures(db, organizationId);
       const [
         remarksResult,
         scoreRemarksResult,
@@ -2675,9 +2702,17 @@ const printController = (db) => ({
           [organizationId, parsedTermId]
         ),
         db.query(
-          `SELECT signature_image_path, signature_name, signature_title, display_settings FROM report_settings 
-           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
-          [organizationId, parsedClassId, parsedTermId]
+          `SELECT
+             CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_image_path ELSE current.signature_image_path END AS signature_image_path,
+             CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_name ELSE current.signature_name END AS signature_name,
+             CASE WHEN persistent.setting_id IS NOT NULL THEN persistent.signature_title ELSE current.signature_title END AS signature_title,
+             current.display_settings
+           FROM (SELECT 1) seed
+           LEFT JOIN report_settings current
+             ON current.organization_id = $1 AND current.class_id = $2 AND current.term_id = $3
+           LEFT JOIN report_settings persistent
+             ON persistent.organization_id = $1 AND persistent.class_id = $2 AND persistent.term_id = $4`,
+          [organizationId, parsedClassId, parsedTermId, REPORT_SIGNATURE_TERM_ID]
         ),
         db.query(
           `SELECT class_id, display_settings FROM report_settings
@@ -2702,7 +2737,7 @@ const printController = (db) => ({
         db.query(
           `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
            WHERE organization_id = $1 AND term_id = $2 AND signature_image_path IS NOT NULL`,
-          [organizationId, parsedTermId]
+          [organizationId, REPORT_SIGNATURE_TERM_ID]
         ),
         db.query(
           `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
@@ -5487,26 +5522,29 @@ const printController = (db) => ({
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${parsedTermId}`);
       }
 
+      await ensurePersistentReportSignatures(db, organizationId);
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const filename = `signature-${timestamp}-${randomSuffix}.png`;
       const key = `images/reportsignature/${organizationId}/${filename}`;
       const uploadedKey = await uploadToS3(key, file);
+      const replacedSignaturePaths = new Set();
       
       console.log(`[uploadSignatureImage] Created new signature: ${filename} for classes:`, classesToApply);
 
       for (const currentClassId of classesToApply) {
-        // Get the existing signature path for this class
         const existingSignatureResult = await db.query(
           `SELECT signature_image_path 
            FROM report_settings 
            WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
-          [organizationId, currentClassId, parsedTermId]
+          [organizationId, currentClassId, REPORT_SIGNATURE_TERM_ID]
         );
 
         const existingSignaturePath = existingSignatureResult.rows[0]?.signature_image_path;
+        if (existingSignaturePath && existingSignaturePath !== uploadedKey) {
+          replacedSignaturePaths.add(existingSignaturePath);
+        }
 
-        // Insert or update the new signature image path
         await db.query(
           `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path, signature_name, signature_title)
            VALUES ($1, $2, $3, $4, $5, $6)
@@ -5514,37 +5552,29 @@ const printController = (db) => ({
            DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path,
                          signature_name = EXCLUDED.signature_name,
                          signature_title = EXCLUDED.signature_title`,
-          [organizationId, currentClassId, parsedTermId, uploadedKey, signatureName || null, signatureTitle || null]
+          [organizationId, currentClassId, REPORT_SIGNATURE_TERM_ID, uploadedKey, signatureName || null, signatureTitle || null]
         );
 
-        // Check if old signature is still used by other classes
-        if (existingSignaturePath && existingSignaturePath !== uploadedKey) {
-          const otherUsesResult = await db.query(
-            `SELECT COUNT(*) as count 
-             FROM report_settings 
-             WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
-            [organizationId, parsedTermId, existingSignaturePath]
-          );
+      }
 
-          const otherUsesCount = parseInt(otherUsesResult.rows[0]?.count || 0);
-
-          // If no other classes use this signature, delete it from S3
-          if (otherUsesCount === 0) {
-            const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-            let oldSignatureKey = existingSignaturePath;
-            if (existingSignaturePath.startsWith(s3Prefix)) {
-              oldSignatureKey = existingSignaturePath.substring(s3Prefix.length);
-            }
-            await deleteSignatureFileIfUnused(organizationId, oldSignatureKey);
-            console.log(`[uploadSignatureImage] Deleted orphaned signature: ${oldSignatureKey}`);
-          }
+      for (const replacedPath of replacedSignaturePaths) {
+        const remainingAssignments = await db.query(
+          `SELECT 1
+           FROM report_settings
+           WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3
+           LIMIT 1`,
+          [organizationId, REPORT_SIGNATURE_TERM_ID, replacedPath]
+        );
+        if (!remainingAssignments.rows.length) {
+          await setSignatureObsolete(db, organizationId, "report", replacedPath, true, req.session.userId);
         }
       }
 
       req.flash("success", "Signature image uploaded successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${parsedTermId}`);
     } catch (error) {
-            req.flash("error", "Failed to upload signature image.");
+      console.error("[uploadSignatureImage] error", error);
+      req.flash("error", "Failed to upload signature image.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
@@ -5579,15 +5609,16 @@ const printController = (db) => ({
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
       }
 
+      await ensurePersistentReportSignatures(db, organizationId);
       const result = await db.query(
         "SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, parsedClassId, parsedTermId]
+        [organizationId, parsedClassId, REPORT_SIGNATURE_TERM_ID]
       );
       const signatureImagePath = result.rows[0]?.signature_image_path;
 
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, parsedClassId, parsedTermId]
+        [organizationId, parsedClassId, REPORT_SIGNATURE_TERM_ID]
       );
 
       // The file goes only when no class in any term still prints it.
@@ -5596,7 +5627,11 @@ const printController = (db) => ({
         const oldSignatureKey = signatureImagePath.startsWith(s3Prefix)
           ? signatureImagePath.substring(s3Prefix.length)
           : signatureImagePath;
-        await deleteSignatureFileIfUnused(organizationId, oldSignatureKey);
+        if (await signatureStillUsed(db, organizationId, signatureImagePath)) {
+          await setSignatureObsolete(db, organizationId, "report", signatureImagePath, true, req.session.userId);
+        } else {
+          await deleteSignatureFileIfUnused(organizationId, oldSignatureKey);
+        }
       }
 
       req.flash("success", "Signature image deleted successfully.");
@@ -5636,36 +5671,38 @@ const printController = (db) => ({
       }
 
       // Get the signature path before deleting
+      await ensurePersistentReportSignatures(db, organizationId);
       const sigResult = await db.query(
         "SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, parsedClassId, parsedTermId]
+        [organizationId, parsedClassId, REPORT_SIGNATURE_TERM_ID]
       );
       const signaturePath = sigResult.rows[0]?.signature_image_path;
 
       // Remove the signature assignment for this class
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, parsedClassId, parsedTermId]
+        [organizationId, parsedClassId, REPORT_SIGNATURE_TERM_ID]
       );
 
       // Check if this signature is used by any other class
       if (signaturePath) {
         const otherClassesResult = await db.query(
           "SELECT COUNT(*) as count FROM report_settings WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
-          [organizationId, parsedTermId, signaturePath]
+          [organizationId, REPORT_SIGNATURE_TERM_ID, signaturePath]
         );
 
         const otherClassesCount = parseInt(otherClassesResult.rows[0]?.count || 0);
 
-        // If no other classes use this signature, delete it from S3
         if (otherClassesCount === 0) {
-          const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-          let signatureKey = signaturePath;
-          if (signaturePath.startsWith(s3Prefix)) {
-            signatureKey = signaturePath.substring(s3Prefix.length);
+          if (await signatureStillUsed(db, organizationId, signaturePath)) {
+            await setSignatureObsolete(db, organizationId, "report", signaturePath, true, req.session.userId);
+          } else {
+            const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+            const signatureKey = signaturePath.startsWith(s3Prefix)
+              ? signaturePath.substring(s3Prefix.length)
+              : signaturePath;
+            await deleteSignatureFileIfUnused(organizationId, signatureKey);
           }
-          await deleteSignatureFileIfUnused(organizationId, signatureKey);
-          console.log(`[deleteSignatureForClass] Deleted orphaned signature from S3: ${signatureKey}`);
         }
       }
 
@@ -5699,11 +5736,12 @@ const printController = (db) => ({
     }
 
     try {
+      await ensurePersistentReportSignatures(db, organizationId);
       const ownershipResult = await db.query(
         `SELECT COUNT(*)::int AS count
          FROM report_settings
          WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
-        [organizationId, parsedTermId, signaturePath]
+        [organizationId, REPORT_SIGNATURE_TERM_ID, signaturePath]
       );
       const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
       if (ownedCount === 0) {
@@ -5711,7 +5749,7 @@ const printController = (db) => ({
         return res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
       }
 
-      const blocker = await signatureDeleteBlocker(organizationId, parsedTermId, signaturePath);
+      const blocker = await signatureDeleteBlocker(organizationId, REPORT_SIGNATURE_TERM_ID, signaturePath);
       if (blocker) {
         if (wantsJson(req)) return res.status(409).json({ success: false, message: blocker, canObsolete: true });
         req.flash("error", blocker);
@@ -5721,19 +5759,20 @@ const printController = (db) => ({
       // Remove signature from all classes in this organization and term
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
-        [organizationId, parsedTermId, signaturePath]
+        [organizationId, REPORT_SIGNATURE_TERM_ID, signaturePath]
       );
 
-      // Delete the signature file from S3
-      const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-      let signatureKey = signaturePath;
-      if (signaturePath.startsWith(s3Prefix)) {
-        signatureKey = signaturePath.substring(s3Prefix.length);
+      if (await signatureStillUsed(db, organizationId, signaturePath)) {
+        await setSignatureObsolete(db, organizationId, "report", signaturePath, true, req.session.userId);
+      } else {
+        const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+        const signatureKey = signaturePath.startsWith(s3Prefix)
+          ? signaturePath.substring(s3Prefix.length)
+          : signaturePath;
+        await deleteSignatureFileIfUnused(organizationId, signatureKey);
       }
-      await deleteSignatureFileIfUnused(organizationId, signatureKey);
 
-      console.log(`[deleteEntireSignature] Deleted signature: ${signatureKey}`);
-      req.flash("success", "Signature deleted successfully from all classes.");
+      req.flash("success", "Signature removed from current use.");
       res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
     } catch (error) {
       console.error("[deleteEntireSignature] error", error);
@@ -5767,11 +5806,12 @@ const printController = (db) => ({
         return res.json({ success: false, message: "Invalid term." });
       }
 
+      await ensurePersistentReportSignatures(db, organizationId);
       const ownershipResult = await db.query(
         `SELECT COUNT(*)::int AS count
          FROM report_settings
-         WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
-        [organizationId, parsedTermId, signaturePath]
+         WHERE organization_id = $1 AND term_id <> -1 AND signature_image_path = $2`,
+        [organizationId, signaturePath]
       );
       const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
       if (ownedCount === 0) {
@@ -5797,7 +5837,7 @@ const printController = (db) => ({
             ON CONFLICT (organization_id, class_id, term_id)
             DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path
           `,
-          [organizationId, parsedClassId, parsedTermId, signaturePath]
+          [organizationId, parsedClassId, REPORT_SIGNATURE_TERM_ID, signaturePath]
         );
       }
 
@@ -6329,7 +6369,13 @@ const printController = (db) => ({
         }).toString()}`,
       });
     } catch (error) {
-            res.status(500).send("Failed to generate merit sheet.");
+      console.error("[generateMeritSheet] Error:", {
+        organizationId,
+        classId,
+        termId,
+        error,
+      });
+      res.status(500).send("Failed to generate merit sheet.");
     }
   },
 
@@ -7593,6 +7639,7 @@ const printController = (db) => ({
         return res.status(400).json({ success: false, message: "No valid student IDs." });
       }
 
+      await ensureStudentContactMethodsSchema();
       // Fetch students with their guardian emails (new guardian_profiles + legacy guardians table).
       // guardian_id + source are included so an edit in the Send Report
       // modal can be saved back to the exact guardian row it came from.
@@ -7602,7 +7649,7 @@ const printController = (db) => ({
                 s.last_name,
                 c.class_name,
                 COALESCE(
-                  jsonb_agg(DISTINCT jsonb_build_object('email', ge.email, 'relationship', ge.relationship, 'guardianId', ge.guardian_id, 'source', ge.source))
+                  jsonb_agg(DISTINCT jsonb_build_object('email', ge.email, 'contactName', ge.contact_name, 'relationship', ge.relationship, 'guardianId', ge.guardian_id, 'source', ge.source))
                   FILTER (WHERE ge.email IS NOT NULL),
                   '[]'::jsonb
                 ) AS emails
@@ -7612,6 +7659,7 @@ const printController = (db) => ({
            -- Modern guardian profiles mapped through guardian_students
            SELECT gs.student_id,
                   gp.email,
+                  COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS contact_name,
                   COALESCE(gs.relationship, 'Guardian') AS relationship,
                   gp.guardian_id AS guardian_id,
                   'profile' AS source
@@ -7626,12 +7674,25 @@ const printController = (db) => ({
            -- Legacy guardians table fallback
            SELECT g.student_id,
                   g.email,
+                  COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS contact_name,
                   'Guardian' AS relationship,
                   g.guardian_id AS guardian_id,
                   'legacy' AS source
            FROM guardians g
            WHERE g.organization_id = $2
              AND g.email IS NOT NULL
+
+           UNION ALL
+
+           SELECT scm.student_id,
+                  scm.value AS email,
+                  scm.contact_name,
+                  'Student contact' AS relationship,
+                  scm.contact_method_id AS guardian_id,
+                  'student_contact' AS source
+           FROM student_contact_methods scm
+           WHERE scm.organization_id = $2
+             AND scm.contact_type = 'email'
          ) ge ON ge.student_id = s.student_id
          WHERE s.student_id = ANY($1)
            AND s.organization_id = $2
@@ -7666,6 +7727,7 @@ const printController = (db) => ({
         return res.status(400).json({ success: false, message: "No valid student IDs." });
       }
 
+      await ensureStudentContactMethodsSchema();
       const orgResult = await db.query(
         `SELECT organization_country
          FROM organizations
@@ -7681,7 +7743,7 @@ const printController = (db) => ({
                 s.last_name,
                 c.class_name,
                 COALESCE(
-                  jsonb_agg(DISTINCT jsonb_build_object('phone', gpv.phone, 'relationship', gpv.relationship, 'guardianId', gpv.guardian_id, 'source', gpv.source))
+                  jsonb_agg(DISTINCT jsonb_build_object('phone', gpv.phone, 'contactName', gpv.contact_name, 'relationship', gpv.relationship, 'guardianId', gpv.guardian_id, 'source', gpv.source))
                   FILTER (WHERE gpv.phone IS NOT NULL),
                   '[]'::jsonb
                 ) AS phones
@@ -7690,6 +7752,7 @@ const printController = (db) => ({
          LEFT JOIN (
            SELECT gs.student_id,
                   gp.phone,
+                  COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS contact_name,
                   COALESCE(gs.relationship, 'Guardian') AS relationship,
                   gp.guardian_id AS guardian_id,
                   'profile' AS source
@@ -7703,12 +7766,25 @@ const printController = (db) => ({
 
            SELECT g.student_id,
                   g.phone,
+                  COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS contact_name,
                   'Guardian' AS relationship,
                   g.guardian_id AS guardian_id,
                   'legacy' AS source
            FROM guardians g
            WHERE g.organization_id = $2
              AND g.phone IS NOT NULL
+
+           UNION ALL
+
+           SELECT scm.student_id,
+                  scm.value AS phone,
+                  scm.contact_name,
+                  'Student contact' AS relationship,
+                  scm.contact_method_id AS guardian_id,
+                  'student_contact' AS source
+           FROM student_contact_methods scm
+           WHERE scm.organization_id = $2
+             AND scm.contact_type = 'phone'
          ) gpv ON gpv.student_id = s.student_id
          WHERE s.student_id = ANY($1)
            AND s.organization_id = $2
@@ -7729,6 +7805,7 @@ const printController = (db) => ({
             seen.add(dedupeKey);
             return {
               phone: rawPhone,
+              contactName: String(entry?.contactName || "Guardian").trim() || "Guardian",
               relationship: String(entry?.relationship || "Guardian").trim() || "Guardian",
               normalizedPhone: normalized.normalized || "",
               valid: normalized.valid,
