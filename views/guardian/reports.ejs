@@ -6,20 +6,19 @@
   }
 
   .reports-hero {
+    --reports-accent: var(--org-primary-color, #0f5a66);
     border-radius: 20px;
     padding: 20px;
     margin-bottom: 16px;
     color: #fff;
-    background:
-      radial-gradient(circle at 15% 25%, rgba(255,255,255,0.18), transparent 36%),
-      linear-gradient(135deg, var(--primary, #0f5a66) 0%, var(--primary, #0f5a66) 100%);
-    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--reports-accent) 94%, #0f172a) 0%, var(--reports-accent) 100%);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--reports-accent) 18%, transparent);
   }
 
   .reports-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 14px;
     flex-wrap: wrap;
     gap: 10px;
@@ -45,8 +44,10 @@
     align-items: center;
     gap: 6px;
     background: #fff;
-    color: var(--primary, #0f5a66);
+    color: var(--org-primary-color, #0f5a66);
     padding: 10px 16px;
+    width: auto;
+    margin: 0;
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.4);
     font-weight: 700;
@@ -73,8 +74,8 @@
     gap: 7px;
     padding: 9px 12px;
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.42);
-    background: rgba(255,255,255,0.16);
+    border: 1px solid color-mix(in srgb, var(--reports-accent) 42%, transparent);
+    background: color-mix(in srgb, var(--reports-accent) 14%, transparent);
     color: #fff;
     font-weight: 700;
     font-size: 0.8rem;
@@ -89,7 +90,7 @@
 
   .btn-email-count {
     background: #fff;
-    color: var(--primary, #0f5a66);
+    color: var(--org-primary-color, #0f5a66);
     border-radius: 999px;
     padding: 2px 8px;
     font-size: 0.68rem;
@@ -123,8 +124,8 @@
   }
 
   .summary-pill {
-    background: rgba(255,255,255,0.14);
-    border: 1px solid rgba(255,255,255,0.28);
+    background: color-mix(in srgb, var(--reports-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--reports-accent) 38%, transparent);
     border-radius: 12px;
     padding: 9px 10px;
   }
@@ -174,8 +175,8 @@
 
   .toolbar-search input:focus {
     outline: none;
-    border-color: var(--primary, #0f5a66);
-    box-shadow: 0 0 0 4px rgba(15, 90, 102, 0.12);
+    border-color: var(--org-primary-color, #0f5a66);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-primary-color, #0f5a66) 14%, transparent);
   }
 
   .toolbar-status {
@@ -228,7 +229,7 @@
   .report-right { display: flex; align-items: center; gap: 9px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 
   .reply-count { font-size: 0.76rem; color: #64748b; white-space: nowrap; font-weight: 600; }
-  .unread-badge { background: #0f5a66; color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 0.69rem; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.06em; }
+  .unread-badge { background: var(--org-primary-color, #0f5a66); color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 0.69rem; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.06em; }
 
   .report-row { position: relative; }
   .report-row .report-card { margin-bottom: 0; padding-right: 38px; }
@@ -272,15 +273,15 @@
   /* Modal */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 13000; justify-content: center; align-items: flex-start; padding: calc(env(safe-area-inset-top, 0px) + 96px) 16px 20px; overflow-y: auto; }
   .modal-overlay.active { display: flex; }
-  .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 560px; max-height: calc(100dvh - (env(safe-area-inset-top, 0px) + 124px)); overflow-y: auto; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative; }
-  .modal-box h2 { font-size: 1.15rem; margin: 0 0 18px; color: #1e293b; }
-  .fg { margin-bottom: 14px; }
+  .modal-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; width: 100%; max-width: 560px; max-height: calc(100dvh - (env(safe-area-inset-top, 0px) + 124px)); overflow-y: auto; padding: 22px; box-shadow: 0 16px 42px rgba(15,23,42,0.18); position: relative; }
+  .modal-box h2 { font-size: 1.15rem; margin: 0 0 16px; color: #1e293b; }
+  .fg { margin-bottom: 11px; }
   .fg label { display: block; font-weight: 600; font-size: 0.82rem; color: #334155; margin-bottom: 4px; }
   .fg label .req { color: #e74c3c; }
-  .fg select, .fg input, .fg textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; }
-  .fg textarea { min-height: 80px; resize: vertical; }
-  .fg select:focus, .fg input:focus, .fg textarea:focus { outline: none; border-color: var(--primary, #27ae60); }
-  .cc-box { background: #f8fafc; padding: 12px; border-radius: 6px; margin-bottom: 14px; }
+  .fg select, .fg input, .fg textarea { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.88rem; font-family: inherit; box-sizing: border-box; }
+  .fg textarea { min-height: 96px; resize: vertical; }
+  .fg select:focus, .fg input:focus, .fg textarea:focus { outline: none; border-color: var(--org-primary-color, #0f5a66); box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-primary-color, #0f5a66) 14%, transparent); }
+  .cc-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; margin-bottom: 12px; }
   .cc-box h4 { font-size: 0.85rem; margin: 0 0 4px; color: #334155; }
   .cc-box p { font-size: 0.75rem; color: #94a3b8; margin: 0 0 8px; }
   .staff-list { max-height: 180px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; background: #fff; }
@@ -289,20 +290,24 @@
   .staff-role { color: #94a3b8; font-size: 0.75rem; }
   .staff-badge { font-size: 0.68rem; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; background: #d1fae5; color: #059669; }
   .staff-loading { text-align: center; padding: 14px; color: #94a3b8; font-size: 0.82rem; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-start; margin-top: 16px; }
-  .btn-submit,
-  .btn-cancel {
-    background: var(--primary, #27ae60);
-    color: #fff;
-    padding: 8px 20px;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.85rem;
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  .modal-actions .btn-submit,
+  .modal-actions .btn-cancel {
+    width: auto !important;
+    min-width: 0;
+    min-height: 40px;
+    margin: 0 !important;
+    padding: 0 16px;
+    border: 1px solid var(--org-primary-color, #0f5a66);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.86rem;
     cursor: pointer;
   }
-  .btn-submit:hover,
-  .btn-cancel:hover { background: var(--primary-hover, #229954); }
+  .modal-actions .btn-submit { background: var(--org-primary-color, #0f5a66); color: #fff; }
+  .modal-actions .btn-submit:hover { background: var(--org-primary-hover, #014a51); }
+  .modal-actions .btn-cancel { background: #fff; color: var(--org-primary-color, #0f5a66); }
+  .modal-actions .btn-cancel:hover { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 7%, #fff); }
 
   @media (max-width: 920px) {
     .reports-summary {
@@ -323,15 +328,22 @@
   @media (max-width: 640px) {
     .reports-container { padding: 12px 10px 22px; }
     .reports-hero { padding: 16px; border-radius: 14px; }
-    .reports-header { flex-direction: column; align-items: stretch; }
-    .reports-header-actions { width: 100%; }
-    .btn-new-report { justify-content: center; flex: 1 1 auto; }
+    .reports-header { align-items: center; }
+    .reports-header-actions { width: auto; }
+    .btn-new-report { justify-content: center; flex: 0 0 auto; }
     .btn-email-indicator { justify-content: center; }
-    .mobile-collapse {
-      margin-top: 10px;
-      border: 1px solid rgba(255,255,255,0.32);
+    .reports-container > .mobile-collapse {
+      margin: 0 0 14px;
+      border: 1px solid #e2e8f0;
       border-radius: 12px;
-      background: rgba(255,255,255,0.08);
+      background: #fff;
+      overflow: hidden;
+    }
+    .reports-hero .mobile-collapse {
+      margin-top: 10px;
+      border: 1px solid color-mix(in srgb, var(--reports-accent) 38%, transparent);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--reports-accent) 10%, transparent);
       overflow: hidden;
     }
     .mobile-collapse-summary {
@@ -382,6 +394,7 @@
       font-size: 16px;
     }
     .modal-actions { gap: 8px; }
+    .modal-actions .btn-submit, .modal-actions .btn-cancel { flex: 1 1 auto; }
   }
 </style>
 
@@ -399,7 +412,7 @@
 %>
 
 <div class="reports-container">
-  <div class="reports-hero">
+  <div class="reports-hero" data-ap-skip>
     <div class="reports-header">
       <div>
         <h1>Messages</h1>
@@ -462,7 +475,7 @@
           </div>
           <div class="report-right">
             <% if (Number(report.unread_count) > 0) { %>
-              <span class="unread-badge"><%= report.unread_count %> unread</span>
+              <span class="unread-badge" data-ap-skip><%= report.unread_count %> unread</span>
             <% } %>
             <span class="reply-count"><%= report.reply_count %> <%= report.reply_count === '1' ? 'reply' : 'replies' %></span>
           </div>
@@ -530,7 +543,7 @@
           <div class="staff-loading">Select a student first</div>
         </div>
       </div>
-      <div class="modal-actions">
+      <div class="modal-actions" data-ap-skip>
         <button type="submit" class="btn-submit">Send message</button>
         <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
       </div>

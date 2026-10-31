@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS organizations (
     review_timestamp TIMESTAMP WITH TIME ZONE,
     deleted BOOLEAN DEFAULT false,
     logo_path VARCHAR(255),
-    font_style VARCHAR(50)
+    font_style VARCHAR(50),
+    external_website_url TEXT
 );
 
 CREATE OR REPLACE FUNCTION update_modified_column()

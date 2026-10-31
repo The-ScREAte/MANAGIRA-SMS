@@ -20,7 +20,7 @@
     font-weight: 600;
   }
   .ta-header {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background: #ffffff;
     border: 1px solid #dbe5ef;
     border-radius: 16px;
     padding: 14px;
@@ -60,24 +60,19 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.98);
+    background: #ffffff;
     border: 1px solid #dbe5ef;
     border-radius: 999px;
     padding: 6px 8px;
     box-shadow: 0 8px 20px rgba(15,23,42,.14);
     margin-bottom: 10px;
-    backdrop-filter: blur(4px);
   }
-  .ta-security-bar.is-open-book {
-    border-color: #bfdbfe;
-    background: rgba(239, 246, 255, 0.96);
-  }
+  .ta-security-bar.is-open-book { border-color: #bfdbfe; background: #eff6ff; }
   .ta-sec-dot {
     width: 9px;
     height: 9px;
     border-radius: 50%;
     background: #6b8e23;
-    box-shadow: 0 0 0 0 rgba(107, 142, 35, .55);
     animation: ta-blink 1.2s infinite;
     flex: 0 0 auto;
   }
@@ -126,11 +121,10 @@
   }
 
   @keyframes ta-blink {
-    0% { opacity: 1; box-shadow: 0 0 0 0 rgba(107, 142, 35, .52); }
-    70% { opacity: .7; box-shadow: 0 0 0 8px rgba(107, 142, 35, 0); }
-    100% { opacity: 1; box-shadow: 0 0 0 0 rgba(107, 142, 35, 0); }
+    0%, 100% { opacity: 1; }
+    50% { opacity: .55; }
   }
-  .ta-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(15,23,42,0.06); }
+  .ta-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); }
   .ta-card h2 { margin: 0 0 6px; color: #0f172a; }
   .ta-meta { margin: 0; color: #64748b; font-size: .9rem; }
   .ta-question { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; background: #ffffff; }
@@ -198,7 +192,8 @@
     position: sticky;
     bottom: 10px;
     z-index: 12;
-    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.92) 34%, rgba(255,255,255,.98) 100%);
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
     padding-top: 10px;
   }
   .ta-submit[disabled] { opacity: .55; cursor: not-allowed; }
@@ -211,7 +206,7 @@
   .ta-options { display: grid; gap: 8px; margin-top: 10px; }
   .ta-option { align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font-size: .95rem; cursor: pointer; transition: border-color .12s, background .12s; }
   .ta-option:hover { border-color: #94a3b8; }
-  .ta-option:has(input:checked) { border-color: var(--org-primary-color, #0f5a66); background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 8%, #fff); }
+  .ta-option:has(input:checked) { border-color: var(--org-primary-color, #0f5a66); background: #f1f5f9; }
   .ta-option input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--org-primary-color, #0f5a66); }
   .ta-input, .ta-textarea { font-size: .95rem; }
   .ta-submit-row { align-items: center; justify-content: space-between; gap: 12px; }
@@ -222,7 +217,7 @@
   .ta-entry-overlay {
     position: fixed;
     inset: 0;
-    background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 14%, transparent);
+    background: rgba(15, 23, 42, .48);
     z-index: 12040;
     display: flex;
     align-items: flex-start;
@@ -230,12 +225,10 @@
     padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
     overflow: auto;
     box-sizing: border-box;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
   .ta-entry-card {
     width: min(100%, 560px);
-    background: color-mix(in srgb, white 86%, var(--org-primary-color, #0f5a66) 14%);
+    background: #ffffff;
     border-radius: 14px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 22px 48px rgba(15,23,42,.28);
@@ -339,6 +332,10 @@
       max-height: calc(100dvh - 20px);
       padding: 10px;
       border-radius: 12px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ta-sec-dot { animation: none; }
+      .ta-submit, .ta-option { transition: none; }
     }
     .ta-entry-card h3 { font-size: .76rem; }
     .ta-entry-card ul { font-size: .7rem; margin-left: 14px; }

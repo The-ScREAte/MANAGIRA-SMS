@@ -171,6 +171,15 @@ router.get(
   (req, res) => accountController.managePublicContentGet(req, res, db)
 );
 router.post(
+  "/managePublicContent/website-destination",
+  checkFeatureAccess,
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  express.json(),
+  express.urlencoded({ extended: true }),
+  (req, res) => accountController.saveSchoolWebsiteDestinationPost(req, res)
+);
+router.post(
   "/uploadSlideshowImages",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
@@ -339,6 +348,12 @@ router.get(
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.miraSettingsGet
+);
+router.get(
+  "/mira/info",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.miraInfoGet
 );
 router.post(
   "/mira/permissions",

@@ -12,6 +12,7 @@
   // (soft brownish gray) or Dark. Visitors see Light. PDFs and prints are always white.
   // <html data-appearance>: light -> white, classic -> gray, dark -> dark.
   const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
+  const _isStudentPortal = _appearancePath.startsWith('/student');
   const _isPublicPath = _appearancePath === '/' || _appearancePath === ''
     || /^\/(legal|account\/([a-z-]*login|register|forgot|reset|set-?password|verify)|common\/(publicDashboard|publicRegister|setPassword)|hub\/(login|setup-password|billing\/setup))/i.test(_appearancePath);
   const _isOrgThemed = !!locals.appearanceOwner && !_appearancePath.startsWith('/admin') && !_isPublicPath;
@@ -25,6 +26,7 @@
       ? _htmlLook(locals.appearance)
       : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white');
   }
+  if (_isStudentPortal && !locals.isPrintRender) _appearance = 'white';
 %>
 <!DOCTYPE html>
 <html lang="en" data-appearance="<%= _appearance %>">
@@ -42,6 +44,11 @@
             flex-direction: column;
             min-height: 100vh;
             min-height: 100dvh;
+        }
+
+        body.student-portal {
+            background: #ffffff !important;
+            color: #1f2937;
         }
 
         #app-scale-root {
@@ -81,7 +88,7 @@
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
 </head>
-<body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
+<body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= _isStudentPortal ? 'student-portal' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
         <!-- Loading overlay for smooth transitions -->
         <div class="page-loading-overlay">

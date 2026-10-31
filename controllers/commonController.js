@@ -19608,7 +19608,7 @@ NUMBERING:
       if (canSeeEmailIssues) {
         try {
           const countRes = await db.query(
-            `SELECT COUNT(*) FROM email_delivery_failures WHERE organization_id = $1`,
+            `SELECT COUNT(DISTINCT LOWER(TRIM(failed_email))) FROM email_delivery_failures WHERE organization_id = $1`,
             [req.session.organizationId]
           );
           failedEmailCount = parseInt(countRes.rows[0].count, 10) || 0;

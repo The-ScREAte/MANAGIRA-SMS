@@ -1,7 +1,7 @@
 <style>
   .mira-settings-page {
     width: 100%; margin: 0; padding: 28px 28px 90px; box-sizing: border-box;
-    background: #fafafa;
+    background: transparent;
   }
 
   /* Every tint below is mixed live from --org-primary-color (set per
@@ -9,48 +9,25 @@
      follows whatever theme color the org actually has - never a fixed
      brand color of its own. */
   .mira-hero {
-    position: relative;
     display: flex; align-items: center; gap: 20px;
-    padding: 26px 32px;
-    border-radius: 20px;
+    padding: 22px 26px;
+    border-radius: 14px;
     margin-bottom: 24px;
     color: color-mix(in srgb, var(--org-primary-color, #01535b) 88%, black);
-    background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, white);
-    border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, transparent);
-    box-shadow: 0 8px 28px -10px color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e2e8f0;
   }
-  .mira-hero::before, .mira-hero::after {
-    content: ""; position: absolute; border-radius: 50%;
-    background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, transparent);
-    pointer-events: none;
-  }
-  .mira-hero::before { width: 220px; height: 220px; top: -110px; right: -60px; }
-  .mira-hero::after { width: 140px; height: 140px; bottom: -90px; right: 130px; }
 
   .mira-hero-logo-ring {
-    position: relative; z-index: 1; flex-shrink: 0;
+    flex-shrink: 0;
     width: 68px; height: 68px;
     display: flex; align-items: center; justify-content: center;
   }
   .mira-hero-logo-ring img {
     width: 68px; height: 68px; object-fit: contain;
-    filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent));
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .mira-hero-logo-ring img:hover { animation: miraLogoShake 0.6s ease-in-out 1; }
-  }
-  @keyframes miraLogoShake {
-    0%   { transform: rotate(0deg); }
-    33%  { transform: rotate(-20deg); }
-    67%  { transform: rotate(0deg); }
-    83%  { transform: rotate(10deg); }
-    100% { transform: rotate(0deg); }
   }
 
-  .mira-hero-text { position: relative; z-index: 1; }
+  .mira-hero-text { min-width: 0; }
   .mira-hero-text h1 {
     margin: 0 0 4px; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.01em;
     display: flex; align-items: center; gap: 10px;
@@ -59,17 +36,70 @@
   .mira-hero-text .mira-hero-sparkle { font-size: 1.1rem; }
   .mira-hero-subtitle { margin: 0; color: color-mix(in srgb, var(--org-primary-color, #01535b) 60%, #374151); font-size: 0.95rem; }
 
+  .mira-hero-meta {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 7px;
+    margin-left: auto; text-align: right;
+  }
+  .mira-hero-meta-line {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+  }
+  .mira-info-toggle {
+    display: inline-flex !important; align-items: center; justify-content: center;
+    width: auto !important; min-width: 0; padding: 5px 11px !important;
+    border: 1px solid #cbd5e1 !important; border-radius: 8px !important;
+    background: #fff !important; color: #334155 !important;
+    font: inherit; font-size: 0.78rem; font-weight: 600; line-height: 1.2;
+    cursor: pointer;
+  }
+  .mira-info-toggle:hover { background: #f8fafc !important; border-color: #94a3b8 !important; }
+  .mira-info-toggle:disabled { cursor: wait; opacity: 0.65; }
+  .mira-info-overlay {
+    position: fixed; inset: 0; z-index: 2200; background: rgba(15, 23, 42, 0.38);
+    opacity: 0; visibility: hidden; transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+  .mira-info-overlay.show { opacity: 1; visibility: visible; }
+  .mira-info-drawer {
+    position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column;
+    width: min(560px, 100%); height: 100%; background: #fff;
+    border-left: 1px solid #e2e8f0; box-shadow: -16px 0 40px rgba(15, 23, 42, 0.12);
+    transform: translateX(100%); transition: transform 0.24s ease;
+  }
+  .mira-info-overlay.show .mira-info-drawer { transform: translateX(0); }
+  .mira-info-drawer-head {
+    flex: none; min-height: 60px; display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 12px 22px; border-bottom: 1px solid #e2e8f0;
+  }
+  .mira-info-drawer-head h2 { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 650; }
+  .mira-info-close {
+    display: inline-flex !important; align-items: center; justify-content: center;
+    width: 34px !important; min-width: 34px; height: 34px; padding: 0 !important;
+    border: 1px solid #e2e8f0 !important; border-radius: 8px !important;
+    background: #fff !important; color: #475569 !important; font-size: 1.3rem; line-height: 1; cursor: pointer;
+  }
+  .mira-info-close:hover { background: #f8fafc !important; }
+  .mira-info-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px; }
+  .mira-info-drawer .mira-card { margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .mira-info-loading, .mira-info-error { margin: 0; color: #64748b; font-size: 0.9rem; }
+  .mira-info-error { color: #b91c1c; }
+  .mira-info-retry {
+    display: inline-flex !important; width: auto !important; margin-top: 12px; padding: 7px 12px !important;
+    border: 1px solid #cbd5e1 !important; border-radius: 8px !important;
+    background: #fff !important; color: #334155 !important; font: inherit; font-size: 0.82rem; cursor: pointer;
+  }
   .mira-status-pill {
     display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
     border-radius: 999px; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-    background: color-mix(in srgb, white 55%, transparent);
-    border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 20%, transparent);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     color: color-mix(in srgb, var(--org-primary-color, #01535b) 85%, black);
   }
   .mira-status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #9ca3af; }
-  .mira-status-pill.is-active .dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .mira-status-pill.is-active .dot { background: #22c55e; }
   .mira-status-pill.is-inactive .dot { background: #f59e0b; }
-  .mira-status-pill-corner { position: absolute; top: 18px; right: 22px; z-index: 2; }
+  .mira-trial-meta { color: #64748b; font-size: 0.78rem; font-weight: 600; }
+  .mira-seat-count {
+    color: #475569; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+  }
 
   .mira-flash { padding: 10px 14px; border-radius: 10px; margin-bottom: 18px; font-size: 0.92rem; }
   .mira-flash-success { background: #dcfce7; color: #166534; }
@@ -80,20 +110,6 @@
     margin-bottom: 20px; font-size: 0.92rem; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
   .mira-inactive-notice a { color: inherit; font-weight: 700; text-decoration: underline; }
-
-  .mira-trial-notice, .mira-trial-ended-notice {
-    border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; font-size: 0.92rem;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  }
-  .mira-trial-notice {
-    background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, white);
-    color: color-mix(in srgb, var(--org-primary-color, #01535b) 85%, black);
-  }
-  .mira-trial-ended-notice { background: #fef3c7; color: #92400e; }
-  .mira-seat-count {
-    font-weight: 700; font-size: 0.8rem; white-space: nowrap;
-    background: rgba(255,255,255,0.6); border-radius: 999px; padding: 3px 10px;
-  }
 
   .mira-card {
     background: #fff; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #e5e7eb);
@@ -216,15 +232,21 @@
   .mira-modal-status { font-size: 0.82rem; margin-top: 12px; min-height: 1.1em; }
   .mira-modal-status.error { color: #b91c1c; }
   .mira-modal-status.success { color: #166534; }
+
+  @media (max-width: 640px) {
+    .mira-settings-page { padding: 18px 14px 48px; }
+    .mira-hero { padding: 18px; gap: 12px; flex-wrap: wrap; }
+    .mira-hero-logo-ring, .mira-hero-logo-ring img { width: 52px; height: 52px; }
+    .mira-hero-text { flex: 1 1 calc(100% - 68px); }
+    .mira-hero-text h1 { font-size: 1.4rem; }
+    .mira-hero-subtitle { font-size: 0.85rem; }
+    .mira-hero-meta { flex: 1 0 100%; align-items: flex-start; text-align: left; }
+    .mira-hero-meta-line { justify-content: flex-start; }
+  }
 </style>
 
 <div class="mira-settings-page">
   <div class="mira-hero">
-    <% if (miraIntegration.activated) { %>
-      <span class="mira-status-pill is-active mira-status-pill-corner"><span class="dot"></span> Active</span>
-    <% } else { %>
-      <span class="mira-status-pill is-inactive mira-status-pill-corner"><span class="dot"></span> Inactive</span>
-    <% } %>
     <div class="mira-hero-logo-ring">
       <img src="/images/icons/miralogo-256.png" alt="" aria-hidden="true" />
     </div>
@@ -232,6 +254,33 @@
       <h1><span class="mira-hero-sparkle">&#10024;</span> Mira</h1>
       <p class="mira-hero-subtitle">Your school's AI assistant, the Educational Intelligence for easy management.</p>
     </div>
+    <div class="mira-hero-meta">
+      <div class="mira-hero-meta-line">
+        <% if (miraIntegration.activated) { %>
+          <span class="mira-status-pill is-active"><span class="dot"></span> Active</span>
+        <% } else { %>
+          <span class="mira-status-pill is-inactive"><span class="dot"></span> Inactive</span>
+        <% } %>
+        <button type="button" class="mira-info-toggle" id="mira-info-toggle" aria-expanded="false" aria-controls="mira-info-content">Info</button>
+      </div>
+      <% if (miraIntegration.trialActive) { %>
+        <span class="mira-trial-meta">Free trial · <%= miraIntegration.trialDaysRemaining %> day<%= miraIntegration.trialDaysRemaining === 1 ? '' : 's' %> left</span>
+      <% } else if (miraIntegration.trialEnded) { %>
+        <span class="mira-trial-meta">Free trial ended</span>
+      <% } %>
+      <% if (miraIntegration.activated) { %>
+        <span class="mira-seat-count"><%= seatCount %> seat<%= seatCount === 1 ? '' : 's' %> <%= miraIntegration.trialEnded ? 'billable' : 'active' %></span>
+      <% } %>
+    </div>
+  </div>
+  <div class="mira-info-overlay" id="mira-info-overlay">
+    <aside class="mira-info-drawer" id="mira-info-drawer" role="dialog" aria-modal="true" aria-labelledby="mira-info-drawer-title" tabindex="-1">
+      <header class="mira-info-drawer-head">
+        <h2 id="mira-info-drawer-title">Mira information</h2>
+        <button type="button" class="mira-info-close" id="mira-info-close" aria-label="Close Mira information">&times;</button>
+      </header>
+      <div class="mira-info-drawer-body" id="mira-info-content" aria-live="polite"></div>
+    </aside>
   </div>
 
   <% if (flash && flash.success && flash.success.length) { %>
@@ -246,40 +295,7 @@
       <span>Mira isn't activated for your school yet.</span>
       <a href="/account/settings?section=integrations">Activate it under Integrations &rarr;</a>
     </div>
-  <% } else if (miraIntegration.trialActive) { %>
-    <div class="mira-trial-notice">
-      <span>&#10024; Free trial - <strong><%= miraIntegration.trialDaysRemaining %></strong> day<%= miraIntegration.trialDaysRemaining === 1 ? '' : 's' %> left. Add as many people as you like at no charge during the trial.</span>
-      <span class="mira-seat-count"><%= seatCount %> seat<%= seatCount === 1 ? '' : 's' %> active</span>
-    </div>
-  <% } else if (miraIntegration.trialEnded) { %>
-    <div class="mira-trial-ended-notice">
-      <span>Your free trial ended. Everyone below with access is a billable seat, including the owner.</span>
-      <span class="mira-seat-count"><%= seatCount %> seat<%= seatCount === 1 ? '' : 's' %> billable</span>
-    </div>
   <% } %>
-
-  <div class="mira-card">
-    <div class="mira-card-head">
-      <span class="mira-card-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.7 5.3L19 9l-5.3 1.7L12 16l-1.7-5.3L5 9l5.3-1.7L12 2z"/><path d="M19 15l.8 2.4L22 18l-2.2.6L19 21l-.8-2.4L16 18l2.2-.6L19 15z"/></svg>
-      </span>
-      <h2>What Mira is</h2>
-    </div>
-    <p>
-      Mira is your school's built-in AI assistant — an educational intelligence that understands how
-      your workspace runs. Ask it a question, hand it a task, or have it pull together a summary, and
-      it works directly inside the app on your behalf: looking up students, guardians, fees, attendance,
-      classes, and assessments, drafting messages, and carrying out real actions across the app through
-      a simple conversation.
-    </p>
-    <ul class="mira-point-list">
-      <li><span class="mira-point-icon">&#10003;</span> Built for easy management — Mira turns multi-step, click-through tasks into a single request.</li>
-      <li><span class="mira-point-icon">&#10003;</span> Scoped strictly to your own school — Mira never sees or touches another school's data.</li>
-      <li><span class="mira-point-icon">&#10003;</span> Permission-aware by design — Mira only ever does what the real permissions granted below already allow, nothing more.</li>
-      <li><span class="mira-point-icon">&#10003;</span> Fully auditable — every change Mira makes is recorded in Activity Logs, tagged "via Mira (AI assistant)".</li>
-      <li><span class="mira-point-icon">&#10003;</span> Runs as its own dedicated service and opens in its own tab, alongside the rest of the app.</li>
-    </ul>
-  </div>
 
   <div class="mira-card">
     <div class="mira-card-head">
@@ -377,6 +393,77 @@
 
 <script>
 (function () {
+  const infoButton = document.getElementById('mira-info-toggle');
+  const infoOverlay = document.getElementById('mira-info-overlay');
+  const infoDrawer = document.getElementById('mira-info-drawer');
+  const infoCloseButton = document.getElementById('mira-info-close');
+  const infoContent = document.getElementById('mira-info-content');
+  let infoLoaded = false;
+  let infoLoading = false;
+  let previousBodyOverflow = '';
+
+  function closeInfoDrawer() {
+    infoOverlay.classList.remove('show');
+    infoButton.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = previousBodyOverflow;
+    infoButton.focus();
+  }
+
+  async function loadMiraInfo() {
+    if (infoLoaded || infoLoading) return;
+    infoLoading = true;
+    infoContent.innerHTML = '<p class="mira-info-loading">Loading Mira information…</p>';
+
+    try {
+      const response = await fetch('/account/mira/info', {
+        headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      const html = await response.text();
+      if (!response.ok || !html.includes('id="mira-info-title"')) {
+        throw new Error('Unable to load Mira information. Please try again.');
+      }
+
+      infoContent.innerHTML = html;
+      infoLoaded = true;
+    } catch (error) {
+      const message = document.createElement('p');
+      message.className = 'mira-info-error';
+      message.textContent = error.message || 'Unable to load Mira information. Please try again.';
+      const retryButton = document.createElement('button');
+      retryButton.type = 'button';
+      retryButton.className = 'mira-info-retry';
+      retryButton.textContent = 'Try again';
+      retryButton.addEventListener('click', loadMiraInfo);
+      infoContent.replaceChildren(message, retryButton);
+    } finally {
+      infoLoading = false;
+    }
+  }
+
+  if (infoButton && infoOverlay && infoDrawer && infoCloseButton && infoContent) {
+    infoButton.addEventListener('click', function () {
+      if (infoOverlay.classList.contains('show')) {
+        closeInfoDrawer();
+        return;
+      }
+
+      previousBodyOverflow = document.body.style.overflow;
+      infoOverlay.classList.add('show');
+      infoButton.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+      infoCloseButton.focus();
+      loadMiraInfo();
+    });
+
+    infoCloseButton.addEventListener('click', closeInfoDrawer);
+    infoOverlay.addEventListener('click', function (event) {
+      if (event.target === infoOverlay) closeInfoDrawer();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && infoOverlay.classList.contains('show')) closeInfoDrawer();
+    });
+  }
+
   const modal = document.getElementById('mira-edit-modal');
   const modalAvatar = document.getElementById('mira-edit-modal-avatar');
   const modalTitle = document.getElementById('mira-edit-modal-title');

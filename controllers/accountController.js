@@ -7515,6 +7515,9 @@ const accountController = {
     const url = req.url;
 
     try {
+      const externalSchoolWebsite = require("../utils/externalSchoolWebsite");
+      await externalSchoolWebsite.ensureExternalSchoolWebsiteSchema(db);
+
       const imagesResult = await db.query(
         "SELECT * FROM organization_images WHERE organization_id = $1",
 
@@ -7567,17 +7570,7 @@ const accountController = {
         [organizationId]
       );
 
-      if (currentSchoolYearTerm.rows.length === 0) {
-        req.flash(
-          "error",
-
-          "No current school year or term found. Create one to be able to edit organization dashboards"
-        );
-
-        return res.redirect("/common/manageRecords");
-      }
-
-      const { school_year_id, term_id } = currentSchoolYearTerm.rows[0];
+      const { school_year_id = null, term_id = null } = currentSchoolYearTerm.rows[0] || {};
 
       // Fetch events and announcements tied to the current school year and term
 
@@ -7655,8 +7648,8 @@ const accountController = {
 
       // Extra website sections + where the live site is.
       const websiteSettings = await websiteExtras.getWebsiteSettings(db, organizationId);
-      let publicSiteUrl = `/common/publicDashboard?organizationId=${organizationId}`;
-      if (process.env.NODE_ENV === "production") {
+      let publicSiteUrl = orgDetails?.external_website_url || `/common/publicDashboard?organizationId=${organizationId}`;
+      if (!orgDetails?.external_website_url && process.env.NODE_ENV === "production") {
         const siteInfo = await getOrganizationWebsiteInfo(db, organizationId).catch(() => null);
         if (siteInfo?.websiteUrl) publicSiteUrl = siteInfo.websiteUrl;
       }
@@ -7744,6 +7737,70 @@ const accountController = {
 
       res.redirect("/account");
     }
+  },
+
+  saveSchoolWebsiteDestinationPost: async (req, res) => {
+    const organizationId = req.session.organizationId;
+    const mode = String(req.body?.websiteDestination || "").trim();
+    const back = req.query?.embed === "workspace"
+      ? "/account/managePublicContent?embed=workspace"
+      : "/account/managePublicContent";
+    const wantsJson = String(req.get?.("accept") || "").toLowerCase().includes("application/json");
+
+    const respondWithError = (status, message) => {
+      if (wantsJson) return res.status(status).json({ success: false, error: message });
+      req.flash("error", message);
+      return res.redirect(back);
+    };
+
+    if (!organizationId) {
+      return respondWithError(400, "Your organization could not be identified. Please sign in again.");
+    }
+    if (!["managira", "external"].includes(mode)) {
+      return respondWithError(400, "Choose which website your school wants to use.");
+    }
+
+    const { ensureExternalSchoolWebsiteSchema, normalizeExternalSchoolWebsiteUrl } =
+      require("../utils/externalSchoolWebsite");
+    const validation = mode === "external"
+      ? normalizeExternalSchoolWebsiteUrl(req.body?.externalWebsiteUrl)
+      : { url: null, error: null };
+    if (validation.error || (mode === "external" && !validation.url)) {
+      return respondWithError(400, validation.error || "Enter your school's website address.");
+    }
+
+    try {
+      await ensureExternalSchoolWebsiteSchema(db);
+      await db.query(
+        "UPDATE organizations SET external_website_url = $1 WHERE organization_id = $2",
+        [validation.url, organizationId]
+      );
+      const message = mode === "external"
+        ? "Your school's website address has been saved."
+        : "Your school is now using its Managira website.";
+      if (wantsJson) {
+        return res.json({
+          success: true,
+          websiteUrl: validation.url,
+          message,
+        });
+      }
+      req.flash(
+        "success",
+        message
+      );
+    } catch (error) {
+      console.error("[SchoolWebsite] Failed to save website destination:", error);
+      if (wantsJson) {
+        return res.status(500).json({
+          success: false,
+          error: "We couldn't save the website settings. Please try again.",
+        });
+      }
+      req.flash("error", "We couldn't save the website settings. Please try again.");
+    }
+
+    return res.redirect(back);
   },
 
   updatePublicDashboardLayoutPost: async (req, res) => {
@@ -12748,6 +12805,14 @@ const accountController = {
     }
   },
 
+  miraInfoGet: (req, res) => {
+    if (!req.session.organizationId) {
+      return res.status(401).send("Your session has expired. Please sign in again.");
+    }
+
+    res.render("account/partials/miraInfo", { layout: false });
+  },
+
   // POST /account/mira/permissions - bulk-sets which employees may open
   // Mira. checked out user IDs on the form get Use Mira; anyone else in
   // the org loses it, in one pass - the same replace-all shape the rest of
@@ -13808,11 +13873,6 @@ accountController.sendInvoiceEmail = sendInvoiceEmail;
 accountController.sendCancellationEmail = sendCancellationEmail;
 
 module.exports = accountController;
-
-
-
-
-
 
 
 

@@ -63,6 +63,19 @@
     background: transparent !important;
   }
 
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]) body.student-portal,
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]) body.student-portal :is(#app-scale-root, main) {
+    background: #ffffff !important;
+    color: #1f2937;
+  }
+  html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]) body.student-portal header#top-header {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .08) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
   /* Hold the first paint until the colors are in place (never more than 1.2s). */
   html:is([data-appearance="white"], [data-appearance="gray"], [data-appearance="dark"]):not(.ap-ready) body {
     opacity: 0;

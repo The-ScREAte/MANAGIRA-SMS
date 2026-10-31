@@ -20,18 +20,17 @@
   }
 
   .student-header-content {
-    display: flex;
-    gap: 18px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px 24px;
+    align-items: center;
   }
 
   .student-identity {
     display: flex;
     gap: 16px;
     align-items: center;
-    min-width: min(100%, 460px);
+    min-width: 0;
   }
 
   .student-avatar-large {
@@ -46,7 +45,7 @@
 
   .student-header-info {
     flex: 1;
-    min-width: 240px;
+    min-width: 0;
   }
 
   .student-header-info h1 {
@@ -365,18 +364,21 @@
     backdrop-filter: none;
     border: none;
     min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
     box-shadow: none;
     position: relative;
   }
 
   .term-selector form {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
     margin: 0;
     padding: 0;
+    min-width: 0;
   }
 
   .term-selector form > * {
@@ -384,8 +386,7 @@
   }
 
   .term-selector label {
-    display: inline-flex;
-    align-items: center;
+    display: block;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.9);
     margin: 0;
@@ -396,8 +397,9 @@
   }
 
   .term-selector select {
-    min-width: 220px;
-    padding: 7px 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 0 10px;
     border: 1px solid rgba(255, 255, 255, 0.32);
     border-radius: 8px;
     font-size: 13px;
@@ -405,7 +407,7 @@
     background: rgba(255, 255, 255, 0.94);
     cursor: pointer;
     color: #1e293b;
-    height: 36px;
+    height: 40px;
     transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   }
 
@@ -417,43 +419,11 @@
     background: #ffffff;
   }
 
-  .term-selector .term-load-btn {
-    padding: 0;
-    width: 36px;
-    background: transparent;
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.42);
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 0;
-    transition: transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
-  }
-
-  .term-selector .term-load-btn svg {
-    width: 16px;
-    height: 16px;
-    display: block;
-  }
-
-  .term-selector .term-load-btn:hover {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.55);
-    transform: translateY(-1px);
-  }
-
-  .term-selector .term-load-btn:focus,
-  .term-selector .term-load-btn:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
-  }
-
   .term-selector .report-cards-trigger {
-    height: 36px;
+    width: auto !important;
+    min-width: max-content;
+    height: 40px;
+    margin: 0 !important;
     padding: 0 12px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -474,13 +444,10 @@
   }
 
   .term-selector-actions {
-    margin-top: 8px;
-    display: flex;
-    justify-content: flex-end;
+    display: contents;
   }
 
   .term-selector-actions .report-cards-trigger {
-    margin-top: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -669,7 +636,7 @@
     }
 
     .student-header-content {
-      flex-direction: column;
+      grid-template-columns: minmax(0, 1fr);
       text-align: left;
     }
 
@@ -769,25 +736,11 @@
 
     .term-selector {
       width: 100%;
+      grid-template-columns: minmax(0, 1fr) auto;
     }
 
     .term-selector form {
-      justify-content: flex-start;
-      gap: 8px;
-    }
-
-    .term-selector-actions {
-      justify-content: flex-start;
-    }
-
-    .term-selector select {
-      font-size: 13px;
-      padding: 7px 10px;
-      min-width: 190px;
-    }
-
-    .term-selector .term-load-btn {
-      width: 36px;
+      min-width: 0;
     }
 
     .assessment-table th,
@@ -852,16 +805,6 @@
       min-width: 0;
     }
 
-    .term-selector form {
-      align-items: center;
-      gap: 8px;
-    }
-
-    .term-selector select {
-      min-width: 0;
-      flex: 1 1 180px;
-    }
-
     .info-item {
       padding: 10px;
     }
@@ -917,11 +860,24 @@
   .section-body { padding: 12px 18px 16px; border-top: 1px solid #f1f5f9; }
 
   /* Teacher rows */
-  .teacher-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f8fafc; }
+  .teacher-section {
+    border-color: #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+  .teacher-section > .section-summary { padding: 14px 18px; transition: background 0.2s ease; }
+  .teacher-section > .section-summary:hover { background: #faf9f6; }
+  .teacher-section .summary-label { font-size: 15px; }
+  .teacher-section > .section-body { padding: 8px 18px 14px; border-top-color: #f0ede8; }
+  .teacher-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 4px; border-bottom: 1px solid #f1f1f1; }
   .teacher-row:last-child { border-bottom: none; }
-  .teacher-name { font-weight: 600; color: #1e293b; font-size: 0.88rem; }
-  .teacher-main-badge { background: #d1fae5; color: #059669; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
-  .teacher-subjects { color: #64748b; font-size: 0.82rem; }
+  .teacher-name { font-weight: 700; color: #263244; font-size: 13.5px; }
+  .teacher-main-badge { background: #e8f5ee; color: #168052; padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; }
+  .teacher-subjects { color: #737b87; font-size: 13px; font-weight: 400; }
+  @media (max-width: 600px) {
+    .teacher-row { gap: 6px; padding: 9px 2px; }
+    .teacher-subjects { flex-basis: 100%; font-size: 12px; }
+  }
 
   /* Classroom-style schedule shell */
   .schedule-shell {
@@ -1235,6 +1191,7 @@
       <div class="term-selector">
         <form method="GET" action="/guardian/academic-details">
           <input type="hidden" name="studentId" value="<%= student.student_id %>" />
+          <label for="termSelect">Academic Period</label>
           <select name="termId" id="termSelect" onchange="this.form.submit()">
             <% terms.forEach(term => { %>
               <option value="<%= term.term_id %>" <%= term.term_id == selectedTermId ? 'selected' : '' %>>
@@ -1242,12 +1199,6 @@
               </option>
             <% }) %>
           </select>
-          <button type="submit" class="term-load-btn" aria-label="Load selected term" title="Load selected term">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M20 12a8 8 0 1 1-2.35-5.65M20 4v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-            <span class="visually-hidden">Load</span>
-          </button>
         </form>
         <div class="term-selector-actions">
           <button type="button" class="report-cards-trigger" id="openReportCardsBtn">
@@ -1260,7 +1211,7 @@
 
   <div class="staff-schedule-grid">
     <!-- Teacher Information -->
-    <details class="section-details">
+    <details class="section-details teacher-section">
       <summary class="section-summary">
         <span class="summary-label">👨‍🏫 Teaching Staff</span>
         <span class="summary-chevron">›</span>

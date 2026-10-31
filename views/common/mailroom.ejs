@@ -15,7 +15,7 @@
     --mr-shadow: 0 10px 26px rgba(16, 35, 56, 0.07);
     font-family: 'Manrope', 'Segoe UI', sans-serif;
     color: var(--mr-text);
-    background: var(--mr-bg);
+    background: transparent;
     min-height: 100%;
     padding: 18px;
     box-sizing: border-box;
@@ -31,11 +31,12 @@
   .mr-tab:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: 2px; }
   .mr-tab-badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 999px; background: #e11d48; color: #fff; font-size: 11px; font-weight: 800; }
   #mailroomRoot.is-inbox .mr-send-only { display: none !important; }
-  .mr-inbox { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .mr-inbox { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 16px; align-items: stretch; height: min(1000px, calc(100dvh - 210px)); min-height: 320px; }
   .mr-inbox[hidden] { display: none; }
+  .mr-inbox-list { display: flex; flex-direction: column; min-height: 0; }
   .mr-inbox-head { display: grid; gap: 10px; padding: 14px; border-bottom: 1px solid var(--mr-line); }
   .mr-inbox-filters { display: flex; gap: 6px; flex-wrap: wrap; }
-  .mr-inbox-rows { max-height: calc(100vh - 260px); overflow-y: auto; }
+  .mr-inbox-rows { flex: 1; min-height: 0; overflow-y: auto; }
   .mr-inbox-row { all: unset; box-sizing: border-box; display: grid; gap: 3px; width: 100%; padding: 12px 14px; border-bottom: 1px solid var(--mr-line); cursor: pointer; }
   .mr-inbox-row:hover { background: var(--mr-bg); }
   .mr-inbox-row.is-active { background: color-mix(in srgb, var(--mr-primary) 8%, #fff); box-shadow: inset 3px 0 0 var(--mr-primary); }
@@ -52,7 +53,7 @@
   .mr-chip--open { background: #eff6ff; color: #1d4ed8; }
   .mr-chip--in_progress { background: #fffbeb; color: #b45309; }
   .mr-chip--resolved { background: #ecfdf5; color: #047857; }
-  .mr-thread { display: flex; flex-direction: column; min-height: 520px; max-height: calc(100vh - 170px); }
+  .mr-thread { display: flex; flex-direction: column; min-height: 0; height: 100%; }
   .mr-thread-empty { margin: auto; }
   .mr-thread-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--mr-line); }
   .mr-thread-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--mr-text); }
@@ -60,7 +61,7 @@
   .mr-thread-actions { display: flex; gap: 6px; flex: none; align-items: center; }
   .mr-thread-actions a, .mr-thread-actions button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: 1px solid var(--mr-line); border-radius: 8px; font-size: 12.5px; font-weight: 700; color: var(--mr-text); cursor: pointer; background: #fff; }
   .mr-thread-actions a:hover, .mr-thread-actions button:hover { background: var(--mr-bg); }
-  .mr-thread-msgs { flex: 1; overflow-y: auto; padding: 16px 18px; display: grid; gap: 12px; align-content: start; background: var(--mr-bg); }
+  .mr-thread-msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: grid; gap: 12px; align-content: start; background: var(--mr-bg); }
   .mr-msg { max-width: 78%; padding: 10px 13px; border-radius: 12px; background: #fff; border: 1px solid var(--mr-line); }
   .mr-msg--staff { justify-self: end; background: color-mix(in srgb, var(--mr-primary) 9%, #fff); border-color: color-mix(in srgb, var(--mr-primary) 20%, #fff); }
   .mr-msg-who { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; font-size: 12px; }
@@ -72,17 +73,17 @@
   #mrReplyForm.mr-reply textarea:focus { outline: none; border-color: var(--mr-primary); }
   #mrReplyForm.mr-reply button { flex: 0 0 auto; width: auto; margin: 0; align-self: flex-end; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--mr-primary); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
   #mrReplyForm.mr-reply button:disabled { opacity: .5; cursor: default; }
-  @media (max-width: 980px) { .mr-inbox { grid-template-columns: minmax(0, 1fr); } .mr-thread { min-height: 420px; } }
+  @media (max-width: 980px) { .mr-inbox { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; } .mr-inbox-list { min-height: 320px; } .mr-inbox-rows { max-height: calc(100vh - 260px); } .mr-thread { min-height: 420px; height: auto; } }
   .mr-header h1 { margin: 0 0 4px; padding: 0; font-size: 22px; font-weight: 800; color: var(--mr-primary); text-align: left; }
   .mr-header p { margin: 0; color: var(--mr-muted); font-size: 13.5px; }
 
-  .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
-  @media (max-width: 980px) { .mr-layout { grid-template-columns: minmax(0, 1fr); } }
+  .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; align-items: stretch; height: min(1000px, calc(100dvh - 210px)); min-height: 320px; }
+  @media (max-width: 980px) { .mr-layout { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; } }
 
   .mr-panel { background: var(--mr-panel); border: 1px solid var(--mr-line); border-radius: var(--mr-radius); box-shadow: var(--mr-shadow); min-width: 0; }
 
   /* Left: contact directory */
-  .mr-directory { display: flex; flex-direction: column; max-height: calc(100vh - 140px); min-height: 420px; }
+  .mr-directory { position: sticky; top: 16px; display: flex; flex-direction: column; height: 100%; max-height: none; min-height: 0; }
   .mr-directory-open-row { display: none; }
   .mr-directory-toggle {
     display: none;
@@ -102,8 +103,16 @@
   .mr-directory-toggle-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--mr-text); }
   .mr-directory-toggle-count { font-size: 11px; font-weight: 700; color: var(--mr-primary); background: #e5f3f4; border-radius: 999px; padding: 2px 8px; }
   .mr-directory-toggle-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--mr-muted); }
-  .mr-directory-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--mr-line); }
-  .mr-directory-head h2 { margin: 0 0 8px; font-size: 14px; font-weight: 800; }
+  .mr-directory-head { padding: 12px 14px; border-bottom: 1px solid var(--mr-line); }
+  .mr-directory-head h2 { margin: 0; font-size: 14px; font-weight: 800; }
+  .mr-directory-head-top, .mr-compose-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .mr-collapse-toggle { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; width: auto; min-height: 28px; margin-left: auto; padding: 4px 8px; border: 1px solid var(--mr-line); border-radius: 8px; background: var(--mr-panel); color: var(--mr-primary); font: inherit; font-size: 11.5px; font-weight: 750; cursor: pointer; white-space: nowrap; }
+  .mr-collapse-toggle:hover { background: var(--mr-bg); }
+  .mr-collapse-toggle:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: 2px; }
+  .mr-collapse-icon { width: 12px; height: 12px; flex: 0 0 12px; transition: transform 160ms ease; }
+  .mr-collapse-toggle[aria-expanded="true"] .mr-collapse-icon { transform: rotate(180deg); }
+  .mr-directory-controls { padding-top: 10px; }
+  .mr-directory-controls[hidden], .mr-compose-fields[hidden] { display: none !important; }
   .mr-search { width: 100%; border: 1px solid var(--mr-line); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; background: #f8fafc; }
   .mr-filter-row { display: flex; gap: 8px; margin-top: 8px; }
   .mr-class-filter { flex: 1; min-width: 0; width: auto; margin: 0; border: 1px solid var(--mr-line); border-radius: 9px; padding: 7px 9px; font: inherit; font-size: 12.5px; background: #f8fafc; color: var(--mr-text); }
@@ -112,7 +121,7 @@
   .mr-select-actions { display: flex; align-items: center; gap: 10px; }
   .mr-select-row button { width: auto; margin: 0; border: none; background: none; color: var(--mr-primary); font-weight: 700; cursor: pointer; font-size: 12px; padding: 0; white-space: nowrap; }
   .mr-select-row button[hidden] { display: none; }
-  .mr-contact-list { overflow-y: auto; flex: 1; padding: 6px 8px; }
+  .mr-contact-list { overflow-y: auto; flex: 1; min-height: 0; padding: 6px 8px; }
   .mr-contact { display: flex; align-items: flex-start; gap: 9px; padding: 9px 8px; border-radius: 9px; cursor: pointer; }
   .mr-contact:hover { background: #f6fbfc; }
   .mr-contact input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--mr-primary); flex: 0 0 15px; }
@@ -129,8 +138,16 @@
   .mr-more-btn:hover { border-style: solid; background: #f1f7f8; }
 
   /* Right: compose + history */
-  .mr-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .mr-compose { position: sticky; top: 8px; z-index: 5; padding: 16px; }
+  .mr-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+  .mr-compose { position: sticky; top: 0; z-index: 5; padding: 12px; }
+  .mr-compose-head { min-height: 38px; }
+  .mr-compose-heading { margin: 0; font-size: 14px; font-weight: 800; color: var(--mr-text); }
+  .mr-compose-summary { margin-left: auto; font-size: 12px; color: var(--mr-muted); }
+  .mr-compose-fields { padding-top: 12px; }
+  @media (max-width: 980px) {
+    .mr-directory { position: static; height: auto; max-height: calc(100vh - 140px); min-height: 420px; }
+    .mr-right { height: auto; overflow: visible; padding-right: 0; }
+  }
   .mr-channels { display: none; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
   .mr-channels.mr-visible { display: flex; }
   .mr-channel-check { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mr-text); }
@@ -368,7 +385,8 @@
     }
     .mr-directory.mr-drawer-open { transform: translateX(0); }
 
-    .mr-directory-head { position: relative; padding-right: 46px; }
+    .mr-directory-head { position: relative; padding-right: 10px; }
+    .mr-directory-head-top { padding-right: 36px; }
     .mr-directory-close { display: flex; }
     .mr-contact { padding: 11px 8px; }
     .mr-contact input[type="checkbox"] { width: 18px; height: 18px; }
@@ -433,19 +451,27 @@
     <section class="mr-panel mr-directory" id="mrDirectory">
       <div class="mr-directory-head">
         <button type="button" class="mr-directory-close" id="mrDirectoryClose" aria-label="Close">&times;</button>
-        <h2>Contacts</h2>
-        <input type="text" id="mrSearch" class="mr-search" placeholder="Search name, student, phone, email..." aria-label="Search contacts">
-        <div class="mr-filter-row" id="mrFilterRow" hidden>
-          <select id="mrClassFilter" class="mr-class-filter" aria-label="Filter by class">
-            <option value="">All classes</option>
-          </select>
+        <div class="mr-directory-head-top">
+          <h2>Contacts</h2>
+          <button type="button" class="mr-collapse-toggle" id="mrDirectoryControlsToggle" aria-expanded="false" aria-controls="mrDirectoryControls">
+            <span>Search &amp; filters</span>
+            <svg class="mr-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
         </div>
-        <div class="mr-select-row">
-          <span id="mrContactCount">Loading contacts...</span>
-          <span class="mr-select-actions">
-            <button type="button" id="mrClearSelection" hidden>Clear</button>
-            <button type="button" id="mrSelectAll">Select all</button>
-          </span>
+        <div class="mr-directory-controls" id="mrDirectoryControls" hidden>
+          <input type="text" id="mrSearch" class="mr-search" placeholder="Search name, student, phone, email..." aria-label="Search contacts">
+          <div class="mr-filter-row" id="mrFilterRow" hidden>
+            <select id="mrClassFilter" class="mr-class-filter" aria-label="Filter by class">
+              <option value="">All classes</option>
+            </select>
+          </div>
+          <div class="mr-select-row">
+            <span id="mrContactCount">Loading contacts...</span>
+            <span class="mr-select-actions">
+              <button type="button" id="mrClearSelection" hidden>Clear</button>
+              <button type="button" id="mrSelectAll">Select all</button>
+            </span>
+          </div>
         </div>
       </div>
       <div class="mr-contact-list" id="mrContactList">
@@ -455,16 +481,26 @@
 
     <section class="mr-right">
       <div class="mr-panel mr-compose">
-        <input type="text" id="mrSubject" class="mr-subject" maxlength="150" placeholder="Email subject (optional)" aria-label="Email subject">
-        <textarea id="mrMessage" class="mr-compose-textarea" placeholder="Type your message..." aria-label="Message"></textarea>
-        <div class="mr-sms-counter" id="mrSmsCounter"></div>
-        <div class="mr-channels" id="mrChannels"></div>
-        <div class="mr-channel-hint" id="mrChannelHint"></div>
-        <div class="mr-compose-meta">
-          <span class="mr-recipient-count" id="mrRecipientCount">0 recipients selected</span>
-          <button type="button" class="mr-send-btn" id="mrSendBtn" disabled>Send</button>
+        <div class="mr-compose-head">
+          <h2 class="mr-compose-heading">Message</h2>
+          <span class="mr-compose-summary" id="mrComposeSummary">0 recipients</span>
+          <button type="button" class="mr-collapse-toggle" id="mrComposeToggle" aria-expanded="false" aria-controls="mrComposeFields">
+            <span>Compose</span>
+            <svg class="mr-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
         </div>
-        <div class="mr-status" id="mrStatus"></div>
+        <div class="mr-compose-fields" id="mrComposeFields" hidden>
+          <input type="text" id="mrSubject" class="mr-subject" maxlength="150" placeholder="Email subject (optional)" aria-label="Email subject">
+          <textarea id="mrMessage" class="mr-compose-textarea" placeholder="Type your message..." aria-label="Message"></textarea>
+          <div class="mr-sms-counter" id="mrSmsCounter"></div>
+          <div class="mr-channels" id="mrChannels"></div>
+          <div class="mr-channel-hint" id="mrChannelHint"></div>
+          <div class="mr-compose-meta">
+            <span class="mr-recipient-count" id="mrRecipientCount">0 recipients selected</span>
+            <button type="button" class="mr-send-btn" id="mrSendBtn" disabled>Send</button>
+          </div>
+          <div class="mr-status" id="mrStatus"></div>
+        </div>
       </div>
 
       <div class="mr-panel mr-history">
@@ -863,6 +899,7 @@
   function updateRecipientCount() {
     const n = state.selected.size;
     $('mrRecipientCount').textContent = `${n} recipient${n === 1 ? '' : 's'} selected`;
+    $('mrComposeSummary').textContent = `${n} recipient${n === 1 ? '' : 's'}`;
     $('mrSendBtn').disabled = n === 0 || state.channels.size === 0;
     $('mrClearSelection').hidden = n === 0;
     updateChannelReachability();
@@ -1390,6 +1427,20 @@
   $('mrSearch').addEventListener('input', () => { state.contactLimit = CONTACT_PAGE; renderContacts(); });
   $('mrClassFilter').addEventListener('change', () => { state.contactLimit = CONTACT_PAGE; renderContacts(); });
   $('mrMessage').addEventListener('input', updateChannelsVisibility);
+  $('mrDirectoryControlsToggle').addEventListener('click', () => {
+    const expanded = $('mrDirectoryControlsToggle').getAttribute('aria-expanded') !== 'true';
+    $('mrDirectoryControlsToggle').setAttribute('aria-expanded', String(expanded));
+    $('mrDirectoryControls').hidden = !expanded;
+    $('mrDirectoryControlsToggle').querySelector('span').textContent = expanded ? 'Hide filters' : 'Search & filters';
+    if (expanded) $('mrSearch').focus();
+  });
+  $('mrComposeToggle').addEventListener('click', () => {
+    const expanded = $('mrComposeToggle').getAttribute('aria-expanded') !== 'true';
+    $('mrComposeToggle').setAttribute('aria-expanded', String(expanded));
+    $('mrComposeFields').hidden = !expanded;
+    $('mrComposeToggle').querySelector('span').textContent = expanded ? 'Close' : 'Compose';
+    if (expanded) $('mrMessage').focus();
+  });
   $('mrSelectAll').addEventListener('click', () => {
     const filtered = filteredContacts();
     const allSelected = filtered.length > 0 && filtered.every((c) => state.selected.has(c.id));

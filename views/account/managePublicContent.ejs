@@ -42,7 +42,10 @@
   .manage-public-page {
     background: var(--bg-page);
     min-height: 100vh;
-    padding: 24px 0 60px;
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    padding: 20px clamp(12px, 2vw, 24px) 40px;
   }
 
   .mpc-page-header {
@@ -122,11 +125,12 @@
   }
 
   .manage-public-container {
-    max-width: none;
+    max-width: 1400px;
     width: 100%;
+    min-width: 0;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0 24px 40px;
+    margin: 0 auto;
+    padding: 0 clamp(12px, 2vw, 24px) 40px;
     display: flex;
     flex-direction: column;
     gap: 32px;
@@ -1932,11 +1936,26 @@
   .mpc-reg-grid label { display: grid; gap: 5px; font-size: 0.84rem; font-weight: 700; color: #374151; }
   .mpc-reg-grid .form-field { width: 100%; margin: 0; box-sizing: border-box; }
   @media (max-width: 640px) { .mpc-reg-grid { grid-template-columns: 1fr; } }
-  .mpc-view-site { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 8px 16px; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 999px; color: #fff; font-weight: 700; font-size: 0.88rem; text-decoration: none; background: rgba(255, 255, 255, 0.14); }
+  .mpc-view-site { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 8px 15px; border: 1px solid rgba(255, 255, 255, 0.65); border-radius: 9px; color: #fff; font: inherit; font-weight: 700; font-size: 0.86rem; white-space: nowrap; background: rgba(255, 255, 255, 0.14); cursor: pointer; }
   .mpc-view-site:hover { background: rgba(255, 255, 255, 0.26); color: #fff; }
+  .mpc-website-dialog { position: relative; width: min(460px, calc(100vw - 32px)); max-width: 100%; padding: 24px; border: 1px solid #dbe3ec; border-radius: 14px; color: var(--text-primary); background: #fff; box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24); }
+  .mpc-website-dialog::backdrop { background: rgba(15, 23, 42, 0.48); }
+  .mpc-website-dialog .mpc-dialog-close { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 34px !important; height: 34px; min-width: 34px; margin: 0 !important; padding: 0 !important; border: 1px solid #cbd5e1; border-radius: 50%; color: #475569; background: transparent; font: inherit; font-size: 1.25rem; line-height: 1; cursor: pointer; }
+  .mpc-website-dialog .mpc-dialog-close:hover { color: #0f172a; background: #f1f5f9; }
+  .mpc-website-dialog h2 { margin: 0; font-size: 1.15rem; }
+  .mpc-website-dialog p { margin: 7px 0 16px; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; }
+  .mpc-website-dialog .form-group { margin: 0; }
+  .mpc-website-dialog .form-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+  .mpc-website-dialog .mpc-website-reset { margin-right: auto; border: 0; background: transparent; color: #475569; font: inherit; font-size: 0.84rem; text-decoration: underline; cursor: pointer; }
+  .mpc-website-dialog .mpc-website-error { min-height: 1.2em; margin: 9px 0 0; color: #b91c1c; font-size: 0.82rem; }
+  .mpc-website-dialog .mpc-website-error:empty { display: none; }
 
   /* ---- Slim, single-row collapsed panels and calm, consistent buttons ---- */
   .manage-public-container { gap: 12px; }
+  .manage-public-container > * { min-width: 0; max-width: 100%; }
+  .manage-public-container img,
+  .manage-public-container iframe,
+  .manage-public-container video { max-width: 100%; }
   /* Visual panel order (flex `order`, not DOM position - the panels keep
      their own markup/scripts where they are; this just resequences how
      they're displayed). Requested order: Website Layout, Gallery, Articles,
@@ -1944,6 +1963,7 @@
      Contact Form & Messages, Website Sections. The setup checklist stays
      first as the page's overview. */
   .manage-public-container > .mwo { order: 1; }
+  .manage-public-container > #mpcWebsiteDestination { order: 0; }
   .manage-public-container > #mpcLayout { order: 2; }
   .manage-public-container > #mpcMode { order: 2; }
   .manage-public-container > #mpcGallery { order: 3; }
@@ -1980,41 +2000,75 @@
   .manage-public-container .image-content-form:hover,
   .manage-public-container .text-content-form:hover { transform: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
   /* Slim page header: one line with the action on the right. */
-  body .mpc-page-header { margin: 0 24px 14px; padding: 14px 20px !important; border-radius: 14px; box-shadow: none; }
+  body .mpc-page-header { width: min(100%, 1400px); margin: 0 auto 14px; padding: 14px 20px !important; border-radius: 14px; box-shadow: none; box-sizing: border-box; }
   body .mpc-page-header::before { display: none; }
-  body .mpc-page-header .page-header-content { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; text-align: left; }
+  body .mpc-page-header .page-header-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; text-align: left; }
+  body .mpc-page-header .page-header-content > div { min-width: 0; }
   body .mpc-page-header h1 { font-size: 1.15rem; line-height: 1.3; }
   body .mpc-page-header p { margin: 2px 0 0; font-size: 0.85rem; }
-  body .mpc-page-header .mpc-view-site { margin: 0; padding: 7px 14px; font-size: 0.84rem; }
+  body .mpc-page-header .mpc-view-site { justify-self: end; width: auto !important; max-width: 100%; margin: 0 !important; padding: 8px 14px; font-size: 0.84rem; }
   @media (max-width: 1024px) {
-    body .mpc-page-header { margin: 14px 8px 12px; }
+    body .mpc-page-header { margin: 0 auto 12px; }
   }
   @media (max-width: 768px) {
+    .manage-public-page { padding: 12px 12px 28px; }
     .manage-public-container > .content-container,
     .manage-public-container > .theme-panel { padding: 14px; }
     .manage-public-container > .content-container.is-collapsed,
     .manage-public-container > .theme-panel.is-collapsed { padding: 9px 12px; }
+    body .mpc-page-header { padding: 12px 14px !important; }
+    body .mpc-page-header .page-header-content { grid-template-columns: minmax(0, 1fr) auto; }
+    body .mpc-page-header .mpc-view-site { justify-self: end; }
   }
+
 </style>
 </head>
 <body class="manage-public-page">
     <div class="mpc-page-header">
       <div class="page-header-content">
         <div>
-          <h1><i class="fa-solid fa-globe mpc-h-icon" aria-hidden="true"></i> Manage Website Content</h1>
-          <p>Build and update your school's public website</p>
+          <h1><i class="fa-solid fa-globe mpc-h-icon" aria-hidden="true"></i> <%= orgDetails.external_website_url ? 'School Website Settings' : 'Manage Website Content' %></h1>
+          <p><%= orgDetails.external_website_url ? 'Your existing school website is active.' : "Build and update your school's public website." %></p>
         </div>
-        <% if (typeof publicSiteUrl !== 'undefined' && publicSiteUrl) { %>
-        <a class="mpc-view-site" href="<%= publicSiteUrl %>" target="_blank" rel="noopener">View website ↗</a>
-        <% } %>
+        <button type="button" class="mpc-view-site" id="openWebsiteSettings">
+          Manage own website
+        </button>
       </div>
     </div>
     
     <%- include('../partials/flash') %>
 
+    <dialog class="mpc-website-dialog" id="websiteSettingsDialog" aria-labelledby="websiteSettingsTitle">
+      <form id="websiteDestinationForm" action="/account/managePublicContent/website-destination<%= isEmbedded ? '?embed=workspace' : '' %>" method="POST">
+        <input type="hidden" name="websiteDestination" value="external">
+        <button type="button" class="mpc-dialog-close" id="closeWebsiteSettings" aria-label="Close website settings">&times;</button>
+        <h2 id="websiteSettingsTitle">School website address</h2>
+        <p>Enter the website families should visit when they select School Website.</p>
+        <div class="form-group">
+          <label for="externalWebsiteUrl">Website URL</label>
+          <input
+            type="url"
+            class="form-field"
+            id="externalWebsiteUrl"
+            name="externalWebsiteUrl"
+            value="<%= orgDetails.external_website_url || '' %>"
+            maxlength="2048"
+            placeholder="https://www.yourschool.edu"
+            required
+          >
+        </div>
+        <p class="mpc-website-error" id="websiteSettingsError" role="alert"></p>
+        <div class="form-actions">
+          <% if (orgDetails.external_website_url) { %>
+          <button type="button" class="mpc-website-reset" id="useManagiraWebsite">Use Managira website</button>
+          <% } %>
+          <button type="submit" class="btn btn-primary" id="saveWebsiteSettings">Save address</button>
+        </div>
+      </form>
+    </dialog>
 
 <div class="manage-public-container">
-
+  <% if (!orgDetails.external_website_url) { %>
   <%- include('../partials/manageWebsiteOverview') %>
   <%- include('../partials/manageWebsitePageOrder') %>
 
@@ -2323,7 +2377,7 @@
             </div>
         </div>
 
-
+  <% } %>
 </div>
 
     <div id="imageLightbox" class="image-lightbox" aria-hidden="true" role="dialog" aria-label="Image preview">
@@ -2332,6 +2386,80 @@
     </div>
 
     <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          const dialog = document.getElementById("websiteSettingsDialog");
+          const openButton = document.getElementById("openWebsiteSettings");
+          const form = document.getElementById("websiteDestinationForm");
+          const urlInput = document.getElementById("externalWebsiteUrl");
+          const errorMessage = document.getElementById("websiteSettingsError");
+          const saveButton = document.getElementById("saveWebsiteSettings");
+          if (!dialog || !openButton || !form || !urlInput || !errorMessage || !saveButton) return;
+
+          openButton.addEventListener("click", function () {
+            errorMessage.textContent = "";
+            dialog.showModal();
+            urlInput.focus();
+          });
+          document.getElementById("closeWebsiteSettings").addEventListener("click", function () {
+            dialog.close();
+          });
+          dialog.addEventListener("click", function (event) {
+            if (event.target === dialog) dialog.close();
+          });
+
+          async function saveWebsiteDestination(destination) {
+            errorMessage.textContent = "";
+            saveButton.disabled = true;
+            const resetButton = document.getElementById("useManagiraWebsite");
+            if (resetButton) resetButton.disabled = true;
+            const body = new URLSearchParams({
+              websiteDestination: destination,
+              externalWebsiteUrl: destination === "external" ? urlInput.value : "",
+            });
+
+            try {
+              const response = await fetch(form.action, {
+                method: "POST",
+                headers: {
+                  "Accept": "application/json",
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: body.toString(),
+                credentials: "same-origin",
+              });
+              const contentType = response.headers.get("content-type") || "";
+              if (!contentType.toLowerCase().includes("application/json")) {
+                throw new Error(response.redirected
+                  ? "Your session may have expired. Please sign in and try again."
+                  : "We couldn't save the website address. Please try again.");
+              }
+              const result = await response.json();
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || "We couldn't save the website address. Please try again.");
+              }
+              window.location.reload();
+            } catch (error) {
+              errorMessage.textContent = error.message || "We couldn't save the website address. Please try again.";
+              saveButton.disabled = false;
+              if (resetButton) resetButton.disabled = false;
+            }
+          }
+
+          form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            if (!urlInput.reportValidity()) return;
+            saveWebsiteDestination("external");
+          });
+
+          const resetButton = document.getElementById("useManagiraWebsite");
+          if (resetButton) {
+            resetButton.addEventListener("click", function () {
+              saveWebsiteDestination("managira");
+            });
+          }
+        });
+
         document.addEventListener("DOMContentLoaded", function () {
         const toggleButton = document.getElementById("toggle-upload-content-form");
         const uploadContentForm = document.getElementById("uploadContentForm");

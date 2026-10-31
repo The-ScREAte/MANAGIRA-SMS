@@ -149,6 +149,66 @@
     return asLook(control.getAttribute("data-ap-set"));
   }
 
+  // ---------- Moving between views without redrawing the page ----------
+  // A click changes a little of the page: only what differs between the view
+  // recorded before (was) and the next one (next) is changed in the live page
+  // (live). Everything else stays as it is: panes keep their loaded pages (a
+  // pane used to be rebuilt on every click, blank and then recolored), scroll
+  // positions stay, and colors set by the appearance script are not undone.
+  const attrMap = (el) => new Map(Array.from(el.attributes || []).map((a) => [a.name, a.value]));
+  function patchAttrs(live, was, next) {
+    const a = attrMap(was), b = attrMap(next);
+    a.forEach((_, name) => { if (!b.has(name) && name !== "srcdoc") live.removeAttribute(name); });
+    b.forEach((value, name) => { if (name !== "srcdoc" && a.get(name) !== value) live.setAttribute(name, value); });
+  }
+  const sameKind = (x, y) => x && y && x.nodeType === y.nodeType && (x.nodeType !== 1 || x.tagName === y.tagName);
+  const headOfHtml = (html) => { const m = /<head[^>]*>([\s\S]*?)<\/head>/i.exec(html || ""); return m ? m[1] : ""; };
+  function patchChildren(liveParent, wasParent, nextParent) {
+    // The appearance script's recolored copies of style tags (data-ap-copy) sit
+    // next to the originals; they are its own, not part of the recording.
+    const live = Array.from(liveParent.childNodes).filter((x) => !(x.nodeType === 1 && x.hasAttribute("data-ap-copy"))), was = Array.from(wasParent.childNodes), next = Array.from(nextParent.childNodes);
+    // The live page has nodes the recording doesn't know: rebuild this part.
+    if (live.length !== was.length) {
+      if (window.__mcapDebug) console.log("[patch] rebuild", liveParent.tagName, liveParent.id, live.length, was.length, next.length, "LIVE:", live.map((x) => x.nodeName + (x.nodeType === 1 && x.attributes.length ? "[" + Array.from(x.attributes).map((a) => a.name).slice(0, 3).join(" ") + "]" : "")).join(",").slice(0, 300), "WAS:", was.map((x) => x.nodeName).join(",").slice(0, 200));
+      while (liveParent.firstChild) liveParent.removeChild(liveParent.firstChild);
+      next.forEach((n) => liveParent.appendChild(liveParent.ownerDocument.importNode(n, true)));
+      return;
+    }
+    next.forEach((n, i) => {
+      const l = live[i], w = was[i];
+      if (!l) { liveParent.appendChild(liveParent.ownerDocument.importNode(n, true)); return; }
+      if (!sameKind(w, n) || !sameKind(l, w)) { liveParent.replaceChild(liveParent.ownerDocument.importNode(n, true), l); return; }
+      patchNode(l, w, n);
+    });
+    for (let i = live.length - 1; i >= next.length; i--) liveParent.removeChild(live[i]);
+  }
+  function patchNode(live, was, next) {
+    if (live.nodeType !== 1) { if (was.nodeValue !== next.nodeValue) live.nodeValue = next.nodeValue; return; }
+    if (live.tagName === "IFRAME") { patchPane(live, was, next); patchAttrs(live, was, next); return; }
+    patchAttrs(live, was, next);
+    if (live.tagName === "TEXTAREA" || live.tagName === "INPUT") { if (live.value !== next.value) live.value = next.value; }
+    patchChildren(live, was, next);
+  }
+  // A pane: unchanged, it is left alone; showing the same page, it is patched
+  // in place; showing another page, it is loaded afresh.
+  function patchPane(frameEl, was, next) {
+    const before = was.getAttribute("srcdoc"), after = next.getAttribute("srcdoc");
+    if (before === after || after === null) return;
+    let d = null;
+    try { d = frameEl.contentDocument; } catch (_) { d = null; }
+    if (!d || !d.body || headOfHtml(before) !== headOfHtml(after)) { frameEl.setAttribute("srcdoc", after); return; }
+    const parser = new DOMParser();
+    const w = parser.parseFromString(before, "text/html"), n = parser.parseFromString(after, "text/html");
+    const keep = d.__mcapLook ? { cls: d.documentElement.getAttribute("class"), style: d.documentElement.getAttribute("style") } : null;
+    patchAttrs(d.documentElement, w.documentElement, n.documentElement);
+    if (keep) {
+      d.documentElement.setAttribute("class", ((n.documentElement.getAttribute("class") || "") + " ap-ready").trim());
+      if (keep.style) d.documentElement.setAttribute("style", keep.style);
+    }
+    patchAttrs(d.body, w.body, n.body);
+    patchChildren(d.body, w.body, n.body);
+  }
+
   function setAttrs(el, attrs) {
     Array.from(el.attributes).forEach((a) => { if (!(a.name in attrs)) el.removeAttribute(a.name); });
     Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
@@ -180,7 +240,9 @@
         if (doc.documentElement.hasAttribute("style")) attrs.style = doc.documentElement.getAttribute("style");
       }
       setAttrs(doc.documentElement, attrs);
-      doc.documentElement.replaceChild(doc.importNode(parsed.body, true), doc.body);
+      const was = new DOMParser().parseFromString(stateHtml(prev), "text/html");
+      patchAttrs(doc.body, was.body, parsed.body);
+      patchChildren(doc.body, was.body, parsed.body);
       scrollEl.scrollTop = y;
       wire(doc, done);
       return;

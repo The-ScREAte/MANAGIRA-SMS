@@ -634,7 +634,7 @@
         <li>
           <a class="nav-link" href="/common/failedEmails" data-no-spa data-section="email-issues" data-embed-url="/common/failedEmails" data-embed-label="Email Issues">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
-            <span>Email issues<% if (failedEmailCount > 0) { %> <span style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
+            <span>Email issues<% if (failedEmailCount > 0) { %> <span data-email-issues-count style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
           </a>
         </li>
         <% } %>
@@ -816,6 +816,34 @@
     const overlay = document.getElementById('management-nav-overlay');
     const navCollapseToggle = document.getElementById('management-nav-collapse-toggle');
     const layout = document.getElementById('management-layout');
+
+    window.addEventListener('message', event => {
+      if (event.origin !== window.location.origin) return;
+      const emailIssuesFrame = document.querySelector('#email-issues .embed-iframe');
+      if (!emailIssuesFrame || event.source !== emailIssuesFrame.contentWindow) return;
+      if (event.data?.type !== 'emailIssuesCountChanged') return;
+
+      const count = Number(event.data.count);
+      if (!Number.isSafeInteger(count) || count < 0) return;
+
+      const emailIssuesLink = document.querySelector('.nav-link[data-section="email-issues"]');
+      const label = emailIssuesLink?.querySelector(':scope > span:last-child');
+      if (!label) return;
+
+      let badge = label.querySelector('[data-email-issues-count]');
+      if (count === 0) {
+        if (badge) badge.remove();
+        return;
+      }
+
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.setAttribute('data-email-issues-count', '');
+        badge.style.cssText = 'display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6';
+        label.append(' ', badge);
+      }
+      badge.textContent = String(count);
+    });
 
     const setNavOpen = isOpen => {
       nav.classList.toggle('open', isOpen);

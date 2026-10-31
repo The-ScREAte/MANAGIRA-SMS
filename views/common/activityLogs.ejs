@@ -46,7 +46,7 @@
     --row-alt: #fbfcfc;
   }
 
-  body { background: #f9fafb; }
+  body { background: <%= isEmbedded ? 'transparent' : '#f9fafb' %>; }
   main { padding: 0 !important; max-width: none !important; }
 
   .logs-page { max-width: none; margin: 12px 0 40px; width: 100%; padding: 0 20px; display: grid; gap: 12px; }
@@ -113,18 +113,18 @@
     overscroll-behavior: contain;
   }
   .logs-list { list-style: none; margin: 0; padding: 0; min-width: 980px; }
-  .logs-list li { margin: 0; padding: 0; }
+  .logs-list li { margin: 0; }
   .logs-head, .log-item {
     display: grid;
     grid-template-columns: 168px 72px minmax(190px,1.4fr) 118px minmax(120px,1fr) minmax(190px,2fr);
-    gap: 8px; padding: 6px 16px; align-items: center;
+    gap: 8px; padding: 6px 24px; align-items: center;
   }
   .logs-head {
     position: sticky; top: 0; z-index: 1;
     background: #f4f6f8; border-bottom: 2px solid var(--border);
     font-size: 0.74rem; font-weight: 700; color: #9aa8ba;
     text-transform: uppercase; letter-spacing: 0.08em;
-    padding: 8px 16px; align-items: center;
+    padding: 8px 24px; align-items: center;
   }
   .log-item {
     border-top: 1px solid #f0f2f5;
@@ -319,10 +319,11 @@
   /* Inside the shared page shell: no extra outer margin, header sits tight to the filters. */
   /* Rows sit at the top: a tall panel must not stretch the header, filters and list apart. */
   .logs-page.gp-page { margin: 0; align-content: start; align-items: start; }
+  .logs-page.gp-page.is-embedded { background: transparent; }
   .logs-page.gp-page > .gp-head { margin-bottom: 4px; }
   .logs-page .as-pagebar-label { white-space: nowrap; }
 </style>
-<div class="logs-page gp-page">
+<div class="logs-page gp-page<%= isEmbedded ? ' is-embedded' : '' %>">
   <header class="gp-head">
     <div>
       <h1 class="gp-title">Activity Logs</h1>

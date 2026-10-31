@@ -1,15 +1,15 @@
 <style>
   .str-shell {
-    --str-org-base: var(--org-primary-color);
-    --str-org-strong: color-mix(in srgb, var(--str-org-base) 82%, black);
-    --str-org-soft: color-mix(in srgb, var(--str-org-base) 72%, white);
-    --str-surface: color-mix(in srgb, var(--str-org-base) 1%, white);
-    --str-surface-muted: color-mix(in srgb, var(--str-org-base) 4%, white);
-    --str-surface-strong: color-mix(in srgb, var(--str-org-base) 7%, white);
-    --str-border: color-mix(in srgb, var(--str-org-base) 14%, white);
-    --str-border-strong: color-mix(in srgb, var(--str-org-base) 24%, white);
-    --str-shadow-soft: color-mix(in srgb, var(--str-org-base) 10%, transparent);
-    --str-shadow-strong: color-mix(in srgb, var(--str-org-base) 16%, transparent);
+    --str-org-base: var(--org-primary-color, #0f766e);
+    --str-org-strong: #172033;
+    --str-org-soft: #64748b;
+    --str-surface: #fff;
+    --str-surface-muted: #f8fafc;
+    --str-surface-strong: #f1f5f9;
+    --str-border: #e2e8f0;
+    --str-border-strong: #cbd5e1;
+    --str-shadow-soft: rgba(15, 23, 42, .04);
+    --str-shadow-strong: rgba(15, 23, 42, .08);
   }
 
   .str-shell {
@@ -17,34 +17,15 @@
     margin: 0 auto;
     padding: 22px 18px 34px;
     color: var(--str-org-strong);
-    position: relative;
-  }
-
-  .str-shell::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(900px 420px at 15% -10%, color-mix(in srgb, var(--str-org-base) 8%, transparent), transparent 62%),
-      radial-gradient(760px 360px at 90% 110%, color-mix(in srgb, var(--str-org-base) 9%, transparent), transparent 66%);
-  }
-
-  .str-shell > * {
-    position: relative;
-    z-index: 1;
   }
 
   .str-header {
-    border: 1px solid var(--str-border-strong);
-    border-radius: 16px;
-    background: linear-gradient(180deg, var(--str-surface) 0%, var(--str-surface-muted) 100%);
+    border: 1px solid var(--str-border);
+    border-radius: 14px;
+    background: var(--str-surface);
     padding: 16px;
     margin-bottom: 14px;
-    box-shadow: 0 12px 28px var(--str-shadow-soft);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px var(--str-shadow-soft);
   }
 
   .str-title-row {
@@ -94,10 +75,9 @@
 
   .str-summary-card {
     border: 1px solid var(--str-border);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--str-surface);
     padding: 10px 12px;
-    box-shadow: 0 8px 16px color-mix(in srgb, var(--str-org-base) 8%, transparent);
   }
 
   .str-summary-card .k {
@@ -117,14 +97,12 @@
   }
 
   .str-section {
-    border: 1px solid var(--str-border-strong);
-    border-radius: 14px;
+    border: 1px solid var(--str-border);
+    border-radius: 12px;
     background: var(--str-surface);
     padding: 14px;
-    box-shadow: 0 4px 14px var(--str-shadow-soft);
+    box-shadow: 0 2px 8px var(--str-shadow-soft);
     margin-bottom: 12px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
 
   .str-section-head {
@@ -162,14 +140,12 @@
     align-items: center;
     gap: 10px;
     background: var(--str-surface);
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background-color .18s ease;
+    transition: border-color .18s ease, background-color .18s ease;
   }
 
   .str-item:hover {
     border-color: var(--str-border-strong);
-    background: var(--str-surface-strong);
-    transform: translateY(-1px);
-    box-shadow: 0 10px 22px color-mix(in srgb, var(--str-org-base) 11%, transparent);
+    background: var(--str-surface-muted);
   }
 
   .str-item-title {
@@ -230,25 +206,22 @@
     text-decoration: none;
     border: none;
     background: var(--str-org-base);
-    color: var(--str-surface);
+    color: #fff;
     border-radius: 10px;
     padding: 8px 12px;
     font-weight: 800;
     font-size: 0.75rem;
     min-width: 88px;
     text-align: center;
-    box-shadow: 0 8px 18px var(--str-shadow-strong);
-    transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease;
+    transition: background-color .16s ease;
   }
 
   .str-cta:hover {
-    background: color-mix(in srgb, var(--str-org-base) 85%, black);
-    transform: translateY(-1px);
-    box-shadow: 0 12px 24px var(--str-shadow-strong);
+    background: var(--org-primary-hover, #0b5b54);
   }
 
   .str-cta:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--str-org-base) 34%, white);
+    outline: 2px solid var(--str-org-base);
     outline-offset: 2px;
   }
 
@@ -282,7 +255,7 @@
   .str-empty {
     margin: 2px 0 0;
     color: var(--str-org-soft);
-    font-size: 0.8rem;
+    font-size: 0.88rem;
   }
 
   @media (max-width: 900px) {
@@ -302,16 +275,14 @@
       margin-bottom: 9px;
     }
 
-    .str-page-title {
-      font-size: 0.92rem;
-    }
+    .str-page-title { font-size: 1.2rem; }
 
     .str-page-tag {
-      font-size: 0.56rem;
+      font-size: 0.66rem;
     }
 
     .str-term-pill {
-      font-size: 0.6rem;
+      font-size: 0.68rem;
       padding: 4px 7px;
     }
 
@@ -320,11 +291,11 @@
     }
 
     .str-summary-card .k {
-      font-size: 0.52rem;
+      font-size: 0.65rem;
     }
 
     .str-summary-card .v {
-      font-size: 0.8rem;
+      font-size: 1rem;
     }
 
     .str-section {
@@ -334,11 +305,11 @@
     }
 
     .str-section-title {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
     }
 
     .str-section-caption {
-      font-size: 0.62rem;
+      font-size: 0.75rem;
     }
 
     .str-item {
@@ -354,29 +325,29 @@
     }
 
     .str-item-meta {
-      font-size: 0.64rem;
+      font-size: 0.78rem;
       margin-top: 3px;
     }
 
     .str-chip {
-      font-size: 0.54rem;
+      font-size: 0.68rem;
       padding: 3px 7px;
     }
 
     .str-cta {
       width: 100%;
-      font-size: 0.64rem;
+      font-size: 0.76rem;
       padding: 8px 9px;
       border-radius: 8px;
     }
 
     .str-state {
-      font-size: 0.56rem;
+      font-size: 0.68rem;
       padding: 3px 8px;
     }
 
     .str-empty {
-      font-size: 0.66rem;
+      font-size: 0.82rem;
     }
   }
 </style>

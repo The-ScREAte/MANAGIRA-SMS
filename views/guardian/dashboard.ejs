@@ -405,13 +405,25 @@
   }
 
   .guardian-transport-modal-close {
+    display: inline-flex;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    width: 36px !important;
+    min-width: 36px;
+    height: 36px;
+    margin: 0 0 0 auto !important;
+    padding: 0 !important;
     border: none;
     background: transparent;
-    font-size: 28px;
+    border-radius: 8px;
+    font-size: 22px;
     line-height: 1;
     color: #64748b;
     cursor: pointer;
   }
+  .guardian-transport-modal-close:hover { background: #f1f5f9; color: #0f172a; }
+  .guardian-transport-modal-close:focus-visible { outline: 2px solid var(--org-primary-color, #0f5a66); outline-offset: 2px; }
 
   .guardian-transport-modal-body {
     padding: 12px 14px 14px;
@@ -972,7 +984,7 @@
   <div class="guardian-transport-modal-box" role="dialog" aria-modal="true" aria-labelledby="guardianTransportModalTitle">
     <div class="guardian-transport-modal-head">
       <h3 class="guardian-transport-modal-title" id="guardianTransportModalTitle">Transportation Details</h3>
-      <button type="button" class="guardian-transport-modal-close" onclick="closeGuardianTransportModal()" aria-label="Close">×</button>
+      <button type="button" class="guardian-transport-modal-close" data-ap-skip onclick="closeGuardianTransportModal()" aria-label="Close">×</button>
     </div>
     <div class="guardian-transport-modal-body">
       <div id="guardianTransportModalStatus" class="guardian-subtitle" style="margin:0;color:#64748b;">Current transportation assignment</div>

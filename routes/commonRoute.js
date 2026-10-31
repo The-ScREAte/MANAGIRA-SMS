@@ -13,6 +13,30 @@ const admissionSettingsController = require("../controllers/admissionSettingsCon
 const { isOrgMember } = require("../utils/workspace");
 const multer = require('multer');
 const path = require('path');
+const {
+  ensureExternalSchoolWebsiteSchema,
+  normalizeExternalSchoolWebsiteUrl,
+} = require("../utils/externalSchoolWebsite");
+
+function redirectToExternalSchoolWebsite(db) {
+  return async (req, res, next) => {
+    const organizationId = req.schoolDetails?.organization_id || req.query.organizationId;
+    if (!Number.isInteger(Number(organizationId)) || Number(organizationId) < 1) return next();
+
+    try {
+      await ensureExternalSchoolWebsiteSchema(db);
+      const { rows } = await db.query(
+        "SELECT external_website_url FROM organizations WHERE organization_id = $1",
+        [Number(organizationId)]
+      );
+      const { url } = normalizeExternalSchoolWebsiteUrl(rows[0]?.external_website_url);
+      if (url) return res.redirect(302, url);
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+}
 
 // Separate multer config for bulk imports - uses memory storage for parsing
 const bulkUploadStorage = multer.memoryStorage();
@@ -85,7 +109,7 @@ module.exports = (db) => {
   );
   // Public website contact form (no sign-in).
   router.post("/publicContact", websiteController.publicContact);
-  router.get("/publicDashboard", checkFeatureAccess, async (req, res) => {
+  router.get("/publicDashboard", checkFeatureAccess, redirectToExternalSchoolWebsite(db), async (req, res) => {
     const isProduction = process.env.NODE_ENV === "production";
 
     if (isProduction) {

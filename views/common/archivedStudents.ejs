@@ -11,7 +11,7 @@
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 
-<div class="gp-page">
+<div class="gp-page gp-page--alumni">
   <header class="gp-head">
     <div>
       <h1 class="gp-title">Graduates &amp; Alumni</h1>
@@ -135,6 +135,7 @@
 </div>
 
 <style>
+  .gp-page--alumni { background: transparent; }
   .ar-tabs { display: flex; gap: 6px; margin: 4px 0 14px; border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent); }
   .ar-tab { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 -1px; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: inherit; font: inherit; font-weight: 700; opacity: .7; cursor: pointer; }
   .ar-tab.is-active { opacity: 1; border-bottom-color: var(--org-primary-color, #01535b); color: var(--org-primary-color, #01535b); }

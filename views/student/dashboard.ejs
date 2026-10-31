@@ -1,17 +1,17 @@
 <style>
   :root {
     --sp-org-base: var(--org-primary-color, #01535b);
-    --sp-org-strong: color-mix(in srgb, var(--sp-org-base) 72%, black);
-    --sp-org-soft: color-mix(in srgb, var(--sp-org-base) 48%, black);
-    --sp-org-muted: color-mix(in srgb, var(--sp-org-base) 38%, white);
-    --sp-surface: color-mix(in srgb, var(--sp-org-base) 4%, white);
-    --sp-surface-muted: color-mix(in srgb, var(--sp-org-base) 8%, white);
-    --sp-surface-strong: color-mix(in srgb, var(--sp-org-base) 13%, white);
-    --sp-border: color-mix(in srgb, var(--sp-org-base) 18%, white);
-    --sp-border-strong: color-mix(in srgb, var(--sp-org-base) 30%, white);
-    --sp-shadow-soft: color-mix(in srgb, var(--sp-org-base) 14%, transparent);
-    --sp-shadow-strong: color-mix(in srgb, var(--sp-org-base) 26%, transparent);
-    --sp-overlay: color-mix(in srgb, var(--sp-org-base) 12%, transparent);
+    --sp-org-strong: #1e293b;
+    --sp-org-soft: #526174;
+    --sp-org-muted: #64748b;
+    --sp-surface: #fff;
+    --sp-surface-muted: #f8fafc;
+    --sp-surface-strong: #f1f5f9;
+    --sp-border: #e2e8f0;
+    --sp-border-strong: #cbd5e1;
+    --sp-shadow-soft: rgba(15, 23, 42, .05);
+    --sp-shadow-strong: rgba(15, 23, 42, .1);
+    --sp-overlay: rgba(15, 23, 42, .48);
   }
 
   .sp-shell {
@@ -126,7 +126,7 @@
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid #fff;
-    box-shadow: 0 6px 18px var(--sp-shadow-strong);
+    box-shadow: 0 2px 8px var(--sp-shadow-soft);
     display: block;
   }
 
@@ -489,7 +489,7 @@
 
   .schedule-slot-header {
     min-width: var(--schedule-slot-column-width);
-    background: linear-gradient(180deg, #fff 0%, var(--sp-surface-muted) 100%);
+    background: var(--sp-surface-muted);
   }
 
   .schedule-slot-header-inner {
@@ -573,8 +573,6 @@
     align-items: center;
     justify-content: center;
     padding: 14px;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
 
   .sp-modal.is-open { display: flex; }
@@ -583,13 +581,11 @@
     width: min(96vw, 960px);
     max-height: 90vh;
     overflow-y: auto;
-    background: color-mix(in srgb, white 84%, var(--sp-surface) 16%);
+    background: #fff;
     border: 1px solid var(--sp-border);
     border-radius: 14px;
     box-shadow: 0 24px 52px var(--sp-shadow-strong);
     padding: 16px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
   }
 
   .sp-modal-head {
@@ -697,13 +693,13 @@
       height: 68px;
       border-width: 2px;
     }
-    .sp-title { font-size: .72rem; }
-    .sp-title-tag { font-size: .56rem; }
-    .sp-name { font-size: .72rem; }
-    .sp-sub { font-size: .72rem; margin-top: 3px; }
-    .sp-term-countdown { font-size: .68rem; padding: 7px 8px; border-radius: 8px; }
+    .sp-title { font-size: .96rem; }
+    .sp-title-tag { font-size: .64rem; }
+    .sp-name { font-size: .96rem; }
+    .sp-sub { font-size: .78rem; margin-top: 3px; }
+    .sp-term-countdown { font-size: .76rem; padding: 9px 10px; border-radius: 8px; }
     .sp-term-countdown .line { margin-top: 3px; }
-    .sp-term-countdown .meta { font-size: .62rem; }
+    .sp-term-countdown .meta { font-size: .7rem; }
     .sp-panel { padding: 8px; }
     .sp-section-title { font-size: .76rem; margin-bottom: 6px; }
     .sp-tiles,
@@ -716,10 +712,10 @@
       padding: 8px 9px;
       border-radius: 8px;
     }
-    .sp-tile .l { font-size: .54rem; }
-    .sp-tile .v { font-size: .9rem; margin-top: 4px; }
-    .sp-action-title { font-size: .62rem; }
-    .sp-action-copy { font-size: .54rem; margin-top: 1px; }
+    .sp-tile .l { font-size: .64rem; }
+    .sp-tile .v { font-size: 1rem; margin-top: 4px; }
+    .sp-action-title { font-size: .76rem; }
+    .sp-action-copy { font-size: .68rem; margin-top: 2px; }
     .sp-mini-pill {
       font-size: .58rem;
       padding: 2px 6px;
@@ -727,13 +723,13 @@
     }
     .sp-teacher-subjects { gap: 3px; }
     .sp-table-wrap { border-radius: 8px; }
-    .sp-table { font-size: .66rem; }
+    .sp-table { font-size: .72rem; }
     .sp-table th, .sp-table td { padding: 5px 6px; }
-    .sp-table th { font-size: .56rem; }
+    .sp-table th { font-size: .62rem; }
     .sp-period-time { font-size: .56rem; }
-    .sp-table.sp-grades-table { font-size: .58rem; }
+    .sp-table.sp-grades-table { font-size: .64rem; }
     .sp-table.sp-grades-table th, .sp-table.sp-grades-table td { padding: 4px; }
-    .sp-table.sp-grades-table th { font-size: .48rem; line-height: 1.1; }
+    .sp-table.sp-grades-table th { font-size: .56rem; line-height: 1.2; }
     .sp-term-meta-grid { gap: 8px; }
     .sp-term-meta-card { padding: 8px 9px; border-radius: 8px; }
     .sp-term-meta-card .k { font-size: .54rem; }
@@ -775,32 +771,32 @@
     .sp-shell { padding: 10px; }
     .sp-header-top { padding: 7px 8px; }
     .sp-avatar { width: 58px; height: 58px; }
-    .sp-title { font-size: .62rem; }
-    .sp-title-tag { font-size: .5rem; }
-    .sp-name { font-size: .64rem; }
-    .sp-sub { font-size: .66rem; }
+    .sp-title { font-size: .88rem; }
+    .sp-title-tag { font-size: .6rem; }
+    .sp-name { font-size: .9rem; }
+    .sp-sub { font-size: .74rem; }
     .sp-header-brief,
     .sp-term-popup-btn {
-      font-size: .5rem;
-      padding: 2px 7px;
-      min-height: 22px;
+      font-size: .62rem;
+      padding: 3px 7px;
+      min-height: 24px;
     }
-    .sp-term-countdown { font-size: .62rem; padding: 6px 7px; }
-    .sp-term-countdown .meta { font-size: .56rem; }
-    .sp-section-title { font-size: .7rem; }
+    .sp-term-countdown { font-size: .72rem; padding: 7px 8px; }
+    .sp-term-countdown .meta { font-size: .64rem; }
+    .sp-section-title { font-size: .8rem; }
     .sp-tile,
     .sp-action-tile { padding: 6px 7px; }
-    .sp-tile .l { font-size: .48rem; }
-    .sp-tile .v { font-size: .8rem; }
-    .sp-action-title { font-size: .56rem; }
-    .sp-action-copy { font-size: .5rem; }
-    .sp-mini-pill { font-size: .52rem; padding: 1px 5px; }
-    .sp-table { font-size: .6rem; }
+    .sp-tile .l { font-size: .58rem; }
+    .sp-tile .v { font-size: .92rem; }
+    .sp-action-title { font-size: .7rem; }
+    .sp-action-copy { font-size: .62rem; }
+    .sp-mini-pill { font-size: .58rem; padding: 2px 6px; }
+    .sp-table { font-size: .68rem; }
     .sp-table th, .sp-table td { padding: 4px 5px; }
-    .sp-table th { font-size: .5rem; }
-    .sp-table.sp-grades-table { font-size: .52rem; }
+    .sp-table th { font-size: .56rem; }
+    .sp-table.sp-grades-table { font-size: .6rem; }
     .sp-table.sp-grades-table th, .sp-table.sp-grades-table td { padding: 3px; }
-    .sp-table.sp-grades-table th { font-size: .44rem; }
+    .sp-table.sp-grades-table th { font-size: .52rem; }
     .sp-term-meta-card { padding: 7px 8px; }
     .sp-term-meta-card .k { font-size: .5rem; }
     .sp-term-meta-card .v { font-size: .7rem; }

@@ -1340,6 +1340,23 @@ app.get("/", async (req, res) => {
       return renderWebsiteNotActivated(res);
     }
 
+    try {
+      const {
+        ensureExternalSchoolWebsiteSchema,
+        normalizeExternalSchoolWebsiteUrl,
+      } = require("./utils/externalSchoolWebsite");
+      await ensureExternalSchoolWebsiteSchema(db);
+      const { rows } = await db.query(
+        "SELECT external_website_url FROM organizations WHERE organization_id = $1",
+        [req.schoolDetails.organization_id]
+      );
+      const { url } = normalizeExternalSchoolWebsiteUrl(rows[0]?.external_website_url);
+      if (url) return res.redirect(302, url);
+    } catch (error) {
+      console.error("[PublicWebsite] External website lookup failed:", error);
+      return res.status(503).send("The school website is temporarily unavailable.");
+    }
+
     req.organizationId = req.schoolDetails.organization_id;
     return commonController.publicDashboardContent(req, res, db);
   }

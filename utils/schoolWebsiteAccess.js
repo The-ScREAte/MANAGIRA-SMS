@@ -12,16 +12,22 @@ async function getOrganizationWebsiteInfo(db, organizationId) {
   let org;
   let planIdToCheck = null;
 
+  const {
+    ensureExternalSchoolWebsiteSchema,
+    normalizeExternalSchoolWebsiteUrl,
+  } = require("./externalSchoolWebsite");
+  await ensureExternalSchoolWebsiteSchema(db);
+
   try {
     const orgResult = await db.query(
-      "SELECT plan_id, nickname, is_hub_member, hub_id FROM organizations WHERE organization_id = $1",
+      "SELECT plan_id, nickname, is_hub_member, hub_id, external_website_url FROM organizations WHERE organization_id = $1",
       [organizationId]
     );
     org = orgResult.rows[0];
   } catch (error) {
     // Backward-compatible fallback for installations without hub columns.
     const orgResult = await db.query(
-      "SELECT plan_id, nickname FROM organizations WHERE organization_id = $1",
+      "SELECT plan_id, nickname, external_website_url FROM organizations WHERE organization_id = $1",
       [organizationId]
     );
     org = orgResult.rows[0];
@@ -37,6 +43,8 @@ async function getOrganizationWebsiteInfo(db, organizationId) {
     };
   }
 
+  const externalWebsite = normalizeExternalSchoolWebsiteUrl(org.external_website_url).url;
+  const externalWebsiteHost = externalWebsite ? new URL(externalWebsite).host : null;
   planIdToCheck = org.plan_id || null;
 
   if (org.is_hub_member && org.hub_id) {
@@ -56,9 +64,9 @@ async function getOrganizationWebsiteInfo(db, organizationId) {
   if (!planIdToCheck) {
     return {
       hasWebsiteFeature: false,
-      hasWebsite: false,
-      websiteHost: null,
-      websiteUrl: null,
+      hasWebsite: Boolean(externalWebsite),
+      websiteHost: externalWebsiteHost,
+      websiteUrl: externalWebsite,
       nickname: org.nickname || null,
     };
   }
@@ -77,6 +85,16 @@ async function getOrganizationWebsiteInfo(db, organizationId) {
   const rawNickname = String(org.nickname || "").trim().toLowerCase();
   const sanitizedNickname = rawNickname.replace(/[^a-z0-9-]/g, "");
   const baseDomain = "managira.com";
+
+  if (externalWebsite) {
+    return {
+      hasWebsiteFeature,
+      hasWebsite: true,
+      websiteHost: externalWebsiteHost,
+      websiteUrl: externalWebsite,
+      nickname: sanitizedNickname || null,
+    };
+  }
 
   if (!hasWebsiteFeature || !sanitizedNickname) {
     return {

@@ -2052,10 +2052,10 @@
   <% const dashboardHref = isOnHoldRestrictedHeader ? '/account/settings' : (req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : (req.session && req.session.userRole === 'Driver' ? '/driver/dashboard' : '/common/orgDashboard')))); %>
   <% const headerHost = (req && req.headers && req.headers.host) ? String(req.headers.host).toLowerCase() : ''; %>
   <% const isLocalHeaderHost = headerHost.includes('localhost') || headerHost.startsWith('127.0.0.1'); %>
-  <% const schoolWebsiteHref = (session && session.orgNickName && !isLocalHeaderHost)
-    ? ('https://' + session.orgNickName + '.managira.com')
-    : ((req && req.session && req.session.organizationId)
-      ? ('/common/publicDashboard?organizationId=' + req.session.organizationId)
+  <% const schoolWebsiteHref = (req && req.session && req.session.organizationId)
+    ? ('/common/publicDashboard?organizationId=' + encodeURIComponent(req.session.organizationId))
+    : ((session && session.orgNickName && !isLocalHeaderHost)
+      ? ('https://' + session.orgNickName + '.managira.com')
       : '/common/publicDashboard'); %>
   <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext; %>
   <% const publicMarketingNav = [
@@ -2513,7 +2513,7 @@
           Dashboard
         </a></li>
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
-        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" data-no-spa>
+        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
           </svg>
@@ -2557,7 +2557,7 @@
           Dashboard
         </a></li>
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
-        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" data-no-spa>
+        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
           </svg>
@@ -2643,7 +2643,7 @@
         <% } %>
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item">
-          <a href="<%= schoolWebsiteHref %>" class="nav-item-link management-link" data-no-spa>
+          <a href="<%= schoolWebsiteHref %>" class="nav-item-link management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
             </svg>
@@ -4358,5 +4358,3 @@
   }
 })();
 </script>
-
-

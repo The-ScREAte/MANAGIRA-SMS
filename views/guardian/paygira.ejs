@@ -89,17 +89,19 @@
   }
 
   .pg-children-grid {
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(440px, 1fr));
-    gap:10px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
   }
 
   .pg-child-card {
-    background:var(--pg-surface);
-    border:1px solid var(--pg-border);
-    border-radius:16px;
+    background:transparent;
+    border:0;
+    border-bottom:1px solid rgba(255,255,255,.1);
+    border-radius:0;
     overflow:hidden;
     margin-bottom:0;
+    box-shadow:none;
   }
 
   .pg-child-collapsible > summary {
@@ -113,7 +115,7 @@
   .pg-child-head {
     display:flex; align-items:center; gap:14px;
     padding:14px 16px; border-bottom:1px solid var(--pg-border);
-    background:rgba(255,255,255,.02);
+    background:transparent;
   }
   .pg-child-head-toggle {
     cursor:pointer;
@@ -820,9 +822,6 @@
   .pg-history-row:last-child { border-bottom:none; }
 
   @media (max-width:1080px) {
-    .pg-children-grid {
-      grid-template-columns:1fr;
-    }
     .pg-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
     .pg-bill-row {
       grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(92px, 1fr));
@@ -1007,6 +1006,355 @@
     .pg-modal-actions {
       grid-template-columns:repeat(2, minmax(0, 1fr));
     }
+  }
+
+  .pg-modal-bg {
+    display:none;
+    align-items:stretch;
+    justify-content:flex-end;
+    padding:0;
+    overflow:hidden;
+    background:rgba(8,13,26,.58);
+    backdrop-filter:blur(3px);
+  }
+  .pg-modal-bg.open { display:flex; }
+  .pg-modal[data-ap-skip] {
+    --pg-modal-panel:var(--pg-surface);
+    --pg-modal-panel-raised:var(--pg-surface-2);
+    --pg-modal-line:rgba(255,255,255,.12);
+    background:var(--pg-bg);
+    border:1px solid var(--pg-modal-line);
+    border-radius:0;
+    padding:0 24px;
+    max-width:560px;
+    width:min(560px, 100vw);
+    height:100vh;
+    height:100dvh;
+    min-height:100vh;
+    max-height:100vh;
+    max-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    color:var(--pg-text);
+    box-shadow:-12px 0 42px rgba(0,0,0,.34);
+    animation:pgPayDrawerIn .28s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes pgPayDrawerIn {
+    from { transform:translateX(100%); }
+    to { transform:translateX(0); }
+  }
+  .pg-modal[data-ap-skip] .pg-modal-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin:0 -24px 20px;
+    padding:calc(16px + env(safe-area-inset-top, 0px)) 24px 14px;
+    border-bottom:1px solid var(--pg-modal-line);
+    background:var(--pg-bg);
+  }
+  .pg-modal[data-ap-skip] #pgPayForm {
+    display:flex;
+    flex:1 1 auto;
+    flex-direction:column;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+  .pg-modal[data-ap-skip] .pg-modal-header h3 {
+    margin:0;
+  }
+  .pg-modal[data-ap-skip] .pg-modal-close {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    flex:0 0 auto;
+    border:1px solid var(--pg-modal-line);
+    border-radius:9px;
+    background:var(--pg-modal-panel);
+    color:var(--pg-text);
+    font-size:21px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .pg-modal[data-ap-skip] .pg-modal-close:hover {
+    border-color:var(--pg-org);
+    background:var(--pg-modal-panel-raised);
+  }
+  .pg-modal[data-ap-skip] #pgStripeShell,
+  .pg-modal[data-ap-skip] #pgOfflineShell {
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
+  }
+  .pg-modal[data-ap-skip] #pgStripeShell[hidden] { display:none !important; }
+  .pg-modal[data-ap-skip] #pgNewCardSection {
+    margin-top:10px;
+  }
+  .pg-modal[data-ap-skip] #pgStripePaymentElement {
+    margin-top:10px;
+  }
+  .pg-modal[data-ap-skip] .pg-stripe-error {
+    color:#fca5a5;
+  }
+  .pg-modal[data-ap-skip] .pg-stripe-test-note {
+    color:var(--pg-muted);
+  }
+  .pg-modal[data-ap-skip] #pgSavedCardChips .pg-saved-card-chip {
+    background:var(--pg-modal-panel-raised) !important;
+    color:var(--pg-text) !important;
+    border-color:var(--pg-modal-line) !important;
+  }
+  .pg-modal[data-ap-skip] #pgSavedCardChips .pg-saved-card-chip.selected {
+    border-color:var(--pg-org) !important;
+    background:color-mix(in srgb, var(--pg-org) 20%, var(--pg-modal-panel-raised)) !important;
+  }
+  .pg-modal[data-ap-skip] .pg-field label,
+  .pg-modal[data-ap-skip] .pgv2-section-label {
+    color:var(--pg-muted);
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0;
+    text-transform:none;
+    margin-bottom:8px;
+  }
+  .pg-modal[data-ap-skip] .pg-field input,
+  .pg-modal[data-ap-skip] .pg-field select {
+    min-height:44px;
+    padding:10px 12px;
+    border:1px solid var(--pg-modal-line);
+    border-radius:9px;
+    background:var(--pg-modal-panel-raised);
+    color:var(--pg-text);
+    font-size:15px;
+  }
+  .pg-modal[data-ap-skip] .pg-field input:focus,
+  .pg-modal[data-ap-skip] .pg-field select:focus {
+    border-color:var(--pg-org);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--pg-org) 14%, transparent);
+  }
+  .pg-modal[data-ap-skip] #pgPayAmount {
+    min-height:52px;
+    background:var(--pg-modal-panel-raised);
+    color:var(--pg-text);
+    font-size:22px;
+    font-weight:700;
+  }
+  .pg-modal[data-ap-skip] .pgv2-balance-card,
+  .pg-modal[data-ap-skip] .pg-recurring-panel,
+  .pg-modal[data-ap-skip] .pg-payment-shell,
+  .pg-modal[data-ap-skip] .pg-payout-route {
+    margin-bottom:16px;
+    padding:16px;
+    border:1px solid var(--pg-modal-line);
+    border-radius:12px;
+    background:var(--pg-modal-panel);
+    color:var(--pg-text);
+    box-shadow:none;
+  }
+  .pg-modal[data-ap-skip] .pg-payment-shell { margin:0 0 16px; }
+  .pg-modal[data-ap-skip] .pg-payout-route { gap:10px; }
+  .pg-modal[data-ap-skip] .pg-payout-route-title,
+  .pg-modal[data-ap-skip] .pg-payout-route-copy,
+  .pg-modal[data-ap-skip] .pgv2-balance-heading,
+  .pg-modal[data-ap-skip] .pgv2-balance-hint,
+  .pg-modal[data-ap-skip] .pg-pay-mode-note {
+    color:var(--pg-muted);
+  }
+  .pg-modal[data-ap-skip] .pg-payout-redirect { color:var(--pg-org); }
+  .pg-modal[data-ap-skip] .pg-recurring-summary {
+    min-height:0;
+    padding:0 0 12px;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    color:var(--pg-text);
+  }
+  .pg-modal[data-ap-skip] .pg-recurring-toolbar {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:10px;
+  }
+  .pg-modal[data-ap-skip] .pg-recurring-toolbar > label {
+    margin:0;
+    color:var(--pg-text);
+  }
+  .pg-modal[data-ap-skip] .pg-recurring-actions { justify-content:flex-end; }
+  .pg-modal[data-ap-skip] .pg-recurring-actions .pg-btn {
+    width:auto !important;
+    margin:0 !important;
+    padding:7px 11px !important;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-card,
+  .pg-modal[data-ap-skip] .pg-payout-card,
+  .pg-modal[data-ap-skip] .pgv2-method-card {
+    border:1px solid var(--pg-modal-line);
+    border-radius:10px;
+    background:var(--pg-modal-panel-raised);
+    color:var(--pg-text);
+    box-shadow:none;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-card {
+    display:grid !important;
+    grid-template-columns:18px minmax(0,1fr) auto !important;
+    align-items:center !important;
+    gap:12px !important;
+    padding:12px 14px !important;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-card input {
+    width:16px;
+    height:16px;
+    margin:0;
+    align-self:center;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-card-copy {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+    flex-wrap:wrap;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-amount {
+    color:var(--pg-text);
+    font-weight:700;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-status {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    margin:0;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-card:hover,
+  .pg-modal[data-ap-skip] .pg-payout-card:hover,
+  .pg-modal[data-ap-skip] .pgv2-method-card:hover {
+    border-color:var(--pg-org);
+    background:var(--pg-modal-panel-raised);
+    transform:none;
+  }
+  .pg-modal[data-ap-skip] .pg-occ-card:has(input:checked),
+  .pg-modal[data-ap-skip] .pg-payout-card.is-selected,
+  .pg-modal[data-ap-skip] .pgv2-method-card.is-selected {
+    border-color:var(--pg-org);
+    background:color-mix(in srgb, var(--pg-org) 20%, var(--pg-modal-panel-raised));
+    box-shadow:none;
+  }
+  .pg-modal[data-ap-skip] .pgv2-method-card {
+    width:100% !important;
+    min-height:0;
+    margin:0 !important;
+    padding:13px;
+    border-radius:10px;
+  }
+  .pg-modal[data-ap-skip] .pgv2-method-ico {
+    background:color-mix(in srgb, var(--pg-org) 16%, var(--pg-modal-panel-raised));
+    color:var(--pg-text);
+  }
+  .pg-modal[data-ap-skip] .pgv2-method-subdesc { color:var(--pg-muted); }
+  .pg-modal[data-ap-skip] .pg-stripe-box {
+    border:1px solid var(--pg-modal-line);
+    border-radius:10px;
+    background:var(--pg-modal-panel-raised);
+    padding:14px;
+  }
+  .pg-modal[data-ap-skip] .pg-stripe-box-title { color:var(--pg-muted); }
+  .pg-modal[data-ap-skip] #pgFeeBreakdown {
+    margin-top:16px !important;
+    padding:16px !important;
+    border:1px solid var(--pg-modal-line) !important;
+    border-radius:12px !important;
+    background:var(--pg-modal-panel) !important;
+    box-shadow:none !important;
+    color:var(--pg-text) !important;
+    font-size:.88rem !important;
+  }
+  .pg-modal[data-ap-skip] #pgFeeBreakdown > div { gap:12px; }
+  .pg-modal[data-ap-skip] #pgFeeBreakdown #pgFbTotal {
+    color:var(--pg-org);
+    font-size:17px;
+    font-weight:800;
+  }
+  .pg-modal[data-ap-skip] #pgFeeBreakdown > div:last-child {
+    margin-top:10px !important;
+    padding-top:10px !important;
+    border-top:1px solid var(--pg-modal-line) !important;
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions {
+    display:grid;
+    grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);
+    gap:12px;
+    justify-content:stretch;
+    position:sticky;
+    bottom:0;
+    z-index:3;
+    margin:auto -24px 0 !important;
+    padding:14px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top:1px solid var(--pg-modal-line);
+    background:var(--pg-bg);
+    box-shadow:0 -12px 24px rgba(8,13,26,.28);
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn {
+    display:inline-flex;
+    width:100% !important;
+    min-width:0;
+    min-height:46px;
+    margin:0 !important;
+    padding:10px 12px;
+    border-radius:10px;
+    font-size:14px;
+    font-weight:700;
+    line-height:1.3;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    text-align:center;
+    box-shadow:none;
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.ghost {
+    border:1px solid var(--pg-modal-line);
+    background:var(--pg-modal-panel);
+    color:var(--pg-text);
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.ghost:hover {
+    background:var(--pg-modal-panel-raised);
+    border-color:var(--pg-org);
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.primary {
+    border:1px solid var(--pg-org);
+    background:var(--pg-org);
+    color:#fff;
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.primary:hover:not(:disabled) {
+    background:var(--pg-org-hover);
+    transform:translateY(-1px);
+  }
+  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn:disabled {
+    opacity:.55;
+    cursor:not-allowed;
+    transform:none;
+  }
+  .pg-modal[data-ap-skip] form > p {
+    margin-top:16px !important;
+    color:var(--pg-muted) !important;
+    font-size:12px !important;
+  }
+  .pg-modal[data-ap-skip] .pg-payout-card small { color:var(--pg-muted) !important; }
+  .pg-modal[data-ap-skip] .pgv2-balance-figure { color:var(--pg-teal); }
+  @media (max-width:600px) {
+    .pg-modal[data-ap-skip] { width:100%; max-width:none; padding:0 18px; }
+    .pg-modal[data-ap-skip] .pg-modal-header { margin-right:-18px; margin-left:-18px; padding-right:18px; padding-left:18px; }
+    .pg-modal[data-ap-skip] .pg-modal-actions { margin-right:-18px !important; margin-left:-18px !important; padding-right:18px; padding-left:18px; }
+    .pg-modal[data-ap-skip] .pg-modal-actions { gap:9px; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .pg-modal[data-ap-skip] { animation:none; }
   }
 </style>
 
@@ -1201,24 +1549,29 @@
 }))) %></script>
 
 <div class="pg-modal-bg" id="pgPayModal">
-  <div class="pg-modal">
-    <h3>Pay Bill</h3>
+  <div class="pg-modal" data-ap-skip role="dialog" aria-modal="true" aria-labelledby="pgPayTitle" aria-hidden="true">
+    <div class="pg-modal-header">
+      <h3 id="pgPayTitle">Pay Bill</h3>
+      <button type="button" class="pg-modal-close" aria-label="Close payment panel" onclick="closePgPay()">×</button>
+    </div>
     <form action="/guardian/paygira/pay" method="POST" id="pgPayForm">
       <input type="hidden" name="assignment_id" id="pgPayAssignment">
       <input type="hidden" name="occurrence_date" id="pgOccurrenceDate">
       <input type="hidden" name="occurrence_dates" id="pgOccurrenceDates">
       <input type="hidden" name="saved_card_id" id="pgSavedCardId" value="">
 
-      <%# ── Payout account selector ── %>
+      <%# ── School-configured payout destination ── %>
       <%
         const _pgAccounts = (typeof payoutAccounts !== 'undefined' ? payoutAccounts : []);
         const _pgStripe = (typeof stripeSelectable !== 'undefined' && stripeSelectable);
-        const _pgShowSelector = (_pgAccounts.length + (_pgStripe ? 1 : 0)) > 1;
       %>
-      <% if (!_pgShowSelector && _pgAccounts.length === 1) { %>
-      <input type="hidden" name="payout_account_id" value="<%= _pgAccounts[0].id %>">
-      <% } else if (!_pgShowSelector && _pgStripe) { %>
+      <% if (_pgStripe) { %>
       <input type="hidden" name="payout_account_id" value="stripe">
+      <% } else if (_pgAccounts.length) { %>
+      <%
+        var _pgPrimaryAccount = _pgAccounts.find(function(account) { return account.is_primary; }) || _pgAccounts[0];
+      %>
+      <input type="hidden" name="payout_account_id" value="<%= _pgPrimaryAccount.id %>">
       <% } %>
 
       <div id="pgCreditField" hidden style="margin-bottom:14px;">
@@ -1238,14 +1591,13 @@
       </div>
 
       <div class="pg-field span2 pg-recurring-panel" id="pgRecurringPanel" hidden>
-        <label>Select Dates to Pay</label>
         <div class="pg-recurring-toolbar">
-          <div class="pg-recurring-summary" id="pgRecurringSummary"></div>
+          <label>Select Dates to Pay</label>
           <div class="pg-recurring-actions">
-            <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="padding:6px 10px;font-size:.72rem;">All</button>
-            <button type="button" class="pg-btn ghost" id="pgClearDates" style="padding:6px 10px;font-size:.72rem;">Clear</button>
+            <button type="button" class="pg-btn ghost" id="pgSelectAllDates" style="width:auto;margin:0;padding:6px 10px;font-size:.72rem;">Select all</button>
           </div>
         </div>
+        <div class="pg-recurring-summary" id="pgRecurringSummary"></div>
         <div class="pg-recurring-list" id="pgRecurringList"></div>
         <small class="pg-pay-hint" id="pgRecurringHint"></small>
       </div>
@@ -1264,44 +1616,7 @@
         <div class="pgv2-balance-hint" id="pgMethodHint" style="margin-top:8px;display:none;"></div>
       </div>
 
-      <div class="pg-payment-shell pg-stripe-shell" id="pgStripeShell" hidden>
-        <% if (_pgShowSelector) { %>
-        <div class="pg-payout-route" id="pgPayoutRoute">
-          <div class="pg-payout-route-title">Online Payment Route</div>
-          <div class="pg-payout-route-copy">Select a route. Stripe keeps payment on this page. Paystack opens secure checkout.</div>
-          <div class="pg-payout-grid" id="pg-payout-selector">
-            <% _pgAccounts.forEach(function(acct, i) { %>
-            <%
-              var acctIcon = acct.account_type === 'mobile_money' ? '📱' : '🏦';
-              var acctName = acct.account_type === 'mobile_money'
-                ? (acct.business_name || acct.account_holder_name || acct.momo_provider || 'Mobile Money')
-                : (acct.business_name || acct.bank_name || 'Bank Account');
-              var acctSub = acct.account_type === 'mobile_money'
-                ? ((acct.momo_provider ? String(acct.momo_provider).toUpperCase() : 'MoMo') + (acct.momo_number ? ' · ···' + String(acct.momo_number).slice(-4) : ''))
-                : ((acct.bank_name || '') + (acct.account_number ? ' · ···' + String(acct.account_number).slice(-4) : ''));
-            %>
-            <label class="pg-payout-card">
-              <input type="radio" name="payout_account_id" value="<%= acct.id %>"
-                     <%= (!_pgStripe && (i === 0 || acct.is_primary)) ? 'checked' : '' %>
-                     style="accent-color:#0d9488;">
-              <span style="display:flex;flex-direction:column;gap:2px;">
-                <span><%= acctIcon %> <%= acctName %></span>
-                <% if (acctSub) { %><small style="color:#64748b;font-size:.72rem;"><%= acctSub %></small><% } %>
-              </span>
-            </label>
-            <% }); %>
-            <% if (_pgStripe) { %>
-            <label class="pg-payout-card">
-              <input type="radio" name="payout_account_id" value="stripe"
-                     <%= (_pgAccounts.length === 0) ? 'checked' : '' %>
-                     style="accent-color:#635bff;">
-              <span>💳 Card / Wallet (Stripe)</span>
-            </label>
-            <% } %>
-          </div>
-          <div class="pg-payout-redirect" id="pgPayoutRedirectNote" hidden>You will be redirected to complete payment securely.</div>
-        </div>
-        <% } %>
+      <div class="pg-stripe-shell" id="pgStripeShell" hidden>
         <div class="pg-method-chip-list" id="pgStripeMethodChips" style="display:none;"></div>
         <div id="pgSavedCardsSection" style="display:none;margin-top:12px;">
           <div class="pg-stripe-box-title" style="margin-bottom:8px;">Saved cards</div>
@@ -1313,15 +1628,13 @@
           </div>
         </div>
         <div id="pgNewCardSection">
-          <div class="pg-stripe-box" style="margin-top:10px;">
-            <div class="pg-express-shell" id="pgExpressShell">
-              <div id="pgExpressCheckoutElement"></div>
-            </div>
-            <div id="pgStripePaymentElement"></div>
-            <p class="pg-stripe-error" id="pgStripeError"></p>
-            <div class="pg-stripe-test-note" id="pgStripeTestNote" <%= (pspSettings && pspSettings.stripe_mode === 'test') ? '' : 'hidden' %>>
-              Test: card 4242 4242 4242 4242 · any future date · any CVC &amp; ZIP
-            </div>
+          <div class="pg-express-shell" id="pgExpressShell">
+            <div id="pgExpressCheckoutElement"></div>
+          </div>
+          <div id="pgStripePaymentElement"></div>
+          <p class="pg-stripe-error" id="pgStripeError"></p>
+          <div class="pg-stripe-test-note" id="pgStripeTestNote" <%= (pspSettings && pspSettings.stripe_mode === 'test') ? '' : 'hidden' %>>
+            Test: card 4242 4242 4242 4242 · any future date · any CVC &amp; ZIP
           </div>
         </div>
       </div>
@@ -1337,15 +1650,15 @@
         <div style="display:flex;justify-content:space-between;gap:12px;margin-top:6px;padding-top:6px;border-top:1px dashed #cbd5e1;"><span>Total</span><strong id="pgFbTotal">—</strong></div>
       </div>
 
-      <div class="pg-modal-actions" style="margin-top:20px;">
-        <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
-        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
-      </div>
       <% if (schoolName) { %>
       <p style="text-align:center;font-size:.78rem;color:#6b7280;margin-top:10px;">
         Payment processed by <strong><%= schoolName %></strong>
       </p>
       <% } %>
+      <div class="pg-modal-actions" style="margin-top:20px;">
+        <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
+        <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
+      </div>
     </form>
   </div>
 </div>
@@ -1383,6 +1696,10 @@
     var activeRecord = null;
 
     var payModal = document.getElementById('pgPayModal');
+    var payModalPanel = payModal.querySelector('.pg-modal');
+    var payModalCloseButton = payModal.querySelector('.pg-modal-close');
+    var previousFocus = null;
+    var previousDocumentOverflow = '';
     var payForm = document.getElementById('pgPayForm');
     var amountInput = document.getElementById('pgPayAmount');
     var amountLabel = amountInput.closest('.pg-field').querySelector('label');
@@ -1407,7 +1724,6 @@
     var stripePaymentElementHost = document.getElementById('pgStripePaymentElement');
     var expressCheckoutHost = document.getElementById('pgExpressCheckoutElement');
     var stripeError = document.getElementById('pgStripeError');
-    var payoutRedirectNote = document.getElementById('pgPayoutRedirectNote');
     var offlineShell = document.getElementById('pgOfflineShell');
     var offlineTitle = document.getElementById('pgOfflineTitle');
     var offlineDetails = document.getElementById('pgOfflineDetails');
@@ -1557,11 +1873,7 @@
             statusClass: status.toLowerCase(),
             paidAmount: paidAmount,
             outstandingAmount: outstandingAmount,
-            amountLabel: outstandingAmount <= 0
-              ? 'Fully paid'
-              : (paidAmount > 0
-                  ? 'Owing ' + formatMoney(outstandingAmount) + ' after ' + formatMoney(paidAmount) + ' paid'
-                  : 'Owing ' + formatMoney(outstandingAmount))
+            amountLabel: outstandingAmount > 0 ? formatMoney(outstandingAmount) : ''
           });
           return rows;
         }, []);
@@ -1586,11 +1898,7 @@
               statusClass: exactStatus.toLowerCase(),
               paidAmount: exactPaidAmount,
               outstandingAmount: exactOutstandingAmount,
-              amountLabel: exactOutstandingAmount <= 0
-                ? 'Fully paid'
-                : (exactPaidAmount > 0
-                    ? 'Owing ' + formatMoney(exactOutstandingAmount) + ' after ' + formatMoney(exactPaidAmount) + ' paid'
-                    : 'Owing ' + formatMoney(exactOutstandingAmount))
+              amountLabel: exactOutstandingAmount > 0 ? formatMoney(exactOutstandingAmount) : ''
             });
             var nextExact = advanceOccurrenceDate(cursor, record.recurrence);
             if (!nextExact || nextExact.getTime() === cursor.getTime()) break;
@@ -1618,11 +1926,7 @@
           statusClass: status.toLowerCase(),
           paidAmount: paidAmount,
           outstandingAmount: outstandingAmount,
-          amountLabel: outstandingAmount <= 0
-            ? 'Fully paid'
-            : (paidAmount > 0
-                ? 'Owing ' + formatMoney(outstandingAmount) + ' after ' + formatMoney(paidAmount) + ' paid'
-                : 'Owing ' + formatMoney(outstandingAmount))
+          amountLabel: outstandingAmount > 0 ? formatMoney(outstandingAmount) : ''
         });
       }
       return occurrences;
@@ -1655,14 +1959,6 @@
     function getSelectedPayoutAccountId() {
       var selected = document.querySelector('input[name="payout_account_id"]:checked') || document.querySelector('input[name="payout_account_id"]');
       return selected ? String(selected.value || '') : '';
-    }
-
-    function isPayoutSelectionRequired() {
-      return document.querySelectorAll('input[name="payout_account_id"]').length > 1;
-    }
-
-    function hasSelectedPayoutAccount() {
-      return Boolean(document.querySelector('input[name="payout_account_id"]:checked'));
     }
 
     function isPaystackOnlineSelected() {
@@ -1783,20 +2079,21 @@
       return payoutAccountsData.find(function(a) { return String(a.id) === val; }) || null;
     }
 
-    // Returns { icon, label, desc } for the single online payment card, reflecting
-    // the actual provider and the selected payout account's method.
+    // Reflect the online payment methods enabled by the school's payout setup.
     function getOnlineMethodMeta() {
-      if (paystackPayoutReady) {
+      var selectedPayoutAccountId = getSelectedPayoutAccountId();
+      if (selectedPayoutAccountId && selectedPayoutAccountId !== 'stripe') {
         var acct = getSelectedPayoutAccountData();
         if (acct && acct.type === 'mobile_money') {
           var provider = acct.momoProvider ? String(acct.momoProvider).toUpperCase() : '';
-          return { icon: '📱', label: 'Mobile Money', desc: provider ? (provider + ' Mobile Money') : 'Mobile Money' };
+          return { icon: '📱', label: 'Mobile Money', desc: provider ? (provider + ' checkout') : 'Mobile Money checkout' };
         }
         if (acct) {
-          return { icon: '🏦', label: 'Bank Transfer', desc: 'Pay directly to the school bank account' };
+          return { icon: '🏦', label: 'Bank Transfer', desc: 'Bank transfer at secure checkout' };
         }
-        // No specific account selected yet — show the combined Paystack methods.
-        return { icon: '💳', label: 'Card / Mobile Money / Bank', desc: 'Card · Mobile Money · Bank' };
+      }
+      if (!selectedPayoutAccountId && paystackPayoutReady) {
+        return { icon: '💳', label: 'Online payment', desc: 'Available options will appear at checkout' };
       }
       // Stripe provider
       return { icon: '💳', label: 'Card / Apple Pay / Google Pay', desc: getStripeMethodSummary() };
@@ -1812,8 +2109,8 @@
           desc: onlineMeta.desc,
           icon: onlineMeta.icon,
           hint: paystackPayoutReady
-            ? 'Pay online securely. You may be redirected to Paystack for card or mobile money checkout.'
-            : 'Pay securely with a debit or credit card. Apple Pay and Google Pay appear on supported devices.'
+            ? 'Complete payment using the options available at secure checkout.'
+            : 'Pay securely with the card and wallet options enabled by your school.'
         });
       }
       if (allowedMethods && allowedMethods.bankOn && record && record.accepts_transfer) {
@@ -1862,13 +2159,8 @@
       var fullyCovered = usingCredit && charge === 0;
 
       if (isStripeFlowSelected()) {
-        if (isPayoutSelectionRequired() && !hasSelectedPayoutAccount()) {
-          submitButton.textContent = 'Choose Stripe or Paystack to continue';
-          submitButton.disabled = true;
-          return;
-        }
         if (isPaystackOnlineSelected()) {
-          submitButton.textContent = charge > 0 ? ('Click Pay to continue (' + formatMoney(charge / 100) + ')') : 'Click Pay to continue';
+          submitButton.textContent = charge > 0 ? ('Pay ' + formatMoney(charge / 100) + ' →') : 'Pay →';
           return;
         }
         if (fullyCovered) {
@@ -1895,28 +2187,17 @@
       var isBankTransfer = selectedMethod === 'bank_transfer';
       stripeShell.hidden = !isStripe;
       offlineShell.hidden = !isBankTransfer;
-      if (payoutRedirectNote) payoutRedirectNote.hidden = true;
 
       if (isStripe) {
-        if (isPayoutSelectionRequired() && !hasSelectedPayoutAccount()) {
-          methodHint.style.display = '';
-          methodHint.textContent = 'Choose Stripe or Paystack above to continue.';
-          destroyStripeElements();
-          updateSubmitButton();
-          return;
-        }
         if (isPaystackOnlineSelected()) {
-          methodHint.style.display = '';
-          methodHint.textContent = 'Click Pay to continue to Paystack checkout.';
-          if (payoutRedirectNote) payoutRedirectNote.hidden = false;
+          methodHint.style.display = 'none';
           var savedCardsSection = document.getElementById('pgSavedCardsSection');
           if (savedCardsSection) savedCardsSection.style.display = 'none';
           var newCardSection = document.getElementById('pgNewCardSection');
           if (newCardSection) newCardSection.style.display = 'none';
           destroyStripeElements();
         } else {
-          methodHint.style.display = '';
-          methodHint.textContent = 'Enter card details below to pay with Stripe.';
+          methodHint.style.display = 'none';
           if (stripeIntro) {
             stripeIntro.textContent = 'Pay online with Stripe using the methods your school enabled for PayGira.';
           }
@@ -1927,7 +2208,7 @@
           if (!selectedSavedCardId) ensureStripeElements();
         }
       } else {
-        methodHint.style.display = '';
+        methodHint.style.display = isBankTransfer ? '' : 'none';
         methodHint.textContent = getMethodOptions(activeRecord).filter(function(option) {
           return option.value === selectedMethod;
         }).map(function(option) {
@@ -2024,7 +2305,7 @@
       var isRecurring = String((record && record.bill_type) || '') === 'recurring';
       amountLabel.textContent = usingCredit
         ? 'Charge Now (<%= currencyCode %>)'
-        : (isRecurring ? 'Total (<%= currencyCode %>)' : 'Amount (<%= currencyCode %>)');
+        : 'Amount (<%= currencyCode %>)';
 
       if (isRecurring) {
         amountInput.value = chargeNow > 0 ? chargeNow.toFixed(2) : '0.00';
@@ -2069,7 +2350,7 @@
       if (!selectedDates.length) {
         amountInput.value = '';
         recurringSummary.textContent = '';
-        recurringHint.textContent = 'Fully paid dates are disabled. Select any owing dates to pay their remaining balances.';
+        recurringHint.textContent = 'Fully paid dates are unavailable.';
         syncCreditPanel({ setAmount: false });
         submitButton.disabled = true;
         updateSubmitButton();
@@ -2084,11 +2365,9 @@
         ? Math.min(getAvailableCredit(activeRecord), totalAmount)
         : 0;
       var chargeNow = Math.max(totalAmount - creditUsed, 0);
-      recurringSummary.textContent = selectedDates.length + ' date(s) selected · ' + formatMoney(totalAmount)
+      recurringSummary.textContent = selectedDates.length + (selectedDates.length === 1 ? ' date selected' : ' dates selected')
         + (creditUsed > 0 ? (' · ' + formatMoney(creditUsed) + ' from balance · ' + formatMoney(chargeNow) + ' to charge') : '');
-      recurringHint.textContent = selectedDates.length === 1
-        ? 'You are paying the remaining balance for ' + fmtDate(selectedDates[0]) + '.'
-        : 'You are paying the remaining balances for ' + selectedDates.length + ' recurring dates together.';
+      recurringHint.textContent = 'The total updates based on the selected dates.';
       submitButton.disabled = !(totalAmount > 0);
       if (isStripeFlowSelected()) ensureStripeElements();
       updateSubmitButton();
@@ -2096,7 +2375,7 @@
 
     function renderRecurringPanel(record) {
       recurringPanel.hidden = false;
-      amountLabel.textContent = 'Total (<%= currencyCode %>)';
+      amountLabel.textContent = 'Amount (<%= currencyCode %>)';
       amountInput.readOnly = true;
       amountInput.max = '';
       var occurrences = buildOccurrences(record);
@@ -2116,9 +2395,9 @@
             '<div class="pg-occ-card-copy">' +
               '<div class="pg-occ-date">' + item.label + '</div>' +
               '<div class="pg-occ-meta">' + item.meta + ' · ' + item.windowTag + '</div>' +
-              '<div class="pg-occ-amount">' + item.amountLabel + '</div>' +
             '</div>' +
             '<div class="pg-occ-status">' +
+              (item.amountLabel ? '<span class="pg-occ-amount">' + item.amountLabel + '</span>' : '') +
               (item.statusClass === 'paid' ? '<span class="pg-occ-checkmark" aria-hidden="true">✓</span>' : '') +
               '<span class="pg-occ-tag ' + item.statusClass + '">' + item.status + '</span>' +
             '</div>' +
@@ -2130,12 +2409,6 @@
       document.getElementById('pgSelectAllDates').onclick = function() {
         Array.prototype.forEach.call(recurringList.querySelectorAll('.pg-occ-check'), function(input) {
           if (!input.disabled) input.checked = true;
-        });
-        updateRecurringSelection();
-      };
-      document.getElementById('pgClearDates').onclick = function() {
-        Array.prototype.forEach.call(recurringList.querySelectorAll('.pg-occ-check'), function(input) {
-          input.checked = false;
         });
         updateRecurringSelection();
       };
@@ -2210,9 +2483,6 @@
     }
 
     async function createStripeIntent() {
-      if (isPayoutSelectionRequired() && !hasSelectedPayoutAccount()) {
-        throw new Error('Choose where to pay first: Stripe or a Paystack payout account.');
-      }
       var selectedPayoutAccount = (document.querySelector('input[name="payout_account_id"]:checked') || document.querySelector('input[name="payout_account_id"]'));
       var payoutAccountId = selectedPayoutAccount ? selectedPayoutAccount.value : undefined;
       var response = await fetch('/guardian/paygira/stripe-intent', {
@@ -2309,6 +2579,11 @@
     window.openPgPay = function(assignmentId) {
       var record = payAssignments[String(assignmentId)];
       if (!record) return;
+      previousFocus = document.activeElement;
+      previousDocumentOverflow = document.documentElement.style.overflow;
+      document.documentElement.style.overflow = 'hidden';
+      payModalPanel.setAttribute('aria-hidden', 'false');
+      payModal.classList.add('open');
       activeRecord = record;
       destroyStripeElements();
       selectedSavedCardId = null;
@@ -2333,37 +2608,46 @@
         amountInput.max = Number(record.balance || 0).toFixed(2);
       }
       syncCreditPanel({ setAmount: false });
-      // Highlight the initially selected payout account card
-      pgSyncPayoutCards();
-      payModal.classList.add('open');
+      payModalCloseButton.focus();
     };
 
-    // Keep payout account radio cards visually in sync
-    function pgSyncPayoutCards() {
-      document.querySelectorAll('#pg-payout-selector .pg-payout-card').forEach(function(lbl) {
-        var radio = lbl.querySelector('input[type="radio"]');
-        if (!radio) return;
-        lbl.classList.toggle('is-selected', !!radio.checked);
-      });
-    }
-    document.querySelectorAll('#pg-payout-selector input[type="radio"]').forEach(function(r) {
-      r.addEventListener('change', function() {
-        pgSyncPayoutCards();
-        if (activeRecord) renderMethodOptions(activeRecord);
-        else syncPaymentMode();
-      });
-    });
-
     window.closePgPay = function() {
+      if (!payModal.classList.contains('open')) return;
       activeRecord = null;
       stripeBusy = false;
       hideRecurringPanel();
       destroyStripeElements();
       payModal.classList.remove('open');
+      payModalPanel.setAttribute('aria-hidden', 'true');
+      document.documentElement.style.overflow = previousDocumentOverflow;
+      if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+      previousFocus = null;
     };
 
     payModal.addEventListener('click', function(e) {
       if (e.target === payModal) closePgPay();
+    });
+    payModal.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closePgPay();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      var focusable = Array.prototype.filter.call(
+        payModalPanel.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+        function(element) { return element.getClientRects().length > 0; }
+      );
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     });
 
     methodSelect.addEventListener('change', syncPaymentMode);
