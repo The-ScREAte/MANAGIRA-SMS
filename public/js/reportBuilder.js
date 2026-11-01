@@ -1,4 +1,7 @@
 (() => {
+  const root = document.querySelector('.report-builder-page');
+  if (!root || root.dataset.rbInitialized === '1') return;
+  root.dataset.rbInitialized = '1';
   const data = window.reportBuilderData || {};
   const reportTypes = new Map((data.reportTypes || []).map((report) => [report.key, report]));
   const state = {
@@ -10,10 +13,12 @@
     total: 0,
     hasRun: false,
     running: false,
+    resultRequest: null,
+    saving: false,
   };
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const $ = (selector, scope = root) => scope.querySelector(selector);
+  const $$ = (selector, scope = root) => [...scope.querySelectorAll(selector)];
   const esc = (value) => String(value ?? "");
 
   function showError(step, message = "") {
@@ -37,6 +42,7 @@
 
   function invalidateReport() {
     state.hasRun = false;
+    state.resultRequest = null;
     state.page = 0;
     state.total = 0;
     $("#rb-next-save").disabled = true;
@@ -67,13 +73,9 @@
       checkbox.checked = state.columns.includes(column.key);
       checkbox.addEventListener("change", () => {
         state.columns = $$("#rb-column-list input:checked").map((input) => input.value);
-        if (!state.columns.length) {
-          checkbox.checked = true;
-          state.columns = [column.key];
-          showError(2, "Choose at least one column.");
-          return;
-        }
-        showError(2);
+        continueButton.disabled = !state.columns.length;
+        showError(2, state.columns.length ? "" : "Choose at least one column.");
+        updateColumnSelection();
         invalidateReport();
       });
       const text = document.createElement("span");
@@ -89,18 +91,31 @@
     $("#rb-term-field").hidden = !report.hasTermFilter;
     $("#rb-from-date-field").hidden = !report.hasDateFilter;
     $("#rb-to-date-field").hidden = !report.hasDateFilter;
-    continueButton.disabled = false;
+    continueButton.disabled = !state.columns.length;
+    updateColumnSelection();
     showError(2);
     return true;
   }
 
+  function updateColumnSelection() {
+    const query = $("#rb-column-search").value.trim().toLowerCase();
+    let visible = 0;
+    $$(".rb-column-option").forEach((option) => {
+      option.hidden = !option.textContent.toLowerCase().includes(query);
+      if (!option.hidden) visible++;
+    });
+    $("#rb-column-count").textContent = `${state.columns.length} of ${getCurrentReport()?.columns.length || 0} selected`;
+    $("#rb-no-columns").hidden = visible > 0;
+  }
+
   function setReportType(reportType) {
     const report = reportTypes.get(reportType);
-    if (!report) return;
+    if (!report || state.reportType === reportType || state.running) return;
     state.reportType = reportType;
     state.columns = [...report.defaultColumns];
     state.criteria = {};
     state.hasRun = false;
+    state.resultRequest = null;
     state.page = 0;
     $$("#rb-report-types [data-report-type]").forEach((card) => {
       const selected = card.dataset.reportType === reportType;
@@ -112,6 +127,7 @@
     $("#rb-term").value = "";
     $("#rb-from-date").value = "";
     $("#rb-to-date").value = "";
+    $("#rb-column-search").value = "";
     $("#rb-next-save").disabled = true;
     $("#rb-results-type").textContent = report.title;
     $("#rb-results-title").textContent = `${report.title} preview`;
@@ -127,6 +143,7 @@
 
   function updateStepper(step) {
     state.step = step;
+    $("[data-next-step='2']").disabled = !state.reportType || state.running;
     $$("[data-step-panel]").forEach((panel) => {
       panel.hidden = Number(panel.dataset.stepPanel) !== step;
     });
@@ -136,13 +153,14 @@
       button.classList.toggle("is-complete", number < step);
       if (number === step) button.setAttribute("aria-current", "step");
       else button.removeAttribute("aria-current");
-      const canVisit = number <= step
+      const canVisit = number === 1
         || (number === 2 && Boolean(state.reportType))
         || (number === 3 && Boolean(state.reportType && state.columns.length))
         || (number === 4 && state.hasRun)
         || (number === 5 && state.hasRun);
-      button.disabled = !canVisit;
+      button.disabled = !canVisit || state.running;
     });
+    $("#rb-run-report").disabled = !state.reportType || !state.columns.length || state.running;
   }
 
   function getRequestBody() {
@@ -190,13 +208,21 @@
 
   async function runReport({ append = false } = {}) {
     if (!state.reportType || !state.columns.length || state.running) return;
+    if (append && !state.hasRun) return;
     const criteria = readCriteria();
     if (criteria.fromDate && criteria.toDate && criteria.fromDate > criteria.toDate) {
       showError(3, "The start date must be before the end date.");
       return;
     }
-    updateStepper(4);
     state.running = true;
+    updateStepper(4);
+    $$("[data-previous-step], [data-next-step], #rb-load-more").forEach((button) => { button.disabled = true; });
+    const request = append ? state.resultRequest : getRequestBody();
+    if (!append) {
+      state.hasRun = false;
+      $("#rb-table-wrap").hidden = true;
+      $("#rb-load-more-wrap").hidden = true;
+    }
     showError(3);
     showError(4);
     const button = $("#rb-run-report");
@@ -208,12 +234,13 @@
       const response = await fetch("/common/report-builder/run", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ ...getRequestBody(), page: append ? state.page + 1 : 1 }),
+        body: JSON.stringify({ ...request, page: append ? state.page + 1 : 1 }),
       });
       const result = await responseJson(response);
       state.page = result.page;
       state.total = result.total;
       state.hasRun = true;
+      state.resultRequest = request;
       renderResults(result.columns, result.rows, append);
       $("#rb-table-wrap").hidden = false;
       $("#rb-next-save").disabled = false;
@@ -224,13 +251,18 @@
       updateStepper(4);
       showError(4);
     } catch (error) {
-      state.hasRun = false;
-      updateStepper(3);
-      showError(3, error.message);
-      $("#rb-next-save").disabled = true;
+      if (append) {
+        showError(4, error.message);
+      } else {
+        state.hasRun = false;
+        updateStepper(3);
+        showError(3, error.message);
+      }
     } finally {
       state.running = false;
-      button.disabled = false;
+      $$("[data-previous-step], [data-next-step], #rb-load-more").forEach((control) => { control.disabled = false; });
+      $("#rb-next-save").disabled = !state.hasRun;
+      updateStepper(state.step);
       button.textContent = "Run report";
     }
   }
@@ -269,7 +301,9 @@
       const saved = result.report;
       if (!reportTypes.has(saved.report_type)) throw new Error("This saved report type is no longer available.");
       setReportType(saved.report_type);
-      state.columns = Array.isArray(saved.columns_json) ? saved.columns_json : JSON.parse(saved.columns_json || "[]");
+      const savedColumns = Array.isArray(saved.columns_json) ? saved.columns_json : JSON.parse(saved.columns_json || "[]");
+      state.columns = savedColumns.filter((key) => getCurrentReport().columns.some((column) => column.key === key));
+      if (!state.columns.length) state.columns = [...getCurrentReport().defaultColumns];
       state.criteria = typeof saved.criteria_json === "object"
         ? saved.criteria_json
         : JSON.parse(saved.criteria_json || "{}");
@@ -309,6 +343,7 @@
 
   async function saveReport(event) {
     event.preventDefault();
+    if (!state.hasRun || !state.resultRequest || state.saving) return;
     const name = $("#rb-report-name").value.trim();
     const status = $("#rb-save-status");
     status.textContent = "";
@@ -316,20 +351,27 @@
       status.textContent = "Enter a name for this saved report.";
       return;
     }
+    state.saving = true;
+    const button = $("#rb-save-form [type='submit']");
+    button.disabled = true;
     try {
       const result = await responseJson(await fetch("/common/report-builder/save", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ ...getRequestBody(), name }),
+        body: JSON.stringify({ ...state.resultRequest, name }),
       }));
       appendSavedReport(result.report);
       status.textContent = `"${result.report.report_name}" is saved and ready to reuse.`;
     } catch (error) {
       status.textContent = error.message;
+    } finally {
+      state.saving = false;
+      button.disabled = false;
     }
   }
 
   async function exportReport(button) {
+    if (!state.hasRun || !state.resultRequest) return;
     const status = $("#rb-save-status");
     status.textContent = "";
     button.disabled = true;
@@ -338,7 +380,7 @@
       const response = await fetch("/common/report-builder/export", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/csv, application/json" },
-        body: JSON.stringify(getRequestBody()),
+        body: JSON.stringify(state.resultRequest),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -365,6 +407,20 @@
   $("#rb-report-types").addEventListener("click", (event) => {
     const card = event.target.closest("[data-report-type]");
     if (card) setReportType(card.dataset.reportType);
+  });
+
+  $("#rb-column-search").addEventListener("input", updateColumnSelection);
+  $("#rb-columns-all").addEventListener("click", () => {
+    if (!getCurrentReport()) return;
+    state.columns = getCurrentReport().columns.map((column) => column.key);
+    renderColumns();
+    invalidateReport();
+  });
+  $("#rb-columns-default").addEventListener("click", () => {
+    if (!getCurrentReport()) return;
+    state.columns = [...getCurrentReport().defaultColumns];
+    renderColumns();
+    invalidateReport();
   });
 
   $$(".rb-step[data-step-nav]").forEach((button) => {
@@ -410,6 +466,7 @@
     state.columns = [];
     state.criteria = {};
     state.hasRun = false;
+    state.resultRequest = null;
     state.page = 0;
     state.total = 0;
     $("#rb-report-name").value = "";

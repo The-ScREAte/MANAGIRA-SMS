@@ -1,5 +1,11 @@
 # Mira public page cleanup
 
+# Report builder
+
+- [ ] Check report selection, columns, criteria, generation, saving and CSV export.
+- [ ] Make steps and available actions clear; improve narrow-screen readability and column selection.
+- [ ] Run report tests and browser checks; identify any live school-data verification blocker.
+
 - [x] Simplify the three examples and remove crowded, nested scrolling.
 - [x] Improve mobile spacing, typography, and dashboard image visibility.
 - [x] Verify the public page at desktop and narrow screen widths without changing account features.
