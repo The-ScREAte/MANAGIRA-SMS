@@ -174,21 +174,40 @@ async function toWorkbook(rows, columns, report, { title = report.title, header 
       { text: title, font: { bold: true, size: 12 } },
       header.date && { text: `Generated ${header.date}`, font: { size: 10, color: { argb: "FF6B7280" } } },
     ].filter(Boolean);
-    const textColumn = header.logo ? 2 : 1;
+    const centered = header.align === "center";
+    const logoHeight = 56;
+    const logoWidth = header.logo ? Math.round((header.logo.width / header.logo.height) * logoHeight) : 0;
+    let firstTextRow = 1;
     if (header.logo) {
       const imageId = workbook.addImage({ buffer: header.logo.buffer, extension: header.logo.extension });
-      const height = 56;
-      const width = Math.round((header.logo.width / header.logo.height) * height);
-      sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width || 14, Math.ceil(width / 7) + 2);
-      sheet.addImage(imageId, { tl: { col: 0.15, row: 0.15 }, ext: { width, height }, editAs: "oneCell" });
+      if (centered) {
+        // Logo above the text, in the middle of the table's width.
+        const widths = columns.map((_, index) => (sheet.getColumn(index + 1).width || 14) * 7);
+        let x = Math.max(widths.reduce((sum, width) => sum + width, 0) / 2 - logoWidth / 2, 0);
+        let col = 0;
+        while (col < widths.length - 1 && x > widths[col]) { x -= widths[col]; col += 1; }
+        sheet.addImage(imageId, { tl: { col: col + x / widths[col], row: 0.1 }, ext: { width: logoWidth, height: logoHeight }, editAs: "oneCell" });
+        sheet.getRow(1).height = 46;
+        firstTextRow = 2;
+      } else {
+        sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width || 14, Math.ceil(logoWidth / 7) + 2);
+        sheet.addImage(imageId, { tl: { col: 0.15, row: 0.15 }, ext: { width: logoWidth, height: logoHeight }, editAs: "oneCell" });
+      }
     }
+    const textColumn = header.logo && !centered ? 2 : 1;
     lines.forEach((line, index) => {
-      const row = sheet.getRow(index + 1);
-      row.getCell(textColumn).value = line.text;
-      row.getCell(textColumn).font = line.font;
+      const rowNumber = firstTextRow + index;
+      const row = sheet.getRow(rowNumber);
+      if (centered && columns.length > 1) sheet.mergeCells(rowNumber, 1, rowNumber, columns.length);
+      const cell = row.getCell(textColumn);
+      cell.value = line.text;
+      cell.font = line.font;
+      if (centered) cell.alignment = { horizontal: "center" };
       row.height = index === 0 ? 22 : 16;
     });
-    headerRow = Math.max(lines.length, header.logo ? 4 : 0) + 2;
+    headerRow = centered
+      ? firstTextRow + lines.length + 1
+      : Math.max(lines.length, header.logo ? 4 : 0) + 2;
   }
 
   const head = sheet.getRow(headerRow);
@@ -221,7 +240,7 @@ async function toDocx(rows, columns, report, title, header = null) {
   const run = (text, { bold = false, size = 20, color = "" } = {}) =>
     `<w:r><w:rPr>${bold ? "<w:b/>" : ""}${color ? `<w:color w:val="${color}"/>` : ""}<w:sz w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xmlText(text)}</w:t></w:r>`;
   const paragraph = (text, options = {}) =>
-    `<w:p><w:pPr><w:spacing w:before="0" w:after="${options.after ?? 60}"/></w:pPr>${run(text, options)}</w:p>`;
+    `<w:p><w:pPr>${options.center ? '<w:jc w:val="center"/>' : ""}<w:spacing w:before="0" w:after="${options.after ?? 60}"/></w:pPr>${run(text, options)}</w:p>`;
   const cell = (text, isHeader) => `<w:tc><w:tcPr>${isHeader ? '<w:shd w:val="clear" w:color="auto" w:fill="EEF1F4"/>' : ""}</w:tcPr>`
     + `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr>${run(text, { bold: isHeader, size: 17 })}</w:p></w:tc>`;
   const row = (cells, isHeader = false) => `<w:tr>${isHeader ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}${cells.map((value) => cell(value, isHeader)).join("")}</w:tr>`;
@@ -231,13 +250,15 @@ async function toDocx(rows, columns, report, title, header = null) {
   let headerXml = "";
   const media = [];
   if (header) {
+    const center = header.align === "center";
     const details = [
-      header.orgName && paragraph(header.orgName, { bold: true, size: 30, after: 40 }),
-      header.address && paragraph(header.address, { size: 18, color: "4B5563", after: 20 }),
-      header.phone && paragraph(header.phone, { size: 18, color: "4B5563", after: 20 }),
-      header.date && paragraph(`Generated ${header.date}`, { size: 18, color: "6B7280", after: 20 }),
+      header.orgName && paragraph(header.orgName, { bold: true, size: 30, after: 40, center }),
+      header.address && paragraph(header.address, { size: 18, color: "4B5563", after: 20, center }),
+      header.phone && paragraph(header.phone, { size: 18, color: "4B5563", after: 20, center }),
+      header.date && paragraph(`Generated ${header.date}`, { size: 18, color: "6B7280", after: 20, center }),
     ].filter(Boolean).join("") || paragraph("", { after: 0 });
     let logoCell = "";
+    let logoParagraph = "";
     if (header.logo) {
       const heightEmu = 720000; // about 2 cm
       const widthEmu = Math.round((header.logo.width / header.logo.height) * heightEmu);
@@ -249,10 +270,11 @@ async function toDocx(rows, columns, report, title, header = null) {
         + `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${widthEmu}" cy="${heightEmu}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>`
         + "</a:graphicData></a:graphic></wp:inline></w:drawing>";
       logoCell = `<w:tc><w:tcPr><w:tcW w:w="${Math.round(widthEmu / 635) + 240}" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r>${drawing}</w:r></w:p></w:tc>`;
+      logoParagraph = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="80"/></w:pPr><w:r>${drawing}</w:r></w:p>`;
     }
-    headerXml = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${none}</w:tblBorders><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tblCellMar></w:tblPr>`
-      + `<w:tr>${logoCell}<w:tc><w:tcPr><w:vAlign w:val="center"/></w:tcPr>${details}</w:tc></w:tr></w:tbl>`
-      + '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="D1D5DB"/></w:pBdr><w:spacing w:after="200"/></w:pPr></w:p>';
+    const rule = '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="D1D5DB"/></w:pBdr><w:spacing w:after="200"/></w:pPr></w:p>';
+    headerXml = center ? logoParagraph + details + rule : `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${none}</w:tblBorders><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tblCellMar></w:tblPr>`
+      + `<w:tr>${logoCell}<w:tc><w:tcPr><w:vAlign w:val="center"/></w:tcPr>${details}</w:tc></w:tr></w:tbl>${rule}`;
   }
 
   const table = `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>${line}</w:tblBorders><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr>`

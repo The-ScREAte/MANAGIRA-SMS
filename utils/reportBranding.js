@@ -7,9 +7,13 @@ const axios = require("axios");
 const BRANDING_KEYS = ["orgName", "logo", "address", "phone", "date"];
 const MAX_LOGO_BYTES = 3 * 1024 * 1024;
 
+// Ticked items plus where the header sits: "left" (logo beside the text) or "center".
 function normalizeBranding(raw) {
   const safe = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
-  return Object.fromEntries(BRANDING_KEYS.map((key) => [key, safe[key] === true]));
+  return {
+    ...Object.fromEntries(BRANDING_KEYS.map((key) => [key, safe[key] === true])),
+    align: safe.align === "center" ? "center" : "left",
+  };
 }
 
 const hasBranding = (branding) => BRANDING_KEYS.some((key) => branding?.[key]);
@@ -79,6 +83,7 @@ async function loadReportHeader(db, organizationId, rawBranding) {
       ? new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
       : "",
     logo: branding.logo ? await loadLogo(org.logo) : null,
+    align: branding.align,
   };
 }
 

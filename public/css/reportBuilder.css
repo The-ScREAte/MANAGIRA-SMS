@@ -474,6 +474,10 @@
   border-radius: 10px;
   background: #ffffff;
 }
+.rb-brand-align { display: flex; align-items: center; gap: 6px; }
+.rb-brand-align > .rb-muted { margin-right: 4px; font-size: 13px; }
+.rb-brand-preview.is-center { flex-direction: column; justify-content: center; text-align: center; }
+.rb-brand-preview.is-center .rb-brand-lines { justify-items: center; }
 .rb-brand-logo { width: auto; max-width: 96px; height: 48px; object-fit: contain; }
 .rb-brand-lines { display: grid; gap: 1px; color: var(--rb-muted); font-size: 13px; }
 .rb-brand-lines strong { color: var(--rb-text); font-size: 15px; }

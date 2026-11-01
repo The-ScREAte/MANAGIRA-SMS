@@ -582,7 +582,10 @@
   const ownsSaved = () => Boolean(state.saved?.is_owner);
 
   const BRAND_KEYS = ["orgName", "logo", "address", "phone", "date"];
-  const normalizeBranding = (raw) => Object.fromEntries(BRAND_KEYS.map((key) => [key, Boolean(raw && raw[key] === true)]));
+  const normalizeBranding = (raw) => ({
+    ...Object.fromEntries(BRAND_KEYS.map((key) => [key, Boolean(raw && raw[key] === true)])),
+    align: raw?.align === "center" ? "center" : "left",
+  });
   // A saved report counts as changed when its setup, name or header choices differ from what was saved.
   const signature = (name = state.saved?.report_name, branding = state.branding) =>
     JSON.stringify({ ...currentDefinition(), name, branding });
@@ -631,12 +634,16 @@
   // ---- Save window: name, header choices and a live preview ---------------------
 
   const brandBoxes = () => [...modalNode("save").querySelectorAll("[data-brand]")];
-  const chosenBranding = () => Object.fromEntries(brandBoxes().map((box) => [box.dataset.brand, box.checked]));
+  const chosenBranding = () => ({
+    ...Object.fromEntries(brandBoxes().map((box) => [box.dataset.brand, box.checked])),
+    align: state.saveAlign === "center" ? "center" : "left",
+  });
 
   function openSaveWindow() {
     const owned = ownsSaved();
     $("#rb-report-name").value = owned ? state.saved.report_name : (state.saved ? `${state.saved.report_name} (copy)` : "");
     brandBoxes().forEach((box) => { box.checked = Boolean(state.branding[box.dataset.brand]); });
+    state.saveAlign = state.branding.align === "center" ? "center" : "left";
     $("#rb-duplicate").hidden = !state.saved;
     $("#rb-save-new").hidden = !owned;
     renderSaveWindow();
@@ -646,6 +653,11 @@
   function renderSaveWindow() {
     const branding = chosenBranding();
     const name = $("#rb-report-name").value.trim();
+    modalNode("save").querySelectorAll("[data-align]").forEach((button) => {
+      const active = button.dataset.align === branding.align;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
     // Owners save changes to the same report; Save stays off until something changed.
     $("#rb-save-submit").disabled = ownsSaved() && signature(name, branding) === state.savedSignature;
     const school = data.school || {};
@@ -655,6 +667,7 @@
     if (branding.phone && school.phone) lines.push(el("span", { textContent: school.phone }));
     if (branding.date) lines.push(el("span", { textContent: `Generated ${new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}` }));
     const preview = $("#rb-brand-preview");
+    preview.classList.toggle("is-center", branding.align === "center");
     if (!lines.length && !(branding.logo && school.logo)) {
       preview.replaceChildren(el("span", { className: "rb-muted", textContent: "No header. Exports start with the report name." }));
       return;
@@ -982,6 +995,12 @@
   $("#rb-duplicate").addEventListener("click", () => submitSave("duplicate"));
   $("#rb-save-new").addEventListener("click", () => submitSave("new"));
   $("#rb-report-name").addEventListener("input", renderSaveWindow);
+  modalNode("save").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-align]");
+    if (!button) return;
+    state.saveAlign = button.dataset.align;
+    renderSaveWindow();
+  });
   modalNode("save").addEventListener("change", (event) => { if (event.target.matches("[data-brand]")) renderSaveWindow(); });
   $("#rb-include-shared").addEventListener("change", updateScheduleFields);
   $("#rb-save-form").addEventListener("submit", (event) => {
