@@ -15,7 +15,6 @@
     running: false,
     resultRequest: null,
     saving: false,
-    criteriaVisited: false,
   };
 
   const $ = (selector, scope = root) => scope.querySelector(selector);
@@ -111,13 +110,12 @@
 
   function setReportType(reportType) {
     const report = reportTypes.get(reportType);
-    if (!report) return;
+    if (!report || state.reportType === reportType || state.running) return;
     state.reportType = reportType;
     state.columns = [...report.defaultColumns];
     state.criteria = {};
     state.hasRun = false;
     state.resultRequest = null;
-    state.criteriaVisited = false;
     state.page = 0;
     $$("#rb-report-types [data-report-type]").forEach((card) => {
       const selected = card.dataset.reportType === reportType;
@@ -145,7 +143,6 @@
 
   function updateStepper(step) {
     state.step = step;
-    if (step === 3) state.criteriaVisited = true;
     $("[data-next-step='2']").disabled = !state.reportType || state.running;
     $$("[data-step-panel]").forEach((panel) => {
       panel.hidden = Number(panel.dataset.stepPanel) !== step;
@@ -470,7 +467,6 @@
     state.criteria = {};
     state.hasRun = false;
     state.resultRequest = null;
-    state.criteriaVisited = false;
     state.page = 0;
     state.total = 0;
     $("#rb-report-name").value = "";
