@@ -75,8 +75,6 @@ const { triggerAbsenceAlertsForStudents, broadcastEventAnnouncement, notifyGuard
 const notifSvc = require("../utils/notificationService");
 const {
   ensureOrganizationActivityLogSchema,
-  getActivityLogFilterOptions,
-  getOrganizationActivityLogs,
 } = require("../utils/activityLog");
 const {
   FEEDBACK_TYPE_OPTIONS,
@@ -24427,57 +24425,6 @@ NUMBERING:
   },
 
   // Activity Logs (dedicated page, linked from Reports Hub)
-  activityLogs: async (req, res, db) => {
-    try {
-      const organizationId = req.session.organizationId;
-      const isEmbedded = isEmbeddedRequest(req, "activityLogs");
-      await ensureOrganizationActivityLogSchema(db);
-
-      const filters = {
-        startDate: String(req.query.startDate || "").trim(),
-        endDate: String(req.query.endDate || "").trim(),
-        user: String(req.query.user || "").trim(),
-        action: String(req.query.action || "").trim(),
-        module: String(req.query.module || "").trim(),
-        role: String(req.query.role || "").trim(),
-        search: String(req.query.search || "").trim(),
-      };
-      const allowedPageSizes = [20, 50, 70, 100, 200];
-      const requestedPageSize = Math.max(1, Number(req.query.pageSize) || 20);
-      const pageSize = allowedPageSizes.includes(requestedPageSize) ? requestedPageSize : 20;
-      const page = Math.max(1, Number(req.query.page) || 1);
-      const logsBundle = await getOrganizationActivityLogs(db, {
-        organizationId,
-        page,
-        pageSize,
-        filters,
-      });
-      const filterOptions = await getActivityLogFilterOptions(db, organizationId);
-
-      res.render("common/activityLogs", {
-        title: "Activity Logs",
-        isEmbedded,
-        hideGlobalHeader: isEmbedded,
-        hideGlobalFooter: isEmbedded,
-        hideGlobalChatbot: isEmbedded,
-        logs: logsBundle.rows,
-        filters,
-        filterOptions,
-        pagination: {
-          page: logsBundle.page,
-          pageSize: logsBundle.pageSize,
-          total: logsBundle.total,
-          totalPages: logsBundle.totalPages,
-          hasPrevious: logsBundle.page > 1,
-          hasNext: logsBundle.page < logsBundle.totalPages,
-        },
-        messages: req.flash(),
-      });
-    } catch (error) {
-      res.status(500).send("Failed to load activity logs");
-    }
-  },
-
   // Guardian search API for autocomplete in addStudent form
   searchGuardiansApi: async (req, res, db) => {
     try {

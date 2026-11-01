@@ -9,6 +9,9 @@ const NOISE_PATH_PREFIXES = [
   "/account/forget-password",
   "/account/reset-password",
   "/common/reports",
+  // Running a report only reads data; saving, deleting and exporting are still logged.
+  "/common/report-builder/run",
+  "/common/report-builder/options",
 ];
 const SENSITIVE_KEYS = new Set([
   "password",

@@ -1090,7 +1090,7 @@
             <h2 class="od-card__title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent activity
               <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
             <% if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) { %>
-              <a class="od-link" href="/common/reports?panel=activity-logs&page=%2Fcommon%2FactivityLogs&label=View%20Activity%20Logs">View all</a>
+              <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder">View all</a>
             <% } %>
           </div>
           <% if (_activity.length) { %>

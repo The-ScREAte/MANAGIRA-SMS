@@ -24,7 +24,7 @@
   <section class="gp-card">
     <div class="gp-card__head">
       <h2 class="gp-card__title">Classes</h2>
-      <span class="gp-card__note">Generate report cards<%= _hasMerit ? ' and merit sheets' : '' %> for a class.</span>
+      <span class="gp-card__note">Generate report cards for a class.<% if (_hasMerit) { %> Merit sheets are in <a href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dmerit_ranking%26term%3D<%= termId %>&label=Report%20Builder" target="_top" data-no-spa>Report Builder</a>.<% } %></span>
     </div>
     <% if (!_classes.length) { %>
       <p class="gp-card__note">No classes are enrolled in this term yet.</p>
@@ -38,9 +38,6 @@
             </span>
             <span class="gp-class__actions">
               <a class="gp-btn gp-btn--primary" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %><%= _embedAmp %>" data-no-spa><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Generate report</a>
-              <% if (_hasMerit) { %>
-                <a class="gp-btn gp-btn--ghost" href="/print/meritSheetPage?classId=<%= cls.class_id %>&termId=<%= termId %><%= _embedAmp %>" data-no-spa>Merit sheet</a>
-              <% } %>
             </span>
           </div>
         <% }) %>

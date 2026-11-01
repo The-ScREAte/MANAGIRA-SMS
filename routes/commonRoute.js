@@ -930,6 +930,13 @@ module.exports = (db) => {
     requirePermission(PERMISSIONS.MANAGE_REPORTS),
     reportBuilder.page
   );
+  router.get(
+    "/report-builder/options/:reportType",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    reportBuilder.options
+  );
   router.post(
     "/report-builder/run",
     checkFeatureAccess,
@@ -954,6 +961,52 @@ module.exports = (db) => {
     express.json(),
     reportBuilder.export
   );
+  router.put(
+    "/report-builder/saved/:reportId",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.update
+  );
+  router.get(
+    "/report-builder/staff",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    reportBuilder.staff
+  );
+  router.get(
+    "/report-builder/saved/:reportId/sharing",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    reportBuilder.sharing
+  );
+  router.put(
+    "/report-builder/saved/:reportId/shares",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.updateShares
+  );
+  router.put(
+    "/report-builder/saved/:reportId/favorite",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.favorite
+  );
+  router.put(
+    "/report-builder/saved/:reportId/schedule",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.updateSchedule
+  );
   router.get(
     "/report-builder/saved/:reportId",
     checkFeatureAccess,
@@ -975,8 +1028,11 @@ module.exports = (db) => {
   );
 
   // Activity Logs (full list page, linked from the Reports Hub)
+  // The activity log now lives in the Report Builder as a report type.
   router.get("/activityLogs", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
-    commonController.activityLogs(req, res, db)
+    res.redirect(res.locals.isEmbeddedFrame
+      ? "/common/report-builder?type=activity_log"
+      : "/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder")
   );
 
 

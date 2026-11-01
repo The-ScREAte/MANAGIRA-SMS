@@ -206,7 +206,9 @@ button {
   transition: all 0.2s ease;
 }
 
-button:hover {
+/* Only plain buttons get the default hover. Styled buttons keep their own
+   colors, so hovering never hides their text behind a dark fill. */
+button:not([class]):hover {
   background-color: var(--btn-primary-bg-hover, #013a40);
   color: var(--btn-primary-text, white);
 }

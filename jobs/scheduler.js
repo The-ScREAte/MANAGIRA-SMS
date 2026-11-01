@@ -160,6 +160,21 @@ if (shouldRunPayoutScheduler) {
   // Payout scheduler disabled — set ENABLE_PAYOUT_SCHEDULER=false to disable, unset/true to enable.
 }
 
+// Saved reports emailed daily, weekly or monthly (Report Builder). Off in local
+// development unless ENABLE_REPORT_SCHEDULES=true, so testing never emails anyone.
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_REPORT_SCHEDULES === 'true') {
+  cron.schedule('20 * * * *', async () => {
+    try {
+      const summary = await require('../controllers/reportBuilderController').runDueReportSchedules(require('../config/db'));
+      if (summary.sent || summary.failed) {
+        console.log(`[Report Schedules] sent=${summary.sent} failed=${summary.failed}`);
+      }
+    } catch (error) {
+      console.error('[Report Schedules] Sweep failed:', error.message);
+    }
+  });
+}
+
 if (shouldRunActivityLogRetention) {
   // Runs weekly at 03:15 on Sundays. Deletes activity log rows older than the
   // configured retention (default 3 years). Source records in other tables are
