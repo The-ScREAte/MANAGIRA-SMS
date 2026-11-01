@@ -193,7 +193,7 @@ body .cal-main .fc .fc-list-day > * { background: #f8fafc; }
 .fc .fc-daygrid-block-event.cal-ev, .fc .fc-timegrid-event.cal-ev { background: color-mix(in srgb, var(--c) 14%, #ffffff) !important; color: color-mix(in srgb, var(--c) 82%, #0f172a) !important; border-left: 3px solid var(--c) !important; }
 .fc .fc-daygrid-block-event.cal-ev .fc-event-main, .fc .fc-timegrid-event.cal-ev .fc-event-main { color: inherit; }
 .fc .fc-daygrid-dot-event.cal-ev .fc-daygrid-event-dot { border-color: var(--c); }
-.fc .fc-daygrid-dot-event.cal-ev:hover { background: color-mix(in srgb, var(--c) 10%, #ffffff); }
+
 .fc .fc-list-event.cal-ev .fc-list-event-dot { border-color: var(--c); }
 .fc .cal-ev.cal-ev--teal, .ws-peek .cal-ev--teal { --c: #0f766e; } .fc .cal-ev.cal-ev--blue, .ws-peek .cal-ev--blue { --c: #2563eb; } .fc .cal-ev.cal-ev--violet, .ws-peek .cal-ev--violet { --c: #7c3aed; } .fc .cal-ev.cal-ev--amber, .ws-peek .cal-ev--amber { --c: #d97706; }
 .fc .cal-ev.cal-ev--rose, .ws-peek .cal-ev--rose { --c: #e11d48; } .fc .cal-ev.cal-ev--green, .ws-peek .cal-ev--green { --c: #16a34a; } .fc .cal-ev.cal-ev--slate, .ws-peek .cal-ev--slate { --c: #475569; }

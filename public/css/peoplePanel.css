@@ -18,7 +18,7 @@
 .ux-empty { margin: 0; padding: 22px; text-align: center; color: var(--ws-muted, #64748b); }
 tr.ux-row { cursor: pointer; }
 tr.ux-row[hidden] { display: none !important; }
-tr.ux-row:hover > td, tr.ux-row.is-selected > td { background: color-mix(in srgb, var(--org-primary-color, #01535b) 7%, transparent) !important; }
+tr.ux-row.is-selected > td { background: color-mix(in srgb, var(--org-primary-color, #01535b) 7%, transparent) !important; }
 tr.ux-row:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: -2px; }
 .ux-when { white-space: nowrap; font-size: 12.5px; }
 .ux-owner { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent); color: var(--org-primary-color, #01535b); }
@@ -30,7 +30,7 @@ tr.ux-row:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); 
 .ux-panel__bar strong { flex: 1 1 auto; min-width: 0; white-space: nowrap; font-size: 16px; }
 .ux-link[hidden] { display: none; }
 .ux-close { display: inline-flex; flex: 0 0 auto; width: auto; margin: 0 0 0 auto; padding: 6px; border: 0; border-radius: 8px; background: none; color: inherit; cursor: pointer; }
-.ux-close:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+
 .ux-panel__body { flex: 1; overflow-y: auto; padding: 18px 16px 24px; }
 .ux-panel__edit { position: relative; flex: 1; display: flex; }
 .ux-panel__edit[hidden], .ux-panel__body[hidden] { display: none; }

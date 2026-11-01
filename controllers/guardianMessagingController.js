@@ -7,7 +7,6 @@ const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const { getMessagingChannelStatus, sendGuardianMessages } = require("../utils/guardianMessaging");
 const { createShortLink } = require("../utils/shortLink");
-const { ensureTranscriptPdfLink } = require("../utils/transcriptPdf");
 const { ensureReportPdfLink } = require("../utils/reportPdf");
 const { recordMessageSent, getSentRecipientSet, recordDeliveryAuditRow, updateDeliveryAuditRowStatus } = require("../utils/messageDeliveryLog");
 const { MAILROOM_ALL_ACCESS_KEY, isManagerLikeRole, getUserPermissions } = require("../middleware/permissionMiddleware");
@@ -443,23 +442,16 @@ async function resolveContext(dbClient, req, body, { generatePdf = true } = {}) 
 
     const recipients = await getGuardiansForStudent(dbClient, organizationId, studentId);
 
-    // Transcripts always carry the PDF link — generate it now (on-demand,
-    // via Puppeteer + S3) rather than relying on one existing already.
-    let shortLink = "";
-    try {
-      const pdfUrl = await ensureTranscriptPdfLink(dbClient, req, studentId);
-      if (pdfUrl) {
-        shortLink = await createShortLink(dbClient, { targetUrl: pdfUrl, organizationId, baseUrl });
-      }
-    } catch (_) {
-      shortLink = "";
-    }
-
-    // Fallback wording only fires if PDF generation genuinely failed
-    // (e.g. no session cookie available) — not a normal case.
-    const defaultMessage = shortLink
-      ? `Hi {{guardianTitleLastName}}, {{schoolName}}: {{studentName}}'s transcript is ready. View: ${shortLink}`
-      : `Hi {{guardianTitleLastName}}, {{schoolName}}: {{studentName}}'s transcript is ready. This is also available on your parent portal.`;
+    // A transcript is official only when the school emails it, so the text
+    // never carries the document itself: it points the parent to their
+    // portal and to the school's email to receive the official copy.
+    const schoolEmail = safeString(
+      (await dbClient.query("SELECT email FROM organizations WHERE organization_id = $1", [organizationId])).rows[0]?.email
+    );
+    const portalUrl = `${baseUrl}/account/guardian-login`;
+    const defaultMessage = `Hi {{guardianTitleLastName}}, {{studentName}}'s transcript from {{schoolName}} is ready. Get the official copy through your parent portal ${portalUrl} or ${
+      schoolEmail ? `by emailing ${schoolEmail}` : "from the school office"
+    }.`;
 
     return {
       recipients,

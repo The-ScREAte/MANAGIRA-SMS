@@ -13,38 +13,40 @@
       }
 
       .ctrl-btn {
+        width: auto;
+        margin: 0;
         padding: 8px 14px;
-        font-size: 12px;
+        font: inherit;
+        font-size: 13px;
         font-weight: 600;
+        line-height: 1.2;
         border-radius: 8px;
-        border: none;
+        border: 1px solid transparent;
         cursor: pointer;
-        transition: all 0.2s;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 7px;
         white-space: nowrap;
+        text-decoration: none;
       }
+
+      .ctrl-btn svg { flex: 0 0 auto; }
 
       .ctrl-btn-print {
         background: var(--primary);
-        color: white;
+        color: #fff;
       }
-
-      .ctrl-btn-print:hover {
-        transform: translateY(-1px);}
 
       .ctrl-btn-back {
-        background: white;
+        background: #fff;
         color: #334155;
-        border: 1px solid #e2e8f0;
+        border-color: #e2e8f0;
       }
 
-      
-
       .ctrl-btn-email {
-        background: #0ea5e9;
-        color: #0b2e3a;
+        background: color-mix(in srgb, var(--primary) 10%, white);
+        color: var(--primary);
+        border-color: color-mix(in srgb, var(--primary) 22%, white);
       }
 
       /* Top controls bar */
@@ -54,8 +56,8 @@
         padding: 12px 14px;
         display: flex;
         gap: 8px;
-        flex-wrap: nowrap;
-        justify-content: flex-start;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         align-items: center;
         background: #fff;
         border-radius: 10px;
@@ -66,24 +68,27 @@
       .t-header {
         display: flex;
         align-items: center;
-        gap: 14px;
+        justify-content: space-between;
+        gap: 24px;
         padding-bottom: 18px;
-        margin-bottom: 20px;
-        border-bottom: 3px double var(--primary);
-        justify-content: center;
+        margin-bottom: 22px;
+        border-bottom: 2px solid var(--primary);
+      }
+
+      .t-brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
       }
 
       .t-header .t-logo {
-        width: 64px;
-        height: 64px;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        background: #fff;
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 6px;
-        flex-shrink: 0;
       }
 
       .t-header .t-logo img {
@@ -97,27 +102,36 @@
       }
 
       .t-header h1 {
-        font-size: 20px;
+        margin: 0;
+        font-size: 22px;
         font-weight: 800;
+        line-height: 1.2;
         color: var(--primary);
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
         text-transform: uppercase;
-        margin-bottom: 3px;
       }
 
       .t-header .t-subtitle {
-        font-size: 14px;
+        margin: 6px 0 0;
+        font-size: 12px;
         font-weight: 700;
         color: #475569;
-        letter-spacing: 2px;
+        letter-spacing: 2.5px;
         text-transform: uppercase;
-        margin: 4px 0 4px;
       }
 
       .t-header .t-contact {
-        font-size: 11px;
+        flex-shrink: 0;
+        max-width: 260px;
+        text-align: right;
+        font-size: 11.5px;
         color: #475569;
-        line-height: 1.4;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 640px) {
+        .t-header { flex-direction: column; align-items: flex-start; }
+        .t-header .t-contact { text-align: left; max-width: none; }
       }
 
       /* ===== TRANSCRIPT DOCUMENT ===== */
@@ -336,11 +350,21 @@
       }
 
       .t-signature-img {
-        max-width: 160px;
-        height: auto;
+        max-width: 170px;
+        max-height: 70px;
+        object-fit: contain;
         display: block;
-        margin: 0 auto 6px;
+        margin: 0 auto -4px;
       }
+
+      .transcript-note {
+        max-width: 900px;
+        margin: -12px auto 16px;
+        font-size: 13px;
+        color: #92400e;
+      }
+
+      .transcript-note a { color: inherit; font-weight: 600; }
 
       .t-signature-line {
         width: 200px;
@@ -357,9 +381,10 @@
       }
 
       .t-signature-name {
-        font-size: 12px;
+        font-size: 13px;
         color: #0f172a;
         font-weight: 700;
+        min-height: 16px;
       }
 
       /* Footer */
@@ -536,7 +561,7 @@
 
         /* Hide controls and tools when printing */
         .transcript-controls { display: none !important; }
-        .sig-tools { display: none !important; }
+        .transcript-note { display: none !important; }
         #emailModal { display: none !important; }
         
         /* Hide page headers, footers, chatbot, navigation, etc */
@@ -628,26 +653,37 @@
   <body>
     <!-- Controls -->
     <div class="transcript-controls">
-      <button class="ctrl-btn ctrl-btn-back" onclick="history.back()">← Back</button>
-      <button class="ctrl-btn ctrl-btn-print" onclick="trackTranscriptPrintAndPrint()">🖨️ Print</button>
-      <button class="ctrl-btn ctrl-btn-email" onclick="openEmailModal()">✉️ Email</button>
+      <button class="ctrl-btn ctrl-btn-email" type="button" onclick="openEmailModal()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+        Email
+      </button>
       <% if (canBroadcastToGuardians) { %>
       <button
         class="ctrl-btn ctrl-btn-email notify-guardians-btn"
         type="button"
-        style="background:#166534;"
         data-context="transcript"
         data-context-id="<%= student.student_id %>"
-      >Notify Guardians</button>
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+        Notify guardians
+      </button>
       <% } %>
+      <button class="ctrl-btn ctrl-btn-print" type="button" onclick="trackTranscriptPrintAndPrint()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>
+        Print
+      </button>
     </div>
+    <% if (!signatureImageUrl) { %>
+    <p class="transcript-note">No signature is set for this class yet. Add one in <a href="/print/reportSettings" data-no-spa>Report Settings</a>.</p>
+    <% } %>
 
     <!-- Transcript Document -->
     <div class="transcript">
       <div class="transcript-border-top"></div>
       
-      <% if (session && session.logo) { %>
-        <img src="<%= session.logo %>" alt="" class="transcript-watermark-logo" />
+      <% const _schoolLogo = (session && session.logo) || organization.logo || ''; %>
+      <% if (_schoolLogo) { %>
+        <img src="<%= _schoolLogo %>" alt="" class="transcript-watermark-logo" />
       <% } %>
       
       <% if (!official) { %>
@@ -664,17 +700,21 @@
       <div class="transcript-content">
 
         <!-- Header -->
+        <% const _place = [organization.organization_address, organization.organization_province, organization.organization_country].filter(Boolean).join(', '); %>
         <div class="t-header">
-          <% if (session.logo) { %>
-            <div class="t-logo"><img src="<%= session.logo %>" alt="School Logo" /></div>
-          <% } %>
-          <div class="t-heading">
-            <h1><%= organization.organization_name %></h1>
-            <div class="t-subtitle">Official Academic Transcript</div>
-            <div class="t-contact">
-              <%= organization.organization_address %><% if (organization.organization_country || organization.organization_province) { %>, <%= [organization.organization_province, organization.organization_country].filter(Boolean).join(', ') %><% } %><br>
-              Email: <%= organization.email %> &nbsp;|&nbsp; Phone: <%= organization.organization_phone %>
+          <div class="t-brand">
+            <% if (_schoolLogo) { %>
+              <div class="t-logo"><img src="<%= _schoolLogo %>" alt="School Logo" /></div>
+            <% } %>
+            <div class="t-heading">
+              <h1><%= organization.organization_name %></h1>
+              <div class="t-subtitle">Academic Transcript</div>
             </div>
+          </div>
+          <div class="t-contact">
+            <% if (_place) { %><div><%= _place %></div><% } %>
+            <% if (organization.organization_phone) { %><div><%= organization.organization_phone %></div><% } %>
+            <% if (organization.email) { %><div><%= organization.email %></div><% } %>
           </div>
         </div>
 
@@ -682,12 +722,20 @@
         <div class="t-student-info">
           <h2>Student Information</h2>
           <div class="t-student-grid">
-            <p><strong>Full Name:</strong> <%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()) %></p>
-            <p><strong>Date of Birth:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %></p>
-            <p><strong>Gender:</strong> <%= student.gender %></p>
-            <p><strong>Hometown:</strong> <%= student.hometown %></p>
-            <p><strong>Current Class:</strong> <%= student.class_name %></p>
-            <p><strong>Graduation Group:</strong> <%= student.graduation_year_group %></p>
+<%
+              const _dob = student.date_of_birth ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) : '';
+              const _studentFields = [
+                ['Full Name', typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()],
+                ['Date of Birth', _dob],
+                ['Gender', student.gender],
+                ['Hometown', student.hometown],
+                ['Current Class', student.class_name],
+                ['Graduation Group', student.graduation_year_group],
+              ].filter(([, value]) => value && String(value).trim());
+            %>
+            <% _studentFields.forEach(([label, value]) => { %>
+            <p><strong><%= label %>:</strong> <%= value %></p>
+            <% }) %>
           </div>
         </div>
 
@@ -767,17 +815,21 @@
           <div class="t-signature-block">
             <% if (signatureImageUrl) { %>
               <img src="<%= signatureImageUrl %>" alt="Signature" class="t-signature-img" />
-            <% } else { %>
-              <div class="t-signature-line"></div>
             <% } %>
-            <div class="t-signature-label"><%= signatureTitle || "Authorized Signature" %></div>
-            <div class="t-signature-name"><%= signatureName || "Authorized" %></div>
+            <div class="t-signature-line"></div>
+            <div class="t-signature-name"><%= signatureName || "" %></div>
+            <div class="t-signature-label"><%= signatureTitle || "Authorized signature" %></div>
           </div>
         </div>
 
         <!-- Footer -->
         <div class="t-footer">
-          <p>Official Transcript — Generated on <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString()) %></p>
+          <% const _issued = typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString(); %>
+          <% if (official) { %>
+          <p>Official transcript, issued by email on <%= _issued %>.</p>
+          <% } else { %>
+          <p>Unofficial copy, <%= _issued %>. Official transcripts are sent by the school by email.</p>
+          <% } %>
           <p>This document is the property of <%= organization.organization_name %>.</p>
         </div>
 
@@ -788,7 +840,7 @@
     <!-- Email Step 1: Enter Email -->
     <div id="emailStepModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
       <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
-        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">📧 Email Transcript</h3>
+        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">Email Transcript</h3>
         <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">Enter the email address where you'd like to send this official transcript.</p>
         <div class="form-group" style="margin-bottom:16px;">
           <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Recipient Email Address</label>
@@ -798,7 +850,7 @@
         <div id="emailStepStatus" style="font-size:12px;color:#e11d48;margin-bottom:12px;min-height:18px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
           <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="closeEmailStepModal()">Cancel</button>
-          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="proceedToPasswordStep()">Continue →</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="proceedToPasswordStep()">Continue</button>
         </div>
       </div>
     </div>
@@ -806,7 +858,7 @@
     <!-- Email Step 2: Confirm Password -->
     <div id="passwordConfirmModal" style="display:none;position:fixed;inset:0;z-index:2001;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
       <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
-        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">🔐 Confirm Your Password</h3>
+        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">Confirm Your Password</h3>
         <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">For security, please confirm your password to send the transcript.</p>
         <div class="form-group" style="margin-bottom:16px;">
           <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Your Password</label>
@@ -814,24 +866,10 @@
         </div>
         <div id="passwordStatus" style="font-size:12px;color:#64748b;margin-bottom:12px;min-height:18px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
-          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;background:#64748b;" onclick="backToEmailStep()">← Back</button>
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="backToEmailStep()">Back</button>
           <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="sendTranscriptEmail()">Send Email</button>
         </div>
       </div>
-    </div>
-
-    <!-- Signature Management Link -->
-    <div class="sig-tools">
-      <h3>✨ Signature Management</h3>
-      <p style="font-size: 14px; color: #64748b; margin-bottom: 16px;line-height:1.6;">
-        Manage all transcript signatures from the centralized Report Settings page. 
-        You can create multiple signatures and assign them to different classes.
-      </p>
-      <a href="/print/reportSettings" 
-        data-no-spa
-         style="display:inline-block;background:var(--org-primary-color, #0f5a66);color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:12px;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(15,90,102,0.2);">
-        🛠️ Manage Signatures in Report Settings
-      </a>
     </div>
 
     <script>
@@ -1128,7 +1166,7 @@
     </div>
     <% } %>
 
-    <script src="/js/guardianBroadcast.js"></script>
+    <script src="<%= assetUrl('/js/guardianBroadcast.js') %>"></script>
     <script>
       document.addEventListener('click', function (e) {
         var btn = e.target.closest('.notify-guardians-btn');

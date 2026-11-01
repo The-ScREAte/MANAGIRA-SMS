@@ -33,7 +33,7 @@
   font-weight: 700;
   line-height: 1.2;
 }
-.ss-bar:hover { border-color: color-mix(in srgb, var(--ss-brand) 45%, var(--ss-line)); }
+
 .ss-bar:focus-visible { outline: 2px solid var(--ss-brand); outline-offset: 2px; }
 .ss-ring { flex: 0 0 auto; width: 30px; height: 30px; }
 .ss-ring circle { fill: none; stroke-width: 4; }
@@ -76,7 +76,7 @@
 .ss-check svg { width: 11px; height: 11px; }
 .ss-body { flex: 1 1 auto; min-width: 0; }
 .ss-title { display: block; color: var(--ss-text); font-size: 13.5px; font-weight: 700; text-decoration: none; line-height: 1.3; }
-a.ss-title:hover { color: color-mix(in srgb, var(--ss-brand) 55%, var(--ss-text)); text-decoration: underline; }
+a.ss-title:hover { text-decoration: underline;}
 .ss-hint { display: block; margin-top: 2px; font-size: 12px; color: var(--ss-muted); line-height: 1.35; }
 .ss-step.is-done .ss-title, .ss-step.is-skipped .ss-title { color: var(--ss-muted); text-decoration: line-through; text-decoration-thickness: 2px; font-weight: 600; }
 .ss-step.is-done .ss-hint, .ss-step.is-skipped .ss-hint { display: none; }

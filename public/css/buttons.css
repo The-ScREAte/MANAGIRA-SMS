@@ -602,18 +602,13 @@ a.header-welcome {
   color: var(--org-primary-color) !important;
 }
 
-.suggestion-item:hover {
-  background: var(--org-primary-soft-strong, color-mix(in srgb, var(--org-primary-color) 16%, white)) !important;
-  color: var(--org-primary-color) !important;
-}
+
 
 /* Chatbot input focus */
 .chatbot-input:focus {
   border-color: var(--org-primary-color) !important;
 }
 
-/* Sticky navigation bar */
-.sticky-nav ul li a:hover,
 .sticky-nav ul li a.active {
   background: var(--org-primary-soft-strong, color-mix(in srgb, var(--org-primary-color) 16%, white)) !important;
   color: var(--org-primary-color) !important;
@@ -775,11 +770,7 @@ a.action-link,
   background: color-mix(in srgb, var(--org-primary-color) 10%, white) !important;
 }
 
-a.action-link:hover,
-.action-link:hover {
-  background: color-mix(in srgb, var(--org-primary-color) 16%, white) !important;
-  color: var(--org-primary-color) !important;
-}
+
 
 /* ── Global mobile button sizing ── */
 @media (max-width: 640px) {

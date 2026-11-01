@@ -625,6 +625,30 @@
         background: transparent !important;
         transform: none !important;
       }
+      /* Clean form: flat cards, quiet labels, one save bar. */
+      .es-container .es-card { border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; box-shadow: none; }
+      .es-container .es-section-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; letter-spacing: 0; text-transform: none; }
+      .es-container .es-field label { font-size: 0.75rem; font-weight: 600; color: #475569; text-transform: none; letter-spacing: 0; }
+      .es-container .es-field input, .es-container .es-field select, .es-container .es-field textarea { border-radius: 8px; border-color: #d1d5db; box-shadow: none; }
+      .es-container .es-profile-eyebrow { display: none; }
+      .es-container .es-upload-label { display: grid; gap: 6px; font-size: 0.78rem; font-weight: 600; color: #475569; }
+      .es-container .es-delete-image-btn { width: auto; background: transparent; color: #b91c1c; border: 0; padding: 4px 0; font-weight: 600; }
+      .es-container .es-add-guardian-btn { width: auto; margin: 4px 0 0; background: transparent; color: var(--primary, #01535b); border: 1px dashed #cbd5e1; border-radius: 8px; padding: 8px 14px; font-weight: 600; }
+      .es-container .es-action-row { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; padding: 12px 0; background: var(--ap-page, #f8fafc); border-top: 1px solid #e5e7eb; }
+      .es-container .es-btn-primary,
+      .es-container .es-action-row .es-btn-primary { width: auto; flex: 0 0 auto; margin: 0; padding: 10px 22px; border-radius: 8px; }
+      .es-container .es-field input[type="checkbox"] { width: auto; min-height: 0; margin: 0; padding: 0; }
+      .es-container .es-image-section { padding: 0; background: transparent; border: 0; }
+      .es-container .es-upload-panel { padding-top: 0; border-top: 0; }
+      /* Inside the right-side drawer: one column, no page chrome. */
+      .es-in-drawer { max-width: none; margin: 0; padding: 16px 18px 0; }
+      .es-in-drawer .es-overview-grid { grid-template-columns: 1fr; }
+      .es-in-drawer .es-card--sticky { position: static; }
+      .es-in-drawer .es-image-section { flex-direction: row; align-items: center; text-align: left; gap: 16px; }
+      .es-in-drawer .es-student-img { width: 72px; height: 72px; }
+      .es-in-drawer .es-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .es-in-drawer .es-top-bar { display: none; }
+      .es-in-drawer .es-profile-summary { display: none; }
     </style>
     <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
     <script>
@@ -923,7 +947,7 @@
 </head>
 <body>
 <%- include('../partials/flash') %>
-<div class="es-container">
+<div class="es-container<%= (locals.req && req.query && req.query.drawerId) ? ' es-in-drawer' : '' %>">
   <%
     var _prefix = '';
     var _displayId = '';
@@ -944,11 +968,13 @@
     <input type="hidden" name="keepExistingSubjectsOnClassChange" id="esKeepExistingSubjectsOnClassChange" value="">
     <input type="hidden" name="returnClassId" value="<%= (typeof returnClassId !== 'undefined' && returnClassId) ? returnClassId : '' %>">
     <input type="hidden" name="returnTermId" value="<%= (typeof returnTermId !== 'undefined' && returnTermId) ? returnTermId : '' %>">
+    <% const _drawerId = String((typeof query !== 'undefined' && query && query.drawerId) || (locals.req && req.query && req.query.drawerId) || '').replace(/[^a-zA-Z0-9_-]/g, ''); %>
+    <% if (_drawerId) { %><input type="hidden" name="drawerId" value="<%= _drawerId %>"><% } %>
     <div class="es-overview-grid">
     
     <!-- Student Image -->
     <div class="es-card es-card--sticky">
-      <h3 class="es-section-title">📷 Student Photo</h3>
+      <h3 class="es-section-title">Photo</h3>
       <div class="es-image-section">
         <% var imgUrl = '/images/profilePlaceholder.png'; %>
         <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
@@ -970,13 +996,12 @@
             <% } %>
           </div>
           <div class="es-upload-panel">
-          <p style="font-weight: 600; color: #334155;">Current Photo</p>
-          <p>Upload a new image to replace this one</p>
-          <input type="file" name="studentImage" accept="image/*" class="es-upload-input">
+          <label class="es-upload-label">Change photo
+          <input type="file" name="studentImage" accept="image/*" class="es-upload-input"></label>
           <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
             <a href="/common/deleteStudentImage/<%= student.student_id %>" 
                onclick="return confirmDelete('Are you sure you want to delete this image?')" 
-               class="es-delete-image-btn">🗑 Delete Image</a>
+               class="es-delete-image-btn">Remove photo</a>
           <% } %>
           </div>
         </div>
@@ -986,7 +1011,7 @@
     <!-- Personal Information -->
     <div class="es-card es-card--personal-compact">
       <div class="es-section-title">
-        <span>👤 Personal Information</span>
+        <span>Personal information</span>
         <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
         <div class="es-id-widget">
           <span class="es-id-label">ID:<% if (_prefix) { %> <strong><%= _prefix %></strong><% } %></span>
@@ -1059,7 +1084,7 @@
     <% if (typeof customFields !== 'undefined' && customFields.length) { %>
     <!-- The school's own fields (Admission Settings > Forms) -->
     <div class="es-card">
-      <h3 class="es-section-title">📝 More Details</h3>
+      <h3 class="es-section-title">More details</h3>
       <div class="es-form-grid">
         <%- include('../partials/studentCustomFields', { customFields, customValues, nameSuffix: '', groupClass: 'es-field', labelClass: '', inputClass: '', requiredMark: ' *' }) %>
       </div>
@@ -1068,7 +1093,7 @@
 
     <!-- Subjects -->
     <div class="es-card">
-      <h3 class="es-section-title">📚 Subjects</h3>
+      <h3 class="es-section-title">Subjects</h3>
       <div class="es-subject-note" id="esSubjectChangeNote"></div>
       <div class="es-checkbox-group" id="esSubjectsCheckboxGroup">
         <% subjects.forEach(subject => { %>
@@ -1083,7 +1108,7 @@
 
     <!-- Guardians -->
     <div class="es-card">
-      <h3 class="es-section-title">👨‍👩‍👧 Guardians</h3>
+      <h3 class="es-section-title">Parents &amp; guardians</h3>
       <div id="guardiansContainer">
         <% studentGuardians.forEach((guardian, index) => { %>
           <div class="es-guardian-entry">
@@ -1119,20 +1144,20 @@
           </div>
         <% }); %>
       </div>
-      <button type="button" class="es-add-guardian-btn" onclick="addGuardian()">+ Add Guardian</button>
+      <button type="button" class="es-add-guardian-btn" onclick="addGuardian()">+ Add parent or guardian</button>
     </div>
 
     <!-- Actions -->
     <div class="es-action-row">
       <button type="submit" id="esUpdateStudentBtn" class="es-btn-primary">
         <span class="es-btn-spinner" aria-hidden="true"></span>
-        <span class="es-btn-label">✅ Update Student</span>
+        <span class="es-btn-label">Save changes</span>
       </button>
 
       <div class="es-action-menu">
         <button type="button" class="es-menu-toggle" onclick="toggleActionMenu()" aria-label="More actions">:</button>
         <div id="studentActionDropdown" class="es-action-dropdown">
-          <button type="button" class="es-btn-danger" onclick="submitDeleteStudent()">🗑 Delete Student</button>
+          <button type="button" class="es-btn-danger" onclick="submitDeleteStudent()">Delete student</button>
         </div>
       </div>
     </div>

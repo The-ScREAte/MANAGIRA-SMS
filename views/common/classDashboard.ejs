@@ -2321,7 +2321,7 @@ main {
 .tp-route { border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #fff); overflow: hidden; }
 .tp-route__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; list-style: none; cursor: pointer; user-select: none; background: linear-gradient(90deg, color-mix(in srgb, var(--route) 9%, transparent), transparent 70%); transition: background-color .15s; }
 .tp-route__head::-webkit-details-marker { display: none; }
-.tp-route__head:hover { background-color: color-mix(in srgb, var(--route) 5%, transparent); }
+
 .tp-route__head:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; border-radius: 12px; }
 .tp-route[open] > .tp-route__head { border-bottom: 1px solid var(--border); border-radius: 0; }
 .tp-route__chev { width: 16px; height: 16px; flex: none; color: var(--text-muted, #64748b); transition: transform .2s ease; }
@@ -2335,7 +2335,7 @@ main {
 .tp-riders { display: grid; }
 .tp-rider { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) 76px 76px; gap: 10px; align-items: center; padding: 9px 14px; font-size: 13px; color: var(--text, #0f172a); border-top: 1px solid var(--border); cursor: pointer; transition: background-color .15s; }
 .tp-rider:first-child + .tp-rider { border-top: 0; }
-.tp-rider:hover, .tp-rider:focus-visible { background: color-mix(in srgb, var(--route) 7%, transparent); }
+.tp-rider:focus-visible { background: color-mix(in srgb, var(--route) 7%, transparent); }
 .tp-rider:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; }
 .tp-rider--head { cursor: default; padding-top: 8px; padding-bottom: 6px; border-top: 0; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted, #64748b); }
 
@@ -2812,7 +2812,7 @@ main {
   text-align: left;
   cursor: pointer;
 }
-.term-view-pop__item:hover { background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent); }
+
 .term-view-pop__item:disabled { cursor: default; opacity: 0.6; background: transparent; }
 .term-view-pop__note { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: var(--muted, #64748b); }
 .term-view-pop__check {
@@ -3283,9 +3283,7 @@ main {
 
 .birthday-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1);
-  border-color: color-mix(in srgb, var(--primary) 26%, white);
-}
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1);}
 
 .birthday-card-head {
   display: flex;
@@ -3430,6 +3428,67 @@ main {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* The page carries the person's appearance color; the stage and its frames
+   have no fill of their own, so each tab's own cards sit directly on it. */
+.workspace-stage.card,
+.workspace-tabbar-shell.card {
+  background: transparent;
+  box-shadow: none;
+}
+.workspace-stage .workspace-frame-shell,
+.workspace-stage .workspace-frame,
+#panel-frame-paygira .workspace-frame-shell,
+#panel-frame-paygira .workspace-frame,
+#panel-frame-attendance .workspace-frame-shell,
+#panel-frame-attendance .workspace-frame {
+  background: transparent;
+}
+/* Tab bar and tab content share one bordered pane, like the other hubs. */
+.workspace-tabbar-shell.card {
+  margin-bottom: 0;
+  background: var(--ap-page, #f8fafc);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+}
+.workspace-stage.card {
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+}
+.workspace-stage.card { min-height: var(--stage-fill, calc(100vh - 238px)); }
+.workspace-stage .workspace-frame,
+.workspace-stage .workspace-frame-shell,
+#panel-frame-paygira .workspace-frame,
+#panel-frame-paygira .workspace-frame-shell,
+#panel-frame-attendance .workspace-frame,
+#panel-frame-attendance .workspace-frame-shell { height: var(--stage-fill, calc(100vh - 200px)); min-height: 0; }
+/* The grid gap would split the pane in two; the stage tucks up under the tab bar. */
+.workspace-tabbar-shell + .workspace-stage { margin-top: -8px; }
+.workspace-tabbar { background: transparent; align-items: center; padding: 6px 8px; gap: 6px; min-height: 42px; border-bottom: 1px solid var(--border); }
+.workspace-tab { min-height: 30px; margin: 0; padding: 0 4px 0 2px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: #475569; }
+.workspace-tab-label { font-size: 12px; font-weight: 600; }
+.workspace-tab.is-active { background: var(--ap-surface, #ffffff); border-color: var(--primary); color: var(--primary); box-shadow: none; }
+.workspace-tab-close { width: 18px; height: 18px; font-size: 13px; }
+.schedule-updated-note { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+
+/* Overview: Teachers open as a dropdown from their count card. */
+.overview-counts-wrap { position: relative; }
+.overview-count-toggle { width: 100%; margin: 0; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.overview-count-toggle .count-chevron { margin-left: auto; display: inline-flex; color: var(--muted); transition: transform 0.15s ease; }
+.overview-count-toggle .count-chevron svg { width: 16px; height: 16px; }
+.overview-count-toggle[aria-expanded="true"] { border-color: var(--primary); }
+.overview-count-toggle[aria-expanded="true"] .count-chevron { transform: rotate(180deg); }
+.teachers-dropdown {
+  position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--ap-surface, #ffffff); box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+.teachers-dropdown[hidden] { display: none !important; }
+.teachers-dropdown .teachers-head { display: flex; margin-bottom: 8px; }
+.teachers-dropdown .teachers-chip-row { display: flex !important; margin-top: 0; }
+.student-row, .subject-card, .student-row .student-name { font-family: inherit; }
 
 @media (max-width: 1180px) {
   .workspace-quick-grid {
@@ -4007,8 +4066,8 @@ main {
                 </select>
                 <% } %>
               </span>
-              <span class="workspace-meta-pair"><span class="meta-label">Start</span><span class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></span></span>
-              <span class="workspace-meta-pair"><span class="meta-label">End</span><span class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></span></span>
+              <% const _termDay = (d, withYear) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: withYear ? 'numeric' : undefined, timeZone: 'UTC' }); %>
+              <span class="workspace-meta-pair"><span class="meta-label">Dates</span><span class="meta-value"><%= _termDay(currentTerm.start_date) %> – <%= _termDay(currentTerm.end_date, true) %></span></span>
             </div>
             </div>
           </div>
@@ -4041,7 +4100,16 @@ main {
           <div class="workspace-panels" id="workspacePanels">
             <section class="workspace-panel" id="panel-overview" data-panel-key="overview">
               <div class="workspace-overview-grid">
+                <div class="overview-counts-wrap">
                 <div class="overview-counts-row">
+                  <button type="button" class="overview-count-chip overview-count-toggle" id="teachersChipToggle" aria-expanded="false" aria-controls="teachers-section" onclick="toggleTeachersDropdown(this)">
+                    <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5a6 6 0 0 0 12 0v-5"/></svg></span>
+                    <span class="count-text">
+                      <span class="count-label">Teachers</span>
+                      <span class="count-num"><%= employees.length %></span>
+                    </span>
+                    <span class="count-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+                  </button>
                   <div class="overview-count-chip">
                     <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <div class="count-text">
@@ -4057,13 +4125,6 @@ main {
                     </div>
                   </div>
                   <div class="overview-count-chip">
-                    <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5a6 6 0 0 0 12 0v-5"/></svg></span>
-                    <div class="count-text">
-                      <span class="count-label">Teachers</span>
-                      <span class="count-num"><%= employees.length %></span>
-                    </div>
-                  </div>
-                  <div class="overview-count-chip">
                     <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span>
                     <div class="count-text">
                       <span class="count-label">Messages</span>
@@ -4072,14 +4133,7 @@ main {
                   </div>
                 </div>
 
-                <div class="section-card teacher-section" id="teachers-section" data-collapsed="true">
-                  <button type="button" class="teachers-mobile-toggle" aria-expanded="false" aria-controls="teachers-chip-row" onclick="toggleTeachersMobile(this)">
-                    <span class="section-title">Teachers</span>
-                    <span class="teachers-mobile-meta">
-                      <span><%= employees.length %></span>
-                      <span class="teachers-mobile-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
-                    </span>
-                  </button>
+                <div class="section-card teacher-section teachers-dropdown" id="teachers-section" data-collapsed="false" hidden>
                   <div class="teachers-head">
                     <h2 class="section-title">Teachers</h2>
                     <span class="section-subtext">Main teacher can mark attendance and maintain the class workspace.</span>
@@ -4098,7 +4152,9 @@ main {
                         <% } %>
                       </div>
                     <% }); %>
+                    <% if (!employees.length) { %><span class="section-subtext">No teachers assigned yet.</span><% } %>
                   </div>
+                </div>
                 </div>
                 <div class="overview-split">
                   <div class="section-card students-overview-section">
@@ -4954,6 +5010,7 @@ main {
           sidebarKey: 'students',
           type: 'iframe',
           iframeSrc: '/common/studentDetails?studentId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&classId=' + encodeURIComponent(workspaceContext.classId) + '&embed=workspace',
+          noFrameHeader: true,
           panelDescription: 'Student workspace for ' + match.name + '.',
         };
       }
@@ -5759,6 +5816,32 @@ main {
       window.activateWorkspaceTab = activateWorkspaceTab;
       window.closeWorkspaceTab = closeWorkspaceTab;
 
+      // Teachers open as a dropdown under their count card.
+      window.toggleTeachersDropdown = function (btn) {
+        var panel = document.getElementById('teachers-section');
+        if (!panel) return;
+        var open = panel.hidden;
+        panel.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      if (!window.__teachersDropdownBound) {
+        window.__teachersDropdownBound = true;
+        document.addEventListener('click', function (event) {
+          var panel = document.getElementById('teachers-section');
+          var btn = document.getElementById('teachersChipToggle');
+          if (!panel || panel.hidden || !btn) return;
+          if (panel.contains(event.target) || btn.contains(event.target)) return;
+          panel.hidden = true;
+          btn.setAttribute('aria-expanded', 'false');
+        });
+        document.addEventListener('keydown', function (event) {
+          if (event.key !== 'Escape') return;
+          var panel = document.getElementById('teachers-section');
+          var btn = document.getElementById('teachersChipToggle');
+          if (panel && !panel.hidden) { panel.hidden = true; if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); } }
+        });
+      }
+
       window.toggleTeachersMobile = function (btn) {
         var section = btn.closest('.teacher-section');
         if (!section) return;
@@ -6193,6 +6276,23 @@ main {
       }
 
       initClassDashboard();
+
+      // The tab pane reaches the bottom of the window (pages are zoomed on wide
+      // screens, so the measured space is turned back into page pixels).
+      function fitWorkspaceStage() {
+        var stage = document.querySelector('.workspace-stage');
+        if (!stage) return;
+        var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+        var top = stage.getBoundingClientRect().top + window.scrollY;
+        var fill = Math.max(360, Math.floor((window.innerHeight - top - 16) / zoom));
+        stage.style.setProperty('--stage-fill', fill + 'px');
+      }
+      fitWorkspaceStage();
+      if (!window.__workspaceStageFitBound) {
+        window.__workspaceStageFitBound = true;
+        window.addEventListener('resize', fitWorkspaceStage);
+        window.addEventListener('load', fitWorkspaceStage);
+      }
       openWorkspaceRoute(workspaceContext.initialRoute || { panel: 'overview', itemId: '' }, { replaceHistory: true });
       if (!window.__classWorkspacePopstateBound) {
         window.__classWorkspacePopstateBound = true;
@@ -6961,35 +7061,10 @@ main {
 
       var weekdays = isEditing ? getActiveDraftWeekdays() : getScheduleWeekdays();
       var missingWeekdays = isEditing ? getMissingDraftWeekdays() : [];
-      var summaryGrid = '';
-      if (schedule) {
-        summaryGrid =
-          '<div class="schedule-summary-grid">' +
-            '<div class="schedule-summary-card"><span>School Year</span><strong>' + esc(schedule.schoolYearLabel || classScheduleContext.schoolYearLabel) + '</strong></div>' +
-            '<div class="schedule-summary-card"><span>Term</span><strong>' + esc(schedule.termName || classScheduleContext.termName) + '</strong></div>' +
-            '<div class="schedule-summary-card"><span>Columns</span><strong>' + String(slots.length) + '</strong></div>' +
-            '<div class="schedule-summary-card"><span>Updated</span><strong>' + esc(new Date(schedule.updatedAt || schedule.createdAt).toLocaleString()) + '</strong></div>' +
-          '</div>';
-      } else {
-        summaryGrid =
-          '<div class="schedule-summary-grid">' +
-            '<div class="schedule-summary-card"><span>School Year</span><strong>' + esc(classScheduleContext.schoolYearLabel) + '</strong></div>' +
-            '<div class="schedule-summary-card"><span>Term</span><strong>' + esc(classScheduleContext.termName) + '</strong></div>' +
-            '<div class="schedule-summary-card"><span>Columns</span><strong>' + String(slots.length) + '</strong></div>' +
-            '<div class="schedule-summary-card"><span>Rows</span><strong>' + String(weekdays.length) + '</strong></div>' +
-          '</div>';
-      }
-
-      summaryGrid =
-        '<details class="schedule-summary-details"' + (isCompactScheduleViewport ? '' : ' open') + '>' +
-          '<summary class="schedule-summary-toggle">' +
-            '<span class="schedule-summary-toggle-button">' +
-              '<span class="schedule-summary-toggle-label">Schedule details</span>' +
-              '<span class="schedule-summary-toggle-icon" aria-hidden="true">›</span>' +
-            '</span>' +
-          '</summary>' +
-          '<div class="schedule-summary-content">' + summaryGrid + '</div>' +
-        '</details>';
+      // Year and term are already in the class header; only when it last changed is new here.
+      var summaryGrid = schedule && (schedule.updatedAt || schedule.createdAt)
+        ? '<p class="schedule-updated-note">Last updated ' + esc(new Date(schedule.updatedAt || schedule.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })) + '</p>'
+        : '';
 
       var headerCells = slots.map(function(slot, index) {
         if (isEditing) {
@@ -7049,9 +7124,6 @@ main {
 
       container.innerHTML =
         summaryGrid +
-        (canEdit && !isEditing
-          ? '<div class="schedule-readonly-banner"><span>Tap Edit to make changes.</span><span>View mode</span></div>'
-          : '') +
         '<div class="schedule-table-wrap">' +
           '<table class="schedule-table">' +
             '<thead><tr><th class="schedule-day-cell">Day</th>' + headerCells + '</tr></thead>' +

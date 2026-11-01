@@ -405,7 +405,8 @@
       for (const el of elementsOf(scope)) {
         if (SKIP_TAGS.has(el.tagName) || el.closest(SKIP_SEL) || busyControl(el)) continue;
         const s = getComputedStyle(el);
-        const bg = mapBg(parse(s.backgroundColor));
+        const isReportPagePlane = el.matches('.gp-page--terminal-report, .gp-page--term-details');
+        const bg = isReportPagePlane ? null : mapBg(parse(s.backgroundColor));
         if (bg) writes.push([el, 'background-color', css(bg)]);
         const img = s.backgroundImage;
         if (img && img !== 'none' && !/url\(/i.test(img)) { const g = mapGradient(img); if (g) writes.push([el, 'background-image', g]); }

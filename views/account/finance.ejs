@@ -63,35 +63,33 @@
   }
 
   /* ── Base ─────────────────────────────────────────────────────── */
-  body { background: var(--fin-bg) !important; }
-  body::after {
-    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-    background:
-      radial-gradient(ellipse 900px 700px at -5% -5%, color-mix(in srgb, var(--org-primary-color, #01535b) 4%, transparent), transparent 65%),
-      radial-gradient(ellipse 700px 500px at 105% 105%, rgba(109,40,217,.035), transparent 60%);
-  }
+  /* The page follows the person's appearance; cards sit on it. */
+  body { background: var(--ap-page, var(--fin-bg)) !important; }
   .fin-shell {
-    color:var(--fin-text); font-family:'DM Sans',system-ui,sans-serif;
+    color:var(--fin-text); font-family:inherit;
     min-height:calc(100vh - 60px); padding:28px clamp(12px,3vw,36px) 80px;
     position:relative; z-index:1;
   }
-  .fin-mono { font-family:'JetBrains Mono',ui-monospace,monospace; }
+  .fin-mono { font-variant-numeric:tabular-nums; }
 
   /* ── Layout ───────────────────────────────────────────────────── */
   .fin-grid { display:grid; grid-template-columns:252px 1fr; gap:24px; max-width:1540px; margin:0 auto; }
   .fin-main { min-width:0; max-width:100%; }
 
   /* Prevent any child from forcing a horizontal scrollbar */
-  html, body { max-width:100%; overflow-x:hidden; }
-  .fin-shell { max-width:100%; overflow-x:hidden; }
+  /* clip, not hidden: hidden turns these into scroll boxes, and the menu
+     would then stick inside the page instead of staying put on screen. */
+  html, body { max-width:100%; overflow-x:clip; }
+  .fin-shell { max-width:100%; overflow-x:clip; }
 
   /* ── Sidebar ──────────────────────────────────────────────────── */
   .fin-side {
-    background:linear-gradient(170deg, var(--fin-card) 0%, var(--fin-card-2) 100%);
-    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:16px 10px;
-    position:sticky; top:80px; height:fit-content;
+    background:var(--fin-card);
+    border:1px solid var(--fin-border); border-radius:14px; padding:14px 10px;
+    position:sticky; top:76px; align-self:start; height:fit-content;
+    max-height:calc(100vh - 96px); overflow-y:auto;
     min-width:0;
-    box-shadow:0 28px 70px -24px rgba(15,23,42,0.14), inset 0 1px 0 rgba(15,23,42,.04);
+    box-shadow:none;
   }
   .fin-side-brand {
     display:flex; align-items:center; justify-content:center; gap:10px;
@@ -101,12 +99,12 @@
     width:34px; height:34px; border-radius:10px; flex-shrink:0;
     background:linear-gradient(135deg,var(--fin-teal) 0%,var(--org-primary-color, #01535b) 100%);
     display:flex; align-items:center; justify-content:center;
-    font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:.78rem;
+    font-family:inherit; font-weight:800; font-size:.78rem;
     color:#ffffff; letter-spacing:-.02em;
     box-shadow:0 4px 14px color-mix(in srgb, var(--org-primary-color, #01535b) 40%, transparent);
   }
   .fin-side-name {
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.97rem;
+    font-family:inherit; font-weight:700; font-size:.97rem;
     letter-spacing:-.01em; line-height:1;
   }
   .fin-side-name .accent {
@@ -123,23 +121,23 @@
     color:var(--fin-muted); text-decoration:none; font-size:.875rem; font-weight:500;
     border-left:3px solid transparent; transition:all .17s ease;
   }
-  .fin-nav a .ico { width:20px; text-align:center; font-size:.95rem; flex-shrink:0; }
-  .fin-nav a:hover { background:rgba(15,23,42,.04); color:var(--fin-text); border-left-color:color-mix(in srgb, var(--org-primary-color, #01535b) 25%, transparent); }
+  .fin-nav a .ico { width:20px; display:inline-flex; justify-content:center; flex-shrink:0; color:var(--fin-muted, #6b7280); }
+  .fin-nav a.active .ico { color:var(--fin-org); }
+  
   .fin-nav a.active {
     background:linear-gradient(90deg,var(--fin-teal-soft),color-mix(in srgb, var(--org-primary-color, #01535b) 3%, transparent) 70%,transparent);
     color:var(--fin-text); border-left-color:var(--fin-teal);
     box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent);
   }
-  .fin-nav a.active .ico { filter:drop-shadow(0 0 5px color-mix(in srgb, var(--org-primary-color, #01535b) 50%, transparent)); }
 
   /* ── Page heading ─────────────────────────────────────────────── */
   .fin-page-head { margin-bottom:24px; }
   .fin-page-head-main-title { text-align:left; flex:1; }
-  .fin-page-head-main-title h1 { margin:0; font-size:1.35rem; font-weight:600; }
+  .fin-page-head-main-title h1 { margin:0; font-size:1.35rem; font-weight:700; text-align:left; }
   /* Secure badge pinned to right on desktop */
   .fin-page-head .paygira-secure-badge { position:absolute; right:0; top:50%; transform:translateY(-50%); margin-left:0; }
   .fin-page-head h1 {
-    font-family:'Space Grotesk',sans-serif; font-size:1.95rem; margin:0 0 4px;
+    font-family:inherit; font-size:1.95rem; margin:0 0 4px;
     font-weight:800; letter-spacing:-.03em; line-height:1.1;
   }
   .fin-page-head h1 .accent {
@@ -159,7 +157,7 @@
     color:var(--org-primary-color, #01535b);
     font-size:.7rem; font-weight:700; letter-spacing:.08em;
     text-transform:uppercase;
-    font-family:'Space Grotesk', sans-serif;
+    font-family:inherit;
     box-shadow:0 4px 12px color-mix(in srgb, var(--org-primary-color, #01535b) 15%, transparent);
     white-space:nowrap;
   }
@@ -191,13 +189,9 @@
   }
   .stat:hover { transform:none; box-shadow:none;}
   .stat::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(15,23,42,.07),transparent); }
-  .stat::after  { content:''; position:absolute; inset:0; background:radial-gradient(75% 60% at 100% 0%,color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent),transparent 60%); pointer-events:none; }
   .stat .label  { font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; color:var(--fin-muted); margin-bottom:10px; font-weight:600; }
-  .stat .value  { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:700; color:var(--fin-text); letter-spacing:-.02em; }
+  .stat .value  { font-variant-numeric:tabular-nums; font-size:1.5rem; font-weight:700; color:var(--fin-text); letter-spacing:-.02em; }
   .stat .sub    { margin-top:6px; font-size:.76rem; color:var(--fin-muted); }
-  .stat.gold::after  { background:radial-gradient(75% 60% at 100% 0%,rgba(180,83,9,.1),transparent 60%); }
-  .stat.red::after   { background:radial-gradient(75% 60% at 100% 0%,rgba(220,38,38,.1),transparent 60%); }
-  .stat.green::after { background:radial-gradient(75% 60% at 100% 0%,rgba(21,128,61,.1),transparent 60%); }
   .stat.gold .value  { color:var(--fin-gold); }
   .stat.red .value   { color:var(--fin-red); }
   .stat.green .value { color:var(--fin-success); }
@@ -240,7 +234,6 @@
   }
   .fin-btn.primary:hover { box-shadow:none;}
   .fin-btn.danger { background:var(--fin-red); color:#fff; border-color:transparent; }
-  .fin-btn.danger::before { content:'🗑'; font-size:.82em; }
   
   .fin-btn.sm { min-height:34px; padding:0 10px; font-size:.78rem; border-radius:4px; font-weight:600; }
   .fin-btn.tiny { min-height:30px; padding:0 8px; font-size:.74rem; border-radius:4px; font-weight:600; }
@@ -256,10 +249,10 @@
     background:rgba(15,23,42,.02); border:1px solid var(--fin-border);
     align-items:flex-start; transition:background .15s ease,border-color .15s ease;
   }
-  .activity-item:hover { background:color-mix(in srgb, var(--org-primary-color, #01535b) 3%, transparent); border-color:var(--fin-border-hi); }
+  
   .activity-item .who  { font-weight:600; color:var(--fin-text); font-size:.87rem; }
   .activity-item .meta { color:var(--fin-muted); font-size:.74rem; margin-top:2px; }
-  .activity-item .amt  { font-family:'JetBrains Mono',monospace; color:var(--fin-success); font-weight:700; margin-left:auto; font-size:.88rem; flex-shrink:0; }
+  .activity-item .amt  { font-variant-numeric:tabular-nums; color:var(--fin-success); font-weight:700; margin-left:auto; font-size:.88rem; flex-shrink:0; }
   .activity-empty { text-align:center; padding:48px 20px; color:var(--fin-muted); font-size:.9rem; }
 
   /* ── Tables ───────────────────────────────────────────────────── */
@@ -337,7 +330,7 @@
   .fin-table tr:last-child td { border-bottom:0; }
   .fin-table tbody tr { transition:background .12s ease; }
   
-  .fin-table .num { font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+  .fin-table .num { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .fin-click-row { cursor:pointer; }
   .fin-click-row td { transition:background .16s ease, border-color .16s ease, transform .16s ease; }
   
@@ -575,10 +568,7 @@
     cursor:pointer;
     transition:border-color .16s ease, background .16s ease, box-shadow .16s ease;
   }
-  .fin-audience-card:hover {
-    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 24%, transparent);
-    background:color-mix(in srgb, var(--org-primary-color, #01535b) 4%, transparent);
-  }
+  
   .fin-audience-card.is-active {
     border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 42%, transparent);
     background:color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent);
@@ -654,7 +644,7 @@
   .fin-acc-head {
     width:100%; display:flex; align-items:center; justify-content:space-between; gap:14px;
     padding:18px 22px; background:transparent; border:0; cursor:pointer;
-    font-family:'Space Grotesk',sans-serif; font-size:1.02rem; color:var(--fin-text);
+    font-family:inherit; font-size:1.02rem; color:var(--fin-text);
     text-align:left;
   }
   
@@ -679,7 +669,7 @@
   }
   .fin-picker-count {
     margin-left:auto; color:var(--fin-teal); font-size:.78rem;
-    font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-variant-numeric:tabular-nums; font-weight:700;
   }
   .fin-chip-grid {
     display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
@@ -701,7 +691,7 @@
     transition:all .15s;
     user-select:none;
   }
-  .fin-chip:hover { border-color:var(--fin-teal); background:color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent); }
+  
   .fin-chip input[type=checkbox] {
     position:absolute; opacity:0; pointer-events:none;
   }
@@ -749,7 +739,7 @@
     flex-shrink:0;
   }
   .fin-student-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
-  .fin-student-avatar span { font-family:'Space Grotesk',sans-serif; letter-spacing:.04em; }
+  .fin-student-avatar span { font-family:inherit; letter-spacing:.04em; }
 
   /* ── Report filters ─────────────────────────────────────────── */
   .fin-report-filters {
@@ -923,7 +913,7 @@
       border-radius:10px; cursor:pointer;
       color:var(--fin-muted); font-size:.82rem; font-weight:600;
     }
-    .fin-filters-toggle:hover { color:var(--fin-text); border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); }
+    
     .fin-filters-chev { transition:transform .2s; font-size:.75rem; }
     .fin-filters-shell.open .fin-filters-chev { transform:rotate(180deg); color:var(--fin-teal); }
     .fin-filters-shell.open .fin-filters-toggle { color:var(--fin-text); border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); }
@@ -953,10 +943,10 @@
   .fin-psp-ico {
     width:44px; height:44px; border-radius:12px;
     display:flex; align-items:center; justify-content:center;
-    font-size:1.2rem; font-weight:800; font-family:'Space Grotesk',sans-serif;
+    font-size:1.2rem; font-weight:800; font-family:inherit;
     flex-shrink:0;
   }
-  .fin-psp-title { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.02rem; }
+  .fin-psp-title { font-family:inherit; font-weight:700; font-size:1.02rem; }
   .fin-psp-desc { color:var(--fin-muted); font-size:.82rem; margin-top:2px; }
   .fin-psp-status {
     margin-left:auto; padding:5px 12px; border-radius:999px;
@@ -1004,7 +994,7 @@
     margin-bottom:20px; flex-wrap:wrap; gap:12px;
     padding-bottom:14px; border-bottom:1px solid var(--fin-border);
   }
-  .section-head h2 { font-family:'Space Grotesk',sans-serif; font-size:1.12rem; margin:0; font-weight:700; letter-spacing:-.01em; }
+  .section-head h2 { font-family:inherit; font-size:1.12rem; margin:0; font-weight:700; letter-spacing:-.01em; }
   .section-head .meta { color:var(--fin-muted); font-size:.8rem; }
 
   /* ── Avatar ───────────────────────────────────────────────────── */
@@ -1023,7 +1013,7 @@
   }
   @keyframes modalIn { from{opacity:0;transform:scale(.96) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
   .fin-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; padding-bottom:14px; border-bottom:1px solid var(--fin-border); }
-  .fin-modal-head h3 { font-family:'Space Grotesk',sans-serif; font-size:1.12rem; margin:0; font-weight:700; }
+  .fin-modal-head h3 { font-family:inherit; font-size:1.12rem; margin:0; font-weight:700; }
   .fin-modal-close {
     background:rgba(15,23,42,.05); border:1px solid var(--fin-border);
     color:var(--fin-muted); width:32px; height:32px; border-radius:8px;
@@ -1035,7 +1025,7 @@
   /* ── Empty state ──────────────────────────────────────────────── */
   .empty-state { text-align:center; padding:60px 20px; color:var(--fin-muted); }
   .empty-state .ico { font-size:2.8rem; margin-bottom:12px; opacity:.5; display:block; }
-  .empty-state h3 { color:var(--fin-text); margin:0 0 8px; font-family:'Space Grotesk',sans-serif; font-size:1.05rem; }
+  .empty-state h3 { color:var(--fin-text); margin:0 0 8px; font-family:inherit; font-size:1.05rem; }
   .empty-state p { font-size:.87rem; margin:0; }
 
   /* ── Fee recovery ─────────────────────────────────────────────── */
@@ -1055,7 +1045,7 @@
   .arrears-multiselect-trigger[disabled] {
     opacity:.55; cursor:not-allowed; border-color:rgba(138,147,168,.14);
   }
-  .arrears-multiselect-trigger:hover { border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 24%, transparent); }
+  
   .arrears-multiselect.open .arrears-multiselect-trigger,
   .arrears-multiselect-trigger:focus {
     outline:none; border-color:var(--fin-teal); box-shadow:0 0 0 3px color-mix(in srgb, var(--org-primary-color, #01535b) 12%, transparent);
@@ -1095,7 +1085,7 @@
     border:1px solid transparent; background:rgba(15,23,42,.03); cursor:pointer;
     transition:border-color .16s ease, background .16s ease;
   }
-  .arrears-multiselect-option:hover { border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 18%, transparent); background:rgba(15,23,42,.045); }
+  
   .arrears-multiselect-option input {
     width:17px; height:17px; margin-top:1px; flex-shrink:0; accent-color:var(--fin-teal); cursor:pointer;
   }
@@ -1151,7 +1141,7 @@
     color:var(--fin-text); font-weight:600; font-size:.88rem; cursor:pointer;
     transition:border-color .15s ease, background .15s ease;
   }
-  .arrears-collapse-toggle:hover { border-color:var(--fin-border-hi); background:color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent); }
+  
   .arrears-collapse-toggle .label { display:inline-flex; align-items:center; gap:8px; min-width:0; }
   .arrears-collapse-toggle .badge {
     font-size:.68rem; letter-spacing:.06em; text-transform:uppercase;
@@ -1195,7 +1185,7 @@
     .fin-grid    { grid-template-columns:1fr; gap:14px; }
     /* Nav floats over content — anchored BELOW the mobile header */
     .fin-side    {
-      position:absolute; top:58px; left:0; right:0;
+      position:absolute; top:58px; left:0; right:0; max-height:none;
       z-index:200;
       border-radius:0 0 18px 18px;
       min-width:0; overflow:hidden;
@@ -1291,7 +1281,7 @@
     }
     .fin-mobile-header h2 {
       margin:0; font-size:1.28rem; font-weight:700;
-      font-family:'Space Grotesk',sans-serif;
+      font-family:inherit;
       color:#fff;
       flex:1; text-align:center;
     }
@@ -1337,12 +1327,8 @@
       background:rgba(15,23,42,.06);
       font-size:1rem;
     }
-    .fin-nav a:hover {
-      background:color-mix(in srgb, var(--org-primary-color, #01535b) 10%, transparent);
-      color:#fff;
-      border-color:transparent;
-    }
-    .fin-nav a:hover .ico { background:color-mix(in srgb, var(--org-primary-color, #01535b) 15%, transparent); }
+    
+    
     .fin-nav a.active {
       background:linear-gradient(90deg,color-mix(in srgb, var(--org-primary-color, #01535b) 18%, transparent),color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent));
       color:#fff;
@@ -1727,15 +1713,15 @@
       </div>
       <div class="fin-side-title">Navigate</div>
       <nav class="fin-nav">
-        <a href="/account/settings/finance?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico">💳</span><span>Overview</span></a>
-        <a href="/account/settings/finance?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico">📋</span><span>Bill Management</span></a>
-        <a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico">🏢</span><span>Org-Wide Bills</span></a>
-        <a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico">📅</span><span>Subscriptions</span></a>
-        <a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico">💰</span><span>Payment Tracking</span></a>
+        <a href="/account/settings/finance?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg></span><span>Overview</span></a>
+        <a href="/account/settings/finance?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span><span>Bill Management</span></a>
+        <a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M3 21h18M8 7h4M8 11h4M8 15h4"/></svg></span><span>Org-Wide Bills</span></a>
+        <a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></span><span>Subscriptions</span></a>
+        <a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><span>Payment Tracking</span></a>
         <% /* Fee Templates hidden for now */ %>
-        <a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico">🧾</span><span>Fee Recovery</span></a>
-        <a href="/account/settings/finance?section=payouts"       class="<%= sec==='payouts' ? 'active':'' %>"><span class="ico">💸</span><span>Payouts</span></a>
-        <a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico">⚙️</span><span>Payment Settings</span></a>
+        <a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><span>Fee Recovery</span></a>
+        <a href="/account/settings/finance?section=payouts"       class="<%= sec==='payouts' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><span>Payouts</span></a>
+        <a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></span><span>Payment Settings</span></a>
       </nav>
     </aside>
 
@@ -1778,7 +1764,7 @@
         <% const billPageSize = (billPagination && billPagination.pageSize) || bills.length || 20; %>
         <div class="fin-card fin-accordion" id="acc-create-bill" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-bill')">
-            <span><span class="fin-acc-ico">➕</span> <strong>Create New Bill</strong></span>
+            <span><strong>Create New Bill</strong></span>
             <span class="fin-acc-hint">Assign to entire school, classes, or specific students</span>
             <span class="fin-acc-chev">▾</span>
           </button>
@@ -1872,7 +1858,7 @@
               </label>
               <div class="fin-search-wrap">
                 <input type="text" id="studentSearchBox" class="fin-search-input"
-                       placeholder="🔎 Search by student name or class…"
+                       placeholder="Search by student name or class…"
                        oninput="finFilterStudents(this.value)">
               </div>
               <div class="fin-picker-actions">
@@ -1913,7 +1899,7 @@
                   <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>" <%= y.current ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
                 </select>
                 <% if (!refs.years || !refs.years.length) { %>
-                  <small style="color:var(--fin-warn);font-size:.72rem;">⚠️ No school years configured. Add one under Academic Settings.</small>
+                  <small style="color:var(--fin-warn);font-size:.72rem;">No school years configured. Add one under Academic Settings.</small>
                 <% } %>
               </div>
               <div class="fin-field">
@@ -1974,14 +1960,14 @@
                  const createIsPaystack = paymentProviderSafe === 'paystack';
                  const createCardOn = createIsPaystack ? true : !!(allowedMethods && allowedMethods.stripeOn);
                  const createTransferOn = createIsStripe ? false : !!(allowedMethods && (allowedMethods.bankOn || allowedMethods.momoOn) || createIsPaystack);
-                 const createCardLabel = createIsPaystack ? '💳 Card (Paystack)' : '💳 Card / Stripe';
-                 const createTransferLabel = createIsPaystack ? '📱 Mobile Money / Bank' : '🏦 Bank / Mobile Money'; %>
+                 const createCardLabel = createIsPaystack ? 'Card (Paystack)' : 'Card (Stripe)';
+                 const createTransferLabel = createIsPaystack ? 'Mobile money / Bank' : 'Bank / Mobile money'; %>
               <div class="fin-checks">
                 <label class="fin-check fin-check-all"><input type="checkbox" id="payAll" onchange="finTogglePayAll(this)" checked> <strong>All methods</strong></label>
                 <% if (createCardOn) { %>
                 <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_card" checked> <%= createCardLabel %></label>
                 <% } %>
-                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_cash" checked> 💵 Cash</label>
+                <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_cash" checked> Cash</label>
                 <% if (createTransferOn) { %>
                 <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_transfer" checked> <%= createTransferLabel %></label>
                 <% } %>
@@ -2034,7 +2020,7 @@
             <small class="fin-bill-context-note">Bills default to the current academic context here. Switch year or term to review a different billing period.</small>
           </form>
           <% if (!bills.length) { %>
-            <div class="empty-state"><div class="ico">📋</div><h3>No bills created yet</h3><p>Use the form above to create your first bill.</p></div>
+            <div class="empty-state"><h3>No bills created yet</h3><p>Use the form above to create your first bill.</p></div>
           <% } else { %>
             <div class="fin-table-wrap">
               <table class="fin-table fin-bills-table">
@@ -2121,7 +2107,7 @@
             <span class="fin-section-count"><%= studentBilling.length %> students<% if (studentBillingPagination && studentBillingPagination.hasMore) { %> · page <%= studentPage %><% } %></span>
           </div>
           <% if (!studentBilling.length) { %>
-            <div class="empty-state"><div class="ico">👨‍👩‍👧</div><h3>No students yet</h3></div>
+            <div class="empty-state"><h3>No students yet</h3></div>
           <% } else { %>
             <form method="GET" action="/account/settings/finance" class="fin-form fin-student-context-card">
               <input type="hidden" name="section" value="students">
@@ -2281,14 +2267,14 @@
           <div class="section-head"><h2>Subscriptions &amp; Recurring</h2></div>
           <% const recurring = bills.filter(b => b.bill_type === 'recurring'); %>
           <% if (!recurring.length) { %>
-            <div class="empty-state"><div class="ico">🔁</div><h3>No recurring plans yet</h3><p>Create a bill with type "Recurring" to start a subscription.</p></div>
+            <div class="empty-state"><h3>No recurring plans yet</h3><p>Create a bill with type "Recurring" to start a subscription.</p></div>
           <% } else { %>
             <div style="display:grid; gap:14px;">
               <% recurring.forEach(b => { %>
                 <div style="padding:18px; background:var(--fin-card-2); border:1px solid var(--fin-border); border-radius:14px;">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
                     <div>
-                      <div style="font-family:'Space Grotesk',sans-serif; font-size:1.05rem; font-weight:700;">📋 <%= b.title %></div>
+                      <div style="font-family:inherit; font-size:1.05rem; font-weight:700;"><%= b.title %></div>
                       <div style="color:var(--fin-muted); font-size:.85rem; margin-top:4px;"><span class="fin-mono"><%= fmt(b.amount) %></span> · <%= b.recurrence || 'recurring' %> · <%= b.assigned_count %> enrolled</div>
                     </div>
                     <span class="badge <%= b.status %>"><%= b.status %></span>
@@ -2303,7 +2289,7 @@
       <% if (sec === 'payments') { %>
         <div class="fin-card fin-accordion" id="acc-record-payment" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-record-payment', this)" aria-expanded="false">
-            <span><span class="fin-acc-ico">💰</span> <strong>Record Manual Payment</strong></span>
+            <span><strong>Record Manual Payment</strong></span>
             <span class="fin-acc-hint">Cash, cheque, bank transfer, or other offline payment</span>
             <span class="fin-acc-chev">▾</span>
           </button>
@@ -2358,7 +2344,7 @@
         <div class="fin-card">
           <div class="section-head"><h2>Payment History</h2></div>
           <% if (!overview.recent.length) { %>
-            <div class="empty-state"><div class="ico">💰</div><h3>No payments recorded yet</h3></div>
+            <div class="empty-state"><h3>No payments recorded yet</h3></div>
           <% } else { %>
             <div class="fin-table-wrap fin-scroll" id="finPaymentsWrap">
               <table class="fin-table">
@@ -2404,7 +2390,7 @@
           <% const signoffPageSize = (signoffHistoryPagination && signoffHistoryPagination.pageSize) || (signoffHistory || []).length || 20; %>
           <div class="section-head"><h2>Collection Sign-Off History</h2><span class="fin-section-count"><%= (signoffHistory || []).length %> record<%= (signoffHistory || []).length === 1 ? '' : 's' %><% if (signoffHistoryPagination && signoffHistoryPagination.hasMore) { %> · page <%= signoffPage %><% } %></span></div>
           <% if (!(signoffHistory || []).length) { %>
-            <div class="empty-state"><div class="ico">✍</div><h3>No sign-offs yet</h3><p>Teacher and manager sign-offs will appear here after collections are fully settled.</p></div>
+            <div class="empty-state"><h3>No sign-offs yet</h3><p>Teacher and manager sign-offs will appear here after collections are fully settled.</p></div>
           <% } else { %>
             <div class="fin-report-filters" style="margin-bottom:16px;">
               <div class="fin-field">
@@ -2466,7 +2452,7 @@
       <% if (sec === 'templates') { %>
         <div class="fin-card fin-accordion" id="acc-create-template" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-template', this)" aria-expanded="false">
-            <span><span class="fin-acc-ico">🏫</span> <strong>Create Fee Template</strong></span>
+            <span><strong>Create Fee Template</strong></span>
             <span class="fin-acc-hint">Reusable fee setup for repeated bill creation</span>
             <span class="fin-acc-chev">▾</span>
           </button>
@@ -2502,7 +2488,7 @@
         <div class="fin-card">
           <div class="section-head"><h2>Template Library</h2></div>
           <% if (!templates.length) { %>
-            <div class="empty-state"><div class="ico">🏫</div><h3>No templates yet</h3></div>
+            <div class="empty-state"><h3>No templates yet</h3></div>
           <% } else { %>
             <div class="fin-table-wrap">
               <table class="fin-table">
@@ -2530,7 +2516,7 @@
       <% if (sec === 'payouts') { %>
         <div class="fin-card fin-accordion" id="acc-create-payout" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-payout')">
-            <span><span class="fin-acc-ico">💸</span> <strong>Create Payout</strong></span>
+            <span><strong>Create Payout</strong></span>
             <span class="fin-acc-hint">Pay a teacher, staff member, or vendor — one time or on a schedule</span>
             <span class="fin-acc-chev">▾</span>
           </button>
@@ -2614,7 +2600,7 @@
             <h2>Scheduled Payouts</h2>
             <span class="fin-section-count" id="finPayoutsCount">0 payouts</span>
           </div>
-          <div class="empty-state" id="finPayoutsEmpty"><div class="ico">💸</div><h3>No payouts yet</h3><p style="color:var(--fin-muted);">Create one above to pay a teacher, staff member, or vendor on a schedule.</p></div>
+          <div class="empty-state" id="finPayoutsEmpty"><h3>No payouts yet</h3><p style="color:var(--fin-muted);">Create one above to pay a teacher, staff member, or vendor on a schedule.</p></div>
           <div class="fin-table-wrap" id="finPayoutsTableWrap" style="display:none;">
             <table class="fin-table">
               <thead><tr>
@@ -2651,7 +2637,7 @@
             background:var(--fin-card);
           }
           .fin-payout-search-results .fin-payout-result { padding:8px 10px; cursor:pointer; border-bottom:1px solid var(--fin-border); font-size:.85rem; }
-          .fin-payout-search-results .fin-payout-result:hover { background:color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent); }
+          
           .fin-payout-search-results .fin-payout-result:last-child { border-bottom:0; }
         </style>
 
@@ -2986,7 +2972,7 @@
               </div>
               <div class="fin-field"><label>Default Late Fee (%)</label><input name="default_late_pct" type="number" min="0" step="0.1" value="<%= (pspSettings && pspSettings.default_late_pct) || '' %>" placeholder="e.g. 5"></div>
               <div class="fin-field"><label>Invoice Footer Note</label><textarea name="invoice_footer" rows="2" placeholder="Thank you for trusting us with your child's education."><%= (pspSettings && pspSettings.invoice_footer) || '' %></textarea></div>
-              <button type="submit" class="fin-btn primary">💾 Save General Settings</button>
+              <button type="submit" class="fin-btn primary">Save General Settings</button>
             </form>
             </div>
           </div>
@@ -3008,7 +2994,7 @@
               </div>
               <div class="arrears-collapse" data-arrears-collapse>
                 <button type="button" class="arrears-collapse-toggle" data-arrears-collapse-toggle aria-expanded="false">
-                  <span class="label">🔎 Filters <span class="badge">Tap to open</span></span>
+                  <span class="label">Filters <span class="badge">Tap to open</span></span>
                   <span class="chev">▾</span>
                 </button>
                 <div class="arrears-collapse-body">
@@ -3179,7 +3165,7 @@
               </div>
               <div class="arrears-collapse" data-arrears-collapse>
                 <button type="button" class="arrears-collapse-toggle" data-arrears-collapse-toggle aria-expanded="false">
-                  <span class="label">📂 Presets &amp; Readiness <span class="badge">Tap to open</span></span>
+                  <span class="label">Presets &amp; Readiness <span class="badge">Tap to open</span></span>
                   <span class="chev">▾</span>
                 </button>
                 <div class="arrears-collapse-body">
@@ -3347,7 +3333,7 @@
               </div>
             <% } else { %>
               <div class="empty-state">
-                <div class="ico">✅</div>
+                
                 <h3>No matching arrears</h3>
                 <p>This organization currently has no overdue students under the selected filters.</p>
               </div>
@@ -3398,7 +3384,7 @@
               </div>
             <% } else { %>
               <div class="empty-state" style="padding:34px 20px;">
-                <div class="ico">📚</div>
+                
                 <h3>No saved reports yet</h3>
                 <p>Generate a filtered arrears report to build the recovery archive for this organization.</p>
               </div>
@@ -3526,7 +3512,7 @@ Regards,
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'fin-filters-toggle';
-        btn.innerHTML = '<span>🔍 Filters</span><span class="fin-filters-chev">▾</span>';
+        btn.innerHTML = '<span>Filters</span><span class="fin-filters-chev">▾</span>';
         btn.setAttribute('aria-expanded', 'false');
         wrapper.appendChild(btn);
         wrapper.appendChild(form);
@@ -4075,7 +4061,7 @@ Regards,
 
       return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">'
         + '<div class="avatar" style="width:54px;height:54px;font-size:1.1rem;">' + avatarHtml + '</div>'
-        + '<div><div style="font-family:\'Space Grotesk\',sans-serif;font-size:1.3rem;font-weight:700;">' + s.first_name + ' ' + s.last_name + '</div>'
+        + '<div><div style="font-family:inherit;font-size:1.3rem;font-weight:700;">' + s.first_name + ' ' + s.last_name + '</div>'
         + '<div style="color:var(--fin-muted);font-size:.88rem;">' + (s.class_name||'No class') + '</div></div></div>'
         + '<div class="fin-stats" style="margin-bottom:20px;">'
         + '<div class="stat"><div class="label">Total Billed</div><div class="value fin-mono">' + fmt(totalBilled) + '</div></div>'
@@ -4084,9 +4070,9 @@ Regards,
         + '<div class="stat gold"><div class="label">Credits</div><div class="value fin-mono">' + fmt(credit) + '</div></div>'
         + '<div class="stat"><div class="label">Net Due</div><div class="value fin-mono">' + fmt(netDue) + '</div></div>'
         + '</div>'
-        + '<div style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
+        + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
         + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table"><thead><tr><th>Bill</th><th>Due</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
-        + '<div style="font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:1rem;margin-bottom:10px;">Payment History</div>'
+        + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Payment History</div>'
         + '<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Date</th><th>Bill</th><th>Method</th><th class="num">Amount</th><th>Ref</th></tr></thead><tbody>' + payRows + '</tbody></table></div>';
     }
 
@@ -4506,7 +4492,7 @@ Regards,
     var wanted = ids.length ? arrearsRecipients.filter(function(item) { return ids.indexOf(String(item.student_id)) !== -1; }) : arrearsRecipients;
     count.textContent = wanted.length + ' recipient(s)';
     if (!wanted.length) {
-      host.innerHTML = '<div class="empty-state" style="padding:26px 10px;"><div class="ico">✉️</div><h3>No recipients selected</h3><p>Select one or more students from the arrears table first.</p></div>';
+      host.innerHTML = '<div class="empty-state" style="padding:26px 10px;"><h3>No recipients selected</h3><p>Select one or more students from the arrears table first.</p></div>';
       return;
     }
     host.innerHTML = wanted.map(function(item) {
@@ -5016,7 +5002,7 @@ Regards,
 <div class="fin-modal" id="editBillModal">
   <div class="fin-modal-content" style="max-width:720px;">
     <div class="fin-modal-head">
-      <h3>✏️ Edit Bill</h3>
+      <h3>Edit Bill</h3>
       <button class="fin-modal-close" id="editBillClose">&times;</button>
     </div>
     <form class="fin-form" method="POST" id="editBillForm" action="#">
@@ -5212,7 +5198,7 @@ Regards,
   <div style="flex:1;background:rgba(255,255,255,0.7);backdrop-filter:blur(6px);" id="studentDrawerOverlay"></div>
   <div id="studentDrawerPanel" style="width:min(720px,100%);background:var(--fin-card);border-left:1px solid var(--fin-border);overflow-y:auto;padding:28px;box-shadow:-30px 0 60px -20px #000;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:var(--fin-teal);">Student Billing Detail</div>
+      <div style="font-family:inherit;font-size:1.1rem;font-weight:700;color:var(--fin-teal);">Student Billing Detail</div>
       <button id="studentDrawerClose" style="background:transparent;border:0;color:var(--fin-muted);font-size:1.6rem;cursor:pointer;line-height:1;">&times;</button>
     </div>
     <div id="studentDrawerBody"></div>

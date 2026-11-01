@@ -2,10 +2,8 @@
   const features = typeof allowedFeatures !== 'undefined' && Array.isArray(allowedFeatures) ? allowedFeatures : [];
   // The hub's school page reuses this view (views/hub/organizationDetails.ejs) with its own addresses.
   const statsBase = typeof statsBasePath !== 'undefined' && statsBasePath ? statsBasePath : '/stats/organization';
-  const statsExport = typeof statsExportPath !== 'undefined' && statsExportPath ? statsExportPath : '/stats/organization/export';
   const statsParams = typeof statsExtraParams !== 'undefined' && statsExtraParams ? statsExtraParams : {};
   const allowPdf = typeof statsAllowPdf === 'undefined' ? true : !!statsAllowPdf;
-  const allowCsv = typeof statsAllowCsv === 'undefined' ? true : !!statsAllowCsv;
   const statsPdf = typeof statsPdfPath !== 'undefined' && statsPdfPath ? statsPdfPath : '/stats/organization/pdf';
   const allowPrint = typeof statsAllowPrint !== 'undefined' && !!statsAllowPrint;
   const heading = typeof statsHeading !== 'undefined' && statsHeading ? statsHeading : 'Organization statistics';
@@ -359,7 +357,7 @@
       <% if (stats) { %>
       <% if (allowPdf) { %><button type="button" class="os-btn" id="osPdfBtn" data-url="<%= statsPdf %>?selectedTermId=<%= currentTerm.term_id %>"><%- icon('download') %><span>Download PDF</span></button><% } %>
       <% if (allowPrint) { %><button type="button" class="os-btn" onclick="window.print()"><%- icon('print') %><span>Print</span></button><% } %>
-      <% if (allowCsv) { %><a class="os-btn" href="<%= statsExport %>?selectedTermId=<%= currentTerm.term_id %>" download><%- icon('sheet') %><span>Excel (CSV)</span></a><% } %>
+
       <% } %>
       <% if (canCompareClasses && stats) { %>
       <button type="button" class="os-btn" id="osCompareToggle" aria-expanded="false" aria-controls="osCompare"><%- icon('compare') %><span>Compare classes</span></button>
@@ -453,7 +451,7 @@
     <section class="os-section" data-section="academic">
       <div class="os-section-head">
         <h2 class="os-section-title">Academic performance</h2>
-        <% if (a) { %><span class="os-section-meta"><%= a.term.label %></span><% } %>
+        <% if (a && currentTerm && a.term.label !== `${currentTerm.term_name} (${currentTerm.year_label})`) { %><span class="os-section-meta"><%= a.term.label %></span><% } %>
       </div>
       <% if (academicTag) { %>
       <div class="os-notice"><%- icon('info') %><div>No scores have been saved for <strong><%= currentTerm.term_name %> (<%= currentTerm.year_label %>)</strong> yet, so this section shows the latest results, from <strong><%= academicTag %></strong>. It switches to this term as soon as scores are saved. <a href="<%= statsBase %>?selectedTermId=<%= a.term.term_id %><%= embedQuery %><% Object.keys(statsParams).forEach((k) => { %>&<%= k %>=<%= encodeURIComponent(statsParams[k]) %><% }) %>">Open <%= academicTag %></a></div></div>
@@ -514,7 +512,7 @@
     <section class="os-section" data-section="term">
       <div class="os-section-head">
         <h2 class="os-section-title">This term</h2>
-        <span class="os-section-meta"><%= currentTerm.term_name %> (<%= currentTerm.year_label %>)</span>
+
       </div>
       <div class="os-grid">
         <div class="os-card" style="--series:#eda100">

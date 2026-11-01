@@ -30,7 +30,7 @@
   }
 
   .pg-wrap {
-    background:var(--pg-bg);
+    background:transparent;
     color:var(--pg-text);
     min-height:calc(100vh - 80px);
     font-family:inherit;
@@ -48,7 +48,7 @@
   }
   .pg-head h1 {
     margin:0; font-size:2.1rem; font-weight:800; letter-spacing:-.02em;
-    font-family:'Space Grotesk',sans-serif;
+    font-family:inherit;
     text-align:left;
   }
   .pg-head h1 .accent { color:var(--pg-teal); font-style:italic; }
@@ -62,7 +62,7 @@
     color:var(--pg-teal);
     font-size:.72rem; font-weight:700; letter-spacing:.08em;
     text-transform:uppercase;
-    font-family:'Space Grotesk',sans-serif;
+    font-family:inherit;
     white-space:nowrap;
   }
 
@@ -76,7 +76,7 @@
     border:1px solid var(--pg-border); border-radius:14px; padding:16px 18px;
   }
   .pg-stat .label { font-size:.72rem; color:var(--pg-muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
-  .pg-stat .value { font-size:1.55rem; font-weight:800; margin-top:6px; font-family:'JetBrains Mono',monospace; }
+  .pg-stat .value { font-size:1.55rem; font-weight:800; margin-top:6px; font-variant-numeric:tabular-nums; }
   .pg-stat .sub   { font-size:.75rem; color:var(--pg-muted); margin-top:4px; }
   .pg-stat.teal .value { color:#15803d; }
   .pg-stat.gold .value { color:var(--pg-gold); }
@@ -91,18 +91,18 @@
   .pg-children-grid {
     display:flex;
     flex-direction:column;
-    gap:12px;
+    gap:10px;
   }
 
   .pg-child-card {
-    background:transparent;
-    border:0;
-    border-bottom:1px solid rgba(15,23,42,.1);
-    border-radius:0;
+    background:var(--pg-surface);
+    border:1px solid var(--pg-border);
+    border-radius:12px;
     overflow:hidden;
     margin-bottom:0;
     box-shadow:none;
   }
+  .pg-child-collapsible:not([open]) .pg-child-head { border-bottom:0; }
 
   .pg-child-collapsible > summary {
     list-style:none;
@@ -134,17 +134,15 @@
     gap:5px;
     padding:4px 10px;
     border-radius:999px;
-    font-size:.66rem;
-    letter-spacing:.06em;
-    text-transform:uppercase;
-    font-weight:700;
+    font-size:.74rem;
+    font-weight:600;
     border:1px solid rgba(15,23,42,.14);
     color:var(--pg-muted);
     background:rgba(15,23,42,.05);
   }
   .pg-child-pill strong {
     color:var(--pg-text);
-    font-family:'JetBrains Mono',monospace;
+    font-variant-numeric:tabular-nums;
     font-size:.7rem;
   }
 
@@ -189,8 +187,8 @@
     overflow:hidden;
     overflow-wrap:anywhere;
   }
-  .pg-amount { font-family:'JetBrains Mono',monospace; font-weight:600; }
-  .pg-balance { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pg-gold); }
+  .pg-amount { font-variant-numeric:tabular-nums; font-weight:600; }
+  .pg-balance { font-variant-numeric:tabular-nums; font-weight:700; color:var(--pg-gold); }
   .pg-bill-col { min-width:0; }
   .pg-bill-actions {
     display:flex;
@@ -247,8 +245,7 @@
   
   .pg-btn.sm { min-height:30px; padding:0 8px; font-size:.72rem; }
   .pg-btn.danger { background:var(--pg-red); color:#fff; border-color:transparent; }
-  .pg-btn.danger::before { content:'🗑'; font-size:.82em; }
-  .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
 
   .pg-flash { padding:12px 18px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:.9rem; }
   .pg-flash.success { background:color-mix(in srgb, var(--org-primary-color, #01535b) 12%, transparent); color:var(--pg-teal); border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); }
@@ -338,10 +335,7 @@
     transition:border-color .16s ease, transform .16s ease, background .16s ease;
   }
   .pg-occ-card:hover {
-    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 28%, transparent);
-    background:rgba(255,255,255,0.92);
-    transform:translateY(-1px);
-  }
+    transform:translateY(-1px);}
   .pg-occ-card input {
     width:16px;
     height:16px;
@@ -431,7 +425,7 @@
     padding:14px;
   }
   .pg-credit-value {
-    font-family:'JetBrains Mono',monospace;
+    font-variant-numeric:tabular-nums;
     font-size:1rem;
     font-weight:800;
     color:var(--pg-teal);
@@ -499,7 +493,7 @@
   .pgv2-balance-figure {
     margin-top:6px;
     color:var(--pg-teal);
-    font-family:'JetBrains Mono',monospace;
+    font-variant-numeric:tabular-nums;
     font-size:1.4rem;
     font-weight:800;
   }
@@ -569,7 +563,7 @@
     color:var(--pg-gold);
   }
   .pgv2-mono {
-    font-family:'JetBrains Mono',monospace;
+    font-variant-numeric:tabular-nums;
     font-weight:700;
   }
   .pgv2-method-cards {
@@ -592,10 +586,7 @@
     transition:border-color .15s ease, transform .15s ease, background .15s ease, box-shadow .15s ease;
   }
   .pgv2-method-card:hover {
-    transform:translateY(-1px);
-    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 22%, transparent);
-    background:rgba(15,23,42,.05);
-  }
+    transform:translateY(-1px);}
   .pgv2-method-card.is-selected {
     border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 38%, transparent);
     background:color-mix(in srgb, var(--org-primary-color, #01535b) 11%, transparent);
@@ -677,9 +668,7 @@
     background:rgba(15,23,42,.01);
   }
   .pg-payout-card:hover {
-    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 28%, transparent);
-    transform:translateY(-1px);
-  }
+    transform:translateY(-1px);}
   .pg-payout-card.is-selected {
     border-color:var(--pg-teal);
     background:color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent);
@@ -1389,7 +1378,7 @@
     %>
     <% if (_pgOnlineIntended && !_pgOnlinePaymentReady) { %>
     <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;">
-      <span style="font-size:1.2rem;flex-shrink:0;">⚠️</span>
+      <span style="flex-shrink:0;color:#b91c1c;display:inline-flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17h.01"/></svg></span>
       <div>
         <div style="font-weight:700;font-size:.9rem;color:#b91c1c;">Online payment is not available yet.</div>
         <div style="font-size:.83rem;color:#7f1d1d;margin-top:3px;line-height:1.5;">The school setup is incomplete. Please contact the school for cash or bank transfer payment.</div>
@@ -2067,16 +2056,16 @@
       var payoutRoute = getSelectedPayoutAccountId();
       var viaPaystack = paystackPayoutReady && (payoutRoute ? payoutRoute !== 'stripe' : !(stripeEnabled && stripeAccountReady));
       if (online && viaPaystack) {
-        options.push({ value: 'stripe', channel: 'card', label: 'Card', desc: 'Visa, Mastercard and more', icon: '💳' });
-        options.push({ value: 'stripe', channel: 'mobile_money', label: 'Mobile money', desc: 'Pay from your mobile money wallet', icon: '📱' });
+        options.push({ value: 'stripe', channel: 'card', label: 'Card', desc: 'Visa, Mastercard and more', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/></svg>' });
+        options.push({ value: 'stripe', channel: 'mobile_money', label: 'Mobile money', desc: 'Pay from your mobile money wallet', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2"/><path d="M11 18h2"/></svg>' });
       } else if (online && stripeEnabled && stripeAccountReady) {
-        options.push({ value: 'stripe', channel: '', label: 'Card', desc: getStripeMethodSummary(), icon: '💳' });
+        options.push({ value: 'stripe', channel: '', label: 'Card', desc: getStripeMethodSummary(), icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/></svg>' });
       }
       if (allowedMethods && allowedMethods.bankOn && record && record.accepts_transfer) {
-        options.push({ value: 'bank_transfer', channel: '', label: 'Bank transfer', desc: 'Transfer, then record it here', icon: '🏦' });
+        options.push({ value: 'bank_transfer', channel: '', label: 'Bank transfer', desc: 'Transfer, then record it here', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></svg>' });
       }
       if (record && record.accepts_cash) {
-        options.push({ value: 'cash', channel: '', label: 'Cash', desc: 'Pay at the school office', icon: '💵' });
+        options.push({ value: 'cash', channel: '', label: 'Cash', desc: 'Pay at the school office', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></svg>' });
       }
       return options;
     }
@@ -2402,8 +2391,8 @@
 
       var pgv2Cards = document.getElementById('pgMethodCards');
       var METHOD_META = {
-        stripe: { icon: '💳', desc: 'Card · Apple Pay · Google Pay' },
-        bank_transfer: { icon: '🏦', desc: 'Send the transfer, then submit this record' }
+        stripe: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6.5 15h4"/></svg>', desc: 'Card · Apple Pay · Google Pay' },
+        bank_transfer: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></svg>', desc: 'Send the transfer, then submit this record' }
       };
       if (pgv2Cards) {
         if (!options.length) {
@@ -2415,7 +2404,7 @@
           submitButton.textContent = 'Contact the school to set up payment';
         } else {
           pgv2Cards.innerHTML = options.map(function(option) {
-            var meta = METHOD_META[option.value] || { icon: '💰', desc: '' };
+            var meta = METHOD_META[option.value] || { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></svg>', desc: '' };
             var iconText = option.icon || meta.icon;
             var descText = option.desc || meta.desc || '';
             var isSelected = selectedOption && optionKey(option) === optionKey(selectedOption);

@@ -12,7 +12,15 @@ module.exports = (db) => {
     const { upload } = require('../middleware/s3Upload');
 
     // Transcript route
-    router.get('/transcript/:studentId', checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.GENERATE_TRANSCRIPTS), transcriptController.generateTranscript);
+    // A transcript opens only after the person confirmed their password for this
+    // student on Reports -> Transcript (valid 10 minutes, see /common/transcripts/unlock).
+    const requireTranscriptUnlock = (req, res, next) => {
+        const access = req.session?.transcriptAccess;
+        if (access && String(access.studentId) === String(req.params.studentId) && Number(access.until) > Date.now()) return next();
+        if (req.flash) req.flash('error', 'Confirm your password to open this transcript.');
+        return res.redirect('/common/transcripts');
+    };
+    router.get('/transcript/:studentId', checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.GENERATE_TRANSCRIPTS), requireTranscriptUnlock, transcriptController.generateTranscript);
     router.post('/uploadSignatureImage', isAuthenticated, requirePermission(PERMISSIONS.GENERATE_TRANSCRIPTS), upload.single('signatureImage'), transcriptController.uploadSignatureImage);
     router.post('/saveDigitalSignature', isAuthenticated, requirePermission(PERMISSIONS.GENERATE_TRANSCRIPTS), express.json(), transcriptController.saveDigitalSignature);
     

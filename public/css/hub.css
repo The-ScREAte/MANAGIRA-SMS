@@ -137,7 +137,7 @@ button.hub-kpi {
   background: var(--hub-surface) !important; color: var(--hub-ink) !important; border: 1px solid var(--hub-border) !important; border-radius: var(--hub-radius) !important;
 }
 button.hub-kpi:hover,
-a.hub-kpi:hover { border-color: color-mix(in srgb, var(--k) 45%, #e2e8f0); box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07); transform: translateY(-1px); }
+a.hub-kpi:hover { box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07); transform: translateY(-1px);}
 .hub-kpi__top { display: flex; align-items: center; gap: 10px; }
 .hub-kpi__icon { flex: 0 0 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--k) 12%, #fff); color: var(--k); font-size: 0.9rem; }
 .hub-kpi__label { font-size: 0.86rem; font-weight: 700; color: var(--hub-ink-2); }
@@ -544,7 +544,7 @@ html.hub-drawer-open { overflow: hidden; }
 .hub-contact__tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .hub-contact__tags i { margin-right: 3px; }
 .hub-btn--soft { background: var(--hub-accent-soft) !important; border-color: transparent !important; color: var(--hub-accent) !important; }
-.hub-btn--soft:hover { background: color-mix(in srgb, var(--hub-accent) 16%, #fff) !important; }
+
 
 /* Per-school term filter */
 .hub-period { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 12px 16px; border: 1px solid var(--hub-border); border-radius: var(--hub-radius); background: var(--hub-surface); font-size: .9rem; }

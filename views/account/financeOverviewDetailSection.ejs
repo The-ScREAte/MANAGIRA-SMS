@@ -126,7 +126,7 @@
         const dashPaid = chartPaid;
         const dashOut  = 100 - dashPaid;
       %>
-      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;margin-bottom:14px;">Collection vs Outstanding</div>
+      <div style="font-family:inherit;font-weight:700;margin-bottom:14px;">Collection vs Outstanding</div>
       <svg viewBox="0 0 36 36" style="width:160px;height:160px;transform:rotate(-90deg);">
         <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-border)" stroke-width="3"/>
         <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-success)" stroke-width="3" stroke-dasharray="<%= dashPaid %> <%= dashOut %>" stroke-linecap="round"/>
@@ -138,7 +138,7 @@
       </div>
     </div>
     <div style="background:var(--fin-card-2);border:1px solid var(--fin-border);border-radius:14px;padding:20px;">
-      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;margin-bottom:14px;">Bill Status Breakdown</div>
+      <div style="font-family:inherit;font-weight:700;margin-bottom:14px;">Bill Status Breakdown</div>
       <%
         const stMap = Object.assign({paid:0,pending:0,overdue:0,partial:0,draft:0,cancelled:0}, (overview && overview.billStatusBreakdown) || {});
         const totalBills = overviewBillCount || 1;
@@ -147,7 +147,7 @@
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
           <span style="text-transform:capitalize;color:var(--fin-text);"><%= s %></span>
-          <span style="font-family:'JetBrains Mono',monospace;color:<%= col %>;"><%= n %> (<%= pct %>%)</span>
+          <span style="font-variant-numeric:tabular-nums;color:<%= col %>;"><%= n %> (<%= pct %>%)</span>
         </div>
         <div style="height:6px;background:var(--fin-border);border-radius:99px;overflow:hidden;">
           <div style="height:100%;width:<%= pct %>%;background:<%= col %>;border-radius:99px;"></div>

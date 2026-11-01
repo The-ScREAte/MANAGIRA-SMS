@@ -8975,6 +8975,14 @@ const commonController = {
       if (subjectCarryoverNotice.skippedMessage) successMessages.push(subjectCarryoverNotice.skippedMessage);
       req.flash("success", successMessages.join(' '));
 
+      // Saved from the right-side drawer: tell the page behind it, which reloads
+      // and shows the flash message, instead of loading a full page in the drawer.
+      const savedDrawerId = String(req.body.drawerId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+      if (savedDrawerId) {
+        return res.type("html").send(
+          `<!doctype html><meta charset="utf-8"><script>parent.postMessage({ managiraDrawerSaved: true, managiraDrawerClose: true, drawerId: ${JSON.stringify(savedDrawerId)} }, location.origin);</script>`
+        );
+      }
       const effectiveReturnClassId = safeClassId || oldClassId || returnClassId || null;
       const effectiveReturnTermId = returnTermId || null;
       if (effectiveReturnClassId && effectiveReturnTermId) {
@@ -24384,11 +24392,20 @@ NUMBERING:
         userEmail: req.session.user?.email || null,
       }, PERMISSIONS.MANAGE_RECORDS).catch(() => false);
 
+      const canGenerateTranscripts = await userHasPermission(db, {
+        userId: req.session.user?.user_id || req.session.userId || null,
+        userRole: req.session.userRole || req.session.user?.account_type || null,
+        organizationId,
+        accountType: req.session.accountType || req.session.user?.account_type || null,
+        userEmail: req.session.user?.email || null,
+      }, PERMISSIONS.GENERATE_TRANSCRIPTS).catch(() => false);
+
       res.render("common/reportsHub", {
         title: "Reports",
         disableMainZoom: true,
         defaultReportSettingsUrl,
         canViewOrgStats,
+        canGenerateTranscripts,
         messages: req.flash(),
       });
     } catch (error) {

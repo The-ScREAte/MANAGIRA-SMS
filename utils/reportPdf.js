@@ -1,6 +1,5 @@
 // Guarantees a report card has a real, persistent PDF link before a
-// "Notify Guardians" message goes out — mirrors utils/transcriptPdf.js but
-// for report cards. Checks posted_report_cards first (the class-wide "Post
+// "Notify Guardians" message goes out. Checks posted_report_cards first (the class-wide "Post
 // Report" action may have already generated one); if missing, generates
 // this one student's PDF through utils/pdfService and caches it the same way.
 const {

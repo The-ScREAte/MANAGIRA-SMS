@@ -4,24 +4,32 @@
 .gp-page {
   --gp-primary: var(--org-primary-color, #0f5a66);
   --gp-primary-soft: color-mix(in srgb, var(--gp-primary) 9%, white);
-  --gp-ink: #0f172a;
-  --gp-muted: #64748b;
-  --gp-line: #e2e8f0;
-  --gp-surface: #ffffff;
-  --gp-bg: #f8fafc;
+  --gp-ink: var(--ap-text, #0f172a);
+  --gp-muted: var(--ap-muted, #64748b);
+  --gp-line: var(--ap-line, #e2e8f0);
+  --gp-surface: var(--ap-surface, #ffffff);
   --gp-danger: #b91c1c;
   box-sizing: border-box;
   width: 100%;
   min-height: 100%;
   padding: 24px clamp(16px, 2.4vw, 32px) 96px;
-  background: var(--gp-bg);
+  /* No fill of its own: the page body carries the person's appearance color
+     (appearance.css), and only the cards below are lifted onto it. */
+  background: transparent;
   color: var(--gp-ink);
   font-family: inherit;
   text-align: left;
 }
-.gp-page--terminal-report,
-.gp-page--term-details {
-  --gp-bg: var(--ap-page, #f8fafc);
+/* The page follows the person's appearance; cards sit on it in the surface color. */
+html:has(.gp-page), body:has(.gp-page) { background: var(--ap-page, #f8fafc); }
+.gp-page--terminal-report .gp-head,
+.gp-page--term-details .gp-head {
+  margin-bottom: 16px;
+  padding: 20px 24px;
+  border: 1px solid var(--gp-line);
+  border-radius: 12px;
+  background: var(--gp-surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 .gp-page *, .gp-page *::before, .gp-page *::after { box-sizing: border-box; }
 
@@ -58,7 +66,7 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .gp-page .gp-btn--primary { background: var(--gp-primary); color: #fff; }
-.gp-page .gp-btn--primary:hover { background: color-mix(in srgb, var(--gp-primary) 86%, black); }
+
 .gp-page .gp-btn--ghost { background: var(--gp-surface); color: var(--gp-ink); border-color: var(--gp-line); }
 
 .gp-page .gp-btn--danger { background: var(--gp-danger); color: #fff; }

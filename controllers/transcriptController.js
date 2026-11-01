@@ -4,7 +4,7 @@ const { getFirstClassForOrganization } = require("../models/classModel");
 const bcrypt = require("bcryptjs");
 const { sendEmailSafely } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
-const { renderTranscriptPdf, sessionCookieFromHeader } = require('../utils/pdfService');
+const { renderTranscriptPdf, sessionCookieFromHeader, isServerRender } = require('../utils/pdfService');
 const fs = require('fs');
 const path = require('path');
 const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
@@ -91,7 +91,7 @@ const transcriptController = (db) => ({
         try {
             // Fetch organization details
             const organizationQuery = `
-                SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path
+                SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path, logo
                 FROM organizations
                 WHERE organization_id = $1;
             `;
@@ -231,14 +231,30 @@ const transcriptController = (db) => ({
             let signatureImageUrl = null;
             let signatureName = null;
             let signatureTitle = null;
-            const signatureClassId = student.class_id || firstClass?.class_id;
-            if (signatureClassId) {
-                const signatureQuery = `SELECT signature_image_path, signature_name, signature_title FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
-                const signatureResult = await db.query(signatureQuery, [organizationId, signatureClassId]);
-                const signaturePath = signatureResult.rows[0]?.signature_image_path;
-                signatureImageUrl = signaturePath ? buildS3Url(signaturePath) : null;
-                signatureName = signatureResult.rows[0]?.signature_name || null;
-                signatureTitle = signatureResult.rows[0]?.signature_title || null;
+            const signatureClassId = student.class_id || firstClass?.class_id || null;
+            // The signature set in Report Settings: the transcript signature for the
+            // student's class, else the school's main transcript signature, else the
+            // school's default report-card signature. Obsolete signatures are skipped.
+            const signatureResult = await db.query(
+                `SELECT rs.signature_image_path, rs.signature_name, rs.signature_title
+                   FROM report_settings rs
+                  WHERE rs.organization_id = $1
+                    AND rs.term_id IN (-1, -2)
+                    AND NULLIF(TRIM(rs.signature_image_path), '') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM obsolete_signatures o
+                                     WHERE o.organization_id = rs.organization_id AND o.signature_path = rs.signature_image_path)
+                  ORDER BY (rs.term_id = -1 AND rs.class_id = $2) DESC,
+                           (rs.term_id = -1) DESC,
+                           (rs.class_id = $2) DESC,
+                           COUNT(*) OVER (PARTITION BY rs.term_id, rs.signature_image_path) DESC
+                  LIMIT 1`,
+                [organizationId, signatureClassId]
+            ).catch(() => ({ rows: [] }));
+            const signatureRow = signatureResult.rows[0];
+            if (signatureRow) {
+                signatureImageUrl = buildS3Url(signatureRow.signature_image_path);
+                signatureName = signatureRow.signature_name || null;
+                signatureTitle = signatureRow.signature_title || null;
             }
 
             // Render the transcript
@@ -255,7 +271,8 @@ const transcriptController = (db) => ({
                 signatureImageUrl,
                 signatureName,
                 signatureTitle,
-                official: req.query.official === 'true',
+                // Only the emailed PDF is official; copies opened or printed here are not.
+                official: req.query.official === 'true' && isServerRender(req),
                 canBroadcastToGuardians: Boolean(transcriptMessagingStatus.sms?.ready || transcriptMessagingStatus.whatsapp?.ready),
                 hideGlobalHeader: true,
                 hideGlobalFooter: true,
@@ -336,6 +353,11 @@ const transcriptController = (db) => ({
                 console.log('[emailTranscript] Student not found');
                 return res.status(404).json({ success: false, message: "Student not found." });
             }
+
+            // The password was just confirmed: the PDF render below opens the
+            // transcript page with this session, so allow this student again.
+            req.session.transcriptAccess = { studentId: Number(studentId), until: Date.now() + 10 * 60 * 1000 };
+            await new Promise((resolve) => req.session.save(() => resolve()));
 
             const recipientEmail = targetEmail || student.guardian_email;
             if (!recipientEmail) {

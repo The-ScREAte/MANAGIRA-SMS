@@ -16,7 +16,7 @@
       <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.25);font-family:inherit;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <h3 style="margin:0;font-size:16px;color:#0f172a;">Notify Guardians</h3>
-          <button type="button" id="gbClose" style="border:none;background:#f1f5f9;color:#475569;width:28px;height:28px;border-radius:50%;font-size:15px;cursor:pointer;">x</button>
+          <button type="button" id="gbClose" aria-label="Close" style="width:30px;height:30px;margin:0;padding:0;border:none;background:#f1f5f9;color:#475569;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;">&times;</button>
         </div>
         <p id="gbScope" style="margin:0 0 14px;font-size:12.5px;color:#64748b;">Checking recipients...</p>
         <div id="gbChannelRow" style="display:flex;gap:14px;margin-bottom:12px;font-size:13px;"></div>
@@ -25,9 +25,10 @@
         <small id="gbCounter" style="display:block;margin:4px 0 12px;color:#94a3b8;font-size:11.5px;"></small>
         <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:4px;">Confirm Password</label>
         <input type="password" id="gbPassword" placeholder="Enter your password" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font:inherit;font-size:13.5px;margin-bottom:14px;" />
-        <div style="display:flex;gap:10px;align-items:center;">
-          <button type="button" id="gbSend" style="background:var(--primary,#01535b);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:600;font-size:13.5px;cursor:pointer;">Send</button>
-          <small id="gbStatus" style="color:#64748b;font-size:12.5px;"></small>
+        <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">
+          <small id="gbStatus" style="margin-right:auto;color:#64748b;font-size:12.5px;"></small>
+          <button type="button" id="gbCancel" style="width:auto;margin:0;background:#fff;color:#334155;border:1px solid #e2e8f0;border-radius:8px;padding:9px 16px;font-weight:600;font-size:13.5px;cursor:pointer;">Cancel</button>
+          <button type="button" id="gbSend" style="width:auto;margin:0;background:var(--primary,#01535b);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:600;font-size:13.5px;cursor:pointer;">Send</button>
         </div>
       </div>
     `;
@@ -35,6 +36,7 @@
     modalEl = overlay;
 
     overlay.querySelector("#gbClose").addEventListener("click", closeGuardianBroadcast);
+    overlay.querySelector("#gbCancel").addEventListener("click", closeGuardianBroadcast);
     overlay.addEventListener("click", (e) => { if (e.target === overlay) closeGuardianBroadcast(); });
     overlay.querySelector("#gbSend").addEventListener("click", submitGuardianBroadcast);
     overlay.querySelector("#gbMessage").addEventListener("input", updateCounter);
@@ -96,19 +98,23 @@
     modal.style.display = "flex";
 
     let data;
+    let failure = "";
     try {
       const res = await fetch("/account/messaging/resolve", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(pendingContext),
       });
-      data = await res.json();
+      data = await res.json().catch(() => null);
+      if (!data) failure = res.status === 401 || res.redirected ? "Your session ended. Sign in again and retry." : "Could not load the parents for this message. Try again.";
     } catch (_) {
       data = null;
+      failure = "Could not reach the server. Check your connection and try again.";
     }
 
     if (!data || !data.success) {
-      modal.querySelector("#gbScope").textContent = (data && data.message) || "Unable to load recipients.";
+      modal.querySelector("#gbScope").textContent = (data && data.message) || failure || "Could not load the parents for this message. Try again.";
       modal.querySelector("#gbScope").style.color = "#b91c1c";
       return;
     }

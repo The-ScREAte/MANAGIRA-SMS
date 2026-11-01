@@ -1,4 +1,5 @@
 const express = require("express");
+const { checkRateLimit } = require("../utils/rateLimiter");
 const router = express.Router();
 const { commonController } = require("../controllers/commonController");
 const commonValidation = require("../validation/commonValidation");
@@ -753,6 +754,88 @@ module.exports = (db) => {
   router.get("/getMajorityGraduationYearGroup", isAuthenticated, (req, res) =>
     commonController.getMajorityGraduationYearGroup(req, res, db)
   );
+  // Transcripts: search for a student, confirm your password, then open the
+  // official transcript. Students are only listed after a search.
+  const transcriptGuard = [checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.GENERATE_TRANSCRIPTS)];
+  router.get("/transcripts", ...transcriptGuard, async (req, res) => {
+    try {
+      const classes = await db.query(
+        `SELECT class_id, class_name FROM classes
+          WHERE organization_id = $1 AND obsolete_at IS NULL
+          ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name`,
+        [req.session.organizationId]
+      );
+      return res.render("common/transcripts", { title: "Transcripts", classes: classes.rows, messages: req.flash ? req.flash() : {} });
+    } catch (error) {
+      console.error("[transcripts]", error);
+      return res.status(500).send("Failed to load transcripts.");
+    }
+  });
+  router.get("/transcripts/search", ...transcriptGuard, async (req, res) => {
+    const query = String(req.query.q || "").trim().slice(0, 100);
+    const classId = Number.parseInt(req.query.class, 10);
+    const status = ["Current", "Graduated", "Left"].includes(req.query.status) ? req.query.status : "";
+    if (query.length < 2 && !Number.isInteger(classId)) {
+      return res.json({ success: true, students: [], needsSearch: true });
+    }
+    try {
+      const like = `%${query}%`;
+      const result = await db.query(
+        `SELECT * FROM (
+           SELECT s.student_id, TRIM(CONCAT_WS(' ', s.first_name, s.last_name)) AS student_name,
+                  COALESCE(NULLIF(TRIM(s.custom_student_id), ''), s.student_id::text) AS display_id,
+                  c.class_name, s.class_id,
+                  CASE WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id) THEN 'Left'
+                       WHEN COALESCE(s.graduated, FALSE) THEN 'Graduated' ELSE 'Current' END AS status
+             FROM students s
+             LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+            WHERE s.organization_id = $1
+              AND ($2 = '%%' OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE $2 OR CONCAT_WS(' ', s.last_name, s.first_name) ILIKE $2
+                   OR COALESCE(s.custom_student_id, '') ILIKE $2 OR s.student_id::text = $3)
+              AND ($4::int IS NULL OR s.class_id = $4)
+         ) x
+         WHERE ($5 = '' OR x.status = $5)
+         ORDER BY LOWER(x.student_name), x.student_id
+         LIMIT 25`,
+        [req.session.organizationId, like, query, Number.isInteger(classId) ? classId : null, status]
+      );
+      return res.json({ success: true, students: result.rows.map(({ class_id, ...row }) => row) });
+    } catch (error) {
+      console.error("[transcripts/search]", error);
+      return res.status(500).json({ success: false, message: "Could not search students." });
+    }
+  });
+  // Confirms the signed-in person's own password, then allows this one
+  // student's transcript for 10 minutes.
+  router.post("/transcripts/unlock", ...transcriptGuard, express.json(), async (req, res) => {
+    const studentId = Number.parseInt(req.body?.studentId, 10);
+    const password = String(req.body?.password || "");
+    if (!Number.isInteger(studentId) || !password) {
+      return res.status(400).json({ success: false, message: "Enter your password." });
+    }
+    const limitKey = `transcript-unlock:${req.sessionID}`;
+    if (!checkRateLimit(limitKey, { max: 5, windowMs: 10 * 60 * 1000 }).allowed) {
+      return res.status(429).json({ success: false, message: "Too many attempts. Try again in a few minutes." });
+    }
+    try {
+      const organizationId = req.session.organizationId;
+      const student = await db.query("SELECT 1 FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId]);
+      if (!student.rows.length) return res.status(404).json({ success: false, message: "Student not found." });
+      const userId = req.session.user?.user_id || req.session.userId || null;
+      const stored = userId
+        ? await db.query("SELECT password FROM users WHERE user_id = $1 AND organization_id = $2", [userId, organizationId])
+        : await db.query("SELECT password FROM organizations WHERE organization_id = $1", [organizationId]);
+      const hash = stored.rows[0]?.password;
+      const ok = hash ? await require("bcryptjs").compare(password, hash) : false;
+      if (!ok) return res.status(401).json({ success: false, message: "That password is not correct." });
+      req.session.transcriptAccess = { studentId, until: Date.now() + 10 * 60 * 1000 };
+      return res.json({ success: true, url: `/transcript/transcript/${studentId}` });
+    } catch (error) {
+      console.error("[transcripts/unlock]", error);
+      return res.status(500).json({ success: false, message: "Could not check your password." });
+    }
+  });
+
   router.get(
     "/closeSchoolYear",
     checkFeatureAccess,

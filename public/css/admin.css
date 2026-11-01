@@ -78,10 +78,7 @@
   color: white;
 }
 
-.admin-btn-primary:hover {
-  background: linear-gradient(135deg, var(--admin-primary-hover) 0%, var(--admin-primary) 100%);
-  color: white;
-}
+
 
 /* Success/Approve Button */
 .admin-btn-success,
@@ -90,11 +87,7 @@
   color: white;
 }
 
-.admin-btn-success:hover,
-.admin-btn-approve:hover {
-  background: linear-gradient(135deg, var(--admin-success-hover) 0%, var(--admin-success) 100%);
-  color: white;
-}
+
 
 /* Resume Button */
 .admin-btn-resume {
@@ -102,10 +95,7 @@
   color: white;
 }
 
-.admin-btn-resume:hover {
-  background: linear-gradient(135deg, var(--admin-info-hover) 0%, var(--admin-info) 100%);
-  color: white;
-}
+
 
 /* Warning/Hold Button */
 .admin-btn-warning,
@@ -114,11 +104,7 @@
   color: white;
 }
 
-.admin-btn-warning:hover,
-.admin-btn-hold:hover {
-  background: linear-gradient(135deg, var(--admin-warning-hover) 0%, var(--admin-warning) 100%);
-  color: white;
-}
+
 
 /* Danger/Delete Button */
 .admin-btn-danger,
@@ -127,11 +113,7 @@
   color: white;
 }
 
-.admin-btn-danger:hover,
-.admin-btn-delete:hover {
-  background: linear-gradient(135deg, var(--admin-danger-hover) 0%, var(--admin-danger) 100%);
-  color: white;
-}
+
 
 /* Neutral/Secondary Button */
 .admin-btn-secondary,
@@ -149,10 +131,7 @@
   color: white;
 }
 
-.admin-btn-edit:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
-  color: white;
-}
+
 
 /* View/Details Button */
 .admin-btn-view,
@@ -161,11 +140,7 @@
   color: white;
 }
 
-.admin-btn-view:hover,
-.admin-btn-details:hover {
-  background: linear-gradient(135deg, #475569 0%, #64748b 100%);
-  color: white;
-}
+
 
 /* Outline Variants */
 .admin-btn-outline-primary {

@@ -7,6 +7,7 @@
     allowedFeatures.includes('Class Base Merit Sheet') ||
     allowedFeatures.includes('Class Base Merrit sheet')
   );
+  const hasTranscripts = Array.isArray(allowedFeatures) && allowedFeatures.includes('Official School Transcript') && (typeof canGenerateTranscripts === 'undefined' || canGenerateTranscripts);
   const hasOrgStats = Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights') && (typeof canViewOrgStats === 'undefined' || canViewOrgStats);
 %>
 
@@ -585,7 +586,7 @@
       <ul class="nav-list">
         <% if (hasOrgStats) { %>
         <li>
-          <a class="nav-link" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="View Statistics">
+          <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="View Statistics">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg></span>
             <span>Organization Stats</span>
           </a>
@@ -604,6 +605,14 @@
                 <span>Terminal reports</span>
               </a>
             </li>
+            <% if (hasTranscripts) { %>
+            <li>
+              <a class="nav-sublink" href="/common/transcripts" data-no-spa data-group="term-management" data-section="transcripts" data-embed-url="/common/transcripts" data-embed-label="Transcripts">
+                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg></span>
+                <span>Transcript</span>
+              </a>
+            </li>
+            <% } %>
             <li>
               <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-section="report-settings" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
                 <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
@@ -613,7 +622,7 @@
           </ul>
         </li>
         <li>
-          <a class="nav-link active" href="/common/report-builder" data-no-spa data-section="report-builder" data-embed-url="/common/report-builder" data-embed-label="Report Builder">
+          <a class="nav-link<%= hasOrgStats ? '' : ' active' %>" href="/common/report-builder" data-no-spa data-section="report-builder" data-embed-url="/common/report-builder" data-embed-label="Report Builder">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="m17 17 2 2 4-4"/></svg></span>
             <span>Report Builder</span>
           </a>
@@ -623,7 +632,7 @@
 
     <!-- Main Content -->
     <main class="hub-main">
-      <section class="hub-section active" id="report-builder">
+      <section class="hub-section<%= hasOrgStats ? '' : ' active' %>" id="report-builder">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="m17 17 2 2 4-4"/></svg>
@@ -632,7 +641,7 @@
         </div>
       </section>
       <% if (hasOrgStats) { %>
-      <section class="hub-section" id="org-stats">
+      <section class="hub-section active" id="org-stats">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -652,6 +661,15 @@
       </section>
 
 
+
+      <section class="hub-section" id="transcripts">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/></svg>
+            <p>Loading Transcripts…</p>
+          </div>
+        </div>
+      </section>
 
       <section class="hub-section" id="report-settings">
         <div class="embed-panel-body">

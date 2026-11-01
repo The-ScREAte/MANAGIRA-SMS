@@ -201,9 +201,7 @@
     z-index: 2; box-shadow: 0 4px 10px rgba(15,23,42,.08);
     transition: all .15s ease;
   }
-  .oc-children-toggle:hover {
-    border-color: #01535b; color: #01535b; transform: translateX(-50%) scale(1.08);
-  }
+  .oc-children-toggle:hover { transform: translateX(-50%) scale(1.08);}
   li.collapsed > ul { display: none; }
   li.collapsed > .oc-node-wrap .oc-children-toggle::before { content: '+'; }
   li:not(.collapsed) > .oc-node-wrap .oc-children-toggle::before { content: '−'; }

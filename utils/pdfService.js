@@ -100,6 +100,13 @@ async function withPage(task) {
   }
 }
 
+// Derived from the session secret, so every server instance agrees; it never leaves the server.
+const RENDER_KEY = require("crypto").createHmac("sha256", process.env.SESSION_SECRET || require("crypto").randomBytes(32)).update("pdf-render").digest("hex");
+const isServerRender = (req) => {
+  const key = String(req.get("X-Managira-Render-Key") || "");
+  return key.length === RENDER_KEY.length && require("crypto").timingSafeEqual(Buffer.from(key), Buffer.from(RENDER_KEY));
+};
+
 // Opens an app page as the signed-in user. Page scripts are disabled: the
 // server-rendered HTML is complete, and scripts (menus, chat widget, SPA
 // router) only slow rendering and can move things around.
@@ -112,7 +119,9 @@ async function openAppPage(page, { baseUrl, sessionCookie, path, mediaType, java
   await page.setViewport({ width: 1024, height: 1400, deviceScaleFactor: 1 });
   await page.emulateMediaType(mediaType);
   // App pages drawn for a PDF are always in the white appearance.
-  await page.setExtraHTTPHeaders({ 'X-Managira-Render': 'pdf' });
+  // The key tells our own pages this request comes from this renderer (an
+  // official transcript is only ever drawn this way, for the emailed copy).
+  await page.setExtraHTTPHeaders({ 'X-Managira-Render': 'pdf', 'X-Managira-Render-Key': RENDER_KEY });
   await page.setCookie({ name: "connect.sid", value: sessionCookie, url: baseUrl });
 
   const response = await page.goto(`${baseUrl}${path}`, {
@@ -642,6 +651,7 @@ function sessionCookieFromHeader(cookieHeader) {
 }
 
 module.exports = {
+  isServerRender,
   withPage,
   renderReportCardsPdf,
   renderReportCardsPerStudent,
