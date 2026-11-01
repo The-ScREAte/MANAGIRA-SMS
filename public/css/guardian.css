@@ -97,10 +97,7 @@
   background-color: transparent;
 }
 
-.nav-link:not(.active):hover {
-  background-color: var(--guardian-bg-tertiary);
-  color: var(--guardian-text-primary);
-}
+
 
 /* ============================================
    GUARDIAN BUTTONS
@@ -138,10 +135,7 @@
   border: 2px solid var(--guardian-border);
 }
 
-.guardian-btn-secondary:hover {
-  background: var(--guardian-bg-secondary);
-  border-color: var(--guardian-border-hover);
-}
+
 
 .guardian-btn-success {
   background: var(--guardian-success);
@@ -286,9 +280,7 @@
   letter-spacing: 0.05em;
 }
 
-.guardian-table tbody tr:hover {
-  background: var(--guardian-bg-secondary);
-}
+
 
 /* ============================================
    GUARDIAN EMPTY STATES

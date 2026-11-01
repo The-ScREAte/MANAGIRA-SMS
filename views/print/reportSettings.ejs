@@ -63,9 +63,9 @@
     .form-row-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: start; }
 
     .btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 14px rgba(15,90,102,0.16); transition: all 0.2s ease; }
-    .btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); transform: translateY(-1px); }
+    .btn:hover { transform: translateY(-1px);}
     .btn-danger { background: #e74c3c; box-shadow: 0 6px 14px rgba(231,76,60,0.2); }
-    .btn-danger:hover { background: #c0392b; }
+    
 
     .tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(15,90,102,0.08); font-weight: 600; font-size: 0.92rem; }
     .notice { background: #e7f3fe; border: 1px solid #bee5eb; border-radius: 10px; padding: 12px 14px; color: #0c5460; margin: 10px 0 14px; }
@@ -111,7 +111,7 @@
     .remarks-list .kebab-menu ul { top: auto; bottom: 100%; margin: 0 0 6px 0; }
     .kebab-menu ul li { padding: 8px 12px; }
     .kebab-menu ul li a { color: #e11d48; text-decoration: none; font-weight: 600; display: block; }
-    .kebab-menu ul li:hover { background: #f8fafc; }
+    
     .kebab-menu.open ul { display: block; }
 
     /* Loading spinner */
@@ -130,9 +130,9 @@
     .ds-adv-lbl { display:flex;align-items:center;gap:7px;cursor:pointer;flex:1;font-size:0.85rem;font-weight:600; }
     .ds-adv-sub { padding:5px 7px 3px 11px;border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;background:#fdfdfd;margin-bottom:2px; }
     .ds-adv-sub-lbl { display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:5px;cursor:pointer;font-size:0.82rem;color:#475569; }
-    .ds-adv-sub-lbl:hover { background:#f1f5f9; }
+    
     .ds-adv-flat-lbl { display:flex;align-items:center;gap:6px;padding:5px 8px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:0.82rem;font-weight:500; }
-    .ds-adv-flat-lbl:hover { background:#f1f5f9; }
+    
     .ds-adv-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
     @media (max-width:640px) { .ds-adv-grid { grid-template-columns:1fr; } }
 
@@ -454,10 +454,7 @@
       transition: all 0.16s ease;
     }
 
-    .rs-action-link:hover {
-      background: rgba(15,90,102,0.08);
-      border-color: rgba(15,90,102,0.2);
-    }
+    
 
     .rs-grade-format-panel {
       margin-top: 10px;
@@ -892,9 +889,7 @@
       font-size: 0.9rem;
     }
 
-    .rs-icon-btn:hover {
-      background: rgba(15,90,102,0.08);
-    }
+    
 
     .rs-icon-btn[data-tone="danger"] {
       color: #b91c1c;
@@ -1043,10 +1038,7 @@
       margin-bottom: 0;
     }
 
-    .status-row-item:hover {
-      border-color: #d8e1eb;
-      background: #fbfdff;
-    }
+    
 
     .status-row-item.is-active {
       border-color: color-mix(in srgb, var(--primary) 28%, white);
@@ -1154,9 +1146,7 @@
       user-select: none;
     }
 
-    .status-row-basis-trigger:hover {
-      color: #334155;
-    }
+    
 
     .status-basis-popup-options {
       display: grid;
@@ -1428,9 +1418,7 @@
     }
 
     .status-btn-danger:hover {
-      background: #cc4737;
-      box-shadow: 0 4px 12px rgba(204,71,55,0.24);
-    }
+      box-shadow: 0 4px 12px rgba(204,71,55,0.24);}
 
     .status-overview-card {
       background: #fff;
@@ -2076,9 +2064,7 @@
       cursor: pointer;
     }
 
-    .gr-accordion-trigger:hover {
-      background: #f1f5f9;
-    }
+    
 
     .gr-accordion-panel {
       display: none;
@@ -2240,9 +2226,7 @@
       white-space: nowrap;
     }
 
-    .gr-type-delete-btn:hover {
-      background: #fef2f2;
-    }
+    
 
     .gr-type-empty {
       font-size: 0.78rem;

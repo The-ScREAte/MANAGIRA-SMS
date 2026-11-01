@@ -6777,11 +6777,14 @@ module.exports = {
         };
 
         const paystackCallbackUrl = `${req.protocol}://${req.get('host')}/guardian/paygira/stripe-return?reference=${encodeURIComponent(paymentReference)}&organizationId=${encodeURIComponent(orgId)}&guardianId=${encodeURIComponent(guardianId)}`;
+        // The parent picks how to pay (card or mobile money); checkout opens on that method.
+        const paystackChannel = ['card', 'mobile_money'].includes(String(req.body?.channel || '')) ? String(req.body.channel) : null;
         const paystackBasePayload = {
           email: guardianProfile.email,
           amount: Math.round(chargeBreakdown.totalChargedAmount * 100),
           reference: paymentReference,
           callback_url: paystackCallbackUrl,
+          ...(paystackChannel ? { channels: [paystackChannel] } : {}),
           ...(useSubaccount
             ? {
                 subaccount: subaccountCodeToUse,

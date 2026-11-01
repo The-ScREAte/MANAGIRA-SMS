@@ -266,11 +266,8 @@ main {
   background: var(--org-primary-color);
 }
 
-.nav-link:hover {
-  background: rgba(1, 83, 91, 0.06);
-  color: var(--primary);
-}
-.nav-link:hover .nav-icon { color: var(--primary); }
+
+
 
 .nav-link.active {
   background: rgba(1, 83, 91, 0.10);
@@ -386,10 +383,7 @@ main {
   text-align: left;
 }
 
-.section-toggle:hover,
-.section-toggle:active,
-.section-toggle:focus,
-.section-toggle:focus-visible {
+.section-toggle:active, .section-toggle:focus, .section-toggle:focus-visible {
   background: transparent !important;
   color: inherit;
   box-shadow: none;
@@ -495,7 +489,7 @@ main {
   font-weight: 600;
 }
 
-.student-link:hover { color: var(--primary-hover); }
+
 
 .students-section {
   padding: 10px 12px;
@@ -595,9 +589,7 @@ main {
   gap: 10px;
 }
 .rp-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);}
 .rp-left { flex: 1; min-width: 0; }
 .rp-subject {
   font-weight: 600;
@@ -664,11 +656,7 @@ main {
   color: var(--muted);
   transition: all 0.15s;
 }
-.rp-panel-close:hover {
-  background: #f3f4f6;
-  color: var(--text);
-  border-color: #d1d5db;
-}
+
 
 /* Report detail modal */
 .report-modal-overlay {
@@ -720,10 +708,7 @@ main {
   z-index: 2;
   transition: all 0.15s;
 }
-.report-modal-close:hover {
-  background: #e5e7eb;
-  color: var(--text);
-}
+
 
 /* Report detail content */
 .rd-modal-body { padding: 14px 14px 16px; }
@@ -1071,10 +1056,7 @@ main {
   line-height: 1;
 }
 
-.rd-msg-menu-btn:hover {
-  color: #1f2937;
-  background: #f8fafc;
-}
+
 
 .rd-msg-menu-dropdown {
   display: none;
@@ -1192,9 +1174,7 @@ main {
 }
 
 .rd-reply-send-btn:hover {
-  background: var(--primary-hover-fill, var(--primary-hover));
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 .rd-reply-send-btn:active { transform: translateY(0); }
 .rd-reply-send-btn:disabled {
   opacity: 0.5;
@@ -1904,7 +1884,7 @@ main {
   letter-spacing: 0.01em;
   cursor: pointer;
 }
-.nav-text-link:hover { color: var(--primary); }
+
 .nav-text-link.is-active { color: var(--primary); }
 
 /* Collapsible section toggle in sidebar (Subjects) */
@@ -1925,11 +1905,8 @@ main {
   text-align: left;
 }
 .nav-section-toggle .nav-link-label { flex: 1; }
-.nav-section-toggle:hover {
-  background: rgba(1, 83, 91, 0.06);
-  color: var(--primary);
-}
-.nav-section-toggle:hover .nav-icon { color: var(--primary); }
+
+
 .nav-section-icon { transition: transform 0.18s ease; font-size: 14px; color: var(--muted); }
 .nav-section-toggle[aria-expanded="true"] .nav-section-icon { transform: rotate(90deg); color: var(--primary); }
 .nav-count-pill {
@@ -1968,7 +1945,7 @@ main {
   font-weight: 500;
   cursor: pointer;
 }
-.nav-sublink:hover { background: rgba(1, 83, 91, 0.06); color: var(--primary); }
+
 .nav-sub-empty { padding: 6px 10px; color: var(--muted); font-size: 11px; }
 
 /* Overview counts row (Students, Subjects, Teachers, Reports) */
@@ -1991,9 +1968,7 @@ main {
 }
 .overview-count-chip:hover {
   transform: translateY(-1px);
-  border-color: rgba(1, 83, 91, 0.24);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
-}
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);}
 .overview-count-chip .count-icon {
   width: 26px;
   height: 26px;
@@ -2146,10 +2121,7 @@ main {
   cursor: pointer;
   opacity: 0.78;
 }
-.section-sort-btn:hover,
-.section-sort-btn:focus,
-.section-sort-btn:active,
-.section-sort-btn:focus-visible {
+.section-sort-btn:focus, .section-sort-btn:active, .section-sort-btn:focus-visible {
   background: transparent !important;
   box-shadow: none !important;
   outline: none;
@@ -2189,9 +2161,9 @@ main {
   line-height: 1.2;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.student-row:hover { background: rgba(1, 83, 91, 0.04); }
-.student-row:hover .student-name { color: var(--primary); }
-.student-row:hover .student-arrow { color: var(--primary); transform: translateX(2px); }
+
+
+.student-row:hover .student-arrow { transform: translateX(2px);}
 .student-row.has-remark .student-name {
   color: var(--primary);
   font-weight: 600;
@@ -2230,7 +2202,6 @@ main {
   flex-shrink: 0;
   transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.student-remark-btn:hover,
 .student-remark-btn:focus-visible {
   color: var(--primary);
   background: rgba(1, 83, 91, 0.08);
@@ -2320,7 +2291,6 @@ main {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
-.student-transport-btn:hover,
 .student-transport-btn:focus-visible {
   background: rgba(1, 83, 91, 0.12);
   border-color: rgba(1, 83, 91, 0.28);
@@ -2342,7 +2312,7 @@ main {
 .pr-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pr-head-actions .nav-link { display: inline-flex; align-items: center; width: auto; height: 32px; margin: 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface, #fff); font-size: 13px; }
 .pr-mailroom { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface, #fff); color: var(--primary, #01535b); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.pr-mailroom:hover { background: var(--surface-soft, #f6f8fa); }
+
 .pr-mailroom svg { width: 15px; height: 15px; }
 .tp-stats { display: flex; gap: 8px; flex-wrap: wrap; }
 .tp-stats span { padding: 5px 11px; border-radius: 999px; background: var(--surface-soft, #f6f8fa); border: 1px solid var(--border); font-size: 12px; color: var(--text-muted, #64748b); }
@@ -2368,7 +2338,7 @@ main {
 .tp-rider:hover, .tp-rider:focus-visible { background: color-mix(in srgb, var(--route) 7%, transparent); }
 .tp-rider:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; }
 .tp-rider--head { cursor: default; padding-top: 8px; padding-bottom: 6px; border-top: 0; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted, #64748b); }
-.tp-rider--head:hover { background: none; }
+
 .tp-rider__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tp-rider__stop { color: var(--text-muted, #475569); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tp-rider__time { font-variant-numeric: tabular-nums; color: var(--text, #0f172a); }
@@ -2447,7 +2417,7 @@ main {
   color: #64748b;
   cursor: pointer;
 }
-#studentTransportModal .transport-modal-close:hover { background: #f1f5f9; color: #0f172a; }
+
 .transport-modal-body {
   padding: 12px 14px 14px;
   display: grid;
@@ -2643,10 +2613,8 @@ main {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .subject-card:hover {
-  border-color: rgba(1, 83, 91, 0.28);
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 .subject-icon {
   width: 22px;
   height: 22px;
@@ -2663,7 +2631,7 @@ main {
 .subject-text strong { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .subject-text span { font-size: 10.5px; color: var(--muted); }
 .subject-arrow { color: #cbd5e1; font-size: 14px; transition: color 0.15s ease, transform 0.15s ease; }
-.subject-card:hover .subject-arrow { color: var(--primary); transform: translateX(2px); }
+.subject-card:hover .subject-arrow { transform: translateX(2px);}
 
 .workspace-header-row {
   display: flex;
@@ -2813,7 +2781,6 @@ main {
   cursor: pointer;
 }
 .term-view-dots svg { width: 16px; height: 16px; }
-.term-view-dots:hover,
 .term-view-dots[aria-expanded="true"] { color: var(--text, #0f172a); border-color: var(--primary, #01535b); }
 .term-view-pop {
   position: absolute;
@@ -2964,10 +2931,7 @@ main {
   font: inherit;
 }
 
-.workspace-tab:hover {
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--text);
-}
+
 
 .workspace-tab.is-active {
   background: #ffffff;
@@ -3009,10 +2973,7 @@ main {
   margin-right: 4px;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.workspace-tab-close:hover {
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--text);
-}
+
 
 .workspace-tab:not(.is-active) .workspace-tab-close {
   background: transparent;
@@ -3039,11 +3000,7 @@ main {
   transition: all 0.15s ease;
 }
 
-.workspace-tab-add:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(1, 83, 91, 0.06);
-}
+
 
 .workspace-stage {
   padding: 0;
@@ -3145,9 +3102,7 @@ main {
 
 .workspace-quick-button:hover {
   transform: translateY(-1px);
-  border-color: rgba(1, 83, 91, 0.28);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);}
 
 .workspace-quick-label {
   display: block;
@@ -3194,10 +3149,7 @@ main {
 }
 
 .workspace-resource-button:hover {
-  border-color: rgba(1, 83, 91, 0.24);
-  background: #f8fbff;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-}
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);}
 
 .workspace-resource-text strong {
   display: block;
@@ -3578,11 +3530,7 @@ main {
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.workspace-meta-toggle:hover {
-  color: var(--primary);
-  border-color: rgba(1, 83, 91, 0.28);
-  background: rgba(1, 83, 91, 0.04);
-}
+
 .workspace-meta-toggle[aria-expanded="true"] {
   color: var(--primary);
   border-color: rgba(1, 83, 91, 0.28);
@@ -3823,9 +3771,7 @@ main {
 
 /* ---------- Overview: calm, aligned controls (no hover colours) ---------- */
 /* Teachers row: a plain disclosure row, not a coloured button. */
-.teachers-mobile-toggle,
-.teachers-mobile-toggle:hover,
-.teachers-mobile-toggle:focus { background: transparent; color: var(--text); box-shadow: none; }
+.teachers-mobile-toggle, .teachers-mobile-toggle:focus { background: transparent; color: var(--text); box-shadow: none; }
 .teachers-mobile-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
 .teachers-mobile-toggle .teachers-mobile-meta > span:first-child { min-width: 22px; padding: 1px 8px; border-radius: 999px; background: var(--surface-soft, #f1f5f9); color: var(--muted); font-weight: 700; text-align: center; }
 .teachers-mobile-toggle .teachers-mobile-chevron,
@@ -3836,10 +3782,9 @@ main {
 
 /* Student rows: one column of same-sized line icons, whether or not a student rides a bus. */
 .students-numbered-list li { flex-wrap: nowrap; gap: 2px; }
-.student-row,
-.student-row:hover { background: transparent; }
-.student-row:hover .student-name { color: var(--text); }
-.student-row:hover .student-arrow { color: #94a3b8; transform: none; }
+.student-row { background: transparent; }
+
+.student-row:hover .student-arrow { transform: none;}
 .student-row.has-remark .student-name { color: var(--primary); }
 .student-transport-btn,
 .student-remark-btn,
@@ -3848,9 +3793,8 @@ main {
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; border-radius: 8px; background: transparent; color: #64748b; transform: none;
 }
-.student-transport-btn:hover, .student-transport-btn:focus,
-.student-remark-btn:hover, .student-remark-btn:focus { background: transparent; border-color: transparent; color: #64748b; transform: none; }
-.student-remark-btn.has-remark, .student-remark-btn.has-remark:hover { color: var(--primary); }
+.student-transport-btn:focus, .student-remark-btn:focus { background: transparent; border-color: transparent; color: #64748b; transform: none; }
+.student-remark-btn.has-remark { color: var(--primary); }
 .student-transport-btn:focus-visible,
 .student-remark-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .student-transport-btn svg,
@@ -3862,8 +3806,7 @@ main {
   width: 30px; height: 30px; padding: 0; border: 1px solid var(--border, #e5e7eb); border-radius: 8px;
   background: transparent; color: var(--muted, #64748b);
 }
-.workspace-meta-toggle:hover,
-.term-view-dots:hover { background: transparent; color: var(--muted, #64748b); border-color: var(--border, #e5e7eb); }
+
 .workspace-meta-toggle[aria-expanded="true"],
 .term-view-dots[aria-expanded="true"] { background: transparent; color: var(--text, #0f172a); border-color: #94a3b8; }
 .workspace-meta-toggle .workspace-meta-toggle-icon,

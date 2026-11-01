@@ -193,7 +193,7 @@
   line-height: 1;
   cursor: pointer;
 }
-.ann-modal-close:hover { background: #f1f5f9 !important; color: #0f172a; }
+
 
 /* Dashboard notices: rendered into #ann-dashboard-notices on the school
    dashboard and the admin dashboard (announcementFeed.js). */
@@ -260,7 +260,7 @@
   line-height: 1;
   cursor: pointer;
 }
-.ann-notice-close:hover { background: #f1f5f9 !important; color: #0f172a !important; }
+
 .ann-dashboard-notices--org {
   max-width: 1200px;
   margin: 16px auto;

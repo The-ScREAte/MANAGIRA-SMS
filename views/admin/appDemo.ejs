@@ -37,11 +37,11 @@
     text-decoration: none; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s;
   }
   .ade-btn--primary { background: var(--a-brand); color: #fff; }
-  .ade-btn--primary:hover { background: var(--a-brand-hover); color: #fff; }
+  
   .ade-btn--ghost { background: #fff; color: var(--a-ink); border-color: var(--a-line-strong); box-shadow: var(--a-shadow-sm); }
-  .ade-btn--ghost:hover { background: var(--a-soft); color: var(--a-ink); }
+  
   .ade-btn--danger { background: #fff; color: var(--a-danger); border-color: #f4c7c3; }
-  .ade-btn--danger:hover { background: var(--a-danger-soft); color: var(--a-danger); }
+  
   .ade-btn--sm { height: 30px; padding: 0 10px; font-size: 12.5px; border-radius: 8px; }
   .ade-btn:disabled { opacity: .5; cursor: default; }
   .ade-btn:focus-visible, .ade-icon:focus-visible, .ade-row:focus-visible, .ade-group__head:focus-visible { outline: 2px solid var(--a-brand); outline-offset: 2px; }
@@ -51,9 +51,9 @@
     border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--a-muted); cursor: pointer;
   }
   .ade-icon svg { width: 15px; height: 15px; }
-  .ade-icon:hover { background: var(--a-soft); color: var(--a-ink); }
+  
   .ade-icon:disabled { opacity: .3; cursor: default; background: transparent; }
-  .ade-icon--danger:hover { background: var(--a-danger-soft); color: var(--a-danger); }
+  
 
   /* Header */
   .ade-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -76,7 +76,7 @@
     display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 6px 6px 8px;
     border: 0; border-radius: 8px; background: transparent; color: var(--a-muted); font: inherit; text-align: left; cursor: pointer;
   }
-  .ade-group__head:hover { background: var(--a-soft); color: var(--a-ink); }
+  
   .ade-group__head.is-selected { background: var(--a-brand-soft); color: var(--a-brand); }
   .ade-group__name { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ade-group__count { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -89,7 +89,7 @@
     padding: 6px 8px 6px 4px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; user-select: none;
     transition: background-color .15s, border-color .15s;
   }
-  .ade-row:hover { background: var(--a-soft); }
+  
   .ade-row.is-selected { background: var(--a-brand-soft); border-color: rgba(1, 83, 91, .18); }
   .ade-row.is-dragging { opacity: .4; }
   .ade-row.is-drop-before { box-shadow: inset 0 2px 0 var(--a-brand); }
@@ -151,7 +151,7 @@
   /* Steps */
   .ade-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
   .ade-step { display: grid; gap: 10px; padding: 12px 12px 14px; border: 1px solid var(--a-line); border-radius: 12px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-  .ade-step:hover { border-color: var(--a-line-strong); }
+  
   .ade-step.is-dragging { opacity: .4; }
   .ade-step.is-drop-before { box-shadow: 0 -3px 0 var(--a-brand); }
   .ade-step.is-drop-after { box-shadow: 0 3px 0 var(--a-brand); }
@@ -189,14 +189,14 @@
     border: 1.5px dashed var(--a-line-strong); border-radius: 8px; background: var(--a-soft); color: var(--a-muted);
     font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .15s, background-color .15s, color .15s;
   }
-  .ade-version--add:hover { border-color: var(--a-brand); background: var(--a-brand-soft); color: var(--a-brand); }
+  
 
   .ade-drop {
     display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 10px; margin-top: 12px; padding: 14px 16px; text-align: center;
     border: 1.5px dashed var(--a-line-strong); border-radius: 12px; background: var(--a-soft); color: var(--a-muted); font-size: 12.5px;
     cursor: pointer; transition: border-color .15s, background-color .15s;
   }
-  .ade-drop:hover, .ade-drop.is-over { border-color: var(--a-brand); background: var(--a-brand-soft); }
+  .ade-drop.is-over { border-color: var(--a-brand); background: var(--a-brand-soft); }
   .ade-drop strong { color: var(--a-ink); font-size: 13.5px; }
   .ade-drop__icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: #fff; border: 1px solid var(--a-line); color: var(--a-brand); }
   .ade-progress { flex-basis: 100%; max-width: 320px; width: 100%; height: 5px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
@@ -207,7 +207,7 @@
   .ade-foot { display: flex; justify-content: flex-end; padding: 10px 22px 14px; border-top: 1px solid var(--a-line); }
   .ade-link-danger { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--a-muted); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
   .ade-link-danger svg { width: 14px; height: 14px; }
-  .ade-link-danger:hover:not(:disabled) { background: var(--a-danger-soft); color: var(--a-danger); }
+  
   .ade-link-danger:disabled { opacity: .5; cursor: default; }
   .ade-link-danger:focus-visible { outline: 2px solid var(--a-danger); outline-offset: 1px; }
 
@@ -232,7 +232,7 @@
   .ade-guide__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .ade-guide em { display: block; margin-bottom: 5px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--a-text); }
   .ade-guide__remove { flex: none; padding: 2px 5px; border: 0; border-radius: 5px; background: transparent; color: var(--a-danger); font: inherit; font-size: 11.5px; cursor: pointer; }
-  .ade-guide__remove:hover { background: var(--a-danger-soft); }
+  
   .ade-guide__remove:focus-visible { outline: 2px solid var(--a-danger); outline-offset: 1px; }
   .ade-guide .ade-textarea { min-height: 54px; font-size: 13px; }
   .ade-swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -113,10 +113,7 @@
     cursor: pointer;
     opacity: 0.78;
   }
-  .pending-sort-btn:hover,
-  .pending-sort-btn:focus,
-  .pending-sort-btn:active,
-  .pending-sort-btn:focus-visible {
+  .pending-sort-btn:focus, .pending-sort-btn:active, .pending-sort-btn:focus-visible {
     background: transparent !important;
     box-shadow: none !important;
     outline: none;
@@ -129,9 +126,7 @@
     color: var(--text-primary);
   }
 
-  .pending-table tr:hover td {
-    background: #f8fafc;
-  }
+  
 
   .pending-table tr:last-child td {
     border-bottom: none;
@@ -153,9 +148,7 @@
   }
 
   .view-btn:hover {
-    background: #2563eb;
-    transform: translateY(-1px);
-  }
+    transform: translateY(-1px);}
 
   /* Student Details drawer — same slide-in-from-right pattern used by the
      "Create School Year" panel on the Management hub's School Years page. */
@@ -215,7 +208,7 @@
   .rv-title h1 { margin: 2px 0 2px; font-size: 1.3rem; line-height: 1.25; color: #0f172a; overflow-wrap: anywhere; }
   .rv-title p { margin: 0; font-size: .86rem; color: #64748b; }
   .rv-close { width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #475569; cursor: pointer; display: grid; place-items: center; }
-  .rv-close:hover { background: #f1f5f9; color: #0f172a; }
+  
 
   .rv-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px 28px; background: #f8fafc; display: flex; flex-direction: column; gap: 14px; }
   .rv-section { background: #fff; border: 1px solid #e8edf3; border-radius: 14px; padding: 16px 18px 18px; }
@@ -272,8 +265,8 @@
   .rv-guardian-name span { font-size: .78rem; color: #64748b; }
   .rv-guardian-actions { display: flex; gap: 6px; }
   .rv-icon-btn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #475569; cursor: pointer; text-decoration: none; font-size: .85rem; }
-  .rv-icon-btn:hover { border-color: var(--primary); color: var(--primary); }
-  .rv-icon-btn.is-danger:hover { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+  
+  
   .rv-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 12px; padding: 11px; border: 1.5px dashed #cbd5e1; border-radius: 12px; background: #fff; color: #334155; font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
   .rv-add:hover { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, #fff); }
 
@@ -283,12 +276,12 @@
   .rv-status[data-tone="ok"] { color: #15803d; }
   .rv-status[data-tone="error"] { color: #b91c1c; }
   #studentDetailsContainer .rv-btn { height: 40px; padding: 0 16px; border: 1px solid #d7dee8; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  #studentDetailsContainer .rv-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+  
   #studentDetailsContainer .rv-btn.is-reject { border-color: transparent; background: transparent; color: #b91c1c; padding: 0 10px; }
-  #studentDetailsContainer .rv-btn.is-reject:hover { background: #fef2f2; }
+  
   /* buttons.css styles every submit button with !important; Approve is the main action here. */
   #studentDetailsContainer .rv-btn.is-primary { background: var(--primary) !important; border-color: var(--primary) !important; color: #fff !important; }
-  #studentDetailsContainer .rv-btn.is-primary:hover { filter: brightness(1.06); }
+  
 
   /* Nothing floats over the drawer (the Setup steps button, the chat button). */
   body.pa-drawer-open .ss-root, body.pa-drawer-open #chatbot-toggle, body.pa-drawer-open .chatbot-toggle { display: none !important; }
@@ -473,8 +466,8 @@
   .pa-none { margin: 0; padding: 18px; color: #64748b; text-align: center; }
   .pending-table tbody tr { cursor: pointer; }
   .pending-table tbody tr[hidden] { display: none; }
-  .pending-page .view-btn, .pending-page .view-btn:hover { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: var(--org-primary-color, #0f5a66); font-size: .82rem; font-weight: 700; box-shadow: none; transform: none; }
-  .pending-page tr:hover .view-btn { border-color: var(--org-primary-color, #0f5a66); }
+  .pending-page .view-btn { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: var(--org-primary-color, #0f5a66); font-size: .82rem; font-weight: 700; box-shadow: none; transform: none; }
+  
   @media (max-width: 640px) { .pa-tools { width: 100%; } .pa-search { flex: 1; } .pa-search input { width: 100%; } }
 </style>
 <script>

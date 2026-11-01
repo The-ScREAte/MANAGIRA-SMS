@@ -138,15 +138,8 @@ main { padding: 0 !important; max-width: none !important; }
   text-align: left;
 }
 
-.hub-nav .nav-link:hover,
-.management-nav .nav-link:hover,
-.settings-nav .nav-link:hover {
-  background: var(--org-primary-soft, rgba(1, 83, 91, 0.06)) !important;
-  color: var(--primary, #01535b) !important;
-}
-.hub-nav .nav-link:hover .nav-link-icon,
-.management-nav .nav-link:hover .nav-link-icon,
-.settings-nav .nav-link:hover .nav-link-icon { color: var(--primary, #01535b); }
+
+
 
 .hub-nav .nav-link.active,
 .management-nav .nav-link.active,
@@ -351,11 +344,8 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-main .action-btn:hover,
 .management-main .action-btn:hover,
 .settings-main .action-btn:hover {
-  background: var(--org-primary-hover-fill, var(--primary-hover, #014a51)) !important;
-  color: #fff !important;
   transform: none !important;
-  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(0, 0, 0, 0.08)) !important;
-}
+  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(0, 0, 0, 0.08)) !important;}
 
 .hub-main .action-btn svg,
 .management-main .action-btn svg,
@@ -392,12 +382,7 @@ main { padding: 0 !important; max-width: none !important; }
   box-shadow: none !important;
 }
 
-.hub-main .feature-item:hover,
-.management-main .feature-item:hover,
-.settings-main .feature-item:hover {
-  border-color: var(--org-primary-soft-border, var(--primary, #01535b)) !important;
-  background: var(--org-primary-soft, #fff) !important;
-}
+
 
 .hub-main .feature-icon,
 .management-main .feature-icon,
@@ -483,13 +468,7 @@ main { padding: 0 !important; max-width: none !important; }
   transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
 }
 
-.hub-nav-collapse-toggle:hover,
-.management-nav-collapse-toggle:hover,
-.settings-nav-collapse-toggle:hover {
-  color: var(--primary, #01535b);
-  border-color: var(--primary, #01535b);
-  background: #f8fafc;
-}
+
 
 .hub-nav-collapse-toggle:active,
 .management-nav-collapse-toggle:active,

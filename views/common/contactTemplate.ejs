@@ -24,14 +24,14 @@
   .ct-head__actions { display: flex; gap: 8px; }
 
   .ct-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--ct-line); border-radius: 10px; background: #fff; color: var(--ct-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s; }
-  .ct-btn:hover { background: #f8fafb; border-color: #d4dce4; }
+  
   .ct-btn svg { width: 15px; height: 15px; }
   .ct-btn--primary { background: var(--ct-primary); border-color: transparent; color: #fff; }
-  .ct-btn--primary:hover { background: var(--ct-primary); filter: brightness(.94); }
+  
   .ct-btn:disabled { opacity: .45; cursor: default; }
   .ct-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ct-muted); cursor: pointer; }
-  .ct-icon-btn:hover { background: #eef2f5; color: var(--ct-text); }
-  .ct-icon-btn--danger:hover { background: #fdecec; color: #c0262d; }
+  
+  
   .ct-icon-btn svg { width: 16px; height: 16px; }
   .ct-link { height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--ct-primary); font-size: 12.5px; font-weight: 700; cursor: pointer; }
   .ct-link:hover { background: color-mix(in srgb, var(--ct-primary) 8%, #fff); }
@@ -52,11 +52,11 @@
   .ct-fields { display: grid; gap: 6px; padding: 0 12px 12px; min-height: 52px; }
   .ct-fields:empty::before { content: "Drag fields here, or add one."; display: grid; place-items: center; height: 52px; border: 1.5px dashed var(--ct-line); border-radius: 10px; font-size: 12.5px; color: #8796a5; }
   .ct-row { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 4px; border: 1px solid var(--ct-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-  .ct-row:hover { border-color: #d3dbe3; box-shadow: 0 1px 3px rgba(16, 32, 48, .05); }
+  .ct-row:hover { box-shadow: 0 1px 3px rgba(16, 32, 48, .05);}
   .ct-row.is-obsolete { background: #fafbfc; }
   .ct-row.is-obsolete .ct-row__main strong { color: #8796a5; }
   .ct-grip { display: grid; place-items: center; width: 24px; height: 30px; border-radius: 7px; color: #a8b4c0; cursor: grab; touch-action: none; flex: none; }
-  .ct-grip:hover { background: #eef2f5; color: var(--ct-text); }
+  
   .ct-grip svg { width: 14px; height: 14px; }
   .ct-type { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: #f1f4f7; color: #4a5b6c; flex: none; }
   .ct-type svg { width: 16px; height: 16px; }

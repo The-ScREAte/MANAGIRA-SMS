@@ -66,7 +66,6 @@
   transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
 
-a.ad-btn:hover,
 a.ad-btn:focus-visible {
   filter: brightness(1.08);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
@@ -253,7 +252,7 @@ a.ad-stage:focus-visible {
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.app-ad__close:hover { background: #fff; transform: scale(1.06); }
+.app-ad__close:hover { transform: scale(1.06);}
 .app-ad__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .app-ad .ad-stage { transition: transform 0.2s ease, box-shadow 0.2s ease; }

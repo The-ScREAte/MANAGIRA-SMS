@@ -48,7 +48,7 @@
   box-shadow: none;
   cursor: pointer;
 }
-.aem button.aem__preset:hover, .aem button.aem__add:hover { border-color: var(--aem-brand); }
+
 .aem button.aem__add { align-self: flex-start; color: var(--aem-brand); }
 .aem button.aem__add[hidden] { display: none; }
 .aem__points-toggle { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 500; }

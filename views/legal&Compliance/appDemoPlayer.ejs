@@ -37,7 +37,7 @@
       all: unset; position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
       color: #8a99aa; font-size: 17px; line-height: 1; cursor: pointer;
     }
-    .pl-tip__close:hover { background: #f1f5f8; color: #0b1b2b; }
+    
     .pl-tip__close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     .pl-tip__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
     .pl-tip__foot > span { font-size: 11.5px; font-weight: 600; color: #6b7a8c; font-variant-numeric: tabular-nums; }
@@ -53,10 +53,10 @@
       all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 8px;
       font-size: 12.5px; font-weight: 600; color: #3b4a5c; border: 1px solid #d3dbe4; background: #fff; cursor: pointer; transition: background-color .15s, filter .15s;
     }
-    .pl-btn:hover { background: #f5f7f9; }
+    
     .pl-btn:disabled { opacity: .4; cursor: default; }
     .pl-btn--primary { background: var(--accent); border-color: transparent; color: #fff; }
-    .pl-btn--primary:hover { background: var(--accent); filter: brightness(.92); }
+    
     .pl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .pl-end {
@@ -84,7 +84,7 @@
       all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px;
       color: #475569; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background-color .15s, color .15s;
     }
-    .pl__controls button:hover { background: #f1f5f9; color: #0f172a; }
+    
     .pl__controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     .pl__opts { display: flex; align-items: center; gap: 2px; }
     .pl__grip { width: 10px; height: 16px; margin: 0 4px 0 6px; cursor: grab; opacity: .55;
@@ -103,7 +103,7 @@
     .pl-ring--soft { border-width: 1.5px; animation-duration: 2.4s; }
     @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
     .pl__controls .is-primary { background: var(--accent); color: #fff; }
-    .pl__controls .is-primary:hover { background: var(--accent); filter: brightness(.95); }
+    
     .pl__toast {
       position: absolute; left: 50%; top: 14px; transform: translate(-50%, -8px); opacity: 0; transition: .2s; pointer-events: none;
       padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #334155; font-size: 12.5px; box-shadow: 0 8px 24px rgba(15,23,42,.14);

@@ -87,15 +87,12 @@
     box-shadow: none;
   }
 
-  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-nav-trigger:hover,
   body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-nav-trigger:focus-visible {
     background: rgba(255, 255, 255, 0.14);
     color: #ffffff;
   }
 
-  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button:hover,
-  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button:focus-visible,
-  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) #loginbutton:hover {
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button:focus-visible {
     background: rgba(255, 255, 255, 0.14);
     color: #ffffff !important;
     border-color: rgba(255, 255, 255, 0.92);
@@ -229,11 +226,7 @@
   }
 
   #tools #loginbutton:hover {
-    background: #f3f4f6;
-    color: #111827 !important;
-    border-color: #111827;
-    box-shadow: none;
-  }
+    box-shadow: none;}
 
   .public-header-main {
     display: none;
@@ -272,9 +265,7 @@
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  .public-nav-item.is-open .public-nav-trigger,
-  .public-nav-trigger:hover,
-  .public-nav-trigger:focus-visible {
+  .public-nav-item.is-open .public-nav-trigger, .public-nav-trigger:focus-visible {
     background: #67d8ea;
     color: #083b75;
     outline: none;
@@ -479,7 +470,6 @@
     color: #64748b;
   }
 
-  .public-nav-link:hover strong,
   .public-nav-link:focus-visible strong {
     color: #2563eb;
     outline: none;
@@ -507,7 +497,6 @@
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
 
-  .public-expert-button:hover,
   .public-expert-button:focus-visible {
     background: #eff6ff;
     color: #1d4ed8;
@@ -869,9 +858,7 @@
     color: #6b7280;
   }
 
-  .search-result-item:hover {
-    background-color: #f2f2f2;
-  }
+  
 
   .search-result-item a {
     display: flex;
@@ -950,10 +937,7 @@
     transition: all 0.2s ease;
   }
 
-  header#top-header .nav-menu .nav-item a.logout:hover {
-    background: #fee2e2;
-    color: #b91c1c !important;
-  }
+  
 
   /* Appearance row (partials/appearanceToggle.ejs) lines up with the links above it. */
   header#top-header .nav-menu .ap-dots-row { padding: 9px 4px 9px 0; }
@@ -1021,7 +1005,6 @@
     opacity: 1;
   }
 
-  header#top-header .sticky-nav ul li a:hover,
   header#top-header .sticky-nav ul li a.active {
     background: var(--org-primary-color, #01535b);
     color: #ffffff;
@@ -1092,10 +1075,7 @@
     user-select: none;
   }
 
-  .flash-close:hover {
-    background-color: #f1f5f9;
-    color: #0f172a;
-  }
+  
 
   @keyframes slideDown {
     from {
@@ -1187,7 +1167,6 @@
     transition: background 0.3s ease;
   }
 
-  .sticky-nav ul li a:hover,
   .sticky-nav ul li a.active {
     background: var(--org-primary-hover-fill, var(--org-primary-hover));
     border-radius: 5px;
@@ -1233,9 +1212,7 @@
     align-items: center;
   }
 
-  .search-result-item:hover {
-    background-color: #f2f2f2;
-  }
+  
 
   .search-result-item a {
     display: flex;
@@ -1376,9 +1353,7 @@
     color: #dc2626 !important;
   }
 
-  header#top-header #tools li a.logout:hover {
-    color: #b91c1c !important;
-  }
+  
   
   header#top-header #tools a.header-welcome {
     display: block;
@@ -1526,9 +1501,7 @@
     background: var(--public-header-fg) !important;
   }
 
-  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-item.is-open .public-nav-trigger,
-  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-trigger:hover,
-  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-trigger:focus-visible {
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-item.is-open .public-nav-trigger, header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-trigger:focus-visible {
     color: var(--public-header-fg-strong) !important;
     background: var(--public-header-link-hover-bg);
   }
@@ -1539,11 +1512,7 @@
     background: var(--public-header-surface) !important;
   }
 
-  header#top-header.public-header-mode:not(.homepage-overlay-enabled) #tools #loginbutton:hover {
-    color: var(--public-header-fg-strong) !important;
-    border-color: var(--public-header-border) !important;
-    background: var(--public-header-surface-hover) !important;
-  }
+  
 
   @media (max-width: 768px) {
     :root {
@@ -3619,7 +3588,7 @@
   object-fit: contain;
   border-radius: 50%;
 }
-.header-mira-btn:hover { background: rgba(0,0,0,0.07); transform: scale(1.05); }
+.header-mira-btn:hover { transform: scale(1.05);}
 .header-mira-btn:focus-visible { outline: 2px solid var(--org-primary-color,#01535b); }
 </style>
 
@@ -3646,7 +3615,7 @@
   transition: background 0.18s ease;
   line-height: 1;
 }
-.notif-bell-btn:hover { background: rgba(0,0,0,0.07); }
+
 .notif-bell-btn:focus-visible { outline: 2px solid var(--org-primary-color,#01535b); }
 
 /* Badge */

@@ -16,15 +16,15 @@
 
 <style>
   :root {
-    --pg-bg:        #0f1728;
-    --pg-surface:   #162238;
-    --pg-surface-2: #1b2942;
-    --pg-border:    rgba(255,255,255,.12);
-    --pg-text:      #f1f5ff;
-    --pg-muted:     #b6c2d9;
-    --pg-teal:      #00D4AA;
-    --pg-gold:      #F5C842;
-    --pg-red:       #FF4D6D;
+    --pg-bg:        #f6f7f9;
+    --pg-surface:   #ffffff;
+    --pg-surface-2: #f3f5f8;
+    --pg-border:    rgba(15,23,42,.12);
+    --pg-text:      #111827;
+    --pg-muted:     #6b7280;
+    --pg-teal:      var(--org-primary-color, #01535b);
+    --pg-gold:      #b45309;
+    --pg-red:       #dc2626;
     --pg-org:       var(--org-primary-color, #01535b);
     --pg-org-hover: var(--org-primary-hover, #014a51);
   }
@@ -33,7 +33,7 @@
     background:var(--pg-bg);
     color:var(--pg-text);
     min-height:calc(100vh - 80px);
-    font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;
+    font-family:inherit;
     padding:clamp(20px, 3.5vw, 34px) clamp(10px, 2vw, 16px) 40px;
   }
   .pg-container { max-width:1200px; margin:0 auto; }
@@ -57,8 +57,8 @@
   .paygira-secure-badge {
     display:inline-flex; align-items:center; gap:6px;
     padding:8px 14px; border-radius:999px;
-    background:rgba(0,212,170,.08);
-    border:1px solid rgba(0,212,170,.26);
+    background:color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent);
+    border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 26%, transparent);
     color:var(--pg-teal);
     font-size:.72rem; font-weight:700; letter-spacing:.08em;
     text-transform:uppercase;
@@ -78,7 +78,7 @@
   .pg-stat .label { font-size:.72rem; color:var(--pg-muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
   .pg-stat .value { font-size:1.55rem; font-weight:800; margin-top:6px; font-family:'JetBrains Mono',monospace; }
   .pg-stat .sub   { font-size:.75rem; color:var(--pg-muted); margin-top:4px; }
-  .pg-stat.teal .value { color:var(--pg-teal); }
+  .pg-stat.teal .value { color:#15803d; }
   .pg-stat.gold .value { color:var(--pg-gold); }
   .pg-stat.red  .value { color:var(--pg-red); }
 
@@ -97,7 +97,7 @@
   .pg-child-card {
     background:transparent;
     border:0;
-    border-bottom:1px solid rgba(255,255,255,.1);
+    border-bottom:1px solid rgba(15,23,42,.1);
     border-radius:0;
     overflow:hidden;
     margin-bottom:0;
@@ -138,12 +138,12 @@
     letter-spacing:.06em;
     text-transform:uppercase;
     font-weight:700;
-    border:1px solid rgba(255,255,255,.14);
+    border:1px solid rgba(15,23,42,.14);
     color:var(--pg-muted);
-    background:rgba(255,255,255,.05);
+    background:rgba(15,23,42,.05);
   }
   .pg-child-pill strong {
-    color:#fff;
+    color:var(--pg-text);
     font-family:'JetBrains Mono',monospace;
     font-size:.7rem;
   }
@@ -161,7 +161,7 @@
   }
   .pg-child-avatar {
     width:48px; height:48px; border-radius:50%; object-fit:cover;
-    border:1px solid rgba(0,212,170,.32);
+    border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 32%, transparent);
     background:var(--pg-surface-2);
   }
   .pg-child-name { font-weight:700; font-size:1.05rem; }
@@ -170,12 +170,12 @@
   .pg-child-copy { min-width:0; }
 
   .pg-bill-row {
-    display:grid; grid-template-columns: minmax(0, 1.6fr) minmax(88px, .8fr) minmax(88px, .8fr) minmax(116px, 1fr) auto;
+    display:grid; grid-template-columns: minmax(0, 1.6fr) minmax(150px, 1fr) auto;
     gap:12px; align-items:center;
     padding:12px 14px; border-bottom:1px solid var(--pg-border);
     cursor:pointer; transition:background .15s;
   }
-  .pg-bill-row:hover { background:rgba(255,255,255,.03); }
+  
   .pg-bill-row:last-child { border-bottom:none; }
   .pg-bill-title { font-weight:600; overflow-wrap:anywhere; }
   .pg-bill-sub {
@@ -193,20 +193,26 @@
   .pg-balance { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pg-gold); }
   .pg-bill-col { min-width:0; }
   .pg-bill-actions {
-    display:grid;
-    grid-template-columns:repeat(2, minmax(0, 132px));
+    display:flex;
     align-items:center;
-    justify-content:flex-start;
-    justify-items:stretch;
+    justify-content:flex-end;
     gap:6px;
   }
+  .pg-bill-money { display:grid; gap:2px; justify-items:end; text-align:right; }
+  .pg-icon-link {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:30px; height:30px; border-radius:8px;
+    border:1px solid var(--pg-border); color:var(--pg-muted); text-decoration:none;
+  }
+  .pg-icon-link svg { width:16px; height:16px; }
   /* Keep Pay + Invoice compact and identical in size. */
   .pg-bill-actions .pg-btn {
     min-height:30px;
     height:30px;
-    width:100%;
-    padding:0 8px;
-    font-size:.72rem;
+    width:auto;
+    margin:0;
+    padding:0 14px;
+    font-size:.74rem;
   }
   .pg-bill-actions .pg-btn.sm {
     min-height:30px;
@@ -220,9 +226,9 @@
     display:inline-block; padding:3px 10px; border-radius:999px;
     font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
   }
-  .pg-status.paid    { background:rgba(0,212,170,.15);  color:var(--pg-teal);   border:1px solid rgba(0,212,170,.3); }
-  .pg-status.partial { background:rgba(245,200,66,.15); color:var(--pg-gold);   border:1px solid rgba(245,200,66,.3); }
-  .pg-status.overdue { background:rgba(255,77,109,.15); color:var(--pg-red);    border:1px solid rgba(255,77,109,.3); }
+  .pg-status.paid    { background:color-mix(in srgb, var(--org-primary-color, #01535b) 15%, transparent);  color:var(--pg-teal);   border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); }
+  .pg-status.partial { background:rgba(180,83,9,.15); color:var(--pg-gold);   border:1px solid rgba(180,83,9,.3); }
+  .pg-status.overdue { background:rgba(220,38,38,.15); color:var(--pg-red);    border:1px solid rgba(220,38,38,.3); }
   .pg-status.pending { background:rgba(138,147,168,.15);color:var(--pg-muted);  border:1px solid rgba(138,147,168,.3); }
 
   .pg-btn {
@@ -236,28 +242,28 @@
     white-space:nowrap;
   }
   .pg-btn.primary { background:var(--pg-org); color:#fff; }
-  .pg-btn.primary:hover { transform:none; box-shadow:none; background:var(--pg-org-hover); }
+  .pg-btn.primary:hover { transform:none; box-shadow:none;}
   .pg-btn.ghost { background:var(--pg-org); color:#fff; border:1px solid transparent; }
-  .pg-btn.ghost:hover { background:var(--pg-org-hover); }
+  
   .pg-btn.sm { min-height:30px; padding:0 8px; font-size:.72rem; }
   .pg-btn.danger { background:var(--pg-red); color:#fff; border-color:transparent; }
   .pg-btn.danger::before { content:'🗑'; font-size:.82em; }
   .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
 
   .pg-flash { padding:12px 18px; border-radius:12px; margin-bottom:18px; font-weight:600; font-size:.9rem; }
-  .pg-flash.success { background:rgba(0,212,170,.12); color:var(--pg-teal); border:1px solid rgba(0,212,170,.3); }
-  .pg-flash.error   { background:rgba(255,77,109,.12); color:var(--pg-red);  border:1px solid rgba(255,77,109,.3); }
+  .pg-flash.success { background:color-mix(in srgb, var(--org-primary-color, #01535b) 12%, transparent); color:var(--pg-teal); border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); }
+  .pg-flash.error   { background:rgba(220,38,38,.12); color:var(--pg-red);  border:1px solid rgba(220,38,38,.3); }
 
   .pg-empty { text-align:center; padding:48px 20px; color:var(--pg-muted); }
   .pg-modal-bg {
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,.78);
+    display:none; position:fixed; inset:0; background:rgba(15,23,42,0.14);
     z-index:1000; align-items:flex-start; justify-content:center;
     padding:clamp(72px,11vh,90px) 12px 32px; overflow-y:auto;
   }
   .pg-modal-bg.open { display:flex; }
   .pg-modal {
     background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:16px;
-    padding:22px; max-width:520px; width:100%; color:var(--pg-text); box-shadow:0 20px 48px rgba(0,0,0,.32);
+    padding:22px; max-width:520px; width:100%; color:var(--pg-text); box-shadow:0 20px 48px rgba(15,23,42,0.14);
   }
   .pg-modal h3 { margin:0 0 18px; font-size:1.2rem; }
   .pg-form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px 12px; }
@@ -270,7 +276,7 @@
     font-family:inherit; font-size:1rem;
   }
   .pg-field input, .pg-field select { min-height:38px; border-radius:4px; font-size:.9rem; }
-  .pg-field input:disabled { background:rgba(255,255,255,.04); color:var(--pg-text); }
+  .pg-field input:disabled { background:rgba(15,23,42,.04); color:var(--pg-text); }
   .pg-field input:focus, .pg-field select:focus { outline:none; border-color:var(--pg-teal); }
   .pg-modal-actions {
     display:grid;
@@ -281,8 +287,8 @@
     margin-top:18px;
   }
   .pg-recurring-panel {
-    border:1px solid rgba(0,212,170,.22);
-    background:rgba(0,212,170,.06);
+    border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, transparent);
+    background:color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent);
     border-radius:16px;
     padding:16px;
   }
@@ -300,8 +306,8 @@
     min-height:44px;
     padding:10px 14px;
     border-radius:14px;
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(8,13,26,.48);
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(255,255,255,0.6);
     display:flex;
     align-items:center;
   }
@@ -327,13 +333,13 @@
     padding:11px 13px;
     border:1px solid var(--pg-border);
     border-radius:14px;
-    background:rgba(8,13,26,.72);
+    background:rgba(255,255,255,0.72);
     cursor:pointer;
     transition:border-color .16s ease, transform .16s ease, background .16s ease;
   }
   .pg-occ-card:hover {
-    border-color:rgba(0,212,170,.28);
-    background:rgba(14,20,38,.92);
+    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 28%, transparent);
+    background:rgba(255,255,255,0.92);
     transform:translateY(-1px);
   }
   .pg-occ-card input {
@@ -419,8 +425,8 @@
     margin-top:8px;
   }
   .pg-credit-box {
-    border:1px solid rgba(0,212,170,.24);
-    background:rgba(0,212,170,.06);
+    border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 24%, transparent);
+    background:color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent);
     border-radius:14px;
     padding:14px;
   }
@@ -471,8 +477,8 @@
     text-transform:uppercase;
   }
   .pgv2-balance-card {
-    border:1px solid rgba(0,212,170,.24);
-    background:linear-gradient(180deg, rgba(0,212,170,.08), rgba(0,212,170,.03));
+    border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 24%, transparent);
+    background:linear-gradient(180deg, color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent), color-mix(in srgb, var(--org-primary-color, #01535b) 3%, transparent));
     border-radius:16px;
     padding:16px;
   }
@@ -515,9 +521,7 @@
   }
   .pgv2-apply-btn:hover:not(:disabled) {
     transform:none;
-    box-shadow:none;
-    background:var(--pg-org-hover);
-  }
+    box-shadow:none;}
   .pgv2-apply-btn:disabled {
     opacity:.45;
     cursor:not-allowed;
@@ -543,8 +547,8 @@
     align-items:stretch;
   }
   .pgv2-breakdown {
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.03);
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(15,23,42,.03);
     border-radius:14px;
     padding:14px;
     display:grid;
@@ -580,8 +584,8 @@
     gap:12px;
     padding:14px;
     border-radius:16px;
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.03);
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(15,23,42,.03);
     color:var(--pg-text);
     text-align:left;
     cursor:pointer;
@@ -589,13 +593,13 @@
   }
   .pgv2-method-card:hover {
     transform:translateY(-1px);
-    border-color:rgba(0,212,170,.22);
-    background:rgba(255,255,255,.05);
+    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 22%, transparent);
+    background:rgba(15,23,42,.05);
   }
   .pgv2-method-card.is-selected {
-    border-color:rgba(0,212,170,.38);
-    background:rgba(0,212,170,.11);
-    box-shadow:0 12px 24px rgba(0,0,0,.18);
+    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 38%, transparent);
+    background:color-mix(in srgb, var(--org-primary-color, #01535b) 11%, transparent);
+    box-shadow:0 12px 24px rgba(15,23,42,0.14);
   }
   .pgv2-method-ico {
     width:42px;
@@ -605,7 +609,7 @@
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    background:rgba(255,255,255,.06);
+    background:rgba(15,23,42,.06);
     font-size:1.1rem;
   }
   .pgv2-method-copy {
@@ -634,8 +638,8 @@
     margin-top:10px;
   }
   .pg-payout-route {
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.03);
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(15,23,42,.03);
     border-radius:14px;
     padding:12px;
     display:grid;
@@ -670,22 +674,22 @@
     font-size:.8rem;
     user-select:none;
     transition:border-color .15s ease, background .15s ease, transform .15s ease;
-    background:rgba(255,255,255,.01);
+    background:rgba(15,23,42,.01);
   }
   .pg-payout-card:hover {
-    border-color:rgba(0,212,170,.28);
+    border-color:color-mix(in srgb, var(--org-primary-color, #01535b) 28%, transparent);
     transform:translateY(-1px);
   }
   .pg-payout-card.is-selected {
     border-color:var(--pg-teal);
-    background:rgba(0,212,170,.14);
+    background:color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent);
   }
   .pg-payout-card input[type="radio"] {
     margin:0;
     flex-shrink:0;
   }
   .pg-payout-redirect {
-    color:#9de7d6;
+    color:var(--org-primary-color, #01535b);
     font-size:.75rem;
     line-height:1.45;
   }
@@ -698,8 +702,8 @@
     gap:6px;
     padding:6px 10px;
     border-radius:999px;
-    border:1px solid rgba(0,212,170,.18);
-    background:rgba(0,212,170,.08);
+    border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 18%, transparent);
+    background:color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent);
     color:#dffbf5;
     font-size:.7rem;
     font-weight:700;
@@ -707,8 +711,8 @@
     text-transform:uppercase;
   }
   .pg-payment-shell {
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.02);
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(15,23,42,.02);
     border-radius:16px;
     padding:14px;
   }
@@ -720,8 +724,8 @@
     gap:12px;
   }
   .pg-stripe-box {
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(8,13,26,.56);
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(255,255,255,0.6);
     border-radius:14px;
     padding:14px;
   }
@@ -744,7 +748,7 @@
   }
   .pg-stripe-error {
     display:none;
-    color:#ff9fb0;
+    color:#b91c1c;
     font-size:.76rem;
     line-height:1.45;
   }
@@ -755,7 +759,7 @@
     color:var(--pg-muted);
     font-size:.72rem;
     line-height:1.4;
-    border-top:1px solid rgba(255,255,255,.08);
+    border-top:1px solid rgba(15,23,42,.08);
     margin-top:10px;
     padding-top:10px;
   }
@@ -795,7 +799,7 @@
     font-size:.9rem;
     font-weight:700;
     letter-spacing:.02em;
-    border-bottom:1px solid rgba(255,255,255,.08);
+    border-bottom:1px solid rgba(15,23,42,.08);
   }
   .pg-history-summary::-webkit-details-marker {
     display:none;
@@ -818,13 +822,13 @@
     gap:14px; padding:12px 18px;
     border-bottom:1px solid var(--pg-border); font-size:.85rem;
   }
-  .pg-history-row.head { background:rgba(255,255,255,.03); color:var(--pg-muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+  .pg-history-row.head { background:rgba(15,23,42,.03); color:var(--pg-muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
   .pg-history-row:last-child { border-bottom:none; }
 
   @media (max-width:1080px) {
     .pg-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
     .pg-bill-row {
-      grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(92px, 1fr));
+      grid-template-columns: minmax(0, 1.5fr) minmax(140px, 1fr);
       align-items:start;
     }
     .pg-bill-actions {
@@ -1014,14 +1018,14 @@
     justify-content:flex-end;
     padding:0;
     overflow:hidden;
-    background:rgba(8,13,26,.58);
+    background:rgba(255,255,255,0.6);
     backdrop-filter:blur(3px);
   }
   .pg-modal-bg.open { display:flex; }
   .pg-modal[data-ap-skip] {
     --pg-modal-panel:var(--pg-surface);
     --pg-modal-panel-raised:var(--pg-surface-2);
-    --pg-modal-line:rgba(255,255,255,.12);
+    --pg-modal-line:rgba(15,23,42,.12);
     background:var(--pg-bg);
     border:1px solid var(--pg-modal-line);
     border-radius:0;
@@ -1037,7 +1041,7 @@
     flex-direction:column;
     overflow:hidden;
     color:var(--pg-text);
-    box-shadow:-12px 0 42px rgba(0,0,0,.34);
+    box-shadow:-12px 0 42px rgba(15,23,42,0.14);
     animation:pgPayDrawerIn .28s cubic-bezier(.22,1,.36,1);
   }
   @keyframes pgPayDrawerIn {
@@ -1080,10 +1084,7 @@
     line-height:1;
     cursor:pointer;
   }
-  .pg-modal[data-ap-skip] .pg-modal-close:hover {
-    border-color:var(--pg-org);
-    background:var(--pg-modal-panel-raised);
-  }
+  
   .pg-modal[data-ap-skip] #pgStripeShell,
   .pg-modal[data-ap-skip] #pgOfflineShell {
     padding:0;
@@ -1236,10 +1237,7 @@
   .pg-modal[data-ap-skip] .pg-occ-card:hover,
   .pg-modal[data-ap-skip] .pg-payout-card:hover,
   .pg-modal[data-ap-skip] .pgv2-method-card:hover {
-    border-color:var(--pg-org);
-    background:var(--pg-modal-panel-raised);
-    transform:none;
-  }
+    transform:none;}
   .pg-modal[data-ap-skip] .pg-occ-card:has(input:checked),
   .pg-modal[data-ap-skip] .pg-payout-card.is-selected,
   .pg-modal[data-ap-skip] .pgv2-method-card.is-selected {
@@ -1299,7 +1297,7 @@
     padding:14px 24px calc(14px + env(safe-area-inset-bottom, 0px));
     border-top:1px solid var(--pg-modal-line);
     background:var(--pg-bg);
-    box-shadow:0 -12px 24px rgba(8,13,26,.28);
+    box-shadow:0 -12px 24px rgba(255,255,255,0.6);
   }
   .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn {
     display:inline-flex;
@@ -1322,19 +1320,14 @@
     background:var(--pg-modal-panel);
     color:var(--pg-text);
   }
-  .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.ghost:hover {
-    background:var(--pg-modal-panel-raised);
-    border-color:var(--pg-org);
-  }
+  
   .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.primary {
     border:1px solid var(--pg-org);
     background:var(--pg-org);
     color:#fff;
   }
   .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn.primary:hover:not(:disabled) {
-    background:var(--pg-org-hover);
-    transform:translateY(-1px);
-  }
+    transform:translateY(-1px);}
   .pg-modal[data-ap-skip] .pg-modal-actions .pg-btn:disabled {
     opacity:.55;
     cursor:not-allowed;
@@ -1373,7 +1366,7 @@
       <span class="paygira-secure-badge" title="Bank-grade encrypted payments">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
-          <path d="M9 12l2 2 4-4" stroke="#080d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 12l2 2 4-4" stroke="#f6f7f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span class="paygira-secure-text">Secure</span>
       </span>
@@ -1408,7 +1401,7 @@
       <div class="pg-stat"><div class="label">Total Billed</div><div class="value"><%= money(totals.billed) %></div><div class="sub">All children combined</div></div>
       <div class="pg-stat teal"><div class="label">Total Paid</div><div class="value"><%= money(totals.paid) %></div><div class="sub">Payments received</div></div>
       <div class="pg-stat gold"><div class="label">Outstanding</div><div class="value"><%= money(totals.outstanding) %></div><div class="sub">Current balance due</div></div>
-      <div class="pg-stat teal"><div class="label">Available Balance</div><div class="value"><%= money(totals.credit || 0) %></div><div class="sub"><%= Number(totals.credit || 0) > 0 ? (money(totals.net_outstanding || 0) + ' still due after balance') : 'No available balance yet' %></div></div>
+      <div class="pg-stat teal"><div class="label">Available Balance</div><div class="value"><%= money(totals.credit || 0) %></div><div class="sub">Credit you can use</div></div>
     </div>
 
     <% if (!children.length) { %>
@@ -1435,7 +1428,6 @@
             </div>
             <div class="pg-child-head-right">
               <span class="pg-child-pill">Outstanding <strong><%= money(childOutstanding) %></strong></span>
-              <span class="pg-child-pill">Bills <strong><%= kidAssignments.length %></strong></span>
             </div>
           </summary>
 
@@ -1463,32 +1455,16 @@
                   <% if (a.bill_description) { %> · <%= a.bill_description %><% } %>
                 </div>
               </div>
-              <div class="pg-bill-col" data-label="Billed">
-                <div class="pg-bill-sub">Billed</div>
-                <div class="pg-amount"><%= money(billedTotal(a)) %></div>
-              </div>
-              <div class="pg-bill-col" data-label="Paid">
-                <div class="pg-bill-sub">Paid</div>
-                <div class="pg-amount" style="color:var(--pg-teal);"><%= money(a.amount_paid) %></div>
-              </div>
-              <div class="pg-bill-col" data-label="Balance">
-                <div class="pg-bill-sub"><%= recurring ? 'Remaining' : 'Balance' %></div>
-                <div>
-                  <div class="pg-balance"><%= money(bal) %></div>
-                  <% if (Number(a.student_credit || 0) > 0) { %><div class="pg-bill-sub">Available balance <%= money(a.student_credit) %> can be applied here</div><% } %>
-                  <span class="pg-status <%= statusClass(a.status) %>" style="margin-top:4px;"><%= a.status %></span>
-                </div>
+              <div class="pg-bill-money">
+                <div class="pg-balance"><%= money(bal) %></div>
+                <div class="pg-bill-sub">of <%= money(billedTotal(a)) %> · <%= money(a.amount_paid) %> paid</div>
+                <span class="pg-status <%= statusClass(a.status) %>"><%= a.status %></span>
               </div>
               <div class="pg-bill-actions" onclick="event.stopPropagation()">
                 <% if (canPay) { %>
-                  <button type="button" class="pg-btn primary"
-                          onclick="openPgPay('<%= a.assignment_id %>')">
-                    <%= recurring ? 'Pay Dates' : 'Pay Now' %>
-                  </button>
-                <% } else { %>
-                  <span class="pg-status paid">Paid</span>
+                  <button type="button" class="pg-btn primary" onclick="openPgPay('<%= a.assignment_id %>')"><%= recurring ? 'Pay dates' : 'Pay' %></button>
                 <% } %>
-                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost sm" title="View invoice">Invoice</a>
+                <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-icon-link" title="Invoice" aria-label="Invoice for <%= a.bill_title %>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></a>
               </div>
             </div>
           <% }); %>
@@ -1514,9 +1490,9 @@
             <div data-label="Date"><%= _guardianDateFormat(p.received_at) %></div>
             <div data-label="Student"><%= p.display_student_name || _guardianNameFormat(p) %></div>
             <div data-label="Bill"><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
-            <div data-label="Amount" class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <div data-label="Amount" class="pg-amount" style="color:#15803d;display:flex;align-items:center;justify-content:space-between;gap:6px;">
               <%= money(p.amount) %>
-              <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">Receipt</a><% } %>
+              <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" class="pg-icon-link" title="Receipt" aria-label="Receipt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg></a><% } %>
             </div>
           </div>
         <% }); } %>
@@ -1687,6 +1663,7 @@
     var stripeCurrency = String((allowedMethods && allowedMethods.currency) || <%- JSON.stringify(currencyCode) %> || 'USD').toLowerCase();
     var savedCards = <%- JSON.stringify((cards || []).filter(function(c){ return c.external_payment_method_id; })) %>;
     var selectedSavedCardId = null;
+    var selectedChannel = ''; // card or mobile_money for online checkout
     var stripeElements = null;
     var stripePaymentElement = null;
     var expressCheckoutElement = null;
@@ -2080,45 +2057,26 @@
     }
 
     // Reflect the online payment methods enabled by the school's payout setup.
-    function getOnlineMethodMeta() {
-      var selectedPayoutAccountId = getSelectedPayoutAccountId();
-      if (selectedPayoutAccountId && selectedPayoutAccountId !== 'stripe') {
-        var acct = getSelectedPayoutAccountData();
-        if (acct && acct.type === 'mobile_money') {
-          var provider = acct.momoProvider ? String(acct.momoProvider).toUpperCase() : '';
-          return { icon: '📱', label: 'Mobile Money', desc: provider ? (provider + ' checkout') : 'Mobile Money checkout' };
-        }
-        if (acct) {
-          return { icon: '🏦', label: 'Bank Transfer', desc: 'Bank transfer at secure checkout' };
-        }
-      }
-      if (!selectedPayoutAccountId && paystackPayoutReady) {
-        return { icon: '💳', label: 'Online payment', desc: 'Available options will appear at checkout' };
-      }
-      // Stripe provider
-      return { icon: '💳', label: 'Card / Apple Pay / Google Pay', desc: getStripeMethodSummary() };
-    }
-
+    // The ways a parent can pay this bill: only what the school accepts for it.
+    // The school's own payout accounts are never shown here.
     function getMethodOptions(record) {
       var options = [];
-      if ((paystackPayoutReady || (stripeEnabled && stripeAccountReady)) && record && record.accepts_card) {
-        var onlineMeta = getOnlineMethodMeta();
-        options.push({
-          value: 'stripe',
-          label: onlineMeta.label,
-          desc: onlineMeta.desc,
-          icon: onlineMeta.icon,
-          hint: paystackPayoutReady
-            ? 'Complete payment using the options available at secure checkout.'
-            : 'Pay securely with the card and wallet options enabled by your school.'
-        });
+      var online = record && record.accepts_card;
+      // Online payments follow the school's payout route: Paystack offers card and
+      // mobile money; Stripe offers card and the wallets the school turned on.
+      var payoutRoute = getSelectedPayoutAccountId();
+      var viaPaystack = paystackPayoutReady && (payoutRoute ? payoutRoute !== 'stripe' : !(stripeEnabled && stripeAccountReady));
+      if (online && viaPaystack) {
+        options.push({ value: 'stripe', channel: 'card', label: 'Card', desc: 'Visa, Mastercard and more', icon: '💳' });
+        options.push({ value: 'stripe', channel: 'mobile_money', label: 'Mobile money', desc: 'Pay from your mobile money wallet', icon: '📱' });
+      } else if (online && stripeEnabled && stripeAccountReady) {
+        options.push({ value: 'stripe', channel: '', label: 'Card', desc: getStripeMethodSummary(), icon: '💳' });
       }
       if (allowedMethods && allowedMethods.bankOn && record && record.accepts_transfer) {
-        options.push({
-          value: 'bank_transfer', 
-          label: 'Bank payment',
-          hint: 'Transfer from your bank account using school details below, then submit this record in PayGira.'
-        });
+        options.push({ value: 'bank_transfer', channel: '', label: 'Bank transfer', desc: 'Transfer, then record it here', icon: '🏦' });
+      }
+      if (record && record.accepts_cash) {
+        options.push({ value: 'cash', channel: '', label: 'Cash', desc: 'Pay at the school office', icon: '💵' });
       }
       return options;
     }
@@ -2133,6 +2091,9 @@
           allowedMethods && allowedMethods.bank && allowedMethods.bank.branch ? '<div><strong>Branch:</strong> ' + escapeHtml(allowedMethods.bank.branch) + '</div>' : '',
           '<div>Complete the transfer, then submit this payment so the bill reflects what you just paid.</div>'
         ].filter(Boolean).join('');
+      } else if (methodValue === 'cash') {
+        offlineTitle.textContent = 'Pay with cash';
+        offlineDetails.innerHTML = '<div>Pay at the school office. The school records your payment and it shows here once received.</div>';
       } else {
         offlineTitle.textContent = '';
         offlineDetails.innerHTML = '';
@@ -2178,6 +2139,12 @@
         submitButton.textContent = 'Confirm Bank Transfer →';
         return;
       }
+      if (method === 'cash') {
+        // Cash is paid at the school office; the school records it.
+        submitButton.disabled = true;
+        submitButton.textContent = 'Pay at the school office';
+        return;
+      }
       submitButton.textContent = 'Submit Payment →';
     }
 
@@ -2186,7 +2153,7 @@
       var isStripe = selectedMethod === 'stripe';
       var isBankTransfer = selectedMethod === 'bank_transfer';
       stripeShell.hidden = !isStripe;
-      offlineShell.hidden = !isBankTransfer;
+      offlineShell.hidden = !(isBankTransfer || selectedMethod === 'cash');
 
       if (isStripe) {
         if (isPaystackOnlineSelected()) {
@@ -2208,12 +2175,7 @@
           if (!selectedSavedCardId) ensureStripeElements();
         }
       } else {
-        methodHint.style.display = isBankTransfer ? '' : 'none';
-        methodHint.textContent = getMethodOptions(activeRecord).filter(function(option) {
-          return option.value === selectedMethod;
-        }).map(function(option) {
-          return option.hint;
-        })[0] || 'Only the payment methods this bill and your school support will appear here.';
+        methodHint.style.display = 'none';
         renderOfflineDetails(selectedMethod);
         destroyStripeElements();
       }
@@ -2428,16 +2390,14 @@
 
     function renderMethodOptions(record) {
       var options = getMethodOptions(record);
-      var previousValue = String(methodSelect.value || '');
+      var optionKey = function(option) { return option.value + ':' + (option.channel || ''); };
+      var previousKey = String(methodSelect.value || '') + ':' + String(selectedChannel || '');
       methodSelect.innerHTML = options.map(function(option) {
         return '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>';
       }).join('');
-      var selectedValue;
-      if (previousValue && options.some(function(option) { return option.value === previousValue; })) {
-        selectedValue = previousValue;
-      } else {
-        selectedValue = options.length ? options[0].value : '';
-      }
+      var selectedOption = options.find(function(option) { return optionKey(option) === previousKey; }) || options[0] || null;
+      var selectedValue = selectedOption ? selectedOption.value : '';
+      selectedChannel = selectedOption ? (selectedOption.channel || '') : '';
       methodSelect.value = selectedValue;
 
       var pgv2Cards = document.getElementById('pgMethodCards');
@@ -2458,8 +2418,8 @@
             var meta = METHOD_META[option.value] || { icon: '💰', desc: '' };
             var iconText = option.icon || meta.icon;
             var descText = option.desc || meta.desc || '';
-            var isSelected = option.value === selectedValue;
-            return '<button type="button" class="pgv2-method-card' + (isSelected ? ' is-selected' : '') + '" data-pgv2-method="' + escapeHtml(option.value) + '">'
+            var isSelected = selectedOption && optionKey(option) === optionKey(selectedOption);
+            return '<button type="button" class="pgv2-method-card' + (isSelected ? ' is-selected' : '') + '" data-pgv2-method="' + escapeHtml(option.value) + '" data-pgv2-channel="' + escapeHtml(option.channel || '') + '">'
               + '<div class="pgv2-method-ico">' + iconText + '</div>'
               + '<div class="pgv2-method-copy">'
               + '<span class="pgv2-method-name">' + escapeHtml(option.label) + '</span>'
@@ -2469,6 +2429,7 @@
           pgv2Cards.querySelectorAll('.pgv2-method-card').forEach(function(card) {
             card.addEventListener('click', function() {
               var value = card.getAttribute('data-pgv2-method');
+              selectedChannel = card.getAttribute('data-pgv2-channel') || '';
               pgv2Cards.querySelectorAll('.pgv2-method-card').forEach(function(item) {
                 item.classList.toggle('is-selected', item === card);
               });
@@ -2496,6 +2457,7 @@
           apply_credit: applyCreditCheckbox && applyCreditCheckbox.checked,
           saved_card_id: selectedSavedCardId || undefined,
           payout_account_id: payoutAccountId,
+          channel: selectedChannel || undefined,
         })
       });
       var data = await response.json();

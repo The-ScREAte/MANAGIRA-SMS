@@ -94,6 +94,4 @@
   transition: background-color 0.3s ease;
 }
 
-.manage-records-page .center-link button:hover {
-  background-color: var(--org-primary-hover);
-}
+

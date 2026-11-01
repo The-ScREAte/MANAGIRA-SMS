@@ -119,10 +119,7 @@ button.btn:disabled,
   border-color: var(--org-primary-color);
 }
 
-.layout-option:hover {
-  border-color: var(--org-primary-soft-border, var(--org-primary-hover));
-  background: var(--org-primary-soft, #f8fafc);
-}
+
 
 .layout-title {
   font-weight: 700;
@@ -145,11 +142,8 @@ button[type="submit"],
 .btn-primary:hover,
 button[type="submit"]:hover,
 .primary-button:hover {
-  background-color: var(--btn-primary-bg-hover);
-  border-color: var(--btn-primary-bg-hover);
   box-shadow: 0 6px 16px var(--org-primary-soft-shadow-strong, rgba(1, 83, 91, 0.24));
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 .btn-primary:active,
 button[type="submit"]:active,
@@ -171,12 +165,8 @@ button[type="submit"]:active,
 
 .btn-secondary:hover,
 .secondary-button:hover {
-  background-color: var(--btn-secondary-bg-hover);
-  border-color: var(--btn-secondary-border-hover);
-  color: var(--btn-secondary-text-hover);
   box-shadow: 0 4px 12px var(--org-primary-soft-shadow, rgba(1, 83, 91, 0.14));
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 /* ============================================
    DANGER BUTTON (Delete, Remove, Cancel subscription)
@@ -195,11 +185,8 @@ a.delete-btn {
 .btn-danger:hover,
 .btn-delete:hover,
 .delete-btn:hover {
-  background-color: var(--btn-danger-bg-hover);
-  border-color: var(--btn-danger-bg-hover);
   box-shadow: 0 6px 16px rgba(220, 38, 38, 0.28);
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 .btn-danger:active,
 .btn-delete:active,
@@ -219,11 +206,8 @@ a.delete-btn {
 }
 
 .btn-success:hover {
-  background-color: var(--btn-success-bg-hover);
-  border-color: var(--btn-success-bg-hover);
   box-shadow: 0 6px 16px rgba(22, 163, 74, 0.28);
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 /* ============================================
    WARNING BUTTON (Hold, Pause, Attention)
@@ -236,11 +220,8 @@ a.delete-btn {
 }
 
 .btn-warning:hover {
-  background-color: var(--btn-warning-bg-hover);
-  border-color: var(--btn-warning-bg-hover);
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.28);
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 /* ============================================
    GHOST BUTTON (Subtle actions, icon buttons)
@@ -252,10 +233,7 @@ a.delete-btn {
   box-shadow: none;
 }
 
-.btn-ghost:hover {
-  background-color: var(--btn-ghost-bg-hover);
-  color: var(--btn-ghost-text-hover);
-}
+
 
 /* ============================================
    LINK BUTTON (Text-only with underline)
@@ -270,9 +248,7 @@ a.delete-btn {
 }
 
 .btn-link:hover {
-  color: var(--btn-primary-bg-hover);
-  text-decoration: none;
-}
+  text-decoration: none;}
 
 /* ============================================
    BUTTON SIZES
@@ -357,11 +333,7 @@ a.action-link,
   transition: all 0.2s ease;
 }
 
-a.action-link:hover,
-.action-link:hover {
-  background: var(--org-primary-soft-strong, #dbeff1);
-  color: var(--org-primary-color);
-}
+
 
 a.modify-link,
 .modify-link {
@@ -369,11 +341,7 @@ a.modify-link,
   background: #dcfce7;
 }
 
-a.modify-link:hover,
-.modify-link:hover {
-  background: var(--btn-success-bg);
-  color: #ffffff;
-}
+
 
 /* ============================================
    COLLAPSIBLE BUTTONS (for tables and sections)
@@ -394,9 +362,7 @@ a.modify-link:hover,
   transition: background-color 0.2s ease;
 }
 
-.collapsible-btn:hover {
-  background-color: var(--btn-primary-bg-hover);
-}
+
 
 .collapsible-btn .arrow,
 .collapsible-btn .caret-icon {
@@ -437,10 +403,7 @@ a.modify-link:hover,
   transition: all 0.2s ease;
 }
 
-.dashboard-buttons button:hover {
-  background-color: var(--org-primary-soft, #e6f4f5);
-  border-color: var(--org-primary-soft-border, var(--btn-primary-bg));
-}
+
 
 .dashboard-buttons button.active {
   background-color: var(--btn-primary-bg);
@@ -486,9 +449,7 @@ a.modify-link:hover,
   transition: color 0.2s ease;
 }
 
-.close-btn:hover {
-  color: #374151;
-}
+
 
 /* ============================================
    MOBILE RESPONSIVE ADJUSTMENTS
@@ -574,10 +535,7 @@ input[type="submit"] {
 
 button[type="submit"]:hover,
 input[type="submit"]:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-  border-color: var(--btn-primary-bg-hover) !important;
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 /* Dashboard and navigation links that should inherit theme */
 .classes-container li a,
@@ -592,18 +550,14 @@ a.text-link {
 .welcome-card a:hover,
 .start-link:hover,
 a.text-link:hover {
-  color: var(--link-hover-color) !important;
-  text-decoration: underline;
-}
+  text-decoration: underline;}
 
 /* Header welcome link */
 a.header-welcome {
   color: var(--link-color) !important;
 }
 
-a.header-welcome:hover {
-  color: var(--link-hover-color) !important;
-}
+
 
 /* Hamburger menu bars inherit theme */
 .hamburger .bar {
@@ -635,14 +589,9 @@ a.header-welcome:hover {
   background: var(--org-primary-color) !important;
 }
 
-.chatbot-send:hover {
-  background: var(--org-primary-hover-fill, var(--org-primary-hover)) !important;
-}
 
-/* FAQ items in chatbot */
-.faq-item:hover {
-  border-color: var(--org-primary-color) !important;
-}
+
+
 
 .faq-question {
   color: var(--org-primary-color) !important;
@@ -677,19 +626,14 @@ a.header-welcome:hover {
   border-color: var(--btn-primary-bg) !important;
 }
 
-.link-to-next-back a:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-  border-color: var(--btn-primary-bg-hover) !important;
-}
+
 
 /* Archive link styling */
 .archive-link a {
   background-color: var(--btn-primary-bg) !important;
 }
 
-.archive-link a:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-}
+
 
 /* Generic .btn class - ensure it inherits theme */
 .btn {
@@ -698,10 +642,7 @@ a.header-welcome:hover {
   border-color: var(--btn-primary-bg);
 }
 
-.btn:hover {
-  background-color: var(--btn-primary-bg-hover);
-  border-color: var(--btn-primary-bg-hover);
-}
+
 
 /* Table action buttons */
 table .btn,
@@ -712,12 +653,7 @@ table .btn,
   border-color: var(--btn-primary-bg) !important;
 }
 
-table .btn:hover,
-.table-container .btn:hover,
-.actions-container .btn:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-  border-color: var(--btn-primary-bg-hover) !important;
-}
+
 
 /* Collapsible buttons */
 .collapsible-btn {
@@ -725,9 +661,7 @@ table .btn:hover,
   color: var(--btn-primary-text) !important;
 }
 
-.collapsible-btn:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-}
+
 
 /* Employee details page */
 .btn-secondary {
@@ -736,11 +670,7 @@ table .btn:hover,
   border-color: var(--org-primary-soft-border, var(--btn-primary-bg)) !important;
 }
 
-.btn-secondary:hover {
-  background-color: var(--org-primary-soft, #e6f4f5) !important;
-  border-color: var(--org-primary-soft-border, var(--btn-primary-bg)) !important;
-  color: var(--org-primary-color) !important;
-}
+
 
 /* h1, h2 accent colors for organization pages */
 .container h1,
@@ -768,9 +698,7 @@ table .btn:hover,
   color: var(--btn-primary-text) !important;
 }
 
-.management-buttons .btn:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-}
+
 
 /* Form and card themed elements */
 .card h4,
@@ -810,9 +738,7 @@ a.btn:focus {
   color: var(--org-primary-color);
 }
 
-.nav-menu .nav-item a:hover {
-  color: var(--org-primary-hover);
-}
+
 
 /* Form action buttons */
 .form-actions .btn,
@@ -821,10 +747,7 @@ a.btn:focus {
   color: var(--btn-primary-text) !important;
 }
 
-.form-actions .btn:hover,
-.form-action-buttons .btn:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-}
+
 
 /* Theme save button */
 .theme-save-btn {
@@ -833,13 +756,8 @@ a.btn:focus {
   color: white !important;
 }
 
-.theme-save-btn:hover {
-  background-color: var(--btn-primary-bg-hover) !important;
-  border-color: var(--btn-primary-bg-hover) !important;
-}
 
-/* Quill editor toolbar buttons themed */
-.ql-toolbar button:hover,
+
 .ql-toolbar button.ql-active {
   color: var(--org-primary-color) !important;
 }

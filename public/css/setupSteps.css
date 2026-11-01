@@ -63,12 +63,12 @@
 .ss-head h2 { margin: 0; font-size: 15px; font-weight: 800; color: var(--ss-text); }
 .ss-head p { margin: 3px 0 0; font-size: 12.5px; color: var(--ss-muted); }
 .ss-close { flex: 0 0 auto; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--ss-muted); cursor: pointer; font-size: 18px; line-height: 1; }
-.ss-close:hover { background: var(--ss-surface-2); color: var(--ss-text); }
+
 .ss-list { list-style: none; margin: 0; padding: 6px 8px 10px; overflow-y: auto; }
 .ss-group { margin: 10px 8px 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ss-muted); }
 
 .ss-step { display: flex; align-items: flex-start; gap: 10px; padding: 9px 8px; border-radius: 10px; }
-.ss-step:hover { background: var(--ss-surface-2); }
+
 .ss-check { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; border: 2px solid var(--ss-line); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
 .ss-step.is-required .ss-check { border-color: color-mix(in srgb, var(--ss-brand) 70%, var(--ss-line)); }
 .ss-step.is-done .ss-check { border-color: var(--ss-brand); background: var(--ss-brand); color: #fff; }
@@ -83,7 +83,7 @@ a.ss-title:hover { color: color-mix(in srgb, var(--ss-brand) 55%, var(--ss-text)
 .ss-tag { flex: 0 0 auto; align-self: center; padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
 .ss-tag--required { background: color-mix(in srgb, var(--ss-brand) 16%, transparent); color: color-mix(in srgb, var(--ss-brand) 55%, var(--ss-text)); }
 .ss-skip { flex: 0 0 auto; align-self: center; padding: 3px 9px; border: 1px solid var(--ss-line); border-radius: 999px; background: transparent; color: var(--ss-muted); font-size: 11.5px; font-weight: 700; cursor: pointer; }
-.ss-skip:hover { color: var(--ss-text); border-color: var(--ss-muted); }
+
 .ss-skip[disabled] { opacity: .5; cursor: default; }
 .ss-foot { padding: 10px 16px 12px; border-top: 1px solid var(--ss-line); font-size: 12px; color: var(--ss-muted); }
 

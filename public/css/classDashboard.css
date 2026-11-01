@@ -65,10 +65,7 @@ body {
   transition: background-color 0.2s ease;
 }
 
-.dashboard-buttons button:hover {
-  background-color: var(--org-primary-hover);
-  color: #fff;
-}
+
 
 .subjects-list {
   text-align: center;
@@ -82,10 +79,7 @@ body {
   color: black;
 }
 
-.subject-link:hover {
-  background-color: #e0e0e0;
-  color: #111827;
-}
+
 
 .student-list-container {
   background-color: #f9f9f9;

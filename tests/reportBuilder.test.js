@@ -254,7 +254,9 @@ test("report service exposes access checks for scheduled sends", () => {
 test("export header choices are stored as plain yes/no flags", () => {
   const { normalizeBranding, hasBranding, imageInfo } = require("../utils/reportBranding");
   assert.deepEqual(normalizeBranding({ orgName: true, logo: "yes", phone: true, extra: true }),
-    { orgName: true, logo: false, address: false, phone: true, date: false });
+    { orgName: true, logo: false, address: false, phone: true, date: false, align: "left" });
+  assert.equal(normalizeBranding({ align: "center" }).align, "center");
+  assert.equal(normalizeBranding({ align: "top" }).align, "left");
   assert.equal(hasBranding(normalizeBranding({})), false);
   const png = Buffer.alloc(24);
   png.writeUInt32BE(0x89504e47, 0);
@@ -277,6 +279,10 @@ test("Excel export puts the school header above the table", async () => {
   assert.equal(sheet.getCell("A5").value, "Generated 1 November 2026");
   assert.equal(sheet.getCell("A7").value, "Student name");
   assert.equal(sheet.getCell("A8").value, "Ama");
+  const centered = new ExcelJS.Workbook();
+  await centered.xlsx.load(await toWorkbook([{ student_name: "Ama", class_name: "JHS 1" }], ["student_name", "class_name"], getReport("students"), { title: "Roster", header: { ...header, align: "center" } }));
+  assert.equal(centered.worksheets[0].getCell("A1").alignment.horizontal, "center");
+  assert.equal(centered.worksheets[0].getCell("A1").value, "Test School");
   const plain = new ExcelJS.Workbook();
   await plain.xlsx.load(await toWorkbook([{ student_name: "Ama" }], ["student_name"], getReport("students")));
   assert.equal(plain.worksheets[0].getCell("A1").value, "Student name");

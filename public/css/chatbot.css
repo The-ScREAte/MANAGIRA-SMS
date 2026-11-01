@@ -284,10 +284,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: background 0.2s ease;
 }
 
-.chatbot-minimize:hover,
-.chatbot-close:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
+
 
 /* Mobile Controls Adjustments */
 @media (max-width: 768px) {
@@ -409,10 +406,8 @@ body[data-page="publicDashboard"] .chatbot-container {
 }
 
 .chatbot-doc-card:hover {
-  border-color: var(--org-primary-color);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-}
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);}
 
 .chatbot-doc-card__meta {
   font-size: 10px;
@@ -451,10 +446,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: all 0.2s ease;
 }
 
-.faq-item:hover {
-  background: #f8f9fa;
-  border-color: var(--org-primary-color);
-}
+
 
 .faq-question {
   font-weight: 600;
@@ -560,10 +552,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: all 0.2s ease;
 }
 
-.suggestion-item:hover {
-  background: var(--org-primary-color);
-  color: white;
-}
+
 
 /* Contact Info */
 .contact-info {
@@ -627,9 +616,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   color: white !important;
 }
 
-.chatbot-send:hover {
-  background: var(--org-primary-hover, #013c44);
-}
+
 
 .chatbot-send:disabled {
   background: #ccc;
@@ -741,11 +728,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: all 0.2s ease;
 }
 
-.popular-question:hover {
-  background: #f8f9fa;
-  border-color: var(--org-primary-color, #01535b);
-  color: var(--org-primary-color, #01535b);
-}
+
 
 /* Loading Animation */
 .typing-indicator {
@@ -791,9 +774,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   border-radius: 2px;
 }
 
-.chatbot-messages::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
+
 
 /* Responsive Design */
 @media (max-width: 480px) {
@@ -1089,9 +1070,7 @@ body[data-page="publicDashboard"] .chatbot-container {
 }
 .chatbot-minimize:hover,
 .chatbot-close:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
-  transform: scale(1.05);
-}
+  transform: scale(1.05);}
 
 .chatbot-messages {
   background: var(--mg-bg) !important;
@@ -1167,12 +1146,8 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 .faq-item:hover {
-  background: #f8fafc !important;
-  border-color: var(--mg-line) !important;
-  border-left-color: var(--org-primary-color, #0f766e) !important;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px -10px rgba(15, 118, 110, 0.35);
-}
+  box-shadow: 0 6px 18px -10px rgba(15, 118, 110, 0.35);}
 .faq-question {
   font-size: 13.5px !important;
   font-weight: 600 !important;
@@ -1285,10 +1260,8 @@ body[data-page="publicDashboard"] .chatbot-container {
 }
 
 .chatbot-result-card:hover {
-  border-color: var(--org-primary-color, #01535b);
   box-shadow: 0 7px 20px rgba(2, 8, 23, 0.08);
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 .chatbot-result-card__type {
   align-self: start;
@@ -1410,10 +1383,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.popular-question--link:hover {
-  background: #f0fdfa;
-  border-color: var(--org-primary-color, #01535b);
-}
+
 
 /* ── Browse / error links ────────────────────────────────────────── */
 .chatbot-browse-links {
@@ -1435,15 +1405,9 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.chatbot-browse-link:hover {
-  background: var(--org-primary-color, #01535b);
-  color: #fff;
-}
+
 .suggestion-item:hover {
-  background: var(--org-primary-color, #0f766e) !important;
-  color: #ffffff !important;
-  transform: translateY(-1px);
-}
+  transform: translateY(-1px);}
 
 /* Contact info chip */
 .contact-info {
@@ -1524,12 +1488,8 @@ body[data-page="publicDashboard"] .chatbot-container {
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
 }
 .popular-question:hover {
-  background: #f8fafc !important;
-  border-color: var(--org-primary-color, #0f766e) !important;
-  color: var(--org-primary-color, #0f766e) !important;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px -10px rgba(15, 118, 110, 0.35);
-}
+  box-shadow: 0 6px 18px -10px rgba(15, 118, 110, 0.35);}
 
 /* Typing indicator */
 .typing-indicator { padding: 4px 0 !important; }
@@ -1548,7 +1508,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   border-radius: 999px !important;
   border: 2px solid var(--mg-bg) !important;
 }
-.chatbot-messages::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.32) !important; }
+
 
 /* Bot avatar */
 .message-bot { position: relative; padding-left: 36px; }
@@ -1844,7 +1804,7 @@ body[data-page="publicDashboard"] .chatbot-container {
 .popular-questions { margin: 0 !important; }
 .popular-questions h5 { margin: 0 0 7px !important; font-size: 11px !important; letter-spacing: .06em !important; }
 .popular-question--link, .popular-question { margin: 0 0 6px !important; padding: 9px 11px !important; border: 1px solid #dbe3ec !important; border-radius: 8px !important; background: #fff !important; color: #26364a !important; font-size: 13px !important; line-height: 1.4 !important; text-align: left !important; box-shadow: none !important; transform: none !important; }
-.popular-question--link:hover, .popular-question:hover { background: #f1f5f9 !important; border-color: #aab9ca !important; color: #172b45 !important; }
+
 .chatbot-input-area { gap: 8px !important; padding: 10px 12px !important; border-top: 1px solid #dbe3ec !important; background: #fff !important; }
 .chatbot-input, .chatbot-input:focus { min-height: 40px !important; height: 40px !important; padding: 8px 13px !important; border: 1px solid #cbd5e1 !important; border-radius: 9px !important; background: #fff !important; color: #172b45 !important; font-size: 16px !important; }
 .chatbot-input:focus { border-color: #647b99 !important; box-shadow: 0 0 0 3px rgba(100, 123, 153, .14) !important; }

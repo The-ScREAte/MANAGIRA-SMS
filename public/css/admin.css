@@ -141,11 +141,7 @@
   border: 1px solid #e5e7eb;
 }
 
-.admin-btn-secondary:hover,
-.admin-btn-neutral:hover {
-  background: #e5e7eb;
-  color: var(--admin-text-primary);
-}
+
 
 /* Edit Button */
 .admin-btn-edit {
@@ -178,10 +174,7 @@
   border: 2px solid var(--admin-primary);
 }
 
-.admin-btn-outline-primary:hover {
-  background: var(--admin-primary);
-  color: white;
-}
+
 
 .admin-btn-outline-danger {
   background: transparent;
@@ -189,10 +182,7 @@
   border: 2px solid var(--admin-danger);
 }
 
-.admin-btn-outline-danger:hover {
-  background: var(--admin-danger);
-  color: white;
-}
+
 
 /* Size Variants */
 .admin-btn-sm {
@@ -270,9 +260,7 @@
   letter-spacing: 0.05em;
 }
 
-.admin-table tbody tr:hover {
-  background: #f9fafb;
-}
+
 
 .admin-table .actions-cell {
   display: flex;

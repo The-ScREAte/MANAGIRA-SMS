@@ -85,7 +85,7 @@
       margin-bottom: 20px;
       transition: color .15s;
     }
-    .ea-back-btn:hover { color: #fff; }
+    
     .ea-hero h1 {
       margin: 0 0 6px;
       font-size: clamp(1.5rem, 3vw, 2rem);
@@ -154,7 +154,7 @@
       white-space: nowrap;
     }
     .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
-    .tab-btn:not(.active):hover { background: var(--primary-light); color: var(--primary); }
+    
 
     /* ── Tab panels ── */
     .tab-panel { display: none; }
@@ -185,7 +185,7 @@
       transition: background .15s, color .15s;
     }
     .create-toggle svg { transition: transform .2s; }
-    .create-toggle:hover { background: var(--primary-light); color: var(--primary); }
+    
     .create-card.open .create-toggle svg { transform: rotate(180deg); }
     .create-card.open .create-toggle { color: var(--primary); }
     @media (max-width: 860px) {
@@ -272,9 +272,9 @@
     }
     .btn:active { transform: translateY(1px); }
     .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
-    .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+    .btn-primary:hover { box-shadow: 0 3px 8px rgba(0,0,0,.15);}
     .btn-danger { background: var(--danger); color: #fff; }
-    .btn-danger:hover { background: var(--danger-h); }
+    
     .btn-sm { padding: 6px 14px; font-size: .83rem; }
     .btn-full { width: 100%; }
 
@@ -299,7 +299,7 @@
       cursor: pointer;
       user-select: none;
     }
-    .item-head:hover { background: var(--primary-light); }
+    
     .item-title { font-weight: 600; font-size: .95rem; color: var(--text); margin: 0 0 3px; }
     .item-meta { font-size: .8rem; color: var(--muted); }
 

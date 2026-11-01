@@ -30,9 +30,7 @@
 }
 
 .public-dashboard-header button:hover {
-  background-color: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
-  box-shadow: 0 6px 16px var(--org-primary-soft-shadow-strong, rgba(1, 83, 91, 0.2));
-}
+  box-shadow: 0 6px 16px var(--org-primary-soft-shadow-strong, rgba(1, 83, 91, 0.2));}
 
 /* Center the dashboard heading */
 #orgDashboardSection h1 {
@@ -215,9 +213,7 @@ li {
 }
 
 .teacher-toggle:hover {
-  background: var(--org-primary-hover, #014a51);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);}
 
 .toggle-arrow {
   transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
@@ -269,9 +265,7 @@ li {
 .teacher-entry:nth-child(5) { animation-delay: 0.25s; }
 
 .teacher-entry:hover {
-  background: #e8e8e8;
-  transform: translateX(3px);
-}
+  transform: translateX(3px);}
 
 @keyframes slideInTeacher {
   to {
@@ -292,11 +286,7 @@ li {
   position: relative;
 }
 
-.event-item:hover,
-.announcement-item:hover {
-  background: #f9fafb;
-  border-bottom-color: #d1d5db;
-}
+
 
 .event-item.expanded,
 .announcement-item.expanded {
@@ -377,9 +367,7 @@ li {
 
 .event-toggle:hover,
 .announcement-toggle:hover {
-  background: var(--org-primary-hover, #014a51);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);}
 
 .event-details,
 .announcement-full {
@@ -671,9 +659,7 @@ li {
   font-weight: 600;
 }
 
-.text-link:hover {
-  color: var(--org-primary-hover);
-}
+
 
 .start-link {
   display: inline-block;
@@ -688,9 +674,7 @@ li {
 }
 
 .start-link:hover {
-  color: var(--org-primary-hover);
-  text-decoration: underline;
-}
+  text-decoration: underline;}
 
 @keyframes welcomeFloat {
   0%,
@@ -795,9 +779,7 @@ li {
   background-color: var(--org-primary-color);
 }
 
-.dashboard-buttons button:hover {
-  background-color: var(--org-primary-hover);
-}
+
 /* Current School Year section styling */
 .school-year-info {
   flex: 1;

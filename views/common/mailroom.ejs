@@ -26,7 +26,7 @@
   .mr-header--tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .mr-tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--mr-line); border-radius: 12px; background: var(--mr-panel); }
   .mr-tab { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--mr-muted); cursor: pointer; }
-  .mr-tab:hover { color: var(--mr-text); background: var(--mr-bg); }
+  
   .mr-tab.is-active { background: var(--mr-primary); color: #fff; }
   .mr-tab:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: 2px; }
   .mr-tab-badge { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 999px; background: #e11d48; color: #fff; font-size: 11px; font-weight: 800; }
@@ -38,7 +38,7 @@
   .mr-inbox-filters { display: flex; gap: 6px; flex-wrap: wrap; }
   .mr-inbox-rows { flex: 1; min-height: 0; overflow-y: auto; }
   .mr-inbox-row { all: unset; box-sizing: border-box; display: grid; gap: 3px; width: 100%; padding: 12px 14px; border-bottom: 1px solid var(--mr-line); cursor: pointer; }
-  .mr-inbox-row:hover { background: var(--mr-bg); }
+  
   .mr-inbox-row.is-active { background: color-mix(in srgb, var(--mr-primary) 8%, #fff); box-shadow: inset 3px 0 0 var(--mr-primary); }
   .mr-inbox-row:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: -2px; }
   .mr-inbox-top { display: flex; align-items: center; gap: 8px; }
@@ -60,7 +60,7 @@
   .mr-thread-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--mr-muted); }
   .mr-thread-actions { display: flex; gap: 6px; flex: none; align-items: center; }
   .mr-thread-actions a, .mr-thread-actions button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: 1px solid var(--mr-line); border-radius: 8px; font-size: 12.5px; font-weight: 700; color: var(--mr-text); cursor: pointer; background: #fff; }
-  .mr-thread-actions a:hover, .mr-thread-actions button:hover { background: var(--mr-bg); }
+  
   .mr-thread-msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: grid; gap: 12px; align-content: start; background: var(--mr-bg); }
   .mr-msg { max-width: 78%; padding: 10px 13px; border-radius: 12px; background: #fff; border: 1px solid var(--mr-line); }
   .mr-msg--staff { justify-self: end; background: color-mix(in srgb, var(--mr-primary) 9%, #fff); border-color: color-mix(in srgb, var(--mr-primary) 20%, #fff); }
@@ -107,7 +107,7 @@
   .mr-directory-head h2 { margin: 0; font-size: 14px; font-weight: 800; }
   .mr-directory-head-top, .mr-compose-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .mr-collapse-toggle { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; width: auto; min-height: 28px; margin-left: auto; padding: 4px 8px; border: 1px solid var(--mr-line); border-radius: 8px; background: var(--mr-panel); color: var(--mr-primary); font: inherit; font-size: 11.5px; font-weight: 750; cursor: pointer; white-space: nowrap; }
-  .mr-collapse-toggle:hover { background: var(--mr-bg); }
+  
   .mr-collapse-toggle:focus-visible { outline: 2px solid var(--mr-primary); outline-offset: 2px; }
   .mr-collapse-icon { width: 12px; height: 12px; flex: 0 0 12px; transition: transform 160ms ease; }
   .mr-collapse-toggle[aria-expanded="true"] .mr-collapse-icon { transform: rotate(180deg); }
@@ -123,13 +123,13 @@
   .mr-select-row button[hidden] { display: none; }
   .mr-contact-list { overflow-y: auto; flex: 1; min-height: 0; padding: 6px 8px; }
   .mr-contact { display: flex; align-items: flex-start; gap: 9px; padding: 9px 8px; border-radius: 9px; cursor: pointer; }
-  .mr-contact:hover { background: #f6fbfc; }
+  
   .mr-contact input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--mr-primary); flex: 0 0 15px; }
   .mr-contact.disabled { opacity: 0.4; cursor: not-allowed; }
   .mr-contact-body { min-width: 0; flex: 1; }
   .mr-contact-actions { display: flex; align-items: flex-start; margin-left: auto; }
   .mr-contact-delete { width: 28px; height: 28px; display: inline-grid; place-items: center; padding: 0; border: 1px solid #fee2e2; border-radius: 8px; background: #fff; color: #b91c1c; cursor: pointer; flex: 0 0 28px; }
-  .mr-contact-delete:hover { background: #fef2f2; border-color: #fecaca; }
+  
   .mr-contact-delete:disabled { opacity: .55; cursor: wait; }
   .mr-contact-delete svg { width: 15px; height: 15px; }
   .mr-contact-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -140,7 +140,7 @@
   .mr-contact-classes { color: var(--mr-primary); font-weight: 700; }
   .mr-empty { padding: 24px; text-align: center; color: var(--mr-muted); font-size: 13px; }
   .mr-more-btn { display: block; width: calc(100% - 8px); margin: 6px 4px 8px; padding: 8px 10px; border: 1px dashed var(--mr-line); border-radius: 9px; background: #f8fafc; color: var(--mr-primary); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-  .mr-more-btn:hover { border-style: solid; background: #f1f7f8; }
+  .mr-more-btn:hover { border-style: solid;}
 
   /* Right: compose + history */
   .mr-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
@@ -190,7 +190,7 @@
   .mr-badge-pending { background: #fef3c7; color: #92400e; }
   .mr-badge-channel { background: #e5f3f4; color: var(--mr-primary); }
   .mr-resend-btn { width: auto; margin: 0; flex: 0 0 auto; font-size: 11px; font-weight: 700; line-height: 1.4; color: var(--mr-primary); background: none; border: 1px solid var(--mr-primary); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
-  .mr-resend-btn:hover { background: var(--mr-primary); color: #fff; }
+  
   .mr-message-error { flex-basis: 100%; font-size: 12px; color: #a11434; }
   .mr-message-text-wrap { flex-basis: 100%; min-width: 0; }
   .mr-message-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; color: var(--mr-text); word-break: break-word; }
@@ -218,7 +218,7 @@
 
   /* Contact card (names in the contact list open it) */
   .mr-contact-open { all: unset; display: block; max-width: 100%; font-weight: 700; font-size: 13px; color: var(--mr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; border-radius: 4px; }
-  #mailroomRoot .mr-contact-open:hover { background: none; color: var(--mr-text); text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+  #mailroomRoot .mr-contact-open:hover { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px;}
   #mailroomRoot .mr-contact-open:focus { outline: none; }
   #mailroomRoot .mr-contact-open:focus-visible { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
   /* One fixed size for every tab, so switching tabs never resizes the card. */
@@ -235,15 +235,15 @@
   .cc-pill--plain { background: #f1f4f7; color: #4a5b6c; }
   .cc-actions { flex: none; display: flex; align-items: center; gap: 8px; align-self: flex-start; }
   .cc-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border: 1px solid #dde4ea; border-radius: 10px; background: #fff; color: var(--mr-text); font-size: 13px; font-weight: 700; cursor: pointer; }
-  .cc-btn:hover { background: #f6f8fa; }
+  
   .cc-btn--primary { border-color: transparent; background: var(--mr-primary); color: #fff; }
-  .cc-btn--primary:hover { background: var(--mr-primary); filter: brightness(.94); }
+  
   .cc-btn:disabled { opacity: .45; cursor: default; filter: none; }
   .cc-btn--primary:disabled { background: #c9d3dc; }
   .cc-tabs { display: flex; gap: 4px; padding: 16px 22px 0; background: #fff; border-bottom: 1px solid #e4e9ee; overflow-x: auto; scrollbar-width: none; }
   .cc-tabs::-webkit-scrollbar { display: none; }
   #mrCard .cc-tab { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border: 0; border-bottom: 2.5px solid transparent; border-radius: 0; background: none; color: #667788; font-size: 13px; font-weight: 700; cursor: pointer; }
-  #mrCard .cc-tab:hover { color: var(--mr-text); }
+  
   #mrCard .cc-tab.is-on { color: var(--mr-primary); border-bottom-color: var(--mr-primary); }
   #mrCard .cc-tab:focus { outline: none; box-shadow: none; }
   #mrCard .cc-tab:focus-visible { color: var(--mr-text); background: #f3f6f8; }
@@ -275,7 +275,7 @@
   .cc-with-action { display: flex; gap: 6px; }
   .cc-with-action > input { flex: 1; min-width: 0; }
   .cc-icon-link { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #dfe5eb; border-radius: 9px; background: #fff; color: #556676; text-decoration: none; }
-  .cc-icon-link:hover { border-color: var(--mr-primary); color: var(--mr-primary); }
+  
   .cc-icon-link[aria-disabled="true"] { pointer-events: none; opacity: .4; }
   .cc-icon-link svg { width: 16px; height: 16px; }
   .cc-obsolete > span::after { content: "Obsolete"; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #fdf3dc; color: #8a5a00; font-size: 10px; }

@@ -30,7 +30,7 @@
   .as-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--as-muted); }
   .as-tabs { display: flex; gap: 4px; margin: 18px 0 18px; border-bottom: 1px solid var(--as-line); }
   #asRoot .as-tab { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border: 0; border-bottom: 2.5px solid transparent; border-radius: 0; background: none; color: var(--as-muted); font-size: 13.5px; font-weight: 700; cursor: pointer; }
-  #asRoot .as-tab:hover { color: var(--as-text); background: none; }
+  
   #asRoot .as-tab.is-on { color: var(--as-primary); border-bottom-color: var(--as-primary); }
   #asRoot .as-tab:focus { outline: none; }
   .as-tab svg { width: 16px; height: 16px; }
@@ -44,14 +44,14 @@
   .as-card__body { padding: 14px 18px 18px; }
 
   .as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; color: var(--as-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
-  .as-btn:hover { background: #f8fafb; border-color: #d4dce4; color: var(--as-text); }
+  
   .as-btn svg { width: 15px; height: 15px; }
   .as-btn--primary { background: var(--as-primary); border-color: transparent; color: #fff; }
-  .as-btn--primary:hover { background: var(--as-primary); color: #fff; filter: brightness(.94); }
+  
   .as-btn:disabled { opacity: .45; cursor: default; }
   .as-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--as-muted); cursor: pointer; }
-  .as-icon-btn:hover { background: #eef2f5; color: var(--as-text); }
-  .as-icon-btn--danger:hover { background: #fdecec; color: #c0262d; }
+  
+  
   .as-icon-btn svg { width: 16px; height: 16px; }
 
   /* Online admission */
@@ -83,7 +83,7 @@
   .as-chips span { padding: 5px 10px; border-radius: 8px; background: #f4f6f8; font-size: 12.5px; font-weight: 600; color: #334252; }
   .as-filter { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; }
   #asRoot .as-filter button { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--as-muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
-  #asRoot .as-filter button:hover { color: var(--as-text); background: none; }
+  
   #asRoot .as-filter button.is-on { background: var(--as-primary); color: #fff; }
   .as-list { display: grid; gap: 14px; }
   .as-group { border: 1px solid var(--as-line); border-radius: 12px; padding: 10px; background: #fbfcfd; }
@@ -91,16 +91,16 @@
   .as-group__head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #334155; }
   .as-group__head span { font-size: 12px; color: var(--as-muted); }
   .as-group__add { margin-left: auto; border: 0; background: none; color: #01535b; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
-  .as-group__add:hover { background: #e6f0f1; }
+  
   .as-group__list { display: grid; gap: 6px; min-height: 40px; }
   .as-group__empty { display: grid; place-items: center; min-height: 40px; border: 1px dashed var(--as-line); border-radius: 10px; font-size: 12px; color: var(--as-muted); }
   .as-group__empty[hidden] { display: none; }
   .as-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 4px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-  .as-row:hover { border-color: #d3dbe3; box-shadow: 0 1px 3px rgba(16, 32, 48, .05); }
+  .as-row:hover { box-shadow: 0 1px 3px rgba(16, 32, 48, .05);}
   .as-row.is-obsolete { background: #fafbfc; }
   .as-row.is-obsolete .as-row__main strong { color: #8796a5; }
   .as-grip { display: grid; place-items: center; width: 24px; height: 30px; border-radius: 7px; color: #a8b4c0; cursor: grab; touch-action: none; flex: none; }
-  .as-grip:hover { background: #eef2f5; color: var(--as-text); }
+  
   .as-grip svg { width: 14px; height: 14px; }
   .as-type { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #f1f4f7; color: #4a5b6c; flex: none; }
   .as-type svg { width: 16px; height: 16px; }

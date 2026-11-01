@@ -91,7 +91,7 @@
   color: #fff !important;
   box-shadow: 0 1px 2px rgba(1, 83, 91, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-.tour-btn--primary:hover { background: var(--t-brand-hover); }
+
 .tour-btn--primary svg { transition: transform 0.15s ease; }
 .tour-btn--primary:hover svg { transform: translateX(2px); }
 
@@ -101,13 +101,13 @@
   border-color: var(--t-line-strong);
   box-shadow: var(--t-shadow-sm);
 }
-.tour-btn--ghost:hover { border-color: #b9c4d0; background: var(--t-soft); }
+
 .tour-btn:disabled { opacity: 0.45; cursor: default; }
 
 .tour-btn--light { background: #fff; color: var(--t-brand) !important; }
-.tour-btn--light:hover { background: #eaf4f4; }
+
 .tour-btn--outline-light { color: #fff !important; border-color: rgba(255, 255, 255, 0.35); background: transparent; }
-.tour-btn--outline-light:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.6); }
+
 
 /* ---------- Top bar ---------- */
 
@@ -143,7 +143,7 @@
 
 .tour-nav__links { display: flex; align-items: center; gap: 10px; }
 .tour-nav__link { font-size: 13.5px; font-weight: 500; color: var(--t-text) !important; padding: 0 8px; }
-.tour-nav__link:hover { color: var(--t-ink) !important; }
+
 
 /* ---------- Hero ---------- */
 
@@ -253,7 +253,7 @@
   font-weight: 600;
   cursor: pointer;
 }
-.tv__versions button:hover { background: var(--t-soft); color: var(--t-ink); }
+
 .tv__versions button[aria-pressed="true"] { background: var(--t-ink); color: #fff; }
 .tour-frame__screen { aspect-ratio: 16 / 9; overflow: hidden; background: var(--t-soft); }
 .tour-frame__screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
@@ -327,7 +327,7 @@
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .tour-tab span { color: var(--t-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.tour-tab:hover { background: rgba(255, 255, 255, 0.7); color: var(--t-ink); }
+
 .tour-tab.is-active { background: #fff; color: var(--t-ink); font-weight: 600; box-shadow: var(--t-shadow-sm), 0 0 0 1px var(--t-line); }
 .tour-tab:focus-visible { outline: 2px solid var(--t-brand); outline-offset: 2px; }
 
@@ -377,7 +377,7 @@
   animation: tour-in 0.35s ease both;
 }
 .tour-card[hidden] { display: none; }
-.tour-card:hover { transform: translateY(-3px); box-shadow: var(--t-shadow); border-color: var(--t-line-strong); }
+.tour-card:hover { transform: translateY(-3px); box-shadow: var(--t-shadow);}
 
 .tour-card__media {
   position: relative;
@@ -486,7 +486,7 @@
   font-size: 13px;
 }
 .tour-foot nav { display: flex; gap: 20px; }
-.tour-foot a:hover { color: var(--t-ink); }
+
 
 @keyframes tour-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -564,7 +564,7 @@ body.tv-open { overflow: hidden; }
   overflow: hidden;
 }
 .tv__zoom .tv__icon { border: 0; border-radius: 0; height: 32px; }
-.tv__zoom-label:hover { background: var(--t-soft); color: var(--t-ink); }
+
 .tv__zoom-label {
   min-width: 50px;
   height: 32px;
@@ -591,7 +591,7 @@ body.tv-open { overflow: hidden; }
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
-.tv__icon:hover { background: var(--t-soft); color: var(--t-ink); }
+
 .tv__icon:disabled { opacity: 0.4; cursor: default; }
 .tv__icon--close { border-color: transparent; }
 .tv__panel.is-focus .tv__icon--wide { background: var(--t-ink); color: #fff; border-color: var(--t-ink); }
@@ -632,7 +632,7 @@ body.tv-open { overflow: hidden; }
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
-.tv__step:hover { background: var(--t-soft); }
+
 .tv__step-num {
   flex: none;
   display: grid;

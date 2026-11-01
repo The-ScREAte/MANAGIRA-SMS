@@ -87,10 +87,8 @@ h6 {
 }
 
 .link-to-next-back a:hover {
-  background-color: var(--org-primary-hover, #002a25);
   text-decoration: none;
-  cursor: pointer;
-}
+  cursor: pointer;}
 
 .link-to-next-back i {
   margin-right: 5px;
@@ -129,9 +127,7 @@ nav ul li {
 }
 
 nav ul li:hover {
-  opacity: 7;
-  color: #0066cc;
-}
+  opacity: 7;}
 
 nav ul li a {
   text-decoration: none;
@@ -157,11 +153,7 @@ nav ul li a {
 }
 
 #loginbutton:hover {
-  background-color: var(--org-primary-soft-strong, #dbeff1);
-  color: var(--org-primary-color);
-  border-color: var(--org-primary-soft-border, var(--org-primary-color));
-  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(47, 64, 60, 0.18));
-}
+  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(47, 64, 60, 0.18));}
 
 /* h2 {
   color: #333;
@@ -207,8 +199,7 @@ button {
 }
 
 /* Only plain buttons get the default hover. Styled buttons keep their own
-   colors, so hovering never hides their text behind a dark fill. */
-button:not([class]):hover {
+   colors {
   background-color: var(--btn-primary-bg-hover, #013a40);
   color: var(--btn-primary-text, white);
 }
@@ -273,11 +264,8 @@ button[type="submit"] {
 }
 
 button[type="submit"]:hover {
-  background-color: var(--btn-primary-bg-hover, #013a40);
-  border-color: var(--btn-primary-bg-hover, #013a40);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(1, 83, 91, 0.28);
-}
+  box-shadow: 0 6px 16px rgba(1, 83, 91, 0.28);}
 
 form input[type="text"],
 form select,
@@ -323,10 +311,7 @@ form textarea {
   display: block;
 }
 
-.nav-item a:hover {
-  background-color: var(--org-primary-soft-strong, #dbeff1);
-  color: var(--org-primary-color);
-}
+
 
 .nav-menu.show {
   display: block !important;
@@ -364,10 +349,7 @@ form textarea {
   border-radius: 4px;
 }
 
-.submenu-toggle:hover {
-  background-color: var(--org-primary-soft-strong, #dbeff1);
-  color: var(--org-primary-color);
-}
+
 
 /* Specific styling for 'Management Tools', 'Settings', and 'Logout' links */
 .submenu-toggle.management {
@@ -387,10 +369,7 @@ form textarea {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.nav-item a.logout:hover {
-  background-color: var(--org-primary-soft-strong, #dbeff1);
-  color: var(--org-primary-color);
-}
+
 
 /* Arrow styling and animation */
 .submenu-toggle .arrow {
@@ -432,10 +411,7 @@ form textarea {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.management-links a:hover {
-  background-color: var(--org-primary-soft, #e6f4f5);
-  color: var(--org-primary-color);
-}
+
 
 /* Index page specific styles */
 .index-container {
@@ -471,9 +447,7 @@ form textarea {
   cursor: pointer;
 }
 
-.buttons .button-link button:hover {
-  background-color: var(--org-primary-hover-fill, #59a5ab);
-}
+
 
 .image-container {
   width: 80%;
@@ -702,9 +676,7 @@ form textarea {
     display: block;
   }
 
-  .nav-item a:hover {
-    background-color: #f0f0f0;
-  }
+  
 
   .nav-menu.show {
     display: block;
