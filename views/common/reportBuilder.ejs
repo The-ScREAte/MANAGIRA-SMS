@@ -86,7 +86,7 @@
       <footer class="rb-actions">
         <span class="rb-inline-error" data-error-for="1" role="alert"></span>
         <div class="rb-action-buttons">
-          <button class="rb-button rb-button-primary" type="button" data-next-step="2">Choose columns <span aria-hidden="true">&rarr;</span></button>
+          <button class="rb-button rb-button-primary" type="button" data-next-step="2" disabled>Choose columns <span aria-hidden="true">&rarr;</span></button>
         </div>
       </footer>
     </section>
@@ -101,8 +101,16 @@
       </div>
       <section class="rb-config-block">
         <h3>Available columns</h3>
-        <p class="rb-helper">Choose at least one column. The list is based on this report's data.</p>
+        <div class="rb-column-toolbar">
+          <label class="rb-field"><span>Find a column</span><input id="rb-column-search" type="search" placeholder="Column name" maxlength="100"></label>
+          <div class="rb-action-buttons">
+            <button class="rb-button rb-button-quiet" id="rb-columns-all" type="button">Select all</button>
+            <button class="rb-button rb-button-quiet" id="rb-columns-default" type="button">Reset</button>
+          </div>
+        </div>
+        <p class="rb-helper" id="rb-column-count" role="status"></p>
         <div class="rb-column-list" id="rb-column-list"></div>
+        <p class="rb-helper" id="rb-no-columns" hidden>No columns match.</p>
       </section>
       <footer class="rb-actions">
         <span class="rb-inline-error" data-error-for="2" role="alert"></span>
@@ -229,9 +237,8 @@
       </footer>
     </section>
   </div>
-</main>
-
 <script>
   window.reportBuilderData = <%- JSON.stringify(reportBuilderData).replace(/</g, '\\u003c') %>;
 </script>
 <script src="<%= assetUrl('/js/reportBuilder.js') %>" defer></script>
+</main>
