@@ -60,6 +60,7 @@ router.get('/app-demo', (req, res, next) => {
 	return appDemoController.publicPage(req, res, next);
 });
 router.get('/app-demo/media/:id(\\d+)/file', appDemoController.serveFile);
+router.get('/app-demo/media/:id(\\d+)/poster', appDemoController.servePoster);
 router.get('/app-demo/play/:id(\\d+)', appDemoController.playerPage);
 router.get('/request-demo', legalController.requestDemoPage);
 router.post('/request-demo', legalController.submitDemoRequest);

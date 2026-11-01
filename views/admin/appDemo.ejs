@@ -223,6 +223,9 @@
   .ade-switch--block .ade-switch__track { margin-top: 1px; }
   .ade-switch--block b { display: block; font-size: 13px; font-weight: 600; color: var(--a-ink); }
   .ade-switch--block small { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 400; line-height: 1.45; color: var(--a-muted); }
+  .ade-audience-options { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 7px; }
+  .ade-audience-options label { display: inline-flex; align-items: center; gap: 6px; color: var(--a-text); font-size: 12.5px; font-weight: 500; }
+  .ade-audience-options input { accent-color: var(--a-brand); }
   .ade-guide { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .ade-guide li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; }
   .ade-guide__n { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; background: var(--ade-accent, #14b8a6); color: #fff; font-size: 11.5px; font-weight: 700; }
@@ -617,7 +620,9 @@
   function bindDirty(form, names, track) {
     const saveBtn = form.querySelector('[data-ade-save]');
     const status = form.querySelector('[data-ade-status]');
-    const snapshot = () => names.map((n) => form[n].value).join('\u0000');
+    const snapshot = () => names.map((n) => n === 'audience_roles'
+      ? Array.from(form.querySelectorAll('[name="audience_roles"]:checked')).map((input) => input.value).sort().join(',')
+      : form[n].value).join('\u0000');
     form._baseline = snapshot();
     form._snapshot = snapshot;
     form.dataset.dirty = '';
@@ -674,6 +679,13 @@
     const tags = Array.from(new Set(allFeatures().map((x) => x.category).filter(Boolean)));
     const current = f ? sectionOf(f.id) : findSection(view.sectionId) || sections.find((s) => s.id !== null);
     const summary = f ? f.summary || '' : '';
+    const audiences = Array.isArray(f && f.audience_roles) ? f.audience_roles : ['public', 'staff', 'parents', 'students'];
+    const audienceOptions = [
+      ['public', 'Public visitors'],
+      ['staff', 'School staff'],
+      ['parents', 'Parents / guardians'],
+      ['students', 'Students'],
+    ];
     const options = sections.filter((s) => s.id !== null)
       .map((s) => '<option value="' + s.id + '"' + (current && current.id === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('')
       + (current && current.id === null ? '<option value="" selected>Unsorted</option>' : '');
@@ -689,6 +701,9 @@
       +     '<div class="ade-field"><label for="adeSectionId" title="Who uses this feature">Section</label><select id="adeSectionId" class="ade-select" name="category_id">' + options + '</select></div>'
       +     '<div class="ade-field"><label for="adeCategory" title="The small word above the title on the card">Label</label><input id="adeCategory" class="ade-input" name="category" maxlength="40" list="adeTags" placeholder="e.g. Finance" value="' + esc(f ? f.category || '' : '') + '">'
       +       '<datalist id="adeTags">' + tags.map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist></div>'
+      +     '<fieldset class="ade-field ade-field--full" style="border:0;padding:0;margin:0;"><legend style="font-size:12px;font-weight:600;color:var(--a-text);">Who can see this feature?</legend>'
+      +       '<div class="ade-audience-options">' + audienceOptions.map(([value, label]) => '<label><input type="checkbox" name="audience_roles" value="' + value + '"' + (audiences.includes(value) ? ' checked' : '') + '> ' + label + '</label>').join('') + '</div>'
+      +       '<small style="display:block;margin-top:6px;color:var(--a-muted);">Portal captures are only listed for the matching audience. Public visitors can see this feature only when selected.</small></fieldset>'
       +     '<div class="ade-field ade-field--full"><label for="adeSummary">Summary</label>'
       +       '<textarea id="adeSummary" class="ade-textarea" name="summary" maxlength="600" rows="3" placeholder="One or two sentences on what this feature does for a school.">' + esc(summary) + '</textarea>'
       +       '<div class="ade-field__foot"><span></span><small data-ade-chars>' + summary.length + ' / 600</small></div></div>'
@@ -703,7 +718,7 @@
 
   function mediaThumb(m) {
     if (m.media_type === 'html') {
-      return (m.poster_url ? '<img src="' + esc(m.poster_url) + '" alt="" loading="lazy">' : '<span class="ade-version__live">' + ICON.cursor + 'Interactive</span>')
+      return (m.poster_file_url || m.poster_url ? '<img src="' + esc(m.poster_file_url || m.poster_url) + '" alt="" loading="lazy">' : '<span class="ade-version__live">' + ICON.cursor + 'Interactive</span>')
         + '<span class="ade-version__badge">' + ICON.cursor + (m.guided === false ? 'Explore' : 'Guided') + '</span>';
     }
     return m.media_type === 'pdf'
@@ -767,12 +782,19 @@
 
   function bindFeature(f) {
     const form = editorEl.querySelector('[data-ade-details]');
-    bindDirty(form, ['title', 'category_id', 'category', 'summary'], Boolean(f));
+    bindDirty(form, ['title', 'category_id', 'category', 'audience_roles', 'summary'], Boolean(f));
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const body = { title: form.title.value, category_id: form.category_id.value || null, category: form.category.value, summary: form.summary.value };
+      const body = {
+        title: form.title.value,
+        category_id: form.category_id.value || null,
+        category: form.category.value,
+        summary: form.summary.value,
+        audience_roles: Array.from(form.querySelectorAll('[name="audience_roles"]:checked')).map((input) => input.value),
+      };
       if (!body.title.trim()) { form.title.focus(); return toast('Give the feature a title.', true); }
+      if (!body.audience_roles.length) return toast('Choose at least one audience for this feature.', true);
       await saveForm(form, async () => {
         if (f) {
           await post('/admin/app-demo/features/' + f.id, body);

@@ -11,7 +11,7 @@
       screens: f.screens.map((sc) => ({
         label: sc.label || '',
         caption: sc.caption || '',
-        media: sc.media.map((m) => ({ label: m.label || (m.media_type === 'html' ? 'Interactive' : ''), type: m.media_type, url: m.file_url, w: m.media_width || null, h: m.media_height || null, poster: m.poster_url || null })),
+        media: sc.media.map((m) => ({ label: m.label || (m.media_type === 'html' ? 'Interactive' : ''), type: m.media_type, url: m.file_url, w: m.media_width || null, h: m.media_height || null, poster: m.poster_file_url || null })),
       })),
     })),
   }));

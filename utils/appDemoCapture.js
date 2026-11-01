@@ -1,17 +1,17 @@
 // Interactive page captures for the product tour (/legal/app-demo).
 //
 // A full Admin opens a 30-minute capture window for one school from
-// /admin/app-demo. While it is open, staff signed in to that school (including
-// an Admin switched into it) see a "Capture this page" bar on every page
+// /admin/app-demo. While it is open, staff, parent and student accounts signed
+// in to that school see a "Capture this page" bar on every page
 // (public/js/demoCapture.js). A capture records the page and every state its
 // toggles, tabs and expanders lead to, and is saved as a version of a tour
 // step. Visitors replay it in a sandbox (public/js/appDemoPlayer.js): nothing
 // from the capture can run scripts or reach the server.
 const { ensureAppDemoSchema } = require("./appDemo");
+const { demoAudienceForSession } = require("./appDemoAudience");
 
 const WINDOW_MINUTES = 30;
 const CACHE_MS = 5 * 1000;
-const NON_STAFF_ROLES = new Set(["guardian", "student", "driver", "parent"]);
 let cache = { at: 0, window: null };
 
 async function activeWindow(db) {
@@ -46,13 +46,16 @@ async function stopWindow(db) {
   cache = { at: 0, window: null };
 }
 
-// Staff (not parents, students or drivers) signed in to the school that has the open window.
+// Portal users may record their own view; drivers and unauthenticated visitors may not.
 function isCaptureSession(req, window) {
   const s = req.session || {};
-  if (!window || !s.userId || !s.organizationId) return false;
+  if (!window || !s.organizationId) return false;
   if (Number(s.organizationId) !== Number(window.organization_id)) return false;
-  const role = String(s.userRole || s.accountType || "").trim().toLowerCase();
-  return !NON_STAFF_ROLES.has(role);
+  if (String(s.userRole || s.accountType || "").trim().toLowerCase() === "driver") return false;
+  const audience = demoAudienceForSession(s);
+  if (audience === "parents") return Boolean(s.guardianId);
+  if (audience === "students") return Boolean(s.studentId);
+  return audience === "staff" && Boolean(s.userId);
 }
 
 // Sets res.locals.demoCapture on full page loads for people who may capture.
@@ -118,4 +121,4 @@ function requireCaptureSession(db, { allowExpired = false } = {}) {
   };
 }
 
-module.exports = { WINDOW_MINUTES, activeWindow, startWindow, stopWindow, captureLocals, captureStatus, requireCaptureSession };
+module.exports = { WINDOW_MINUTES, activeWindow, startWindow, stopWindow, captureLocals, captureStatus, requireCaptureSession, isCaptureSession };

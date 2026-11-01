@@ -7,6 +7,7 @@ const zlib = require("zlib");
 const crypto = require("crypto");
 const { MEDIA_TYPES, ensureAppDemoSchema, getTour, invalidateTourCache } = require("../utils/appDemo");
 const capture = require("../utils/appDemoCapture");
+const { normalizeDemoAudiences, demoAudienceForSession, canViewDemoAudience } = require("../utils/appDemoAudience");
 const { pack: packCapture, bodyOf, headOf } = require("../public/js/capturePack");
 const { promisify } = require("util");
 // Large captures are compressed on libuv's thread pool, so other requests keep flowing.
@@ -81,6 +82,7 @@ function featureFields(body) {
     fields.category_id = Number.isFinite(id) ? id : null;
   }
   if (has(body, "is_active")) fields.is_active = body.is_active === true || body.is_active === "true" || body.is_active === "1";
+  if (has(body, "audience_roles")) fields.audience_roles = normalizeDemoAudiences(body.audience_roles);
   return fields;
 }
 
@@ -353,13 +355,16 @@ async function renderCapturePoster(data) {
 module.exports = {
   publicPage: async (req, res) => {
     let sections = [];
+    const audience = demoAudienceForSession(req.session);
     try {
-      sections = (await getTour(db)).sections;
+      sections = (await getTour(db, { audience })).sections;
     } catch (err) {
       console.error("[appDemo] tour load failed:", err.message);
     }
     // The page carries signed-in details (header), so only the visitor's own browser keeps it.
-    res.set("Cache-Control", "private, max-age=120, stale-while-revalidate=86400");
+    res.set("Cache-Control", audience === "public"
+      ? "private, max-age=120, stale-while-revalidate=86400"
+      : "private, no-store");
     res.render("legal&Compliance/appDemo", {
       title: "See Managira in action - Managira",
       description: "Take a guided tour of Managira for school management, parents, students and Mira, the AI assistant.",
@@ -381,23 +386,29 @@ module.exports = {
     try {
       await ensureAppDemoSchema(db);
       const { rows } = await db.query(
-        `SELECT m.s3_key, m.mime_type, m.media_type, f.is_active FROM app_demo_screen_media m
+        `SELECT m.s3_key, m.mime_type, m.media_type, f.is_active, f.audience_roles FROM app_demo_screen_media m
            JOIN app_demo_screens s ON s.id = m.screen_id
            JOIN app_demo_features f ON f.id = s.feature_id
-          WHERE m.id = $1 AND m.media_type IN ('pdf', 'html')`,
+          WHERE m.id = $1`,
         [id]
       );
       const media = rows[0];
       const isAdmin = req.session && req.session.accountType === "Admin";
-      if (!media || !media.s3_key || (!media.is_active && !isAdmin)) return res.sendStatus(404);
-      res.set("Cache-Control", media.is_active ? "public, max-age=3600" : "private, no-store");
+      const audience = demoAudienceForSession(req.session);
+      if (!media || !media.s3_key || (!media.is_active && !isAdmin)
+          || (!isAdmin && !canViewDemoAudience(media.audience_roles, audience))) return res.sendStatus(404);
+      res.set("Cache-Control", media.is_active && canViewDemoAudience(media.audience_roles, "public")
+        ? "public, max-age=3600"
+        : "private, no-store");
       if (media.media_type === "html") {
         const capture = await compressedCapture(media.s3_key);
         res.set("ETag", capture.etag);
         res.set("Vary", "Accept-Encoding");
         // Kept by browsers (and the service worker) between visits; a stale copy
         // may be shown while the server is restarting rather than an error.
-        res.set("Cache-Control", "public, max-age=600, stale-while-revalidate=604800, stale-if-error=604800");
+        res.set("Cache-Control", canViewDemoAudience(media.audience_roles, "public")
+          ? "public, max-age=600, stale-while-revalidate=604800, stale-if-error=604800"
+          : "private, no-store");
         if (req.headers["if-none-match"] === capture.etag) return res.status(304).end();
         const br = Boolean(capture.br) && /\bbr\b/.test(req.headers["accept-encoding"] || "");
         res.set("Content-Type", "application/json; charset=utf-8");
@@ -412,6 +423,37 @@ module.exports = {
       obj.Body.pipe(res);
     } catch (err) {
       console.error("[appDemo] file proxy failed:", err.message);
+      if (!res.headersSent) res.sendStatus(404);
+    }
+  },
+
+  servePoster: async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+      await ensureAppDemoSchema(db);
+      const { rows } = await db.query(
+        `SELECT m.poster_s3_key, f.is_active, f.audience_roles
+           FROM app_demo_screen_media m
+           JOIN app_demo_screens s ON s.id = m.screen_id
+           JOIN app_demo_features f ON f.id = s.feature_id
+          WHERE m.id = $1 AND m.media_type = 'html'`,
+        [id]
+      );
+      const media = rows[0];
+      const isAdmin = req.session && req.session.accountType === "Admin";
+      const audience = demoAudienceForSession(req.session);
+      if (!media || !media.poster_s3_key || (!media.is_active && !isAdmin)
+          || (!isAdmin && !canViewDemoAudience(media.audience_roles, audience))) return res.sendStatus(404);
+      const obj = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: media.poster_s3_key }));
+      res.set("Content-Type", "image/webp");
+      res.set("Cache-Control", media.is_active && canViewDemoAudience(media.audience_roles, "public")
+        ? "public, max-age=3600"
+        : "private, no-store");
+      if (obj.ContentLength) res.set("Content-Length", String(obj.ContentLength));
+      obj.Body.on("error", () => res.end());
+      return obj.Body.pipe(res);
+    } catch (err) {
+      console.error("[appDemo] poster proxy failed:", err.message);
       if (!res.headersSent) res.sendStatus(404);
     }
   },
@@ -495,13 +537,15 @@ module.exports = {
   createFeature: async (req, res) => {
     const fields = featureFields(req.body);
     if (!fields.title) return badRequest(res, "Give the feature a title.");
+    if (fields.audience_roles && !fields.audience_roles.length) return badRequest(res, "Choose at least one audience.");
     try {
       await ensureAppDemoSchema(db);
       const { rows } = await db.query(
-        `INSERT INTO app_demo_features (title, category, summary, category_id, is_active, created_by, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM app_demo_features))
+        `INSERT INTO app_demo_features (title, category, summary, category_id, is_active, audience_roles, created_by, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM app_demo_features))
          RETURNING id`,
-        [fields.title, fields.category || null, fields.summary || null, fields.category_id || null, fields.is_active !== false, req.session.userId || null]
+        [fields.title, fields.category || null, fields.summary || null, fields.category_id || null, fields.is_active !== false,
+          fields.audience_roles || ["public", "staff", "parents", "students"], req.session.userId || null]
       );
       return respondWithTour(res, { id: rows[0].id });
     } catch (err) {
@@ -513,6 +557,7 @@ module.exports = {
     const id = parseInt(req.params.id, 10);
     const fields = featureFields(req.body);
     if (has(fields, "title") && !fields.title) return badRequest(res, "The title cannot be empty.");
+    if (fields.audience_roles && !fields.audience_roles.length) return badRequest(res, "Choose at least one audience.");
     const cols = Object.keys(fields);
     if (!cols.length) return badRequest(res, "Nothing to update.");
     // A feature moved to another section goes to the end of it.
@@ -731,12 +776,20 @@ module.exports = {
   captureTargets: async (req, res) => {
     try {
       const tour = await getTour(db, { includeHidden: true });
+      const audience = demoAudienceForSession(req.session);
       return res.json({
         success: true,
         sections: tour.sections.map((s) => ({
           id: s.id,
           name: s.name,
-          features: s.features.map((f) => ({ id: f.id, title: f.title, steps: f.screens.map((sc, i) => ({ id: sc.id, label: sc.label || `Step ${i + 1}` })) })),
+          features: s.features
+            .filter((f) => audience === "staff" || canViewDemoAudience(f.audience_roles, audience))
+            .map((f) => ({
+              id: f.id,
+              title: f.title,
+              audience_roles: normalizeDemoAudiences(f.audience_roles),
+              steps: f.screens.map((sc, i) => ({ id: sc.id, label: sc.label || `Step ${i + 1}` })),
+            })),
         })),
       });
     } catch (err) {
@@ -768,8 +821,10 @@ module.exports = {
         return badRequest(res, "The capture could not be read. Please capture the page again.");
       }
       await ensureAppDemoSchema(db);
-      const feature = await db.query(`SELECT 1 FROM app_demo_features WHERE id = $1`, [featureId]);
-      if (!feature.rowCount) {
+      const feature = await db.query(`SELECT audience_roles FROM app_demo_features WHERE id = $1`, [featureId]);
+      const audience = demoAudienceForSession(req.session);
+      if (!feature.rowCount
+          || (audience !== "staff" && !canViewDemoAudience(feature.rows[0].audience_roles, audience))) {
         removeTempFiles(tempFiles);
         return notFound(res, "Feature");
       }
@@ -853,7 +908,7 @@ module.exports = {
     try {
       await ensureAppDemoSchema(db);
       const { rows } = await db.query(
-        `SELECT m.media_width, m.media_height, m.guide, m.accent, m.guided, m.poster_url, f.is_active, f.title FROM app_demo_screen_media m
+        `SELECT m.media_width, m.media_height, m.guide, m.accent, m.guided, m.poster_url, m.poster_s3_key, f.is_active, f.audience_roles, f.title FROM app_demo_screen_media m
            JOIN app_demo_screens s ON s.id = m.screen_id
            JOIN app_demo_features f ON f.id = s.feature_id
           WHERE m.id = $1 AND m.media_type = 'html'`,
@@ -861,7 +916,9 @@ module.exports = {
       );
       const media = rows[0];
       const isAdmin = req.session && req.session.accountType === "Admin";
-      if (!media || (!media.is_active && !isAdmin)) return res.sendStatus(404);
+      const audience = demoAudienceForSession(req.session);
+      if (!media || (!media.is_active && !isAdmin)
+          || (!isAdmin && !canViewDemoAudience(media.audience_roles, audience))) return res.sendStatus(404);
       res.set("X-Robots-Tag", "noindex, nofollow");
       res.render("legal&Compliance/appDemoPlayer", {
         layout: false,
@@ -871,7 +928,7 @@ module.exports = {
         height: media.media_height || 900,
         accent: cleanAccent(media.accent),
         guided: media.guided !== false,
-        poster: media.poster_url || null,
+        poster: media.poster_s3_key ? `/legal/app-demo/media/${id}/poster` : media.poster_url || null,
         guideIndexes: Array.isArray(media.guide) ? media.guide.map((g, i) => Number.isInteger(g && g.index) ? g.index : i) : null,
         guideTexts: Array.isArray(media.guide) ? media.guide.map((g) => String((g && g.text) || "")) : [],
       });

@@ -1,5 +1,5 @@
-// Demo capture bar (see utils/appDemoCapture.js). Shown to staff of the school
-// an Admin opened a capture window for. "Capture this page" records the page,
+// Demo capture bar (see utils/appDemoCapture.js). Shown to staff, parents or
+// students of the school an Admin opened a capture window for. "Capture this page" records the page,
 // then every click on a toggle, tab or expander adds the state it leads to;
 // "Finish" saves the recording as an interactive step of the product tour.
 //
@@ -853,7 +853,7 @@
     layer.innerHTML = `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mcap-title">
       <button type="button" class="m-close" data-act="close-dialog" aria-label="Close save dialog" title="Close">×</button>
       <div class="m-head"><h2 id="mcap-title">Save to the product tour</h2>
-        <p>Visitors will be able to click through this page on the public tour.</p></div>
+        <p>Only the audiences selected for the feature will see this captured page.</p></div>
       <div class="stats"><span class="stat">${data.guide.length} ${data.guide.length === 1 ? "step" : "steps"}</span>
         <span class="stat">${data.states.length} ${data.states.length === 1 ? "view" : "views"}</span>
         <span class="stat">${data.viewport.w} × ${data.viewport.h}</span></div>
@@ -890,7 +890,7 @@
     }
     bodyEl.innerHTML = `
       <label class="field"><span>Save to</span>
-        <select data-f="feature"><option value="" selected disabled>Choose a feature…</option>${sections.map((s) => `<optgroup label="${esc(s.name)}">${s.features.map((f) => `<option value="${f.id}">${esc(f.title)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+        <select data-f="feature"><option value="" selected disabled>Choose a feature…</option>${sections.map((s) => `<optgroup label="${esc(s.name)}">${s.features.map((f) => `<option value="${f.id}">${esc(f.title)} · ${f.audience_roles.map((role) => ({ public: "Public", staff: "Staff", parents: "Parents", students: "Students" }[role] || role)).join(", ")}</option>`).join("")}</optgroup>`).join("")}</select></label>
       <div class="field"><span>Add as</span>
         <div class="seg"><button type="button" data-mode="new" aria-pressed="true">New step</button><button type="button" data-mode="version" aria-pressed="false">Version of a step</button></div></div>
       <label class="field" data-show="new"><span>Step title</span><input data-f="step" maxlength="80" value="${esc(cleanTitle(data.title))}" placeholder="e.g. Class dashboard"></label>
@@ -907,7 +907,7 @@
       <div class="field"><span>Guide accent colour</span>
         <div class="swatches">${SWATCHES.map((c, i) => `<button type="button" class="sw" data-color="${c}" style="--c:${c}" aria-label="${c}" aria-pressed="${i === 0}"></button>`).join("")}
           <label class="sw sw--custom" title="Custom colour"><input type="color" data-f="custom" value="${SWATCHES[0]}"><span>Custom</span></label></div></div>
-      <div class="note">This page becomes public on the product tour. Make sure it shows demo data only.</div>`;
+      <div class="note">Use a demo/test account and remove private student or family details before saving. Access follows the feature’s audience settings.</div>`;
     let accent = SWATCHES[0];
     const pickColor = (c) => {
       accent = c;

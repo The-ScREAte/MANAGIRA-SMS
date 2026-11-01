@@ -15,6 +15,7 @@ const MEDIA_TYPES = {
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 20;
 const CACHE_TTL_MS = 60 * 1000;
+const { canViewDemoAudience, normalizeDemoAudiences } = require("./appDemoAudience");
 
 const SECTIONS = [
   { key: "management", name: "School Management", description: "For owners, administrators, teachers and finance staff who run the school day to day." },
@@ -92,7 +93,7 @@ const SEED = [
 
 let schemaPromise = null;
 let schemaReady = false;
-let tourCache = { at: 0, tour: null };
+const tourCache = new Map();
 
 function ensureAppDemoSchema(db) {
   if (schemaReady) return Promise.resolve();
@@ -194,6 +195,11 @@ async function createSchema(db) {
         ADD COLUMN IF NOT EXISTS guided BOOLEAN NOT NULL DEFAULT TRUE
     `);
     await client.query(`
+      ALTER TABLE app_demo_features
+        ADD COLUMN IF NOT EXISTS audience_roles TEXT[] NOT NULL
+          DEFAULT ARRAY['public', 'staff', 'parents', 'students']::TEXT[]
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS app_demo_capture_windows (
         id SERIAL PRIMARY KEY,
         organization_id INTEGER NOT NULL,
@@ -258,35 +264,49 @@ async function seed(client) {
   }
 }
 
-// Uploaded PDFs are streamed through the app so PDF.js can read them without
-// bucket CORS rules; interactive captures open in their player; images and
-// bundled files load directly.
+// Uploaded media is streamed through the app for audience checks; interactive
+// captures open in their player, while bundled seed images remain static files.
 function mediaFileUrl(media) {
   if (media.media_type === "html") return `/legal/app-demo/play/${media.id}`;
-  return media.media_type === "pdf" && media.s3_key ? `/legal/app-demo/media/${media.id}/file` : media.media_url;
+  if (media.s3_key) return `/legal/app-demo/media/${media.id}/file`;
+  return media.media_url;
+}
+
+function mediaPosterUrl(media) {
+  return media.poster_s3_key
+    ? `/legal/app-demo/media/${media.id}/poster`
+    : media.poster_url || null;
 }
 
 // { sections: [{ ...section, features: [{ ...feature, screens: [{ ...screen, media: [] }] }] }] }
 // The public tour leaves out hidden features, steps without a file, features
 // without steps and empty sections; the editor (includeHidden) sees everything.
-async function getTour(db, { includeHidden = false } = {}) {
-  if (!includeHidden && tourCache.tour && Date.now() - tourCache.at < CACHE_TTL_MS) return tourCache.tour;
+async function getTour(db, { includeHidden = false, audience = "public" } = {}) {
+  const cacheKey = includeHidden ? "admin" : audience;
+  const cached = tourCache.get(cacheKey);
+  if (!includeHidden && cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.tour;
   await ensureAppDemoSchema(db);
   const [sections, features, screens, media] = await Promise.all([
     db.query(`SELECT id, name, description, sort_order FROM app_demo_categories ORDER BY sort_order ASC, id ASC`),
-    db.query(`SELECT id, category_id, title, category, summary, is_active, sort_order FROM app_demo_features
+    db.query(`SELECT id, category_id, title, category, summary, is_active, audience_roles, sort_order FROM app_demo_features
                ${includeHidden ? "" : "WHERE is_active = TRUE"} ORDER BY sort_order ASC, id ASC`),
     db.query(`SELECT id, feature_id, label, caption, sort_order FROM app_demo_screens ORDER BY sort_order ASC, id ASC`),
-    db.query(`SELECT id, screen_id, label, media_type, media_url, s3_key, mime_type, media_width, media_height, poster_url, guide, accent, guided, sort_order
+    db.query(`SELECT id, screen_id, label, media_type, media_url, s3_key, mime_type, media_width, media_height, poster_url, poster_s3_key, guide, accent, guided, sort_order
                 FROM app_demo_screen_media ORDER BY sort_order ASC, id ASC`),
   ]);
 
   const screenById = new Map(screens.rows.map((s) => [s.id, { ...s, media: [] }]));
   for (const m of media.rows) {
     const s = screenById.get(m.screen_id);
-    if (s) s.media.push({ ...m, file_url: mediaFileUrl(m) });
+    if (s) s.media.push({ ...m, file_url: mediaFileUrl(m), poster_file_url: mediaPosterUrl(m) });
   }
-  const featureById = new Map(features.rows.map((f) => [f.id, { ...f, screens: [] }]));
+  const visibleFeatures = includeHidden
+    ? features.rows
+    : features.rows.filter((feature) => canViewDemoAudience(
+      normalizeDemoAudiences(feature.audience_roles),
+      audience
+    ));
+  const featureById = new Map(visibleFeatures.map((f) => [f.id, { ...f, screens: [] }]));
   for (const s of screenById.values()) {
     const f = featureById.get(s.feature_id);
     if (f && (includeHidden || s.media.length)) f.screens.push(s);
@@ -300,12 +320,12 @@ async function getTour(db, { includeHidden = false } = {}) {
   }
   if (unsorted.features.length) list.push(unsorted);
   const tour = { sections: includeHidden ? list : list.filter((s) => s.features.length) };
-  if (!includeHidden) tourCache = { at: Date.now(), tour };
+  if (!includeHidden) tourCache.set(cacheKey, { at: Date.now(), tour });
   return tour;
 }
 
 function invalidateTourCache() {
-  tourCache = { at: 0, tour: null };
+  tourCache.clear();
 }
 
 module.exports = {
