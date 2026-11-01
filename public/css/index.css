@@ -1,4 +1,20 @@
 /* Public Mira examples: scoped tokens preserve the rest of the site. */
+.report-builder-page {
+  --rb-ink: #172235;
+  --rb-muted: #536172;
+  --rb-border: #e4e9f0;
+  --rb-soft: #f6f8fb;
+  --rb-page: #f9fafb;
+  --rb-surface: #fff;
+  --rb-primary: var(--org-primary-color, #01535b);
+  --rb-primary-dark: var(--org-primary-hover, #01434a);
+  --rb-selected: #f0f9f8;
+  --rb-on-primary: #fff;
+  --rb-error: #b42318;
+  --rb-error-soft: #fff6f5;
+  --rb-focus: rgba(1, 83, 91, .16);
+}
+
 .mira-page {
   --mira-demo-background: #000;
   --mira-demo-surface: #171b20;
