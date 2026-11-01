@@ -1,0 +1,237 @@
+<%
+  const reportBuilderData = {
+    reportTypes: reportTypes || []
+  };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/reportBuilder.css') %>">
+
+<main class="report-builder-page">
+  <div class="rb-container">
+    <header class="rb-header">
+      <div>
+        <h1>Report Builder</h1>
+      </div>
+      <% if (!isEmbeddedFrame) { %>
+        <a class="rb-back-link" href="/common/reports"><span aria-hidden="true">&larr;</span> Back to Reports</a>
+      <% } %>
+    </header>
+
+    <nav class="rb-stepper" aria-label="Report creation steps">
+      <button class="rb-step is-current" type="button" data-step-nav="1" aria-current="step">
+        <span class="rb-step-number">1</span><span>Select report</span>
+      </button>
+      <span class="rb-step-divider" aria-hidden="true"></span>
+      <button class="rb-step" type="button" data-step-nav="2" disabled>
+        <span class="rb-step-number">2</span><span>Columns</span>
+      </button>
+      <span class="rb-step-divider" aria-hidden="true"></span>
+      <button class="rb-step" type="button" data-step-nav="3" disabled>
+        <span class="rb-step-number">3</span><span>Criteria</span>
+      </button>
+      <span class="rb-step-divider" aria-hidden="true"></span>
+      <button class="rb-step" type="button" data-step-nav="4" disabled>
+        <span class="rb-step-number">4</span><span>Run report</span>
+      </button>
+      <span class="rb-step-divider" aria-hidden="true"></span>
+      <button class="rb-step" type="button" data-step-nav="5" disabled>
+        <span class="rb-step-number">5</span><span>Save &amp; export</span>
+      </button>
+    </nav>
+
+    <section class="rb-panel" data-step-panel="1">
+      <div class="rb-select-layout">
+        <section class="rb-select-section rb-saved-section">
+          <div class="rb-panel-heading rb-saved-heading">
+            <div>
+              <h2>My reports</h2>
+            </div>
+          </div>
+          <div class="rb-saved-list" id="rb-saved-list">
+            <% if (savedReports.length) { %>
+              <% savedReports.forEach((saved) => { %>
+                <article class="rb-saved-item" data-saved-id="<%= saved.report_id %>">
+                  <button class="rb-saved-load" type="button" data-load-saved="<%= saved.report_id %>">
+                    <strong><%= saved.report_name %></strong>
+                    <span><%= (reportTypes.find((type) => type.key === saved.report_type) || {}).title || 'Report' %></span>
+                  </button>
+                  <button class="rb-icon-button" type="button" data-delete-saved="<%= saved.report_id %>" aria-label="Delete <%= saved.report_name %>" title="Delete saved report">×</button>
+                </article>
+              <% }) %>
+            <% } else { %>
+              <p class="rb-empty-saved">Saved reports will appear here.</p>
+            <% } %>
+          </div>
+        </section>
+        <section class="rb-select-section rb-report-section">
+          <div class="rb-panel-heading rb-report-heading">
+            <div>
+              <h2>Report type</h2>
+              <p>Select a report type to get started.</p>
+            </div>
+          </div>
+          <div class="rb-report-types" id="rb-report-types">
+            <% reportTypes.forEach((report) => { %>
+              <button class="rb-report-card" type="button" data-report-type="<%= report.key %>" aria-pressed="false">
+                <span class="rb-card-copy">
+                  <strong><%= report.title %></strong>
+                  <span><%= report.description %></span>
+                </span>
+                <span class="rb-card-check" aria-hidden="true">✓</span>
+              </button>
+            <% }) %>
+          </div>
+        </section>
+      </div>
+
+      <footer class="rb-actions">
+        <span class="rb-inline-error" data-error-for="1" role="alert"></span>
+        <div class="rb-action-buttons">
+          <button class="rb-button rb-button-primary" type="button" data-next-step="2">Choose columns <span aria-hidden="true">&rarr;</span></button>
+        </div>
+      </footer>
+    </section>
+
+    <section class="rb-panel" data-step-panel="2" hidden>
+      <div class="rb-panel-heading">
+        <div>
+          <p class="rb-eyebrow" id="rb-selected-report-label"></p>
+          <h2>Choose columns</h2>
+          <p>Select the information you want included in the report.</p>
+        </div>
+      </div>
+      <section class="rb-config-block">
+        <h3>Available columns</h3>
+        <p class="rb-helper">Choose at least one column. The list is based on this report's data.</p>
+        <div class="rb-column-list" id="rb-column-list"></div>
+      </section>
+      <footer class="rb-actions">
+        <span class="rb-inline-error" data-error-for="2" role="alert"></span>
+        <div class="rb-action-buttons">
+          <button class="rb-button rb-button-quiet" type="button" data-previous-step="1">Back</button>
+          <button class="rb-button rb-button-primary" type="button" data-next-step="3">Choose criteria <span aria-hidden="true">&rarr;</span></button>
+        </div>
+      </footer>
+    </section>
+
+    <section class="rb-panel" data-step-panel="3" hidden>
+      <div class="rb-panel-heading">
+        <div>
+          <p class="rb-eyebrow" id="rb-criteria-report-label"></p>
+          <h2>Choose criteria</h2>
+          <p>Filter this report using fields available for this type of data.</p>
+        </div>
+      </div>
+      <div class="rb-config-block">
+        <h3>Filter records <span class="rb-optional">Optional</span></h3>
+        <p class="rb-helper">Leave a field empty to include all matching records.</p>
+        <div class="rb-filter-grid">
+          <label class="rb-field rb-search-field">
+            <span id="rb-search-label">Search</span>
+            <input id="rb-search" type="search" maxlength="100" placeholder="Name or email">
+          </label>
+          <label class="rb-field" id="rb-class-field">
+            <span>Class</span>
+            <select id="rb-class">
+              <option value="">All classes</option>
+              <% classes.forEach((item) => { %><option value="<%= item.class_id %>"><%= item.class_name %></option><% }) %>
+            </select>
+          </label>
+          <label class="rb-field" id="rb-term-field" hidden>
+            <span>Term</span>
+            <select id="rb-term">
+              <option value="">All terms</option>
+              <% terms.forEach((item) => { %><option value="<%= item.term_id %>"><%= item.term_name %></option><% }) %>
+            </select>
+          </label>
+          <label class="rb-field" id="rb-from-date-field" hidden>
+            <span>From date</span>
+            <input id="rb-from-date" type="date">
+          </label>
+          <label class="rb-field" id="rb-to-date-field" hidden>
+            <span>To date</span>
+            <input id="rb-to-date" type="date">
+          </label>
+        </div>
+      </div>
+      <footer class="rb-actions">
+        <span class="rb-inline-error" data-error-for="3" role="alert"></span>
+        <div class="rb-action-buttons">
+          <button class="rb-button rb-button-quiet" type="button" data-previous-step="2">Back</button>
+          <button class="rb-button rb-button-primary" type="button" id="rb-run-report">Run report <span aria-hidden="true">&rarr;</span></button>
+        </div>
+      </footer>
+    </section>
+
+    <section class="rb-panel" data-step-panel="4" hidden>
+      <div class="rb-panel-heading rb-results-heading">
+        <div>
+          <p class="rb-eyebrow" id="rb-results-type"></p>
+          <h2 id="rb-results-title">Your report preview</h2>
+          <p id="rb-results-description">Review the records returned by your report.</p>
+        </div>
+      </div>
+      <div class="rb-results-status" id="rb-results-status" aria-live="polite"></div>
+      <div class="rb-table-wrap" id="rb-table-wrap" hidden>
+        <table class="rb-table">
+          <thead id="rb-table-head"></thead>
+          <tbody id="rb-table-body"></tbody>
+        </table>
+      </div>
+      <div class="rb-load-more-wrap" id="rb-load-more-wrap" hidden>
+        <button class="rb-button rb-button-quiet" type="button" id="rb-load-more">Load more rows</button>
+      </div>
+      <footer class="rb-actions">
+        <span class="rb-inline-error" data-error-for="4" role="alert"></span>
+        <div class="rb-action-buttons">
+          <button class="rb-button rb-button-quiet" type="button" data-previous-step="3">Back to criteria</button>
+          <button class="rb-button rb-button-primary" type="button" data-next-step="5" id="rb-next-save" disabled>Save or export <span aria-hidden="true">&rarr;</span></button>
+        </div>
+      </footer>
+    </section>
+
+    <section class="rb-panel" data-step-panel="5" hidden>
+      <div class="rb-panel-heading">
+        <div>
+          <p class="rb-eyebrow">Ready to keep or share</p>
+          <h2>Save or export your report</h2>
+          <p>Save the report setup to rerun it later, or download the current matching records.</p>
+        </div>
+      </div>
+      <div class="rb-save-grid">
+        <form class="rb-save-card" id="rb-save-form">
+          <span class="rb-save-icon" aria-hidden="true">✓</span>
+          <div>
+            <h3>Save this setup</h3>
+            <p>Keep the selected columns and criteria in your school's saved reports.</p>
+          </div>
+          <label class="rb-field">
+            <span>Report name</span>
+            <input id="rb-report-name" type="text" maxlength="120" required placeholder="e.g. Current class roster">
+          </label>
+          <button class="rb-button rb-button-primary" type="submit">Save report</button>
+        </form>
+        <div class="rb-save-card">
+          <span class="rb-save-icon rb-save-icon-blue" aria-hidden="true">↓</span>
+          <div>
+            <h3>Export current results</h3>
+            <p>Download all matching rows as a CSV file for spreadsheets.</p>
+          </div>
+          <p class="rb-export-note">Exports are limited to 5,000 rows. Add criteria to narrow a larger report.</p>
+          <button class="rb-button rb-button-outline" type="button" id="rb-export-report">Download CSV</button>
+        </div>
+      </div>
+      <div class="rb-step-message" id="rb-save-status" role="status" aria-live="polite"></div>
+      <footer class="rb-actions">
+        <div class="rb-action-buttons">
+          <button class="rb-button rb-button-quiet" type="button" data-previous-step="4">Back to results</button>
+          <button class="rb-button rb-button-quiet" type="button" id="rb-start-over">Start a new report</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+</main>
+
+<script>
+  window.reportBuilderData = <%- JSON.stringify(reportBuilderData).replace(/</g, '\\u003c') %>;
+</script>
+<script src="<%= assetUrl('/js/reportBuilder.js') %>" defer></script>

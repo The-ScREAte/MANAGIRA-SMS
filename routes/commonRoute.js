@@ -10,6 +10,7 @@ const websiteController = require("../controllers/websiteController");
 const workspaceController = require("../controllers/workspaceController");
 const contactsController = require("../controllers/contactsController");
 const admissionSettingsController = require("../controllers/admissionSettingsController");
+const reportBuilderController = require("../controllers/reportBuilderController");
 const { isOrgMember } = require("../utils/workspace");
 const multer = require('multer');
 const path = require('path');
@@ -83,6 +84,7 @@ function requireSetAssessmentQuestionsFeature(req, res, next) {
 }
 
 module.exports = (db) => {
+  const reportBuilder = reportBuilderController(db);
   router.get("/orgDashboard", isAuthenticated, blockGuardians, (req, res) => {
   // ...removed log for clean background operation...
     return commonController.orgDashboard(req, res, db);
@@ -918,6 +920,53 @@ module.exports = (db) => {
   // Reports Hub
   router.get("/reports", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
     commonController.reportsHub(req, res, db)
+  );
+
+  // Custom report builder (all report queries remain scoped to the signed-in school).
+  router.get(
+    "/report-builder",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    reportBuilder.page
+  );
+  router.post(
+    "/report-builder/run",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.run
+  );
+  router.post(
+    "/report-builder/save",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.save
+  );
+  router.post(
+    "/report-builder/export",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.export
+  );
+  router.get(
+    "/report-builder/saved/:reportId",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    reportBuilder.loadSaved
+  );
+  router.delete(
+    "/report-builder/saved/:reportId",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    reportBuilder.deleteSaved
   );
 
   // Mailroom
