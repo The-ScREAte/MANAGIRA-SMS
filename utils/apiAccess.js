@@ -206,6 +206,8 @@ function ensureApiAccessSchema(database = db) {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )`);
       await database.query(`CREATE INDEX IF NOT EXISTS idx_api_access_tokens_expiry ON api_access_tokens (expires_at)`);
+      // Change times and deletion records for incremental sync.
+      await require("./apiChangeTracking").ensureChangeTracking(database);
     })().catch((error) => { schemaPromise = null; throw error; });
   }
   return schemaPromise;

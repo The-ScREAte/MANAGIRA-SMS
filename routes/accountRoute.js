@@ -183,7 +183,7 @@ router.post(
   "/uploadSlideshowImages",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
-  upload.array("slideshowImages"),
+  require("../utils/mediaOptimize").websiteMediaUpload.array("slideshowImages"),
   (req, res) => accountController.uploadSlideshowImages(req, res, db)
 );
 router.post(

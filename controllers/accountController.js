@@ -7345,67 +7345,56 @@ const accountController = {
     }
   },
 
+  // Photos and videos for the school website. Each one is made smaller first
+  // (utils/mediaOptimize.js): photos to WebP, videos to 720p MP4 with a poster.
   uploadSlideshowImages: async (req, res) => {
+    const media = require("../utils/mediaOptimize");
+    const files = req.files || [];
+    const back = "/account/managePublicContent";
     try {
       const { contentType } = req.body;
-
-      const files = req.files; // Assuming multer is set up properly to use `req.files`
-
-      const captions = Array.isArray(req.body["fileTexts"])
-        ? req.body["fileTexts"]
-        : [req.body["fileTexts"]]; // Ensure `captions` is always an array
-
+      const captions = Array.isArray(req.body.fileTexts) ? req.body.fileTexts : [req.body.fileTexts];
       const orgId = req.session.organizationId;
-
-      if (!files || files.length === 0) {
-        req.flash("error", "No files selected for upload.");
-
-        return res.redirect("/account/managePublicContent");
+      if (!files.length) {
+        req.flash("error", "Choose at least one photo or video.");
+        return res.redirect(back);
       }
-
-      // Generate a unique `slideshow_id` for this set of images
-
+      if (!["slideshow", "siteImage"].includes(contentType)) {
+        req.flash("error", "Choose where the photos or videos go: slideshow or gallery.");
+        return res.redirect(back);
+      }
+      await media.ensureMediaColumns(db);
       let slideshowId = null;
-
       if (contentType === "slideshow") {
-        const slideshowIdResult = await db.query(
-          "INSERT INTO slideshows (organization_id) VALUES ($1) RETURNING slideshow_id",
-
-          [orgId]
-        );
-
-        slideshowId = slideshowIdResult.rows[0].slideshow_id;
+        slideshowId = (await db.query("INSERT INTO slideshows (organization_id) VALUES ($1) RETURNING slideshow_id", [orgId])).rows[0].slideshow_id;
       }
-
-      // Loop over files and upload them to S3, save to DB with `slideshow_id`
-
-      for (let i = 0; i < files.length; i++) {
+      let videos = 0;
+      let savedBytes = 0;
+      for (let i = 0; i < files.length; i += 1) {
         const file = files[i];
-
-        const caption = captions[i] || ""; // Match the caption to the file by index
-
-        // Upload to S3 under images/publicdashboard/{orgId}/
-
-        const imageKey = `images/publicdashboard/${orgId}/${file.originalname}`;
-
-        const imageUrl = await uploadToS3(file, imageKey);
-
-        // Save the file data to the database
-
+        const out = await media.optimizeUpload(file);
+        savedBytes += Math.max(0, file.size - out.buffer.length);
+        const base = `${Date.now()}_${String(file.originalname || "media").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-50)}`;
+        const folder = out.type === "video" ? "videos" : "images";
+        const url = await uploadToS3({ buffer: out.buffer, mimetype: out.mimetype }, `${folder}/publicdashboard/${orgId}/${base}${out.ext}`);
+        const posterUrl = out.poster
+          ? await uploadToS3({ buffer: out.poster.buffer, mimetype: out.poster.mimetype }, `images/publicdashboard/${orgId}/${base}_poster${out.poster.ext}`)
+          : null;
+        if (out.type === "video") videos += 1;
         await db.query(
-          "INSERT INTO organization_images (organization_id, slideshow_id, image_url, caption, allocation) VALUES ($1, $2, $3, $4, $5)",
-
-          [orgId, slideshowId, imageUrl, caption, contentType]
+          "INSERT INTO organization_images (organization_id, slideshow_id, image_url, caption, allocation, media_type, poster_url) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+          [orgId, slideshowId, url, captions[i] || "", contentType, out.type, posterUrl]
         );
       }
-
-      req.flash("success", "Content uploaded successfully.");
-
-      res.redirect("/account/managePublicContent");
+      const mb = savedBytes / (1024 * 1024);
+      req.flash("success", `${files.length} ${files.length === 1 ? "file" : "files"} added${videos ? ` (${videos} video${videos === 1 ? "" : "s"})` : ""}.${mb >= 1 ? ` Made ${mb.toFixed(0)} MB smaller for faster loading.` : ""}`);
+      return res.redirect(back);
     } catch (error) {
-            req.flash("error", "Failed to upload content. Please try again.");
-
-      res.redirect("/account/managePublicContent");
+      console.error("[uploadSlideshowImages]", error.message, error.detail || "");
+      req.flash("error", error.status ? error.message : "The upload could not be finished. Please try again.");
+      return res.redirect(back);
+    } finally {
+      media.removeTempFiles(files);
     }
   },
 
@@ -8074,7 +8063,7 @@ const accountController = {
       // Fetch the image URL first
 
       const imageResult = await db.query(
-        "SELECT image_url FROM organization_images WHERE image_id = $1 AND organization_id = $2",
+        "SELECT * FROM organization_images WHERE image_id = $1 AND organization_id = $2",
 
         [imageId, organizationId]
       );
@@ -8110,8 +8099,14 @@ const accountController = {
 
         await deleteFromS3(imageKey);
       }
+      // A video's poster frame goes with it.
+      const posterUrl = imageResult.rows[0].poster_url;
+      if (posterUrl) {
+        const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+        if (posterUrl.startsWith(s3Prefix)) await deleteFromS3(posterUrl.substring(s3Prefix.length)).catch(() => {});
+      }
 
-      req.flash("success", "Image deleted successfully.");
+      req.flash("success", imageResult.rows[0].media_type === "video" ? "Video deleted." : "Image deleted successfully.");
 
       res.redirect("/account/managePublicContent");
     } catch (error) {

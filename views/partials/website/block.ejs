@@ -89,9 +89,16 @@
   <div class="sw-gallery sw-gallery--<%= L %>">
     <% site.gallery.forEach((img, i) => { %>
       <figure class="sw-gallery__item">
-        <button type="button" class="sw-gallery__open" data-sw-lightbox="<%= i %>" aria-label="View photo<%= img.caption ? ': ' + img.caption : '' %>">
-          <img src="<%= img.url %>" alt="<%= img.caption || ('Photo ' + (i + 1)) %>" loading="lazy">
-        </button>
+        <% if (img.type === 'video') { %>
+          <button type="button" class="sw-gallery__open sw-gallery__open--video" data-sw-lightbox="<%= i %>" data-sw-video="<%= img.url %>" aria-label="Play video<%= img.caption ? ': ' + img.caption : '' %>">
+            <% if (img.poster) { %><img src="<%= img.poster %>" alt="<%= img.caption || ('Video ' + (i + 1)) %>" loading="lazy"><% } else { %><video src="<%= img.url %>#t=1" muted playsinline preload="metadata" aria-hidden="true"></video><% } %>
+            <span class="sw-gallery__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></span>
+          </button>
+        <% } else { %>
+          <button type="button" class="sw-gallery__open" data-sw-lightbox="<%= i %>" aria-label="View photo<%= img.caption ? ': ' + img.caption : '' %>">
+            <img src="<%= img.url %>" alt="<%= img.caption || ('Photo ' + (i + 1)) %>" loading="lazy">
+          </button>
+        <% } %>
         <% if (img.caption) { %><figcaption><%= img.caption %></figcaption><% } %>
       </figure>
     <% }) %>

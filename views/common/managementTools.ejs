@@ -499,60 +499,60 @@
       <ul class="nav-list">
         <li>
           <a class="nav-link active" href="/common/manageRecords" data-no-spa data-section="school-year" data-embed-url="/common/manageRecords" data-embed-label="School Years">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('schoolYears') %></span>
             <span>School years</span>
           </a>
         </li>
         <li>
           <a class="nav-link" href="/common/manageClassSubjectAndGradYr" data-no-spa data-section="graduation" data-embed-url="/common/manageClassSubjectAndGradYr" data-embed-label="Classes, Subjects &amp; Grad Years">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('classesSubjects') %></span>
             <span>Classes &amp; subjects</span>
           </a>
         </li>
         <li>
           <a class="nav-link" href="<%= assessmentUrl %>" data-no-spa data-section="assessment-scores" data-embed-url="<%= assessmentUrl %>" data-embed-label="Assessments">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M8 12h8M8 17h5"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('grading') %></span>
             <span>Assessments</span>
           </a>
         </li>
         <% if (canAccessAssessmentQuestions) { %>
         <li>
           <a class="nav-link" href="<%= assessmentQuestionsUrl %>" data-no-spa data-section="assessment-questions" data-embed-url="<%= assessmentQuestionsUrl %>" data-embed-label="<%= assessmentQuestionsLabel %>">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 19.5V5a2 2 0 012-2h13v17H6.5A2.5 2.5 0 004 22.5"/><path d="M4 19.5A2.5 2.5 0 016.5 17H19"/><path d="M9 8h6M9 12h6"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('questions') %></span>
             <span>Assessment questions</span>
           </a>
         </li>
         <% } %>
         <li>
           <a class="nav-link" href="/enrollment/manageEnrollment" data-no-spa data-section="enrollment" data-embed-url="/enrollment/manageEnrollment" data-embed-label="Enrollment">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('enrollment') %></span>
             <span>Enrollment</span>
           </a>
         </li>
         <li>
           <a class="nav-link" href="/promotion/apply" data-no-spa data-section="promotion" data-embed-url="/promotion/apply" data-embed-label="Promotion">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 16V8"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('promotion') %></span>
             <span>Promotion</span>
           </a>
         </li>
         <% if (canManageEmployees) { %>
         <li>
           <a class="nav-link" href="/common/manageEmployees" data-no-spa data-section="employees" data-embed-url="/common/manageEmployees" data-embed-label="Users / Employees">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><circle cx="17" cy="7" r="3"/><path d="M22 19c0-2.5-1.8-4.5-5-5"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('staff') %></span>
             <span>Users / Employees</span>
           </a>
         </li>
         <% } %>
         <li>
           <a class="nav-link" href="/common/guardians" data-no-spa data-section="guardians" data-embed-url="/common/guardians" data-embed-label="Guardians">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('guardians') %></span>
             <span>Parents &amp; guardians</span>
           </a>
         </li>
         <% if (typeof canEditContactTemplate !== 'undefined' && canEditContactTemplate) { %>
         <li>
           <a class="nav-link" href="/common/contact-template" data-no-spa data-section="contact-template" data-embed-url="/common/contact-template" data-embed-label="Contact Template">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.6-1.8 2-2.8 3.5-2.8s2.9 1 3.5 2.8M15 9h3M15 13h3"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('contactTemplate') %></span>
             <span>Contact template</span>
           </a>
         </li>
@@ -560,16 +560,16 @@
         <% if (hasTransportationIntegration) { %>
         <li>
           <a class="nav-link" href="/transportation/manage" data-no-spa data-section="transportation" data-embed-url="/transportation/manage" data-embed-label="Transportation">
-            <span class="nav-link-icon"><img src="/images/icons/transportation-logo-256.png" alt="Transportation" /></span>
+            <span class="nav-link-icon"><%- navIcon('transportation') %></span>
             <span>Transportation</span>
           </a>
         </li>
         <% } %>
         <% if (!hasTransportationIntegration || !hasMiraIntegration) { %>
-        <% [!hasTransportationIntegration && { name: 'Transportation', icon: '/images/icons/transportation-logo-256.png' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: '/images/icons/miralogo-256.png' }].filter(Boolean).forEach(function (off) { %>
+        <% [!hasTransportationIntegration && { name: 'Transportation', icon: 'transportation' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: 'mira' }].filter(Boolean).forEach(function (off) { %>
         <li>
           <a class="nav-link nav-link--off" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations" title="<%= off.name %> isn't turned on. Turn it on in Integrations.">
-            <span class="nav-link-icon"><img src="<%= off.icon %>" alt="" /></span>
+            <span class="nav-link-icon"><%- navIcon(off.icon) %></span>
             <span><%= off.name %> <span class="nav-turn-on">Turn on</span></span>
           </a>
         </li>
@@ -578,21 +578,21 @@
         <% if (hasMiraIntegration) { %>
         <li>
           <a class="nav-link" href="/account/mira" data-no-spa data-section="mira" data-embed-url="/account/mira" data-embed-label="Mira">
-            <span class="nav-link-icon"><img src="/images/icons/miralogo-256.png" alt="Mira" /></span>
+            <span class="nav-link-icon"><%- navIcon('mira') %></span>
             <span>Mira (AI Assistant)</span>
           </a>
         </li>
         <% } %>
         <li>
           <a class="nav-link" href="/common/manageEventsAnnouncements" data-no-spa data-section="announcements-events" data-embed-url="/common/manageEventsAnnouncements" data-embed-label="Announcements &amp; Events">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2z"/><path d="M16 8a5 5 0 010 8"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('announcements') %></span>
             <span>Events &amp; announcements</span>
           </a>
         </li>
         <% if (hasPublicWebsiteFeature) { %>
         <li>
           <a class="nav-link" href="/account/managePublicContent" data-no-spa data-section="public-website" data-embed-url="/account/managePublicContent" data-embed-label="School Website">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('website') %></span>
             <span>School website</span>
           </a>
         </li>
@@ -600,7 +600,7 @@
         <% if (hasFilesFeature) { %>
         <li>
           <a class="nav-link" href="/documents" data-no-spa data-section="documents" data-embed-url="/documents" data-embed-label="Docs/Sheets">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('docs') %></span>
             <span>Docs &amp; sheets</span>
           </a>
         </li>
@@ -608,21 +608,21 @@
         <% if (hasPaygiraFeature && (typeof canViewPaygiraOrgSwitch === 'undefined' || canViewPaygiraOrgSwitch)) { %>
         <li>
           <a class="nav-link" href="/account/settings/finance" data-no-spa>
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8.5 9.5c0-1.381 1.567-2.5 3.5-2.5s3.5 1.119 3.5 2.5-1.567 2.5-3.5 2.5S8.5 13.381 8.5 14.5 10.067 17 12 17s3.5-1.119 3.5-2.5"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('paygira') %></span>
             <span>PayGira</span>
           </a>
         </li>
         <% } %>
         <li>
           <a class="nav-link" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 12h8"/><path d="M12 8v8"/><circle cx="12" cy="12" r="9"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('integrations') %></span>
             <span>Integrations</span>
           </a>
         </li>
         <% if (typeof canManageApiAccess !== 'undefined' && canManageApiAccess) { %>
         <li>
           <a class="nav-link" href="/api-access/service-accounts" data-no-spa data-section="service-accounts" data-embed-url="/api-access/service-accounts" data-embed-label="Service Accounts">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><circle cx="18" cy="15" r="2.5"/><path d="M18 11v1.5M18 17.5V19M14.5 15H16M20 15h1.5"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('serviceAccounts') %></span>
             <span>Service accounts</span>
           </a>
         </li>
@@ -630,7 +630,7 @@
         <% if (canSeeEmailIssues) { %>
         <li>
           <a class="nav-link" href="/common/failedEmails" data-no-spa data-section="email-issues" data-embed-url="/common/failedEmails" data-embed-label="Email Issues">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('emailIssues') %></span>
             <span>Email issues<% if (failedEmailCount > 0) { %> <span data-email-issues-count style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
           </a>
         </li>

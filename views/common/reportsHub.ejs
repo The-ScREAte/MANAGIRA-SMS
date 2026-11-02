@@ -587,35 +587,35 @@
         <% if (hasOrgStats) { %>
         <li>
           <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="View Statistics">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('stats') %></span>
             <span>Organization Stats</span>
           </a>
         </li>
         <% } %>
         <li>
           <button class="nav-link nav-group-toggle" data-section="term-management" aria-expanded="false">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('termReports') %></span>
             <span>Term Reports</span>
             <span class="nav-caret" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></span>
           </button>
           <ul class="nav-submenu">
             <li>
               <a class="nav-sublink" href="/common/closeSchoolYear" data-no-spa data-group="term-management" data-embed-url="/common/closeSchoolYear" data-embed-label="Terminal reports">
-                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+                <span class="nav-link-icon"><%- navIcon('reportCard') %></span>
                 <span>Terminal reports</span>
               </a>
             </li>
             <% if (hasTranscripts) { %>
             <li>
               <a class="nav-sublink" href="/common/transcripts" data-no-spa data-group="term-management" data-section="transcripts" data-embed-url="/common/transcripts" data-embed-label="Transcripts">
-                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg></span>
+                <span class="nav-link-icon"><%- navIcon('transcript') %></span>
                 <span>Transcript</span>
               </a>
             </li>
             <% } %>
             <li>
               <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-section="report-settings" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
-                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+                <span class="nav-link-icon"><%- navIcon('sliders') %></span>
                 <span>Report Settings</span>
               </a>
             </li>
@@ -623,7 +623,7 @@
         </li>
         <li>
           <a class="nav-link<%= hasOrgStats ? '' : ' active' %>" href="/common/report-builder" data-no-spa data-section="report-builder" data-embed-url="/common/report-builder" data-embed-label="Report Builder">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="m17 17 2 2 4-4"/></svg></span>
+            <span class="nav-link-icon"><%- navIcon('reportBuilder') %></span>
             <span>Report Builder</span>
           </a>
         </li>

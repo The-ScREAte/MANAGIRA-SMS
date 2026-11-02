@@ -24,6 +24,7 @@ const API_ENDPOINTS = [
   { path: "/events?from=YYYY-MM-DD · /announcements", returns: "School events and announcements", needs: "Events & announcements" },
   { path: "/paygira/bills · /paygira/balances?student_id=&bill_id= · /paygira/payments?from=&to=", returns: "Bills, balances owed, payments", needs: "PayGira" },
   { path: "/transportation/routes · /transportation/stops?route_id= · /transportation/buses · /transportation/assignments?student_id=", returns: "Routes with their stops, all stops, buses, each student's stop", needs: "Transportation" },
+  { path: "/deleted?updated_since=", returns: "Students, guardians and attendance marks deleted since then", needs: "Students, Parents & guardians or Attendance" },
 ];
 
 const schoolNameOf = async (organizationId) => {

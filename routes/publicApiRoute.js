@@ -114,12 +114,44 @@ const wrap = (fn) => (req, res) => fn(req, res).catch((error) => {
   console.error("[api/v1]", req.path, error.message);
   fail(res, 500, "server_error", "Something went wrong.");
 });
+// ?updated_since=<ISO time>: only what changed after it. Anything that isn't a
+// real time is refused, so a typo can't silently return everything.
+const SINCE_OVERLAP_MINUTES = 5;
+const sinceOf = (req) => {
+  const raw = req.query.updated_since;
+  if (raw == null || raw === "") return { value: null };
+  const time = Date.parse(String(raw));
+  if (!Number.isFinite(time) || time < Date.UTC(2000, 0, 1) || time > Date.now() + 86400000) return { error: true };
+  return { value: new Date(time).toISOString() };
+};
+
 // A paged, school-scoped list: $1 is always the school, the last two are limit/offset.
-const listRoute = (scope, sql, params = () => []) => [needs(scope), wrap(async (req, res) => {
+// sql may depend on the request. With { incremental: true } the route takes
+// ?updated_since and answers with the cursor for the next sync.
+const listRoute = (scope, sql, params = () => [], options = {}) => [needs(scope), wrap(async (req, res) => {
   const p = page(req);
+  let since = { value: null };
+  if (options.incremental) {
+    since = sinceOf(req);
+    if (since.error) return fail(res, 400, "invalid_request", "updated_since must be a date-time like 2026-11-01T08:00:00Z.");
+    req.since = since.value;
+  }
+  const text = typeof sql === "function" ? sql(req) : sql;
   const values = [req.api.organizationId, ...params(req)];
-  const { rows } = await db.query(`${sql} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`, [...values, p.limit, p.offset]);
-  list(res, rows, p);
+  const [{ rows }, clock] = await Promise.all([
+    db.query(`${text} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`, [...values, p.limit, p.offset]),
+    options.incremental ? db.query("SELECT NOW() AS now") : Promise.resolve(null),
+  ]);
+  if (!options.incremental) return list(res, rows, p);
+  const now = clock.rows[0].now;
+  return res.json({
+    data: rows, limit: p.limit, offset: p.offset, has_more: rows.length === p.limit,
+    updated_since: since.value,
+    server_time: new Date(now).toISOString(),
+    // Use this as updated_since next time. It overlaps a little, so a change
+    // saved while you were syncing is never missed (you may see it twice).
+    next_updated_since: new Date(new Date(now).getTime() - SINCE_OVERLAP_MINUTES * 60000).toISOString(),
+  });
 })];
 
 router.use(authenticate);
@@ -155,20 +187,30 @@ router.get("/terms", ...listRoute("classes.read",
     ORDER BY start_date DESC NULLS LAST, term_id`, (req) => [id(req.query.school_year_id)]));
 
 // ---------- students ----------
+// status: active, graduated, or the reason they left (archived). updated_at
+// moves on any change, including leaving, so incremental sync sees it.
+const STUDENT_FROM = `FROM students s
+  LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+  LEFT JOIN LATERAL (
+    SELECT a.archive_kind, a.archived_at_ts FROM archived_student_info a
+     WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id
+     ORDER BY a.id DESC LIMIT 1
+  ) arch ON TRUE`;
 const STUDENT_FIELDS = `s.student_id AS id, s.custom_student_id AS student_number, s.first_name, s.last_name, s.gender,
-  s.class_id, c.class_name, COALESCE(s.graduated, FALSE) AS graduated`;
+  s.class_id, c.class_name,
+  CASE WHEN arch.archive_kind IS NOT NULL THEN LOWER(arch.archive_kind) WHEN COALESCE(s.graduated, FALSE) THEN 'graduated' ELSE 'active' END AS status,
+  GREATEST(s.api_changed_at, arch.archived_at_ts) AS updated_at`;
 router.get("/students", ...listRoute("students.read",
-  `SELECT ${STUDENT_FIELDS}
-     FROM students s LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+  (req) => `SELECT ${STUDENT_FIELDS} ${STUDENT_FROM}
     WHERE s.organization_id = $1 AND ($2::int IS NULL OR s.class_id = $2)
-    ORDER BY s.last_name, s.first_name, s.student_id`, (req) => [id(req.query.class_id)]));
+      AND ($3::timestamptz IS NULL OR GREATEST(s.api_changed_at, arch.archived_at_ts) > $3)
+    ORDER BY ${req.since ? "updated_at, s.student_id" : "s.last_name, s.first_name, s.student_id"}`,
+  (req) => [id(req.query.class_id), req.since], { incremental: true }));
 router.get("/students/:id", needs("students.read"), wrap(async (req, res) => {
   const studentId = id(req.params.id);
   if (!studentId) return fail(res, 404, "not_found", "No such student.");
   const { rows } = await db.query(
-    `SELECT ${STUDENT_FIELDS}
-       FROM students s LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
-      WHERE s.organization_id = $1 AND s.student_id = $2`,
+    `SELECT ${STUDENT_FIELDS} ${STUDENT_FROM} WHERE s.organization_id = $1 AND s.student_id = $2`,
     [req.api.organizationId, studentId]
   );
   return rows[0] ? res.json({ data: rows[0] }) : fail(res, 404, "not_found", "No such student.");
@@ -176,22 +218,31 @@ router.get("/students/:id", needs("students.read"), wrap(async (req, res) => {
 
 // ---------- parents & guardians ----------
 router.get("/guardians", ...listRoute("guardians.read",
-  `SELECT g.guardian_id AS id, g.first_name, g.last_name, g.email, g.phone,
-          COALESCE(ARRAY_AGG(s.student_id ORDER BY s.student_id) FILTER (WHERE s.student_id IS NOT NULL), '{}') AS student_ids
+  (req) => `SELECT g.guardian_id AS id, g.first_name, g.last_name, g.email, g.phone,
+          COALESCE(ARRAY_AGG(s.student_id ORDER BY s.student_id) FILTER (WHERE s.student_id IS NOT NULL), '{}') AS student_ids,
+          GREATEST(g.updated_at, MAX(gs.created_at)) AS updated_at
      FROM guardian_profiles g
      LEFT JOIN guardian_students gs ON gs.guardian_id = g.guardian_id
      LEFT JOIN students s ON s.student_id = gs.student_id AND s.organization_id = g.organization_id
     WHERE g.organization_id = $1
     GROUP BY g.guardian_id
-    ORDER BY g.last_name, g.first_name, g.guardian_id`));
+    HAVING ($2::timestamptz IS NULL OR GREATEST(g.updated_at, MAX(gs.created_at)) > $2)
+    ORDER BY ${req.since ? "updated_at, g.guardian_id" : "g.last_name, g.first_name, g.guardian_id"}`,
+  (req) => [req.since], { incremental: true }));
 
 // ---------- attendance ----------
-router.get("/attendance", needs("attendance.read"), (req, res, next) => (dateParam(req.query.date)
-  ? next() : fail(res, 400, "invalid_request", "Pass a real date as YYYY-MM-DD.")), ...listRoute("attendance.read",
-  `SELECT a.student_id, a.class_id, TO_CHAR(a.date, 'YYYY-MM-DD') AS date, a.status, a.marked_at
+// One day (?date=), or everything marked/changed since (?updated_since=).
+router.get("/attendance", needs("attendance.read"), (req, res, next) => {
+  if (req.query.date == null && req.query.updated_since) return next();
+  return dateParam(req.query.date) ? next() : fail(res, 400, "invalid_request", "Pass a real date as YYYY-MM-DD, or updated_since.");
+}, ...listRoute("attendance.read",
+  (req) => `SELECT a.attendance_id AS id, a.student_id, a.class_id, TO_CHAR(a.date, 'YYYY-MM-DD') AS date, a.status, a.marked_at,
+          COALESCE(a.updated_at, a.marked_at) AS updated_at
      FROM attendance_records a
-    WHERE a.organization_id = $1 AND a.date = $2::date AND ($3::int IS NULL OR a.class_id = $3)
-    ORDER BY a.class_id, a.student_id`, (req) => [dateParam(req.query.date), id(req.query.class_id)]));
+    WHERE a.organization_id = $1 AND ($2::date IS NULL OR a.date = $2::date) AND ($3::int IS NULL OR a.class_id = $3)
+      AND ($4::timestamptz IS NULL OR COALESCE(a.updated_at, a.marked_at) > $4)
+    ORDER BY ${req.since ? "updated_at, a.attendance_id" : "a.class_id, a.student_id"}`,
+  (req) => [dateParam(req.query.date), id(req.query.class_id), req.since], { incremental: true }));
 
 // ---------- grades ----------
 router.get("/grades", ...listRoute("grades.read",
@@ -208,10 +259,17 @@ router.get("/grades", ...listRoute("grades.read",
   (req) => [id(req.query.term_id), id(req.query.class_id), id(req.query.student_id)]));
 
 // ---------- staff ----------
+// Includes people who were removed (status "removed") or put on hold, so an
+// integration can switch them off too.
 router.get("/employees", ...listRoute("staff.read",
-  `SELECT user_id AS id, first_name, last_name, email, account_type AS role
-     FROM users WHERE organization_id = $1 AND removed_at IS NULL
-    ORDER BY last_name, first_name, user_id`));
+  (req) => `SELECT user_id AS id, first_name, last_name, email, account_type AS role,
+          CASE WHEN removed_at IS NOT NULL OR organization_id IS DISTINCT FROM $1 THEN 'removed' WHEN COALESCE(on_hold, FALSE) THEN 'on_hold' ELSE 'active' END AS status,
+          GREATEST(updated_at, removed_at) AS updated_at
+     FROM users
+    WHERE (organization_id = $1 OR removed_from_organization_id = $1)
+      AND ($2::timestamptz IS NULL OR GREATEST(updated_at, removed_at) > $2)
+    ORDER BY ${req.since ? "updated_at, user_id" : "last_name, first_name, user_id"}`,
+  (req) => [req.since], { incremental: true }));
 
 // ---------- events & announcements ----------
 router.get("/events", ...listRoute("calendar.read",
@@ -226,28 +284,32 @@ router.get("/announcements", ...listRoute("calendar.read",
 
 // ---------- PayGira ----------
 router.get("/paygira/bills", ...listRoute("paygira.read",
-  `SELECT bill_id AS id, title, description, amount, bill_type, recurrence, TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
-          status, term_id, school_year_id, created_at
-     FROM finance_bills WHERE organization_id = $1
-    ORDER BY created_at DESC, bill_id DESC`));
+  (req) => `SELECT bill_id AS id, title, description, amount, bill_type, recurrence, TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+          status, term_id, school_year_id, created_at, COALESCE(updated_at, created_at) AS updated_at
+     FROM finance_bills WHERE organization_id = $1 AND ($2::timestamptz IS NULL OR COALESCE(updated_at, created_at) > $2)
+    ORDER BY ${req.since ? "updated_at, bill_id" : "created_at DESC, bill_id DESC"}`,
+  (req) => [req.since], { incremental: true }));
 router.get("/paygira/balances", ...listRoute("paygira.read",
-  `SELECT fa.assignment_id AS id, fa.bill_id, b.title AS bill, fa.student_id,
+  (req) => `SELECT fa.assignment_id AS id, fa.bill_id, b.title AS bill, fa.student_id,
           COALESCE(fa.amount, 0) + COALESCE(fa.late_fee_applied, 0) AS billed, COALESCE(fa.amount_paid, 0) AS paid,
           GREATEST(COALESCE(fa.amount, 0) + COALESCE(fa.late_fee_applied, 0) - COALESCE(fa.amount_paid, 0), 0) AS balance,
-          fa.status, TO_CHAR(b.due_date, 'YYYY-MM-DD') AS due_date
+          fa.status, TO_CHAR(b.due_date, 'YYYY-MM-DD') AS due_date, COALESCE(fa.updated_at, fa.created_at) AS updated_at
      FROM finance_bill_assignments fa
      JOIN finance_bills b ON b.bill_id = fa.bill_id AND b.organization_id = fa.organization_id
     WHERE fa.organization_id = $1 AND ($2::int IS NULL OR fa.student_id = $2) AND ($3::int IS NULL OR fa.bill_id = $3)
-    ORDER BY fa.assignment_id`, (req) => [id(req.query.student_id), id(req.query.bill_id)]));
+      AND ($4::timestamptz IS NULL OR COALESCE(fa.updated_at, fa.created_at) > $4)
+    ORDER BY ${req.since ? "updated_at, fa.assignment_id" : "fa.assignment_id"}`, (req) => [id(req.query.student_id), id(req.query.bill_id), req.since], { incremental: true }));
 router.get("/paygira/payments", ...listRoute("paygira.read",
-  `SELECT payment_id AS id, bill_id, student_id, assignment_id,
+  (req) => `SELECT payment_id AS id, bill_id, student_id, assignment_id,
           CASE WHEN COALESCE(is_refund, FALSE) THEN -amount ELSE amount END AS amount,
           CASE WHEN COALESCE(is_refund, FALSE) THEN 'refund' ELSE 'payment' END AS kind,
           method, reference, received_at
      FROM finance_payments
     WHERE organization_id = $1 AND ($2::date IS NULL OR received_at >= $2::date)
       AND ($3::date IS NULL OR received_at < ($3::date + 1))
-    ORDER BY received_at DESC, payment_id DESC`, (req) => [dateParam(req.query.from), dateParam(req.query.to)]));
+      AND ($4::timestamptz IS NULL OR received_at > $4)
+    ORDER BY ${req.since ? "received_at, payment_id" : "received_at DESC, payment_id DESC"}`,
+  (req) => [dateParam(req.query.from), dateParam(req.query.to), req.since], { incremental: true }));
 
 // ---------- transportation ----------
 router.get("/transportation/routes", ...listRoute("transport.read",
@@ -274,6 +336,24 @@ router.get("/transportation/assignments", ...listRoute("transport.read",
      LEFT JOIN transport_stops st ON st.stop_id = a.stop_id AND st.organization_id = a.organization_id
     WHERE a.organization_id = $1 AND COALESCE(a.active, TRUE) AND ($2::int IS NULL OR a.student_id = $2)
     ORDER BY a.student_id, a.assignment_id`, (req) => [id(req.query.student_id)]));
+
+// ---------- deletions ----------
+// Students, guardians and attendance marks deleted since a time, for the areas
+// this token can read. Pair with updated_since on the lists.
+const DELETED_SCOPES = { student: "students.read", guardian: "guardians.read", attendance: "attendance.read" };
+router.get("/deleted", (req, res, next) => {
+  const since = sinceOf(req);
+  if (!since.value) return fail(res, 400, "invalid_request", "Pass updated_since, e.g. ?updated_since=2026-11-01T08:00:00Z.");
+  req.since = since.value;
+  const allowed = Object.keys(DELETED_SCOPES).filter((entity) => req.api.scopes.includes(DELETED_SCOPES[entity]));
+  if (!allowed.length) return fail(res, 403, "insufficient_scope", "This token can't read students, guardians or attendance.");
+  req.deletedEntities = allowed;
+  return next();
+}, ...listRoute("managira.api.access",
+  `SELECT entity, record_id AS id, deleted_at FROM api_deleted_records
+    WHERE organization_id = $1 AND entity = ANY($2::text[]) AND deleted_at > $3
+    ORDER BY deleted_at, id`,
+  (req) => [req.deletedEntities, req.since], { incremental: true }));
 
 router.use((req, res) => fail(res, 404, "not_found", "No such API endpoint."));
 // Bad request bodies (broken JSON, too large) get a JSON answer, never a page.

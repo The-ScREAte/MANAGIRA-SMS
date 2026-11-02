@@ -45,6 +45,7 @@
     "express-ejs-layouts": "^2.5.1",
     "express-session": "^1.18.1",
     "express-validator": "^7.3.0",
+    "ffmpeg-static": "^5.2.0",
     "googleapis": "^173.0.0",
     "he": "^1.2.0",
     "http-proxy-middleware": "^2.0.10",

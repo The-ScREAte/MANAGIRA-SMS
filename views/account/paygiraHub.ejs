@@ -4,16 +4,15 @@
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
   const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
-  const _ico = (d) => '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
   const finSections = [
-    { id: 'overview', label: 'Overview', url: '/account/settings/finance?section=overview', icon: _ico('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/>') },
-    { id: 'bills', label: 'Bill Management', url: '/account/settings/finance?section=bills', icon: _ico('<path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>') },
-    { id: 'students', label: 'Org-Wide Bills', url: '/account/settings/finance?section=students', icon: _ico('<path d="M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M3 21h18M8 7h4M8 11h4M8 15h4"/>') },
-    { id: 'subscriptions', label: 'Subscriptions', url: '/account/settings/finance?section=subscriptions', icon: _ico('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>') },
-    { id: 'payments', label: 'Payment Tracking', url: '/account/settings/finance?section=payments', icon: _ico('<path d="M3 12h4l3 8 4-16 3 8h4"/>') },
-    { id: 'arrears', label: 'Fee Recovery', url: '/account/settings/finance/arrears', icon: _ico('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>') },
-    { id: 'payouts', label: 'Payouts', url: '/account/settings/finance?section=payouts', icon: _ico('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>') },
-    { id: 'settings', label: 'Payment Settings', url: '/account/settings/finance?section=settings', icon: _ico('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>') },
+    { id: 'overview', label: 'Overview', url: '/account/settings/finance?section=overview', icon: navIcon('overview') },
+    { id: 'bills', label: 'Bill Management', url: '/account/settings/finance?section=bills', icon: navIcon('bills') },
+    { id: 'students', label: 'Org-Wide Bills', url: '/account/settings/finance?section=students', icon: navIcon('orgBills') },
+    { id: 'subscriptions', label: 'Subscriptions', url: '/account/settings/finance?section=subscriptions', icon: navIcon('subscriptions') },
+    { id: 'payments', label: 'Payment Tracking', url: '/account/settings/finance?section=payments', icon: navIcon('payments') },
+    { id: 'arrears', label: 'Fee Recovery', url: '/account/settings/finance/arrears', icon: navIcon('feeRecovery') },
+    { id: 'payouts', label: 'Payouts', url: '/account/settings/finance?section=payouts', icon: navIcon('payouts') },
+    { id: 'settings', label: 'Payment Settings', url: '/account/settings/finance?section=settings', icon: navIcon('sliders') },
   ];
   const _initial = finSections.some((s) => s.id === initialSection) ? initialSection : 'overview';
 %>

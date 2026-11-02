@@ -937,30 +937,47 @@
   
 
   /* Appearance row (partials/appearanceToggle.ejs) lines up with the links above it. */
-  header#top-header .nav-menu .ap-dots-row { padding: 9px 4px 9px 0; }
-  header#top-header .nav-menu .ap-dots-label { font-size: 0.88rem; gap: 8px; }
-
-  header#top-header .nav-menu .nav-item a.management-link svg {
-    color: inherit;
-    width: 14px !important;
-    height: 14px !important;
-    margin-right: 0 !important;
-    flex: 0 0 auto;
-    opacity: 0.92;
+  header#top-header .nav-menu .ap-dots-row { padding: 5px 4px 5px 0; }
+  header#top-header .nav-menu .ap-dots-label { font-size: 0.88rem; gap: 11px; }
+  header#top-header .nav-menu .ap-dots-label svg {
+    width: 32px !important; height: 32px !important; padding: 6.5px; box-sizing: border-box; flex: 0 0 auto;
+    border-radius: 9px; background: color-mix(in srgb, currentColor 9%, transparent);
   }
 
-  /* Public dashboard sticky nav styled as outline pills (matches tab look) */
+  /* Menu icons sit on a soft tile, same as the workspace sidebars (utils/navIcons.js). */
+  header#top-header .nav-menu .menu-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: color-mix(in srgb, currentColor 9%, transparent);
+    color: inherit;
+  }
+  header#top-header .nav-menu .menu-icon svg {
+    width: 19px !important;
+    height: 19px !important;
+    margin: 0 !important;
+  }
+  header#top-header .nav-menu .nav-item a.management-link:not(.logout),
+  header#top-header .nav-menu .nav-item a.logout { gap: 11px; padding: 5px 8px; }
+
+  /* School website section menu: clean text links, the current one underlined. */
   header#top-header .sticky-nav {
     position: absolute;
     top: 100%;
     left: 0;
     width: 100%;
-    background: transparent;
+    background: rgba(255, 255, 255, 0.97);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     color: var(--org-primary-color);
     z-index: 9998;
-    padding: 5px;
+    padding: 0;
     box-shadow: none;
-    border-bottom: none;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   }
 
   header#top-header .sticky-nav ul {
@@ -970,7 +987,7 @@
     align-items: center;
     padding: 0;
     margin: 0;
-    gap: 2px;
+    gap: 6px;
   }
 
   header#top-header .sticky-nav ul li a {
@@ -978,34 +995,27 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    color: var(--org-primary-color, #01535b);
-    background: rgba(255, 255, 255, 0.9);
-    border: 2px solid var(--org-primary-color, #01535b);
-    border-radius: 10px;
+    color: #334155;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
     text-decoration: none;
-    padding: 8px 14px;
-    font-size: 13.5px;
-    font-weight: 700;
+    padding: 12px 14px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     white-space: nowrap;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: color 0.15s ease, border-color 0.15s ease;
+    box-shadow: none;
   }
 
-  header#top-header .sticky-nav ul li a .nav-icon {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    display: block;
-    color: inherit;
-    stroke: currentColor;
-    stroke-width: 2.2;
-    opacity: 1;
-  }
+  header#top-header .sticky-nav ul li a .nav-icon { display: none; }
 
   header#top-header .sticky-nav ul li a.active {
-    background: var(--org-primary-color, #01535b);
-    color: #ffffff;
-    border-color: var(--org-primary-color, #01535b);
+    background: transparent;
+    color: var(--org-primary-color, #01535b);
+    border-bottom-color: var(--org-primary-color, #01535b);
   }
 
   .flash-wrapper {
@@ -1662,18 +1672,16 @@
     header#top-header .nav-menu .nav-item a.management-link:not(.logout),
     header#top-header .nav-menu .nav-item a.logout {
       font-size: 0.82rem;
-      padding: 8px 9px;
-      gap: 7px;
+      padding: 5px 8px;
+      gap: 10px;
     }
 
-    header#top-header .nav-menu .ap-dots-row { padding: 8px 4px 8px 0; }
-    header#top-header .nav-menu .ap-dots-label { font-size: 0.82rem; gap: 7px; }
-    header#top-header .nav-menu .ap-dots-label svg { width: 13px; height: 13px; }
+    header#top-header .nav-menu .ap-dots-row { padding: 5px 4px 5px 0; }
+    header#top-header .nav-menu .ap-dots-label { font-size: 0.82rem; gap: 10px; }
+    header#top-header .nav-menu .ap-dots-label svg { width: 30px !important; height: 30px !important; padding: 6px; }
 
-    header#top-header .nav-menu .nav-item a.management-link svg {
-      width: 13px !important;
-      height: 13px !important;
-    }
+    header#top-header .nav-menu .menu-icon { width: 30px; height: 30px; }
+    header#top-header .nav-menu .menu-icon svg { width: 18px !important; height: 18px !important; }
 
     a.header-welcome {
       display: none !important;
@@ -2432,139 +2440,99 @@
         <!-- Org is on hold: only Settings (to resolve billing) and Logout are usable. -->
         <li class="nav-item">
           <a href="/account/settings" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('settings') %></span>
             Settings
           </a>
         </li>
         <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item">
           <a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('logout') %></span>
             Logout
           </a>
         </li>
       <% } else if (req.session && req.session.accountType === 'Hub') { %>
         <!-- Hub-only menu -->
         <li class="nav-item"><a href="/hub/dashboard" class="management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
         <li class="nav-item"><a href="/hub/settings" class="nav-item-link management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings
         </a></li>
         <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/hub/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
         </a></li>
       <% } else if (req.session && req.session.userRole === 'Guardian') { %>
         <!-- Guardian-only menu -->
         <li class="nav-item"><a href="/guardian/dashboard" class="management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('website') %></span>
           School Website
         </a></li>
         <% } %>
         <li class="nav-item"><a href="/guardian/reports" class="management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('messages') %></span>
           Messages
         </a></li>
         <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('PayGira')) { %>
         <li class="nav-item"><a href="/guardian/paygira" class="management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('paygira') %></span>
           PayGira
         </a></li>
         <% } %>
         <li class="nav-item"><a href="/guardian/settings" class="nav-item-link management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings
         </a></li>
         <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
         </a></li>
       <% } else if (req.session && req.session.userRole === 'Student') { %>
         <% const _studentCanUseTestingRoom = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Set Assessment Questions') || allowedFeatures.includes('Assessment Questions')); %>
         <li class="nav-item"><a href="/student/dashboard" class="management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('website') %></span>
           School Website
         </a></li>
         <% } %>
         <% if (_studentCanUseTestingRoom) { %>
         <li class="nav-item"><a href="/student/testing-room" class="nav-item-link management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L15 12l-5.25-5"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('questions') %></span>
           Testing Room
         </a></li>
         <% } %>
         <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
         </a></li>
       <% } else if (req.session && req.session.userRole === 'Driver') { %>
         <!-- Driver-only menu -->
         <li class="nav-item"><a href="/driver/dashboard" class="management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
         <li class="nav-item"><a href="/driver/settings" class="nav-item-link management-link">
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings
         </a></li>
         <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
-          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-          </svg>
+          <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
         </a></li>
       <% } else { %>
@@ -2599,10 +2567,7 @@
         <% if (req.session && canSeeManagementTools) { %>
         <li class="nav-item">
           <a href="/common/management" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('management') %></span>
             Management Tools
           </a>
         </li>
@@ -2610,9 +2575,7 @@
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item">
           <a href="<%= schoolWebsiteHref %>" class="nav-item-link management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('website') %></span>
             School Website
           </a>
         </li>
@@ -2620,9 +2583,7 @@
         <% if (req.session && Array.isArray(userPermissions) && userPermissions.includes('mailroom')) { %>
         <li class="nav-item">
           <a href="/common/mailroom" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('mailroom') %></span>
             Mailroom
           </a>
         </li>
@@ -2630,33 +2591,21 @@
         <% if (req.session && req.session.organizationId && !['guardian', 'student'].includes(String(req.session.userRole || '').toLowerCase())) { %>
         <li class="nav-item">
           <a href="/common/calendar" class="nav-item-link management-link" data-no-spa>
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke-width="2"></rect>
-              <path stroke-linecap="round" stroke-width="2" d="M3 9.5h18M8 2.5v4M16 2.5v4"></path>
-              <path stroke-linecap="round" stroke-width="2" d="M8 14h2M14 14h2M8 17.5h2"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('calendar') %></span>
             Calendar
           </a>
         </li>
         <% } %>
         <li class="nav-item">
           <a href="/common/birthdays" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 7h20v5H2z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22V7"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"></path>
-            </svg>
-            Birthdays 🎂
+            <span class="menu-icon"><%- navIcon('birthdays') %></span>
+            Birthdays
           </a>
         </li>
         <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Student and Guadian Profile') || allowedFeatures.includes('Student and Guardian Profile'))) { %>
         <li class="nav-item">
           <a href="/common/admissions" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('addStudent') %></span>
             Admissions
           </a>
         </li>
@@ -2664,28 +2613,21 @@
         <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Terminal Report') || allowedFeatures.includes('Progressive Student Report') || allowedFeatures.includes('Progressive Student Report ') || allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet') || allowedFeatures.includes('Official School Transcript'))) { %>
         <li class="nav-item">
           <a href="/common/reports" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('reports') %></span>
             Reports
           </a>
         </li>
         <% } %>
         <li class="nav-item">
           <a href="/account/settings" class="nav-item-link management-link">
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('settings') %></span>
             Settings
           </a>
         </li>
         <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item">
           <a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
-            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-            </svg>
+            <span class="menu-icon"><%- navIcon('logout') %></span>
             Logout
           </a>
         </li>

@@ -129,7 +129,12 @@
       if (!c || c.a < 0.03) return null;
       const o = toLch(c);
       if (DARK) {
-        if (o.L >= 0.7 && o.C <= 0.1) { const t = tint(o, 0.7); return fromLch(0.33 + (o.L - 0.7) * 0.25, t.C, t.h, c.a); }
+        // Light see-through lines already read on dark planes (and are this remap's own output below).
+        if (o.L >= 0.7 && o.C <= 0.1) { if (c.a < 0.6) return null; const t = tint(o, 0.7); return fromLch(0.33 + (o.L - 0.7) * 0.25, t.C, t.h, c.a); }
+        // Dark gray lines (often see-through, like rgba(15,23,42,.08)) vanish on dark
+        // planes: they become light lines of about the same strength.
+        if (o.C <= 0.06 && c.a < 0.6 && o.L < 0.5) return { r: 226, g: 232, b: 240, a: Math.min(0.24, Math.max(0.1, c.a * 1.3)) };
+        if (o.C <= 0.06 && o.L < 0.3) return fromLch(0.42, 0.008, TINT_H, c.a);
         return null;
       }
       if (o.L < 0.85 || o.C > 0.06) return null;
@@ -215,6 +220,8 @@
       const c = parse(value);
       if (!c) return null;
       const n = name.toLowerCase();
+      // Line variables first: "--line-soft" or "--border-light" are lines, not surfaces.
+      if (/(^|-)(border|borders|line|lines|divider|outline|ring|rule|separator|stroke)(-|$)/.test(n) && !/bg|background|fill/.test(n)) return mapLine(c);
       if (/soft|tint|bg|background|surface|card|panel|plane|paper|canvas|fill|light|base|row|stripe|hover|head/.test(n) && !/text|ink|fg/.test(n)) return mapBg(c);
       if (/border|line|divider|outline|ring|rule|grid|separator/.test(n)) return mapLine(c);
       if (BRAND_VAR.test(n)) return null;

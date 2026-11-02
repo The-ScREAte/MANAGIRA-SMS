@@ -6,6 +6,7 @@
 // translation layer, not a second copy of the app.
 const { renameLibrarySubject } = require("../utils/academicLibrary");
 const db = require("../config/db");
+const { ACK_FIELD } = require("../utils/employeeAcknowledgement");
 const crypto = require("crypto");
 const cookieSignature = require("cookie-signature");
 const connectPgSimple = require("connect-pg-simple");
@@ -2793,6 +2794,7 @@ async function createEmployeeApi(req, res) {
           (strippedPermissions.length
             ? `NOTE: ${strippedPermissions.join(", ")} requested but NOT granted - the requesting user doesn't have manager-level access to assign high-risk permissions. `
             : "") +
+          `By confirming, the user acknowledges they are adding this person with these permissions. ` +
           `Ask the user to explicitly confirm before calling again with confirm=true.`,
       });
     }
@@ -2818,6 +2820,8 @@ async function createEmployeeApi(req, res) {
         permissions: requestedPermissions,
         mailroomScope: "all",
         mailroomClassIds: [],
+        // The user's explicit confirm=true in chat is their acknowledgement of this access.
+        [ACK_FIELD]: "yes",
       },
       protocol,
       get(header) {

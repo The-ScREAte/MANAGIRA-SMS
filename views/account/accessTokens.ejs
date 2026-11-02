@@ -1,7 +1,9 @@
 <%
   const _fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
   const _state = (row) => row.status !== 'active' ? 'revoked' : (new Date(row.expires_at) <= new Date() ? 'expired' : 'active');
-  const _stateLabel = { active: 'Active', revoked: 'Revoked', expired: 'Expired' };
+  const _stateLabel = { active: 'Active', revoked: 'Revoked', expired: 'Expired', paused: 'Paused' };
+  // A token whose service account is on hold is paused (it works again when the account is turned back on).
+  const _tokenState = (t) => { const st = _state(t); return st === 'active' && t.service_account_status === 'on_hold' ? 'paused' : st; };
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/adminDrawer.css') %>" />
@@ -43,13 +45,15 @@
       <table class="aa-table" id="patTable">
         <thead><tr><th>Name</th><th>Token</th><th>Service account</th><th>Can read</th><th>Expires</th><th>Last used</th><th>Status</th><th class="aa-col-menu"><span class="aa-sr">Actions</span></th></tr></thead>
         <tbody>
-          <% tokens.forEach((t) => { const st = _state(t); %>
+          <% tokens.forEach((t) => { const st = _tokenState(t); %>
           <tr data-id="<%= t.token_id %>" data-name="<%= t.name %>" data-search="<%= (t.name + ' ' + t.service_account_name).toLowerCase() %>" class="<%= st !== 'active' ? 'is-revoked' : '' %>">
             <td class="aa-strong"><%= t.name %></td>
             <td><span class="aa-masked">mgr_pat_••••<%= t.token_hint %></span></td>
             <td><%= t.service_account_name %></td>
             <td>
-              <% if (st === 'active') { %>
+              <% if (st === 'paused') { %>
+                <span class="aa-muted">Nothing while its service account is on hold</span>
+              <% } else if (st === 'active') { %>
                 <span class="aa-chips"><% t.canRead.forEach((label) => { %><span class="aa-chip"><%= label %></span><% }) %><% t.blocked.forEach((label) => { %><span class="aa-chip aa-chip--off">No <%= label.toLowerCase() %></span><% }) %></span>
                 <% if (!t.canRead.length) { %><span class="aa-muted">Nothing — its service account allows none of its scopes</span><% } %>
               <% } else { %><span class="aa-muted">Nothing</span><% } %>
@@ -57,7 +61,7 @@
             <td><%= _fmt(t.expires_at) %></td>
             <td><%= t.last_used_at ? _fmt(t.last_used_at) : 'Never' %></td>
             <td><span class="aa-status aa-status--<%= st %>"><%= _stateLabel[st] %></span></td>
-            <td class="aa-col-menu"><% if (st === 'active') { %><button type="button" class="aa-kebab" data-menu aria-label="Actions for <%= t.name %>"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><% } %></td>
+            <td class="aa-col-menu"><% if (st === 'active' || st === 'paused') { %><button type="button" class="aa-kebab" data-menu aria-label="Actions for <%= t.name %>"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><% } %></td>
           </tr>
           <% }) %>
         </tbody>
@@ -307,6 +311,14 @@ Authorization: Bearer &lt;access_token&gt;</pre>
           <% endpoints.forEach((e) => { %><tr><td><code><%= e.path %></code></td><td><%= e.returns %></td><td><%= e.needs %></td></tr><% }) %>
         </tbody>
       </table>
+      <h3 class="aa-guide__h">3. Keep in sync without downloading everything</h3>
+      <ol class="aa-steps">
+        <li><strong>First time:</strong> read each list in full (page with <code>limit</code> and <code>offset</code>) and keep the <code>next_updated_since</code> from the answer.</li>
+        <li><strong>After that</strong> (we suggest once a day, or hourly at most): add <code>?updated_since=&lt;that value&gt;</code> to <code>/students</code>, <code>/guardians</code>, <code>/employees</code>, <code>/attendance</code> and the PayGira lists to get only what is new or changed, then keep the new <code>next_updated_since</code>.</li>
+        <li><strong>Deactivated</strong> people come back with a <code>status</code> (students: graduated or left; staff: on_hold or removed). <strong>Deleted</strong> records come from <code>/deleted?updated_since=</code>.</li>
+      </ol>
+      <pre class="aa-code">GET <%= apiBaseUrl %>/students?updated_since=2026-11-01T08:00:00Z
+Authorization: Bearer &lt;access_token&gt;</pre>
       <p class="aa-hint">Lists return up to 50 rows; add <code>limit</code> (up to 200) and <code>offset</code> to page. Everything is read-only and limited to this school. Errors come back as <code>{ "error", "message" }</code>: 401 means the token is missing, expired or revoked (get a new one); 403 means the token doesn't have that area.</p>
     </div>
   </div>

@@ -16,9 +16,9 @@
 </div>
 <style>
   .ack-box { margin: 18px 0 4px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 5%, transparent); text-align: left; }
-  .ack-box__label { display: flex; gap: 10px; align-items: flex-start; margin: 0; cursor: pointer; font-weight: 400; }
+  .ack-box .ack-box__label { display: flex !important; flex-direction: row; gap: 10px; align-items: flex-start; margin: 0; cursor: pointer; font-weight: 400; }
   .ack-box__label input { width: 18px !important; height: 18px; margin: 3px 0 0 !important; flex: 0 0 auto; }
-  .ack-box__label span { display: grid; gap: 4px; }
+  .ack-box .ack-box__label > span { display: grid; gap: 4px; flex: 1; min-width: 0; }
   .ack-box__label strong { font-size: 0.92rem; color: #0f172a; }
   .ack-box__label small { font-size: 0.8rem; line-height: 1.5; color: #475569; }
   [data-ack-submit]:disabled { opacity: 0.55; cursor: not-allowed; }

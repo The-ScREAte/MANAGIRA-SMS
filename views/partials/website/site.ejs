@@ -1,6 +1,7 @@
 <%#
-  The school website. One content model (utils/websiteView.js) drawn in five
-  designs: classic, horizon (Modern), editorial (Magazine), story, campus.
+  The school website. One content model (utils/websiteView.js) drawn in nine
+  designs: academy, classic, horizon (Modern), editorial (Magazine), story,
+  spotlight, minimal, mosaic and campus.
   locals: site
 %>
 <%
@@ -27,7 +28,97 @@
 %>
 <div class="sw-site sw-site--<%= L %>" data-sw-layout="<%= L %>">
 
-<% if (L === 'classic') { %>
+<% if (L === 'academy') {
+  /* ACADEMY: announcement bar, own menu, full-screen photo/video opening,
+     next-step tiles, photo bands for facts and the closing call. */
+  const still = (i) => site.stills.length ? site.stills[i % site.stills.length] : '';
+  const nextSteps = [];
+  if (R.open) nextSteps.push({ href: R.url, title: 'Apply today', text: R.endLabel ? 'Applications close ' + R.endLabel + '.' : 'Start your application online.', icon: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="m9 15 2 2 4-4"/>' });
+  if (hasContact) nextSteps.push({ href: '#contact', title: 'Request information', text: 'Ask us anything. We reply quickly.', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>' });
+  if (site.blocks.includes('events')) nextSteps.push({ href: '#events', title: 'Visit & events', text: 'See what is coming up at school.', icon: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>' });
+  if (nextSteps.length < 3 && site.blocks.includes('admissions') && !R.open) nextSteps.push({ href: '#sw-admissions', title: 'How to join', text: 'Our admissions steps, made simple.', icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>' });
+  if (nextSteps.length < 3 && site.blocks.includes('about')) nextSteps.push({ href: '#about-us', title: 'About the school', text: 'Our story, values and how to reach us.', icon: '<path d="M14 22v-4a2 2 0 1 0-4 0v4"/><path d="m18 10 3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10"/><path d="M18 5v17"/><path d="m4 6 7.106-3.553a2 2 0 0 1 1.788 0L20 6"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/>' });
+  const navKeys = site.blocks.filter((k) => !['quickFacts', 'welcome', 'testimonials', 'achievements', 'faq', 'leadership'].includes(k)).slice(0, 6);
+  let band = 0;
+%>
+  <% if (R.open || site.announcements.length) { %>
+    <div class="sw-ac-bar"><div class="sw-wrap sw-ac-bar__in">
+      <p><% if (R.open) { %><strong>Admissions are open.</strong> Apply online<% if (R.endLabel) { %> before <%= R.endLabel %><% } %>.<% } else { %><%= site.announcements[0] %><% } %></p>
+      <a href="<%= R.open ? R.url : '#announcements' %>"><%= R.open ? 'Apply now' : 'All notices' %> <span aria-hidden="true">→</span></a>
+    </div></div>
+  <% } %>
+  <nav class="sw-ac-nav" aria-label="Website sections">
+    <div class="sw-wrap sw-ac-nav__in">
+      <a class="sw-ac-brand" href="#top">
+        <% if (S.logo) { %><img src="<%= S.logo %>" alt="" aria-hidden="true"><% } else { %><span class="sw-ac-brand__initials" aria-hidden="true"><%= S.initials %></span><% } %>
+        <span><%= S.name %></span>
+      </a>
+      <div class="sw-ac-nav__links">
+        <% navKeys.forEach((key) => { %><a href="#<%= anchorOf(key) %>"><%= navLabels[key] %></a><% }) %>
+      </div>
+      <% if (R.open) { %><a class="sw-btn sw-btn--primary sw-ac-nav__cta" href="<%= R.url %>">Apply</a><% } else if (hasContact) { %><a class="sw-btn sw-btn--primary sw-ac-nav__cta" href="#contact">Contact us</a><% } %>
+    </div>
+  </nav>
+  <header class="sw-ac-hero<%= site.slides.length ? '' : ' sw-ac-hero--plain' %>" id="top">
+    <% if (site.slides.length) { %><%- slidesHtml('fill') %><% } %>
+    <div class="sw-ac-hero__shade" aria-hidden="true"></div>
+    <div class="sw-wrap sw-ac-hero__content">
+      <% if (B.show) { %>
+        <p class="sw-ac-kicker"><%= B.kicker %></p>
+        <h1 class="sw-ac-hero__title"><%= S.name %></h1>
+        <% if (B.tagline) { %><p class="sw-ac-hero__tagline"><%= B.tagline %></p><% } %>
+        <div class="sw-actions">
+          <% if (R.open) { %><a class="sw-btn sw-btn--primary" href="<%= R.url %>">Apply now</a><% } %>
+          <% if (site.blocks.includes('about')) { %><a class="sw-btn sw-btn--light" href="#about-us">Discover our school</a><% } else if (hasContact) { %><a class="sw-btn sw-btn--light" href="#contact">Contact us</a><% } %>
+        </div>
+      <% } else { %><h1 class="sw-visually-hidden"><%= S.name %></h1><% } %>
+    </div>
+  </header>
+  <% if (nextSteps.length) { %>
+    <section class="sw-ac-next" aria-labelledby="sw-ac-next-title"><div class="sw-wrap">
+      <h2 class="sw-ac-next__title" id="sw-ac-next-title">Take the next step</h2>
+      <div class="sw-ac-next__grid">
+        <% nextSteps.slice(0, 3).forEach((n) => { %>
+          <a class="sw-ac-step" href="<%= n.href %>">
+            <span class="sw-ac-step__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><%- n.icon %></svg></span>
+            <span class="sw-ac-step__text"><strong><%= n.title %></strong><span><%= n.text %></span></span>
+            <span class="sw-ac-step__arrow" aria-hidden="true">→</span>
+          </a>
+        <% }) %>
+      </div>
+    </div></section>
+  <% } %>
+  <main class="sw-main sw-ac-main">
+    <% site.blocks.forEach((key) => { %>
+      <% if (key === 'quickFacts') { %>
+        <div class="sw-ac-band sw-ac-band--photo sw-ac-band--facts"<% if (still(1)) { %> style="--sw-ac-photo: url('<%= still(1) %>')"<% } %>><div class="sw-wrap">
+          <p class="sw-ac-band__title"><%= S.name %> at a glance</p>
+          <%- block(key) %>
+        </div></div>
+      <% } else if (key === 'testimonials') { %>
+        <div class="sw-ac-band sw-ac-band--quotes"><div class="sw-wrap">
+          <%- block(key) %>
+          <% if (site.extras.testimonials.items.length > 1) { %>
+            <div class="sw-ac-quote-nav"><button type="button" data-sw-scroll="-1" aria-label="Previous">←</button><button type="button" data-sw-scroll="1" aria-label="Next">→</button></div>
+          <% } %>
+        </div></div>
+      <% } else { %>
+        <div class="sw-ac-band<%= (band++) % 2 ? ' sw-ac-band--tint' : '' %>"><div class="sw-wrap"><%- block(key) %></div></div>
+      <% } %>
+    <% }) %>
+  </main>
+  <section class="sw-ac-band sw-ac-band--photo sw-ac-cta"<% if (still(2)) { %> style="--sw-ac-photo: url('<%= still(2) %>')"<% } %> aria-labelledby="sw-ac-cta-title"><div class="sw-wrap">
+    <h2 id="sw-ac-cta-title">Discover <%= S.name %></h2>
+    <p><%= B.tagline || 'Come and see what makes our school special.' %></p>
+    <div class="sw-actions sw-actions--center">
+      <% if (R.open) { %><a class="sw-btn sw-btn--outline-light" href="<%= R.url %>">Apply now</a><% } %>
+      <% if (hasContact) { %><a class="sw-btn sw-btn--outline-light" href="#contact">Contact us</a><% } %>
+      <% if (site.blocks.includes('events')) { %><a class="sw-btn sw-btn--outline-light" href="#events">Upcoming events</a><% } %>
+      <% if (site.blocks.includes('gallery')) { %><a class="sw-btn sw-btn--outline-light" href="#image-gallery">See our gallery</a><% } %>
+    </div>
+  </div></section>
+
+<% } else if (L === 'classic') { %>
   <!-- CLASSIC: full-width photo stage, school intro band, centered sections -->
   <header class="sw-classic-top">
     <% if (site.slides.length) { %><div class="sw-stage"><%- slidesHtml('cover') %></div><% } %>
@@ -227,30 +318,66 @@
   </div>
 <% } %>
 
+  <%
+    const socialIcon = (s) => {
+      const k = (String(s.label || '') + ' ' + String(s.url || '')).toLowerCase();
+      if (/facebook|fb\.com/.test(k)) return '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>';
+      if (/instagram/.test(k)) return '<rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path d="M17.5 6.5h.01"/>';
+      if (/youtube|youtu\.be/.test(k)) return '<path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/>';
+      if (/linkedin/.test(k)) return '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>';
+      if (/twitter|x\.com|\bx\b/.test(k)) return '<path d="M4 4l16 16M20 4 4 20"/>';
+      if (/tiktok/.test(k)) return '<path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/>';
+      if (/whatsapp|wa\.me/.test(k)) return '<path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9z"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>';
+      return '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>';
+    };
+    const footerLinks = site.blocks.filter((k) => k !== 'quickFacts').slice(0, 8);
+  %>
   <footer class="sw-footer">
     <div class="sw-wrap sw-footer__grid">
-      <div>
-        <p class="sw-footer__name"><%= S.name %></p>
-        <% if (S.motto) { %><p class="sw-footer__motto"><%= S.motto %></p><% } %>
+      <div class="sw-footer__brand">
+        <div class="sw-footer__id">
+          <% if (S.logo) { %><img class="sw-footer__logo" src="<%= S.logo %>" alt="" aria-hidden="true"><% } %>
+          <div><p class="sw-footer__name"><%= S.name %></p><% if (S.motto) { %><p class="sw-footer__motto"><%= S.motto %></p><% } %></div>
+        </div>
+        <% if (site.social.length) { %>
+          <ul class="sw-social" aria-label="Follow us">
+            <% site.social.forEach((s) => { %><li><a href="<%= s.url %>" target="_blank" rel="noopener noreferrer" aria-label="<%= s.label %>" title="<%= s.label %>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><%- socialIcon(s) %></svg></a></li><% }) %>
+          </ul>
+        <% } %>
       </div>
-      <div class="sw-footer__contact">
+      <div class="sw-footer__col">
+        <p class="sw-footer__head">Contact</p>
         <% if (S.address) { %><p><%= S.address %></p><% } %>
-        <% if (S.phones.length) { %><p><% S.phones.forEach((p, i) => { %><a href="tel:<%= String(p).replace(/[^+\d]/g, '') %>"><%= p %></a><%= i < S.phones.length - 1 ? ' · ' : '' %><% }) %></p><% } %>
-        <% if (S.emails.length) { %><p><% S.emails.forEach((e, i) => { %><a href="mailto:<%= e %>"><%= e %></a><%= i < S.emails.length - 1 ? ' · ' : '' %><% }) %></p><% } %>
+        <% S.phones.forEach((p) => { %><p><a href="tel:<%= String(p).replace(/[^+\d]/g, '') %>"><%= p %></a></p><% }) %>
+        <% S.emails.forEach((e) => { %><p><a href="mailto:<%= e %>"><%= e %></a></p><% }) %>
       </div>
-      <% if (site.social.length) { %>
-        <ul class="sw-social" aria-label="Follow us">
-          <% site.social.forEach((s) => { %><li><a href="<%= s.url %>" target="_blank" rel="noopener noreferrer"><%= s.label %></a></li><% }) %>
-        </ul>
+      <% if (footerLinks.length) { %>
+        <div class="sw-footer__col">
+          <p class="sw-footer__head">Explore</p>
+          <ul class="sw-footer__links">
+            <% footerLinks.forEach((key) => { %><li><a href="#<%= anchorOf(key) %>"><%= navLabels[key] %></a></li><% }) %>
+          </ul>
+        </div>
       <% } %>
+      <div class="sw-footer__col">
+        <p class="sw-footer__head">Join us</p>
+        <p><%= R.open ? 'Applications are open' + (R.endLabel ? ' until ' + R.endLabel : '') + '.' : 'We would love to hear from you.' %></p>
+        <div class="sw-footer__cta">
+          <% if (R.open) { %><a class="sw-btn sw-btn--primary" href="<%= R.url %>">Apply now</a><% } %>
+          <% if (hasContact) { %><a class="sw-btn sw-btn--outline-light" href="#contact">Contact us</a><% } %>
+        </div>
+      </div>
     </div>
-    <p class="sw-wrap sw-footer__legal">© <%= site.year %> <%= S.name %> · Powered by <a href="https://managira.com" target="_blank" rel="noopener">Managira</a></p>
+    <div class="sw-wrap sw-footer__legal">
+      <p>© <%= site.year %> <%= S.name %>. All rights reserved.</p>
+      <p>Powered by <a href="https://managira.com" target="_blank" rel="noopener">Managira</a></p>
+    </div>
   </footer>
 
   <div class="sw-lightbox" id="swLightbox" hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
     <button type="button" class="sw-lightbox__close" data-sw-close aria-label="Close">×</button>
     <button type="button" class="sw-lightbox__nav sw-lightbox__nav--prev" data-sw-step="-1" aria-label="Previous photo">‹</button>
-    <figure><img alt=""><figcaption></figcaption></figure>
+    <figure><img alt=""><video controls playsinline hidden></video><figcaption></figcaption></figure>
     <button type="button" class="sw-lightbox__nav sw-lightbox__nav--next" data-sw-step="1" aria-label="Next photo">›</button>
   </div>
 </div>
@@ -259,41 +386,75 @@
   (function () {
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Photo slider(s): fade between slides, arrows, dots, pause on hover.
+    // Photo/video slider(s): photos change every 6 seconds, a video plays to its
+    // end and then moves on. Arrows, dots and a pause button (kept paused once used).
     document.querySelectorAll('[data-sw-slider]').forEach(function (slider) {
       var slides = slider.querySelectorAll('.sw-slide');
       var dots = slider.querySelectorAll('.sw-slider__dot');
-      if (slides.length < 2) return;
-      var index = 0, timer = null;
+      var pauseBtn = slider.querySelector('[data-sw-pause]');
+      var index = 0, timer = null, paused = reduce, hovering = false;
+      function videoOf(i) { return slides[i] && slides[i].querySelector('video'); }
+      function schedule() {
+        if (timer) clearTimeout(timer); timer = null;
+        var video = videoOf(index);
+        if (video) {
+          if (paused) { video.pause(); return; }
+          video.play().catch(function () {});
+          return; // moves on when it ends
+        }
+        if (!paused && !hovering && slides.length > 1) timer = setTimeout(function () { show(index + 1); }, 6000);
+      }
       function show(n) {
+        var before = videoOf(index);
         index = (n + slides.length) % slides.length;
         slides.forEach(function (s, i) { s.classList.toggle('is-active', i === index); s.setAttribute('aria-hidden', i === index ? 'false' : 'true'); });
         dots.forEach(function (d, i) { d.classList.toggle('is-active', i === index); d.setAttribute('aria-current', i === index ? 'true' : 'false'); });
+        if (before && before !== videoOf(index)) before.pause();
+        var now = videoOf(index);
+        if (now) { if (now.preload === 'none') now.preload = 'auto'; try { now.currentTime = 0; } catch (e) {} }
+        schedule();
       }
-      function play() { if (!reduce) { stop(); timer = setInterval(function () { show(index + 1); }, 6000); } }
-      function stop() { if (timer) clearInterval(timer); timer = null; }
-      slider.querySelector('[data-sw-prev]').addEventListener('click', function () { show(index - 1); play(); });
-      slider.querySelector('[data-sw-next]').addEventListener('click', function () { show(index + 1); play(); });
-      dots.forEach(function (d, i) { d.addEventListener('click', function () { show(i); play(); }); });
-      slider.addEventListener('mouseenter', stop);
-      slider.addEventListener('mouseleave', play);
-      show(0); play();
+      slides.forEach(function (s, i) {
+        var v = s.querySelector('video');
+        if (v) v.addEventListener('ended', function () { if (i === index && slides.length > 1) show(index + 1); });
+      });
+      var prev = slider.querySelector('[data-sw-prev]'), next = slider.querySelector('[data-sw-next]');
+      if (prev) prev.addEventListener('click', function () { show(index - 1); });
+      if (next) next.addEventListener('click', function () { show(index + 1); });
+      dots.forEach(function (d, i) { d.addEventListener('click', function () { show(i); }); });
+      if (pauseBtn) {
+        var label = function () { pauseBtn.setAttribute('aria-pressed', paused ? 'true' : 'false'); pauseBtn.setAttribute('aria-label', paused ? 'Play' : 'Pause'); pauseBtn.classList.toggle('is-paused', paused); };
+        pauseBtn.addEventListener('click', function () { paused = !paused; label(); schedule(); });
+        label();
+      }
+      slider.addEventListener('mouseenter', function () { hovering = true; if (!videoOf(index)) schedule(); });
+      slider.addEventListener('mouseleave', function () { hovering = false; schedule(); });
+      show(0);
     });
 
     // Gallery photo viewer.
     var box = document.getElementById('swLightbox');
     var items = Array.prototype.slice.call(document.querySelectorAll('[data-sw-lightbox]'));
     if (box && items.length) {
-      var img = box.querySelector('img'), cap = box.querySelector('figcaption'), current = 0, opener = null;
+      var img = box.querySelector('img'), vid = box.querySelector('video'), cap = box.querySelector('figcaption'), current = 0, opener = null;
       function open(i) {
         current = (i + items.length) % items.length;
-        var src = items[current].querySelector('img');
-        var caption = items[current].closest('figure').querySelector('figcaption');
-        img.src = src.src; img.alt = src.alt; cap.textContent = caption ? caption.textContent : '';
+        var item = items[current];
+        var src = item.querySelector('img');
+        var caption = item.closest('figure').querySelector('figcaption');
+        vid.pause();
+        if (item.dataset.swVideo) {
+          img.hidden = true; vid.hidden = false;
+          vid.poster = src ? src.src : ''; vid.src = item.dataset.swVideo; vid.play().catch(function () {});
+        } else {
+          vid.hidden = true; vid.removeAttribute('src');
+          img.hidden = false; img.src = src.src; img.alt = src.alt;
+        }
+        cap.textContent = caption ? caption.textContent : '';
         box.hidden = false; document.body.style.overflow = 'hidden';
         box.querySelector('[data-sw-close]').focus();
       }
-      function close() { box.hidden = true; document.body.style.overflow = ''; if (opener) opener.focus(); }
+      function close() { vid.pause(); box.hidden = true; document.body.style.overflow = ''; if (opener) opener.focus(); }
       items.forEach(function (btn, i) { btn.addEventListener('click', function () { opener = btn; open(i); }); });
       box.addEventListener('click', function (e) {
         if (e.target === box || e.target.closest('[data-sw-close]')) close();
@@ -330,6 +491,14 @@
     document.querySelectorAll('.sticky-nav a[href^="#"]').forEach(function (link) {
       var target = document.getElementById(link.getAttribute('href').slice(1));
       if (!target) (link.closest('li') || link).style.display = 'none';
+    });
+
+    // Academy: one testimonial at a time, with arrows.
+    document.querySelectorAll('[data-sw-scroll]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var track = btn.closest('.sw-wrap').querySelector('.sw-quotes');
+        if (track) track.scrollBy({ left: Number(btn.dataset.swScroll) * track.clientWidth, behavior: reduce ? 'auto' : 'smooth' });
+      });
     });
 
     // Contact form.

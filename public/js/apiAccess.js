@@ -46,7 +46,7 @@
     };
   }
 
-  function rowMenu(table, menu, onAction) {
+  function rowMenu(table, menu, onAction, onOpen) {
     if (!table || !menu) return;
     let row = null;
     const hide = () => { menu.hidden = true; row = null; };
@@ -56,6 +56,7 @@
       event.stopPropagation();
       if (!menu.hidden && row === button.closest('tr')) return hide();
       row = button.closest('tr');
+      if (onOpen) onOpen(row, menu);
       const box = button.getBoundingClientRect();
       const host = menu.offsetParent ? menu.offsetParent.getBoundingClientRect() : { top: 0, left: 0 };
       menu.hidden = false;
@@ -94,6 +95,45 @@
       document.addEventListener('keydown', onKey);
       document.body.appendChild(dialog);
       dialog.querySelector('[data-no]').focus();
+    });
+  }
+
+  // Asks for the person's password; resolves to the password, or null if cancelled.
+  // `run(password)` may return an error message to show and keep the box open.
+  function passwordBox({ title, text, ok, danger, run }) {
+    return new Promise((resolve) => {
+      const dialog = document.createElement('div');
+      dialog.className = 'aa-confirm';
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.innerHTML = '<form class="aa-confirm__box" autocomplete="off"><h2></h2><p></p>'
+        + '<label class="aa-field"><span>Your password</span><input type="password" name="password" autocomplete="current-password" required></label>'
+        + '<p class="aa-error" role="alert" hidden></p>'
+        + '<div class="aa-confirm__actions"><button type="button" class="aa-btn aa-btn--ghost" data-no>Cancel</button>'
+        + '<button type="submit" class="aa-btn" data-yes></button></div></form>';
+      dialog.querySelector('h2').textContent = title;
+      dialog.querySelector('p').textContent = text || '';
+      const yes = dialog.querySelector('[data-yes]');
+      yes.textContent = ok || 'Continue';
+      yes.classList.add(danger ? 'aa-btn--danger' : 'aa-btn--primary');
+      const form = dialog.querySelector('form');
+      const input = form.password;
+      const error = dialog.querySelector('.aa-error');
+      const done = (value) => { dialog.remove(); document.removeEventListener('keydown', onKey); resolve(value); };
+      const onKey = (event) => { if (event.key === 'Escape') done(null); };
+      dialog.addEventListener('click', (event) => { if (event.target === dialog || event.target.closest('[data-no]')) done(null); });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        error.hidden = true;
+        yes.disabled = true;
+        const problem = run ? await run(input.value) : null;
+        yes.disabled = false;
+        if (problem) { error.textContent = problem; error.hidden = false; input.select(); return; }
+        done(input.value);
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(dialog);
+      input.focus();
     });
   }
 
@@ -139,5 +179,5 @@
     });
   }
 
-  window.ApiAccessUI = { post, get, drawer, rowMenu, confirm: confirmBox, alert: alertBox, search, copyButtons };
+  window.ApiAccessUI = { post, get, drawer, rowMenu, confirm: confirmBox, password: passwordBox, alert: alertBox, search, copyButtons };
 })();

@@ -290,7 +290,7 @@ async function countUnreadMessages(db, organizationId) {
   return row ? row.n : 0;
 }
 
-const LAYOUT_NAMES = { wireframe1: "Classic", wireframe2: "Modern", wireframe3: "Magazine", wireframe4: "Story", wireframe5: "Campus", wireframe6: "Spotlight", wireframe7: "Minimal", wireframe8: "Mosaic" };
+const LAYOUT_NAMES = { wireframe1: "Classic", wireframe2: "Modern", wireframe3: "Magazine", wireframe4: "Story", wireframe5: "Campus", wireframe6: "Spotlight", wireframe7: "Minimal", wireframe8: "Mosaic", wireframe9: "Academy" };
 
 // The setup checklist at the top of Manage Website: what's done, what's
 // left, and where to fix it (target = panel id on the page).

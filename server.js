@@ -945,6 +945,7 @@ app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
 app.locals.brandColorChoices = require("./utils/themePalette").BRAND_COLOR_OPTIONS;
 app.locals.footerPaletteFor = require("./utils/themePalette").footerPaletteFor;
 app.locals.canSeeSetupSteps = require("./utils/setupChecklist").canSeeSetupSteps;
+app.locals.navIcon = require("./utils/navIcons").navIcon;
 app.locals.cssBundleUrl = cssBundleUrl;
 // Phone browsers zoom the page into a form field (sign-in, search, any form)
 // when it is tapped. maximum-scale=1 stops that on every browser; on iPhone and

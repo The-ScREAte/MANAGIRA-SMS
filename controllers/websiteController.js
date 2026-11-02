@@ -13,7 +13,7 @@ const {
 } = require("../utils/websiteExtras");
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
 // Public form abuse limits: per IP, a few messages per window.
 const CONTACT_WINDOW_MS = 10 * 60 * 1000;
@@ -53,9 +53,13 @@ module.exports = {
       const file = req.file;
       if (!file) return res.status(400).json({ success: false, message: "Choose an image." });
       if (!IMAGE_TYPES.has(file.mimetype)) return res.status(400).json({ success: false, message: "Use a JPG, PNG, WebP or GIF image." });
-      if (file.size > MAX_IMAGE_BYTES) return res.status(400).json({ success: false, message: "Images can be up to 5 MB." });
-      const safeName = String(file.originalname || "image").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(-60);
-      const url = await uploadToS3(file, `images/website/org_${organizationId}/${Date.now()}_${safeName}`);
+      if (file.size > MAX_IMAGE_BYTES) return res.status(400).json({ success: false, message: "Images can be up to 15 MB." });
+      const safeName = String(file.originalname || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-60);
+      // Smaller for visitors: upright, at most 2400px wide, WebP. GIFs keep their animation.
+      const optimized = file.mimetype === "image/gif" ? null : await require("../utils/mediaOptimize").optimizeImage(file.buffer).catch(() => null);
+      const url = optimized
+        ? await uploadToS3({ buffer: optimized.buffer, mimetype: optimized.mimetype }, `images/website/org_${organizationId}/${Date.now()}_${safeName}${optimized.ext}`)
+        : await uploadToS3(file, `images/website/org_${organizationId}/${Date.now()}_${safeName}`);
       return res.json({ success: true, url });
     } catch (error) {
       console.error("[website/uploadImage]", error);

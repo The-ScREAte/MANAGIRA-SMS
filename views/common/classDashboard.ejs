@@ -3473,6 +3473,19 @@ main {
 .workspace-tab-close { width: 18px; height: 18px; font-size: 13px; }
 .schedule-updated-note { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
 
+/* Class Tools menu: bigger, cleaner icons in soft tiles (labels beside them). */
+.workspace-sidebar .nav-link { gap: 12px; padding: 4px 10px 4px 6px; font-size: 14px; min-height: 44px; }
+.workspace-sidebar .nav-link .nav-icon {
+  width: 36px; height: 36px; border-radius: 10px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--text, #0f172a) 6%, transparent); color: #475569;
+}
+.workspace-sidebar .nav-link .nav-icon svg { width: 21px; height: 21px; }
+.workspace-sidebar .nav-link.active .nav-icon {
+  background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary);
+}
+.workspace-sidebar .nav-link.active::before { top: 10px; bottom: 10px; }
+
 /* Overview: Teachers open as a dropdown from their count card. */
 .overview-counts-wrap { position: relative; }
 .overview-count-toggle { width: 100%; margin: 0; font: inherit; text-align: left; cursor: pointer; color: inherit; }
@@ -3905,7 +3918,7 @@ main {
           <ul class="nav-list">
             <li>
               <button class="nav-link" type="button" data-nav-key="overview" onclick="openWorkspaceTabByKey('overview')">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('classroom') %></span>
                 <span class="nav-link-label">Class Room</span>
               </button>
             </li>
@@ -3913,7 +3926,7 @@ main {
             <li class="nav-section-label">Communication</li>
             <li>
               <button class="nav-link" type="button" id="reports-nav-link" data-nav-key="reports" onclick="toggleReportsPanel(event)">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('messages') %></span>
                 <span class="nav-link-label">Parent Messages</span>
                 <% if ((classReportsCount || 0) > 0) { %>
                   <span class="files-badge" title="Parent messages"><%= classReportsCount %></span>
@@ -3924,14 +3937,14 @@ main {
             <li class="nav-section-label">Tools</li>
             <li>
               <button class="nav-link" type="button" id="class-schedule-nav-link" data-nav-key="schedule" onclick="toggleClassScheduleModal(event)">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('schedule') %></span>
                 <span class="nav-link-label">Class Schedule</span>
               </button>
             </li>
             <% if (transportActive) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="transportation" onclick="openWorkspaceTabByKey('transportation')">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M16 6v6"/><path d="M4 6h16l1 7H3z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('transportation') %></span>
                 <span class="nav-link-label">Transportation</span>
                 <span class="nav-count-pill"><%= classTransportRows.filter(function(row) { return row.busNumber || row.routeName || row.stopName; }).length %></span>
               </button>
@@ -3940,7 +3953,7 @@ main {
             <% if (_canOpenPaygiraWorkspace) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
-                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"/><path d="M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg></span>
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('paygira') %></span>
                 <span class="nav-link-label">My PayGira</span>
               </button>
             </li>
@@ -3949,7 +3962,7 @@ main {
             <% if (hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher)) { %>
               <li>
                 <button class="nav-link" type="button" data-nav-key="attendance" onclick="openWorkspaceTabByKey('attendance')">
-                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2v4"/><path d="M15 2v4"/><path d="M9 14l2 2 4-4"/></svg></span>
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('attendance') %></span>
                   <span class="nav-link-label">Attendance</span>
                 </button>
               </li>
@@ -3959,15 +3972,15 @@ main {
               <% if (canAccessAssessmentQuestions) { %>
               <li>
                 <button class="nav-link" type="button" data-nav-key="assessment-questions" onclick="openWorkspaceTabByKey('assessment-questions')">
-                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 8h6"/><path d="M9 12h6"/></svg></span>
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('questions') %></span>
                   <span class="nav-link-label">Assessment Questions</span>
                 </button>
               </li>
               <% } %>
               <li class="nav-section-collapsible">
                 <button class="nav-link nav-section-toggle" type="button" id="subjects-section-toggle" aria-expanded="false" aria-controls="subjects-section-list" onclick="toggleSubjectsNavSection(event)">
-                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
-                  <span class="nav-link-label">Subjects</span>
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('grading') %></span>
+                  <span class="nav-link-label">Grading</span>
                   <span class="nav-count-pill"><%= subjects.length %></span>
                   <span class="nav-section-icon" aria-hidden="true">›</span>
                 </button>
@@ -3988,7 +4001,7 @@ main {
             <% if (hasFilesFeature) { %>
               <li>
                 <button class="nav-link" type="button" data-nav-key="docs" title="Docs/Sheets" onclick="openWorkspaceTabByKey('docs')">
-                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('docs') %></span>
                   <span class="nav-link-label">Docs &amp; Sheets</span>
                   <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
                     <span class="files-badge" title="Assigned docs/sheets"><%= assignedFilesCount %></span>

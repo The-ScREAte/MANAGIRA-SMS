@@ -6,6 +6,7 @@
 
 // Stored layout values (organization_dashboard.order_data.layout) -> design.
 const LAYOUTS = [
+  { value: "wireframe9", key: "academy", name: "Academy", description: "Full-screen photo or video opening, clear next steps, big numbers and a rich footer, like leading private schools." },
   { value: "wireframe1", key: "classic", name: "Classic", description: "Full-width photo banner, centered sections in alternating bands." },
   { value: "wireframe2", key: "horizon", name: "Modern", description: "Split welcome with photos beside it, clean card sections." },
   { value: "wireframe3", key: "editorial", name: "Magazine", description: "Newspaper masthead, lead story, side column for events and notices." },
@@ -18,7 +19,7 @@ const LAYOUTS = [
 const LAYOUT_VALUES = LAYOUTS.map((l) => l.value);
 
 function layoutFor(value) {
-  return LAYOUTS.find((l) => l.value === value) || LAYOUTS[0];
+  return LAYOUTS.find((l) => l.value === value) || LAYOUTS.find((l) => l.value === "wireframe1");
 }
 
 // Default order of the page's sections (the school can change it).
@@ -131,12 +132,17 @@ function buildSiteModel(input = {}) {
   const announcements = (input.announcements || [])
     .filter((a) => a && (a.visibility === "public" || a.visibility === "both") && clean(a.message))
     .map((a) => clean(a.message));
-  const gallery = (input.galleryImages || [])
-    .filter((img) => img && img.image_url)
-    .map((img) => ({ url: img.image_url, caption: clean(img.caption) }));
-  const slides = (input.slideshowImages || [])
-    .filter((img) => img && img.image_url)
-    .map((img) => ({ url: img.image_url, caption: clean(img.caption) }));
+  // Photos and videos (videos carry a poster frame to show before they play).
+  const media = (img) => ({
+    url: img.image_url,
+    caption: clean(img.caption),
+    type: img.media_type === "video" || /\.(mp4|webm|mov)(\?|$)/i.test(img.image_url) ? "video" : "image",
+    poster: clean(img.poster_url),
+  });
+  const gallery = (input.galleryImages || []).filter((img) => img && img.image_url).map(media);
+  const slides = (input.slideshowImages || []).filter((img) => img && img.image_url).map(media);
+  // A still photo for backgrounds (stats band, closing banner): first photo found.
+  const stills = slides.concat(gallery).map((m) => (m.type === "video" ? m.poster : m.url)).filter(Boolean);
   const articles = (input.texts || [])
     .filter((t) => t && (clean(t.heading) || stripHtml(t.paragraph)))
     .map((t) => {
@@ -206,6 +212,7 @@ function buildSiteModel(input = {}) {
       tagline: hero.tagline || motto,
     },
     slides,
+    stills,
     registration: registrationInfo(org, now),
     gallery,
     articles,
