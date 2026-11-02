@@ -1,0 +1,480 @@
+<%
+  const _fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const _state = (row) => row.status !== 'active' ? 'revoked' : (new Date(row.expires_at) <= new Date() ? 'expired' : 'active');
+  const _stateLabel = { active: 'Active', revoked: 'Revoked', expired: 'Expired' };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminDrawer.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/apiAccess.css') %>" />
+
+<div class="gp-page aa-page" id="accessTokensPage">
+  <header class="aa-toolbar">
+    <div>
+      <h1 class="gp-title">Access Tokens</h1>
+      <p class="gp-sub">Credentials your integrations use to read Managira data. Each is shown only once, when created.</p>
+    </div>
+    <button type="button" class="aa-btn aa-btn--ghost" id="guideOpen">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 012-2h13v17H6.5A2.5 2.5 0 004 22.5"/><path d="M8 7h7M8 11h7"/></svg>
+      How to connect
+    </button>
+  </header>
+
+  <%- include('../partials/apiUsageBanner', { usage, requestHref: '?tab=usage&request=1' }) %>
+
+  <nav class="aa-tabs" role="tablist">
+    <a class="aa-tab<%= tab === 'pat' ? ' is-active' : '' %>" role="tab" href="?tab=pat" data-tab="pat" aria-selected="<%= tab === 'pat' %>">Personal Access Tokens</a>
+    <a class="aa-tab<%= tab === 'secrets' ? ' is-active' : '' %>" role="tab" href="?tab=secrets" data-tab="secrets" aria-selected="<%= tab === 'secrets' %>">Client Secrets</a>
+    <a class="aa-tab<%= tab === 'usage' ? ' is-active' : '' %>" role="tab" href="?tab=usage" data-tab="usage" aria-selected="<%= tab === 'usage' %>">Usage &amp; allowance</a>
+  </nav>
+
+  <!-- Personal access tokens -->
+  <section class="aa-panel" id="tabPat" <%= tab === 'pat' ? '' : 'hidden' %>>
+    <div class="aa-panel__bar">
+      <input class="aa-search" type="search" id="patSearch" placeholder="Search" aria-label="Search tokens">
+      <button type="button" class="aa-btn aa-btn--primary" id="patNew" <%= serviceAccounts.length ? '' : 'disabled' %>>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        New
+      </button>
+    </div>
+    <% if (!serviceAccounts.length) { %>
+    <p class="aa-note">Create a service account and accept its data-sharing agreement first, in Management → Service accounts. Every token acts as one.</p>
+    <% } %>
+    <div class="gp-card aa-table-card">
+      <table class="aa-table" id="patTable">
+        <thead><tr><th>Name</th><th>Token</th><th>Service account</th><th>Can read</th><th>Expires</th><th>Last used</th><th>Status</th><th class="aa-col-menu"><span class="aa-sr">Actions</span></th></tr></thead>
+        <tbody>
+          <% tokens.forEach((t) => { const st = _state(t); %>
+          <tr data-id="<%= t.token_id %>" data-name="<%= t.name %>" data-search="<%= (t.name + ' ' + t.service_account_name).toLowerCase() %>" class="<%= st !== 'active' ? 'is-revoked' : '' %>">
+            <td class="aa-strong"><%= t.name %></td>
+            <td><span class="aa-masked">mgr_pat_••••<%= t.token_hint %></span></td>
+            <td><%= t.service_account_name %></td>
+            <td>
+              <% if (st === 'active') { %>
+                <span class="aa-chips"><% t.canRead.forEach((label) => { %><span class="aa-chip"><%= label %></span><% }) %><% t.blocked.forEach((label) => { %><span class="aa-chip aa-chip--off">No <%= label.toLowerCase() %></span><% }) %></span>
+                <% if (!t.canRead.length) { %><span class="aa-muted">Nothing — its service account allows none of its scopes</span><% } %>
+              <% } else { %><span class="aa-muted">Nothing</span><% } %>
+            </td>
+            <td><%= _fmt(t.expires_at) %></td>
+            <td><%= t.last_used_at ? _fmt(t.last_used_at) : 'Never' %></td>
+            <td><span class="aa-status aa-status--<%= st %>"><%= _stateLabel[st] %></span></td>
+            <td class="aa-col-menu"><% if (st === 'active') { %><button type="button" class="aa-kebab" data-menu aria-label="Actions for <%= t.name %>"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><% } %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <p class="aa-empty" <%= tokens.length ? 'hidden' : '' %>>No access tokens yet.</p>
+    </div>
+  </section>
+
+  <!-- Client secrets -->
+  <section class="aa-panel" id="tabSecrets" <%= tab === 'secrets' ? '' : 'hidden' %>>
+    <div class="aa-panel__bar">
+      <div class="aa-clientid">Client ID <code class="aa-oneline" id="clientIdValue"><%= clientId %></code>
+        <button type="button" class="aa-btn aa-btn--ghost aa-btn--sm" data-copy="#clientIdValue">Copy</button>
+      </div>
+      <button type="button" class="aa-btn aa-btn--primary" id="secretNew">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        New
+      </button>
+    </div>
+    <p class="aa-note">One client secret works for all of your integrations. Create a new one to rotate it, then revoke the old one.</p>
+    <div class="gp-card aa-table-card">
+      <table class="aa-table" id="secretTable">
+        <thead><tr><th>Secret</th><th>Description</th><th>Expires</th><th>Last used</th><th>Status</th><th class="aa-col-menu"><span class="aa-sr">Actions</span></th></tr></thead>
+        <tbody>
+          <% secrets.forEach((s) => { const st = _state(s); %>
+          <tr data-id="<%= s.secret_id %>" data-name="<%= s.description || ('…' + s.secret_hint) %>" class="<%= st !== 'active' ? 'is-revoked' : '' %>">
+            <td><span class="aa-masked">mgr_cs_••••<%= s.secret_hint %></span></td>
+            <td class="aa-clip"><%= s.description || '—' %></td>
+            <td><%= _fmt(s.expires_at) %></td>
+            <td><%= s.last_used_at ? _fmt(s.last_used_at) : 'Never' %></td>
+            <td><span class="aa-status aa-status--<%= st %>"><%= _stateLabel[st] %></span></td>
+            <td class="aa-col-menu"><% if (st === 'active') { %><button type="button" class="aa-kebab" data-menu aria-label="Actions for this secret"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><% } %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <p class="aa-empty" <%= secrets.length ? 'hidden' : '' %>>No client secrets yet.</p>
+    </div>
+  </section>
+
+  <!-- Usage & allowance -->
+  <% const _pct = Math.min(100, Math.round(usage.share * 100)); const _pending = requests.find((r) => r.status === 'pending'); %>
+  <section class="aa-panel" id="tabUsage" <%= tab === 'usage' ? '' : 'hidden' %>>
+    <div class="aa-allow">
+      <div class="gp-card aa-allow__card">
+        <span class="aa-allow__label">Used today</span>
+        <strong class="aa-allow__value"><%= usage.usedToday.toLocaleString('en-US') %> <small>of <%= usage.allowance.perDay.toLocaleString('en-US') %></small></strong>
+        <span class="aa-meter<%= _pct >= 100 ? ' is-full' : _pct >= 80 ? ' is-high' : '' %>"><span style="width:<%= _pct %>%"></span></span>
+        <small class="aa-muted">Resets at midnight UTC</small>
+      </div>
+      <div class="gp-card aa-allow__card">
+        <span class="aa-allow__label">Your allowance</span>
+        <strong class="aa-allow__value"><%= usage.allowance.perMinute.toLocaleString('en-US') %> <small>a minute</small></strong>
+        <small class="aa-muted"><%= usage.allowance.perDay.toLocaleString('en-US') %> a day<%= usage.allowance.custom ? '' : ' · standard' %></small>
+      </div>
+      <div class="gp-card aa-allow__card">
+        <span class="aa-allow__label">Monthly API charge</span>
+        <strong class="aa-allow__value"><%= usage.allowance.monthlyPrice > 0 ? '$' + usage.allowance.monthlyPrice.toFixed(2) : 'Included' %></strong>
+        <small class="aa-muted"><%= usage.allowance.monthlyPrice > 0 ? 'Added to your monthly Managira bill' : 'No extra charge on the standard allowance' %></small>
+      </div>
+    </div>
+    <div class="aa-panel__bar">
+      <h2 class="aa-h2">Requests for more</h2>
+      <button type="button" class="aa-btn aa-btn--primary" id="reqNew" <%= _pending ? 'disabled title="You already have a request waiting"' : '' %>>Request more</button>
+    </div>
+    <div class="gp-card aa-table-card">
+      <table class="aa-table" id="reqTable" data-no-global-sort>
+        <thead><tr><th>Asked on</th><th>Asked for</th><th>Status</th><th>Granted</th><th>Monthly price</th><th>Note from Managira</th><th class="aa-col-menu"><span class="aa-sr">Actions</span></th></tr></thead>
+        <tbody>
+          <% requests.forEach((r) => { %>
+          <tr data-id="<%= r.request_id %>">
+            <td><%= _fmt(r.created_at) %></td>
+            <td><%= Number(r.requested_per_minute).toLocaleString('en-US') %>/min · <%= Number(r.requested_per_day).toLocaleString('en-US') %>/day</td>
+            <td><span class="aa-status aa-status--<%= r.status === 'approved' ? 'active' : r.status === 'pending' ? 'pending' : 'revoked' %>"><%= { pending: 'Waiting', approved: 'Granted', declined: 'Declined', cancelled: 'Cancelled' }[r.status] %></span></td>
+            <td><%= r.status === 'approved' ? Number(r.granted_per_minute).toLocaleString('en-US') + '/min · ' + Number(r.granted_per_day).toLocaleString('en-US') + '/day' : '—' %></td>
+            <td><%= r.status === 'approved' ? '$' + Number(r.monthly_price).toFixed(2) + ' a month' : '—' %></td>
+            <td class="aa-clip" title="<%= r.admin_note || '' %>"><%= r.admin_note || '—' %></td>
+            <td class="aa-col-menu"><% if (r.status === 'pending') { %><button type="button" class="aa-btn aa-btn--ghost aa-btn--sm" data-cancel-request>Cancel</button><% } %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <p class="aa-empty" <%= requests.length ? 'hidden' : '' %>>No requests yet. If your integrations need more calls, use Request more.</p>
+    </div>
+    <h2 class="aa-h2 aa-h2--gap">Calls by token (last 7 days)</h2>
+    <div class="gp-card aa-table-card">
+      <table class="aa-table" data-no-global-sort>
+        <thead><tr><th>Day</th><th>Token</th><th>Calls</th></tr></thead>
+        <tbody>
+          <% usage.recent.forEach((u) => { %><tr><td><%= u.day %></td><td><%= u.name || 'Deleted token' %></td><td><%= Number(u.count).toLocaleString('en-US') %></td></tr><% }) %>
+        </tbody>
+      </table>
+      <p class="aa-empty" <%= usage.recent.length ? 'hidden' : '' %>>No API calls in the last 7 days.</p>
+    </div>
+  </section>
+
+  <div class="aa-menu" id="patMenu" role="menu" hidden>
+    <button type="button" role="menuitem" data-action="revoke" class="aa-danger">Revoke</button>
+  </div>
+  <div class="aa-menu" id="secretMenu" role="menu" hidden>
+    <button type="button" role="menuitem" data-action="regenerate">Regenerate</button>
+    <button type="button" role="menuitem" data-action="revoke" class="aa-danger">Revoke</button>
+  </div>
+
+  <!-- New token drawer -->
+  <div class="mgr-drawer-overlay aa-drawer" id="patDrawer" aria-hidden="true">
+    <form class="mgr-drawer" id="patForm" style="--mgr-drawer-width:520px" autocomplete="off">
+      <div class="mgr-drawer-header">
+        <h2>New Token</h2>
+        <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="aa-drawer-body" data-step="form">
+        <label class="aa-field"><span>Name <b aria-hidden="true">*</b></span><input name="name" placeholder="Create a unique name" maxlength="120" required></label>
+        <label class="aa-field"><span>Service account <b aria-hidden="true">*</b></span>
+          <select name="serviceAccountId" required>
+            <option value="">Select a service account</option>
+            <% serviceAccounts.forEach((a) => { %><option value="<%= a.id %>"><%= a.name %></option><% }) %>
+          </select>
+        </label>
+        <label class="aa-field"><span>Expires in</span>
+          <select name="expiresInDays"><% tokenExpiryDays.forEach((d) => { %><option value="<%= d %>" <%= d === 365 ? 'selected' : '' %>><%= d === 365 ? '1 year' : d + ' days' %></option><% }) %></select>
+        </label>
+        <fieldset class="aa-fieldset">
+          <legend>Scopes <b aria-hidden="true">*</b></legend>
+          <p class="aa-hint" id="patScopeHint">Select a service account to see the scopes it allows.</p>
+          <% scopeGroups.forEach((g) => { %>
+          <label class="aa-scope" data-group="<%= g.key %>">
+            <span class="aa-scope__head"><input type="checkbox" name="scopeGroups" value="<%= g.key %>" disabled> <strong><%= g.label %></strong></span>
+            <span class="aa-scope__list"><%= g.scopes.join('  ·  ') %></span>
+            <span class="aa-scope__why" hidden></span>
+          </label>
+          <% }) %>
+        </fieldset>
+        <p class="aa-error" id="patError" role="alert" hidden></p>
+      </div>
+      <div class="aa-drawer-body" data-step="done" hidden>
+        <div class="aa-reveal">
+          <strong>Copy your token now</strong>
+          <p>For your security it won't be shown again. Store it in your integration's settings.</p>
+          <div class="aa-reveal__value"><input class="aa-reveal__input" id="patValue" readonly aria-label="Personal access token"><button type="button" class="aa-btn aa-btn--primary aa-btn--sm" data-copy="#patValue">Copy</button></div>
+        </div>
+      </div>
+      <div class="aa-drawer-footer">
+        <button type="button" class="aa-btn aa-btn--ghost" data-close>Cancel</button>
+        <button type="submit" class="aa-btn aa-btn--primary" id="patSubmit">Create</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- New client secret drawer -->
+  <div class="mgr-drawer-overlay aa-drawer" id="secretDrawer" aria-hidden="true">
+    <form class="mgr-drawer" id="secretForm" style="--mgr-drawer-width:480px" autocomplete="off">
+      <div class="mgr-drawer-header">
+        <h2>New Client Secret</h2>
+        <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="aa-drawer-body" data-step="form">
+        <label class="aa-field"><span>Description</span><input name="description" placeholder="What this secret is for" maxlength="255"></label>
+        <label class="aa-field"><span>Expires in</span>
+          <select name="expiresInDays"><% secretExpiryDays.forEach((d) => { %><option value="<%= d %>" <%= d === 365 ? 'selected' : '' %>><%= d === 365 ? '1 year' : d === 730 ? '2 years' : d + ' days' %></option><% }) %></select>
+        </label>
+        <p class="aa-error" id="secretError" role="alert" hidden></p>
+      </div>
+      <div class="aa-drawer-body" data-step="done" hidden>
+        <div class="aa-reveal">
+          <strong>Copy your client secret now</strong>
+          <p>For your security it won't be shown again. Use it with your client ID.</p>
+          <span class="aa-reveal__label">Client ID</span>
+          <div class="aa-reveal__value"><input class="aa-reveal__input" id="secretClientId" value="<%= clientId %>" readonly aria-label="Client ID"><button type="button" class="aa-btn aa-btn--ghost aa-btn--sm" data-copy="#secretClientId">Copy</button></div>
+          <span class="aa-reveal__label">Client secret</span>
+          <div class="aa-reveal__value"><input class="aa-reveal__input" id="secretValue" readonly aria-label="Client secret"><button type="button" class="aa-btn aa-btn--primary aa-btn--sm" data-copy="#secretValue">Copy</button></div>
+        </div>
+      </div>
+      <div class="aa-drawer-footer">
+        <button type="button" class="aa-btn aa-btn--ghost" data-close>Cancel</button>
+        <button type="submit" class="aa-btn aa-btn--primary" id="secretSubmit">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="gp-page aa-page aa-guide-host">
+<div class="mgr-drawer-overlay aa-drawer" id="reqDrawer" aria-hidden="true">
+  <form class="mgr-drawer" id="reqForm" style="--mgr-drawer-width:500px" autocomplete="off">
+    <div class="mgr-drawer-header">
+      <h2>Request a bigger API allowance</h2>
+      <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="aa-drawer-body">
+      <p class="aa-hint">Now: <strong><%= usage.allowance.perMinute.toLocaleString('en-US') %></strong> calls a minute and <strong><%= usage.allowance.perDay.toLocaleString('en-US') %></strong> a day. Managira replies with a monthly price; nothing is charged until we grant it.</p>
+      <label class="aa-field"><span>Calls a minute <b aria-hidden="true">*</b></span>
+        <select name="perMinute">
+          <% [usage.allowance.perMinute, 240, 600, 1200, 3000].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).forEach((v) => { %><option value="<%= v %>" <%= v === Math.max(240, usage.allowance.perMinute) ? 'selected' : '' %>><%= v.toLocaleString('en-US') %><%= v === usage.allowance.perMinute ? ' (current)' : '' %></option><% }) %>
+        </select>
+      </label>
+      <label class="aa-field"><span>Calls a day <b aria-hidden="true">*</b></span>
+        <select name="perDay">
+          <% [usage.allowance.perDay, 25000, 50000, 100000, 250000, 1000000].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).forEach((v) => { %><option value="<%= v %>" <%= v === Math.max(25000, usage.allowance.perDay) ? 'selected' : '' %>><%= v.toLocaleString('en-US') %><%= v === usage.allowance.perDay ? ' (current)' : '' %></option><% }) %>
+        </select>
+      </label>
+      <label class="aa-field"><span>What the extra calls are for <b aria-hidden="true">*</b></span>
+        <textarea name="reason" rows="4" maxlength="2000" placeholder="e.g. Our accounting app syncs PayGira payments every 15 minutes for 1,200 students." required></textarea>
+      </label>
+      <label class="aa-field"><span>Contact email for our reply</span><input name="contactEmail" type="email" value="<%= contactEmail %>" maxlength="255"></label>
+      <p class="aa-error" id="reqError" role="alert" hidden></p>
+    </div>
+    <div class="aa-drawer-footer">
+      <button type="button" class="aa-btn aa-btn--ghost" data-close>Cancel</button>
+      <button type="submit" class="aa-btn aa-btn--primary" id="reqSubmit">Send request</button>
+    </div>
+  </form>
+</div>
+<div class="mgr-drawer-overlay aa-drawer" id="guideDrawer" aria-hidden="true">
+  <div class="mgr-drawer aa-guide" style="--mgr-drawer-width:640px">
+    <div class="mgr-drawer-header">
+      <h2>How to connect an integration</h2>
+      <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="aa-drawer-body">
+      <ol class="aa-steps">
+        <li><strong>Create a service account</strong> in Management → Service accounts, tick only the data the integration needs, and accept the data-sharing agreement.</li>
+        <li><strong>Create a personal access token</strong> here for that service account and tick its scopes.</li>
+        <li><strong>Create a client secret</strong> on the Client Secrets tab (one secret serves every integration).</li>
+        <li><strong>Give the integration</strong> the API address, your Client ID, the client secret and the token. Send them privately, never by text message or chat.</li>
+      </ol>
+
+      <h3 class="aa-guide__h">API address</h3>
+      <div class="aa-reveal__value aa-reveal__value--plain"><input class="aa-reveal__input" id="guideBase" value="<%= apiBaseUrl %>" readonly aria-label="API address"><button type="button" class="aa-btn aa-btn--ghost aa-btn--sm" data-copy="#guideBase">Copy</button></div>
+
+      <h3 class="aa-guide__h">1. Get an access token (valid 1 hour)</h3>
+      <pre class="aa-code" id="guideToken">POST <%= apiBaseUrl %>/auth/token
+Content-Type: application/json
+
+{
+  "client_id": "<%= clientId %>",
+  "client_secret": "mgr_cs_…",
+  "personal_access_token": "mgr_pat_…"
+}</pre>
+      <p class="aa-hint">The answer contains <code>access_token</code>. Ask again when it expires.</p>
+
+      <h3 class="aa-guide__h">2. Read data</h3>
+      <pre class="aa-code">GET <%= apiBaseUrl %>/students
+Authorization: Bearer &lt;access_token&gt;</pre>
+      <table class="aa-table aa-table--compact" data-no-global-sort>
+        <thead><tr><th>Endpoint</th><th>Returns</th><th>Needs</th></tr></thead>
+        <tbody>
+          <% endpoints.forEach((e) => { %><tr><td><code><%= e.path %></code></td><td><%= e.returns %></td><td><%= e.needs %></td></tr><% }) %>
+        </tbody>
+      </table>
+      <p class="aa-hint">Lists return up to 50 rows; add <code>limit</code> (up to 200) and <code>offset</code> to page. Everything is read-only and limited to this school. Errors come back as <code>{ "error", "message" }</code>: 401 means the token is missing, expired or revoked (get a new one); 403 means the token doesn't have that area.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="<%= assetUrl('/js/apiAccess.js') %>"></script>
+<script>
+  (function () {
+    const page = document.getElementById('accessTokensPage');
+    if (!page || page.dataset.bound) return;
+    page.dataset.bound = '1';
+    const A = window.ApiAccessUI;
+
+    // Tabs switch in place; the address keeps the tab for a refresh.
+    page.querySelectorAll('.aa-tab').forEach((tab) => tab.addEventListener('click', (event) => {
+      event.preventDefault();
+      page.querySelectorAll('.aa-tab').forEach((t) => { const on = t === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', on); });
+      document.getElementById('tabPat').hidden = tab.dataset.tab !== 'pat';
+      document.getElementById('tabSecrets').hidden = tab.dataset.tab !== 'secrets';
+      document.getElementById('tabUsage').hidden = tab.dataset.tab !== 'usage';
+      history.replaceState(null, '', '?tab=' + tab.dataset.tab + (location.search.includes('embed=workspace') ? '&embed=workspace' : ''));
+    }));
+    A.copyButtons(page);
+    A.copyButtons(document.getElementById('guideDrawer'));
+
+    // ----- asking for a bigger allowance -----
+    const reqForm = document.getElementById('reqForm');
+    const reqError = document.getElementById('reqError');
+    const reqDrawer = A.drawer(document.getElementById('reqDrawer'));
+    const openRequest = () => {
+      const tabUsage = page.querySelector('.aa-tab[data-tab="usage"]');
+      if (tabUsage) tabUsage.click();
+      if (document.getElementById('reqNew').disabled) return;
+      reqError.hidden = true;
+      reqDrawer.open(reqForm.reason);
+    };
+    document.getElementById('reqNew').addEventListener('click', openRequest);
+    page.querySelectorAll('[data-request-more]').forEach((a) => a.addEventListener('click', (event) => { event.preventDefault(); openRequest(); }));
+    if (new URLSearchParams(location.search).get('request') === '1') openRequest();
+    reqForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      reqError.hidden = true;
+      const result = await A.post('/api-access/allowance/requests', {
+        perMinute: reqForm.perMinute.value, perDay: reqForm.perDay.value, reason: reqForm.reason.value, contactEmail: reqForm.contactEmail.value,
+      }, document.getElementById('reqSubmit'));
+      if (!result.ok) { reqError.textContent = result.message; reqError.hidden = false; return; }
+      location.href = '?tab=usage' + (location.search.includes('embed=workspace') ? '&embed=workspace' : '');
+    });
+    document.getElementById('reqTable').addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-cancel-request]');
+      if (!button) return;
+      if (!(await A.confirm('Cancel this request?', 'You can send a new one at any time.', 'Cancel request'))) return;
+      const result = await A.post('/api-access/allowance/requests/' + button.closest('tr').dataset.id + '/cancel', {});
+      if (!result.ok) return A.alert(result.message);
+      location.href = '?tab=usage' + (location.search.includes('embed=workspace') ? '&embed=workspace' : '');
+    });
+    const guide = A.drawer(document.getElementById('guideDrawer'));
+    document.getElementById('guideOpen').addEventListener('click', () => guide.open());
+
+    // A drawer whose second step shows the new credential once.
+    function credentialDrawer(drawerEl, form, submit, error, url, collect, reveal) {
+      const drawer = A.drawer(drawerEl, { onClose: () => { if (form.dataset.created) window.location.reload(); } });
+      const steps = () => ({ form: form.querySelector('[data-step="form"]'), done: form.querySelector('[data-step="done"]') });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (form.dataset.created) return drawer.close();
+        error.hidden = true;
+        const body = collect();
+        if (typeof body === 'string') { error.textContent = body; error.hidden = false; return; }
+        const result = await A.post(url, body, submit);
+        if (!result.ok) { error.textContent = result.message; error.hidden = false; return; }
+        form.dataset.created = '1';
+        reveal(result.data);
+        steps().form.hidden = true;
+        steps().done.hidden = false;
+        submit.textContent = 'Done';
+        form.querySelector('.aa-drawer-footer [data-close]').hidden = true;
+      });
+      return {
+        open() {
+          form.reset();
+          delete form.dataset.created;
+          error.hidden = true;
+          steps().form.hidden = false;
+          steps().done.hidden = true;
+          submit.textContent = 'Create';
+          form.querySelector('.aa-drawer-footer [data-close]').hidden = false;
+          drawer.open(form.querySelector('input,select'));
+        },
+      };
+    }
+
+    // ----- personal access tokens -----
+    const patForm = document.getElementById('patForm');
+    const scopeHint = document.getElementById('patScopeHint');
+    async function loadScopes() {
+      const id = patForm.serviceAccountId.value;
+      const boxes = patForm.querySelectorAll('.aa-scope');
+      boxes.forEach((box) => { const c = box.querySelector('input'); c.checked = false; c.disabled = true; box.classList.remove('is-off'); box.querySelector('.aa-scope__why').hidden = true; });
+      if (!id) { scopeHint.hidden = false; return; }
+      scopeHint.hidden = true;
+      const result = await A.get('/api-access/tokens/scopes?serviceAccountId=' + encodeURIComponent(id));
+      if (!result.ok) { scopeHint.textContent = result.message; scopeHint.hidden = false; return; }
+      result.data.groups.forEach((g) => {
+        const box = patForm.querySelector('.aa-scope[data-group="' + g.key + '"]');
+        if (!box) return;
+        box.querySelector('input').disabled = !g.available;
+        box.classList.toggle('is-off', !g.available);
+        const why = box.querySelector('.aa-scope__why');
+        why.hidden = g.available;
+        why.textContent = g.available ? '' : g.reason;
+      });
+    }
+    patForm.serviceAccountId.addEventListener('change', loadScopes);
+    const pat = credentialDrawer(
+      document.getElementById('patDrawer'), patForm, document.getElementById('patSubmit'), document.getElementById('patError'),
+      '/api-access/tokens',
+      () => {
+        const groups = [...patForm.querySelectorAll('input[name="scopeGroups"]:checked')].map((c) => c.value);
+        if (!patForm.name.value.trim()) return 'Enter a name.';
+        if (!patForm.serviceAccountId.value) return 'Select a service account.';
+        if (!groups.length) return 'Select at least one scope.';
+        return { name: patForm.name.value, serviceAccountId: patForm.serviceAccountId.value, expiresInDays: patForm.expiresInDays.value, scopeGroups: groups };
+      },
+      (data) => { document.getElementById('patValue').value = data.token; }
+    );
+    const patNew = document.getElementById('patNew');
+    patNew.addEventListener('click', () => { pat.open(); loadScopes(); });
+
+    A.rowMenu(document.getElementById('patTable'), document.getElementById('patMenu'), async (action, row) => {
+      if (action !== 'revoke') return;
+      if (!(await A.confirm('Revoke "' + row.dataset.name + '"?', 'Integrations using it lose access right away. This cannot be undone.', 'Revoke'))) return;
+      const result = await A.post('/api-access/tokens/' + row.dataset.id + '/revoke', {});
+      if (!result.ok) return A.alert(result.message);
+      window.location.reload();
+    });
+    A.search(document.getElementById('patSearch'), document.getElementById('patTable'));
+
+    // ----- client secrets -----
+    const secretForm = document.getElementById('secretForm');
+    const secret = credentialDrawer(
+      document.getElementById('secretDrawer'), secretForm, document.getElementById('secretSubmit'), document.getElementById('secretError'),
+      '/api-access/secrets',
+      () => ({ description: secretForm.description.value, expiresInDays: secretForm.expiresInDays.value }),
+      (data) => { document.getElementById('secretValue').value = data.secret; }
+    );
+    document.getElementById('secretNew').addEventListener('click', () => secret.open());
+
+    A.rowMenu(document.getElementById('secretTable'), document.getElementById('secretMenu'), async (action, row) => {
+      if (action === 'revoke') {
+        if (!(await A.confirm('Revoke this client secret?', 'Integrations using it lose access right away. This cannot be undone.', 'Revoke'))) return;
+        const result = await A.post('/api-access/secrets/' + row.dataset.id + '/revoke', {});
+        if (!result.ok) return A.alert(result.message);
+        window.location.reload();
+      }
+      if (action === 'regenerate') {
+        if (!(await A.confirm('Regenerate this client secret?', 'The current secret stops working right away and a new one is shown once.', 'Regenerate'))) return;
+        const result = await A.post('/api-access/secrets/' + row.dataset.id + '/regenerate', {});
+        if (!result.ok) return A.alert(result.message);
+        secret.open();
+        secretForm.dataset.created = '1';
+        document.getElementById('secretValue').value = result.data.secret;
+        secretForm.querySelector('[data-step="form"]').hidden = true;
+        secretForm.querySelector('[data-step="done"]').hidden = false;
+        document.getElementById('secretSubmit').textContent = 'Done';
+        secretForm.querySelector('.aa-drawer-footer [data-close]').hidden = true;
+      }
+    });
+  })();
+</script>

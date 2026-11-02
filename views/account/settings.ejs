@@ -3166,7 +3166,9 @@
       const currentMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0;
       const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1;
       const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0;
-      const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100));
+      const apiAddonMonthly = (typeof apiAddonMonthlyUsd !== 'undefined' && Number(apiAddonMonthlyUsd) > 0) ? Number(apiAddonMonthlyUsd) : 0;
+      // Same as the bill: plan (with the period discount) plus the API add-on each month.
+      const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100)) + apiAddonMonthly * billingMonths;
       const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly';
 
       let _onHoldAmountText = '';
@@ -3242,6 +3244,12 @@
           <li><button class="nav-link" data-target="security">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg></span>
             <span>Security</span>
+          </button></li>
+          <% } %>
+          <% if (_canCustomizeSettings && _canSecuritySettings) { %>
+          <li><button class="nav-link" data-target="access-tokens">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M17 6l3 3M15 8l2 2"/></svg></span>
+            <span>Access Tokens</span>
           </button></li>
           <% } %>
           <% if ((typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) || (typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length)) { %>
@@ -4009,6 +4017,12 @@
                         <% } %>
                       </div>
                     </div>
+                    <% if (apiAddonMonthly > 0) { %>
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label">API allowance</div>
+                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(apiAddonMonthly) %> a month, included above · <a href="#" data-target-link="access-tokens" onclick="var b=document.querySelector('.nav-link[data-target=&quot;access-tokens&quot;]'); if (b) { b.click(); } return false;">See details</a></div>
+                    </div>
+                    <% } %>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label">Billing</div>
                       <div class="current-plan-price-value-sub"><%= billingMonths > 1 ? `Every ${billingChargeLabel}` : billingChargeLabel %><%= billingDiscount > 0 ? ` · ${billingDiscount}% discount` : '' %></div>
@@ -5008,6 +5022,29 @@
         <% if ((_hasUserNotificationPrefs || _hasOrgNotificationPrefs) && !_isOnHoldRestricted) {
              const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {};
              const _orgSaved = (typeof savedOrgNotificationPrefs !== 'undefined' && savedOrgNotificationPrefs) ? savedOrgNotificationPrefs : {}; %>
+        <% if (_canCustomizeSettings && _canSecuritySettings) { %>
+        <section id="access-tokens" class="settings-section settings-section--frame">
+          <iframe class="settings-access-frame" title="Access Tokens" data-src="/api-access/tokens?embed=workspace" loading="lazy"></iframe>
+        </section>
+        <style>
+          .settings-section--frame { padding: 0; }
+          .settings-access-frame { display: block; width: 100%; height: calc(100vh - 150px); min-height: 560px; border: 0; border-radius: 12px; background: transparent; }
+        </style>
+        <script>
+          // The Access Tokens page loads the first time its section is opened.
+          (function () {
+            var frame = document.querySelector('.settings-access-frame');
+            if (!frame) return;
+            // ?apiTab=usage (from the dashboard banner) opens Usage with the request form.
+            var wanted = new URLSearchParams(location.search).get('apiTab');
+            var src = frame.dataset.src + (wanted === 'usage' ? '&tab=usage&request=1' : '');
+            var load = function () { if (!frame.getAttribute('src')) frame.setAttribute('src', src); };
+            var section = document.getElementById('access-tokens');
+            new MutationObserver(function () { if (section.style.display === 'block') load(); }).observe(section, { attributes: true, attributeFilter: ['style'] });
+            if (section.style.display === 'block') load();
+          })();
+        </script>
+        <% } %>
         <section id="notifications" class="settings-section">
           <h1>Email Notifications</h1>
           <p class="lead">Choose which non-essential emails you want to receive. Security, billing, and other transactional emails are always sent.</p>

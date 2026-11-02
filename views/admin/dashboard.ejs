@@ -1065,6 +1065,14 @@
         <% } %>
         <% if (!_isInternal) { %>
           <a href="/admin/hubs" class="btn-secondary">Manage Hubs</a>
+          <a href="/admin/api-requests" class="btn-secondary">API requests<span data-api-requests-count></span></a>
+          <script>
+            // Pending school requests for more API calls (count only).
+            fetch('/admin/api-requests/count.json', { credentials: 'same-origin' }).then((r) => r.json()).then((d) => {
+              const el = document.querySelector('[data-api-requests-count]');
+              if (el && d && d.pending) el.textContent = ' (' + d.pending + ')';
+            }).catch(() => {});
+          </script>
         <% } %>
       </div>
     </div>

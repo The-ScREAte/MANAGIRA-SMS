@@ -9408,6 +9408,8 @@ const accountController = {
         canAccessBillingSettings,
         canAccessPaygiraSettings,
         canAccessSecuritySettings,
+        // Monthly price for a bigger API allowance (utils/apiAllowance.js), shown with the bill.
+        apiAddonMonthlyUsd: orgId ? await require("../utils/apiAllowance").monthlyAddonUsd(orgId) : 0,
         googleIntegration,
         whatsappIntegration,
         whatsappFrontendConfig,

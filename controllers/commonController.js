@@ -9719,6 +9719,11 @@ const commonController = {
       req.flash("error", "All fields are required.");
       return res.redirect(createEmployeeRedirectUrl);
     }
+    // The manager confirms they're adding this person with the access chosen.
+    if (!require("../utils/employeeAcknowledgement").isAcknowledged(req.body)) {
+      req.flash("error", "Confirm that you're adding this person and giving them the access selected.");
+      return res.redirect(createEmployeeRedirectUrl);
+    }
 
     // User licenses set by Managira (or the school's hub plan): no new accounts once they are all used.
     try {
@@ -9895,6 +9900,10 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+      await require("../utils/employeeAcknowledgement").record(req, {
+        organizationId, employeeUserId: userId, action: "create", accountType: account_type,
+        permissions: effectivePermissions, employeeName: `${firstName} ${lastName}`.trim(),
+      });
 
       setImmediate(async () => {
         try {
@@ -10755,6 +10764,10 @@ const commonController = {
       }
       return res.redirect("/common/manageEmployees");
     };
+    // The manager confirms this person's role and access before saving.
+    if (!require("../utils/employeeAcknowledgement").isAcknowledged(req.body)) {
+      return respondModifyEmployeeError(400, "Confirm that this person should have the role and access selected.");
+    }
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
     // Plan features only; a permission the employee already holds for a feature
     // the plan no longer shows is kept (sent back from the form as a hidden field).
@@ -10935,6 +10948,10 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+      await require("../utils/employeeAcknowledgement").record(req, {
+        organizationId, employeeUserId: Number(userId), action: "update", accountType,
+        permissions: effectivePermissions, employeeName: `${firstName || ""} ${lastName || ""}`.trim(),
+      });
 
       const requestorIdNumber = Number(requestorId);
       const editedUserIdNumber = Number(userId);
@@ -19636,6 +19653,9 @@ NUMBERING:
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
         canEditContactTemplate,
+        // Service accounts need "Manage Settings" (routes/apiAccessRoute.js checks it too).
+        canManageApiAccess: localPermissions.some((key) => String(key || '').trim().toLowerCase() === PERMISSIONS.MANAGE_SETTINGS)
+          || ['organization', 'admin', 'mini admin'].includes(roleStr),
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");

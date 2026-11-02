@@ -1,0 +1,13 @@
+<div data-ahd-title="Decline the request" data-ahd-sub="<%= request.organization_name %>">
+  <form action="/admin/api-requests/<%= request.request_id %>/decline" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <div class="ahb-grid ahb-grid--1">
+        <label class="ahb-field"><span class="ahb-label">Reason for the school <em>optional</em></span><input type="text" name="note" class="ahb-input" maxlength="1000" placeholder="e.g. Your app can sync once an hour instead of every minute." /></label>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Decline</button>
+    </div>
+  </form>
+</div>

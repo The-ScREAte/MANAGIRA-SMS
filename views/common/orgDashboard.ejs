@@ -646,6 +646,50 @@
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
 <script src="<%= assetUrl('/js/workspace.js') %>"></script>
+<% if (req.session && !req.session.guardianId && !req.session.studentId) { %>
+<div id="apiUsageDashBanner" hidden></div>
+<script>
+  // Managers: warn when the school's integrations are near today's API allowance.
+  (function () {
+    const host = document.getElementById('apiUsageDashBanner');
+    if (!host || host.dataset.loaded) return;
+    host.dataset.loaded = '1';
+    fetch('/api-access/usage-banner.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !d.success || !d.nearLimit) return;
+        host.className = 'api-usage-banner' + (d.limitHit || d.minuteLimitHit ? ' is-hit' : '');
+        host.setAttribute('role', 'status');
+        const text = document.createElement('div');
+        text.className = 'api-usage-banner__text';
+        const title = document.createElement('strong');
+        const hrs = d.resetsInHours + ' hour' + (d.resetsInHours === 1 ? '' : 's');
+        const used = d.usedToday.toLocaleString('en-US') + ' of ' + d.perDay.toLocaleString('en-US') + ' calls';
+        title.textContent = d.limitHit ? "Your integrations used up today's API allowance"
+          : d.minuteLimitHit ? 'Some API calls were paused today' : "Your integrations are close to today's API allowance";
+        const line = document.createElement('span');
+        line.textContent = d.limitHit ? used + ". They're paused until it resets in about " + hrs + ' (midnight UTC).'
+          : d.minuteLimitHit ? 'Your integrations sent more than ' + d.perMinute.toLocaleString('en-US') + ' calls in a minute. ' + used + ' used today.'
+          : used + ' used (' + d.percent + '%). Calls pause when it runs out; it resets in about ' + hrs + '.';
+        text.append(title, line);
+        const btn = document.createElement('a');
+        btn.className = 'api-usage-banner__btn';
+        btn.href = '/account/settings?section=access-tokens&apiTab=usage';
+        btn.textContent = 'Request more';
+        host.append(text, btn);
+        host.hidden = false;
+      })
+      .catch(() => {});
+  })();
+</script>
+<style>
+  #apiUsageDashBanner { max-width: 1400px; margin: 12px auto 0; }
+  .api-usage-banner { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #fcd34d; border-radius: 12px; background: #fffbeb; color: #78350f; }
+  .api-usage-banner.is-hit { border-color: #fca5a5; background: #fef2f2; color: #7f1d1d; }
+  .api-usage-banner__text { display: grid; gap: 2px; flex: 1; min-width: 0; font-size: 0.86rem; line-height: 1.45; }
+  .api-usage-banner__btn { flex: 0 0 auto; padding: 8px 14px; border-radius: 8px; background: var(--org-primary-color, #01535b); color: #fff; font-size: 0.85rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+</style>
+<% } %>
 <div id="orgDashboardSection">
   <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--org" aria-label="Announcements"></div>
   <div class="dashboard-grid">

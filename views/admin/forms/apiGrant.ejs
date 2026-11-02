@@ -1,0 +1,23 @@
+<div data-ahd-title="Grant more API calls" data-ahd-sub="<%= request.organization_name %> · now <%= Number(request.current_per_minute).toLocaleString('en-US') %>/min, <%= Number(request.current_per_day).toLocaleString('en-US') %>/day">
+  <form action="/admin/api-requests/<%= request.request_id %>/grant" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <p class="ahb-hint" style="margin:0 0 12px">They asked for <strong><%= Number(request.requested_per_minute).toLocaleString('en-US') %> a minute</strong> and <strong><%= Number(request.requested_per_day).toLocaleString('en-US') %> a day</strong>: “<%= request.reason %>”</p>
+      <div class="ahb-grid">
+        <label class="ahb-field"><span class="ahb-label">Calls a minute</span><input type="text" inputmode="numeric" name="perMinute" class="ahb-input" value="<%= request.requested_per_minute %>" required /></label>
+        <label class="ahb-field"><span class="ahb-label">Calls a day</span><input type="text" inputmode="numeric" name="perDay" class="ahb-input" value="<%= request.requested_per_day %>" required /></label>
+      </div>
+      <div class="ahb-grid ahb-grid--1">
+        <label class="ahb-field">
+          <span class="ahb-label">Monthly price</span>
+          <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="monthlyPrice" class="ahb-input" value="<%= Number(request.current_price) > 0 ? Number(request.current_price).toFixed(2) : '' %>" placeholder="0.00" required /></span>
+          <span class="ahb-hint">Replaces any API price they pay now. Added to their monthly bill from the next payment.</span>
+        </label>
+        <label class="ahb-field"><span class="ahb-label">Note to the school <em>optional</em></span><input type="text" name="note" class="ahb-input" maxlength="1000" /></label>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Grant</button>
+    </div>
+  </form>
+</div>

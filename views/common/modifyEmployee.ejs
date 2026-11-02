@@ -526,12 +526,13 @@
         </div>
       </div>
     </div>
+    <%- include('../partials/employeeAccessAck', { mode: 'update' }) %>
   </form>
 </div>
 
 <div class="employee-actions-bar">
   <div class="employee-actions-row">
-    <button type="submit" form="modifyEmployeeForm" class="btn btn-primary" id="saveEmployeeBtn">
+    <button type="submit" form="modifyEmployeeForm" class="btn btn-primary" id="saveEmployeeBtn" data-ack-submit disabled title="Confirm the access first">
       <span class="employee-save-spinner" aria-hidden="true"></span>
       <span class="employee-save-btn-text">Save Changes</span>
     </button>
@@ -735,8 +736,8 @@
             return;
           }
 
-          const confirmed = confirm("Are you sure you want to apply these changes?");
-          if (!confirmed) {
+          // The confirmation box at the end of the form replaces a pop-up.
+          if (!modifyForm.querySelector('input[name="accessAcknowledged"]:checked')) {
             return;
           }
 

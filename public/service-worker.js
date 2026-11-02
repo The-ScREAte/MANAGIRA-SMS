@@ -15,7 +15,7 @@
 // Bump this version on every deploy that ships new front-end assets. Changing it
 // causes the activate handler to purge ALL previous caches, guaranteeing users
 // stop being served old cached code.
-const CACHE_NAME = 'managira-static-v2';
+const CACHE_NAME = 'managira-static-v3';
 
 // ── Workspace panels ──────────────────────────────────────────────────────────
 // A panel you open again shows its last copy at once; a fresh copy is fetched
@@ -67,7 +67,7 @@ function isWorkspacePanel(request, url) {
 
 // The menu pages themselves (their sidebar), kept the same way. The panel
 // that opens is chosen in the page from its address, so one copy per menu.
-const HUB_PAGES = ['/common/management', '/common/admissions', '/common/reports'];
+const HUB_PAGES = ['/common/management', '/common/admissions', '/common/reports', '/account/settings/finance'];
 function isHubPage(request, url) {
   return request.method === 'GET'
     && request.mode === 'navigate'

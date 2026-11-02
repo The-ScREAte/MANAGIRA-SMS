@@ -1,0 +1,38 @@
+<%#
+  The data-sharing terms a school accepts when it lets an integration read its
+  data (Management -> Service accounts). Version: utils/apiAccess.js
+  AGREEMENT_VERSION; change it whenever this text changes.
+%>
+<div class="aa-agreement">
+  <p class="aa-agreement__meta">Managira API Data-Sharing Agreement · Version <%= version %></p>
+
+  <h4>1. What this covers</h4>
+  <p>This agreement applies when <strong><%= schoolName %></strong> (“the School”) lets an outside application (“the Integration”) read School data through the Managira API using a service account. The Integration may only read the data areas the School ticks for that service account, and only for the purpose the School approved.</p>
+
+  <h4>2. What the School confirms</h4>
+  <ul>
+    <li>The School has a written agreement with the company behind the Integration that covers confidentiality, security and lawful use of the data, and that includes the commitments in section 3.</li>
+    <li>The School has told parents, guardians, students and staff about the sharing, and has their consent where the law requires it.</li>
+    <li>The School will give the Integration only the areas it needs, and will review and revoke access when it is no longer needed.</li>
+    <li>The person accepting is authorised to do so on behalf of the School.</li>
+  </ul>
+
+  <h4>3. What the Integration must do</h4>
+  <ul>
+    <li>Use the data only to provide the service the School asked for. Never sell it, use it for advertising, or build profiles of students.</li>
+    <li>Keep the access token and client secret secret, store them securely, and tell the School at once if they may have been exposed.</li>
+    <li>Protect the data with appropriate security, and limit who can see it.</li>
+    <li>Report any data breach to the School without delay.</li>
+    <li>Delete the School's data when the service ends or when the School asks.</li>
+  </ul>
+
+  <h4>4. How Managira protects the data</h4>
+  <ul>
+    <li>Access is read-only, limited to this School and to the ticked areas.</li>
+    <li>Tokens and secrets are stored only in scrambled (hashed) form and expire. The School can revoke any of them at any time, and access stops immediately.</li>
+    <li>Every token created, used or revoked is recorded in the School's activity log.</li>
+  </ul>
+
+  <h4>5. Responsibility</h4>
+  <p>The School remains responsible for deciding what to share and with whom, and for its agreement with the Integration. Managira provides the access controls and records described above.</p>
+</div>

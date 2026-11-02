@@ -699,6 +699,10 @@ app.use("/uploads", (req, res, next) => {
   return next();
 }, express.static(path.join(__dirname, "uploads"), { dotfiles: "deny", index: false }));
 
+// Managira API for third-party integrations: bearer tokens, no sessions or
+// cookies, so it sits before the session middleware (see routes/publicApiRoute.js).
+app.use("/api/v1", require("./routes/publicApiRoute"));
+
 if (process.env.NODE_ENV === "production") {
   // Production: subdomain sharing
   app.use(
@@ -1082,6 +1086,8 @@ app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>
   require("./controllers/workspaceController").icsFeed(req, res, db)
 );
 app.use("/common", commonRoute);
+// Service accounts, access tokens and client secrets (school admin screens).
+app.use("/api-access", require("./routes/apiAccessRoute"));
 app.use("/announcements", announcementRoute);
 // Canonical end-user feed path per spec; alias of GET /announcements/me.
 app.get("/me/announcements", announcementController.getMyAnnouncements);

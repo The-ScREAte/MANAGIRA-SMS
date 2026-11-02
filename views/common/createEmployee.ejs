@@ -571,7 +571,8 @@
             accountType: accountTypeSelect ? accountTypeSelect.value : null,
           });
 
-          if (!confirm("Are you sure you want to create this employee?")) {
+          // The confirmation box below the form replaces a pop-up.
+          if (!form.querySelector('input[name="accessAcknowledged"]:checked')) {
             e.preventDefault();
             return;
           }
@@ -681,6 +682,7 @@
           </div>
         </div>
 
+        <%- include('../partials/employeeAccessAck', { mode: 'create' }) %>
       </form>
     </div>
   </div>
@@ -688,7 +690,7 @@
 
   <div class="ce-footer-bar">
     <div class="ce-footer-bar-inner">
-      <button type="submit" form="createEmployeeForm" class="btn-primary">
+      <button type="submit" form="createEmployeeForm" class="btn-primary" data-ack-submit disabled title="Confirm the access below first">
         <span class="btn-spinner" aria-hidden="true"></span>
         <span class="btn-label">Create Employee</span>
       </button>

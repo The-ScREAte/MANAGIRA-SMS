@@ -1,0 +1,110 @@
+<%
+  const _fmt = (n) => Number(n || 0).toLocaleString('en-US');
+  const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const _pending = requests.filter((r) => r.status === 'pending');
+  const _answered = requests.filter((r) => r.status !== 'pending');
+  const _status = { approved: ['Granted', 'green'], declined: ['Declined', 'muted'], cancelled: ['Cancelled by school', 'muted'] };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+
+<div class="ah ah--narrow">
+  <%- include('../partials/flash') %>
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+    <span>API requests</span>
+  </nav>
+
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">API requests</h1>
+      <p class="ah-head__sub">Schools asking for more Managira API calls. Every school gets <%= _fmt(standard.perMinute) %> a minute and <%= _fmt(standard.perDay) %> a day. A price you set is added to the school's monthly bill.</p>
+    </div>
+  </header>
+
+  <section class="ah-card" aria-label="Waiting">
+    <h2 class="ah-card__title">Waiting for an answer <span class="ah-count"><%= _pending.length %></span></h2>
+    <% if (_pending.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>School</th><th>Now</th><th>Asks for</th><th>Why</th><th>Asked</th><th class="ah-num"></th></tr></thead>
+          <tbody>
+            <% _pending.forEach((r) => { %>
+              <tr>
+                <td><strong><%= r.organization_name %></strong><span class="ah-sub"><%= [r.contact_name, r.contact_email].filter(Boolean).join(' · ') %></span></td>
+                <td><%= _fmt(r.current_per_minute) %>/min<span class="ah-sub"><%= _fmt(r.current_per_day) %>/day<%= Number(r.current_price) > 0 ? ' · $' + Number(r.current_price).toFixed(2) + '/mo' : '' %></span></td>
+                <td><strong><%= _fmt(r.requested_per_minute) %>/min</strong><span class="ah-sub"><%= _fmt(r.requested_per_day) %>/day</span></td>
+                <td style="max-width:320px"><%= r.reason %></td>
+                <td><%= _date(r.created_at) %></td>
+                <td class="ah-actions-cell">
+                  <div class="ah-row-actions">
+                    <a class="ah-btn ah-btn--sm ah-btn--primary" href="/admin/api-requests/<%= r.request_id %>/grant" data-ah-drawer>Grant</a>
+                    <a class="ah-btn ah-btn--sm" href="/admin/api-requests/<%= r.request_id %>/decline" data-ah-drawer>Decline</a>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="ah-empty"><i class="fa-solid fa-inbox" aria-hidden="true"></i><h3>Nothing waiting</h3><p>New requests also arrive by email.</p></div>
+    <% } %>
+  </section>
+
+  <section class="ah-card" aria-label="Schools with a bigger allowance">
+    <h2 class="ah-card__title">Schools with a bigger allowance</h2>
+    <% if (allowances.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>School</th><th class="ah-num">A minute</th><th class="ah-num">A day</th><th class="ah-num">Monthly price</th><th>Changed</th><th class="ah-num"></th></tr></thead>
+          <tbody>
+            <% allowances.forEach((a) => { %>
+              <tr>
+                <td><strong><%= a.organization_name %></strong></td>
+                <td class="ah-num"><%= _fmt(a.per_minute) %></td>
+                <td class="ah-num"><%= _fmt(a.per_day) %></td>
+                <td class="ah-num">$<%= Number(a.monthly_price).toFixed(2) %></td>
+                <td><%= _date(a.updated_at) %><span class="ah-sub"><%= a.updated_by || '' %></span></td>
+                <td class="ah-actions-cell">
+                  <form action="/admin/api-requests/allowances/<%= a.organization_id %>/reset" method="POST" data-ah-ajax data-ah-ask="Set <%= a.organization_name %> back to the standard allowance? The monthly API charge stops from their next bill." data-ah-ask-ok="Set back" data-ah-danger>
+                    <button type="submit" class="ah-btn ah-btn--sm">Set back to standard</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <p class="ah-sub" style="padding:4px 0">All schools are on the standard allowance.</p>
+    <% } %>
+  </section>
+
+  <% if (_answered.length) { %>
+  <section class="ah-card" aria-label="Answered">
+    <h2 class="ah-card__title">Answered</h2>
+    <div class="ah-scroll">
+      <table class="ah-table">
+        <thead><tr><th>School</th><th>Asked for</th><th>Answer</th><th>Granted</th><th class="ah-num">Price</th><th>When</th></tr></thead>
+        <tbody>
+          <% _answered.forEach((r) => { const st = _status[r.status] || [r.status, 'muted']; %>
+            <tr>
+              <td><strong><%= r.organization_name %></strong></td>
+              <td><%= _fmt(r.requested_per_minute) %>/min · <%= _fmt(r.requested_per_day) %>/day</td>
+              <td><span class="ah-bill ah-bill--<%= st[1] %>"><%= st[0] %></span><% if (r.admin_note) { %><span class="ah-sub"><%= r.admin_note %></span><% } %></td>
+              <td><%= r.status === 'approved' ? _fmt(r.granted_per_minute) + '/min · ' + _fmt(r.granted_per_day) + '/day' : '—' %></td>
+              <td class="ah-num"><%= r.status === 'approved' ? '$' + Number(r.monthly_price).toFixed(2) : '—' %></td>
+              <td><%= _date(r.decided_at) %><span class="ah-sub"><%= r.decided_by || '' %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <% } %>
+  <%- include('partials/hubAdminDialogs') %>
+</div>
+<style>
+  .ah-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--ah-accent-soft, #eef2ff); font-size: .78rem; font-weight: 700; vertical-align: middle; }
+  .ah-card > .ah-card__title { margin-bottom: 12px; }
+</style>

@@ -610,6 +610,7 @@
         font-size: 0.78rem; font-weight: 600; text-decoration: none; white-space: nowrap;
       }
       .sd-empty { color: #64748b; text-align: center; }
+      .sd-col-action { width: 1%; text-align: right; white-space: nowrap; }
       .sd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
       @media screen and (min-width: 769px) {
         .sd-profile .student-extra-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px 24px; padding-top: 12px; border-top: 1px solid #eef0f3; }
@@ -819,29 +820,28 @@
         <table>
           <thead>
             <tr>
-              <th>Guardian Name</th>
-              <th>Address</th>
+              <th>Name</th>
               <th>Phone</th>
               <th>Email</th>
-              <th>Hometown</th>
-              <th><span class="sd-sr">Open</span></th>
+              <th>Address</th>
+              <th class="sd-col-action"><span class="sd-sr">Open</span></th>
             </tr>
           </thead>
           <tbody>
             <% guardians.forEach(guardian => { %>
+            <% const _gName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
             <tr>
-              <td><%= (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()) %></td>
-              <td><%= guardian.address %></td>
-              <td><%= guardian.phone %></td>
-              <td><%= guardian.email %></td>
-              <td><%= guardian.hometown %></td>
-              <td>
-                <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>" class="sd-view" aria-label="View <%= guardian.first_name || 'guardian' %>">View</a>
+              <td><%= _gName %></td>
+              <td><%= guardian.phone || '—' %></td>
+              <td><%= guardian.email || '—' %></td>
+              <td><%= [guardian.address, guardian.hometown].filter(Boolean).join(' · ') || '—' %></td>
+              <td class="sd-col-action">
+                <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>" class="sd-view" data-guardian-view data-guardian-name="<%= _gName %>" data-no-spa aria-label="View <%= _gName %>">View</a>
               </td>
             </tr>
             <% }) %>
             <% if (!guardians.length) { %>
-            <tr><td colspan="6" class="sd-empty">No parent or guardian linked yet.</td></tr>
+            <tr><td colspan="5" class="sd-empty">No parent or guardian linked yet.</td></tr>
             <% } %>
           </tbody>
         </table>
@@ -866,6 +866,28 @@
       if (event.origin !== window.location.origin || !event.data || event.data.drawerId !== 'editStudent') return;
       if (event.data.managiraDrawerClose) window.location.reload();
     });
+  })();
+  // A guardian's details open in the same right-side drawer; if anything was
+  // saved there (the drawer page loaded again), this page refreshes on close.
+  (function () {
+    const links = document.querySelectorAll('[data-guardian-view]');
+    if (!links.length || !window.ManagiraDrawer || document.body.dataset.guardianDrawerBound) return;
+    document.body.dataset.guardianDrawerBound = '1';
+    const drawer = ManagiraDrawer.create({ id: 'guardianDetails', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>', title: 'Parent / guardian', subtitle: '', width: 820 });
+    let loads = 0;
+    drawer.iframe.addEventListener('load', function () { loads += 1; });
+    links.forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        loads = 0;
+        const sub = drawer.overlay.querySelector('.mgr-drawer-header p');
+        if (sub) sub.textContent = link.dataset.guardianName || '';
+        drawer.open(link.getAttribute('href') + '&embed=workspace', { forceReload: true });
+      });
+    });
+    new MutationObserver(function () {
+      if (!drawer.overlay.classList.contains('is-open') && loads > 1) window.location.reload();
+    }).observe(drawer.overlay, { attributes: true, attributeFilter: ['class'] });
   })();
     </script>
     <script>

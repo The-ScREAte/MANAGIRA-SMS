@@ -607,6 +607,16 @@ module.exports = (db) => {
 
     // Hub Management Routes
     router.get('/hubs', ensureAdmin, adminController.hubsListGet);
+    // API allowance requests from schools (Managira API).
+    const apiRequests = require('../controllers/apiAllowanceAdminController');
+    router.get('/api-requests', ensureAdmin, apiRequests.page);
+    router.get('/api-requests/count.json', ensureAdmin, apiRequests.count);
+    router.get('/api-requests/:id(\\d+)/grant', ensureAdmin, apiRequests.grantForm);
+    router.get('/api-requests/:id(\\d+)/decline', ensureAdmin, apiRequests.declineForm);
+    router.post('/api-requests/:id(\\d+)/grant', ensureAdmin, apiRequests.grant);
+    router.post('/api-requests/:id(\\d+)/decline', ensureAdmin, apiRequests.decline);
+    router.post('/api-requests/allowances/:orgId(\\d+)/reset', ensureAdmin, apiRequests.reset);
+
     const hubForms = require('../controllers/hubBillingController');
     router.get('/hubs/create', ensureAdmin, hubForms.adminHubCreateFormGet);
     router.post('/hubs/create', ensureAdmin, adminController.hubCreatePost);

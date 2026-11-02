@@ -65,6 +65,13 @@
   /* ── Base ─────────────────────────────────────────────────────── */
   /* The page follows the person's appearance; cards sit on it. */
   body { background: var(--ap-page, var(--fin-bg)) !important; }
+  /* Inside the PayGira hub (html.fin-in-hub, set below): the hub's menu
+     replaces this page's own. Opened elsewhere it keeps its menu. */
+  html.fin-in-hub .fin-side, html.fin-in-hub .fin-mobile-header { display:none !important; }
+  html.fin-in-hub .fin-grid { grid-template-columns:minmax(0,1fr) !important; max-width:none; }
+  html.fin-in-hub .fin-shell { min-height:0; padding:18px clamp(14px,2vw,24px) 40px; }
+  html.fin-in-hub .fin-page-head { margin-bottom:16px; }
+  html.fin-in-hub .fin-page-head .paygira-secure-badge { display:none; }
   .fin-shell {
     color:var(--fin-text); font-family:inherit;
     min-height:calc(100vh - 60px); padding:28px clamp(12px,3vw,36px) 80px;
@@ -766,6 +773,14 @@
   }
   .fin-report-filters .fin-filter-icon {
     flex-shrink:0; line-height:1;
+  }
+  .fin-report-filters { align-items:flex-end; }
+  .fin-report-filters .fin-filter-reset {
+    flex-shrink:0; align-self:flex-end; width:auto; margin:0;
+    min-height:38px; padding:0 14px; border-radius:8px;
+    display:inline-flex; align-items:center;
+    background:var(--fin-card); color:var(--fin-text); border:1px solid var(--fin-border);
+    font-weight:600; text-decoration:none;
   }
   .fin-student-context-card {
     margin-bottom:16px;
@@ -1689,6 +1704,15 @@
   /* End alignment fix */
 </style>
 
+<script>
+  (function () {
+    try {
+      if (window.parent !== window && window.parent.location.pathname.replace(/\/$/, '') === '/account/settings/finance') {
+        document.documentElement.classList.add('fin-in-hub');
+      }
+    } catch (_e) { /* another site */ }
+  })();
+</script>
 <div class="fin-shell">
   <div class="fin-grid">
 
@@ -5692,7 +5716,8 @@ Regards,
 
   function softReload(){
     var path = window.location.pathname + window.location.search;
-    if (window.spaRouter && typeof window.spaRouter.navigate === 'function') {
+    // In a PayGira hub panel the app's page router would load the whole hub.
+    if (window.top === window && window.spaRouter && typeof window.spaRouter.navigate === 'function') {
       try { window.spaRouter.navigate(path); return; } catch(_) {}
     }
     // Fallback: fetch and swap the finance shell only
@@ -5736,6 +5761,8 @@ Regards,
    finance sections in the background so tab switches reuse both browser and
    server cache instead of waiting for a cold load. */
 (function(){
+  // Inside the PayGira hub each section is its own panel, warmed by the hub.
+  if (window.top !== window) return;
   var navLinks = Array.prototype.slice.call(document.querySelectorAll('.fin-side a[href*="/account/settings/finance"]'));
   if (!navLinks.length || typeof fetch !== 'function') return;
 

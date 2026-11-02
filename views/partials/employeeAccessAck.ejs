@@ -1,0 +1,56 @@
+<%#
+  Confirmation a manager gives before adding a staff member or changing their
+  access. Posted as accessAcknowledged=yes; checked and recorded on the server
+  (utils/employeeAcknowledgement.js). The save button with [data-ack-submit]
+  stays off until it is ticked. mode: 'create' | 'update'.
+%>
+<% const _schoolName = (typeof session !== 'undefined' && session && (session.organizationName || session.orgName)) || 'the school'; %>
+<div class="ack-box" data-ack-box>
+  <label class="ack-box__label">
+    <input type="checkbox" name="accessAcknowledged" value="yes" required data-ack-check>
+    <span>
+      <strong><%= mode === 'create' ? 'I confirm I am adding' : 'I confirm the access of' %> <span data-ack-name>this person</span> <%= mode === 'create' ? 'to' : 'at' %> <%= _schoolName %> as <span data-ack-role>the role selected</span>.</strong>
+      <small>They will be able to use the permissions ticked above and see the classes and subjects assigned. I'm authorised to give this access, and I'll change or remove it when they no longer need it. This confirmation is recorded with my name and the date.</small>
+    </span>
+  </label>
+</div>
+<style>
+  .ack-box { margin: 18px 0 4px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 5%, transparent); text-align: left; }
+  .ack-box__label { display: flex; gap: 10px; align-items: flex-start; margin: 0; cursor: pointer; font-weight: 400; }
+  .ack-box__label input { width: 18px !important; height: 18px; margin: 3px 0 0 !important; flex: 0 0 auto; }
+  .ack-box__label span { display: grid; gap: 4px; }
+  .ack-box__label strong { font-size: 0.92rem; color: #0f172a; }
+  .ack-box__label small { font-size: 0.8rem; line-height: 1.5; color: #475569; }
+  [data-ack-submit]:disabled { opacity: 0.55; cursor: not-allowed; }
+</style>
+<script>
+  (function () {
+    const box = document.currentScript && document.currentScript.previousElementSibling && document.currentScript.previousElementSibling.previousElementSibling;
+    const root = (box && box.matches && box.matches('[data-ack-box]')) ? box : document.querySelector('[data-ack-box]');
+    if (!root || root.dataset.bound) return;
+    root.dataset.bound = '1';
+    const form = root.closest('form');
+    const check = root.querySelector('[data-ack-check]');
+    const buttons = () => document.querySelectorAll('[data-ack-submit]');
+    const field = (names) => names.map((n) => form && form.querySelector('[name="' + n + '"]')).find(Boolean);
+    const sync = () => {
+      buttons().forEach((b) => { b.disabled = !check.checked; });
+      const first = field(['firstName']); const last = field(['lastName']);
+      const name = [first && first.value.trim(), last && last.value.trim()].filter(Boolean).join(' ');
+      root.querySelector('[data-ack-name]').textContent = name || 'this person';
+      const role = field(['account_type', 'accountType']);
+      const roleText = role ? (role.options ? (role.options[role.selectedIndex] || {}).text : role.value) : '';
+      root.querySelector('[data-ack-role]').textContent = (roleText && roleText.trim()) || 'the role selected';
+    };
+    check.addEventListener('change', sync);
+    if (form) {
+      form.addEventListener('input', (event) => { if (event.target !== check) sync(); });
+      form.addEventListener('change', (event) => {
+        // Changing the role or permissions after confirming needs a fresh tick.
+        if (event.target !== check && check.checked && /^(permissions|account_type|accountType)$/.test(event.target.name)) check.checked = false;
+        sync();
+      });
+    }
+    sync();
+  })();
+</script>

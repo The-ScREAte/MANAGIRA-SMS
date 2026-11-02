@@ -1,0 +1,14 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/apiAccess.css') %>" />
+<div class="gp-page aa-page aa-agreement-page">
+  <header class="aa-toolbar">
+    <div>
+      <h1 class="gp-title">API Data-Sharing Agreement</h1>
+      <p class="gp-sub">Accepted for each service account before an integration can read any data.</p>
+    </div>
+    <button type="button" class="aa-btn aa-btn--ghost" onclick="window.print()">Print</button>
+  </header>
+  <section class="gp-card">
+    <%- include('../partials/apiDataAgreement', { version: agreementVersion, schoolName }) %>
+  </section>
+</div>

@@ -4187,6 +4187,22 @@ module.exports = {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");
 
+    // A normal visit gets the PayGira hub (fixed menu, sections in panels that
+    // stay open); the panels themselves, and anything loaded inside a frame
+    // or fetched in the background, get the section page.
+    const wantsHub = !res.locals.isEmbeddedFrame
+      && !req.get("X-Silent-Reload")
+      && (String(req.get("sec-fetch-dest") || "document").toLowerCase() === "document"
+        || req.get("X-Requested-With") === "XMLHttpRequest"); // the app's in-page navigation
+    if (wantsHub) {
+      return res.render("account/paygiraHub", {
+        title: "PayGira",
+        disableMainZoom: true,
+        initialSection: String(req.query.section || "overview").toLowerCase(),
+        messages: req.flash ? req.flash() : {},
+      });
+    }
+
     try {
       await ensureFinanceSchema();
       await ensureAssigneeColumn();

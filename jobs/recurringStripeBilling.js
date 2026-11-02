@@ -1,6 +1,7 @@
 // jobs/recurringStripeBilling.js
 // Runs recurring subscription charges using Stripe off-session card billing.
 
+const { monthlyAddonUsd } = require('../utils/apiAllowance');
 const { countActiveStudents } = require("../utils/activeStudents");
 const db = require('../config/db');
 const { tryAdvisoryLock } = require('../utils/dbLock');
@@ -535,7 +536,9 @@ async function chargeOrganizationNow(organizationId) {
     const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
     const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
     const periodMonths = Number(cycleBreakdown.months) || 1;
-    const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0);
+    // Plus the school's API allowance add-on, each month of the period (no cycle discount).
+    const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
+      + (await monthlyAddonUsd(org.organization_id)) * (Number(cycleBreakdown.months) || 1);
     const stripeChargeCurrency = String(
       resolveStripeChargeCurrencyForOrganization(org.organization_country, org.organization_currency || null)
     ).toLowerCase();
@@ -786,7 +789,9 @@ async function createAndSendPrechargeInvoices() {
 
       const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
       const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
-      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0);
+      // Plus the school's API allowance add-on, each month of the period (no cycle discount).
+      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
+        + (await monthlyAddonUsd(org.organization_id)) * (Number(cycleBreakdown.months) || 1);
       const chargeCurrency = resolveStripeChargeCurrencyForOrganization(
         org.organization_country,
         org.organization_currency || null
@@ -997,7 +1002,9 @@ async function runRecurringBilling() {
       const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
       const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
       const periodMonths = Number(cycleBreakdown.months) || 1;
-      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0);
+      // Plus the school's API allowance add-on, each month of the period (no cycle discount).
+      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
+        + (await monthlyAddonUsd(org.organization_id)) * (Number(cycleBreakdown.months) || 1);
       const stripeChargeCurrency = String(
         resolveStripeChargeCurrencyForOrganization(
           org.organization_country,
