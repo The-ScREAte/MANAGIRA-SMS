@@ -9587,10 +9587,11 @@ const commonController = {
         await client.query("BEGIN");
 
         for (const studentId in attendance) {
-          const status = attendance[studentId];
+          // Only "Present" or "Absent" are stored (any letter case is accepted).
+          const status = { present: "Present", absent: "Absent" }[String(attendance[studentId] || "").trim().toLowerCase()];
           const parsedStudentId = Number.parseInt(studentId, 10);
-          if (!Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
-            continue; // skip foreign or unknown student ids
+          if (!status || !Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
+            continue; // skip unknown marks and foreign or unknown student ids
           }
           touchedStudentIds.push(parsedStudentId);
 

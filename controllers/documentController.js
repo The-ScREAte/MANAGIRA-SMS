@@ -572,8 +572,10 @@ const documentController = {
         return res.status(400).json({ success: false, message: "Unable to safely map this organization login to its manager profile. Ask admin to align manager email/name with organization account." });
       }
 
-      const docTitle = title || (doc_type === 'spreadsheet' ? 'Untitled Spreadsheet' : 'Untitled Document');
-      const defaultContent = doc_type === 'spreadsheet' 
+      // Only two kinds exist; anything else becomes a document.
+      const kind = doc_type === 'spreadsheet' ? 'spreadsheet' : 'document';
+      const docTitle = title || (kind === 'spreadsheet' ? 'Untitled Spreadsheet' : 'Untitled Document');
+      const defaultContent = kind === 'spreadsheet' 
         ? JSON.stringify({ cells: {}, colCount: 10, rowCount: 20 })
         : '';
 
@@ -581,7 +583,7 @@ const documentController = {
         INSERT INTO documents (organization_id, title, doc_type, content, created_by)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id
-      `, [orgId, docTitle, doc_type || 'document', defaultContent, creatorUserId]);
+      `, [orgId, docTitle, kind, defaultContent, creatorUserId]);
 
       // Auto-add creator with edit permission
       await db.query(`
