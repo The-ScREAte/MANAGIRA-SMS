@@ -40,6 +40,22 @@ const websiteMediaUpload = multer({
   },
 });
 
+// Upload middleware for the website settings form: problems become a clear
+// message on the same page instead of a generic error.
+function websiteMediaFields(field, back = "/account/managePublicContent") {
+  const handler = websiteMediaUpload.array(field);
+  return (req, res, next) => handler(req, res, (error) => {
+    if (!error) return next();
+    removeTempFiles(req.files);
+    const message = error.blockedType ? "Only photos (JPG, PNG, WebP, GIF) and videos (MP4, MOV, WebM) can be added to the website."
+      : error.code === "LIMIT_FILE_SIZE" ? `Each photo or video can be up to ${VIDEO_MAX_MB} MB.`
+      : error.code === "LIMIT_FILE_COUNT" ? "Add up to 20 files at a time."
+      : "That upload couldn't be accepted. Please try again.";
+    if (typeof req.flash === "function") req.flash("error", message);
+    return res.redirect(back);
+  });
+}
+
 async function optimizeImage(input) {
   const buffer = await sharp(input, { failOn: "none" })
     .rotate()
@@ -108,4 +124,4 @@ function ensureMediaColumns(database = db) {
   return schemaPromise;
 }
 
-module.exports = { websiteMediaUpload, optimizeImage, optimizeVideo, optimizeUpload, removeTempFiles, ensureMediaColumns, isVideo, isImage, VIDEO_MAX_MB };
+module.exports = { websiteMediaUpload, websiteMediaFields, optimizeImage, optimizeVideo, optimizeUpload, removeTempFiles, ensureMediaColumns, isVideo, isImage, VIDEO_MAX_MB };
