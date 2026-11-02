@@ -3485,6 +3485,11 @@ main {
   background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary);
 }
 .workspace-sidebar .nav-link.active::before { top: 10px; bottom: 10px; }
+/* Touch screens: finger-sized tap areas around the small tab-close and sort buttons. */
+@media (pointer: coarse) {
+  .workspace-tab-close, .section-sort-btn { position: relative; }
+  .workspace-tab-close::after, .section-sort-btn::after { content: ""; position: absolute; inset: -8px; }
+}
 
 /* Overview: Teachers open as a dropdown from their count card. */
 .overview-counts-wrap { position: relative; }
@@ -3727,8 +3732,8 @@ main {
   /* Overview: compact icon + number chips (icon and number side-by-side) */
   .workspace-overview-grid { display: grid; gap: 6px; }
   .overview-counts-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 5px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
   #panel-overview .overview-count-chip {
     flex-direction: row;
@@ -3749,8 +3754,10 @@ main {
     align-items: center;
     gap: 0;
   }
-  #panel-overview .overview-count-chip .count-label { display: none; }
-  #panel-overview .overview-count-chip .count-num { font-size: 14px; font-weight: 700; line-height: 1; }
+  #panel-overview .overview-count-chip { justify-content: flex-start; padding: 8px 10px; }
+  #panel-overview .overview-count-chip .count-text { flex: 1; justify-content: space-between; gap: 6px; }
+  #panel-overview .overview-count-chip .count-label { display: inline; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  #panel-overview .overview-count-chip .count-num { font-size: 15px; font-weight: 700; line-height: 1; }
 
   /* Teachers visible but collapsed; tighter accordion row */
   #panel-overview .subjects-overview-section { display: none !important; }

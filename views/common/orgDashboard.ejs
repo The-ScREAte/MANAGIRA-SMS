@@ -347,6 +347,7 @@
     color: transparent !important; font-size: 0.66rem; transition: background-color .15s ease, border-color .15s ease;
   }
   
+  @media (pointer: coarse) { .od-task__check { position: relative; } .od-task__check::after { content: ""; position: absolute; inset: -10px; } }
   .od-task__check[aria-pressed="true"] { background: var(--od-primary) !important; border-color: var(--od-primary) !important; color: #fff !important; }
   .od-task__main { flex: 1; min-width: 0; }
   .od-task__disclosure { min-width: 0; }

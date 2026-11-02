@@ -1649,6 +1649,9 @@
       transition: opacity 140ms ease-in-out;
     }
 
+    /* Touch screens: a finger-sized tap area around the small search icon. */
+    .search-bar-container.is-mobile-collapsible .search-toggle-btn::after { content: ""; position: absolute; inset: -10px; }
+
     .search-bar-container.is-mobile-collapsible.is-expanded .search-toggle-btn {
       opacity: 0;
       pointer-events: none;
