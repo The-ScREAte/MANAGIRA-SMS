@@ -20,6 +20,7 @@ const elevatedRoles = new Set(["organization", "manager", "supervisor", "admin",
 // Weekly covers any set of weekdays (every day, every other day, ...).
 const FREQUENCIES = new Set(["weekly", "monthly"]);
 const FORMATS = new Set(["xlsx", "csv", "docx"]);
+const reportTemplates = require("../utils/reportTemplates");
 // Morning 3 AM–11 AM or evening 4 PM–10 PM, school time.
 const SEND_HOURS = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21, 22]);
 let reportSchemaPromise;
@@ -622,6 +623,58 @@ function reportBuilderController(db, options = {}) {
       } catch (error) {
         console.error("[reportBuilder/export]", error);
         return res.status(500).json({ success: false, error: "Could not export this report." });
+      }
+    },
+
+    // The report's design as a Managira template file (.mgrt): columns and
+    // filters only, never the school's data (utils/reportTemplates.js).
+    template: async (req, res) => {
+      try {
+        const context = await readContext(req);
+        if (!context) return signedOut(res);
+        const input = service.validateInput(req.body, context);
+        if (input.error) return res.status(400).json({ success: false, error: input.error });
+        const name = String(req.body?.name || "").trim().slice(0, 120) || input.report.title;
+        const template = await reportTemplates.buildTemplate(db, context, input, name);
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Content-Type", reportTemplates.CONTENT_TYPE);
+        res.setHeader("Content-Disposition", `attachment; filename="${fileNameFor(name).replace(/-\d{4}-\d{2}-\d{2}$/, "")}.${reportTemplates.EXTENSION}"`);
+        return res.send(JSON.stringify(template, null, 2));
+      } catch (error) {
+        console.error("[reportBuilder/template]", error);
+        return res.status(500).json({ success: false, error: "Could not make the template." });
+      }
+    },
+
+    // Adds a shared template to My reports, matched to this school's own lists.
+    importTemplate: async (req, res) => {
+      try {
+        await ensureReportSchema(db);
+        const context = await readContext(req);
+        if (!context) return signedOut(res);
+        const read = await reportTemplates.readTemplate(db, context, req.body?.template);
+        if (read.error) return res.status(400).json({ success: false, error: read.error });
+        const input = service.validateInput({ reportType: read.reportType, columns: read.columns, criteria: read.criteria }, context);
+        if (input.error) return res.status(400).json({ success: false, error: input.error });
+        // A new name if one of their reports already uses it.
+        const taken = new Set((await db.query(
+          "SELECT LOWER(report_name) AS name FROM custom_report_definitions WHERE organization_id = $1 AND created_by = $2",
+          [context.organizationId, context.identity.userId]
+        )).rows.map((row) => row.name));
+        let reportName = read.name;
+        for (let n = 2; taken.has(reportName.toLowerCase()) && n < 100; n += 1) reportName = `${read.name.slice(0, 110)} (${n})`;
+        const inserted = await db.query(
+          `INSERT INTO custom_report_definitions
+             (organization_id, created_by, report_name, report_type, columns_json, criteria_json, branding_json, updated_at)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, '{}'::jsonb, NOW())
+           RETURNING report_id`,
+          [context.organizationId, context.identity.userId, reportName, input.reportType, JSON.stringify(input.columns), JSON.stringify(input.criteria)]
+        );
+        const saved = await db.query(`${SAVED_SELECT} WHERE r.report_id = $1`, [inserted.rows[0].report_id, context.identity.userId]);
+        return res.status(201).json({ success: true, report: saved.rows[0], skipped: read.skipped });
+      } catch (error) {
+        console.error("[reportBuilder/importTemplate]", error);
+        return res.status(500).json({ success: false, error: "Could not import this template." });
       }
     },
 

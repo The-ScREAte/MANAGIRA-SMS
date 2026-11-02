@@ -1044,6 +1044,23 @@ module.exports = (db) => {
     express.json(),
     reportBuilder.export
   );
+  // Report templates (.mgrt): the design only, shared between schools.
+  router.post(
+    "/report-builder/template",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json(),
+    reportBuilder.template
+  );
+  router.post(
+    "/report-builder/import",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    express.json({ limit: "200kb" }),
+    reportBuilder.importTemplate
+  );
   router.put(
     "/report-builder/saved/:reportId",
     checkFeatureAccess,

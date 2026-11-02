@@ -509,7 +509,11 @@
 .rb-modal-status { min-height: 18px; color: var(--rb-primary); font-weight: 600; }
 .rb-modal-status:empty { display: none; }
 .rb-dialog .rb-people { flex: 1; min-height: 120px; max-height: 300px; }
-.rb-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rb-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rb-template-note { margin: 10px 0 0; font-size: 12px; }
+.rb-import-status { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--rb-muted); }
+.rb-import-status:empty { display: none; }
+.rb-card-head .rb-import-btn { flex: 0 0 auto; }
 .report-builder-page .rb-choice,
 .report-builder-page .rb-choice:hover {
   display: grid;

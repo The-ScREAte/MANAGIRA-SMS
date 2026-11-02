@@ -42,8 +42,11 @@
           <div class="rb-card-head">
             <h2>My reports</h2>
             <input class="rb-input rb-filter" id="rb-saved-filter" type="search" placeholder="Filter" maxlength="100" aria-label="Filter my reports">
+            <button class="rb-btn rb-btn-light rb-import-btn" type="button" id="rb-import" data-icon="upload" title="Add a report someone shared with you as a Managira template (.mgrt)">Import</button>
+            <input type="file" id="rb-import-file" accept=".mgrt,application/vnd.managira.report-template+json" hidden>
           </div>
           <ul class="rb-rows rb-scroll" id="rb-saved-list"></ul>
+          <p class="rb-import-status" id="rb-import-status" role="status" aria-live="polite"></p>
         </section>
         <section class="rb-card">
           <div class="rb-card-head"><h2>Create new report</h2></div>
@@ -221,7 +224,9 @@
         <button class="rb-choice" type="button" data-export="xlsx"><strong>Excel</strong><span>.xlsx spreadsheet</span></button>
         <button class="rb-choice" type="button" data-export="docx"><strong>Word</strong><span>.docx document</span></button>
         <button class="rb-choice" type="button" data-export="csv"><strong>CSV</strong><span>Plain data, no header</span></button>
+        <button class="rb-choice" type="button" data-export="mgrt"><strong>Managira template</strong><span>.mgrt · columns and filters to share, no data</span></button>
       </div>
+      <p class="rb-muted rb-template-note">A template carries the report's design only. Anyone using Managira can import it and see it filled with their own school's data.</p>
       <p class="rb-modal-status" data-modal-status></p>
       <div class="rb-dialog-actions">
         <button class="rb-btn rb-btn-light" type="button" data-close-modal data-icon="close">Close</button>

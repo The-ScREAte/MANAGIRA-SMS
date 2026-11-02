@@ -44,6 +44,7 @@
     down: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
     star: '<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    upload: '<path d="M12 20V9M7 14l5-5 5 5M5 4h14"/>',
     share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
@@ -725,7 +726,10 @@
       } else {
         body = { ...currentDefinition(), sort: state.sort, name: state.saved?.report_name || "", branding: state.branding };
       }
-      const response = await sendJson("/common/report-builder/export", { ...body, format });
+      // A template (.mgrt) is the design only; the other formats carry the data.
+      const response = format === "mgrt"
+        ? await sendJson("/common/report-builder/template", body)
+        : await sendJson("/common/report-builder/export", { ...body, format });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.error || "Could not export this report.");
@@ -738,7 +742,7 @@
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      modalStatus(`Exported ${fileName}.`);
+      modalStatus(format === "mgrt" ? `Saved ${fileName}. Share it with anyone using Managira.` : `Exported ${fileName}.`);
     } catch (error) {
       modalStatus(error.message);
     } finally {
@@ -914,6 +918,33 @@
     }
   }
 
+  // A shared template (.mgrt) becomes a report in My reports, filled with this school's data.
+  async function importTemplate(file) {
+    const button = $("#rb-import");
+    showError(1);
+    if (!file) return;
+    if (file.size > 200 * 1024) return showError(1, "That file is too large to be a report template.");
+    button.disabled = true;
+    const say = (message) => { $("#rb-import-status").textContent = message; };
+    say("Importing…");
+    try {
+      let template;
+      try { template = JSON.parse(await file.text()); } catch (_error) { throw new Error("This isn't a Managira report template (.mgrt) file."); }
+      const result = await responseJson(await sendJson("/common/report-builder/import", { template }));
+      upsertSaved({ ...result.report, is_owner: true });
+      const skipped = result.skipped || [];
+      say(skipped.length
+        ? `Added “${result.report.report_name}” to My reports. Not in your school, so left out: ${skipped.join("; ")}.`
+        : `Added “${result.report.report_name}” to My reports.`);
+    } catch (error) {
+      say("");
+      showError(1, error.message);
+    } finally {
+      button.disabled = false;
+      $("#rb-import-file").value = "";
+    }
+  }
+
   // ---- Events -----------------------------------------------------------------
 
   root.addEventListener("click", (event) => {
@@ -976,6 +1007,8 @@
   $$("[data-icon]").forEach((button) => button.prepend(icon(button.dataset.icon)));
 
   $("#rb-saved-filter").addEventListener("input", renderSaved);
+  $("#rb-import").addEventListener("click", () => $("#rb-import-file").click());
+  $("#rb-import-file").addEventListener("change", (event) => importTemplate(event.target.files[0]));
   $("#rb-column-search").addEventListener("input", renderColumns);
   $("#rb-criteria-search").addEventListener("input", renderCriteria);
   $("#rb-reset-columns").addEventListener("click", () => { if (report()) changeColumns([...report().defaultColumns]); });
