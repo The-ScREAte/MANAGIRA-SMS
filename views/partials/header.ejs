@@ -2543,29 +2543,9 @@
           const headerRoleKey = String(
             (req.session && (req.session.userRole || (req.session.user && req.session.user.account_type) || req.session.accountType)) || ''
           ).trim().toLowerCase();
-          const managementPermissionKeys = new Set([
-            'manage_records',
-            'manage_school_year_terms',
-            'manage_classes_subjects',
-            'manage_assessments',
-            'set_assessment_questions',
-            'manage_students',
-            'manage_guardians',
-            'manage_promotions',
-            'approve_promotions',
-            'approve_admissions',
-            'publish_events_announcements',
-            'mark_attendance',
-            'manage_employees',
-          ]);
-          const hasManagementPermission = Array.isArray(userPermissions) && userPermissions.some((permissionKey) =>
-            managementPermissionKeys.has(String(permissionKey || '').trim().toLowerCase())
-          );
-          const isTeacherRole = headerRoleKey === 'teacher';
-          const canSeeManagementTools = !isTeacherRole && (
-            ['manager', 'supervisor', 'superviser'].includes(headerRoleKey) ||
-            hasManagementPermission
-          );
+          // One rule for every role: a menu shows when this person has an item in it.
+          const menuAccess = typeof workspaceAccess === 'function' ? workspaceAccess() : { management: {}, reports: {}, admissions: {} };
+          const canSeeManagementTools = menuAccess.management.any;
         %>
         <% if (req.session && canSeeManagementTools) { %>
         <li class="nav-item">
@@ -2605,7 +2585,7 @@
             Birthdays
           </a>
         </li>
-        <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Student and Guadian Profile') || allowedFeatures.includes('Student and Guardian Profile'))) { %>
+        <% if (req.session && menuAccess.admissions.any && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Student and Guadian Profile') || allowedFeatures.includes('Student and Guardian Profile'))) { %>
         <li class="nav-item">
           <a href="/common/admissions" class="nav-item-link management-link">
             <span class="menu-icon"><%- navIcon('addStudent') %></span>
@@ -2613,7 +2593,7 @@
           </a>
         </li>
         <% } %>
-        <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Terminal Report') || allowedFeatures.includes('Progressive Student Report') || allowedFeatures.includes('Progressive Student Report ') || allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet') || allowedFeatures.includes('Official School Transcript'))) { %>
+        <% if (req.session && menuAccess.reports.any && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Terminal Report') || allowedFeatures.includes('Progressive Student Report') || allowedFeatures.includes('Progressive Student Report ') || allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet') || allowedFeatures.includes('Official School Transcript'))) { %>
         <li class="nav-item">
           <a href="/common/reports" class="nav-item-link management-link">
             <span class="menu-icon"><%- navIcon('reports') %></span>
@@ -2818,6 +2798,19 @@
   </script>
   <% } %>
 </header>
+<script>
+  // Where the app header ends, for side menus that open under it on phones.
+  (function () {
+    var header = document.getElementById('top-header');
+    if (!header) return;
+    function publish() {
+      document.documentElement.style.setProperty('--app-header-bottom', Math.max(0, header.getBoundingClientRect().bottom) + 'px');
+    }
+    publish();
+    window.addEventListener('resize', publish, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(publish).observe(header);
+  })();
+</script>
 
 <script>
   const CURRENT_TERM_ID =

@@ -16,7 +16,7 @@ function actor(req) {
   };
 }
 
-const canManage = (req) => userHasPermission(db, actor(req), PERMISSIONS.MANAGE_SETTINGS).catch(() => false);
+const canManage = (req) => userHasPermission(db, actor(req), PERMISSIONS.SETTINGS_ADMISSIONS).catch(() => false);
 
 // Online admission needs the school website (its Apply Now button).
 const hasWebsite = (res) => {

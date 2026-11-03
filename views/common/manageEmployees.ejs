@@ -483,7 +483,8 @@
   <div class="employees-page ws-root ws-employees">
 
   <%
-    const _permOptions = Array.isArray(locals.permissionOptions) ? permissionOptions : [];
+    const _permOptions = (Array.isArray(locals.permissionOptions) ? permissionOptions : []).filter((p) => !p.parent && !p.retired);
+    const _mainPermKeys = new Set(_permOptions.map((p) => p.key));
     const _roles = Array.from(new Set(employees.map((e) => e.account_type).filter(Boolean))).sort();
     const _name = (e) => (typeof formatDisplayName === 'function' ? formatDisplayName(e) : [e.first_name, e.last_name].filter(Boolean).join(' ').trim());
     const _isoDay = (v) => (v ? new Date(v).toISOString().slice(0, 10) : '');
@@ -506,7 +507,6 @@
       photo: e.photo_url || '',
       joined: e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
       lastLogin: _fmtWhen(e.last_login),
-      permissions: (e.permissions || []).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k),
       classes: (e.classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).map((x) => x.subject_name) })),
     }));
   %>
@@ -517,7 +517,7 @@
     </div>
     <div class="ws-head__actions">
       <button type="button" class="ws-btn" id="uxFilterToggle" aria-expanded="true" aria-controls="uxFilters"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filters <span class="ux-filter-count" id="uxFilterCount" hidden></span></button>
-      <button type="button" class="ws-btn ws-btn--primary" onclick="openAddEmployeeModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add user</button>
+      <% if (workspaceAccess().employees.canAdd) { %><button type="button" class="ws-btn ws-btn--primary" onclick="openAddEmployeeModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add user</button><% } %>
     </div>
   </header>
 
@@ -555,7 +555,6 @@
           <th>Email</th>
           <th>Role</th>
           <th>Last sign-in</th>
-          <th>Permissions</th>
           <th>Classes</th>
           <th>Subjects</th>
         </tr>
@@ -565,7 +564,7 @@
         <tr class="ux-row<%= employee.is_removed ? ' is-removed' : '' %>" tabindex="0" data-user-id="<%= employee.user_id %>"
             data-name="<%= _name(employee).toLowerCase() %>" data-email="<%= String(employee.email || '').toLowerCase() %>"
             data-status="<%= employee.status %>" data-role="<%= employee.account_type %>"
-            data-perms="<%= (employee.permissions || []).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k).join('|') %>"
+            data-perms="<%= (employee.permissions || []).filter((k) => _mainPermKeys.has(k)).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k).join('|') %>"
             data-last-login="<%= _isoDay(employee.last_login) %>">
           <td data-label="Status">
             <% /* A leftover invite token doesn't mean the employee is still
@@ -587,24 +586,6 @@
           <td data-label="Email" class="ws-card-wide"><%= employee.email %></td>
           <td data-label="Role"><%= employee.account_type %><% if (employee.is_owner) { %> <span class="ux-owner">Main</span><% } %></td>
           <td data-label="Last sign-in" class="ux-when"><%= _fmtWhen(employee.last_login) %></td>
-          <td data-label="Permissions">
-            <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('permissions', '<%= idx %>')">
-              <%= employee.is_owner ? 'All' : (employee.permissions || []).length %> <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
-            </button>
-            <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
-              <% if (employee.is_owner) { %>
-                <span>All permissions (main manager)</span>
-              <% } else if ((employee.permissions || []).length > 0) { %>
-                <ul>
-                  <% (employee.permissions || []).forEach(permissionKey => { %>
-                  <li><%= (permissionLabelMap && permissionLabelMap[permissionKey]) ? permissionLabelMap[permissionKey] : permissionKey %></li>
-                  <% }); %>
-                </ul>
-              <% } else { %>
-                <span>None</span>
-              <% } %>
-            </div>
-          </td>
           <td data-label="Classes">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('classes', '<%= idx %>')">
               <%= (employee.classes || []).length %> <span class="arrow" id="arrow-classes-<%= idx %>">▸</span>
@@ -736,6 +717,7 @@
       }
     }
 
+    const UX_ACCESS = <%- JSON.stringify(workspaceAccess().employees) %>;
     /* ---- Add Employee drawer (AJAX, no page navigation) ---- */
     let empModalIframeLoaded = false;
     let empModalDirty = false;
@@ -866,19 +848,14 @@
           uxRow('Email', user.email) + uxRow('Phone', user.phone) + uxRow('Role', user.role) + uxRow('Title', user.title) +
           uxRow('Last sign-in', user.lastLogin) + uxRow('Added', user.joined) +
         '</section>' +
-        '<section class="ux-sec"><h3>Access <span class="ux-count">' + (user.owner ? 'All' : user.permissions.length) + '</span></h3>' +
-          (user.owner ? '<p class="ux-muted">Everything, as the main manager.</p>'
-            : user.permissions.length ? '<div class="ux-chips">' + user.permissions.map(function (p) { return '<span class="ux-chip">' + uxEsc(p) + '</span>'; }).join('') + '</div>'
-            : '<p class="ux-muted">No permissions.</p>') +
-        '</section>' +
         '<section class="ux-sec"><h3>Classes &amp; subjects <span class="ux-count">' + user.classes.length + '</span></h3>' +
           (user.classes.length ? user.classes.map(function (c) {
             return '<div class="ux-class"><strong>' + uxEsc(c.name) + '</strong>' + (c.subjects.length ? '<span>' + c.subjects.map(uxEsc).join(', ') + '</span>' : '<span class="ux-muted">No subjects</span>') + '</div>';
           }).join('') : '<p class="ux-muted">Not assigned to a class.</p>') +
         '</section>' +
         (user.removed
-          ? '<form class="ux-actions" method="post" action="/common/enableEmployee/' + encodeURIComponent(user.id) + '" data-no-spa><button type="submit" class="ws-btn ws-btn--primary" id="uxEnable"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Enable</button></form>'
-          : '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>');
+          ? !UX_ACCESS.canRemove ? '' : '<form class="ux-actions" method="post" action="/common/enableEmployee/' + encodeURIComponent(user.id) + '" data-no-spa><button type="submit" class="ws-btn ws-btn--primary" id="uxEnable"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Enable</button></form>'
+          : !UX_ACCESS.canEdit ? '' : '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>');
       document.getElementById('uxPanelBody').innerHTML = html;
       var photo = document.querySelector('#uxPanelBody img.ux-avatar');
       if (photo) photo.addEventListener('error', function () {

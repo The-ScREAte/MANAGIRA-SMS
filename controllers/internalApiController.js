@@ -15,6 +15,7 @@ const {
   userHasPermission,
   PERMISSIONS,
   PERMISSION_OPTIONS,
+  HIGH_RISK_PERMISSIONS,
   MAILROOM_ALL_ACCESS_KEY,
   isManagerLikeRole,
   normalizePermissionsList,
@@ -221,7 +222,7 @@ async function searchGuardians(req, res) {
 async function getStudentFees(req, res) {
   try {
     try {
-      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_PAYGIRA, PERMISSIONS.MANAGE_BILLING], "You don't have permission to view fees and payments.");
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.PAYGIRA_ORG_BILLS, PERMISSIONS.PAYGIRA_PAYMENTS], "You don't have permission to view fees and payments.");
     } catch (permissionError) {
       return sendPermissionError(res, permissionError);
     }
@@ -1719,7 +1720,7 @@ async function deleteGraduationYearGroupApi(req, res) {
 // ============================================================
 
 async function assertCanManageEnrollment(req) {
-  return assertHasPermission(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to manage students/enrollment.");
+  return assertHasPermission(req, PERMISSIONS.STUDENTS_ENROLLMENT, "You don't have permission to manage students/enrollment.");
 }
 
 async function resolveClassesByNames(organizationId, classNames) {
@@ -2604,13 +2605,7 @@ async function deleteReversedPromotionApi(req, res) {
 // session by accident.
 // ============================================================
 
-const EMPLOYEE_HIGH_RISK_PERMISSIONS = new Set([
-  PERMISSIONS.MANAGE_EMPLOYEES,
-  PERMISSIONS.MANAGE_SETTINGS,
-  PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
-  PERMISSIONS.APPROVE_PROMOTIONS,
-  PERMISSIONS.MANAGE_BILLING,
-]);
+const EMPLOYEE_HIGH_RISK_PERMISSIONS = HIGH_RISK_PERMISSIONS;
 const VALID_PERMISSION_KEYS = new Set(PERMISSION_OPTIONS.map((o) => o.key));
 const VALID_EMPLOYEE_ROLES = new Set(["Manager", "Supervisor", "Teacher", "Driver"]);
 
@@ -2719,7 +2714,7 @@ async function listEmployeesApi(req, res) {
 //   permissions?: string[], confirm }
 async function createEmployeeApi(req, res) {
   try {
-    const organizationId = await assertCanManageEmployees(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EMPLOYEES_ADD, "You don't have permission to add staff.");
 
     const firstName = String(req.body?.firstName || "").trim();
     const lastName = String(req.body?.lastName || "").trim();
@@ -2864,7 +2859,7 @@ async function createEmployeeApi(req, res) {
 // { organizationId, userId, ..., email?, name?, hold: true|false, confirm }
 async function setEmployeeHoldApi(req, res) {
   try {
-    const organizationId = await assertCanManageEmployees(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EMPLOYEES_REMOVE, "You don't have permission to hold or remove staff.");
     const hold = req.body?.hold === true;
     const employee = await resolveEmployeeByIdentifier(organizationId, { email: req.body?.email, name: req.body?.name });
 
@@ -2923,8 +2918,7 @@ async function setEmployeeHoldApi(req, res) {
 // (translated to human-readable text - reverse geocoding + next-stop/ETA -
 // since the app itself only ever shows a raw map pin and a timestamp, both
 // admin-side and in the parent/student dashboards).
-// No dedicated PERMISSIONS.MANAGE_TRANSPORTATION exists - the real routes
-// reuse MANAGE_STUDENTS (matches every write route in transportationRoute.js).
+// Writes check the same follow-up as their route in transportationRoute.js.
 // Every write here delegates to the real transportationController handler
 // (it already supports JSON responses via a wantsJson(req) check, unlike
 // the flash-only promotion/employee controllers, so this is a much
@@ -2956,10 +2950,10 @@ const TRANSPORT_ARRIVED_KM = 0.15; // matches the driver dashboard's own "arrive
 const TRANSPORT_ASSUMED_SPEED_KMH = 25; // used for ETA only when the live ping's own speed is too low/missing to trust
 
 async function assertCanManageTransportation(req) {
-  return assertHasPermission(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to manage transportation.");
+  return assertHasPermission(req, PERMISSIONS.MANAGE_TRANSPORTATION, "You don't have permission to manage transportation.");
 }
 async function assertCanManageTransportationQuery(req) {
-  return assertHasPermissionQuery(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to manage transportation.");
+  return assertHasPermissionQuery(req, PERMISSIONS.MANAGE_TRANSPORTATION, "You don't have permission to manage transportation.");
 }
 
 async function resolveTransportBusByNumber(organizationId, busNumber) {
@@ -3538,7 +3532,7 @@ async function resolveTransportSchedule(organizationId, busNumber, dayOfWeek) {
 // POST /internal/api/transportation/buses/create
 async function createTransportBusApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_BUSES, "You don't have permission to do this in transportation.");
     const busNumber = String(req.body?.busNumber || "").trim();
     if (!busNumber) return res.status(400).json({ error: "busNumber is required." });
 
@@ -3584,7 +3578,7 @@ async function createTransportBusApi(req, res) {
 // update handlers.
 async function setTransportBusStatusApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_BUSES, "You don't have permission to do this in transportation.");
     const status = String(req.body?.status || "").trim().toLowerCase();
     if (!TRANSPORT_BUS_STATUSES.has(status)) {
       return res.status(400).json({ error: `status must be one of: ${[...TRANSPORT_BUS_STATUSES].join(", ")}.` });
@@ -3614,7 +3608,7 @@ async function setTransportBusStatusApi(req, res) {
 // doesn't have, without touching the underlying delete logic itself.
 async function deleteTransportBusApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_BUSES, "You don't have permission to do this in transportation.");
     const bus = await resolveTransportBusByNumber(organizationId, req.body?.busNumber);
 
     const [scheduleCount, assignmentCount, activeTrip] = await Promise.all([
@@ -3654,7 +3648,7 @@ async function deleteTransportBusApi(req, res) {
 // POST /internal/api/transportation/routes/create
 async function createTransportRouteApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_ROUTES, "You don't have permission to do this in transportation.");
     const routeName = String(req.body?.routeName || "").trim();
     if (!routeName) return res.status(400).json({ error: "routeName is required." });
 
@@ -3705,7 +3699,7 @@ async function createTransportRouteApi(req, res) {
 // POST /internal/api/transportation/routes/set-status
 async function setTransportRouteStatusApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_ROUTES, "You don't have permission to do this in transportation.");
     const status = String(req.body?.status || "").trim().toLowerCase();
     if (!TRANSPORT_ROUTE_STATUSES.has(status)) {
       return res.status(400).json({ error: `status must be one of: ${[...TRANSPORT_ROUTE_STATUSES].join(", ")}.` });
@@ -3723,7 +3717,7 @@ async function setTransportRouteStatusApi(req, res) {
 // POST /internal/api/transportation/routes/delete
 async function deleteTransportRouteApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_ROUTES, "You don't have permission to do this in transportation.");
     const route = await resolveTransportRouteByName(organizationId, req.body?.routeName);
 
     const [stopCount, assignmentCount, scheduleCount, activeTrip] = await Promise.all([
@@ -3767,7 +3761,7 @@ async function deleteTransportRouteApi(req, res) {
 // POST /internal/api/transportation/stops/create
 async function createTransportStopApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_ROUTES, "You don't have permission to do this in transportation.");
     const stopName = String(req.body?.stopName || "").trim();
     if (!stopName) return res.status(400).json({ error: "stopName is required." });
 
@@ -3813,7 +3807,7 @@ async function createTransportStopApi(req, res) {
 // POST /internal/api/transportation/stops/delete
 async function deleteTransportStopApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_ROUTES, "You don't have permission to do this in transportation.");
     const stop = await resolveTransportStopByName(organizationId, req.body?.stopName, req.body?.routeName);
 
     const assignmentCount = await db.query(`SELECT COUNT(*)::int AS c FROM transport_student_assignments WHERE organization_id = $1 AND stop_id = $2 AND active = TRUE`, [organizationId, stop.stop_id]);
@@ -3847,7 +3841,7 @@ async function deleteTransportStopApi(req, res) {
 // duplicate either path here.
 async function createTransportDriverApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_DRIVERS, "You don't have permission to do this in transportation.");
     const firstName = String(req.body?.firstName || "").trim();
     const lastName = String(req.body?.lastName || "").trim();
     const email = String(req.body?.email || "").trim();
@@ -3892,7 +3886,7 @@ async function createTransportDriverApi(req, res) {
 // POST /internal/api/transportation/drivers/set-status
 async function setTransportDriverStatusApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_DRIVERS, "You don't have permission to do this in transportation.");
     const status = String(req.body?.status || "").trim().toLowerCase();
     if (!TRANSPORT_DRIVER_STATUSES.has(status)) {
       return res.status(400).json({ error: `status must be one of: ${[...TRANSPORT_DRIVER_STATUSES].join(", ")}.` });
@@ -3921,7 +3915,7 @@ async function setTransportDriverStatusApi(req, res) {
 // is never touched - that's Manage Employees' responsibility.
 async function deleteTransportDriverApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_DRIVERS, "You don't have permission to do this in transportation.");
     const { user, profile } = await resolveTransportDriverByEmail(organizationId, req.body?.email);
     if (!profile) {
       return res.json({ email: user.email, message: `${user.first_name} ${user.last_name} wasn't in the transportation roster.` });
@@ -3955,7 +3949,7 @@ async function deleteTransportDriverApi(req, res) {
 // POST /internal/api/transportation/schedules/create
 async function createTransportScheduleApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_SCHEDULES, "You don't have permission to do this in transportation.");
     const bus = await resolveTransportBusByNumber(organizationId, req.body?.busNumber);
     const dayOfWeek = String(req.body?.dayOfWeek || "").trim().toLowerCase();
     const validDays = new Set(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
@@ -4004,7 +3998,7 @@ async function createTransportScheduleApi(req, res) {
 // POST /internal/api/transportation/schedules/set-status
 async function setTransportScheduleStatusApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_SCHEDULES, "You don't have permission to do this in transportation.");
     const status = String(req.body?.status || "").trim().toLowerCase();
     if (!TRANSPORT_SCHEDULE_STATUSES.has(status)) return res.status(400).json({ error: `status must be one of: ${[...TRANSPORT_SCHEDULE_STATUSES].join(", ")}.` });
     const { bus, schedule } = await resolveTransportSchedule(organizationId, req.body?.busNumber, req.body?.dayOfWeek);
@@ -4025,7 +4019,7 @@ async function setTransportScheduleStatusApi(req, res) {
 // POST /internal/api/transportation/schedules/delete
 async function deleteTransportScheduleApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_SCHEDULES, "You don't have permission to do this in transportation.");
     const { bus, schedule } = await resolveTransportSchedule(organizationId, req.body?.busNumber, req.body?.dayOfWeek);
 
     if (req.body?.confirm !== true) {
@@ -4051,7 +4045,7 @@ async function deleteTransportScheduleApi(req, res) {
 // the same flash-capture pattern as the Promotion section above.
 async function assignStudentTransportationApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_STUDENTS, "You don't have permission to do this in transportation.");
     const student = await resolveStudentByName(organizationId, req.body?.studentName);
 
     let busId = null;
@@ -4114,7 +4108,7 @@ async function assignStudentTransportationApi(req, res) {
 // a single assignment in the app itself).
 async function removeStudentTransportationApi(req, res) {
   try {
-    const organizationId = await assertCanManageTransportation(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.TRANSPORT_STUDENTS, "You don't have permission to do this in transportation.");
     const student = await resolveStudentByName(organizationId, req.body?.studentName);
 
     const existing = await db.query(`SELECT active FROM transport_student_assignments WHERE organization_id = $1 AND student_id = $2`, [organizationId, student.student_id]);
@@ -4248,7 +4242,7 @@ function eventTiming(dateStr) {
 // GET /internal/api/events?organizationId&...&scope=current|all&when=today|upcoming|past|all
 async function listEventsApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncementsQuery(req);
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.EVENTS_EVENTS, "You don't have permission to manage events.");
     const scope = req.query.scope === "all" ? "all" : "current";
     const when = ["today", "upcoming", "past"].includes(req.query.when) ? req.query.when : "all";
 
@@ -4285,7 +4279,7 @@ async function listEventsApi(req, res) {
 // GET /internal/api/school-announcements?organizationId&...&scope=current|all
 async function listSchoolAnnouncementsApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncementsQuery(req);
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.EVENTS_ANNOUNCEMENTS, "You don't have permission to manage announcements.");
     const scope = req.query.scope === "all" ? "all" : "current";
 
     let termFilter = "";
@@ -4315,7 +4309,7 @@ async function listSchoolAnnouncementsApi(req, res) {
 // { organizationId, ..., eventName, eventDate, eventDetails, visibility?, notifyByEmail?, confirm? }
 async function createEventApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncements(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_EVENTS, "You don't have permission to manage events.");
 
     const eventName = String(req.body?.eventName || "").trim();
     const eventDate = String(req.body?.eventDate || "").trim();
@@ -4363,7 +4357,7 @@ async function createEventApi(req, res) {
 // { organizationId, ..., eventName, eventDate? (to disambiguate/find), newEventName?, newEventDate?, eventDetails?, visibility?, notifyByEmail?, confirm? }
 async function updateEventApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncements(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_EVENTS, "You don't have permission to manage events.");
     const event = await resolveEventByName(organizationId, req.body?.eventName, req.body?.eventDate);
 
     const newEventName = req.body?.newEventName !== undefined ? String(req.body.newEventName).trim() : event.name;
@@ -4415,7 +4409,7 @@ async function updateEventApi(req, res) {
 // { organizationId, ..., eventName, eventDate?, confirm }
 async function deleteEventApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncements(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_EVENTS, "You don't have permission to manage events.");
     const event = await resolveEventByName(organizationId, req.body?.eventName, req.body?.eventDate);
 
     if (req.body?.confirm !== true) {
@@ -4451,7 +4445,7 @@ async function deleteEventApi(req, res) {
 // { organizationId, ..., message, visibility?, notifyByEmail?, confirm? }
 async function createSchoolAnnouncementApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncements(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_ANNOUNCEMENTS, "You don't have permission to manage announcements.");
     const message = String(req.body?.message || "").trim();
     if (!message) return res.status(400).json({ error: "message is required." });
 
@@ -4491,7 +4485,7 @@ async function createSchoolAnnouncementApi(req, res) {
 // { organizationId, ..., currentText, newMessage?, visibility?, notifyByEmail?, confirm? }
 async function updateSchoolAnnouncementApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncements(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_ANNOUNCEMENTS, "You don't have permission to manage announcements.");
     const announcement = await resolveAnnouncementByText(organizationId, req.body?.currentText);
 
     const newMessage = req.body?.newMessage !== undefined ? String(req.body.newMessage).trim() : announcement.message;
@@ -4532,7 +4526,7 @@ async function updateSchoolAnnouncementApi(req, res) {
 // { organizationId, ..., currentText, confirm }
 async function deleteSchoolAnnouncementApi(req, res) {
   try {
-    const organizationId = await assertCanPublishEventsAnnouncements(req);
+    const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_ANNOUNCEMENTS, "You don't have permission to manage announcements.");
     const announcement = await resolveAnnouncementByText(organizationId, req.body?.currentText);
 
     if (req.body?.confirm !== true) {
@@ -4595,10 +4589,10 @@ const WEBSITE_IMAGE_ALLOCATIONS = new Set(["hero", "slideshow", "siteImage"]);
 const WEBSITE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 
 async function assertCanManageWebsite(req) {
-  return assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to manage the school website.");
+  return assertHasPermission(req, PERMISSIONS.SETTINGS_WEBSITE, "You don't have permission to manage the school website.");
 }
 async function assertCanManageWebsiteQuery(req) {
-  return assertHasPermissionQuery(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to manage the school website.");
+  return assertHasPermissionQuery(req, PERMISSIONS.SETTINGS_WEBSITE, "You don't have permission to manage the school website.");
 }
 
 async function resolveWebsiteImage(organizationId, { imageId, captionSnippet }) {
@@ -7185,7 +7179,7 @@ async function deleteDocumentApi(req, res) {
 // GET /internal/api/integrations
 async function getIntegrationsStatusApi(req, res) {
   try {
-    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to view integrations.");
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.SETTINGS_INTEGRATIONS, "You don't have permission to view integrations.");
     const [google, whatsapp, studentPortal, transportation, sms, mira, recentActivity] = await Promise.all([
       getGoogleIntegrationStatus(db, organizationId),
       getWhatsappIntegrationStatus(db, organizationId),
@@ -7552,7 +7546,7 @@ async function listStudentsApi(req, res) {
 // POST /internal/api/students/check-duplicates - { organizationId, ..., students: [{className|classId, firstName, lastName, dateOfBirth, gender, hometown}] }
 async function checkStudentDuplicatesApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to check students.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.STUDENTS_ADD, "You don't have permission to check students.");
     const inputStudents = Array.isArray(req.body?.students) ? req.body.students : [];
     const resolved = [];
     for (const s of inputStudents) {
@@ -7582,7 +7576,7 @@ async function checkStudentDuplicatesApi(req, res) {
 // POST /internal/api/students/create - { organizationId, ..., students: [...], allowDuplicateSave? }
 async function createStudentsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to add students.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.STUDENTS_ADD, "You don't have permission to add students.");
     const userId = Number(req.body?.userId) || null;
     const inputStudents = Array.isArray(req.body?.students) ? req.body.students : [];
     if (!inputStudents.length) return res.status(400).json({ error: "At least one student is required." });
@@ -8270,7 +8264,7 @@ async function delegateToPrintController(controllerFn, session, { query, body, p
 // GET /internal/api/report-settings?organizationId&...&className&termName&schoolYearLabel?
 async function getReportSettingsApi(req, res) {
   try {
-    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to view report settings.");
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to view report settings.");
     const { cls, term } = await resolveClassAndTermForReports(organizationId, req.query.className, req.query.termName, req.query.schoolYearLabel);
 
     const statusRow = (await db.query(
@@ -8370,7 +8364,7 @@ const REPORT_DISPLAY_TOGGLE_MAP = {
 // through completely unchanged, letting the real handler's own normalization re-derive it.
 async function setReportCardDisplayOptionsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to change report settings.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to change report settings.");
     const { cls, term } = await resolveClassAndTermForReports(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
 
     const existing = (await db.query(
@@ -8406,7 +8400,7 @@ async function setReportCardDisplayOptionsApi(req, res) {
 // POST /internal/api/report-settings/grading-scale/set - one grade band per call
 async function setGradingScaleBandApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to change the grading scale.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to change the grading scale.");
     const { cls, term } = await resolveClassAndTermForReports(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
     const { fromPercentage, toPercentage, gradeLabel, remark } = req.body || {};
     if (fromPercentage === undefined || toPercentage === undefined || !gradeLabel) {
@@ -8437,7 +8431,7 @@ async function setGradingScaleBandApi(req, res) {
 // POST /internal/api/report-settings/grading-scale/delete
 async function deleteGradingScaleBandApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to change the grading scale.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to change the grading scale.");
     const bandId = Number(req.body?.gradingScaleId);
     if (!bandId) return res.status(400).json({ error: "gradingScaleId is required (from get_report_settings)." });
 
@@ -8460,7 +8454,7 @@ async function deleteGradingScaleBandApi(req, res) {
 // POST /internal/api/report-settings/promotion/set - only pass fields that are changing
 async function setPromotionSettingsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to change promotion settings.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to change promotion settings.");
     const { cls, term } = await resolveClassAndTermForReports(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
 
     const existing = (await db.query(
@@ -8507,7 +8501,7 @@ async function setPromotionSettingsApi(req, res) {
 // GET /internal/api/report-settings/remarks?organizationId&...&remarkType?
 async function listRemarksApi(req, res) {
   try {
-    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to view the remarks bank.");
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to view the remarks bank.");
     const remarkType = req.query.remarkType ? String(req.query.remarkType).trim().toLowerCase() : null;
     const rows = (await db.query(
       `SELECT id, remark, remark_type, obsolete_at FROM remarks WHERE organization_id = $1 ${remarkType ? "AND remark_type = $2" : ""} ORDER BY remark_type, id`,
@@ -8524,7 +8518,7 @@ async function listRemarksApi(req, res) {
 // POST /internal/api/report-settings/remarks/add
 async function addRemarkApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to edit the remarks bank.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to edit the remarks bank.");
     const remarkText = String(req.body?.remark || "").trim();
     const remarkType = String(req.body?.remarkType || "teacher").trim().toLowerCase();
     if (!remarkText) return res.status(400).json({ error: "remark text is required." });
@@ -8545,7 +8539,7 @@ async function addRemarkApi(req, res) {
 // POST /internal/api/report-settings/remarks/delete
 async function deleteRemarkApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to edit the remarks bank.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_SETTINGS, "You don't have permission to edit the remarks bank.");
     const remarkId = Number(req.body?.remarkId);
     if (!remarkId) return res.status(400).json({ error: "remarkId is required (from list_remarks)." });
 
@@ -8671,7 +8665,7 @@ async function closeGraduationYearGroupApi(req, res) {
 // GET /internal/api/archived-students?organizationId&...&groupName?
 async function listArchivedStudentsApi(req, res) {
   try {
-    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to view archived students.");
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.STUDENTS_ALUMNI, "You don't have permission to view archived students.");
     let groupFilter = null;
     if (req.query.groupName) {
       const group = await resolveGraduationYearGroupByName(organizationId, req.query.groupName);
@@ -8698,7 +8692,7 @@ async function listArchivedStudentsApi(req, res) {
 // POST /internal/api/archived-students/unarchive - { organizationId, ..., studentNames, confirm }
 async function unarchiveStudentsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_STUDENTS, "You don't have permission to unarchive students.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.STUDENTS_ALUMNI, "You don't have permission to unarchive students.");
     const names = Array.isArray(req.body?.studentNames) ? req.body.studentNames : [];
     if (!names.length) {
       const error = new Error("studentNames is required - at least one archived student's name.");
@@ -8934,7 +8928,7 @@ function pickReportStudents(enrolled, body, cls, term) {
 // schoolYearLabel?, studentNames?: string[], allInClass?: bool } - caps at 10 students per call.
 async function generateReportPdfApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to generate report cards.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_TERMINAL, "You don't have permission to generate report cards.");
     const identity = { organizationId, userId: Number(req.body?.userId) || null, userRole: req.body?.userRole, accountType: req.body?.accountType, userEmail: req.body?.userEmail };
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
 
@@ -9034,7 +9028,7 @@ async function startReportCardPosting(identity, { classId, termId, studentIds })
 // message?: string (text/WhatsApp only; {{placeholders}} as the website), confirm?: bool }
 async function sendReportCardsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to post or send report cards.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_TERMINAL, "You don't have permission to post or send report cards.");
     const identity = { organizationId, userId: Number(req.body?.userId) || null, userRole: req.body?.userRole, accountType: req.body?.accountType, userEmail: req.body?.userEmail };
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
 
@@ -9406,7 +9400,7 @@ async function resolveMeritSheetSelections(organizationId, cls, term, subjectNam
 // columns: optional comma list of merit sheet column keys (same as the page).
 async function getMeritSheetApi(req, res) {
   try {
-    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to view merit sheets.");
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.REPORTS_TERMINAL, "You don't have permission to view merit sheets.");
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.query.className, req.query.termName, req.query.schoolYearLabel);
     const subjectNames = req.query.subjectNames ? String(req.query.subjectNames).split(",").map((s) => s.trim()).filter(Boolean) : null;
     const assessmentTitles = req.query.assessmentTitles ? String(req.query.assessmentTitles).split(",").map((s) => s.trim()).filter(Boolean) : null;
@@ -9495,7 +9489,7 @@ async function getMeritSheetApi(req, res) {
 
 async function generateMeritSheetPdfApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to generate merit sheets.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.REPORTS_TERMINAL, "You don't have permission to generate merit sheets.");
     const identity = { organizationId, userId: Number(req.body?.userId) || null, userRole: req.body?.userRole, accountType: req.body?.accountType, userEmail: req.body?.userEmail };
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
     const { subjectIds, assessmentIds, warnings } = await resolveMeritSheetSelections(organizationId, cls, term, req.body?.subjectNames, req.body?.assessmentTitles);
@@ -9597,7 +9591,7 @@ async function setNotificationPreferencesApi(req, res) {
 // preferences: { key: true|false, ... } }
 async function setOrgNotificationPreferencesApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to change organization-wide notification settings.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to change organization-wide notification settings.");
     const allowed = getOrgPreferences().map((p) => p.key);
     const updates = req.body?.preferences;
     if (!updates || typeof updates !== "object" || Array.isArray(updates) || !Object.keys(updates).length) {
@@ -9664,7 +9658,7 @@ const SCHOOL_FONT_OPTIONS = new Set([
 // GET /internal/api/school-customization
 async function getSchoolCustomizationApi(req, res) {
   try {
-    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to view school customization settings.");
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to view school customization settings.");
     const org = (await db.query(
       `SELECT organization_name, organization_address, organization_country, organization_province, organization_currency,
               font_style, name_display_format, date_display_format, nickname_display,
@@ -9703,7 +9697,7 @@ async function getSchoolCustomizationApi(req, res) {
 // real handler (it overwrites all fields together), so both must be given even if only address changes.
 async function updateSchoolProfileApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to change the school profile.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to change the school profile.");
     const current = (await db.query(`SELECT organization_name, organization_address, organization_country, organization_province FROM organizations WHERE organization_id = $1`, [organizationId])).rows[0];
 
     const capture = makeFlashCapture();
@@ -9733,7 +9727,7 @@ async function updateSchoolProfileApi(req, res) {
 // POST /internal/api/school-customization/font/set - { organizationId, ..., font }
 async function setSchoolFontApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to change the school font.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to change the school font.");
     const font = String(req.body?.font || "").trim();
     if (!SCHOOL_FONT_OPTIONS.has(font)) {
       return res.status(400).json({ error: `font must be one of: ${[...SCHOOL_FONT_OPTIONS].join(", ")}.` });
@@ -9756,7 +9750,7 @@ async function setSchoolFontApi(req, res) {
 // nameDisplayFormat?: "first_last"|"last_first", dateDisplayFormat?: "dd_mm_yyyy"|"mm_dd_yyyy"|"yyyy_mm_dd" }
 async function setDisplayPreferencesApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to change display preferences.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to change display preferences.");
     const current = (await db.query(`SELECT name_display_format, date_display_format FROM organizations WHERE organization_id = $1`, [organizationId])).rows[0];
     const capture = makeFlashCapture();
     const fakeReq = {
@@ -9783,7 +9777,7 @@ async function setDisplayPreferencesApi(req, res) {
 // (this only updates the human-readable display label, NOT the locked .managira.com subdomain)
 async function setSchoolNicknameApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to change the school nickname.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to change the school nickname.");
     if (!req.body?.nickname) return res.status(400).json({ error: "nickname is required." });
     const capture = makeFlashCapture();
     // updateNicknamePost calls req.session.save(callback) on success (unlike
@@ -9808,7 +9802,7 @@ async function setSchoolNicknameApi(req, res) {
 // useCustomStudentId?, prefix?, autoGenerate?, startingNumber? } - only pass what's changing.
 async function setStudentIdSettingsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_SETTINGS, "You don't have permission to change student ID settings.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.SETTINGS_PROFILE, "You don't have permission to change student ID settings.");
     const current = (await db.query(
       `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_start_number FROM organizations WHERE organization_id = $1`,
       [organizationId]

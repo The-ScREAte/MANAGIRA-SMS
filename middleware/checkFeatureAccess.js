@@ -308,7 +308,6 @@ const checkFeatureAccess = async (req, res, next) => {
 
     // 2️⃣ Role-Based Access Check
     const roleAccessMap = {
-      '/account/managePublicContent': ['manager'],
       '/common/adminPanel': ['admin'],
     };
 

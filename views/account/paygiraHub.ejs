@@ -4,6 +4,7 @@
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
   const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
+  const paygiraAccess = workspaceAccess().paygira;
   const finSections = [
     { id: 'overview', label: 'Overview', url: '/account/settings/finance?section=overview', icon: navIcon('overview') },
     { id: 'bills', label: 'Bill Management', url: '/account/settings/finance?section=bills', icon: navIcon('bills') },
@@ -13,8 +14,8 @@
     { id: 'arrears', label: 'Fee Recovery', url: '/account/settings/finance/arrears', icon: navIcon('feeRecovery') },
     { id: 'payouts', label: 'Payouts', url: '/account/settings/finance?section=payouts', icon: navIcon('payouts') },
     { id: 'settings', label: 'Payment Settings', url: '/account/settings/finance?section=settings', icon: navIcon('sliders') },
-  ];
-  const _initial = finSections.some((s) => s.id === initialSection) ? initialSection : 'overview';
+  ].filter((s) => paygiraAccess[s.id]);
+  const _initial = finSections.some((s) => s.id === initialSection) ? initialSection : finSections[0].id;
 %>
 
 <style>
@@ -1181,7 +1182,8 @@
     const restorePage = restoreParams.get('page');
 
     let initialSection = null;
-    if (restorePanel && restorePage && document.getElementById(restorePanel)) {
+    if (restorePanel && restorePage && document.getElementById(restorePanel)
+      && document.querySelector('[data-section="' + CSS.escape(restorePanel) + '"]')) {
       activateSectionOnly(restorePanel);
       loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
       initialSection = restorePanel;

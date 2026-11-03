@@ -3,6 +3,7 @@ const router = express.Router();
 const { isAuthenticated } = require('../middleware/middleware');
 const multer = require('multer');
 const checkFeatureAccess = require('../middleware/checkFeatureAccess'); 
+const { requirePermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
 
 
 
@@ -20,21 +21,24 @@ module.exports = (db) => {
         throw new Error('printController is not properly initialized');
     }
 
+    // Report Settings and what it saves.
+    const canManageReports = requirePermission(PERMISSIONS.REPORTS_SETTINGS);
+
     // Define routes
     router.get('/printStudentReport', checkFeatureAccess, isAuthenticated, printController.printStudentReport); // Fetch student report
-    router.get('/reportSettings', checkFeatureAccess, isAuthenticated, printController.reportSettingsPage); // Render report settings page
-    router.post('/savePromotionSettings', isAuthenticated, printController.savePromotionSettings); // Save promotion settings
-    router.post('/saveReportTemplates', isAuthenticated, express.json(), printController.saveReportTemplates); // Which report card layout each class uses
-    router.post('/saveScoreRemarks', isAuthenticated, printController.saveScoreRemarks); // Save score remarks
-    router.post('/saveScoreRemarksAjax', isAuthenticated, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
-    router.post('/getScoreRemarkClassCoverageAjax', isAuthenticated, printController.getScoreRemarkClassCoverageAjax); // Fetch class coverage for a score remark range/value
-    router.post('/setScoreRemarkClassLockAjax', isAuthenticated, printController.setScoreRemarkClassLockAjax); // Lock/unlock a specific score remark rule range for selected classes
+    router.get('/reportSettings', checkFeatureAccess, isAuthenticated, canManageReports, printController.reportSettingsPage); // Render report settings page
+    router.post('/savePromotionSettings', isAuthenticated, canManageReports, printController.savePromotionSettings); // Save promotion settings
+    router.post('/saveReportTemplates', isAuthenticated, canManageReports, express.json(), printController.saveReportTemplates); // Which report card layout each class uses
+    router.post('/saveScoreRemarks', isAuthenticated, canManageReports, printController.saveScoreRemarks); // Save score remarks
+    router.post('/saveScoreRemarksAjax', isAuthenticated, canManageReports, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
+    router.post('/getScoreRemarkClassCoverageAjax', isAuthenticated, canManageReports, printController.getScoreRemarkClassCoverageAjax); // Fetch class coverage for a score remark range/value
+    router.post('/setScoreRemarkClassLockAjax', isAuthenticated, canManageReports, printController.setScoreRemarkClassLockAjax); // Lock/unlock a specific score remark rule range for selected classes
     router.post('/saveRemarks', isAuthenticated, printController.saveRemarks); // Save remarks
-    router.post('/createCustomRemarkTypeAjax', isAuthenticated, express.json(), printController.createCustomRemarkTypeAjax); // Create custom remark type via AJAX
-    router.post('/deleteCustomRemarkTypeAjax', isAuthenticated, express.json(), printController.deleteCustomRemarkTypeAjax); // Delete custom remark type via AJAX
+    router.post('/createCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.createCustomRemarkTypeAjax); // Create custom remark type via AJAX
+    router.post('/deleteCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.deleteCustomRemarkTypeAjax); // Delete custom remark type via AJAX
     router.post('/saveClassroomRemarkTypes', isAuthenticated, printController.saveClassroomRemarkTypes); // Save classroom remark visibility controls
     router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
-    router.get('/deleteStatusSettings', isAuthenticated, printController.deleteStatusSettings);
+    router.get('/deleteStatusSettings', isAuthenticated, canManageReports, printController.deleteStatusSettings);
 
     // Merit sheet generation (supports GET refresh + POST form submit)
     router.get('/generateMeritSheet', checkFeatureAccess, isAuthenticated, printController.generateMeritSheet);
@@ -42,29 +46,28 @@ module.exports = (db) => {
     router.post('/downloadMeritSheet', checkFeatureAccess, isAuthenticated, express.json(), printController.downloadMeritSheet); // Merit sheet PDF
 
     // Route to upload a signature image using multer's memory storage
-    router.post('/uploadSignatureImage', isAuthenticated, upload.single('signatureImage'), printController.uploadSignatureImage);
+    router.post('/uploadSignatureImage', isAuthenticated, canManageReports, upload.single('signatureImage'), printController.uploadSignatureImage);
 
     // Routes for deleting signature image, remarks, and score remarks
-    router.get('/deleteSignatureImage', isAuthenticated, printController.deleteSignatureImage);
-    router.get('/deleteSignatureForClass', isAuthenticated, printController.deleteSignatureForClass);
-    router.get('/deleteEntireSignature', isAuthenticated, printController.deleteEntireSignature);
-    router.post('/addClassesToSignature', isAuthenticated, printController.addClassesToSignature);
+    router.get('/deleteSignatureImage', isAuthenticated, canManageReports, printController.deleteSignatureImage);
+    router.get('/deleteSignatureForClass', isAuthenticated, canManageReports, printController.deleteSignatureForClass);
+    router.get('/deleteEntireSignature', isAuthenticated, canManageReports, printController.deleteEntireSignature);
+    router.post('/addClassesToSignature', isAuthenticated, canManageReports, printController.addClassesToSignature);
 
     // Transcript signature routes
-    router.post('/uploadTranscriptSignature', isAuthenticated, upload.single('signatureImage'), printController.uploadTranscriptSignature);
-    router.get('/deleteTranscriptSignatureForClass', isAuthenticated, printController.deleteTranscriptSignatureForClass);
-    router.get('/deleteEntireTranscriptSignature', isAuthenticated, printController.deleteEntireTranscriptSignature);
-    router.post('/addClassesToTranscriptSignature', isAuthenticated, printController.addClassesToTranscriptSignature);
+    router.post('/uploadTranscriptSignature', isAuthenticated, canManageReports, upload.single('signatureImage'), printController.uploadTranscriptSignature);
+    router.get('/deleteTranscriptSignatureForClass', isAuthenticated, canManageReports, printController.deleteTranscriptSignatureForClass);
+    router.get('/deleteEntireTranscriptSignature', isAuthenticated, canManageReports, printController.deleteEntireTranscriptSignature);
+    router.post('/addClassesToTranscriptSignature', isAuthenticated, canManageReports, printController.addClassesToTranscriptSignature);
 
     router.get('/deleteRemark/:id', isAuthenticated, printController.deleteRemark);
 
     // Make obsolete / restore: remarks and remark types stay on the report
     // cards that use them; obsolete signatures stay on their classes.
-    const { requirePermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
     const obsolete = require('../utils/obsolete');
-    router.post('/obsolete', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), express.json(), express.urlencoded({ extended: false }),
+    router.post('/obsolete', isAuthenticated, requirePermission(PERMISSIONS.REPORTS_SETTINGS), express.json(), express.urlencoded({ extended: false }),
         obsolete.obsoleteHandler(db, { kinds: ['remark', 'remarkType'], fallbackRedirect: '/print/reportSettings' }));
-    router.post('/obsoleteSignature', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), express.json(), async (req, res) => {
+    router.post('/obsoleteSignature', isAuthenticated, requirePermission(PERMISSIONS.REPORTS_SETTINGS), express.json(), async (req, res) => {
         const { signaturePath, kind, action } = req.body || {};
         const organizationId = req.session.organizationId;
         if (!organizationId) return res.status(401).json({ success: false, message: 'Please sign in again.' });

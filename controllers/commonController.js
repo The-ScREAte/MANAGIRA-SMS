@@ -23,6 +23,12 @@ const {
   ensurePermissionsSchema,
   normalizePermissionsList,
   mergePermissionsForRole,
+  effectivePermissionsForRole,
+  rolePresetPermissions,
+  resolvePermissionSelection,
+  permissionFullLabel,
+  HIGH_RISK_PERMISSIONS,
+  PERMISSIONS_SAVED_KEY,
   getSuggestedPermissionsForRole,
   getPrimaryManagerUserId,
   getUserPermissions,
@@ -123,6 +129,11 @@ const SET_ASSESSMENT_QUESTION_FEATURE_NAMES = [
   "Set Assessment Questions",
   "Assessment Questions",
 ];
+
+async function transportationIsOn(dbClient, req) {
+  const status = await getTransportationIntegrationStatus(dbClient, req.session.organizationId).catch(() => null);
+  return Boolean(status && status.activated);
+}
 
 function hasOrgFeature(req, featureNames = []) {
   const allowed = Array.isArray(req?.session?.allowedFeatures)
@@ -9658,20 +9669,21 @@ const commonController = {
       );
 
       // Only permissions for features this school's plan (and integrations) include.
-      const permissionOptions = permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated });
+      const permissionOptions = permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) });
       const availablePermissionKeys = new Set(permissionOptions.map((option) => option.key));
       const stripUnavailablePermissions = (permissions = []) =>
         permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
 
       res.render("common/createEmployee", {
+        canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Create Employee",
         classes: classesResult.rows,
         permissionOptions,
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
           Manager: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
-          Teacher: stripUnavailablePermissions(mergePermissionsForRole("Teacher", [])),
-          Supervisor: stripUnavailablePermissions(mergePermissionsForRole("Supervisor", [])),
+          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher")),
+          Supervisor: stripUnavailablePermissions(rolePresetPermissions("Supervisor")),
           Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
         messages: {
@@ -9705,15 +9717,9 @@ const commonController = {
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
-    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }).map((option) => option.key));
+    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) }).map((option) => option.key));
     const featureFilteredPermissions = requestedPermissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
-    const highRiskPermissions = new Set([
-      PERMISSIONS.MANAGE_EMPLOYEES,
-      PERMISSIONS.MANAGE_SETTINGS,
-      PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
-      PERMISSIONS.APPROVE_PROMOTIONS,
-      PERMISSIONS.MANAGE_BILLING,
-    ]);
+    const highRiskPermissions = HIGH_RISK_PERMISSIONS;
 
     if (!Array.isArray(classes)) classes = [classes];
     if (!Array.isArray(subjects)) subjects = [subjects];
@@ -9755,7 +9761,12 @@ const commonController = {
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
     // Drivers get no school-management permissions, even if requested.
-    const effectivePermissions = account_type === "Driver" ? [] : sanitizedRequestedPermissions;
+    const permissionSelection = resolvePermissionSelection(account_type === "Driver" ? [] : sanitizedRequestedPermissions);
+    if (permissionSelection.error) {
+      req.flash("error", permissionSelection.error);
+      return res.redirect(createEmployeeRedirectUrl);
+    }
+    const effectivePermissions = permissionSelection.permissions;
 
     // Mailroom scope is a separate marker, not a checkbox in the permission
     // list — "all" means every guardian contact org-wide; "classes" means
@@ -9763,6 +9774,7 @@ const commonController = {
     if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "all") {
       effectivePermissions.push(MAILROOM_ALL_ACCESS_KEY);
     }
+    const savedPermissionRows = [...effectivePermissions, PERMISSIONS_SAVED_KEY];
     if (!Array.isArray(mailroomClassIds)) mailroomClassIds = [mailroomClassIds];
 
     // ─── Step 1: Ensure schema using the POOL (not a transaction client) to
@@ -9885,14 +9897,14 @@ const commonController = {
       }
 
       // ─── Step 7: Save permissions ─────────────────────────────────────────
-      if (effectivePermissions.length > 0) {
+      if (savedPermissionRows.length > 0) {
           await client.query(
           `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
            SELECT $1, $2, unnest($3::text[]), $4
            ON CONFLICT (user_id, organization_id, permission_key) DO UPDATE
            SET granted_by = EXCLUDED.granted_by
              `,
-          [userId, organizationId, effectivePermissions, requestorId]
+          [userId, organizationId, savedPermissionRows, requestorId]
         );
       }
 
@@ -10417,7 +10429,7 @@ const commonController = {
       }, {});
 
       const permissionLabelMap = PERMISSION_OPTIONS.reduce((acc, option) => {
-        acc[option.key] = option.label;
+        acc[option.key] = permissionFullLabel(option);
         return acc;
       }, {});
 
@@ -10453,15 +10465,13 @@ const commonController = {
 
       for (const employee of employees) {
         const classIds = new Set((employee.class_ids || []).filter((id) => id !== null).map(Number));
-        // What the person can really do: the main manager has everything; other
-        // managers what they were given; everyone else also their role's defaults.
+        // What the person can really do: the main manager has everything; everyone
+        // else what was saved for them (or their role's defaults if never saved).
         employee.is_owner = Boolean(ownerEmail) && String(employee.email || "").trim().toLowerCase() === ownerEmail;
         const grantedPermissions = permissionsByUser[employee.user_id] || [];
         employee.permissions = employee.is_owner
           ? PERMISSION_OPTIONS.map((option) => option.key)
-          : employee.account_type === "Manager"
-            ? grantedPermissions.filter((key) => permissionLabelMap[key])
-            : mergePermissionsForRole(employee.account_type, grantedPermissions);
+          : effectivePermissionsForRole(employee.account_type, grantedPermissions).filter((key) => permissionLabelMap[key]);
         employee.status = employee.on_hold
           ? "On hold"
           : employee.reset_password_token && !employee.password ? "Invite sent" : "Active";
@@ -10526,9 +10536,7 @@ const commonController = {
             is_owner: false,
             last_login: lastLoginByUser.get(Number(u.user_id)) || null,
             removed_on: u.removed_at,
-            permissions: u.account_type === "Manager"
-              ? grantedPermissions.filter((key) => permissionLabelMap[key])
-              : mergePermissionsForRole(u.account_type, grantedPermissions),
+            permissions: effectivePermissionsForRole(u.account_type, grantedPermissions).filter((key) => permissionLabelMap[key]),
             classes: orgClasses
               .filter((cls) => classIds.has(Number(cls.class_id)))
               .map((cls) => ({
@@ -10680,11 +10688,13 @@ const commonController = {
         (cls) => cls.class_id
       );
 
-      const rawSelectedPermissions = await getUserPermissions(
+      const savedPermissionKeys = await getUserPermissions(
         db,
         userId,
         req.session.organizationId
       );
+      // Someone never saved shows their role's defaults: that is what they can do today.
+      const rawSelectedPermissions = effectivePermissionsForRole(user.account_type, savedPermissionKeys);
 
       const mailroomClassesResult = await db.query(
         `SELECT class_id FROM user_mailroom_classes WHERE user_id = $1`,
@@ -10694,7 +10704,7 @@ const commonController = {
       const mailroomScope = rawSelectedPermissions.includes(MAILROOM_ALL_ACCESS_KEY) ? "all" : "classes";
 
       // Only permissions for features this school's plan (and integrations) include.
-      const permissionOptions = permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated });
+      const permissionOptions = permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) });
       const availablePermissionKeys = new Set(permissionOptions.map((option) => option.key));
       const stripUnavailablePermissions = (permissions = []) =>
         permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
@@ -10702,6 +10712,7 @@ const commonController = {
       const hiddenHeldPermissions = rawSelectedPermissions.filter((permissionKey) => !availablePermissionKeys.has(permissionKey));
 
       res.render("common/modifyEmployee", {
+        canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Modify Employee",
         user,
         classes,
@@ -10713,8 +10724,8 @@ const commonController = {
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
           Manager: stripUnavailablePermissions(mergePermissionsForRole("Manager", [])),
-          Teacher: stripUnavailablePermissions(mergePermissionsForRole("Teacher", [])),
-          Supervisor: stripUnavailablePermissions(mergePermissionsForRole("Supervisor", [])),
+          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher")),
+          Supervisor: stripUnavailablePermissions(rolePresetPermissions("Supervisor")),
           Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
         selectedPermissions,
@@ -10774,16 +10785,10 @@ const commonController = {
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
     // Plan features only; a permission the employee already holds for a feature
     // the plan no longer shows is kept (sent back from the form as a hidden field).
-    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }).map((option) => option.key));
+    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) }).map((option) => option.key));
     const heldPermissionKeys = new Set(await getUserPermissions(db, userId, req.session.organizationId).catch(() => []));
     const featureFilteredPermissions = requestedPermissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey) || heldPermissionKeys.has(permissionKey));
-    const highRiskPermissions = new Set([
-      PERMISSIONS.MANAGE_EMPLOYEES,
-      PERMISSIONS.MANAGE_SETTINGS,
-      PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
-      PERMISSIONS.APPROVE_PROMOTIONS,
-      PERMISSIONS.MANAGE_BILLING,
-    ]);
+    const highRiskPermissions = HIGH_RISK_PERMISSIONS;
 
     const requestorRoleName = String(requestorRole || "").trim();
     const canAssignSensitivePermissions =
@@ -10797,13 +10802,20 @@ const commonController = {
       return respondModifyEmployeeError(403, "Only managers can assign manager role.");
     }
 
+    // Non-managers can't hand out high-risk permissions, but saving someone doesn't
+    // take away the ones that person already has.
+    const heldEffectivePermissions = new Set(effectivePermissionsForRole(accountType, [...heldPermissionKeys]));
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
       ? featureFilteredPermissions
-      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission));
+      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission) || heldEffectivePermissions.has(permission));
 
     // Persist exactly what was selected in the form (after safety filtering).
     // Drivers get no school-management permissions.
-    const effectivePermissions = accountType === "Driver" ? [] : sanitizedRequestedPermissions;
+    const permissionSelection = resolvePermissionSelection(accountType === "Driver" ? [] : sanitizedRequestedPermissions);
+    if (permissionSelection.error) {
+      return respondModifyEmployeeError(400, permissionSelection.error);
+    }
+    const effectivePermissions = permissionSelection.permissions;
 
     // Mailroom scope is a separate marker, not a checkbox in the permission
     // list — "all" means every guardian contact org-wide; "classes" means
@@ -10811,6 +10823,7 @@ const commonController = {
     if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "all") {
       effectivePermissions.push(MAILROOM_ALL_ACCESS_KEY);
     }
+    const savedPermissionRows = [...effectivePermissions, PERMISSIONS_SAVED_KEY];
 
     // Guard: session must have organizationId or the INSERT will fail
     if (!organizationId) {
@@ -10940,12 +10953,12 @@ const commonController = {
         [userId, organizationId]
       );
 
-      if (effectivePermissions.length > 0) {
+      if (savedPermissionRows.length > 0) {
         await client.query(
           `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
            SELECT $1, $2, unnest($3::text[]), $4
            RETURNING permission_key`,
-          [userId, organizationId, effectivePermissions, requestorId]
+          [userId, organizationId, savedPermissionRows, requestorId]
         );
       }
 
@@ -11019,7 +11032,7 @@ const commonController = {
           accountType: req.session.accountType || req.session.user?.account_type || null,
           userEmail: req.session.user?.email || null,
         },
-        PERMISSIONS.MANAGE_SETTINGS
+        PERMISSIONS.SETTINGS_INTEGRATIONS
       );
       const canSetAssessmentQuestions = await userHasPermission(
         db,
@@ -13191,7 +13204,7 @@ NUMBERING:
           accountType: req.session.accountType || req.session.user?.account_type || null,
           userEmail: req.session.user?.email || null,
         },
-        PERMISSIONS.MANAGE_SETTINGS
+        PERMISSIONS.SETTINGS_INTEGRATIONS
       );
       const canSetAssessmentQuestions = await userHasPermission(
         db,
@@ -13410,7 +13423,7 @@ NUMBERING:
           accountType: req.session.accountType || req.session.user?.account_type || null,
           userEmail: req.session.user?.email || null,
         },
-        PERMISSIONS.MANAGE_SETTINGS
+        PERMISSIONS.SETTINGS_INTEGRATIONS
       );
       const currentUserId = Number(req.session.userId || req.session.user?.user_id || 0) || null;
       const normalizedRole = normalizeRoleKey(
@@ -17114,7 +17127,9 @@ NUMBERING:
       const canOpenPaygiraWorkspace = hasOrgFeature(req, PAYGIRA_FEATURE_NAMES) && (
         !classDashOrgSwitchRestriction.isRestricted
         || classDashOrgSwitchRestriction.flags.canViewBilling
-        || classDashOrgSwitchRestriction.flags.canViewPaygira);
+        || classDashOrgSwitchRestriction.flags.canViewPaygira)
+        && ((res.locals.userPermissions || []).includes(PERMISSIONS.PAYGIRA_CLASSROOM)
+          || await require("../utils/paygiraCollectors").isBillCollector(db, req.session.organizationId, req.session.user?.user_id || req.session.userId));
 
       const routePanel = String(req.params.panel || '').trim().toLowerCase();
       const routeItemId = req.params.itemId ? String(req.params.itemId).trim() : '';
@@ -19540,38 +19555,12 @@ NUMBERING:
       const roleStr = String(
         req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
       ).trim().toLowerCase();
-      const managementPermissionKeys = new Set([
-        PERMISSIONS.MANAGE_RECORDS,
-        PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
-        PERMISSIONS.MANAGE_CLASSES_SUBJECTS,
-        PERMISSIONS.MANAGE_ASSESSMENTS,
-        PERMISSIONS.SET_ASSESSMENT_QUESTIONS,
-        PERMISSIONS.MANAGE_STUDENTS,
-        PERMISSIONS.MANAGE_GUARDIANS,
-        PERMISSIONS.MANAGE_PROMOTIONS,
-        PERMISSIONS.APPROVE_PROMOTIONS,
-        PERMISSIONS.APPROVE_ADMISSIONS,
-        PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS,
-        PERMISSIONS.MARK_ATTENDANCE,
-        PERMISSIONS.MANAGE_EMPLOYEES,
-        PERMISSIONS.EDIT_CONTACT_TEMPLATE,
-      ]);
       const localPermissions = Array.isArray(res.locals.userPermissions)
         ? res.locals.userPermissions
         : [];
-      const hasManagementPermission = localPermissions.some((permissionKey) =>
-        managementPermissionKeys.has(String(permissionKey || '').trim().toLowerCase())
-      );
-      const canAccessManagementByRole = [
-        'organization',
-        'admin',
-        'mini admin',
-        'manager',
-        'supervisor',
-        'superviser',
-      ].includes(roleStr);
+      const menuAccess = res.locals.workspaceAccess().management;
 
-      if (!canAccessManagementByRole && !hasManagementPermission) {
+      if (!menuAccess.any) {
         req.flash('error', 'You do not have access to Management Tools.');
         return res.redirect('/common/orgDashboard');
       }
@@ -19649,6 +19638,7 @@ NUMBERING:
       res.render("common/managementTools", {
         title: "Management Tools",
         disableMainZoom: true,
+        menuAccess,
         organizationId: req.session.organizationId,
         currentTerm: currentTerm,
         canManageEmployees,
@@ -19661,9 +19651,8 @@ NUMBERING:
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
         canEditContactTemplate,
-        // Service accounts need "Manage Settings" (routes/apiAccessRoute.js checks it too).
-        canManageApiAccess: localPermissions.some((key) => String(key || '').trim().toLowerCase() === PERMISSIONS.MANAGE_SETTINGS)
-          || ['organization', 'admin', 'mini admin'].includes(roleStr),
+        // Service accounts have their own permission (routes/apiAccessRoute.js checks it too).
+        canManageApiAccess: menuAccess.serviceAccounts,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");
@@ -23465,6 +23454,7 @@ NUMBERING:
       res.render("common/admissionsHub", {
         title: "Admissions",
         disableMainZoom: true,
+        menuAccess: res.locals.workspaceAccess().admissions,
       });
     } catch (error) {
             res.status(500).send("Failed to load admissions page");
@@ -24431,6 +24421,7 @@ NUMBERING:
       res.render("common/reportsHub", {
         title: "Reports",
         disableMainZoom: true,
+        menuAccess: res.locals.workspaceAccess().reports,
         defaultReportSettingsUrl,
         canViewOrgStats,
         canGenerateTranscripts,

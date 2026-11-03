@@ -28,7 +28,7 @@ async function callerFrom(source) {
   const userId = positiveInt(source.userId);
   if (!organizationId || !userId) throw fail(400, "organizationId and userId are required.");
   const identity = { organizationId, userId, userRole: source.userRole, accountType: source.accountType, userEmail: source.userEmail };
-  if (!(await userHasPermission(db, identity, PERMISSIONS.MANAGE_REPORTS))) {
+  if (!(await userHasPermission(db, identity, PERMISSIONS.REPORTS_BUILDER))) {
     throw fail(403, "You don't have the Manage Reports permission, so the Report Builder isn't available to you.");
   }
   const user = (await db.query("SELECT first_name, last_name, email FROM users WHERE user_id = $1 AND organization_id = $2", [userId, organizationId])).rows[0] || {};

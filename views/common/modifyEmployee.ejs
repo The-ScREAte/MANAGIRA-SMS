@@ -406,7 +406,14 @@
         font-size: 0.8rem;
       }
     }
-  </style>
+    html[data-appearance="dark"] #modifyEmployeeForm label,
+    html[data-appearance="dark"] #modifyEmployeeForm .employee-section-classes span,
+    html[data-appearance="dark"] #modifyEmployeeForm p,
+    html[data-appearance="dark"] #modifyEmployeeForm small,
+    html[data-appearance="dark"] #modifyEmployeeForm strong { color: #1e293b; }
+    html[data-appearance="dark"] #modifyEmployeeForm .btn,
+    html[data-appearance="dark"] #modifyEmployeeForm button span { color: inherit; }
+    </style>
   
 </head>
 <body>
@@ -440,58 +447,10 @@
         </select>
       </div>
     </div>
-    <div id="permission-assignment-group" class="employee-section">
-      <label>Optional Extra Permissions:</label>
-      <div style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; padding:12px; margin-top:8px;">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px;">
-          <% (permissionOptions || []).forEach(function(permission) { %>
-            <label style="display:flex; align-items:center; gap:8px; font-size:14px;" class="permission-item" data-permission-key="<%= permission.key %>">
-              <input
-                type="checkbox"
-                name="permissions"
-                value="<%= permission.key %>"
-                <%= (selectedPermissions || []).includes(permission.key) ? 'checked' : '' %>
-              >
-              <span><%= permission.label %></span>
-            </label>
-          <% }) %>
-        </div>
-        <%# Kept as they are: permissions held for features the plan doesn't show now. %>
-        <% (typeof hiddenHeldPermissions !== 'undefined' ? hiddenHeldPermissions : []).forEach(function(key) { %>
-          <input type="hidden" name="permissions" value="<%= key %>">
-        <% }) %>
-        <div style="margin-top:8px; color:#64748b; font-size:12px;" id="permissionsNote">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
-        <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Drivers use the Driver dashboard for their routes and riders. They do not get school-management access, so no permissions are set here.</div>
-
-        <div id="mailroomScopePanel" style="display:none; margin-top:12px; padding:12px 14px; background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
-          <div style="font-size:12.5px; font-weight:700; color:#1e293b; margin-bottom:8px;">Mailroom contact access</div>
-          <label style="display:flex; align-items:center; gap:7px; font-size:13.5px; color:#1e293b; margin-bottom:6px;">
-            <input type="radio" name="mailroomScope" value="all" <%= mailroomScope !== 'classes' ? 'checked' : '' %>>
-            All contacts (every class)
-          </label>
-          <label style="display:flex; align-items:center; gap:7px; font-size:13.5px; color:#1e293b; margin-bottom:6px;">
-            <input type="radio" name="mailroomScope" value="classes" <%= mailroomScope === 'classes' ? 'checked' : '' %>>
-            Only guardians of students in selected classes
-          </label>
-          <div id="mailroomClassesGrid" style="display:none; grid-template-columns:1fr 1fr; gap:8px 14px; margin:8px 0 0 22px; padding-top:8px; border-top:1px dashed #e2e8f0;">
-            <% classes.forEach(cls => { %>
-            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:#475569;">
-              <input type="checkbox" name="mailroomClassIds" value="<%= cls.class_id %>" <%= (enrolledMailroomClasses || []).includes(cls.class_id) ? 'checked' : '' %>>
-              <%= cls.class_name %>
-            </label>
-            <% }); %>
-          </div>
-        </div>
-      </div>
-    </div>
     <div class="employee-section employee-section-classes">
-      <label>Classes and Subjects:</label>
       <p style="color:#64748b; font-size:12px; margin: 4px 0 0; display:none;" id="driverSubjectsNote">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
+      <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classIds[]' }) %>
       <div class="class-selector-panel">
-        <button type="button" class="collapsible-btn classes-master-toggle" onclick="toggleClassCollapse('all-classes')">
-          <span>Show/Hide Classes</span>
-          <span class="arrow" id="arrow-all-classes">&#9654;</span>
-        </button>
         <div class="class-checkboxes classes-grid-wrap" id="collapse-all-classes" style="display: none;">
           <div class="classes-grid">
             <% classes.forEach(cls => { %>
@@ -526,6 +485,18 @@
         </div>
       </div>
     </div>
+    <div id="permission-assignment-group" class="employee-section">
+      <label>Permissions:</label>
+      <%- include('../partials/permissionPicker') %>
+      <div>
+        <%# Kept as they are: permissions held for features the plan doesn't show now. %>
+        <% (typeof hiddenHeldPermissions !== 'undefined' ? hiddenHeldPermissions : []).forEach(function(key) { %>
+          <input type="hidden" name="permissions" value="<%= key %>">
+        <% }) %>
+        <div style="margin-top:8px; color:#64748b; font-size:12px;" id="permissionsNote">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Drivers use the Driver dashboard for their routes and riders. They do not get school-management access, so no permissions are set here.</div>
+      </div>
+    </div>
     <%- include('../partials/employeeAccessAck', { mode: 'update' }) %>
   </form>
 </div>
@@ -536,6 +507,7 @@
       <span class="employee-save-spinner" aria-hidden="true"></span>
       <span class="employee-save-btn-text">Save Changes</span>
     </button>
+    <% if (workspaceAccess().employees.canRemove) { %>
     <form class="employee-action-form" action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">
       <button type="submit" class="btn btn-warning"><%= user.on_hold ? 'Resume Employee' : 'Hold Employee' %></button>
     </form>
@@ -550,6 +522,7 @@
         </svg>
       </button>
     </form>
+    <% } %>
   </div>
 </div>
 
@@ -600,25 +573,26 @@
         document.querySelectorAll('input[name="permissions"]').forEach(cb => {
           cb.checked = defaults.includes(cb.value);
         });
+        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.refresh();
       };
 
       const permissionsNote = document.getElementById("permissionsNote");
       const driverPermissionsNote = document.getElementById("driverPermissionsNote");
       const driverSubjectsNote = document.getElementById("driverSubjectsNote");
 
-      // Drivers only ever get "Manage Students" and are never assigned
+      // Drivers get no school-management permissions and are never assigned
       // subjects — hide the inapplicable UI instead of merely defaulting it.
       const applyDriverModeUI = (isDriver) => {
         document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
           const item = cb.closest(".permission-item");
           if (isDriver) {
-            const allowed = cb.value === "manage_students";
-            if (item) item.style.display = allowed ? "" : "none";
-            cb.checked = allowed;
+            cb.checked = false;
           } else if (item) {
             item.style.display = "";
           }
         });
+        document.getElementById("permissionPicker").hidden = isDriver;
+        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.refresh();
         if (permissionsNote) permissionsNote.style.display = isDriver ? "none" : "block";
         if (driverPermissionsNote) driverPermissionsNote.style.display = isDriver ? "block" : "none";
         if (driverSubjectsNote) driverSubjectsNote.style.display = isDriver ? "block" : "none";
@@ -679,13 +653,6 @@
         });
       }
       syncMailroomScopePanel();
-
-      const collapseAllClasses = document.getElementById('collapse-all-classes');
-      const arrowAllClasses = document.getElementById('arrow-all-classes');
-      if (collapseAllClasses && arrowAllClasses) {
-        collapseAllClasses.style.display = 'block';
-        arrowAllClasses.innerHTML = '&#9660;';
-      }
 
       document.querySelectorAll('input[name="classIds[]"]').forEach(classCheckbox => {
         const collapseSubjects = document.getElementById('collapse-subjects-' + classCheckbox.value);

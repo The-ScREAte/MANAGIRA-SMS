@@ -26,7 +26,7 @@
   if (_perm('approve_admissions') && _feat('Student and Guardian Profile', 'Student and Guadian Profile')) _addAction('admissions', '/common/admissions', 'fa-inbox', 'Admissions');
   if (_perm('manage_employees')) { _addAction('add-staff', '/common/createEmployee', 'fa-id-badge', 'Add staff'); _addAction('management', '/common/management', 'fa-users-gear', 'Management'); }
   if (_perm('publish_events_announcements')) _addAction('events', '/common/manageEventsAnnouncements', 'fa-calendar-plus', 'Events & announcements');
-  if (_perm('manage_paygira') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Arrears'); }
+  if (_perm('paygira_workspace') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); if (_perm('paygira_recovery')) _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Arrears'); }
   if (_perm('mailroom')) _addAction('mailroom', '/common/mailroom', 'fa-paper-plane', 'Send a message');
   if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) _addAction('reports', '/common/reports', 'fa-chart-column', 'Reports');
   if (_perm('manage_records')) _addAction('records', '/common/manageRecords', 'fa-calendar-days', 'School years & terms');
@@ -1134,7 +1134,7 @@
           <div class="od-card__head">
             <h2 class="od-card__title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent activity
               <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
-            <% if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) { %>
+            <% if (_perm('manage_reports') && _perm('manage_records') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) { %>
               <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder">View all</a>
             <% } %>
           </div>

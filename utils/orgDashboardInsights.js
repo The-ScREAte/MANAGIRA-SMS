@@ -64,7 +64,7 @@ async function loadOrgDashboardInsights(db, opts) {
     staff: can("manage_employees"),
     admissions: can("approve_admissions") && hasFeature("Student and Guardian Profile", "Student and Guadian Profile"),
     attendance: can("mark_attendance") && hasFeature("Attendance Tracking", "Attendance tracking feature") && termActive && classIds.length > 0,
-    fees: can("manage_paygira") && hasFeature("PayGira"),
+    fees: can("paygira_overview") && hasFeature("PayGira"),
     activity: activityScope !== "mine" || Number(actorId) > 0,
     // School-wide transport is for managers and supervisors, not teachers/drivers.
     transport: can("manage_students") && activityScope !== "mine",

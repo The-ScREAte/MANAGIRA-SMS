@@ -826,3 +826,33 @@ main { padding: 0 !important; max-width: none !important; }
   .management-main .action-btn,
   .settings-main .action-btn { width: 100%; justify-content: center; }
 }
+
+/* Phones and tablets: an open side menu is a drawer from under the app header
+   to the bottom of the screen, above the footer bar, Setup steps and chat, and
+   scrolls by itself so its last item can always be reached. */
+@media (max-width: 900px) {
+  .management-nav.open,
+  .hub-nav.open,
+  .settings-nav.open .nav-list {
+    position: fixed !important;
+    top: var(--app-header-bottom, 68px) !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(280px, calc(100vw - 20px)) !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-radius: 0 12px 12px 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 12100 !important;
+  }
+
+  .settings-nav.open .nav-list {
+    align-content: start;
+    margin: 0 !important;
+    background: var(--surface, #fff) !important;
+  }
+}

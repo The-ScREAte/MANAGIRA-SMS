@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const cacheManager = require("../utils/cacheManager");
+const { resolvePlanForOrganization } = require("../utils/accessCache");
 
 const PERMISSION_CACHE_TTL_SEC = Number(process.env.PERMISSION_CACHE_TTL_SEC || 90);
 const PERMISSIONS_DDL_LOGS_ENABLED = String(process.env.LOG_PERMISSION_DDL || "").trim().toLowerCase() === "true";
@@ -26,6 +27,46 @@ const PERMISSIONS = {
   MANAGE_BILLING: "manage_billing",
   MANAGE_SETTINGS: "manage_settings",
   MANAGE_PAYGIRA: "manage_paygira",
+  EMPLOYEES_ADD: "employees_add",
+  EMPLOYEES_EDIT: "employees_edit",
+  EMPLOYEES_REMOVE: "employees_remove",
+  STUDENTS_ADD: "students_add",
+  STUDENTS_EDIT: "students_edit",
+  STUDENTS_DELETE: "students_delete",
+  STUDENTS_ENROLLMENT: "students_enrollment",
+  STUDENTS_ALUMNI: "students_alumni",
+  MANAGE_TRANSPORTATION: "manage_transportation",
+  TRANSPORT_BUSES: "transport_buses",
+  TRANSPORT_DRIVERS: "transport_drivers",
+  TRANSPORT_ROUTES: "transport_routes",
+  TRANSPORT_SCHEDULES: "transport_schedules",
+  TRANSPORT_STUDENTS: "transport_students",
+  TRANSPORT_SETTINGS: "transport_settings",
+  REPORTS_TERMINAL: "reports_terminal",
+  REPORTS_SETTINGS: "reports_settings",
+  REPORTS_BUILDER: "reports_builder",
+  EVENTS_ANNOUNCEMENTS: "events_announcements",
+  EVENTS_EVENTS: "events_events",
+  SETTINGS_PROFILE: "settings_profile",
+  SETTINGS_WEBSITE: "settings_website",
+  SETTINGS_INTEGRATIONS: "settings_integrations",
+  SETTINGS_MIRA: "settings_mira",
+  SETTINGS_SERVICE_ACCOUNTS: "settings_service_accounts",
+  SETTINGS_ADMISSIONS: "settings_admissions",
+  PAYGIRA_CLASSROOM: "paygira_classroom",
+  PAYGIRA_WORKSPACE: "paygira_workspace",
+  PAYGIRA_SHOW_IN_MANAGEMENT: "paygira_show_in_management",
+  PAYGIRA_OVERVIEW: "paygira_overview",
+  PAYGIRA_BILLS: "paygira_bills",
+  PAYGIRA_DELETE_BILLS: "paygira_delete_bills",
+  PAYGIRA_ORG_BILLS: "paygira_org_bills",
+  PAYGIRA_SUBSCRIPTIONS: "paygira_subscriptions",
+  PAYGIRA_PAYMENTS: "paygira_payments",
+  PAYGIRA_RECORD_PAYMENTS: "paygira_record_payments",
+  PAYGIRA_DELETE_PAYMENTS: "paygira_delete_payments",
+  PAYGIRA_RECOVERY: "paygira_recovery",
+  PAYGIRA_PAYOUTS: "paygira_payouts",
+  PAYGIRA_SETTINGS: "paygira_settings",
   MAILROOM: "mailroom",
   SEE_CONTACTS: "see_contacts",
   EDIT_CONTACTS: "edit_contacts",
@@ -39,32 +80,99 @@ const PERMISSIONS = {
 // contact org-wide), vs. scoped to just the classes in user_mailroom_classes.
 const MAILROOM_ALL_ACCESS_KEY = "mailroom_all_access";
 
+// Also internal: stored whenever the form saves someone, so their rows are read
+// exactly as ticked. Anyone without it was saved before follow-ups existed, or
+// never saved (see expandUnsavedPermissions).
+const PERMISSIONS_SAVED_KEY = "permissions_saved";
+
+// Shown in this order, one per line, under their group. "parent" makes a
+// follow-up that only appears (and only counts) once its main permission is on.
 const PERMISSION_OPTIONS = [
-  { key: PERMISSIONS.MANAGE_EMPLOYEES, label: "Manage Employees" },
-  { key: PERMISSIONS.MANAGE_STUDENTS, label: "Manage Students" },
-  { key: PERMISSIONS.MANAGE_GUARDIANS, label: "Manage Guardians" },
-  { key: PERMISSIONS.MANAGE_ASSESSMENTS, label: "Manage Assessments & Scores" },
-  { key: PERMISSIONS.SET_ASSESSMENT_QUESTIONS, label: "Set Assessment Questions" },
-  { key: PERMISSIONS.MARK_ATTENDANCE, label: "Mark Attendance" },
-  { key: PERMISSIONS.MANAGE_REPORTS, label: "Manage Reports/Printing" },
-  { key: PERMISSIONS.MANAGE_RECORDS, label: "Manage School Records" },
-  { key: PERMISSIONS.MANAGE_PROMOTIONS, label: "Manage Promotions" },
-  { key: PERMISSIONS.APPROVE_PROMOTIONS, label: "Approve Promotions" },
-  { key: PERMISSIONS.APPROVE_ADMISSIONS, label: "Approve Admissions" },
-  { key: PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS, label: "Publish Events & Announcements" },
-  { key: PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS, label: "Manage School Years & Terms" },
-  { key: PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS, label: "Assess Other School Years (Classroom)" },
-  { key: PERMISSIONS.MANAGE_CLASSES_SUBJECTS, label: "Manage Classes & Subjects" },
-  { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts" },
-  { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing" },
-  { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings" },
-  { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira (Finance & Billing)" },
-  { key: PERMISSIONS.MAILROOM, label: "Mailroom (Send SMS/WhatsApp/Email)" },
-  { key: PERMISSIONS.SEE_CONTACTS, label: "See Contacts (open contact cards)" },
-  { key: PERMISSIONS.EDIT_CONTACTS, label: "Edit Contacts" },
-  { key: PERMISSIONS.EDIT_CONTACT_TEMPLATE, label: "Edit Contact Template (custom fields)" },
-  { key: PERMISSIONS.USE_MIRA, label: "Use Mira (AI Assistant)" },
+  { key: PERMISSIONS.MANAGE_EMPLOYEES, label: "Manage Employees", group: "People", highRisk: true, description: "See the staff list. Choose what else they can do below" },
+  { key: PERMISSIONS.EMPLOYEES_ADD, label: "Add Staff", parent: PERMISSIONS.MANAGE_EMPLOYEES, description: "Create new staff accounts" },
+  { key: PERMISSIONS.EMPLOYEES_EDIT, label: "Edit Staff & Access", parent: PERMISSIONS.MANAGE_EMPLOYEES, highRisk: true, description: "Change staff details, roles, classes and permissions" },
+  { key: PERMISSIONS.EMPLOYEES_REMOVE, label: "Hold & Remove Staff", parent: PERMISSIONS.MANAGE_EMPLOYEES, highRisk: true, description: "Put staff on hold, remove them or bring them back" },
+  { key: PERMISSIONS.MANAGE_STUDENTS, label: "Manage Students", group: "People", description: "See the student list. Choose what else they can do below" },
+  { key: PERMISSIONS.STUDENTS_ADD, label: "Add Students", parent: PERMISSIONS.MANAGE_STUDENTS, description: "Add students one by one or in bulk" },
+  { key: PERMISSIONS.STUDENTS_EDIT, label: "Edit Students", parent: PERMISSIONS.MANAGE_STUDENTS, description: "Change student details and move them between classes" },
+  { key: PERMISSIONS.STUDENTS_ENROLLMENT, label: "Enrollment", parent: PERMISSIONS.MANAGE_STUDENTS, description: "Enroll classes into a school year and term" },
+  { key: PERMISSIONS.STUDENTS_ALUMNI, label: "Graduates & Alumni", parent: PERMISSIONS.MANAGE_STUDENTS, description: "See former students and bring them back" },
+  { key: PERMISSIONS.STUDENTS_DELETE, label: "Delete Students", parent: PERMISSIONS.MANAGE_STUDENTS, highRisk: true, description: "Permanently remove student records" },
+  { key: PERMISSIONS.MANAGE_GUARDIANS, label: "Manage Guardians", group: "People", description: "See and edit parents and guardians" },
+  { key: PERMISSIONS.SEE_CONTACTS, label: "See Contacts", group: "People", description: "Open contact cards" },
+  { key: PERMISSIONS.EDIT_CONTACTS, label: "Edit Contacts", parent: PERMISSIONS.SEE_CONTACTS, description: "Change details on contact cards" },
+  { key: PERMISSIONS.EDIT_CONTACT_TEMPLATE, label: "Edit Contact Template", group: "People", description: "Choose the custom fields on contact cards" },
+
+  { key: PERMISSIONS.MANAGE_CLASSES_SUBJECTS, label: "Manage Classes & Subjects", group: "Academics", description: "Create and change classes, subjects and graduation years" },
+  { key: PERMISSIONS.MANAGE_ASSESSMENTS, label: "Manage Assessments & Scores", group: "Academics", description: "Create assessments and enter scores" },
+  { key: PERMISSIONS.SET_ASSESSMENT_QUESTIONS, label: "Set Assessment Questions", group: "Academics", description: "Write questions for online assessments" },
+  { key: PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS, label: "Assess Other School Years", group: "Academics", description: "Enter scores in the classroom for years other than the current one" },
+  { key: PERMISSIONS.MARK_ATTENDANCE, label: "Mark Attendance", group: "Academics", description: "Mark attendance and run attendance reports" },
+  { key: PERMISSIONS.MANAGE_RECORDS, label: "Manage School Records", group: "Academics", description: "See school years, statistics and the activity log" },
+  { key: PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS, label: "Manage School Years & Terms", group: "Academics", highRisk: true, description: "Open and close terms, graduate and withdraw students" },
+
+  { key: PERMISSIONS.APPROVE_ADMISSIONS, label: "Approve Admissions", group: "Admissions & Promotions", description: "Accept or reject online applications" },
+  { key: PERMISSIONS.APPROVE_PROMOTIONS, label: "Approve Promotions", group: "Admissions & Promotions", highRisk: true, description: "Apply and reverse student promotions" },
+  // Nothing checks this one any more (promotions use Approve Promotions), so it stays off the form.
+  { key: PERMISSIONS.MANAGE_PROMOTIONS, label: "Manage Promotions", group: "Admissions & Promotions", retired: true },
+
+  { key: PERMISSIONS.MANAGE_REPORTS, label: "Manage Reports/Printing", group: "Reports", description: "Reports and printing. Choose which ones below", childrenRequired: "Choose at least one report area" },
+  { key: PERMISSIONS.REPORTS_TERMINAL, label: "Terminal Reports", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Open, print and send report cards and merit sheets" },
+  { key: PERMISSIONS.REPORTS_BUILDER, label: "Report Builder", parent: PERMISSIONS.MANAGE_REPORTS, description: "Build reports, limited to what their other permissions allow" },
+  { key: PERMISSIONS.REPORTS_SETTINGS, label: "Report Settings", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Grading, remarks, signatures and report card layouts" },
+  { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts", group: "Reports", description: "Open official student transcripts" },
+
+  { key: PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS, label: "Publish Events & Announcements", group: "Communication", description: "Post to the whole school. Choose what below", childrenRequired: "Choose Announcements, Events or both" },
+  { key: PERMISSIONS.EVENTS_ANNOUNCEMENTS, label: "Announcements", parent: PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS, description: "Write, change and delete announcements" },
+  { key: PERMISSIONS.EVENTS_EVENTS, label: "Events", parent: PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS, description: "Create, change and delete events" },
+  { key: PERMISSIONS.MAILROOM, label: "Mailroom", group: "Communication", description: "Send SMS, WhatsApp and email to guardians" },
+  { key: PERMISSIONS.USE_MIRA, label: "Use Mira (AI Assistant)", group: "Communication", description: "Ask Mira using this person's own permissions" },
+
+  { key: PERMISSIONS.MANAGE_TRANSPORTATION, label: "Transportation", group: "Transportation", description: "See the transportation overview. Choose what else they can do below" },
+  { key: PERMISSIONS.TRANSPORT_BUSES, label: "Buses", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add, change and pause buses" },
+  { key: PERMISSIONS.TRANSPORT_DRIVERS, label: "Drivers", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add, change and pause drivers" },
+  { key: PERMISSIONS.TRANSPORT_ROUTES, label: "Routes & Stops", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Create routes and the stops on them" },
+  { key: PERMISSIONS.TRANSPORT_SCHEDULES, label: "Schedules", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Set weekly bus schedules" },
+  { key: PERMISSIONS.TRANSPORT_STUDENTS, label: "Student Assignments", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Put students on buses and control live tracking access" },
+  { key: PERMISSIONS.TRANSPORT_SETTINGS, label: "Transportation Settings", parent: PERMISSIONS.MANAGE_TRANSPORTATION, highRisk: true, description: "Map provider, units and the school's location" },
+
+  { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira", group: "Finance", description: "Fees and payments. Choose where they can work below", childrenRequired: "Choose Classroom PayGira, Main PayGira or both" },
+  { key: PERMISSIONS.PAYGIRA_CLASSROOM, label: "Classroom PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "Only in the class dashboard: collect fees for bills given to them and sign off" },
+  { key: PERMISSIONS.PAYGIRA_WORKSPACE, label: "Main PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "The school-wide PayGira pages. Choose which ones below", childrenRequired: "Choose at least one PayGira page" },
+  { key: PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT, label: "Show in Management Tools", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Lists PayGira in their Management Tools menu", notAPage: true },
+  { key: PERMISSIONS.PAYGIRA_OVERVIEW, label: "Overview", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Collection totals and outstanding balances" },
+  { key: PERMISSIONS.PAYGIRA_BILLS, label: "Bill Management", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Create and edit bills, and send reminders" },
+  { key: PERMISSIONS.PAYGIRA_DELETE_BILLS, label: "Cancel & Delete Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, notAPage: true, description: "Remove bills and everything assigned under them. Needs Bill Management" },
+  { key: PERMISSIONS.PAYGIRA_ORG_BILLS, label: "Org-Wide Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Every student's bills and balances" },
+  { key: PERMISSIONS.PAYGIRA_SUBSCRIPTIONS, label: "Subscriptions", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "See recurring bills" },
+  { key: PERMISSIONS.PAYGIRA_PAYMENTS, label: "Payment Tracking", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Payment history and sign-offs, and export to CSV" },
+  { key: PERMISSIONS.PAYGIRA_RECORD_PAYMENTS, label: "Record Payments", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Enter cash, cheque and bank payments" },
+  { key: PERMISSIONS.PAYGIRA_DELETE_PAYMENTS, label: "Correct Payments & Reopen Sign-Offs", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Undo recorded payments and reopen signed-off collections" },
+  { key: PERMISSIONS.PAYGIRA_RECOVERY, label: "Fee Recovery", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Arrears lists, notes, reports and reminder emails" },
+  { key: PERMISSIONS.PAYGIRA_PAYOUTS, label: "Payouts", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Send school money to staff and vendors" },
+  { key: PERMISSIONS.PAYGIRA_SETTINGS, label: "Payment Settings", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Payment providers and where school money is paid" },
+  { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing", group: "Finance", highRisk: true, description: "The school's Managira plan, cards and subscription" },
+
+  { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings", group: "Administration", highRisk: true, description: "School-wide settings. Choose which ones below", childrenRequired: "Choose at least one settings area" },
+  { key: PERMISSIONS.SETTINGS_PROFILE, label: "School Profile & Branding", parent: PERMISSIONS.MANAGE_SETTINGS, description: "School name, logo, theme, display options and calendar" },
+  { key: PERMISSIONS.SETTINGS_WEBSITE, label: "School Website", parent: PERMISSIONS.MANAGE_SETTINGS, features: ["School Website", "SchoolWebsite"], description: "Website pages, images, messages and online registration" },
+  { key: PERMISSIONS.SETTINGS_ADMISSIONS, label: "Admission Settings", parent: PERMISSIONS.MANAGE_SETTINGS, features: ["Student and Guardian Profile", "Student and Guadian Profile"], description: "Online admission and the fields on student forms" },
+  { key: PERMISSIONS.SETTINGS_INTEGRATIONS, label: "Integrations", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "Turn on and connect Google, WhatsApp, SMS and other services" },
+  { key: PERMISSIONS.SETTINGS_MIRA, label: "Mira Settings", parent: PERMISSIONS.MANAGE_SETTINGS, description: "Turn Mira on and choose who can use her" },
+  { key: PERMISSIONS.SETTINGS_SERVICE_ACCOUNTS, label: "Service Accounts", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "API keys that reach school data" },
 ];
+
+const PERMISSION_BY_KEY = new Map(PERMISSION_OPTIONS.map((option) => [option.key, option]));
+// The main permission a key ultimately sits under (itself when it has none).
+const rootPermission = (key) => {
+  let option = PERMISSION_BY_KEY.get(key);
+  while (option && option.parent) option = PERMISSION_BY_KEY.get(option.parent);
+  return option ? option.key : key;
+};
+// How a follow-up reads away from its main permission, e.g. in the staff list.
+const permissionFullLabel = (option) => (option.parent ? `${PERMISSION_BY_KEY.get(rootPermission(option.key)).label}: ${option.label}` : option.label);
+const HIGH_RISK_PERMISSIONS = new Set(PERMISSION_OPTIONS.filter((option) => option.highRisk).map((option) => option.key));
+
 
 // Permissions that only make sense when the school's plan includes the feature
 // (names as in the features table / session.allowedFeatures, any one is enough).
@@ -73,22 +181,30 @@ const PERMISSION_FEATURES = {
   [PERMISSIONS.MANAGE_ASSESSMENTS]: ["Assessment Tracking"],
   [PERMISSIONS.SET_ASSESSMENT_QUESTIONS]: ["Set Assessment Questions", "Assessment Questions"],
   [PERMISSIONS.MARK_ATTENDANCE]: ["Attendance Tracking"],
-  [PERMISSIONS.MANAGE_REPORTS]: ["Terminal Report", "Progressive Student Report"],
+  [PERMISSIONS.MANAGE_REPORTS]: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet", "Official School Transcript"],
+  [PERMISSIONS.MANAGE_STUDENTS]: ["Student and Guardian Profile", "Student and Guadian Profile"],
+  [PERMISSIONS.MANAGE_GUARDIANS]: ["Student and Guardian Profile", "Student and Guadian Profile"],
+  [PERMISSIONS.APPROVE_ADMISSIONS]: ["School Website", "SchoolWebsite"],
+  [PERMISSIONS.SEE_CONTACTS]: ["Student and Guardian Profile", "Student and Guadian Profile"],
+  [PERMISSIONS.EDIT_CONTACT_TEMPLATE]: ["Student and Guardian Profile", "Student and Guadian Profile"],
   [PERMISSIONS.GENERATE_TRANSCRIPTS]: ["Official School Transcript"],
   [PERMISSIONS.MANAGE_PAYGIRA]: ["PayGira", "Pay Gira", "PayGira & Payments", "PayGira and Payments"],
 };
 
-// The permission choices for this school: plan-tied ones only when the plan has
-// them, Mira only when it is switched on. With no feature list known (it is set
-// for every signed-in school), nothing is hidden.
-function permissionOptionsFor({ allowedFeatures, miraActivated } = {}) {
+// The permission choices for this school. Anything outside the plan, and Mira or
+// Transportation while switched off, is left out rather than greyed out. Only
+// when the plan could not be read at all (null, a database error) is nothing
+// hidden, so a brief failure can't wipe someone's permissions on save.
+function permissionOptionsFor({ allowedFeatures, miraActivated, transportActivated } = {}) {
   const features = Array.isArray(allowedFeatures) ? allowedFeatures : null;
   const have = new Set((features || []).map((name) => String(name || "").trim().toLowerCase()));
   return PERMISSION_OPTIONS.filter((option) => {
-    if (option.key === PERMISSIONS.USE_MIRA && miraActivated === false) return false;
-    const needs = PERMISSION_FEATURES[option.key];
-    if (!needs || !features || !features.length) return true;
-    return needs.some((name) => have.has(name.toLowerCase()));
+    if (option.retired) return false;
+    if ((option.key === PERMISSIONS.USE_MIRA || option.key === PERMISSIONS.SETTINGS_MIRA) && miraActivated === false) return false;
+    if (rootPermission(option.key) === PERMISSIONS.MANAGE_TRANSPORTATION && transportActivated === false) return false;
+    if (!features) return true;
+    return [PERMISSION_FEATURES[rootPermission(option.key)], option.features]
+      .every((needs) => !needs || needs.some((name) => have.has(name.toLowerCase())));
   });
 }
 
@@ -235,6 +351,68 @@ function mergePermissionsForRole(role, customPermissions = []) {
   const defaults = getDefaultPermissionsForRole(role);
   const custom = normalizePermissionsList(customPermissions);
   return [...new Set([...defaults, ...custom])];
+}
+
+// What someone can really do from their saved rows: once a person's permissions
+// have been saved those ticks are the answer; only someone never saved falls
+// back to their role's defaults. Managers hold only what they were given, and
+// drivers never get school-management access.
+function effectivePermissionsForRole(role, savedPermissions = []) {
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === "Driver") return [];
+  if (savedPermissions.includes(PERMISSIONS_SAVED_KEY)) {
+    return dropOrphanFollowUps(savedPermissions.filter((key) => key !== PERMISSIONS_SAVED_KEY));
+  }
+  const held = savedPermissions.length || isManagerRole(normalizedRole)
+    ? savedPermissions
+    : getDefaultPermissionsForRole(normalizedRole);
+  return expandUnsavedPermissions(normalizedRole, held);
+}
+
+// Anyone not saved since follow-ups existed keeps exactly what they could already
+// do, so nobody loses access until a manager chooses. Transportation came with
+// Manage Students, its settings with Manage Settings, Payouts with Manage Billing;
+// editing contacts always let people open them; teachers had no Management Tools.
+function expandUnsavedPermissions(normalizedRole, held) {
+  const expanded = new Set(held);
+  if (expanded.has(PERMISSIONS.MANAGE_STUDENTS)) expanded.add(PERMISSIONS.MANAGE_TRANSPORTATION);
+  if (expanded.has(PERMISSIONS.EDIT_CONTACTS)) expanded.add(PERMISSIONS.SEE_CONTACTS);
+  PERMISSION_OPTIONS.forEach((option) => {
+    if (!option.parent || !expanded.has(rootPermission(option.key))) return;
+    if (option.key === PERMISSIONS.EDIT_CONTACTS) return;
+    if (option.key === PERMISSIONS.PAYGIRA_PAYOUTS && !held.includes(PERMISSIONS.MANAGE_BILLING)) return;
+    if (option.key === PERMISSIONS.TRANSPORT_SETTINGS && !held.includes(PERMISSIONS.MANAGE_SETTINGS)) return;
+    if (option.key === PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT && normalizedRole === "Teacher") return;
+    expanded.add(option.key);
+  });
+  return [...expanded];
+}
+
+function dropOrphanFollowUps(held) {
+  const set = new Set(held);
+  const hasChain = (key) => {
+    const option = PERMISSION_BY_KEY.get(key);
+    return !option || !option.parent || (set.has(option.parent) && hasChain(option.parent));
+  };
+  return held.filter(hasChain);
+}
+
+// For saving a form: follow-ups without their main permission are removed, and a
+// main permission that needs a follow-up can't be saved without one.
+function resolvePermissionSelection(requested = []) {
+  const permissions = dropOrphanFollowUps(requested);
+  const missing = PERMISSION_OPTIONS.find((option) => {
+    if (!option.childrenRequired || !permissions.includes(option.key)) return false;
+    return !PERMISSION_OPTIONS.some((child) => child.parent === option.key && !child.notAPage && permissions.includes(child.key));
+  });
+  return { permissions, error: missing ? `${permissionFullLabel(missing)}: ${missing.childrenRequired}.` : null };
+}
+
+// What the form pre-selects for new Teachers and Supervisors: their everyday
+// permissions, leaving high-risk ones and Transportation for a manager to add.
+function rolePresetPermissions(role) {
+  return effectivePermissionsForRole(role, [])
+    .filter((key) => !HIGH_RISK_PERMISSIONS.has(key) && rootPermission(key) !== PERMISSIONS.MANAGE_TRANSPORTATION);
 }
 
 function getSuggestedPermissionsForRole(role) {
@@ -390,9 +568,70 @@ function invalidateUserPermissionCache(organizationId, userId) {
   cacheManager.invalidatePattern("organization", `perm:owner-email:${organizationId}:`);
 }
 
+// The plan features a permission needs, each list "any one is enough".
+function planNeedsFor(permissionKey) {
+  const option = PERMISSION_BY_KEY.get(permissionKey);
+  if (!option) return [];
+  return [PERMISSION_FEATURES[rootPermission(permissionKey)], option.features].filter(Boolean);
+}
+
+function withinPlan(permissionKey, features) {
+  const have = new Set((features || []).map((name) => String(name || "").trim().toLowerCase()));
+  return planNeedsFor(permissionKey).every((names) => names.some((name) => have.has(name.toLowerCase())));
+}
+
+// Uses the plan list every request already has cached, so it adds no query. If the
+// plan can't be read at all, access is left alone rather than blocked by an outage.
+async function planAllowsPermission(database, organizationId, permissionKey) {
+  if (!planNeedsFor(permissionKey).length) return true;
+  try {
+    const plan = await resolvePlanForOrganization(database, organizationId);
+    if (!plan) return true;
+    if (!plan.planId) return false;
+    const features = await cacheManager.getOrFetch(
+      "organization",
+      `access:allowed-features:${organizationId}:${plan.planId}`,
+      async () => (await database.query(
+        `SELECT f.feature_name FROM features f JOIN plan_features pf ON pf.feature_id = f.id WHERE pf.plan_id = $1`,
+        [plan.planId]
+      )).rows.map((row) => row.feature_name),
+      { ttl: 90 }
+    );
+    return Array.isArray(features) ? withinPlan(permissionKey, features) : true;
+  } catch (_error) {
+    return true;
+  }
+}
+
+async function isOrganizationOwnerEmail(database, organizationId, userEmail) {
+  return safePermissionCacheFetch(
+    () => cacheManager.getOrFetch(
+      "organization",
+      `perm:owner-email:${organizationId}:${String(userEmail).toLowerCase()}`,
+      async () => {
+      const ownerEmailQuery = await database.query(
+        `SELECT 1
+         FROM organizations
+         WHERE organization_id = $1
+           AND LOWER(email) = LOWER($2)
+         LIMIT 1`,
+        [organizationId, userEmail]
+      );
+      return ownerEmailQuery.rows.length > 0;
+      },
+      { ttl: PERMISSION_CACHE_TTL_SEC }
+    ),
+    false
+  );
+}
+
 async function userHasPermission(database, { userId, userRole, organizationId, accountType, userEmail }, permissionKey) {
   if (!permissionKey) return true;
   if (!organizationId) return false;
+
+  // Outside the school's plan nobody has it, the owner included. This one check
+  // covers pages, actions, Mira and reports.
+  if (!(await planAllowsPermission(database, organizationId, permissionKey))) return false;
 
   const normalizedUserRole = normalizeRole(userRole);
   const normalizedAccountType = normalizeRole(accountType);
@@ -407,25 +646,7 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   // Any user record that matches the organization's signup email is the
   // organization owner and should always have full access.
   if (userEmail) {
-    const ownerEmailResult = await safePermissionCacheFetch(
-      () => cacheManager.getOrFetch(
-        "organization",
-        `perm:owner-email:${organizationId}:${String(userEmail).toLowerCase()}`,
-        async () => {
-        const ownerEmailQuery = await database.query(
-          `SELECT 1
-           FROM organizations
-           WHERE organization_id = $1
-             AND LOWER(email) = LOWER($2)
-           LIMIT 1`,
-          [organizationId, userEmail]
-        );
-        return ownerEmailQuery.rows.length > 0;
-        },
-        { ttl: PERMISSION_CACHE_TTL_SEC }
-      ),
-      false
-    );
+    const ownerEmailResult = await isOrganizationOwnerEmail(database, organizationId, userEmail);
 
     if (ownerEmailResult) {
       if (userId && !isManagerRole(normalizedUserRole)) {
@@ -449,28 +670,13 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
 
   await ensurePermissionsSchema(database);
 
-  if (isManagerRole(normalizedUserRole)) {
-    const managerPermissions = await getUserPermissions(database, userId, organizationId);
-    const assignedPermissions = new Set(managerPermissions);
-    return assignedPermissions.has(permissionKey);
-  }
-
-  const userPermissions = await getUserPermissions(database, userId, organizationId);
-  const assignedPermissions = new Set(userPermissions);
-  if (assignedPermissions.has(permissionKey)) return true;
-
-  // Treat role defaults as baseline access for non-manager roles too. This keeps
-  // older employee records working when new standard permissions are added to a
-  // role after their original permission rows were saved.
-  const roleDefaults = ROLE_DEFAULT_PERMISSIONS[normalizedUserRole];
-  if (Array.isArray(roleDefaults) && roleDefaults.includes(permissionKey)) {
-    return true;
-  }
-
-  return false;
+  const savedPermissions = await getUserPermissions(database, userId, organizationId);
+  return effectivePermissionsForRole(normalizedUserRole, savedPermissions).includes(permissionKey);
 }
 
+// Pass one key, or a list when any one of them opens the page.
 function requirePermission(permissionKey) {
+  const permissionKeys = Array.isArray(permissionKey) ? permissionKey : [permissionKey];
   return async (req, res, next) => {
     try {
       const database = req.app.get("db") || db;
@@ -480,11 +686,12 @@ function requirePermission(permissionKey) {
       const userId = req.session.user?.user_id || req.session.userId || null;
       const userEmail = req.session.user?.email || null;
 
-      const check = () => userHasPermission(
-        database,
-        { userId, userRole, organizationId, accountType, userEmail },
-        permissionKey
-      );
+      const check = async () => {
+        for (const key of permissionKeys) {
+          if (await userHasPermission(database, { userId, userRole, organizationId, accountType, userEmail }, key)) return true;
+        }
+        return false;
+      };
       // A dropped database connection is not "no permission": try once more
       // before sending anyone away from the page they're on.
       let allowed;
@@ -528,6 +735,14 @@ module.exports = {
   normalizePermissionsList,
   getDefaultPermissionsForRole,
   mergePermissionsForRole,
+  effectivePermissionsForRole,
+  rolePresetPermissions,
+  resolvePermissionSelection,
+  permissionFullLabel,
+  HIGH_RISK_PERMISSIONS,
+  isOrganizationOwnerEmail,
+  withinPlan,
+  PERMISSIONS_SAVED_KEY,
   getSuggestedPermissionsForRole,
   getPrimaryManagerUserId,
   getUserPermissions,

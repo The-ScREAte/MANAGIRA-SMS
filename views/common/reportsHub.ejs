@@ -595,6 +595,7 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.terminal || hasTranscripts || menuAccess.settings) { %>
         <li>
           <button class="nav-link nav-group-toggle" data-section="term-management" aria-expanded="false">
             <span class="nav-link-icon"><%- navIcon('termReports') %></span>
@@ -602,12 +603,14 @@
             <span class="nav-caret" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></span>
           </button>
           <ul class="nav-submenu">
+            <% if (menuAccess.terminal) { %>
             <li>
               <a class="nav-sublink" href="/common/closeSchoolYear" data-no-spa data-group="term-management" data-embed-url="/common/closeSchoolYear" data-embed-label="Terminal reports">
                 <span class="nav-link-icon"><%- navIcon('reportCard') %></span>
                 <span>Terminal reports</span>
               </a>
             </li>
+            <% } %>
             <% if (hasTranscripts) { %>
             <li>
               <a class="nav-sublink" href="/common/transcripts" data-no-spa data-group="term-management" data-section="transcripts" data-embed-url="/common/transcripts" data-embed-label="Transcripts">
@@ -616,20 +619,25 @@
               </a>
             </li>
             <% } %>
+            <% if (menuAccess.settings) { %>
             <li>
               <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-section="report-settings" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
                 <span class="nav-link-icon"><%- navIcon('sliders') %></span>
                 <span>Report Settings</span>
               </a>
             </li>
+            <% } %>
           </ul>
         </li>
+        <% } %>
+        <% if (menuAccess.builder) { %>
         <li>
           <a class="nav-link<%= hasOrgStats ? '' : ' active' %>" href="/common/report-builder" data-no-spa data-section="report-builder" data-embed-url="/common/report-builder" data-embed-label="Report Builder">
             <span class="nav-link-icon"><%- navIcon('reportBuilder') %></span>
             <span>Report Builder</span>
           </a>
         </li>
+        <% } %>
       </ul>
       <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="reports"]'));</script>
     </nav>
@@ -1231,7 +1239,8 @@
     const restorePage = restoreParams.get('page');
 
     let initialSection = null;
-    if (restorePanel && restorePage && document.getElementById(restorePanel)) {
+    if (restorePanel && restorePage && document.getElementById(restorePanel)
+      && document.querySelector('[data-section="' + CSS.escape(restorePanel) + '"], [data-group="' + CSS.escape(restorePanel) + '"]')) {
       activateSectionOnly(restorePanel);
       loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
       initialSection = restorePanel;
@@ -1240,15 +1249,18 @@
       // In the person's own menu order, a plain visit opens the top item.
       const arrangedTop = window.ManagiraMenuArrange ? ManagiraMenuArrange.topItem(document.querySelector('[data-arrange-menu="reports"]')) : null;
       const opensTop = Boolean(arrangedTop && arrangedTop.url && document.getElementById(arrangedTop.section));
-      const initialActive = opensTop ? null : document.querySelector('.nav-link.active[data-embed-url]');
+      // Someone with fewer permissions opens the first item they do have.
+      const initialActive = opensTop ? null : (document.querySelector('.nav-link.active[data-embed-url]')
+        || document.querySelector('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
       if (opensTop) {
         initialSection = arrangedTop.section;
         activateSectionOnly(arrangedTop.section);
         loadEmbed(arrangedTop.section, arrangedTop.url, arrangedTop.label, false);
       } else if (initialActive) {
-        initialSection = initialActive.getAttribute('data-section');
+        initialSection = initialActive.getAttribute('data-section') || initialActive.getAttribute('data-group');
+        activateSectionOnly(initialSection);
         loadEmbed(
-          initialActive.getAttribute('data-section'),
+          initialSection,
           initialActive.getAttribute('data-embed-url'),
           initialActive.getAttribute('data-embed-label'),
           false

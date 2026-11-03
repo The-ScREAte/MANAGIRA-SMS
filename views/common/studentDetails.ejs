@@ -672,10 +672,10 @@
               <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
               <% } %>
               <% if (req.session && !req.session.guardianId && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor' && !locals.archiveStatus) { %>
-              <a class="student-edit-link" id="studentEditLink" data-no-spa href="/common/editStudent?studentId=<%= student.student_id %>&termId=<%= currentTerm %>&classId=<%= student.class_id %>">
+              <% if (workspaceAccess().students.canEdit) { %><a class="student-edit-link" id="studentEditLink" data-no-spa href="/common/editStudent?studentId=<%= student.student_id %>&termId=<%= currentTerm %>&classId=<%= student.class_id %>">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 Edit student
-              </a>
+              </a><% } %>
               <% } %>
               <% if (locals.studentPortalIntegrationActive && locals.studentPortalSetupComplete) { %>
               <span class="student-portal-status"><span class="student-portal-check" aria-hidden="true">✓</span> Portal</span>

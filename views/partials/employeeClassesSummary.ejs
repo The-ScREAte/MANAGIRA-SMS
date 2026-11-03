@@ -1,0 +1,53 @@
+<%#
+  The collapsed heading for an employee's classes, shared by the Add and Edit forms,
+  with a reminder when a teacher or supervisor has none. Expects the class list in
+  #collapse-all-classes and its checkboxes named classCheckboxName.
+%>
+<button type="button" class="emp-class-toggle" id="empClassToggle" aria-expanded="false" aria-controls="collapse-all-classes">
+  <span class="emp-class-title">Classes &amp; Subjects</span>
+  <span class="emp-class-count" id="empClassCount">None selected</span>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+<p class="emp-class-warn" id="empClassWarn" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm0 7v5m0 3v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  No classes assigned. This person won't see any class until you choose at least one.
+</p>
+<style>
+  .emp-class-toggle { display: flex !important; align-items: center; gap: 8px; width: 100%; min-height: 38px; margin: 0; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #1e293b; font: inherit; cursor: pointer; text-align: left; }
+  .emp-class-toggle:hover { background: #f8fafc; }
+  .emp-class-title { flex: 1 1 auto; font-size: 0.84rem; font-weight: 600; }
+  .emp-class-count { font-size: 0.74rem; color: #64748b; white-space: nowrap; }
+  .emp-class-toggle svg { flex: 0 0 auto; width: 14px; height: 14px; color: #64748b; transition: transform .12s ease; }
+  .emp-class-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .emp-class-warn { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 6px 8px; border: 1px solid #fcd34d; border-radius: 6px; background: #fffbeb; color: #92400e; font-size: 0.76rem; line-height: 1.35; }
+  .emp-class-warn[hidden] { display: none; }
+  .emp-class-warn svg { flex: 0 0 auto; width: 13px; height: 13px; }
+</style>
+<script>
+  (function () {
+    var name = <%- JSON.stringify(classCheckboxName) %>;
+    var toggle = document.getElementById('empClassToggle');
+    var count = document.getElementById('empClassCount');
+    var warn = document.getElementById('empClassWarn');
+    var form = toggle.closest('form');
+    var boxes = function () { return form.querySelectorAll('input[type="checkbox"][name="' + name + '"]'); };
+    var role = form.querySelector('select[name="account_type"], select[name="accountType"]');
+    var refresh = function () {
+      var picked = Array.prototype.filter.call(boxes(), function (box) { return box.checked; }).length;
+      count.textContent = picked ? picked + (picked === 1 ? ' class' : ' classes') + ' selected' : 'None selected';
+      // Managers already see every class, and drivers don't need one.
+      warn.hidden = picked > 0 || !role || !['Teacher', 'Supervisor'].includes(role.value);
+    };
+    var setOpen = function (open) {
+      var panel = document.getElementById('collapse-all-classes');
+      panel.style.display = open ? '' : 'none';
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    toggle.addEventListener('click', function () { setOpen(toggle.getAttribute('aria-expanded') !== 'true'); });
+    form.addEventListener('change', function (event) {
+      if (event.target === role || event.target.name === name) refresh();
+    });
+    window.ManagiraEmployeeClasses = { refresh: refresh, setOpen: setOpen };
+    document.addEventListener('DOMContentLoaded', refresh);
+  })();
+</script>

@@ -4,6 +4,7 @@ const router = express.Router();
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { requirePermission, PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 const { hydrateOrganizationSession } = require("../utils/sessionContext");
+const { isBillCollector } = require("../utils/paygiraCollectors");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const c = require("../controllers/financeController");
 
@@ -22,22 +23,6 @@ function hasPaygiraFeatureInSession(req, res) {
 	return allowed.some((featureName) =>
 		PAYGIRA_FEATURE_NAMES.has(String(featureName || "").trim().toLowerCase())
 	);
-}
-
-function isWorkspaceEmbeddedMyPaygiraRequest(req) {
-	const isMyPaygiraPath = /^\/my-paygira(\/|$)/.test(String(req.path || ""));
-	if (!isMyPaygiraPath) {
-		return false;
-	}
-
-	const embedMode = String(req.query?.embed || req.body?.embedMode || "").trim().toLowerCase();
-	if (embedMode !== "workspace") {
-		return false;
-	}
-
-	const classIdRaw = req.query?.classId ?? req.body?.classId;
-	const classId = Number.parseInt(classIdRaw, 10);
-	return Number.isInteger(classId) && classId > 0;
 }
 
 async function hydrateFinanceSessionContext(req) {
@@ -79,18 +64,11 @@ const requireFinanceSettingsAccess = async (req, res, next) => {
 			(Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
 				.map((permissionKey) => String(permissionKey || "").trim().toLowerCase())
 		);
-		const hasLocalBillingAccess = localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
-		const hasLocalPaygiraAccess = localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
-
 		const database = req.app.get("db");
 		const permissionContext = getPermissionContextFromRequest(req);
 
-		const [canManageBilling, canManagePaygira] = await Promise.all([
-			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING),
-			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
-		]);
-
-		if (canManageBilling || canManagePaygira || hasLocalBillingAccess || hasLocalPaygiraAccess) {
+		if (localPermissionSet.has(PERMISSIONS.PAYGIRA_WORKSPACE)
+			|| await userHasPermission(database, permissionContext, PERMISSIONS.PAYGIRA_WORKSPACE)) {
 			return next();
 		}
 
@@ -102,8 +80,11 @@ const requireFinanceSettingsAccess = async (req, res, next) => {
 	}
 };
 
-// My PayGira routes are accessible to any role (including teachers) that has been
-// explicitly granted the MANAGE_PAYGIRA (or MANAGE_BILLING) permission.
+// A page or action in Main PayGira: Main PayGira plus any one of these follow-ups.
+const paygiraPage = (...keys) => [requireFinanceSettingsAccess, requirePermission(keys)];
+
+// My PayGira (the class dashboard's collector view) needs Classroom PayGira, or
+// being given a bill to collect.
 const requireMyPaygiraAccess = async (req, res, next) => {
 	try {
 		await hydrateFinanceSessionContext(req);
@@ -115,23 +96,11 @@ const requireMyPaygiraAccess = async (req, res, next) => {
 			return res.redirect("/account/settings?section=profile");
 		}
 
-		if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
-			return next();
-		}
-
 		const database = req.app.get("db");
-		const localPermissionSet = new Set(
-			(Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
-				.map((permissionKey) => String(permissionKey || "").trim().toLowerCase())
-		);
-		const hasLocalBillingAccess = localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
-		const hasLocalPaygiraAccess = localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
 		const permissionContext = getPermissionContextFromRequest(req);
 
-		const canManageBilling = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING);
-		const canManagePaygira = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA);
-
-		if (canManageBilling || canManagePaygira || hasLocalBillingAccess || hasLocalPaygiraAccess) {
+		if (await userHasPermission(database, permissionContext, PERMISSIONS.PAYGIRA_CLASSROOM)
+			|| await isBillCollector(database, permissionContext.organizationId, permissionContext.userId)) {
 			return next();
 		}
 
@@ -156,10 +125,8 @@ router.use((req, res, next) => {
 	next();
 });
 
-// PayGira routes can be unlocked by either:
-// 1) Plan feature entitlement (PayGira), or
-// 2) Explicit finance permission (MANAGE_PAYGIRA / MANAGE_BILLING).
-// Platform admins (no org) also bypass this gate.
+// PayGira needs the feature in the school's plan, whatever permissions someone
+// holds. Platform admins (no org) bypass this gate.
 const requirePaygiraFeature = async (req, res, next) => {
 	await hydrateFinanceSessionContext(req);
 
@@ -168,10 +135,6 @@ const requirePaygiraFeature = async (req, res, next) => {
 	if (orgSwitchRestriction.isRestricted && !orgSwitchRestriction.flags.canViewBilling && !orgSwitchRestriction.flags.canViewPaygira) {
 		req.flash("error", "PayGira is not included in your current plan.");
 		return res.redirect("/account/settings?section=profile");
-	}
-
-	if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
-		return next();
 	}
 
 	const accountType = String(
@@ -187,22 +150,6 @@ const requirePaygiraFeature = async (req, res, next) => {
 
 	if (hasPaygiraFeatureInSession(req, res)) {
 		return next();
-	}
-
-	try {
-		const database = req.app.get("db");
-		const permissionContext = getPermissionContextFromRequest(req);
-
-		const [canManageBilling, canManagePaygira] = await Promise.all([
-			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING),
-			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
-		]);
-
-		if (canManageBilling || canManagePaygira) {
-			return next();
-		}
-	} catch (_error) {
-		// Permission checks are best-effort here; denial handling below remains the fallback.
 	}
 
 	// Background/SPA fragment and JSON requests get a clean 403 instead of an
@@ -221,51 +168,51 @@ router.use("/my-paygira", requirePaygiraFeature);
 
 
 router.get("/finance/_version.json", isAuthenticated, c.financeVersionJsonGet);
-router.get("/finance/_stats.json", isAuthenticated, requireFinanceSettingsAccess, c.financeStatsJsonGet);
-router.get("/finance/_overview-section", isAuthenticated, requireFinanceSettingsAccess, c.financeOverviewFragmentGet);
-router.get("/finance/_overview-detail-section", isAuthenticated, requireFinanceSettingsAccess, c.financeOverviewDetailFragmentGet);
+router.get("/finance/_stats.json", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_OVERVIEW), c.financeStatsJsonGet);
+router.get("/finance/_overview-section", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_OVERVIEW), c.financeOverviewFragmentGet);
+router.get("/finance/_overview-detail-section", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_OVERVIEW), c.financeOverviewDetailFragmentGet);
 router.get("/finance", isAuthenticated, requireFinanceSettingsAccess, c.financePageGet);
-router.get("/finance/arrears", isAuthenticated, requireFinanceSettingsAccess, c.financeArrearsPageGet);
-router.post("/finance/arrears/presets", isAuthenticated, requireFinanceSettingsAccess, c.arrearsPresetCreatePost);
-router.post("/finance/arrears/notes", isAuthenticated, requireFinanceSettingsAccess, c.arrearsNoteCreatePost);
-router.post("/finance/arrears/guardians", isAuthenticated, requireFinanceSettingsAccess, c.arrearsGuardianSavePost);
-router.post("/finance/arrears/reports", isAuthenticated, requireFinanceSettingsAccess, c.arrearsReportCreatePost);
-router.get("/finance/arrears/reports/:id/view", isAuthenticated, requireFinanceSettingsAccess, c.arrearsReportViewGet);
-router.get("/finance/arrears/reports/:id/download", isAuthenticated, requireFinanceSettingsAccess, c.arrearsReportDownloadGet);
-router.post("/finance/arrears/reports/:id/delete", isAuthenticated, requireFinanceSettingsAccess, c.arrearsReportDeletePost);
-router.post("/finance/arrears/email", isAuthenticated, requireFinanceSettingsAccess, c.arrearsEmailSendPost);
+router.get("/finance/arrears", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.financeArrearsPageGet);
+router.post("/finance/arrears/presets", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsPresetCreatePost);
+router.post("/finance/arrears/notes", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsNoteCreatePost);
+router.post("/finance/arrears/guardians", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsGuardianSavePost);
+router.post("/finance/arrears/reports", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportCreatePost);
+router.get("/finance/arrears/reports/:id/view", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportViewGet);
+router.get("/finance/arrears/reports/:id/download", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportDownloadGet);
+router.post("/finance/arrears/reports/:id/delete", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportDeletePost);
+router.post("/finance/arrears/email", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsEmailSendPost);
 
 // Templates
-router.post("/finance/templates", isAuthenticated, requireFinanceSettingsAccess, c.templateCreatePost);
-router.post("/finance/templates/:id/delete", isAuthenticated, requireFinanceSettingsAccess, c.templateDeletePost);
+router.post("/finance/templates", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.templateCreatePost);
+router.post("/finance/templates/:id/delete", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.templateDeletePost);
 
 // Bills
-router.post("/finance/bills", isAuthenticated, requireFinanceSettingsAccess, c.billCreatePost);
-router.post("/finance/bills/:id/edit", isAuthenticated, requireFinanceSettingsAccess, c.billEditPost);
-router.post("/finance/bills/:id/cancel", isAuthenticated, requireFinanceSettingsAccess, c.billCancelPost);
-router.post("/finance/bills/:id/delete", isAuthenticated, requireFinanceSettingsAccess, c.billDeletePost);
-router.post("/finance/bills/:id/reminder", isAuthenticated, requireFinanceSettingsAccess, c.sendReminderPost);
+router.post("/finance/bills", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.billCreatePost);
+router.post("/finance/bills/:id/edit", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.billEditPost);
+router.post("/finance/bills/:id/cancel", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_DELETE_BILLS), c.billCancelPost);
+router.post("/finance/bills/:id/delete", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_DELETE_BILLS), c.billDeletePost);
+router.post("/finance/bills/:id/reminder", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.sendReminderPost);
 
 // Payments
-router.post("/finance/payments", isAuthenticated, requireFinanceSettingsAccess, c.paymentRecordPost);
-router.post("/finance/payments/:id/delete", isAuthenticated, requireFinanceSettingsAccess, c.paymentDeletePost);
-router.get("/finance/_assignments.json", isAuthenticated, requireFinanceSettingsAccess, c.assignmentsJsonGet);
+router.post("/finance/payments", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECORD_PAYMENTS), c.paymentRecordPost);
+router.post("/finance/payments/:id/delete", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_DELETE_PAYMENTS), c.paymentDeletePost);
+router.get("/finance/_assignments.json", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS, PERMISSIONS.PAYGIRA_ORG_BILLS, PERMISSIONS.PAYGIRA_PAYMENTS, PERMISSIONS.PAYGIRA_RECORD_PAYMENTS, PERMISSIONS.PAYGIRA_RECOVERY), c.assignmentsJsonGet);
 
 // Sign-off corrections and read-only reports
-router.post("/finance/signoffs/:id/unsign", isAuthenticated, requireFinanceSettingsAccess, c.signoffUnsignPost);
-router.get("/finance/signoffs/:id/report", isAuthenticated, requireFinanceSettingsAccess, c.signoffReportGet);
+router.post("/finance/signoffs/:id/unsign", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_DELETE_PAYMENTS), c.signoffUnsignPost);
+router.get("/finance/signoffs/:id/report", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_PAYMENTS, PERMISSIONS.PAYGIRA_DELETE_PAYMENTS), c.signoffReportGet);
 
 // Overdue sweep
-router.post("/finance/sweep-overdue", isAuthenticated, requireFinanceSettingsAccess, c.overdueSweepPost);
+router.post("/finance/sweep-overdue", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.overdueSweepPost);
 
 // Student detail JSON
-router.get("/finance/students/:id/detail.json", isAuthenticated, requireFinanceSettingsAccess, c.studentDetailGet);
+router.get("/finance/students/:id/detail.json", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS, PERMISSIONS.PAYGIRA_ORG_BILLS, PERMISSIONS.PAYGIRA_PAYMENTS, PERMISSIONS.PAYGIRA_RECORD_PAYMENTS, PERMISSIONS.PAYGIRA_RECOVERY), c.studentDetailGet);
 
 // CSV export
-router.get("/finance/export/csv", isAuthenticated, requireFinanceSettingsAccess, c.exportCsvGet);
+router.get("/finance/export/csv", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_PAYMENTS), c.exportCsvGet);
 
 // PSP / Payment-Settings save (stripe, momo, bank, general)
-router.post("/finance/psp/:provider", isAuthenticated, requireFinanceSettingsAccess, c.pspSavePost);
+router.post("/finance/psp/:provider", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_SETTINGS), c.pspSavePost);
 
 // ====== My PayGira (Teacher / Class teacher / Supervisor collector view) ======
 // Access requires the MANAGE_PAYGIRA (or MANAGE_BILLING) permission regardless of role.

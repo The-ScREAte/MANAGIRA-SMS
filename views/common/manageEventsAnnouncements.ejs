@@ -407,19 +407,24 @@
   <div class="ea-content">
 
     <!-- ── Tab strip ── -->
+    <% const eventsAccess = workspaceAccess().events; const eventsTabFirst = eventsAccess.events; %>
     <div class="tab-strip" role="tablist">
+      <% if (eventsAccess.events) { %>
       <button class="tab-btn active" role="tab" data-tab="events">
         Events
         <span class="count-pill"><%= (events || []).length %></span>
       </button>
-      <button class="tab-btn" role="tab" data-tab="announcements">
+      <% } %>
+      <% if (eventsAccess.announcements) { %>
+      <button class="tab-btn<%= eventsTabFirst ? '' : ' active' %>" role="tab" data-tab="announcements">
         Announcements
         <span class="count-pill"><%= (announcements || []).length %></span>
       </button>
+      <% } %>
     </div>
 
     <!-- ══════════ EVENTS TAB ══════════ -->
-    <div id="tab-events" class="tab-panel active">
+    <div id="tab-events" class="tab-panel<%= eventsTabFirst ? ' active' : '' %>"<%= eventsAccess.events ? '' : ' hidden' %>>
       <div class="two-col">
 
         <!-- Create form -->
@@ -569,7 +574,7 @@
     </div>
 
     <!-- ══════════ ANNOUNCEMENTS TAB ══════════ -->
-    <div id="tab-announcements" class="tab-panel">
+    <div id="tab-announcements" class="tab-panel<%= eventsTabFirst ? '' : ' active' %>"<%= eventsAccess.announcements ? '' : ' hidden' %>>
       <div class="two-col">
 
         <!-- Create form -->

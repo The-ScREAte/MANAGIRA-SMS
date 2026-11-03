@@ -6,6 +6,7 @@ const ALLOWED_FEATURES_CACHE_TTL_SEC = Number(process.env.ALLOWED_FEATURES_CACHE
 
 const setAllowedFeatures = async (req, res, next) => {
     res.locals.allowedFeatures = []; // Always ensure it's an array
+    res.locals.planFeaturesKnown = false; // True once the plan has really been read
 
     if (!req.session.organizationId) {
         // Leave a visitor's untouched session alone: writing to it makes
@@ -24,6 +25,7 @@ const setAllowedFeatures = async (req, res, next) => {
         if (!planContext) {
             return next(); // Organization not found, continue
         }
+        res.locals.planFeaturesKnown = !planContext.planId;
 
         const planId = planContext.planId;
 
@@ -49,6 +51,7 @@ const setAllowedFeatures = async (req, res, next) => {
         );
 
         res.locals.allowedFeatures = Array.isArray(features) ? features : [];
+        res.locals.planFeaturesKnown = Array.isArray(features);
         req.session.allowedFeatures = res.locals.allowedFeatures; // ✅ Store in session to be consistent
 
     } catch (err) {

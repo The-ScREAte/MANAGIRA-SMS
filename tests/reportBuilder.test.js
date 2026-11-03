@@ -12,6 +12,14 @@ const {
 const createReportBuilderController = require("../controllers/reportBuilderController");
 const { createReportService, isScheduleDue, csvCell, toCsv } = createReportBuilderController._test;
 
+// A fake database whose school has every plan feature the reports look for.
+const PLAN_FEATURES = ["Student and Guardian Profile", "Assessment Tracking", "Attendance Tracking", "School Website", "Class Base Merit Sheet", "PayGira"];
+const planRows = (sql) => {
+  if (sql.includes("o.plan_id")) return { rows: [{ plan_id: 1, is_hub_member: false }] };
+  if (sql.includes("plan_features")) return { rows: PLAN_FEATURES.map((feature_name) => ({ feature_name })) };
+  return null;
+};
+
 const allowAll = async () => true;
 
 test("report builder only accepts configured report columns", () => {
@@ -28,7 +36,7 @@ test("report builder only accepts configured report columns", () => {
 test("fee columns and criteria need the fee permission", () => {
   const report = getReport("students");
   assert.deepEqual(normalizeColumns(report, ["student_name", "fee_balance"], new Set()), ["student_name"]);
-  assert.deepEqual(normalizeColumns(report, ["student_name", "fee_balance"], new Set(["manage_paygira", "feature:fees"])), ["student_name", "fee_balance"]);
+  assert.deepEqual(normalizeColumns(report, ["student_name", "fee_balance"], new Set(["paygira_org_bills", "feature:fees"])), ["student_name", "fee_balance"]);
   assert.deepEqual(normalizeCriteria(report, { fees: "owing" }, new Set()).values, {});
 });
 
@@ -130,13 +138,14 @@ test("sorting only uses selected columns", () => {
   assert.deepEqual(query({ key: "l.user_name; --", dir: "asc" }), { key: "created_at", dir: "desc" });
 });
 
-test("class-limited staff get no rows without classes, and school-wide reports stay closed", () => {
+test("class-limited staff get no rows without classes; only org-wide reports skip the class limit", () => {
   assert.match(buildQueries(getReport("students"), { columns: ["student_name"], organizationId: 63, allowedClassIds: [] }).count.sql, /1 = 0/);
-  assert.match(buildQueries(getReport("activity_log"), { columns: ["user_name"], organizationId: 63, allowedClassIds: [5] }).count.sql, /1 = 0/);
+  assert.match(buildQueries(getReport("parents"), { columns: getReport("parents").defaultColumns, organizationId: 63, allowedClassIds: [5] }).count.sql, /1 = 0/);
+  assert.doesNotMatch(buildQueries(getReport("staff"), { columns: getReport("staff").defaultColumns, organizationId: 63, allowedClassIds: [5] }).count.sql, /1 = 0/);
 });
 
 test("page lists only the reports a role may run, grouped", async () => {
-  const db = { async query() { return { rows: [] }; } };
+  const db = { async query(sql) { return planRows(sql) || { rows: [] }; } };
   const render = async (session, hasPermission) => {
     const controller = createReportBuilderController(db, { hasPermission });
     const response = {
@@ -170,6 +179,7 @@ test("report preview scopes a teacher's rows to assigned classes and the active 
   const queries = [];
   const db = {
     async query(sql, values) {
+      if (planRows(sql)) return planRows(sql);
       queries.push({ sql, values });
       if (sql.includes("FROM user_classes")) return { rows: [{ class_id: 12 }] };
       if (sql.includes("COUNT(*)")) return { rows: [{ total: 1 }] };
@@ -308,4 +318,38 @@ test("merit sheet ranks within class and term and adds the school's own columns"
   assert.equal(extra.columns.remark_4.label, "Head's remark");
   assert.match(extra.columns.remark_4.expression, /->> 'custom:head''s-remark'/);
   assert.ok(extra.criteria.some((criterion) => criterion.key === "remark_4"));
+});
+
+test("scheduled emails give each shared person only their own access, or no copy", async () => {
+  const { runDueReportSchedules } = require("../controllers/reportBuilderController");
+  const now = new Date("2026-11-04T08:30:00Z");
+  const schedule = {
+    report_id: 7, report_name: "Staff", report_type: "staff", columns_json: ["name", "email"], criteria_json: {}, branding_json: {},
+    created_by: 1, owner_email: "owner@example.invalid", owner_first_name: "O", owner_role: "Manager", organization_id: 63,
+    organization_name: "School", whatsapp_timezone: "UTC", frequency: "weekly", file_format: "csv", include_shared: true,
+    weekdays: [0, 1, 2, 3, 4, 5, 6], weekday: now.getUTCDay(), day_of_week: now.getUTCDay(), days_of_week: [0, 1, 2, 3, 4, 5, 6],
+    send_hour: 8, hour: 8, last_sent_on: null,
+  };
+  const db = {
+    async query(sql) {
+      if (sql.includes("FROM custom_report_schedules sch")) return { rows: [schedule] };
+      if (sql.includes("FROM custom_report_shares sh")) {
+        return { rows: [
+          { user_id: 2, email: "allowed@example.invalid", role: "Manager" },
+          { user_id: 3, email: "blocked@example.invalid", role: "Manager" },
+        ] };
+      }
+      if (sql.includes("COUNT(*)")) return { rows: [{ total: 1 }] };
+      if (/^\s*SELECT/i.test(sql)) return { rows: [{ name: "A", email: "a@x" }] };
+      return { rows: [] };
+    },
+  };
+  const sent = [];
+  const summary = await runDueReportSchedules(db, {
+    now,
+    send: async (message) => { sent.push(message.to); },
+    hasPermission: async (_db, identity, key) => key === "manage_employees" && identity.userId !== 3,
+  });
+  assert.equal(summary.failed, 0);
+  assert.deepEqual(sent.sort(), ["allowed@example.invalid", "owner@example.invalid"]);
 });

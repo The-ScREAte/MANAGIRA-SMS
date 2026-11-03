@@ -10,7 +10,7 @@ const api = require("../utils/apiAccess");
 const allowance = require("../utils/apiAllowance");
 const { confirmOwnPassword } = require("../utils/confirmOwnPassword");
 
-const guard = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SETTINGS)];
+const guard = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.SETTINGS_SERVICE_ACCOUNTS)];
 
 // The API's endpoints, for the "How to connect" guide (routes/publicApiRoute.js).
 const API_ENDPOINTS = [

@@ -12,6 +12,7 @@ const workspaceController = require("../controllers/workspaceController");
 const contactsController = require("../controllers/contactsController");
 const admissionSettingsController = require("../controllers/admissionSettingsController");
 const reportBuilderController = require("../controllers/reportBuilderController");
+const { WORKSPACE_PERMISSIONS } = require("../utils/workspaceAccess");
 const { isOrgMember } = require("../utils/workspace");
 const multer = require('multer');
 const path = require('path');
@@ -158,14 +159,14 @@ module.exports = (db) => {
     commonController.saveOrder(req, res, db)
   ); // Correct save order route
 
-  router.get("/addStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.get("/addStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_ADD), (req, res) =>
     commonController.addStudentGet(req, res, db)
   );
   router.post(
     "/addStudent",
     upload.any(), // ⬅️ Accept dynamic file fields like studentImage_0, studentImage_1, etc.
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_STUDENTS),
+    requirePermission(PERMISSIONS.STUDENTS_ADD),
     commonValidation.validateStudents, // ✅ Validate student data
     (req, res) => commonController.addStudentPost(req, res, db)
   );
@@ -173,7 +174,7 @@ module.exports = (db) => {
   router.post(
     "/check-student-duplicates",
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_STUDENTS),
+    requirePermission(PERMISSIONS.STUDENTS_ADD),
     express.json(),
     (req, res) => commonController.checkStudentDuplicates(req, res, db)
   );
@@ -182,7 +183,7 @@ module.exports = (db) => {
   router.post(
     "/parse-bulk-students",
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_STUDENTS),
+    requirePermission(PERMISSIONS.STUDENTS_ADD),
     bulkUpload.single('bulkFile'),
     (req, res) => commonController.parseBulkStudents(req, res, db)
   );
@@ -264,7 +265,7 @@ module.exports = (db) => {
   );
   
   // Guardian management routes
-  router.get("/guardians", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.get("/guardians", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_GUARDIANS), (req, res) =>
     commonController.guardiansListGet(req, res, db)
   );
   router.get("/guardianDetails", checkFeatureAccess, isAuthenticated, (req, res) =>
@@ -342,19 +343,19 @@ module.exports = (db) => {
   router.get("/check-student-id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.checkStudentId(req, res, db)
   );
-  router.get("/editStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.get("/editStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) =>
     commonController.editStudentGet(req, res, db)
   );
   router.post(
     "/editStudent/:studentId",
     upload.single("studentImage"),
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_STUDENTS),
+    requirePermission(PERMISSIONS.STUDENTS_EDIT),
     commonValidation.validatePublicRegister,
     commonValidation.validatePublicRegisterResult,
     (req, res) => commonController.editStudentPost(req, res, db)
   );
-  router.post("/deleteStudent/:studentId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.post("/deleteStudent/:studentId", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_DELETE), (req, res) =>
     commonController.deleteStudent(req, res, db)
   );
   router.post("/saveAttendanceForDate", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), (req, res) =>
@@ -373,13 +374,13 @@ module.exports = (db) => {
     "/createEmployee",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_EMPLOYEES),
+    requirePermission(PERMISSIONS.EMPLOYEES_ADD),
     (req, res) => commonController.createEmployeeGet(req, res, db)
   );
   router.post(
     "/createEmployee",
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_EMPLOYEES),
+    requirePermission(PERMISSIONS.EMPLOYEES_ADD),
     commonValidation.validateCreateEmployees,
     commonValidation.validateCreateEmployeesResult,
     (req, res) => commonController.createEmployeePost(req, res, db)
@@ -395,24 +396,24 @@ module.exports = (db) => {
     "/modifyEmployee",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_EMPLOYEES),
+    requirePermission(PERMISSIONS.EMPLOYEES_EDIT),
     (req, res) => commonController.modifyEmployeeGet(req, res, db)
   );
   router.post(
     "/modifyEmployee/:userId",
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_EMPLOYEES),
+    requirePermission(PERMISSIONS.EMPLOYEES_EDIT),
     commonValidation.validateCreateEmployees,
     commonValidation.validateCreateEmployeesResult,
     (req, res) => commonController.modifyEmployeePost(req, res, db)
   );
-  router.post("/deleteEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
+  router.post("/deleteEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_REMOVE), (req, res) =>
     commonController.deleteEmployee(req, res, db)
   );
-  router.post("/enableEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
+  router.post("/enableEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_REMOVE), (req, res) =>
     commonController.enableRemovedEmployee(req, res, db)
   );
-  router.post("/toggleHoldEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
+  router.post("/toggleHoldEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_REMOVE), (req, res) =>
     commonController.toggleHoldEmployee(req, res, db)
   );
   router.get("/assessment", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
@@ -435,7 +436,7 @@ module.exports = (db) => {
     "/allClassAssessmentExams",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS),
+    requirePermission([PERMISSIONS.MANAGE_ASSESSMENTS, PERMISSIONS.SET_ASSESSMENT_QUESTIONS]),
     requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS),
     requireSetAssessmentQuestionsFeature,
     (req, res) => commonController.allClassAssessmentExamsPage(req, res, db)
@@ -585,17 +586,17 @@ module.exports = (db) => {
   router.get("/getClasses", isAuthenticated, (req, res) =>
     commonController.getClasses(req, res, db)
   );
-  router.post("/registerSchoolYearEvent", isAuthenticated, requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS), (req, res) =>
+  router.post("/registerSchoolYearEvent", isAuthenticated, requirePermission(PERMISSIONS.EVENTS_EVENTS), (req, res) =>
     commonController.registerSchoolYearEvent(req, res, db)
   );
-  router.post("/registerSchoolYearAnnouncement", isAuthenticated, requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS), (req, res) =>
+  router.post("/registerSchoolYearAnnouncement", isAuthenticated, requirePermission(PERMISSIONS.EVENTS_ANNOUNCEMENTS), (req, res) =>
     commonController.registerSchoolYearAnnouncement(req, res, db)
   );
   router.get(
     "/manageRecords",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_RECORDS),
+    requirePermission([PERMISSIONS.MANAGE_RECORDS, PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS]),
     (req, res) => commonController.manageRecords(req, res, db)
   );
   router.post("/updateSchoolYearAndTerms", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
@@ -604,7 +605,7 @@ module.exports = (db) => {
   router.post(
     "/updateEvent",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    requirePermission(PERMISSIONS.EVENTS_EVENTS),
     commonValidation.validateEvent,
     commonValidation.validateEventResult,
     (req, res) => commonController.updateEvent(req, res, db)
@@ -612,7 +613,7 @@ module.exports = (db) => {
   router.post(
     "/updateAnnouncement",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    requirePermission(PERMISSIONS.EVENTS_ANNOUNCEMENTS),
     commonValidation.validateAnnouncement,
     commonValidation.validateAnnouncementResult,
     (req, res) => commonController.updateAnnouncement(req, res, db)
@@ -765,7 +766,7 @@ module.exports = (db) => {
   router.get("/deleteStudentImage/:studentId", isAuthenticated, (req, res) =>
     commonController.deleteStudentImage(req, res, db)
   );
-  router.post("/deleteStudentImage/:id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) => {
+  router.post("/deleteStudentImage/:id", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) => {
     commonController.deleteStudentImage(req, res, db);
   });
 
@@ -870,7 +871,7 @@ module.exports = (db) => {
     "/closeSchoolYear",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS),
+    requirePermission([PERMISSIONS.REPORTS_TERMINAL, PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS]),
     (req, res) => commonController.closeSchoolYear(req, res, db)
   );
   router.get("/termDetails/:termId", checkFeatureAccess, isAuthenticated, (req, res) =>
@@ -886,10 +887,10 @@ module.exports = (db) => {
   router.post("/closeGraduationYearGroupPost", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.closeGraduationYearGroupPost(req, res, db)
   );
-  router.post("/deleteEvent", isAuthenticated, requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS), (req, res) =>
+  router.post("/deleteEvent", isAuthenticated, requirePermission(PERMISSIONS.EVENTS_EVENTS), (req, res) =>
     commonController.deleteEvent(req, res, db)
   );
-  router.post("/deleteAnnouncement", isAuthenticated, requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS), (req, res) =>
+  router.post("/deleteAnnouncement", isAuthenticated, requirePermission(PERMISSIONS.EVENTS_ANNOUNCEMENTS), (req, res) =>
     commonController.deleteAnnouncement(req, res, db)
   );
   router.post("/deleteSchoolYear", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
@@ -901,7 +902,7 @@ module.exports = (db) => {
   router.post("/deleteSchoolYearPost", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.deleteSchoolYearPost(req, res, db)
   );
-  router.post("/setMainEmployee", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
+  router.post("/setMainEmployee", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_EDIT), (req, res) =>
     commonController.setMainEmployee(req, res, db)
   );
   router.post("/saveSingleAttendance", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), (req, res) =>
@@ -922,7 +923,7 @@ module.exports = (db) => {
     requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
     (req, res) => commonController.createEventAnnouncementGet(req, res, db)
   );
-  router.post("/createEventAnnouncement", isAuthenticated, requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS), (req, res) =>
+  router.post("/createEventAnnouncement", isAuthenticated, (req, res, next) => requirePermission(req.body.type === "event" ? PERMISSIONS.EVENTS_EVENTS : PERMISSIONS.EVENTS_ANNOUNCEMENTS)(req, res, next), (req, res) =>
     commonController.createEventAnnouncementPost(req, res, db)
   );
   // Legacy alias: /common/manageSchoolYear was historically a separate page,
@@ -959,13 +960,13 @@ module.exports = (db) => {
   router.get(
     "/manageAnnouncements",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    requirePermission(PERMISSIONS.EVENTS_ANNOUNCEMENTS),
     (req, res) => commonController.manageAnnouncementsGet(req, res, db)
   );
   router.get(
     "/announcementComposer",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    requirePermission(PERMISSIONS.EVENTS_ANNOUNCEMENTS),
     (req, res) => commonController.announcementComposerGet(req, res, db)
   );
 
@@ -985,10 +986,10 @@ module.exports = (db) => {
     commonController.setPasswordPost(req, res, db)
   );
 
-  router.get("/archivedStudents", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.get("/archivedStudents", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_ALUMNI), (req, res) =>
     commonController.archivedStudents(req, res, db)
   );
-  router.post("/unarchiveStudents", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.post("/unarchiveStudents", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_ALUMNI), (req, res) =>
     commonController.unarchiveStudents(req, res, db)
   );
   router.get("/studentInfo", isAuthenticated, (req, res) =>
@@ -1006,7 +1007,7 @@ module.exports = (db) => {
   );
 
   // Admissions Hub
-  router.get("/admissions", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.APPROVE_ADMISSIONS), (req, res) =>
+  router.get("/admissions", checkFeatureAccess, isAuthenticated, requirePermission(WORKSPACE_PERMISSIONS.admissions), (req, res) =>
     commonController.admissionsHub(req, res, db)
   );
 
@@ -1016,22 +1017,22 @@ module.exports = (db) => {
   );
 
   // Change student class (AJAX)
-  router.post("/students/:studentId/change-class", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.post("/students/:studentId/change-class", isAuthenticated, express.json(), requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) =>
     commonController.changeStudentClass(req, res, db)
   );
 
   // Update student details from the All Students list (AJAX)
-  router.post("/students/:studentId/update-details", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.post("/students/:studentId/update-details", isAuthenticated, express.json(), requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) =>
     commonController.updateStudentListDetails(req, res, db)
   );
 
   // Bulk update students — change class and/or assign school year (AJAX)
-  router.post("/students/bulk-update", isAuthenticated, express.json(), requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
+  router.post("/students/bulk-update", isAuthenticated, express.json(), requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) =>
     commonController.bulkUpdateStudents(req, res, db)
   );
 
   // Reports Hub
-  router.get("/reports", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
+  router.get("/reports", checkFeatureAccess, isAuthenticated, requirePermission(WORKSPACE_PERMISSIONS.reports), (req, res) =>
     commonController.reportsHub(req, res, db)
   );
 
@@ -1040,21 +1041,21 @@ module.exports = (db) => {
     "/report-builder",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     reportBuilder.page
   );
   router.get(
     "/report-builder/options/:reportType",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     reportBuilder.options
   );
   router.post(
     "/report-builder/run",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.run
   );
@@ -1062,7 +1063,7 @@ module.exports = (db) => {
     "/report-builder/save",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.save
   );
@@ -1070,7 +1071,7 @@ module.exports = (db) => {
     "/report-builder/export",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.export
   );
@@ -1080,7 +1081,7 @@ module.exports = (db) => {
     "/report-builder/download/:token",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     (req, res) => {
       const link = require("../controllers/internalReportBuilderController").openLink(req.params.token);
       const userId = Number(req.session?.user?.user_id || req.session?.userId);
@@ -1096,7 +1097,7 @@ module.exports = (db) => {
     "/report-builder/template",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.template
   );
@@ -1104,7 +1105,7 @@ module.exports = (db) => {
     "/report-builder/import",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json({ limit: "200kb" }),
     reportBuilder.importTemplate
   );
@@ -1112,7 +1113,7 @@ module.exports = (db) => {
     "/report-builder/saved/:reportId",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.update
   );
@@ -1120,21 +1121,21 @@ module.exports = (db) => {
     "/report-builder/staff",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     reportBuilder.staff
   );
   router.get(
     "/report-builder/saved/:reportId/sharing",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     reportBuilder.sharing
   );
   router.put(
     "/report-builder/saved/:reportId/shares",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.updateShares
   );
@@ -1142,7 +1143,7 @@ module.exports = (db) => {
     "/report-builder/saved/:reportId/favorite",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.favorite
   );
@@ -1150,7 +1151,7 @@ module.exports = (db) => {
     "/report-builder/saved/:reportId/schedule",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     express.json(),
     reportBuilder.updateSchedule
   );
@@ -1158,14 +1159,14 @@ module.exports = (db) => {
     "/report-builder/saved/:reportId",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     reportBuilder.loadSaved
   );
   router.delete(
     "/report-builder/saved/:reportId",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    requirePermission(PERMISSIONS.REPORTS_BUILDER),
     reportBuilder.deleteSaved
   );
 
@@ -1176,7 +1177,7 @@ module.exports = (db) => {
 
   // Activity Logs (full list page, linked from the Reports Hub)
   // The activity log now lives in the Report Builder as a report type.
-  router.get("/activityLogs", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
+  router.get("/activityLogs", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.REPORTS_BUILDER), (req, res) =>
     res.redirect(res.locals.isEmbeddedFrame
       ? "/common/report-builder?type=activity_log"
       : "/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder")

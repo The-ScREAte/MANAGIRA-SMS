@@ -1,3 +1,4 @@
+const cacheManager = require("./cacheManager");
 const { UNIFORM_SUBJECT_SCALING_TERM_ID } = require("./uniformSubjectScaling");
 // Report Builder definitions. Every report is a fixed, reviewed SQL source:
 // users only pick column keys and criteria values, which are validated against
@@ -99,13 +100,14 @@ const STUDENT_COLUMNS = {
   address: { label: "Home address", expression: "s.address" },
 };
 
+const PARENT_CRITERIA = new Set(["parent", "parent_id", "parent_contact", "parent_address"]);
 const PARENT_COLUMNS = {
-  parent_name: { label: "Parent / guardian", expression: "parent.parent_name", join: "parent" },
-  parent_id: { label: "Parent ID", expression: "parent.parent_id", join: "parent" },
-  parent_relationship: { label: "Relationship", expression: "parent.parent_relationship", join: "parent" },
-  parent_phone: { label: "Parent phone", expression: "parent.parent_phone", join: "parent" },
-  parent_email: { label: "Parent email", expression: "parent.parent_email", join: "parent" },
-  parent_address: { label: "Parent address", expression: "parent.parent_address", join: "parent" },
+  parent_name: { label: "Parent / guardian", expression: "parent.parent_name", join: "parent", permission: "manage_guardians" },
+  parent_id: { label: "Parent ID", expression: "parent.parent_id", join: "parent", permission: "manage_guardians" },
+  parent_relationship: { label: "Relationship", expression: "parent.parent_relationship", join: "parent", permission: "manage_guardians" },
+  parent_phone: { label: "Parent phone", expression: "parent.parent_phone", join: "parent", permission: "manage_guardians" },
+  parent_email: { label: "Parent email", expression: "parent.parent_email", join: "parent", permission: "manage_guardians" },
+  parent_address: { label: "Parent address", expression: "parent.parent_address", join: "parent", permission: "manage_guardians" },
   parent_count: { label: "No. of parents", expression: "COALESCE(parent.parent_count, 0)", type: "number", join: "parent" },
 };
 
@@ -180,7 +182,7 @@ function studentCriteria() {
       OR EXISTS (SELECT 1 FROM guardians gi WHERE gi.student_id = s.student_id AND gi.organization_id = s.organization_id AND gi.guardian_id = ANY(${ids}::int[])))`),
     textCriterion("parent_contact", "Parent phone or email", parentMatch(["g.phone", "g.email"])),
     textCriterion("parent_address", "Parent address", parentMatch(["g.address"])),
-  ];
+  ].map((criterion) => (PARENT_CRITERIA.has(criterion.key) ? { ...criterion, permission: "manage_guardians" } : criterion));
 }
 
 const classCriterion = (expression, label = "Class") => ({
@@ -408,6 +410,8 @@ const gradeBand = (alias, percentage) => `LEFT JOIN LATERAL (
     ) band ON TRUE`;
 
 // ---- Report definitions -----------------------------------------------------
+// orgWide: not about any one class, so class-limited staff who hold the
+// report's permission can still run it.
 // classExpression: reports with one can be scoped to a teacher's classes;
 // reports without one are only offered to school-wide roles.
 
@@ -417,6 +421,7 @@ const REPORTS = {
     title: "Students",
     variant: "Students",
     permission: "manage_students",
+    requires: "profile",
     organizationExpression: "s.organization_id",
     classExpression: "s.class_id",
     stableOrderExpressions: ["s.student_id"],
@@ -445,11 +450,11 @@ const REPORTS = {
       bus_route: { label: "Bus route", expression: "bus.route_name", join: "bus", requires: "transport" },
       bus_stop: { label: "Bus stop", expression: "bus.stop_name", join: "bus", requires: "transport" },
       pickup_time: { label: "Pickup time", expression: "bus.pickup_time", join: "bus", requires: "transport" },
-      days_absent: { label: "Absent (this term)", expression: "att.absent", type: "number", join: "attendance" },
-      attendance_rate: { label: "Attendance % (this term)", expression: "ROUND(att.present * 100.0 / NULLIF(att.days, 0), 1)", type: "number", join: "attendance" },
-      fee_balance: { label: "Fee balance", expression: "fees.balance", type: "money", join: "fees", permission: "manage_paygira", requires: "fees" },
+      days_absent: { label: "Absent (this term)", expression: "att.absent", type: "number", join: "attendance", permission: "mark_attendance", requires: "attendance" },
+      attendance_rate: { label: "Attendance % (this term)", expression: "ROUND(att.present * 100.0 / NULLIF(att.days, 0), 1)", type: "number", join: "attendance", permission: "mark_attendance", requires: "attendance" },
+      fee_balance: { label: "Fee balance", expression: "fees.balance", type: "money", join: "fees", permission: "paygira_org_bills", requires: "fees" },
       ...PARENT_COLUMNS,
-      parent_relationship: { label: "Relationship", expression: "parent.parent_relationship", join: "parent" },
+      parent_relationship: { label: "Relationship", expression: "parent.parent_relationship", join: "parent", permission: "manage_guardians" },
     },
     criteria: [
       ...studentCriteria({ parentContact: true }),
@@ -475,17 +480,18 @@ const REPORTS = {
         { value: "any", label: "Absent at least once", sql: "att.absent > 0" },
         { value: "3plus", label: "Absent 3+ days", sql: "att.absent >= 3" },
         { value: "none", label: "Never absent", sql: "COALESCE(att.absent, 0) = 0" },
-      ], { join: "attendance" }),
+      ], { join: "attendance", permission: "mark_attendance", requires: "attendance" }),
       choiceCriterion("fees", "Fees", [
         { value: "owing", label: "Has a balance", sql: "fees.balance > 0" },
         { value: "clear", label: "No balance", sql: "COALESCE(fees.balance, 0) = 0" },
-      ], { join: "fees", permission: "manage_paygira", requires: "fees" }),
+      ], { join: "fees", permission: "paygira_org_bills", requires: "fees" }),
     ],
   },
   enrollments: {
     title: "Admissions & enrollment",
     variant: "Enrollment by term",
     permission: "manage_students",
+    requires: "profile",
     organizationExpression: "e.organization_id",
     classExpression: "es.class_id",
     stableOrderExpressions: ["e.enrollment_id", "es.student_id"],
@@ -520,6 +526,7 @@ const REPORTS = {
     title: "Admissions & enrollment",
     variant: "Online applications",
     permission: "approve_admissions",
+    requires: "website",
     organizationExpression: "p.organization_id",
     classExpression: "p.class_id",
     stableOrderExpressions: ["p.pending_id"],
@@ -559,6 +566,7 @@ const REPORTS = {
     title: "Assessments",
     variant: "Recorded scores",
     permission: "manage_assessments",
+    requires: "assessments",
     organizationExpression: "ar.organization_id",
     classExpression: "ar.class_id",
     stableOrderExpressions: ["ar.student_id", "ar.assessment_id", "ar.subject_id", "ar.category", "ar.choice_label"],
@@ -605,6 +613,7 @@ const REPORTS = {
     title: "Assessments",
     variant: "Online tests",
     permission: "manage_assessments",
+    requires: "assessments",
     organizationExpression: "sa.organization_id",
     classExpression: "sa.class_id",
     stableOrderExpressions: ["sa.attempt_id"],
@@ -831,6 +840,7 @@ const REPORTS = {
     title: "Attendance",
     variant: "Each mark",
     permission: "mark_attendance",
+    requires: "attendance",
     organizationExpression: "ar.organization_id",
     classExpression: "ar.class_id",
     stableOrderExpressions: ["ar.student_id", "ar.class_id"],
@@ -865,6 +875,7 @@ const REPORTS = {
     title: "Attendance",
     variant: "Per student",
     permission: "mark_attendance",
+    requires: "attendance",
     organizationExpression: "x.organization_id",
     classExpression: "x.class_id",
     stableOrderExpressions: ["x.student_id", "x.class_id", "x.term_id"],
@@ -906,6 +917,7 @@ const REPORTS = {
     title: "Attendance",
     variant: "Per class & day",
     permission: "mark_attendance",
+    requires: "attendance",
     organizationExpression: "x.organization_id",
     classExpression: "x.class_id",
     stableOrderExpressions: ["x.class_id"],
@@ -940,6 +952,7 @@ const REPORTS = {
     title: "Parents & guardians",
     variant: "Parents & guardians",
     permission: "manage_guardians",
+    requires: "profile",
     organizationExpression: "gp.organization_id",
     classExpression: null,
     stableOrderExpressions: ["gp.guardian_id"],
@@ -1023,7 +1036,8 @@ const REPORTS = {
   parent_messages: {
     title: "Parent messages",
     variant: "Parent messages",
-    permission: "manage_reports",
+    permission: "manage_guardians",
+    requires: "profile",
     organizationExpression: "gr.organization_id",
     classExpression: "s.class_id",
     baseWhere: "gr.deleted_at IS NULL",
@@ -1137,6 +1151,7 @@ const REPORTS = {
     title: "Staff",
     variant: "Staff list",
     permission: "manage_employees",
+    orgWide: true,
     organizationExpression: "u.organization_id",
     classExpression: null,
     baseWhere: "u.removed_at IS NULL",
@@ -1201,6 +1216,7 @@ const REPORTS = {
     title: "Staff",
     variant: "Tasks",
     permission: "manage_employees",
+    orgWide: true,
     organizationExpression: "tk.organization_id",
     classExpression: null,
     stableOrderExpressions: ["tk.task_id"],
@@ -1248,7 +1264,7 @@ const REPORTS = {
   fee_balances: {
     title: "Fees & payments",
     variant: "Balances",
-    permission: "manage_paygira",
+    permission: "paygira_org_bills",
     requires: "fees",
     organizationExpression: "fa.organization_id",
     classExpression: "s.class_id",
@@ -1299,7 +1315,7 @@ const REPORTS = {
   payments: {
     title: "Fees & payments",
     variant: "Payments",
-    permission: "manage_paygira",
+    permission: "paygira_payments",
     requires: "fees",
     organizationExpression: "fp.organization_id",
     classExpression: "s.class_id",
@@ -1345,7 +1361,8 @@ const REPORTS = {
   announcements: {
     title: "Announcements & events",
     variant: "Announcements",
-    permission: "manage_reports",
+    permission: "publish_events_announcements",
+    orgWide: true,
     organizationExpression: "an.organization_id",
     classExpression: null,
     stableOrderExpressions: ["an.announcement_id"],
@@ -1372,7 +1389,8 @@ const REPORTS = {
   events: {
     title: "Announcements & events",
     variant: "Events",
-    permission: "manage_reports",
+    permission: "publish_events_announcements",
+    orgWide: true,
     organizationExpression: "ev.organization_id",
     classExpression: null,
     stableOrderExpressions: ["ev.id"],
@@ -1409,7 +1427,8 @@ const REPORTS = {
   activity_audit: {
     title: "Activity log",
     variant: "Audit by record",
-    permission: "manage_reports",
+    permission: "manage_records",
+    orgWide: true,
     organizationExpression: "au.organization_id",
     classExpression: null,
     stableOrderExpressions: ["au.record_type", "au.record_key"],
@@ -1461,7 +1480,8 @@ const REPORTS = {
   activity_log: {
     title: "Activity log",
     variant: "Activity log",
-    permission: "manage_reports",
+    permission: "manage_records",
+    orgWide: true,
     organizationExpression: "l.organization_id",
     classExpression: null,
     stableOrderExpressions: ["l.log_id"],
@@ -1523,22 +1543,35 @@ Object.values(REPORTS).forEach((report) => {
 });
 
 // School features some reports, columns and criteria depend on ($1 = organization id).
+// The school's plan, from the same cached list every page already uses.
+async function planHas(db, organizationId, names) {
+  const { resolvePlanForOrganization } = require("./accessCache");
+  const plan = await resolvePlanForOrganization(db, organizationId);
+  if (!plan?.planId) return false;
+  const features = await cacheManager.getOrFetch(
+    "organization",
+    `access:allowed-features:${organizationId}:${plan.planId}`,
+    async () => (await db.query(
+      `SELECT f.feature_name FROM features f JOIN plan_features pf ON pf.feature_id = f.id WHERE pf.plan_id = $1`,
+      [plan.planId]
+    )).rows.map((row) => row.feature_name),
+    { ttl: 90 }
+  );
+  return (Array.isArray(features) ? features : []).some((name) => names.includes(name));
+}
+
 const FEATURES = {
   transport: "SELECT EXISTS (SELECT 1 FROM transport_routes WHERE organization_id = $1) AS available",
-  fees: "SELECT EXISTS (SELECT 1 FROM finance_bills WHERE organization_id = $1) AS available",
-  // Plan feature: the school's plan includes the class merit sheet.
-  merit: async (db, organizationId) => {
-    const { resolvePlanForOrganization } = require("./accessCache");
-    const plan = await resolvePlanForOrganization(db, organizationId);
-    if (!plan?.planId) return false;
-    const result = await db.query(
-      `SELECT 1 FROM features f JOIN plan_features pf ON pf.feature_id = f.id
-        WHERE pf.plan_id = $1 AND f.feature_name IN ('Class Base Merit Sheet', 'Class Base Merrit sheet') LIMIT 1`,
-      [plan.planId]
-    );
-    return result.rows.length > 0;
-  },
+  // Fee reports need PayGira in the plan, and the school using it.
+  fees: async (db, organizationId) => (await planHas(db, organizationId, ["PayGira", "Pay Gira", "PayGira & Payments", "PayGira and Payments"]))
+    && (await db.query("SELECT EXISTS (SELECT 1 FROM finance_bills WHERE organization_id = $1) AS available", [organizationId])).rows[0]?.available,
+  merit: (db, organizationId) => planHas(db, organizationId, ["Class Base Merit Sheet", "Class Base Merrit sheet"]),
+  profile: (db, organizationId) => planHas(db, organizationId, ["Student and Guardian Profile", "Student and Guadian Profile"]),
+  assessments: (db, organizationId) => planHas(db, organizationId, ["Assessment Tracking", "Assessment tracking feature"]),
+  attendance: (db, organizationId) => planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
+  website: (db, organizationId) => planHas(db, organizationId, ["School Website", "SchoolWebsite"]),
 };
+
 const PAGE_SIZES = [25, 50, 100];
 const PAGE_SIZE = 25;
 const MAX_EXPORT_ROWS = 10000;
@@ -1639,7 +1672,8 @@ function buildQueries(report, { columns, criteria = {}, organizationId, allowedC
   const clauses = [`${report.organizationExpression} = $1`];
   if (report.baseWhere) clauses.push(report.baseWhere);
   if (allowedClassIds) {
-    if (!allowedClassIds.length || !report.classExpression) clauses.push("1 = 0");
+    if (report.orgWide) { /* Not about any one class: the report's permission decides. */ }
+    else if (!allowedClassIds.length || !report.classExpression) clauses.push("1 = 0");
     else clauses.push(`${report.classExpression} = ANY(${bind(allowedClassIds)}::int[])`);
   }
   const criteriaJoins = new Set();

@@ -6,14 +6,14 @@ const { isAuthenticated } = require("../middleware/authMiddleware");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const payoutController = require("../controllers/payoutController");
 
-router.use("/payouts", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING));
+const canManagePayouts = [isAuthenticated, requirePermission(PERMISSIONS.PAYGIRA_PAYOUTS)];
 
-router.get("/payouts.json", payoutController.payoutsListJsonGet);
-router.get("/payouts/recipients/search", payoutController.payoutRecipientSearchGet);
-router.post("/payouts", payoutController.payoutCreatePost);
-router.post("/payouts/:id", payoutController.payoutUpdatePost);
-router.post("/payouts/:id/delete", payoutController.payoutDeletePost);
-router.post("/payouts/:id/pay-now", payoutController.payoutPayNowPost);
-router.get("/payouts/:id/transactions", payoutController.payoutTransactionsGet);
+router.get("/payouts.json", canManagePayouts, payoutController.payoutsListJsonGet);
+router.get("/payouts/recipients/search", canManagePayouts, payoutController.payoutRecipientSearchGet);
+router.post("/payouts", canManagePayouts, payoutController.payoutCreatePost);
+router.post("/payouts/:id", canManagePayouts, payoutController.payoutUpdatePost);
+router.post("/payouts/:id/delete", canManagePayouts, payoutController.payoutDeletePost);
+router.post("/payouts/:id/pay-now", canManagePayouts, payoutController.payoutPayNowPost);
+router.get("/payouts/:id/transactions", canManagePayouts, payoutController.payoutTransactionsGet);
 
 module.exports = router;

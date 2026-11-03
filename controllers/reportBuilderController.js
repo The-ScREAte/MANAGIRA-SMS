@@ -400,7 +400,7 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
     ]);
     const allowed = allowedBy(granted);
     const accessible = Object.entries(REPORTS).filter(([, report]) =>
-      allowed(report) && (!allowedClassIds || report.classExpression));
+      allowed(report) && (!allowedClassIds || report.classExpression || report.orgWide));
     // Some reports add the school's own columns (each subject, custom remark
     // types, assessment categories); they are merged into a copy per request.
     const extended = await Promise.all(accessible.map(async ([key, report]) => {
@@ -1032,36 +1032,45 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
     if (!isScheduleDue(row, now, row.whatsapp_timezone)) continue;
     const today = localParts(now, row.whatsapp_timezone).isoDate;
     try {
-      const context = await service.getContext({
-        userId: row.created_by,
-        userRole: row.owner_role,
-        accountType: row.owner_role,
-        organizationId: row.organization_id,
-        userEmail: row.owner_email,
-      });
-      const input = service.validateInput({
-        reportType: row.report_type,
-        columns: row.columns_json,
-        criteria: row.criteria_json,
-      }, context);
-      if (input.error) throw new Error(input.error);
-      const { rows, total } = await service.loadData(context, input, { limit: MAX_EXPORT_ROWS });
-      const header = row.file_format === "csv" ? null : await loadReportHeader(db, row.organization_id, row.branding_json);
-      const file = await buildFile(rows, input.columns, input.report, row.file_format, row.report_name, header);
-      const recipients = new Set([row.owner_email].filter(Boolean));
+      // The owner must still hold the report; each person it is shared with gets
+      // only what their own permissions and classes allow, or no copy at all.
+      const recipients = [{ userId: row.created_by, role: row.owner_role, email: row.owner_email, isOwner: true }];
       if (row.include_shared) {
         const shared = await db.query(
-          `SELECT u.email FROM custom_report_shares sh
+          `SELECT u.user_id, u.email, u.account_type::text AS role FROM custom_report_shares sh
              JOIN users u ON u.user_id = sh.user_id AND u.organization_id = $2 AND u.removed_at IS NULL
             WHERE sh.report_id = $1 AND u.email IS NOT NULL`,
           [row.report_id, row.organization_id]
         );
-        shared.rows.forEach((recipient) => recipients.add(recipient.email));
+        shared.rows.forEach((recipient) => {
+          if (recipient.user_id !== row.created_by) recipients.push({ userId: recipient.user_id, role: recipient.role, email: recipient.email });
+        });
       }
-      const note = total > MAX_EXPORT_ROWS
-        ? `This report has ${total.toLocaleString()} rows; the first ${MAX_EXPORT_ROWS.toLocaleString()} are attached.`
-        : `${total.toLocaleString()} ${total === 1 ? "row" : "rows"}.`;
-      for (const email of recipients) {
+      const header = row.file_format === "csv" ? null : await loadReportHeader(db, row.organization_id, row.branding_json);
+      for (const recipient of recipients) {
+        const context = await service.getContext({
+          userId: recipient.userId,
+          userRole: recipient.role,
+          accountType: recipient.role,
+          organizationId: row.organization_id,
+          userEmail: recipient.email,
+        });
+        const input = service.validateInput({
+          reportType: row.report_type,
+          columns: row.columns_json,
+          criteria: row.criteria_json,
+        }, context);
+        if (input.error) {
+          if (recipient.isOwner) throw new Error(input.error);
+          continue;
+        }
+        if (!recipient.email) continue;
+        const { rows, total } = await service.loadData(context, input, { limit: MAX_EXPORT_ROWS });
+        const file = await buildFile(rows, input.columns, input.report, row.file_format, row.report_name, header);
+        const note = total > MAX_EXPORT_ROWS
+          ? `This report has ${total.toLocaleString()} rows; the first ${MAX_EXPORT_ROWS.toLocaleString()} are attached.`
+          : `${total.toLocaleString()} ${total === 1 ? "row" : "rows"}.`;
+        const email = recipient.email;
         await deliver({
           to: email,
           subject: `${row.report_name} · ${row.organization_name}`,

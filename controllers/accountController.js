@@ -417,6 +417,11 @@ const {
   userHasPermission,
   PERMISSIONS,
   PERMISSION_OPTIONS,
+  PERMISSIONS_SAVED_KEY,
+  HIGH_RISK_PERMISSIONS,
+  isManagerLikeRole,
+  effectivePermissionsForRole,
+  resolvePermissionSelection,
   permissionOptionsFor,
   getUserPermissions,
   invalidateUserPermissionCache,
@@ -12806,7 +12811,7 @@ const accountController = {
         miraIntegration,
         employees,
         seatCount,
-        permissionOptions: permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }),
+        permissionOptions: permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => !option.parent),
         flash: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -12916,8 +12921,8 @@ const accountController = {
 
       // Owner included - no free bypass; Mira access is read straight from
       // their real granted permissions like anyone else.
-      const permissions = await getUserPermissions(db, userId, orgId);
-      const modalOptions = permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }).filter((option) => option.key !== PERMISSIONS.USE_MIRA);
+      const permissions = effectivePermissionsForRole(employee.account_type, await getUserPermissions(db, userId, orgId));
+      const modalOptions = permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => option.key !== PERMISSIONS.USE_MIRA).filter((option) => !option.parent);
 
       return res.json({
         userId: employee.user_id,
@@ -12972,9 +12977,21 @@ const accountController = {
       );
       if (canUseMira) selectedOptionPermissions.add(PERMISSIONS.USE_MIRA);
 
+      // This list shows main permissions only: their follow-ups stay as chosen on
+      // the employee form, and go if the main one is turned off.
       const existing = await getUserPermissions(db, userId, orgId);
+      const staffRole = (await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role;
+      const followUps = effectivePermissionsForRole(staffRole, existing)
+        .filter((key) => PERMISSION_OPTIONS.some((option) => option.key === key && option.parent));
+      // Only managers can hand out high-risk permissions, same as the employee form.
+      const requestorRole = req.session.userRole || req.session.user?.account_type || req.session.accountType;
+      const canGrantHighRisk = isManagerLikeRole(requestorRole) || String(requestorRole || "").trim() === "Manager";
+      const heldNow = effectivePermissionsForRole(staffRole, existing);
+      const allowedSelection = [...selectedOptionPermissions].filter((key) => canGrantHighRisk || !HIGH_RISK_PERMISSIONS.has(key) || heldNow.includes(key));
+      const selection = resolvePermissionSelection([...allowedSelection, ...followUps]);
+      if (selection.error) return res.status(400).json({ error: selection.error });
       const nonOptionPermissions = existing.filter((key) => !validKeys.has(key));
-      const nextPermissions = new Set([...nonOptionPermissions, ...selectedOptionPermissions]);
+      const nextPermissions = new Set([...nonOptionPermissions, ...selection.permissions, PERMISSIONS_SAVED_KEY]);
 
       const grantorId = req.session.user?.user_id || req.session.userId || null;
       const client = await db.connect();

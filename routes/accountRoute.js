@@ -126,37 +126,37 @@ router.get(
   "/personalization",
   checkFeatureAccess,
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_PROFILE),
   (req, res) => accountController.personalizationGet(req, res, db)
 );
-router.post("/personalization", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/personalization", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.personalizationPost(req, res, db)
 );
-router.post("/personalization/logo", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), upload.single("logo"), (req, res) =>
+router.post("/personalization/logo", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), upload.single("logo"), (req, res) =>
   accountController.personalizationLogoPost(req, res, db)
 );
-router.post("/personalization/name", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/personalization/name", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.updateOrgNamePost(req, res, db)
 );
-router.post("/personalization/font", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/personalization/font", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.updateFontPost(req, res, db)
 );
-router.post("/personalization/display-preferences", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/personalization/display-preferences", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.updateDisplayPreferencesPost(req, res, db)
 );
-router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   themeController.updateThemePost(req, res)
 );
 router.post(["/appearance", "/personalization/appearance"], isAuthenticated, (req, res) =>
   themeController.updateAppearancePost(req, res)
 );
-router.post("/personalization/student-id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/personalization/student-id", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.updateStudentIdSettingsPost(req, res, db)
 );
 router.post(
   "/personalization/nickname",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_PROFILE),
   accountValidation.validateNickname,
   accountValidation.validateNicknameResult,
   (req, res) => accountController.updateNicknamePost(req, res, db)
@@ -167,14 +167,14 @@ router.get(
   "/managePublicContent",
   checkFeatureAccess,
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   (req, res) => accountController.managePublicContentGet(req, res, db)
 );
 router.post(
   "/managePublicContent/website-destination",
   checkFeatureAccess,
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   express.json(),
   express.urlencoded({ extended: true }),
   (req, res) => accountController.saveSchoolWebsiteDestinationPost(req, res)
@@ -182,41 +182,41 @@ router.post(
 router.post(
   "/uploadSlideshowImages",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   require("../utils/mediaOptimize").websiteMediaFields("slideshowImages"),
   (req, res) => accountController.uploadSlideshowImages(req, res, db)
 );
 router.post(
   "/addTextSection",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   accountValidation.validateTextSection,
   accountValidation.validateTextSectionResult,
   (req, res) => accountController.addTextSection(req, res, db)
 );
 // School website extras (sections, images, contact-form inbox).
-router.post("/website/section/:key", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), websiteController.saveSection);
-router.post("/website/image", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), upload.single("image"), websiteController.uploadImage);
-router.get("/website/messages", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), websiteController.listMessages);
-router.post("/website/messages/:id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), websiteController.updateMessage);
-router.post("/updateImage", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/website/section/:key", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), websiteController.saveSection);
+router.post("/website/image", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), upload.single("image"), websiteController.uploadImage);
+router.get("/website/messages", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), websiteController.listMessages);
+router.post("/website/messages/:id", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), websiteController.updateMessage);
+router.post("/updateImage", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.updateImagePost(req, res, db)
 );
-router.get("/deleteImage/:imageId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.get("/deleteImage/:imageId", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.deleteImageGet(req, res, db)
 );
 router.post(
   "/updateText",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   accountValidation.validateTextSection,
   accountValidation.validateTextSectionResult,
   (req, res) => accountController.updateTextPost(req, res, db)
 );
-router.get("/deleteText/:textId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.get("/deleteText/:textId", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.deleteTextGet(req, res, db)
 );
-router.post("/update-about-us", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+router.post("/update-about-us", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.updateAboutUsSection(req, res, db)
 );
 
@@ -225,7 +225,7 @@ router.post(
   "/updatePublicDashboardTheme",
   checkFeatureAccess,
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   (req, res) => accountController.updatePublicDashboardThemePost(req, res, db)
 );
 
@@ -234,7 +234,7 @@ router.post(
   "/updatePublicSiteAppearance",
   checkFeatureAccess,
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   (req, res) => accountController.updatePublicSiteAppearancePost(req, res, db)
 );
 
@@ -243,7 +243,7 @@ router.post(
   "/updatePublicDashboardLayout",
   checkFeatureAccess,
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   (req, res) => accountController.updatePublicDashboardLayoutPost(req, res, db)
 );
 
@@ -310,145 +310,145 @@ router.post(
 router.post(
   "/settings/calendar/profile",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_PROFILE),
   (req, res) => accountController.saveAttendanceCalendarProfilePost(req, res, db)
 );
 router.post(
   "/settings/calendar/day",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_PROFILE),
   (req, res) => accountController.addAttendanceCalendarDayPost(req, res, db)
 );
 router.post(
   "/settings/calendar/day/delete",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_PROFILE),
   (req, res) => accountController.deleteAttendanceCalendarDayPost(req, res, db)
 );
 router.post(
   "/google-classroom/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleClassroomActivationPost
 );
 router.post(
   "/student-portal/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.studentPortalActivationPost
 );
 router.post(
   "/mira/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraActivationPost
 );
 router.get(
   "/mira",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraSettingsGet
 );
 router.get(
   "/mira/info",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraInfoGet
 );
 router.post(
   "/mira/permissions",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraPermissionsPost
 );
 router.get(
   "/mira/user/:userId",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraUserPermissionsGet
 );
 router.post(
   "/mira/user/:userId",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraUserPermissionsPost
 );
 router.post(
   "/transportation/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.transportationActivationPost
 );
 router.post(
   "/transportation/google-maps-nav/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleMapsNavActivationPost
 );
 router.post(
   "/transportation/apple-maps-nav/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.appleMapsNavActivationPost
 );
 router.post(
   "/whatsapp/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.whatsappActivationPost
 );
 router.post(
   "/whatsapp/connect",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.whatsappConnectPost
 );
 router.post(
   "/whatsapp/disconnect",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.whatsappDisconnectPost
 );
 router.get(
   "/whatsapp/setup-status",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.whatsappSetupStatusGet
 );
 router.post(
   "/whatsapp/test-message",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.whatsappTestMessagePost
 );
 router.post(
   "/whatsapp/diagnose-recipient",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.whatsappDiagnoseRecipientPost
 );
 router.post(
   "/sms/activate",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.smsActivationPost
 );
 router.post(
   "/sms/settings",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.smsSettingsSavePost
 );
 router.post(
   "/sms/check",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.smsCheckConnectionPost
 );
 router.post(
   "/sms/test-message",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.smsTestMessagePost
 );
 router.get(
@@ -514,25 +514,25 @@ router.post(
 router.get(
   "/google-classroom/connect",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleClassroomConnectGet
 );
 router.get(
   "/google-classroom/callback",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleClassroomCallbackGet
 );
 router.post(
   "/google-classroom/resync",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleClassroomResyncPost
 );
 router.post(
   "/google-classroom/disconnect",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleClassroomDisconnectPost
 );
 
@@ -676,7 +676,7 @@ router.get("/validate-promo", (req, res) =>
 router.post(
   "/updatePublicRegistration",
   isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  requirePermission(PERMISSIONS.SETTINGS_WEBSITE),
   accountController.updatePublicRegistration
 );
 

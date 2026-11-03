@@ -1157,7 +1157,7 @@
       <div class="es-action-menu">
         <button type="button" class="es-menu-toggle" onclick="toggleActionMenu()" aria-label="More actions">:</button>
         <div id="studentActionDropdown" class="es-action-dropdown">
-          <button type="button" class="es-btn-danger" onclick="submitDeleteStudent()">Delete student</button>
+          <% if (workspaceAccess().students.canDelete) { %><button type="button" class="es-btn-danger" onclick="submitDeleteStudent()">Delete student</button><% } %>
         </div>
       </div>
     </div>

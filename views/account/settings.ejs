@@ -3197,7 +3197,11 @@
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
         const _canSecuritySettings = typeof canAccessSecuritySettings === 'boolean' ? canAccessSecuritySettings : true;
-        const _defaultSettingsSectionId = _isOnHoldRestricted ? 'billing' : (_canCustomizeSettings ? 'customize' : 'profile');
+        const _settingsAccess = workspaceAccess().settings;
+        const _canProfileSettings = _canCustomizeSettings && _settingsAccess.profile;
+        const _canIntegrationSettings = _canCustomizeSettings && _settingsAccess.integrations;
+        const _canTokenSettings = _canCustomizeSettings && _settingsAccess.serviceAccounts;
+        const _defaultSettingsSectionId = _isOnHoldRestricted ? 'billing' : (_canProfileSettings ? 'customize' : 'profile');
       %>
       <aside class="settings-nav" id="settings-nav-panel" style="<%= (_isEmbeddedSettings || _isOnHoldRestricted) ? 'display:none;' : '' %>">
         <% 
@@ -3218,7 +3222,7 @@
           </button>
         </div>
         <ul class="nav-list">
-          <% if (_canCustomizeSettings) { %>
+          <% if (_canProfileSettings) { %>
           <li><button class="nav-link <%= _defaultSettingsSectionId === 'customize' ? 'active' : '' %>" data-target="customize">
             <span class="nav-link-icon"><%- navIcon('school') %></span>
             <span>Customize School</span>
@@ -3246,7 +3250,7 @@
             <span>Security</span>
           </button></li>
           <% } %>
-          <% if (_canCustomizeSettings && _canSecuritySettings) { %>
+          <% if (_canTokenSettings && _canSecuritySettings) { %>
           <li><button class="nav-link" data-target="access-tokens">
             <span class="nav-link-icon"><%- navIcon('accessTokens') %></span>
             <span>Access Tokens</span>
@@ -3290,7 +3294,7 @@
           <%= _onHoldBannerMessage %>
         </div>
         <% } %>
-        <% if (_canCustomizeSettings && !_isOnHoldRestricted) { %>
+        <% if (_canProfileSettings && !_isOnHoldRestricted) { %>
         <section id="customize" class="settings-section <%= _defaultSettingsSectionId === 'customize' ? 'is-default' : '' %>">
           <h1>Customize School</h1>
           <p class="lead">
@@ -4183,7 +4187,7 @@
         </section>
         <% } %>
 
-        <% if (_canCustomizeSettings && !_isOnHoldRestricted) { %>
+        <% if (_canIntegrationSettings && !_isOnHoldRestricted) { %>
         <section id="integrations" class="settings-section">
           <h1><i class="fa-solid fa-plug settings-h1-icon" aria-hidden="true"></i> Integrations</h1>
           <p class="lead">Connect the services your school uses.</p>
@@ -5022,7 +5026,7 @@
         <% if ((_hasUserNotificationPrefs || _hasOrgNotificationPrefs) && !_isOnHoldRestricted) {
              const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {};
              const _orgSaved = (typeof savedOrgNotificationPrefs !== 'undefined' && savedOrgNotificationPrefs) ? savedOrgNotificationPrefs : {}; %>
-        <% if (_canCustomizeSettings && _canSecuritySettings) { %>
+        <% if (_canTokenSettings && _canSecuritySettings) { %>
         <section id="access-tokens" class="settings-section settings-section--frame">
           <iframe class="settings-access-frame" title="Access Tokens" data-src="/api-access/tokens?embed=workspace" loading="lazy"></iframe>
         </section>

@@ -130,7 +130,8 @@
       </div>
 
       <!-- Type selector tabs -->
-      <div class="type-tabs">
+      <% const eventsAccess = workspaceAccess().events; %>
+      <div class="type-tabs"<%= eventsAccess.events && eventsAccess.announcements ? '' : ' hidden' %>>
         <button type="button" class="type-tab active" id="tab-event-btn" onclick="switchType('event')">
           📅 &nbsp;Event
         </button>
@@ -142,7 +143,7 @@
       <div class="card-body">
 
         <!-- ── EVENT FORM ── -->
-        <form id="form-event" class="form-section visible" action="/common/createEventAnnouncement" method="POST">
+        <form id="form-event" class="form-section<%= eventsAccess.events ? ' visible' : '' %>" action="/common/createEventAnnouncement" method="POST">
           <input type="hidden" name="type" value="event" />
 
           <div class="form-group">
@@ -187,7 +188,7 @@
         </form>
 
         <!-- ── ANNOUNCEMENT FORM ── -->
-        <form id="form-announcement" class="form-section" action="/common/createEventAnnouncement" method="POST">
+        <form id="form-announcement" class="form-section<%= eventsAccess.events ? '' : ' visible' %>" action="/common/createEventAnnouncement" method="POST">
           <input type="hidden" name="type" value="announcement" />
 
           <div class="form-group">

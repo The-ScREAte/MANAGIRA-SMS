@@ -4564,7 +4564,7 @@ main {
         canOpenAssessmentQuestions: <%= canAccessAssessmentQuestions ? 'true' : 'false' %>,
         canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
         canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
-        canOpenPaygira: true,
+        canOpenPaygira: <%- JSON.stringify(_canOpenPaygiraWorkspace) %>,
       };
 
       workspaceState = {

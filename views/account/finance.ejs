@@ -1,4 +1,5 @@
 <%
+  const paygiraAccess = workspaceAccess().paygira;
   const rawSec = (typeof section !== 'undefined' && section) ? section : 'overview';
   const sec = (rawSec === 'reports' || rawSec === 'templates') ? 'overview' : rawSec;
   const currentCurrency = (typeof financeCurrency !== 'undefined' && financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
@@ -1619,15 +1620,15 @@
       </div>
       <div class="fin-side-title">Navigate</div>
       <nav class="fin-nav">
-        <a href="/account/settings/finance?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg></span><span>Overview</span></a>
-        <a href="/account/settings/finance?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span><span>Bill Management</span></a>
-        <a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M3 21h18M8 7h4M8 11h4M8 15h4"/></svg></span><span>Org-Wide Bills</span></a>
-        <a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></span><span>Subscriptions</span></a>
-        <a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><span>Payment Tracking</span></a>
+        <% if (paygiraAccess.overview) { %><a href="/account/settings/finance?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg></span><span>Overview</span></a><% } %>
+        <% if (paygiraAccess.bills) { %><a href="/account/settings/finance?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span><span>Bill Management</span></a><% } %>
+        <% if (paygiraAccess.students) { %><a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M3 21h18M8 7h4M8 11h4M8 15h4"/></svg></span><span>Org-Wide Bills</span></a><% } %>
+        <% if (paygiraAccess.subscriptions) { %><a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></span><span>Subscriptions</span></a><% } %>
+        <% if (paygiraAccess.payments) { %><a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><span>Payment Tracking</span></a><% } %>
         <% /* Fee Templates hidden for now */ %>
-        <a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><span>Fee Recovery</span></a>
-        <a href="/account/settings/finance?section=payouts"       class="<%= sec==='payouts' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><span>Payouts</span></a>
-        <a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></span><span>Payment Settings</span></a>
+        <% if (paygiraAccess.arrears) { %><a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><span>Fee Recovery</span></a><% } %>
+        <% if (paygiraAccess.payouts) { %><a href="/account/settings/finance?section=payouts"       class="<%= sec==='payouts' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><span>Payouts</span></a><% } %>
+        <% if (paygiraAccess.settings) { %><a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></span><span>Payment Settings</span></a><% } %>
       </nav>
     </aside>
 
@@ -2001,11 +2002,13 @@
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 1-10-10"></path><path d="M22 4 12 14l-3-3"></path></svg>
                           </button>
                         </form>
+                        <% if (paygiraAccess.canDeleteBills) { %>
                         <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" onsubmit="return confirm('Delete this bill and all assignments?');" style="display:inline;" onclick="event.stopPropagation();">
                           <button class="fin-btn fin-icon-btn danger" title="Delete bill" aria-label="Delete bill">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
                           </button>
                         </form>
+                        <% } %>
                       </td>
                     </tr>
                   <% }) %>
@@ -2199,6 +2202,7 @@
       <% } %>
 
       <% if (sec === 'payments') { %>
+        <% if (paygiraAccess.canRecordPayments) { %>
         <div class="fin-card fin-accordion" id="acc-record-payment" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-record-payment', this)" aria-expanded="false">
             <span><strong>Record Manual Payment</strong></span>
@@ -2253,6 +2257,9 @@
           </div>
         </div>
 
+        <% } %>
+
+        <% if (paygiraAccess.canSeePayments || paygiraAccess.canCorrectPayments) { %>
         <div class="fin-card">
           <div class="section-head"><h2>Payment History</h2></div>
           <% if (!overview.recent.length) { %>
@@ -2271,9 +2278,9 @@
                       <td class="num" style="color:var(--fin-success);"><%= fmt(r.amount) %></td>
                       <td>
                         <div class="fin-actions-cell" style="justify-content:flex-start;">
-                          <form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Delete this payment? Audit logs will be saved, balances will be recalculated, and the affected student or bill may return to unpaid or partial status.');">
+                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Delete this payment? Audit logs will be saved, balances will be recalculated, and the affected student or bill may return to unpaid or partial status.');">
                             <button type="submit" class="fin-btn danger sm" style="min-width:130px;">Correct / Delete</button>
-                          </form>
+                          </form><% } %>
                         </div>
                       </td>
                     </tr>
@@ -2338,9 +2345,9 @@
                       <td>
                         <div class="fin-actions-cell" style="justify-content:flex-start;">
                           <a class="fin-btn sm" style="min-width:108px; text-decoration:none;" href="/account/settings/finance/signoffs/<%= row.signoff_id %>/report" target="_blank" rel="noopener">View Report</a>
-                          <form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" onsubmit="return confirm('Reopen this sign-off for correction? Audit logs will be saved, the history lock will be removed, and the collection will return to class PayGira so it can be signed off again after corrections.');">
+                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" onsubmit="return confirm('Reopen this sign-off for correction? Audit logs will be saved, the history lock will be removed, and the collection will return to class PayGira so it can be signed off again after corrections.');">
                             <button type="submit" class="fin-btn danger sm" style="min-width:120px;">Reopen Sign-Off</button>
-                          </form>
+                          </form><% } %>
                         </div>
                       </td>
                     </tr>
@@ -2352,6 +2359,7 @@
             
           <% } %>
         </div>
+      <% } %>
       <% } %>
 
       <% if (sec === 'templates') { %>

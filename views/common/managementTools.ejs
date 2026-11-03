@@ -500,24 +500,30 @@
         <button class="management-nav-close" id="management-nav-close">&times;</button>
       </div>
       <ul class="nav-list" data-arrange-menu="management" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>">
+        <% if (menuAccess.schoolYears) { %>
         <li>
-          <a class="nav-link active" href="/common/manageRecords" data-no-spa data-section="school-year" data-embed-url="/common/manageRecords" data-embed-label="School Years">
+          <a class="nav-link<%= menuAccess.schoolYears ? ' active' : '' %>" href="/common/manageRecords" data-no-spa data-section="school-year" data-embed-url="/common/manageRecords" data-embed-label="School Years">
             <span class="nav-link-icon"><%- navIcon('schoolYears') %></span>
             <span>School years</span>
           </a>
         </li>
+        <% } %>
+        <% if (menuAccess.classes) { %>
         <li>
           <a class="nav-link" href="/common/manageClassSubjectAndGradYr" data-no-spa data-section="graduation" data-embed-url="/common/manageClassSubjectAndGradYr" data-embed-label="Classes, Subjects &amp; Grad Years">
             <span class="nav-link-icon"><%- navIcon('classesSubjects') %></span>
             <span>Classes &amp; subjects</span>
           </a>
         </li>
+        <% } %>
+        <% if (menuAccess.assessments) { %>
         <li>
           <a class="nav-link" href="<%= assessmentUrl %>" data-no-spa data-section="assessment-scores" data-embed-url="<%= assessmentUrl %>" data-embed-label="Assessments">
             <span class="nav-link-icon"><%- navIcon('grading') %></span>
             <span>Assessments</span>
           </a>
         </li>
+        <% } %>
         <% if (canAccessAssessmentQuestions) { %>
         <li>
           <a class="nav-link" href="<%= assessmentQuestionsUrl %>" data-no-spa data-section="assessment-questions" data-embed-url="<%= assessmentQuestionsUrl %>" data-embed-label="<%= assessmentQuestionsLabel %>">
@@ -526,18 +532,22 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.enrollment) { %>
         <li>
           <a class="nav-link" href="/enrollment/manageEnrollment" data-no-spa data-section="enrollment" data-embed-url="/enrollment/manageEnrollment" data-embed-label="Enrollment">
             <span class="nav-link-icon"><%- navIcon('enrollment') %></span>
             <span>Enrollment</span>
           </a>
         </li>
+        <% } %>
+        <% if (menuAccess.promotion) { %>
         <li>
           <a class="nav-link" href="/promotion/apply" data-no-spa data-section="promotion" data-embed-url="/promotion/apply" data-embed-label="Promotion">
             <span class="nav-link-icon"><%- navIcon('promotion') %></span>
             <span>Promotion</span>
           </a>
         </li>
+        <% } %>
         <% if (canManageEmployees) { %>
         <li>
           <a class="nav-link" href="/common/manageEmployees" data-no-spa data-section="employees" data-embed-url="/common/manageEmployees" data-embed-label="Users / Employees">
@@ -546,12 +556,14 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.guardians) { %>
         <li>
           <a class="nav-link" href="/common/guardians" data-no-spa data-section="guardians" data-embed-url="/common/guardians" data-embed-label="Guardians">
             <span class="nav-link-icon"><%- navIcon('guardians') %></span>
             <span>Parents &amp; guardians</span>
           </a>
         </li>
+        <% } %>
         <% if (typeof canEditContactTemplate !== 'undefined' && canEditContactTemplate) { %>
         <li>
           <a class="nav-link" href="/common/contact-template" data-no-spa data-section="contact-template" data-embed-url="/common/contact-template" data-embed-label="Contact Template">
@@ -560,7 +572,7 @@
           </a>
         </li>
         <% } %>
-        <% if (hasTransportationIntegration) { %>
+        <% if (hasTransportationIntegration && menuAccess.transportation) { %>
         <li>
           <a class="nav-link" href="/transportation/manage" data-no-spa data-section="transportation" data-embed-url="/transportation/manage" data-embed-label="Transportation">
             <span class="nav-link-icon"><%- navIcon('transportation') %></span>
@@ -568,7 +580,7 @@
           </a>
         </li>
         <% } %>
-        <% if (!hasTransportationIntegration || !hasMiraIntegration) { %>
+        <% if (menuAccess.integrations && (!hasTransportationIntegration || !hasMiraIntegration)) { %>
         <% [!hasTransportationIntegration && { name: 'Transportation', icon: 'transportation' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: 'mira' }].filter(Boolean).forEach(function (off) { %>
         <li>
           <a class="nav-link nav-link--off" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations" title="<%= off.name %> isn't turned on. Turn it on in Integrations.">
@@ -578,7 +590,7 @@
         </li>
         <% }) %>
         <% } %>
-        <% if (hasMiraIntegration) { %>
+        <% if (hasMiraIntegration && menuAccess.mira) { %>
         <li>
           <a class="nav-link" href="/account/mira" data-no-spa data-section="mira" data-embed-url="/account/mira" data-embed-label="Mira">
             <span class="nav-link-icon"><%- navIcon('mira') %></span>
@@ -586,13 +598,15 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.events) { %>
         <li>
           <a class="nav-link" href="/common/manageEventsAnnouncements" data-no-spa data-section="announcements-events" data-embed-url="/common/manageEventsAnnouncements" data-embed-label="Announcements &amp; Events">
             <span class="nav-link-icon"><%- navIcon('announcements') %></span>
             <span>Events &amp; announcements</span>
           </a>
         </li>
-        <% if (hasPublicWebsiteFeature) { %>
+        <% } %>
+        <% if (hasPublicWebsiteFeature && menuAccess.website) { %>
         <li>
           <a class="nav-link" href="/account/managePublicContent" data-no-spa data-section="public-website" data-embed-url="/account/managePublicContent" data-embed-label="School Website">
             <span class="nav-link-icon"><%- navIcon('website') %></span>
@@ -600,7 +614,7 @@
           </a>
         </li>
         <% } %>
-        <% if (hasFilesFeature) { %>
+        <% if (hasFilesFeature && menuAccess.docs) { %>
         <li>
           <a class="nav-link" href="/documents" data-no-spa data-section="documents" data-embed-url="/documents" data-embed-label="Docs/Sheets">
             <span class="nav-link-icon"><%- navIcon('docs') %></span>
@@ -608,7 +622,7 @@
           </a>
         </li>
         <% } %>
-        <% if (hasPaygiraFeature && (typeof canViewPaygiraOrgSwitch === 'undefined' || canViewPaygiraOrgSwitch)) { %>
+        <% if (hasPaygiraFeature && menuAccess.paygira && (typeof canViewPaygiraOrgSwitch === 'undefined' || canViewPaygiraOrgSwitch)) { %>
         <li>
           <a class="nav-link" href="/account/settings/finance" data-no-spa>
             <span class="nav-link-icon"><%- navIcon('paygira') %></span>
@@ -616,12 +630,14 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.integrations) { %>
         <li>
           <a class="nav-link" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations">
             <span class="nav-link-icon"><%- navIcon('integrations') %></span>
             <span>Integrations</span>
           </a>
         </li>
+        <% } %>
         <% if (typeof canManageApiAccess !== 'undefined' && canManageApiAccess) { %>
         <li>
           <a class="nav-link" href="/api-access/service-accounts" data-no-spa data-section="service-accounts" data-embed-url="/api-access/service-accounts" data-embed-label="Service Accounts">
@@ -1339,7 +1355,8 @@
     const restorePage = restoreParams.get('page');
 
     let initialSection = null;
-    if (restorePanel && restorePage && document.getElementById(restorePanel)) {
+    if (restorePanel && restorePage && document.getElementById(restorePanel)
+      && document.querySelector('[data-section="' + CSS.escape(restorePanel) + '"], [data-group="' + CSS.escape(restorePanel) + '"]')) {
       activateSectionOnly(restorePanel);
       loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
       initialSection = restorePanel;
@@ -1347,15 +1364,18 @@
       // In the person's own menu order, a plain visit opens the top item.
       const arrangedTop = window.ManagiraMenuArrange ? ManagiraMenuArrange.topItem(document.querySelector('[data-arrange-menu="management"]')) : null;
       const opensTop = Boolean(arrangedTop && arrangedTop.url && document.getElementById(arrangedTop.section));
-      const initialActive = opensTop ? null : document.querySelector('.nav-link.active[data-embed-url]');
+      // Someone with fewer permissions opens the first item they do have.
+      const initialActive = opensTop ? null : (document.querySelector('.nav-link.active[data-embed-url]')
+        || document.querySelector('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
       if (opensTop) {
         initialSection = arrangedTop.section;
         activateSectionOnly(arrangedTop.section);
         loadEmbed(arrangedTop.section, arrangedTop.url, arrangedTop.label, false);
       } else if (initialActive) {
-        initialSection = initialActive.getAttribute('data-section');
+        initialSection = initialActive.getAttribute('data-section') || initialActive.getAttribute('data-group');
+        activateSectionOnly(initialSection);
         loadEmbed(
-          initialActive.getAttribute('data-section'),
+          initialSection,
           initialActive.getAttribute('data-embed-url'),
           initialActive.getAttribute('data-embed-label'),
           false

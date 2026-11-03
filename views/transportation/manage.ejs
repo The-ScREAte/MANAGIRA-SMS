@@ -978,11 +978,12 @@
 
     <nav class="tm-nav" aria-label="Transportation sections" id="tm-nav">
       <button class="tm-nav-btn active" type="button" data-pane="overview">Overview</button>
-      <button class="tm-nav-btn" type="button" data-pane="buses">Buses</button>
-      <button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button>
-      <button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button>
-      <button class="tm-nav-btn" type="button" data-pane="students">Students</button>
-      <button class="tm-nav-btn" type="button" data-pane="settings">Settings</button>
+      <% const transportAccess = workspaceAccess().transport; %>
+      <% if (transportAccess.buses) { %><button class="tm-nav-btn" type="button" data-pane="buses">Buses</button><% } %>
+      <% if (transportAccess.drivers) { %><button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button><% } %>
+      <% if (transportAccess.schedules || transportAccess.routes) { %><button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button><% } %>
+      <% if (transportAccess.students) { %><button class="tm-nav-btn" type="button" data-pane="students">Students</button><% } %>
+      <% if (transportAccess.settings) { %><button class="tm-nav-btn" type="button" data-pane="settings">Settings</button><% } %>
     </nav>
   </aside>
 

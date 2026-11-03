@@ -210,9 +210,7 @@ async function isFinanceAdmin(req) {
       userEmail: req?.session?.user?.email || req?.session?.email || null,
     };
 
-    const canManageBilling = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING);
-    const canManagePaygira = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA);
-    return Boolean(canManageBilling || canManagePaygira);
+    return Boolean(await userHasPermission(database, permissionContext, PERMISSIONS.PAYGIRA_WORKSPACE));
   } catch (_) {
     return false;
   }
@@ -4190,6 +4188,17 @@ module.exports = {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");
 
+    // Only the pages this person was given; anything else goes to their first one.
+    const paygiraAccess = res.locals.workspaceAccess().paygira;
+    const paygiraPages = ["overview", "bills", "students", "subscriptions", "payments", "arrears", "payouts", "settings"].filter((page) => paygiraAccess[page]);
+    if (!paygiraPages.length) {
+      req.flash && req.flash("error", "You do not have permission to access PayGira settings.");
+      return res.redirect("/account/settings?section=profile");
+    }
+    if (!paygiraPages.includes(String(req.query.section || "overview").toLowerCase())) {
+      req.query.section = paygiraPages[0];
+    }
+
     // A normal visit gets the PayGira hub (fixed menu, sections in panels that
     // stay open); the panels themselves, and anything loaded inside a frame
     // or fetched in the background, get the section page.
@@ -4198,6 +4207,12 @@ module.exports = {
       && (req.get("X-Managira-Hub") === "1" // the offline copy (service-worker.js) asking for the menu page
         || String(req.get("sec-fetch-dest") || "document").toLowerCase() === "document"
         || req.get("X-Requested-With") === "XMLHttpRequest"); // the app's in-page navigation
+    // Fee Recovery has its own page; it can be someone's only (first) one.
+    if (!wantsHub && String(req.query.section || "").toLowerCase() === "arrears" && !/\/arrears\/?$/.test(req.path)) {
+      const { section: _section, ...arrearsQuery } = req.query;
+      const arrearsSearch = new URLSearchParams(arrearsQuery).toString();
+      return res.redirect("/account/settings/finance/arrears" + (arrearsSearch ? `?${arrearsSearch}` : ""));
+    }
     if (wantsHub) {
       return res.render("account/paygiraHub", {
         title: "PayGira",

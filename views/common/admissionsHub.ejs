@@ -3,26 +3,25 @@
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
   const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
-  const hasPendingAdmissions = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'));
   const _perms = Array.isArray(locals.userPermissions) ? locals.userPermissions : [];
-  const _canStudents = _perms.includes('manage_students');
+  const _canStudents = menuAccess.students;
   // Menu order: All Students, Add Student, Online Applications, the Graduate &
   // Former Students dropdown, then Admission Settings.
   const _onlineLinks = [
-    hasPendingAdmissions && { id: 'pending', url: '/common/admissionPending', label: 'Online Applications', hint: 'Applications sent from the school website', icon: 'applications' },
+    menuAccess.applications && { id: 'pending', url: '/common/admissionPending', label: 'Online Applications', hint: 'Applications sent from the school website', icon: 'applications' },
   ].filter(Boolean);
   const _groups = [
-    (_canStudents || _perms.includes('manage_school_year_terms')) && {
+    (menuAccess.alumni || _perms.includes('manage_school_year_terms')) && {
       id: 'graduate-former', label: 'Graduate & Former Students',
       icon: 'graduation',
       links: [
         _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate & Withdraw', icon: 'leaveSchool' },
-        _canStudents && { panel: 'former-students', url: '/common/archivedStudents', label: 'Graduates & Alumni', icon: 'alumni' },
+        menuAccess.alumni && { panel: 'former-students', url: '/common/archivedStudents', label: 'Graduates & Alumni', icon: 'alumni' },
       ].filter(Boolean),
     },
   ].filter((g) => g && g.links.length);
   const _settingsLinks = [
-    _perms.includes('manage_settings') && { id: 'online-admission-settings', url: '/common/admissionSettings', label: 'Admission Settings', hint: 'Online admission and the fields on student forms', icon: 'sliders' },
+    menuAccess.settings && { id: 'online-admission-settings', url: '/common/admissionSettings', label: 'Admission Settings', hint: 'Online admission and the fields on student forms', icon: 'sliders' },
   ].filter(Boolean);
   // Plain (non-dropdown) links, for their panels.
   const _extraLinks = _onlineLinks.concat(_settingsLinks);
@@ -602,18 +601,22 @@
         <button class="hub-nav-close" id="hub-nav-close">&times;</button>
       </div>
       <ul class="nav-list" data-arrange-menu="admissions" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>">
+        <% if (_canStudents) { %>
         <li>
-          <a class="nav-link active" href="/common/allStudents" data-no-spa data-section="all-students" data-embed-url="/common/allStudents" data-embed-label="All Students">
+          <a class="nav-link<%= _canStudents ? ' active' : '' %>" href="/common/allStudents" data-no-spa data-section="all-students" data-embed-url="/common/allStudents" data-embed-label="All Students">
             <span class="nav-link-icon"><%- navIcon('students') %></span>
             <span>All Students</span>
           </a>
         </li>
+        <% } %>
+        <% if (menuAccess.addStudent) { %>
         <li>
           <a class="nav-link" href="/common/addStudent" data-no-spa data-section="create-student" data-embed-url="/common/addStudent" data-embed-label="Add New Student">
             <span class="nav-link-icon"><%- navIcon('addStudent') %></span>
             <span>Add Student</span>
           </a>
         </li>
+        <% } %>
         <% _onlineLinks.forEach(function (x) { %>
         <li>
           <a class="nav-link" href="<%= x.url %>" data-no-spa data-section="<%= x.id %>" data-embed-url="<%= x.url %>" data-embed-label="<%= x.label %>" title="<%= x.hint %>">
@@ -1228,7 +1231,8 @@
     const restorePage = restoreParams.get('page');
 
     let initialSection = null;
-    if (restorePanel && restorePage && document.getElementById(restorePanel)) {
+    if (restorePanel && restorePage && document.getElementById(restorePanel)
+      && document.querySelector('[data-section="' + CSS.escape(restorePanel) + '"], [data-group="' + CSS.escape(restorePanel) + '"]')) {
       activateSectionOnly(restorePanel);
       loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
       initialSection = restorePanel;
@@ -1236,15 +1240,18 @@
       // In the person's own menu order, a plain visit opens the top item.
       const arrangedTop = window.ManagiraMenuArrange ? ManagiraMenuArrange.topItem(document.querySelector('[data-arrange-menu="admissions"]')) : null;
       const opensTop = Boolean(arrangedTop && arrangedTop.url && document.getElementById(arrangedTop.section));
-      const initialActive = opensTop ? null : document.querySelector('.nav-link.active[data-embed-url]');
+      // Someone with fewer permissions opens the first item they do have.
+      const initialActive = opensTop ? null : (document.querySelector('.nav-link.active[data-embed-url]')
+        || document.querySelector('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
       if (opensTop) {
         initialSection = arrangedTop.section;
         activateSectionOnly(arrangedTop.section);
         loadEmbed(arrangedTop.section, arrangedTop.url, arrangedTop.label, false);
       } else if (initialActive) {
-        initialSection = initialActive.getAttribute('data-section');
+        initialSection = initialActive.getAttribute('data-section') || initialActive.getAttribute('data-group');
+        activateSectionOnly(initialSection);
         loadEmbed(
-          initialActive.getAttribute('data-section'),
+          initialSection,
           initialActive.getAttribute('data-embed-url'),
           initialActive.getAttribute('data-embed-label'),
           false
