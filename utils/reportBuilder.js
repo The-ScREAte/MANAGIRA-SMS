@@ -1,3 +1,4 @@
+const { UNIFORM_SUBJECT_SCALING_TERM_ID } = require("./uniformSubjectScaling");
 // Report Builder definitions. Every report is a fixed, reviewed SQL source:
 // users only pick column keys and criteria values, which are validated against
 // these definitions and always bound as query parameters.
@@ -23,16 +24,22 @@ const STUDENT_JOINS = {
   parent: `LEFT JOIN LATERAL (
       SELECT
         STRING_AGG(DISTINCT NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.last_name)), ''), '; ') AS parent_name,
+        -- Parent profile IDs; an older parent record's ID only when there's no profile.
+        COALESCE(STRING_AGG(DISTINCT p.guardian_id::text, '; ') FILTER (WHERE p.source = 'p'),
+                 STRING_AGG(DISTINCT p.guardian_id::text, '; ')) AS parent_id,
         STRING_AGG(DISTINCT NULLIF(TRIM(p.relationship), ''), '; ') AS parent_relationship,
         STRING_AGG(DISTINCT NULLIF(TRIM(p.phone), ''), '; ') AS parent_phone,
-        STRING_AGG(DISTINCT NULLIF(TRIM(p.email), ''), '; ') AS parent_email
+        STRING_AGG(DISTINCT NULLIF(TRIM(p.email), ''), '; ') AS parent_email,
+        STRING_AGG(DISTINCT NULLIF(TRIM(p.address), ''), '; ') AS parent_address,
+        -- The same person can be in both lists; count each name once.
+        COUNT(DISTINCT LOWER(NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.last_name)), ''))) AS parent_count
       FROM (
-        SELECT gp.first_name, gp.last_name, gs.relationship, gp.phone, gp.email
+        SELECT 'p' AS source, gp.guardian_id, gp.first_name, gp.last_name, gs.relationship, gp.phone, gp.email, gp.address
           FROM guardian_students gs
           JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = s.organization_id
          WHERE gs.student_id = s.student_id
         UNION ALL
-        SELECT g.first_name, g.last_name, NULL::varchar, g.phone, g.email
+        SELECT 'g', g.guardian_id, g.first_name, g.last_name, NULL::varchar, g.phone, g.email, g.address
           FROM guardians g
          WHERE g.organization_id = s.organization_id AND g.student_id = s.student_id
       ) p
@@ -78,16 +85,65 @@ const STUDENT_JOINS = {
     ) arch ON TRUE`,
 };
 
+// Audit: what the activity log recorded about a row's record (who changed it
+// last, when, what, and how often), read once per row through a join named
+// "audit". Only log entries linked to the record count.
+function auditJoin(recordTypes, idExpression) {
+  // One pass over the school's log ($1 = organization id), grouped by record.
+  return `LEFT JOIN (
+      SELECT l.record_id, COUNT(*) AS changes, MAX(l.created_at) AS last_at, MIN(l.created_at) AS first_at,
+             (ARRAY_AGG(l.user_name ORDER BY l.created_at DESC))[1] AS last_by,
+             (ARRAY_AGG(CONCAT_WS(': ', l.action_type, NULLIF(LEFT(l.description, 120), '')) ORDER BY l.created_at DESC))[1] AS last_action
+        FROM organization_activity_logs l
+       WHERE l.organization_id = $1 AND l.record_type IN (${recordTypes.map((t) => `'${t}'`).join(", ")})
+         AND l.record_id IS NOT NULL
+       GROUP BY l.record_id
+    ) audit ON audit.record_id = (${idExpression})::text`;
+}
+const AUDIT_COLUMNS = {
+  audit_last_at: { label: "Last changed", expression: "audit.last_at", type: "datetime", group: "Audit", join: "audit" },
+  audit_last_by: { label: "Last changed by", expression: "audit.last_by", group: "Audit", join: "audit" },
+  audit_last_action: { label: "Last change", expression: "audit.last_action", group: "Audit", join: "audit" },
+  audit_first_at: { label: "First recorded", expression: "audit.first_at", type: "datetime", group: "Audit", join: "audit" },
+  audit_count: { label: "Changes recorded", expression: "COALESCE(audit.changes, 0)", type: "number", group: "Audit", join: "audit" },
+};
+
+// Every report about students offers these (a report's own column with the
+// same key wins).
 const STUDENT_COLUMNS = {
   student_name: { label: "Student name", expression: STUDENT_NAME },
   student_id: { label: "Student ID", expression: STUDENT_ID },
+  first_name: { label: "First name", expression: "s.first_name" },
+  last_name: { label: "Last name", expression: "s.last_name" },
+  gender: { label: "Gender", expression: initcap("s.gender") },
+  date_of_birth: { label: "Date of birth", expression: "s.date_of_birth", type: "date" },
+  email: { label: "Student email", expression: "s.email" },
+  hometown: { label: "Hometown", expression: "s.hometown" },
+  address: { label: "Home address", expression: "s.address" },
+  ...AUDIT_COLUMNS,
 };
 
 const PARENT_COLUMNS = {
   parent_name: { label: "Parent / guardian", expression: "parent.parent_name", join: "parent" },
+  parent_id: { label: "Parent ID", expression: "parent.parent_id", join: "parent" },
+  parent_relationship: { label: "Relationship", expression: "parent.parent_relationship", join: "parent" },
   parent_phone: { label: "Parent phone", expression: "parent.parent_phone", join: "parent" },
   parent_email: { label: "Parent email", expression: "parent.parent_email", join: "parent" },
+  parent_address: { label: "Parent address", expression: "parent.parent_address", join: "parent" },
+  parent_count: { label: "No. of parents", expression: "COALESCE(parent.parent_count, 0)", type: "number", join: "parent" },
 };
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const birthMonthCriterion = (expression, key = "birth_month") => choiceCriterion(key, "Birth month",
+  MONTHS.map((name, i) => ({ value: String(i + 1), label: name, sql: `EXTRACT(MONTH FROM ${expression}) = ${i + 1}` })));
+// IDs match exactly; several can be listed ("12, 15").
+const idCriterion = (key, label, where) => ({
+  key, label, type: "text",
+  where: (bind, value) => {
+    const ids = splitTerms(value).filter((v) => /^\d+$/.test(v)).map(Number).filter(Number.isSafeInteger);
+    return ids.length ? where(bind(ids)) : "1 = 0";
+  },
+});
 
 // ---- Criteria helpers ---------------------------------------------------------
 // type: text | class | term | select (several values) | choice (one) | date
@@ -131,12 +187,23 @@ const parentMatch = (fields) => (like) => `(EXISTS (
        AND ${fieldsMatch(fields.map((field) => field.replace(/\bg\./g, "gx.")))(like)}))`;
 
 // "Student name" matches the start of a first or last name, so it covers both.
-function studentCriteria({ parentContact = false } = {}) {
+// Every report about students can be narrowed by these (a report's own
+// criterion with the same key wins).
+function studentCriteria() {
   return [
     nameCriterion("search", "Student name", fieldsMatch([STUDENT_NAME, "CONCAT_WS(' ', s.last_name, s.first_name)"])),
     textCriterion("student_id", "Student ID", fieldsMatch([STUDENT_ID])),
+    textCriterion("student_email", "Student email", fieldsMatch(["s.email"])),
+    selectCriterion("gender", "Gender", "s.gender", distinctOptions("students", "gender")),
+    birthMonthCriterion("s.date_of_birth"),
+    dateCriterion("Date of birth between", "s.date_of_birth", "dob"),
+    textCriterion("hometown", "Hometown", fieldsMatch(["s.hometown"])),
+    textCriterion("home_address", "Home address", fieldsMatch(["s.address"])),
     nameCriterion("parent", "Parent name", parentMatch(["CONCAT_WS(' ', g.first_name, g.last_name)"])),
-    ...(parentContact ? [textCriterion("parent_contact", "Parent phone or email", parentMatch(["g.phone", "g.email"]))] : []),
+    idCriterion("parent_id", "Parent ID", (ids) => `(EXISTS (SELECT 1 FROM guardian_students gsi WHERE gsi.student_id = s.student_id AND gsi.guardian_id = ANY(${ids}::int[]))
+      OR EXISTS (SELECT 1 FROM guardians gi WHERE gi.student_id = s.student_id AND gi.organization_id = s.organization_id AND gi.guardian_id = ANY(${ids}::int[])))`),
+    textCriterion("parent_contact", "Parent phone or email", parentMatch(["g.phone", "g.email"])),
+    textCriterion("parent_address", "Parent address", parentMatch(["g.address"])),
   ];
 }
 
@@ -148,6 +215,7 @@ const classCriterion = (expression, label = "Class") => ({
 });
 
 const termCriterion = (expression) => ({
+  termExpression: expression,
   key: "term",
   label: "Term",
   type: "term",
@@ -233,28 +301,86 @@ function customRemarkTypes(db, organizationId) {
 // One row per student, subject, class and term: recorded scores summed (per
 // assessment category too), out of the subject's maximum, and ranked within
 // the subject. $1 is always the school; class and term narrow it early.
+// Uniform subject scaling (as on the report card, utils/uniformSubjectScaling):
+// each subject is scored out of the same base, every assessment counting by its
+// weight (or its max score when the subject has no weights), missing scores as 0.
+// The school chooses: "settings" (each class's Report Settings), or any
+// number each subject is scored out of (1-1000). Not chosen = raw scores.
+const scaleValue = (value) => {
+  const text = String(value ?? "").trim();
+  if (text === "settings") return text;
+  const number = Number(text);
+  return Number.isFinite(number) && number > 0 && number <= 1000 ? String(Math.round(number * 100) / 100) : null;
+};
+const scaleCriterion = () => ({
+  key: "scale",
+  label: "Subject scaling",
+  type: "scale",
+  group: "Scoring",
+  // Each class's own Report Settings, shown (not changed) under "As in Report Settings".
+  optionsSql: `SELECT c.class_id::text AS value,
+      c.class_name || ': ' || CASE WHEN us.display_settings -> 'sections' -> 'uniformSubjectScaling' ->> 'enabled' = 'true'
+        THEN 'each subject out of ' || COALESCE(NULLIF(us.display_settings -> 'sections' -> 'uniformSubjectScaling' ->> 'baseMaxScore', ''), '100')
+        ELSE 'off (raw scores)' END AS label
+      FROM classes c
+      LEFT JOIN report_settings us ON us.organization_id = c.organization_id AND us.class_id = c.class_id AND us.term_id = ${UNIFORM_SUBJECT_SCALING_TERM_ID}
+     WHERE c.organization_id = $1
+     ORDER BY c.class_name`,
+  inFrom: true,
+  where: () => null,
+});
+
 function subjectTotals(bind, criteria) {
   const scope = (alias) => [
     criteria.class ? `AND ${alias}.class_id = ANY(${bind(criteria.class)}::int[])` : "",
     criteria.term ? `AND ${alias}.term_id = ANY(${bind(criteria.term)}::int[])` : "",
   ].join(" ");
+  const scale = scaleValue(criteria.scale);
+  // The base each subject is scored out of (NULL = raw scores).
+  const base = !scale ? "NULL::numeric"
+    : scale === "settings"
+      ? `(SELECT CASE WHEN us.display_settings -> 'sections' -> 'uniformSubjectScaling' ->> 'enabled' = 'true'
+                 THEN COALESCE(NULLIF(us.display_settings -> 'sections' -> 'uniformSubjectScaling' ->> 'baseMaxScore', '')::numeric, 100) END
+            FROM report_settings us
+           WHERE us.organization_id = r.organization_id AND us.class_id = r.class_id AND us.term_id = ${UNIFORM_SUBJECT_SCALING_TERM_ID}
+           LIMIT 1)`
+      : `${Number(scale)}::numeric`;
   return `(
-      SELECT r.*, mx.max_total, sub.subject_name,
-             RANK() OVER (PARTITION BY r.class_id, r.term_id, r.subject_id ORDER BY ROUND(r.total, 2) DESC) AS subject_rank
+      SELECT r.organization_id, r.student_id, r.class_id, r.term_id, r.subject_id, r.categories,
+             CASE WHEN b.base IS NULL THEN r.raw_total
+                  ELSE LEAST(b.base, r.scaled_sum / NULLIF(r.total_weight, 0) * b.base) END AS total,
+             COALESCE(b.base, mx.max_total) AS max_total, sub.subject_name,
+             RANK() OVER (PARTITION BY r.class_id, r.term_id, r.subject_id
+                          ORDER BY ROUND(CASE WHEN b.base IS NULL THEN r.raw_total
+                                              ELSE r.scaled_sum / NULLIF(r.total_weight, 0) * b.base END, 2) DESC NULLS LAST) AS subject_rank
         FROM (
           SELECT k.organization_id, k.student_id, k.class_id, k.term_id, k.subject_id,
-                 SUM(k.cat_total) AS total, JSONB_OBJECT_AGG(k.category, k.cat_total) AS categories
+                 SUM(k.cat_total) AS raw_total, SUM(k.cat_scaled) AS scaled_sum, MAX(k.total_weight) AS total_weight,
+                 JSONB_OBJECT_AGG(k.category, k.cat_total) AS categories
             FROM (
               SELECT ar.organization_id, ar.student_id, ar.class_id, ar.term_id, a.subject_id,
-                     COALESCE(NULLIF(TRIM(a.category), ''), 'Other') AS category, SUM(ar.score) AS cat_total
+                     COALESCE(NULLIF(TRIM(a.category), ''), 'Other') AS category, SUM(ar.score) AS cat_total,
+                     SUM(LEAST(1, GREATEST(0, ar.score / NULLIF(a.max_score, 0)))
+                         * CASE WHEN sw.weighted THEN COALESCE(a.weight, 0) ELSE a.max_score END) AS cat_scaled,
+                     MAX(CASE WHEN sw.weighted THEN sw.weight_sum ELSE sw.max_sum END) AS total_weight
                 FROM assessment_results ar
                 JOIN assessments a ON a.assessment_id = ar.assessment_id AND a.organization_id = ar.organization_id
+                LEFT JOIN (
+                  SELECT class_id, term_id, subject_id,
+                         BOOL_OR(COALESCE(weight, 0) > 0) AS weighted,
+                         SUM(GREATEST(COALESCE(weight, 0), 0)) AS weight_sum,
+                         SUM(max_score) AS max_sum
+                    FROM assessments
+                   WHERE organization_id = $1 AND obsolete_at IS NULL AND COALESCE(entry_mode, 'score') = 'score' AND max_score > 0
+                   GROUP BY 1, 2, 3
+                ) sw ON sw.class_id = ar.class_id AND sw.term_id = ar.term_id AND sw.subject_id = a.subject_id
                WHERE ar.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score'
                  ${scope("ar")}
                GROUP BY 1, 2, 3, 4, 5, 6
             ) k
            GROUP BY 1, 2, 3, 4, 5
         ) r
+        LEFT JOIN LATERAL (SELECT ${base} AS base) b ON TRUE
         LEFT JOIN (
           SELECT class_id, term_id, subject_id, SUM(max_score) AS max_total
             FROM assessments
@@ -522,7 +648,7 @@ const REPORTS = {
     requires: "merit",
     organizationExpression: "m.organization_id",
     classExpression: "m.class_id",
-    defaultCriteria: ["class", "term"],
+    defaultCriteria: ["class", "term", "scale"],
     stableOrderExpressions: ["m.student_id"],
     from: (bind, criteria) => `FROM (
         SELECT g.*,
@@ -575,6 +701,7 @@ const REPORTS = {
     criteria: [
       classCriterion("m.class_id"),
       termCriterion("m.term_id"),
+      scaleCriterion(),
       ...studentCriteria(),
       selectCriterion("gender", "Gender", "s.gender", distinctOptions("students", "gender")),
       selectCriterion("grade", "Overall grade", "band.grade",
@@ -627,7 +754,7 @@ const REPORTS = {
     requires: "merit",
     organizationExpression: "ss.organization_id",
     classExpression: "ss.class_id",
-    defaultCriteria: ["class", "term"],
+    defaultCriteria: ["class", "term", "scale"],
     stableOrderExpressions: ["ss.student_id", "ss.subject_id"],
     from: (bind, criteria) => `FROM ${subjectTotals(bind, criteria)}
       JOIN students s ON s.student_id = ss.student_id AND s.organization_id = ss.organization_id
@@ -656,6 +783,7 @@ const REPORTS = {
     criteria: [
       classCriterion("ss.class_id"),
       termCriterion("ss.term_id"),
+      scaleCriterion(),
       ...studentCriteria(),
       selectCriterion("subject", "Subject", "ss.subject_name",
         "SELECT DISTINCT TRIM(subject_name) AS value, TRIM(subject_name) AS label FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 150"),
@@ -827,6 +955,10 @@ const REPORTS = {
     defaultSort: { key: "parent_name", dir: "asc" },
     columns: {
       parent_name: { label: "Parent / guardian", expression: fullName("gp") },
+      parent_id: { label: "Parent ID", expression: "gp.guardian_id::text" },
+      first_name: { label: "First name", expression: "gp.first_name" },
+      last_name: { label: "Last name", expression: "gp.last_name" },
+      date_of_birth: { label: "Date of birth", expression: "gp.date_of_birth", type: "date" },
       phone: { label: "Phone", expression: "gp.phone" },
       email: { label: "Email", expression: "gp.email" },
       address: { label: "Address", expression: "gp.address" },
@@ -841,11 +973,26 @@ const REPORTS = {
       },
       portal_login: { label: "Portal login", expression: "COALESCE(portal.login_email, portal.login_phone)" },
       created_at: { label: "Added", expression: "gp.created_at", type: "datetime" },
+      ...AUDIT_COLUMNS,
     },
     criteria: [
       nameCriterion("search", "Parent name", fieldsMatch([fullName("gp"), "CONCAT_WS(' ', gp.last_name, gp.first_name)"])),
+      idCriterion("parent_id", "Parent ID", (ids) => `gp.guardian_id = ANY(${ids}::int[])`),
       textCriterion("contact", "Phone or email", fieldsMatch(["gp.phone", "gp.email"])),
+      textCriterion("address", "Address", fieldsMatch(["gp.address"])),
+      textCriterion("hometown", "Hometown", fieldsMatch(["gp.hometown"])),
+      textCriterion("relationship", "Relationship", fieldsMatch(["kids.relationship"])),
+      birthMonthCriterion("gp.date_of_birth"),
       nameCriterion("child", "Child's name", fieldsMatch(["kids.children"])),
+      textCriterion("child_id", "Child's student ID", (like) => `EXISTS (
+          SELECT 1 FROM guardian_students gs3 JOIN students s ON s.student_id = gs3.student_id AND s.organization_id = gp.organization_id
+           WHERE gs3.guardian_id = gp.guardian_id AND ${STUDENT_ID} ILIKE ${like})`),
+      choiceCriterion("child_count", "No. of children", [
+        { value: "1", label: "1 child", sql: "kids.child_count = 1" },
+        { value: "2", label: "2 children", sql: "kids.child_count = 2" },
+        { value: "3plus", label: "3 or more", sql: "kids.child_count >= 3" },
+        { value: "0", label: "No children linked", sql: "COALESCE(kids.child_count, 0) = 0" },
+      ]),
       {
         key: "class",
         label: "Child's class",
@@ -1019,6 +1166,7 @@ const REPORTS = {
       last_login: { label: "Last login", expression: "act.last_login", type: "datetime", join: "activity" },
       last_active: { label: "Last active", expression: "act.last_active", type: "datetime", join: "activity" },
       status: { label: "Status", expression: "CASE WHEN COALESCE(u.on_hold, FALSE) THEN 'On hold' ELSE 'Active' END" },
+      ...AUDIT_COLUMNS,
     },
     criteria: [
       nameCriterion("search", "Name", fieldsMatch([fullName("u"), "CONCAT_WS(' ', u.last_name, u.first_name)"])),
@@ -1273,7 +1421,11 @@ const REPORTS = {
     criteria: [
       textCriterion("search", "Search the log", fieldsMatch(["l.action_type", "l.module_name", "l.record_label", "l.description"])),
       textCriterion("record", "Record (student, class…)", fieldsMatch(["l.record_label"])),
-      selectCriterion("user", "User", "l.user_name",
+      selectCriterion("employee", "Employee", "l.user_id",
+        "SELECT user_id::text AS value, TRIM(CONCAT_WS(' ', first_name, last_name)) || COALESCE(' · ' || NULLIF(account_type::text, ''), '') AS label FROM users WHERE organization_id = $1 ORDER BY 2 LIMIT 1000"),
+      selectCriterion("record_type", "Record type", "l.record_type",
+        "SELECT DISTINCT record_type AS value, INITCAP(REPLACE(record_type, '_', ' ')) AS label FROM organization_activity_logs WHERE organization_id = $1 AND NULLIF(record_type, '') IS NOT NULL ORDER BY 2 LIMIT 100"),
+      selectCriterion("user", "Name in the log", "l.user_name",
         "SELECT DISTINCT user_name AS value, user_name AS label FROM organization_activity_logs WHERE organization_id = $1 ORDER BY 1 LIMIT 300"),
       selectCriterion("role", "Role", "l.user_role",
         "SELECT DISTINCT user_role AS value, user_role AS label FROM organization_activity_logs WHERE organization_id = $1 AND user_role IS NOT NULL ORDER BY 1 LIMIT 100"),
@@ -1389,7 +1541,11 @@ function normalizeCriteria(report, criteria = {}, granted = null) {
     }
     const text = String(raw ?? "").trim().slice(0, definition.type === "text" ? 500 : 100);
     if (!text) continue;
-    if (definition.type === "choice") {
+    if (definition.type === "scale") {
+      const scale = scaleValue(text);
+      if (scale) values[definition.key] = scale;
+      else return { values, error: "Subject scaling: enter a number between 1 and 1000." };
+    } else if (definition.type === "choice") {
       if (definition.options.some((option) => option.value === text)) values[definition.key] = text;
     } else {
       values[definition.key] = text;
@@ -1461,8 +1617,98 @@ function buildQueries(report, { columns, criteria = {}, organizationId, allowedC
       dataSql += ` OFFSET $${dataValues.length}`;
     }
   }
-  return { count: { sql: countSql, values }, data: { sql: dataSql, values: dataValues }, sort: order };
+  // Totals over every matching record (not just this page), overall or per class.
+  let summary = null;
+  const totalsMode = criteria.totals;
+  const measured = columns.filter((key) => ["number", "money"].includes(report.columns[key].type) && totalKind(report.columns[key]) !== "none");
+  if (totalsMode && measured.length) {
+    const classColumn = totalsMode === "class" ? report.columns.class_name : null;
+    const summaryJoins = new Set(criteriaJoins);
+    measured.forEach((key) => { if (report.columns[key].join) summaryJoins.add(report.columns[key].join); });
+    if (classColumn && classColumn.join) summaryJoins.add(classColumn.join);
+    const aggregates = measured.map((key, i) => {
+      const expression = `(${report.columns[key].expression})::numeric`;
+      return `SUM(${expression}) AS "s${i}", AVG(${expression}) AS "a${i}", COUNT(${expression}) AS "c${i}"`;
+    }).join(", ");
+    const group = classColumn ? `COALESCE((${classColumn.expression})::text, 'No class')` : "'All'";
+    summary = {
+      sql: `SELECT ${group} AS grp, COUNT(*)::int AS records, ${aggregates} ${fromSql} ${joinSql(summaryJoins)} WHERE ${whereSql}
+        ${classColumn ? `GROUP BY ROLLUP (${group}) ORDER BY GROUPING(${group}), 1` : ""}`,
+      values,
+      measured: measured.map((key) => ({ key, kind: totalKind(report.columns[key]) })),
+      byClass: Boolean(classColumn),
+    };
+  }
+  return { count: { sql: countSql, values }, data: { sql: dataSql, values: dataValues }, sort: order, summary };
 }
+
+// How a number column adds up: amounts and counts get a total and an
+// average; percentages, averages and rates only an average; positions and
+// sizes neither (adding them up means nothing).
+function totalKind(column) {
+  const label = String(column.label || "");
+  if (/position|rank|class size|\bid\b|year/i.test(label)) return "none";
+  if (/%|percent|average|rate|^age$|out of/i.test(label)) return "average";
+  return "total";
+}
+
+// "Totals" (Summary section): sums and averages under the results.
+Object.values(REPORTS).forEach((report) => {
+  const numbers = Object.values(report.columns || {}).filter((column) => ["number", "money"].includes(column.type) && totalKind(column) !== "none");
+  if (!numbers.length || !Array.isArray(report.criteria)) return;
+  report.criteria.push({
+    key: "totals",
+    label: "Totals",
+    type: "choice",
+    group: "Summary",
+    inFrom: true,
+    options: [
+      { value: "all", label: "Totals for all records" },
+      ...(report.columns.class_name ? [{ value: "class", label: "Totals per class" }] : []),
+    ],
+    where: () => null,
+  });
+});
+
+// Audit join per kind of record (see AUDIT_COLUMNS).
+Object.values(REPORTS).forEach((report) => {
+  if (!report.columns || !report.columns.audit_count) return;
+  const isParent = report === REPORTS.parents, isStaff = report === REPORTS.staff;
+  report.joins = {
+    ...(report.joins || {}),
+    audit: isParent ? auditJoin(["Guardian Record"], "gp.guardian_id")
+      : isStaff ? auditJoin(["User Record"], "u.user_id")
+      : auditJoin(["Student Record", "Students"], "s.student_id"),
+  };
+});
+
+// One criterion per key: a report's own definition (listed after the shared
+// ones) replaces the shared one in its place.
+Object.values(REPORTS).forEach((report) => {
+  if (!Array.isArray(report.criteria)) return;
+  const last = new Map(report.criteria.map((criterion) => [criterion.key, criterion]));
+  const seen = new Set();
+  report.criteria = report.criteria.filter((criterion) => !seen.has(criterion.key) && seen.add(criterion.key)).map((criterion) => last.get(criterion.key));
+});
+// Every report with a term can also be narrowed to, shown and sorted by school year.
+const schoolYearOf = (termExpression) => `(SELECT sy3.year_label FROM terms t3
+    JOIN school_years sy3 ON sy3.id = t3.school_year_id AND sy3.organization_id = t3.organization_id
+   WHERE t3.term_id = ${termExpression})`;
+Object.values(REPORTS).forEach((report) => {
+  const term = (report.criteria || []).find((criterion) => criterion.key === "term" && criterion.termExpression);
+  if (!term) return;
+  if (!report.criteria.some((criterion) => criterion.key === "school_year")) {
+    report.criteria.splice(report.criteria.indexOf(term) + 1, 0, selectCriterion("school_year", "School year",
+      `(SELECT t4.school_year_id FROM terms t4 WHERE t4.term_id = ${term.termExpression})`,
+      "SELECT id::text AS value, year_label AS label FROM school_years WHERE organization_id = $1 ORDER BY year_label DESC LIMIT 50"));
+  }
+  if (report.columns && !Object.values(report.columns).some((column) => column.label === "School year")) {
+    report.columns.school_year = { label: "School year", expression: schoolYearOf(term.termExpression) };
+  }
+});
+
+// The Students report already has "Born between" and "Hometown or address".
+REPORTS.students.criteria = REPORTS.students.criteria.filter((criterion) => !["dob", "home_address"].includes(criterion.key));
 
 module.exports = {
   REPORTS,

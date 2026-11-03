@@ -110,27 +110,60 @@ function isElevated(identity) {
     .some((role) => elevatedRoles.has(role));
 }
 
+// Long column lists fold into groups by topic (first matching rule wins);
+// a topic needs at least two columns, and short reports stay one list.
+const COLUMN_GROUPS = [
+  ["Scoring", /subject scaling/i],
+  ["Summary", /^totals$/i],
+  ["Remarks", /remark|comment|notes/i],
+  ["Conduct & attitude", /conduct|attitude|interest/i],
+  ["Promotion", /promot/i],
+  ["Teachers & staff", /teacher|teaches|marked by|answered by|supervisor|created by|sent by|received by|assigned to|username|^role$|job title|employee/i],
+  ["Parent / guardian", /parent|guardian|relationship|children|child/i],
+  ["Transportation", /bus |bus$|pickup/i],
+  ["Attendance", /absent|absence|present|attendance|days marked/i],
+  ["Fees & payments", /fee|balance|billed|paid|payment|^bill|reference|method|amount/i],
+  ["Scores & grades", /grade|position|percentage|score|total|average|out of|best subject|weakest subject|^subject|category|assessment|test/i],
+  ["Student", /^student|gender|birth|born|^age$|^class$|class size|applicant|^name$|first name|last name|class applied|^classes$/i],
+  ["Contact", /email|phone|address|hometown|recipient|channel/i],
+  ["Dates & status", /between|^date|status|school year|^term|not active|due|left|joined|enrol|missing details|reason for leaving|submitted|added|created|posted|received|resolved|signed|last login|last active|^day$|^time$|end date|failed|failures|last reply|minutes taken|^done$/i],
+  ["Messages & notices", /message|priority|replies|announcement|audience|event|details|reason|belongs to|location/i],
+  ["Activity", /log|record|^user$|action|area|task|^type$|^activity$/i],
+];
+function topicGroups(columns, minimum = 12, everyItem = false) {
+  if (columns.length < minimum) return columns;
+  const topicOf = (column) => column.group || (COLUMN_GROUPS.find(([, rule]) => rule.test(column.label)) || [""])[0];
+  const counts = {};
+  columns.forEach((column) => { const t = topicOf(column); if (t) counts[t] = (counts[t] || 0) + 1; });
+  return columns.map((column) => {
+    const topic = topicOf(column);
+    if (everyItem) return { ...column, group: topic || "More" };
+    return { ...column, group: topic && (column.group || counts[topic] >= 2) ? topic : "" };
+  });
+}
+
 function describeReport(key, report, granted) {
   const allowed = allowedBy(granted);
   return {
     key,
     title: report.title,
     variant: report.variant,
-    columns: Object.entries(report.columns).filter(([, column]) => allowed(column)).map(([columnKey, column]) => ({
+    columns: topicGroups(Object.entries(report.columns).filter(([, column]) => allowed(column)).map(([columnKey, column]) => ({
       key: columnKey,
       label: column.label,
       type: column.type || "text",
       group: column.group || "",
-    })),
+    })), 0, true),
     defaultCriteria: report.defaultCriteria || [],
     defaultColumns: report.defaultColumns.filter((columnKey) => allowed(report.columns[columnKey])),
-    criteria: (report.criteria || []).filter(allowed).map((criterion) => ({
+    criteria: topicGroups((report.criteria || []).filter(allowed).map((criterion) => ({
       key: criterion.key,
       label: criterion.label,
       type: criterion.type,
       options: criterion.options || null,
       hasOptions: Boolean(criterion.optionsSql),
-    })),
+      group: criterion.group || "",
+    })), 0, true),
   };
 }
 
@@ -406,8 +439,26 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
     const countResult = await db.query(queries.count.sql, queries.count.values);
     const total = Number(countResult.rows[0]?.total || 0);
     if (offset >= total && offset > 0) return { rows: [], total, sort: queries.sort };
-    const dataResult = await db.query(queries.data.sql, queries.data.values);
-    return { rows: dataResult.rows, total, sort: queries.sort };
+    const [dataResult, summaryResult] = await Promise.all([
+      db.query(queries.data.sql, queries.data.values),
+      queries.summary ? db.query(queries.summary.sql, queries.summary.values) : null,
+    ]);
+    let summary = null;
+    if (summaryResult) {
+      const round = (v) => (v === null || v === undefined ? null : Math.round(Number(v) * 100) / 100);
+      summary = {
+        byClass: queries.summary.byClass,
+        rows: summaryResult.rows.map((row, index) => ({
+          label: queries.summary.byClass && index < summaryResult.rows.length - 1 ? row.grp : "All records",
+          records: row.records,
+          values: Object.fromEntries(queries.summary.measured.map(({ key, kind }, i) => [key, {
+            total: kind === "total" ? round(row[`s${i}`]) : null,
+            average: round(row[`a${i}`]),
+          }])),
+        })),
+      };
+    }
+    return { rows: dataResult.rows, total, sort: queries.sort, summary };
   }
 
   return { getContext, getClassAccess, validateInput, loadData };
@@ -573,7 +624,7 @@ function reportBuilderController(db, options = {}) {
         const page = positiveInt(req.body?.page) || 1;
         const requestedSize = Number(req.body?.pageSize);
         const pageSize = PAGE_SIZES.includes(requestedSize) ? requestedSize : PAGE_SIZE;
-        const { rows, total, sort } = await service.loadData(context, input, {
+        const { rows, total, sort, summary } = await service.loadData(context, input, {
           limit: pageSize,
           offset: (page - 1) * pageSize,
           sort: req.body?.sort,
@@ -592,6 +643,7 @@ function reportBuilderController(db, options = {}) {
           page,
           pageSize,
           sort,
+          summary,
         });
       } catch (error) {
         console.error("[reportBuilder/run]", error);

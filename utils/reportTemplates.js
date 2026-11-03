@@ -61,7 +61,7 @@ async function buildTemplate(db, context, input, name) {
     const value = input.criteria[definition.key];
     const base = { key: definition.key, label: text(definition.label), type: definition.type };
     if (definition.type === "date") filters.push({ ...base, from: value.from || "", to: value.to || "" });
-    else if (definition.type === "choice") filters.push({ ...base, value: String(value) });
+    else if (definition.type === "choice" || definition.type === "scale") filters.push({ ...base, value: String(value) });
     else if (["class", "term", "select"].includes(definition.type)) {
       const rows = definition.type === "class" ? await classRows(db, context)
         : definition.type === "term" ? await termRows(db, context)
@@ -131,8 +131,9 @@ async function readTemplate(db, context, template) {
     const items = (Array.isArray(filter.items) ? filter.items : []).slice(0, 200);
     if (definition.type === "date") {
       criteria[definition.key] = { from: text(filter.from, 10), to: text(filter.to, 10) };
-    } else if (definition.type === "choice") {
-      if ((definition.options || []).some((o) => o.value === filter.value)) criteria[definition.key] = String(filter.value);
+    } else if (definition.type === "choice" || definition.type === "scale") {
+      const ok = definition.type === "scale" ? /^(settings|\d+(\.\d+)?)$/.test(String(filter.value || "")) : (definition.options || []).some((o) => o.value === filter.value);
+      if (ok) criteria[definition.key] = String(filter.value);
       else skipped.push(`Filter: ${label}`);
     } else if (definition.type === "class") {
       classes = classes || await classRows(db, context);

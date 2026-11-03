@@ -114,6 +114,7 @@ async function filterChoices(caller, locals, type) {
     if (c.type === "class") choices[c.key] = locals.classes.map((k) => k.class_name);
     else if (c.type === "term") choices[c.key] = locals.terms.map((t) => t.term_name + (t.is_current ? " (current)" : ""));
     else if (c.type === "choice") choices[c.key] = (c.options || []).map((o) => o.label);
+    else if (c.type === "scale") choices[c.key] = ["As in Report Settings", "a number each subject is scored out of, e.g. 100"];
     else if (c.type === "select") choices[c.key] = (select[c.key] || []).map((o) => o.label);
   });
   return { choices, select };
@@ -177,6 +178,11 @@ async function resolveDefinition(caller, locals, args) {
         if (match) ids.push(String(match.term_id)); else problems.push(`No term "${v}" (terms: ${locals.terms.map((t) => t.term_name).join("; ")}).`);
       });
       if (ids.length) { criteria[def.key] = ids; applied.push(`${def.label}: ${ids.map((id) => locals.terms.find((t) => String(t.term_id) === id).term_name).join(", ")}`); }
+    } else if (def.type === "scale") {
+      const v = String(values[0] ?? "").trim();
+      const value = /setting/i.test(v) ? "settings" : String(Number(v.replace(/[^\d.]/g, "")) || "");
+      if (value === "settings" || (Number(value) > 0 && Number(value) <= 1000)) { criteria[def.key] = value; applied.push(`${def.label}: ${value === "settings" ? "as in Report Settings" : `each subject out of ${value}`}`); }
+      else problems.push(`${def.label} is "As in Report Settings" or a number from 1 to 1000.`);
     } else if (def.type === "choice") {
       const v = values[0];
       const match = (def.options || []).find((o) => norm(o.value) === norm(v) || norm(o.label) === norm(v));

@@ -279,6 +279,38 @@
     ])]);
   }
 
+  // Items with a group (e.g. one column per subject) fold under their group's
+  // heading: closed until clicked, open while searching. Ungrouped items come first.
+  const openGroups = new Set();
+  function groupedRows(items, query, pick) {
+    const rows = items.filter((item) => !item.group).map(pick);
+    const groups = new Map();
+    items.filter((item) => item.group).forEach((item) => {
+      if (!groups.has(item.group)) groups.set(item.group, []);
+      groups.get(item.group).push(item);
+    });
+    groups.forEach((members, name) => {
+      const open = Boolean(query) || openGroups.has(name);
+      rows.push(el("li", { className: "rb-group" }, [el("button", {
+        type: "button", className: "rb-group-toggle", dataset: { toggleGroup: name }, "aria-expanded": String(open),
+      }, [
+        el("span", { className: "rb-group-name", textContent: name }),
+        el("span", { className: "rb-group-count", textContent: String(members.length) }),
+        el("span", { className: "rb-group-chev", "aria-hidden": "true", textContent: "›" }),
+      ])]));
+      if (open) members.forEach((item) => rows.push(pick(item)));
+    });
+    return rows;
+  }
+
+  function syncFoldAll(list, items) {
+    const button = root.querySelector(`[data-fold-all="${list}"]`);
+    if (!button) return;
+    const names = [...new Set(items.map((item) => item.group).filter(Boolean))];
+    button.hidden = names.length < 2;
+    button.textContent = names.length && names.every((name) => openGroups.has(name)) ? "Collapse all" : "Expand all";
+  }
+
   function renderColumns() {
     const current = report();
     if (!current) return;
@@ -286,17 +318,10 @@
     const query = $("#rb-column-search").value.trim().toLowerCase();
     const available = current.columns.filter((column) => !state.columns.includes(column.key) && column.label.toLowerCase().includes(query));
     // School-specific columns (e.g. one per subject) follow under their own heading.
-    const rows = [];
-    let group = "";
-    [...available.filter((column) => !column.group), ...available.filter((column) => column.group)].forEach((column) => {
-      if (column.group && column.group !== group) {
-        group = column.group;
-        rows.push(el("li", { className: "rb-list-heading", textContent: group }));
-      }
-      rows.push(pickRow(column.label, { addColumn: column.key }));
-    });
+    const rows = groupedRows(available, query, (column) => pickRow(column.label, { addColumn: column.key }));
     if (!rows.length) rows.push(el("li", { className: "rb-empty", textContent: query ? "No columns match." : "All columns are in the report." }));
     $("#rb-available-columns").replaceChildren(...rows);
+    syncFoldAll("columns", current.columns);
 
     const chosen = state.columns.map((key, index) => el("li", { className: "rb-chosen-row" }, [
       el("span", { className: "rb-chosen-index", textContent: String(index + 1) }),
@@ -360,6 +385,38 @@
       from.addEventListener("change", change);
       to.addEventListener("change", change);
       return el("span", { className: "rb-date-range" }, [from, el("span", { className: "rb-muted", textContent: "to" }), to]);
+    }
+    if (criterion.type === "scale") {
+      // Raw scores, each class's Report Settings, or every subject out of a number the school picks.
+      const custom = value && value !== "settings";
+      const select = el("select", { className: "rb-input", "aria-label": criterion.label });
+      select.append(
+        el("option", { value: "", textContent: "Raw scores" }),
+        el("option", { value: "settings", textContent: "As in Report Settings", selected: value === "settings" }),
+        el("option", { value: "custom", textContent: "Each subject out of…", selected: Boolean(custom) }));
+      const number = el("input", { className: "rb-input rb-scale-number", type: "number", min: "1", max: "1000", step: "any",
+        value: custom ? value : "100", "aria-label": "Each subject out of", hidden: !custom });
+      // Under "As in Report Settings": what each class's setting is (read-only).
+      const note = el("span", { className: "rb-scale-note" });
+      const showSettings = () => {
+        note.hidden = select.value !== "settings";
+        if (note.hidden) return;
+        const rows = state.options[state.reportType]?.scale;
+        if (!rows) { note.textContent = "Loading the classes' settings…"; return; }
+        const chosen = asList(state.criteria.class);
+        const shown = chosen.length ? rows.filter((row) => chosen.includes(row.value)) : rows;
+        note.replaceChildren(el("strong", { textContent: "Report Settings (change them in Report Settings → Advanced):" }),
+          ...shown.map((row) => el("span", { textContent: row.label })));
+      };
+      const sync = () => {
+        number.hidden = select.value !== "custom";
+        update(select.value === "custom" ? number.value : select.value);
+        showSettings();
+      };
+      select.addEventListener("change", sync);
+      number.addEventListener("input", sync);
+      showSettings();
+      return el("span", { className: "rb-scale-wrap" }, [el("span", { className: "rb-scale" }, [select, number]), note]);
     }
     const options = optionsFor(criterion);
     if (MULTI_TYPES.has(criterion.type)) return multiSelect(criterion, options, value, update);
@@ -448,9 +505,10 @@
     const query = $("#rb-criteria-search").value.trim().toLowerCase();
     const available = current.criteria.filter((criterion) =>
       !state.criteriaOrder.includes(criterion.key) && criterion.label.toLowerCase().includes(query));
-    const rows = available.map((criterion) => pickRow(criterion.label, { addCriterion: criterion.key }));
+    const rows = groupedRows(available, query, (criterion) => pickRow(criterion.label, { addCriterion: criterion.key }));
     if (!rows.length) rows.push(el("li", { className: "rb-empty", textContent: query ? "No criteria match." : "All criteria are in use." }));
     $("#rb-available-criteria").replaceChildren(...rows);
+    syncFoldAll("criteria", current.criteria);
 
     const chosen = state.criteriaOrder.map((key) => {
       const criterion = byKey.get(key);
@@ -517,6 +575,21 @@
         el("span", { className: "rb-cell", textContent: formatValue(record[column.key], column.type) }),
       ]))));
     if (!rows.length) rows.push(el("tr", {}, [el("td", { colSpan: result.columns.length, className: "rb-no-rows", textContent: "No records match this report." })]));
+    // Totals over all matching records (Summary → Totals): one line per class, then everything.
+    if (result.summary && result.summary.rows.length) {
+      result.summary.rows.forEach((line, index) => {
+        const last = index === result.summary.rows.length - 1;
+        rows.push(el("tr", { className: `rb-total-row${last ? " is-grand" : ""}` }, result.columns.map((column, i) => {
+          const value = line.values[column.key];
+          if (i === 0) return el("td", {}, [el("strong", { textContent: `${line.label} · ${Number(line.records).toLocaleString()} ${line.records === 1 ? "record" : "records"}` })]);
+          if (!value) return el("td", {});
+          return el("td", { className: "is-number" }, [
+            value.total !== null ? el("div", { className: "rb-total", textContent: `Total ${formatValue(value.total, column.type)}` }) : "",
+            el("div", { className: "rb-average", textContent: `Average ${formatValue(value.average, column.type)}` }),
+          ]);
+        })));
+      });
+    }
     $("#rb-table-body").replaceChildren(...rows);
     $(".rb-table-box").scrollTo({ top: 0, left: 0 });
 
@@ -969,6 +1042,21 @@
     if (dataset.stepNav) return goTo(Number(dataset.stepNav));
     if (dataset.nextStep) return goTo(Number(dataset.nextStep));
     if (dataset.previousStep) return goTo(Number(dataset.previousStep));
+    if (dataset.foldAll) {
+      // Expand every section of this list, or fold them all again.
+      const current = report();
+      const items = dataset.foldAll === "columns" ? current.columns : current.criteria;
+      const names = [...new Set(items.map((item) => item.group).filter(Boolean))];
+      const open = names.length && names.every((name) => openGroups.has(name));
+      names.forEach((name) => (open ? openGroups.delete(name) : openGroups.add(name)));
+      renderColumns();
+      return renderCriteria();
+    }
+    if (dataset.toggleGroup) {
+      if (openGroups.has(dataset.toggleGroup)) openGroups.delete(dataset.toggleGroup); else openGroups.add(dataset.toggleGroup);
+      renderColumns();
+      return renderCriteria();
+    }
     if (dataset.addColumn) return changeColumns([...state.columns, dataset.addColumn]);
     if (dataset.removeColumn) return changeColumns(state.columns.filter((key) => key !== dataset.removeColumn));
     if (dataset.moveColumn) {

@@ -559,3 +559,26 @@
   .report-builder-page .rb-card-head .rb-filter { width: 140px; }
   .rb-pager { grid-template-columns: 1fr; justify-items: start; }
 }
+
+/* Folding groups in the column and criteria lists (e.g. Subject scores). */
+.rb-group { list-style: none; margin: 6px 0 2px; }
+.report-builder-page .rb-group-toggle { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0; padding: 8px 10px; border: 1px solid var(--rb-border, #e5e7eb); border-radius: 10px; background: transparent; color: var(--rb-text); font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.report-builder-page .rb-group-toggle:hover { border-color: var(--rb-primary, #01535b); }
+.rb-group-name { flex: 1; }
+.rb-group-count { padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--rb-primary, #01535b) 10%, transparent); color: var(--rb-primary, #01535b); font-size: 11px; }
+.rb-group-chev { font-size: 16px; line-height: 1; color: var(--rb-muted); transition: transform .15s ease; }
+.rb-group-toggle[aria-expanded="true"] .rb-group-chev { transform: rotate(90deg); }
+.rb-scale { display: flex; gap: 8px; }
+.rb-scale .rb-scale-number { max-width: 110px; }
+.rb-scale .rb-scale-number[hidden] { display: none; }
+.report-builder-page .rb-fold-all { width: auto; margin: 0 8px 0 auto; padding: 0; border: 0; background: none; color: var(--rb-primary, #01535b); font-size: 12.5px; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; white-space: nowrap; }
+.report-builder-page .rb-fold-all[hidden] { display: none; }
+.rb-scale-wrap { display: grid; gap: 6px; width: 100%; }
+.rb-scale-note { display: grid; gap: 2px; font-size: 12px; color: var(--rb-muted); }
+.rb-scale-note[hidden] { display: none; }
+.rb-scale-note strong { font-weight: 600; color: var(--rb-text); }
+/* Totals rows under the results (Summary → Totals). */
+.rb-total-row td { background: color-mix(in srgb, var(--rb-primary, #01535b) 6%, transparent); border-top: 1px solid var(--rb-border, #e5e7eb); font-size: 12.5px; vertical-align: top; }
+.rb-total-row.is-grand td { background: color-mix(in srgb, var(--rb-primary, #01535b) 12%, transparent); border-top: 2px solid var(--rb-primary, #01535b); }
+.rb-total { font-weight: 700; }
+.rb-average { color: var(--rb-muted); }
