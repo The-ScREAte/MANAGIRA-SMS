@@ -5301,6 +5301,10 @@ main {
         var modal = document.getElementById('studentTransportModal');
         if (!modal) return;
         modal.classList.remove('active');
+        if (studentTransportState.tracker) {
+          studentTransportState.tracker.destroy();
+          studentTransportState.tracker = null;
+        }
       }
 
       function handleStudentTransportModalOverlayClick(event) {
@@ -5339,23 +5343,22 @@ main {
             statusEl.textContent = 'No transportation assignment found.';
             return;
           }
-          statusEl.textContent = 'Current transportation assignment';
-          summaryEl.innerHTML = '<span class="transport-summary-chip">🚌 ' + [snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ') + '</span>';
+          statusEl.textContent = '';
+          summaryEl.innerHTML = '';
+          var esc = function(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
           var details = [
-            ['Driver', snapshot.driverName || '-'],
-            ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
-            ['Stop', snapshot.stop && snapshot.stop.stopName ? snapshot.stop.stopName : '-'],
-            ['Pick-up', formatTransportClock(snapshot.pickupTime) || '-'],
-            ['Drop-off', formatTransportClock(snapshot.dropoffTime) || '-'],
-            ['Live', snapshot.live && snapshot.live.recordedAt ? new Date(snapshot.live.recordedAt).toLocaleString() : 'No live update yet'],
-            ['School', snapshot.school && snapshot.school.address ? snapshot.school.address : '-'],
-            ['Home', snapshot.homeAddress || '-']
-          ];
+            ['Route', snapshot.route && snapshot.route.routeName],
+            ['Stop', snapshot.stop && snapshot.stop.stopName],
+            ['Home', snapshot.homeAddress]
+          ].filter(function(entry) { return entry[1]; });
           gridEl.innerHTML = details.map(function(entry) {
-            return '<div class="transport-detail-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>';
+            return '<div class="transport-detail-card"><span class="k">' + entry[0] + '</span><span class="v">' + esc(entry[1]) + '</span></div>';
           }).join('');
           setTimeout(function() {
-            renderTransportMap('studentTransportModalMap', snapshot, false);
+            var mapHost = document.getElementById('studentTransportModalMap');
+            if (!mapHost || !window.BusTracker) return;
+            if (studentTransportState.tracker) studentTransportState.tracker.destroy();
+            studentTransportState.tracker = window.BusTracker.mount(mapHost, snapshot, { studentId: studentId });
           }, 60);
         } catch (error) {
           statusEl.textContent = error && error.message ? error.message : 'Unable to load transportation details.';
