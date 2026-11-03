@@ -330,10 +330,36 @@ const scaleCriterion = () => ({
   where: () => null,
 });
 
+const countedCriteria = (withSubjects) => [
+  ...(withSubjects ? [selectCriterion("subjects", "Subjects counted", "NULL",
+    "SELECT DISTINCT TRIM(subject_name) AS value, TRIM(subject_name) AS label FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL AND NULLIF(TRIM(subject_name), '') IS NOT NULL ORDER BY 1 LIMIT 150",
+    { group: "Scoring", inFrom: true })] : []),
+  // Each assessment within its subject ("Mathematics › Midterm Exam"), so picking
+  // subjects first narrows this list to their assessments.
+  selectCriterion("assessments", "Assessments counted", "NULL",
+    `SELECT DISTINCT TRIM(su.subject_name) || ' › ' || TRIM(a.title) AS value, TRIM(su.subject_name) || ' › ' || TRIM(a.title) AS label
+       FROM assessments a JOIN subjects su ON su.subject_id = a.subject_id AND su.organization_id = a.organization_id
+      WHERE a.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score' AND NULLIF(TRIM(a.title), '') IS NOT NULL
+      ORDER BY 1 LIMIT 1000`,
+    { group: "Scoring", inFrom: true, dependsOn: "subjects" }),
+  selectCriterion("categories", "Categories counted", "NULL",
+    "SELECT DISTINCT COALESCE(NULLIF(TRIM(category), ''), 'Other') AS value, COALESCE(NULLIF(TRIM(category), ''), 'Other') AS label FROM assessments WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 50",
+    { group: "Scoring", inFrom: true }),
+];
+const ASSESSMENT_TITLES_SQL = `SELECT DISTINCT COALESCE(NULLIF(TRIM(title), ''), 'Untitled') AS name FROM assessments
+   WHERE organization_id = $1 AND obsolete_at IS NULL AND COALESCE(entry_mode, 'score') = 'score' ORDER BY 1 LIMIT 80`;
+
 function subjectTotals(bind, criteria) {
   const scope = (alias) => [
     criteria.class ? `AND ${alias}.class_id = ANY(${bind(criteria.class)}::int[])` : "",
     criteria.term ? `AND ${alias}.term_id = ANY(${bind(criteria.term)}::int[])` : "",
+  ].join(" ");
+  // "Count only…" (Scoring): the chosen subjects, assessments or categories,
+  // applied to scores and to the maximums, so percentages stay right.
+  const counted = (alias) => [
+    criteria.subjects ? `AND ${alias}.subject_id IN (SELECT sx.subject_id FROM subjects sx WHERE sx.organization_id = $1 AND TRIM(sx.subject_name) = ANY(${bind(criteria.subjects)}::text[]))` : "",
+    criteria.assessments ? `AND (SELECT TRIM(sy.subject_name) FROM subjects sy WHERE sy.subject_id = ${alias}.subject_id) || ' › ' || TRIM(${alias}.title) = ANY(${bind(criteria.assessments)}::text[])` : "",
+    criteria.categories ? `AND COALESCE(NULLIF(TRIM(${alias}.category), ''), 'Other') = ANY(${bind(criteria.categories)}::text[])` : "",
   ].join(" ");
   const scale = scaleValue(criteria.scale);
   // The base each subject is scored out of (NULL = raw scores).
@@ -346,7 +372,7 @@ function subjectTotals(bind, criteria) {
            LIMIT 1)`
       : `${Number(scale)}::numeric`;
   return `(
-      SELECT r.organization_id, r.student_id, r.class_id, r.term_id, r.subject_id, r.categories,
+      SELECT r.organization_id, r.student_id, r.class_id, r.term_id, r.subject_id, r.categories, ti.titles,
              CASE WHEN b.base IS NULL THEN r.raw_total
                   ELSE LEAST(b.base, r.scaled_sum / NULLIF(r.total_weight, 0) * b.base) END AS total,
              COALESCE(b.base, mx.max_total) AS max_total, sub.subject_name,
@@ -370,21 +396,36 @@ function subjectTotals(bind, criteria) {
                          BOOL_OR(COALESCE(weight, 0) > 0) AS weighted,
                          SUM(GREATEST(COALESCE(weight, 0), 0)) AS weight_sum,
                          SUM(max_score) AS max_sum
-                    FROM assessments
-                   WHERE organization_id = $1 AND obsolete_at IS NULL AND COALESCE(entry_mode, 'score') = 'score' AND max_score > 0
+                    FROM assessments a2
+                   WHERE a2.organization_id = $1 AND a2.obsolete_at IS NULL AND COALESCE(a2.entry_mode, 'score') = 'score' AND a2.max_score > 0
+                     ${counted("a2")}
                    GROUP BY 1, 2, 3
                 ) sw ON sw.class_id = ar.class_id AND sw.term_id = ar.term_id AND sw.subject_id = a.subject_id
                WHERE ar.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score'
-                 ${scope("ar")}
+                 ${scope("ar")} ${counted("a")}
                GROUP BY 1, 2, 3, 4, 5, 6
             ) k
            GROUP BY 1, 2, 3, 4, 5
         ) r
         LEFT JOIN LATERAL (SELECT ${base} AS base) b ON TRUE
+        -- Each assessment's score (by title) for the student in this subject.
         LEFT JOIN (
-          SELECT class_id, term_id, subject_id, SUM(max_score) AS max_total
-            FROM assessments
-           WHERE organization_id = $1 AND obsolete_at IS NULL AND COALESCE(entry_mode, 'score') = 'score'
+          SELECT t.student_id, t.class_id, t.term_id, t.subject_id, JSONB_OBJECT_AGG(t.title, t.score) AS titles
+            FROM (
+              SELECT ar.student_id, ar.class_id, ar.term_id, a.subject_id, COALESCE(NULLIF(TRIM(a.title), ''), 'Untitled') AS title, SUM(ar.score) AS score
+                FROM assessment_results ar
+                JOIN assessments a ON a.assessment_id = ar.assessment_id AND a.organization_id = ar.organization_id
+               WHERE ar.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score'
+                 ${scope("ar")} ${counted("a")}
+               GROUP BY 1, 2, 3, 4, 5
+            ) t
+           GROUP BY 1, 2, 3, 4
+        ) ti ON ti.student_id = r.student_id AND ti.class_id = r.class_id AND ti.term_id = r.term_id AND ti.subject_id = r.subject_id
+        LEFT JOIN (
+          SELECT a3.class_id, a3.term_id, a3.subject_id, SUM(a3.max_score) AS max_total
+            FROM assessments a3
+           WHERE a3.organization_id = $1 AND a3.obsolete_at IS NULL AND COALESCE(a3.entry_mode, 'score') = 'score'
+             ${counted("a3")}
            GROUP BY 1, 2, 3
         ) mx ON mx.class_id = r.class_id AND mx.term_id = r.term_id AND mx.subject_id = r.subject_id
         LEFT JOIN subjects sub ON sub.subject_id = r.subject_id AND sub.organization_id = r.organization_id
@@ -658,6 +699,7 @@ const REPORTS = {
             SELECT ss.organization_id, ss.student_id, ss.class_id, ss.term_id,
                    COUNT(*) AS subjects, SUM(ss.total) AS total, SUM(ss.max_total) AS max_total,
                    JSONB_OBJECT_AGG(ss.subject_name, ss.total) AS subject_totals,
+                   JSONB_AGG(ss.titles) FILTER (WHERE ss.titles IS NOT NULL) AS title_list,
                    (ARRAY_AGG(ss.subject_name ORDER BY ss.total / NULLIF(ss.max_total, 0) DESC NULLS LAST))[1] AS best_subject,
                    (ARRAY_AGG(ss.subject_name ORDER BY ss.total / NULLIF(ss.max_total, 0) ASC NULLS LAST))[1] AS weakest_subject
               FROM ${subjectTotals(bind, criteria)}
@@ -702,6 +744,7 @@ const REPORTS = {
       classCriterion("m.class_id"),
       termCriterion("m.term_id"),
       scaleCriterion(),
+      ...countedCriteria(true),
       ...studentCriteria(),
       selectCriterion("gender", "Gender", "s.gender", distinctOptions("students", "gender")),
       selectCriterion("grade", "Overall grade", "band.grade",
@@ -728,11 +771,12 @@ const REPORTS = {
     ],
     // Each subject as its own column, and the school's own remark types.
     async extend(db, organizationId) {
-      const [subjects, remarkTypes] = await Promise.all([
+      const [subjects, remarkTypes, titles] = await Promise.all([
         db.query(`SELECT DISTINCT TRIM(subject_name) AS name FROM subjects
                    WHERE organization_id = $1 AND obsolete_at IS NULL AND NULLIF(TRIM(subject_name), '') IS NOT NULL
                    ORDER BY 1 LIMIT 150`, [organizationId]),
         customRemarkTypes(db, organizationId),
+        db.query(ASSESSMENT_TITLES_SQL, [organizationId]),
       ]);
       const columns = {};
       const criteria = [];
@@ -743,6 +787,11 @@ const REPORTS = {
       });
       subjects.rows.forEach(({ name }) => {
         columns[`subject_${shortHash(name)}`] = { label: name, expression: `ROUND((m.subject_totals ->> ${sqlText(name)})::numeric, 2)`, type: "number", group: "Subject scores" };
+      });
+      // Each assessment (e.g. "Midterm"), added up across the subjects counted.
+      titles.rows.forEach(({ name }) => {
+        columns[`assessment_${shortHash(name)}`] = { label: name, type: "number", group: "Assessment scores",
+          expression: `(SELECT ROUND(SUM((x ->> ${sqlText(name)})::numeric), 2) FROM JSONB_ARRAY_ELEMENTS(m.title_list) x)` };
       });
       return { columns, criteria };
     },
@@ -784,6 +833,7 @@ const REPORTS = {
       classCriterion("ss.class_id"),
       termCriterion("ss.term_id"),
       scaleCriterion(),
+      ...countedCriteria(false),
       ...studentCriteria(),
       selectCriterion("subject", "Subject", "ss.subject_name",
         "SELECT DISTINCT TRIM(subject_name) AS value, TRIM(subject_name) AS label FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 150"),
@@ -805,14 +855,21 @@ const REPORTS = {
     ],
     // A score column for each assessment category the school uses (e.g. Class work, Exams).
     async extend(db, organizationId) {
-      const categories = await db.query(
-        `SELECT DISTINCT COALESCE(NULLIF(TRIM(category), ''), 'Other') AS name FROM assessments
-          WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 50`,
-        [organizationId]
-      );
+      const [categories, titles] = await Promise.all([
+        db.query(
+          `SELECT DISTINCT COALESCE(NULLIF(TRIM(category), ''), 'Other') AS name FROM assessments
+            WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 50`,
+          [organizationId]
+        ),
+        db.query(ASSESSMENT_TITLES_SQL, [organizationId]),
+      ]);
       const columns = {};
       categories.rows.forEach(({ name }) => {
-        columns[`category_${shortHash(name)}`] = { label: name, expression: `ROUND((ss.categories ->> ${sqlText(name)})::numeric, 2)`, type: "number" };
+        columns[`category_${shortHash(name)}`] = { label: name, expression: `ROUND((ss.categories ->> ${sqlText(name)})::numeric, 2)`, type: "number", group: "Category scores" };
+      });
+      // Each assessment's score in this subject (e.g. "Midterm").
+      titles.rows.forEach(({ name }) => {
+        columns[`assessment_${shortHash(name)}`] = { label: name, expression: `ROUND((ss.titles ->> ${sqlText(name)})::numeric, 2)`, type: "number", group: "Assessment scores" };
       });
       return { columns, criteria: [] };
     },

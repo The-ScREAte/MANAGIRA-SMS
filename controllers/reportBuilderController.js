@@ -113,7 +113,7 @@ function isElevated(identity) {
 // Long column lists fold into groups by topic (first matching rule wins);
 // a topic needs at least two columns, and short reports stay one list.
 const COLUMN_GROUPS = [
-  ["Scoring", /subject scaling/i],
+  ["Scoring", /subject scaling|counted/i],
   ["Summary", /^totals$/i],
   ["Remarks", /remark|comment|notes/i],
   ["Conduct & attitude", /conduct|attitude|interest/i],
@@ -162,6 +162,7 @@ function describeReport(key, report, granted) {
       type: criterion.type,
       options: criterion.options || null,
       hasOptions: Boolean(criterion.optionsSql),
+      dependsOn: criterion.dependsOn || null,
       group: criterion.group || "",
     })), 0, true),
   };

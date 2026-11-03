@@ -363,12 +363,29 @@
     if (criterion.type === "class") return (data.classes || []).map((item) => ({ value: String(item.class_id), label: item.class_name }));
     if (criterion.type === "term") return (data.terms || []).map((item) => ({ value: String(item.term_id), label: item.term_name }));
     if (criterion.type === "choice") return criterion.options || [];
-    return state.options[state.reportType]?.[criterion.key] || null;
+    const options = state.options[state.reportType]?.[criterion.key] || null;
+    // Assessments follow the subjects picked ("Mathematics › Midterm").
+    if (options && criterion.dependsOn) {
+      const parents = asList(state.criteria[criterion.dependsOn]);
+      if (parents.length) return options.filter((option) => parents.some((parent) => option.value.startsWith(`${parent} › `)));
+    }
+    return options;
   }
 
   function criterionControl(criterion) {
     const value = state.criteria[criterion.key];
-    const update = (next) => { state.criteria[criterion.key] = next; invalidate(); };
+    const update = (next) => {
+      state.criteria[criterion.key] = next;
+      invalidate();
+      // Picking subjects narrows the assessments: drop ones no longer listed and redraw.
+      const current = report();
+      const dependent = current && current.criteria.find((item) => item.dependsOn === criterion.key);
+      if (dependent && state.criteriaOrder.includes(dependent.key)) {
+        const allowed = new Set((optionsFor(dependent) || []).map((option) => option.value));
+        if (Array.isArray(state.criteria[dependent.key])) state.criteria[dependent.key] = state.criteria[dependent.key].filter((value) => allowed.has(value));
+        renderCriteria();
+      }
+    };
     if (criterion.type === "text") {
       const input = el("input", {
         className: "rb-input", type: "text", maxLength: 500, value: value || "",
