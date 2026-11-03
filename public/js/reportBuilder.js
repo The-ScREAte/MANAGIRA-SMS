@@ -575,21 +575,29 @@
         el("span", { className: "rb-cell", textContent: formatValue(record[column.key], column.type) }),
       ]))));
     if (!rows.length) rows.push(el("tr", {}, [el("td", { colSpan: result.columns.length, className: "rb-no-rows", textContent: "No records match this report." })]));
-    // Totals over all matching records (Summary → Totals): one line per class, then everything.
+    // Totals over all matching records (Summary → Totals): a footer under the
+    // records, one line per class, then the overall total in a larger row.
+    const footRows = [];
     if (result.summary && result.summary.rows.length) {
       result.summary.rows.forEach((line, index) => {
-        const last = index === result.summary.rows.length - 1;
-        rows.push(el("tr", { className: `rb-total-row${last ? " is-grand" : ""}` }, result.columns.map((column, i) => {
+        const grand = index === result.summary.rows.length - 1;
+        footRows.push(el("tr", { className: `rb-total-row${grand ? " is-grand" : ""}` }, result.columns.map((column, i) => {
           const value = line.values[column.key];
-          if (i === 0) return el("td", {}, [el("strong", { textContent: `${line.label} · ${Number(line.records).toLocaleString()} ${line.records === 1 ? "record" : "records"}` })]);
+          if (i === 0) {
+            return el("th", { scope: "row" }, [
+              el("span", { className: "rb-total-label", textContent: grand ? (result.summary.byClass ? "Overall total" : "Total") : line.label }),
+              el("span", { className: "rb-total-count", textContent: `${Number(line.records).toLocaleString()} ${line.records === 1 ? "record" : "records"}` }),
+            ]);
+          }
           if (!value) return el("td", {});
           return el("td", { className: "is-number" }, [
-            value.total !== null ? el("div", { className: "rb-total", textContent: `Total ${formatValue(value.total, column.type)}` }) : "",
-            el("div", { className: "rb-average", textContent: `Average ${formatValue(value.average, column.type)}` }),
+            value.total !== null ? el("span", { className: "rb-total", textContent: formatValue(value.total, column.type) }) : "",
+            el("span", { className: "rb-average", textContent: `${value.total !== null ? "avg " : "Average "}${formatValue(value.average, column.type)}` }),
           ]);
         })));
       });
     }
+    $("#rb-table-foot").replaceChildren(...footRows);
     $("#rb-table-body").replaceChildren(...rows);
     $(".rb-table-box").scrollTo({ top: 0, left: 0 });
 

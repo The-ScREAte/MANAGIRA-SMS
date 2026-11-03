@@ -577,8 +577,19 @@
 .rb-scale-note { display: grid; gap: 2px; font-size: 12px; color: var(--rb-muted); }
 .rb-scale-note[hidden] { display: none; }
 .rb-scale-note strong { font-weight: 600; color: var(--rb-text); }
-/* Totals rows under the results (Summary → Totals). */
-.rb-total-row td { background: color-mix(in srgb, var(--rb-primary, #01535b) 6%, transparent); border-top: 1px solid var(--rb-border, #e5e7eb); font-size: 12.5px; vertical-align: top; }
-.rb-total-row.is-grand td { background: color-mix(in srgb, var(--rb-primary, #01535b) 12%, transparent); border-top: 2px solid var(--rb-primary, #01535b); }
-.rb-total { font-weight: 700; }
-.rb-average { color: var(--rb-muted); }
+/* Totals footer under the results (Summary → Totals): stays at the bottom of
+   the table box while scrolling; the overall total is the biggest row. */
+.rb-table tfoot .rb-total-row th,
+.rb-table tfoot .rb-total-row td { position: sticky; bottom: 0; z-index: 1; padding: 10px 14px; border-top: 1px solid var(--rb-border, #e5e7eb); background: color-mix(in srgb, var(--rb-primary, #01535b) 7%, var(--rb-surface, #fff)); vertical-align: top; text-align: left; }
+.rb-table tfoot .rb-total-row td.is-number { text-align: right; }
+.rb-table tfoot .rb-total-row:not(.is-grand) th,
+.rb-table tfoot .rb-total-row:not(.is-grand) td { position: static; font-size: 13px; }
+.rb-table tfoot .rb-total-row.is-grand th,
+.rb-table tfoot .rb-total-row.is-grand td { border-top: 2px solid var(--rb-primary, #01535b); background: color-mix(in srgb, var(--rb-primary, #01535b) 14%, var(--rb-surface, #fff)); padding: 14px; }
+.rb-total-label { display: block; font-weight: 700; color: var(--rb-text); }
+.rb-total-row.is-grand .rb-total-label { font-size: 16px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--rb-primary, #01535b); }
+.rb-total-count { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--rb-muted); }
+.rb-total { display: block; font-weight: 700; font-size: 14px; color: var(--rb-text); font-variant-numeric: tabular-nums; }
+.rb-total-row.is-grand .rb-total { font-size: 18px; }
+.rb-average { display: block; margin-top: 2px; font-size: 12px; color: var(--rb-muted); font-variant-numeric: tabular-nums; }
+.rb-total-row.is-grand .rb-average:first-child { font-size: 16px; font-weight: 700; color: var(--rb-text); }
