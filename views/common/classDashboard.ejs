@@ -2378,8 +2378,8 @@ main {
 }
 .transport-modal-overlay.active { display: flex; }
 .transport-modal-box {
-  width: min(500px, 100%);
-  max-height: min(70vh, 600px);
+  width: min(760px, 100%);
+  max-height: min(92vh, 900px);
   overflow: auto;
   background: #fff;
   border-radius: 14px;
@@ -2425,7 +2425,7 @@ main {
 }
 .transport-detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
 }
 .transport-detail-card {
@@ -2450,11 +2450,11 @@ main {
 }
 .transport-modal-map {
   width: 100%;
-  height: 160px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #eef5fb;
+  min-height: 300px;
+}
+#studentTransportModalStatus:empty { display: none; }
+@media (max-width: 600px) {
+  #studentTransportModal .transport-modal-box { width: 100%; max-height: 100vh; border-radius: 14px 14px 0 0; align-self: flex-end; }
 }
 .student-remark-input,
 .student-remark-select {
@@ -4495,6 +4495,7 @@ main {
   </div>
 
   <script src="/js/managiraMaps.js"></script>
+  <script src="/js/busTracker.js" defer></script>
   <script>
     var classScheduleContext;
     var classScheduleState;
