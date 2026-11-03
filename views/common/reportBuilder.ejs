@@ -35,6 +35,15 @@
     </nav>
     </div>
 
+    <!-- A saved report that was changed: keep the changes (same report) or undo them. -->
+    <div class="rb-unsaved" id="rb-unsaved" role="status" hidden>
+      <span id="rb-unsaved-text"></span>
+      <span class="rb-unsaved-actions">
+        <button type="button" class="rb-btn" data-discard-changes>Discard</button>
+        <button type="button" class="rb-btn rb-btn-primary" data-keep-changes>Save changes</button>
+      </span>
+    </div>
+
     <!-- Step 1: select -->
     <section class="rb-panel" data-step-panel="1">
       <div class="rb-grid">

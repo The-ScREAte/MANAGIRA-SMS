@@ -129,6 +129,43 @@
     state.hasRun = false;
     state.page = 1;
     updateStepper();
+    showUnsaved();
+  }
+
+  // An opened saved report that now differs from what was saved: offer to
+  // save it (the same report, updated) or to discard the changes.
+  function showUnsaved() {
+    const bar = $("#rb-unsaved");
+    if (!bar) return;
+    const changed = Boolean(state.saved && state.savedSignature && signature() !== state.savedSignature);
+    bar.hidden = !changed;
+    if (!changed) return;
+    const owned = ownsSaved();
+    $("#rb-unsaved-text").textContent = owned
+      ? `You changed "${state.saved.report_name}". Save the changes to it, or discard them.`
+      : `"${state.saved.report_name}" was shared with you, so it can't be changed. Save your version as your own copy, or discard the changes.`;
+    bar.querySelector("[data-keep-changes]").textContent = owned ? "Save changes" : "Save as my copy";
+  }
+
+  async function keepChanges(button) {
+    if (!state.saved) return;
+    button.disabled = true;
+    try {
+      const owned = ownsSaved();
+      const body = { ...currentDefinition(), name: owned ? state.saved.report_name : `${state.saved.report_name} (my copy)`.slice(0, 120), branding: state.branding };
+      const result = owned
+        ? await responseJson(await sendJson(`/common/report-builder/saved/${state.saved.report_id}`, body, "PUT"))
+        : await responseJson(await sendJson("/common/report-builder/save", body));
+      state.saved = { ...(owned ? state.saved : {}), ...result.report, is_owner: true };
+      upsertSaved(state.saved);
+      markSaved();
+      renderFinish();
+      showUnsaved();
+    } catch (error) {
+      $("#rb-unsaved-text").textContent = error.message || "Your changes couldn't be saved. Try again.";
+    } finally {
+      button.disabled = false;
+    }
   }
 
   const viewTitle = (reportType) => {
@@ -311,6 +348,69 @@
     button.textContent = names.length && names.every((name) => openGroups.has(name)) ? "Collapse all" : "Expand all";
   }
 
+  // ---- Reordering chosen columns and criteria: drag the grip (mouse or touch),
+  // or focus it and press the up/down arrow keys.
+  function dragHandle(label) {
+    const handle = el("span", { className: "rb-drag", tabIndex: 0, role: "button", title: "Drag to reorder", "aria-label": `Move ${label} (drag, or use the arrow keys)` });
+    handle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+    return handle;
+  }
+
+  // Apply a new order read from a list's rows.
+  function commitOrder(list) {
+    const keys = [...list.querySelectorAll(":scope > li[data-order-key]")].map((li) => li.dataset.orderKey);
+    if (list.id === "rb-selected-columns") {
+      if (keys.join() !== state.columns.join()) changeColumns(keys); else renderColumns();
+    } else if (keys.join() !== state.criteriaOrder.join()) {
+      state.criteriaOrder = keys;
+      invalidate();
+      renderCriteria();
+    }
+  }
+
+  function setupReorder(list) {
+    let dragging = null;
+    list.addEventListener("pointerdown", (event) => {
+      const handle = event.target.closest(".rb-drag");
+      if (!handle || (event.pointerType === "mouse" && event.button !== 0)) return;
+      event.preventDefault();
+      dragging = handle.closest("li");
+      dragging.classList.add("is-dragging");
+      list.classList.add("is-reordering");
+      try { list.setPointerCapture(event.pointerId); } catch (_) {}
+    });
+    list.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      event.preventDefault();
+      const rows = [...list.querySelectorAll(":scope > li[data-order-key]")].filter((li) => li !== dragging);
+      const after = rows.find((li) => { const box = li.getBoundingClientRect(); return event.clientY < box.top + box.height / 2; });
+      if (after) { if (after.previousElementSibling !== dragging) list.insertBefore(dragging, after); }
+      else if (list.lastElementChild !== dragging) list.appendChild(dragging);
+    });
+    const end = () => {
+      if (!dragging) return;
+      dragging.classList.remove("is-dragging");
+      list.classList.remove("is-reordering");
+      dragging = null;
+      commitOrder(list);
+    };
+    list.addEventListener("pointerup", end);
+    list.addEventListener("pointercancel", end);
+    list.addEventListener("keydown", (event) => {
+      const handle = event.target.closest(".rb-drag");
+      if (!handle || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+      event.preventDefault();
+      const row = handle.closest("li");
+      const key = row.dataset.orderKey;
+      const sibling = event.key === "ArrowUp" ? row.previousElementSibling : row.nextElementSibling;
+      if (!sibling || !sibling.dataset.orderKey) return;
+      if (event.key === "ArrowUp") list.insertBefore(row, sibling); else list.insertBefore(sibling, row);
+      commitOrder(list);
+      const moved = list.querySelector(`li[data-order-key="${CSS.escape(key)}"] .rb-drag`);
+      if (moved) moved.focus();
+    });
+  }
+
   function renderColumns() {
     const current = report();
     if (!current) return;
@@ -323,12 +423,11 @@
     $("#rb-available-columns").replaceChildren(...rows);
     syncFoldAll("columns", current.columns);
 
-    const chosen = state.columns.map((key, index) => el("li", { className: "rb-chosen-row" }, [
+    const chosen = state.columns.map((key, index) => el("li", { className: "rb-chosen-row", dataset: { orderKey: key } }, [
+      dragHandle(labels.get(key)),
       el("span", { className: "rb-chosen-index", textContent: String(index + 1) }),
       el("span", { className: "rb-chosen-label", textContent: labels.get(key) }),
       el("span", { className: "rb-row-tools" }, [
-        iconButton("up", `Move ${labels.get(key)} up`, { moveColumn: key, dir: "-1" }, "", index === 0),
-        iconButton("down", `Move ${labels.get(key)} down`, { moveColumn: key, dir: "1" }, "", index === state.columns.length - 1),
         iconButton("close", `Remove ${labels.get(key)}`, { removeColumn: key }, "is-danger"),
       ]),
     ]));
@@ -359,15 +458,28 @@
     }
   }
 
+  // Subject names of the subject columns in the report (e.g. Mathematics).
+  function subjectColumns() {
+    const current = report();
+    if (!current) return [];
+    return current.columns.filter((column) => column.group === "Subject scores" && state.columns.includes(column.key)).map((column) => column.label);
+  }
+
   function optionsFor(criterion) {
     if (criterion.type === "class") return (data.classes || []).map((item) => ({ value: String(item.class_id), label: item.class_name }));
     if (criterion.type === "term") return (data.terms || []).map((item) => ({ value: String(item.term_id), label: item.term_name }));
     if (criterion.type === "choice") return criterion.options || [];
     const options = state.options[state.reportType]?.[criterion.key] || null;
-    // Assessments follow the subjects picked ("Mathematics › Midterm").
+    // Assessments follow the classes, terms and subjects picked ("Mathematics › Midterm").
     if (options && criterion.dependsOn) {
-      const parents = asList(state.criteria[criterion.dependsOn]);
-      if (parents.length) return options.filter((option) => parents.some((parent) => option.value.startsWith(`${parent} › `)));
+      const picked = (key) => (criterion.dependsOn.includes(key) && state.criteriaOrder.includes(key) ? asList(state.criteria[key]) : []);
+      // Subjects: those picked under "Subjects counted", else the subject columns in the report.
+      const subjects = picked("subjects").length ? picked("subjects") : subjectColumns();
+      const classes = picked("class"), terms = picked("term");
+      return options.filter((option) =>
+        (!subjects.length || subjects.some((subject) => option.value.startsWith(`${subject} › `)))
+        && (!classes.length || !option.classes || option.classes.some((id) => classes.includes(id)))
+        && (!terms.length || !option.terms || option.terms.some((id) => terms.includes(id))));
     }
     return options;
   }
@@ -379,7 +491,7 @@
       invalidate();
       // Picking subjects narrows the assessments: drop ones no longer listed and redraw.
       const current = report();
-      const dependent = current && current.criteria.find((item) => item.dependsOn === criterion.key);
+      const dependent = current && current.criteria.find((item) => Array.isArray(item.dependsOn) && item.dependsOn.includes(criterion.key));
       if (dependent && state.criteriaOrder.includes(dependent.key)) {
         const allowed = new Set((optionsFor(dependent) || []).map((option) => option.value));
         if (Array.isArray(state.criteria[dependent.key])) state.criteria[dependent.key] = state.criteria[dependent.key].filter((value) => allowed.has(value));
@@ -518,6 +630,8 @@
   function renderCriteria() {
     const current = report();
     if (!current) return;
+    // With subject columns in the report, show the Scoring section so its assessments are easy to find.
+    if (subjectColumns().length && !state.scoringShown) { openGroups.add("Scoring"); state.scoringShown = true; }
     const byKey = new Map(current.criteria.map((criterion) => [criterion.key, criterion]));
     const query = $("#rb-criteria-search").value.trim().toLowerCase();
     const available = current.criteria.filter((criterion) =>
@@ -529,7 +643,8 @@
 
     const chosen = state.criteriaOrder.map((key) => {
       const criterion = byKey.get(key);
-      return el("li", { className: "rb-chosen-row rb-criterion" }, [
+      return el("li", { className: "rb-chosen-row rb-criterion", dataset: { orderKey: key } }, [
+        dragHandle(criterion.label),
         el("span", { className: "rb-chosen-label", textContent: criterion.label }),
         el("span", { className: "rb-criterion-control" }, [criterionControl(criterion)]),
         el("span", { className: "rb-row-tools" }, [iconButton("close", `Remove ${criterion.label}`, { removeCriterion: key }, "is-danger")]),
@@ -688,7 +803,7 @@
   // A saved report counts as changed when its setup, name or header choices differ from what was saved.
   const signature = (name = state.saved?.report_name, branding = state.branding) =>
     JSON.stringify({ ...currentDefinition(), name, branding });
-  const markSaved = () => { state.savedSignature = signature(); };
+  const markSaved = () => { state.savedSignature = signature(); showUnsaved(); };
 
   function renderFinish() {
     $("[data-step-panel='5'] [data-open-modal='share']").hidden = !ownsSaved();
@@ -960,7 +1075,7 @@
 
   // ---- Saved reports ------------------------------------------------------------
 
-  async function openSaved(reportId, { edit = false } = {}) {
+  async function openSaved(reportId, { edit = false, step = null } = {}) {
     showError(1);
     try {
       const saved = (await getJson(`/common/report-builder/saved/${encodeURIComponent(reportId)}`)).report;
@@ -979,7 +1094,7 @@
       state.branding = normalizeBranding(saved.branding_json);
       markSaved();
       invalidate();
-      goTo(edit ? 2 : 4);
+      goTo(step || (edit ? 2 : 4));
     } catch (error) {
       showError(1, error.message);
     }
@@ -1077,6 +1192,11 @@
       renderColumns();
       return renderCriteria();
     }
+    if (dataset.keepChanges !== undefined) return keepChanges(target);
+    if (dataset.discardChanges !== undefined) {
+      // Back to the report as it was saved, on the same step.
+      return openSaved(state.saved.report_id, { step: state.step });
+    }
     if (dataset.toggleGroup) {
       if (openGroups.has(dataset.toggleGroup)) openGroups.delete(dataset.toggleGroup); else openGroups.add(dataset.toggleGroup);
       renderColumns();
@@ -1131,6 +1251,8 @@
     invalidate();
     renderCriteria();
   });
+  setupReorder($("#rb-selected-columns"));
+  setupReorder($("#rb-selected-criteria"));
   $("#rb-retry").addEventListener("click", () => runReport(state.lastRunPage || 1));
   $("#rb-prev").addEventListener("click", () => runReport(state.page - 1));
   $("#rb-next").addEventListener("click", () => runReport(state.page + 1));

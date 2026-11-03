@@ -85,29 +85,6 @@ const STUDENT_JOINS = {
     ) arch ON TRUE`,
 };
 
-// Audit: what the activity log recorded about a row's record (who changed it
-// last, when, what, and how often), read once per row through a join named
-// "audit". Only log entries linked to the record count.
-function auditJoin(recordTypes, idExpression) {
-  // One pass over the school's log ($1 = organization id), grouped by record.
-  return `LEFT JOIN (
-      SELECT l.record_id, COUNT(*) AS changes, MAX(l.created_at) AS last_at, MIN(l.created_at) AS first_at,
-             (ARRAY_AGG(l.user_name ORDER BY l.created_at DESC))[1] AS last_by,
-             (ARRAY_AGG(CONCAT_WS(': ', l.action_type, NULLIF(LEFT(l.description, 120), '')) ORDER BY l.created_at DESC))[1] AS last_action
-        FROM organization_activity_logs l
-       WHERE l.organization_id = $1 AND l.record_type IN (${recordTypes.map((t) => `'${t}'`).join(", ")})
-         AND l.record_id IS NOT NULL
-       GROUP BY l.record_id
-    ) audit ON audit.record_id = (${idExpression})::text`;
-}
-const AUDIT_COLUMNS = {
-  audit_last_at: { label: "Last changed", expression: "audit.last_at", type: "datetime", group: "Audit", join: "audit" },
-  audit_last_by: { label: "Last changed by", expression: "audit.last_by", group: "Audit", join: "audit" },
-  audit_last_action: { label: "Last change", expression: "audit.last_action", group: "Audit", join: "audit" },
-  audit_first_at: { label: "First recorded", expression: "audit.first_at", type: "datetime", group: "Audit", join: "audit" },
-  audit_count: { label: "Changes recorded", expression: "COALESCE(audit.changes, 0)", type: "number", group: "Audit", join: "audit" },
-};
-
 // Every report about students offers these (a report's own column with the
 // same key wins).
 const STUDENT_COLUMNS = {
@@ -120,7 +97,6 @@ const STUDENT_COLUMNS = {
   email: { label: "Student email", expression: "s.email" },
   hometown: { label: "Hometown", expression: "s.hometown" },
   address: { label: "Home address", expression: "s.address" },
-  ...AUDIT_COLUMNS,
 };
 
 const PARENT_COLUMNS = {
@@ -337,18 +313,17 @@ const countedCriteria = (withSubjects) => [
   // Each assessment within its subject ("Mathematics › Midterm Exam"), so picking
   // subjects first narrows this list to their assessments.
   selectCriterion("assessments", "Assessments counted", "NULL",
-    `SELECT DISTINCT TRIM(su.subject_name) || ' › ' || TRIM(a.title) AS value, TRIM(su.subject_name) || ' › ' || TRIM(a.title) AS label
+    `SELECT TRIM(su.subject_name) || ' › ' || TRIM(a.title) AS value, TRIM(su.subject_name) || ' › ' || TRIM(a.title) AS label,
+            STRING_AGG(DISTINCT a.class_id::text, ',') AS classes, STRING_AGG(DISTINCT a.term_id::text, ',') AS terms
        FROM assessments a JOIN subjects su ON su.subject_id = a.subject_id AND su.organization_id = a.organization_id
       WHERE a.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score' AND NULLIF(TRIM(a.title), '') IS NOT NULL
+      GROUP BY 1, 2
       ORDER BY 1 LIMIT 1000`,
-    { group: "Scoring", inFrom: true, dependsOn: "subjects" }),
+    { group: "Scoring", inFrom: true, dependsOn: ["subjects", "class", "term"] }),
   selectCriterion("categories", "Categories counted", "NULL",
     "SELECT DISTINCT COALESCE(NULLIF(TRIM(category), ''), 'Other') AS value, COALESCE(NULLIF(TRIM(category), ''), 'Other') AS label FROM assessments WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 50",
     { group: "Scoring", inFrom: true }),
 ];
-const ASSESSMENT_TITLES_SQL = `SELECT DISTINCT COALESCE(NULLIF(TRIM(title), ''), 'Untitled') AS name FROM assessments
-   WHERE organization_id = $1 AND obsolete_at IS NULL AND COALESCE(entry_mode, 'score') = 'score' ORDER BY 1 LIMIT 80`;
-
 function subjectTotals(bind, criteria) {
   const scope = (alias) => [
     criteria.class ? `AND ${alias}.class_id = ANY(${bind(criteria.class)}::int[])` : "",
@@ -372,7 +347,7 @@ function subjectTotals(bind, criteria) {
            LIMIT 1)`
       : `${Number(scale)}::numeric`;
   return `(
-      SELECT r.organization_id, r.student_id, r.class_id, r.term_id, r.subject_id, r.categories, ti.titles,
+      SELECT r.organization_id, r.student_id, r.class_id, r.term_id, r.subject_id, r.categories,
              CASE WHEN b.base IS NULL THEN r.raw_total
                   ELSE LEAST(b.base, r.scaled_sum / NULLIF(r.total_weight, 0) * b.base) END AS total,
              COALESCE(b.base, mx.max_total) AS max_total, sub.subject_name,
@@ -408,19 +383,6 @@ function subjectTotals(bind, criteria) {
            GROUP BY 1, 2, 3, 4, 5
         ) r
         LEFT JOIN LATERAL (SELECT ${base} AS base) b ON TRUE
-        -- Each assessment's score (by title) for the student in this subject.
-        LEFT JOIN (
-          SELECT t.student_id, t.class_id, t.term_id, t.subject_id, JSONB_OBJECT_AGG(t.title, t.score) AS titles
-            FROM (
-              SELECT ar.student_id, ar.class_id, ar.term_id, a.subject_id, COALESCE(NULLIF(TRIM(a.title), ''), 'Untitled') AS title, SUM(ar.score) AS score
-                FROM assessment_results ar
-                JOIN assessments a ON a.assessment_id = ar.assessment_id AND a.organization_id = ar.organization_id
-               WHERE ar.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score'
-                 ${scope("ar")} ${counted("a")}
-               GROUP BY 1, 2, 3, 4, 5
-            ) t
-           GROUP BY 1, 2, 3, 4
-        ) ti ON ti.student_id = r.student_id AND ti.class_id = r.class_id AND ti.term_id = r.term_id AND ti.subject_id = r.subject_id
         LEFT JOIN (
           SELECT a3.class_id, a3.term_id, a3.subject_id, SUM(a3.max_score) AS max_total
             FROM assessments a3
@@ -699,7 +661,6 @@ const REPORTS = {
             SELECT ss.organization_id, ss.student_id, ss.class_id, ss.term_id,
                    COUNT(*) AS subjects, SUM(ss.total) AS total, SUM(ss.max_total) AS max_total,
                    JSONB_OBJECT_AGG(ss.subject_name, ss.total) AS subject_totals,
-                   JSONB_AGG(ss.titles) FILTER (WHERE ss.titles IS NOT NULL) AS title_list,
                    (ARRAY_AGG(ss.subject_name ORDER BY ss.total / NULLIF(ss.max_total, 0) DESC NULLS LAST))[1] AS best_subject,
                    (ARRAY_AGG(ss.subject_name ORDER BY ss.total / NULLIF(ss.max_total, 0) ASC NULLS LAST))[1] AS weakest_subject
               FROM ${subjectTotals(bind, criteria)}
@@ -771,12 +732,11 @@ const REPORTS = {
     ],
     // Each subject as its own column, and the school's own remark types.
     async extend(db, organizationId) {
-      const [subjects, remarkTypes, titles] = await Promise.all([
+      const [subjects, remarkTypes] = await Promise.all([
         db.query(`SELECT DISTINCT TRIM(subject_name) AS name FROM subjects
                    WHERE organization_id = $1 AND obsolete_at IS NULL AND NULLIF(TRIM(subject_name), '') IS NOT NULL
                    ORDER BY 1 LIMIT 150`, [organizationId]),
         customRemarkTypes(db, organizationId),
-        db.query(ASSESSMENT_TITLES_SQL, [organizationId]),
       ]);
       const columns = {};
       const criteria = [];
@@ -787,11 +747,6 @@ const REPORTS = {
       });
       subjects.rows.forEach(({ name }) => {
         columns[`subject_${shortHash(name)}`] = { label: name, expression: `ROUND((m.subject_totals ->> ${sqlText(name)})::numeric, 2)`, type: "number", group: "Subject scores" };
-      });
-      // Each assessment (e.g. "Midterm"), added up across the subjects counted.
-      titles.rows.forEach(({ name }) => {
-        columns[`assessment_${shortHash(name)}`] = { label: name, type: "number", group: "Assessment scores",
-          expression: `(SELECT ROUND(SUM((x ->> ${sqlText(name)})::numeric), 2) FROM JSONB_ARRAY_ELEMENTS(m.title_list) x)` };
       });
       return { columns, criteria };
     },
@@ -809,8 +764,11 @@ const REPORTS = {
       JOIN students s ON s.student_id = ss.student_id AND s.organization_id = ss.organization_id
       LEFT JOIN classes c ON c.class_id = ss.class_id AND c.organization_id = ss.organization_id
       LEFT JOIN terms t ON t.term_id = ss.term_id AND t.organization_id = ss.organization_id
+      -- Saved report-card positions hold for the normal calculation only; with
+      -- scaling or chosen assessments/categories the position comes from these scores.
       LEFT JOIN student_term_positions stp ON stp.organization_id = ss.organization_id AND stp.student_id = ss.student_id
         AND stp.subject_id = ss.subject_id AND stp.term_id = ss.term_id
+        AND ${scaleValue(criteria.scale) || criteria.assessments || criteria.categories ? "FALSE" : "TRUE"}
       ${gradeBand("ss", "ss.total * 100.0 / NULLIF(ss.max_total, 0)")}`,
     joins: STUDENT_JOINS,
     defaultColumns: ["subject_name", "subject_position", "student_name", "class_name", "total", "max_total", "percentage", "grade", "remark"],
@@ -855,21 +813,14 @@ const REPORTS = {
     ],
     // A score column for each assessment category the school uses (e.g. Class work, Exams).
     async extend(db, organizationId) {
-      const [categories, titles] = await Promise.all([
-        db.query(
-          `SELECT DISTINCT COALESCE(NULLIF(TRIM(category), ''), 'Other') AS name FROM assessments
-            WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 50`,
-          [organizationId]
-        ),
-        db.query(ASSESSMENT_TITLES_SQL, [organizationId]),
-      ]);
+      const categories = await db.query(
+        `SELECT DISTINCT COALESCE(NULLIF(TRIM(category), ''), 'Other') AS name FROM assessments
+          WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY 1 LIMIT 50`,
+        [organizationId]
+      );
       const columns = {};
       categories.rows.forEach(({ name }) => {
         columns[`category_${shortHash(name)}`] = { label: name, expression: `ROUND((ss.categories ->> ${sqlText(name)})::numeric, 2)`, type: "number", group: "Category scores" };
-      });
-      // Each assessment's score in this subject (e.g. "Midterm").
-      titles.rows.forEach(({ name }) => {
-        columns[`assessment_${shortHash(name)}`] = { label: name, expression: `ROUND((ss.titles ->> ${sqlText(name)})::numeric, 2)`, type: "number", group: "Assessment scores" };
       });
       return { columns, criteria: [] };
     },
@@ -1030,7 +981,6 @@ const REPORTS = {
       },
       portal_login: { label: "Portal login", expression: "COALESCE(portal.login_email, portal.login_phone)" },
       created_at: { label: "Added", expression: "gp.created_at", type: "datetime" },
-      ...AUDIT_COLUMNS,
     },
     criteria: [
       nameCriterion("search", "Parent name", fieldsMatch([fullName("gp"), "CONCAT_WS(' ', gp.last_name, gp.first_name)"])),
@@ -1223,7 +1173,6 @@ const REPORTS = {
       last_login: { label: "Last login", expression: "act.last_login", type: "datetime", join: "activity" },
       last_active: { label: "Last active", expression: "act.last_active", type: "datetime", join: "activity" },
       status: { label: "Status", expression: "CASE WHEN COALESCE(u.on_hold, FALSE) THEN 'On hold' ELSE 'Active' END" },
-      ...AUDIT_COLUMNS,
     },
     criteria: [
       nameCriterion("search", "Name", fieldsMatch([fullName("u"), "CONCAT_WS(' ', u.last_name, u.first_name)"])),
@@ -1455,6 +1404,60 @@ const REPORTS = {
       dateCriterion("Date between", "ev.event_date"),
     ],
   },
+  // Audit: one row per record the log mentions (student, user, payment…), with
+  // how often it changed, when, by whom and what last happened.
+  activity_audit: {
+    title: "Activity log",
+    variant: "Audit by record",
+    permission: "manage_reports",
+    organizationExpression: "au.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["au.record_type", "au.record_key"],
+    from: `FROM (
+        SELECT l.organization_id, COALESCE(NULLIF(TRIM(l.record_type), ''), 'Other') AS record_type,
+               COALESCE(NULLIF(l.record_id, ''), NULLIF(TRIM(l.record_label), ''), 'Not linked to a record') AS record_key,
+               (ARRAY_AGG(NULLIF(TRIM(l.record_label), '') ORDER BY l.created_at DESC) FILTER (WHERE NULLIF(TRIM(l.record_label), '') IS NOT NULL))[1] AS record_label,
+               NULLIF(l.record_id, '') AS record_id,
+               COUNT(*) AS changes, COUNT(DISTINCT l.user_name) AS people,
+               MIN(l.created_at) AS first_at, MAX(l.created_at) AS last_at,
+               (ARRAY_AGG(l.user_name ORDER BY l.created_at DESC))[1] AS last_by,
+               (ARRAY_AGG(l.user_id ORDER BY l.created_at DESC))[1] AS last_by_id,
+               (ARRAY_AGG(l.action_type ORDER BY l.created_at DESC))[1] AS last_action,
+               (ARRAY_AGG(LEFT(l.description, 200) ORDER BY l.created_at DESC))[1] AS last_details,
+               STRING_AGG(DISTINCT l.module_name, '; ') AS areas
+          FROM organization_activity_logs l
+         WHERE l.organization_id = $1
+         GROUP BY l.organization_id, 2, 3, 5
+      ) au`,
+    defaultColumns: ["record_type", "record_label", "changes", "last_at", "last_by", "last_action"],
+    defaultSort: { key: "last_at", dir: "desc" },
+    columns: {
+      record_type: { label: "Record type", expression: "au.record_type", group: "Record" },
+      record_label: { label: "Record", expression: "COALESCE(au.record_label, au.record_key)", group: "Record" },
+      record_id: { label: "Record ID", expression: "au.record_id", group: "Record" },
+      areas: { label: "Area", expression: "au.areas", group: "Record" },
+      changes: { label: "Changes", expression: "au.changes", type: "number", group: "Audit" },
+      people: { label: "People who changed it", expression: "au.people", type: "number", group: "Audit" },
+      first_at: { label: "First recorded", expression: "au.first_at", type: "datetime", group: "Audit" },
+      last_at: { label: "Last changed", expression: "au.last_at", type: "datetime", group: "Audit" },
+      last_by: { label: "Last changed by", expression: "au.last_by", group: "Audit" },
+      last_action: { label: "Last action", expression: "au.last_action", group: "Audit" },
+      last_details: { label: "Last change details", expression: "au.last_details", group: "Audit" },
+    },
+    criteria: [
+      textCriterion("record", "Record (student, class…)", fieldsMatch(["au.record_label", "au.record_key"]), { group: "Record" }),
+      selectCriterion("record_type", "Record type", "au.record_type",
+        "SELECT DISTINCT COALESCE(NULLIF(TRIM(record_type), ''), 'Other') AS value, COALESCE(NULLIF(TRIM(record_type), ''), 'Other') AS label FROM organization_activity_logs WHERE organization_id = $1 ORDER BY 1 LIMIT 100", { group: "Record" }),
+      selectCriterion("employee", "Last changed by", "au.last_by_id",
+        "SELECT user_id::text AS value, TRIM(CONCAT_WS(' ', first_name, last_name)) || COALESCE(' · ' || NULLIF(account_type::text, ''), '') AS label FROM users WHERE organization_id = $1 ORDER BY 2 LIMIT 1000", { group: "Audit" }),
+      choiceCriterion("changes", "Number of changes", [
+        { value: "1", label: "Changed once", sql: "au.changes = 1" },
+        { value: "2to5", label: "2 to 5 times", sql: "au.changes BETWEEN 2 AND 5" },
+        { value: "6plus", label: "6 or more times", sql: "au.changes >= 6" },
+      ], { group: "Audit" }),
+      dateCriterion("Last changed between", "au.last_at"),
+    ],
+  },
   activity_log: {
     title: "Activity log",
     variant: "Activity log",
@@ -1509,7 +1512,7 @@ const FAMILIES = [
   { key: "staff", group: "School", title: "Staff", description: "Staff contacts, roles, classes and tasks", views: ["staff", "staff_tasks"] },
   { key: "fees", group: "School", title: "Fees & payments", description: "Balances owed and payments received", views: ["fee_balances", "payments"] },
   { key: "school_updates", group: "School", title: "Announcements & events", description: "Posts to staff and parents, and calendar events", views: ["announcements", "events"] },
-  { key: "activity_log", group: "School", title: "Activity log", description: "Who did what in the app, and when", views: ["activity_log"] },
+  { key: "activity_log", group: "School", title: "Activity log", description: "Who did what in the app, and when", views: ["activity_log", "activity_audit"] },
 ];
 const GROUP_ORDER = ["Students", "Parents & messages", "School"];
 
@@ -1725,18 +1728,6 @@ Object.values(REPORTS).forEach((report) => {
     ],
     where: () => null,
   });
-});
-
-// Audit join per kind of record (see AUDIT_COLUMNS).
-Object.values(REPORTS).forEach((report) => {
-  if (!report.columns || !report.columns.audit_count) return;
-  const isParent = report === REPORTS.parents, isStaff = report === REPORTS.staff;
-  report.joins = {
-    ...(report.joins || {}),
-    audit: isParent ? auditJoin(["Guardian Record"], "gp.guardian_id")
-      : isStaff ? auditJoin(["User Record"], "u.user_id")
-      : auditJoin(["Student Record", "Students"], "s.student_id"),
-  };
 });
 
 // One criterion per key: a report's own definition (listed after the shared

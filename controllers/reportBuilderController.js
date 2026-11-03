@@ -599,7 +599,13 @@ function reportBuilderController(db, options = {}) {
         withOptions.forEach((criterion, index) => {
           let rows = results[index].rows
             .filter((row) => row.value !== null && row.value !== "")
-            .map((row) => ({ value: String(row.value), label: String(row.label ?? row.value) }));
+            .map((row) => ({
+              value: String(row.value),
+              label: String(row.label ?? row.value),
+              // Assessments say which classes and terms they belong to, so the list can follow those choices.
+              ...(row.classes ? { classes: String(row.classes).split(",") } : {}),
+              ...(row.terms ? { terms: String(row.terms).split(",") } : {}),
+            }));
           // Text and WhatsApp only appear once the school has switched them on.
           if (criterion.messagingChannels) {
             rows = rows.filter((row) =>
