@@ -129,6 +129,7 @@ const fetchNotifCount = async (req, res, next) => {
         recipientType: 'staff',
         recipientId:   uId,
         orgId:         uOrg,
+        timeZone:      require('../utils/localDate').timeZoneOf(req),
       });
       res.locals.notifUnreadCount = count;
     }

@@ -352,6 +352,8 @@
     width: fit-content;
   }
   .drv-route-eta strong { font-size: 0.8rem; }
+  /* On the map, clear of the locate button (bottom-left) and the Go button (right). */
+  .drv-map-wrap .drv-route-eta { position: absolute; left: 62px !important; right: auto !important; bottom: 14px !important; z-index: 500; margin: 0; background: #fff; box-shadow: 0 2px 10px rgba(15, 23, 42, .18); }
 
   .drv-info-grid {
     display: grid;
@@ -454,17 +456,31 @@
       padding: 0 16px;
     }
   }
+  /* Simple driver screen: chips, icon buttons, and a big map while driving. */
+  .drv-chip { display: inline-flex; align-items: center; gap: 4px; margin: 4px 4px 0 0; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-size: 0.85rem; font-weight: 700; }
+  .drv-btn svg { vertical-align: -4px; margin-right: 4px; }
+  .drv-students > summary { list-style: none; cursor: pointer; }
+  .drv-students > summary::-webkit-details-marker { display: none; }
+  .drv-students > summary h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+  .drv-count { padding: 1px 9px; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: 0.8rem; }
+  .drv-students[open] > summary { margin-bottom: 12px; }
+  #drv-map { height: min(62vh, 620px); }
+  @media (max-width: 960px) { .drv-page.is-driving .drv-grid > .drv-map-card { order: -1; } }
+  .drv-page.is-driving #drv-map { height: min(74vh, 760px); }
+  @media (max-width: 960px) { .drv-page.is-driving .drv-students { display: none; } }
+  .drv-recenter { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 800; display: inline-flex; align-items: center; gap: 6px; width: auto !important; margin: 0; padding: 10px 18px; border: 0; border-radius: 999px; background: #1a73e8; color: #fff; font: 700 14px/1 system-ui, sans-serif; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3); cursor: pointer; }
+  .drv-recenter[hidden] { display: none; }
 </style>
 
 <div class="drv-page">
   <div class="drv-hero">
     <div>
-      <h1>Welcome, <%= session.firstName || 'Driver' %></h1>
+      <h1>Hi, <%= session.firstName || 'Driver' %></h1>
       <p>
         <% if (driverBus) { %>
-          Assigned Bus: <strong><%= driverBus.bus_number %></strong><% if (driverBus.license_plate) { %> · <%= driverBus.license_plate %><% } %>
+          <span class="drv-chip">🚌 <%= driverBus.bus_number %></span><% if (driverBus.license_plate) { %> <span class="drv-chip"><%= driverBus.license_plate %></span><% } %><% if (driverBus.capacity) { %> <span class="drv-chip">👥 <%= driverBus.capacity %></span><% } %>
         <% } else { %>
-          No bus assigned yet — contact your administrator.
+          No bus yet. Ask your school to assign one.
         <% } %>
       </p>
     </div>
@@ -480,12 +496,12 @@
     <div style="display:grid; gap:20px;">
       <div class="drv-card">
         <% if (!driverBus) { %>
-          <p class="drv-empty">You haven't been assigned a bus yet. Once your administrator links you to a bus in Transportation Management, trip controls will appear here.</p>
+          <p class="drv-empty">No bus assigned yet.</p>
         <% } else if (!(assignedRoutes || []).length) { %>
-          <p class="drv-empty">You don't have a route assigned yet. Ask your administrator to set your "Assigned Route" in Transportation Management, or add you to a schedule.</p>
+          <p class="drv-empty">No route assigned yet.</p>
         <% } else { %>
           <div class="drv-field" id="drv-route-field" style="<%= activeTrip ? 'display:none;' : '' %>">
-            <label for="drv-route-select">Your Assigned Route</label>
+            <label for="drv-route-select">Route</label>
             <select id="drv-route-select">
               <% (assignedRoutes || []).forEach(function(route, idx) { %>
                 <option value="<%= route.route_id %>" <%= idx === 0 ? 'selected' : '' %>><%= route.route_name %></option>
@@ -494,34 +510,19 @@
           </div>
 
           <button type="button" class="drv-btn drv-btn--start" id="drv-start-btn" style="<%= activeTrip ? 'display:none;' : '' %>">
-            Start Trip
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg> Start trip
           </button>
           <button type="button" class="drv-btn drv-btn--end" id="drv-end-btn" style="<%= activeTrip ? '' : 'display:none;' %>">
-            End Trip
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> End trip
           </button>
 
           <p class="drv-note" id="drv-trip-note" style="display:none;"></p>
         <% } %>
       </div>
 
-      <% if (driverBus) { %>
-      <div class="drv-card">
-        <h2>Your Bus</h2>
-        <div class="drv-info-grid">
-          <div class="drv-info-item">Bus Number<strong><%= driverBus.bus_number || '-' %></strong></div>
-          <div class="drv-info-item">Status<strong><%= String(driverBus.status || '-').replaceAll('_', ' ') %></strong></div>
-          <div class="drv-info-item">Plate<strong><%= driverBus.license_plate || '-' %></strong></div>
-          <div class="drv-info-item">Capacity<strong><%= driverBus.capacity || '-' %></strong></div>
-          <% if (driverBus.vehicle_make || driverBus.vehicle_model) { %>
-          <div class="drv-info-item">Vehicle<strong><%= [driverBus.vehicle_make, driverBus.vehicle_model].filter(Boolean).join(' ') || '-' %></strong></div>
-          <div class="drv-info-item">Color<strong><%= driverBus.vehicle_color || '-' %></strong></div>
-          <% } %>
-        </div>
-      </div>
-      <% } %>
 
-      <div class="drv-card">
-        <h2>My Students (<%= (students || []).length %>)</h2>
+      <details class="drv-card drv-students">
+        <summary><h2>Students <span class="drv-count"><%= (students || []).length %></span></h2></summary>
         <% if (!(students || []).length) { %>
           <p class="drv-empty">No students are assigned to your bus or classes yet.</p>
         <% } else { %>
@@ -542,11 +543,10 @@
             <% }) %>
           </ul>
         <% } %>
-      </div>
+      </details>
     </div>
 
     <div class="drv-card drv-map-card" id="drv-map-card">
-      <h2 class="drv-map-title">Live Map</h2>
       <div class="drv-map-wrap" id="drv-map-wrap">
         <div class="drv-next-stop" id="drv-next-stop-card" style="display:none;">
           <div>
@@ -561,19 +561,16 @@
         <button type="button" class="drv-map-maximize" id="drv-map-maximize" aria-label="Maximize map" title="Maximize map">⛶</button>
         <div id="drv-map"></div>
         <%
-          var navApps = [];
+          // Google Maps and Apple Maps are always offered; Waze when the school turned it on.
           var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
-          if (navIntegration.googleMapsNavActivated) {
-            navApps.push({ key: 'google', label: 'Google Maps' });
-            navApps.push({ key: 'waze', label: 'Waze' });
-          }
-          if (navIntegration.appleMapsNavActivated) navApps.push({ key: 'apple', label: 'Apple Maps' });
+          var navApps = [{ key: 'google', label: 'Google Maps' }, { key: 'apple', label: 'Apple Maps' }];
+          if (navIntegration.googleMapsNavActivated) navApps.push({ key: 'waze', label: 'Waze' });
         %>
         <% if (navApps.length) { %>
           <div class="drv-nav-launch" id="drv-nav-launch">
-            <button type="button" class="drv-nav-btn" id="drv-nav-btn">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>
-              Navigate
+            <button type="button" class="drv-nav-btn" id="drv-nav-btn" aria-label="Open the route in a maps app">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>
+              Go
             </button>
             <div class="drv-nav-menu" id="drv-nav-menu" hidden>
               <% navApps.forEach(function (app) { %>
@@ -583,21 +580,15 @@
           </div>
         <% } %>
         <div class="drv-route-eta" id="drv-route-eta">
-          <span>Est. time to final stop:</span>
+          <span>🏁</span>
           <strong id="drv-route-eta-value">-</strong>
-        </div>
-        <div class="drv-map-legend">
-          <span><span class="drv-legend-emoji">🚌</span> You</span>
-          <span><span class="drv-legend-emoji">🛣️</span> Remaining route</span>
-          <span><span class="drv-legend-emoji">✅</span> Already covered</span>
-          <span><span class="drv-legend-emoji">📍</span> Student stop</span>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="/js/managiraMaps.js"></script>
+<script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <script>
   (function () {
     var driverBus = <%- JSON.stringify(driverBus || null) %>;
@@ -636,10 +627,31 @@
     // While a trip is active, the camera follows the driver instead of
     // fitting the whole remaining route — like turn-by-turn navigation, so
     // the driver marker never scrolls off-screen as they move.
-    var isFollowingDriver = false;
+    var isFollowingDriver = Boolean(activeTripId);
     var lastHeadingDeg = null;
     var FOLLOW_ZOOM = 17;
     var FOLLOW_LOOKAHEAD_M = 70; // how far ahead of the driver the camera centers
+    // Driving view: about half a mile of road ahead, the bus low on the
+    // screen. Dragging or zooming pauses it until the driver taps Re-center.
+    var AHEAD_M = 805;
+    var followPaused = false;
+    var movingCamera = false;
+    function driveView(lat, lng) {
+      var size = map.getSize();
+      var spanM = AHEAD_M / 0.72; // the bus sits about a quarter up from the bottom
+      var metersPerPx = spanM / Math.max(240, size.y);
+      var zoom = Math.log2((156543.03 * Math.cos((lat * Math.PI) / 180)) / metersPerPx);
+      zoom = Math.max(14, Math.min(18, Math.round(zoom * 4) / 4));
+      var center = projectForward(lat, lng, lastHeadingDeg, spanM * 0.25);
+      movingCamera = true;
+      map.setView(center, zoom, { animate: true });
+      setTimeout(function () { movingCamera = false; }, 400);
+    }
+    function setFollowPaused(paused) {
+      followPaused = paused;
+      var b = document.getElementById('drv-recenter');
+      if (b) b.hidden = !(paused && isFollowingDriver);
+    }
 
     var routeSelect = document.getElementById('drv-route-select');
     var routeField = document.getElementById('drv-route-field');
@@ -931,12 +943,7 @@
           ? [Number(remainingStops[0].latitude), Number(remainingStops[0].longitude)]
           : (currentRouteDestination ? [currentRouteDestination.latitude, currentRouteDestination.longitude] : null);
 
-        if (followTarget) {
-          map.fitBounds([[lat, lng], followTarget], { padding: [70, 70], maxZoom: FOLLOW_ZOOM, animate: true });
-        } else {
-          var followCenter = projectForward(lat, lng, lastHeadingDeg, FOLLOW_LOOKAHEAD_M);
-          map.setView(followCenter, FOLLOW_ZOOM, { animate: true });
-        }
+        if (!followPaused) driveView(lat, lng);
       } else if (bounds.length) {
         map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
       }
@@ -1018,6 +1025,23 @@
         map.attributionControl.setPrefix(false);
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
+        // The driver taking over the map pauses the driving view.
+        map.on('dragstart', function () { if (isFollowingDriver) setFollowPaused(true); });
+        map.on('zoomstart', function () { if (isFollowingDriver && !movingCamera) setFollowPaused(true); });
+        if (!document.getElementById('drv-recenter')) {
+          var recenter = document.createElement('button');
+          recenter.type = 'button';
+          recenter.id = 'drv-recenter';
+          recenter.className = 'drv-recenter';
+          recenter.hidden = true;
+          recenter.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg><span>Re-center</span>';
+          recenter.addEventListener('click', function () {
+            setFollowPaused(false);
+            var at = busMarker ? busMarker.getLatLng() : null;
+            if (at) driveView(at.lat, at.lng);
+          });
+          mapEl.appendChild(recenter);
+        }
         attachSmartMapControls(map, L, {
           getLiveLatLng: function () { return busMarker ? busMarker.getLatLng() : null; },
         });
@@ -1087,6 +1111,8 @@
     }
 
     function buildDriverIcon(L) {
+      // The driver's bus, pointing where they're heading (same vehicle families see).
+      if (window.ManagiraMaps && window.ManagiraMaps.busIcon) return window.ManagiraMaps.busIcon({ heading: lastHeadingDeg });
       // A small, unmistakable "you are here" badge — the driver's own photo
       // in a tiny ring if they've uploaded one, otherwise a plain dot.
       var size = 30;
@@ -1105,6 +1131,7 @@
         busMarker = window.L.marker([lat, lng], { title: 'Your bus', icon: buildDriverIcon(window.L) }).addTo(map).bindPopup('Your current position');
       } else {
         busMarker.setLatLng([lat, lng]);
+        busMarker.setIcon(buildDriverIcon(window.L));
       }
       redrawRoute(lat, lng);
     }
@@ -1125,6 +1152,9 @@
     }
 
     function setTripUiState(active) {
+      var page = document.querySelector('.drv-page');
+      if (page) page.classList.toggle('is-driving', Boolean(active));
+      if (map) setTimeout(function () { map.invalidateSize(); }, 250);
       if (routeField) routeField.style.display = active ? 'none' : '';
       if (startBtn) startBtn.style.display = active ? 'none' : '';
       if (endBtn) endBtn.style.display = active ? '' : 'none';
@@ -1172,7 +1202,7 @@
     function startLocationLoop() {
       if (locationTimer) window.clearInterval(locationTimer);
       postLiveLocation();
-      locationTimer = window.setInterval(postLiveLocation, 15000);
+      locationTimer = window.setInterval(postLiveLocation, 5000); // every 5 s, so families see the bus move smoothly
     }
 
     function stopLocationLoop() {
@@ -1208,6 +1238,7 @@
 
           activeTripId = Number(result.trip.trip_id);
           isFollowingDriver = true;
+          setFollowPaused(false);
           setActiveRoute(findRoute(routeId));
           setTripUiState(true);
           startLocationLoop();
@@ -1288,9 +1319,10 @@
       if (appKey === 'waze') {
         url = 'https://waze.com/ul?ll=' + destination[0] + ',' + destination[1] + '&navigate=yes';
       } else if (appKey === 'apple') {
-        url = 'https://maps.apple.com/?daddr=' + destination[0] + ',' + destination[1] + '&dirflg=d';
+        // Every remaining stop, in order ("+to:" adds each one), then the school.
+        url = 'https://maps.apple.com/?saddr=Current%20Location&daddr=' + points.map(function (p) { return p[0] + ',' + p[1]; }).join('+to:') + '&dirflg=d';
       } else {
-        url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' +
+        url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' +
           destination[0] + ',' + destination[1];
         if (stops.length) {
           // Google supports up to 9 intermediate waypoints.

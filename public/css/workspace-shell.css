@@ -464,9 +464,9 @@ main { padding: 0 !important; max-width: none !important; }
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   border: 1px solid var(--border, #e5e7eb);
   background: #fff;
   color: #6b7280;
@@ -487,8 +487,8 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav-collapse-toggle svg,
 .management-nav-collapse-toggle svg,
 .settings-nav-collapse-toggle svg {
-  width: 16px !important;
-  height: 16px !important;
+  width: 14px !important;
+  height: 14px !important;
 }
 
 .hub-nav.is-collapsed .hub-nav-collapse-toggle,
@@ -517,6 +517,10 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav.is-collapsed .hub-nav-header h3,
 .management-nav.is-collapsed .management-nav-header h3,
 .settings-nav.is-collapsed .settings-nav-header h3,
+.hub-nav.is-collapsed .menu-arrange-btn,
+.management-nav.is-collapsed .menu-arrange-btn,
+.hub-nav.is-collapsed .menu-arrange-footer,
+.management-nav.is-collapsed .menu-arrange-footer,
 .settings-nav.is-collapsed .settings-nav-toggle,
 .settings-nav.is-collapsed .settings-nav-country-flag {
   display: none !important;

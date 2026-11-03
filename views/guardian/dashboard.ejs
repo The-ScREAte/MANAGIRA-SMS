@@ -984,7 +984,8 @@
     </div>
   </div>
 </div>
-<script src="/js/managiraMaps.js"></script>
+<script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
+<script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
 <script>
   function ensureGuardianLeafletAssets() {
     if (!document.getElementById('leaflet-css-guardian-dashboard')) {
@@ -1193,6 +1194,10 @@
     if (event) {
       event.preventDefault();
       event.stopPropagation();
+    }
+    // The live bus tracker (public/js/busTracker.js).
+    if (window.BusTracker && trigger && trigger.getAttribute('data-student-id')) {
+      return window.BusTracker.open(trigger.getAttribute('data-student-id'), String(trigger.getAttribute('data-child-name') || '').trim());
     }
     const modal = document.getElementById('guardianTransportModal');
     const titleEl = document.getElementById('guardianTransportModalTitle');

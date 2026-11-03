@@ -1,13 +1,12 @@
 'use strict';
 
 const { renderCleanEmail, sendEmailInBackground, escapeHtml } = require('./emailHelper');
+const { timeZoneOf, dateKeyIn } = require('./localDate');
 
 let schemaReady = false;
 let birthdaySchemaReady = false;
 const birthdaySyncCache = new Map();
-const birthdayReadState = new Map();
-const birthdayDismissState = new Map();
-const birthdayEmailState = new Map();
+const birthdayEmailState = new Map(); // emails already recorded as sent (birthday_email_log), to skip the database
 const organizationNameCache = new Map();
 
 function startOfUtcDay(dateValue) {
@@ -129,26 +128,33 @@ function shouldSyncBirthdays(orgId) {
   return true;
 }
 
-function getRecipientStateSet(map, { recipientType, recipientId, orgId }) {
-  const key = `${recipientType}:${recipientId}:${orgId}`;
-  if (!map.has(key)) map.set(key, new Set());
-  return map.get(key);
+// Birthday items are built on the fly; who has read or dismissed one is
+// saved (birthday_notification_marks), so it stays that way after a restart.
+async function loadBirthdayMarks(db, { recipientType, recipientId, orgId }) {
+  const rows = (await db.query(
+    `SELECT item_id, read_at IS NOT NULL AS is_read, dismissed_at IS NOT NULL AS is_dismissed
+     FROM birthday_notification_marks
+     WHERE organization_id = $1 AND recipient_type = $2 AND recipient_id = $3`,
+    [orgId, recipientType, recipientId]
+  )).rows;
+  return {
+    read: new Set(rows.filter((r) => r.is_read).map((r) => r.item_id)),
+    dismissed: new Set(rows.filter((r) => r.is_dismissed).map((r) => r.item_id)),
+  };
 }
 
-function isBirthdayItemRead(context, itemId) {
-  return getRecipientStateSet(birthdayReadState, context).has(itemId);
-}
-
-function isBirthdayItemDismissed(context, itemId) {
-  return getRecipientStateSet(birthdayDismissState, context).has(itemId);
-}
-
-function markBirthdayItemRead(context, itemId) {
-  getRecipientStateSet(birthdayReadState, context).add(itemId);
-}
-
-function dismissBirthdayItem(context, itemId) {
-  getRecipientStateSet(birthdayDismissState, context).add(itemId);
+async function markBirthdayItems(db, { recipientType, recipientId, orgId }, itemIds, { dismiss = false } = {}) {
+  const ids = [...new Set((itemIds || []).map(String).filter((id) => id.startsWith('birthday:')))];
+  if (!ids.length || !orgId) return;
+  await ensureBirthdaySchema(db);
+  const column = dismiss ? 'dismissed_at' : 'read_at';
+  await db.query(
+    `INSERT INTO birthday_notification_marks (organization_id, recipient_type, recipient_id, item_id, ${column})
+     SELECT $1, $2, $3, item_id, NOW() FROM unnest($4::text[]) AS item_id
+     ON CONFLICT (organization_id, recipient_type, recipient_id, item_id)
+     DO UPDATE SET ${column} = COALESCE(birthday_notification_marks.${column}, NOW())`,
+    [orgId, recipientType, recipientId, ids]
+  );
 }
 
 function buildBirthdayItemId(parts) {
@@ -161,6 +167,21 @@ function buildBirthdayEmailStateKey(orgId, entityType, entityId, recipientEmail,
 
 async function ensureBirthdaySchema(db) {
   if (birthdaySchemaReady) return;
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS birthday_notification_marks (
+      organization_id INTEGER NOT NULL,
+      recipient_type VARCHAR(20) NOT NULL,
+      recipient_id INTEGER NOT NULL,
+      item_id VARCHAR(120) NOT NULL,
+      read_at TIMESTAMPTZ,
+      dismissed_at TIMESTAMPTZ,
+      PRIMARY KEY (organization_id, recipient_type, recipient_id, item_id)
+    )`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS birthday_email_log (
+      state_key VARCHAR(300) PRIMARY KEY,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
   await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE`);
   await db.query(`ALTER TABLE guardians ADD COLUMN IF NOT EXISTS date_of_birth DATE`).catch(() => {});
   await db.query(`ALTER TABLE guardian_profiles ADD COLUMN IF NOT EXISTS date_of_birth DATE`).catch(() => {});
@@ -260,7 +281,7 @@ async function createNotifications(db, list) {
   }
 }
 
-async function queueBirthdayEmailIfNeeded(opts) {
+async function queueBirthdayEmailIfNeeded(db, opts) {
   const { orgId, entityType, entityId, recipientEmail, birthdayYear, emailKind, subject, html } = opts;
   // Safety gate: birthday emails are parent/guardian-only.
   if (!['student', 'guardian'].includes(String(entityType || '').trim().toLowerCase())) return;
@@ -268,7 +289,13 @@ async function queueBirthdayEmailIfNeeded(opts) {
   if (!normalizedEmail || !subject || !html) return;
   const key = buildBirthdayEmailStateKey(orgId, entityType, entityId, normalizedEmail, birthdayYear, emailKind);
   if (birthdayEmailState.has(key)) return;
+  // Recorded first, so a restart or a second server never sends it again.
+  const inserted = await db.query(
+    'INSERT INTO birthday_email_log (state_key) VALUES ($1) ON CONFLICT (state_key) DO NOTHING RETURNING state_key',
+    [key]
+  );
   birthdayEmailState.set(key, Date.now());
+  if (!inserted.rows.length) return;
   sendEmailInBackground({ to: normalizedEmail, subject, html }, `Birthday:${emailKind}`);
 }
 
@@ -307,6 +334,9 @@ async function getDynamicBirthdayItems(db, context) {
   await ensureBirthdaySchema(db);
 
   const roleContext = await getStaffBirthdayContext(db, { recipientId, orgId });
+  const marks = await loadBirthdayMarks(db, context);
+  // "Today" where the school is, not in UTC (evenings would show tomorrow's birthdays).
+  const today = new Date(`${dateKeyIn(context.timeZone || timeZoneOf(null))}T00:00:00Z`);
   const [studentsResult, staffResult, guardianResult] = await Promise.all([
     db.query(
       `SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.class_id, c.class_name
@@ -375,14 +405,14 @@ async function getDynamicBirthdayItems(db, context) {
   const organizationName = await getOrganizationName(db, orgId);
 
   for (const student of studentsResult.rows) {
-    const info = getUpcomingBirthdayInfo(student.date_of_birth);
+    const info = getUpcomingBirthdayInfo(student.date_of_birth, today);
     if (!info || info.daysUntil !== 0) continue;
     const classId = Number(student.class_id || 0);
     if (!roleContext.isElevated && !visibleClasses.has(classId)) continue;
 
     const studentName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim();
-    const itemId = buildBirthdayItemId(['student', student.student_id, recipientId || 0]);
-    if (!isBirthdayItemDismissed(context, itemId)) {
+    const itemId = buildBirthdayItemId(['student', student.student_id, recipientId || 0, info.birthdayYear]);
+    if (!marks.dismissed.has(itemId)) {
       items.push({
         id: itemId,
         type: 'birthday_student',
@@ -390,7 +420,7 @@ async function getDynamicBirthdayItems(db, context) {
         body: `${student.class_name || 'Class student'} · ${chooseBirthdayMessage('student', `${student.student_id}:${recipientId || 0}`)}`,
         link: '/common/birthdays',
         created_at: nowIso,
-        is_read: isBirthdayItemRead(context, itemId),
+        is_read: marks.read.has(itemId),
       });
     }
 
@@ -411,7 +441,7 @@ async function getDynamicBirthdayItems(db, context) {
     ).catch(() => ({ rows: [] }));
 
     for (const row of studentGuardians.rows) {
-      await queueBirthdayEmailIfNeeded({
+      await queueBirthdayEmailIfNeeded(db, {
         orgId,
         entityType: 'student',
         entityId: Number(student.student_id),
@@ -432,11 +462,11 @@ async function getDynamicBirthdayItems(db, context) {
   }
 
   for (const staff of staffResult.rows) {
-    const info = getUpcomingBirthdayInfo(staff.date_of_birth);
+    const info = getUpcomingBirthdayInfo(staff.date_of_birth, today);
     if (!info || info.daysUntil !== 0) continue;
     const staffName = [staff.first_name, staff.last_name].filter(Boolean).join(' ').trim();
-    const itemId = buildBirthdayItemId(['staff', staff.user_id, recipientId || 0]);
-    if (!isBirthdayItemDismissed(context, itemId)) {
+    const itemId = buildBirthdayItemId(['staff', staff.user_id, recipientId || 0, info.birthdayYear]);
+    if (!marks.dismissed.has(itemId)) {
       items.push({
         id: itemId,
         type: 'birthday_staff',
@@ -444,7 +474,7 @@ async function getDynamicBirthdayItems(db, context) {
         body: `${staff.account_type || 'Staff'} · ${chooseBirthdayMessage('staff', `${staff.user_id}:${recipientId || 0}`)}`,
         link: '/common/orgDashboard',
         created_at: nowIso,
-        is_read: isBirthdayItemRead(context, itemId),
+        is_read: marks.read.has(itemId),
       });
     }
     // Intentionally do not send birthday emails to staff/teachers.
@@ -455,7 +485,7 @@ async function getDynamicBirthdayItems(db, context) {
     for (const row of guardianResult.rows) {
       const guardianId = Number(row.guardian_id || 0);
       if (!guardianId) continue;
-      const info = getUpcomingBirthdayInfo(row.date_of_birth);
+      const info = getUpcomingBirthdayInfo(row.date_of_birth, today);
       if (!info || info.daysUntil !== 0) continue;
       if (!guardianMap.has(guardianId)) {
         guardianMap.set(guardianId, {
@@ -476,7 +506,7 @@ async function getDynamicBirthdayItems(db, context) {
     for (const guardian of guardianMap.values()) {
       const guardianName = [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim();
       if (guardian.email) {
-        await queueBirthdayEmailIfNeeded({
+        await queueBirthdayEmailIfNeeded(db, {
           orgId,
           entityType: 'guardian',
           entityId: guardian.guardian_id,
@@ -500,11 +530,11 @@ async function getDynamicBirthdayItems(db, context) {
   return items.sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime());
 }
 
-async function syncBirthdayNotifications(db, { orgId }) {
+async function syncBirthdayNotifications(db, { orgId, timeZone }) {
   try {
     await ensureBirthdaySchema(db);
     if (!shouldSyncBirthdays(orgId)) return;
-    await getDynamicBirthdayItems(db, { recipientType: 'staff', recipientId: 0, orgId });
+    await getDynamicBirthdayItems(db, { recipientType: 'staff', recipientId: 0, orgId, timeZone });
   } catch (err) {
     console.error('[NotificationService] syncBirthdayNotifications failed:', err.message);
   }
@@ -632,7 +662,7 @@ async function getFeed(db, context) {
 async function dismissNotification(db, { notifId, dismisserId, recipientType = 'staff', orgId = null }) {
   try {
     if (String(notifId).startsWith('birthday:')) {
-      dismissBirthdayItem({ recipientType, recipientId: dismisserId, orgId }, String(notifId));
+      await markBirthdayItems(db, { recipientType, recipientId: dismisserId, orgId }, [notifId], { dismiss: true });
       return;
     }
     await ensureSchema(db);
@@ -666,8 +696,7 @@ async function dismissAll(db, context) {
         [orgId, recipientId]
       );
       const birthdayItems = await getDynamicBirthdayItems(db, context);
-      getRecipientStateSet(birthdayDismissState, context);
-      birthdayItems.forEach((item) => dismissBirthdayItem(context, item.id));
+      await markBirthdayItems(db, context, birthdayItems.map((item) => item.id), { dismiss: true });
     } else if (recipientType === 'guardian') {
       await db.query(
         `INSERT INTO notification_dismissals (notification_id, dismisser_id)
@@ -689,7 +718,7 @@ async function dismissAll(db, context) {
 async function markRead(db, { notifId, readerId, recipientType = 'staff', orgId = null }) {
   try {
     if (String(notifId).startsWith('birthday:')) {
-      markBirthdayItemRead({ recipientType, recipientId: readerId, orgId }, String(notifId));
+      await markBirthdayItems(db, { recipientType, recipientId: readerId, orgId }, [notifId]);
       return;
     }
     await ensureSchema(db);
@@ -723,7 +752,7 @@ async function markAllRead(db, context) {
         [orgId, recipientId]
       );
       const birthdayItems = await getDynamicBirthdayItems(db, context);
-      birthdayItems.forEach((item) => markBirthdayItemRead(context, item.id));
+      await markBirthdayItems(db, context, birthdayItems.map((item) => item.id));
     } else if (recipientType === 'guardian') {
       await db.query(
         `INSERT INTO notification_reads (notification_id, reader_id)

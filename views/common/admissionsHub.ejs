@@ -575,6 +575,8 @@
     display: none !important;
   }
 </style>
+<link rel="stylesheet" href="/css/menuArrange.css" />
+<script src="/js/menuArrange.js"></script>
 <link rel="stylesheet" href="/css/workspace-shell.css" />
 
 <div class="hub-nav-overlay" id="hub-nav-overlay"></div>
@@ -593,12 +595,13 @@
     <nav class="hub-nav" id="hub-nav">
       <div class="hub-nav-header">
         <h3>Admissions</h3>
+        <button class="menu-arrange-btn" type="button" data-arrange-toggle="admissions" aria-label="Arrange this menu" title="Arrange this menu"></button>
         <button class="hub-nav-collapse-toggle" id="hub-nav-collapse-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg>
         </button>
         <button class="hub-nav-close" id="hub-nav-close">&times;</button>
       </div>
-      <ul class="nav-list">
+      <ul class="nav-list" data-arrange-menu="admissions" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>">
         <li>
           <a class="nav-link active" href="/common/allStudents" data-no-spa data-section="all-students" data-embed-url="/common/allStudents" data-embed-label="All Students">
             <span class="nav-link-icon"><%- navIcon('students') %></span>
@@ -647,6 +650,7 @@
         </li>
         <% }) %>
       </ul>
+      <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="admissions"]'));</script>
     </nav>
 
     <!-- Main Content -->
@@ -1229,8 +1233,15 @@
       loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
       initialSection = restorePanel;
     } else {
-      const initialActive = document.querySelector('.nav-link.active[data-embed-url]');
-      if (initialActive) {
+      // In the person's own menu order, a plain visit opens the top item.
+      const arrangedTop = window.ManagiraMenuArrange ? ManagiraMenuArrange.topItem(document.querySelector('[data-arrange-menu="admissions"]')) : null;
+      const opensTop = Boolean(arrangedTop && arrangedTop.url && document.getElementById(arrangedTop.section));
+      const initialActive = opensTop ? null : document.querySelector('.nav-link.active[data-embed-url]');
+      if (opensTop) {
+        initialSection = arrangedTop.section;
+        activateSectionOnly(arrangedTop.section);
+        loadEmbed(arrangedTop.section, arrangedTop.url, arrangedTop.label, false);
+      } else if (initialActive) {
         initialSection = initialActive.getAttribute('data-section');
         loadEmbed(
           initialActive.getAttribute('data-section'),

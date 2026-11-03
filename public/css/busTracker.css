@@ -1,0 +1,48 @@
+/* Live bus tracker (public/js/busTracker.js). */
+html.bt-lock { overflow: hidden; }
+.bt-overlay { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.55); }
+.bt-overlay[hidden] { display: none; }
+.bt-sheet { display: flex; flex-direction: column; width: min(760px, 100%); height: min(560px, 100%); transition: width .2s ease, height .2s ease; background: var(--surface, #fff); color: var(--text, #0f172a); border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.35); }
+.bt-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px 12px; }
+.bt-head-text { flex: 1; min-width: 0; }
+.bt-head h3 { margin: 0 0 8px; font-size: 1.15rem; font-weight: 700; }
+.bt-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.bt-tags span { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: color-mix(in srgb, var(--bt-route, #01535b) 12%, transparent); color: var(--bt-route, #01535b); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.bt-overlay .bt-close { flex: 0 0 auto; width: 34px !important; height: 34px; margin: 0; padding: 0; border: 0; border-radius: 10px; background: color-mix(in srgb, currentColor 8%, transparent); color: inherit; font-size: 22px; line-height: 1; cursor: pointer; }
+.bt-map-wrap { position: relative; flex: 1; min-height: 0; }
+.bt-map { position: absolute !important; inset: 0; background: #e5e7eb; }
+.bt-status { position: absolute; left: 14px; top: 14px; z-index: 500; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 90px); padding: 10px 14px; border-radius: 14px; background: var(--surface, #fff); color: var(--text, #0f172a); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18); }
+.bt-status strong { display: block; font-size: 0.95rem; }
+.bt-status small { display: block; margin-top: 1px; font-size: 0.78rem; color: var(--muted, #64748b); }
+.bt-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; }
+.bt-status.is-live .bt-dot, .bt-status.is-arriving .bt-dot { background: #16a34a; box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); animation: btPulse 1.8s infinite; }
+.bt-status.is-arriving .bt-dot { background: #f59e0b; }
+.bt-status.is-waiting .bt-dot { background: #f59e0b; }
+@keyframes btPulse { 70% { box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); } 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); } }
+.bt-tools { position: absolute; right: 12px; top: 12px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
+.bt-overlay .bt-tools button { display: inline-flex; align-items: center; justify-content: center; width: 38px !important; height: 38px; margin: 0; padding: 0; border: 0; border-radius: 10px; background: #fff; color: #334155; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18); cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.bt-overlay .bt-tools button:hover { color: #0f172a; background: #f8fafc; }
+.bt-overlay .bt-tools button svg { width: 18px; height: 18px; }
+.bt-overlay .bt-tools button[aria-pressed="true"] { background: #1a73e8; color: #fff; }
+.bt-zoom { display: flex; flex-direction: column; border-radius: 10px; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18); overflow: hidden; }
+.bt-overlay .bt-zoom button { border-radius: 0; box-shadow: none; }
+.bt-overlay .bt-zoom button + button { border-top: 1px solid #e5e7eb; }
+.bt-map .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, 0.7); }
+.bt-places { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; border-top: 1px solid var(--border, #e5e7eb); background: var(--border, #e5e7eb); }
+.bt-places:empty { display: none; }
+.bt-places > div { padding: 10px 16px; background: var(--surface, #fff); min-width: 0; }
+.bt-places small { display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted, #64748b); }
+.bt-places strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; font-weight: 600; }
+.bt-pin { width: 28px; height: 36px; background: #dc2626; clip-path: path("M14 0C6.3 0 0 6.2 0 13.8 0 24.2 14 36 14 36s14-11.8 14-22.2C28 6.2 21.7 0 14 0Z"); position: relative; }
+.bt-pin::after { content: ""; position: absolute; left: 9px; top: 9px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.bt-home { width: 26px; height: 26px; border-radius: 8px; background: #fff; border: 2px solid #334155; color: #334155; font-size: 15px; line-height: 21px; text-align: center; }
+.bt-overlay.bt-big .bt-sheet { width: min(1180px, 100%); height: min(860px, 100%); }
+@media (max-width: 640px) {
+  .bt-overlay { padding: 0; align-items: flex-end; }
+  .bt-sheet { width: 100%; height: 62vh; border-radius: 18px 18px 0 0; }
+  .bt-overlay.bt-big .bt-sheet { width: 100%; height: 100%; border-radius: 0; }
+  .bt-head { padding: 12px 14px 10px; }
+  .bt-status { left: 10px; top: 10px; max-width: calc(100% - 70px); padding: 8px 12px; }
+  .bt-places { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(62%, 1fr); overflow-x: auto; scrollbar-width: none; }
+  .bt-places > div { padding: 8px 14px; }
+}

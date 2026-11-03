@@ -943,6 +943,26 @@
   body.org-themed .tm-card h3,
   body.org-themed .tm-nav-btn,
   body.org-themed .tm-stat-v { color: #111827 !important; }
+  /* Overview: quick buttons, number tiles, one big map. */
+  .tm-ov-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .tm-ov-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tm-ov-actions .tm-btn { width: auto; margin: 0; padding: 8px 14px; border-radius: 10px; font-weight: 600; text-decoration: none; }
+  .tm-ov-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+  .tm-ov-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; margin: 0; padding: 12px 14px; border: 1px solid var(--tm-border, #e5e7eb); border-radius: 12px; background: var(--oc-surface, #fff); color: var(--muted, #64748b); font-size: .78rem; font-weight: 600; text-align: left; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+  .tm-ov-tile span { color: var(--text, #0f172a); font-size: 1.45rem; font-weight: 800; line-height: 1.1; }
+  .tm-ov-tile small { font-size: .85rem; font-weight: 600; color: var(--muted, #64748b); }
+  .tm-ov-tile:hover { border-color: var(--primary, #01535b); }
+  .tm-ov-map { padding: 0 !important; overflow: hidden; }
+  .tm-ov-map-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; }
+  .tm-ov-map-bar select { width: auto; min-width: 200px; margin: 0; }
+  .tm-ov-live { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; font-size: .76rem; font-weight: 700; }
+  .tm-ov-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #16a34a; }
+  .tm-ov-live[hidden] { display: none; }
+  .tm-ov-warn { padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309; font-size: .76rem; font-weight: 600; }
+  .tm-ov-map #tm-route-map { height: min(68vh, 680px); border: 0; border-radius: 0; }
+  .tm-count { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent); color: var(--primary, #01535b); font-size: .78rem; vertical-align: middle; }
+  @media (max-width: 900px) { .tm-ov-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tm-ov-map #tm-route-map { height: 60vh; } }
+  @media (max-width: 520px) { .tm-ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tm-ov-actions { width: 100%; } .tm-ov-actions .tm-btn { flex: 1 1 auto; text-align: center; } }
 </style>
 
 <div class="tm-app">
@@ -968,92 +988,58 @@
 
   <main class="tm-main">
     <section class="tm-pane active" data-pane-id="overview">
-      <div class="tm-head">
-        <h2>Transportation Overview</h2>
+      <% const weekdayNow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()]; %>
+      <% const todaySchedules = (schedules || []).filter(function(s) { return String(s.day_of_week || '').toLowerCase() === weekdayNow && String(s.status || '').toLowerCase() === 'active'; }); %>
+      <% const mappedStops = (stops || []).filter(function(s) { return s.latitude !== null && s.longitude !== null; }).length; %>
+      <div class="tm-head tm-ov-head">
+        <h2>Transportation</h2>
+        <div class="tm-ov-actions" role="group" aria-label="Add">
+          <button type="button" class="tm-btn tm-btn--primary" data-tm-click="open-add-bus-modal" data-tm-pane="buses">+ Bus</button>
+          <a class="tm-btn" href="/common/createEmployee">+ Driver</a>
+          <button type="button" class="tm-btn" data-tm-click="open-add-route-modal" data-tm-pane="buses">+ Route</button>
+          <button type="button" class="tm-btn" data-tm-click="open-add-stop-modal" data-tm-pane="buses">+ Stop</button>
+          <button type="button" class="tm-btn" data-tm-click="open-add-schedule-modal" data-tm-pane="schedule">+ Schedule</button>
+        </div>
       </div>
 
-      <div class="tm-stats">
-        <article class="tm-stat"><p class="tm-stat-k">Buses</p><p class="tm-stat-v"><%= (buses || []).length %></p></article>
-        <article class="tm-stat"><p class="tm-stat-k">Drivers</p><p class="tm-stat-v"><%= (drivers || []).length %></p></article>
-        <article class="tm-stat"><p class="tm-stat-k">Routes</p><p class="tm-stat-v"><%= (routes || []).length %></p></article>
-        <article class="tm-stat"><p class="tm-stat-k">Stops</p><p class="tm-stat-v"><%= (stops || []).length %></p></article>
-        <article class="tm-stat"><p class="tm-stat-k">Assignments</p><p class="tm-stat-v"><%= (assignments || []).length %></p></article>
-        <article class="tm-stat"><p class="tm-stat-k">Students</p><p class="tm-stat-v"><%= (students || []).length %></p></article>
+      <div class="tm-ov-tiles">
+        <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (buses || []).length %></span>Buses</button>
+        <button type="button" class="tm-ov-tile" data-tm-pane="drivers"><span><%= (drivers || []).length %></span>Drivers</button>
+        <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (routes || []).length %></span>Routes</button>
+        <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (stops || []).length %></span>Stops</button>
+        <button type="button" class="tm-ov-tile" data-tm-pane="students"><span><%= (assignments || []).length %><small>/<%= (students || []).length %></small></span>Students riding</button>
+        <button type="button" class="tm-ov-tile" data-tm-pane="schedule"><span><%= todaySchedules.length %></span>Trips today</button>
       </div>
 
-      <div class="tm-grid">
-        <article class="tm-card span-12">
-          <h3>Operations Map</h3>
-          <div class="tm-map-toolbar" style="margin-top:8px;">
-            <select id="tm-route-filter">
-              <option value="">All Routes</option>
-              <% (routes || []).forEach(function(route) { %>
-                <option value="<%= route.route_id %>"><%= route.route_name %></option>
-              <% }) %>
-            </select>
-          </div>
-          <div class="tm-map-legend">
-            <span class="tm-map-pill">🚏 Route Stops</span>
-            <span class="tm-map-pill">🚌 Bus Positions</span>
-            <span class="tm-map-pill">🏫 School Hub</span>
-          </div>
-          <div class="tm-map-frame" id="tm-route-map-frame">
-            <button type="button" class="tm-map-maximize" id="tm-route-map-maximize" aria-label="Maximize map" title="Maximize map">⛶</button>
-            <div id="tm-route-map"></div>
-          </div>
-        </article>
-
-        <article class="tm-card span-6">
-          <details>
-            <summary class="tm-card-summary"><h3>Recent Assignments</h3></summary>
-            <ul class="tm-list">
-              <% (assignments || []).slice(0, 12).forEach(function(assignment) { %>
-                <li>
-                  <strong><%= assignment.last_name %> <%= assignment.first_name %></strong>
-                  | Bus: <%= assignment.bus_number || '-' %>
-                  | Route: <%= assignment.route_name || '-' %>
-                </li>
-              <% }) %>
-            </ul>
-          </details>
-        </article>
-
-        <article class="tm-card span-6">
-          <details>
-            <summary class="tm-card-summary"><h3>Operations Snapshot</h3></summary>
-            <% const weekdayNow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()]; %>
-            <% const todaySchedules = (schedules || []).filter(function(s) { return String(s.day_of_week || '').toLowerCase() === weekdayNow && String(s.status || '').toLowerCase() === 'active'; }); %>
-            <% const assignedStudentCount = (assignments || []).length; %>
-            <% const activeStudentCount = (students || []).length; %>
-            <% const mappedStops = (stops || []).filter(function(s) { return s.latitude !== null && s.longitude !== null; }).length; %>
-            <% const avgStopsPerRoute = (routes || []).length ? ((stops || []).length / (routes || []).length) : 0; %>
-            <ul class="tm-list">
-              <li><strong>Map Provider:</strong> <%= integration && integration.mapProvider ? integration.mapProvider : 'openstreetmap' %></li>
-              <li><strong>Today Schedules:</strong> <%= todaySchedules.length %> (<%= weekdayNow.charAt(0).toUpperCase() + weekdayNow.slice(1) %>)</li>
-              <li><strong>Student Coverage:</strong> <%= assignedStudentCount %> / <%= activeStudentCount %> assigned</li>
-              <li><strong>Mapped Stop Quality:</strong> <%= mappedStops %> / <%= (stops || []).length %> with coordinates</li>
-              <li><strong>Avg Stops Per Route:</strong> <%= avgStopsPerRoute.toFixed(1) %></li>
-            </ul>
-          </details>
-        </article>
-      </div>
+      <article class="tm-card tm-ov-map">
+        <div class="tm-ov-map-bar">
+          <select id="tm-route-filter" aria-label="Route">
+            <option value="">All routes</option>
+            <% (routes || []).forEach(function(route) { %>
+              <option value="<%= route.route_id %>"><%= route.route_name %></option>
+            <% }) %>
+          </select>
+          <span class="tm-ov-live" id="tm-ov-live" hidden></span>
+          <% if (mappedStops < (stops || []).length) { %><span class="tm-ov-warn"><%= (stops || []).length - mappedStops %> stop<%= (stops || []).length - mappedStops === 1 ? '' : 's' %> not on the map</span><% } %>
+        </div>
+        <div class="tm-map-frame" id="tm-route-map-frame">
+          <button type="button" class="tm-map-maximize" id="tm-route-map-maximize" aria-label="Full screen" title="Full screen">⛶</button>
+          <div id="tm-route-map"></div>
+        </div>
+      </article>
     </section>
 
     <section class="tm-pane" data-pane-id="drivers">
       <div class="tm-head">
         <h2>Drivers</h2>
       </div>
-      <p class="tm-map-note" style="margin-top:-6px;">
-        Drivers are the same employee accounts shown in
-        <a href="/common/manageEmployees" target="_blank" rel="noopener">Manage Employees</a> — add one there (role:
-        Driver), then come back here to set their phone, license, assigned bus, and route.
-      </p>
+      <p class="tm-map-note" style="margin-top:-6px;">Drivers are staff accounts with the Driver role. <a href="/common/manageEmployees" target="_blank" rel="noopener">Manage staff</a></p>
 
       <div class="tm-grid">
         <article class="tm-card span-12">
           <div class="tm-card-head">
           <details>
-            <summary class="tm-card-summary"><h3>🧑‍✈️ Driver List (<%= (drivers || []).length %>)</h3></summary>
+            <summary class="tm-card-summary"><h3>Drivers <span class="tm-count"><%= (drivers || []).length %></span></h3></summary>
           <ul class="tm-list" id="driver-list">
             <% (drivers || []).forEach(function(driver) { %>
               <% const driverFullName = [driver.first_name, driver.last_name].filter(Boolean).join(' '); %>
@@ -1167,7 +1153,7 @@
         <article class="tm-card span-12">
           <div class="tm-card-head">
           <details>
-            <summary class="tm-card-summary"><h3>🚌 Bus List (<%= (buses || []).length %>)</h3></summary>
+            <summary class="tm-card-summary"><h3>Buses <span class="tm-count"><%= (buses || []).length %></span></h3></summary>
           <ul class="tm-list" id="bus-list">
             <% (buses || []).forEach(function(bus) { %>
               <li>
@@ -1216,7 +1202,7 @@
         <article class="tm-card span-12">
           <div class="tm-card-head">
           <details>
-            <summary class="tm-card-summary"><h3>🗺️ Route List (<%= (routes || []).length %>)</h3></summary>
+            <summary class="tm-card-summary"><h3>Routes <span class="tm-count"><%= (routes || []).length %></span></h3></summary>
           <p class="tm-map-note">Expand a route to see its stops, driver, bus, and schedule in one place.</p>
           <ul class="tm-list">
             <% (routes || []).forEach(function(route) { %>
@@ -1304,7 +1290,7 @@
         <article class="tm-card span-12">
           <div class="tm-card-head">
           <details>
-            <summary class="tm-card-summary"><h3>📍 Stop List (<%= (stops || []).length %>)</h3></summary>
+            <summary class="tm-card-summary"><h3>Stops <span class="tm-count"><%= (stops || []).length %></span></h3></summary>
           <p class="tm-map-note">Stops are a shared pool — attach them to a route from the Route List (Edit &rarr; Stops on this Route).</p>
           <ul class="tm-list">
             <% const routeNameById = Object.fromEntries((routes || []).map(function(r) { return [Number(r.route_id), r.route_name]; })); %>
@@ -1632,7 +1618,7 @@
       <div class="tm-settings-stack">
         <article class="tm-card">
           <details>
-            <summary class="tm-card-summary"><h3>🗺️ Map Settings</h3></summary>
+            <summary class="tm-card-summary"><h3>Map</h3></summary>
             <div class="tm-map-toolbar">
               <input id="tm-city-input" type="text" placeholder="Enter city (e.g. Salt Lake City)" />
               <button id="tm-center-city" type="button">Center City</button>
@@ -1644,7 +1630,7 @@
 
         <article class="tm-card">
           <details>
-            <summary class="tm-card-summary"><h3>🏫 School Destination</h3></summary>
+            <summary class="tm-card-summary"><h3>School location</h3></summary>
             <p class="tm-map-note">This is the final destination for school-linked routes. Just type the address — the map location is found automatically.</p>
             <form method="POST" action="/transportation/manage/school-destination">
               <div class="tm-form-grid">
@@ -1663,7 +1649,7 @@
 
         <article class="tm-card">
           <details>
-            <summary class="tm-card-summary"><h3>📏 Distance &amp; Speed Units</h3></summary>
+            <summary class="tm-card-summary"><h3>Units</h3></summary>
             <p class="tm-map-note">Controls how distances and speeds are shown to drivers and on live maps.</p>
             <form method="POST" action="/transportation/manage/units">
               <div class="tm-form-grid">
@@ -1861,7 +1847,7 @@
   crossorigin=""
 ></script>
 
-<script src="/js/managiraMaps.js"></script>
+<script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
 <script>
   (function () {
@@ -1974,11 +1960,7 @@
       : US_DEFAULT_CENTER;
     const mapDefaultZoom = (Number.isFinite(schoolDestination.latitude) && Number.isFinite(schoolDestination.longitude)) ? 11 : 4;
 
-    function colorForRoute(routeId) {
-      const palette = ['#0f766e', '#2563eb', '#ea580c', '#9333ea', '#be123c', '#0284c7', '#4d7c0f'];
-      const normalized = Number(routeId) || 0;
-      return palette[Math.abs(normalized) % palette.length];
-    }
+    const colorForRoute = (routeId) => window.ManagiraMaps.routeColor(routeId);
 
     const roadGeometryCache = new Map();
     let drawRevision = 0;
@@ -3220,15 +3202,8 @@
 
         const routeColor = colorForRoute(stop.routeId);
         const stopIconSize = Math.max(18, stopRadius * 2.4);
-        const marker = L.marker(latlng, {
-          icon: L.divIcon({
-            className: '',
-            html: '<div class="tm-stop-pin" style="width:' + stopIconSize + 'px;height:' + stopIconSize + 'px;border-color:' + routeColor + ';font-size:' + Math.round(stopIconSize * 0.55) + 'px;">🚏</div>',
-            iconSize: [stopIconSize, stopIconSize],
-            iconAnchor: [stopIconSize / 2, stopIconSize / 2],
-            popupAnchor: [0, -stopIconSize / 2],
-          }),
-        });
+        // Stops are markers, so they always sit above the route lines.
+        const marker = L.marker(latlng, { icon: window.ManagiraMaps.stopPin(routeColor), zIndexOffset: 200 });
 
         marker.bindTooltip(stop.stopName || 'Stop', { direction: 'top', offset: [0, -stopIconSize / 2], sticky: true });
         marker.bindPopup(
@@ -3425,6 +3400,25 @@
     // GPS position and glide the marker there instead of leaving it parked
     // at a static schedule-anchor stop.
     const liveBusMarkers = new Map();
+    // Slide a bus to its new position instead of jumping.
+    function glideMarker(marker, to) {
+      const from = marker.getLatLng();
+      const start = performance.now();
+      cancelAnimationFrame(marker._glide);
+      const step = (now) => {
+        const k = Math.min(1, (now - start) / 1200), e = k * (2 - k);
+        marker.setLatLng([from.lat + (to[0] - from.lat) * e, from.lng + (to[1] - from.lng) * e]);
+        if (k < 1) marker._glide = requestAnimationFrame(step);
+      };
+      marker._glide = requestAnimationFrame(step);
+    }
+    function showLiveCount() {
+      const chip = document.getElementById('tm-ov-live');
+      if (!chip) return;
+      const live = [...liveBusMarkers.values()].filter((m) => !m._stale).length;
+      chip.hidden = !live;
+      chip.textContent = live + ' bus' + (live === 1 ? '' : 'es') + ' live';
+    }
     let liveBusPollInFlight = false;
     let liveBusPollQueued = false;
 
@@ -3447,7 +3441,8 @@
           const lng = live ? Number(live.longitude) : null;
           const existing = liveBusMarkers.get(routeId);
 
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          // No position, or none for 2 minutes (driver offline): no vehicle on the map.
+          if (!Number.isFinite(lat) || !Number.isFinite(lng) || window.ManagiraMaps.isOffline(live.recorded_at)) {
             if (existing) { existing.remove(); liveBusMarkers.delete(routeId); }
             return;
           }
@@ -3455,26 +3450,29 @@
           const stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
           const busIcon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale });
           if (existing) {
-            existing.setLatLng([lat, lng]);
+            glideMarker(existing, [lat, lng]);
             existing.setIcon(busIcon);
+            existing._stale = stale;
           } else {
             const bus = busById[live.bus_id] || null;
             const marker = L.marker([lat, lng], {
               icon: busIcon,
               zIndexOffset: 1000,
             }).addTo(busLayer);
+            marker._stale = stale;
             liveBusMarkers.set(routeId, marker);
             marker.bindPopup(buildBusPopup({ dayOfWeek: null }, bus, routeNameById[routeId]));
           }
         }));
       } finally {
         liveBusPollInFlight = false;
+        showLiveCount();
         if (liveBusPollQueued) { liveBusPollQueued = false; pollLiveBuses(); }
       }
     }
 
     const initialLiveBusPoll = pollLiveBuses();
-    const liveBusPollTimer = window.setInterval(pollLiveBuses, 10000);
+    const liveBusPollTimer = window.setInterval(() => { if (!document.hidden) pollLiveBuses(); }, 5000);
     window.addEventListener('pagehide', () => window.clearInterval(liveBusPollTimer), { once: true });
 
     async function centerByCity() {
@@ -3565,5 +3563,16 @@
       context: btn.dataset.context || 'transportation',
       contextId: btn.dataset.contextId || '',
     });
+  });
+</script>
+<script>
+  // Overview buttons: go to the section, then open its Add form.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tm-pane]');
+    if (!b) return;
+    var nav = document.querySelector('.tm-nav-btn[data-pane="' + b.dataset.tmPane + '"]');
+    if (nav) nav.click();
+    var open = b.dataset.tmClick && document.getElementById(b.dataset.tmClick);
+    if (open) setTimeout(function () { open.click(); }, 60);
   });
 </script>

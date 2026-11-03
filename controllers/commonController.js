@@ -9324,11 +9324,12 @@ const commonController = {
       const termStart = new Date(`${termStartKey}T00:00:00.000Z`);
       const termEnd = new Date(`${termEndKey}T23:59:59.999Z`);
 
+      // Days up to today in the user's own time zone, so "Today" is always the last day.
+      const attendanceTodayKey = require("../utils/localDate").todayKeyFor(req);
       const dates = [];
       let currentDate = new Date(termStart);
-      const today = new Date();
 
-      while (currentDate <= termEnd && currentDate <= today) {
+      while (currentDate <= termEnd && currentDate.toISOString().split("T")[0] <= attendanceTodayKey) {
         dates.push(currentDate.toISOString().split("T")[0]);
         currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       }
@@ -9473,6 +9474,7 @@ const commonController = {
 
       // Render the attendance collection page
       res.render("common/attendanceCollection", {
+        attendanceTodayKey,
         title: "Attendance Records",
         classId,
         className,
@@ -17120,6 +17122,7 @@ NUMBERING:
       let initialWorkspaceRoute = {
         panel: 'overview',
         itemId: '',
+        isDefault: !routePanel, // a plain visit: the page opens the top of the person's menu
       };
 
       if (routePanel === 'attendance') {
@@ -17148,8 +17151,12 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'docs', itemId: '' };
       }
 
+      // This person's own order of the Class Tools menu, if they've set one.
+      const classToolsOrder = await require("../utils/uiPreferences").getPreference(req.session, "menu-order:classroom").catch(() => null);
+
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
+        classToolsOrder: Array.isArray(classToolsOrder) ? classToolsOrder : [],
         title: `Class Dashboard - ${className}`,
         className: className,
         graduationYearGroup: graduationYearGroupName,

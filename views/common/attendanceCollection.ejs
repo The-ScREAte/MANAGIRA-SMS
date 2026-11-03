@@ -892,32 +892,54 @@
                 font-weight: 700;
             }
 
+            .filter-range { font-weight: 500; opacity: 0.75; }
+            .filter-range:empty { display: none; }
+            .filter-range::before { content: "· "; }
+            /* Reminder of school days with no attendance; each day jumps to its column. */
+            .att-missed-note { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 9px 10px 9px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, #f59e0b 32%, transparent); border-left: 3px solid #f59e0b; background: color-mix(in srgb, #f59e0b 7%, transparent); font-size: 0.84rem; line-height: 1.4; }
+            .att-missed-note[hidden] { display: none !important; }
+            .att-missed-icon { flex: 0 0 auto; width: 18px; height: 18px; color: #d97706; }
+            .att-missed-body { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+            .att-missed-body strong { font-weight: 600; }
+            .att-missed-days { display: flex; flex-wrap: wrap; gap: 6px; }
+            .att-missed-note .att-missed-day { display: inline-flex; align-items: center; width: auto !important; height: 24px; margin: 0; padding: 0 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, #f59e0b 45%, transparent); background: transparent; color: inherit; font-size: 0.76rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+            .att-missed-note .att-missed-day:hover, .att-missed-note .att-missed-day:focus-visible { background: color-mix(in srgb, #f59e0b 15%, transparent); outline: none; }
+            .att-missed-note .att-missed-close { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 26px !important; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; opacity: 0.55; font-size: 18px; line-height: 1; cursor: pointer; }
+            .att-missed-note .att-missed-close:hover { opacity: 1; background: color-mix(in srgb, #f59e0b 12%, transparent); }
+            .att-col-flash { animation: attColFlash 1.8s ease-out; }
+            @keyframes attColFlash { 0%, 55% { background-color: color-mix(in srgb, #f59e0b 22%, transparent); } 100% { background-color: transparent; } }
             .filter-count[hidden] {
                 display: none;
             }
 
-            /* Filter panel (inside the header card) */
+            /* Filters: a pop-up under the Filters button (nothing on the page moves). */
+            .attendance-header-actions { position: relative; }
             .filter-controls-content {
-                max-height: 320px;
-                overflow: hidden;
-                transition: max-height 0.25s ease;
+                position: absolute;
+                top: calc(100% + 8px);
+                right: 0;
+                z-index: 60;
+                width: min(300px, calc(100vw - 32px));
+                background: #fff;
+                border: 1px solid var(--border, #e2e8f0);
+                border-radius: 12px;
+                box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.06);
+                animation: attFilterPop 0.14s ease-out;
             }
 
             .filter-controls-content.collapsed {
-                max-height: 0;
+                display: none;
             }
 
+            @keyframes attFilterPop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+
             .filter-controls {
-                margin-top: 12px;
-                padding-top: 12px;
-                border-top: 1px solid #eef2f6;
+                padding: 14px;
             }
 
             .filter-inner-container {
-                display: flex;
-                flex-wrap: wrap;
-                align-items: flex-end;
-                gap: 10px 12px;
+                display: grid;
+                gap: 12px;
             }
 
             .filter-field {
@@ -947,8 +969,8 @@
             }
 
             .filter-field select {
-                width: auto;
-                min-width: 170px;
+                width: 100%;
+                min-width: 0;
                 padding: 0 10px;
             }
 
@@ -978,8 +1000,10 @@
             .filter-actions {
                 display: flex;
                 align-items: center;
-                gap: 8px;
-                margin-left: auto;
+                justify-content: flex-end;
+                margin: 0 -14px -14px;
+                padding: 4px 6px;
+                border-top: 1px solid var(--border, #eef2f6);
             }
 
             .filter-reset-btn {
@@ -1020,21 +1044,6 @@
                     font-size: 0.72rem;
                 }
 
-                .filter-inner-container {
-                    display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                }
-
-                .filter-field select,
-                .filter-field .filter-sort-btn {
-                    width: 100%;
-                    min-width: 0;
-                }
-
-                .filter-actions {
-                    justify-content: flex-end;
-                    margin-left: 0;
-                }
             }
 
             /* Cards on the page: the body carries the person's appearance color. */
@@ -1143,9 +1152,64 @@
                         <button type="button" class="filter-toggle-btn" onclick="toggleFilters()" aria-expanded="false" aria-controls="filterControlsContent">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
                             <span>Filters</span>
+                            <span class="filter-range" id="attRangeLabel"></span>
                             <span class="filter-count" id="filterCount" hidden></span>
                             <svg class="filter-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
+                        <div class="filter-controls-content collapsed" id="filterControlsContent" role="dialog" aria-label="Filters"
+                             data-range-key="attendance-range:<%= (typeof session !== 'undefined' && session && session.organizationId) || '' %>:<%= (typeof session !== 'undefined' && session && (session.userId || (session.user && session.user.user_id))) || '' %>"
+                             data-today="<%= (typeof attendanceTodayKey !== 'undefined' && attendanceTodayKey) || '' %>">
+                            <div class="filter-controls">
+                                <div class="filter-inner-container">
+                                    <div class="filter-field">
+                                        <span id="nameSortLabel">Name order</span>
+                                        <button type="button" class="filter-sort-btn" id="nameSortToggle" data-sort-direction="asc" aria-labelledby="nameSortLabel nameSortToggle" aria-label="Sort names Z to A">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/></svg>
+                                            <span class="sort-label-asc">A → Z</span><span class="sort-label-desc">Z → A</span>
+                                        </button>
+                                        <input type="hidden" id="nameSort" value="asc">
+                                    </div>
+
+                                    <label class="filter-field">
+                                        Gender
+                                        <select id="genderFilter">
+                                            <option value="all">All students</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Male">Male</option>
+                                        </select>
+                                    </label>
+
+                                    <% const todayKey = (typeof attendanceTodayKey !== 'undefined' && attendanceTodayKey) || (function () { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; })(); %>
+
+                                    <label class="filter-field">
+                                        Show
+                                        <select id="dateFilter">
+                                            <optgroup label="Range (remembered)">
+                                                <option value="d1">Last school day</option>
+                                                <option value="d2">Last 2 school days</option>
+                                                <option value="d3">Last 3 school days</option>
+                                                <option value="w1">Last week</option>
+                                                <option value="w2">Last 2 weeks</option>
+                                                <option value="m1">Last month</option>
+                                                <option value="all">Whole term</option>
+                                            </optgroup>
+                                            <optgroup label="One day">
+                                                <% displayDates.slice().reverse().forEach(date => { %>
+                                                    <% const isToday = date === todayKey; %>
+                                                    <% const dateObj = new Date(`${date}T00:00:00Z`); %>
+                                                    <% const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); %>
+                                                    <option value="date:<%= date %>"><%= isToday ? `Today (${formattedDate})` : formattedDate %></option>
+                                                <% }) %>
+                                            </optgroup>
+                                        </select>
+                                    </label>
+
+                                    <div class="filter-actions">
+                                        <button type="button" class="filter-reset-btn" id="filterResetBtn" onclick="resetFilters()" disabled>Reset</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <% if (!(attendanceCalendarSummary && attendanceCalendarSummary.enabled)) { %>
@@ -1154,48 +1218,13 @@
                         <a href="/account/settings?section=customize&calendarTermId=<%= termId %>">Set up the calendar</a>
                     </div>
                 <% } %>
-                <div class="filter-controls-content collapsed" id="filterControlsContent">
-                    <div class="filter-controls">
-                        <div class="filter-inner-container">
-                            <div class="filter-field">
-                                <span id="nameSortLabel">Name order</span>
-                                <button type="button" class="filter-sort-btn" id="nameSortToggle" data-sort-direction="asc" aria-labelledby="nameSortLabel nameSortToggle" aria-label="Sort names Z to A">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/></svg>
-                                    <span class="sort-label-asc">A → Z</span><span class="sort-label-desc">Z → A</span>
-                                </button>
-                                <input type="hidden" id="nameSort" value="asc">
-                            </div>
-
-                            <label class="filter-field">
-                                Gender
-                                <select id="genderFilter">
-                                    <option value="all">All students</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Male">Male</option>
-                                </select>
-                            </label>
-
-                            <% const _now = new Date(); %>
-                            <% const todayKey = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`; %>
-
-                            <label class="filter-field">
-                                Date
-                                <select id="dateFilter">
-                                    <option value="all">All dates</option>
-                                    <% displayDates.slice().reverse().forEach(date => { %>
-                                        <% const isToday = date === todayKey; %>
-                                        <% const dateObj = new Date(`${date}T00:00:00Z`); %>
-                                        <% const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); %>
-                                        <option value="<%= date %>"><%= isToday ? `Today (${formattedDate})` : formattedDate %></option>
-                                    <% }) %>
-                                </select>
-                            </label>
-
-                            <div class="filter-actions">
-                                <button type="button" class="filter-reset-btn" id="filterResetBtn" onclick="resetFilters()" disabled>Reset</button>
-                            </div>
-                        </div>
+                <div class="att-missed-note" id="attMissedNote" role="status" hidden>
+                    <svg class="att-missed-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13.5v2.5M12 18.6v.01"/></svg>
+                    <div class="att-missed-body">
+                        <strong id="attMissedTitle"></strong>
+                        <span class="att-missed-days" id="attMissedDays"></span>
                     </div>
+                    <button type="button" class="att-missed-close" id="attMissedClose" aria-label="Hide this reminder" title="Hide">&times;</button>
                 </div>
             </div>
             </div>
@@ -1226,7 +1255,8 @@
                                         <span class="day-short"><%= _dayShorts[_d.getDay()] %></span>
                                     </span>
                                     <% } %>
-                                    <%= isToday ? "Today" : _formattedDate %>
+                                    <% if (isToday) { %><span class="day-name">Today</span><% } %>
+                                    <%= _formattedDate %>
                                     <% if (students.length > 0 && dateMeta.countable) { %>
                                         <div class="edit-save-link" data-date="<%= date %>" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
                                         <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
@@ -1314,12 +1344,30 @@
         window.__attendanceOriginalStates = originalStates;
 
         // Toggle Filter Controls
-        function toggleFilters() {
+        function toggleFilters(force) {
             const content = document.getElementById('filterControlsContent');
             const button = document.querySelector('.filter-toggle-btn');
-            const open = content.classList.contains('collapsed');
+            if (!content || !button) return;
+            const open = typeof force === 'boolean' ? force : content.classList.contains('collapsed');
             content.classList.toggle('collapsed', !open);
             button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        // The Filters pop-up closes on a click elsewhere or Esc.
+        if (!window.__attFilterPopBound) {
+            window.__attFilterPopBound = true;
+            document.addEventListener('click', function (e) {
+                const content = document.getElementById('filterControlsContent');
+                if (!content || content.classList.contains('collapsed')) return;
+                if (content.contains(e.target) || e.target.closest('.filter-toggle-btn')) return;
+                toggleFilters(false);
+            });
+            document.addEventListener('keydown', function (e) {
+                const content = document.getElementById('filterControlsContent');
+                if (e.key !== 'Escape' || !content || content.classList.contains('collapsed')) return;
+                toggleFilters(false);
+                const button = document.querySelector('.filter-toggle-btn');
+                if (button) button.focus();
+            });
         }
 
         // Filters apply as soon as they change; the button shows how many are on.
@@ -1327,7 +1375,7 @@
             const active = [
                 document.getElementById('nameSort').value === 'desc',
                 document.getElementById('genderFilter').value !== 'all',
-                document.getElementById('dateFilter').value !== 'all',
+                document.getElementById('dateFilter').value.indexOf('date:') === 0,
             ].filter(Boolean).length;
             const count = document.getElementById('filterCount');
             if (count) {
@@ -1335,13 +1383,126 @@
                 count.hidden = active === 0;
             }
             const reset = document.getElementById('filterResetBtn');
-            if (reset) reset.disabled = active === 0;
+            if (reset) reset.disabled = active === 0 && !readSavedRange();
+            const label = document.getElementById('attRangeLabel');
+            if (label) label.textContent = rangeLabel(document.getElementById('dateFilter').value);
+        }
+
+        // ---- Which days show: a remembered range, or one day ----
+        // Ranges count school days (1-3 days) or calendar days (weeks, month)
+        // back from today. The person's pick is remembered on this device
+        // until they change it; until then it's the last 3 school days, or
+        // the last week when a school day in the past week wasn't marked.
+        var ATT_RANGES = { d1: 'Last school day', d2: 'Last 2 school days', d3: 'Last 3 school days', w1: 'Last week', w2: 'Last 2 weeks', m1: 'Last month', all: 'Whole term' };
+        function rangeStore() { var el = document.getElementById('filterControlsContent'); return el ? el.dataset.rangeKey : ''; }
+        function readSavedRange() { try { var v = localStorage.getItem(rangeStore()); return ATT_RANGES[v] ? v : null; } catch (e) { return null; } }
+        function saveRange(v) { try { if (v) localStorage.setItem(rangeStore(), v); else localStorage.removeItem(rangeStore()); } catch (e) {} }
+        function keyToDate(key) { var p = String(key).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+        function shortDay(key) { return keyToDate(key).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
+        function rangeLabel(v) { return ATT_RANGES[v] || (v.indexOf('date:') === 0 ? shortDay(v.slice(5)) : ''); }
+        function sheetDates() {
+            return Array.from(document.querySelectorAll('.attendance-sheet thead th[data-date]')).map(function (th) {
+                return { date: th.dataset.date, countable: !th.classList.contains('date-col-excluded') };
+            });
+        }
+        function datesForRange(v) {
+            var all = sheetDates();
+            if (v === 'all') return new Set(all.map(function (d) { return d.date; }));
+            if (v.indexOf('date:') === 0) return new Set([v.slice(5)]);
+            var schoolDays = { d1: 1, d2: 2, d3: 3 }[v];
+            if (schoolDays) return new Set(all.filter(function (d) { return d.countable; }).slice(-schoolDays).map(function (d) { return d.date; }));
+            var span = { w1: 7, w2: 14, m1: 30 }[v] || 7;
+            // Counted back from the newest day on the sheet, so a week is always 7 days.
+            var from = keyToDate(all.length ? all[all.length - 1].date : document.getElementById('filterControlsContent').dataset.today);
+            from.setDate(from.getDate() - (span - 1));
+            return new Set(all.filter(function (d) { return keyToDate(d.date) >= from; }).map(function (d) { return d.date; }));
+        }
+        // School days in the past week (not today) with no attendance taken.
+        function missedDays() {
+            var all = sheetDates();
+            var newest = all.length ? all[all.length - 1].date : document.getElementById('filterControlsContent').dataset.today;
+            var today = document.getElementById('filterControlsContent').dataset.today;
+            var from = keyToDate(newest); from.setDate(from.getDate() - 6);
+            return all.filter(function (d) {
+                if (!d.countable || d.date === today || d.date === newest || keyToDate(d.date) < from) return false;
+                return !Array.from(document.querySelectorAll('.attendance-sheet tbody input[data-date="' + d.date + '"]')).some(function (cb) { return cb.disabled; });
+            }).map(function (d) { return d.date; });
+        }
+        function defaultRange() { return missedDays().length ? 'w1' : 'd3'; }
+        function missedHiddenKey() { return 'att-missed-hidden:' + rangeStore(); }
+        function showMissedNote() {
+            var note = document.getElementById('attMissedNote');
+            if (!note) return;
+            var missed = missedDays();
+            var dismissed = false;
+            try { dismissed = sessionStorage.getItem(missedHiddenKey()) === missed.join(','); } catch (e) {}
+            note.hidden = !missed.length || dismissed;
+            if (note.hidden) return;
+            document.getElementById('attMissedTitle').textContent = missed.length === 1 ? "1 school day isn't marked yet" : missed.length + " school days aren't marked yet";
+            var days = document.getElementById('attMissedDays');
+            days.textContent = '';
+            missed.forEach(function (d) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'att-missed-day';
+                b.dataset.date = d;
+                b.textContent = shortDay(d);
+                b.title = 'Go to ' + shortDay(d);
+                days.appendChild(b);
+            });
+        }
+        // Bring a day's column into view (showing the last week if it's hidden) and highlight it.
+        function goToDay(date) {
+            var select = document.getElementById('dateFilter');
+            if (select && !datesForRange(select.value).has(date)) { select.value = 'w1'; saveRange('w1'); applyDateColumns(); }
+            var th = document.querySelector('.attendance-sheet thead th[data-date="' + date + '"]');
+            if (!th) return;
+            th.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            var cells = [th].concat(Array.from(document.querySelectorAll('.attendance-sheet tbody input[data-date="' + date + '"]')).map(function (cb) { return cb.closest('td'); }).filter(Boolean));
+            cells.forEach(function (c) { c.classList.remove('att-col-flash'); void c.offsetWidth; c.classList.add('att-col-flash'); });
+            setTimeout(function () { cells.forEach(function (c) { c.classList.remove('att-col-flash'); }); }, 1900);
+        }
+        // The server lists days up to "today" in the user's time zone (mgr_tz
+        // cookie). If it didn't know the zone yet, store it and reload once.
+        function ensureLocalToday() {
+            var el = document.getElementById('filterControlsContent');
+            if (!el || !el.dataset.today) return false;
+            var n = new Date();
+            var local = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+            if (el.dataset.today === local) return false;
+            try {
+                var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (!tz || sessionStorage.getItem('att-tz-reload') === local) return false;
+                document.cookie = 'mgr_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; SameSite=Lax';
+                sessionStorage.setItem('att-tz-reload', local);
+                location.reload();
+                return true;
+            } catch (e) { return false; }
+        }
+        function initAttendanceRange() {
+            if (ensureLocalToday()) return;
+            var select = document.getElementById('dateFilter');
+            if (!select) return;
+            select.value = readSavedRange() || defaultRange();
+            var note = document.getElementById('attMissedNote');
+            if (note && !note.dataset.bound) {
+                note.dataset.bound = '1';
+                note.addEventListener('click', function (e) {
+                    var day = e.target.closest('.att-missed-day');
+                    if (day) return goToDay(day.dataset.date);
+                    if (e.target.closest('.att-missed-close')) {
+                        try { sessionStorage.setItem(missedHiddenKey(), missedDays().join(',')); } catch (err) {}
+                        note.hidden = true;
+                    }
+                });
+            }
         }
 
         function resetFilters() {
             document.getElementById('nameSort').value = 'asc';
             document.getElementById('genderFilter').value = 'all';
-            document.getElementById('dateFilter').value = 'all';
+            saveRange(null);
+            document.getElementById('dateFilter').value = defaultRange();
             if (typeof syncAttendanceSortToggle === 'function') syncAttendanceSortToggle();
             applyFilters();
         }
@@ -1503,7 +1664,13 @@
             }
             ['genderFilter', 'dateFilter'].forEach(function (id) {
                 const field = document.getElementById(id);
-                if (field) field.addEventListener('change', applyFilters);
+                if (field) field.addEventListener('change', function () {
+                    if (id === 'dateFilter') {
+                        if (ATT_RANGES[field.value]) saveRange(field.value);
+                        return applyDateColumns();
+                    }
+                    applyFilters();
+                });
             });
             if (attendanceHeaderSortToggle && nameSortInput) {
                 attendanceHeaderSortToggle.addEventListener('click', function() {
@@ -1680,7 +1847,24 @@
                 const tbody = document.querySelector('.attendance-sheet tbody');
                 originalRows.length = 0;
                 originalRows.push(...tbody.querySelectorAll('tr'));
+                initAttendanceRange();
+                applyDateColumns();
             });
+
+            // Shows only the chosen days, keeping the rows in their order.
+            function applyDateColumns() {
+                const selected = document.getElementById('dateFilter').value;
+                const visibleDates = datesForRange(selected);
+                const singleDay = selected.indexOf('date:') === 0;
+                document.querySelectorAll('.attendance-sheet [data-date]').forEach(function (el) {
+                    const cell = el.tagName === 'TH' ? el : el.closest('td');
+                    if (cell && (el.tagName === 'TH' || el.tagName === 'INPUT')) cell.style.display = visibleDates.has(el.dataset.date) ? '' : 'none';
+                });
+                document.querySelectorAll('.attendance-sheet .overall-attendance').forEach(function (el) { el.style.display = singleDay ? 'none' : ''; });
+                showMissedNote();
+                setTimeout(updateAttendanceSummary, 50);
+                updateFilterState();
+            }
 
             function syncAttendanceSortToggle() {
                 const sortInput = document.getElementById('nameSort');
@@ -1697,6 +1881,8 @@
                 const sort = document.getElementById('nameSort').value;
                 const gender = document.getElementById('genderFilter').value.toLowerCase();
                 const selectedDate = document.getElementById('dateFilter').value;
+                const visibleDates = datesForRange(selectedDate);
+                const singleDay = selectedDate.indexOf('date:') === 0;
                 
                 const tbody = document.querySelector('.attendance-sheet tbody');
                 tbody.innerHTML = '';
@@ -1721,14 +1907,13 @@
                     const checkboxes = row.querySelectorAll('input[type="checkbox"]');
                     checkboxes.forEach(checkbox => {
                         const cell = checkbox.closest('td');
-                        const isMatch = selectedDate === 'all' || checkbox.dataset.date === selectedDate;
-                        cell.style.display = isMatch ? '' : 'none';
+                        cell.style.display = visibleDates.has(checkbox.dataset.date) ? '' : 'none';
                     });
             
                     // Show/hide overall attendance
                     const overallCell = row.querySelector('.overall-attendance');
                     if (overallCell) {
-                        overallCell.style.display = selectedDate === 'all' ? '' : 'none';
+                        overallCell.style.display = singleDay ? 'none' : '';
                     }
             
                     tbody.appendChild(row);
@@ -1738,13 +1923,14 @@
                 const dateHeaders = Array.from(document.querySelectorAll('.attendance-sheet thead th[data-date]'));
                 dateHeaders.forEach(th => {
                     const headerDate = th.dataset.date;
-                    th.style.display = (selectedDate === 'all' || selectedDate === headerDate) ? '' : 'none';
+                    th.style.display = visibleDates.has(headerDate) ? '' : 'none';
                 });
             
                 const overallTh = document.querySelector('.attendance-sheet thead .overall-attendance');
                 if (overallTh) {
-                    overallTh.style.display = selectedDate === 'all' ? '' : 'none';
+                    overallTh.style.display = singleDay ? 'none' : '';
                 }
+                showMissedNote();
             
                 // Auto-update attendance summary
                 setTimeout(updateAttendanceSummary, 50);

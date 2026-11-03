@@ -1336,7 +1336,7 @@ async function loadOverviewBillsSnapshot(orgId, filters = {}) {
 
 async function loadBills(orgId, filters = {}) {
   const page = parsePositiveInt(filters.page, 1, 1, 1000000);
-  const pageSize = parsePositiveInt(filters.pageSize, 20, 10, 100);
+  const pageSize = parsePositiveInt(filters.pageSize, 500, 10, 500);
   const offset = (page - 1) * pageSize;
   const schoolYearId = parseInt(filters.school_year_id, 10);
   const termId = parseInt(filters.term_id, 10);
@@ -2052,9 +2052,18 @@ async function finalizePendingGuardianStripePayment(database, paymentIntentId) {
   }
 }
 
+// The Overview's period: ?year=all is every year, no choice is the current term.
+function overviewFiltersFor(query = {}, currentAcademic = {}) {
+  if (query.year === "all") return { school_year_id: null, term_id: null };
+  return {
+    school_year_id: query.year || currentAcademic.schoolYearId || null,
+    term_id: query.term || ((!query.year && !query.term) ? (currentAcademic.termId || null) : null),
+  };
+}
+
 async function loadStudentBilling(orgId, filters = {}) {
   const page = parsePositiveInt(filters.page, 1, 1, 1000000);
-  const pageSize = parsePositiveInt(filters.pageSize, 25, 15, 120);
+  const pageSize = parsePositiveInt(filters.pageSize, 5000, 15, 5000);
   const offset = (page - 1) * pageSize;
   const schoolYearId = parseInt(filters.school_year_id, 10);
   const termId = parseInt(filters.term_id, 10);
@@ -2950,7 +2959,7 @@ async function loadCollectionSignoffs(orgId, billIds) {
 async function loadCollectionSignoffHistory(orgId, filters = {}) {
   await ensureSignoffCorrectionSchema();
   const page = parsePositiveInt(filters.page, 1, 1, 1000000);
-  const pageSize = parsePositiveInt(filters.pageSize, 20, 10, 100);
+  const pageSize = parsePositiveInt(filters.pageSize, 200, 10, 200);
   const offset = (page - 1) * pageSize;
   const result = await db.query(
     `SELECT h.signoff_id, h.bill_id, h.class_id,
@@ -3575,10 +3584,7 @@ module.exports = {
       await ensureFinanceSchema();
       const refs = await cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId));
       const currentAcademic = getCurrentAcademicContext(refs);
-      const filters = {
-        school_year_id: req.query.year || currentAcademic.schoolYearId || null,
-        term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
-      };
+      const filters = overviewFiltersFor(req.query, currentAcademic);
       const overview = await cachedLoad(orgId, "overview", filters, () => loadOverviewStats(orgId, filters));
       const t = overview?.totals || overview?.total_summary || overview || {};
       const credits = overview?.credits || {};
@@ -3640,10 +3646,7 @@ module.exports = {
         includeEnrollmentLinks: false,
       }));
       const currentAcademic = getCurrentAcademicContext(refs);
-      const overviewFilters = {
-        school_year_id: req.query.year || currentAcademic.schoolYearId || null,
-        term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
-      };
+      const overviewFilters = overviewFiltersFor(req.query, currentAcademic);
       const billFilters = {
         school_year_id: overviewFilters.school_year_id,
         term_id: overviewFilters.term_id,
@@ -4192,7 +4195,8 @@ module.exports = {
     // or fetched in the background, get the section page.
     const wantsHub = !res.locals.isEmbeddedFrame
       && !req.get("X-Silent-Reload")
-      && (String(req.get("sec-fetch-dest") || "document").toLowerCase() === "document"
+      && (req.get("X-Managira-Hub") === "1" // the offline copy (service-worker.js) asking for the menu page
+        || String(req.get("sec-fetch-dest") || "document").toLowerCase() === "document"
         || req.get("X-Requested-With") === "XMLHttpRequest"); // the app's in-page navigation
     if (wantsHub) {
       return res.render("account/paygiraHub", {
@@ -4242,10 +4246,7 @@ module.exports = {
           : Promise.resolve({ rows: [], pagination: { page: 1, pageSize: 20, hasMore: false, nextPage: null } }),
       ]);
       const currentAcademic = getCurrentAcademicContext(refs);
-      const overviewFilters = {
-        school_year_id: req.query.year || currentAcademic.schoolYearId || null,
-        term_id: req.query.term || ((!req.query.year && !req.query.term) ? (currentAcademic.termId || null) : null),
-      };
+      const overviewFilters = overviewFiltersFor(req.query, currentAcademic);
       const billListFilters = needsBills
         ? {
             school_year_id: req.query.billYear || currentAcademic.schoolYearId || null,

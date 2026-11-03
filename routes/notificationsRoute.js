@@ -105,7 +105,7 @@ router.use(async (req, res, next) => {
 function requireAuth(req, res, next) {
   const ctx = resolveReaderContext(req);
   if (!ctx) return res.status(401).json({ success: false, error: 'Unauthenticated' });
-  req._notifCtx = ctx;
+  req._notifCtx = { ...ctx, timeZone: require('../utils/localDate').timeZoneOf(req) };
   next();
 }
 

@@ -87,6 +87,16 @@
     <% } %>
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+<script>
+  (function () {
+    try {
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && document.cookie.indexOf('mgr_tz=' + encodeURIComponent(tz)) === -1) {
+        document.cookie = 'mgr_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; SameSite=Lax';
+      }
+    } catch (e) {}
+  })();
+</script>
 </head>
 <body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= _isStudentPortal ? 'student-portal' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">

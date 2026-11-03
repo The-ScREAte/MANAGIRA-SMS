@@ -549,9 +549,9 @@ main {
   }
   .nav-close {
     display: inline-flex;
-    position: absolute;
-    top: -2px;
-    right: 0;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
     width: 28px;
     height: 28px;
     padding: 0;
@@ -1863,6 +1863,7 @@ main {
   gap: 8px;
 }
 .workspace-sidebar .nav-header h3 {
+  white-space: nowrap;
   margin: 0;
   font-size: 13px;
   font-weight: 700;
@@ -1870,7 +1871,9 @@ main {
   letter-spacing: 0.02em;
 }
 .workspace-sidebar .nav-header .card-subtext { display: none; }
-.workspace-sidebar .side-nav { padding: 4px 8px 8px; display: grid; gap: 1px; }
+.workspace-sidebar .nav-list > li[hidden] { display: none !important; }
+.workspace-sidebar .side-nav { padding: 4px 8px 8px; display: grid; gap: 1px; grid-template-columns: minmax(0, 1fr); }
+.workspace-sidebar .side-nav > .nav-list { min-width: 0; }
 
 /* Plain text-style link for "Class Room" (not a button) */
 .nav-text-link {
@@ -2346,11 +2349,14 @@ main {
 .tp-none__label { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748b); }
 .tp-none__names { display: flex; gap: 6px; flex-wrap: wrap; }
 .tp-none__names span { padding: 3px 9px; border-radius: 999px; background: var(--surface-soft, #f6f8fa); font-size: 12px; color: var(--text, #334155); }
-.tp-map { margin-top: 16px; display: grid; gap: 8px; }
-.tp-map__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.tp-map__legend { display: flex; gap: 12px; flex-wrap: wrap; }
-.tp-map__legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted, #64748b); }
-.tp-map__legend span::before { content: ""; width: 14px; height: 3px; border-radius: 2px; background: var(--route); }
+.tp-map { position: relative; margin-bottom: 14px; }
+.tp-map__chips { position: absolute; left: 12px; top: 12px; right: 60px; z-index: 500; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.tp-map__chips button { pointer-events: auto; display: inline-flex; align-items: center; gap: 7px; width: auto !important; height: 30px; margin: 0; padding: 0 12px; border: 0; border-radius: 999px; background: #fff; color: #0f172a; font-size: 12.5px; font-weight: 600; box-shadow: 0 2px 8px rgba(15, 23, 42, .18); cursor: pointer; }
+.tp-map__chips button[style]::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--route); }
+.tp-map__chips button.is-on { background: #0f172a; color: #fff; }
+.tp-map .leaflet-bar { border: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(15, 23, 42, .18); }
+.tp-map .leaflet-bar a { width: 36px; height: 36px; line-height: 36px; color: #334155; }
+.tp-map .leaflet-top.leaflet-left { top: auto; bottom: 26px; left: auto; right: 12px; }
 @media (max-width: 640px) {
   .tp-routes { grid-template-columns: minmax(0, 1fr); }
   .tp-rider { grid-template-columns: minmax(0, 1fr) 64px 64px; }
@@ -2365,6 +2371,7 @@ main {
   overflow: hidden;
   background: #eef5fb;
 }
+.tp-map .transport-mini-map { height: clamp(340px, 52vh, 560px); border-radius: 14px; }
 .transport-modal-overlay {
   position: fixed;
   inset: 0;
@@ -3919,10 +3926,11 @@ main {
             <h3>Class Tools</h3>
             <p class="card-subtext">Open sections as active workspace tabs.</p>
           </div>
+          <button class="menu-arrange-btn" type="button" data-arrange-toggle="classroom" aria-label="Arrange this menu" title="Arrange this menu"></button>
           <button class="nav-close" type="button" aria-label="Close navigation">×</button>
         </div>
         <div class="side-nav">
-          <ul class="nav-list">
+          <ul class="nav-list" id="ctNavList" data-arrange-menu="classroom" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>" data-arrange-order="<%= JSON.stringify(typeof classToolsOrder !== 'undefined' ? classToolsOrder : []) %>">
             <li>
               <button class="nav-link" type="button" data-nav-key="overview" onclick="openWorkspaceTabByKey('overview')">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('classroom') %></span>
@@ -4020,6 +4028,10 @@ main {
           </ul>
         </div>
       </aside>
+      <link rel="stylesheet" href="/css/menuArrange.css" />
+      <script src="/js/menuArrange.js"></script>
+      <script src="/js/busTracker.js?v=<%= assetVersion %>" defer></script>
+      <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.getElementById('ctNavList'));</script>
 
       <div class="nav-overlay" id="class-tools-overlay"></div>
 
@@ -4322,7 +4334,8 @@ main {
                   if (!Number.isFinite(h)) return '';
                   return ((h % 12) || 12) + ':' + String(m || 0).padStart(2, '0') + (h < 12 ? ' AM' : ' PM');
                 };
-                const tpColors = ['#0f766e', '#2563eb', '#d97706', '#7c3aed', '#db2777', '#0891b2'];
+                // Same colours as every other bus map (public/js/managiraMaps.js routeColor).
+                const tpColors = ['#0f766e', '#2563eb', '#ea580c', '#9333ea', '#be123c', '#0284c7', '#4d7c0f'];
                 const tpRoutes = [];
                 const tpNonRiders = [];
                 classTransportRows.forEach((row) => {
@@ -4336,8 +4349,8 @@ main {
                   if (row.liveRecordedAt) route.live = true;
                   route.riders.push(row);
                 });
-                tpRoutes.forEach((r, i) => {
-                  r.color = tpColors[i % tpColors.length];
+                tpRoutes.forEach((r) => {
+                  r.color = tpColors[Math.abs(Number(r.id) || 0) % tpColors.length];
                   r.riders.sort((a, b) => String(a.pickupTime || '').localeCompare(String(b.pickupTime || '')) || String(a.studentName).localeCompare(String(b.studentName)));
                 });
                 const tpRiderCount = tpRoutes.reduce((n, r) => n + r.riders.length, 0);
@@ -4345,7 +4358,6 @@ main {
               <div class="workspace-panel-head">
                 <div>
                   <h2 class="card-title">Transportation</h2>
-                  <p class="card-subtext">Who rides, where they board, and when. Select a student for full details and their route on the map.</p>
                 </div>
                 <% if (classTransportRows.length) { %>
                 <div class="tp-stats">
@@ -4355,6 +4367,15 @@ main {
                 <% } %>
               </div>
               <% if (tpRiderCount) { %>
+              <% if (classTransportationMapRows.length) { %>
+              <div class="tp-map">
+                <div id="classDashboardTransportMap" class="transport-mini-map" data-routes="<%= JSON.stringify(tpRoutes.map(function(r) { return { id: r.id, color: r.color }; })) %>"></div>
+                <div class="tp-map__chips" role="group" aria-label="Show a route">
+                  <button type="button" class="is-on" data-tp-route="">All routes</button>
+                  <% tpRoutes.forEach(function(route) { %><button type="button" data-tp-route="<%= route.id %>" style="--route:<%= route.color %>"><%= route.name %></button><% }); %>
+                </div>
+              </div>
+              <% } %>
               <div class="tp-routes">
                 <% tpRoutes.forEach(function(route) { %>
                 <details class="tp-route" style="--route:<%= route.color %>">
@@ -4387,15 +4408,6 @@ main {
               <div class="tp-none">
                 <span class="tp-none__label">Not on a bus · <%= tpNonRiders.length %></span>
                 <div class="tp-none__names"><% tpNonRiders.forEach(function(row) { %><span><%= row.studentName %></span><% }); %></div>
-              </div>
-              <% } %>
-              <% if (classTransportationMapRows.length) { %>
-              <div class="tp-map">
-                <div class="tp-map__head">
-                  <span class="card-subtext">Routes map</span>
-                  <div class="tp-map__legend"><% tpRoutes.forEach(function(route) { %><span style="--route:<%= route.color %>"><%= route.name %></span><% }); %></div>
-                </div>
-                <div id="classDashboardTransportMap" class="transport-mini-map" data-routes="<%= JSON.stringify(tpRoutes.map(function(r) { return { id: r.id, color: r.color }; })) %>"></div>
               </div>
               <% } %>
               <% } else { %>
@@ -4501,7 +4513,7 @@ main {
     </div>
   </div>
 
-  <script src="/js/managiraMaps.js"></script>
+  <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
   <script>
     var classScheduleContext;
     var classScheduleState;
@@ -5243,7 +5255,8 @@ main {
             return;
           }
           points.forEach(function(point) {
-            var marker = L.marker([point.lat, point.lng]).addTo(layerGroup);
+            var isSchool = /school/i.test(String(point.type || point.label || ''));
+            var marker = L.marker([point.lat, point.lng], isSchool && window.ManagiraMaps ? { icon: window.ManagiraMaps.schoolIcon(), zIndexOffset: 300 } : {}).addTo(layerGroup);
             marker.bindPopup(point.label || point.type);
           });
           routeStops.forEach(function(stop) {
@@ -5321,6 +5334,8 @@ main {
           event.preventDefault();
           event.stopPropagation();
         }
+        // The live bus tracker (public/js/busTracker.js).
+        if (window.BusTracker) return window.BusTracker.open(studentId, studentName);
         var modal = document.getElementById('studentTransportModal');
         var titleEl = document.getElementById('studentTransportModalTitle');
         var statusEl = document.getElementById('studentTransportModalStatus');
@@ -6042,8 +6057,12 @@ main {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
           }).then(function (r) { return r.json(); }).then(function (payload) {
             var live = payload && payload.success ? payload.data : null;
-            if (!live || live.latitude === null || live.latitude === undefined) return;
             var marker = classRouteLiveMarkers[routeId];
+            // Trip over, or no signal for 2 minutes (driver offline): the bus leaves the map.
+            if (!live || live.latitude === null || live.latitude === undefined || window.ManagiraMaps.isOffline(live.recorded_at)) {
+              if (marker) { layerGroup.removeLayer(marker); delete classRouteLiveMarkers[routeId]; }
+              return;
+            }
             var stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
             var icon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale: stale });
             var popupText = 'Bus ' + (live.bus_number || '') + ' - updated ' + window.ManagiraMaps.ago(live.recorded_at || Date.now());
@@ -6052,14 +6071,22 @@ main {
               marker.addTo(layerGroup);
               classRouteLiveMarkers[routeId] = marker;
             } else {
-              marker.setLatLng([live.latitude, live.longitude]);
+              // Glide to the new position.
+              var from = marker.getLatLng(), to = [Number(live.latitude), Number(live.longitude)], t0 = performance.now();
+              cancelAnimationFrame(marker._glide);
+              var step = function (now) {
+                var k = Math.min(1, (now - t0) / 1200), e = k * (2 - k);
+                marker.setLatLng([from.lat + (to[0] - from.lat) * e, from.lng + (to[1] - from.lng) * e]);
+                if (k < 1) marker._glide = requestAnimationFrame(step);
+              };
+              marker._glide = requestAnimationFrame(step);
               marker.setIcon(icon);
               marker.setPopupContent(popupText);
             }
           }).catch(function () {});
         };
         tick();
-        window.setInterval(tick, 12000);
+        window.setInterval(function () { if (!document.hidden) tick(); }, 5000);
       }
 
       <% if (transportActive && classTransportationMapRows.length) { %>
@@ -6092,6 +6119,20 @@ main {
             rowsByRoute[routeId].push(row);
           });
           var boundsSource = [];
+          var classRouteShapes = {};
+          // Route chips on the map: show one route (others fade) or all of them.
+          document.querySelectorAll('[data-tp-route]').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+              var id = chip.getAttribute('data-tp-route');
+              document.querySelectorAll('[data-tp-route]').forEach(function (c) { c.classList.toggle('is-on', c === chip); });
+              Object.keys(classRouteShapes).forEach(function (key) {
+                classRouteShapes[key].group.eachLayer(function (line) { line.setStyle({ opacity: !id || key === id ? 1 : 0.15 }); });
+              });
+              var shape = id && classRouteShapes[id];
+              if (shape) map.fitBounds(shape.bounds.pad(0.12));
+              else if (boundsSource.length) map.fitBounds(L.latLngBounds(boundsSource).pad(0.15));
+            });
+          });
           var routePromises = Object.keys(rowsByRoute).map(function(routeIdKey) {
             var routeRows = rowsByRoute[routeIdKey] || [];
             var firstRow = routeRows[0] || null;
@@ -6113,40 +6154,49 @@ main {
               if (stopLat === null || stopLng === null) return;
               boundsSource.push([stopLat, stopLng]);
               var stopColor = routeColors[Number(routeIdKey)] || '#2563eb';
-              L.circleMarker([stopLat, stopLng], { radius: 6, color: '#fff', fillColor: stopColor, fillOpacity: 1, weight: 2 })
+              L.marker([stopLat, stopLng], { icon: window.ManagiraMaps.stopPin(stopColor), zIndexOffset: 200 })
                 .bindPopup((row.studentName || 'Student') + '<br/>' + (row.stopName || 'Stop') + '<br/>Driver: ' + (row.driverName || '-'))
                 .addTo(layerGroup);
             });
 
-            return fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
+            return fetchRoadGeometry(routeLatLngs).catch(function () { return []; }).then(function(roadLatLngs) {
               (roadLatLngs.length ? roadLatLngs : routeLatLngs).forEach(function(latlng) { boundsSource.push(latlng); });
-              if (roadLatLngs.length >= 2) {
-                L.polyline(roadLatLngs, { color: routeColors[Number(routeIdKey)] || '#0f5a66', weight: 4, opacity: 0.75 }).addTo(layerGroup);
+              var drawn = roadLatLngs.length >= 2 ? roadLatLngs : routeLatLngs;
+              if (drawn.length >= 2) {
+                var routeGroup = L.layerGroup().addTo(layerGroup);
+                window.ManagiraMaps.drawRoute(routeGroup, drawn, { color: routeColors[Number(routeIdKey)] || '#0f5a66', weight: 5 });
+                classRouteShapes[routeIdKey] = { group: routeGroup, bounds: L.latLngBounds(drawn) };
               }
               startClassRouteLivePolling(Number(routeIdKey), layerGroup, L);
+              fit();
             });
           });
-
-          Promise.all(routePromises).then(function() {
-            if (schoolLat !== null && schoolLng !== null) boundsSource.push([schoolLat, schoolLng]);
-            if (!boundsSource.length) return;
-            var bounds = L.latLngBounds(boundsSource).pad(0.15);
-            var fit = function() {
-              var el = document.getElementById('classDashboardTransportMap');
-              if (!el || !el.offsetWidth) return;
-              map.invalidateSize();
-              map.fitBounds(bounds);
-            };
-            fit();
-            // The map is drawn while its panel may be hidden: redraw at the right size once it shows.
-            var mapEl = document.getElementById('classDashboardTransportMap');
-            if (mapEl && window.ResizeObserver) {
-              var lastWidth = mapEl.offsetWidth;
-              new ResizeObserver(function() {
-                if (mapEl.offsetWidth && mapEl.offsetWidth !== lastWidth) { lastWidth = mapEl.offsetWidth; fit(); }
-              }).observe(mapEl);
-            }
-          });
+          if (schoolLat !== null && schoolLng !== null) boundsSource.push([schoolLat, schoolLng]);
+          // Fit to everything drawn so far; the map may be drawn while its panel is hidden.
+          var userMoved = false;
+          map.on('dragstart zoomstart', function () { if (!fitting) userMoved = true; });
+          var fitting = false;
+          function fit() {
+            var el = document.getElementById('classDashboardTransportMap');
+            if (!el || !el.offsetWidth || !boundsSource.length || userMoved) return;
+            fitting = true;
+            map.invalidateSize();
+            if (!map.getSize().x) { fitting = false; return; }
+            var bounds = L.latLngBounds(boundsSource).pad(0.12);
+            // A fit tried while the tab was hidden leaves no zoom level; start again from the middle.
+            if (!isFinite(map.getZoom())) map.setView(bounds.getCenter(), 12, { animate: false });
+            map.fitBounds(bounds);
+            setTimeout(function () { fitting = false; }, 400);
+          }
+          fit();
+          var mapEl = document.getElementById('classDashboardTransportMap');
+          if (mapEl && window.ResizeObserver) {
+            var lastWidth = mapEl.offsetWidth;
+            new ResizeObserver(function() {
+              if (mapEl.offsetWidth && mapEl.offsetWidth !== lastWidth) { lastWidth = mapEl.offsetWidth; map.invalidateSize(); fit(); }
+            }).observe(mapEl);
+          }
+          Promise.all(routePromises).then(fit);
         });
       });
       <% } %>
@@ -6313,7 +6363,11 @@ main {
         window.addEventListener('resize', fitWorkspaceStage);
         window.addEventListener('load', fitWorkspaceStage);
       }
-      openWorkspaceRoute(workspaceContext.initialRoute || { panel: 'overview', itemId: '' }, { replaceHistory: true });
+      // A plain visit opens the top item of the person's own menu order.
+      var initialRoute = workspaceContext.initialRoute || { panel: 'overview', itemId: '' };
+      var arrangedTop = initialRoute.isDefault && window.ManagiraMenuArrange ? ManagiraMenuArrange.topItem(document.getElementById('ctNavList')) : null;
+      if (arrangedTop) initialRoute = { panel: arrangedTop.key === 'grading' ? 'subjects' : arrangedTop.key, itemId: '' };
+      openWorkspaceRoute(initialRoute, { replaceHistory: true });
       if (!window.__classWorkspacePopstateBound) {
         window.__classWorkspacePopstateBound = true;
         window.addEventListener('popstate', handleWorkspacePopState);

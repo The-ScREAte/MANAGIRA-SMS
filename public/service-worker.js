@@ -25,7 +25,7 @@ const CACHE_NAME = 'managira-static-v3';
 //     switches or signs out): the "generation" changes and every copy is dropped;
 //   • when older than PANEL_MAX_AGE_MS;
 //   • when the fresh request is redirected (signed out, no access).
-const PANEL_CACHE = 'managira-panels-v1';
+const PANEL_CACHE = 'managira-panels-v4';
 const PANEL_MAX_AGE_MS = 30 * 60 * 1000;
 const CHANGING_GET = /\/(delete|remove|toggle|obsolete|enable|disable|unarchive|archive|logout|switch|impersonat)/i;
 // The generation is kept next to the copies, since the browser stops an idle
@@ -71,6 +71,7 @@ const HUB_PAGES = ['/common/management', '/common/admissions', '/common/reports'
 function isHubPage(request, url) {
   return request.method === 'GET'
     && request.mode === 'navigate'
+    && request.destination === 'document' // a page opened inside a hub's panel gets that page, never the hub again
     && url.origin === self.location.origin
     && HUB_PAGES.includes(url.pathname.replace(/\/$/, ''))
     && !url.searchParams.has('embed');
@@ -106,8 +107,8 @@ async function freshPanel(request, generation, cachedText, key = request.url) {
   return { response, changed: cachedText !== undefined && cachedText !== text };
 }
 
-async function servePanel(event, key = event.request.url) {
-  const { request } = event;
+async function servePanel(event, key = event.request.url, fetchRequest = event.request) {
+  const request = fetchRequest;
   const generation = await currentGeneration();
   const cache = await caches.open(PANEL_CACHE);
   const cached = await cache.match(key);
@@ -238,7 +239,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (isHubPage(request, requestUrl)) {
-    event.respondWith(servePanel(event, requestUrl.origin + requestUrl.pathname.replace(/\/$/, '')).catch(() => fetch(request)));
+    // Ask for the menu page itself (some pages also serve a plain section at the same address).
+    const hubRequest = new Request(request.url, { headers: { Accept: 'text/html', 'X-Managira-Hub': '1' }, credentials: 'same-origin', redirect: 'follow' });
+    event.respondWith(servePanel(event, requestUrl.origin + requestUrl.pathname.replace(/\/$/, ''), hubRequest).catch(() => fetch(request)));
     return;
   }
 

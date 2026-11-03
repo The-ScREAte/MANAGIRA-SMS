@@ -726,6 +726,36 @@ module.exports = (db) => {
   router.post("/editClass", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.editClass(req, res, db)
   );
+  // Each person's own order of a side menu (Class Tools and the hub menus):
+  // GET ?menu=  ->  { order }, POST { menu, order: [keys] | null to reset }.
+  const ARRANGEABLE_MENUS = ["classroom", "management", "admissions", "reports", "paygira"];
+  const menuOf = (value) => (ARRANGEABLE_MENUS.includes(String(value)) ? String(value) : null);
+  router.get("/ui-preferences/menu-order", isAuthenticated, async (req, res) => {
+    const menu = menuOf(req.query.menu);
+    if (!menu) return res.status(400).json({ success: false, message: "Unknown menu." });
+    try {
+      const order = await require("../utils/uiPreferences").getPreference(req.session, `menu-order:${menu}`);
+      res.set("Cache-Control", "no-store");
+      return res.json({ success: true, order: Array.isArray(order) ? order : [] });
+    } catch (error) {
+      console.error("[ui-preferences/menu-order]", error.message);
+      return res.status(500).json({ success: false, message: "Your menu order couldn't be loaded." });
+    }
+  });
+  router.post("/ui-preferences/menu-order", isAuthenticated, express.json(), async (req, res) => {
+    try {
+      const menu = menuOf(req.body && req.body.menu);
+      const raw = req.body && req.body.order;
+      const order = raw === null ? null : (Array.isArray(raw) ? [...new Set(raw.map(String).filter((k) => /^[a-z0-9][a-z0-9-]{0,59}$/.test(k)))].slice(0, 40) : undefined);
+      if (!menu || order === undefined) return res.status(400).json({ success: false, message: "Send the menu and its order." });
+      await require("../utils/uiPreferences").setPreference(req.session, `menu-order:${menu}`, order && order.length ? order : null);
+      return res.json({ success: true, order: order || [] });
+    } catch (error) {
+      if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+      console.error("[ui-preferences/menu-order]", error.message);
+      return res.status(500).json({ success: false, message: "Your menu order couldn't be saved. Try again." });
+    }
+  });
   router.post("/updateClassDashboardLayout", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.updateClassDashboardLayout(req, res, db)
   );
