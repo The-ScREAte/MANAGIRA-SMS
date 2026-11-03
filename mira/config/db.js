@@ -29,7 +29,7 @@ const connectionString = rawConnectionString.replace(/sslmode=(require|prefer|ve
 const pool = new Pool({
   connectionString,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-  max: parseInt(process.env.MIRA_DB_POOL_MAX || "10", 10),
+  max: parseInt(process.env.MIRA_DB_POOL_MAX || (process.env.NODE_ENV === "production" ? "10" : "5"), 10),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   statement_timeout: 30000,
@@ -38,5 +38,28 @@ const pool = new Pool({
 pool.on("error", (err) => {
   console.error("[mira/db] unexpected pool error", err);
 });
+
+// Brief database blips (Render's "service temporarily unavailable", too many
+// connections, a dropped connection): wait and try again. A refused
+// connection never ran the query, so any query is safe to repeat; after a
+// drop, only reads are repeated.
+const RETRY_DELAYS_MS = [300, 1000, 2500, 4500];
+const refused = (e) => ["08004", "08001", "53300", "57P03", "ECONNREFUSED", "EAI_AGAIN"].includes(String(e?.code || "").toUpperCase())
+  || /service temporarily unavailable|too many connections|remaining connection slots|timeout exceeded when trying to connect/i.test(String(e?.message || ""));
+const dropped = (e) => /connection terminated unexpectedly|server closed the connection|connection reset|ECONNRESET|ETIMEDOUT/i.test(String(e?.message || "") + " " + String(e?.code || ""));
+const readOnly = (args) => /^\s*(select|with|show)\b/i.test(typeof args[0] === "string" ? args[0] : String(args[0]?.text || ""));
+const originalQuery = pool.query.bind(pool);
+pool.query = async (...args) => {
+  if (typeof args[args.length - 1] === "function") return originalQuery(...args);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await originalQuery(...args);
+    } catch (error) {
+      const retry = refused(error) || (dropped(error) && readOnly(args));
+      if (!retry || attempt >= RETRY_DELAYS_MS.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+};
 
 module.exports = pool;

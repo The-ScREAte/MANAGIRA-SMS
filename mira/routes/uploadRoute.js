@@ -16,7 +16,7 @@ const MAX_FILES = 5;
 const MAX_TEXT_CHARS = 20000; // keep extracted content small enough to fold into one prompt
 
 const TEXT_EXTENSIONS = new Set([
-  ".txt", ".csv", ".tsv", ".md", ".json", ".log",
+  ".txt", ".csv", ".tsv", ".md", ".json", ".log", ".mgrt",
   ".yml", ".yaml", ".xml", ".html", ".htm", ".rtf",
 ]);
 const DOCUMENT_EXTENSIONS = new Set([".pdf", ".docx", ".xlsx"]);

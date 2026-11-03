@@ -174,7 +174,10 @@ const setDisplayPreferences = require("./setDisplayPreferences");
 const setSchoolNickname = require("./setSchoolNickname");
 const setStudentIdSettings = require("./setStudentIdSettings");
 
+const reportBuilderTools = require("./reportBuilder");
+
 const ALL_TOOLS = [
+  ...reportBuilderTools,
   findStudent,
   findContact,
   getFees,

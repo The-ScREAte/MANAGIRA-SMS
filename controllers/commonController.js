@@ -16893,9 +16893,9 @@ NUMBERING:
       );
 
       if (classResult.rows.length === 0) {
-                return res
-          .status(500)
-          .send("Error fetching class details or class not found");
+        // Not this school's class (or it no longer exists): back to the dashboard.
+        if (typeof req.flash === "function") req.flash("error", "That class wasn't found in your school.");
+        return res.redirect("/common/orgDashboard");
       }
 
       const className = classResult.rows[0].class_name;

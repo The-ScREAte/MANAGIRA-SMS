@@ -38,8 +38,27 @@ function securityHeaders(req, res, next) {
 // Blocks form posts and API calls that come from another website while the
 // user is signed in (CSRF). Server-to-server calls (Stripe/Paystack webhooks,
 // Mira) send no Origin header and pass; signature checks protect those.
+// A few older actions delete things from a plain link (GET). Those links must
+// come from our own pages: another website can't trigger them by embedding the
+// address (an image or hidden link) while a manager is signed in.
+const GET_ACTIONS_THAT_CHANGE_DATA = /^\/account\/(deleteImage|deleteText)\/|^\/common\/(deleteGraduationYearGroup|deleteSubject)(\/|$|\?)|^\/common\/deleteStudentImage\/|^\/print\/delete(StatusSettings|SignatureImage|SignatureForClass|EntireSignature|TranscriptSignatureForClass|EntireTranscriptSignature)(\/|$|\?)|^\/print\/(deleteRemark|deleteScoreRemark)\//;
+
+function fromAnotherSite(req) {
+  const fetchSite = req.get("sec-fetch-site");
+  if (fetchSite) return fetchSite === "cross-site";
+  const referer = req.get("referer");
+  if (!referer) return false;
+  try { return !isOwnHost(new URL(referer).hostname, req.get("host")); } catch (_) { return true; }
+}
+
 function crossSiteRequestGuard(req, res, next) {
-  if (SAFE_METHODS.has(req.method)) return next();
+  if (SAFE_METHODS.has(req.method)) {
+    if (req.method === "GET" && GET_ACTIONS_THAT_CHANGE_DATA.test(req.path) && fromAnotherSite(req)) {
+      console.warn(`[Security] Blocked cross-site GET ${req.originalUrl}`);
+      return res.status(403).send("This request came from another website and was blocked.");
+    }
+    return next();
+  }
   const origin = req.get("origin");
   if (!origin || origin === "null") return next();
   let hostname = "";

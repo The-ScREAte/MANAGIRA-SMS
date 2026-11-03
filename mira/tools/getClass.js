@@ -10,6 +10,12 @@ module.exports = {
   async handler(args, tenant) {
     const params = new URLSearchParams({ organizationId: String(tenant.organizationId), q: String(args?.query || "").trim() });
     const result = await callInternalApi(`/internal/api/classes?${params.toString()}`);
-    return result.classes || [];
+    const classes = result.classes || [];
+    if (!classes.length && args?.query) {
+      // No match: say so plainly (never "0 students") and list the real classes.
+      const all = await callInternalApi(`/internal/api/classes?${new URLSearchParams({ organizationId: String(tenant.organizationId), q: "" })}`);
+      return { found: false, message: `There is no class called "${args.query}" in this school.`, classes: (all.classes || []).map((c) => c.class_name) };
+    }
+    return classes;
   },
 };

@@ -145,6 +145,18 @@ router.get("/email-issues/check", internalApiController.checkEmailAvailabilityAp
 router.post("/email-issues/fix", internalApiController.fixFailedEmailApi);
 router.get("/birthdays", internalApiController.getUpcomingBirthdaysApi);
 router.get("/students", internalApiController.listStudentsApi);
+// Report Builder (runs the page's own handlers as the signed-in staff member).
+const internalReportBuilder = require("../controllers/internalReportBuilderController");
+router.get("/report-builder/catalog", internalReportBuilder.catalog);
+router.get("/report-builder/saved", internalReportBuilder.saved);
+router.post("/report-builder/run", internalReportBuilder.run);
+router.post("/report-builder/save", internalReportBuilder.save);
+router.post("/report-builder/delete", internalReportBuilder.remove);
+router.post("/report-builder/share", internalReportBuilder.share);
+router.post("/report-builder/schedule", internalReportBuilder.schedule);
+router.post("/report-builder/favorite", internalReportBuilder.favorite);
+router.post("/report-builder/export-link", internalReportBuilder.exportLink);
+router.post("/report-builder/import", internalReportBuilder.importTemplate);
 router.post("/students/check-duplicates", internalApiController.checkStudentDuplicatesApi);
 router.post("/students/create", internalApiController.createStudentsApi);
 router.get("/admissions/pending", internalApiController.listPendingAdmissionsApi);

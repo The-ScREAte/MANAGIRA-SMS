@@ -57,11 +57,13 @@ const pool = new Pool({
   // services/spikes while letting concurrent requests (each middleware
   // hop + large form submissions like promotion scheduling) avoid queueing
   // on a small pool.
-  max: parseInt(process.env.DB_POOL_MAX || '30', 10),
+  // On a developer's computer the same database is shared with the live site,
+  // so local runs stay small unless DB_POOL_MAX says otherwise.
+  max: parseInt(process.env.DB_POOL_MAX || (process.env.NODE_ENV === 'production' ? '30' : '10'), 10),
   // Keep a few connections open between visits: opening one costs a TLS
   // handshake, which made the first page after a quiet spell noticeably slow.
   // Only connections above this number close after 30 s idle.
-  min: parseInt(process.env.DB_POOL_MIN || '6', 10),
+  min: parseInt(process.env.DB_POOL_MIN || (process.env.NODE_ENV === 'production' ? '6' : '2'), 10),
   idleTimeoutMillis: 30000,
   // Idle connections don't keep a script alive; the server stays up anyway.
   allowExitOnIdle: true,
@@ -87,7 +89,7 @@ const originalQuery = pool.query.bind(pool);
 //     connect timeout): the query never ran, so any query is retried;
 //   - the connection dropped mid-query: only read-only queries are retried,
 //     so a write is never applied twice.
-const RETRY_DELAYS_MS = [250, 1000, 2500];
+const RETRY_DELAYS_MS = [300, 1000, 2500, 4500];
 
 function sqlTextOf(args) {
   const input = args[0];
@@ -106,6 +108,12 @@ function isConnectRefusal(error) {
   const message = String(error?.message || '').toLowerCase();
   return (
     code === '57P03' || // cannot_connect_now: starting up / not yet accepting connections
+    code === '08004' || // the server refused the connection (Render: "service temporarily unavailable")
+    code === '08001' || // couldn't establish the connection
+    code === '53300' || // too many connections
+    message.includes('service temporarily unavailable') ||
+    message.includes('too many connections') ||
+    message.includes('remaining connection slots are reserved') ||
     code === 'ECONNREFUSED' ||
     code === 'ENOTFOUND' ||
     code === 'EAI_AGAIN' ||
@@ -117,9 +125,14 @@ function isConnectRefusal(error) {
   );
 }
 
+// Session saves (connect-pg-simple) write the same row with the same values,
+// so repeating one after a dropped connection is harmless.
+const isSessionStoreSql = (sql) => /\buser_sessions\b/i.test(String(sql || ''));
+
 function shouldRetryQuery(error, args) {
   if (isConnectRefusal(error)) return true;
-  return isTransientIdleClientDrop(error) && isReadOnlySql(sqlTextOf(args));
+  const sql = sqlTextOf(args);
+  return isTransientIdleClientDrop(error) && (isReadOnlySql(sql) || isSessionStoreSql(sql));
 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

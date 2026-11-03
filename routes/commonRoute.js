@@ -1044,6 +1044,23 @@ module.exports = (db) => {
     express.json(),
     reportBuilder.export
   );
+  // Download links Mira hands out: sealed, for the same signed-in person only,
+  // and the file is built fresh with their own permissions.
+  router.get(
+    "/report-builder/download/:token",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_REPORTS),
+    (req, res) => {
+      const link = require("../controllers/internalReportBuilderController").openLink(req.params.token);
+      const userId = Number(req.session?.user?.user_id || req.session?.userId);
+      if (!link || link.u !== userId || link.o !== Number(req.session?.organizationId)) {
+        return res.status(404).send("This download link has expired or belongs to someone else. Ask Mira for a new one.");
+      }
+      req.body = link.d;
+      return link.d.format === "mgrt" ? reportBuilder.template(req, res) : reportBuilder.export(req, res);
+    }
+  );
   // Report templates (.mgrt): the design only, shared between schools.
   router.post(
     "/report-builder/template",

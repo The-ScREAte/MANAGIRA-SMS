@@ -5,11 +5,19 @@
 // loaded, so a short follow-up ("yes", "the first one") keeps the tools it
 // needs. The model can always ask for another area with load_tools.
 
-const CORE_TOOLS = ["find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects"];
+const CORE_TOOLS = ["find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
 
 // name -> { label (shown to the model), keywords (matched against the
 // conversation), tools }
 const AREAS = {
+  report_builder: {
+    label: "Report Builder: any list or count (students, attendance, fees, scores, staff, parents, messages, activity), saved reports, sharing, email schedules, Excel/CSV/Word exports, Managira templates (.mgrt)",
+    keywords: /\b(report builder|custom reports?|saved reports?|my reports|reports?|lists?|roster|how many|count|total|export\w*|excel|xlsx|csv|spreadsheet|word|docx|download|template|mgrt|columns?|filters?|schedul\w*|share\w*|favou?rite|star)\b/,
+    tools: [
+      "report_builder_catalog", "run_report", "list_saved_reports", "save_report", "delete_saved_report", "share_saved_report",
+      "schedule_saved_report", "favorite_saved_report", "export_report", "import_report_template",
+    ],
+  },
   students: {
     label: "Students, guardians, fees, attendance, birthdays, archived students",
     keywords: /\b(students?|pupils?|learners?|child(ren)?|kids?|guardians?|parents?|contacts?|fees?|paid|payments?|owe|owing|balance|attendance|absent|absences|present|late|birthdays?|archiv\w*|duplicates?)\b/,

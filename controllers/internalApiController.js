@@ -7511,7 +7511,22 @@ async function listStudentsApi(req, res) {
       classFilter ? [organizationId, classFilter.class_id] : [organizationId]
     );
 
+    // Exact totals, so an assistant answering "how many" reads the number
+    // instead of counting a long list (which language models get wrong).
+    const tally = (pick) => Object.entries(rows.rows.reduce((acc, r) => {
+      const key = pick(r) || "Not set";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {})).map(([name, count]) => ({ name, count }));
+    const graduatedCount = rows.rows.filter((r) => r.graduated).length;
     return res.json({
+      counts: {
+        total: rows.rows.length,
+        active: rows.rows.length - graduatedCount,
+        graduated: graduatedCount,
+        byClass: tally((r) => r.class_name),
+        byGender: tally((r) => r.gender),
+      },
       students: rows.rows.map((r) => ({
         studentId: r.student_id,
         displayStudentId: r.custom_student_id || String(r.student_id),

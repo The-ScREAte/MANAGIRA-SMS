@@ -19,7 +19,12 @@ function requireRespondent(req, res, next) {
 }
 
 // GET /notices/active - the next feedback request this person should answer.
-router.get("/active", requireRespondent, async (req, res) => {
+// Visitors (and anyone who can't answer feedback) simply have nothing waiting.
+router.get("/active", (req, res, next) => {
+  if (notices.respondentFromSession(req.session)) return next();
+  res.set("Cache-Control", "no-store");
+  return res.json({ success: true, feedback: null, pendingCount: 0 });
+}, requireRespondent, async (req, res) => {
   try {
     notices.sweepFeedbackNotificationsSoon(db);
     const pending = await notices.pendingFeedbackFor(db, req.noticeRespondent);
