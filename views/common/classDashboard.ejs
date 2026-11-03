@@ -2378,8 +2378,8 @@ main {
 }
 .transport-modal-overlay.active { display: flex; }
 .transport-modal-box {
-  width: min(500px, 100%);
-  max-height: min(70vh, 600px);
+  width: min(760px, 100%);
+  max-height: min(92vh, 900px);
   overflow: auto;
   background: #fff;
   border-radius: 14px;
@@ -2425,7 +2425,7 @@ main {
 }
 .transport-detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
 }
 .transport-detail-card {
@@ -2450,11 +2450,11 @@ main {
 }
 .transport-modal-map {
   width: 100%;
-  height: 160px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #eef5fb;
+  min-height: 300px;
+}
+#studentTransportModalStatus:empty { display: none; }
+@media (max-width: 600px) {
+  #studentTransportModal .transport-modal-box { width: 100%; max-height: 100vh; border-radius: 14px 14px 0 0; align-self: flex-end; }
 }
 .student-remark-input,
 .student-remark-select {
@@ -4495,6 +4495,7 @@ main {
   </div>
 
   <script src="/js/managiraMaps.js"></script>
+  <script src="/js/busTracker.js" defer></script>
   <script>
     var classScheduleContext;
     var classScheduleState;
@@ -5301,6 +5302,10 @@ main {
         var modal = document.getElementById('studentTransportModal');
         if (!modal) return;
         modal.classList.remove('active');
+        if (studentTransportState.tracker) {
+          studentTransportState.tracker.destroy();
+          studentTransportState.tracker = null;
+        }
       }
 
       function handleStudentTransportModalOverlayClick(event) {
@@ -5339,23 +5344,22 @@ main {
             statusEl.textContent = 'No transportation assignment found.';
             return;
           }
-          statusEl.textContent = 'Current transportation assignment';
-          summaryEl.innerHTML = '<span class="transport-summary-chip">🚌 ' + [snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ') + '</span>';
+          statusEl.textContent = '';
+          summaryEl.innerHTML = '';
+          var esc = function(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); };
           var details = [
-            ['Driver', snapshot.driverName || '-'],
-            ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
-            ['Stop', snapshot.stop && snapshot.stop.stopName ? snapshot.stop.stopName : '-'],
-            ['Pick-up', formatTransportClock(snapshot.pickupTime) || '-'],
-            ['Drop-off', formatTransportClock(snapshot.dropoffTime) || '-'],
-            ['Live', snapshot.live && snapshot.live.recordedAt ? new Date(snapshot.live.recordedAt).toLocaleString() : 'No live update yet'],
-            ['School', snapshot.school && snapshot.school.address ? snapshot.school.address : '-'],
-            ['Home', snapshot.homeAddress || '-']
-          ];
+            ['Route', snapshot.route && snapshot.route.routeName],
+            ['Stop', snapshot.stop && snapshot.stop.stopName],
+            ['Home', snapshot.homeAddress]
+          ].filter(function(entry) { return entry[1]; });
           gridEl.innerHTML = details.map(function(entry) {
-            return '<div class="transport-detail-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>';
+            return '<div class="transport-detail-card"><span class="k">' + entry[0] + '</span><span class="v">' + esc(entry[1]) + '</span></div>';
           }).join('');
           setTimeout(function() {
-            renderTransportMap('studentTransportModalMap', snapshot, false);
+            var mapHost = document.getElementById('studentTransportModalMap');
+            if (!mapHost || !window.BusTracker) return;
+            if (studentTransportState.tracker) studentTransportState.tracker.destroy();
+            studentTransportState.tracker = window.BusTracker.mount(mapHost, snapshot, { studentId: studentId });
           }, 60);
         } catch (error) {
           statusEl.textContent = error && error.message ? error.message : 'Unable to load transportation details.';
