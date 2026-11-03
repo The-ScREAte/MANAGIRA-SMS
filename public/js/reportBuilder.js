@@ -38,7 +38,6 @@
     check: '<path d="M5 12l5 5L20 7"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>',
-    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/>',
     trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
     up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
     down: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
@@ -246,7 +245,6 @@
       ];
       if (saved.is_owner) {
         tools.push(iconButton("share", `Share ${name}`, { openModal: "share", reportId: id }));
-        tools.push(iconButton("gear", `Edit ${name}`, { editSaved: id }));
         tools.push(iconButton("trash", `Delete ${name}`, { deleteSaved: id }, "is-danger"));
       }
       // Icons on the left; the name on top and who made it underneath.
@@ -1176,7 +1174,6 @@
     }
     if (dataset.view) return switchView(dataset.view);
     if (dataset.loadSaved) return openSaved(dataset.loadSaved);
-    if (dataset.editSaved) return openSaved(dataset.editSaved, { edit: true });
     if (dataset.favoriteSaved) return toggleFavorite(dataset.favoriteSaved, target);
     if (dataset.deleteSaved) return deleteSaved(dataset.deleteSaved, target);
     if (dataset.stepNav) return goTo(Number(dataset.stepNav));
