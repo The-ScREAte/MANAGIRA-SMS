@@ -687,7 +687,7 @@ main { padding: 0 !important; max-width: none !important; }
     margin-top: 4px !important;
   }
 
-  .settings-nav.open .nav-list {
+  #settings-layout-root .settings-nav.open .nav-list {
     display: grid !important;
     animation: mgNavIn 0.18s ease both;
   }
@@ -798,7 +798,7 @@ main { padding: 0 !important; max-width: none !important; }
    independently so every item remains reachable. */
 @media (max-width: 900px) {
   .management-nav.open,
-  .settings-nav.open .nav-list {
+  #settings-layout-root .settings-nav.open .nav-list {
     position: fixed !important;
     top: var(--side-menu-top, 120px) !important;
     bottom: 0 !important;

@@ -112,7 +112,7 @@
       </div>
       <form action="/driver/settings" method="post" enctype="multipart/form-data" id="driverSettingsForm" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
         <div class="drv-avatar-row">
-          <img class="drv-avatar" src="<%= user.profile_image_url || '/images/profilePlaceholder.png' %>" alt="Your photo" />
+          <img class="drv-avatar" src="<%= publicImageUrl(user.profile_image_url || '/images/profilePlaceholder.png') %>" alt="Your photo" />
           <div style="flex:1;">
             <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:6px;">Profile Photo</label>
             <input type="file" name="photo" accept="image/*" />

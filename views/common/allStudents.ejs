@@ -1392,7 +1392,7 @@
           <td>
             <div class="as-student-cell">
               <% if (s.image_url && s.image_url !== 'profilePlaceholder.png') { %>
-              <img class="as-avatar" src="<%= s.image_url %>" alt="<%= studentDisplayName %>" loading="lazy">
+              <img class="as-avatar" src="<%= publicImageUrl(s.image_url) %>" alt="<%= studentDisplayName %>" loading="lazy">
               <% } else { %>
               <div class="as-avatar-placeholder"><%= initials %></div>
               <% } %>
@@ -1492,7 +1492,7 @@
         <div class="as-card-top">
           <input type="checkbox" class="as-cb as-card-cb" data-id="<%= s.student_id %>" style="margin-right:2px;">
           <% if (s.image_url && s.image_url !== 'profilePlaceholder.png') { %>
-          <img class="as-avatar" src="<%= s.image_url %>" alt="<%= studentDisplayName %>" loading="lazy">
+          <img class="as-avatar" src="<%= publicImageUrl(s.image_url) %>" alt="<%= studentDisplayName %>" loading="lazy">
           <% } else { %>
           <div class="as-avatar-placeholder"><%= initials %></div>
           <% } %>

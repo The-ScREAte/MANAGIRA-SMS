@@ -3,6 +3,7 @@ const { Upload } = require('@aws-sdk/lib-storage');
 const multer = require('multer');
 const { safeUploadOptions } = require('../utils/uploadSafety');
 const path = require('path');
+const s3ObjectUrl = require('../utils/publicImageUrl').s3ObjectUrl;
 
 // Initialize the S3 client
 const s3 = new S3Client({
@@ -33,7 +34,7 @@ const uploadToS3 = async (file, customKey = null) => {
     });
 
     const data = await upload.done();
-    return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    return s3ObjectUrl(key);
   } catch (error) {
     console.error('Error uploading to S3:', error);
     throw error;

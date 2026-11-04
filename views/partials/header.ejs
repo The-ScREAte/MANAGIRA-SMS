@@ -2008,6 +2008,7 @@
   const normalizeLogoSrc = (logo) => {
     if (!logo) return "";
     if (/^https?:\/\//i.test(logo)) return logo;
+    if (/^s3:\/\//i.test(logo) || /^images\/(?:logos|hub-logos|website|donations)\//i.test(logo) || /^\d{13}-[^/]+\.[a-z0-9]+$/i.test(logo)) return logo;
     if (logo.startsWith("/")) return logo;
     return `/${logo}`;
   };
@@ -2205,12 +2206,12 @@
       <span class="siteName">
         <% if (isLoggedIn && typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
           <a href="<%= dashboardHref %>" title="Go to dashboard">
-            <img src="<%= normalizeLogoSrc(orgHeaderLogo) %>" alt="Organization Logo" class="logo" />
+            <img src="<%= publicImageUrl(normalizeLogoSrc(orgHeaderLogo), { public: true }) %>" alt="Organization Logo" class="logo" />
           </a>
         <% } else if (showPublicOrgIdentity && publicOrgData && (publicOrgData.logo || publicOrgData.logo_path)) { %>
           <!-- Show org logo on public dashboard even when logged out; clicking goes home -->
           <a href="<%= headerHomeHref %>" title="Return to home page">
-            <img src="<%= normalizeLogoSrc(publicOrgData.logo || publicOrgData.logo_path) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
+            <img src="<%= publicImageUrl(normalizeLogoSrc(publicOrgData.logo || publicOrgData.logo_path), { public: true }) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
           </a>
         <% } else if (!isLoggedIn) { %>
           <!-- Only show Managira logo when not logged in -->
@@ -2223,7 +2224,7 @@
         <% } else if (session.logo) { %>
           <!-- Show Organization logo when logged in -->
           <a href="<%= dashboardHref %>" title="Go to dashboard">
-            <img src="<%= normalizeLogoSrc(session.logo) %>" alt="<%= session.accountType === 'Hub' ? 'Hub' : 'Organization' %> Logo" class="logo" />
+            <img src="<%= publicImageUrl(normalizeLogoSrc(session.logo), { public: true }) %>" alt="<%= session.accountType === 'Hub' ? 'Hub' : 'Organization' %> Logo" class="logo" />
           </a>
         <% } else if (session.accountType === 'Hub') { %>
           <!-- Hub without logo - show nothing or hub name only -->
@@ -2288,7 +2289,7 @@
                   </div>
                   <% if (menu.heroImage) { %>
                     <div class="public-nav-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-nav-visual--mira' : '' %>">
-                      <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
+                      <img src="<%= publicImageUrl(menu.heroImage, { public: true }) %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
                     </div>
                     <div class="public-nav-capabilities">
                       <span class="public-nav-capabilities-title"><%= menu.capabilitiesTitle || 'Capabilities' %></span>
@@ -2301,7 +2302,7 @@
                       <% menu.sections.forEach((section) => { %>
                         <div class="public-nav-section">
                           <% if (section.image) { %>
-                            <div class="public-nav-section-visual" style="--section-accent:<%= section.imageBorderColor || '#cbd5e1' %>;"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" loading="lazy" decoding="async" /></div>
+                            <div class="public-nav-section-visual" style="--section-accent:<%= section.imageBorderColor || '#cbd5e1' %>;"><img src="<%= publicImageUrl(section.image, { public: true }) %>" alt="<%= section.imageAlt || section.title %>" loading="lazy" decoding="async" /></div>
                           <% } %>
                           <span class="public-nav-section-title"><%= section.title %></span>
                           <% section.links.forEach((link) => { %>
@@ -2646,7 +2647,7 @@
             </div>
             <% if (menu.heroImage) { %>
               <div class="public-mobile-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-mobile-visual--mira' : '' %>">
-                <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
+                <img src="<%= publicImageUrl(menu.heroImage, { public: true }) %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
               </div>
               <% if (menu.capabilities && menu.capabilities.length) { %>
                 <div class="public-mobile-capabilities">
@@ -2659,7 +2660,7 @@
             <% } else { %>
               <% menu.sections.forEach((section) => { %>
                 <% if (section.image) { %>
-                  <div class="public-mobile-section-visual"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" loading="lazy" decoding="async" /></div>
+                  <div class="public-mobile-section-visual"><img src="<%= publicImageUrl(section.image, { public: true }) %>" alt="<%= section.imageAlt || section.title %>" loading="lazy" decoding="async" /></div>
                 <% } %>
                 <span class="public-mobile-section-title"><%= section.title %></span>
                 <% section.links.forEach((link) => { %>

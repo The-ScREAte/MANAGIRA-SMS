@@ -67,7 +67,9 @@
   <div class="head">
     <div class="org">
       <% if (assignment.org_logo) { %>
-        <img src="<%= assignment.org_logo.startsWith('http') ? assignment.org_logo : '/uploads/' + assignment.org_logo %>" alt="" style="max-height:48px;margin-bottom:8px;">
+        <% const logoValue = String(assignment.org_logo).trim(); %>
+        <% const logoSource = /^(https?:\/\/|s3:\/\/|\/|images\/|\d{13}-)/i.test(logoValue) ? logoValue : '/uploads/' + logoValue; %>
+        <img src="<%= publicImageUrl(logoSource, { public: true }) %>" alt="" style="max-height:48px;margin-bottom:8px;">
       <% } %>
       <h1><%= assignment.organization_name || 'School' %></h1>
       <div class="meta">

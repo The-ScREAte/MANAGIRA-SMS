@@ -598,7 +598,7 @@
     var schoolLng = <%- JSON.stringify(schoolLongitude) %>;
     var assignedRoutes = <%- JSON.stringify(assignedRoutes || []) %>;
     var activeTrip = <%- JSON.stringify(activeTrip || null) %>;
-    var driverPhotoUrl = <%- JSON.stringify(driverPhotoUrl || null) %>;
+    var driverPhotoUrl = <%- JSON.stringify(publicImageUrl(driverPhotoUrl || '')) %> || null;
     var distanceUnit = <%- JSON.stringify(distanceUnit === 'mi' ? 'mi' : 'km') %>;
     var routeColor = (getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color') || '').trim() || '#01535b';
 

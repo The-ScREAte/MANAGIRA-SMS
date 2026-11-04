@@ -93,7 +93,7 @@
               <% c.students.forEach((st) => { const nm = [st.first_name, st.last_name].filter(Boolean).join(' '); %>
                 <label class="ef-st" data-search="<%= (nm + ' ' + (st.custom_id || '')).toLowerCase() %>">
                   <input type="checkbox" value="<%= st.student_id %>"<%= st.enrolled ? ' checked' : '' %> />
-                  <span class="ef-av"><% if (st.image_url) { %><img src="<%= st.image_url %>" alt="" loading="lazy" onerror="this.remove()" /><% } %><%= _initials(st) %></span>
+                  <span class="ef-av"><% if (st.image_url) { %><img src="<%= publicImageUrl(st.image_url) %>" alt="" loading="lazy" onerror="this.remove()" /><% } %><%= _initials(st) %></span>
                   <span class="ef-st__name"><%= nm %><% if (st.custom_id) { %><small><%= st.custom_id %></small><% } %></span>
                 </label>
               <% }) %>

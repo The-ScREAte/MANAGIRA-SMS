@@ -145,8 +145,9 @@
         <div class="student-image-container">
           <% if (student.image_url && student.image_url !==
           'profilePlaceholder.png') { %>
+          <% const studentImageUrl = publicImageUrl(student.image_url); %>
           <img
-            src="<%= student.image_url %>?v=<%= new Date().getTime() %>"
+            src="<%= studentImageUrl %><%= studentImageUrl.includes('?') ? '&' : '?' %>v=<%= new Date().getTime() %>"
             alt="Student Image"
             class="student-image"
           />

@@ -176,7 +176,7 @@
       <% donations.forEach(d => { %>
         <div class="donation-card">
           <% if (d.image_url) { %>
-            <img src="<%= d.image_url %>" alt="<%= d.title %>" class="donation-image" />
+            <img src="<%= publicImageUrl(d.image_url) %>" alt="<%= d.title %>" class="donation-image" />
           <% } %>
           <h3><%= d.title %></h3>
           <p><%= d.description %></p>

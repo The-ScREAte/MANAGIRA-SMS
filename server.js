@@ -10,6 +10,7 @@ require("dotenv").config();
 // Node's default is to exit with status 1, which is what the host reports as a crash.
 require("./utils/processGuards").install("Server");
 const { isSettingsEncryptionKeyConfigured } = require("./utils/encryption");
+const publicImageUrl = require("./utils/publicImageUrl");
 
 if (!isSettingsEncryptionKeyConfigured()) {
   console.error("[Settings encryption] SETTINGS_ENCRYPTION_KEY is missing or invalid. Integration credentials cannot be safely stored or read.");
@@ -970,6 +971,90 @@ app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
 
+app.use((req, res, next) => {
+  res.locals.publicImageUrl = (value, options = {}) => publicImageUrl(value, {
+    ...options,
+    secret: SESSION_SECRET,
+    viewer: req.sessionID || "",
+  });
+  next();
+});
+
+app.get("/public-image", async (req, res) => {
+  const key = String(req.query.key || "");
+  const expires = String(req.query.expires || "");
+  const signature = String(req.query.signature || "");
+  const publicScope = req.query.public === "1";
+  const isPublicKey = publicImageUrl.isPublicImageKey(key);
+  const isPublic = isPublicKey || (publicScope && publicImageUrl.isLegacyPublicImageKey(key));
+  if (
+    !publicImageUrl.isRoutableImageKey(key) ||
+    (publicScope && !isPublic) ||
+    !publicImageUrl.verifyPublicImageSignature(
+      key,
+      expires,
+      signature,
+      SESSION_SECRET,
+      isPublic ? "" : req.sessionID || "",
+      publicScope ? "public" : ""
+    )
+  ) {
+    return res.sendStatus(404);
+  }
+
+  const session = req.session || {};
+  const isAuthenticated = Boolean(
+    req.user ||
+    session.userId ||
+    session.user?.user_id ||
+    session.organizationId ||
+    session.guardianId ||
+    session.studentId ||
+    session.hubId ||
+    session.hubUserId ||
+    session.adminId ||
+    session.adminUserId ||
+    session.admin
+  );
+  if (!isPublic && !isAuthenticated) return res.sendStatus(404);
+  if (!process.env.S3_BUCKET_NAME) {
+    console.error("[Public image] S3_BUCKET_NAME is not configured.");
+    return res.sendStatus(503);
+  }
+
+  try {
+    const { s3Client, GetObjectCommand } = require("./config/s3");
+    const object = await s3Client.send(
+      new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key })
+    );
+    if (!object.Body) return res.sendStatus(404);
+    if (Number(object.ContentLength) > 20 * 1024 * 1024) {
+      object.Body.destroy();
+      return res.sendStatus(413);
+    }
+
+    res.set({
+      "Content-Type": publicImageUrl.imageContentType(key),
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": `${isPublic ? "public" : "private"}, max-age=300`,
+    });
+    if (!isPublic) res.set("Vary", "Cookie");
+    object.Body.once("error", (error) => {
+      console.error("[Public image] S3 stream failed:", error.name || "stream error");
+      if (!res.headersSent) res.status(502).end("Image could not be loaded.");
+      else res.destroy();
+    });
+    return object.Body.pipe(res);
+  } catch (error) {
+    if (error.name === "NoSuchKey" || error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
+      return res.sendStatus(404);
+    }
+    console.error("[Public image] S3 retrieval failed:", error.name || "S3 error");
+    return res.sendStatus(502);
+  }
+});
+
 // Short-link redirects (see utils/shortLink.js) — keeps SMS message bodies
 // from having long S3 URLs inlined, which would burn extra SMS segments.
 app.get("/r/:code", async (req, res) => {
@@ -1002,16 +1087,10 @@ app.get("/favicon.ico", (req, res, next) => {
     const rawLogo = String(schoolLogo).trim();
     let logoUrl = rawLogo;
 
-    if (!/^https?:\/\//i.test(rawLogo)) {
-      if (process.env.S3_BUCKET_NAME && process.env.AWS_REGION) {
-        logoUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`;
-      } else {
-        logoUrl = `/${rawLogo.replace(/^\/+/, "")}`;
-      }
-    }
+    logoUrl = publicImageUrl(rawLogo, { secret: SESSION_SECRET });
 
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    return res.redirect(301, logoUrl);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.redirect(302, logoUrl);
   } catch (error) {
     return next();
   }

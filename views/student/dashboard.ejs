@@ -834,7 +834,7 @@
         <div class="sp-summary">
           <img
             class="sp-avatar"
-            src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>"
+            src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png') %>"
             alt="Student photo"
           />
 

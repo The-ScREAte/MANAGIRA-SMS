@@ -141,7 +141,7 @@
     <div class="profile-card__header">
       <div class="profile-avatar-lg">
         <% if (_avatarUrl) { %>
-          <img src="<%= _avatarUrl %>" alt="<%= profile.first_name %> <%= profile.last_name %>">
+          <img src="<%= publicImageUrl(_avatarUrl) %>" alt="<%= profile.first_name %> <%= profile.last_name %>">
         <% } else { %><%= _initial %><% } %>
       </div>
       <div>

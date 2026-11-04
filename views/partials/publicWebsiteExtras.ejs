@@ -122,7 +122,7 @@
   <div class="pdx-grid">
     <% wx.programs.items.forEach((item) => { %>
     <article class="pdx-card pdx-program">
-      <% if (item.imageUrl) { %><img src="<%= item.imageUrl %>" alt="<%= item.title %>" loading="lazy"><% } else { %><div class="pdx-program-accent"></div><% } %>
+      <% if (item.imageUrl) { %><img src="<%= publicImageUrl(item.imageUrl, { public: true }) %>" alt="<%= item.title %>" loading="lazy"><% } else { %><div class="pdx-program-accent"></div><% } %>
       <div class="pdx-program-body">
         <h3><%= item.title %></h3>
         <% if (item.description) { %><p><%= item.description %></p><% } %>
@@ -139,7 +139,7 @@
   <div class="pdx-people">
     <% wx.leadership.items.forEach((person) => { %>
     <article class="pdx-card pdx-person">
-      <% if (person.imageUrl) { %><img src="<%= person.imageUrl %>" alt="<%= person.name %>" loading="lazy"><% } else { %><div class="pdx-avatar" aria-hidden="true"><%= wxInitials(person.name) %></div><% } %>
+      <% if (person.imageUrl) { %><img src="<%= publicImageUrl(person.imageUrl, { public: true }) %>" alt="<%= person.name %>" loading="lazy"><% } else { %><div class="pdx-avatar" aria-hidden="true"><%= wxInitials(person.name) %></div><% } %>
       <h3><%= person.name %></h3>
       <% if (person.role) { %><p class="pdx-role"><%= person.role %></p><% } %>
       <% if (person.message) { %><p class="pdx-message">"<%= person.message %>"</p><% } %>

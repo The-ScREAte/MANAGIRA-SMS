@@ -289,7 +289,7 @@
         <label>Student Photo (Optional)</label>
         <div class="image-section">
           <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
-            <img src="<%= student.image_url %>" alt="Current photo" class="current-image">
+            <img src="<%= publicImageUrl(student.image_url) %>" alt="Current photo" class="current-image">
           <% } %>
           <input type="file" name="studentImage" accept="image/*" onchange="previewImage(this)">
         </div>

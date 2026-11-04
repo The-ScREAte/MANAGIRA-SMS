@@ -2208,7 +2208,7 @@
                             .filter(image => image.allocation === 'slideshow')
                             .forEach((image) => { %>
                                 <form action="/account/updateImage" method="POST" class="image-content-form">
-                                    <% if (image.media_type === 'video') { %><video src="<%= image.image_url %>" <% if (image.poster_url) { %>poster="<%= image.poster_url %>" <% } %>controls muted playsinline preload="none"></video><% } else { %><img src="<%= image.image_url.startsWith('http') ? image.image_url : '/' + image.image_url %>" alt="Slide Image"><% } %>
+                                    <% if (image.media_type === 'video') { %><video src="<%= image.image_url %>" <% if (image.poster_url) { %>poster="<%= publicImageUrl(image.poster_url) %>" <% } %>controls muted playsinline preload="none"></video><% } else { %><img src="<%= publicImageUrl(image.image_url) %>" alt="Slide Image"><% } %>
                                     <input type="hidden" name="imageId" value="<%= image.image_id %>">
                                     <label for="caption">Caption:</label>
                                     <input type="text" name="caption" value="<%= image.caption %>">
@@ -2229,7 +2229,7 @@
                     <div class="standalone-images">
                         <% images.filter(image => image.allocation !== 'slideshow').forEach((image) => { %>
                           <form action="/account/updateImage" method="POST" class="image-content-form">
-                            <% if (image.media_type === 'video') { %><video src="<%= image.image_url %>" <% if (image.poster_url) { %>poster="<%= image.poster_url %>" <% } %>controls muted playsinline preload="none"></video><% } else { %><img src="<%= image.image_url.startsWith('http') ? image.image_url : '/' + image.image_url %>" alt="Gallery Image"><% } %>
+                            <% if (image.media_type === 'video') { %><video src="<%= image.image_url %>" <% if (image.poster_url) { %>poster="<%= publicImageUrl(image.poster_url) %>" <% } %>controls muted playsinline preload="none"></video><% } else { %><img src="<%= publicImageUrl(image.image_url) %>" alt="Gallery Image"><% } %>
                             <input type="hidden" name="imageId" value="<%= image.image_id %>">
                       
                             <label for="caption">Caption:</label>

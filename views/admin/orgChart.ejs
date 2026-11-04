@@ -532,7 +532,7 @@
           <% } %>
           <div class="oc-avatar">
             <% if (m.profile_image_url) { %>
-              <img src="<%= m.profile_image_url %>" alt="<%= ocFullName(m) %>" loading="lazy">
+              <img src="<%= publicImageUrl(m.profile_image_url) %>" alt="<%= ocFullName(m) %>" loading="lazy">
             <% } else { %><%= ocInitials(m) %><% } %>
           </div>
           <p class="oc-name" title="<%= ocFullName(m) %>"><%= ocFullName(m) %></p>

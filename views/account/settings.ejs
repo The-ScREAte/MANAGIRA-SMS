@@ -3312,13 +3312,7 @@
 
           <% 
             const rawLogo = (org && (org.logo || org.logo_path)) ? (org.logo || org.logo_path) : "";
-            const isLogoUrl = rawLogo && /^https?:\/\//i.test(rawLogo);
-            const resolvedLogoUrl = rawLogo
-              ? (isLogoUrl ? rawLogo : `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`)
-              : "";
-            const logoUrl = resolvedLogoUrl
-              ? encodeURI(resolvedLogoUrl)
-              : "";
+            const logoUrl = rawLogo ? publicImageUrl(rawLogo, { public: true }) : "";
           %>
 
           <div class="card settings-group" data-save-group>
@@ -3335,7 +3329,7 @@
                   <div class="cz-logo">
                     <div class="cz-logo__img" data-cz-logo>
                       <% if (logoUrl) { %>
-                        <img src="<%= logoUrl %>" alt="School logo" />
+                        <img src="<%= publicImageUrl(logoUrl, { public: true }) %>" alt="School logo" />
                       <% } else { %>
                         <span><%= (org && org.organization_name ? org.organization_name[0] : 'S') %></span>
                       <% } %>
@@ -3778,7 +3772,7 @@
                 <input type="hidden" name="redirectTo" value="/account/settings?section=profile" />
                 <div class="avatar me-card__avatar" data-me-avatar>
                   <% if (_hasPhoto) { %>
-                    <img src="<%= user.image_url %>" alt="Your photo" />
+                    <img src="<%= publicImageUrl(user.image_url) %>" alt="Your photo" />
                   <% } else { %>
                     <%= (user?.first_name ? user.first_name[0] : 'P') %>
                   <% } %>
@@ -3833,7 +3827,7 @@
           </style>
           <div class="card">
             <div class="hubinfo-head">
-              <span class="hubinfo-logo"><% if (_hp.logo) { %><img src="<%= _hp.logo %>" alt="<%= _hp.name %> logo" onerror="this.remove()" /><% } else { %><%= String(_hp.name || 'H').charAt(0).toUpperCase() %><% } %></span>
+              <span class="hubinfo-logo"><% if (_hp.logo) { %><img src="<%= publicImageUrl(_hp.logo, { public: true }) %>" alt="<%= _hp.name %> logo" onerror="this.remove()" /><% } else { %><%= String(_hp.name || 'H').charAt(0).toUpperCase() %><% } %></span>
               <div style="min-width:0">
                 <h2 class="hubinfo-name"><%= _hp.name %></h2>
                 <p class="hubinfo-meta">
@@ -4607,7 +4601,7 @@
               <h4>
                 <span class="student-portal-title">
                   <span class="sms-provider-logo-chip">
-                    <img src="<%= def.logo %>" alt="<%= def.label %> logo" />
+                    <img src="<%= publicImageUrl(def.logo, { public: true }) %>" alt="<%= def.label %> logo" />
                   </span>
                   <span><%= def.label %></span>
                 </span>
@@ -6382,6 +6376,8 @@
         function setNavOpen(isOpen) {
           if (!navPanel) return;
           navPanel.classList.toggle("open", isOpen);
+          if (navHeader) navHeader.setAttribute("aria-expanded", isOpen ? "true" : "false");
+          if (navOverlay) navOverlay.classList.toggle("show", isOpen && window.innerWidth <= 960);
         }
 
         function openNav() {
@@ -6480,7 +6476,8 @@
 
         if (navHeader && navHeader.dataset.spaMenuBound !== "1") {
           navHeader.dataset.spaMenuBound = "1";
-          navHeader.addEventListener("click", () => {
+          navHeader.addEventListener("click", (event) => {
+            if (event.target.closest("button, a")) return;
             openNav();
           });
         }
@@ -6528,7 +6525,11 @@
               return;
             }
             panel.classList.remove("open");
-          });
+            const header = panel.querySelector(".settings-nav-header");
+            if (header) header.setAttribute("aria-expanded", "false");
+            const overlay = document.querySelector(".settings-nav-overlay");
+            if (overlay) overlay.classList.remove("show");
+          }, true);
         }
 
         window.addEventListener("resize", () => {

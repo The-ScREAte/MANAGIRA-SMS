@@ -1140,7 +1140,7 @@
       <div class="student-identity">
         <% const academicStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
         <img 
-          src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
+          src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png') %>"
           alt="<%= academicStudentDisplayName %>"
           class="student-avatar-large"
         />

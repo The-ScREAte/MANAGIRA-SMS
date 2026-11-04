@@ -90,7 +90,7 @@
                 data-last-login="<%= _isoDay(g.last_login) %>">
               <td class="ws-card-title">
                 <span class="ws-person">
-                  <img src="<%= _photo(g) || '/images/profilePlaceholder.png' %>" alt="" loading="lazy" />
+                  <img src="<%= publicImageUrl(_photo(g) || '/images/profilePlaceholder.png') %>" alt="" loading="lazy" />
                   <strong><%= name %></strong>
                 </span>
               </td>

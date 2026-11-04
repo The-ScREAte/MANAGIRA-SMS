@@ -1051,7 +1051,7 @@
               <li>
                 <div class="tm-item-row">
                   <div class="tm-item-body tm-driver-row">
-                    <img class="tm-driver-avatar" src="<%= driver.image_url || '/images/profilePlaceholder.png' %>" alt="Driver image" />
+                    <img class="tm-driver-avatar" src="<%= publicImageUrl(driver.image_url || '/images/profilePlaceholder.png') %>" alt="Driver image" />
                     <div>
                       <strong><%= driverFullName %></strong> | <%= driver.phone || '-' %> | <%= driver.email || '-' %> | Status: <%= String(driver.status || '').replaceAll('_', ' ') || '-' %>
                       <br/>

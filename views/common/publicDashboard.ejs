@@ -90,7 +90,10 @@
         (session && session.logo) ||
         '';
 
-      const _schoolIcon = _toAbsolute(String(_schoolLogoCandidate || '').trim());
+      const _resolvedSchoolLogo = typeof publicImageUrl === 'function'
+        ? publicImageUrl(_schoolLogoCandidate, { public: true })
+        : String(_schoolLogoCandidate || '').trim();
+      const _schoolIcon = _toAbsolute(_resolvedSchoolLogo);
 
       // Prefer the school's own logo for the link-share preview image (WhatsApp,
       // Facebook, Twitter, etc.) so shared links carry the school's branding

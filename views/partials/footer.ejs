@@ -27,7 +27,7 @@
         <!-- Brand / Logo column -->
         <div class="footer-brand-col">
           <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_branding_enabled && hubInfo.logo_path) { %>
-            <img src="<%= hubInfo.logo_path %>" alt="<%= hubInfo.hub_name %> Logo" class="footer-brand-logo" />
+            <img src="<%= typeof publicImageUrl === 'function' ? publicImageUrl(hubInfo.logo_path, { public: true }) : hubInfo.logo_path %>" alt="<%= hubInfo.hub_name %> Logo" class="footer-brand-logo" />
             <p class="footer-brand-sub">Powered by <%= hubInfo.hub_name %></p>
           <% } else { %>
             <img src="/images/managira-logo-sm.png" alt="Managira Logo" class="footer-brand-logo" loading="lazy" decoding="async" />
@@ -112,7 +112,7 @@
       <% const _hubBrand = (typeof hubBrand !== 'undefined' && hubBrand) || null; %>
       <% if (_hubBrand) { %>
         <div class="footer-hub-section">
-          <% if (_hubBrand.logo) { %><span class="footer-hub-logo-wrap"><img src="<%= _hubBrand.logo %>" alt="<%= _hubBrand.name %>" class="footer-hub-logo" onerror="this.parentNode.remove()" /></span><% } %>
+          <% if (_hubBrand.logo) { %><span class="footer-hub-logo-wrap"><img src="<%= publicImageUrl(_hubBrand.logo, { public: true }) %>" alt="<%= _hubBrand.name %>" class="footer-hub-logo" onerror="this.parentNode.remove()" /></span><% } %>
           <p class="footer-hub-text">Part of <strong><%= _hubBrand.name %></strong></p>
         </div>
       <% } %>

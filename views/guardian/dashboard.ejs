@@ -847,7 +847,7 @@
   <div class="guardian-profile-card">
     <div class="guardian-avatar-wrapper">
       <img 
-        src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
+        src="<%= publicImageUrl(guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png') %>"
         alt="<%= guardianDisplayName %>"
         class="guardian-avatar"
       />
@@ -912,7 +912,7 @@
           <div class="child-card <%= child.status === 'pending' ? 'pending' : '' %>">
             <div class="child-header">
               <img 
-                src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>" 
+                src="<%= publicImageUrl(child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png') %>"
                 alt="<%= childDisplayName %>"
                 class="child-avatar"
               />

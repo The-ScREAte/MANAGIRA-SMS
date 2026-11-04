@@ -348,7 +348,7 @@
       <tbody id="failures-tbody">
         <% failures.forEach(function(f) {
           const avatarSrc = (f.image_url && f.image_url !== 'profilePlaceholder.png')
-            ? f.image_url : '/images/profilePlaceholder.png';
+            ? publicImageUrl(f.image_url) : '/images/profilePlaceholder.png';
           const displayRole = f.user_type === 'guardian'
             ? 'Guardian'
             : (f.user_type === 'student' ? 'Student' : (f.account_type || 'Staff'));

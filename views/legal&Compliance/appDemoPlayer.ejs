@@ -117,7 +117,7 @@
 </head>
 <body>
   <div class="pl" id="pl" data-src="<%= dataUrl %>" data-w="<%= width %>" data-h="<%= height %>">
-    <% if (poster) { %><img class="pl__poster" src="<%= poster %>" alt="" decoding="async" fetchpriority="high" /><% } %>
+    <% if (poster) { %><img class="pl__poster" src="<%= publicImageUrl(poster, { public: true }) %>" alt="" decoding="async" fetchpriority="high" /><% } %>
     <div class="pl__loading" role="progressbar" aria-label="Loading interactive preview"></div>
     <%# No allow-scripts: nothing inside the capture can run. %>
     <iframe class="pl__frame" sandbox="allow-same-origin" title="Interactive preview of <%= title %>"></iframe>

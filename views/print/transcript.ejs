@@ -681,7 +681,7 @@
     <div class="transcript">
       <div class="transcript-border-top"></div>
       
-      <% const _schoolLogo = (session && session.logo) || organization.logo || ''; %>
+      <% const _schoolLogo = publicImageUrl((session && session.logo) || organization.logo || '', { public: true }); %>
       <% if (_schoolLogo) { %>
         <img src="<%= _schoolLogo %>" alt="" class="transcript-watermark-logo" />
       <% } %>
@@ -814,7 +814,7 @@
         <div class="t-signature-area">
           <div class="t-signature-block">
             <% if (signatureImageUrl) { %>
-              <img src="<%= signatureImageUrl %>" alt="Signature" class="t-signature-img" />
+              <img src="<%= publicImageUrl(signatureImageUrl) %>" alt="Signature" class="t-signature-img" />
             <% } %>
             <div class="t-signature-line"></div>
             <div class="t-signature-name"><%= signatureName || "" %></div>

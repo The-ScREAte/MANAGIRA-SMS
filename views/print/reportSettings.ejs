@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -2865,7 +2865,7 @@
                 <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;"<%- sig.obsolete ? ' class="sig-obsolete"' : '' %>>
                   <% if (sig.signature_image_url) { %>
                     <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
-                      <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
+                      <img src="<%= publicImageUrl(sig.signature_image_url) %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
                     </div>
                   <% } else { %>
                     <div style="flex-shrink:0;min-width:150px;color:#e11d48;font-size:0.9rem;">Signature unavailable</div>
@@ -2956,7 +2956,7 @@
                   <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;"<%- sig.obsolete ? ' class="sig-obsolete"' : '' %>>
                     <% if (sig.signature_image_url) { %>
                       <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
-                        <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
+                        <img src="<%= publicImageUrl(sig.signature_image_url) %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
                       </div>
                     <% } else { %>
                       <div style="flex-shrink:0;min-width:150px;color:#e11d48;font-size:0.9rem;">Signature unavailable</div>

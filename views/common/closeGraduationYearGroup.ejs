@@ -71,7 +71,7 @@
                       <td class="gp-col-check"><input type="checkbox" class="gp-pick" name="students" value="<%= s.student_id %>" aria-label="Select <%= name %>"<%= s.is_archived ? ' disabled' : '' %> /></td>
                       <td>
                         <span class="gp-person">
-                          <span class="gp-avatar" data-initials="<%= _initials(s) %>"><% if (s.image_url) { %><img src="<%= s.image_url %>" alt="" loading="lazy" /><% } else { %><%= _initials(s) %><% } %></span>
+                          <span class="gp-avatar" data-initials="<%= _initials(s) %>"><% if (s.image_url) { %><img src="<%= publicImageUrl(s.image_url) %>" alt="" loading="lazy" /><% } else { %><%= _initials(s) %><% } %></span>
                           <span><span class="gp-person__name"><%= name %></span><% if (s.custom_student_id) { %><span class="gp-person__id"><%= s.custom_student_id %></span><% } %></span>
                         </span>
                       </td>

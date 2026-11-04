@@ -872,7 +872,7 @@
   </head>
 
   <body>
-    <% const effectiveLogo = logoUrl || (session && session.logo) || null; %>
+    <% const effectiveLogo = publicImageUrl(logoUrl || (session && session.logo) || '', { public: true }); %>
     <div class="container">
       <!-- Form Section -->
       <% if (!meritSheet || meritSheet.length === 0) { %>

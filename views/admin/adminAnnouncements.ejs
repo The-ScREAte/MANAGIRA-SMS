@@ -1024,7 +1024,7 @@
                 <% } else if (ad.media_type === 'pdf') { %>
                   <canvas data-pdf-src="<%= ad.file_url %>"></canvas>
                 <% } else { %>
-                  <img src="<%= ad.file_url %>" alt="" loading="lazy" />
+                  <img src="<%= publicImageUrl(ad.file_url, { public: true }) %>" alt="" loading="lazy" />
                 <% } %>
                 <% if (ad.link_url && ad.show_as_button) { %>
                   <span class="ad-btn ad-btn--<%= ad.button_size %>" style="left: <%= ad.button_x %>%; top: <%= ad.button_y %>%; background: <%= ad.button_color %>; color: <%= ad.button_text_color %>;"><%= ad.link_label || 'Learn more' %></span>
@@ -2014,7 +2014,7 @@
   })();
 </script>
 
-<script type="application/json" id="la-data"><%- JSON.stringify(loginAdList.map((ad) => ({ id: ad.id, title: ad.title, media_type: ad.media_type, file_url: ad.file_url, media_width: ad.media_width, media_height: ad.media_height, link_url: ad.link_url, link_label: ad.link_label, show_as_button: ad.show_as_button, button_x: ad.button_x, button_y: ad.button_y, button_color: ad.button_color, button_text_color: ad.button_text_color, button_size: ad.button_size, is_active: ad.is_active, show_on_login: ad.show_on_login, show_in_app: ad.show_in_app, app_position: ad.app_position, app_frequency: ad.app_frequency, app_max_views: ad.app_max_views, app_roles: ad.app_roles, starts_at: ad.starts_at, ends_at: ad.ends_at }))).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="la-data"><%- JSON.stringify(loginAdList.map((ad) => ({ id: ad.id, title: ad.title, media_type: ad.media_type, file_url: ad.media_type === 'image' ? publicImageUrl(ad.file_url, { public: true }) : ad.file_url, media_width: ad.media_width, media_height: ad.media_height, link_url: ad.link_url, link_label: ad.link_label, show_as_button: ad.show_as_button, button_x: ad.button_x, button_y: ad.button_y, button_color: ad.button_color, button_text_color: ad.button_text_color, button_size: ad.button_size, is_active: ad.is_active, show_on_login: ad.show_on_login, show_in_app: ad.show_in_app, app_position: ad.app_position, app_frequency: ad.app_frequency, app_max_views: ad.app_max_views, app_roles: ad.app_roles, starts_at: ad.starts_at, ends_at: ad.ends_at }))).replace(/</g, '\\u003c') %></script>
 <script src="<%= assetUrl('/js/loginAds.js') %>"></script>
 <script>
   (() => {

@@ -34,7 +34,7 @@
             <button type="button" class="admin-profile-btn" id="admin-profile-btn" aria-haspopup="true" aria-expanded="false" aria-label="Profile menu">
               <span class="admin-profile-avatar">
                 <% if (session.profileImageUrl) { %>
-                  <img src="<%= session.profileImageUrl %>" alt="Profile picture" />
+                  <img src="<%= publicImageUrl(session.profileImageUrl) %>" alt="Profile picture" />
                 <% } else { %>
                   <%= (session.firstName || '?').charAt(0).toUpperCase() %>
                 <% } %>
@@ -107,7 +107,7 @@
             <div class="admin-menu__head">
               <span class="admin-menu__avatar" aria-hidden="true">
                 <% if (session.profileImageUrl) { %>
-                  <img src="<%= session.profileImageUrl %>" alt="" />
+                  <img src="<%= publicImageUrl(session.profileImageUrl) %>" alt="" />
                 <% } else { %>
                   <%= (session.firstName || '?').charAt(0).toUpperCase() %>
                 <% } %>

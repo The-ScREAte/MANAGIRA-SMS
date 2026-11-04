@@ -377,7 +377,7 @@
       assignment_id: a.assignment_id,
       first_name: a.first_name,
       last_name: a.last_name,
-      image_url: a.image_url,
+      image_url: publicImageUrl(a.image_url),
       class_name: a.class_name,
       amount: a.amount,
       scheduled_billed_total: a.scheduled_billed_total,
@@ -1818,4 +1818,3 @@
     refreshDashboardStats();
   })();
 </script>
-

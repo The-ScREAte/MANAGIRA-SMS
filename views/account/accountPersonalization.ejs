@@ -287,7 +287,7 @@
             <form action="/account/personalization/logo" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <div class="flex flex-col items-center gap-3">
                     <% if (orgDetails.logo) { %>
-                        <img src="<%= orgDetails.logo %>" alt="Current Logo" class="h-20 w-20 rounded-full border border-slate-200 object-cover" />
+                        <img src="<%= publicImageUrl(orgDetails.logo, { public: true }) %>" alt="Current Logo" class="h-20 w-20 rounded-full border border-slate-200 object-cover" />
                     <% } %>
 
                     <input type="file" id="logo" name="logo" accept="image/*" class="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-emerald-700" />

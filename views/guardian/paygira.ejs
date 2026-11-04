@@ -1409,7 +1409,7 @@
         <details class="pg-child-card pg-child-collapsible">
           <summary class="pg-child-head pg-child-head-toggle">
             <img class="pg-child-avatar"
-                 src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
+                 src="<%= publicImageUrl(child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png') %>"
                  alt="<%= childDisplayName || child.first_name %>">
             <div class="pg-child-copy">
               <div class="pg-child-name"><%= childDisplayName %></div>

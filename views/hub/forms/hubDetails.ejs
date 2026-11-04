@@ -1,6 +1,7 @@
 <%
   const _hub = hub || {};
-  const _logo = _hub.logo_path && String(_hub.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_hub.logo_path) ? _hub.logo_path : '';
+  const _logoValue = _hub.logo_path && String(_hub.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_hub.logo_path) ? _hub.logo_path : '';
+  const _logo = _logoValue && typeof publicImageUrl === 'function' ? publicImageUrl(_logoValue, { public: true }) : _logoValue;
 %>
 <div data-drawer-title="Hub details" data-drawer-sub="Phone, address and logo. Your schools see these.">
   <form class="hub-form hub-drawer-form" action="/hub/settings/hub" method="POST" data-ajax>

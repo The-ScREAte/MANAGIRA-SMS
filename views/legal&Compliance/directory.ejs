@@ -217,7 +217,7 @@
       <% organizations.forEach(org => { %>
         <a class="dir-card" href="<%= org.public_url %>" data-name="<%= (org.organization_name || '').toLowerCase() %>" data-nickname="<%= (org.nickname || '').toLowerCase() %>" data-url="<%= (org.public_url || '').toLowerCase() %>">
           <img class="dir-card-logo" 
-            src="<%= org.logo_url || '/images/profilePlaceholder.png' %>" 
+            src="<%= publicImageUrl(org.logo_url || '/images/profilePlaceholder.png', { public: true }) %>"
                alt="<%= org.organization_name %>" 
                onerror="this.src='/images/profilePlaceholder.png'" />
           <div class="dir-card-info">

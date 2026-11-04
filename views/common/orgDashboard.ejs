@@ -1216,9 +1216,9 @@
     });
     document.addEventListener('click', function (e) {
       if (!document.body.contains(root)) return;
-      const activeDropdown = e.target instanceof Element ? e.target.closest('[data-od-dd]') : null;
-      closeAll(activeDropdown);
-      if (!e.target.closest('.od-teachers')) teacherLists.forEach(function (d) { d.open = false; });
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target || !target.closest('[data-od-dd]')) closeAll();
+      if (!target || !target.closest('.od-teachers')) teacherLists.forEach(function (d) { d.open = false; });
     }, true);
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape' || !document.body.contains(root)) return;

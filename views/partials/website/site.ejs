@@ -50,7 +50,7 @@
   <nav class="sw-ac-nav" aria-label="Website sections">
     <div class="sw-wrap sw-ac-nav__in">
       <a class="sw-ac-brand" href="#top">
-        <% if (S.logo) { %><img src="<%= S.logo %>" alt="" aria-hidden="true"><% } else { %><span class="sw-ac-brand__initials" aria-hidden="true"><%= S.initials %></span><% } %>
+        <% if (S.logo) { %><img src="<%= publicImageUrl(S.logo, { public: true }) %>" alt="" aria-hidden="true"><% } else { %><span class="sw-ac-brand__initials" aria-hidden="true"><%= S.initials %></span><% } %>
         <span><%= S.name %></span>
       </a>
       <div class="sw-ac-nav__links">
@@ -124,7 +124,7 @@
     <% if (site.slides.length) { %><div class="sw-stage"><%- slidesHtml('cover') %></div><% } %>
     <% if (B.show) { %>
       <div class="sw-wrap sw-intro">
-        <% if (S.logo) { %><img class="sw-intro__logo" src="<%= S.logo %>" alt="" aria-hidden="true"><% } %>
+        <% if (S.logo) { %><img class="sw-intro__logo" src="<%= publicImageUrl(S.logo, { public: true }) %>" alt="" aria-hidden="true"><% } %>
         <div class="sw-intro__text">
           <p class="sw-intro__kicker"><%= B.kicker %></p>
           <h1 class="sw-intro__title"><%= S.name %></h1>
@@ -234,7 +234,7 @@
   <header class="sw-spot-hero<%= B.show ? '' : ' sw-spot-hero--photos' %><%= site.slides.length ? '' : ' sw-spot-hero--text' %>">
     <% if (B.show) { %>
       <div class="sw-spot-hero__panel">
-        <% if (S.logo) { %><img class="sw-spot-hero__logo" src="<%= S.logo %>" alt="" aria-hidden="true"><% } %>
+        <% if (S.logo) { %><img class="sw-spot-hero__logo" src="<%= publicImageUrl(S.logo, { public: true }) %>" alt="" aria-hidden="true"><% } %>
         <p class="sw-hero__kicker"><%= B.kicker %></p>
         <h1 class="sw-spot-hero__title"><%= S.name %></h1>
         <% if (B.tagline) { %><p class="sw-spot-hero__tagline"><%= B.tagline %></p><% } %>
@@ -278,7 +278,7 @@
         </div>
       <% } else { %><h1 class="sw-visually-hidden"><%= S.name %></h1><% } %>
       <% site.gallery.slice(0, 2).forEach((img, i) => { %>
-        <a class="sw-tile sw-tile--peek" href="#image-gallery" aria-label="See the gallery"><img src="<%= img.url %>" alt="<%= img.caption || 'School photo' %>" loading="lazy"></a>
+        <a class="sw-tile sw-tile--peek" href="#image-gallery" aria-label="See the gallery"><img src="<%= publicImageUrl(img.url, { public: true }) %>" alt="<%= img.caption || 'School photo' %>" loading="lazy"></a>
       <% }) %>
     </header>
     <main class="sw-main sw-mosaic__grid">
@@ -291,7 +291,7 @@
   <div class="sw-campus">
     <aside class="sw-campus__side" aria-label="School">
       <div class="sw-campus__brand">
-        <% if (S.logo) { %><img src="<%= S.logo %>" alt="" aria-hidden="true"><% } else { %><span class="sw-campus__initials" aria-hidden="true"><%= S.initials %></span><% } %>
+        <% if (S.logo) { %><img src="<%= publicImageUrl(S.logo, { public: true }) %>" alt="" aria-hidden="true"><% } else { %><span class="sw-campus__initials" aria-hidden="true"><%= S.initials %></span><% } %>
         <p class="sw-campus__name"><%= S.name %></p>
         <% if (S.motto) { %><p class="sw-campus__motto"><%= S.motto %></p><% } %>
       </div>
@@ -336,7 +336,7 @@
     <div class="sw-wrap sw-footer__grid">
       <div class="sw-footer__brand">
         <div class="sw-footer__id">
-          <% if (S.logo) { %><img class="sw-footer__logo" src="<%= S.logo %>" alt="" aria-hidden="true"><% } %>
+          <% if (S.logo) { %><img class="sw-footer__logo" src="<%= publicImageUrl(S.logo, { public: true }) %>" alt="" aria-hidden="true"><% } %>
           <div><p class="sw-footer__name"><%= S.name %></p><% if (S.motto) { %><p class="sw-footer__motto"><%= S.motto %></p><% } %></div>
         </div>
         <% if (site.social.length) { %>

@@ -11,7 +11,7 @@
       screens: f.screens.map((sc) => ({
         label: sc.label || '',
         caption: sc.caption || '',
-        media: sc.media.map((m) => ({ label: m.label || (m.media_type === 'html' ? 'Interactive' : ''), type: m.media_type, url: m.file_url, w: m.media_width || null, h: m.media_height || null, poster: m.poster_file_url || null })),
+        media: sc.media.map((m) => ({ label: m.label || (m.media_type === 'html' ? 'Interactive' : ''), type: m.media_type, url: m.media_type === 'image' ? publicImageUrl(m.file_url, { public: true }) : m.file_url, w: m.media_width || null, h: m.media_height || null, poster: m.poster_file_url ? publicImageUrl(m.poster_file_url, { public: true }) : null })),
       })),
     })),
   }));
@@ -52,7 +52,7 @@
         <div class="tour-frame">
           <div class="tour-frame__chrome" aria-hidden="true"><i></i><i></i><i></i><span>managira.com</span></div>
           <div class="tour-frame__screen">
-            <img src="<%= hero.media.url %>" alt="<%= heroFeature.title %>" decoding="async" fetchpriority="high" />
+            <img src="<%= publicImageUrl(hero.media.url, { public: true }) %>" alt="<%= heroFeature.title %>" decoding="async" fetchpriority="high" />
           </div>
         </div>
         <div class="tour-hero__note">
@@ -99,7 +99,7 @@
               <a class="tour-card" href="#feature-<%= f.id %>" data-tour-card="<%= f.id %>">
                 <div class="tour-card__media">
                   <% if (cover) { %>
-                    <img src="<%= cover.media.url %>" alt="" loading="<%= si === 0 && i < 6 ? 'eager' : 'lazy' %>" decoding="async" />
+                    <img src="<%= publicImageUrl(cover.media.url, { public: true }) %>" alt="" loading="<%= si === 0 && i < 6 ? 'eager' : 'lazy' %>" decoding="async" />
                   <% } else { %>
                     <div class="tour-card__doc" aria-hidden="true">
                       <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>

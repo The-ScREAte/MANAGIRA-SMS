@@ -4,7 +4,10 @@
   const _hold = _hubs.filter((h) => h.on_hold).length;
   const _schools = _hubs.reduce((sum, h) => sum + (Number(h.org_count) || 0), 0);
   const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-  const _logo = (h) => h.logo_path && String(h.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(h.logo_path) ? h.logo_path : '';
+  const _logo = (h) => {
+    const value = h.logo_path && String(h.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(h.logo_path) ? h.logo_path : '';
+    return value && typeof publicImageUrl === 'function' ? publicImageUrl(value, { public: true }) : value;
+  };
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
 

@@ -11,7 +11,7 @@
 
     <article class="category-hero">
       <div class="category-image-wrap">
-        <img src="<%= activeCategory.image %>" alt="<%= activeCategory.title %> banner" />
+        <img src="<%= publicImageUrl(activeCategory.image, { public: true }) %>" alt="<%= activeCategory.title %> banner" />
       </div>
       <div class="category-content">
         <p class="category-kicker">Product Category</p>

@@ -127,7 +127,7 @@
     <div class="employee-info-container">
       <div class="employee-image-container">
         <% if (employee.image_url && employee.image_url !== 'profilePlaceholder.png') { %>
-          <img src="<%= employee.image_url %>" alt="Employee Image" />
+          <img src="<%= publicImageUrl(employee.image_url) %>" alt="Employee Image" />
         <% } else { %>
           <img src="/images/profilePlaceholder.png" alt="Placeholder Image" />
         <% } %>

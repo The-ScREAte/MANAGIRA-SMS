@@ -8,7 +8,8 @@
   const _actor = (typeof hubActor !== 'undefined' && hubActor) || null;
   const _meName = (_actor && _actor.user) ? `${_actor.user.first_name} ${_actor.user.last_name}` : ([session && session.firstName, session && session.lastName].filter(Boolean).join(' ') || 'You');
   const _meRole = !_actor || _actor.isOwner ? 'Hub admin · Owner' : (_actor.role === 'hub_admin' ? 'Hub admin' : 'Hub user');
-  const _logo = _sh.logo_path && String(_sh.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_sh.logo_path) ? _sh.logo_path : '';
+  const _logoValue = _sh.logo_path && String(_sh.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_sh.logo_path) ? _sh.logo_path : '';
+  const _logo = _logoValue && typeof publicImageUrl === 'function' ? publicImageUrl(_logoValue, { public: true }) : _logoValue;
   const _link = (key, href, icon, label, count, warn) => `<a class="hub-link${_current === key ? ' is-active' : ''}" href="${href}"${href.startsWith('/hub/dashboard#') ? ` data-view-link="${key}"` : ''}${_current === key ? ' aria-current="page"' : ''}><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${label}</span>${count ? `<span class="hub-count${warn ? ' hub-count--warn' : ''}">${count}</span>` : ''}</a>`;
 %>
 <aside class="hub-side" aria-label="Hub menu">

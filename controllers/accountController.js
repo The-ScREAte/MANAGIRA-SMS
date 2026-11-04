@@ -1509,15 +1509,19 @@ async function sendRegistrationSuccessEmail(
 
 // Helper function to send password reset email
 
-async function sendPasswordResetEmail(email, token, baseUrl) {
-  const resetLink = `${baseUrl}/account/reset-password?token=${token}`;
+async function sendPasswordResetEmail(email, token, baseUrl, options = {}) {
+  const origin = String(baseUrl || "").replace(/\/+$/, "");
+  const path = options.path || "/account/reset-password";
+  const type = options.type ? `&type=${encodeURIComponent(options.type)}` : "";
+  const resetLink = `${origin}${path}?token=${encodeURIComponent(token)}${type}`;
+  const expiryMinutes = Number(options.expiryMinutes) || 15;
 
   const html = renderCleanEmail({
     title: "Password Reset Request",
     greeting: "Hello,",
     paragraphs: [
       "You requested to reset your password.",
-      "Click the button below to continue. This link will expire in 15 minutes.",
+      `Click the button below to continue. This link will expire in ${expiryMinutes} minutes.`,
       "If you did not request this, you can safely ignore this email.",
     ],
     cta: { text: "Reset Password", url: resetLink },
@@ -8176,37 +8180,73 @@ const accountController = {
   },
 
   forgetPasswordPost: async (req, res) => {
-    const { email } = req.body;
-    const baseUrl = res.locals.BASE_URL;
+    const email = String(req.body.email || "").trim();
+    const baseUrl = res.locals.BASE_URL || `${req.protocol}://${req.get("host")}`;
 
     try {
       await ensureStudentPortalSchema(db);
 
-      // Parent/Student portal passwords are school-managed.
+      // First-time portal setup remains school-managed. Existing accounts can
+      // reset their own password through the same single-use setup endpoint.
       const portalAccountResult = await db.query(
-        `SELECT 'guardian_accounts' AS source
+        `SELECT 'guardian' AS source, guardian_id::text AS account_id,
+                password_hash, COALESCE(must_reset_password, FALSE) AS must_reset_password
            FROM guardian_accounts
           WHERE LOWER(login_email) = LOWER($1)
-         UNION
-         SELECT 'student_accounts' AS source
+         UNION ALL
+         SELECT 'student' AS source, student_id::text AS account_id,
+                password_hash, COALESCE(must_reset_password, FALSE) AS must_reset_password
            FROM student_accounts
           WHERE LOWER(login_email) = LOWER($1)`,
         [email]
       );
 
       if (portalAccountResult.rows.length > 0) {
-        const hasParent = portalAccountResult.rows.some((row) => row.source === 'guardian_accounts');
-        const hasStudent = portalAccountResult.rows.some((row) => row.source === 'student_accounts');
+        const eligibleAccounts = portalAccountResult.rows.filter(
+          (row) => row.password_hash && !row.must_reset_password
+        );
 
-        let portalActor = "a student or a parent";
-        if (hasParent && !hasStudent) portalActor = "a parent";
-        if (hasStudent && !hasParent) portalActor = "a student";
+        if (eligibleAccounts.length === 0) {
+          req.flash(
+            "error",
+            "This portal account needs its first-time password setup. Please contact your school to receive an invitation."
+          );
+          const loginPath = portalAccountResult.rows.some((row) => row.source === "guardian")
+            ? "/account/guardian-login"
+            : "/account/student-login";
+          return res.redirect(loginPath);
+        }
+
+        const tokenExpiration = new Date(Date.now() + 15 * 60 * 1000);
+        const uniqueAccounts = new Map(
+          eligibleAccounts.map((row) => [`${row.source}_${row.account_id}`, row])
+        );
+
+        for (const [userId, row] of uniqueAccounts) {
+          const token = crypto.randomBytes(32).toString("hex");
+          await db.query(
+            `INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (user_id) DO UPDATE
+               SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at, created_at = NOW()`,
+            [userId, token, tokenExpiration]
+          );
+          await sendPasswordResetEmail(email, token, baseUrl, {
+            path: "/common/set-password",
+            type: row.source,
+            expiryMinutes: 15,
+          });
+        }
 
         req.flash(
-          "error",
-          `If you're ${portalActor}, please contact the school for help on setting up a new password.`
+          "success",
+          "A password reset link has been sent to your email. The link expires in 15 minutes."
         );
-        return res.redirect("/account/forget-password");
+        return res.redirect(
+          eligibleAccounts.some((row) => row.source === "guardian")
+            ? "/account/guardian-login"
+            : "/account/student-login"
+        );
       }
 
       // Search staff/admin/hub login tables for this email
@@ -8223,7 +8263,10 @@ const accountController = {
       );
 
       if (userResult.rows.length === 0) {
-        req.flash("error", "No account found with that email address.");
+        req.flash(
+          "error",
+          "No account was found with that email. For first-time parent or student portal setup, please contact your school."
+        );
         return res.redirect("/account/forget-password");
       }
 
@@ -8291,13 +8334,13 @@ const accountController = {
       await require("../utils/hubAccess").ensureHubAccessSchema(db);
       // Search all tables for the token
       const userResult = await db.query(
-        `SELECT email, 'users' AS source FROM users WHERE reset_password_token = $1
+        `SELECT email, 'users' AS source FROM users WHERE reset_password_token = $1 AND reset_password_expires > NOW()
          UNION
-         SELECT email, 'organizations' AS source FROM organizations WHERE reset_password_token = $1
+         SELECT email, 'organizations' AS source FROM organizations WHERE reset_password_token = $1 AND reset_password_expires > NOW()
          UNION
-         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1
+         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1 AND reset_password_expires > NOW()
          UNION
-         SELECT email, 'hub_users' AS source FROM hub_users WHERE reset_password_token = $1`,
+         SELECT email, 'hub_users' AS source FROM hub_users WHERE reset_password_token = $1 AND reset_password_expires > NOW()`,
         [hashedToken]
       );
 
@@ -8374,7 +8417,7 @@ const accountController = {
       // Try users table
       const userResult = await db.query(
         `UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
-         WHERE reset_password_token = $2
+         WHERE reset_password_token = $2 AND reset_password_expires > NOW()
          RETURNING email, user_id`,
         [hashedPassword, hashedToken]
       );
@@ -8388,7 +8431,7 @@ const accountController = {
       if (!updated) {
         const orgResult = await db.query(
           `UPDATE organizations SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
-           WHERE reset_password_token = $2
+           WHERE reset_password_token = $2 AND reset_password_expires > NOW()
            RETURNING email, organization_id`,
           [hashedPassword, hashedToken]
         );
@@ -8399,14 +8442,11 @@ const accountController = {
         }
       }
 
-      // Parent/student portal passwords are reset by the school, never by
-      // email link, so guardian_accounts has no reset token to look up here.
-
       // Try managira_hubs table
       if (!updated) {
         const hubResult = await db.query(
           `UPDATE managira_hubs SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL
-           WHERE reset_password_token = $2
+           WHERE reset_password_token = $2 AND reset_password_expires > NOW()
            RETURNING hub_email AS email, hub_id`,
           [hashedPassword, hashedToken]
         );
@@ -8423,7 +8463,7 @@ const accountController = {
         await require("../utils/hubAccess").ensureHubAccessSchema(db);
         const hubUserResult = await db.query(
           `UPDATE hub_users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
-           WHERE reset_password_token = $2
+           WHERE reset_password_token = $2 AND reset_password_expires > NOW()
            RETURNING email, hub_user_id`,
           [hashedPassword, hashedToken]
         );
@@ -13904,7 +13944,6 @@ accountController.sendInvoiceEmail = sendInvoiceEmail;
 accountController.sendCancellationEmail = sendCancellationEmail;
 
 module.exports = accountController;
-
 
 
 

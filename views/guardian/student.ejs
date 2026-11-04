@@ -267,11 +267,7 @@
     <div class="student-info-row">
       <% var img = '/images/profilePlaceholder.png'; %>
       <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
-        <% if (student.image_url.indexOf('http') === 0 || student.image_url.indexOf('/') === 0) { %>
-          <% img = student.image_url; %>
-        <% } else { %>
-          <% img = '/' + student.image_url; %>
-        <% } %>
+        <% img = publicImageUrl(student.image_url); %>
       <% } %>
       <img src="<%= img %>" alt="<%= guardianStudentDisplayName %>" class="student-avatar" />
       <div class="student-meta">

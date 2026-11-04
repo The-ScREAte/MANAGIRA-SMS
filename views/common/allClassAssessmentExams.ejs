@@ -3504,7 +3504,7 @@
       var organizationId = Number("<%= organizationId %>");
       var DRAFT_KEY = 'questionModalDraft_org' + organizationId;
       var previewSchoolName = <%- JSON.stringify((session && (session.organizationName || session.organization_name || session.schoolName || session.orgName)) || 'School') %>;
-      var previewSchoolLogo = <%- JSON.stringify((session && session.logo) || '') %>;
+      var previewSchoolLogo = <%- JSON.stringify(publicImageUrl((session && session.logo) || '', { public: true })) %>;
 
       var schoolYearSelect = document.getElementById('workspace-school-year');
       var termSelect = document.getElementById('workspace-term');

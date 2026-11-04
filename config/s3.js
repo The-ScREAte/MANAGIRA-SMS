@@ -7,6 +7,7 @@ const {
 const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
+const s3ObjectUrl = require("../utils/publicImageUrl").s3ObjectUrl;
 require("dotenv").config();
 
 const s3Client = new S3Client({
@@ -44,7 +45,7 @@ const uploadToS3 = async (file) => {
     await s3Client.send(command);
 
     return {
-      Location: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
+      Location: s3ObjectUrl(fileName),
       Key: fileName,
     };
   } finally {

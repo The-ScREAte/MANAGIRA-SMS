@@ -1,7 +1,8 @@
 <%
   const _hub = hub || {};
   const _me = (typeof me !== 'undefined' && me) || {};
-  const _logo = _hub.logo_path && String(_hub.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_hub.logo_path) ? _hub.logo_path : '';
+  const _logoValue = _hub.logo_path && String(_hub.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_hub.logo_path) ? _hub.logo_path : '';
+  const _logo = _logoValue && typeof publicImageUrl === 'function' ? publicImageUrl(_logoValue, { public: true }) : _logoValue;
   const _prefs = (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs)) ? notificationPrefs : [];
   const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) || {};
   const _contacts = (typeof contacts !== 'undefined' && Array.isArray(contacts)) ? contacts : [];

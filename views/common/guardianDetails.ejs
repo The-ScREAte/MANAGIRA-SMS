@@ -990,7 +990,7 @@
   <div class="gd-card">
     <div class="gd-profile">
       <div>
-        <img src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
+        <img src="<%= publicImageUrl(guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png') %>"
              alt="Guardian" class="gd-avatar">
       </div>
       <div>
@@ -1082,7 +1082,7 @@
           <% const linkedStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
           <div class="gd-student-card" data-student-name="<%= linkedStudentDisplayName.toLowerCase() %>">
             <div class="gd-student-top">
-              <img src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
+              <img src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png') %>"
                    alt="Student" class="gd-student-avatar">
               <div>
                 <div class="gd-student-name"><%= linkedStudentDisplayName %></div>

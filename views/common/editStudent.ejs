@@ -978,11 +978,7 @@
       <div class="es-image-section">
         <% var imgUrl = '/images/profilePlaceholder.png'; %>
         <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
-            <% if (student.image_url.indexOf('http') === 0 || student.image_url.indexOf('/') === 0) { %>
-                <% imgUrl = student.image_url; %>
-            <% } else { %>
-                <% imgUrl = '/' + student.image_url; %>
-            <% } %>
+            <% imgUrl = publicImageUrl(student.image_url); %>
         <% } %>
         <img src="<%= imgUrl %>" alt="Student" class="es-student-img">
         <div class="es-image-info">

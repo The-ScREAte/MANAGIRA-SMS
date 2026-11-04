@@ -4,7 +4,7 @@
   const sec = (rawSec === 'reports' || rawSec === 'templates') ? 'overview' : rawSec;
   const currentCurrency = (typeof financeCurrency !== 'undefined' && financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
   const profilePlaceholder = '/images/profilePlaceholder.png';
-  const resolveAvatar = (u) => (u && String(u).trim() && String(u).trim() !== 'profilePlaceholder.png') ? u : profilePlaceholder;
+  const resolveAvatar = (u) => publicImageUrl(u && String(u).trim() && String(u).trim() !== 'profilePlaceholder.png' ? u : profilePlaceholder);
   const fmt = (n) => typeof formatMoney === 'function'
     ? formatMoney(n)
     : (currentCurrency + ' ' + Number(n||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -5737,4 +5737,3 @@ Regards,
   if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(function(){ clearInterval(timer); });
 })();
 </script>
-

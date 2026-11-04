@@ -3853,10 +3853,14 @@ module.exports = {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
       const schoolName = orgRow.organization_name || 'Your School';
-      const schoolLogoUrl = orgRow.logo_path
-        ? (String(orgRow.logo_path).startsWith('http')
-            ? String(orgRow.logo_path)
-            : `/uploads/${String(orgRow.logo_path).replace(/^\/+/, '')}`)
+      const schoolLogoValue = String(orgRow.logo_path || '').trim();
+      const schoolLogoSource = schoolLogoValue
+        ? (/^(https?:\/\/|s3:\/\/|\/|images\/|\d{13}-)/i.test(schoolLogoValue)
+            ? schoolLogoValue
+            : `/uploads/${schoolLogoValue}`)
+        : '';
+      const schoolLogoUrl = schoolLogoSource
+        ? res.locals.publicImageUrl(schoolLogoSource, { public: true })
         : '';
       const contactBits = [orgRow.organization_address, orgRow.organization_phone, orgRow.organization_email]
         .filter((v) => v && String(v).trim())
@@ -5122,10 +5126,14 @@ module.exports = {
       const signoff = signoffResult.rows[0];
       const display = await buildFinanceDisplayContext(req, orgId);
       const paygiraLogoUrl = '/images/managira.png';
-      const schoolLogoUrl = signoff.organization_logo
-        ? (String(signoff.organization_logo).startsWith('http')
-            ? String(signoff.organization_logo)
-            : `/uploads/${String(signoff.organization_logo).replace(/^\/+/, '')}`)
+      const schoolLogoValue = String(signoff.organization_logo || '').trim();
+      const schoolLogoSource = schoolLogoValue
+        ? (/^(https?:\/\/|s3:\/\/|\/|images\/|\d{13}-)/i.test(schoolLogoValue)
+            ? schoolLogoValue
+            : `/uploads/${schoolLogoValue}`)
+        : '';
+      const schoolLogoUrl = schoolLogoSource
+        ? res.locals.publicImageUrl(schoolLogoSource, { public: true })
         : '';
 
       const scopeClassId = normalizeSignoffClassId(signoff.class_id);
@@ -5794,7 +5802,10 @@ module.exports = {
       ]);
       if (!student.rows.length) return res.status(404).json({ error: "Student not found." });
       res.json({
-        student: student.rows[0],
+        student: {
+          ...student.rows[0],
+          image_url: res.locals.publicImageUrl(student.rows[0].image_url),
+        },
         bills: bills.rows,
         payments: payments.rows,
         credit: Number(credit.rows[0]?.credit || 0),
@@ -6007,10 +6018,12 @@ module.exports = {
       await auditStaffCollection(req, result);
 
       if (wantsJson) {
+        const payment = buildStaffCollectionResponse(result);
+        payment.image_url = res.locals.publicImageUrl(payment.image_url);
         return res.json({
           ok: true,
           message: result.successMessage,
-          payment: buildStaffCollectionResponse(result),
+          payment,
         });
       }
 
@@ -6110,7 +6123,11 @@ module.exports = {
         return res.json({
           ok: true,
           message,
-          payments: results.map(buildStaffCollectionResponse),
+          payments: results.map((result) => {
+            const payment = buildStaffCollectionResponse(result);
+            payment.image_url = res.locals.publicImageUrl(payment.image_url);
+            return payment;
+          }),
           summary: {
             count: results.length,
             total_amount: totalCollected,
@@ -8075,4 +8092,3 @@ function inferCardBrand(digits) {
   if (/^(50|56|57|58|6\d)/.test(digits)) return "Verve";
   return "Card";
 }
-

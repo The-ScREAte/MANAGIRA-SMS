@@ -103,7 +103,7 @@
         <label>Image (optional)</label>
         <input type="file" id="ann_image_file" accept="image/*">
         <input type="hidden" id="ann_image_url" value="<%= a && a.image_url ? a.image_url : '' %>">
-        <img id="ann_image_preview" class="ann-image-preview" src="<%= a && a.image_url ? a.image_url : '' %>" style="<%= a && a.image_url ? 'display:block;' : '' %>">
+        <img id="ann_image_preview" class="ann-image-preview" src="<%= a && a.image_url ? publicImageUrl(a.image_url) : '' %>" style="<%= a && a.image_url ? 'display:block;' : '' %>">
       </div>
 
       <div class="ann-row">

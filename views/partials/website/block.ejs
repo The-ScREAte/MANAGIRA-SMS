@@ -27,7 +27,7 @@
 <% } else if (key === 'welcome') { const w = x.welcome.items[0]; %>
   <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
   <div class="sw-welcome<%= w.imageUrl ? '' : ' sw-welcome--text' %>">
-    <% if (w.imageUrl) { %><img class="sw-welcome__photo" src="<%= w.imageUrl %>" alt="<%= w.name %>" loading="lazy"><% } %>
+    <% if (w.imageUrl) { %><img class="sw-welcome__photo" src="<%= publicImageUrl(w.imageUrl, { public: true }) %>" alt="<%= w.name %>" loading="lazy"><% } %>
     <div class="sw-welcome__body">
       <blockquote class="sw-welcome__message"><%= w.message %></blockquote>
       <p class="sw-welcome__sign"><strong><%= w.name %></strong><% if (w.role) { %><span><%= w.role %></span><% } %></p>
@@ -48,7 +48,7 @@
     </div>
     <% if (site.school.aboutImage) { %>
       <figure class="sw-about__figure">
-        <img src="<%= site.school.aboutImage.imageUrl %>" alt="<%= site.school.aboutImage.imageCaption || site.school.name %>" loading="lazy">
+        <img src="<%= publicImageUrl(site.school.aboutImage.imageUrl, { public: true }) %>" alt="<%= site.school.aboutImage.imageCaption || site.school.name %>" loading="lazy">
         <% if (site.school.aboutImage.imageCaption) { %><figcaption><%= site.school.aboutImage.imageCaption %></figcaption><% } %>
       </figure>
     <% } %>
@@ -59,7 +59,7 @@
   <div class="sw-cards sw-programs__grid">
     <% x.programs.items.forEach((p) => { %>
       <article class="sw-card sw-program">
-        <% if (p.imageUrl) { %><img class="sw-card__media" src="<%= p.imageUrl %>" alt="<%= p.title %>" loading="lazy"><% } else { %><span class="sw-card__media sw-card__media--blank" aria-hidden="true"></span><% } %>
+        <% if (p.imageUrl) { %><img class="sw-card__media" src="<%= publicImageUrl(p.imageUrl, { public: true }) %>" alt="<%= p.title %>" loading="lazy"><% } else { %><span class="sw-card__media sw-card__media--blank" aria-hidden="true"></span><% } %>
         <div class="sw-card__body">
           <h3><%= p.title %></h3>
           <% if (p.description) { %><p><%= p.description %></p><% } %>
@@ -91,12 +91,12 @@
       <figure class="sw-gallery__item">
         <% if (img.type === 'video') { %>
           <button type="button" class="sw-gallery__open sw-gallery__open--video" data-sw-lightbox="<%= i %>" data-sw-video="<%= img.url %>" aria-label="Play video<%= img.caption ? ': ' + img.caption : '' %>">
-            <% if (img.poster) { %><img src="<%= img.poster %>" alt="<%= img.caption || ('Video ' + (i + 1)) %>" loading="lazy"><% } else { %><video src="<%= img.url %>#t=1" muted playsinline preload="metadata" aria-hidden="true"></video><% } %>
+            <% if (img.poster) { %><img src="<%= publicImageUrl(img.poster, { public: true }) %>" alt="<%= img.caption || ('Video ' + (i + 1)) %>" loading="lazy"><% } else { %><video src="<%= img.url %>#t=1" muted playsinline preload="metadata" aria-hidden="true"></video><% } %>
             <span class="sw-gallery__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></span>
           </button>
         <% } else { %>
           <button type="button" class="sw-gallery__open" data-sw-lightbox="<%= i %>" aria-label="View photo<%= img.caption ? ': ' + img.caption : '' %>">
-            <img src="<%= img.url %>" alt="<%= img.caption || ('Photo ' + (i + 1)) %>" loading="lazy">
+            <img src="<%= publicImageUrl(img.url, { public: true }) %>" alt="<%= img.caption || ('Photo ' + (i + 1)) %>" loading="lazy">
           </button>
         <% } %>
         <% if (img.caption) { %><figcaption><%= img.caption %></figcaption><% } %>
@@ -162,7 +162,7 @@
   <div class="sw-people">
     <% x.leadership.items.forEach((p) => { %>
       <article class="sw-person">
-        <% if (p.imageUrl) { %><img class="sw-person__photo" src="<%= p.imageUrl %>" alt="<%= p.name %>" loading="lazy"><% } else { %><span class="sw-person__photo sw-person__photo--initials" aria-hidden="true"><%= ini(p.name) %></span><% } %>
+        <% if (p.imageUrl) { %><img class="sw-person__photo" src="<%= publicImageUrl(p.imageUrl) %>" alt="<%= p.name %>" loading="lazy"><% } else { %><span class="sw-person__photo sw-person__photo--initials" aria-hidden="true"><%= ini(p.name) %></span><% } %>
         <h3><%= p.name %></h3>
         <% if (p.role) { %><p class="sw-person__role"><%= p.role %></p><% } %>
         <% if (p.message) { %><p class="sw-person__message"><%= p.message %></p><% } %>

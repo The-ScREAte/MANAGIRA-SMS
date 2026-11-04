@@ -2727,7 +2727,7 @@
             <% const _tplCard = (typeof templateCards !== 'undefined' && templateCards) ? templateCards[student.student_id] : null; %>
             <% if (_tplCard) { %>
             <div class="student-report-background rt-template">
-                <% if (session.logo) { %><img src="<%= session.logo %>" alt="" class="print-watermark-img"><% } %>
+                <% if (session.logo) { %><img src="<%= publicImageUrl(session.logo, { public: true }) %>" alt="" class="print-watermark-img"><% } %>
                 <%- _tplCard.html %>
                 <div class="rt-carried" hidden><%- _tplCard.carried %></div>
                 <div class="report-card-footer rt-footer">
@@ -2738,11 +2738,11 @@
             <% } else { %>
             <div class="student-report-background">
                     <% if (session.logo) { %>
-                        <img src="<%= session.logo %>" alt="" class="print-watermark-img">
+                        <img src="<%= publicImageUrl(session.logo, { public: true }) %>" alt="" class="print-watermark-img">
                     <% } %>
                     <div class="header">
                         <% if (session.logo) { %>
-                            <img src="<%= session.logo %>" alt="Organization Logo" class="logo" />
+                            <img src="<%= publicImageUrl(session.logo, { public: true }) %>" alt="Organization Logo" class="logo" />
                         <% } else { %>
                             <img src="/images/default_logo.png" alt="Default Logo" class="logo" />
                         <% } %>
@@ -2754,7 +2754,8 @@
                         </div>
 
                         <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
-                            <img src="<%= student.image_url %>?v=<%= new Date().getTime() %>" alt="Student Image" class="student-image">
+                            <% const studentImageUrl = publicImageUrl(student.image_url); %>
+                            <img src="<%= studentImageUrl %><%= studentImageUrl.includes('?') ? '&' : '?' %>v=<%= new Date().getTime() %>" alt="Student Image" class="student-image">
                         <% } else { %>
                             <img src="/images/profilePlaceholder.png" alt="Placeholder Image" class="student-image">
                         <% } %>
@@ -3025,7 +3026,7 @@
                         <div class="signature-info">
                             <div class="signature-title"><%= signatureTitle || "Authorized Signature" %></div>
                             <% if (signatureImageUrl) { %>
-                                <img src="<%= signatureImageUrl %>" alt="Signature Image">
+                                <img src="<%= publicImageUrl(signatureImageUrl) %>" alt="Signature Image">
                             <% } else { %>
                                 <p style="font-size: 11px; color: #999; margin: 20px 0;">No signature</p>
                             <% } %>

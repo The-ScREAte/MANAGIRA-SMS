@@ -824,7 +824,7 @@
 
                 <div class="image-preview-container">
                   <img
-                    src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>"
+                    src="<%= publicImageUrl(guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png') %>"
                     alt="Guardian Profile"
                     class="image-preview"
                   />

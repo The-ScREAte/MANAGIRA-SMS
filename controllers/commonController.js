@@ -7353,6 +7353,7 @@ const commonController = {
       }
 
       const student = studentResult.rows[0];
+      student.image_url = res.locals.publicImageUrl(student.image_url);
 
       // Fetch selected subjects for the pending student
       const subjectsResult = await db.query(
@@ -9978,7 +9979,7 @@ const commonController = {
       const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
 
       // Guardian token from password_reset_tokens table
-      if (tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_'))) {
+      if (tokenRow && resetTokenUserId.startsWith('guardian_') && (!type || type === 'guardian')) {
         const user_id = resetTokenUserId;
         const guardianId = user_id.replace('guardian_', '');
         const guardianResult = await db.query(
@@ -10015,7 +10016,7 @@ const commonController = {
       }
 
       // Student token from password_reset_tokens table
-      if (tokenRow && (type === 'student' || resetTokenUserId.startsWith('student_'))) {
+      if (tokenRow && resetTokenUserId.startsWith('student_') && (!type || type === 'student')) {
         const studentId = resetTokenUserId.replace('student_', '');
         await ensureStudentPortalSchema(db);
 
@@ -10109,8 +10110,8 @@ const commonController = {
 
       const tokenRow = tokenResult.rows[0] || null;
       const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
-      const isGuardianToken = Boolean(tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_')));
-      const isStudentToken = Boolean(tokenRow && (type === 'student' || resetTokenUserId.startsWith('student_')));
+      const isGuardianToken = Boolean(tokenRow && resetTokenUserId.startsWith('guardian_') && (!type || type === 'guardian'));
+      const isStudentToken = Boolean(tokenRow && resetTokenUserId.startsWith('student_') && (!type || type === 'student'));
 
       if (tokenRow && new Date(tokenRow.expires_at) < new Date()) {
         req.flash("error", "Token has expired. Please ask your school administrator to send a new password setup link.");
@@ -24494,6 +24495,7 @@ NUMBERING:
       return res.json({
         guardians: result.rows.map((guardian) => ({
           ...guardian,
+          image_url: res.locals.publicImageUrl(guardian.image_url),
           display_name:
             formatDisplayName(guardian, orgNameDisplayFormat) ||
             [guardian.first_name, guardian.last_name].filter(Boolean).join(" ").trim(),

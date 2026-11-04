@@ -50,11 +50,7 @@
       if (typeof shareImageType !== 'undefined' && shareImageType) _shareImageType = shareImageType;
     } else if (!_isManagiraRootHost && _schoolLogoPath) {
       const rawLogo = String(_schoolLogoPath).trim();
-      if (/^https?:\/\//i.test(rawLogo)) {
-        _shareImage = rawLogo;
-      } else if (process && process.env && process.env.S3_BUCKET_NAME && process.env.AWS_REGION) {
-        _shareImage = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${rawLogo}`;
-      }
+      _shareImage = publicImageUrl(rawLogo, { public: true });
       _shareImageWidth = '512';
       _shareImageHeight = '512';
       _shareImageType = 'image/jpeg';
@@ -86,13 +82,7 @@
       : '';
 
     let _faviconImage = _sessionLogo || _schoolLogo || '';
-    if (_faviconImage && !/^https?:\/\//i.test(_faviconImage)) {
-      if (process && process.env && process.env.S3_BUCKET_NAME && process.env.AWS_REGION) {
-        _faviconImage = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${_faviconImage}`;
-      } else {
-        _faviconImage = `/${_faviconImage.replace(/^\/+/, '')}`;
-      }
-    }
+    if (_faviconImage) _faviconImage = publicImageUrl(_faviconImage, { public: true });
   %>
   <% if (_faviconImage) { %>
     <link rel="icon" href="<%- _faviconImage %>" type="image/png" sizes="any" />
@@ -306,6 +296,53 @@
       var TOGGLES = '.management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle';
       var OPEN = '.management-nav.open, .hub-nav.open, .settings-nav.open, .nav-card.open';
       var waiting = false;
+      function closeAllMenus() {
+        var headerMenu = document.getElementById('header-nav-menu');
+        var headerToggle = document.getElementById('header-hamburger');
+        if (headerMenu) {
+          headerMenu.classList.remove('show');
+          headerMenu.style.display = 'none';
+        }
+        if (headerToggle) {
+          headerToggle.classList.remove('active');
+          headerToggle.setAttribute('aria-expanded', 'false');
+          headerToggle.setAttribute('aria-label', 'Open menu');
+        }
+        [
+          { panel: '#class-tools-panel', overlay: '#class-tools-overlay', toggle: '.nav-toggle', label: 'Open Class Tools' },
+          { panel: '#hub-nav', overlay: '#hub-nav-overlay', toggle: '.hub-nav-toggle', label: 'Open menu' },
+          { panel: '#management-nav', overlay: '#management-nav-overlay', toggle: '.management-nav-toggle' },
+          { panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-header' }
+        ].forEach(function (menu) {
+          var panel = document.querySelector(menu.panel);
+          if (panel) panel.classList.remove('open');
+          var overlay = document.querySelector(menu.overlay);
+          if (overlay) overlay.classList.remove('show');
+          var toggle = document.querySelector(menu.toggle);
+          if (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+            if (menu.label) toggle.setAttribute('aria-label', menu.label);
+          }
+        });
+        document.querySelectorAll('[data-od-dd].is-open').forEach(function (dropdown) {
+          dropdown.classList.remove('is-open');
+          var panel = dropdown.querySelector('[data-od-dd-panel]');
+          var button = dropdown.querySelector('[data-od-dd-toggle]');
+          if (panel) panel.hidden = true;
+          if (button) button.setAttribute('aria-expanded', 'false');
+        });
+      }
+
+      if (window.parent !== window) {
+        document.addEventListener('click', function () {
+          window.parent.postMessage({ type: 'managira:menu-outside-click' }, window.location.origin);
+        }, true);
+      }
+      window.addEventListener('message', function (event) {
+        if (event.origin !== window.location.origin || event.source === window) return;
+        if (event.data && event.data.type === 'managira:menu-outside-click') closeAllMenus();
+      });
+
       function publish() {
         waiting = false;
         var header = document.getElementById('top-header');
@@ -346,13 +383,20 @@
       }, true);
       document.addEventListener('click', function (event) {
         if (!(event.target instanceof Element)) return;
-        var target = event.target.closest('#header-hamburger, .management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle');
-        if (!target) return;
-
-        var scope = target.matches('#header-hamburger') ? 'header' :
-          target.matches('.management-nav-toggle') ? 'management' :
-          target.matches('.hub-nav-toggle') ? 'hub' :
-          target.matches('.settings-nav-header') ? 'settings' : 'class';
+        var element = event.target;
+        var toggle = element.closest('#header-hamburger, .management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle');
+        var scope = toggle && (toggle.matches('#header-hamburger') ? 'header' :
+          toggle.matches('.management-nav-toggle') ? 'management' :
+          toggle.matches('.hub-nav-toggle') ? 'hub' :
+          toggle.matches('.settings-nav-header') ? 'settings' : 'class');
+        if (!scope) {
+          if (element.closest('#header-nav-menu')) scope = 'header';
+          else if (element.closest('#class-tools-panel')) scope = 'class';
+          else if (element.closest('#hub-nav')) scope = 'hub';
+          else if (element.closest('#management-nav')) scope = 'management';
+          else if (element.closest('.settings-nav')) scope = 'settings';
+          else if (element.closest('[data-od-dd]')) scope = 'dashboard';
+        }
 
         if (scope !== 'header') {
           var headerMenu = document.getElementById('header-nav-menu');
@@ -381,49 +425,33 @@
           var overlay = document.querySelector(menu.overlay);
           if (overlay) overlay.classList.remove('show');
           var toggle = document.querySelector(menu.toggle);
-          if (toggle && toggle.matches('button')) {
+          if (toggle) {
             toggle.setAttribute('aria-expanded', 'false');
             if (menu.scope === 'class' || menu.scope === 'hub') {
               toggle.setAttribute('aria-label', menu.scope === 'class' ? 'Open Class Tools' : 'Open menu');
             }
           }
         });
-      }, true);
-      document.addEventListener('click', function (event) {
-        if (!(event.target instanceof Element)) return;
-        var target = event.target;
-        var headerMenu = document.getElementById('header-nav-menu');
-        var headerToggle = document.getElementById('header-hamburger');
-        if (headerMenu && headerMenu.classList.contains('show') &&
-            !target.closest('#header-nav-menu, #header-hamburger')) {
-          headerMenu.classList.remove('show');
-          headerMenu.style.display = 'none';
-          if (headerToggle) {
-            headerToggle.classList.remove('active');
-            headerToggle.setAttribute('aria-expanded', 'false');
-            headerToggle.setAttribute('aria-label', 'Open menu');
-          }
-        }
 
-        var sideMenus = [
-          { panel: '#class-tools-panel', overlay: '#class-tools-overlay', toggle: '.nav-toggle' },
-          { panel: '#hub-nav', overlay: '#hub-nav-overlay', toggle: '.hub-nav-toggle' },
-          { panel: '#management-nav', overlay: '#management-nav-overlay', toggle: '.management-nav-toggle' },
-          { panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-header' }
-        ];
-        sideMenus.forEach(function (menu) {
-          var panel = document.querySelector(menu.panel);
-          if (!panel || !panel.classList.contains('open') || target.closest(menu.panel + ', ' + menu.toggle)) return;
-          panel.classList.remove('open');
-          var overlay = document.querySelector(menu.overlay);
-          if (overlay) overlay.classList.remove('show');
-          var toggle = document.querySelector(menu.toggle);
-          if (toggle) {
-            toggle.setAttribute('aria-expanded', 'false');
-            if (menu.toggle === '.nav-toggle') toggle.setAttribute('aria-label', 'Open Class Tools');
-            if (menu.toggle === '.hub-nav-toggle') toggle.setAttribute('aria-label', 'Open menu');
-          }
-        });
+        if (scope !== 'dashboard') {
+          document.querySelectorAll('[data-od-dd].is-open').forEach(function (dropdown) {
+            dropdown.classList.remove('is-open');
+            var panel = dropdown.querySelector('[data-od-dd-panel]');
+            var button = dropdown.querySelector('[data-od-dd-toggle]');
+            if (panel) panel.hidden = true;
+            if (button) button.setAttribute('aria-expanded', 'false');
+          });
+        } else {
+          var activeDropdown = element.closest('[data-od-dd]');
+          document.querySelectorAll('[data-od-dd].is-open').forEach(function (dropdown) {
+            if (dropdown === activeDropdown) return;
+            dropdown.classList.remove('is-open');
+            var panel = dropdown.querySelector('[data-od-dd-panel]');
+            var button = dropdown.querySelector('[data-od-dd-toggle]');
+            if (panel) panel.hidden = true;
+            if (button) button.setAttribute('aria-expanded', 'false');
+          });
+        }
       }, true);
       // Only while a menu is open, so ordinary scrolling does no extra work.
       window.addEventListener('scroll', function () {
