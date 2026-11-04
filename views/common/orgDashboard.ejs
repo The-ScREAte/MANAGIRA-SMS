@@ -1216,9 +1216,10 @@
     });
     document.addEventListener('click', function (e) {
       if (!document.body.contains(root)) return;
-      if (!e.target.closest('[data-od-dd]')) closeAll();
+      const activeDropdown = e.target instanceof Element ? e.target.closest('[data-od-dd]') : null;
+      closeAll(activeDropdown);
       if (!e.target.closest('.od-teachers')) teacherLists.forEach(function (d) { d.open = false; });
-    });
+    }, true);
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape' || !document.body.contains(root)) return;
       closeAll();

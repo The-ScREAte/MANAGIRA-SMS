@@ -481,16 +481,17 @@
 
 <div class="management-wrapper">
   <div class="management-layout" id="management-layout">
-    <!-- Mobile Toggle Button -->
-    <button class="management-nav-toggle" id="management-nav-toggle" type="button" aria-expanded="false" aria-controls="management-nav">
-      <span class="management-nav-toggle-label">
-        <span class="hub-hamburger-icon"></span>
-        <span>Menu</span>
-      </span>
-    </button>
+    <div class="management-nav-shell">
+      <!-- Mobile Toggle Button -->
+      <button class="management-nav-toggle" id="management-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="management-nav">
+        <span class="management-nav-toggle-label">
+          <span class="hub-hamburger-icon"></span>
+          <span>Menu</span>
+        </span>
+      </button>
 
-    <!-- Sidebar Navigation -->
-    <nav class="management-nav" id="management-nav">
+      <!-- Sidebar Navigation -->
+      <nav class="management-nav" id="management-nav">
       <div class="management-nav-header">
         <h3>Workspace</h3>
         <button class="menu-arrange-btn" type="button" data-arrange-toggle="management" aria-label="Arrange this menu" title="Arrange this menu"></button>
@@ -656,7 +657,8 @@
         <% } %>
       </ul>
       <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="management"]'));</script>
-    </nav>
+      </nav>
+    </div>
 
     <!-- Main Content -->
     <main class="management-main">
@@ -873,7 +875,16 @@
       badge.textContent = String(count);
     });
 
+    const syncNavPosition = () => {
+      if (!navToggle || !nav) return;
+      const bounds = navToggle.getBoundingClientRect();
+      nav.style.setProperty('top', `${bounds.bottom - 1}px`, 'important');
+      nav.style.setProperty('left', `${bounds.left}px`, 'important');
+      nav.style.setProperty('width', `${bounds.width}px`, 'important');
+    };
+
     const setNavOpen = isOpen => {
+      if (isOpen && window.innerWidth <= 900) syncNavPosition();
       nav.classList.toggle('open', isOpen);
       overlay.classList.toggle('show', isOpen && window.innerWidth > 900);
       navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -1293,7 +1304,11 @@
     });
 
     window.addEventListener('resize', function() {
-      if (window.innerWidth > 900) setNavOpen(false);
+      if (window.innerWidth > 900) {
+        setNavOpen(false);
+      } else if (nav.classList.contains('open')) {
+        syncNavPosition();
+      }
     });
 
     window.addEventListener('popstate', function(e) {

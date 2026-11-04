@@ -316,6 +316,20 @@
           if (box.height > 0 && box.bottom > top) { top = box.bottom + 6; break; }
         }
         document.documentElement.style.setProperty('--side-menu-top', top + 'px');
+        [
+          { selector: '.hub-nav-toggle', prefix: 'hub' },
+          { selector: '.management-nav-toggle', prefix: 'management' },
+          { selector: '.settings-nav-header', prefix: 'settings' }
+        ].forEach(function (menu) {
+          var toggle = document.querySelector(menu.selector);
+          if (!toggle) return;
+          var box = toggle.getBoundingClientRect();
+          if (box.height > 0) {
+            document.documentElement.style.setProperty('--' + menu.prefix + '-nav-top', box.bottom + 'px');
+            document.documentElement.style.setProperty('--' + menu.prefix + '-nav-left', box.left + 'px');
+            document.documentElement.style.setProperty('--' + menu.prefix + '-nav-width', box.width + 'px');
+          }
+        });
       }
       function soon() {
         if (waiting) return;
@@ -329,6 +343,87 @@
       if (window.visualViewport) window.visualViewport.addEventListener('resize', soon, { passive: true });
       document.addEventListener('click', function (event) {
         if (event.target.closest && event.target.closest(TOGGLES)) publish();
+      }, true);
+      document.addEventListener('click', function (event) {
+        if (!(event.target instanceof Element)) return;
+        var target = event.target.closest('#header-hamburger, .management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle');
+        if (!target) return;
+
+        var scope = target.matches('#header-hamburger') ? 'header' :
+          target.matches('.management-nav-toggle') ? 'management' :
+          target.matches('.hub-nav-toggle') ? 'hub' :
+          target.matches('.settings-nav-header') ? 'settings' : 'class';
+
+        if (scope !== 'header') {
+          var headerMenu = document.getElementById('header-nav-menu');
+          var headerToggle = document.getElementById('header-hamburger');
+          if (headerMenu) {
+            headerMenu.classList.remove('show');
+            headerMenu.style.display = 'none';
+          }
+          if (headerToggle) {
+            headerToggle.classList.remove('active');
+            headerToggle.setAttribute('aria-expanded', 'false');
+            headerToggle.setAttribute('aria-label', 'Open menu');
+          }
+        }
+
+        var sideMenus = [
+          { scope: 'class', panel: '#class-tools-panel', overlay: '#class-tools-overlay', toggle: '.nav-toggle' },
+          { scope: 'hub', panel: '#hub-nav', overlay: '#hub-nav-overlay', toggle: '.hub-nav-toggle' },
+          { scope: 'management', panel: '#management-nav', overlay: '#management-nav-overlay', toggle: '.management-nav-toggle' },
+          { scope: 'settings', panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-header' }
+        ];
+        sideMenus.forEach(function (menu) {
+          if (menu.scope === scope) return;
+          var panel = document.querySelector(menu.panel);
+          if (panel) panel.classList.remove('open');
+          var overlay = document.querySelector(menu.overlay);
+          if (overlay) overlay.classList.remove('show');
+          var toggle = document.querySelector(menu.toggle);
+          if (toggle && toggle.matches('button')) {
+            toggle.setAttribute('aria-expanded', 'false');
+            if (menu.scope === 'class' || menu.scope === 'hub') {
+              toggle.setAttribute('aria-label', menu.scope === 'class' ? 'Open Class Tools' : 'Open menu');
+            }
+          }
+        });
+      }, true);
+      document.addEventListener('click', function (event) {
+        if (!(event.target instanceof Element)) return;
+        var target = event.target;
+        var headerMenu = document.getElementById('header-nav-menu');
+        var headerToggle = document.getElementById('header-hamburger');
+        if (headerMenu && headerMenu.classList.contains('show') &&
+            !target.closest('#header-nav-menu, #header-hamburger')) {
+          headerMenu.classList.remove('show');
+          headerMenu.style.display = 'none';
+          if (headerToggle) {
+            headerToggle.classList.remove('active');
+            headerToggle.setAttribute('aria-expanded', 'false');
+            headerToggle.setAttribute('aria-label', 'Open menu');
+          }
+        }
+
+        var sideMenus = [
+          { panel: '#class-tools-panel', overlay: '#class-tools-overlay', toggle: '.nav-toggle' },
+          { panel: '#hub-nav', overlay: '#hub-nav-overlay', toggle: '.hub-nav-toggle' },
+          { panel: '#management-nav', overlay: '#management-nav-overlay', toggle: '.management-nav-toggle' },
+          { panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-header' }
+        ];
+        sideMenus.forEach(function (menu) {
+          var panel = document.querySelector(menu.panel);
+          if (!panel || !panel.classList.contains('open') || target.closest(menu.panel + ', ' + menu.toggle)) return;
+          panel.classList.remove('open');
+          var overlay = document.querySelector(menu.overlay);
+          if (overlay) overlay.classList.remove('show');
+          var toggle = document.querySelector(menu.toggle);
+          if (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+            if (menu.toggle === '.nav-toggle') toggle.setAttribute('aria-label', 'Open Class Tools');
+            if (menu.toggle === '.hub-nav-toggle') toggle.setAttribute('aria-label', 'Open menu');
+          }
+        });
       }, true);
       // Only while a menu is open, so ordinary scrolling does no extra work.
       window.addEventListener('scroll', function () {

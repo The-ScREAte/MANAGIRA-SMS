@@ -440,6 +440,14 @@ main { padding: 0 !important; max-width: none !important; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+.hub-nav-shell {
+  display: contents;
+}
+
+.management-nav-shell {
+  display: contents;
+}
+
 /* Desktop icon-rail collapse — shared by all three workspace sidebars
    (hub-nav, management-nav, settings-nav). Toggled via JS setting
    .is-collapsed on the nav and .is-nav-collapsed on the layout grid.
@@ -638,56 +646,11 @@ main { padding: 0 !important; max-width: none !important; }
     animation: mgNavIn 0.18s ease both;
   }
 
-  /* Admissions hub: nav floats over content, never takes a grid row */
+  /* Workspace hub menu stays grouped with its toggle on small screens. */
   .hub-layout {
     position: relative !important;
     gap: 12px !important;
     padding-top: 12px !important;
-  }
-
-  .hub-nav {
-    display: none !important;
-    position: absolute !important;
-    top: 52px !important;
-    left: 0 !important;
-    right: auto !important;
-    width: 260px !important;
-    max-width: calc(100vw - 20px) !important;
-    margin-left: 0 !important;
-    z-index: 950 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
-  }
-
-  .hub-nav.open {
-    display: block !important;
-    animation: mgNavIn 0.18s ease both;
-  }
-
-  /* Reports hub: nav floats over content, never takes a grid row */
-  .hub-layout {
-    position: relative !important;
-    gap: 12px !important;
-    padding-top: 12px !important;
-  }
-
-  .hub-nav {
-    display: none !important;
-    position: absolute !important;
-    top: 52px !important;
-    left: 0 !important;
-    right: auto !important;
-    width: 260px !important;
-    max-width: calc(100vw - 20px) !important;
-    margin-left: 0 !important;
-    z-index: 950 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
-  }
-
-  .hub-nav.open {
-    display: block !important;
-    animation: mgNavIn 0.18s ease both;
   }
 
   /* Settings: overlay nav on mobile – header stays in flow, list floats */
@@ -831,12 +794,10 @@ main { padding: 0 !important; max-width: none !important; }
   .settings-main .action-btn { width: 100%; justify-content: center; }
 }
 
-/* Phones and tablets: an open side menu is a drawer from under its Menu button
-   to the bottom of the screen, above the footer bar, Setup steps and chat, and
-   scrolls by itself so its last item can always be reached. */
+/* Phones and tablets: side menus open below their Menu button and scroll
+   independently so every item remains reachable. */
 @media (max-width: 900px) {
   .management-nav.open,
-  .hub-nav.open,
   .settings-nav.open .nav-list {
     position: fixed !important;
     top: var(--side-menu-top, 120px) !important;
@@ -854,9 +815,246 @@ main { padding: 0 !important; max-width: none !important; }
     z-index: 12100 !important;
   }
 
-  .settings-nav.open .nav-list {
-    align-content: start;
+  .management-nav-shell {
+    display: block;
+    grid-column: 1;
+    min-width: 0;
+    position: relative;
+    z-index: 12101;
+  }
+
+  .management-nav-toggle {
+    width: min(280px, calc(100vw - 20px)) !important;
+    position: relative;
+    z-index: 12101;
+    transition: border-radius 140ms ease, box-shadow 140ms ease;
+  }
+
+  .management-nav-toggle[aria-expanded="true"] {
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: none !important;
+  }
+
+  .management-nav-toggle .hub-hamburger-icon,
+  .management-nav-toggle .hub-hamburger-icon::before,
+  .management-nav-toggle .hub-hamburger-icon::after {
+    transition: transform 140ms ease, top 140ms ease, opacity 140ms ease, background-color 140ms ease;
+  }
+
+  .management-nav-toggle .hub-hamburger-icon {
+    background: currentColor;
+  }
+
+  .management-nav-toggle .hub-hamburger-icon::before,
+  .management-nav-toggle .hub-hamburger-icon::after {
+    background: currentColor;
+    transform-origin: center;
+  }
+
+  .management-nav-toggle[aria-expanded="true"] .hub-hamburger-icon {
+    background: transparent;
+  }
+
+  .management-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+
+  .management-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::after {
+    top: 0;
+    transform: rotate(-45deg);
+  }
+
+  .management-nav {
+    display: block !important;
+    position: fixed !important;
+    top: var(--management-nav-top, var(--side-menu-top, 120px)) !important;
+    bottom: 0 !important;
+    left: var(--management-nav-left, 10px) !important;
+    right: auto !important;
+    width: var(--management-nav-width, min(280px, calc(100vw - 20px))) !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: none !important;
     margin: 0 !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 1px solid var(--border, #e5e7eb) !important;
+    border-top: 0 !important;
+    border-radius: 0 0 12px 12px !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-6px) !important;
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+    animation: none !important;
+    z-index: 12100 !important;
+  }
+
+  .management-nav.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    transition-delay: 0s;
+  }
+
+  .hub-nav-shell {
+    display: block;
+    grid-column: 1;
+    min-width: 0;
+    position: relative;
+    z-index: 12101;
+  }
+
+  .hub-nav-toggle {
+    width: min(280px, calc(100vw - 20px)) !important;
+    position: relative;
+    z-index: 12101;
+    transition: border-radius 140ms ease, box-shadow 140ms ease;
+  }
+
+  .hub-nav-toggle[aria-expanded="true"] {
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: none !important;
+  }
+
+  .hub-nav-toggle .hub-hamburger-icon,
+  .hub-nav-toggle .hub-hamburger-icon::before,
+  .hub-nav-toggle .hub-hamburger-icon::after {
+    transition: transform 140ms ease, top 140ms ease, opacity 140ms ease, background-color 140ms ease;
+  }
+
+  .hub-nav-toggle .hub-hamburger-icon {
+    background: currentColor;
+  }
+
+  .hub-nav-toggle .hub-hamburger-icon::before,
+  .hub-nav-toggle .hub-hamburger-icon::after {
+    background: currentColor;
+    transform-origin: center;
+  }
+
+  .hub-nav-toggle[aria-expanded="true"] .hub-hamburger-icon {
+    background: transparent;
+  }
+
+  .hub-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+
+  .hub-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::after {
+    top: 0;
+    transform: rotate(-45deg);
+  }
+
+  .hub-nav {
+    display: block !important;
+    position: fixed !important;
+    top: var(--hub-nav-top, var(--side-menu-top, 120px)) !important;
+    bottom: 0 !important;
+    left: var(--hub-nav-left, 10px) !important;
+    right: auto !important;
+    width: var(--hub-nav-width, min(280px, calc(100vw - 20px))) !important;
+    height: auto !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 1px solid var(--border, #e5e7eb) !important;
+    border-top: 0 !important;
+    border-radius: 0 0 12px 12px !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-6px) !important;
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+    z-index: 12100 !important;
+  }
+
+  .hub-nav.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    transition-delay: 0s;
+  }
+
+  #settings-layout-root .settings-nav-header {
+    width: min(280px, calc(100vw - 20px)) !important;
+    position: relative;
+    z-index: 12101;
+    border-radius: 8px !important;
+    transition: border-radius 140ms ease, box-shadow 140ms ease;
+  }
+
+  #settings-layout-root .settings-nav.open .settings-nav-header {
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: none !important;
+  }
+
+  #settings-layout-root .settings-nav .nav-list {
+    display: grid !important;
+    position: fixed !important;
+    top: var(--settings-nav-top, var(--side-menu-top, 120px)) !important;
+    bottom: 0 !important;
+    left: var(--settings-nav-left, 10px) !important;
+    right: auto !important;
+    width: var(--settings-nav-width, min(280px, calc(100vw - 20px))) !important;
+    height: auto !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 8px 10px calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 1px solid var(--border, #e5e7eb) !important;
+    border-top: 0 !important;
+    border-radius: 0 0 12px 12px !important;
     background: var(--surface, #fff) !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-6px) !important;
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+    z-index: 12100 !important;
+  }
+
+  #settings-layout-root .settings-nav.open .nav-list {
+    align-content: start;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    transition-delay: 0s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-nav,
+  .management-nav,
+  #settings-layout-root .settings-nav .nav-list,
+  .hub-nav-toggle,
+  .management-nav-toggle,
+  #settings-layout-root .settings-nav-header,
+  .hub-nav-toggle .hub-hamburger-icon,
+  .hub-nav-toggle .hub-hamburger-icon::before,
+  .hub-nav-toggle .hub-hamburger-icon::after,
+  .management-nav-toggle .hub-hamburger-icon,
+  .management-nav-toggle .hub-hamburger-icon::before,
+  .management-nav-toggle .hub-hamburger-icon::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
 }

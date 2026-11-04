@@ -568,16 +568,17 @@
 
 <div class="hub-wrapper">
   <div class="hub-layout" id="hub-layout">
-    <!-- Mobile Toggle Button -->
-    <button class="hub-nav-toggle" id="hub-nav-toggle" type="button" aria-expanded="false" aria-controls="hub-nav">
-      <span class="hub-nav-toggle-label">
-        <span class="hub-hamburger-icon"></span>
-        <span>Menu</span>
-      </span>
-    </button>
+    <div class="hub-nav-shell">
+      <!-- Mobile Toggle Button -->
+      <button class="hub-nav-toggle" id="hub-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="hub-nav">
+        <span class="hub-nav-toggle-label">
+          <span class="hub-hamburger-icon"></span>
+          <span>Menu</span>
+        </span>
+      </button>
 
-    <!-- Sidebar -->
-    <nav class="hub-nav" id="hub-nav">
+      <!-- Sidebar -->
+      <nav class="hub-nav" id="hub-nav">
       <div class="hub-nav-header">
         <h3>Reports</h3>
         <button class="menu-arrange-btn" type="button" data-arrange-toggle="reports" aria-label="Arrange this menu" title="Arrange this menu"></button>
@@ -641,6 +642,7 @@
       </ul>
       <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="reports"]'));</script>
     </nav>
+    </div>
 
     <!-- Main Content -->
     <main class="hub-main">
@@ -705,11 +707,13 @@
     const overlay = document.getElementById('hub-nav-overlay');
     const navCollapseToggle = document.getElementById('hub-nav-collapse-toggle');
     const layout = document.getElementById('hub-layout');
+    const menuCloseFrameDocuments = new WeakSet();
 
     const setNavOpen = isOpen => {
       nav.classList.toggle('open', isOpen);
       overlay.classList.toggle('show', isOpen && window.innerWidth > 900);
       navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      navToggle.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
     };
 
     // Desktop-only icon-rail collapse. Remembered across page loads so the
@@ -1028,6 +1032,14 @@
           return;
         }
 
+        const frameDocument = iframe.contentDocument;
+        if (frameDocument && !menuCloseFrameDocuments.has(frameDocument)) {
+          menuCloseFrameDocuments.add(frameDocument);
+          frameDocument.addEventListener('click', function() {
+            if (nav.classList.contains('open')) setNavOpen(false);
+          }, true);
+        }
+
         try {
           const landedOn = stripEmbedFlag(iframe.contentWindow.location.href) || '';
           // A page preloading in the background that sends you to the
@@ -1166,9 +1178,22 @@
     });
 
     document.addEventListener('click', function(e) {
-      if (window.innerWidth > 900 || !nav.classList.contains('open')) return;
+      if (!nav.classList.contains('open')) return;
       if (nav.contains(e.target) || navToggle.contains(e.target)) return;
       setNavOpen(false);
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape' || !nav.classList.contains('open')) return;
+      setNavOpen(false);
+      navToggle.focus();
+    });
+
+    window.addEventListener('blur', function() {
+      if (!nav.classList.contains('open')) return;
+      window.setTimeout(() => {
+        if (document.activeElement?.tagName === 'IFRAME') setNavOpen(false);
+      }, 0);
     });
 
     window.addEventListener('resize', function() {

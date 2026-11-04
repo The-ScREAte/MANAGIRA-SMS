@@ -3908,10 +3908,10 @@ main {
 }
 /* Small screens: Class Tools opens under its Menu button, down to the bottom of the screen. */
 @media (max-width: 900px) {
-  /* The button stays clear of the page dimming, and the menu above Setup steps. */
-  .nav-toggle { z-index: 1000 !important; }
+  /* Keep the app header and its menu above the page-level menu control. */
+  .nav-toggle { z-index: 1 !important; }
   .workspace-sidebar.nav-card {
-    z-index: 12100 !important;
+    z-index: 1200 !important;
     top: var(--side-menu-top, 120px) !important;
     bottom: 0 !important;
     height: auto !important;
@@ -3929,7 +3929,7 @@ main {
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <% const _canOpenPaygiraWorkspace = typeof canOpenPaygiraWorkspace === 'boolean' ? canOpenPaygiraWorkspace : true; %>
   <div class="workspace-shell">
-    <button class="nav-toggle" type="button">
+    <button class="nav-toggle" type="button" aria-label="Open Class Tools" aria-expanded="false" aria-controls="class-tools-panel">
       <span class="hamburger-icon" aria-hidden="true"></span>
       <span>Class Tools</span>
     </button>
@@ -6256,11 +6256,54 @@ main {
         function openNav() {
           if (navPanel) navPanel.classList.add('open');
           if (navOverlay) navOverlay.classList.add('show');
+          if (navToggle) {
+            navToggle.setAttribute('aria-expanded', 'true');
+            navToggle.setAttribute('aria-label', 'Close Class Tools');
+          }
         }
 
         function closeNav() {
           if (navPanel) navPanel.classList.remove('open');
           if (navOverlay) navOverlay.classList.remove('show');
+          if (navToggle) {
+            navToggle.setAttribute('aria-expanded', 'false');
+            navToggle.setAttribute('aria-label', 'Open Class Tools');
+          }
+        }
+
+        if (!window.__classDashboardMenuClickBound) {
+          window.__classDashboardMenuClickBound = true;
+          document.addEventListener('click', function (event) {
+            if (!(event.target instanceof Element) || event.target.closest('.nav-toggle, #class-tools-panel')) return;
+            const panel = document.getElementById('class-tools-panel');
+            if (!panel || !panel.classList.contains('open')) return;
+            panel.classList.remove('open');
+            const overlay = document.getElementById('class-tools-overlay');
+            if (overlay) overlay.classList.remove('show');
+            const toggle = document.querySelector('.nav-toggle');
+            if (toggle) {
+              toggle.setAttribute('aria-expanded', 'false');
+              toggle.setAttribute('aria-label', 'Open Class Tools');
+            }
+          }, true);
+        }
+
+        if (!window.__classDashboardMenuEscapeBound) {
+          window.__classDashboardMenuEscapeBound = true;
+          document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') return;
+            const panel = document.getElementById('class-tools-panel');
+            if (!panel || !panel.classList.contains('open')) return;
+            panel.classList.remove('open');
+            const overlay = document.getElementById('class-tools-overlay');
+            if (overlay) overlay.classList.remove('show');
+            const toggle = document.querySelector('.nav-toggle');
+            if (toggle) {
+              toggle.setAttribute('aria-expanded', 'false');
+              toggle.setAttribute('aria-label', 'Open Class Tools');
+              toggle.focus();
+            }
+          });
         }
 
         function setTeachersOpen(isOpen) {
@@ -7684,4 +7727,3 @@ main {
 
   </script>
 </body>
-
