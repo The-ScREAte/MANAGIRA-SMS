@@ -771,11 +771,15 @@ function methodFields(pm) {
   };
 }
 
-// One sync at a time per hub in this process.
+// One sync at a time per hub: queued in this process, and locked in the database
+// so another server (or the old copy during a deploy) can't sync it at the same time.
 const locks = new Map();
-function withLock(hubId, fn) {
+function withLock(hubId, fn, db) {
   const prev = locks.get(hubId) || Promise.resolve();
-  const next = prev.then(fn);
+  const locked = db && typeof db.connect === "function"
+    ? () => require("./dbLock").waitForAdvisoryLock(`hub-billing:${hubId}`, fn, { database: db })
+    : fn;
+  const next = prev.then(locked);
   const tail = next.catch(() => {});
   locks.set(hubId, tail);
   tail.then(() => { if (locks.get(hubId) === tail) locks.delete(hubId); });
@@ -1152,7 +1156,7 @@ function syncSubscription(db, hubId) {
       await setBilling(db, hubId, { last_error: message });
       throw err instanceof BillingError ? err : new BillingError(message);
     }
-  });
+  }, db);
 }
 
 const STRIPE_STATUS = { trialing: 'trialing', active: 'active', past_due: 'past_due', unpaid: 'past_due', incomplete: 'incomplete', paused: 'paused', canceled: 'canceled', incomplete_expired: 'canceled' };

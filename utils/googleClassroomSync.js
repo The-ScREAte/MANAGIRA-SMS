@@ -1,4 +1,5 @@
-const { google } = require("googleapis");
+// Loaded on first use: this library alone is over 100 MB of memory.
+const googleLib = () => require("googleapis").google;
 const assessmentEntry = require("./assessmentEntry");
 const db = require("../config/db");
 const {
@@ -36,7 +37,7 @@ function hasGoogleOauthConfig() {
 }
 
 function createGoogleOauthClient() {
-  return new google.auth.OAuth2(
+  return new googleLib().auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID || "",
     process.env.GOOGLE_CLIENT_SECRET || "",
     resolveGoogleRedirectUri()
@@ -625,7 +626,7 @@ async function syncGoogleClassroomForOrganization(organizationId, options = {}) 
   }
 
   const auth = await getGoogleClient(organizationId, dbClient);
-  const classroom = google.classroom({ version: "v1", auth });
+  const classroom = googleLib().classroom({ version: "v1", auth });
 
   const assignments = await getClassSubjectAssignments(dbClient, organizationId, term.term_id);
   if (!assignments.length) {
@@ -713,7 +714,7 @@ async function pushAssessmentToGoogleClassroom(organizationId, assessmentId, opt
   if (!assessment || !assessment.google_course_id) return false;
 
   const auth = await getGoogleClient(organizationId, dbClient);
-  const classroom = google.classroom({ version: "v1", auth });
+  const classroom = googleLib().classroom({ version: "v1", auth });
 
   const questionSetBundle = await getAssessmentQuestionSetBundle(dbClient, assessment);
   const courseworkDescription = buildCourseworkDescription(assessment.description || "", questionSetBundle);
@@ -940,7 +941,7 @@ async function pullGradesFromGoogleClassroom(options = {}) {
     const organizationId = row.organization_id;
     try {
       const auth = await getGoogleClient(organizationId, dbClient);
-      const classroom = google.classroom({ version: "v1", auth });
+      const classroom = googleLib().classroom({ version: "v1", auth });
 
       const assessmentsResult = await dbClient.query(
         `SELECT a.assessment_id,

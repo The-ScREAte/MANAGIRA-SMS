@@ -48,6 +48,11 @@ function warnIfDbConfigLooksWrong() {
 
 warnIfDbConfigLooksWrong();
 
+// Development connected to the hosted database changes real schools' data.
+if (process.env.NODE_ENV !== 'production' && /\.render\.com/i.test(dbConnectionString || '')) {
+  console.warn('[DB] ⚠️ This is not production, but DB_CONNECTION_STRING points at the hosted database. Table changes and tests here affect real schools. Use a local or staging database for development.');
+}
+
 const pool = new Pool({
   connectionString: dbConnectionString,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
@@ -65,7 +70,7 @@ const pool = new Pool({
   idleTimeoutMillis: 60000,
   // Idle connections don't keep a script alive; the server stays up anyway.
   allowExitOnIdle: true,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 6000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
   // Kill any query that hangs for more than 30 s so a stalled query never
@@ -135,14 +140,21 @@ function shouldRetryQuery(error, args) {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Nobody waits long for an answer that isn't coming: during an outage, waiting
+// requests would otherwise pile up in memory for nearly a minute each.
+const MAX_DB_WAIT_MS = Number(process.env.DB_MAX_WAIT_MS) || 15000;
+const canRetryAgain = (attempt, startedAt) => attempt < RETRY_DELAYS_MS.length
+  && Date.now() - startedAt + RETRY_DELAYS_MS[attempt] < MAX_DB_WAIT_MS;
+
 async function queryWithRetry(args) {
   // Callback-style calls are passed straight through (no retry).
   if (typeof args[args.length - 1] === 'function') return originalQuery(...args);
+  const startedAt = Date.now();
   for (let attempt = 0; ; attempt += 1) {
     try {
       return await originalQuery(...args);
     } catch (error) {
-      if (attempt >= RETRY_DELAYS_MS.length || !shouldRetryQuery(error, args)) throw error;
+      if (!canRetryAgain(attempt, startedAt) || !shouldRetryQuery(error, args)) throw error;
       await wait(RETRY_DELAYS_MS[attempt]);
     }
   }
@@ -201,11 +213,12 @@ pool.query = async (...args) => {
 const originalConnect = pool.connect.bind(pool);
 pool.connect = async (...args) => {
   if (typeof args[0] === 'function') return originalConnect(...args);
+  const startedAt = Date.now();
   for (let attempt = 0; ; attempt += 1) {
     try {
       return await originalConnect();
     } catch (error) {
-      if (attempt >= RETRY_DELAYS_MS.length || !isConnectRefusal(error)) throw error;
+      if (!canRetryAgain(attempt, startedAt) || !isConnectRefusal(error)) throw error;
       await wait(RETRY_DELAYS_MS[attempt]);
     }
   }

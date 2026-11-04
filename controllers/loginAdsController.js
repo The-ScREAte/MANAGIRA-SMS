@@ -1,6 +1,6 @@
 const path = require("path");
 const fsp = require("fs").promises;
-const sharp = require("sharp");
+const sharp = (...args) => require("sharp")(...args); // loaded on first use
 const db = require("../config/db");
 const { resolveViewerIdentity } = require("./announcementController");
 const { uploadToS3, deleteFromS3, s3Client, GetObjectCommand } = require("../config/s3");

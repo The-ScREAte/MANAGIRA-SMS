@@ -345,7 +345,8 @@ const fs = require("fs");
 const { renderInvoicePdf } = require("../utils/invoicePdf");
 
 const axios = require("axios");
-const { google } = require("googleapis");
+// Loaded on first use: this library alone is over 100 MB of memory.
+const googleLib = () => require("googleapis").google;
 
 const he = require("he");
 
@@ -13170,7 +13171,7 @@ const accountController = {
       let clientEmail = "";
       let resolvedScopes = [];
       try {
-        const oauth2Api = google.oauth2({ version: "v2", auth: oauthClient });
+        const oauth2Api = googleLib().oauth2({ version: "v2", auth: oauthClient });
         const profile = await oauth2Api.userinfo.get();
         clientEmail = String(profile.data?.email || "").trim();
       } catch (_) {

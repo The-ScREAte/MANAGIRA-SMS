@@ -90,7 +90,6 @@ const setAllowedPermissions = require("./middleware/setAllowedPermissions");
 const setThemeColor = require("./middleware/setThemeColor");
 const setMiraStatus = require("./middleware/setMiraStatus");
 const compression = require("compression");
-const { preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
 const financeController = require("./controllers/financeController");
 const { commonController } = require("./controllers/commonController");
@@ -922,7 +921,6 @@ app.use(setAllowedRoles);
 app.use(setAllowedPermissions);
 app.use(setThemeColor);
 app.use(setMiraStatus);
-app.use(preloadCache);
 
 // Hamburger-menu hub panels (Management/Admissions/Reports workspaces) load
 // each section in an iframe tagged with ?embed=workspace. The hub keeps every
@@ -1023,12 +1021,20 @@ app.post(
 // straight through as a JSON body when publishing it to the school
 // website (upload_website_image); the default limit would 413 before the
 // request ever reached that route.
-app.use(express.json({ limit: "10mb" }));
+const bigJson = express.json({ limit: "10mb" });
+const smallJson = express.json({ limit: "1mb" });
+const bigForm = express.urlencoded({ extended: true, limit: "10mb", parameterLimit: 100000 });
+const smallForm = express.urlencoded({ extended: true, limit: "1mb", parameterLimit: 2000 });
+// Signed-in work and Mira's internal API can be large. Anyone else, bots included,
+// can't make the server parse a huge request.
+const allowsBigBody = (req) => req.path.startsWith("/internal/api")
+  || (req.session && Object.keys(req.session).some((key) => key !== "cookie"));
+app.use((req, res, next) => (allowsBigBody(req) ? bigJson : smallJson)(req, res, next));
 // parameterLimit raised from the qs/Express default of 1000 - large schools submit
 // forms with per-student, per-subject fields (e.g. promotion scheduling), which
 // blow past 1000 total fields and crash body-parsing with an unhandled 500 before
 // the request ever reaches a route handler.
-app.use(express.urlencoded({ extended: true, limit: "10mb", parameterLimit: 100000 }));
+app.use((req, res, next) => (allowsBigBody(req) ? bigForm : smallForm)(req, res, next));
 
 // Light or dark, for whoever is signed in (staff, school owner, parent, student,
 // driver, hub owner or hub user). Kept per person.

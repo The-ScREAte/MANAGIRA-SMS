@@ -201,16 +201,7 @@ const checkFeatureAccess = async (req, res, next) => {
       );
 
       if (!planFeatureAccess?.allowed) {
-        console.warn('[FeatureDenied]', {
-          route: routePath,
-          normalizedRouteCandidates,
-          organizationId,
-          userId,
-          userRole,
-          planIdToCheck,
-          featureId,
-          sessionId: req.sessionID,
-        });
+        console.warn(`[FeatureDenied] ${routePath} org=${organizationId} user=${userId} plan=${planIdToCheck}`);
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
           return res.status(200).send(`<!DOCTYPE html>
@@ -312,15 +303,7 @@ const checkFeatureAccess = async (req, res, next) => {
     };
 
     if (roleAccessMap[routePath] && !roleAccessMap[routePath].includes(normalizedUserRole)) {
-      console.warn('[RoleDenied]', {
-        route: routePath,
-        requiredRoles: roleAccessMap[routePath],
-        userRole,
-        normalizedUserRole,
-        organizationId,
-        userId,
-        sessionId: req.sessionID,
-      });
+      console.warn(`[RoleDenied] ${routePath} org=${organizationId} user=${userId} role=${normalizedUserRole}`);
   // ...removed warn for clean background operation...
       req.flash('error', 'You do not have permission to access this page.');
       return res.redirect('/common/orgDashboard');

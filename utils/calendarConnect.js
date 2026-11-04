@@ -5,7 +5,8 @@ const { BoundedMap } = require("./boundedMap");
 // - Pull: events from their main Google/Outlook calendar show inside Managira.
 const crypto = require("crypto");
 const axios = require("axios");
-const { google } = require("googleapis");
+// Loaded on first use: this library alone is over 100 MB of memory.
+const googleLib = () => require("googleapis").google;
 const { createGoogleOauthClient, hasGoogleOauthConfig } = require("./googleClassroomSync");
 
 const GOOGLE_SCOPES = [
@@ -129,7 +130,7 @@ async function finishOauth(db, req, provider) {
     const granted = String(r.tokens.scope || "");
     if (!granted.includes("calendar")) throw new Error("Calendar access wasn't granted. Please allow access to your calendar.");
     client.setCredentials(r.tokens);
-    try { email = (await google.oauth2({ version: "v2", auth: client }).userinfo.get()).data.email || ""; } catch (_e) { email = ""; }
+    try { email = (await googleLib().oauth2({ version: "v2", auth: client }).userinfo.get()).data.email || ""; } catch (_e) { email = ""; }
   } else {
     const r = await axios.post(`${MS_AUTH}/token`, new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID,
@@ -176,7 +177,7 @@ function realGoogleApi(db, conn) {
       [conn.connection_id, t.access_token, t.expiry_date ? new Date(t.expiry_date) : null, t.refresh_token || null]
     ).catch(() => {});
   });
-  return google.calendar({ version: "v3", auth: client });
+  return googleLib().calendar({ version: "v3", auth: client });
 }
 
 async function msToken(db, conn) {

@@ -113,8 +113,8 @@ Request
  9. setAllowedFeatures     the school's plan features
 10. setAllowedRoles
 11. setAllowedPermissions  this person's real permissions, inside the plan
-12. setThemeColor, setMiraStatus, preloadCache
-13. page layout, body parsing (10 MB limit), activity log
+12. setThemeColor, setMiraStatus
+13. page layout, body parsing (10 MB signed in, 1 MB otherwise), activity log
 14. Route → requirePermission → checkFeatureAccess → controller → EJS page
 15. notFound, globalErrorHandler (database down = "We'll be right back" page)
 ```
@@ -380,12 +380,9 @@ Mira can never do more than the person using her. She has her own database pool
 
 | What | About | Notes |
 |---|---|---|
-| Main app in total | 180 MB | Measured idle, with everything below it included |
-| **`googleapis` library** | **114 MB** | The largest single item; loaded at startup even for schools not using Google |
+| Main app in total | 180 MB | Measured idle with jobs running and no Mira, after lazy loading (was 226 MB) |
 | Mira, loaded into the same process | 44 MB | Avoidable by running Mira as its own service |
-| `puppeteer` library | 30 MB | Library only; Chrome itself is separate |
 | AWS S3 library | 30 MB | |
-| `sharp` image library | 28 MB | |
 | `stripe` | 20 MB | |
 | `nodemailer` | 19 MB | |
 | 150 util files, 35 controllers | Not measured | About 100,000 lines of controller code stays loaded |
@@ -394,6 +391,9 @@ Mira can never do more than the person using her. She has her own database pool
 
 | What | About | Used for |
 |---|---|---|
+| `googleapis` | 114 MB alone; about 46 MB saved in the running app | Google Classroom and Calendar |
+| `puppeteer` | 30 MB | PDFs; Chrome itself is separate |
+| `sharp` | 28 MB | Image processing |
 | `exceljs` | 35 MB | Spreadsheet exports |
 | `mammoth` | 19 MB | Reading Word files |
 | `tesseract.js` | Not measured | Reading text from images |
@@ -410,7 +410,7 @@ Mira can never do more than the person using her. She has her own database pool
 | Bulk student import | Up to 10 MB file parsed | File size limit |
 | Image and video processing | Sharp, plus `ffmpeg` as a separate program | Admin uploads go to disk |
 | Large pages | All Students 2.5 MB, Transportation 875 KB per page view | None |
-| Request bodies | Up to 10 MB each | Size limit |
+| Request bodies | Up to 10 MB signed in, 1 MB otherwise | Size limit |
 | Scheduled report emails | File built per recipient | One at a time |
 | Mira conversations | Tool results and model replies | Limited by traffic |
 
@@ -427,7 +427,7 @@ Mira can never do more than the person using her. She has her own database pool
 | PayGira version numbers | 2,000 |
 | Others (calendars, geocoding, roads, API features, AI discovery, remark options) | 500 to 1,000 |
 | Report card posting jobs | 500 |
-| Mira's school context cache | **Not capped**; one entry per school |
+| Mira's school context cache | 1,000 |
 | Some other small lists keyed by school or file | **Not capped**; limited by number of schools or files |
 
 ### Inside the browser, not your server
@@ -459,8 +459,7 @@ config/db              smaller connection pool, retries
 
 ### The biggest remaining opportunities, in order
 
-1. Load `googleapis` only when needed: about 114 MB saved at startup.
-2. Move PDF creation to its own service, so Chrome can't push the website over its limit.
-3. Move background jobs to `worker.js`.
-4. Move Mira to its own service: about 44 MB.
-5. Stream Report Builder exports and large pages instead of holding them in memory.
+1. Move PDF creation to its own service, so Chrome can't push the website over its limit.
+2. Move background jobs to `worker.js`.
+3. Move Mira to its own service: about 44 MB.
+4. Stream Report Builder exports and large pages instead of holding them in memory.

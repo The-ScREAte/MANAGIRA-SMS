@@ -180,6 +180,9 @@ const STATIC_EXT = /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)(
 
 // URL path patterns that must ALWAYS go to the network (never cached)
 const NETWORK_ONLY = [
+  // Money and grades always come fresh, never from a saved copy.
+  /\/account\/settings\/(payouts|my-paygira|finance)/i,
+  /\/common\/(assessment|manageAssessment|allClassAssessmentExams)/i,
   /\/api\//i,
   /\/login/i,
   /\/logout/i,

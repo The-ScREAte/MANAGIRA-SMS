@@ -109,6 +109,7 @@ async function loadSchoolCalendar(organizationId) {
   } catch (error) {
     console.error("[mira/orchestrator] could not load the current term:", error.message);
   }
+  if (schoolContextCache.size >= 1000) schoolContextCache.delete(schoolContextCache.keys().next().value);
   schoolContextCache.set(organizationId, { value, expiresAt: Date.now() + SCHOOL_CONTEXT_TTL_MS });
   return value;
 }

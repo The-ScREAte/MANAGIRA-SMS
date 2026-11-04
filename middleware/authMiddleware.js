@@ -68,18 +68,7 @@ const isAuthenticated = async (req, res, next) => {
         }
         // 1. Check session existence
         if (!req.session.userId && !req.session.organizationId) {
-            console.error('[isAuthenticated] Missing session IDs', {
-                sid: req.sessionID,
-                path: req.originalUrl,
-                method: req.method,
-                hasCookieHeader: Boolean(req.headers && req.headers.cookie),
-                cookieHeader: req.headers && req.headers.cookie ? String(req.headers.cookie).slice(0, 200) : null,
-                sessionKeys: req.session ? Object.keys(req.session) : null,
-                accountType: req.session && req.session.accountType,
-                userRole: req.session && req.session.userRole,
-                xhr: req.xhr,
-                accept: req.headers && req.headers.accept,
-            });
+            console.warn(`[isAuthenticated] Not signed in: ${req.method} ${req.originalUrl}`);
 
             if (!req.session.returnTo) {
                 req.session.returnTo = req.originalUrl;

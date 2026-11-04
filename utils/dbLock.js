@@ -8,8 +8,8 @@ function lockSql(key, fn) {
 }
 
 // Returns a release function, or null when another process holds the lock.
-async function tryAdvisoryLock(key) {
-  const db = require("../config/db"); // looked up per call so tests can swap it
+async function tryAdvisoryLock(key, database) {
+  const db = database || require("../config/db"); // looked up per call so tests can swap it
   const client = await db.connect();
   try {
     const { rows } = await client.query(lockSql(key, "pg_try_advisory_lock"), [key]);
@@ -46,4 +46,21 @@ async function withAdvisoryLock(key, task) {
   }
 }
 
-module.exports = { tryAdvisoryLock, withAdvisoryLock };
+// Runs task once the lock is free, waiting its turn; fails if it stays taken.
+async function waitForAdvisoryLock(key, task, { database, timeoutMs = 60000, pollMs = 500 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const release = await tryAdvisoryLock(key, database);
+    if (release) {
+      try {
+        return await task();
+      } finally {
+        await release();
+      }
+    }
+    if (Date.now() >= deadline) throw new Error(`Timed out waiting for ${key}`);
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+}
+
+module.exports = { tryAdvisoryLock, withAdvisoryLock, waitForAdvisoryLock };

@@ -8,7 +8,6 @@
 // was most of the time spent per PDF) and closed after a few idle minutes to
 // free memory. storePdf() uploads a PDF to S3 and returns its public link.
 
-const puppeteer = require("puppeteer");
 const { PutObjectCommand } = require("@aws-sdk/client-s3");
 const { s3Client } = require("../config/s3");
 
@@ -68,7 +67,7 @@ async function getBrowser() {
     browserPromise = null;
   }
 
-  browserPromise = puppeteer.launch({ headless: true, args: BROWSER_ARGS });
+  browserPromise = require("puppeteer").launch({ headless: true, args: BROWSER_ARGS });
   try {
     const browser = await browserPromise;
     browser.on("disconnected", () => {

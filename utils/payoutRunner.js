@@ -18,6 +18,12 @@ const { computeNextRunAfterExecution } = require("./payoutSchedule");
  * Charge the org's saved card for one payout occurrence and record the
  * outcome. Always resolves (never throws) — callers check `.success`.
  */
+// Same occurrence, same reference; Stripe's key above works the same way.
+function paystackPayoutReference(payoutRow) {
+  const occurrence = String(payoutRow.next_run_at || payoutRow.start_date || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
+  return `org-payout-${payoutRow.payout_id}-${occurrence}`;
+}
+
 async function executePayoutCharge(payoutRow, { dbClient = db } = {}) {
   const orgResult = await dbClient.query(
     `SELECT organization_id, organization_name, email, stripe_customer_id
@@ -159,6 +165,8 @@ async function chargePaystackCard({ org, card, amountMinor, currency, payoutRow 
         authorization_code: card.authorization_code,
         email: org.email,
         amount: amountMinor,
+        // Paystack refuses a repeated reference, so a re-run can't charge twice.
+        reference: paystackPayoutReference(payoutRow),
         currency: currency.toUpperCase(),
         metadata: {
           flow: "org_payout",

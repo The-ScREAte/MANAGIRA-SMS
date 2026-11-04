@@ -115,7 +115,7 @@ test("a failed background promise no longer ends the process", () => {
 
 test("database refusals show the retrying page instead of a 500", () => {
   const { globalErrorHandler } = require("../middleware/errorMiddleware");
-  const res = { headersSent: false, set() { return this; }, status(code) { this.code = code; return this; }, type() { return this; }, send(body) { this.body = body; return this; }, json(body) { this.body = body; return this; } };
+  const res = { locals: {}, headersSent: false, set() { return this; }, status(code) { this.code = code; return this; }, type() { return this; }, send(body) { this.body = body; return this; }, json(body) { this.body = body; return this; } };
   const original = console.error;
   console.error = () => {};
   globalErrorHandler(new Error("service temporarily unavailable"), { get: () => "text/html" }, res, () => {});
@@ -133,4 +133,60 @@ test("a background cache refresh can run again after finishing", async () => {
   cacheManager.backgroundRefresh("static", "memory-safety-key", refresh, 5);
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(runs, 2);
+});
+
+test("migrations run once each and split into single statements", async () => {
+  const { runMigrations, splitStatements } = require("../scripts/migrate");
+  assert.deepEqual(splitStatements("-- note\nCREATE INDEX a ON b (c);\n\nCREATE INDEX d ON e (f);\n"), ["CREATE INDEX a ON b (c)", "CREATE INDEX d ON e (f)"]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mig-"));
+  fs.writeFileSync(path.join(dir, "001.sql"), "SELECT 1;\nSELECT 2;\n");
+  fs.writeFileSync(path.join(dir, "002.sql"), "SELECT 3;\n");
+  const ran = [];
+  const done = new Set(["001.sql"]);
+  const db = { async query(sql, values) {
+    ran.push(sql);
+    if (/^SELECT name/.test(sql)) return { rows: [...done].map((name) => ({ name })) };
+    if (/^INSERT/.test(sql)) done.add(values[0]);
+    return { rows: [] };
+  } };
+  assert.deepEqual(await runMigrations(db, { dir, log() {} }), ["002.sql"]);
+  assert.ok(ran.includes("SELECT 3") && !ran.includes("SELECT 1"), "only the new one ran");
+  assert.deepEqual(await runMigrations(db, { dir, log() {} }), []);
+  fs.rmSync(dir, { recursive: true });
+});
+
+test("the index migration only adds, and doesn't lock tables", () => {
+  const { splitStatements } = require("../scripts/migrate");
+  const sql = fs.readFileSync(path.resolve(__dirname, "../database/migrations/001_school_lookup_indexes.sql"), "utf8");
+  const statements = splitStatements(sql);
+  assert.equal(statements.length, 10);
+  statements.forEach((statement) => assert.match(statement, /^CREATE INDEX CONCURRENTLY IF NOT EXISTS /));
+});
+
+test("waiting for a lock takes turns, and gives up instead of hanging", async () => {
+  const { waitForAdvisoryLock } = require("../utils/dbLock");
+  let held = false;
+  const client = { release() {}, async query(sql) {
+    if (/pg_try_advisory_lock/.test(sql)) { if (held) return { rows: [{ ok: false }] }; held = true; return { rows: [{ ok: true }] }; }
+    held = false;
+    return { rows: [] };
+  } };
+  const database = { connect: async () => client };
+  const order = [];
+  const task = (name, ms) => async () => { order.push(`${name}-start`); await new Promise((r) => setTimeout(r, ms)); order.push(`${name}-end`); };
+  await Promise.all([
+    waitForAdvisoryLock("k", task("a", 30), { database, pollMs: 5 }),
+    waitForAdvisoryLock("k", task("b", 1), { database, pollMs: 5 }),
+  ]);
+  assert.deepEqual(order, ["a-start", "a-end", "b-start", "b-end"]);
+  held = true;
+  await assert.rejects(waitForAdvisoryLock("k", async () => {}, { database, timeoutMs: 20, pollMs: 5 }), /Timed out/);
+});
+
+test("the Google library isn't loaded until something uses it", () => {
+  const script = `require(${JSON.stringify(path.resolve(__dirname, "../utils/calendarConnect"))});
+    const loaded = Object.keys(require.cache).some((file) => file.includes("node_modules/googleapis/"));
+    console.log(loaded ? "LOADED" : "NOT-LOADED"); process.exit(0);`;
+  const run = spawnSync(process.execPath, ["-e", script], { encoding: "utf8", env: { ...process.env, DB_CONNECTION_STRING: "" } });
+  assert.match(run.stdout, /NOT-LOADED/, run.stderr);
 });

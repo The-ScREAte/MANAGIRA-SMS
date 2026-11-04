@@ -24,6 +24,14 @@ const globalErrorHandler = (err, req, res, next) => {
         return next(err);
     }
 
+    // Too large for the body limits: answered before any page data has been set up.
+    if (err && err.type === 'entity.too.large') {
+        return res.status(413).type('txt').send('That request is too large.');
+    }
+
+    // Errors can arrive before the middleware that gives pages this value.
+    res.locals.req = res.locals.req || req;
+
     // Upload too large or a blocked file type: say so plainly.
     const uploadMessage = require('../utils/uploadSafety').uploadErrorMessage(err);
     if (uploadMessage) {

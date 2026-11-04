@@ -10,7 +10,7 @@ const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { execFile } = require("child_process");
-const sharp = require("sharp");
+const sharp = (...args) => require("sharp")(...args); // loaded on first use
 const multer = require("multer");
 const db = require("../config/db");
 
