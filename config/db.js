@@ -51,20 +51,18 @@ warnIfDbConfigLooksWrong();
 const pool = new Pool({
   connectionString: dbConnectionString,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-  // Postgres plan caps at 103 max_connections (100 usable after superuser
-  // reserve); Mira's separate pool (mira/config/db.js) also shares this
-  // budget (default max 10). 30 leaves comfortable headroom for other
-  // services/spikes while letting concurrent requests (each middleware
-  // hop + large form submissions like promotion scheduling) avoid queueing
-  // on a small pool.
+  // The limit that matters on this database is memory, not its 103 connections
+  // allowed: it has 64 MB of shared buffers and every open connection takes more.
+  // Mira's pool (mira/config/db.js) and any worker share the same database.
   // On a developer's computer the same database is shared with the live site,
   // so local runs stay small unless DB_POOL_MAX says otherwise.
-  max: parseInt(process.env.DB_POOL_MAX || (process.env.NODE_ENV === 'production' ? '30' : '10'), 10),
+  max: parseInt(process.env.DB_POOL_MAX || (process.env.NODE_ENV === 'production' ? '15' : '5'), 10),
   // Keep a few connections open between visits: opening one costs a TLS
   // handshake, which made the first page after a quiet spell noticeably slow.
-  // Only connections above this number close after 30 s idle.
-  min: parseInt(process.env.DB_POOL_MIN || (process.env.NODE_ENV === 'production' ? '6' : '2'), 10),
-  idleTimeoutMillis: 30000,
+  // Only connections above this number close when idle, after a minute: each
+  // reopen costs the database a login, and it logged login timeouts under load.
+  min: parseInt(process.env.DB_POOL_MIN || (process.env.NODE_ENV === 'production' ? '3' : '1'), 10),
+  idleTimeoutMillis: 60000,
   // Idle connections don't keep a script alive; the server stays up anyway.
   allowExitOnIdle: true,
   connectionTimeoutMillis: 10000,
@@ -215,6 +213,7 @@ pool.connect = async (...args) => {
 
 pool.isReadOnlySql = isReadOnlySql;
 pool.shouldRetryQuery = shouldRetryQuery;
+pool.isConnectRefusal = isConnectRefusal;
 
 pool.getQueryMetrics = () => ({
   ...dbMetrics,

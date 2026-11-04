@@ -18,8 +18,22 @@ const BROWSER_ARGS = [
   "--disable-dev-shm-usage",
   "--disable-web-security",
   "--font-render-hinting=none",
+  // Keep Chrome's memory small: it shares the server's memory allowance.
+  "--disable-gpu",
+  "--disable-extensions",
+  "--disable-background-networking",
+  "--disable-default-apps",
+  "--disable-sync",
+  "--mute-audio",
+  "--no-first-run",
+  "--renderer-process-limit=2",
+  "--js-flags=--max-old-space-size=256",
 ];
-const BROWSER_IDLE_CLOSE_MS = 5 * 60 * 1000;
+// Chrome uses a lot of memory, so it closes soon after the last PDF.
+const BROWSER_IDLE_CLOSE_MS = Number(process.env.PDF_BROWSER_IDLE_CLOSE_MS) || 60 * 1000;
+// At most this many PDF pages render at once; more requests wait their turn
+// (a whole class of report cards no longer opens dozens of tabs together).
+const MAX_CONCURRENT_PAGES = Math.max(1, Number(process.env.PDF_MAX_CONCURRENT_PAGES) || 2);
 const NAVIGATION_TIMEOUT_MS = 60000;
 const ASSET_WAIT_TIMEOUT_MS = 10000;
 const ASSET_POLL_INTERVAL_MS = 100;
@@ -81,7 +95,44 @@ function scheduleIdleClose() {
   if (typeof idleCloseTimer.unref === "function") idleCloseTimer.unref();
 }
 
+const pageWaiters = [];
+let pageSlotsInUse = 0;
+function acquirePageSlot() {
+  if (pageSlotsInUse < MAX_CONCURRENT_PAGES) {
+    pageSlotsInUse += 1;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => pageWaiters.push(resolve));
+}
+function releasePageSlot() {
+  const next = pageWaiters.shift();
+  if (next) next(); // hand the slot straight to the next waiter
+  else pageSlotsInUse = Math.max(0, pageSlotsInUse - 1);
+}
+
+// Closes the PDF browser now if nothing is rendering (used under memory pressure).
+async function closeIdleBrowser() {
+  if (activePageCount > 0 || !browserPromise) return false;
+  clearTimeout(idleCloseTimer);
+  const closing = browserPromise;
+  browserPromise = null;
+  try {
+    const browser = await closing;
+    await browser.close();
+  } catch (_) {}
+  return true;
+}
+
 async function withPage(task) {
+  await acquirePageSlot();
+  try {
+    return await withPageUnlimited(task);
+  } finally {
+    releasePageSlot();
+  }
+}
+
+async function withPageUnlimited(task) {
   clearTimeout(idleCloseTimer);
   activePageCount += 1;
   let page = null;
@@ -653,6 +704,7 @@ function sessionCookieFromHeader(cookieHeader) {
 module.exports = {
   isServerRender,
   withPage,
+  closeIdleBrowser,
   renderReportCardsPdf,
   renderReportCardsPerStudent,
   renderTranscriptPdf,

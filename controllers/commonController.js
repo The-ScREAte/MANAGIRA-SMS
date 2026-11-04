@@ -1,3 +1,4 @@
+const { BoundedMap } = require("../utils/boundedMap");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getMessagingChannelStatus } = require("./../utils/guardianMessaging");
 const websiteExtrasUtil = require("../utils/websiteExtras");
@@ -284,7 +285,7 @@ function activeClassroomTermView(req) {
 }
 let studentReportCustomRemarksColumnReady = false;
 const TEACHER_REMARK_OPTIONS_CACHE_TTL_MS = 2 * 60 * 1000;
-const teacherRemarkOptionsCache = new Map();
+const teacherRemarkOptionsCache = new BoundedMap(1000);
 let ensuredOrganizationCustomRemarkTypesTable = false;
 
 async function ensureOrganizationCustomRemarkTypesTable(dbClient) {

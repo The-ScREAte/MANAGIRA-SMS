@@ -29,7 +29,7 @@ const connectionString = rawConnectionString.replace(/sslmode=(require|prefer|ve
 const pool = new Pool({
   connectionString,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-  max: parseInt(process.env.MIRA_DB_POOL_MAX || (process.env.NODE_ENV === "production" ? "10" : "5"), 10),
+  max: parseInt(process.env.MIRA_DB_POOL_MAX || (process.env.NODE_ENV === "production" ? "4" : "2"), 10),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   statement_timeout: 30000,

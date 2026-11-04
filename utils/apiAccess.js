@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 // API access for third-party integrations: service accounts (the "user" an
 // integration acts as), personal access tokens (PATs) tied to a service
 // account, and the school's client secrets.
@@ -48,7 +49,7 @@ const hintOf = (value) => String(value).slice(-4);
 const clean = (value, max = 120) => String(value == null ? "" : value).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 
 // Which optional parts of Managira the school uses, kept for a minute.
-const featureCache = new Map();
+const featureCache = new BoundedMap(1000);
 async function schoolFeatures(organizationId) {
   const cached = featureCache.get(organizationId);
   if (cached && cached.at > Date.now() - 60 * 1000) return cached.value;

@@ -4,6 +4,17 @@ const createError = (status, message) => {
     return error;
 };
 
+const isDatabaseUnavailable = (err) => {
+    try {
+        return Boolean(err) && require('../config/db').isConnectRefusal(err);
+    } catch (_) {
+        return false;
+    }
+};
+
+// Plain on purpose: it can't depend on the database or the page layout.
+const BUSY_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="15"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f8fafc;color:#1e293b;font:16px/1.5 system-ui,sans-serif;padding:24px;text-align:center}h1{margin:0 0 8px;font-size:22px}p{margin:0;color:#64748b}@media (prefers-color-scheme:dark){body{background:#14161a;color:#e5e7eb}p{color:#9ca3af}}</style></head><body><main><h1>We&rsquo;ll be right back</h1><p>We&rsquo;re reconnecting. This page will try again by itself in a few seconds.</p></main></body></html>`;
+
 const notFound = (req, res, next) => {
     next(createError(404, 'Page Not Found'));
 };
@@ -22,6 +33,17 @@ const globalErrorHandler = (err, req, res, next) => {
             return res.redirect('back');
         }
         return res.status(400).type('txt').send(uploadMessage);
+    }
+
+    // The database is briefly refusing connections (restarting, or out of room).
+    // Nothing is wrong with what the person did, so the page tries again by itself.
+    if (isDatabaseUnavailable(err)) {
+        console.error(`[Error] 503: database unavailable: ${err.message}`);
+        res.set('Retry-After', '15');
+        if (req.xhr || /json/i.test(req.get('accept') || '')) {
+            return res.status(503).json({ success: false, error: 'We’re busy right now. Please try again in a moment.' });
+        }
+        return res.status(503).type('html').send(BUSY_PAGE);
     }
 
     const rawMessage = err && err.message ? err.message : 'Internal Server Error';

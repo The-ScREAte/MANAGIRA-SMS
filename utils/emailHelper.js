@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 const nodemailer = require("nodemailer");
 const dns = require("dns");
 const path = require("path");
@@ -62,7 +63,7 @@ function htmlToPlainText(html) {
 }
 
 // Cache verified domains to avoid repeated DNS lookups
-const _domainCache = new Map();
+const _domainCache = new BoundedMap(2000);
 
 /**
  * Check if an email domain has valid MX records (can actually receive mail).

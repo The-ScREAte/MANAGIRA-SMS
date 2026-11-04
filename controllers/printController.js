@@ -1,3 +1,4 @@
+const { BoundedMap } = require("../utils/boundedMap");
 const {
   PutObjectCommand,
   DeleteObjectCommand,
@@ -42,7 +43,7 @@ const organizationCache = {};
 const CACHE_DURATION = 10 * 60 * 1000; // Cache organization data for 10 minutes
 const NodeCache = require("node-cache");
 const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
-const reportCardPostJobs = new Map();
+const reportCardPostJobs = new BoundedMap(500, { keepUnderPressure: true });
 let ensuredDeliveryAuditTable = false;
 let lastDeliveryRetentionCleanupAt = 0;
 

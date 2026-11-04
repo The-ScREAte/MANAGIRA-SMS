@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 // "Enter your password to continue" for sensitive actions: checks the signed-in
 // person's own password (a staff user, or the school's own account), with a
 // limit on wrong tries (correct ones never count against it).
@@ -6,7 +7,7 @@ const db = require("../config/db");
 
 const MAX_WRONG = 5;
 const WINDOW_MS = 10 * 60 * 1000;
-const wrongTries = new Map();
+const wrongTries = new BoundedMap(5000, { keepUnderPressure: true });
 
 async function confirmOwnPassword(req, password) {
   const key = req.sessionID || req.ip;

@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 const axios = require("axios");
 const https = require("https");
 const db = require("../config/db");
@@ -13,8 +14,8 @@ const fxCache = {
   source: null,
 };
 
-const geoCache = new Map();
-const orgGeoCache = new Map();
+const geoCache = new BoundedMap(2000);
+const orgGeoCache = new BoundedMap(500);
 let orgCurrencyColumnReady = false;
 
 const FALLBACK_CURRENCY = "USD";

@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 // What search engines and AI assistants read about Managira on managira.com:
 //   /sitemap.xml    key public pages + every published help article
 //   /llms.txt       a short, factual summary with links (llmstxt.org format)
@@ -7,7 +8,7 @@
 
 const SITE = "https://managira.com";
 const CACHE_MS = 10 * 60 * 1000;
-const cache = new Map();
+const cache = new BoundedMap(500);
 
 const KEY_PAGES = [
   { path: "/", title: "Managira home", priority: "1.0", changefreq: "weekly" },

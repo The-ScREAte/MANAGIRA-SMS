@@ -174,6 +174,25 @@ const caches = {
   session: new NodeCache({ stdTTL: 600, checkperiod: 60 })
 };
 
+// Cap each cache so a burst of distinct keys (many schools, many pages) can't
+// grow memory without limit. When full, the oldest tenth of entries is dropped.
+const CACHE_MAX_KEYS = Number(process.env.CACHE_MAX_KEYS) || 3000;
+function trimCache(cache) {
+  try {
+    const count = cache.getStats().keys;
+    if (count <= CACHE_MAX_KEYS) return;
+    const keys = cache.keys();
+    cache.del(keys.slice(0, Math.max(1, Math.ceil(keys.length / 10))));
+  } catch (_) {}
+}
+function setLocal(cache, key, data, ttl) {
+  if (ttl) cache.set(key, data, ttl);
+  else cache.set(key, data);
+  trimCache(cache);
+}
+// One background refresh per key at a time (repeat visits used to start many).
+const refreshingKeys = new Set();
+
 const cacheManager = {
   /**
    * Get data from cache or fetch fresh if not available
@@ -210,11 +229,7 @@ const cacheManager = {
 
       const sharedCached = await readRedis(cacheType, key);
       if (sharedCached !== undefined) {
-        if (ttl) {
-          cache.set(key, sharedCached, ttl);
-        } else {
-          cache.set(key, sharedCached);
-        }
+        setLocal(cache, key, sharedCached, ttl);
         return sharedCached;
       }
     }
@@ -223,11 +238,7 @@ const cacheManager = {
     try {
       const data = await fetchFn();
       if (data !== undefined && data !== null) {
-        if (ttl) {
-          cache.set(key, data, ttl);
-        } else {
-          cache.set(key, data);
-        }
+        setLocal(cache, key, data, ttl);
         writeRedis(cacheType, key, data, ttl).catch(() => {});
       }
       return data;
@@ -241,21 +252,22 @@ const cacheManager = {
    * Background refresh without blocking
    */
   backgroundRefresh(cacheType, key, fetchFn, ttl) {
+    const refreshKey = `${cacheType}:${key}`;
+    if (refreshingKeys.has(refreshKey)) return;
+    refreshingKeys.add(refreshKey);
     setImmediate(async () => {
       try {
         const data = await fetchFn();
         if (data !== undefined && data !== null) {
           const cache = caches[cacheType];
-          if (ttl) {
-            cache.set(key, data, ttl);
-          } else {
-            cache.set(key, data);
-          }
+          setLocal(cache, key, data, ttl);
           writeRedis(cacheType, key, data, ttl).catch(() => {});
         }
       } catch (error) {
         // Silent fail for background refresh
         console.warn(`Background refresh failed for ${cacheType}:${key}`);
+      } finally {
+        refreshingKeys.delete(refreshKey);
       }
     });
   },

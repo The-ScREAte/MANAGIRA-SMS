@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 // Road-following routes for the bus maps. Browsers ask the server
 // (GET /transportation/road-route) instead of calling a routing service
 // directly, so results are cached, shared and never fall back to straight
@@ -13,7 +14,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FAIL_TTL_MS = 60 * 1000;
 const CACHE_MAX = 800;
 const MAX_POINTS = 40;
-const cache = new Map();
+const cache = new BoundedMap(500);
 const inflight = new Map();
 
 function parsePoints(raw) {

@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 // One-click Google Calendar / Outlook connections (OAuth).
 // - Push: a "Managira" calendar is created in the person's account and kept in
 //   step with their Managira events, personal events and tasks.
@@ -298,7 +299,7 @@ async function pushItems(db, conn, items, orgName) {
 }
 
 // ---------- pull (Google/Outlook -> Managira) ----------
-const pullCache = new Map();
+const pullCache = new BoundedMap(500);
 const pad = (n) => String(n).padStart(2, "0");
 const localKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const localTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;

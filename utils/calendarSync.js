@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 // Calendar sync with Google Calendar / Outlook (and any iCal app):
 // - Out: each person gets a private iCal feed URL their calendar app subscribes to,
 //   so Managira events, tagged events and their tasks stay up to date there.
@@ -11,7 +12,7 @@ const ical = require("node-ical");
 
 const MAX_ICS_BYTES = 5 * 1024 * 1024;
 const CACHE_MS = 10 * 60 * 1000;
-const cache = new Map(); // url -> { at, data }
+const cache = new BoundedMap(500); // url -> { at, data }
 
 async function ensureFeedToken(db, organizationId, userId, { reset = false } = {}) {
   if (!reset) {

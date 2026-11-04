@@ -8,7 +8,8 @@ const { tenantScope } = require("./middleware/tenantScope");
 const { requireMiraActivated } = require("./middleware/requireMiraActivated");
 
 const app = express();
-const PORT = Number(process.env.MIRA_PORT) || 4100;
+// Run alone (its own hosted service), it uses the port the host gives it.
+const PORT = Number(process.env.MIRA_PORT) || (require.main === module && Number(process.env.PORT)) || 4100;
 // The browser-facing URL of the main app (for links like Logout) - not to
 // be confused with MAIN_APP_INTERNAL_BASE_URL, which internalApiClient.js
 // uses for server-to-server calls and may differ (e.g. an internal

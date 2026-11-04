@@ -3,6 +3,8 @@
 // On Render: a Background Worker with start command `node worker.js`, and
 // RUN_SCHEDULED_JOBS=false on the web service so jobs run in one place.
 require("dotenv").config();
+require("./utils/processGuards").install("Worker");
+require("./utils/memoryRelief").install();
 require("./jobs/scheduler");
 
 const db = require("./config/db");

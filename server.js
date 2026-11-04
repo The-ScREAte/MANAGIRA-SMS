@@ -49,11 +49,18 @@ const fetchUnresolvedCount = require("./middleware/fetchUnresolvedCount");
 const { fetchNotifCount } = require("./middleware/fetchNotifCount");
 
 const upload = multer();
+// A failed background promise or a stray error must not take the whole site down.
+// Node's default is to exit with status 1, which is what the host reports as a crash.
+require("./utils/processGuards").install("Server");
+
 const app = express();
 app.disable("x-powered-by");
 // Security headers + block form posts from other websites (see docs/SECURITY.md).
 const { securityHeaders, crossSiteRequestGuard } = require("./middleware/securityMiddleware");
+app.use(require("./middleware/botProbes"));
 app.use(securityHeaders);
+// Only a few large uploads are read into memory at the same time.
+app.use(require("./middleware/uploadGate").createUploadGate());
 app.use(crossSiteRequestGuard);
 
 // Session signing key. Never fall back to a known value: without SESSION_SECRET,
@@ -1471,6 +1478,8 @@ const startServer = (port) => {
     shuttingDown = true;
     console.log(`[Server] Received ${signal}, shutting down gracefully...`);
 
+    // Idle keep-alive connections would otherwise hold this open until the timeout.
+    if (typeof server.closeIdleConnections === "function") server.closeIdleConnections();
     server.close(() => {
       db.end()
         .then(() => console.log("[Server] DB pool closed. Exiting."))
@@ -1479,9 +1488,10 @@ const startServer = (port) => {
     });
 
     setTimeout(() => {
-      console.error("[Server] Forced shutdown after timeout.");
-      process.exit(1);
-    }, 10000).unref();
+      // Asked to stop and stopping is not a crash: the host counts status 1 as one.
+      console.warn("[Server] Requests still open after 20 seconds; stopping anyway.");
+      process.exit(0);
+    }, 20000).unref();
   };
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -1514,5 +1524,7 @@ if (shouldCoStartMira) {
     console.error("[Mira] Failed to load:", error);
   }
 }
+
+require("./utils/memoryRelief").install();
 
 startServer(BASE_PORT);

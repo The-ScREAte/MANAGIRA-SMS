@@ -1,13 +1,14 @@
 'use strict';
+const { BoundedMap } = require("./boundedMap");
 
 const { renderCleanEmail, sendEmailInBackground, escapeHtml } = require('./emailHelper');
 const { timeZoneOf, dateKeyIn } = require('./localDate');
 
 let schemaReady = false;
 let birthdaySchemaReady = false;
-const birthdaySyncCache = new Map();
-const birthdayEmailState = new Map(); // emails already recorded as sent (birthday_email_log), to skip the database
-const organizationNameCache = new Map();
+const birthdaySyncCache = new BoundedMap(1000);
+const birthdayEmailState = new BoundedMap(5000, { keepUnderPressure: true }); // emails already recorded as sent (birthday_email_log), to skip the database
+const organizationNameCache = new BoundedMap(1000);
 
 function startOfUtcDay(dateValue) {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue);

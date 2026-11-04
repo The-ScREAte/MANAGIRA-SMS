@@ -1,8 +1,9 @@
+const { BoundedMap } = require("./boundedMap");
 // Minimal in-memory fixed-window rate limiter for sensitive, low-volume
 // endpoints (e.g. sending a test SMS, saving provider credentials) where a
 // full Redis-backed limiter would be overkill. Not safe across multiple
 // processes/instances — fine for this app's current single-process deploy.
-const windows = new Map();
+const windows = new BoundedMap(20000, { keepUnderPressure: true });
 
 function checkRateLimit(key, { max, windowMs }) {
   const now = Date.now();

@@ -1,3 +1,4 @@
+const { BoundedMap } = require("../utils/boundedMap");
 // controllers/financeController.js
 // PayGira — Finance & Billing Management — multi-tenant scoped by organization_id.
 // All queries filter by req.session.organizationId. The page is admin-only.
@@ -102,7 +103,7 @@ async function getActivePaystackConfig(dbClient = db) {
 // Per-org version counter — bumped on every cache invalidation. The PayGira
 // UI polls /finance/_version.json and triggers a silent SPA soft-reload when
 // the version increases, so users always see fresh data without hard refresh.
-const _finVersions = new Map();
+const _finVersions = new BoundedMap(2000, { keepUnderPressure: true });
 function getFinanceVersion(orgId) {
   if (!orgId) return 0;
   return _finVersions.get(String(orgId)) || 0;

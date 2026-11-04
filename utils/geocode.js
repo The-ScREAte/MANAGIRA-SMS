@@ -1,3 +1,4 @@
+const { BoundedMap } = require("./boundedMap");
 /**
  * utils/geocode.js
  *
@@ -95,7 +96,7 @@ async function autoGeocodeOrg(db, organizationId, address, province, country) {
 // hammering it every time the same bus is asked about again.
 const REVERSE_GEOCODE_CACHE_TTL_MS = 60 * 1000;
 const REVERSE_GEOCODE_CACHE_MAX_ENTRIES = 500;
-const reverseGeocodeCache = new Map(); // key -> { value, expiresAt }
+const reverseGeocodeCache = new BoundedMap(1000); // key -> { value, expiresAt }
 
 function reverseGeocodeCacheKey(lat, lng) {
   // ~11m precision (4 decimal places) - enough to treat two pings a few
