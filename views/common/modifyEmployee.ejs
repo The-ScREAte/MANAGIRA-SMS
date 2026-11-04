@@ -406,13 +406,14 @@
         font-size: 0.8rem;
       }
     }
-    html[data-appearance="dark"] #modifyEmployeeForm label,
-    html[data-appearance="dark"] #modifyEmployeeForm .employee-section-classes span,
-    html[data-appearance="dark"] #modifyEmployeeForm p,
-    html[data-appearance="dark"] #modifyEmployeeForm small,
-    html[data-appearance="dark"] #modifyEmployeeForm strong { color: #1e293b; }
-    html[data-appearance="dark"] #modifyEmployeeForm .btn,
-    html[data-appearance="dark"] #modifyEmployeeForm button span { color: inherit; }
+    /* Name, email, birthday and role sit in two columns; Role takes a full row. */
+    .modify-employee-card .employee-fields-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 12px !important; width: 100%; }
+    .modify-employee-card .employee-fields-grid > div { min-width: 0; }
+    .modify-employee-card .employee-fields-grid > div:last-child { grid-column: 1 / -1; }
+    .modify-employee-card .employee-fields-grid label { margin: 0 0 4px; font-size: 0.78rem; font-weight: 600; }
+    .modify-employee-card .employee-fields-grid input,
+    .modify-employee-card .employee-fields-grid select { display: block; width: 100% !important; max-width: none !important; height: 36px !important; min-height: 36px !important; margin: 0 !important; padding: 6px 10px; border-radius: 6px; font-size: 0.86rem; }
+    @media (max-width: 500px) { .modify-employee-card .employee-fields-grid { grid-template-columns: 1fr !important; } }
     </style>
   
 </head>
