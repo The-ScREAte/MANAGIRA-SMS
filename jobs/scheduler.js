@@ -2,21 +2,24 @@
 // Schedules the recurring Stripe billing job to run every minute
 
 const nodeCron = require('node-cron');
-const { withAdvisoryLock } = require('../utils/dbLock');
+const { withJobLock } = require('../utils/dbLock');
 
 // Every job holds a Postgres lock while it runs, so it never runs twice at the
 // same time — not on two servers, and not overlapping itself when a run is slow.
-let scheduledJobCount = 0;
+// Locks are named after the job, so old and new copies agree during a deploy.
+const scheduledTasks = [];
 const cron = {
-  schedule(expression, task) {
-    const lockKey = `scheduler-job:${++scheduledJobCount}:${expression}`;
-    return nodeCron.schedule(expression, async () => {
+  schedule(expression, name, task) {
+    const lockKey = `scheduler-job:${name}`;
+    const scheduled = nodeCron.schedule(expression, async () => {
       try {
-        await withAdvisoryLock(lockKey, task);
+        await withJobLock(lockKey, task);
       } catch (error) {
         console.error(`[Scheduler] ${lockKey} could not run:`, error.message);
       }
     });
+    scheduledTasks.push(scheduled);
+    return scheduled;
   },
 };
 const runRecurringBilling = require('./recurringStripeBilling');
@@ -58,17 +61,38 @@ async function resolveActivePaystackSecret() {
 }
 
 if (shouldRunScheduler) {
+  // Promotions scheduled for today.
+  cron.schedule('0 0 * * *', 'scheduled-promotions', async () => {
+    try {
+      await require('../controllers/promotionController').applyScheduledPromotions();
+    } catch (error) {
+      console.error('[Promotions] Automatic apply failed:', error.message);
+    }
+  });
+
+  // Bus positions older than a month.
+  cron.schedule('50 2 * * *', 'live-location-purge', async () => {
+    try {
+      const { rowCount } = await require('../config/db').query(
+        "DELETE FROM transport_live_locations WHERE recorded_at < NOW() - INTERVAL '30 days'"
+      );
+      if (rowCount) console.log(`[Transport] Removed ${rowCount} old bus positions.`);
+    } catch (error) {
+      console.error('[Transport] Old position cleanup failed:', error.message);
+    }
+  });
+
   // Schedule to run every minute for dynamic billing
-  cron.schedule('* * * * *', async () => {
+  cron.schedule('* * * * *', 'recurring-billing', async () => {
     try {
       await runRecurringBilling();
     } catch (error) {
-      // Silent fail
+      console.error('[Billing] Recurring billing failed:', error.message);
     }
   });
   // Hub billing (separate from school subscriptions): scheduled holds, keeping
   // each hub's Stripe subscription in step with its numbers, invoices, reminders.
-  cron.schedule('7 * * * *', async () => {
+  cron.schedule('7 * * * *', 'hub-billing', async () => {
     try {
       const summary = await require('../utils/hubBilling').runHubBillingSweep(require('../config/db'));
       if (summary.holds || summary.resumed || summary.reminders || summary.errors) {
@@ -88,7 +112,7 @@ if (shouldRunNotifications) {
   });
 
   // Daily parent absence threshold sweep.
-  cron.schedule('15 19 * * *', async () => {
+  cron.schedule('15 19 * * *', 'absence-alerts', async () => {
     try {
       const summary = await runAbsenceAlertSweep();
       console.log(`[Notification Scheduler] Parent absence alerts processed. Emails sent: ${summary.sent || 0}`);
@@ -98,7 +122,7 @@ if (shouldRunNotifications) {
   });
 
   // Hourly digest window sweep; each organization policy controls weekday/hour send.
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('0 * * * *', 'weekly-digest', async () => {
     try {
       const summary = await runWeeklyDigestSweep();
       console.log(
@@ -110,7 +134,7 @@ if (shouldRunNotifications) {
   });
   // Every minute: check active bus trips against student home/stop locations
   // and fire "approaching" (~5 min out) / "arrived" parent notifications.
-  cron.schedule('* * * * *', async () => {
+  cron.schedule('* * * * *', 'transport-arrivals', async () => {
     try {
       const summary = await runTransportArrivalSweep();
       if (summary.approachingSent > 0 || summary.arrivedSent > 0) {
@@ -127,7 +151,7 @@ if (shouldRunNotifications) {
 }
 
 if (shouldRunAdminEmailScheduler) {
-  cron.schedule('* * * * *', async () => {
+  cron.schedule('* * * * *', 'admin-email-campaigns', async () => {
     try {
       const summary = await runAdminEmailCampaignSweep();
       if (summary.processed > 0) {
@@ -146,7 +170,7 @@ if (shouldRunAdminEmailScheduler) {
 if (shouldRunPayoutScheduler) {
   // Every 5 minutes: charge due org_payouts (one-time and recurring) against
   // the school's saved card and email the recipient a receipt.
-  cron.schedule('*/5 * * * *', async () => {
+  cron.schedule('*/5 * * * *', 'payout-sweep', async () => {
     try {
       const summary = await runPayoutSweep();
       if (summary.processed > 0) {
@@ -163,7 +187,7 @@ if (shouldRunPayoutScheduler) {
 // Saved reports emailed daily, weekly or monthly (Report Builder). Off in local
 // development unless ENABLE_REPORT_SCHEDULES=true, so testing never emails anyone.
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_REPORT_SCHEDULES === 'true') {
-  cron.schedule('20 * * * *', async () => {
+  cron.schedule('20 * * * *', 'report-schedules', async () => {
     try {
       const summary = await require('../controllers/reportBuilderController').runDueReportSchedules(require('../config/db'));
       if (summary.sent || summary.failed) {
@@ -179,7 +203,7 @@ if (shouldRunActivityLogRetention) {
   // Runs weekly at 03:15 on Sundays. Deletes activity log rows older than the
   // configured retention (default 3 years). Source records in other tables are
   // never touched — only the audit trail is pruned.
-  cron.schedule('15 3 * * 0', async () => {
+  cron.schedule('15 3 * * 0', 'activity-log-purge', async () => {
     try {
       const summary = await purgeOldActivityLogs(undefined, ACTIVITY_LOG_RETENTION_DAYS);
       if (summary.deleted > 0) {
@@ -197,7 +221,7 @@ if (shouldRunScheduler) {
   // Every 3 minutes: retry + reconcile Paystack school payouts (settlements for
   // mobile-money / bank-recipient / local accounts that are not split at charge
   // time). Handles charges whose balance had not settled when first attempted.
-  cron.schedule('*/3 * * * *', async () => {
+  cron.schedule('*/3 * * * *', 'paystack-payout-retry', async () => {
     try {
       const summary = await retryPendingPaystackPayouts(undefined, resolveActivePaystackSecret);
       if (summary.processed > 0) {
@@ -209,7 +233,7 @@ if (shouldRunScheduler) {
   });
 
   // Every 5 minutes: process queued Google Classroom course/roster sync jobs.
-  cron.schedule('*/5 * * * *', async () => {
+  cron.schedule('*/5 * * * *', 'google-classroom-sync', async () => {
     try {
       const processed = await syncQueuedGoogleClassroomOrganizations({ limit: 8 });
       if (processed > 0) {
@@ -221,7 +245,7 @@ if (shouldRunScheduler) {
   });
 
   // Every 30 minutes: pull Google Classroom grades back into assessment_results.
-  cron.schedule('*/30 * * * *', async () => {
+  cron.schedule('*/30 * * * *', 'google-classroom-grades', async () => {
     try {
       const imported = await pullGradesFromGoogleClassroom({ limitOrganizations: 40 });
       if (imported > 0) {
@@ -236,7 +260,7 @@ if (shouldRunScheduler) {
 // Daily: rejected online applications are removed 60 days after the decision
 // (until then they stay under Admissions → Online Applications → Rejected).
 if (shouldRunScheduler) {
-  cron.schedule('40 2 * * *', async () => {
+  cron.schedule('40 2 * * *', 'admission-rejection-purge', async () => {
     try {
       const { purgeOldRejections } = require('../utils/admissionRejections');
       const summary = await purgeOldRejections(require('../config/db'));
@@ -250,7 +274,7 @@ if (shouldRunScheduler) {
 // Midnight: apply scheduled account holds, then remind managers of on-hold accounts.
 const shouldRunScheduledHolds = process.env.NODE_ENV === 'production' || process.env.ENABLE_SCHEDULED_HOLDS_CRON === 'true';
 if (shouldRunScheduledHolds) {
-  cron.schedule('0 0 * * *', async () => {
+  cron.schedule('0 0 * * *', 'scheduled-holds', async () => {
     try {
       await require('../utils/applyScheduledHolds')();
     } catch (error) {
@@ -266,3 +290,5 @@ if (shouldRunScheduledHolds) {
     }
   });
 }
+
+module.exports = { stopAll: () => scheduledTasks.forEach((scheduled) => scheduled.stop()) };

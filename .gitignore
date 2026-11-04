@@ -5,3 +5,4 @@ node_modules
 s3-policy-backup-*.json
 tmp-google-sync-audit-*.json
 s3-policy-backup-*.json
+uploads/*

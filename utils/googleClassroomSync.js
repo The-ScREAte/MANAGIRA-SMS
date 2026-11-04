@@ -37,7 +37,9 @@ function hasGoogleOauthConfig() {
 }
 
 function createGoogleOauthClient() {
-  return new googleLib().auth.OAuth2(
+  // Take the class out first: `new googleLib().auth.OAuth2()` would run `new googleLib()`.
+  const { OAuth2 } = googleLib().auth;
+  return new OAuth2(
     process.env.GOOGLE_CLIENT_ID || "",
     process.env.GOOGLE_CLIENT_SECRET || "",
     resolveGoogleRedirectUri()

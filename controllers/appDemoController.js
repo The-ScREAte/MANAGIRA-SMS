@@ -311,7 +311,7 @@ function compressedCapture(key) {
         } catch (_) { /* serve it as stored */ }
       }
       if (raw.length <= BROTLI_LIMIT) {
-        out.br = await brotliAsync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: raw.length > 16 * 1024 * 1024 ? 9 : 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
+        out.br = await brotliAsync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: raw.length > 2 * 1024 * 1024 ? 5 : 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
       }
       captureToDisk(key, out);
       return out;
@@ -319,7 +319,7 @@ function compressedCapture(key) {
     entry.catch(() => capturesInMemory.delete(key));
   }
   capturesInMemory.set(key, entry);
-  if (capturesInMemory.size > 12) capturesInMemory.delete(capturesInMemory.keys().next().value);
+  if (capturesInMemory.size > 4) capturesInMemory.delete(capturesInMemory.keys().next().value);
   return entry;
 }
 
@@ -945,10 +945,11 @@ module.exports.parseCapture = parseCapture;
 // After the server starts: prepares the newest captures one at a time in the
 // background, so the first visitor after a restart doesn't wait for them.
 module.exports.warmCaptures = async () => {
+  if (process.env.APP_DEMO_WARM === "false") return;
   try {
     await ensureAppDemoSchema(db);
     const { rows } = await db.query(
-      `SELECT s3_key FROM app_demo_screen_media WHERE media_type = 'html' AND s3_key IS NOT NULL ORDER BY id DESC LIMIT 12`
+      `SELECT s3_key FROM app_demo_screen_media WHERE media_type = 'html' AND s3_key IS NOT NULL ORDER BY id DESC LIMIT 3`
     );
     for (const { s3_key: key } of rows) {
       // eslint-disable-next-line no-await-in-loop

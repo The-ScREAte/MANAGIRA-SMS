@@ -68,10 +68,12 @@ async function optimizeImage(input) {
 function run(args) {
   return new Promise((resolve, reject) => {
     if (!ffmpegPath) return reject(new Error("Video processing is not available on this server."));
-    execFile(ffmpegPath, args, { maxBuffer: 1024 * 1024 * 8, timeout: 10 * 60 * 1000 }, (error, stdout, stderr) => {
+    const child = execFile(ffmpegPath, args, { maxBuffer: 1024 * 1024 * 8, timeout: 10 * 60 * 1000 }, (error, stdout, stderr) => {
       if (error) return reject(Object.assign(new Error("The video could not be processed."), { detail: String(stderr).slice(-600) }));
       return resolve();
     });
+    // Pages come first: the video only gets the CPU when the server isn't busy.
+    try { os.setPriority(child.pid, 19); } catch (_) {}
   });
 }
 
@@ -83,7 +85,7 @@ async function optimizeVideo(inputPath) {
     await run([
       "-y", "-i", inputPath, "-t", String(VIDEO_MAX_SECONDS),
       "-vf", "scale='min(1280,iw)':-2:flags=lanczos,fps=30",
-      "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-profile:v", "high", "-pix_fmt", "yuv420p",
+      "-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "28", "-profile:v", "high", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-b:a", "96k", "-ac", "2",
       "-movflags", "+faststart", out,
     ]);

@@ -12,6 +12,9 @@ const MAX_QUEUE = Number(process.env.UPLOAD_GATE_MAX_QUEUE) || 20;
 // One request brings at most this much into memory (a school's slideshow included).
 const MAX_TOTAL_BYTES = Number(process.env.UPLOAD_GATE_MAX_TOTAL_BYTES) || 120 * 1024 * 1024;
 
+// Routes that save uploads to disk (see websiteMediaFields, and multer `dest` in admin).
+const DISK_UPLOAD_PATHS = [/^\/admin(\/|$)/, /^\/account\/uploadSlideshowImages(\/|$)/i];
+
 function createUploadGate({ maxTotalBytes = MAX_TOTAL_BYTES, minBytes = LARGE_UPLOAD_BYTES, concurrency = MAX_CONCURRENT, maxWaitMs = MAX_WAIT_MS, maxQueue = MAX_QUEUE } = {}) {
   let active = 0;
   const queue = [];
@@ -38,8 +41,10 @@ function createUploadGate({ maxTotalBytes = MAX_TOTAL_BYTES, minBytes = LARGE_UP
     // Uploads without a declared size are gated too (could be any size).
     const isLarge = /multipart\/form-data/i.test(type) && (!length || length >= minBytes);
     if (!isLarge) return next();
-    // Admin uploads go to disk, so only the wait applies to them.
-    if (length > maxTotalBytes && !/^\/admin(\/|$)/.test(req.path)) {
+    // These save to disk, so they use no memory: neither the cap nor the queue applies,
+    // and a slow phone upload doesn't hold up anyone else.
+    if (DISK_UPLOAD_PATHS.some((pattern) => pattern.test(req.path))) return next();
+    if (length > maxTotalBytes) {
       return res.status(413).type("txt").send(`These files are too large to upload together. Please send under ${Math.round(maxTotalBytes / (1024 * 1024))} MB at a time.`);
     }
 

@@ -60,7 +60,7 @@ async function runPayoutSweep() {
 
       processed += 1;
       try {
-        const outcome = await executePayoutCharge(current, { dbClient: db });
+        const outcome = await executePayoutCharge(current, { dbClient: db, rescheduleOnFailure: true });
         if (outcome.success) succeeded += 1;
         else failed += 1;
       } catch (error) {

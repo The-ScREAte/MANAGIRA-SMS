@@ -572,9 +572,9 @@
   // section on its own instead of opening PayGira inside itself again.
   if (window.self !== window.top) { var _u = new URL(location.href); _u.searchParams.set('embed', 'workspace'); location.replace(_u.href); }
 </script>
-<link rel="stylesheet" href="/css/menuArrange.css" />
-<script src="/js/menuArrange.js"></script>
-<link rel="stylesheet" href="/css/workspace-shell.css" />
+<link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
+<script src="<%= assetUrl('/js/menuArrange.js') %>"></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/workspace-shell.css') %>" />
 
 <div class="hub-nav-overlay" id="hub-nav-overlay"></div>
 

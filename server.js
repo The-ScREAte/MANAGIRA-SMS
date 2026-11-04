@@ -6,6 +6,9 @@ const multer = require("multer");
 const flash = require("connect-flash");
 const path = require("path");
 require("dotenv").config();
+// A failed background promise or a stray error must not take the whole site down.
+// Node's default is to exit with status 1, which is what the host reports as a crash.
+require("./utils/processGuards").install("Server");
 const { isSettingsEncryptionKeyConfigured } = require("./utils/encryption");
 
 if (!isSettingsEncryptionKeyConfigured()) {
@@ -35,7 +38,6 @@ const passport = require("passport");
 const db = require("./config/db");
 require("./config/passport")(passport);
 require("./config/passportHub")(passport); // Hub authentication
-require("./utils/promotionJob");
 // Scheduled jobs run here unless RUN_SCHEDULED_JOBS=false (then worker.js runs them).
 if (process.env.RUN_SCHEDULED_JOBS !== "false") require("./jobs/scheduler");
 require("./jobs/keepAlive"); // Start the keep-alive scheduler
@@ -46,14 +48,13 @@ const {
   globalErrorHandler,
 } = require("./middleware/errorMiddleware"); // Error handling middleware
 const fetchUnresolvedCount = require("./middleware/fetchUnresolvedCount");
-const { fetchNotifCount } = require("./middleware/fetchNotifCount");
+const { memo } = require("./utils/memo");
 
 const upload = multer();
-// A failed background promise or a stray error must not take the whole site down.
-// Node's default is to exit with status 1, which is what the host reports as a crash.
-require("./utils/processGuards").install("Server");
-
 const app = express();
+// Render's proxy sits in front of the app. Trusting one hop makes req.ip the visitor's
+// real address and req.protocol "https". Rate limits read utils/authRateLimit's clientIp.
+app.set("trust proxy", 1);
 app.disable("x-powered-by");
 // Security headers + block form posts from other websites (see docs/SECURITY.md).
 const { securityHeaders, crossSiteRequestGuard } = require("./middleware/securityMiddleware");
@@ -76,6 +77,9 @@ const pgSession = require("connect-pg-simple")(session);
 const sessionStoreConfig = {
   pool: db,
   tableName: "user_sessions",
+  // Sessions save when they change, and activity changes them every 5 minutes, so
+  // active people stay signed in without a database write on every request.
+  disableTouch: true,
   // Prune less aggressively to avoid competing with request traffic.
   pruneSessionInterval: Number(process.env.SESSION_PRUNE_INTERVAL_SEC || 3600),
   // Keep prune errors from crashing logs with noisy stack traces.
@@ -227,21 +231,19 @@ const escapeXml = (value) => String(value || "")
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&apos;");
 
+// A plan change shows up on the website within 5 minutes.
+const planHasSchoolWebsite = memo(async (planId) => {
+  const { rows } = await db.query(
+    `SELECT 1 FROM plan_features pf JOIN features f ON f.id = pf.feature_id
+      WHERE pf.plan_id = $1 AND LOWER(TRIM(f.feature_name)) = 'school website' LIMIT 1`,
+    [planId]
+  );
+  return rows.length > 0;
+}, { ttlMs: 5 * 60 * 1000, max: 500 });
+
 const organizationHasSchoolWebsiteFeature = async (org) => {
   const planIdToCheck = org?.is_hub_member && org?.hub_plan_id ? org.hub_plan_id : org?.plan_id;
-  if (!planIdToCheck) return false;
-
-  const { rows } = await db.query(
-    `SELECT 1
-       FROM plan_features pf
-       JOIN features f ON f.id = pf.feature_id
-      WHERE pf.plan_id = $1
-        AND LOWER(TRIM(f.feature_name)) = 'school website'
-      LIMIT 1`,
-    [planIdToCheck]
-  );
-
-  return rows.length > 0;
+  return planIdToCheck ? planHasSchoolWebsite(planIdToCheck) : false;
 };
 
 const renderWebsiteNotActivated = (res) => {
@@ -339,6 +341,12 @@ function _levenshtein(a, b) {
   return dp[m][n];
 }
 
+// Bots try names like mail. and cpanel. all day, so the list is loaded at most every 10 minutes.
+const schoolNicknames = memo(async () => (await db.query(
+  `SELECT nickname, organization_name FROM organizations
+    WHERE deleted = false AND nickname IS NOT NULL AND nickname <> ''`
+)).rows, { ttlMs: 10 * 60 * 1000, max: 1 });
+
 const renderOrganizationNotFound = async (req, res, subdomain) => {
   const backToHomeUrl = (req.session && (req.session.userId || req.session.organizationId))
     ? "/common/orgDashboard"
@@ -348,17 +356,15 @@ const renderOrganizationNotFound = async (req, res, subdomain) => {
   let suggestion = null;
   if (subdomain) {
     try {
-      const { rows } = await db.query(
-        `SELECT nickname, organization_name FROM organizations WHERE deleted = false AND nickname IS NOT NULL AND nickname <> '' LIMIT 2000`
-      );
-      let bestDist = Infinity, bestRow = null;
       const typed = subdomain.toLowerCase();
-      for (const row of rows) {
-        const d = _levenshtein(typed, row.nickname.toLowerCase());
+      const threshold = Math.max(2, Math.floor(typed.length * 0.4));
+      let bestDist = Infinity, bestRow = null;
+      for (const row of await schoolNicknames("all")) {
+        const name = row.nickname.toLowerCase();
+        if (Math.abs(name.length - typed.length) > threshold) continue; // can't be close enough
+        const d = _levenshtein(typed, name);
         if (d < bestDist) { bestDist = d; bestRow = row; }
       }
-      // Suggest if edit distance is small relative to the typed name
-      const threshold = Math.max(2, Math.floor(typed.length * 0.4));
       if (bestRow && bestDist <= threshold && bestDist > 0) {
         suggestion = { nickname: bestRow.nickname, name: bestRow.organization_name };
       }
@@ -367,8 +373,8 @@ const renderOrganizationNotFound = async (req, res, subdomain) => {
 
   const suggestionHtml = suggestion
     ? `<div class="suggestion">
-        Did you mean <strong>${suggestion.name}</strong>?
-        <a href="https://${suggestion.nickname}.managira.com/">Go to ${suggestion.nickname}.managira.com →</a>
+        Did you mean <strong>${escapeXml(suggestion.name)}</strong>?
+        <a href="https://${escapeXml(suggestion.nickname)}.managira.com/">Go to ${escapeXml(suggestion.nickname)}.managira.com →</a>
        </div>`
     : "";
 
@@ -707,6 +713,7 @@ app.use("/uploads", (req, res, next) => {
 
 // Managira API for third-party integrations: bearer tokens, no sessions or
 // cookies, so it sits before the session middleware (see routes/publicApiRoute.js).
+app.use(require("./utils/requestStats").requestStats);
 app.use("/api/v1", require("./routes/publicApiRoute"));
 
 if (process.env.NODE_ENV === "production") {
@@ -1025,10 +1032,14 @@ const bigJson = express.json({ limit: "10mb" });
 const smallJson = express.json({ limit: "1mb" });
 const bigForm = express.urlencoded({ extended: true, limit: "10mb", parameterLimit: 100000 });
 const smallForm = express.urlencoded({ extended: true, limit: "1mb", parameterLimit: 2000 });
+// Sessions get keys like returnTo and flash messages before anyone signs in, so
+// this looks for the fields each kind of sign-in sets.
+const isSignedIn = (session) => Boolean(session && (session.userId || session.user || session.guardianId
+  || session.studentId || session.hubId || session.hubUserId || (session.organizationId && session.accountType)));
 // Signed-in work and Mira's internal API can be large. Anyone else, bots included,
 // can't make the server parse a huge request.
 const allowsBigBody = (req) => req.path.startsWith("/internal/api")
-  || (req.session && Object.keys(req.session).some((key) => key !== "cookie"));
+  || isSignedIn(req.session);
 app.use((req, res, next) => (allowsBigBody(req) ? bigJson : smallJson)(req, res, next));
 // parameterLimit raised from the qs/Express default of 1000 - large schools submit
 // forms with per-student, per-subject fields (e.g. promotion scheduling), which
@@ -1180,14 +1191,6 @@ app.get("/school-index.json", async (req, res, next) => {
 });
 
 // Notification bell: count badge for all authenticated pages
-app.use("/common", fetchNotifCount);
-app.use("/guardian", fetchNotifCount);
-app.use("/student", fetchNotifCount);
-app.use("/enrollment", fetchNotifCount);
-app.use("/documents", fetchNotifCount);
-app.use("/hub", fetchNotifCount);
-app.use("/promotion", fetchNotifCount);
-app.use("/transcript", fetchNotifCount);
 
 // Notifications API (bell feed, mark-read)
 const notificationsRoute = require("./routes/notificationsRoute");
@@ -1412,19 +1415,6 @@ app.use(notFound);
 // Global error handler for other errors
 app.use(globalErrorHandler);
 
-// Global error handler for all unhandled errors
-app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-  if (res.headersSent) {
-    return next(err);
-  }
-  const isOversizedRequest = err && (err.type === 'parameters.too.many' || err.status === 413 || err.type === 'entity.too.large');
-  if (isOversizedRequest && req.session) {
-    req.flash('error', 'That request was too large to process. Please try again with fewer items selected, or contact support if this keeps happening.');
-    return res.redirect('back');
-  }
-  res.status(500).send('Something went wrong!');
-});
 
 // Scheduled holds + on-hold reminders now run with the other jobs (jobs/scheduler.js).
 

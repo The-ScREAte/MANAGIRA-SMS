@@ -86,7 +86,9 @@ test("small uploads and ordinary forms are never held up; oversized ones are ref
   assert.equal(big.res.statusCode, 413);
   const admin = fakeReqRes(6000, "/admin/app-demo");
   gate(admin.req, admin.res, () => { passed += 1; });
-  assert.equal(passed, 3, "admin uploads go to disk, so no cap");
+  const video = fakeReqRes(250 * 1024 * 1024, "/account/uploadSlideshowImages");
+  gate(video.req, video.res, () => { passed += 1; });
+  assert.equal(passed, 4, "uploads saved to disk skip the cap and the queue");
 });
 
 test("scanner paths are refused; real pages are not", () => {
@@ -160,6 +162,7 @@ test("the index migration only adds, and doesn't lock tables", () => {
   const sql = fs.readFileSync(path.resolve(__dirname, "../database/migrations/001_school_lookup_indexes.sql"), "utf8");
   const statements = splitStatements(sql);
   assert.equal(statements.length, 10);
+  assert.deepEqual(splitStatements("DO $$ BEGIN PERFORM 1; PERFORM 2; END $$;\n"), ["DO $$ BEGIN PERFORM 1; PERFORM 2; END $$;"]);
   statements.forEach((statement) => assert.match(statement, /^CREATE INDEX CONCURRENTLY IF NOT EXISTS /));
 });
 
@@ -189,4 +192,168 @@ test("the Google library isn't loaded until something uses it", () => {
     console.log(loaded ? "LOADED" : "NOT-LOADED"); process.exit(0);`;
   const run = spawnSync(process.execPath, ["-e", script], { encoding: "utf8", env: { ...process.env, DB_CONNECTION_STRING: "" } });
   assert.match(run.stdout, /NOT-LOADED/, run.stderr);
+});
+
+test("jobs share one lock connection, and a job can't overlap itself", async () => {
+  const { withJobLock } = require("../utils/dbLock");
+  const queries = [];
+  const client = { query: async (sql) => { queries.push(sql); return { rows: [{ ok: true }] }; } };
+  let opened = 0;
+  const getClient = async () => { opened += 1; return client; };
+  let release;
+  const blocked = new Promise((resolve) => { release = resolve; });
+  const first = withJobLock("job-a", () => blocked, { getClient });
+  assert.deepEqual(await withJobLock("job-a", async () => assert.fail("overlapped"), { getClient }), { ran: false });
+  const other = await withJobLock("job-b", async () => "done", { getClient });
+  assert.deepEqual(other, { ran: true, result: "done" });
+  release("ok");
+  assert.deepEqual(await first, { ran: true, result: "ok" });
+  assert.equal(queries.filter((q) => /unlock/.test(q)).length, 2);
+  assert.deepEqual((await withJobLock("job-a", async () => 1, { getClient })).ran, true);
+});
+
+test("a job lock held elsewhere skips the run", async () => {
+  const { withJobLock } = require("../utils/dbLock");
+  const client = { query: async () => ({ rows: [{ ok: false }] }) };
+  assert.deepEqual(await withJobLock("job-c", async () => assert.fail("ran"), { getClient: async () => client }), { ran: false });
+});
+
+test("job locks are named after the job, not its position", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../jobs/scheduler.js"), "utf8");
+  const names = [...source.matchAll(/cron\.schedule\('[^']+', '([a-z-]+)', async/g)].map((m) => m[1]);
+  assert.equal(names.length, 16);
+  assert.equal(new Set(names).size, 16, "each name is unique");
+  assert.ok(names.includes("scheduled-promotions"));
+  assert.ok(!/scheduledJobCount/.test(source));
+});
+
+test("outside calls have a timeout by default", () => {
+  require("../utils/httpDefaults");
+  assert.ok(require("axios").defaults.timeout > 0);
+});
+
+test("a Paystack charge retries safely and never guesses about money", async () => {
+  const configPath = require.resolve("../utils/paystackConfig");
+  const original = require.cache[configPath];
+  require.cache[configPath] = { id: configPath, filename: configPath, loaded: true, exports: { getPaystackSettings: async () => ({ activeSecretKey: "sk" }) } };
+  delete require.cache[require.resolve("../utils/payoutRunner")];
+  const { chargePaystackCard } = require("../utils/payoutRunner")._test;
+  const axios = require("axios");
+  const realPost = axios.post;
+  const realGet = axios.get;
+  let lastAttempt = null;
+  const dbClient = { query: async () => ({ rows: lastAttempt ? [lastAttempt] : [] }) };
+  const args = { org: { email: "a@b.c" }, card: { authorization_code: "x" }, amountMinor: 100, currency: "ghs", payoutRow: { payout_id: 7, next_run_at: "2026-11-04" }, dbClient };
+  const references = [];
+  try {
+    axios.post = async (_url, body) => { references.push(body.reference); return { data: { data: { status: "failed", gateway_response: "Declined" } } }; };
+    assert.equal((await chargePaystackCard(args)).success, false);
+    lastAttempt = { attempts: 1, failure_reason: "Declined", provider_reference: null };
+    await chargePaystackCard(args);
+    assert.notEqual(references[0], references[1], "a clear failure gets a new reference");
+    lastAttempt = { attempts: 2, failure_reason: "Not confirmed: timeout", provider_reference: "same-one" };
+    await chargePaystackCard(args);
+    assert.equal(references[2], "same-one", "an unknown result retries the same reference");
+    lastAttempt = null;
+
+    axios.post = async () => { throw new Error("timeout of 20000ms exceeded"); };
+    axios.get = async () => ({ data: { data: { status: "success", reference: "r" } } });
+    assert.equal((await chargePaystackCard(args)).success, true, "the timed-out charge had gone through");
+    axios.get = async () => { throw new Error("still down"); };
+    const unknown = await chargePaystackCard(args);
+    assert.equal(unknown.success, false);
+    assert.match(unknown.message, /^Not confirmed:/);
+    assert.ok(unknown.reference, "the reference is kept for the retry");
+    axios.get = async () => { const e = new Error("x"); e.response = { status: 404 }; throw e; };
+    assert.match((await chargePaystackCard(args)).message, /^Not confirmed:/, "not found yet is not a failure");
+
+    axios.post = async () => { const e = new Error("x"); e.response = { status: 400, data: { message: "Duplicate Transaction Reference" } }; throw e; };
+    axios.get = async () => ({ data: { data: { status: "success", reference: "r" } } });
+    assert.equal((await chargePaystackCard(args)).success, true, "a duplicate is looked up, not treated as failed");
+
+    axios.post = async () => { const e = new Error("x"); e.response = { status: 400, data: { message: "Insufficient funds" } }; throw e; };
+    assert.equal((await chargePaystackCard(args)).message, "Insufficient funds");
+  } finally {
+    axios.post = realPost;
+    axios.get = realGet;
+    if (original) require.cache[configPath] = original; else delete require.cache[configPath];
+  }
+});
+
+test("a Google client can be created", () => {
+  const { createGoogleOauthClient } = require("../utils/googleClassroomSync");
+  assert.equal(typeof createGoogleOauthClient().generateAuthUrl, "function");
+});
+
+test("a job lock that stops answering is dropped, and doesn't freeze other jobs", async () => {
+  const { withJobLock } = require("../utils/dbLock");
+  let ended = false;
+  const stuck = { query: () => new Promise(() => {}), end: async () => { ended = true; } };
+  await assert.rejects(withJobLock("job-stuck", async () => assert.fail("ran"), { getClient: async () => stuck, stepMs: 10 }), /took over/);
+  await new Promise((resolve) => setImmediate(resolve));
+  const healthy = { query: async () => ({ rows: [{ ok: true }] }) };
+  assert.deepEqual(await withJobLock("job-stuck", async () => "ok", { getClient: async () => healthy, stepMs: 50 }), { ran: true, result: "ok" });
+});
+
+test("a short cache shares one lookup, and never keeps a failure", async () => {
+  const { memo } = require("../utils/memo");
+  let calls = 0;
+  const get = memo(async () => { calls += 1; return "value"; }, { ttlMs: 1000 });
+  assert.deepEqual(await Promise.all([get("a"), get("a")]), ["value", "value"]);
+  assert.equal(calls, 1);
+  let fails = 0;
+  const flaky = memo(async () => { fails += 1; if (fails === 1) throw new Error("down"); return "back"; });
+  await assert.rejects(flaky("x"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(await flaky("x"), "back");
+  const again = memo(async () => { calls += 1; return calls; });
+  await again("k");
+  again.forget("k");
+  const before = calls;
+  await again("k");
+  assert.equal(calls, before + 1, "forget makes the next read fresh");
+});
+
+test("a declined scheduled payout waits, then stops and tells the school", async () => {
+  const stripeConfigPath = require.resolve("../utils/stripeConfig");
+  const original = require.cache[stripeConfigPath];
+  const declined = Object.assign(new Error("Your card was declined."), { type: "StripeCardError" });
+  require.cache[stripeConfigPath] = { id: stripeConfigPath, filename: stripeConfigPath, loaded: true, exports: { getStripeClient: async () => ({ paymentIntents: { create: async () => { throw declined; } } }) } };
+  const runnerPath = require.resolve("../utils/payoutRunner");
+  delete require.cache[runnerPath];
+  const { executePayoutCharge } = require("../utils/payoutRunner");
+  const updates = [];
+  let failed = 0;
+  const dbClient = { async query(sql, values) {
+    if (/FROM organizations/.test(sql)) return { rows: [{ organization_id: 1, email: "", stripe_customer_id: "cus" }] };
+    if (/FROM stored_cards/.test(sql)) return { rows: [{ id: 1, provider: "stripe", authorization_code: "pm", is_active: true }] };
+    if (/COUNT\(\*\)::int AS failed/.test(sql)) return { rows: [{ failed }] };
+    if (/COUNT\(\*\) OVER/.test(sql)) return { rows: [] };
+    if (/SET next_run_at/.test(sql)) updates.push(values[1]);
+    return { rows: [] };
+  } };
+  const row = { payout_id: 9, organization_id: 1, card_id: 1, amount: 5, currency: "usd", name: "Rent", frequency: "monthly", start_date: "2026-01-01", next_run_at: new Date() };
+  try {
+    failed = 1;
+    await executePayoutCharge(row, { dbClient, rescheduleOnFailure: true });
+    const hour = (updates[0] - Date.now()) / 3600000;
+    assert.ok(hour > 0.9 && hour < 1.1, "first retry in an hour");
+    failed = 2;
+    await executePayoutCharge(row, { dbClient, rescheduleOnFailure: true });
+    const day = (updates[1] - Date.now()) / 3600000;
+    assert.ok(day > 23 && day < 25, "second retry in a day");
+    updates.length = 0;
+    await executePayoutCharge(row, { dbClient });
+    assert.equal(updates.length, 0, "Pay Now leaves the schedule alone");
+  } finally {
+    if (original) require.cache[stripeConfigPath] = original; else delete require.cache[stripeConfigPath];
+    delete require.cache[runnerPath];
+  }
+});
+
+test("payout queries use the table's real key column", () => {
+  const schema = fs.readFileSync(path.resolve(__dirname, "../utils/payoutSchema.js"), "utf8");
+  assert.match(schema, /org_payout_transactions[\s\S]{0,60}transaction_id SERIAL PRIMARY KEY/);
+  const runner = fs.readFileSync(path.resolve(__dirname, "../utils/payoutRunner.js"), "utf8");
+  assert.ok(!/ORDER BY id\b|MAX\(id\)|AND id >/.test(runner), "there is no id column");
 });

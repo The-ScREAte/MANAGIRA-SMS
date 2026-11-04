@@ -4,6 +4,7 @@
 // nothing was waiting for, such as a database refusal inside a background task.
 // Every school then sees errors until the host restarts it.
 function install(label) {
+  require("./httpDefaults");
   process.on("unhandledRejection", (reason) => {
     console.error(`[${label}] Unhandled promise rejection:`, (reason && reason.stack) || reason);
   });

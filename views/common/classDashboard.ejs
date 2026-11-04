@@ -3906,6 +3906,21 @@ main {
   .term-view-dots { width: 30px; height: 30px; }
   .workspace-meta-wrap { align-items: center; }
 }
+/* Small screens: Class Tools opens under its Menu button, down to the bottom of the screen. */
+@media (max-width: 900px) {
+  /* The button stays clear of the page dimming, and the menu above Setup steps. */
+  .nav-toggle { z-index: 1000 !important; }
+  .workspace-sidebar.nav-card {
+    z-index: 12100 !important;
+    top: var(--side-menu-top, 120px) !important;
+    bottom: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
 </style>
 
 <body>
@@ -4028,8 +4043,8 @@ main {
           </ul>
         </div>
       </aside>
-      <link rel="stylesheet" href="/css/menuArrange.css" />
-      <script src="/js/menuArrange.js"></script>
+      <link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
+      <script src="<%= assetUrl('/js/menuArrange.js') %>"></script>
       <script src="/js/busTracker.js?v=<%= assetVersion %>" defer></script>
       <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.getElementById('ctNavList'));</script>
 
@@ -6277,7 +6292,10 @@ main {
 
         if (navToggle && !navToggle.dataset.boundNavToggle) {
           navToggle.dataset.boundNavToggle = '1';
-          navToggle.addEventListener('click', openNav);
+          navToggle.addEventListener('click', function () {
+            if (navPanel && navPanel.classList.contains('open')) closeNav();
+            else openNav();
+          });
         }
         if (navOverlay && !navOverlay.dataset.boundNavOverlay) {
           navOverlay.dataset.boundNavOverlay = '1';

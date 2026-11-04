@@ -428,7 +428,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       const stored = compactToolResult(result, Math.max(400, Math.min(TOOL_RESULT_MAX_CHARS, budgetLeft)));
       toolResultChars += stored.length;
       toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status, result: stored });
-      results.push({ toolCallId: toolCallInfo.id, content: JSON.stringify(result) });
+      results.push({ toolCallId: toolCallInfo.id, content: compactToolResult(result, 24000) });
     }
 
     // Real tool-calling protocol (see modelRouter.js toOpenAIMessages /

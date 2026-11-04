@@ -15,6 +15,9 @@ const isDatabaseUnavailable = (err) => {
 // Plain on purpose: it can't depend on the database or the page layout.
 const BUSY_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="15"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f8fafc;color:#1e293b;font:16px/1.5 system-ui,sans-serif;padding:24px;text-align:center}h1{margin:0 0 8px;font-size:22px}p{margin:0;color:#64748b}@media (prefers-color-scheme:dark){body{background:#14161a;color:#e5e7eb}p{color:#9ca3af}}</style></head><body><main><h1>We&rsquo;ll be right back</h1><p>We&rsquo;re reconnecting. This page will try again by itself in a few seconds.</p></main></body></html>`;
 
+// Each waiting page retries after 10–30 seconds, so the crowd spreads out.
+const busyPage = () => BUSY_PAGE.replace('content="15"', `content="${10 + Math.floor(Math.random() * 21)}"`);
+
 const notFound = (req, res, next) => {
     next(createError(404, 'Page Not Found'));
 };
@@ -51,7 +54,7 @@ const globalErrorHandler = (err, req, res, next) => {
         if (req.xhr || /json/i.test(req.get('accept') || '')) {
             return res.status(503).json({ success: false, error: 'We’re busy right now. Please try again in a moment.' });
         }
-        return res.status(503).type('html').send(BUSY_PAGE);
+        return res.status(503).type('html').send(busyPage());
     }
 
     const rawMessage = err && err.message ? err.message : 'Internal Server Error';

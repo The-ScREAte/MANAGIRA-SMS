@@ -299,6 +299,44 @@
   <script src="<%= assetUrl('/js/chatbot.js') %>" defer></script>
   <% } %>
 
+  <script>
+    // On small screens a side menu opens under its own Menu button, so the button stays
+    // visible. This keeps that position current: phones, tablets and rotation included.
+    (function () {
+      var TOGGLES = '.management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle';
+      var OPEN = '.management-nav.open, .hub-nav.open, .settings-nav.open, .nav-card.open';
+      var waiting = false;
+      function publish() {
+        waiting = false;
+        var header = document.getElementById('top-header');
+        var top = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+        var toggles = document.querySelectorAll(TOGGLES);
+        for (var i = 0; i < toggles.length; i++) {
+          var box = toggles[i].getBoundingClientRect();
+          if (box.height > 0 && box.bottom > top) { top = box.bottom + 6; break; }
+        }
+        document.documentElement.style.setProperty('--side-menu-top', top + 'px');
+      }
+      function soon() {
+        if (waiting) return;
+        waiting = true;
+        requestAnimationFrame(publish);
+      }
+      document.addEventListener('DOMContentLoaded', publish);
+      window.addEventListener('load', publish);
+      window.addEventListener('resize', soon, { passive: true });
+      window.addEventListener('orientationchange', soon, { passive: true });
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', soon, { passive: true });
+      document.addEventListener('click', function (event) {
+        if (event.target.closest && event.target.closest(TOGGLES)) publish();
+      }, true);
+      // Only while a menu is open, so ordinary scrolling does no extra work.
+      window.addEventListener('scroll', function () {
+        if (document.querySelector(OPEN)) soon();
+      }, { passive: true, capture: true });
+    })();
+  </script>
+
   <!-- PWA: register service worker (static assets, and workspace panels you come back to; never intercepts auth or API) -->
   <script>
     if ('serviceWorker' in navigator) {

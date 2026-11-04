@@ -25,7 +25,7 @@ const CACHE_NAME = 'managira-static-v3';
 //     switches or signs out): the "generation" changes and every copy is dropped;
 //   • when older than PANEL_MAX_AGE_MS;
 //   • when the fresh request is redirected (signed out, no access).
-const PANEL_CACHE = 'managira-panels-v5';
+const PANEL_CACHE = 'managira-panels-v6';
 const PANEL_MAX_AGE_MS = 30 * 60 * 1000;
 const CHANGING_GET = /\/(delete|remove|toggle|obsolete|enable|disable|unarchive|archive|logout|switch|impersonat)/i;
 // The generation is kept next to the copies, since the browser stops an idle
@@ -182,7 +182,8 @@ const STATIC_EXT = /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)(
 const NETWORK_ONLY = [
   // Money and grades always come fresh, never from a saved copy.
   /\/account\/settings\/(payouts|my-paygira|finance)/i,
-  /\/common\/(assessment|manageAssessment|allClassAssessmentExams)/i,
+  /\/common\/(assessment|manageAssessment|allClassAssessmentExams|termDetails|closeSchoolYear|studentDetails)/i,
+  /^\/(print|transcript|stats)\//i,
   /\/api\//i,
   /\/login/i,
   /\/logout/i,

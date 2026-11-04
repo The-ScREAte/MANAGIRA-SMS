@@ -464,6 +464,10 @@ main { padding: 0 !important; max-width: none !important; }
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  /* The app's global button style adds a top margin, which pushed this out of line
+     with the arrange button beside it. */
+  margin: 0 !important;
+  box-sizing: border-box;
   width: 26px;
   height: 26px;
   border-radius: 7px;
@@ -827,7 +831,7 @@ main { padding: 0 !important; max-width: none !important; }
   .settings-main .action-btn { width: 100%; justify-content: center; }
 }
 
-/* Phones and tablets: an open side menu is a drawer from under the app header
+/* Phones and tablets: an open side menu is a drawer from under its Menu button
    to the bottom of the screen, above the footer bar, Setup steps and chat, and
    scrolls by itself so its last item can always be reached. */
 @media (max-width: 900px) {
@@ -835,7 +839,7 @@ main { padding: 0 !important; max-width: none !important; }
   .hub-nav.open,
   .settings-nav.open .nav-list {
     position: fixed !important;
-    top: var(--app-header-bottom, 68px) !important;
+    top: var(--side-menu-top, 120px) !important;
     bottom: 0 !important;
     left: 0 !important;
     width: min(280px, calc(100vw - 20px)) !important;

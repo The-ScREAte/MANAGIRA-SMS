@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { countQuery } = require('../utils/requestStats');
 require('dotenv').config();
 
 const dbConnectionString = process.env.DB_CONNECTION_STRING;
@@ -193,6 +194,7 @@ pool.query = async (...args) => {
   } finally {
     const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
     dbMetrics.totalQueries += 1;
+    countQuery(elapsedMs);
 
     if (elapsedMs >= slowQueryThresholdMs) {
       dbMetrics.slowQueries += 1;

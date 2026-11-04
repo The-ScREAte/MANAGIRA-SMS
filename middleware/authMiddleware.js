@@ -1,3 +1,4 @@
+const { memo } = require('../utils/memo');
 const db = require('../config/db');
 const { hydrateOrganizationSession } = require('../utils/sessionContext');
 
@@ -34,6 +35,10 @@ function destroySessionAndRedirect(req, res, redirectTo) {
         return res.redirect(redirectTo);
     });
 }
+
+// Holds rarely change, so each is read at most every 30 seconds instead of on every page.
+const orgStatus = memo((id) => db.query('SELECT deleted, on_hold FROM organizations WHERE organization_id = $1', [id]), { ttlMs: 30000 });
+const userStatus = memo((id) => db.query('SELECT on_hold FROM users WHERE user_id = $1', [id]), { ttlMs: 30000, max: 20000 });
 
 const isAuthenticated = async (req, res, next) => {
     try {
@@ -82,10 +87,10 @@ const isAuthenticated = async (req, res, next) => {
         // round trip to the database); the organization is still checked first.
         const [org, user] = await Promise.all([
             req.session.organizationId
-                ? db.query('SELECT deleted, on_hold FROM organizations WHERE organization_id = $1', [req.session.organizationId])
+                ? orgStatus(req.session.organizationId)
                 : null,
             req.session.userId
-                ? db.query('SELECT on_hold FROM users WHERE user_id = $1', [req.session.userId])
+                ? userStatus(req.session.userId)
                 : null,
         ]);
 

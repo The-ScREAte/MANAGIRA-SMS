@@ -369,6 +369,7 @@ Mira can never do more than the person using her. She has her own database pool
 | Every 30 minutes | Pull grades from Google Classroom (up to 40 schools) |
 | Hourly | Hub billing sweep, weekly digest check, scheduled report emails |
 | Daily | Absence alerts, scheduled holds and reminders, purge old admission rejections |
+| Daily | Scheduled promotions, purge bus positions older than 30 days |
 | Weekly | Purge old activity logs |
 | Every 10 minutes | Keep-alive self-ping |
 
@@ -391,7 +392,7 @@ Mira can never do more than the person using her. She has her own database pool
 
 | What | About | Used for |
 |---|---|---|
-| `googleapis` | 114 MB alone; about 46 MB saved in the running app | Google Classroom and Calendar |
+| `googleapis` | 114 MB alone (loading Google, Puppeteer and Sharp on first use saved 46 MB idle) | Google Classroom and Calendar |
 | `puppeteer` | 30 MB | PDFs; Chrome itself is separate |
 | `sharp` | 28 MB | Image processing |
 | `exceljs` | 35 MB | Spreadsheet exports |

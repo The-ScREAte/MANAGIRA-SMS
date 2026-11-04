@@ -2798,19 +2798,6 @@
   </script>
   <% } %>
 </header>
-<script>
-  // Where the app header ends, for side menus that open under it on phones.
-  (function () {
-    var header = document.getElementById('top-header');
-    if (!header) return;
-    function publish() {
-      document.documentElement.style.setProperty('--app-header-bottom', Math.max(0, header.getBoundingClientRect().bottom) + 'px');
-    }
-    publish();
-    window.addEventListener('resize', publish, { passive: true });
-    if (window.ResizeObserver) new ResizeObserver(publish).observe(header);
-  })();
-</script>
 
 <script>
   const CURRENT_TERM_ID =

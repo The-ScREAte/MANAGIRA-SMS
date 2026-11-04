@@ -8,6 +8,7 @@
 (function () {
   var ICON_ARRANGE = '<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>';
   var ICON_DONE = '<path d="M5 12l5 5L20 7"/>';
+  var ICON_HANDLE = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></svg>';
   var slug = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60); };
   var same = function (a, b) { return (a || []).join('\n') === (b || []).join('\n'); };
 
@@ -108,8 +109,27 @@
     var footer = document.createElement('div');
     footer.className = 'menu-arrange-footer';
     footer.hidden = true;
-    footer.innerHTML = '<span>Drag to reorder</span><button type="button">Reset</button>';
+    footer.innerHTML = '<span>Drag the dots to reorder</span><button type="button">Reset</button>';
     list.insertAdjacentElement('afterend', footer);
+
+    // A drag handle beside each item, only while arranging. Lined up with the item's
+    // own row, so an open sub-list under it doesn't move the handle.
+    function addHandles() {
+      groups().forEach(function (g) {
+        var li = g.nodes[0];
+        var link = li.querySelector(':scope > .nav-link');
+        var handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'menu-arrange-handle';
+        handle.setAttribute('aria-label', 'Move ' + (link ? link.textContent.trim().replace(/\s+/g, ' ') : 'item') + ' (use the up and down arrows)');
+        handle.innerHTML = ICON_HANDLE;
+        if (link) handle.style.top = (link.offsetTop + (link.offsetHeight - 26) / 2) + 'px';
+        li.appendChild(handle);
+      });
+    }
+    function removeHandles() {
+      Array.prototype.forEach.call(list.querySelectorAll('.menu-arrange-handle'), function (h) { h.remove(); });
+    }
 
     btn.type = 'button';
     btn.classList.add('menu-arrange-btn');
@@ -123,6 +143,7 @@
       btn.title = on ? 'Done' : 'Arrange this menu';
       btn.querySelector('svg').innerHTML = on ? ICON_DONE : ICON_ARRANGE;
       footer.hidden = !on;
+      if (on) addHandles(); else removeHandles();
     }
     setArranging(false);
     btn.addEventListener('click', function () {
@@ -168,9 +189,10 @@
     var scroller = null;
     list.addEventListener('pointerdown', function (e) {
       if (!arranging || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      var li = itemAt(e.clientX, e.clientY);
-      if (!li) return;
+      var handle = e.target.closest && e.target.closest('.menu-arrange-handle');
+      if (!handle) return;
       e.preventDefault();
+      var li = handle.parentElement;
       dragging = li;
       scroller = scrollParent(list);
       li.classList.add('is-dragging');
@@ -199,6 +221,19 @@
       dragging = null;
       scroller = null;
     }
+    // The handles also work from the keyboard.
+    list.addEventListener('keydown', function (e) {
+      var handle = arranging && e.target.closest && e.target.closest('.menu-arrange-handle');
+      if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      e.preventDefault();
+      var gs = groups();
+      var from = gs.findIndex(function (g) { return g.nodes[0] === handle.parentElement; });
+      var to = from + (e.key === 'ArrowUp' ? -1 : 1);
+      if (from < 0 || to < 0 || to >= gs.length) return;
+      var anchor = to > from ? gs[to].nodes[gs[to].nodes.length - 1].nextSibling : gs[to].nodes[0];
+      gs[from].nodes.forEach(function (n) { list.insertBefore(n, anchor); });
+      handle.focus();
+    });
     list.addEventListener('pointerup', endDrag);
     list.addEventListener('pointercancel', endDrag);
   }
