@@ -25,7 +25,7 @@ const CACHE_NAME = 'managira-static-v3';
 //     switches or signs out): the "generation" changes and every copy is dropped;
 //   • when older than PANEL_MAX_AGE_MS;
 //   • when the fresh request is redirected (signed out, no access).
-const PANEL_CACHE = 'managira-panels-v4';
+const PANEL_CACHE = 'managira-panels-v5';
 const PANEL_MAX_AGE_MS = 30 * 60 * 1000;
 const CHANGING_GET = /\/(delete|remove|toggle|obsolete|enable|disable|unarchive|archive|logout|switch|impersonat)/i;
 // The generation is kept next to the copies, since the browser stops an idle
@@ -82,7 +82,7 @@ async function tellPages(message) {
   windows.forEach((client) => client.postMessage(message));
 }
 
-async function freshPanel(request, generation, cachedText, key = request.url) {
+async function freshPanel(request, generation, cachedText, key = request.url, cachedAccess = null) {
   const response = await fetch(request);
   const finalUrl = new URL(response.url || request.url);
   const sameUrl = !response.redirected || finalUrl.pathname === new URL(request.url).pathname;
@@ -90,7 +90,13 @@ async function freshPanel(request, generation, cachedText, key = request.url) {
   if (!response.ok || !sameUrl || !isHtml) {
     // Signed out or sent elsewhere: drop every kept copy.
     if (response.redirected && !sameUrl) await dropPanelCopies();
-    return { response, changed: cachedText !== undefined };
+    return { response, changed: cachedText !== undefined, accessChanged: Boolean(response.redirected && !sameUrl) };
+  }
+  // This person's permissions or the school's plan changed: no kept copy is right any more.
+  const freshAccess = response.headers.get('x-managira-access');
+  if (cachedAccess && freshAccess && cachedAccess !== freshAccess) {
+    await dropPanelCopies();
+    return { response, changed: true, accessChanged: true };
   }
   const text = await response.clone().text();
   if (generation === panelGeneration) {
@@ -118,13 +124,18 @@ async function servePanel(event, key = event.request.url, fetchRequest = event.r
   if (!usable) {
     if (cached) cache.delete(key).catch(() => {});
     const { response } = await freshPanel(request, generation, undefined, key);
-    return response;
+    // A page opened by the browser can't accept an already-followed redirect (it
+    // shows "can't be reached"), so send the person on to where it led.
+    return response.redirected ? Response.redirect(response.url, 302) : response;
   }
   const cachedText = await cached.clone().text();
   // Show the kept copy now; check for a newer one in the background.
   event.waitUntil(
-    freshPanel(request, generation, cachedText, key)
-      .then(({ changed }) => { if (changed) return tellPages({ type: 'managira-panel-updated', url: request.url }); })
+    freshPanel(request, generation, cachedText, key, cached.headers.get('x-managira-access'))
+      .then(({ changed, accessChanged }) => {
+        if (accessChanged) return tellPages({ type: 'managira-access-changed' });
+        if (changed) return tellPages({ type: 'managira-panel-updated', url: request.url });
+      })
       .catch(() => {})
   );
   return cached;
@@ -284,4 +295,9 @@ self.addEventListener('fetch', (event) => {
   // For all other same-origin GET requests (HTML page navigations, etc.):
   // Do NOT call event.respondWith() — let the network handle them normally.
   // This guarantees fresh page content and keeps all auth flows intact.
+});
+
+// A page saw that this person's access changed: nothing kept may be shown again.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'managira-drop-panels') event.waitUntil(dropPanelCopies());
 });

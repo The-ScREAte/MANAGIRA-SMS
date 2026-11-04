@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const db = require('../config/db');
 const {
   getUserPermissions,
@@ -30,6 +31,14 @@ const setAllowedPermissions = async (req, res, next) => {
     res.locals.userPermissions = res.locals.planFeaturesKnown
       ? keys.filter((key) => withinPlan(key, res.locals.allowedFeatures))
       : keys;
+    // A short fingerprint of this person's access. When it changes, the browser
+    // drops its saved copies of pages (public/service-worker.js).
+    const stamp = crypto.createHash('md5')
+      .update(JSON.stringify([req.session?.user?.user_id || req.session?.userId, res.locals.userPermissions, res.locals.allowedFeatures]))
+      .digest('base64url')
+      .slice(0, 12);
+    res.locals.accessStamp = stamp;
+    res.setHeader('X-Managira-Access', stamp);
   };
   // Called from views and controllers so it reads the final permissions and features.
   res.locals.workspaceAccess = () => workspaceAccess({

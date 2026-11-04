@@ -406,7 +406,9 @@
         font-size: 0.8rem;
       }
     }
-    /* Name, email, birthday and role sit in two columns; Role takes a full row. */
+    /* The Save bar lives where the floating Setup steps button would sit. */
+    .ss-root { display: none !important; }
+  /* Name, email, birthday and role sit in two columns; Role takes a full row. */
     .modify-employee-card .employee-fields-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 12px !important; width: 100%; }
     .modify-employee-card .employee-fields-grid > div { min-width: 0; }
     .modify-employee-card .employee-fields-grid > div:last-child { grid-column: 1 / -1; }

@@ -302,6 +302,23 @@
   <!-- PWA: register service worker (static assets, and workspace panels you come back to; never intercepts auth or API) -->
   <script>
     if ('serviceWorker' in navigator) {
+      // When this person's permissions or plan change, saved page copies are dropped
+      // and an open page reloads, so an old menu is never left on screen.
+      (function () {
+        var stamp = <%- JSON.stringify(typeof accessStamp === 'string' ? accessStamp : '') %>;
+        var sw = navigator.serviceWorker;
+        try {
+          var saved = localStorage.getItem('managiraAccess');
+          if (stamp && saved !== stamp) {
+            localStorage.setItem('managiraAccess', stamp);
+            if (saved && sw.controller) sw.controller.postMessage({ type: 'managira-drop-panels' });
+          }
+        } catch (err) { /* private browsing: the service worker's own check still applies */ }
+        sw.addEventListener('message', function (event) {
+          if (!event.data || event.data.type !== 'managira-access-changed' || window.top !== window) return;
+          window.location.reload();
+        });
+      })();
       window.addEventListener('load', function () {
         navigator.serviceWorker
           .register('/service-worker.js', { scope: '/' })
