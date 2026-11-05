@@ -349,14 +349,18 @@
     color: var(--org-primary-color, #0f5a66);
     font-size: 19px;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .child-transport-btn:hover {
+    background: #eef4f7;
+    border-color: #b7cbd7;
   }
 
   .child-transport-btn:focus-visible {
     background: #eef7fb;
-    box-shadow: 0 8px 18px rgba(15, 90, 102, 0.16);
-    transform: translateY(-1px);
-    outline: none;
+    outline: 2px solid var(--org-primary-color, #0f5a66);
+    outline-offset: 2px;
   }
 
   .child-card.pending {
@@ -729,6 +733,9 @@
   }
   .view-progress-btn:hover, .edit-btn:hover, .withdraw-btn:hover, .guardian-quick-link:hover { transform: none; }
   .child-actions-row .child-transport-btn { width: auto !important; height: 44px; margin: 0 !important; padding: 0 16px !important; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) {
+    .child-transport-btn { transition: none; }
+  }
 </style>
 
 <div class="dashboard-container">

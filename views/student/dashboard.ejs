@@ -803,7 +803,13 @@
   .sp-bus-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--sp-border); border-radius: 14px; }
   .sp-bus-tags { display: flex; flex-wrap: wrap; gap: 6px; }
   .sp-bus-tags span { padding: 4px 10px; border: 1px solid var(--sp-border); border-radius: 999px; color: var(--sp-org-strong); font-size: .8rem; font-weight: 600; }
-  .sp-bus-track { width: auto !important; min-height: 44px; margin: 0 !important; padding: 0 18px !important; border: 0; border-radius: 10px; background: var(--sp-org-base); color: #fff; font-weight: 700; cursor: pointer; }
+  .sp-bus-track { width: auto !important; min-height: 44px; margin: 0 !important; padding: 0 18px !important; border: 1px solid var(--sp-org-base); border-radius: 10px; background: var(--sp-org-base); color: #fff; font-weight: 700; cursor: pointer; transition: background-color .15s ease, box-shadow .15s ease; }
+  .sp-bus-track:hover { background: var(--sp-org-strong); }
+  .sp-bus-track:focus-visible { outline: 2px solid var(--sp-org-base); outline-offset: 2px; }
+  .sp-bus-track:active { background: var(--sp-org-strong); }
+  @media (prefers-reduced-motion: reduce) {
+    .sp-bus-track { transition: none; }
+  }
 </style>
 
 <div class="sp-shell">

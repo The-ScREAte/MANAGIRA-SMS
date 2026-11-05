@@ -16,8 +16,8 @@
   var LIVE_URL = '/transportation/live/student/';
   var POLL_MS = 5000;
   var WEAK_MS = 45 * 1000;
-  var OFFLINE_MS = 2 * 60 * 1000;
-  var GLIDE_MS = 3500;
+  var OFFLINE_MS = 30 * 60 * 1000;
+  var GLIDE_MS = 4800;
   var AT_STOP_M = 60;
   var ARRIVING_M = 250;
   var NEAR_M = 120;
@@ -415,7 +415,7 @@
       returnFocus: document.activeElement,
       loaded: false, errors: 0, denied: false, clockOffset: 0,
       following: true, cameraAt: 0, frameMode: '',
-      liveKey: '', liveChangedAt: 0, changesSeen: 0, lastFix: null, speedEma: null,
+      liveKey: '', liveChangedAt: 0, changesSeen: 0, lastFix: null, jumpHold: null, speedEma: null,
       minDist: Infinity, trend: [], awayTrend: false, passed: false,
       approach: null, approachPending: false, trip: null
     };
@@ -724,6 +724,9 @@
     var fix = { lat: live.lat, lng: live.lng, t: live.recordedAt || now, heading: live.heading };
     var prev = s.lastFix;
     if (prev) {
+      var gap = Math.max(1, (fix.t - prev.t) / 1000);
+      var confirmed = s.jumpHold && distM(s.jumpHold, fix) < 200;
+      if (distM(prev, fix) / gap > 45 && !confirmed) { s.jumpHold = fix; return; }
       var moved = distM(prev, fix);
       var dt = (fix.t - prev.t) / 1000;
       if (fix.heading === null) fix.heading = moved > 12 ? bearing(prev, fix) : prev.heading;
@@ -732,6 +735,7 @@
     } else if (live.speedKmh !== null) {
       s.speedEma = live.speedKmh / 3.6;
     }
+    s.jumpHold = null;
     s.lastFix = fix;
     s.changesSeen += 1;
 
@@ -769,7 +773,7 @@
       trip.age = age;
       if (age <= OFFLINE_MS) {
         trip.state = age > WEAK_MS ? 'weak' : 'live';
-        trip.bus = { lat: live.lat, lng: live.lng };
+        trip.bus = s.lastFix ? { lat: s.lastFix.lat, lng: s.lastFix.lng } : { lat: live.lat, lng: live.lng };
       }
     }
     if (!trip.bus) return trip;
@@ -803,7 +807,7 @@
     }
     if (remaining === null) remaining = straight * 1.3;
     trip.remaining = remaining;
-    var v = s.speedEma === null ? 25 / 3.6 : Math.max(MIN_PLAN_MPS, Math.min(MAX_PLAN_MPS, s.speedEma));
+    var v = s.speedEma === null || s.speedEma < 3 ? 30 / 3.6 : Math.max(MIN_PLAN_MPS, Math.min(MAX_PLAN_MPS, s.speedEma));
     trip.etaMin = (remaining / v + dwell * DWELL_S) / 60;
     return trip;
   }
@@ -963,11 +967,12 @@
       case 'loading': return ['loading', 'Finding the bus\u2026', ''];
       case 'error': return ['error', 'Live tracking is unreachable', 'Retrying\u2026'];
       case 'denied': return ['error', 'Live tracking is unavailable', 'This account can\u2019t view this bus.'];
-      case 'weak': return ['weak', 'Weak signal', 'Last update ' + fmtAgo(trip.age)];
+      case 'weak': return ['weak', trip.age > 3 * 60000 ? 'Signal lost' : 'Weak signal', 'Last update ' + fmtAgo(trip.age) + ', showing the last position'];
       case 'live':
         if (trip.passed) return ['passed', 'Bus has passed ' + where, updated];
         if (trip.atStop) return ['arriving', 'Bus is at ' + where, updated];
         if (trip.arriving) return ['arriving', 'Arriving now', updated];
+        if (s.speedEma !== null && s.speedEma < 0.8) return ['live', 'Stopped', updated];
         return ['live', 'On the way', updated];
       default:
         return ['idle', 'Not on the road right now', trip.lastSeen && fmtLastSeen(trip.lastSeen)

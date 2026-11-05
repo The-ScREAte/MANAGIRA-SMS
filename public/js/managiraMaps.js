@@ -69,7 +69,7 @@
     var L = window.L;
     if (map.attributionControl) map.attributionControl.setPrefix(false);
     loadVector().then(function () {
-      var gl = L.maplibreGL({ style: STYLE_URL, attribution: ATTRIBUTION, interactive: false }).addTo(map);
+      var gl = L.maplibreGL({ style: STYLE_URL, attribution: ATTRIBUTION, interactive: false, padding: 0.6 }).addTo(map);
       var glMap = gl.getMaplibreMap && gl.getMaplibreMap();
       if (glMap) glMap.on("styledata", function () {
         (glMap.getStyle().layers || []).forEach(function (layer) {

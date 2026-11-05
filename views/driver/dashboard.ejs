@@ -10,19 +10,22 @@
 %>
 <style>
   .drv { --drv-accent: var(--org-primary-color, #01535b); --drv-line: #e3e8ef; --drv-text: #0f172a; --drv-muted: #5b6b7f; --drv-blue: #1a73e8;
-    max-width: 1280px; margin: 0 auto; padding: 16px 16px 76px; color: var(--drv-text); text-align: left; }
+    max-width: 1180px; margin: 0 auto; padding: 20px 20px 88px; color: var(--drv-text); text-align: left; }
   .drv *, .drv *::before, .drv *::after { box-sizing: border-box; }
-  .drv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-  .drv-top h1 { margin: 0; font-size: 1.25rem; font-weight: 700; line-height: 1.3; }
-  .drv-busline { margin: 2px 0 0; color: var(--drv-muted); font-size: .9rem; }
-  .drv-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--drv-line); border-radius: 999px; background: #fff; font-size: .85rem; font-weight: 600; white-space: nowrap; }
+  .drv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .drv-top-text { min-width: 0; }
+  .drv-top h1 { margin: 0; font-size: 1.2rem; font-weight: 700; line-height: 1.3; }
+  .drv-busline { margin: 2px 0 0; color: var(--drv-muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drv-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--drv-line); border-radius: 999px; background: #fff; font-size: .85rem; font-weight: 600; white-space: nowrap; }
   .drv-pill i { width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; }
   .drv-pill[data-state="live"] i { background: #12a150; }
   .drv-pill[data-state="weak"] i { background: #c27803; }
   .drv-pill[data-state="off"] i { background: #d92d20; }
 
-  .drv-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
-  .drv-mapwrap { position: relative; height: min(70vh, 680px); border: 1px solid var(--drv-line); border-radius: 16px; overflow: hidden; background: #e9eef3; }
+  .drv-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+  .drv-card { background: #fff; border: 1px solid var(--drv-line); border-radius: 16px; }
+  .drv-mapcard { overflow: hidden; padding: 0; }
+  .drv-mapwrap { position: relative; height: 600px; background: #e9eef3; }
   #drv-map { position: absolute; inset: 0; z-index: 0; }
   .drv-map-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; padding: 24px; color: var(--drv-muted); text-align: center; }
   .drv-mapwrap .leaflet-control-attribution { font-size: 10px; background: rgba(255,255,255,.8); }
@@ -33,35 +36,37 @@
   .drv-next[hidden] { display: none; }
   .drv-next-text { flex: 1; min-width: 0; }
   .drv-next small { display: block; font-size: .78rem; font-weight: 600; color: var(--drv-muted); }
-  .drv-next strong { display: block; font-size: 1.02rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .drv-next-dist { text-align: right; font-variant-numeric: tabular-nums; }
-  .drv-next-dist strong { font-size: 1.2rem; }
+  .drv-next strong { display: block; font-size: 1rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drv-next-dist { flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+  .drv-next-dist strong { font-size: 1.15rem; }
 
-  .drv .drv-recenter { position: absolute; z-index: 600; left: 50%; bottom: 20px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; width: auto !important; margin: 0 !important; padding: 12px 18px !important; border: 0; border-radius: 999px; background: #fff; color: var(--drv-blue); font: 700 .92rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 6px 20px rgba(15,23,42,.18); }
+  .drv .drv-recenter { position: absolute; z-index: 600; left: 50%; bottom: 16px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; width: auto !important; margin: 0 !important; padding: 11px 18px !important; border: 0; border-radius: 999px; background: #fff; color: var(--drv-blue); font: 700 .92rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 6px 20px rgba(15,23,42,.18); }
   .drv .drv-recenter[hidden] { display: none; }
+  .drv-touch-hint { position: absolute; inset: 0; z-index: 650; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(15,23,42,.45); color: #fff; font-weight: 600; text-align: center; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  .drv-touch-hint.is-on { opacity: 1; }
 
   .drv-side { display: grid; gap: 16px; }
   .drv-card { background: #fff; border: 1px solid var(--drv-line); border-radius: 16px; padding: 18px; }
+  .drv-panel { position: sticky; top: 16px; }
   .drv-empty { margin: 0; color: var(--drv-muted); font-size: .95rem; }
   .drv-label { display: block; margin: 0 0 6px; font-size: .85rem; font-weight: 600; color: var(--drv-muted); }
   .drv-select { width: 100%; min-height: 48px; margin: 0 0 12px; padding: 0 12px; border: 1px solid #cfd8e3; border-radius: 12px; background: #fff; color: var(--drv-text); font-size: 16px; }
-  .drv .drv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100% !important; min-height: 52px; margin: 0 !important; padding: 0 16px !important; border: 0; border-radius: 12px; font: 700 1rem/1 system-ui, sans-serif; cursor: pointer; }
+  .drv .drv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100% !important; min-height: 54px; margin: 0 !important; padding: 0 16px !important; border: 0; border-radius: 14px; font: 700 1.05rem/1 system-ui, sans-serif; cursor: pointer; transition: filter .15s ease; }
   .drv .drv-btn:disabled { opacity: .6; cursor: progress; }
+  .drv .drv-btn:not(:disabled):active { filter: brightness(.92); }
   .drv .drv-btn--go { background: var(--drv-accent); color: #fff; }
-  .drv .drv-btn--stop { background: #fdecea; color: #b42318; }
-  .drv .drv-btn--quiet { background: #eef4ff; color: var(--drv-blue); }
-  .drv .drv-btn:focus-visible, .drv .drv-navopt:focus-visible, .drv .drv-recenter:focus-visible { outline: 2px solid var(--drv-blue); outline-offset: 2px; }
-  .drv-route-name { margin: 0 0 4px; font-size: .85rem; font-weight: 600; color: var(--drv-muted); }
-  .drv-eta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 14px; }
+  .drv .drv-btn--stop { min-height: 48px; background: #fdecea; color: #b42318; font-size: .98rem; }
+  .drv .drv-btn:focus-visible, .drv .drv-app:focus-visible, .drv .drv-recenter:focus-visible { outline: 2px solid var(--drv-blue); outline-offset: 2px; }
+  .drv-sub { margin: 10px 0 0; font-size: .82rem; color: var(--drv-muted); }
+  .drv-apps-label { margin: 0 0 8px; font-size: .82rem; font-weight: 600; color: var(--drv-muted); }
+  .drv-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .drv .drv-app { width: 100% !important; min-height: 44px; margin: 0 !important; padding: 0 10px !important; border: 1px solid var(--drv-line); border-radius: 12px; background: #fff; color: var(--drv-text); font: 600 .9rem/1.1 system-ui, sans-serif; cursor: pointer; }
+  .drv .drv-app:active { background: #f4f6f9; }
+  .drv-route-name { margin: 0 0 2px; font-size: .85rem; font-weight: 600; color: var(--drv-muted); }
+  .drv-eta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 16px; }
   .drv-eta strong { font-size: 1.6rem; font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-  .drv-eta span { font-size: .92rem; color: #475467; }
-  .drv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .drv-navmenu { display: grid; gap: 4px; margin-top: 10px; padding: 6px; border: 1px solid var(--drv-line); border-radius: 12px; }
-  .drv-navmenu[hidden] { display: none; }
-  .drv .drv-navopt { width: 100% !important; margin: 0 !important; padding: 12px !important; border: 0; border-radius: 8px; background: transparent; color: var(--drv-text); font: 600 .95rem/1.2 system-ui, sans-serif; text-align: left; cursor: pointer; }
-  .drv .drv-navopt:hover { background: #f4f6f9; }
-  .drv-navmenu p, .drv-hint { margin: 6px 6px 2px; font-size: .8rem; color: var(--drv-muted); }
-  .drv-hint { margin: 12px 0 0; }
+  .drv-eta span { font-size: .9rem; color: #475467; }
+  .drv-hint { margin: 12px 0 0; font-size: .8rem; color: var(--drv-muted); }
   .drv-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #fef3f2; color: #b42318; font-size: .88rem; }
   .drv-note[hidden] { display: none; }
 
@@ -81,24 +86,23 @@
   .drv-me { width: 22px; height: 22px; border-radius: 50%; background: var(--drv-blue); border: 4px solid #fff; box-shadow: 0 0 0 1px rgba(26,115,232,.3), 0 2px 6px rgba(15,23,42,.35); }
   .drv-me.is-stale { background: #98a2b3; }
 
-  @media (max-width: 960px) {
-    .drv { padding: 0 0 60px; }
-    .drv-top { margin: 0; padding: 12px 16px; background: #fff; border-bottom: 1px solid var(--drv-line); }
-    .drv-layout { grid-template-columns: 1fr; gap: 0; }
-    .drv-mapwrap { height: 56vh; border: 0; border-radius: 0; }
-    .drv.is-driving .drv-mapwrap { height: 66vh; }
-    .drv-side { position: relative; z-index: 2; margin-top: -18px; gap: 0; padding: 10px 16px 16px; background: #fff; border-radius: 18px 18px 0 0; box-shadow: 0 -6px 24px rgba(15,23,42,.1); }
-    .drv-side::before { content: ''; display: block; width: 36px; height: 5px; margin: 0 auto 12px; border-radius: 999px; background: #d0d7e2; }
-    .drv-card { border: 0; border-radius: 0; padding: 0; }
-    .drv-students { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eef1f5; }
+  @media (max-width: 999px) {
+    .drv { padding: 12px 12px 88px; }
+    .drv-layout { grid-template-columns: 1fr; gap: 12px; }
+    .drv-mapwrap { height: 340px; height: clamp(300px, 52svh, 520px); }
+    .drv-panel { position: static; }
+    .drv-students { margin-top: 12px; }
     .drv.is-driving .drv-students { display: none; }
     .drv-mapwrap .leaflet-control-zoom { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drv .drv-btn, .drv-touch-hint { transition: none; }
   }
 </style>
 
 <div class="drv<%= activeTrip ? ' is-driving' : '' %>">
   <header class="drv-top">
-    <div>
+    <div class="drv-top-text">
       <h1>Hi, <%= session.firstName || 'Driver' %></h1>
       <p class="drv-busline">
         <% if (driverBus) { %>Bus <%= driverBus.bus_number %><% if (driverBus.license_plate) { %>, <%= driverBus.license_plate %><% } %><% if (driverBus.capacity) { %>, <%= driverBus.capacity %> seats<% } %><% } else { %>No bus assigned yet<% } %>
@@ -108,7 +112,7 @@
   </header>
 
   <div class="drv-layout">
-    <section aria-label="Route map">
+    <section class="drv-card drv-mapcard" aria-label="Route map">
       <div class="drv-mapwrap">
         <div id="drv-map"></div>
         <div class="drv-next" id="drv-next" hidden>
@@ -119,11 +123,12 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
           Re-center
         </button>
+        <div class="drv-touch-hint" id="drv-touch-hint" aria-hidden="true">Use two fingers to move the map</div>
       </div>
     </section>
 
     <aside class="drv-side">
-      <section class="drv-card" aria-label="Trip">
+      <section class="drv-card drv-panel" aria-label="Trip">
         <% if (!driverBus) { %>
           <p class="drv-empty">Your school hasn’t assigned you a bus yet. It will show here once they do.</p>
         <% } else if (!routeList.length) { %>
@@ -138,22 +143,19 @@
             </select>
             <button type="button" class="drv-btn drv-btn--go" id="drv-start">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-              <span>Start trip</span>
+              <span>Go</span>
             </button>
           </div>
           <div id="drv-active"<%= activeTrip ? '' : ' hidden' %>>
+            <p class="drv-apps-label">Navigate with</p>
+            <div class="drv-apps" id="drv-apps">
+              <% navApps.forEach(function (app) { %>
+                <button type="button" class="drv-app" data-nav-app="<%= app.key %>"><%= app.label %></button>
+              <% }) %>
+            </div>
             <p class="drv-route-name" id="drv-active-route"></p>
             <div class="drv-eta"><strong id="drv-eta-value">–</strong><span id="drv-eta-label">Waiting for GPS…</span></div>
-            <div class="drv-actions">
-              <button type="button" class="drv-btn drv-btn--quiet" id="drv-nav-btn" aria-expanded="false" aria-controls="drv-nav-menu">Navigate</button>
-              <button type="button" class="drv-btn drv-btn--stop" id="drv-end">End trip</button>
-            </div>
-            <div class="drv-navmenu" id="drv-nav-menu" hidden>
-              <% navApps.forEach(function (app) { %>
-                <button type="button" class="drv-navopt" data-nav-app="<%= app.key %>"><%= app.label %></button>
-              <% }) %>
-              <p>Live sharing pauses while another app is on screen. Come back here when you can.</p>
-            </div>
+            <button type="button" class="drv-btn drv-btn--stop" id="drv-end">End trip</button>
             <p class="drv-hint">Keep this screen open while you drive so families can see the bus.</p>
           </div>
           <p class="drv-note" id="drv-note" role="alert" hidden></p>
@@ -208,22 +210,29 @@
   var ui = {
     page: document.querySelector('.drv'), pill: $('drv-pill'), pillText: $('drv-pill-text'),
     routeSelect: $('drv-route-select'), idle: $('drv-idle'), active: $('drv-active'), activeRoute: $('drv-active-route'),
-    start: $('drv-start'), end: $('drv-end'), note: $('drv-note'),
+    start: $('drv-start'), end: $('drv-end'), note: $('drv-note'), apps: $('drv-apps'),
     next: $('drv-next'), nextLabel: $('drv-next-label'), nextName: $('drv-next-name'), nextDist: $('drv-next-dist'), nextEta: $('drv-next-eta'),
     etaValue: $('drv-eta-value'), etaLabel: $('drv-eta-label'), recenter: $('drv-recenter'),
-    navBtn: $('drv-nav-btn'), navMenu: $('drv-nav-menu')
+    touchHint: $('drv-touch-hint')
   };
 
   var st = {
-    map: null, L: null, bus: null, busKey: '', stopLayer: null, ahead: null,
+    map: null, L: null, bus: null, busKey: '', glide: 0, stopLayer: null, ahead: null,
     route: null, stops: [], dest: null, passed: -1,
     line: null, lineAt: 0, linePending: false, lineReq: 0,
     tripId: activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : null,
-    pos: null, speed: null, following: true, cameraAt: 0, gps: 'idle', sync: 'idle'
+    pos: null, speed: null, heading: null, following: true, cameraBusy: false, cameraAt: 0,
+    gps: 'idle', sync: 'idle', hintTimer: 0
   };
 
   /* ---------- helpers ---------- */
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function smoothHeading(prev, next) {
+    if (typeof next !== 'number' || !isFinite(next)) return prev;
+    if (prev === null) return next;
+    var delta = ((next - prev + 540) % 360) - 180;
+    return (prev + delta * 0.35 + 360) % 360;
+  }
   function point(lat, lng) { var a = Number(lat), b = Number(lng); return (isFinite(a) && isFinite(b) && !(a === 0 && b === 0) && Math.abs(a) <= 90 && Math.abs(b) <= 180) ? { lat: a, lng: b } : null; }
   function distM(a, b) {
     var dLat = (b.lat - a.lat) * RAD, dLng = (b.lng - a.lng) * RAD;
@@ -242,13 +251,6 @@
       if (!best || d < best.offset) best = { index: i, offset: d, along: cum[i - 1] + t * (cum[i] - cum[i - 1]), point: { lat: a.lat + t * (b.lat - a.lat), lng: a.lng + t * (b.lng - a.lng) } };
     }
     return best;
-  }
-  function aheadOf(p, heading, meters) {
-    if (typeof heading !== 'number' || !isFinite(heading)) return [p.lat, p.lng];
-    var R = 6378137, br = heading * RAD, la = p.lat * RAD, lo = p.lng * RAD, ad = meters / R;
-    var nla = Math.asin(Math.sin(la) * Math.cos(ad) + Math.cos(la) * Math.sin(ad) * Math.cos(br));
-    var nlo = lo + Math.atan2(Math.sin(br) * Math.sin(ad) * Math.cos(la), Math.cos(ad) - Math.sin(la) * Math.sin(nla));
-    return [nla / RAD, nlo / RAD];
   }
   function fmtDistance(m) {
     if (!isFinite(m)) return '–';
@@ -369,16 +371,42 @@
     return st.L.divIcon({ className: '', html: '<div class="drv-me' + (stale ? ' is-stale' : '') + '"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
   }
 
-  function placeBus(p, stale) {
+  function glideTo(lat, lng) {
+    var marker = st.bus;
+    if (!marker) return;
+    if (st.glide) cancelAnimationFrame(st.glide);
+    st.glide = 0;
+    var from = marker.getLatLng();
+    var distance = distM({ lat: from.lat, lng: from.lng }, { lat: lat, lng: lng });
+    if (distance < 0.5) return;
+    if (distance > 1500 || document.hidden) { marker.setLatLng([lat, lng]); return; }
+    var startAt = null;
+    var step = function (now) {
+      if (st.bus !== marker) return;
+      if (startAt === null) startAt = now;
+      var progress = Math.min(1, (now - startAt) / 1000);
+      marker.setLatLng([from.lat + (lat - from.lat) * progress, from.lng + (lng - from.lng) * progress]);
+      if (progress < 1) st.glide = requestAnimationFrame(step);
+      else st.glide = 0;
+    };
+    st.glide = requestAnimationFrame(step);
+  }
+
+  function placeBus(p, stale, animate) {
     if (!st.map || !p) return;
-    var h = typeof p.heading === 'number' && isFinite(p.heading) ? p.heading : null;
-    var key = (h === null ? 'x' : Math.round(h / 10) * 10) + '|' + stale;
+    var h = st.heading;
+    var key = (h === null ? 'x' : Math.round(h / 15) * 15) + '|' + stale;
     if (!st.bus) {
       st.bus = st.L.marker([p.lat, p.lng], { icon: busIcon(h, stale), zIndexOffset: 1000, keyboard: false }).addTo(st.map);
       st.busKey = key;
       return;
     }
-    st.bus.setLatLng([p.lat, p.lng]);
+    if (animate) glideTo(p.lat, p.lng);
+    else {
+      if (st.glide) cancelAnimationFrame(st.glide);
+      st.glide = 0;
+      st.bus.setLatLng([p.lat, p.lng]);
+    }
     if (key !== st.busKey) { st.bus.setIcon(busIcon(h, stale)); st.busKey = key; }
   }
 
@@ -398,7 +426,9 @@
   function onFix(fix) {
     st.pos = fix;
     if (fix.speed !== null) st.speed = st.speed === null ? fix.speed : st.speed * 0.6 + fix.speed * 0.4;
-    placeBus(fix, false);
+    if (st.heading === null || (fix.speed !== null && fix.speed > 1.5)) st.heading = smoothHeading(st.heading, fix.heading);
+    fix.heading = st.heading;
+    placeBus(fix, false, true);
     if (!driving()) return;
     checkProgress();
     var p = busAlong();
@@ -444,13 +474,16 @@
     if (!st.map || !driving() || !st.pos || (!st.following && !force)) return;
     var now = Date.now();
     if (!force && now - st.cameraAt < 900) return;
-    var size = st.map.getSize();
-    var spanM = 805 / 0.72;                              // about half a mile of road ahead
-    var mpp = spanM / Math.max(240, size.y);
-    var zoom = Math.log2((156543.03 * Math.cos(st.pos.lat * RAD)) / mpp);
-    zoom = Math.max(14, Math.min(18, Math.round(zoom * 4) / 4));
+    var zoom = force || !st.cameraAt ? 16.5 : st.map.getZoom();
+    var center = st.L.latLng(st.pos.lat, st.pos.lng);
+    if (st.heading !== null && st.speed !== null && st.speed > 4) {
+      var size = st.map.getSize(), radians = st.heading * RAD, offset = size.y * 0.22;
+      center = st.map.unproject(st.map.project(center, zoom).add(st.L.point(Math.sin(radians) * offset, -Math.cos(radians) * offset)), zoom);
+    }
     st.cameraAt = now;
-    st.map.setView(aheadOf(st.pos, st.pos.heading, spanM * 0.25), zoom, { animate: true, duration: 0.8 });
+    st.cameraBusy = true;
+    if (force) st.map.setView(center, zoom, { animate: true });
+    else st.map.panTo(center, { animate: true, duration: 1, easeLinearity: 1, noMoveStart: true });
   }
 
   function setFollowing(on) {
@@ -463,8 +496,10 @@
     var pts = st.stops.map(function (s) { return [s.lat, s.lng]; });
     if (st.dest) pts.push([st.dest.lat, st.dest.lng]);
     if (st.bus) { var b = st.bus.getLatLng(); pts.push([b.lat, b.lng]); }
-    if (pts.length > 1) st.map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
-    else if (pts.length === 1) st.map.setView(pts[0], 15);
+    st.cameraBusy = true;
+    if (pts.length > 1) st.map.fitBounds(pts, { padding: [40, 40], maxZoom: 16, animate: false });
+    else if (pts.length === 1) st.map.setView(pts[0], 15, { animate: false });
+    st.cameraBusy = false;
   }
 
   /* ---------- status ---------- */
@@ -496,13 +531,12 @@
     ui.page.classList.toggle('is-driving', on);
     if (ui.idle) ui.idle.hidden = on;
     if (ui.active) ui.active.hidden = !on;
-    if (ui.navMenu) { ui.navMenu.hidden = true; ui.navBtn.setAttribute('aria-expanded', 'false'); }
     if (!on && ui.next) ui.next.hidden = true;
     setFollowing(true);
     renderStatus();
     setTimeout(function () {
       if (!st.map) return;
-      st.map.invalidateSize();
+      st.map.invalidateSize({ pan: false });
       if (on) follow(true); else frameOverview();
     }, 260);
   }
@@ -526,11 +560,15 @@
     var mapEl = $('drv-map');
     if (!window.L) { mapEl.innerHTML = '<p class="drv-map-msg">The map could not load. Check your connection and refresh.</p>'; return; }
     var L = st.L = window.L;
-    var map = st.map = L.map(mapEl, { zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 120 });
+    var TOUCH = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var map = st.map = L.map(mapEl, {
+      zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5,
+      dragging: !TOUCH, touchZoom: true, scrollWheelZoom: false, boxZoom: false, inertia: true
+    });
     if (window.ManagiraMaps && typeof window.ManagiraMaps.addTiles === 'function') window.ManagiraMaps.addTiles(map);
     else L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }).addTo(map);
     map.attributionControl.setPrefix(false);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    if (!TOUCH) L.control.zoom({ position: 'bottomright' }).addTo(map);
     st.stopLayer = L.layerGroup().addTo(map);
 
     var studentLayer = L.layerGroup().addTo(map);
@@ -546,9 +584,32 @@
     map.setView(center ? [center.lat, center.lng] : [20, 0], center ? 14 : 2);
     if (lastLocation && point(lastLocation.latitude, lastLocation.longitude)) placeBus(point(lastLocation.latitude, lastLocation.longitude), true);
 
+    map.on('movestart', function () { if (!st.cameraBusy && driving()) setFollowing(false); });
     map.on('dragstart', function () { if (driving()) setFollowing(false); });
-    map.on('zoomstart', function () { if (driving() && Date.now() - st.cameraAt > 1200) setFollowing(false); });
-    if (window.ResizeObserver) new ResizeObserver(function () { map.invalidateSize({ pan: false }); }).observe(mapEl);
+    map.on('moveend', function () { st.cameraBusy = false; });
+    if (window.ResizeObserver) {
+      var lastWidth = mapEl.offsetWidth;
+      new ResizeObserver(function () {
+        if (mapEl.offsetWidth !== lastWidth) {
+          lastWidth = mapEl.offsetWidth;
+          map.invalidateSize({ pan: false });
+        }
+      }).observe(mapEl);
+    }
+
+    if (TOUCH && ui.touchHint) {
+      var hideHint = function () {
+        ui.touchHint.classList.remove('is-on');
+        ui.touchHint.setAttribute('aria-hidden', 'true');
+      };
+      mapEl.addEventListener('touchmove', function (event) {
+        if (event.touches.length !== 1) { hideHint(); return; }
+        ui.touchHint.classList.add('is-on');
+        ui.touchHint.setAttribute('aria-hidden', 'false');
+        window.clearTimeout(st.hintTimer);
+        st.hintTimer = window.setTimeout(hideHint, 1200);
+      }, { passive: true });
+    }
   }
 
   /* ---------- events ---------- */
@@ -577,7 +638,7 @@
       showNote(err.message);
     }).then(function () {
       ui.start.disabled = false;
-      label.textContent = 'Start trip';
+      label.textContent = 'Go';
     });
   });
 
@@ -607,25 +668,14 @@
       url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' + dest[0] + ',' + dest[1];
       if (via.length) url += '&waypoints=' + encodeURIComponent(via.slice(0, 9).map(function (p) { return p[0] + ',' + p[1]; }).join('|'));
     }
-    ui.navMenu.hidden = true;
-    ui.navBtn.setAttribute('aria-expanded', 'false');
     var win = window.open(url, '_blank', 'noopener');
     if (!win) window.location.href = url;
   }
 
-  if (ui.navBtn) {
-    ui.navBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var open = ui.navMenu.hidden;
-      ui.navMenu.hidden = !open;
-      ui.navBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-    ui.navMenu.addEventListener('click', function (e) {
-      var opt = e.target.closest('[data-nav-app]');
-      if (opt) openNavApp(opt.getAttribute('data-nav-app'));
-    });
-    document.addEventListener('click', function (e) {
-      if (!ui.navMenu.hidden && !ui.navMenu.contains(e.target) && e.target !== ui.navBtn) { ui.navMenu.hidden = true; ui.navBtn.setAttribute('aria-expanded', 'false'); }
+  if (ui.apps) {
+    ui.apps.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-nav-app]');
+      if (button) openNavApp(button.getAttribute('data-nav-app'));
     });
   }
 

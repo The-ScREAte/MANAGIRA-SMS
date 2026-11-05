@@ -13,7 +13,7 @@
   var POST_URL = '/transportation/driver/live-location';
   var SEND_EVERY_MS = 5000;
   var QUIET_MS = 10000;
-  var MAX_SEND_AGE_MS = 30000;
+  var MAX_SEND_AGE_MS = 45000;
   var GOOD_ACCURACY_M = 35;
   var POOR_ACCURACY_M = 100;
   var MAX_SPEED_MPS = 50;
@@ -78,7 +78,11 @@
 
     var prev = st.last;
     if (prev) {
-      if (fix.time <= prev.time) return;
+      if (fix.time <= prev.time) {
+        // GPS timestamps can stay fixed while parked; refresh receipt age to keep sharing.
+        prev.receivedAt = now;
+        return;
+      }
       var dt = (fix.time - prev.time) / 1000;
       var moved = distM(prev, fix);
       var trusting = now - prev.receivedAt > 15000 || st.rejected >= 4;

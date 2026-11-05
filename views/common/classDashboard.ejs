@@ -2322,8 +2322,9 @@ main {
 .tp-stats strong { color: var(--text, #0f172a); font-weight: 700; }
 .tp-routes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 12px; align-items: start; }
 .tp-route { border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #fff); overflow: hidden; }
-.tp-route__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; list-style: none; cursor: pointer; user-select: none; background: linear-gradient(90deg, color-mix(in srgb, var(--route) 9%, transparent), transparent 70%); transition: background-color .15s; }
+.tp-route__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; list-style: none; cursor: pointer; user-select: none; background: var(--surface, #fff); border-left: 3px solid var(--route); transition: background-color .15s ease; }
 .tp-route__head::-webkit-details-marker { display: none; }
+.tp-route__head:hover { background: var(--surface-soft, #f8fafc); }
 
 .tp-route__head:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; border-radius: 12px; }
 .tp-route[open] > .tp-route__head { border-bottom: 1px solid var(--border); border-radius: 0; }
@@ -2352,6 +2353,8 @@ main {
 .tp-map { position: relative; margin-bottom: 14px; }
 .tp-map__chips { position: absolute; left: 12px; top: 12px; right: 60px; z-index: 500; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
 .tp-map__chips button { pointer-events: auto; display: inline-flex; align-items: center; gap: 7px; width: auto !important; height: 30px; margin: 0; padding: 0 12px; border: 0; border-radius: 999px; background: #fff; color: #0f172a; font-size: 12.5px; font-weight: 600; box-shadow: 0 2px 8px rgba(15, 23, 42, .18); cursor: pointer; }
+.tp-map__chips button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tp-map__chips button:hover { background: #f1f5f9; }
 .tp-map__chips button[style]::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--route); }
 .tp-map__chips button.is-on { background: #0f172a; color: #fff; }
 .tp-map .leaflet-bar { border: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(15, 23, 42, .18); }
@@ -2362,6 +2365,8 @@ main {
   .tp-rider { grid-template-columns: minmax(0, 1fr) 64px 64px; }
   .tp-rider__stop { display: none; }
   .tp-rider--head span:nth-child(2) { display: none; }
+  .tp-map__chips { right: 12px; }
+  .tp-map__chips button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 .transport-mini-map {
   width: 100%;
@@ -2882,6 +2887,9 @@ main {
   .is-term-picking .workspace-meta-wrap { width: 100%; }
   .is-term-picking .workspace-meta-inline { max-width: none; flex: 1 1 auto; }
   .is-term-picking .term-view-select { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tp-route__head, .tp-route__chev, .tp-rider { transition: none; }
 }
 .term-view-banner__btn {
   flex: 0 0 auto;
