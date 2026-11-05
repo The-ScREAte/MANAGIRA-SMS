@@ -580,6 +580,7 @@
 
       /* Cards: profile, transportation, grades, parents. */
       .sd-page { background: transparent; border: 0; text-align: left; }
+      .sd-page.has-transportation { padding-bottom: 60px; }
       .sd-card {
         padding: 16px 18px;
         border: 1px solid var(--border, #e2e8f0);
@@ -609,6 +610,8 @@
         background: color-mix(in srgb, var(--primary) 10%, white); color: var(--primary);
         font-size: 0.78rem; font-weight: 600; text-decoration: none; white-space: nowrap;
       }
+      button.sd-view { border: 0; cursor: pointer; font-family: inherit; }
+      .sd-card > button.sd-view { margin-top: 12px; min-height: 40px; }
       .sd-empty { color: #64748b; text-align: center; }
       .sd-col-action { width: 1%; text-align: right; white-space: nowrap; }
       .sd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -621,7 +624,7 @@
     </style>
     <%- include('../partials/flash') %>
 
-    <div class="sd-page">
+    <div class="sd-page<%= locals.transportationSnapshot ? ' has-transportation' : '' %>">
     <div class="link-to-next-back">
       <% if (req.session && req.session.guardianId) { %>
       <a href="/guardian/dashboard" class="btn btn-secondary">Back to Dashboard</a>
@@ -754,6 +757,12 @@
           </tbody>
         </table>
       </div>
+      <button
+        type="button"
+        class="sd-view"
+        data-bus-tracker="<%= student.student_id %>"
+        data-bus-tracker-name="<%= typeof formatDisplayName === 'function' ? formatDisplayName(student) : student.first_name + ' ' + student.last_name %>"
+        data-transport-snapshot="<%= JSON.stringify(transportationSnapshot) %>">Track bus</button>
       </section>
       <% } %>
       <section class="sd-card">
@@ -891,6 +900,10 @@
     }).observe(drawer.overlay, { attributes: true, attributeFilter: ['class'] });
   })();
     </script>
+    <% if (locals.transportationSnapshot) { %>
+    <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
+    <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
+    <% } %>
     <script>
   (function () {
     const detailsToggle = document.getElementById('student-details-toggle');

@@ -211,7 +211,7 @@ module.exports = (db) => {
   router.get(
     "/driver/mobile",
     isAuthenticated,
-    (req, res) => transportationController.driverMobileGet(req, res, db)
+    (req, res) => res.redirect("/driver/dashboard")
   );
 
   router.post("/driver/trips/start", isAuthenticated, (req, res) =>
@@ -246,7 +246,7 @@ module.exports = (db) => {
     transportationController.getLiveByStudent(req, res, db)
   );
 
-  router.get("/live/route/:routeId", isAuthenticated, (req, res) =>
+  router.get("/live/route/:routeId", isAuthenticated, blockGuardians, (req, res) =>
     transportationController.getLiveByRoute(req, res, db)
   );
 

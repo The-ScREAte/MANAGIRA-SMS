@@ -68,19 +68,49 @@ function wantsJson(req) {
 
 async function getOrganizationDestination(db, organizationId) {
   const result = await db.query(
-    `SELECT organization_address, geo_lat, geo_lng
+    `SELECT organization_address, geo_lat, geo_lng, transportation_distance_unit
        FROM organizations
       WHERE organization_id = $1
       LIMIT 1`,
     [organizationId]
   );
   const row = result.rows[0] || {};
-  const address = String(row.organization_address || "").trim() || null;
   return {
-    address,
+    address: String(row.organization_address || "").trim() || null,
     latitude: toFloat(row.geo_lat),
     longitude: toFloat(row.geo_lng),
+    distanceUnit: row.transportation_distance_unit === "mi" ? "mi" : "km",
   };
+}
+
+function scheduleProblem(days, busId, routeId) {
+  const selectedDays = Array.isArray(days) ? days : (days ? [days] : []);
+  if (!selectedDays.length) return null;
+  if (!busId) return "Pick a bus for this driver's weekly schedule.";
+  if (!routeId) return "Pick a route for this driver's weekly schedule.";
+  return null;
+}
+
+async function verifyOrgIds(db, organizationId, busId, routeId) {
+  if (busId) {
+    const result = await db.query(
+      `SELECT 1 FROM transport_buses WHERE organization_id = $1 AND bus_id = $2`,
+      [organizationId, busId]
+    );
+    if (!result.rows.length) return { valid: false, message: "Selected bus was not found for this school." };
+  }
+  if (routeId) {
+    const result = await db.query(
+      `SELECT 1 FROM transport_routes WHERE organization_id = $1 AND route_id = $2`,
+      [organizationId, routeId]
+    );
+    if (!result.rows.length) return { valid: false, message: "Selected route was not found for this school." };
+  }
+  return { valid: true };
+}
+
+function safeFileName(name) {
+  return String(name || "photo").replace(/[^\w.-]+/g, "_").slice(-80) || "photo";
 }
 
 // A bus position counts as live only if the driver's phone reported it
@@ -93,6 +123,7 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
     address: null,
     latitude: null,
     longitude: null,
+    distanceUnit: "km",
   }));
   const result = await db.query(
     `SELECT
@@ -110,6 +141,10 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
        tr.route_id,
        tr.route_name,
        tr.route_code,
+       tr.use_school_destination,
+       tr.destination_address,
+       tr.destination_latitude,
+       tr.destination_longitude,
        ts.stop_id,
        ts.stop_name,
        ts.stop_address,
@@ -193,7 +228,7 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
        )
        -- A trip whose phone stopped reporting long ago (never ended) isn't live.
        AND COALESCE(live.recorded_at, trip.started_at) > NOW() - INTERVAL '${LIVE_WINDOW_MINUTES} minutes'
-     ORDER BY trip.started_at DESC
+     ORDER BY (trip.bus_id IS NOT DISTINCT FROM $2) DESC, trip.started_at DESC
      LIMIT 1`,
     [organizationId, row.bus_id || null, row.route_id || null]
   );
@@ -214,6 +249,7 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
 
   return {
     assignmentId: row.assignment_id,
+    distanceUnit: school.distanceUnit,
     homeAddress: row.home_address || "",
     homeLatitude: row.home_latitude,
     homeLongitude: row.home_longitude,
@@ -237,6 +273,10 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
           routeId: row.route_id,
           routeName: row.route_name,
           routeCode: row.route_code,
+          useSchoolDestination: row.use_school_destination !== false,
+          destinationAddress: row.destination_address || null,
+          destinationLatitude: row.destination_latitude !== null ? Number(row.destination_latitude) : null,
+          destinationLongitude: row.destination_longitude !== null ? Number(row.destination_longitude) : null,
           stops: (routeStopsResult.rows || []).map((stopRow) => ({
             stopId: stopRow.stop_id,
             stopName: stopRow.stop_name,
@@ -460,7 +500,7 @@ const transportationController = {
         [organizationId]
       );
 
-      const [buses, drivers, routes, stops, assignments, schedules, organizationMeta, driverUsers] = await Promise.all([
+      const [buses, drivers, routes, stops, assignments, schedules, organizationMeta] = await Promise.all([
         db.query(
           `SELECT b.bus_id, b.bus_number, b.bus_name, b.license_plate,
             b.capacity, b.status, b.driver_user_id,
@@ -581,14 +621,6 @@ const transportationController = {
             LIMIT 1`,
           [organizationId]
         ),
-        db.query(
-          `SELECT user_id, first_name, last_name, email
-             FROM users
-            WHERE organization_id = $1
-              AND account_type = 'Driver'
-            ORDER BY first_name ASC, last_name ASC`,
-          [organizationId]
-        ),
       ]);
 
       let students;
@@ -644,7 +676,6 @@ const transportationController = {
         canBroadcastToGuardians: Boolean(transportMessagingStatus.sms?.ready || transportMessagingStatus.whatsapp?.ready),
         integration,
         buses: buses.rows,
-        driverUsers: driverUsers.rows,
         drivers: drivers.rows,
         routes: routes.rows,
         stops: stops.rows,
@@ -1097,8 +1128,8 @@ const transportationController = {
     const email = String(req.body.email || "").trim();
     const phone = String(req.body.phone || "").trim() || null;
     const licenseNumber = String(req.body.licenseNumber || "").trim() || null;
-    const assignedBusId = toInt(req.body.assignedBusId);
-    const assignedRouteId = toInt(req.body.assignedRouteId);
+    let assignedBusId = toInt(req.body.assignedBusId);
+    let assignedRouteId = toInt(req.body.assignedRouteId);
     const status = normalizeScheduleStatus(req.body.status, "active");
     const scheduleDays = req.body.scheduleDays;
     const scheduleStartTime = String(req.body.scheduleStartTime || "").trim() || null;
@@ -1111,8 +1142,21 @@ const transportationController = {
       return res.redirect("/transportation/manage");
     }
 
+    const problem = scheduleProblem(scheduleDays, assignedBusId, assignedRouteId);
+    if (problem) {
+      if (wantsJson(req)) return res.status(400).json({ ok: false, message: problem });
+      req.flash("error", problem);
+      return res.redirect("/transportation/manage");
+    }
+
     try {
       await ensureTransportationSchema(db);
+      const verified = await verifyOrgIds(db, organizationId, assignedBusId, assignedRouteId);
+      if (!verified.valid) {
+        if (wantsJson(req)) return res.status(400).json({ ok: false, message: verified.message });
+        req.flash("error", verified.message);
+        return res.redirect("/transportation/manage");
+      }
 
       // Driver identity is created through the exact same pipeline as
       // Manage Employees (users table, account_type='Driver', invite email) —
@@ -1170,7 +1214,7 @@ const transportationController = {
 
       let imageUrl = null;
       if (req.file) {
-        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${safeFileName(req.file.originalname)}`;
         imageUrl = await uploadToS3(req.file, key);
       }
 
@@ -1209,8 +1253,8 @@ const transportationController = {
     const email = String(req.body.email || "").trim();
     const phone = String(req.body.phone || "").trim() || null;
     const licenseNumber = String(req.body.licenseNumber || "").trim() || null;
-    const assignedBusId = toInt(req.body.assignedBusId);
-    const assignedRouteId = toInt(req.body.assignedRouteId);
+    let assignedBusId = toInt(req.body.assignedBusId);
+    let assignedRouteId = toInt(req.body.assignedRouteId);
     const status = normalizeScheduleStatus(req.body.status, "active");
     const scheduleDays = req.body.scheduleDays;
     const scheduleStartTime = String(req.body.scheduleStartTime || "").trim() || null;
@@ -1223,8 +1267,21 @@ const transportationController = {
       return res.redirect("/transportation/manage");
     }
 
+    const problem = scheduleProblem(scheduleDays, assignedBusId, assignedRouteId);
+    if (problem) {
+      if (wantsJson(req)) return res.status(400).json({ ok: false, message: problem });
+      req.flash("error", problem);
+      return res.redirect("/transportation/manage");
+    }
+
     try {
       await ensureTransportationSchema(db);
+      const verified = await verifyOrgIds(db, organizationId, assignedBusId, assignedRouteId);
+      if (!verified.valid) {
+        if (wantsJson(req)) return res.status(400).json({ ok: false, message: verified.message });
+        req.flash("error", verified.message);
+        return res.redirect("/transportation/manage");
+      }
 
       const userCheck = await db.query(
         `SELECT user_id FROM users WHERE user_id = $1 AND organization_id = $2 AND account_type = 'Driver'`,
@@ -1254,7 +1311,7 @@ const transportationController = {
 
       let imageUrl = null;
       if (req.file) {
-        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${safeFileName(req.file.originalname)}`;
         imageUrl = await uploadToS3(req.file, key);
       }
 
@@ -1297,6 +1354,20 @@ const transportationController = {
       // This removes the driver from transportation (profile + bus link)
       // only. The employee account itself is managed from Manage Employees,
       // so login access isn't silently revoked from this screen.
+      const profile = await db.query(
+        `SELECT driver_id
+           FROM transport_drivers
+          WHERE organization_id = $1 AND user_id = $2
+          LIMIT 1`,
+        [organizationId, userId]
+      );
+      if (profile.rows[0]) {
+        await db.query(
+          `DELETE FROM transport_bus_schedules
+            WHERE organization_id = $1 AND driver_id = $2`,
+          [organizationId, profile.rows[0].driver_id]
+        );
+      }
       await db.query(
         `UPDATE transport_buses SET driver_user_id = NULL, updated_at = NOW()
           WHERE organization_id = $1 AND driver_user_id = $2`,
@@ -2377,98 +2448,6 @@ const transportationController = {
     return res.redirect("/transportation/manage");
   },
 
-  driverMobileGet: async (req, res, db) => {
-    const organizationId = req.session.organizationId;
-    if (!organizationId) return res.redirect("/account/login");
-
-    const userId = req.session.user?.user_id || req.session.userId || null;
-
-    try {
-      await ensureTransportationSchema(db);
-
-      const [routes, buses, activeTrip, stops, orgMeta, navIntegration] = await Promise.all([
-        db.query(
-          `SELECT route_id, route_name
-             FROM transport_routes
-            WHERE organization_id = $1
-              AND route_status = 'active'
-            ORDER BY route_name ASC`,
-          [organizationId]
-        ),
-        db.query(
-          `SELECT bus_id, bus_number
-             FROM transport_buses
-            WHERE organization_id = $1
-              AND status IN ('active', 'on_trip')
-            ORDER BY bus_number ASC`,
-          [organizationId]
-        ),
-        db.query(
-          `SELECT trip_id, route_id, bus_id, status, started_at
-             FROM transport_trip_sessions
-            WHERE organization_id = $1
-              AND driver_user_id = $2
-              AND status = 'active'
-            ORDER BY started_at DESC
-            LIMIT 1`,
-          [organizationId, userId]
-        ),
-        db.query(
-          `SELECT route_id, stop_id, stop_name, stop_address, latitude, longitude, stop_order
-             FROM transport_stops
-            WHERE organization_id = $1
-              AND route_id IS NOT NULL
-              AND latitude IS NOT NULL
-              AND longitude IS NOT NULL
-            ORDER BY route_id ASC, stop_order ASC, stop_name ASC`,
-          [organizationId]
-        ),
-        db.query(
-          `SELECT organization_address, geo_lat, geo_lng FROM organizations WHERE organization_id = $1 LIMIT 1`,
-          [organizationId]
-        ),
-        getTransportationIntegrationStatus(db, organizationId),
-      ]);
-
-      const stopsByRouteId = {};
-      stops.rows.forEach((row) => {
-        const routeId = Number(row.route_id);
-        if (!Number.isInteger(routeId)) return;
-        if (!Array.isArray(stopsByRouteId[routeId])) stopsByRouteId[routeId] = [];
-        stopsByRouteId[routeId].push({
-          stopId: row.stop_id,
-          stopName: row.stop_name,
-          stopAddress: row.stop_address,
-          latitude: Number(row.latitude),
-          longitude: Number(row.longitude),
-        });
-      });
-
-      const schoolMeta = orgMeta.rows[0] || {};
-      const schoolLat = toFloat(schoolMeta.geo_lat);
-      const schoolLng = toFloat(schoolMeta.geo_lng);
-
-      return res.render("transportation/driverMobile", {
-        title: "Driver Transportation",
-        routes: routes.rows,
-        buses: buses.rows,
-        activeTrip: activeTrip.rows[0] || null,
-        stopsByRouteId,
-        schoolDestination: {
-          address: String(schoolMeta.organization_address || "").trim() || null,
-          latitude: schoolLat,
-          longitude: schoolLng,
-        },
-        googleMapsNavActivated: navIntegration.googleMapsNavActivated,
-        appleMapsNavActivated: navIntegration.appleMapsNavActivated,
-        messages: req.flash(),
-      });
-    } catch (error) {
-      req.flash("error", "Unable to load driver transportation page.");
-      return res.redirect("/common/orgDashboard");
-    }
-  },
-
   startTripPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const userId = req.session.user?.user_id || req.session.userId || null;
@@ -2609,7 +2588,8 @@ const transportationController = {
     const latitude = toFloat(req.body.latitude);
     const longitude = toFloat(req.body.longitude);
     let speedKmh = toFloat(req.body.speedKmh);
-    const headingDeg = toFloat(req.body.headingDeg);
+    const rawHeading = toFloat(req.body.headingDeg);
+    const headingDeg = rawHeading !== null && rawHeading >= 0 && rawHeading < 360 ? rawHeading : null;
 
     if (!tripId || latitude === null || longitude === null) {
       return res.status(400).json({ success: false, message: "Trip and coordinates are required." });
@@ -2666,6 +2646,7 @@ const transportationController = {
   },
 
   getLiveByStudent: async (req, res, db) => {
+    res.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
     const organizationId = req.session.organizationId;
     if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
 
@@ -2681,6 +2662,7 @@ const transportationController = {
   },
 
   getLiveByRoute: async (req, res, db) => {
+    res.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
     const organizationId = req.session.organizationId;
     if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
 

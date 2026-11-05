@@ -1,4 +1,5 @@
 <%- include('../partials/flash') %>
+<% const safeJson = (value) => JSON.stringify(value === undefined ? null : value).replace(/</g, '\\u003c'); %>
 
 <link
   rel="stylesheet"
@@ -26,7 +27,7 @@
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 20px 24px 24px;
+    padding: 20px 24px 60px;
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
     gap: 16px;
@@ -247,8 +248,8 @@
   }
 
   .tm-btn--primary {
-    background: linear-gradient(135deg, var(--tm-accent), #184a64);
-    border-color: transparent;
+    background: var(--tm-accent);
+    border-color: var(--tm-accent);
     color: #fff;
   }
 
@@ -385,8 +386,8 @@
   }
 
   .tm-row button {
-    background: linear-gradient(135deg, var(--tm-accent), #184a64);
-    border-color: transparent;
+    background: var(--tm-accent);
+    border-color: var(--tm-accent);
     color: #fff;
     font-weight: 600;
     padding: 6px 10px;
@@ -428,45 +429,6 @@
     min-width: 0;
   }
 
-  .tm-actions {
-    position: relative;
-    flex-shrink: 0;
-    z-index: 30;
-  }
-
-  .tm-kebab {
-    width: 28px;
-    min-height: 28px;
-    border-radius: 8px;
-    border: 1px solid #c8d8e8;
-    background: #fff;
-    color: #374151;
-    font-weight: 700;
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-  }
-
-  .tm-actions-menu {
-    position: absolute;
-    top: 32px;
-    right: 0;
-    min-width: 112px;
-    border: 1px solid #d4e1ec;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
-    padding: 6px;
-    display: none;
-    z-index: 4000;
-  }
-
-  .tm-actions.open .tm-actions-menu {
-    display: grid;
-    gap: 4px;
-  }
-
   .tm-actions-item {
     border: 1px solid #d6e3ef;
     background: #fff;
@@ -476,12 +438,6 @@
     font-size: 12px;
     text-align: left;
     cursor: pointer;
-  }
-
-  .tm-actions-item[data-action^="delete"] {
-    color: #991b1b;
-    border-color: #f1d0d0;
-    background: #fffafa;
   }
 
   .tm-driver-row {
@@ -753,7 +709,7 @@
     bottom: 0;
     z-index: 900;
     background: #fff;
-    padding: 10px;
+    padding: 10px 10px 60px;
     box-sizing: border-box;
   }
 
@@ -883,7 +839,7 @@
 
   @media (max-width: 760px) {
     .tm-app {
-      padding: 10px;
+      padding: 10px 10px 60px;
       min-height: auto;
     }
 
@@ -930,7 +886,7 @@
   .tm-row input, .tm-row select, .tm-row textarea { font-size: 16px; min-height: 40px; }
   .tm-modal-card { max-height: calc(100vh - 32px); overflow-y: auto; }
   @media (max-width: 760px) {
-    .tm-app { padding: 12px; gap: 12px; }
+    .tm-app { padding: 12px 12px 60px; gap: 12px; }
     .tm-card { padding: 14px; }
     .tm-toolbar, .tm-class-toolbar { flex-wrap: wrap; gap: 8px; }
     .tm-toolbar .tm-btn, .tm-class-toolbar .tm-btn { flex: 1 1 140px; justify-content: center; }
@@ -963,6 +919,36 @@
   .tm-count { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent); color: var(--primary, #01535b); font-size: .78rem; vertical-align: middle; }
   @media (max-width: 900px) { .tm-ov-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tm-ov-map #tm-route-map { height: 60vh; } }
   @media (max-width: 520px) { .tm-ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tm-ov-actions { width: 100%; } .tm-ov-actions .tm-btn { flex: 1 1 auto; text-align: center; } }
+  .tm-btn--primary, .tm-row button, .tm-map-toolbar button { background: var(--tm-accent); border-color: var(--tm-accent); color: #fff; }
+  .tm-btn--primary:hover, .tm-row button:hover, .tm-map-toolbar button:hover { background: var(--tm-accent-hover); }
+  .tm-btn { border-radius: 10px; font-size: 13px; }
+  .tm-btn[hidden] { display: none; }
+  .tm-btn--danger { background: transparent; border-color: rgba(198, 40, 40, .4); color: #d93025; }
+  .tm-btn--danger:hover { background: rgba(198, 40, 40, .08); }
+  .tm-list li.tm-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .tm-item-main { flex: 1; min-width: 0; }
+  .tm-item-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; }
+  .tm-item-meta { margin-top: 3px; font-size: 13px; color: var(--tm-muted); overflow-wrap: anywhere; }
+  .tm-chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--tm-border); border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--tm-muted); text-transform: capitalize; }
+  .tm-chip.is-on { color: #16a34a; border-color: rgba(22, 163, 74, .4); }
+  .tm-chip.is-warn { color: #d97706; border-color: rgba(217, 119, 6, .4); }
+  .tm-list .tm-edit { flex: none; min-height: 36px; padding: 0 16px; font-size: 13px; border: 1px solid var(--tm-border); background: transparent; color: inherit; }
+  .tm-modal-sect { background: transparent; border: 0; border-top: 1px solid var(--tm-border); border-radius: 0; padding: 16px 0 4px; margin-top: 12px; }
+  .tm-modal-sect:first-of-type { border-top: 0; margin-top: 0; padding-top: 4px; }
+  .tm-modal-foot { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--tm-border); }
+  .tm-modal-foot .tm-map-note { flex: 1; margin: 0; }
+  .tm-days { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+  .tm-days label { position: relative; cursor: pointer; }
+  .tm-days input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .tm-days span { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; min-height: 40px; padding: 0 12px; border: 1px solid var(--tm-border); border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .tm-days input:checked + span { background: var(--tm-accent); border-color: var(--tm-accent); color: #fff; }
+  .tm-days input:focus-visible + span { outline: 2px solid #1a73e8; outline-offset: 2px; }
+  @media (max-width: 760px) {
+    .tm-modal { padding: 0; align-items: flex-end; }
+    .tm-modal-card { width: 100%; max-width: none; max-height: 92vh; border-radius: 18px 18px 0 0; padding: 18px 16px calc(76px + env(safe-area-inset-bottom, 0px)); }
+    .tm-ov-actions .tm-btn { flex: 1 1 calc(50% - 8px); }
+    .tm-list li.tm-item { align-items: flex-start; }
+  }
 </style>
 
 <div class="tm-app">
@@ -995,11 +981,10 @@
       <div class="tm-head tm-ov-head">
         <h2>Transportation</h2>
         <div class="tm-ov-actions" role="group" aria-label="Add">
-          <button type="button" class="tm-btn tm-btn--primary" data-tm-click="open-add-bus-modal" data-tm-pane="buses">+ Bus</button>
-          <a class="tm-btn" href="/common/createEmployee">+ Driver</a>
-          <button type="button" class="tm-btn" data-tm-click="open-add-route-modal" data-tm-pane="buses">+ Route</button>
-          <button type="button" class="tm-btn" data-tm-click="open-add-stop-modal" data-tm-pane="buses">+ Stop</button>
-          <button type="button" class="tm-btn" data-tm-click="open-add-schedule-modal" data-tm-pane="schedule">+ Schedule</button>
+          <button type="button" class="tm-btn tm-btn--primary" data-tm-click="open-add-driver-modal" data-tm-pane="drivers">Add driver</button>
+          <button type="button" class="tm-btn" data-tm-click="open-add-bus-modal" data-tm-pane="buses">Add bus</button>
+          <button type="button" class="tm-btn" data-tm-click="open-add-route-modal" data-tm-pane="buses">Add route</button>
+          <button type="button" class="tm-btn" data-tm-click="open-add-stop-modal" data-tm-pane="buses">Add stop</button>
         </div>
       </div>
 
@@ -1031,114 +1016,113 @@
     </section>
 
     <section class="tm-pane" data-pane-id="drivers">
-      <div class="tm-head">
-        <h2>Drivers</h2>
+      <div class="tm-head tm-head--split">
+        <h2>Drivers <span class="tm-count"><%= (drivers || []).length %></span></h2>
+        <button class="tm-btn tm-btn--primary" type="button" id="open-add-driver-modal">Add driver</button>
       </div>
-      <p class="tm-map-note" style="margin-top:-6px;">Drivers are staff accounts with the Driver role. <a href="/common/manageEmployees" target="_blank" rel="noopener">Manage staff</a></p>
-
-      <div class="tm-grid">
-        <article class="tm-card span-12">
-          <div class="tm-card-head">
-          <details>
-            <summary class="tm-card-summary"><h3>Drivers <span class="tm-count"><%= (drivers || []).length %></span></h3></summary>
-          <ul class="tm-list" id="driver-list">
-            <% (drivers || []).forEach(function(driver) { %>
-              <% const driverFullName = [driver.first_name, driver.last_name].filter(Boolean).join(' '); %>
-              <% const driverSchedules = (schedules || []).filter(function(s) { return driver.driver_id && Number(s.driver_id) === Number(driver.driver_id); }); %>
-              <% const driverScheduleDays = driverSchedules.map(function(s) { return s.day_of_week; }).filter(Boolean); %>
-              <% const driverScheduleStart = driverSchedules[0] ? driverSchedules[0].start_time : ''; %>
-              <% const driverScheduleEnd = driverSchedules[0] ? driverSchedules[0].end_time : ''; %>
-              <li>
-                <div class="tm-item-row">
-                  <div class="tm-item-body tm-driver-row">
-                    <img class="tm-driver-avatar" src="<%= publicImageUrl(driver.image_url || '/images/profilePlaceholder.png') %>" alt="Driver image" />
-                    <div>
-                      <strong><%= driverFullName %></strong> | <%= driver.phone || '-' %> | <%= driver.email || '-' %> | Status: <%= String(driver.status || '').replaceAll('_', ' ') || '-' %>
-                      <br/>
-                      License: <%= driver.license_number || '-' %> | Bus: <%= driver.bus_number || '-' %> | Route: <%= driver.route_name || '-' %> | Schedules: <%= Number(driver.schedule_count || 0) %>
-                    </div>
-                  </div>
-                  <div class="tm-actions" data-actions>
-                    <button class="tm-kebab" type="button" aria-label="Driver actions">...</button>
-                    <div class="tm-actions-menu">
-                      <button class="tm-actions-item" type="button" data-action="edit-driver"
-                        data-user-id="<%= driver.user_id %>"
-                        data-first-name="<%= driver.first_name || '' %>"
-                        data-last-name="<%= driver.last_name || '' %>"
-                        data-phone="<%= driver.phone || '' %>"
-                        data-email="<%= driver.email || '' %>"
-                        data-license-number="<%= driver.license_number || '' %>"
-                        data-status="<%= driver.status || 'active' %>"
-                        data-assigned-bus-id="<%= driver.assigned_bus_id || '' %>"
-                        data-assigned-route-id="<%= driver.assigned_route_id || '' %>"
-                        data-schedule-days="<%= driverScheduleDays.join(',') %>"
-                        data-schedule-start-time="<%= driverScheduleStart || '' %>"
-                        data-schedule-end-time="<%= driverScheduleEnd || '' %>">
-                        Edit
-                      </button>
-                      <button class="tm-actions-item" type="button" data-action="delete-driver" data-user-id="<%= driver.user_id %>" data-driver-name="<%= driverFullName %>">Remove from Transportation</button>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            <% }) %>
-          </ul>
-          </details>
-          <a class="tm-btn tm-btn--primary" href="/common/createEmployee">+ Add Driver</a>
-          </div>
-        </article>
-      </div>
+      <p class="tm-map-note" style="margin-top:-4px;">Give each driver a bus, a route and weekly days in one form.</p>
+      <%
+        const driverRouteNames = Object.fromEntries((routes || []).map(function (route) { return [String(route.route_id), route.route_name]; }));
+        const driverDayList = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+        const driverDayShort = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+        const driverClock = function (time) { if (!time) return ''; const parts = String(time).split(':'); let hour = parseInt(parts[0], 10); const minute = parts[1] || '00'; const suffix = hour >= 12 ? 'PM' : 'AM'; hour = hour % 12 || 12; return hour + ':' + minute + ' ' + suffix; };
+      %>
+      <% if (!(drivers || []).length) { %><p class="tm-map-note">No drivers yet. Add one to give them a bus and route.</p><% } %>
+      <ul class="tm-list" id="driver-list">
+        <% (drivers || []).forEach(function (driver) { %>
+          <%
+            const driverFullName = [driver.first_name, driver.last_name].filter(Boolean).join(' ');
+            const driverSchedules = (schedules || []).filter(function (schedule) { return driver.driver_id && Number(schedule.driver_id) === Number(driver.driver_id); });
+            const driverDays = driverDayList.filter(function (day) { return driverSchedules.some(function (schedule) { return schedule.day_of_week === day; }); });
+            const driverRouteId = driver.assigned_route_id || ((driverSchedules.find(function (schedule) { return schedule.route_id; }) || {}).route_id) || '';
+            const driverRouteName = driverRouteId ? (driverRouteNames[String(driverRouteId)] || '') : '';
+            const driverScheduleStart = driverSchedules[0] ? driverSchedules[0].start_time : '';
+            const driverScheduleEnd = driverSchedules[0] ? driverSchedules[0].end_time : '';
+            const driverPlan = driverDays.length ? driverDays.map(function (day) { return driverDayShort[day]; }).join(' ') + (driverScheduleStart ? ', ' + driverClock(driverScheduleStart) + (driverScheduleEnd ? ' to ' + driverClock(driverScheduleEnd) : '') : '') : 'No weekly days';
+          %>
+          <li class="tm-item">
+            <img class="tm-driver-avatar" src="<%= publicImageUrl(driver.image_url || '/images/profilePlaceholder.png') %>" alt="" />
+            <div class="tm-item-main">
+              <div class="tm-item-title">
+                <strong><%= driverFullName %></strong>
+                <% if (String(driver.status || 'active') !== 'active') { %><span class="tm-chip">Inactive</span>
+                <% } else if (!driver.assigned_bus_id || !driverRouteId) { %><span class="tm-chip is-warn">Needs bus and route</span>
+                <% } else { %><span class="tm-chip is-on">Ready</span><% } %>
+              </div>
+              <div class="tm-item-meta"><%= [driver.bus_number ? 'Bus ' + driver.bus_number : 'No bus', driverRouteName || 'No route', driverPlan].join(', ') %></div>
+              <div class="tm-item-meta"><%= [driver.email, driver.phone].filter(Boolean).join(', ') %></div>
+            </div>
+            <button class="tm-btn tm-actions-item tm-edit" type="button" data-action="edit-driver"
+              data-user-id="<%= driver.user_id %>"
+              data-first-name="<%= driver.first_name || '' %>"
+              data-last-name="<%= driver.last_name || '' %>"
+              data-phone="<%= driver.phone || '' %>"
+              data-email="<%= driver.email || '' %>"
+              data-license-number="<%= driver.license_number || '' %>"
+              data-status="<%= driver.status || 'active' %>"
+              data-assigned-bus-id="<%= driver.assigned_bus_id || '' %>"
+              data-assigned-route-id="<%= driverRouteId %>"
+              data-schedule-days="<%= driverDays.join(',') %>"
+              data-schedule-start-time="<%= driverScheduleStart || '' %>"
+              data-schedule-end-time="<%= driverScheduleEnd || '' %>">Edit</button>
+          </li>
+        <% }) %>
+      </ul>
 
       <div class="tm-modal" id="add-driver-modal" aria-hidden="true">
         <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-driver-title">
           <div class="tm-modal-head">
-            <h3 class="tm-modal-title" id="add-driver-title">Add Driver</h3>
+            <h3 class="tm-modal-title" id="add-driver-title">Add driver</h3>
             <button class="tm-btn" type="button" id="close-add-driver-modal">Close</button>
           </div>
 
           <form id="add-driver-form" enctype="multipart/form-data">
             <input type="hidden" name="userId" id="driver-user-id-field" />
             <section class="tm-modal-sect">
-              <h4>Basic Information</h4>
+              <h4>Driver</h4>
               <div class="tm-form-grid">
-                <div class="tm-row"><label>First Name</label><input name="firstName" required /></div>
-                <div class="tm-row"><label>Last Name</label><input name="lastName" required /></div>
-                <div class="tm-row"><label>Email</label><input name="email" type="email" required /></div>
+                <div class="tm-row"><label for="drv-first">First name</label><input id="drv-first" name="firstName" required autocomplete="given-name" /></div>
+                <div class="tm-row"><label for="drv-last">Last name</label><input id="drv-last" name="lastName" required autocomplete="family-name" /></div>
+                <div class="tm-row"><label for="drv-email">Email</label><input id="drv-email" name="email" type="email" required autocomplete="email" /></div>
                 <div class="tm-row"><label>Phone</label>
                   <div class="phone-combo" data-default-iso2="GH">
-                    <select class="phone-dial-select"></select>
-                    <input name="phone" class="phone-local-input" />
+                    <select class="phone-dial-select" aria-label="Country code"></select>
+                    <input name="phone" class="phone-local-input" type="tel" autocomplete="tel" aria-label="Phone number" />
                   </div>
                 </div>
-                <div class="tm-row"><label>License Number</label><input name="licenseNumber" /></div>
-                <div class="tm-row"><label>Status</label><select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
-                <div class="tm-row"><label>Assigned Bus</label><select name="assignedBusId"><option value="">None</option><% (buses || []).forEach(function(bus) { %><option value="<%= bus.bus_id %>"><%= bus.bus_number %></option><% }) %></select></div>
-                <div class="tm-row"><label>Assigned Route</label><select name="assignedRouteId"><option value="">None</option><% (routes || []).forEach(function(route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select></div>
-                <div class="tm-row"><label>Driver Image</label><input name="driverImage" type="file" accept="image/*" /></div>
+                <div class="tm-row"><label for="drv-license">License number</label><input id="drv-license" name="licenseNumber" /></div>
+                <div class="tm-row"><label for="drv-status">Status</label><select id="drv-status" name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+                <div class="tm-row"><label for="drv-photo">Photo (optional)</label><input id="drv-photo" name="driverImage" type="file" accept="image/*" /></div>
               </div>
-              <p class="tm-map-note" id="add-driver-note">A new driver will receive an email invite to set their password and access the Driver Dashboard. They will not be able to sign in as a Teacher, Manager, or Supervisor.</p>
+              <p class="tm-map-note" id="add-driver-note">New drivers get an email invite to set a password. They can only sign in to the driver screen.</p>
             </section>
 
             <section class="tm-modal-sect">
-              <h4>Weekly Schedule</h4>
-              <p class="tm-map-note">Pick the days this driver runs the assigned bus/route above, and the time window. Leave all days unchecked for no fixed schedule.</p>
-              <div class="tm-checkbox-list" style="display:flex; gap:10px; flex-wrap:wrap;">
-                <% ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].forEach(function(day) { %>
-                  <label class="tm-checkbox-list-item">
-                    <input type="checkbox" name="scheduleDays" value="<%= day %>" />
-                    <%= day.charAt(0).toUpperCase() + day.slice(1, 3) %>
-                  </label>
+              <h4>Bus, route and weekly days</h4>
+              <div class="tm-form-grid">
+                <div class="tm-row"><label for="driver-bus-select">Bus</label>
+                  <select id="driver-bus-select" name="assignedBusId"><option value="">No bus yet</option><% (buses || []).forEach(function (bus) { %><option value="<%= bus.bus_id %>"><%= bus.bus_number %><%= bus.bus_name ? ' (' + bus.bus_name + ')' : '' %></option><% }) %></select>
+                </div>
+                <div class="tm-row"><label for="driver-route-select">Route</label>
+                  <select id="driver-route-select" name="assignedRouteId"><option value="">No route yet</option><% (routes || []).forEach(function (route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select>
+                </div>
+              </div>
+              <p class="tm-map-note" style="margin-top:12px;">Days this driver runs the route</p>
+              <div class="tm-days">
+                <% driverDayList.forEach(function (day) { %>
+                  <label><input type="checkbox" name="scheduleDays" value="<%= day %>" /><span><%= driverDayShort[day] %></span></label>
                 <% }) %>
               </div>
-              <div class="tm-form-grid" style="margin-top:8px;">
-                <div class="tm-row"><label>Start Time</label><input type="time" name="scheduleStartTime" /></div>
-                <div class="tm-row"><label>End Time</label><input type="time" name="scheduleEndTime" /></div>
+              <div class="tm-form-grid">
+                <div class="tm-row"><label for="drv-start-time">Start time</label><input id="drv-start-time" type="time" name="scheduleStartTime" /></div>
+                <div class="tm-row"><label for="drv-end-time">End time</label><input id="drv-end-time" type="time" name="scheduleEndTime" /></div>
               </div>
             </section>
 
-            <div class="tm-toolbar" style="margin-top:10px;">
-              <span id="add-driver-feedback" class="tm-map-note"></span>
-              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-driver">Save Driver</button>
+            <div class="tm-modal-foot">
+              <button type="button" class="tm-btn tm-btn--danger" data-modal-delete="driver" hidden>Remove driver</button>
+              <span id="add-driver-feedback" class="tm-map-note" role="status"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-driver">Save driver</button>
             </div>
           </form>
         </div>
@@ -1157,41 +1141,31 @@
             <summary class="tm-card-summary"><h3>Buses <span class="tm-count"><%= (buses || []).length %></span></h3></summary>
           <ul class="tm-list" id="bus-list">
             <% (buses || []).forEach(function(bus) { %>
-              <li>
-                <div class="tm-item-row">
-                  <div class="tm-item-body">
-                    <strong><%= bus.bus_number %></strong> (<%= bus.bus_name || '-' %>) | Plate: <%= bus.license_plate || '-' %> | Status: <%= String(bus.status || '').replaceAll('_', ' ') || '-' %> | Capacity: <%= bus.capacity || '-' %>
-                    <br/>
-                    Driver: <%= bus.driver_user_id ? [bus.first_name, bus.last_name].filter(Boolean).join(' ') : 'Unassigned' %>
-                    <br/>
-                    Make: <%= bus.vehicle_make || '-' %> | Model: <%= bus.vehicle_model || '-' %> | Year: <%= bus.vehicle_year || '-' %> | Color: <%= bus.vehicle_color || '-' %>
-                    <br/>
-                    VIN: <%= bus.vin || '-' %> | Fuel: <%= bus.fuel_type || '-' %> | Odometer: <%= bus.odometer || '-' %>
+              <li class="tm-item">
+                <div class="tm-item-main">
+                  <div class="tm-item-title">
+                    <strong><%= bus.bus_number %></strong><% if (bus.bus_name) { %><span><%= bus.bus_name %></span><% } %>
+                    <span class="tm-chip<%= ['active','in_service','on_trip'].includes(String(bus.status || 'active')) ? ' is-on' : '' %>"><%= String(bus.status || 'active').replace(/_/g, ' ') %></span>
                   </div>
-                  <div class="tm-actions" data-actions>
-                    <button class="tm-kebab" type="button" aria-label="Bus actions">...</button>
-                    <div class="tm-actions-menu">
-                      <button class="tm-actions-item" type="button" data-action="edit-bus"
-                        data-bus-id="<%= bus.bus_id %>"
-                        data-bus-number="<%= bus.bus_number || '' %>"
-                        data-bus-name="<%= bus.bus_name || '' %>"
-                        data-license-plate="<%= bus.license_plate || '' %>"
-                        data-capacity="<%= bus.capacity || '' %>"
-                        data-driver-user-id="<%= bus.driver_user_id || '' %>"
-                        data-status="<%= bus.status || 'active' %>"
-                        data-vehicle-make="<%= bus.vehicle_make || '' %>"
-                        data-vehicle-model="<%= bus.vehicle_model || '' %>"
-                        data-vehicle-year="<%= bus.vehicle_year || '' %>"
-                        data-vehicle-color="<%= bus.vehicle_color || '' %>"
-                        data-vin="<%= bus.vin || '' %>"
-                        data-fuel-type="<%= bus.fuel_type || '' %>"
-                        data-odometer="<%= bus.odometer || '' %>">
-                        Edit
-                      </button>
-                      <button class="tm-actions-item" type="button" data-action="delete-bus" data-bus-id="<%= bus.bus_id %>" data-bus-number="<%= bus.bus_number || '' %>">Delete</button>
-                    </div>
-                  </div>
+                  <div class="tm-item-meta"><%= [bus.driver_user_id ? 'Driver ' + [bus.first_name, bus.last_name].filter(Boolean).join(' ') : 'No driver', bus.license_plate, bus.capacity ? bus.capacity + ' seats' : ''].filter(Boolean).join(', ') %></div>
+                  <% const vehicleDetails = [bus.vehicle_year, bus.vehicle_make, bus.vehicle_model, bus.vehicle_color].filter(Boolean).join(' '); %>
+                  <% if (vehicleDetails) { %><div class="tm-item-meta"><%= vehicleDetails %></div><% } %>
                 </div>
+                <button class="tm-btn tm-actions-item tm-edit" type="button" data-action="edit-bus"
+                  data-bus-id="<%= bus.bus_id %>"
+                  data-bus-number="<%= bus.bus_number || '' %>"
+                  data-bus-name="<%= bus.bus_name || '' %>"
+                  data-license-plate="<%= bus.license_plate || '' %>"
+                  data-capacity="<%= bus.capacity || '' %>"
+                  data-driver-user-id="<%= bus.driver_user_id || '' %>"
+                  data-status="<%= bus.status || 'active' %>"
+                  data-vehicle-make="<%= bus.vehicle_make || '' %>"
+                  data-vehicle-model="<%= bus.vehicle_model || '' %>"
+                  data-vehicle-year="<%= bus.vehicle_year || '' %>"
+                  data-vehicle-color="<%= bus.vehicle_color || '' %>"
+                  data-vin="<%= bus.vin || '' %>"
+                  data-fuel-type="<%= bus.fuel_type || '' %>"
+                  data-odometer="<%= bus.odometer || '' %>">Edit</button>
               </li>
             <% }) %>
           </ul>
@@ -1218,7 +1192,7 @@
                     <span class="tm-map-note">Code: <%= route.route_code || '-' %> · <%= route.route_status || 'active' %> · <%= routeStops.length %> stop<%= routeStops.length === 1 ? '' : 's' %> · <%= routeBuses.length %> bus<%= routeBuses.length === 1 ? '' : 'es' %></span>
                   </summary>
                   <div class="tm-class-toolbar">
-                    <button class="tm-btn tm-actions-item" type="button" data-action="view-route-map" data-route-id="<%= route.route_id %>">View On Map</button>
+                    <button class="tm-btn tm-actions-item" type="button" data-action="view-route-map" data-route-id="<%= route.route_id %>">Show on map</button>
                     <button class="tm-btn tm-actions-item" type="button" data-action="edit-route"
                       data-route-id="<%= route.route_id %>"
                       data-route-name="<%= route.route_name || '' %>"
@@ -1227,10 +1201,8 @@
                       data-map-provider="<%= route.map_provider || 'openstreetmap' %>"
                       data-use-school-destination="<%= route.use_school_destination ? '1' : '0' %>"
                       data-destination-address="<%= route.destination_address || '' %>"
-                      data-stop-ids="<%= routeStops.map(function(s) { return s.stop_id; }).join(',') %>">
-                      Edit Route &amp; Stops
+                      data-stop-ids="<%= routeStops.map(function(s) { return s.stop_id; }).join(',') %>">Edit
                     </button>
-                    <button class="tm-btn tm-actions-item" type="button" data-action="delete-route" data-route-id="<%= route.route_id %>" data-route-name="<%= route.route_name || '' %>">Delete</button>
                   </div>
 
                   <div class="tm-class-group-list">
@@ -1265,7 +1237,7 @@
                         <div style="width:100%;">
                           <strong>Bus, Driver &amp; Schedule</strong>
                           <% if (!routeBuses.length) { %>
-                            <div class="tm-map-note">No bus scheduled on this route yet — add one from the Schedule tab.</div>
+                            <div class="tm-map-note">No driver runs this route yet. Pick it in a driver’s form under Drivers.</div>
                           <% } else { %>
                             <% routeBuses.forEach(function(bus) { %>
                               <% const busSchedules = routeSchedules.filter(function(s) { return s.bus_id === bus.bus_id; }); %>
@@ -1296,35 +1268,24 @@
           <ul class="tm-list">
             <% const routeNameById = Object.fromEntries((routes || []).map(function(r) { return [Number(r.route_id), r.route_name]; })); %>
             <% (stops || []).forEach(function(stop) { %>
-              <li>
-                <div class="tm-item-row">
-                  <div class="tm-item-body">
+              <li class="tm-item">
+                <div class="tm-item-main">
+                  <div class="tm-item-title">
                     <strong><%= stop.stop_name %></strong>
-                    | <%= stop.stop_address || '-' %>
-                    | Route: <%= stop.route_id ? (routeNameById[Number(stop.route_id)] || ('#' + stop.route_id)) : 'Unattached' %>
-                    | Order: <%= stop.stop_order || 0 %>
-                    | <%= stop.latitude || '-' %>, <%= stop.longitude || '-' %>
+                    <% if (!stop.latitude || !stop.longitude) { %><span class="tm-chip is-warn">Not on map</span><% } %>
                   </div>
-                  <div class="tm-actions" data-actions>
-                    <button class="tm-kebab" type="button" aria-label="Stop actions">...</button>
-                    <div class="tm-actions-menu">
-                      <button class="tm-actions-item" type="button" data-action="view-stop-map" data-route-id="<%= stop.route_id || '' %>" data-latitude="<%= stop.latitude || '' %>" data-longitude="<%= stop.longitude || '' %>">View On Map</button>
-                      <button class="tm-actions-item" type="button" data-action="edit-stop"
-                        data-stop-id="<%= stop.stop_id %>"
-                        data-route-id="<%= stop.route_id || '' %>"
-                        data-stop-name="<%= stop.stop_name || '' %>"
-                        data-stop-address="<%= stop.stop_address || '' %>"
-                        data-latitude="<%= stop.latitude || '' %>"
-                        data-longitude="<%= stop.longitude || '' %>"
-                        data-pickup-time="<%= stop.pickup_time || '' %>"
-                        data-dropoff-time="<%= stop.dropoff_time || '' %>"
-                        data-stop-order="<%= stop.stop_order || 0 %>">
-                        Edit
-                      </button>
-                      <button class="tm-actions-item" type="button" data-action="delete-stop" data-stop-id="<%= stop.stop_id %>" data-stop-name="<%= stop.stop_name || '' %>">Delete</button>
-                    </div>
-                  </div>
+                  <div class="tm-item-meta"><%= [stop.route_id ? (routeNameById[Number(stop.route_id)] || 'Route #' + stop.route_id) + ', stop ' + (stop.stop_order || 0) : 'Not on a route', stop.stop_address].filter(Boolean).join(', ') %></div>
                 </div>
+                <button class="tm-btn tm-actions-item tm-edit" type="button" data-action="edit-stop"
+                  data-stop-id="<%= stop.stop_id %>"
+                  data-route-id="<%= stop.route_id || '' %>"
+                  data-stop-name="<%= stop.stop_name || '' %>"
+                  data-stop-address="<%= stop.stop_address || '' %>"
+                  data-latitude="<%= stop.latitude || '' %>"
+                  data-longitude="<%= stop.longitude || '' %>"
+                  data-pickup-time="<%= stop.pickup_time || '' %>"
+                  data-dropoff-time="<%= stop.dropoff_time || '' %>"
+                  data-stop-order="<%= stop.stop_order || 0 %>">Edit</button>
               </li>
             <% }) %>
           </ul>
@@ -1441,6 +1402,7 @@
 
           <form id="add-bus-form">
             <input type="hidden" name="busId" id="bus-id-field" />
+            <input type="hidden" name="driverUserId" />
             <section class="tm-modal-sect">
               <h4>Basic Information</h4>
               <div class="tm-form-grid">
@@ -1448,20 +1410,9 @@
                 <div class="tm-row"><label>Bus Name</label><input name="busName" placeholder="North Route Bus" /></div>
                 <div class="tm-row"><label>Vehicle Registration / License Plate</label><input name="licensePlate" placeholder="GT-1234-25" /></div>
                 <div class="tm-row"><label>Capacity</label><input name="capacity" type="number" min="1" /></div>
-                <div class="tm-row">
-                  <label>Assigned Driver</label>
-                  <select name="driverUserId">
-                    <option value="">Unassigned</option>
-                    <% (driverUsers || []).forEach(function(driverUser) { %>
-                      <option value="<%= driverUser.user_id %>"><%= [driverUser.first_name, driverUser.last_name].filter(Boolean).join(' ') %></option>
-                    <% }) %>
-                  </select>
-                  <% if (!(driverUsers || []).length) { %>
-                    <span class="tm-map-note">No Driver-role employees yet — add one via Manage Employees.</span>
-                  <% } %>
-                </div>
                 <div class="tm-row"><label>Status</label><select name="status"><option value="active">Active</option><option value="in_service">In Service</option><option value="maintenance">Maintenance</option><option value="out_of_service">Out of Service</option></select></div>
               </div>
+              <p class="tm-map-note">Driver assignments are managed from the Drivers tab.</p>
             </section>
 
             <section class="tm-modal-sect">
@@ -1477,8 +1428,9 @@
               </div>
             </section>
 
-            <div class="tm-toolbar" style="margin-top:10px;">
-              <span id="add-bus-feedback" class="tm-map-note"></span>
+            <div class="tm-modal-foot">
+              <button type="button" class="tm-btn tm-btn--danger" data-modal-delete="bus" hidden>Delete bus</button>
+              <span id="add-bus-feedback" class="tm-map-note" role="status"></span>
               <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-bus">Save Bus</button>
             </div>
           </form>
@@ -1487,10 +1439,8 @@
     </section>
 
     <section class="tm-pane" data-pane-id="schedule">
-      <div class="tm-head tm-head--split">
-        <h2>Schedule</h2>
-        <button class="tm-btn tm-btn--primary" type="button" id="open-add-schedule-modal">+ Add Schedule</button>
-      </div>
+      <div class="tm-head"><h2>Schedule</h2></div>
+      <p class="tm-map-note" style="margin-top:-4px;">Weekly days come from each driver’s form. Tap a day below to change just that day.</p>
 
       <div class="tm-grid">
         <article class="tm-card span-12">
@@ -1530,7 +1480,7 @@
             });
           %>
           <% if (!sortedTimeKeys.length) { %>
-            <p class="tm-map-note">No schedules yet — add one to see it here.</p>
+            <p class="tm-map-note">No driver schedules have been configured yet.</p>
           <% } %>
           <% sortedTimeKeys.forEach(function(timeKey) { %>
             <% const group = timeGroups[timeKey]; const busKeys = Object.keys(group.buses); %>
@@ -1577,7 +1527,7 @@
       <div class="tm-modal" id="add-schedule-modal" aria-hidden="true">
         <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-schedule-title">
           <div class="tm-modal-head">
-            <h3 class="tm-modal-title" id="add-schedule-title">Add Schedule</h3>
+            <h3 class="tm-modal-title" id="add-schedule-title">Edit Schedule</h3>
             <button class="tm-btn" type="button" id="close-add-schedule-modal">Close</button>
           </div>
 
@@ -1700,8 +1650,9 @@
               </div>
             </section>
 
-            <div class="tm-toolbar" style="margin-top:10px;">
-              <span id="edit-route-feedback" class="tm-map-note"></span>
+            <div class="tm-modal-foot">
+              <button type="button" class="tm-btn tm-btn--danger" data-modal-delete="route" hidden>Delete route</button>
+              <span id="edit-route-feedback" class="tm-map-note" role="status"></span>
               <button class="tm-btn tm-btn--primary" type="submit" id="submit-edit-route">Save Changes</button>
             </div>
           </form>
@@ -1732,8 +1683,9 @@
               <div id="edit-stop-picker-map" class="tm-stop-picker-map"></div>
             </section>
 
-            <div class="tm-toolbar" style="margin-top:10px;">
-              <span id="edit-stop-feedback" class="tm-map-note"></span>
+            <div class="tm-modal-foot">
+              <button type="button" class="tm-btn tm-btn--danger" data-modal-delete="stop" hidden>Delete stop</button>
+              <span id="edit-stop-feedback" class="tm-map-note" role="status"></span>
               <button class="tm-btn tm-btn--primary" type="submit" id="submit-edit-stop">Save Changes</button>
             </div>
           </form>
@@ -1882,7 +1834,7 @@
       });
     }
 
-    const routes = <%- JSON.stringify((routes || []).map((route) => ({
+    const routes = <%- safeJson((routes || []).map((route) => ({
       routeId: Number(route.route_id),
       routeName: route.route_name || 'Route',
       useSchoolDestination: Boolean(route.use_school_destination),
@@ -1891,7 +1843,7 @@
       destinationLongitude: route.destination_longitude !== null && route.destination_longitude !== undefined ? Number(route.destination_longitude) : null,
     }))) %>;
 
-    const stops = <%- JSON.stringify((stops || []).map((stop) => ({
+    const stops = <%- safeJson((stops || []).map((stop) => ({
       stopId: Number(stop.stop_id),
       routeId: Number(stop.route_id),
       stopName: stop.stop_name || '',
@@ -1901,7 +1853,7 @@
       stopOrder: stop.stop_order !== null && stop.stop_order !== undefined ? Number(stop.stop_order) : 0,
     }))) %>;
 
-    const busesForMap = <%- JSON.stringify((buses || []).map((bus) => ({
+    const busesForMap = <%- safeJson((buses || []).map((bus) => ({
       busId: Number(bus.bus_id),
       busNumber: bus.bus_number || '',
       busName: bus.bus_name || '',
@@ -1910,9 +1862,9 @@
       driverName: [bus.first_name, bus.last_name].filter(Boolean).join(' ') || null,
     }))) %>;
 
-    // Every bus now has exactly one assigned driver (set in the Buses pane),
-    // so the Schedule form doesn't need its own separate driver picker.
-    const scheduleDriverByBusId = <%- JSON.stringify((buses || []).reduce(function(map, bus) {
+    // Driver assignments are managed in the Drivers pane; schedules inherit
+    // the selected bus's current driver.
+    const scheduleDriverByBusId = <%- safeJson((buses || []).reduce(function(map, bus) {
       if (!bus.driver_user_id) return map;
       const matchedDriver = (drivers || []).find(function(d) { return Number(d.user_id) === Number(bus.driver_user_id); });
       if (matchedDriver) {
@@ -1924,11 +1876,11 @@
       return map;
     }, {})) %>;
 
-    const scheduleRouteUsage = <%- JSON.stringify((schedules || []).map(function(s) {
+    const scheduleRouteUsage = <%- safeJson((schedules || []).map(function(s) {
       return { busId: s.bus_id, routeId: s.route_id, busNumber: s.bus_number || '' };
     })) %>;
 
-    const schedulesForMap = <%- JSON.stringify((schedules || []).map((schedule) => ({
+    const schedulesForMap = <%- safeJson((schedules || []).map((schedule) => ({
       scheduleId: Number(schedule.schedule_id),
       busId: schedule.bus_id !== null && schedule.bus_id !== undefined ? Number(schedule.bus_id) : null,
       routeId: schedule.route_id !== null && schedule.route_id !== undefined ? Number(schedule.route_id) : null,
@@ -1945,15 +1897,18 @@
     const fitStopsBtn = document.getElementById('tm-fit-stops');
     const routeFilterSelect = document.getElementById('tm-route-filter');
     const mapEl = document.getElementById('tm-route-map');
+    const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[character]));
 
     if (!window.L || !mapEl || !mapStatus || !cityInput || !centerCityBtn || !fitStopsBtn) return;
 
     const routeNameById = Object.fromEntries(routes.map((r) => [r.routeId, r.routeName]));
     const routeMetaById = Object.fromEntries(routes.map((r) => [r.routeId, r]));
     const schoolDestination = {
-      address: <%- JSON.stringify(schoolAddress || '') %>,
-      latitude: <%- JSON.stringify(schoolLatitude !== null && schoolLatitude !== undefined ? Number(schoolLatitude) : null) %>,
-      longitude: <%- JSON.stringify(schoolLongitude !== null && schoolLongitude !== undefined ? Number(schoolLongitude) : null) %>,
+      address: <%- safeJson(schoolAddress || '') %>,
+      latitude: <%- safeJson(schoolLatitude !== null && schoolLatitude !== undefined ? Number(schoolLatitude) : null) %>,
+      longitude: <%- safeJson(schoolLongitude !== null && schoolLongitude !== undefined ? Number(schoolLongitude) : null) %>,
     };
     const US_DEFAULT_CENTER = [39.8283, -98.5795];
     const mapDefaultCenter = (Number.isFinite(schoolDestination.latitude) && Number.isFinite(schoolDestination.longitude))
@@ -2126,16 +2081,13 @@
     const busById = Object.fromEntries(busesForMap.map((bus) => [bus.busId, bus]));
 
     function buildBusPopup(schedule, bus, routeName) {
-      const parts = [];
-      parts.push(`<strong>${bus && bus.busNumber ? bus.busNumber : 'Bus'}</strong>`);
-      if (bus && bus.busName) parts.push(`Name: ${bus.busName}`);
-      if (routeName) parts.push(`Route: ${routeName}`);
-      // Always read the driver off the bus's current assignment, not the
-      // schedule row snapshot, so a reassigned/removed driver never lingers.
-      parts.push(`Driver: ${bus && bus.driverName ? bus.driverName : 'Unassigned'}`);
-      if (schedule && schedule.dayOfWeek) parts.push(`Day: ${schedule.dayOfWeek}`);
+      const parts = ['<strong>' + esc(bus && bus.busNumber ? bus.busNumber : 'Bus') + '</strong>'];
+      if (bus && bus.busName) parts.push('Name: ' + esc(bus.busName));
+      if (routeName) parts.push('Route: ' + esc(routeName));
+      parts.push('Driver: ' + esc(bus && bus.driverName ? bus.driverName : 'Unassigned'));
+      if (schedule && schedule.dayOfWeek) parts.push('Day: ' + esc(schedule.dayOfWeek));
       if (schedule && (schedule.startTime || schedule.endTime)) {
-        parts.push(`Time: ${schedule.startTime || '-'} - ${schedule.endTime || '-'}`);
+        parts.push('Time: ' + esc(schedule.startTime || '-') + ' - ' + esc(schedule.endTime || '-'));
       }
       return parts.join('<br/>');
     }
@@ -2153,7 +2105,6 @@
     const addDriverFeedback = document.getElementById('add-driver-feedback');
     const submitAddDriverBtn = document.getElementById('submit-add-driver');
     const addScheduleModal = document.getElementById('add-schedule-modal');
-    const openAddScheduleModalBtn = document.getElementById('open-add-schedule-modal');
     const closeAddScheduleModalBtn = document.getElementById('close-add-schedule-modal');
     const addScheduleForm = document.getElementById('add-schedule-form');
     const addScheduleFeedback = document.getElementById('add-schedule-feedback');
@@ -2344,29 +2295,11 @@
       window.location.reload();
     }
 
-    function closeAllActionMenus() {
-      document.querySelectorAll('[data-actions].open').forEach((el) => el.classList.remove('open'));
-    }
-
     document.addEventListener('click', (event) => {
-      const kebab = event.target.closest('.tm-kebab');
-      if (kebab) {
-        const root = kebab.closest('[data-actions]');
-        if (!root) return;
-        const willOpen = !root.classList.contains('open');
-        closeAllActionMenus();
-        if (willOpen) root.classList.add('open');
-        return;
-      }
-
       const actionBtn = event.target.closest('.tm-actions-item');
-      if (!actionBtn) {
-        closeAllActionMenus();
-        return;
-      }
+      if (!actionBtn) return;
 
       const action = actionBtn.dataset.action;
-      closeAllActionMenus();
 
       if (action === 'edit-bus') {
         if (addBusForm) addBusForm.reset();
@@ -2389,14 +2322,6 @@
           addBusForm.elements.odometer.value = actionBtn.dataset.odometer || '';
         }
         openBusModal();
-        return;
-      }
-
-      if (action === 'delete-bus') {
-        const busId = actionBtn.dataset.busId;
-        const busNumber = actionBtn.dataset.busNumber || 'bus';
-        deleteWithConfirm(`/transportation/manage/buses/${encodeURIComponent(busId)}/delete`, `bus ${busNumber}`)
-          .catch((error) => window.alert(error.message || 'Unable to delete bus.'));
         return;
       }
 
@@ -2430,14 +2355,6 @@
         const addDriverNote = document.getElementById('add-driver-note');
         if (addDriverNote) addDriverNote.style.display = 'none';
         openDriverModal();
-        return;
-      }
-
-      if (action === 'delete-driver') {
-        const userId = actionBtn.dataset.userId;
-        const driverName = actionBtn.dataset.driverName || 'driver';
-        deleteWithConfirm(`/transportation/manage/drivers/${encodeURIComponent(userId)}/delete`, `driver ${driverName} from transportation`)
-          .catch((error) => window.alert(error.message || 'Unable to remove driver.'));
         return;
       }
 
@@ -2539,14 +2456,6 @@
         return;
       }
 
-      if (action === 'delete-route') {
-        const routeId = actionBtn.dataset.routeId;
-        const routeName = actionBtn.dataset.routeName || 'route';
-        deleteWithConfirm(`/transportation/manage/routes/${encodeURIComponent(routeId)}/delete`, `route ${routeName}`)
-          .catch((error) => window.alert(error.message || 'Unable to delete route.'));
-        return;
-      }
-
       if (action === 'edit-stop') {
         if (!editStopForm) return;
         editStopForm.reset();
@@ -2565,12 +2474,6 @@
         return;
       }
 
-      if (action === 'delete-stop') {
-        const stopId = actionBtn.dataset.stopId;
-        const stopName = actionBtn.dataset.stopName || 'stop';
-        deleteWithConfirm(`/transportation/manage/stops/${encodeURIComponent(stopId)}/delete`, `stop ${stopName}`)
-          .catch((error) => window.alert(error.message || 'Unable to delete stop.'));
-      }
     });
 
     function closeBusModal() {
@@ -2875,21 +2778,6 @@
       addScheduleModal.setAttribute('aria-hidden', 'false');
     }
 
-    if (openAddScheduleModalBtn) {
-      openAddScheduleModalBtn.addEventListener('click', () => {
-        if (addScheduleForm) addScheduleForm.reset();
-        if (scheduleIdField) scheduleIdField.value = '';
-        if (addScheduleTitle) addScheduleTitle.textContent = 'Add Schedule';
-        if (submitAddScheduleBtn) submitAddScheduleBtn.textContent = 'Save Schedule';
-        if (addScheduleFeedback) addScheduleFeedback.textContent = '';
-        const scheduleStatusRow = document.getElementById('schedule-status-row');
-        if (scheduleStatusRow) scheduleStatusRow.style.display = 'none';
-        updateScheduleDriverDisplay();
-        checkScheduleRouteWarning();
-        openScheduleModal();
-      });
-    }
-
     // A bus now has exactly one assigned driver — picking a bus fills the
     // driver in automatically instead of asking for it separately.
     function updateScheduleDriverDisplay() {
@@ -2965,14 +2853,12 @@
         try {
           const formData = new FormData(addScheduleForm);
           const scheduleId = String(scheduleIdField && scheduleIdField.value ? scheduleIdField.value : '').trim();
-          const url = scheduleId
-            ? `/transportation/manage/schedules/${encodeURIComponent(scheduleId)}/update`
-            : '/transportation/manage/schedules';
-          await postForm(url, formData, {
-            defaultError: scheduleId ? 'Unable to update schedule.' : 'Unable to save schedule.',
+          if (!scheduleId) throw new Error('Select an existing schedule to edit.');
+          await postForm(`/transportation/manage/schedules/${encodeURIComponent(scheduleId)}/update`, formData, {
+            defaultError: 'Unable to update schedule.',
           });
 
-          if (addScheduleFeedback) addScheduleFeedback.textContent = scheduleId ? 'Schedule updated. Refreshing list...' : 'Schedule saved. Refreshing list...';
+          if (addScheduleFeedback) addScheduleFeedback.textContent = 'Schedule updated. Refreshing list...';
           window.location.reload();
         } catch (error) {
           if (addScheduleFeedback) addScheduleFeedback.textContent = error.message || 'Unable to save schedule.';
@@ -3188,7 +3074,7 @@
 
         schoolMarker.bindPopup(
           '<strong>School Hub</strong>' +
-          '<br/>Address: ' + (schoolDestination.address || '-')
+          '<br/>Address: ' + esc(schoolDestination.address || '-')
         );
         schoolMarker.addTo(mapLayer);
         points.push([schoolLat, schoolLng]);
@@ -3206,11 +3092,11 @@
         // Stops are markers, so they always sit above the route lines.
         const marker = L.marker(latlng, { icon: window.ManagiraMaps.stopPin(routeColor), zIndexOffset: 200 });
 
-        marker.bindTooltip(stop.stopName || 'Stop', { direction: 'top', offset: [0, -stopIconSize / 2], sticky: true });
+        marker.bindTooltip(esc(stop.stopName || 'Stop'), { direction: 'top', offset: [0, -stopIconSize / 2], sticky: true });
         marker.bindPopup(
-          '<strong>' + (stop.stopName || 'Stop') + '</strong>' +
-          '<br/>Route: ' + (routeNameById[stop.routeId] || ('#' + String(stop.routeId || ''))) +
-          '<br/>Address: ' + (stop.stopAddress || '-')
+          '<strong>' + esc(stop.stopName || 'Stop') + '</strong>' +
+          '<br/>Route: ' + esc(routeNameById[stop.routeId] || ('#' + String(stop.routeId || ''))) +
+          '<br/>Address: ' + esc(stop.stopAddress || '-')
         );
 
         marker.addTo(mapLayer);
@@ -3298,8 +3184,8 @@
                 })
                   .bindPopup(
                     '<strong>Route Destination</strong>' +
-                    '<br/>Route: ' + (routeNameById[numericRouteId] || ('#' + String(numericRouteId))) +
-                    '<br/>Address: ' + destinationAddress
+                    '<br/>Route: ' + esc(routeNameById[numericRouteId] || ('#' + String(numericRouteId))) +
+                    '<br/>Address: ' + esc(destinationAddress)
                   )
                   .addTo(mapLayer);
               })()
@@ -3551,6 +3437,82 @@
         }, 120);
       });
     });
+  })();
+</script>
+<script>
+  (function () {
+    const targets = {
+      driver: { field: 'driver-user-id-field', path: 'drivers', question: 'Remove this driver from transportation? Their bus and weekly days are cleared. Their login stays in Manage Employees.' },
+      bus: { field: 'bus-id-field', path: 'buses', question: 'Delete this bus? This cannot be undone.' },
+      route: { field: 'edit-route-id', path: 'routes', question: 'Delete this route? Its stops stay in the stop list.' },
+      stop: { field: 'edit-stop-id', path: 'stops', question: 'Delete this stop? This cannot be undone.' },
+    };
+
+    function syncDeleteButtons() {
+      document.querySelectorAll('[data-modal-delete]').forEach((button) => {
+        const target = targets[button.dataset.modalDelete];
+        const field = target && document.getElementById(target.field);
+        button.hidden = !(field && field.value);
+        button.disabled = false;
+      });
+    }
+
+    document.addEventListener('click', (event) => {
+      const deleteButton = event.target.closest('[data-modal-delete]');
+      if (deleteButton) {
+        const target = targets[deleteButton.dataset.modalDelete];
+        const field = target && document.getElementById(target.field);
+        if (!target || !field || !field.value || !window.confirm(target.question)) return;
+
+        deleteButton.disabled = true;
+        fetch(`/transportation/manage/${target.path}/${encodeURIComponent(field.value)}/delete`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        }).then(async (response) => {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.message || 'Unable to delete this item. Please try again.');
+          }
+          window.location.reload();
+        }).catch((error) => {
+          deleteButton.disabled = false;
+          window.alert(error.message);
+        });
+        return;
+      }
+
+      if (event.target.closest('[data-action^="edit-"], [id^="open-add-"], [data-tm-click]')) {
+        window.setTimeout(syncDeleteButtons, 90);
+      }
+    });
+
+    document.addEventListener('submit', (event) => {
+      const form = event.target;
+      if (!form || form.id !== 'add-driver-form') return;
+      const hasDays = form.querySelector('input[name="scheduleDays"]:checked');
+      const message = hasDays && !form.elements.assignedBusId.value
+        ? 'Pick a bus for this driver’s weekly days.'
+        : hasDays && !form.elements.assignedRouteId.value
+          ? 'Pick a route for this driver’s weekly days.'
+          : '';
+      if (!message) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const feedback = document.getElementById('add-driver-feedback');
+      if (feedback) feedback.textContent = message;
+    }, true);
+
+    const scheduleUsage = <%- safeJson((schedules || []).map(function (schedule) { return [schedule.bus_id, schedule.route_id]; })) %>;
+    const busSelect = document.getElementById('driver-bus-select');
+    const routeSelect = document.getElementById('driver-route-select');
+    if (busSelect && routeSelect) {
+      busSelect.addEventListener('change', () => {
+        if (routeSelect.value) return;
+        const schedule = scheduleUsage.find((entry) => String(entry[0]) === busSelect.value && entry[1]);
+        if (schedule) routeSelect.value = String(schedule[1]);
+      });
+    }
   })();
 </script>
 <script src="<%= assetUrl('/js/guardianBroadcast.js') %>"></script>

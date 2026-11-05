@@ -1,1356 +1,638 @@
 <%- include('../partials/flash') %>
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<%
+  var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
+  var navApps = [{ key: 'google', label: 'Google Maps' }, { key: 'apple', label: 'Apple Maps' }];
+  if (navIntegration.wazeNavActivated || navIntegration.googleMapsNavActivated) navApps.push({ key: 'waze', label: 'Waze' });
+  var routeList = assignedRoutes || [];
+  var activeRouteId = activeTrip && activeTrip.route_id ? String(activeTrip.route_id) : '';
+  function safeJson(v) { return JSON.stringify(v === undefined ? null : v).replace(/</g, '\\u003c'); }
+%>
 <style>
-  .drv-page {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 20px 16px 60px;
-    display: grid;
-    gap: 20px;
-  }
+  .drv { --drv-accent: var(--org-primary-color, #01535b); --drv-line: #e3e8ef; --drv-text: #0f172a; --drv-muted: #5b6b7f; --drv-blue: #1a73e8;
+    max-width: 1280px; margin: 0 auto; padding: 16px 16px 76px; color: var(--drv-text); text-align: left; }
+  .drv *, .drv *::before, .drv *::after { box-sizing: border-box; }
+  .drv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .drv-top h1 { margin: 0; font-size: 1.25rem; font-weight: 700; line-height: 1.3; }
+  .drv-busline { margin: 2px 0 0; color: var(--drv-muted); font-size: .9rem; }
+  .drv-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--drv-line); border-radius: 999px; background: #fff; font-size: .85rem; font-weight: 600; white-space: nowrap; }
+  .drv-pill i { width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; }
+  .drv-pill[data-state="live"] i { background: #12a150; }
+  .drv-pill[data-state="weak"] i { background: #c27803; }
+  .drv-pill[data-state="off"] i { background: #d92d20; }
 
-  .drv-hero {
-    background: linear-gradient(135deg, var(--org-primary-color, #01535b) 0%, var(--org-primary-hover, #014a51) 100%);
-    color: #fff;
-    border-radius: 14px;
-    padding: 22px 26px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
+  .drv-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  .drv-mapwrap { position: relative; height: min(70vh, 680px); border: 1px solid var(--drv-line); border-radius: 16px; overflow: hidden; background: #e9eef3; }
+  #drv-map { position: absolute; inset: 0; z-index: 0; }
+  .drv-map-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; padding: 24px; color: var(--drv-muted); text-align: center; }
+  .drv-mapwrap .leaflet-control-attribution { font-size: 10px; background: rgba(255,255,255,.8); }
+  .drv-mapwrap .leaflet-bar { border: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 6px 20px rgba(15,23,42,.14); }
+  .drv-mapwrap .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 20px; color: #344054; }
 
-  .drv-hero h1 {
-    margin: 0 0 4px;
-    font-size: 1.4rem;
-    font-weight: 700;
-  }
+  .drv-next { position: absolute; z-index: 600; top: 12px; left: 12px; right: 12px; max-width: 440px; display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #fff; border-radius: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 6px 20px rgba(15,23,42,.14); }
+  .drv-next[hidden] { display: none; }
+  .drv-next-text { flex: 1; min-width: 0; }
+  .drv-next small { display: block; font-size: .78rem; font-weight: 600; color: var(--drv-muted); }
+  .drv-next strong { display: block; font-size: 1.02rem; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drv-next-dist { text-align: right; font-variant-numeric: tabular-nums; }
+  .drv-next-dist strong { font-size: 1.2rem; }
 
-  .drv-hero p {
-    margin: 0;
-    opacity: 0.92;
-    font-size: 0.9rem;
-  }
+  .drv .drv-recenter { position: absolute; z-index: 600; left: 50%; bottom: 20px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; width: auto !important; margin: 0 !important; padding: 12px 18px !important; border: 0; border-radius: 999px; background: #fff; color: var(--drv-blue); font: 700 .92rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 6px 20px rgba(15,23,42,.18); }
+  .drv .drv-recenter[hidden] { display: none; }
 
-  .drv-status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.16);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 999px;
-    padding: 8px 16px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
+  .drv-side { display: grid; gap: 16px; }
+  .drv-card { background: #fff; border: 1px solid var(--drv-line); border-radius: 16px; padding: 18px; }
+  .drv-empty { margin: 0; color: var(--drv-muted); font-size: .95rem; }
+  .drv-label { display: block; margin: 0 0 6px; font-size: .85rem; font-weight: 600; color: var(--drv-muted); }
+  .drv-select { width: 100%; min-height: 48px; margin: 0 0 12px; padding: 0 12px; border: 1px solid #cfd8e3; border-radius: 12px; background: #fff; color: var(--drv-text); font-size: 16px; }
+  .drv .drv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100% !important; min-height: 52px; margin: 0 !important; padding: 0 16px !important; border: 0; border-radius: 12px; font: 700 1rem/1 system-ui, sans-serif; cursor: pointer; }
+  .drv .drv-btn:disabled { opacity: .6; cursor: progress; }
+  .drv .drv-btn--go { background: var(--drv-accent); color: #fff; }
+  .drv .drv-btn--stop { background: #fdecea; color: #b42318; }
+  .drv .drv-btn--quiet { background: #eef4ff; color: var(--drv-blue); }
+  .drv .drv-btn:focus-visible, .drv .drv-navopt:focus-visible, .drv .drv-recenter:focus-visible { outline: 2px solid var(--drv-blue); outline-offset: 2px; }
+  .drv-route-name { margin: 0 0 4px; font-size: .85rem; font-weight: 600; color: var(--drv-muted); }
+  .drv-eta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 14px; }
+  .drv-eta strong { font-size: 1.6rem; font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .drv-eta span { font-size: .92rem; color: #475467; }
+  .drv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .drv-navmenu { display: grid; gap: 4px; margin-top: 10px; padding: 6px; border: 1px solid var(--drv-line); border-radius: 12px; }
+  .drv-navmenu[hidden] { display: none; }
+  .drv .drv-navopt { width: 100% !important; margin: 0 !important; padding: 12px !important; border: 0; border-radius: 8px; background: transparent; color: var(--drv-text); font: 600 .95rem/1.2 system-ui, sans-serif; text-align: left; cursor: pointer; }
+  .drv .drv-navopt:hover { background: #f4f6f9; }
+  .drv-navmenu p, .drv-hint { margin: 6px 6px 2px; font-size: .8rem; color: var(--drv-muted); }
+  .drv-hint { margin: 12px 0 0; }
+  .drv-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #fef3f2; color: #b42318; font-size: .88rem; }
+  .drv-note[hidden] { display: none; }
 
-  .drv-status-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #94a3b8;
-  }
+  .drv-students > summary { display: flex; align-items: center; justify-content: space-between; list-style: none; cursor: pointer; font-weight: 700; }
+  .drv-students > summary::-webkit-details-marker { display: none; }
+  .drv-students > summary::after { content: ''; width: 8px; height: 8px; border-right: 2px solid var(--drv-muted); border-bottom: 2px solid var(--drv-muted); transform: rotate(45deg); transition: transform .15s; }
+  .drv-students[open] > summary::after { transform: rotate(-135deg); }
+  .drv-count { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #f1f4f8; color: #344054; font-size: .8rem; }
+  .drv-studentlist { list-style: none; margin: 12px 0 0; padding: 0; max-height: 360px; overflow-y: auto; }
+  .drv-studentlist li { padding: 10px 0; border-top: 1px solid #eef1f5; }
+  .drv-studentlist strong { display: block; font-size: .95rem; }
+  .drv-studentlist span { font-size: .84rem; color: var(--drv-muted); }
 
-  .drv-status-dot.is-moving { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25); }
-  .drv-status-dot.is-stopped { background: #f59e0b; }
-
-  .drv-grid {
-    display: grid;
-    grid-template-columns: minmax(300px, 400px) 1fr;
-    gap: 20px;
-    align-items: start;
-  }
+  .drv-stop { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2.5px solid var(--drv-accent); color: var(--drv-accent); font: 700 11px/1 system-ui, sans-serif; box-shadow: 0 2px 6px rgba(15,23,42,.25); }
+  .drv-stop.is-done { width: 14px; height: 14px; border: 2px solid #fff; background: #b8c2cf; }
+  .drv-school { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--drv-accent); color: #fff; border: 2.5px solid #fff; box-shadow: 0 2px 8px rgba(15,23,42,.3); }
+  .drv-me { width: 22px; height: 22px; border-radius: 50%; background: var(--drv-blue); border: 4px solid #fff; box-shadow: 0 0 0 1px rgba(26,115,232,.3), 0 2px 6px rgba(15,23,42,.35); }
+  .drv-me.is-stale { background: #98a2b3; }
 
   @media (max-width: 960px) {
-    .drv-grid { grid-template-columns: 1fr; }
+    .drv { padding: 0 0 60px; }
+    .drv-top { margin: 0; padding: 12px 16px; background: #fff; border-bottom: 1px solid var(--drv-line); }
+    .drv-layout { grid-template-columns: 1fr; gap: 0; }
+    .drv-mapwrap { height: 56vh; border: 0; border-radius: 0; }
+    .drv.is-driving .drv-mapwrap { height: 66vh; }
+    .drv-side { position: relative; z-index: 2; margin-top: -18px; gap: 0; padding: 10px 16px 16px; background: #fff; border-radius: 18px 18px 0 0; box-shadow: 0 -6px 24px rgba(15,23,42,.1); }
+    .drv-side::before { content: ''; display: block; width: 36px; height: 5px; margin: 0 auto 12px; border-radius: 999px; background: #d0d7e2; }
+    .drv-card { border: 0; border-radius: 0; padding: 0; }
+    .drv-students { margin-top: 16px; padding-top: 14px; border-top: 1px solid #eef1f5; }
+    .drv.is-driving .drv-students { display: none; }
+    .drv-mapwrap .leaflet-control-zoom { display: none; }
   }
-
-  .drv-card {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-  }
-
-  .drv-card h2 {
-    margin: 0 0 14px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #1e293b;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .drv-field { margin-bottom: 14px; }
-
-  .drv-field label {
-    display: block;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 6px;
-  }
-
-  .drv-field select,
-  .drv-field input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    box-sizing: border-box;
-  }
-
-  .drv-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: auto;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 0.84rem;
-    font-weight: 700;
-    border: none;
-    cursor: pointer;
-    transition: opacity 0.15s ease;
-  }
-
-  .drv-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-  .drv-btn--start { background: var(--org-primary-color, #01535b); color: #fff; }
-  .drv-btn--end { background: #b91c1c; color: #fff; }
-
-  .drv-note { font-size: 0.8rem; color: #64748b; margin: 10px 0 0; }
-
-  .drv-empty {
-    padding: 16px;
-    border: 1.5px dashed #e2e8f0;
-    border-radius: 10px;
-    color: #64748b;
-    font-size: 0.85rem;
-    text-align: center;
-  }
-
-  .drv-map-wrap {
-    position: relative;
-  }
-
-  .drv-locate-btn {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    font-size: 17px;
-    line-height: 1;
-    background: #fff;
-    text-decoration: none;
-  }
-
-  
-
-  .drv-locate-btn.is-locating {
-    color: var(--org-primary-color, #2563eb);
-    animation: drv-locate-pulse 1s ease-in-out infinite;
-  }
-
-  @keyframes drv-locate-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
-  }
-
-  .drv-my-location-dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 999px;
-    background: #2563eb;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4), 0 2px 6px rgba(15, 23, 42, 0.3);
-  }
-
-  .drv-map-maximize {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 600;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #1e293b;
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
-  }
-
-  /* Hand-off to the driver's preferred turn-by-turn app. */
-  .drv-nav-launch {
-    position: absolute;
-    right: 12px;
-    bottom: 58px;
-    z-index: 600;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-  }
-
-  .drv-nav-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border: none;
-    border-radius: 999px;
-    background: var(--org-primary-color, #01535b);
-    color: #fff;
-    font-size: 0.85rem;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
-  }
-
-  .drv-nav-menu {
-    display: grid;
-    gap: 2px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 6px;
-    min-width: 160px;
-    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
-  }
-
-  .drv-nav-menu[hidden] { display: none; }
-
-  .drv-nav-option {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 10px 12px;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #1e293b;
-    cursor: pointer;
-  }
-
-  
-
-  /* Leaflet chrome tuned to feel native and touch-friendly. */
-  .drv-map-wrap .leaflet-bar a,
-  .drv-map-wrap .leaflet-control-zoom a {
-    width: 36px;
-    height: 36px;
-    line-height: 36px;
-    font-size: 18px;
-    color: #1e293b;
-    border-bottom-color: #e2e8f0;
-  }
-
-  .drv-map-wrap .leaflet-bar {
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
-  }
-
-  .drv-map-wrap .leaflet-control-attribution {
-    font-size: 10px;
-    background: rgba(255, 255, 255, 0.8);
-  }
-
-  .drv-map-wrap.is-fullscreen {
-    position: fixed;
-    top: var(--header-height, 64px);
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 900;
-    background: #fff;
-    padding: 10px;
-    box-sizing: border-box;
-  }
-
-  .drv-map-wrap.is-fullscreen #drv-map {
-    height: 100% !important;
-  }
-
-  #drv-map {
-    width: 100%;
-    height: 380px;
-    border-radius: 12px;
-    background: #f1f5f9;
-  }
-
-  /* Floats directly on the map (top-left, clear of the maximize button and
-     the Next Stop card which both live top-right/above) instead of sitting
-     in its own row below — same overlay treatment as the other map chrome. */
-  .drv-map-legend {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 600;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    max-width: calc(100% - 60px);
-    font-size: 0.7rem;
-    color: #475569;
-  }
-
-  .drv-map-legend span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    padding: 3px 9px 3px 7px;
-  }
-  .drv-legend-emoji { font-size: 0.85rem; line-height: 1; }
-
-  .drv-next-stop {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
-    border: 1.5px solid #fcd34d;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-  }
-
-  .drv-next-stop-label { font-size: 0.75rem; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.03em; }
-  .drv-next-stop-name { font-size: 1rem; font-weight: 700; color: #1e293b; margin-top: 2px; }
-  .drv-next-stop-distance { font-size: 1.3rem; font-weight: 800; color: #b45309; white-space: nowrap; text-align: right; }
-  .drv-next-stop-eta { font-size: 0.78rem; font-weight: 700; color: #92622a; white-space: nowrap; text-align: right; margin-top: 2px; }
-
-  .drv-route-eta {
-    display: none;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
-    margin-top: 10px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: #f0fdfa;
-    border: 1.5px solid #99f6e4;
-    font-size: 0.72rem;
-    color: #0f766e;
-    width: fit-content;
-  }
-  .drv-route-eta strong { font-size: 0.8rem; }
-  /* On the map, clear of the locate button (bottom-left) and the Go button (right). */
-  .drv-map-wrap .drv-route-eta { position: absolute; left: 62px !important; right: auto !important; bottom: 14px !important; z-index: 500; margin: 0; background: #fff; box-shadow: 0 2px 10px rgba(15, 23, 42, .18); }
-
-  .drv-info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    font-size: 0.85rem;
-  }
-
-  .drv-info-item { color: #64748b; }
-  .drv-info-item strong { display: block; color: #1e293b; font-size: 0.92rem; }
-
-  .drv-student-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 10px;
-    max-height: 420px;
-    overflow-y: auto;
-  }
-
-  .drv-student-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1px solid #eef1f4;
-    border-radius: 10px;
-    background: #f8fafc;
-  }
-
-  .drv-student-name { font-weight: 600; color: #1e293b; font-size: 0.9rem; }
-  .drv-student-meta { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
-
-  .drv-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: var(--org-primary-hover-fill, rgba(1, 83, 91, 0.1));
-    color: var(--org-primary-color, #01535b);
-    white-space: nowrap;
-  }
-
-  /* On small screens, the map takes over like a navigation app: it shows
-     first, fills most of the screen, and the key stats (next stop, ETA)
-     float directly on top of it instead of living in separate cards. */
-  @media (max-width: 640px) {
-    .drv-page { padding: 0 0 24px; gap: 12px; }
-    .drv-hero { border-radius: 0; margin: 0 0 4px; padding: 16px; }
-    .drv-grid { gap: 12px; }
-    .drv-map-card {
-      order: -1;
-      padding: 0;
-      border-radius: 0;
-      border-left: none;
-      border-right: none;
-      box-shadow: none;
-    }
-    .drv-map-title { padding: 12px 16px 0; margin: 0 0 8px; }
-    #drv-map {
-      height: 62vh;
-      border-radius: 0;
-    }
-    /* The mobile nav layout already floats the Next Stop card (top) and
-       route ETA (bottom) across the full width of the map — no clear
-       corner left for the legend, so it drops back to a plain row
-       underneath the map here instead of competing for space on it. */
-    .drv-map-legend {
-      position: static;
-      max-width: none;
-      padding: 8px 16px 0;
-    }
-    .drv-next-stop {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      z-index: 500;
-      margin-bottom: 0;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-    }
-    .drv-route-eta {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      right: 12px;
-      z-index: 500;
-      margin-top: 0;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-    }
-    .drv-nav-launch { right: 12px; bottom: 74px; }
-    .drv-nav-btn { padding: 12px 18px; font-size: 0.9rem; }
-    .drv-nav-option { padding: 12px; font-size: 0.9rem; }
-    .drv-map-wrap .leaflet-control-zoom { display: none; }
-    .drv-map-legend { font-size: 0.7rem; gap: 10px; }
-    .drv-page > .drv-grid > div:first-child {
-      order: 1;
-      padding: 0 16px;
-    }
-  }
-  /* Simple driver screen: chips, icon buttons, and a big map while driving. */
-  .drv-chip { display: inline-flex; align-items: center; gap: 4px; margin: 4px 4px 0 0; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-size: 0.85rem; font-weight: 700; }
-  .drv-btn svg { vertical-align: -4px; margin-right: 4px; }
-  .drv-students > summary { list-style: none; cursor: pointer; }
-  .drv-students > summary::-webkit-details-marker { display: none; }
-  .drv-students > summary h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
-  .drv-count { padding: 1px 9px; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: 0.8rem; }
-  .drv-students[open] > summary { margin-bottom: 12px; }
-  #drv-map { height: min(62vh, 620px); }
-  @media (max-width: 960px) { .drv-page.is-driving .drv-grid > .drv-map-card { order: -1; } }
-  .drv-page.is-driving #drv-map { height: min(74vh, 760px); }
-  @media (max-width: 960px) { .drv-page.is-driving .drv-students { display: none; } }
-  .drv-recenter { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 800; display: inline-flex; align-items: center; gap: 6px; width: auto !important; margin: 0; padding: 10px 18px; border: 0; border-radius: 999px; background: #1a73e8; color: #fff; font: 700 14px/1 system-ui, sans-serif; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.3); cursor: pointer; }
-  .drv-recenter[hidden] { display: none; }
 </style>
 
-<div class="drv-page">
-  <div class="drv-hero">
+<div class="drv<%= activeTrip ? ' is-driving' : '' %>">
+  <header class="drv-top">
     <div>
       <h1>Hi, <%= session.firstName || 'Driver' %></h1>
-      <p>
-        <% if (driverBus) { %>
-          <span class="drv-chip">🚌 <%= driverBus.bus_number %></span><% if (driverBus.license_plate) { %> <span class="drv-chip"><%= driverBus.license_plate %></span><% } %><% if (driverBus.capacity) { %> <span class="drv-chip">👥 <%= driverBus.capacity %></span><% } %>
-        <% } else { %>
-          No bus yet. Ask your school to assign one.
-        <% } %>
+      <p class="drv-busline">
+        <% if (driverBus) { %>Bus <%= driverBus.bus_number %><% if (driverBus.license_plate) { %>, <%= driverBus.license_plate %><% } %><% if (driverBus.capacity) { %>, <%= driverBus.capacity %> seats<% } %><% } else { %>No bus assigned yet<% } %>
       </p>
     </div>
-    <div class="drv-status-pill">
-      <span class="drv-status-dot" id="drv-status-dot"></span>
-      <span id="drv-status-text">
-        <% if (!driverBus) { %>Unassigned<% } else if (activeTrip) { %>Trip Active<% } else { %>Not Driving<% } %>
-      </span>
-    </div>
-  </div>
+    <span class="drv-pill" id="drv-pill" data-state="idle"><i aria-hidden="true"></i><span id="drv-pill-text">Not driving</span></span>
+  </header>
 
-  <div class="drv-grid">
-    <div style="display:grid; gap:20px;">
-      <div class="drv-card">
+  <div class="drv-layout">
+    <section aria-label="Route map">
+      <div class="drv-mapwrap">
+        <div id="drv-map"></div>
+        <div class="drv-next" id="drv-next" hidden>
+          <div class="drv-next-text"><small id="drv-next-label">Next stop</small><strong id="drv-next-name"></strong></div>
+          <div class="drv-next-dist"><strong id="drv-next-dist"></strong><small id="drv-next-eta"></small></div>
+        </div>
+        <button type="button" class="drv-recenter" id="drv-recenter" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>
+          Re-center
+        </button>
+      </div>
+    </section>
+
+    <aside class="drv-side">
+      <section class="drv-card" aria-label="Trip">
         <% if (!driverBus) { %>
-          <p class="drv-empty">No bus assigned yet.</p>
-        <% } else if (!(assignedRoutes || []).length) { %>
-          <p class="drv-empty">No route assigned yet.</p>
+          <p class="drv-empty">Your school hasn’t assigned you a bus yet. It will show here once they do.</p>
+        <% } else if (!routeList.length) { %>
+          <p class="drv-empty">Your school hasn’t assigned you a route yet. It will show here once they do.</p>
         <% } else { %>
-          <div class="drv-field" id="drv-route-field" style="<%= activeTrip ? 'display:none;' : '' %>">
-            <label for="drv-route-select">Route</label>
-            <select id="drv-route-select">
-              <% (assignedRoutes || []).forEach(function(route, idx) { %>
-                <option value="<%= route.route_id %>" <%= idx === 0 ? 'selected' : '' %>><%= route.route_name %></option>
+          <div id="drv-idle"<%= activeTrip ? ' hidden' : '' %>>
+            <label class="drv-label" for="drv-route-select">Route</label>
+            <select id="drv-route-select" class="drv-select">
+              <% routeList.forEach(function (route, idx) { %>
+                <option value="<%= route.route_id %>"<%= (activeRouteId ? String(route.route_id) === activeRouteId : idx === 0) ? ' selected' : '' %>><%= route.route_name %></option>
               <% }) %>
             </select>
+            <button type="button" class="drv-btn drv-btn--go" id="drv-start">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              <span>Start trip</span>
+            </button>
           </div>
-
-          <button type="button" class="drv-btn drv-btn--start" id="drv-start-btn" style="<%= activeTrip ? 'display:none;' : '' %>">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg> Start trip
-          </button>
-          <button type="button" class="drv-btn drv-btn--end" id="drv-end-btn" style="<%= activeTrip ? '' : 'display:none;' %>">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> End trip
-          </button>
-
-          <p class="drv-note" id="drv-trip-note" style="display:none;"></p>
+          <div id="drv-active"<%= activeTrip ? '' : ' hidden' %>>
+            <p class="drv-route-name" id="drv-active-route"></p>
+            <div class="drv-eta"><strong id="drv-eta-value">–</strong><span id="drv-eta-label">Waiting for GPS…</span></div>
+            <div class="drv-actions">
+              <button type="button" class="drv-btn drv-btn--quiet" id="drv-nav-btn" aria-expanded="false" aria-controls="drv-nav-menu">Navigate</button>
+              <button type="button" class="drv-btn drv-btn--stop" id="drv-end">End trip</button>
+            </div>
+            <div class="drv-navmenu" id="drv-nav-menu" hidden>
+              <% navApps.forEach(function (app) { %>
+                <button type="button" class="drv-navopt" data-nav-app="<%= app.key %>"><%= app.label %></button>
+              <% }) %>
+              <p>Live sharing pauses while another app is on screen. Come back here when you can.</p>
+            </div>
+            <p class="drv-hint">Keep this screen open while you drive so families can see the bus.</p>
+          </div>
+          <p class="drv-note" id="drv-note" role="alert" hidden></p>
         <% } %>
-      </div>
-
+      </section>
 
       <details class="drv-card drv-students">
-        <summary><h2>Students <span class="drv-count"><%= (students || []).length %></span></h2></summary>
+        <summary><span>Students<span class="drv-count"><%= (students || []).length %></span></span></summary>
         <% if (!(students || []).length) { %>
-          <p class="drv-empty">No students are assigned to your bus or classes yet.</p>
+          <p class="drv-empty" style="margin-top:12px;">No students are assigned to your bus yet.</p>
         <% } else { %>
-          <ul class="drv-student-list">
-            <% students.forEach(function(student) { %>
-              <li class="drv-student-item">
-                <div>
-                  <div class="drv-student-name"><%= [student.first_name, student.last_name].filter(Boolean).join(' ') %></div>
-                  <div class="drv-student-meta">
-                    <%= student.class_name || 'No class' %>
-                    <% if (student.stop_name) { %> · Stop: <%= student.stop_name %><% } else if (student.home_address) { %> · <%= student.home_address %><% } %>
-                  </div>
-                </div>
-                <% if (student.stop_latitude || student.home_latitude) { %>
-                  <span class="drv-badge">On Route</span>
-                <% } %>
+          <ul class="drv-studentlist">
+            <% students.forEach(function (student) { %>
+              <li>
+                <strong><%= [student.first_name, student.last_name].filter(Boolean).join(' ') %></strong>
+                <span><%= student.class_name || 'No class' %><% if (student.stop_name) { %>, stop: <%= student.stop_name %><% } else if (student.home_address) { %>, <%= student.home_address %><% } %></span>
               </li>
             <% }) %>
           </ul>
         <% } %>
       </details>
-    </div>
-
-    <div class="drv-card drv-map-card" id="drv-map-card">
-      <div class="drv-map-wrap" id="drv-map-wrap">
-        <div class="drv-next-stop" id="drv-next-stop-card" style="display:none;">
-          <div>
-            <div class="drv-next-stop-label">Next Stop</div>
-            <div class="drv-next-stop-name" id="drv-next-stop-name">-</div>
-          </div>
-          <div>
-            <div class="drv-next-stop-distance" id="drv-next-stop-distance">-</div>
-            <div class="drv-next-stop-eta" id="drv-next-stop-eta">-</div>
-          </div>
-        </div>
-        <button type="button" class="drv-map-maximize" id="drv-map-maximize" aria-label="Maximize map" title="Maximize map">⛶</button>
-        <div id="drv-map"></div>
-        <%
-          // Google Maps and Apple Maps are always offered; Waze when the school turned it on.
-          var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
-          var navApps = [{ key: 'google', label: 'Google Maps' }, { key: 'apple', label: 'Apple Maps' }];
-          if (navIntegration.googleMapsNavActivated) navApps.push({ key: 'waze', label: 'Waze' });
-        %>
-        <% if (navApps.length) { %>
-          <div class="drv-nav-launch" id="drv-nav-launch">
-            <button type="button" class="drv-nav-btn" id="drv-nav-btn" aria-label="Open the route in a maps app">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>
-              Go
-            </button>
-            <div class="drv-nav-menu" id="drv-nav-menu" hidden>
-              <% navApps.forEach(function (app) { %>
-                <button type="button" class="drv-nav-option" data-nav-app="<%= app.key %>"><%= app.label %></button>
-              <% }) %>
-            </div>
-          </div>
-        <% } %>
-        <div class="drv-route-eta" id="drv-route-eta">
-          <span>🏁</span>
-          <strong id="drv-route-eta-value">-</strong>
-        </div>
-      </div>
-    </div>
+    </aside>
   </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
+<script src="/js/driverLocation.js?v=<%= assetVersion %>"></script>
 <script>
-  (function () {
-    var driverBus = <%- JSON.stringify(driverBus || null) %>;
-    var students = <%- JSON.stringify(students || []) %>;
-    var lastLocation = <%- JSON.stringify(lastLocation || null) %>;
-    var schoolLat = <%- JSON.stringify(schoolLatitude) %>;
-    var schoolLng = <%- JSON.stringify(schoolLongitude) %>;
-    var assignedRoutes = <%- JSON.stringify(assignedRoutes || []) %>;
-    var activeTrip = <%- JSON.stringify(activeTrip || null) %>;
-    var driverPhotoUrl = <%- JSON.stringify(publicImageUrl(driverPhotoUrl || '')) %> || null;
-    var distanceUnit = <%- JSON.stringify(distanceUnit === 'mi' ? 'mi' : 'km') %>;
-    var routeColor = (getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color') || '').trim() || '#01535b';
+(function () {
+  'use strict';
 
-    var activeTripId = activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : null;
-    var locationTimer = null;
-        var roadGeometryRequestId = 0;
+  var driverBus = <%- safeJson(driverBus || null) %>;
+  var students = <%- safeJson(students || []) %>;
+  var lastLocation = <%- safeJson(lastLocation || null) %>;
+  var schoolLat = Number(<%- safeJson(schoolLatitude) %>);
+  var schoolLng = Number(<%- safeJson(schoolLongitude) %>);
+  var routes = <%- safeJson(routeList) %>;
+  var activeTrip = <%- safeJson(activeTrip || null) %>;
+  var unit = <%- safeJson(distanceUnit === 'mi' ? 'mi' : 'km') %>;
 
-    // Road-following geometry from the server (shared ManagiraMaps helper).
-    // Resolves null when no road route is available - nothing is drawn rather
-    // than a straight line through buildings. The live position is rounded
-    // to ~10 m so small GPS jitter reuses the cached route.
-    function fetchRoadGeometry(latlngs) {
-      if (!Array.isArray(latlngs) || latlngs.length < 2 || !window.ManagiraMaps) return Promise.resolve(null);
-      var rounded = latlngs.map(function (p) { return [Math.round(p[0] * 1e4) / 1e4, Math.round(p[1] * 1e4) / 1e4]; });
-      return window.ManagiraMaps.roadPoints(rounded);
+  var BLUE = '#1a73e8';
+  var ARRIVE_M = 60;          // within 60 m of a stop counts as served
+  var PASS_M = 35;
+  var OFF_ROUTE_M = 80;       // further than this from the line: plan again
+  var REROUTE_GAP_MS = 15000;
+  var ROUTE_REFRESH_MS = 60000;
+  var DWELL_S = 30;
+  var RAD = Math.PI / 180;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var ui = {
+    page: document.querySelector('.drv'), pill: $('drv-pill'), pillText: $('drv-pill-text'),
+    routeSelect: $('drv-route-select'), idle: $('drv-idle'), active: $('drv-active'), activeRoute: $('drv-active-route'),
+    start: $('drv-start'), end: $('drv-end'), note: $('drv-note'),
+    next: $('drv-next'), nextLabel: $('drv-next-label'), nextName: $('drv-next-name'), nextDist: $('drv-next-dist'), nextEta: $('drv-next-eta'),
+    etaValue: $('drv-eta-value'), etaLabel: $('drv-eta-label'), recenter: $('drv-recenter'),
+    navBtn: $('drv-nav-btn'), navMenu: $('drv-nav-menu')
+  };
+
+  var st = {
+    map: null, L: null, bus: null, busKey: '', stopLayer: null, ahead: null,
+    route: null, stops: [], dest: null, passed: -1,
+    line: null, lineAt: 0, linePending: false, lineReq: 0,
+    tripId: activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : null,
+    pos: null, speed: null, following: true, cameraAt: 0, gps: 'idle', sync: 'idle'
+  };
+
+  /* ---------- helpers ---------- */
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function point(lat, lng) { var a = Number(lat), b = Number(lng); return (isFinite(a) && isFinite(b) && !(a === 0 && b === 0) && Math.abs(a) <= 90 && Math.abs(b) <= 180) ? { lat: a, lng: b } : null; }
+  function distM(a, b) {
+    var dLat = (b.lat - a.lat) * RAD, dLng = (b.lng - a.lng) * RAD;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+  function toLine(raw) { var out = []; (raw || []).forEach(function (p) { var q = Array.isArray(p) ? point(p[0], p[1]) : (p ? point(p.lat, p.lng) : null); if (q) out.push(q); }); return out; }
+  function measure(line) { var cum = [0]; for (var i = 1; i < line.length; i++) cum.push(cum[i - 1] + distM(line[i - 1], line[i])); return cum; }
+  function project(line, cum, p, fromIndex) {
+    var best = null, kx = Math.cos(p.lat * RAD) * 111320, ky = 110540;
+    for (var i = Math.max(1, fromIndex || 1); i < line.length; i++) {
+      var a = line[i - 1], b = line[i];
+      var ax = (a.lng - p.lng) * kx, ay = (a.lat - p.lat) * ky, dx = (b.lng - a.lng) * kx, dy = (b.lat - a.lat) * ky;
+      var len2 = dx * dx + dy * dy, t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+      var cx = ax + t * dx, cy = ay + t * dy, d = Math.sqrt(cx * cx + cy * cy);
+      if (!best || d < best.offset) best = { index: i, offset: d, along: cum[i - 1] + t * (cum[i] - cum[i - 1]), point: { lat: a.lat + t * (b.lat - a.lat), lng: a.lng + t * (b.lng - a.lng) } };
     }
-    var map = null;
-    var busMarker = null;
-    var routeLayer = null;
-    var studentLayer = null;
-    var currentRouteStops = [];
-    var currentRouteDestination = null;
-    var lastPassedStopOrder = -Infinity;
-    var ASSUMED_SPEED_KMH = 25; // fallback used when stopped/no speed reading yet
-    var ARRIVED_KM = 0.15;
-    // While a trip is active, the camera follows the driver instead of
-    // fitting the whole remaining route — like turn-by-turn navigation, so
-    // the driver marker never scrolls off-screen as they move.
-    var isFollowingDriver = Boolean(activeTripId);
-    var lastHeadingDeg = null;
-    var FOLLOW_ZOOM = 17;
-    var FOLLOW_LOOKAHEAD_M = 70; // how far ahead of the driver the camera centers
-    // Driving view: about half a mile of road ahead, the bus low on the
-    // screen. Dragging or zooming pauses it until the driver taps Re-center.
-    var AHEAD_M = 805;
-    var followPaused = false;
-    var movingCamera = false;
-    function driveView(lat, lng) {
-      var size = map.getSize();
-      var spanM = AHEAD_M / 0.72; // the bus sits about a quarter up from the bottom
-      var metersPerPx = spanM / Math.max(240, size.y);
-      var zoom = Math.log2((156543.03 * Math.cos((lat * Math.PI) / 180)) / metersPerPx);
-      zoom = Math.max(14, Math.min(18, Math.round(zoom * 4) / 4));
-      var center = projectForward(lat, lng, lastHeadingDeg, spanM * 0.25);
-      movingCamera = true;
-      map.setView(center, zoom, { animate: true });
-      setTimeout(function () { movingCamera = false; }, 400);
+    return best;
+  }
+  function aheadOf(p, heading, meters) {
+    if (typeof heading !== 'number' || !isFinite(heading)) return [p.lat, p.lng];
+    var R = 6378137, br = heading * RAD, la = p.lat * RAD, lo = p.lng * RAD, ad = meters / R;
+    var nla = Math.asin(Math.sin(la) * Math.cos(ad) + Math.cos(la) * Math.sin(ad) * Math.cos(br));
+    var nlo = lo + Math.atan2(Math.sin(br) * Math.sin(ad) * Math.cos(la), Math.cos(ad) - Math.sin(la) * Math.sin(nla));
+    return [nla / RAD, nlo / RAD];
+  }
+  function fmtDistance(m) {
+    if (!isFinite(m)) return '–';
+    if (unit === 'mi') { var mi = m / 1609.344; return mi < 0.1 ? Math.max(10, Math.round(m * 3.28084 / 10) * 10) + ' ft' : mi.toFixed(1) + ' mi'; }
+    return m < 1000 ? Math.max(10, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(1) + ' km';
+  }
+  function fmtMin(min) { if (!isFinite(min)) return '–'; var r = Math.max(1, Math.round(min)); return r < 60 ? r + ' min' : Math.floor(r / 60) + ' h ' + (r % 60) + ' min'; }
+  function fmtClock(ms) { try { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (_) { return ''; } }
+  function driving() { return Boolean(st.tripId); }
+  function findRoute(id) { return routes.find(function (r) { return String(r.route_id) === String(id); }) || null; }
+  function remaining() { return st.stops.filter(function (s) { return s.seq > st.passed; }); }
+  function alongOf(seq) { if (!st.line) return null; var hit = st.line.stops.find(function (x) { return x.seq === seq; }); return hit ? hit.along : null; }
+  function busAlong() { if (!st.line || !st.pos) return null; var p = project(st.line.pts, st.line.cum, st.pos); return p && p.offset <= OFF_ROUTE_M ? p : null; }
+
+  function showNote(msg) { if (!ui.note) return; ui.note.textContent = msg; ui.note.hidden = false; }
+  function hideNote() { if (ui.note) ui.note.hidden = true; }
+
+  /* ---------- route ---------- */
+  function setRoute(route) {
+    st.route = route || null;
+    st.passed = -1;
+    st.line = null; st.lineAt = 0; st.linePending = false; st.lineReq++;
+    st.stops = !route ? [] : (route.stops || []).map(function (s, i) {
+      var p = point(s.latitude, s.longitude);
+      if (!p) return null;
+      p.name = s.stop_name || 'Stop';
+      p.order = s.stop_order != null && s.stop_order !== '' ? Number(s.stop_order) : i;
+      return p;
+    }).filter(Boolean).sort(function (a, b) { return a.order - b.order; });
+    st.stops.forEach(function (s, i) { s.seq = i; });
+
+    st.dest = null;
+    var school = point(schoolLat, schoolLng);
+    if (route && route.use_school_destination && school) st.dest = { lat: school.lat, lng: school.lng, label: 'School' };
+    else if (route && point(route.destination_latitude, route.destination_longitude)) {
+      var d = point(route.destination_latitude, route.destination_longitude);
+      st.dest = { lat: d.lat, lng: d.lng, label: route.destination_address || 'Final stop' };
     }
-    function setFollowPaused(paused) {
-      followPaused = paused;
-      var b = document.getElementById('drv-recenter');
-      if (b) b.hidden = !(paused && isFollowingDriver);
+    if (ui.activeRoute) ui.activeRoute.textContent = route ? route.route_name : '';
+    drawStops();
+    renderAhead();
+    requestLine(true);
+    updateStats();
+    if (!driving()) frameOverview();
+  }
+
+  function drawStops() {
+    if (!st.map) return;
+    var L = st.L;
+    st.stopLayer.clearLayers();
+    st.stops.forEach(function (s) {
+      var done = s.seq <= st.passed, size = done ? 14 : 24;
+      L.marker([s.lat, s.lng], {
+        keyboard: false, zIndexOffset: done ? 0 : 200,
+        icon: L.divIcon({ className: '', html: done ? '<div class="drv-stop is-done"></div>' : '<div class="drv-stop">' + (s.seq + 1) + '</div>', iconSize: [size, size], iconAnchor: [size / 2, size / 2] })
+      }).bindTooltip(esc((s.seq + 1) + '. ' + s.name + (done ? ' (done)' : '')), { direction: 'top', offset: [0, -size / 2] }).addTo(st.stopLayer);
+    });
+    if (st.dest) {
+      L.marker([st.dest.lat, st.dest.lng], {
+        keyboard: false,
+        icon: L.divIcon({ className: '', html: '<div class="drv-school"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg></div>', iconSize: [30, 30], iconAnchor: [15, 15] })
+      }).bindTooltip(esc(st.dest.label), { direction: 'top', offset: [0, -14] }).addTo(st.stopLayer);
     }
+  }
 
-    var routeSelect = document.getElementById('drv-route-select');
-    var routeField = document.getElementById('drv-route-field');
-    var startBtn = document.getElementById('drv-start-btn');
-    var endBtn = document.getElementById('drv-end-btn');
-    var tripNote = document.getElementById('drv-trip-note');
-    var statusDot = document.getElementById('drv-status-dot');
-    var statusText = document.getElementById('drv-status-text');
-    var nextStopCard = document.getElementById('drv-next-stop-card');
-    var nextStopName = document.getElementById('drv-next-stop-name');
-    var nextStopDistance = document.getElementById('drv-next-stop-distance');
-    var nextStopEta = document.getElementById('drv-next-stop-eta');
-    var routeEtaRow = document.getElementById('drv-route-eta');
-    var routeEtaValue = document.getElementById('drv-route-eta-value');
-    var lastSpeedKmh = null;
+  // Road-following line: bus (when driving) -> remaining stops -> destination.
+  function requestLine(force) {
+    if (st.linePending) return;
+    var now = Date.now();
+    if (!force && now - st.lineAt < REROUTE_GAP_MS) return;
+    var rest = remaining(), pts = [];
+    if (st.pos && driving()) pts.push([Math.round(st.pos.lat * 1e4) / 1e4, Math.round(st.pos.lng * 1e4) / 1e4]);
+    rest.forEach(function (s) { pts.push([s.lat, s.lng]); });
+    if (st.dest) pts.push([st.dest.lat, st.dest.lng]);
+    if (pts.length < 2 || !window.ManagiraMaps || typeof window.ManagiraMaps.roadPoints !== 'function') { st.line = null; renderAhead(); return; }
+    var req = ++st.lineReq;
+    st.linePending = true;
+    st.lineAt = now;
+    Promise.resolve(window.ManagiraMaps.roadPoints(pts)).catch(function () { return null; }).then(function (raw) {
+      if (req !== st.lineReq) return;
+      st.linePending = false;
+      var line = toLine(raw);
+      if (line.length < 2) { st.line = null; renderAhead(); updateStats(); return; }
+      var cum = measure(line), from = 1;
+      st.line = {
+        pts: line, cum: cum, length: cum[cum.length - 1],
+        stops: rest.map(function (s) { var p = project(line, cum, s, from); if (p) from = p.index; return { seq: s.seq, along: p && p.offset < 80 ? p.along : null }; })
+      };
+      renderAhead();
+      updateStats();
+    });
+  }
 
-    function findRoute(routeId) {
-      var idNum = Number(routeId);
-      return assignedRoutes.find(function (r) { return Number(r.route_id) === idNum; }) || null;
+  function renderAhead() {
+    if (!st.map) return;
+    var pts = null;
+    if (st.line) {
+      var p = driving() ? busAlong() : null;
+      pts = p ? [[p.point.lat, p.point.lng]].concat(st.line.pts.slice(p.index).map(function (q) { return [q.lat, q.lng]; }))
+              : st.line.pts.map(function (q) { return [q.lat, q.lng]; });
     }
-
-    function haversineKm(lat1, lng1, lat2, lng2) {
-      if ([lat1, lng1, lat2, lng2].some(function (v) { return v === null || v === undefined || Number.isNaN(Number(v)); })) return null;
-      var toRad = function (v) { return (Number(v) * Math.PI) / 180; };
-      var R = 6371;
-      var dLat = toRad(lat2 - lat1);
-      var dLng = toRad(lng2 - lng1);
-      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (!pts) { if (st.ahead) { st.ahead.forEach(function (l) { l.remove(); }); st.ahead = null; } return; }
+    if (!st.ahead) {
+      st.ahead = [
+        st.L.polyline(pts, { color: '#fff', weight: 10, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(st.map),
+        st.L.polyline(pts, { color: BLUE, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(st.map)
+      ];
+    } else {
+      st.ahead.forEach(function (l) { l.setLatLngs(pts); });
     }
+  }
 
-    // Moves a point `distanceMeters` forward from (lat,lng) along a compass
-    // heading — used to bias the follow-camera's center slightly ahead of
-    // the driver (so more road is visible ahead than behind), the same way
-    // driving nav apps frame the view. Falls back to the driver's own
-    // position when heading isn't available (GPS reports null when
-    // stationary or on some devices).
-    function projectForward(lat, lng, headingDeg, distanceMeters) {
-      if (typeof headingDeg !== 'number' || Number.isNaN(headingDeg)) return [lat, lng];
-      var R = 6378137;
-      var bearing = (headingDeg * Math.PI) / 180;
-      var latRad = (lat * Math.PI) / 180;
-      var lngRad = (lng * Math.PI) / 180;
-      var angularDistance = distanceMeters / R;
-      var newLatRad = Math.asin(
-        Math.sin(latRad) * Math.cos(angularDistance) + Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
-      );
-      var newLngRad = lngRad + Math.atan2(
-        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
-        Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(newLatRad)
-      );
-      return [(newLatRad * 180) / Math.PI, (newLngRad * 180) / Math.PI];
+  /* ---------- live position ---------- */
+  function busIcon(heading, stale) {
+    if (window.ManagiraMaps && typeof window.ManagiraMaps.busIcon === 'function') {
+      try { var icon = window.ManagiraMaps.busIcon({ heading: heading, label: driverBus ? driverBus.bus_number : 'Bus', stale: stale }); if (icon) return icon; } catch (_) { /* fall back */ }
     }
+    return st.L.divIcon({ className: '', html: '<div class="drv-me' + (stale ? ' is-stale' : '') + '"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
+  }
 
-    function formatDistance(km) {
-      if (distanceUnit === 'mi') {
-        var miles = km * 0.621371;
-        return miles < 0.1 ? Math.round(miles * 5280) + ' ft' : miles.toFixed(1) + ' mi';
-      }
-      return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
+  function placeBus(p, stale) {
+    if (!st.map || !p) return;
+    var h = typeof p.heading === 'number' && isFinite(p.heading) ? p.heading : null;
+    var key = (h === null ? 'x' : Math.round(h / 10) * 10) + '|' + stale;
+    if (!st.bus) {
+      st.bus = st.L.marker([p.lat, p.lng], { icon: busIcon(h, stale), zIndexOffset: 1000, keyboard: false }).addTo(st.map);
+      st.busKey = key;
+      return;
     }
+    st.bus.setLatLng([p.lat, p.lng]);
+    if (key !== st.busKey) { st.bus.setIcon(busIcon(h, stale)); st.busKey = key; }
+  }
 
-    function formatEtaMinutes(minutes) {
-      if (!Number.isFinite(minutes) || minutes < 0) return '-';
-      if (minutes < 1) return '<1 min';
-      var rounded = Math.round(minutes);
-      if (rounded < 60) return rounded + ' min';
-      var hrs = Math.floor(rounded / 60);
-      var mins = rounded % 60;
-      return hrs + 'h ' + mins + 'm';
+  function checkProgress() {
+    var before = st.passed, proj = busAlong();
+    var rest = remaining();
+    for (var i = 0; i < rest.length; i++) {
+      var s = rest[i], near = distM(st.pos, s);
+      var reached = near <= ARRIVE_M;
+      if (!reached && proj && near < 400) { var a = alongOf(s.seq); reached = a !== null && proj.along > a + PASS_M; }
+      if (!reached) break; // stops are served in order
+      st.passed = s.seq;
     }
+    if (st.passed !== before) { drawStops(); requestLine(true); }
+  }
 
-    // Replaces the default +/- zoom buttons with a single "smart" locate
-    // control: tap once to fly in on the device's actual GPS position, tap
-    // again to zoom back out to the overview.
-    function attachSmartMapControls(mapInstance, LeafletRef, options) {
-      options = options || {};
-      var overviewState = { center: mapInstance.getCenter(), zoom: mapInstance.getZoom() };
-      var isZoomedIn = false;
-      var myLocationMarker = null;
+  function onFix(fix) {
+    st.pos = fix;
+    if (fix.speed !== null) st.speed = st.speed === null ? fix.speed : st.speed * 0.6 + fix.speed * 0.4;
+    placeBus(fix, false);
+    if (!driving()) return;
+    checkProgress();
+    var p = busAlong();
+    if (!st.line || !p) requestLine(false);
+    else if (Date.now() - st.lineAt > ROUTE_REFRESH_MS) requestLine(false);
+    renderAhead();
+    updateStats();
+    follow(false);
+  }
 
-      var LocateControl = LeafletRef.Control.extend({
-        options: { position: 'bottomleft' },
-        onAdd: function () {
-          var container = LeafletRef.DomUtil.create('div', 'leaflet-bar drv-locate-control');
-          var button = LeafletRef.DomUtil.create('a', 'drv-locate-btn', container);
-          button.href = '#';
-          button.title = 'Zoom to my location';
-          button.setAttribute('role', 'button');
-          button.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>';
-          LeafletRef.DomEvent.disableClickPropagation(container);
-          LeafletRef.DomEvent.on(button, 'click', function (event) {
-            LeafletRef.DomEvent.preventDefault(event);
-            if (isZoomedIn) {
-              mapInstance.flyTo(overviewState.center, overviewState.zoom);
-              isZoomedIn = false;
-              return;
-            }
-            overviewState.center = mapInstance.getCenter();
-            overviewState.zoom = mapInstance.getZoom();
+  function updateStats() {
+    var rest = remaining(), target = rest[0] || st.dest, isDest = !rest[0];
+    if (!driving() || !st.pos || !target) {
+      if (ui.next) ui.next.hidden = true;
+      if (ui.etaValue && driving()) { ui.etaValue.textContent = '–'; ui.etaLabel.textContent = st.pos ? 'Route complete' : 'Waiting for GPS…'; }
+      return;
+    }
+    var speed = Math.max(18 / 3.6, Math.min(60 / 3.6, st.speed === null ? 25 / 3.6 : st.speed));
+    var proj = busAlong(), toNext = null, total = null;
+    if (proj) {
+      var a = isDest ? st.line.length : alongOf(target.seq);
+      if (a !== null) toNext = Math.max(0, a - proj.along);
+      total = Math.max(0, st.line.length - proj.along);
+    }
+    if (toNext === null) toNext = distM(st.pos, target) * 1.3;
+    if (total === null) {
+      total = 0;
+      var prev = st.pos;
+      rest.concat(st.dest ? [st.dest] : []).forEach(function (q) { total += distM(prev, q) * 1.3; prev = q; });
+    }
+    ui.next.hidden = false;
+    ui.nextLabel.textContent = isDest ? 'Final stop' : 'Next stop';
+    ui.nextName.textContent = isDest ? st.dest.label : target.name;
+    ui.nextDist.textContent = fmtDistance(toNext);
+    ui.nextEta.textContent = fmtMin(toNext / speed / 60);
+    var totalMin = total / speed / 60 + rest.length * DWELL_S / 60;
+    ui.etaValue.textContent = fmtMin(totalMin);
+    ui.etaLabel.textContent = 'to ' + (st.dest ? st.dest.label.toLowerCase() === 'school' ? 'school' : st.dest.label : 'the last stop') + ', ' + fmtDistance(total) + ', about ' + fmtClock(Date.now() + totalMin * 60000);
+  }
 
-            if (!navigator.geolocation) {
-              var fallbackTarget = typeof options.getLiveLatLng === 'function' ? options.getLiveLatLng() : null;
-              mapInstance.flyTo(fallbackTarget || overviewState.center, 16);
-              isZoomedIn = true;
-              return;
-            }
+  /* ---------- camera ---------- */
+  function follow(force) {
+    if (!st.map || !driving() || !st.pos || (!st.following && !force)) return;
+    var now = Date.now();
+    if (!force && now - st.cameraAt < 900) return;
+    var size = st.map.getSize();
+    var spanM = 805 / 0.72;                              // about half a mile of road ahead
+    var mpp = spanM / Math.max(240, size.y);
+    var zoom = Math.log2((156543.03 * Math.cos(st.pos.lat * RAD)) / mpp);
+    zoom = Math.max(14, Math.min(18, Math.round(zoom * 4) / 4));
+    st.cameraAt = now;
+    st.map.setView(aheadOf(st.pos, st.pos.heading, spanM * 0.25), zoom, { animate: true, duration: 0.8 });
+  }
 
-            button.classList.add('is-locating');
-            navigator.geolocation.getCurrentPosition(
-              function (position) {
-                button.classList.remove('is-locating');
-                var here = [position.coords.latitude, position.coords.longitude];
-                if (myLocationMarker) myLocationMarker.remove();
-                myLocationMarker = LeafletRef.marker(here, {
-                  icon: LeafletRef.divIcon({
-                    className: '',
-                    html: '<div class="drv-my-location-dot"></div>',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8],
-                  }),
-                }).addTo(mapInstance).bindPopup('You are here');
-                mapInstance.flyTo(here, 16);
-                isZoomedIn = true;
-              },
-              function () {
-                button.classList.remove('is-locating');
-                var fallbackTarget = typeof options.getLiveLatLng === 'function' ? options.getLiveLatLng() : null;
-                mapInstance.flyTo(fallbackTarget || overviewState.center, 16);
-                isZoomedIn = true;
-              },
-              { enableHighAccuracy: true, timeout: 8000 }
-            );
-          });
-          return container;
-        },
+  function setFollowing(on) {
+    st.following = on;
+    if (ui.recenter) ui.recenter.hidden = on || !driving();
+  }
+
+  function frameOverview() {
+    if (!st.map) return;
+    var pts = st.stops.map(function (s) { return [s.lat, s.lng]; });
+    if (st.dest) pts.push([st.dest.lat, st.dest.lng]);
+    if (st.bus) { var b = st.bus.getLatLng(); pts.push([b.lat, b.lng]); }
+    if (pts.length > 1) st.map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
+    else if (pts.length === 1) st.map.setView(pts[0], 15);
+  }
+
+  /* ---------- status ---------- */
+  function renderStatus() {
+    var state = 'idle', text = 'Not driving';
+    if (!driverBus) text = 'No bus assigned';
+    else if (driving()) {
+      if (st.gps === 'denied' || st.gps === 'unsupported') { state = 'off'; text = 'Location off'; }
+      else if (st.gps === 'starting' || st.gps === 'idle') { state = 'weak'; text = 'Finding GPS…'; }
+      else if (st.gps === 'weak') { state = 'weak'; text = 'Weak GPS'; }
+      else if (st.sync === 'failing') { state = 'weak'; text = 'Reconnecting…'; }
+      else { state = 'live'; text = 'Sharing live'; }
+    }
+    ui.pill.setAttribute('data-state', state);
+    ui.pillText.textContent = text;
+    if (driving() && st.gps === 'denied') showNote('Location is blocked. Allow location for this site in your phone’s settings so families can see the bus.');
+    else if (driving() && st.gps === 'unsupported') showNote('This browser can’t share location. Open the driver screen over a secure (https) connection.');
+  }
+
+  function gpsHandlers() {
+    return {
+      tripId: st.tripId,
+      onFix: onFix,
+      onStatus: function (s) { st.gps = s.gps; st.sync = s.sync; renderStatus(); }
+    };
+  }
+
+  function setDriving(on) {
+    ui.page.classList.toggle('is-driving', on);
+    if (ui.idle) ui.idle.hidden = on;
+    if (ui.active) ui.active.hidden = !on;
+    if (ui.navMenu) { ui.navMenu.hidden = true; ui.navBtn.setAttribute('aria-expanded', 'false'); }
+    if (!on && ui.next) ui.next.hidden = true;
+    setFollowing(true);
+    renderStatus();
+    setTimeout(function () {
+      if (!st.map) return;
+      st.map.invalidateSize();
+      if (on) follow(true); else frameOverview();
+    }, 260);
+  }
+
+  function post(url, data) {
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: new URLSearchParams(data).toString()
+    }).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (json) {
+        if (!res.ok || !json || !json.success) throw new Error((json && json.message) || 'Something went wrong. Try again.');
+        return json;
       });
+    });
+  }
 
-      mapInstance.addControl(new LocateControl());
+  /* ---------- map ---------- */
+  function initMap() {
+    var mapEl = $('drv-map');
+    if (!window.L) { mapEl.innerHTML = '<p class="drv-map-msg">The map could not load. Check your connection and refresh.</p>'; return; }
+    var L = st.L = window.L;
+    var map = st.map = L.map(mapEl, { zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 120 });
+    if (window.ManagiraMaps && typeof window.ManagiraMaps.addTiles === 'function') window.ManagiraMaps.addTiles(map);
+    else L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }).addTo(map);
+    map.attributionControl.setPrefix(false);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    st.stopLayer = L.layerGroup().addTo(map);
+
+    var studentLayer = L.layerGroup().addTo(map);
+    students.forEach(function (s) {
+      var p = point(s.stop_latitude || s.home_latitude, s.stop_longitude || s.home_longitude);
+      if (!p) return;
+      L.circleMarker([p.lat, p.lng], { radius: 4, weight: 1.5, color: '#fff', fillColor: '#98a2b3', fillOpacity: 1 })
+        .bindTooltip(esc([s.first_name, s.last_name].filter(Boolean).join(' ')), { direction: 'top' })
+        .addTo(studentLayer);
+    });
+
+    var center = (lastLocation && point(lastLocation.latitude, lastLocation.longitude)) || point(schoolLat, schoolLng);
+    map.setView(center ? [center.lat, center.lng] : [20, 0], center ? 14 : 2);
+    if (lastLocation && point(lastLocation.latitude, lastLocation.longitude)) placeBus(point(lastLocation.latitude, lastLocation.longitude), true);
+
+    map.on('dragstart', function () { if (driving()) setFollowing(false); });
+    map.on('zoomstart', function () { if (driving() && Date.now() - st.cameraAt > 1200) setFollowing(false); });
+    if (window.ResizeObserver) new ResizeObserver(function () { map.invalidateSize({ pan: false }); }).observe(mapEl);
+  }
+
+  /* ---------- events ---------- */
+  if (ui.routeSelect) ui.routeSelect.addEventListener('change', function () { hideNote(); setRoute(findRoute(ui.routeSelect.value)); });
+
+  if (ui.recenter) ui.recenter.addEventListener('click', function () { setFollowing(true); follow(true); });
+
+  if (ui.start) ui.start.addEventListener('click', function () {
+    var routeId = ui.routeSelect ? ui.routeSelect.value : '';
+    if (!routeId || !driverBus) { showNote('Choose your route first.'); return; }
+    hideNote();
+    if (!window.DriverLocation) { showNote('Location sharing could not load. Refresh the page and try again.'); return; }
+    window.DriverLocation.start(gpsHandlers()); // inside the tap, so the phone asks for permission
+    var label = ui.start.querySelector('span');
+    ui.start.disabled = true;
+    label.textContent = 'Starting…';
+    post('/transportation/driver/trips/start', { routeId: routeId, busId: String(driverBus.bus_id) }).then(function (result) {
+      if (!result.trip) throw new Error('The trip could not start. Try again.');
+      st.tripId = Number(result.trip.trip_id);
+      window.DriverLocation.setTrip(st.tripId);
+      setRoute(findRoute(routeId));
+      setDriving(true);
+      if (st.pos) onFix(st.pos);
+    }).catch(function (err) {
+      if (!st.tripId) window.DriverLocation.stop();
+      showNote(err.message);
+    }).then(function () {
+      ui.start.disabled = false;
+      label.textContent = 'Start trip';
+    });
+  });
+
+  if (ui.end) ui.end.addEventListener('click', function () {
+    if (!st.tripId || !window.confirm('End this trip? Families will stop seeing the bus.')) return;
+    ui.end.disabled = true;
+    post('/transportation/driver/trips/end', { tripId: String(st.tripId) }).then(function () {
+      st.tripId = null;
+      if (window.DriverLocation) { window.DriverLocation.setTrip(null); window.DriverLocation.stop(); }
+      if (st.pos) placeBus(st.pos, true);
+      st.pos = null;
+      st.speed = null;
+      hideNote();
+      setRoute(findRoute(ui.routeSelect ? ui.routeSelect.value : ''));
+      setDriving(false);
+    }).catch(function (err) { showNote(err.message); }).then(function () { ui.end.disabled = false; });
+  });
+
+  function openNavApp(app) {
+    var pts = remaining().map(function (s) { return [s.lat, s.lng]; });
+    if (st.dest) pts.push([st.dest.lat, st.dest.lng]);
+    if (!pts.length) { showNote('There are no stops left to navigate to.'); return; }
+    var dest = pts[pts.length - 1], via = pts.slice(0, -1), url;
+    if (app === 'waze') url = 'https://waze.com/ul?ll=' + dest[0] + ',' + dest[1] + '&navigate=yes';
+    else if (app === 'apple') url = 'https://maps.apple.com/?saddr=Current%20Location&daddr=' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join('+to:') + '&dirflg=d';
+    else {
+      url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' + dest[0] + ',' + dest[1];
+      if (via.length) url += '&waypoints=' + encodeURIComponent(via.slice(0, 9).map(function (p) { return p[0] + ',' + p[1]; }).join('|'));
     }
+    ui.navMenu.hidden = true;
+    ui.navBtn.setAttribute('aria-expanded', 'false');
+    var win = window.open(url, '_blank', 'noopener');
+    if (!win) window.location.href = url;
+  }
 
-    function ensureLeafletAssets() {
-      if (!document.getElementById('leaflet-css-driver-dashboard')) {
-        var link = document.createElement('link');
-        link.id = 'leaflet-css-driver-dashboard';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-      }
-      if (window.L) return Promise.resolve(window.L);
-      if (window.__driverDashboardLeafletPromise) return window.__driverDashboardLeafletPromise;
-      window.__driverDashboardLeafletPromise = new Promise(function (resolve, reject) {
-        var script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = function () { resolve(window.L); };
-        script.onerror = reject;
-        document.body.appendChild(script);
-      });
-      return window.__driverDashboardLeafletPromise;
-    }
+  if (ui.navBtn) {
+    ui.navBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = ui.navMenu.hidden;
+      ui.navMenu.hidden = !open;
+      ui.navBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    ui.navMenu.addEventListener('click', function (e) {
+      var opt = e.target.closest('[data-nav-app]');
+      if (opt) openNavApp(opt.getAttribute('data-nav-app'));
+    });
+    document.addEventListener('click', function (e) {
+      if (!ui.navMenu.hidden && !ui.navMenu.contains(e.target) && e.target !== ui.navBtn) { ui.navMenu.hidden = true; ui.navBtn.setAttribute('aria-expanded', 'false'); }
+    });
+  }
 
-    // Selecting a new route (or ending a trip) resets progress tracking —
-    // we only ever move lastPassedStopOrder forward, never back, so the
-    // "already covered" portion of the line never flickers as GPS jitters.
-    function setActiveRoute(route) {
-      currentRouteStops = [];
-      currentRouteDestination = null;
-      lastPassedStopOrder = -Infinity;
-
-      if (!route) {
-        if (routeLayer) { routeLayer.remove(); routeLayer = null; }
-        if (routeEtaRow) routeEtaRow.style.display = 'none';
-        if (nextStopCard) nextStopCard.style.display = 'none';
-        return;
-      }
-
-      currentRouteStops = (route.stops || [])
-        .filter(function (s) { return s.latitude && s.longitude; })
-        .sort(function (a, b) { return Number(a.stop_order || 0) - Number(b.stop_order || 0); });
-
-      if (route.use_school_destination && schoolLat && schoolLng) {
-        currentRouteDestination = { latitude: schoolLat, longitude: schoolLng, label: 'School' };
-      } else if (route.destination_latitude && route.destination_longitude) {
-        currentRouteDestination = {
-          latitude: Number(route.destination_latitude),
-          longitude: Number(route.destination_longitude),
-          label: route.destination_address || 'Final destination',
-        };
-      }
-
-      redrawRoute(busMarker ? busMarker.getLatLng().lat : null, busMarker ? busMarker.getLatLng().lng : null);
-    }
-
-    // Draws the route as two segments: the deep, bold "remaining" path from
-    // wherever the driver is right now, through every stop still ahead, to
-    // the final destination — and a lighter "already covered" path behind
-    // them, so the plan visibly clears as they progress.
-    function redrawRoute(lat, lng) {
-      if (!map || !window.L) return;
-      if (routeLayer) { routeLayer.remove(); routeLayer = null; }
-      if (!currentRouteStops.length) return;
-
-      var hasPosition = lat !== null && lat !== undefined && lng !== null && lng !== undefined;
-
-      if (hasPosition) {
-        currentRouteStops.forEach(function (stop) {
-          var d = haversineKm(lat, lng, stop.latitude, stop.longitude);
-          var order = Number(stop.stop_order || 0);
-          if (d !== null && d <= ARRIVED_KM && order > lastPassedStopOrder) {
-            lastPassedStopOrder = order;
-          }
-        });
-      }
-
-      var passedStops = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) <= lastPassedStopOrder; });
-      var remainingStops = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) > lastPassedStopOrder; });
-
-      routeLayer = window.L.layerGroup().addTo(map);
-      var bounds = [];
-      var thisRequestId = ++roadGeometryRequestId;
-
-      if (passedStops.length) {
-        var passedLatLngs = passedStops.map(function (s) { return [Number(s.latitude), Number(s.longitude)]; });
-        if (hasPosition) passedLatLngs.push([lat, lng]);
-        fetchRoadGeometry(passedLatLngs).then(function (roadPoints) {
-          if (thisRequestId !== roadGeometryRequestId || !roadPoints) return;
-          window.L.polyline(roadPoints, { color: '#94a3b8', weight: 4, opacity: 0.6, dashArray: '1,8' }).addTo(routeLayer);
-        });
-      }
-
-      var remainingLatLngs = [];
-      if (hasPosition) remainingLatLngs.push([lat, lng]);
-      remainingStops.forEach(function (s) { remainingLatLngs.push([Number(s.latitude), Number(s.longitude)]); });
-      if (currentRouteDestination) remainingLatLngs.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
-      if (remainingLatLngs.length >= 2) {
-        // Google-style route: a soft white casing under a single bold brand
-        // stroke, so the path reads clearly over any part of the basemap.
-        // Snapped to the actual road network so it never cuts through buildings.
-        fetchRoadGeometry(remainingLatLngs).then(function (roadPoints) {
-          if (thisRequestId !== roadGeometryRequestId || !roadPoints) return;
-          window.L.polyline(roadPoints, { color: '#ffffff', weight: 11, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
-          window.L.polyline(roadPoints, { color: routeColor, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
-        });
-      }
-
-      currentRouteStops.forEach(function (s, idx) {
-        var isPassed = Number(s.stop_order || 0) <= lastPassedStopOrder;
-        var stopSize = isPassed ? 16 : 22;
-        var stopHtml = isPassed
-          ? '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;background:#cbd5e1;border:2px solid #fff;box-shadow:0 1px 3px rgba(15,23,42,0.25);"></div>'
-          : '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#fff;border:2.5px solid ' + routeColor + ';box-shadow:0 2px 6px rgba(15,23,42,0.25);font-size:11px;font-weight:700;color:' + routeColor + ';line-height:1;">' + (idx + 1) + '</div>';
-        window.L.marker([Number(s.latitude), Number(s.longitude)], {
-          icon: window.L.divIcon({
-            className: '',
-            html: stopHtml,
-            iconSize: [stopSize, stopSize],
-            iconAnchor: [stopSize / 2, stopSize / 2],
-          }),
-        })
-          .addTo(routeLayer)
-          .bindTooltip((idx + 1) + '. ' + (s.stop_name || 'Stop') + (isPassed ? ' (visited)' : ''), { direction: 'top', offset: [0, -stopSize / 2] })
-          .bindPopup((idx + 1) + '. ' + (s.stop_name || 'Stop') + (isPassed ? ' (visited)' : ''));
-        bounds.push([Number(s.latitude), Number(s.longitude)]);
-      });
-
-      if (currentRouteDestination) {
-        window.L.marker([currentRouteDestination.latitude, currentRouteDestination.longitude], {
-          icon: window.L.divIcon({
-            className: 'drv-school-icon',
-            html: '<div style="width:26px;height:26px;border-radius:999px;background:' + routeColor + ';border:2.5px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,0.35);display:flex;align-items:center;justify-content:center;">' +
-              '<svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg></div>',
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
-          }),
-        }).addTo(routeLayer).bindPopup('Final: ' + currentRouteDestination.label);
-        bounds.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
-      }
-
-      if (hasPosition) bounds.push([lat, lng]);
-
-      if (isFollowingDriver && hasPosition) {
-        // Nav-style follow: keep the driver AND the next stop they're
-        // headed to both in view — not the whole remaining route (too
-        // zoomed out) and not just the driver alone (no sense of where
-        // they're going). Falls back to a heading-biased close-up when
-        // there's no next stop left (final leg to the destination only).
-        var followTarget = remainingStops.length
-          ? [Number(remainingStops[0].latitude), Number(remainingStops[0].longitude)]
-          : (currentRouteDestination ? [currentRouteDestination.latitude, currentRouteDestination.longitude] : null);
-
-        if (!followPaused) driveView(lat, lng);
-      } else if (bounds.length) {
-        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
-      }
-
-      updateStats(hasPosition ? lat : null, hasPosition ? lng : null);
-    }
-
-    function buildRemainingWaypoints(lat, lng, remainingStops) {
-      var points = [];
-      if (lat !== null && lng !== null) points.push({ latitude: lat, longitude: lng });
-      remainingStops.forEach(function (s) { points.push({ latitude: Number(s.latitude), longitude: Number(s.longitude), name: s.stop_name }); });
-      if (currentRouteDestination) points.push({ latitude: currentRouteDestination.latitude, longitude: currentRouteDestination.longitude });
-      return points;
-    }
-
-    // Updates the "Next Stop" card (name/distance/ETA) and the overall
-    // "Estimated time to final stop" strip beneath the map.
-    function updateStats(lat, lng) {
-      var remainingStops = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) > lastPassedStopOrder; });
-
-      if (!remainingStops.length || lat === null || lng === null) {
-        if (nextStopCard) nextStopCard.style.display = 'none';
-        if (routeEtaRow) routeEtaRow.style.display = 'none';
-        return;
-      }
-
-      var effectiveSpeed = (lastSpeedKmh && lastSpeedKmh > 3) ? lastSpeedKmh : ASSUMED_SPEED_KMH;
-      var nextStop = remainingStops[0];
-      var distanceToNext = haversineKm(lat, lng, nextStop.latitude, nextStop.longitude);
-
-      if (nextStopCard && distanceToNext !== null) {
-        nextStopCard.style.display = 'flex';
-        if (nextStopName) nextStopName.textContent = nextStop.stop_name || 'Upcoming stop';
-        if (nextStopDistance) nextStopDistance.textContent = formatDistance(distanceToNext);
-        if (nextStopEta) nextStopEta.textContent = 'ETA ' + formatEtaMinutes((distanceToNext / effectiveSpeed) * 60);
-      }
-
-      var waypoints = buildRemainingWaypoints(lat, lng, remainingStops);
-      var totalDistance = 0;
-      var hasGap = false;
-      for (var i = 0; i < waypoints.length - 1; i++) {
-        var seg = haversineKm(waypoints[i].latitude, waypoints[i].longitude, waypoints[i + 1].latitude, waypoints[i + 1].longitude);
-        if (seg === null) { hasGap = true; break; }
-        totalDistance += seg;
-      }
-
-      if (routeEtaRow) {
-        if (!hasGap && waypoints.length >= 2) {
-          routeEtaRow.style.display = 'flex';
-          if (routeEtaValue) routeEtaValue.textContent = formatEtaMinutes((totalDistance / effectiveSpeed) * 60) + ' (' + formatDistance(totalDistance) + ')';
-        } else {
-          routeEtaRow.style.display = 'none';
-        }
-      }
-    }
-
-    function initMap() {
-      var mapEl = document.getElementById('drv-map');
-      if (!mapEl) return;
-      ensureLeafletAssets().then(function (L) {
-        var initialCenter = [
-          (lastLocation && lastLocation.latitude) || schoolLat || 0,
-          (lastLocation && lastLocation.longitude) || schoolLng || 0
-        ];
-        map = L.map(mapEl, {
-          zoomControl: false,
-          scrollWheelZoom: true,
-          wheelPxPerZoomLevel: 140,
-          zoomSnap: 0.25,
-          zoomDelta: 0.5,
-          tap: true,
-          attributionControl: true,
-        }).setView(initialCenter, 13);
-
-        // A calm, Google-Maps-like basemap: soft land, white roads, muted
-        // labels — so the route line is the only thing that pops.
-        window.ManagiraMaps.addTiles(map);
-        // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
-        map.attributionControl.setPrefix(false);
-
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-        // The driver taking over the map pauses the driving view.
-        map.on('dragstart', function () { if (isFollowingDriver) setFollowPaused(true); });
-        map.on('zoomstart', function () { if (isFollowingDriver && !movingCamera) setFollowPaused(true); });
-        if (!document.getElementById('drv-recenter')) {
-          var recenter = document.createElement('button');
-          recenter.type = 'button';
-          recenter.id = 'drv-recenter';
-          recenter.className = 'drv-recenter';
-          recenter.hidden = true;
-          recenter.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg><span>Re-center</span>';
-          recenter.addEventListener('click', function () {
-            setFollowPaused(false);
-            var at = busMarker ? busMarker.getLatLng() : null;
-            if (at) driveView(at.lat, at.lng);
-          });
-          mapEl.appendChild(recenter);
-        }
-        attachSmartMapControls(map, L, {
-          getLiveLatLng: function () { return busMarker ? busMarker.getLatLng() : null; },
-        });
-
-        var bounds = [];
-
-        if (lastLocation && lastLocation.latitude && lastLocation.longitude) {
-          busMarker = L.marker([lastLocation.latitude, lastLocation.longitude], { title: 'Your bus', icon: buildDriverIcon(L) })
-            .addTo(map).bindPopup('Your current position');
-          bounds.push([lastLocation.latitude, lastLocation.longitude]);
-        }
-
-        // Student pickup points stay deliberately quiet — small neutral dots
-        // that never compete with the route line for attention.
-        studentLayer = L.layerGroup().addTo(map);
-        students.forEach(function (student) {
-          var lat = student.stop_latitude || student.home_latitude;
-          var lng = student.stop_longitude || student.home_longitude;
-          if (!lat || !lng) return;
-          var label = [student.first_name, student.last_name].filter(Boolean).join(' ');
-          L.circleMarker([lat, lng], {
-            radius: 4,
-            weight: 1.5,
-            color: '#ffffff',
-            fillColor: '#94a3b8',
-            fillOpacity: 0.95,
-          })
-            .addTo(studentLayer)
-            .bindTooltip(label + (student.stop_name ? ' — ' + student.stop_name : ''), { direction: 'top' })
-            .bindPopup(label + (student.stop_name ? ' — ' + student.stop_name : ''));
-          bounds.push([lat, lng]);
-        });
-
-        // If a trip is already active, the route itself (stops + destination)
-        // is the thing to focus on — not every student's home across the
-        // whole city — so only fall back to the wide roster view when there's
-        // no route to show yet.
-        // Show the driver's first assigned route by default so the map and
-        // trip controls aren't blank until they manually pick one — they can
-        // still switch routes via the dropdown before starting a trip.
-        var activeRoute = activeTrip ? findRoute(activeTrip.route_id) : (assignedRoutes[0] || null);
-        if (activeRoute) {
-          setActiveRoute(activeRoute);
-        } else if (bounds.length > 1) {
-          map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
-        } else if (bounds.length === 1) {
-          map.setView(bounds[0], 14);
-        }
-
-        // The map can be laid out inside a hidden/zero-size container at the
-        // moment fitBounds first runs (e.g. inside a modal not yet shown),
-        // which bakes in a wrong zoom that invalidateSize() alone won't fix —
-        // so redo the same fit once the container has its real dimensions.
-        setTimeout(function () {
-          map.invalidateSize();
-          if (activeRoute && currentRouteStops.length) {
-            redrawRoute(busMarker ? busMarker.getLatLng().lat : null, busMarker ? busMarker.getLatLng().lng : null);
-          } else if (bounds.length > 1) {
-            map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
-          } else if (bounds.length === 1) {
-            map.setView(bounds[0], 14);
-          }
-        }, 150);
-      }).catch(function () {
-        mapEl.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
-      });
-    }
-
-    function buildDriverIcon(L) {
-      // The driver's bus, pointing where they're heading (same vehicle families see).
-      if (window.ManagiraMaps && window.ManagiraMaps.busIcon) return window.ManagiraMaps.busIcon({ heading: lastHeadingDeg });
-      // A small, unmistakable "you are here" badge — the driver's own photo
-      // in a tiny ring if they've uploaded one, otherwise a plain dot.
-      var size = 30;
-      var inner = driverPhotoUrl
-        ? '<img src="' + driverPhotoUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="" />'
-        : '';
-      var html = '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + routeColor + ';' +
-        'border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;overflow:hidden;">' +
-        inner + '</div>';
-      return L.divIcon({ className: 'drv-driver-icon', html: html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
-    }
-
-    function updateBusMarkerPosition(lat, lng) {
-      if (!map || !window.L) return;
-      if (!busMarker) {
-        busMarker = window.L.marker([lat, lng], { title: 'Your bus', icon: buildDriverIcon(window.L) }).addTo(map).bindPopup('Your current position');
-      } else {
-        busMarker.setLatLng([lat, lng]);
-        busMarker.setIcon(buildDriverIcon(window.L));
-      }
-      redrawRoute(lat, lng);
-    }
-
-    if (routeSelect) {
-      routeSelect.addEventListener('change', function () {
-        setActiveRoute(findRoute(routeSelect.value));
-      });
-    }
-
-    // The note is hidden by default now — it only ever surfaces to explain
-    // a real problem (couldn't start/end the trip, nothing to navigate to
-    // yet), never as a permanent instructional message.
-    function showTripNote(message) {
-      if (!tripNote) return;
-      tripNote.textContent = message;
-      tripNote.style.display = '';
-    }
-
-    function setTripUiState(active) {
-      var page = document.querySelector('.drv-page');
-      if (page) page.classList.toggle('is-driving', Boolean(active));
-      if (map) setTimeout(function () { map.invalidateSize(); }, 250);
-      if (routeField) routeField.style.display = active ? 'none' : '';
-      if (startBtn) startBtn.style.display = active ? 'none' : '';
-      if (endBtn) endBtn.style.display = active ? '' : 'none';
-      if (tripNote) tripNote.style.display = 'none';
-      if (statusText) statusText.textContent = active ? 'Trip Active' : 'Not Driving';
-      if (statusDot) statusDot.className = 'drv-status-dot' + (active ? ' is-moving' : '');
-      if (!active && nextStopCard) nextStopCard.style.display = 'none';
-      if (!active && routeEtaRow) routeEtaRow.style.display = 'none';
-    }
-
-    async function postLiveLocation() {
-      if (!activeTripId || !navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(async function (position) {
-        var speedKmh = position.coords.speed ? Number(position.coords.speed) * 3.6 : null;
-        lastSpeedKmh = speedKmh;
-        lastHeadingDeg = typeof position.coords.heading === 'number' && !Number.isNaN(position.coords.heading)
-          ? position.coords.heading
-          : null;
-        var payload = new URLSearchParams({
-          tripId: String(activeTripId),
-          latitude: String(position.coords.latitude),
-          longitude: String(position.coords.longitude),
-          speedKmh: speedKmh !== null ? String(speedKmh) : '',
-          headingDeg: position.coords.heading ? String(position.coords.heading) : '',
-        });
-
-        updateBusMarkerPosition(position.coords.latitude, position.coords.longitude);
-        if (statusDot) {
-          var moving = speedKmh !== null && speedKmh > 2;
-          statusDot.className = 'drv-status-dot ' + (moving ? 'is-moving' : 'is-stopped');
-        }
-
-        await fetch('/transportation/driver/live-location', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: payload,
-        }).catch(function () {});
-      }, function () {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 });
-    }
-
-    function startLocationLoop() {
-      if (locationTimer) window.clearInterval(locationTimer);
-      postLiveLocation();
-      locationTimer = window.setInterval(postLiveLocation, 5000); // every 5 s, so families see the bus move smoothly
-    }
-
-    function stopLocationLoop() {
-      if (!locationTimer) return;
-      window.clearInterval(locationTimer);
-      locationTimer = null;
-    }
-
-    if (startBtn) {
-      startBtn.addEventListener('click', async function () {
-        var routeId = routeSelect ? String(routeSelect.value || '').trim() : '';
-        if (!routeId || !driverBus) {
-          showTripNote('Select your route to start your trip.');
-          return;
-        }
-
-        startBtn.disabled = true;
-        try {
-          var response = await fetch('/transportation/driver/trips/start', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: new URLSearchParams({ routeId: routeId, busId: String(driverBus.bus_id) }),
-          });
-          var result = await response.json().catch(function () { return null; });
-          if (!response.ok || !result || !result.success || !result.trip) {
-            showTripNote((result && result.message) || 'Unable to start trip.');
-            return;
-          }
-
-          activeTripId = Number(result.trip.trip_id);
-          isFollowingDriver = true;
-          setFollowPaused(false);
-          setActiveRoute(findRoute(routeId));
-          setTripUiState(true);
-          startLocationLoop();
-        } finally {
-          startBtn.disabled = false;
-        }
-      });
-    }
-
-    if (endBtn) {
-      endBtn.addEventListener('click', async function () {
-        if (!activeTripId) return;
-        endBtn.disabled = true;
-        try {
-          var response = await fetch('/transportation/driver/trips/end', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: new URLSearchParams({ tripId: String(activeTripId) }),
-          });
-          var result = await response.json().catch(function () { return null; });
-          if (!response.ok || !result || !result.success) {
-            showTripNote((result && result.message) || 'Unable to end trip.');
-            return;
-          }
-
-          activeTripId = null;
-          isFollowingDriver = false;
-          lastHeadingDeg = null;
-          stopLocationLoop();
-          setTripUiState(false);
-          setActiveRoute(null);
-        } finally {
-          endBtn.disabled = false;
-        }
-      });
-    }
-
-    var drvMapWrap = document.getElementById('drv-map-wrap');
-    var drvMapMaximizeBtn = document.getElementById('drv-map-maximize');
-    if (drvMapWrap && drvMapMaximizeBtn) {
-      drvMapMaximizeBtn.addEventListener('click', function () {
-        var goingFullscreen = !drvMapWrap.classList.contains('is-fullscreen');
-        drvMapWrap.classList.toggle('is-fullscreen', goingFullscreen);
-        drvMapMaximizeBtn.textContent = goingFullscreen ? '✕' : '⛶';
-        drvMapMaximizeBtn.title = goingFullscreen ? 'Exit fullscreen' : 'Maximize map';
-        document.body.style.overflow = goingFullscreen ? 'hidden' : '';
-        setTimeout(function () { if (map) map.invalidateSize(); }, 80);
-      });
-    }
-
-    // ---- Hand-off to an external turn-by-turn navigation app -------------
-    // Only the apps the school activated under Integrations are offered.
-    var navLaunch = document.getElementById('drv-nav-launch');
-    var navBtn = document.getElementById('drv-nav-btn');
-    var navMenu = document.getElementById('drv-nav-menu');
-
-    function navWaypoints() {
-      var remaining = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) > lastPassedStopOrder; });
-      var points = remaining.map(function (s) { return [Number(s.latitude), Number(s.longitude)]; });
-      if (currentRouteDestination) points.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
-      return points;
-    }
-
-    function openNavApp(appKey) {
-      var points = navWaypoints();
-      if (!points.length) {
-        showTripNote('No upcoming stops to navigate to yet.');
-        return;
-      }
-      var destination = points[points.length - 1];
-      var stops = points.slice(0, -1);
-      var url;
-
-      if (appKey === 'waze') {
-        url = 'https://waze.com/ul?ll=' + destination[0] + ',' + destination[1] + '&navigate=yes';
-      } else if (appKey === 'apple') {
-        // Every remaining stop, in order ("+to:" adds each one), then the school.
-        url = 'https://maps.apple.com/?saddr=Current%20Location&daddr=' + points.map(function (p) { return p[0] + ',' + p[1]; }).join('+to:') + '&dirflg=d';
-      } else {
-        url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' +
-          destination[0] + ',' + destination[1];
-        if (stops.length) {
-          // Google supports up to 9 intermediate waypoints.
-          url += '&waypoints=' + stops.slice(0, 9).map(function (p) { return p[0] + ',' + p[1]; }).join('|');
-        }
-      }
-
-      window.open(url, '_blank', 'noopener');
-      if (navMenu) navMenu.hidden = true;
-    }
-
-    if (navBtn && navMenu) {
-      navBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        navMenu.hidden = !navMenu.hidden;
-      });
-      navMenu.addEventListener('click', function (event) {
-        var option = event.target.closest('[data-nav-app]');
-        if (!option) return;
-        openNavApp(option.getAttribute('data-nav-app'));
-      });
-      document.addEventListener('click', function (event) {
-        if (navLaunch && !navLaunch.contains(event.target)) navMenu.hidden = true;
-      });
-    }
-
-    initMap();
-    setTripUiState(Boolean(activeTripId));
-    if (activeTripId) startLocationLoop();
-  })();
+  /* ---------- boot ---------- */
+  initMap();
+  setRoute(activeTrip ? findRoute(activeTrip.route_id) : (ui.routeSelect ? findRoute(ui.routeSelect.value) : routes[0] || null));
+  setDriving(driving());
+  if (driving() && window.DriverLocation) window.DriverLocation.start(gpsHandlers());
+})();
 </script>

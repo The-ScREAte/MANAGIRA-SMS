@@ -17,7 +17,7 @@
   .sp-shell {
     max-width: 1240px;
     margin: 0 auto;
-    padding: 16px;
+    padding: 16px 16px 60px;
   }
 
   .sp-header {
@@ -763,7 +763,7 @@
     .sp-tiles, .sp-action-tiles {
       grid-template-columns: repeat(2, minmax(0,1fr));
     }
-    .sp-shell { padding: 10px; }
+    .sp-shell { padding: 10px 10px 60px; }
     .sp-header-top { padding: 7px 8px; }
     .sp-avatar { width: 58px; height: 58px; }
     .sp-title { font-size: .88rem; }
@@ -800,10 +800,10 @@
     .sp-modal-card { padding: 7px; border-radius: 9px; }
     .sp-modal-close { width: 24px; height: 24px; font-size: .76rem; }
   }
-  .sp-bus-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--border, #e5e7eb); border-radius: 14px; }
+  .sp-bus-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--sp-border); border-radius: 14px; }
   .sp-bus-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .sp-bus-tags span { padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent); color: var(--primary, #01535b); font-size: .78rem; font-weight: 600; }
-  .sp-bus-track { width: auto !important; margin: 0; padding: 10px 18px; border: 0; border-radius: 10px; background: var(--primary, #01535b); color: #fff; font-weight: 700; cursor: pointer; }
+  .sp-bus-tags span { padding: 4px 10px; border: 1px solid var(--sp-border); border-radius: 999px; color: var(--sp-org-strong); font-size: .8rem; font-weight: 600; }
+  .sp-bus-track { width: auto !important; min-height: 44px; margin: 0 !important; padding: 0 18px !important; border: 0; border-radius: 10px; background: var(--sp-org-base); color: #fff; font-weight: 700; cursor: pointer; }
 </style>
 
 <div class="sp-shell">
@@ -928,9 +928,12 @@
         <% const _ts = transportationSnapshot; const _tags = [_ts.bus && _ts.bus.busNumber && ('Bus ' + _ts.bus.busNumber), _ts.route && _ts.route.routeName, _ts.stop && _ts.stop.stopName, _ts.pickupTime && ('Pick-up ' + _ts.pickupTime), _ts.dropoffTime && ('Drop-off ' + _ts.dropoffTime)].filter(Boolean); %>
         <div class="sp-bus-card">
           <div class="sp-bus-tags"><% _tags.forEach((t) => { %><span><%= t %></span><% }) %></div>
-          <button type="button" class="sp-bus-track" onclick="window.BusTracker && BusTracker.open(<%= student.student_id %>, '')">Track my bus</button>
+          <button
+            type="button"
+            class="sp-bus-track"
+            data-bus-tracker="<%= student.student_id %>"
+            data-transport-snapshot="<%= JSON.stringify(_ts) %>">Track my bus</button>
         </div>
-        <script src="/js/busTracker.js?v=<%= assetVersion %>" defer></script>
         <% } else { %>
         <p class="sp-muted">No transportation assignment has been set for your account yet.</p>
         <% } %>
@@ -1139,6 +1142,7 @@
 </div>
 
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
+<script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
 <script>
 (function () {
   var tiles      = document.querySelectorAll('.sp-action-tile[data-panel]');
@@ -1157,177 +1161,6 @@
     modalTitle.textContent = label || 'Details';
     modal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
-    hydrateTransportMaps(modalBody);
-  }
-
-  function ensureLeafletAssets() {
-    if (!document.getElementById('leaflet-css-student-dashboard')) {
-      var link = document.createElement('link');
-      link.id = 'leaflet-css-student-dashboard';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-    if (window.L) return Promise.resolve(window.L);
-    if (window.__studentDashboardLeafletPromise) return window.__studentDashboardLeafletPromise;
-    window.__studentDashboardLeafletPromise = new Promise(function(resolve, reject) {
-      var script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = function() { resolve(window.L); };
-      script.onerror = reject;
-      document.body.appendChild(script);
-    });
-    return window.__studentDashboardLeafletPromise;
-  }
-
-  function renderTransportMap(el, snapshot) {
-    if (!el || !snapshot) return;
-    ensureLeafletAssets().then(function(L) {
-      if (el.__leafletMap) {
-        el.__leafletMap.remove();
-        el.__leafletMap = null;
-      }
-      var map = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
-      el.__leafletMap = map;
-      window.ManagiraMaps.addTiles(map);
-      map.attributionControl.setPrefix(false);
-      var points = [];
-      function normalizeCoord(value, axis) {
-        if (value === null || value === undefined) return null;
-        var raw = String(value).trim();
-        if (!raw) return null;
-        var parsed = Number(raw);
-        if (!Number.isFinite(parsed)) return null;
-        if (axis === 'lat' && (parsed < -90 || parsed > 90)) return null;
-        if (axis === 'lng' && (parsed < -180 || parsed > 180)) return null;
-        return parsed;
-      }
-      function addMarker(lat, lng, label, icon) {
-        var latNum = normalizeCoord(lat, 'lat');
-        var lngNum = normalizeCoord(lng, 'lng');
-        if (latNum === null || lngNum === null) return null;
-        points.push([latNum, lngNum]);
-        var opts = icon ? { icon: icon } : {};
-        return L.marker([latNum, lngNum], opts).addTo(map).bindPopup(label || 'Location');
-      }
-      // Road-following geometry from the server; [] = no route (nothing drawn).
-      function fetchRoadGeometry(latlngs) {
-        if (!Array.isArray(latlngs) || latlngs.length < 2 || !window.ManagiraMaps) return Promise.resolve([]);
-        return window.ManagiraMaps.roadPoints(latlngs).then(function(points) { return points || []; });
-      }
-      var school = snapshot.school || null;
-      var stop = snapshot.stop || null;
-      var live = snapshot.live || null;
-      var routeStops = snapshot.route && Array.isArray(snapshot.route.stops)
-        ? snapshot.route.stops.filter(function(entry) {
-            return normalizeCoord(entry && entry.latitude, 'lat') !== null && normalizeCoord(entry && entry.longitude, 'lng') !== null;
-          })
-        : [];
-      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School', window.ManagiraMaps.schoolIcon());
-      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Your stop: ' + stop.stopName : 'Your stop', window.ManagiraMaps.stopIcon('', { highlight: true }));
-      el.__busMarker = addMarker(live && live.latitude, live && live.longitude, 'Bus ' + ((live && (live.busNumber || live.bus_number)) || '') + (live && (live.recordedAt || live.recorded_at) ? ' - updated ' + window.ManagiraMaps.ago((live.recordedAt || live.recorded_at)) : ''), window.ManagiraMaps.busIcon({ heading: live && (live.headingDeg != null ? live.headingDeg : live.heading_deg), label: (live && (live.busNumber || live.bus_number)) || 'Bus' }));
-      if (el.__busMarker) el.__busMarker.setZIndexOffset(1000);
-      var routeLatLngs = [];
-      var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
-      var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
-      if (schoolLat !== null && schoolLng !== null) {
-        routeLatLngs.push([schoolLat, schoolLng]);
-      }
-      routeStops.forEach(function(entry) {
-        routeLatLngs.push([normalizeCoord(entry.latitude, 'lat'), normalizeCoord(entry.longitude, 'lng')]);
-      });
-      if (schoolLat !== null && schoolLng !== null && routeStops.length) {
-        routeLatLngs.push([schoolLat, schoolLng]);
-      }
-      el.__stopLatLng = (stop && normalizeCoord(stop.latitude, 'lat') !== null && normalizeCoord(stop.longitude, 'lng') !== null)
-        ? [normalizeCoord(stop.latitude, 'lat'), normalizeCoord(stop.longitude, 'lng')]
-        : null;
-      el.__fetchRoadGeometry = fetchRoadGeometry;
-      var stopLat = stop ? normalizeCoord(stop.latitude, 'lat') : null;
-      var stopLng = stop ? normalizeCoord(stop.longitude, 'lng') : null;
-      var liveLat = live ? normalizeCoord(live.latitude, 'lat') : null;
-      var liveLng = live ? normalizeCoord(live.longitude, 'lng') : null;
-      if (stopLat !== null && stopLng !== null && liveLat !== null && liveLng !== null) {
-        fetchRoadGeometry([[liveLat, liveLng], [stopLat, stopLng]]).then(function (roadPoints) {
-          if (roadPoints.length < 2) return;
-          el.__stopToBusLine = L.polyline(roadPoints, {
-            color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
-          }).addTo(map);
-        });
-      }
-      fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
-        if (roadLatLngs.length >= 2) window.ManagiraMaps.drawRoute(map, roadLatLngs, { color: '#1a73e8', weight: 5 });
-        var boundsSource = roadLatLngs.length ? roadLatLngs.concat(points) : (routeLatLngs.length ? routeLatLngs.concat(points) : points.slice());
-        setTimeout(function() {
-          map.invalidateSize();
-          if (boundsSource.length) {
-            map.fitBounds(L.latLngBounds(boundsSource).pad(0.2));
-          }
-        }, 80);
-      });
-    }).catch(function() {
-      el.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
-    });
-  }
-
-  var activeTransportPollTimer = null;
-
-  function stopTransportLivePolling() {
-    if (activeTransportPollTimer) {
-      window.clearInterval(activeTransportPollTimer);
-      activeTransportPollTimer = null;
-    }
-  }
-
-  function startTransportLivePolling(el) {
-    stopTransportLivePolling();
-    var studentId = el.getAttribute('data-student-id');
-    if (!studentId) return;
-    activeTransportPollTimer = window.setInterval(function () {
-      fetch('/transportation/live/student/' + encodeURIComponent(studentId), {
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-      }).then(function (r) { return r.json(); }).then(function (payload) {
-        var live = payload && payload.success && payload.data ? payload.data.live : null;
-        if (!live || !el.__leafletMap || !window.L) return;
-        var lat = Number(live.latitude);
-        var lng = Number(live.longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-        var busIcon = window.ManagiraMaps.busIcon({ heading: (live.headingDeg != null ? live.headingDeg : live.heading_deg), label: (live.busNumber || live.bus_number) || 'Bus', stale: (live.recordedAt || live.recorded_at) && (Date.now() - new Date((live.recordedAt || live.recorded_at)).getTime()) > 2 * 60 * 1000 });
-        var busPopup = 'Bus ' + ((live.busNumber || live.bus_number) || '') + ' - updated ' + window.ManagiraMaps.ago((live.recordedAt || live.recorded_at) || Date.now());
-        if (!el.__busMarker) {
-          el.__busMarker = window.L.marker([lat, lng], { icon: busIcon, zIndexOffset: 1000 }).addTo(el.__leafletMap).bindPopup(busPopup);
-        } else {
-          el.__busMarker.setLatLng([lat, lng]);
-          el.__busMarker.setIcon(busIcon);
-          el.__busMarker.setPopupContent(busPopup);
-        }
-        // Keep the bus<->stop connector on the roads as the bus moves.
-        if (el.__stopLatLng && typeof el.__fetchRoadGeometry === 'function') {
-          el.__fetchRoadGeometry([[lat, lng], el.__stopLatLng]).then(function (roadPoints) {
-            if (roadPoints.length < 2) return;
-            if (el.__stopToBusLine) {
-              el.__stopToBusLine.setLatLngs(roadPoints);
-            } else {
-              el.__stopToBusLine = window.L.polyline(roadPoints, {
-                color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
-              }).addTo(el.__leafletMap);
-            }
-          });
-        }
-      }).catch(function () {});
-    }, 12000);
-  }
-
-  function hydrateTransportMaps(root) {
-    Array.prototype.forEach.call((root || document).querySelectorAll('[data-transport-map]'), function(el) {
-      var raw = el.getAttribute('data-transport-snapshot') || 'null';
-      var snapshot = null;
-      try { snapshot = JSON.parse(raw); } catch (_) { snapshot = null; }
-      if (snapshot) {
-        renderTransportMap(el, snapshot);
-        startTransportLivePolling(el);
-      }
-    });
   }
 
   function valueForSort(cellText) {
@@ -1376,7 +1209,6 @@
     if (!modal) return;
     modal.classList.remove('is-open');
     document.body.style.overflow = '';
-    stopTransportLivePolling();
   }
 
   tiles.forEach(function (tile) {
@@ -1394,7 +1226,6 @@
   }
 
 
-  hydrateTransportMaps(document);
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
   if (modal) {
     modal.addEventListener('click', function (e) {

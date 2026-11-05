@@ -74,18 +74,18 @@
   .dashboard-container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 20px 20px 60px;
     display: flex;
     flex-direction: column;
   }
 
   .guardian-profile-card {
-    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
+    background: var(--org-primary-color, #0f5a66);
     color: white;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 24px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    box-shadow: none;
     display: flex;
     gap: 16px;
     align-items: center;
@@ -176,14 +176,15 @@
   }
 
   .student-count-badge {
-    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
-    color: white;
+    background: transparent;
+    color: inherit;
     padding: 6px 14px;
     border-radius: 20px;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
+    border: 1px solid #d6dee8;
   }
 
   .children-section {
@@ -253,7 +254,7 @@
     background: white;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: none;
     border: 1px solid #e2e8f0;
     position: relative;
     overflow: hidden;
@@ -266,7 +267,7 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
+    display: none;
   }
 
   .child-header {
@@ -358,141 +359,28 @@
     outline: none;
   }
 
-  .guardian-transport-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.46);
-    display: none;
-    align-items: flex-start;
-    justify-content: center;
-    padding: calc(env(safe-area-inset-top, 0px) + 88px) 16px 16px;
-    z-index: 1800;
-    overflow-y: auto;
-  }
-
-  .guardian-transport-modal-overlay.active { display: flex; }
-
-  .guardian-transport-modal-box {
-    width: min(500px, 100%);
-    max-height: min(70vh, 600px);
-    overflow: auto;
-    background: #fff;
-    border-radius: 14px;
-    border: 1px solid #dbe5ef;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
-  }
-
-  .guardian-transport-modal-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px 8px;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  .guardian-transport-modal-title {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .guardian-transport-modal-close {
-    display: inline-flex;
-    flex: 0 0 36px;
-    align-items: center;
-    justify-content: center;
-    width: 36px !important;
-    min-width: 36px;
-    height: 36px;
-    margin: 0 0 0 auto !important;
-    padding: 0 !important;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    font-size: 22px;
-    line-height: 1;
-    color: #64748b;
-    cursor: pointer;
-  }
-  
-  .guardian-transport-modal-close:focus-visible { outline: 2px solid var(--org-primary-color, #0f5a66); outline-offset: 2px; }
-
-  .guardian-transport-modal-body {
-    padding: 12px 14px 14px;
-    display: grid;
-    gap: 8px;
-  }
-
-  .guardian-transport-summary-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(15, 90, 102, 0.08);
-    color: var(--org-primary-color, #0f5a66);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .guardian-transport-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .guardian-transport-card {
-    border: 1px solid #dbe5ef;
-    border-radius: 10px;
-    background: #f8fbfc;
-    padding: 8px 10px;
-  }
-
-  .guardian-transport-card .k {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 4px;
-  }
-
-  .guardian-transport-card .v {
-    font-size: 12px;
-    color: #0f172a;
-    font-weight: 600;
-  }
-
-  .guardian-transport-map {
-    width: 100%;
-    height: 160px;
-    border: 1px solid #dbe5ef;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #eef5fb;
-  }
-
   .child-card.pending {
     opacity: 0.9;
     border: 2px dashed #fbbf24;
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    background: #fffbeb;
   }
 
   .view-progress-btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
     width: 100%;
-    padding: 12px 18px;
-    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
+    min-height: 44px;
+    padding: 0 16px;
+    background: var(--org-primary-color, #0f5a66);
     color: white;
     text-decoration: none;
     border-radius: 10px;
     text-align: center;
     font-weight: 600;
     font-size: 14px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
     transition: all 0.2s ease;
   }
 
@@ -546,7 +434,7 @@
   .no-students-message {
     text-align: center;
     padding: 60px 24px;
-    background: linear-gradient(to bottom, #f8fafc, white);
+    background: transparent;
     border-radius: 16px;
     border: 2px dashed #cbd5e1;
   }
@@ -573,7 +461,7 @@
 
   @media (max-width: 768px) {
     .dashboard-container {
-      padding: 12px;
+      padding: 12px 12px 60px;
     }
 
     .guardian-profile-card {
@@ -764,7 +652,7 @@
     }
 
     .dashboard-container {
-      padding: 10px;
+      padding: 10px 10px 60px;
     }
 
     .guardian-profile-card {
@@ -839,6 +727,8 @@
       margin-bottom: 14px;
     }
   }
+  .view-progress-btn:hover, .edit-btn:hover, .withdraw-btn:hover, .guardian-quick-link:hover { transform: none; }
+  .child-actions-row .child-transport-btn { width: auto !important; height: 44px; margin: 0 !important; padding: 0 16px !important; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
 </style>
 
 <div class="dashboard-container">
@@ -932,35 +822,34 @@
 
             <% if (child.status === 'pending') { %>
               <div class="view-progress-btn disabled">
-                🔒 Awaiting School Approval
+                Awaiting school approval
               </div>
               <div class="pending-actions">
                 <a href="/guardian/edit-pending-student?pendingId=<%= child.pending_id %>" class="edit-btn">
-                  ✏️ Edit Application
+                  Edit application
                 </a>
-                <button onclick="withdrawApplication(<%= child.pending_id %>, '<%= childDisplayName.replace(/'/g, "\\'") %>')" class="withdraw-btn">
-                  ❌ Withdraw
+                <button onclick="withdrawApplication(<%= child.pending_id %>, this)" data-student-name="<%= childDisplayName %>" class="withdraw-btn">
+                  Withdraw
                 </button>
               </div>
             <% } else { %>
               <div class="child-actions-row">
                 <% if (childTransport) { %>
                 <button
-                  class="child-transport-btn"
                   type="button"
-                  title="Transportation details"
-                  aria-label="Transportation details for <%= childDisplayName %>"
-                  data-child-name="<%= childDisplayName %>"
-                  data-student-id="<%= child.student_id %>"
-                  data-transport-snapshot='<%- JSON.stringify(childTransport || null) %>'
-                  onclick="openGuardianTransportModal(this, event)">
-                  🚌
+                  class="child-transport-btn"
+                  aria-label="Track the bus for <%= childDisplayName %>"
+                  data-bus-tracker="<%= child.student_id %>"
+                  data-bus-tracker-name="<%= child.first_name || childDisplayName %>"
+                  data-transport-snapshot="<%= JSON.stringify(childTransport) %>">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v11a2 2 0 0 1-1 1.7V19a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.3A2 2 0 0 1 4 16V5a2 2 0 0 1 2-2Zm0 3v5h12V6H6Zm1.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
+                  Track bus
                 </button>
                 <% } %>
                 <a 
                   class="view-progress-btn"
                   href="/guardian/academic-details?studentId=<%= child.student_id || child.pending_id %>&termId=<%= currentTermId || '' %>">
-                  📊 View Academic Details
+                  Academic details
                 </a>
               </div>
             <% } %>
@@ -970,311 +859,36 @@
     <% } %>
   </div>
 </div>
-<div class="guardian-transport-modal-overlay" id="guardianTransportModal" onclick="handleGuardianTransportModalOverlayClick(event)">
-  <div class="guardian-transport-modal-box" role="dialog" aria-modal="true" aria-labelledby="guardianTransportModalTitle">
-    <div class="guardian-transport-modal-head">
-      <h3 class="guardian-transport-modal-title" id="guardianTransportModalTitle">Transportation Details</h3>
-      <button type="button" class="guardian-transport-modal-close" data-ap-skip onclick="closeGuardianTransportModal()" aria-label="Close">×</button>
-    </div>
-    <div class="guardian-transport-modal-body">
-      <div id="guardianTransportModalStatus" class="guardian-subtitle" style="margin:0;color:#64748b;">Current transportation assignment</div>
-      <div id="guardianTransportModalSummary"></div>
-      <div id="guardianTransportModalGrid" class="guardian-transport-grid"></div>
-      <div id="guardianTransportModalMap" class="guardian-transport-map"></div>
-    </div>
-  </div>
-</div>
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
 <script>
-  function ensureGuardianLeafletAssets() {
-    if (!document.getElementById('leaflet-css-guardian-dashboard')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css-guardian-dashboard';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-    if (window.L) return Promise.resolve(window.L);
-    if (window.__guardianDashboardLeafletPromise) return window.__guardianDashboardLeafletPromise;
-    window.__guardianDashboardLeafletPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => resolve(window.L);
-      script.onerror = reject;
-      document.body.appendChild(script);
-    });
-    return window.__guardianDashboardLeafletPromise;
-  }
+  async function withdrawApplication(pendingId, button) {
+    const studentName = button && button.dataset.studentName ? button.dataset.studentName : 'this student';
+    const confirmed = window.confirm(`⚠️ WITHDRAW APPLICATION\n\nAre you sure you want to withdraw the application for ${studentName}?\n\n❗ IMPORTANT: Any payment made is NON-REFUNDABLE.\n\nThis action cannot be undone.`);
+    if (!confirmed || !button) return;
 
-  const guardianTransportState = {
-    modalMap: null,
-    modalLayer: null,
-    liveMarker: null,
-    pollTimer: null,
-  };
+    const previousText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Withdrawing...';
 
-  function stopGuardianTransportPolling() {
-    if (guardianTransportState.pollTimer) {
-      window.clearInterval(guardianTransportState.pollTimer);
-      guardianTransportState.pollTimer = null;
-    }
-  }
-
-  function startGuardianTransportPolling(studentId) {
-    stopGuardianTransportPolling();
-    if (!studentId) return;
-    guardianTransportState.pollTimer = window.setInterval(() => {
-      fetch('/transportation/live/student/' + encodeURIComponent(studentId), {
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-      }).then((r) => r.json()).then((payload) => {
-        const live = payload && payload.success && payload.data ? payload.data.live : null;
-        if (!live || !guardianTransportState.modalMap || !guardianTransportState.modalLayer || !window.L) return;
-        const lat = normalizeGuardianCoord(live.latitude, 'lat');
-        const lng = normalizeGuardianCoord(live.longitude, 'lng');
-        if (lat === null || lng === null) return;
-        const busIcon = window.ManagiraMaps.busIcon({ heading: (live.headingDeg != null ? live.headingDeg : live.heading_deg), label: (live.busNumber || live.bus_number) || 'Bus', stale: (live.recordedAt || live.recorded_at) && (Date.now() - new Date((live.recordedAt || live.recorded_at)).getTime()) > 2 * 60 * 1000 });
-        const busPopup = 'Bus ' + ((live.busNumber || live.bus_number) || '') + ' - updated ' + window.ManagiraMaps.ago((live.recordedAt || live.recorded_at) || Date.now());
-        if (!guardianTransportState.liveMarker) {
-          guardianTransportState.liveMarker = window.L.marker([lat, lng], { icon: busIcon, zIndexOffset: 1000 })
-            .addTo(guardianTransportState.modalLayer).bindPopup(busPopup);
-        } else {
-          guardianTransportState.liveMarker.setLatLng([lat, lng]);
-          guardianTransportState.liveMarker.setIcon(busIcon);
-          guardianTransportState.liveMarker.setPopupContent(busPopup);
-        }
-        // Keep the stop<->bus connector on the roads as the bus moves.
-        if (guardianTransportState.stopLatLng && typeof guardianTransportState.fetchRoadGeometry === 'function') {
-          guardianTransportState.fetchRoadGeometry([[lat, lng], guardianTransportState.stopLatLng]).then((roadPoints) => {
-            if (roadPoints.length < 2) return;
-            if (guardianTransportState.stopToBusLine) {
-              guardianTransportState.stopToBusLine.setLatLngs(roadPoints);
-            } else {
-              guardianTransportState.stopToBusLine = window.L.polyline(roadPoints, {
-                color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
-              }).addTo(guardianTransportState.modalLayer);
-            }
-          });
-        }
-      }).catch(() => {});
-    }, 12000);
-  }
-
-  function normalizeGuardianCoord(value, axis) {
-    if (value === null || value === undefined) return null;
-    const raw = String(value).trim();
-    if (!raw) return null;
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return null;
-    if (axis === 'lat' && (parsed < -90 || parsed > 90)) return null;
-    if (axis === 'lng' && (parsed < -180 || parsed > 180)) return null;
-    return parsed;
-  }
-
-  function closeGuardianTransportModal() {
-    const modal = document.getElementById('guardianTransportModal');
-    if (!modal) return;
-    modal.classList.remove('active');
-    stopGuardianTransportPolling();
-  }
-
-  function handleGuardianTransportModalOverlayClick(event) {
-    if (event && event.target && event.target.id === 'guardianTransportModal') {
-      closeGuardianTransportModal();
-    }
-  }
-
-  function renderGuardianTransportMap(snapshot) {
-    ensureGuardianLeafletAssets().then((L) => {
-      const el = document.getElementById('guardianTransportModalMap');
-      if (!el || !snapshot) return;
-      if (!guardianTransportState.modalMap) {
-        guardianTransportState.modalMap = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
-        window.ManagiraMaps.addTiles(guardianTransportState.modalMap);
-        guardianTransportState.modalMap.attributionControl.setPrefix(false);
-        guardianTransportState.modalLayer = L.layerGroup().addTo(guardianTransportState.modalMap);
-      }
-      const map = guardianTransportState.modalMap;
-      const layer = guardianTransportState.modalLayer;
-      layer.clearLayers();
-      guardianTransportState.liveMarker = null;
-      guardianTransportState.stopToBusLine = null;
-
-      const points = [];
-      const addMarker = (lat, lng, label, icon) => {
-        const latNum = normalizeGuardianCoord(lat, 'lat');
-        const lngNum = normalizeGuardianCoord(lng, 'lng');
-        if (latNum === null || lngNum === null) return null;
-        points.push([latNum, lngNum]);
-        return L.marker([latNum, lngNum], icon ? { icon } : {}).addTo(layer).bindPopup(label || 'Location');
-      };
-      // Road-following geometry from the server; [] = no route (nothing drawn).
-      const fetchRoadGeometry = (latlngs) => {
-        if (!Array.isArray(latlngs) || latlngs.length < 2 || !window.ManagiraMaps) return Promise.resolve([]);
-        return window.ManagiraMaps.roadPoints(latlngs).then((points) => points || []);
-      };
-
-      const school = snapshot.school || null;
-      const stop = snapshot.stop || null;
-      const live = snapshot.live || null;
-      const routeStops = snapshot.route && Array.isArray(snapshot.route.stops)
-        ? snapshot.route.stops.filter((entry) => normalizeGuardianCoord(entry && entry.latitude, 'lat') !== null && normalizeGuardianCoord(entry && entry.longitude, 'lng') !== null)
-        : [];
-
-      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School', window.ManagiraMaps.schoolIcon());
-      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Stop: ' + stop.stopName : 'Stop', window.ManagiraMaps.stopIcon('', { highlight: true }));
-      guardianTransportState.liveMarker = addMarker(live && live.latitude, live && live.longitude, 'Bus ' + ((live && (live.busNumber || live.bus_number)) || '') + (live && (live.recordedAt || live.recorded_at) ? ' - updated ' + window.ManagiraMaps.ago((live.recordedAt || live.recorded_at)) : ''), window.ManagiraMaps.busIcon({ heading: live && (live.headingDeg != null ? live.headingDeg : live.heading_deg), label: (live && (live.busNumber || live.bus_number)) || 'Bus' }));
-      if (guardianTransportState.liveMarker) guardianTransportState.liveMarker.setZIndexOffset(1000);
-
-      const routeLatLngs = [];
-      const schoolLat = school ? normalizeGuardianCoord(school.latitude, 'lat') : null;
-      const schoolLng = school ? normalizeGuardianCoord(school.longitude, 'lng') : null;
-      if (schoolLat !== null && schoolLng !== null) {
-        routeLatLngs.push([schoolLat, schoolLng]);
-      }
-      routeStops.forEach((entry) => {
-        routeLatLngs.push([normalizeGuardianCoord(entry.latitude, 'lat'), normalizeGuardianCoord(entry.longitude, 'lng')]);
-      });
-      if (schoolLat !== null && schoolLng !== null && routeStops.length) {
-        routeLatLngs.push([schoolLat, schoolLng]);
-      }
-
-      routeStops.forEach((entry) => {
-        const routeStopLat = normalizeGuardianCoord(entry.latitude, 'lat');
-        const routeStopLng = normalizeGuardianCoord(entry.longitude, 'lng');
-        if (routeStopLat === null || routeStopLng === null) return;
-        L.circleMarker([routeStopLat, routeStopLng], {
-          radius: 5,
-          color: '#2563eb',
-          fillColor: '#93c5fd',
-          fillOpacity: 0.9,
-          weight: 2,
-        }).bindPopup(entry.stopName || 'Route stop').addTo(layer);
-      });
-
-      const stopLat = stop ? normalizeGuardianCoord(stop.latitude, 'lat') : null;
-      const stopLng = stop ? normalizeGuardianCoord(stop.longitude, 'lng') : null;
-      const liveLat = live ? normalizeGuardianCoord(live.latitude, 'lat') : null;
-      const liveLng = live ? normalizeGuardianCoord(live.longitude, 'lng') : null;
-      guardianTransportState.stopLatLng = (stopLat !== null && stopLng !== null) ? [stopLat, stopLng] : null;
-      guardianTransportState.fetchRoadGeometry = fetchRoadGeometry;
-      if (stopLat !== null && stopLng !== null && liveLat !== null && liveLng !== null) {
-        fetchRoadGeometry([[liveLat, liveLng], [stopLat, stopLng]]).then((roadPoints) => {
-          if (roadPoints.length < 2) return;
-          guardianTransportState.stopToBusLine = L.polyline(roadPoints, {
-            color: '#d97706',
-            weight: 3,
-            opacity: 0.8,
-            dashArray: '6,6',
-          }).addTo(layer);
-        });
-      }
-
-
-
-      fetchRoadGeometry(routeLatLngs).then((roadLatLngs) => {
-        if (roadLatLngs.length >= 2) window.ManagiraMaps.drawRoute(layer, roadLatLngs, { color: '#1a73e8', weight: 5 });
-        const boundsSource = roadLatLngs.length ? roadLatLngs.concat(points) : (routeLatLngs.length ? routeLatLngs.concat(points) : points.slice());
-        setTimeout(() => {
-          map.invalidateSize();
-          if (boundsSource.length) {
-            map.fitBounds(L.latLngBounds(boundsSource).pad(0.2));
-          }
-        }, 80);
-      });
-    }).catch(() => {
-      const el = document.getElementById('guardianTransportModalMap');
-      if (el) {
-        el.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
-      }
-    });
-  }
-
-  function openGuardianTransportModal(trigger, event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    // The live bus tracker (public/js/busTracker.js).
-    if (window.BusTracker && trigger && trigger.getAttribute('data-student-id')) {
-      return window.BusTracker.open(trigger.getAttribute('data-student-id'), String(trigger.getAttribute('data-child-name') || '').trim());
-    }
-    const modal = document.getElementById('guardianTransportModal');
-    const titleEl = document.getElementById('guardianTransportModalTitle');
-    const statusEl = document.getElementById('guardianTransportModalStatus');
-    const summaryEl = document.getElementById('guardianTransportModalSummary');
-    const gridEl = document.getElementById('guardianTransportModalGrid');
-    if (!modal || !titleEl || !statusEl || !summaryEl || !gridEl || !trigger) return;
-
-    let snapshot = null;
     try {
-      snapshot = JSON.parse(trigger.getAttribute('data-transport-snapshot') || 'null');
-    } catch (_) {
-      snapshot = null;
-    }
-    const childName = String(trigger.getAttribute('data-child-name') || 'Student').trim();
-    titleEl.textContent = 'Transportation: ' + childName;
-
-    if (!snapshot) {
-      statusEl.textContent = 'No transportation assignment found.';
-      summaryEl.innerHTML = '';
-      gridEl.innerHTML = '';
-      modal.classList.add('active');
-      return;
-    }
-
-    statusEl.textContent = 'Current transportation assignment';
-    summaryEl.innerHTML = '<span class="guardian-transport-summary-chip">🚌 ' + [snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ') + '</span>';
-    const details = [
-      ['Bus', snapshot.bus && snapshot.bus.busNumber ? snapshot.bus.busNumber : '-'],
-      ['Driver', snapshot.driverName || '-'],
-      ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
-      ['Stop', snapshot.stop && snapshot.stop.stopName ? snapshot.stop.stopName : '-'],
-      ['Pickup', snapshot.pickupTime || '-'],
-      ['Dropoff', snapshot.dropoffTime || '-'],
-      ['Live', snapshot.live && snapshot.live.recordedAt ? new Date(snapshot.live.recordedAt).toLocaleString() : 'No live update yet'],
-      ['School', snapshot.school && snapshot.school.address ? snapshot.school.address : '-']
-    ];
-    gridEl.innerHTML = details.map((entry) => '<div class="guardian-transport-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>').join('');
-    modal.classList.add('active');
-    renderGuardianTransportMap(snapshot);
-    startGuardianTransportPolling(trigger.getAttribute('data-student-id'));
-  }
-
-  function withdrawApplication(pendingId, studentName) {
-    if (confirm(`⚠️ WITHDRAW APPLICATION\n\nAre you sure you want to withdraw the application for ${studentName}?\n\n❗ IMPORTANT: Any payment made is NON-REFUNDABLE.\n\nThis action cannot be undone.`)) {
-      // Show loading indicator
-      const btn = event.target;
-      btn.disabled = true;
-      btn.textContent = 'Withdrawing...';
-      
-      fetch('/guardian/withdraw-pending-student', {
+      const response = await fetch('/guardian/withdraw-pending-student', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ pendingId })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert('✅ Application withdrawn successfully');
-          window.location.reload();
-        } else {
-          alert('❌ Error: ' + (data.error || 'Failed to withdraw application'));
-          btn.disabled = false;
-          btn.textContent = '❌ Withdraw';
-        }
-      })
-      .catch(err => {
-        alert('❌ Error: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = '❌ Withdraw';
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pendingId }),
       });
+      const data = await response.json();
+      if (data && data.success) {
+        window.alert('✅ Application withdrawn successfully');
+        window.location.reload();
+        return;
+      }
+      window.alert('❌ Error: ' + ((data && data.error) || 'Failed to withdraw application'));
+    } catch (error) {
+      window.alert('❌ Error: ' + error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = previousText;
     }
   }
-
-  window.openGuardianTransportModal = openGuardianTransportModal;
-  window.closeGuardianTransportModal = closeGuardianTransportModal;
-  window.handleGuardianTransportModalOverlayClick = handleGuardianTransportModalOverlayClick;
 </script>
