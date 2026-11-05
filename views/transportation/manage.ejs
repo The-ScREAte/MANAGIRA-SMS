@@ -1,4 +1,5 @@
 <%- include('../partials/flash') %>
+<link rel="stylesheet" href="<%= assetUrl('/css/transportStudents.css') %>" />
 
 <link
   rel="stylesheet"
@@ -982,6 +983,7 @@
       <button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button>
       <button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button>
       <button class="tm-nav-btn" type="button" data-pane="students">Students</button>
+      <button class="tm-nav-btn" type="button" data-pane="requests">Requests</button>
       <button class="tm-nav-btn" type="button" data-pane="settings">Settings</button>
     </nav>
   </aside>
@@ -1747,8 +1749,7 @@
 
       <div class="tm-grid">
         <article class="tm-card span-12">
-          <h3>Student Transportation Status</h3>
-          <p class="tm-map-note">Home pickup is supported. You can assign students with home address/coordinates and the system can map to nearest stop automatically.</p>
+          <h3>Bus access</h3>
           <ul class="tm-list">
             <% const assignmentByStudentId = Object.fromEntries((assignments || []).map(function(a) { return [Number(a.student_id), a]; })); %>
             <% const groupedByClass = {}; %>
@@ -1772,7 +1773,7 @@
               <% const accessCount = sortedStudents.filter(function(s) { return !!assignmentByStudentId[Number(s.student_id)]; }).length; %>
               <li class="tm-class-group" data-class-group data-class-id="<%= classGroup.classId ? classGroup.classId : '__unassigned__' %>">
                 <details>
-                  <summary>Class: <%= classGroup.className %> (<%= sortedStudents.length %>) | With Bus Access: <%= accessCount %></summary>
+                  <summary><%= classGroup.className %> · <%= sortedStudents.length %> students · <%= accessCount %> riding</summary>
                   <div class="tm-class-toolbar">
                     <button class="tm-btn" type="button" data-action="edit-class-access">Edit</button>
                     <span class="tm-class-edit-controls">
@@ -1806,27 +1807,10 @@
                             data-initial-checked="<%= assigned ? '1' : '0' %>"
                             <%= assigned ? 'checked' : '' %>
                           />
-                          <div>
+                          <button type="button" class="tm-student-open" data-student-open="<%= student.student_id %>">
                             <strong><%= student.last_name %> <%= student.first_name %></strong>
                             <span class="tm-student-access-tag <%= assigned ? 'tm-student-access-tag--yes' : 'tm-student-access-tag--no' %>"><%= assigned ? 'Bus access' : 'No bus access' %></span>
-                            <br/>
-                            Address: <%= student.address || '-' %>
-                            | Bus: <%= assigned ? (assigned.bus_number || '-') : '-' %>
-                            | Route: <%= assigned ? (assigned.route_name || '-') : '-' %>
-                            | Stop: <%= assigned ? (assigned.stop_name || '-') : '-' %>
-                            <br/>
-                            <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#334155;font-weight:400;">
-                              <input
-                                type="checkbox"
-                                data-make-stop-checkbox
-                                value="<%= student.student_id %>"
-                                <%= (assigned && assigned.stop_id) ? 'checked' : '' %>
-                                <%= student.address ? '' : 'disabled' %>
-                              />
-                              Make this student's address a stop (bus will pass through to pick them up)
-                              <% if (!student.address) { %><em>(no address on file)</em><% } %>
-                            </label>
-                          </div>
+                          </button>
                         </div>
                       </div>
                     <% }) %>
@@ -1838,8 +1822,29 @@
         </article>
       </div>
     </section>
+    <section class="tm-pane" data-pane-id="requests">
+      <div class="tm-head"><h2>Bus requests</h2></div>
+      <div class="tm-request-filters"><button type="button" class="tm-btn" data-request-history="0" aria-pressed="true">New</button><button type="button" class="tm-btn" data-request-history="1" aria-pressed="false">History</button></div>
+      <ul id="tm-request-list" class="tm-request-list" aria-live="polite"></ul>
+    </section>
   </main>
+  <div id="tm-student-panel" class="tm-student-panel" hidden>
+    <aside class="tm-student-panel__sheet" role="dialog" aria-modal="true" aria-labelledby="tm-student-title">
+      <div class="tm-student-panel__head"><h3 id="tm-student-title">Student</h3><button type="button" class="tm-btn" data-close-student aria-label="Close student details">×</button></div>
+      <form hidden>
+        <div class="tm-row"><label><input name="access" type="checkbox" /> Bus access</label></div>
+        <div class="tm-row"><label for="tm-pickup-address">Pickup address</label><input id="tm-pickup-address" name="address" maxlength="500" /></div>
+        <div class="tm-row"><label for="tm-pickup-bus">Bus</label><select id="tm-pickup-bus" name="busId"></select></div>
+        <div class="tm-row"><label for="tm-pickup-stop">Route / stop</label><select id="tm-pickup-stop" name="stopId"></select></div>
+        <div class="tm-row"><label><input name="addressAsStop" type="checkbox" /> Address as stop</label></div>
+        <button class="tm-btn tm-btn--primary" type="submit">Save</button>
+      </form>
+      <p role="status" class="tm-map-note"></p>
+    </aside>
+  </div>
+  <script type="application/json" id="tm-student-options"><%- JSON.stringify({buses:(buses || []).map(b=>({bus_id:b.bus_id,bus_number:b.bus_number})),stops:(stops || []).filter(s=>s.route_id).map(s=>({stop_id:s.stop_id,stop_name:((routes || []).find(r=>r.route_id===s.route_id)?.route_name || 'Route')+' · '+s.stop_name}))}).replace(/</g,'\\u003c') %></script>
 </div>
+<script src="<%= assetUrl('/js/transportStudents.js') %>"></script>
 
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
