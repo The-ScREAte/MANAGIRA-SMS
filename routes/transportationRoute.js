@@ -5,8 +5,15 @@ const { roadRoute } = require("../utils/roadRouting");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { transportationController } = require("../controllers/transportationController");
 const { upload } = require("../middleware/s3Upload");
+const { controller: requests } = require('../controllers/transportRequestsController');
 
 module.exports = (db) => {
+  router.get('/requests/options', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req,res) => requests.options(req,res,db));
+  router.post('/requests', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req,res) => requests.create(req,res,db));
+  router.get('/manage/requests', isAuthenticated, (req,res) => requests.list(req,res,db));
+  router.post('/manage/requests/review', isAuthenticated, (req,res) => requests.review(req,res,db));
+  router.get('/manage/student/:studentId', isAuthenticated, (req,res) => requests.student(req,res,db));
+  router.post('/manage/student', isAuthenticated, (req,res) => requests.saveStudent(req,res,db));
   // Live bus location for a single student is staff-only by default, but a
   // guardian may fetch it for their own linked child, and a student may
   // fetch it for themself — each strictly scoped, everyone else 401/403s.
