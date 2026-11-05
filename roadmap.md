@@ -1,5 +1,12 @@
 # Mira public page cleanup
 
+# Transportation bus requests
+
+- [ ] Show bus icons for every classroom student; color riders and gray non-riders.
+- [ ] Add address-based stop selection and saved requests with New/History views.
+- [ ] Simplify student rows to name and bus access; edit pickup and enrollment in a right panel.
+- [ ] Test permissions, stop matching, request review and responsive presentation; report live verification limits.
+
 # Report builder
 
 - [ ] Check report selection, columns, criteria, generation, saving and CSV export.
