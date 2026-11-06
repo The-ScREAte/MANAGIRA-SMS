@@ -62,6 +62,8 @@ const isGuardianAuthenticated = async (req, res, next) => {
 
     next();
   } catch (error) {
+    // A busy database isn't a reason to sign anyone out: they get the "try again" page and stay signed in.
+    if (require("./errorMiddleware").isDatabaseUnavailable(error)) return next(error);
     console.error('Guardian auth error:', error);
     safeFlashError("Authentication error.");
     return res.redirect("/account/login");

@@ -65,6 +65,8 @@ async function isDriverAuthenticated(req, res, next) {
 
     next();
   } catch (error) {
+    // A busy database isn't a reason to sign anyone out: they get the "try again" page and stay signed in.
+    if (require("./errorMiddleware").isDatabaseUnavailable(error)) return next(error);
     console.error("[DriverAuth] error:", error && error.message ? error.message : error);
     safeFlash("error", "Session validation failed. Please log in again.");
     return res.redirect("/account/login");

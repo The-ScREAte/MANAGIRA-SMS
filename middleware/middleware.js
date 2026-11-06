@@ -107,6 +107,8 @@ async function isAuthenticated(req, res, next) {
 
         return next();
     } catch (error) {
+        // A busy database isn't a reason to sign anyone out: they get the "try again" page and stay signed in.
+        if (require('./errorMiddleware').isDatabaseUnavailable(error)) return next(error);
         console.error('Auth validation error:', error);
         if (expectsJsonResponse(req)) {
             return res.status(401).json({ success: false, message: 'Session validation failed. Please log in again.' });

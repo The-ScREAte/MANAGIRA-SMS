@@ -6,7 +6,10 @@ const createError = (status, message) => {
 
 const isDatabaseUnavailable = (err) => {
     try {
-        return Boolean(err) && require('../config/db').isConnectRefusal(err);
+        if (!err) return false;
+        // Everyone's connections in use, or the database not answering.
+        if (/timeout exceeded when trying to connect|econnrefused|connection terminated/i.test(String(err.message || ''))) return true;
+        return require('../config/db').isConnectRefusal(err);
     } catch (_) {
         return false;
     }
@@ -99,4 +102,5 @@ const globalErrorHandler = (err, req, res, next) => {
 module.exports = {
     notFound,
     globalErrorHandler,
+    isDatabaseUnavailable,
 };

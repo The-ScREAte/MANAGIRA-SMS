@@ -1,27 +1,12 @@
-// The driver's trip: a plain page until Go, then a full-screen navigation map with
-// turn-by-turn directions, voice, heading-up and 3D views, satellite and night maps,
-// and the list of stops. The map engine loads only when it is needed.
+// The driver's trip: a plain page with a small map, then on Go a large navigation map
+// under the app's header, with directions, the stops, Google or Apple Maps a tap away,
+// and a button to minimize it while the trip keeps running.
 (function () {
   'use strict';
 
   var MAPLIBRE_JS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
   var MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
   var STYLE_DAY = 'https://tiles.openfreemap.org/styles/liberty';
-  var STYLE_NIGHT = 'https://tiles.openfreemap.org/styles/dark';
-  var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
-  var STYLE_SATELLITE = {
-    version: 8,
-    sources: {
-      imagery: { type: 'raster', tileSize: 256, maxzoom: 19, attribution: 'Imagery &copy; Esri', tiles: [ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}'] },
-      roads: { type: 'raster', tileSize: 256, maxzoom: 19, tiles: [ESRI + 'Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'] },
-      places: { type: 'raster', tileSize: 256, maxzoom: 19, tiles: [ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'] }
-    },
-    layers: [
-      { id: 'imagery', type: 'raster', source: 'imagery' },
-      { id: 'roads', type: 'raster', source: 'roads' },
-      { id: 'places', type: 'raster', source: 'places' }
-    ]
-  };
   var ARRIVE_M = 60;           // within 60 m of a stop counts as served
   var PASS_M = 35;
   var OFF_ROUTE_M = 80;        // further than this from the line: plan again
@@ -51,10 +36,8 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
   }
   var TOOL = {
+    minimize: '<path d="M6 9l6 6 6-6"/>',
     compass: '<path d="M12 3l4 9h-8z" fill="#d92d20" stroke="none"/><path d="M12 21l-4-9h8z" fill="currentColor" stroke="none" opacity=".35"/>',
-    layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
-    soundOn: '<path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
-    soundOff: '<path d="M4 10v4h4l5 4V6L8 10z"/><path d="M17 10l4 4M21 10l-4 4"/>',
     overview: '<path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/><path d="M8 15c2-5 6-1 8-6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     minus: '<path d="M5 12h14"/>'
@@ -133,18 +116,20 @@
 
   function mount() {
     var configEl = document.getElementById('drv-config');
-    if (!configEl || configEl.dataset.bound === '1') return;
-    configEl.dataset.bound = '1';
+    if (configEl && configEl.dataset.bound === '1') return;
+    // A new page, or the header's menu led elsewhere: the map doesn't stay on top of it.
     document.querySelectorAll('body > .drvn').forEach(function (old) { old.remove(); });
     document.documentElement.classList.remove('drv-navigating');
+    if (!configEl) return;
+    configEl.dataset.bound = '1';
 
     var cfg = JSON.parse(configEl.textContent || '{}');
     var routes = cfg.routes || [];
     var unit = cfg.unit === 'mi' ? 'mi' : 'km';
     var $ = function (id) { return document.getElementById(id); };
 
-    var prefs = { type: 'default', theme: 'auto', orientation: 'heading', tilt: true, muted: false };
-    try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')); } catch (_) { /* defaults */ }
+    var prefs = { orientation: 'heading' };
+    try { if (JSON.parse(localStorage.getItem(PREFS_KEY) || '{}').orientation === 'north') prefs.orientation = 'north'; } catch (_) { /* defaults */ }
     function savePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) { /* this device only */ } }
 
     var st = {
@@ -152,7 +137,7 @@
       line: null, lineAt: 0, linePending: false, lineReq: 0, offRoute: false,
       tripId: cfg.activeTrip && cfg.activeTrip.trip_id ? Number(cfg.activeTrip.trip_id) : null,
       pos: null, speed: null, heading: null, following: true, cameraAt: 0, gps: 'idle', sync: 'idle',
-      said: {}, arrivedSaid: false, lastListAt: 0, styleName: ''
+      arrivedSaid: false, lastListAt: 0
     };
 
     function driving() { return Boolean(st.tripId); }
@@ -166,16 +151,11 @@
       if (unit === 'mi') { var mi = m / 1609.344; return mi < 0.1 ? Math.max(10, Math.round(m * 3.28084 / 10) * 10) + ' ft' : mi.toFixed(1) + ' mi'; }
       return m < 1000 ? Math.max(10, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(1) + ' km';
     }
-    function spokenDistance(m) {
-      if (unit === 'mi') { var mi = m / 1609.344; return mi < 0.2 ? (Math.round(m * 3.28084 / 50) * 50) + ' feet' : mi.toFixed(1) + ' miles'; }
-      return m < 1000 ? (Math.round(m / 50) * 50) + ' metres' : (m / 1000).toFixed(1) + ' kilometres';
-    }
-
     /* ---------- the route ---------- */
     function setRoute(route) {
       st.route = route || null;
       st.passed = -1;
-      st.line = null; st.lineAt = 0; st.linePending = false; st.lineReq++; st.said = {}; st.arrivedSaid = false;
+      st.line = null; st.lineAt = 0; st.linePending = false; st.lineReq++; st.arrivedSaid = false;
       st.stops = !route ? [] : (route.stops || []).map(function (s, i) {
         var p = point(s.latitude, s.longitude);
         if (!p) return null;
@@ -254,6 +234,10 @@
       var box = container.querySelector('.maplibregl-ctrl-attrib');
       if (box) { box.classList.remove('maplibregl-compact-show'); box.removeAttribute('open'); }
     }
+    function keepCreditsSmall(map, container) {
+      collapseCredits(container);
+      map.once('idle', function () { collapseCredits(container); });
+    }
 
     /* ---------- the small map on the page before Go ---------- */
     var mini = { map: null, ready: false, markers: [] };
@@ -266,12 +250,12 @@
         if (!mini.map) {
           var first = st.stops[0] || st.dest || point(cfg.school && cfg.school.lat, cfg.school && cfg.school.lng);
           mini.map = new gl.Map({
-            container: el, style: document.documentElement.getAttribute('data-appearance') === 'dark' ? STYLE_NIGHT : STYLE_DAY, interactive: false, attributionControl: false,
+            container: el, style: STYLE_DAY, interactive: false, attributionControl: false,
             center: first ? [first.lng, first.lat] : [0, 20], zoom: first ? 12 : 1
           });
           mini.map.addControl(new gl.AttributionControl({ compact: true }), 'bottom-right');
           mini.map.on('style.load', function () {
-            collapseCredits(el);
+            keepCreditsSmall(mini.map, el);
             (mini.map.getStyle().layers || []).forEach(function (layer) {
               if (/^poi|housenumber/.test(layer.id) || layer.type === 'fill-extrusion') mini.map.setLayoutProperty(layer.id, 'visibility', 'none');
             });
@@ -304,7 +288,8 @@
     /* ---------- the page before Go ---------- */
     var idle = {
       stops: $('drv-fact-stops'), students: $('drv-fact-students'), distance: $('drv-fact-distance'), time: $('drv-fact-time'),
-      list: $('drv-stops-list'), count: $('drv-stops-count'), select: $('drv-route-select'), start: $('drv-start'), note: $('drv-note')
+      list: $('drv-stops-list'), count: $('drv-stops-count'), select: $('drv-route-select'), start: $('drv-start'), note: $('drv-note'),
+      live: $('drv-live'), end: $('drv-end-page')
     };
     function renderIdle() {
       if (!idle.stops) return;
@@ -338,74 +323,46 @@
       + '<div class="drvn-map" id="drvn-map"></div><p class="drvn-msg" id="drvn-msg" hidden></p>'
       + '<div class="drvn-top" id="drvn-top">'
       +   '<div class="drvn-turn" id="drvn-turn" hidden><span id="drvn-turn-icon"></span><div class="drvn-turn__text"><strong class="drvn-turn__dist" id="drvn-turn-dist"></strong><span class="drvn-turn__what" id="drvn-turn-what"></span></div></div>'
-      +   '<div class="drvn-then" id="drvn-then" hidden></div>'
       +   '<div class="drvn-chip" id="drvn-chip"></div>'
       + '</div>'
       + '<div class="drvn-tools">'
-      +   '<button type="button" class="drvn-tool" id="drvn-compass" aria-label="Switch between heading up and north up" title="Heading up / north up"><span id="drvn-compass-needle" style="display:flex">' + toolSvg(TOOL.compass) + '</span></button>'
-      +   '<button type="button" class="drvn-tool" id="drvn-layers-btn" aria-label="Map options" aria-expanded="false" title="Map options">' + toolSvg(TOOL.layers) + '</button>'
-      +   '<button type="button" class="drvn-tool" id="drvn-sound" title="Voice guidance"></button>'
-      +   '<button type="button" class="drvn-tool" id="drvn-overview" aria-label="Show the whole route" title="Show the whole route">' + toolSvg(TOOL.overview) + '</button>'
+      +   '<button type="button" class="drvn-tool" id="drvn-minimize" aria-label="Minimize the map" title="Minimize">' + toolSvg(TOOL.minimize) + '</button>'
+      +   '<button type="button" class="drvn-tool" id="drvn-compass" aria-label="Turn the map" title="Direction of travel or north"><span id="drvn-compass-needle" style="display:flex">' + toolSvg(TOOL.compass) + '</span></button>'
+      +   '<button type="button" class="drvn-tool" id="drvn-overview" aria-label="Show the whole route" title="Whole route">' + toolSvg(TOOL.overview) + '</button>'
       +   '<div class="drvn-zoom"><button type="button" class="drvn-tool" id="drvn-zoom-in" aria-label="Zoom in">' + toolSvg(TOOL.plus) + '</button><button type="button" class="drvn-tool" id="drvn-zoom-out" aria-label="Zoom out">' + toolSvg(TOOL.minus) + '</button></div>'
       + '</div>'
-      + '<div class="drvn-layers" id="drvn-layers" hidden>'
-      +   '<p class="drvn-h">Map type</p><div class="drvn-seg" data-pref="type"><button type="button" data-value="default">Default</button><button type="button" data-value="satellite">Satellite</button></div>'
-      +   '<p class="drvn-h">Appearance</p><div class="drvn-seg" data-pref="theme"><button type="button" data-value="auto">Auto</button><button type="button" data-value="day">Day</button><button type="button" data-value="night">Night</button></div>'
-      +   '<label class="drvn-toggle">3D view<input type="checkbox" id="drvn-tilt" /></label>'
-      +   '<label class="drvn-toggle">Face direction of travel<input type="checkbox" id="drvn-heading" /></label>'
-      + '</div>'
-      + '<div class="drvn-speed" id="drvn-speed" hidden><strong id="drvn-speed-value"></strong><small>' + (unit === 'mi' ? 'mph' : 'km/h') + '</small></div>'
       + '<button type="button" class="drvn-recenter" id="drvn-recenter" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>Re-center</button>'
       + '<p class="drvn-toast" id="drvn-toast" role="status" hidden></p>'
       + '<section class="drvn-sheet" id="drvn-sheet" aria-label="Trip">'
-      +   '<button type="button" class="drvn-grab" id="drvn-grab" aria-label="Show stops and options" aria-expanded="false"><i></i></button>'
-      +   '<div class="drvn-eta"><div class="drvn-eta__text"><strong class="drvn-eta__time" id="drvn-eta-time">–</strong><span class="drvn-eta__sub"><i class="drvn-dot" id="drvn-dot" aria-hidden="true"></i><span id="drvn-eta-sub">Finding GPS…</span></span></div><button type="button" class="drvn-end" id="drvn-end">End</button></div>'
+      +   '<button type="button" class="drvn-grab" id="drvn-grab" aria-label="Show stops" aria-expanded="false"><i></i></button>'
+      +   '<div class="drvn-eta"><div class="drvn-eta__text"><strong class="drvn-eta__time" id="drvn-eta-time">–</strong><span class="drvn-eta__sub"><i class="drvn-dot" id="drvn-dot" aria-hidden="true"></i><span id="drvn-eta-sub">Finding GPS…</span></span></div>'
+      +     '<div class="drvn-open"><button type="button" class="drvn-openbtn" id="drvn-open" aria-haspopup="menu" aria-expanded="false">Navigate<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>'
+      +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '</div></div>'
+      +     '<button type="button" class="drvn-end" id="drvn-end">End</button></div>'
       +   '<div class="drvn-confirm" id="drvn-confirm" hidden><p>End this trip? Families will stop seeing the bus.</p><div><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button><button type="button" class="drvn-plain drvn-plain--danger" id="drvn-end-yes">End trip</button></div></div>'
-      +   '<div class="drvn-more" id="drvn-more" hidden>'
-      +     '<p class="drvn-h" id="drvn-route-name"></p><ol class="drvn-stops" id="drvn-stops"></ol>'
-      +     '<p class="drvn-h">Navigate with</p><div class="drvn-apps">' + (cfg.navApps || []).map(function (app) { return '<button type="button" class="drvn-plain" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '</div>'
-      +   '</div>'
+      +   '<div class="drvn-more" id="drvn-more" hidden><p class="drvn-h" id="drvn-route-name"></p><ol class="drvn-stops" id="drvn-stops"></ol></div>'
       + '</section>';
     document.body.appendChild(nav);
 
     var ui = {
-      turn: $('drvn-turn'), turnIcon: $('drvn-turn-icon'), turnDist: $('drvn-turn-dist'), turnWhat: $('drvn-turn-what'), then: $('drvn-then'), chip: $('drvn-chip'),
-      compass: $('drvn-compass'), needle: $('drvn-compass-needle'), layersBtn: $('drvn-layers-btn'), layers: $('drvn-layers'), sound: $('drvn-sound'), overview: $('drvn-overview'),
-      tilt: $('drvn-tilt'), heading: $('drvn-heading'), speed: $('drvn-speed'), speedValue: $('drvn-speed-value'), recenter: $('drvn-recenter'), toast: $('drvn-toast'),
-      sheet: $('drvn-sheet'), grab: $('drvn-grab'), etaTime: $('drvn-eta-time'), etaSub: $('drvn-eta-sub'), dot: $('drvn-dot'), end: $('drvn-end'), confirm: $('drvn-confirm'),
+      turn: $('drvn-turn'), turnIcon: $('drvn-turn-icon'), turnDist: $('drvn-turn-dist'), turnWhat: $('drvn-turn-what'), chip: $('drvn-chip'),
+      minimize: $('drvn-minimize'), compass: $('drvn-compass'), needle: $('drvn-compass-needle'), overview: $('drvn-overview'), recenter: $('drvn-recenter'), toast: $('drvn-toast'),
+      sheet: $('drvn-sheet'), grab: $('drvn-grab'), etaTime: $('drvn-eta-time'), etaSub: $('drvn-eta-sub'), dot: $('drvn-dot'), open: $('drvn-open'), menu: $('drvn-menu'), end: $('drvn-end'), confirm: $('drvn-confirm'),
       keep: $('drvn-keep'), endYes: $('drvn-end-yes'), more: $('drvn-more'), routeName: $('drvn-route-name'), stops: $('drvn-stops'), msg: $('drvn-msg')
     };
 
-    function isNight() {
-      if (prefs.theme === 'night') return true;
-      if (prefs.theme === 'day') return false;
-      if (document.documentElement.getAttribute('data-appearance') === 'dark') return true;
-      var hour = new Date().getHours();
-      return hour < 6 || hour >= 19;
+    // The panels follow the app's own look; the map itself stays the one clear map.
+    function syncLook() {
+      nav.setAttribute('data-theme', document.documentElement.getAttribute('data-appearance') === 'dark' ? 'night' : 'day');
     }
-    function syncToolbar() {
-      nav.setAttribute('data-theme', isNight() ? 'night' : 'day');
-      ui.sound.innerHTML = toolSvg(prefs.muted ? TOOL.soundOff : TOOL.soundOn);
-      ui.sound.setAttribute('aria-label', prefs.muted ? 'Turn voice guidance on' : 'Turn voice guidance off');
-      ui.sound.setAttribute('aria-pressed', String(!prefs.muted));
-      ui.tilt.checked = Boolean(prefs.tilt);
-      ui.heading.checked = prefs.orientation === 'heading';
-      ui.layers.querySelectorAll('[data-pref]').forEach(function (group) {
-        group.querySelectorAll('button').forEach(function (button) {
-          button.setAttribute('aria-pressed', String(prefs[group.getAttribute('data-pref')] === button.getAttribute('data-value')));
-        });
-      });
+    // Always under the app's header, whatever its height on this screen.
+    function fitUnderHeader() {
+      var header = document.getElementById('top-header');
+      nav.style.top = (header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0) + 'px';
     }
     function sheetHeight() { return ui.sheet.offsetHeight || 96; }
     function syncSheet() { nav.style.setProperty('--n-sheet', (window.innerWidth >= 720 ? 10 : 0) + sheetHeight() + 'px'); }
 
-    function speak(text) {
-      if (prefs.muted || !('speechSynthesis' in window)) return;
-      try {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-      } catch (_) { /* voice is a nicety */ }
-    }
     var toastTimer = 0;
     function toast(text, ms) {
       ui.toast.textContent = text;
@@ -415,11 +372,6 @@
     }
 
     /* ---------- the map ---------- */
-    function currentStyle() {
-      if (prefs.type === 'satellite') return STYLE_SATELLITE;
-      return isNight() ? STYLE_NIGHT : STYLE_DAY;
-    }
-    function styleKey() { return prefs.type === 'satellite' ? 'satellite' : (isNight() ? 'night' : 'day'); }
     function ensureMap() {
       if (st.map) return Promise.resolve();
       return loadEngine().then(function () {
@@ -428,13 +380,12 @@
         if (gl.supported && !gl.supported()) throw new Error('no webgl');
         var start = st.pos || (cfg.lastLocation && point(cfg.lastLocation.latitude, cfg.lastLocation.longitude)) || st.stops[0] || st.dest || point(cfg.school && cfg.school.lat, cfg.school && cfg.school.lng);
         var map = st.map = new gl.Map({
-          container: $('drvn-map'), style: currentStyle(), attributionControl: false, dragRotate: true, pitchWithRotate: true,
-          center: start ? [start.lng, start.lat] : [0, 20], zoom: start ? 14 : 2, maxPitch: 70
+          container: $('drvn-map'), style: STYLE_DAY, attributionControl: false, dragRotate: true, pitchWithRotate: false,
+          center: start ? [start.lng, start.lat] : [0, 20], zoom: start ? 14 : 2, maxPitch: 0
         });
-        st.styleName = styleKey();
         map.addControl(new gl.AttributionControl({ compact: true }), 'bottom-right');
         map.addControl(new gl.ScaleControl({ unit: unit === 'mi' ? 'imperial' : 'metric', maxWidth: 90 }), 'bottom-left');
-        map.on('style.load', function () { st.styleReady = true; addRouteLayers(); collapseCredits($('drvn-map')); });
+        map.on('style.load', function () { st.styleReady = true; addRouteLayers(); keepCreditsSmall(map, $('drvn-map')); });
         map.on('rotate', syncCompass);
         map.on('movestart', function (event) { if (event.originalEvent && driving()) setFollowing(false); });
         map.on('error', function () { /* a missing tile is not worth interrupting a driver */ });
@@ -452,7 +403,7 @@
       var layers = (map.getStyle().layers || []);
       layers.forEach(function (layer) {
         if (/^poi|housenumber/.test(layer.id)) map.setLayoutProperty(layer.id, 'visibility', 'none');
-        if (layer.type === 'fill-extrusion') map.setLayoutProperty(layer.id, 'visibility', prefs.tilt ? 'visible' : 'none');
+        if (layer.type === 'fill-extrusion') map.setLayoutProperty(layer.id, 'visibility', 'none');
       });
       var beforeId = (layers.find(function (layer) { return layer.type === 'symbol'; }) || {}).id;
       var empty = { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} };
@@ -463,21 +414,6 @@
       map.addLayer({ id: 'drv-casing', type: 'line', source: 'drv-ahead', layout: lineLayout, paint: { 'line-color': '#fff', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 7, 18, 16] } }, beforeId);
       map.addLayer({ id: 'drv-ahead', type: 'line', source: 'drv-ahead', layout: lineLayout, paint: { 'line-color': '#1a73e8', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 4, 18, 11] } }, beforeId);
       drawLine();
-    }
-    function applyStyle() {
-      syncToolbar();
-      if (!st.map) return;
-      var key = styleKey();
-      if (key === st.styleName) { addTiltOnly(); return; }
-      st.styleName = key;
-      st.styleReady = false;
-      st.map.setStyle(currentStyle());
-    }
-    function addTiltOnly() {
-      if (!st.map || !st.styleReady) return;
-      (st.map.getStyle().layers || []).forEach(function (layer) {
-        if (layer.type === 'fill-extrusion') st.map.setLayoutProperty(layer.id, 'visibility', prefs.tilt ? 'visible' : 'none');
-      });
     }
     function drawLine() {
       var map = st.map;
@@ -561,10 +497,10 @@
     /* ---------- the camera ---------- */
     function cameraPadding() {
       var h = st.map.getContainer().clientHeight;
-      return { top: Math.round(h * (prefs.tilt ? 0.42 : 0.3)), bottom: sheetHeight() + 20, left: 0, right: 0 };
+      return { top: Math.round(h * 0.3), bottom: sheetHeight() + 20, left: 0, right: 0 };
     }
     function follow(force) {
-      if (!st.map || !driving() || !st.pos || (!st.following && !force)) return;
+      if (!st.map || nav.hidden || !driving() || !st.pos || (!st.following && !force)) return;
       var now = Date.now();
       if (!force && now - st.cameraAt < 900) return;
       st.cameraAt = now;
@@ -574,7 +510,6 @@
         center: [at.lng, at.lat],
         zoom: kmh > 70 ? 15 : kmh > 40 ? 15.8 : 16.6,
         bearing: prefs.orientation === 'heading' && st.heading !== null ? st.heading : 0,
-        pitch: prefs.tilt ? 55 : 0,
         padding: cameraPadding(),
         duration: force ? 800 : 1000,
         easing: force ? undefined : function (t) { return t; },
@@ -612,7 +547,6 @@
         var riders = studentsAt(reachedStop.id).length;
         var message = 'Arrived at ' + reachedStop.name + (riders ? '. ' + riders + ' student' + (riders === 1 ? '' : 's') : '');
         toast(message);
-        speak(message);
         drawMarkers();
         requestLine(true);
       }
@@ -642,7 +576,7 @@
       var p = busAlong();
       if (wasWaiting) { requestLine(true); follow(true); }
       else if (!st.line || !p) {
-        if (st.line && !st.offRoute) { st.offRoute = true; speak('Rerouting'); toast('Rerouting…', 2000); }
+        if (st.line && !st.offRoute) { st.offRoute = true; toast('Finding a new way…', 2000); }
         requestLine(false);
       }
       else if (Date.now() - st.lineAt > ROUTE_REFRESH_MS) requestLine(false);
@@ -659,23 +593,11 @@
       }
       return null;
     }
-    function speakStep(current) {
-      var key = current.step.at.lat + ',' + current.step.at.lng;
-      var level = current.distance <= 60 ? 3 : current.distance <= 300 ? 2 : current.distance <= 900 ? 1 : 0;
-      if (!level || (st.said[key] || 0) >= level) return;
-      st.said[key] = level;
-      var text = describeStep(current.step, current.step.end).text;
-      speak(level === 3 ? text : 'In ' + spokenDistance(current.distance) + ', ' + text.charAt(0).toLowerCase() + text.slice(1));
-    }
     function updateStats() {
       if (nav.hidden) return;
       var rest = remaining(), target = rest[0] || st.dest, isDest = !rest[0];
-      var kmh = st.speed === null ? null : st.speed * 3.6;
-      ui.speed.hidden = kmh === null || !st.pos || kmh > 200; // over 200 km/h is a GPS jump, not a bus
-      if (!ui.speed.hidden) ui.speedValue.textContent = Math.round(unit === 'mi' ? kmh * 0.621371 : kmh);
-
       if (!target) {
-        ui.turn.hidden = true; ui.then.hidden = true; ui.chip.hidden = false;
+        ui.turn.hidden = true; ui.chip.hidden = false;
         ui.chip.textContent = 'No stops on this route';
         ui.etaTime.textContent = '–';
         return;
@@ -705,18 +627,13 @@
         ui.turnIcon.innerHTML = arrowSvg(what.icon);
         ui.turnDist.textContent = fmtDistance(current.distance);
         ui.turnWhat.textContent = what.text;
-        var soon = current.next && current.next.along - current.step.along < 200 ? describeStep(current.next, current.next.end) : null;
-        ui.then.hidden = !soon;
-        if (soon) ui.then.innerHTML = arrowSvg(soon.icon) + 'Then ' + esc(soon.text.charAt(0).toLowerCase() + soon.text.slice(1));
-        speakStep(current);
       } else {
         ui.turn.hidden = true;
-        ui.then.hidden = true;
       }
 
       // Next stop
       var nearEnd = isDest && st.pos && st.dest && distM(st.pos, st.dest) <= ARRIVE_M;
-      if (nearEnd && !st.arrivedSaid) { st.arrivedSaid = true; speak('You have arrived at ' + st.dest.label); toast('You have arrived'); }
+      if (nearEnd && !st.arrivedSaid) { st.arrivedSaid = true; toast('You have arrived'); }
       ui.chip.hidden = false;
       if (isDest) {
         ui.chip.innerHTML = esc(nearEnd ? 'You have arrived' : 'Final stop: ' + st.dest.label);
@@ -781,26 +698,57 @@
     function enterNav() {
       nav.hidden = false;
       document.documentElement.classList.add('drv-navigating');
-      syncToolbar();
+      window.scrollTo(0, 0);
+      fitUnderHeader();
+      syncLook();
       syncSheet();
       setFollowing(true);
+      syncPage();
       ensureMap().then(function () {
         if (!st.map) return;
         st.map.resize();
         drawMarkers();
+        updateStats();
         if (st.pos) follow(true); else frameRoute();
       });
+    }
+    // The trip keeps running and families keep seeing the bus; only the map is put away.
+    function minimizeNav() {
+      nav.hidden = true;
+      document.documentElement.classList.remove('drv-navigating');
+      closeMenu();
+      ui.confirm.hidden = true;
+      setSheetOpen(false);
+      releaseMap();
+      syncPage();
+      drawMini();
+    }
+    // The big map is built again when it's opened: no hidden map using the phone's battery.
+    function releaseMap() {
+      if (st.glide) { cancelAnimationFrame(st.glide); st.glide = 0; }
+      if (st.map) { try { st.map.remove(); } catch (_) { /* already gone */ } }
+      st.map = null; st.bus = null; st.markers = []; st.styleReady = false;
+    }
+    // The plain page shows whether a trip is running.
+    function syncPage() {
+      if (!idle.start) return;
+      idle.start.querySelector('span').textContent = driving() ? 'Open map' : 'Go';
+      if (idle.select) idle.select.disabled = driving();
+      if (idle.live) idle.live.hidden = !driving();
+      if (idle.end) idle.end.hidden = !driving();
+    }
+    function closeMenu() {
+      ui.menu.hidden = true;
+      ui.open.setAttribute('aria-expanded', 'false');
     }
     function leaveNav() {
       nav.hidden = true;
       document.documentElement.classList.remove('drv-navigating');
-      ui.layers.hidden = true;
+      closeMenu();
       ui.confirm.hidden = true;
       setSheetOpen(false);
-      if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (_) { /* nothing to stop */ } }
-      if (st.glide) { cancelAnimationFrame(st.glide); st.glide = 0; }
-      if (st.map) { try { st.map.remove(); } catch (_) { /* already gone */ } }
-      st.map = null; st.bus = null; st.markers = []; st.styleReady = false;
+      releaseMap();
+      syncPage();
     }
     function post(url, data) {
       return fetch(url, {
@@ -820,12 +768,12 @@
       return routes[0] ? routes[0].route_id : '';
     }
     function go() {
+      if (driving()) { enterNav(); return; }
       var routeId = selectedRouteId();
       if (!routeId || !cfg.bus) { showIdleNote('Choose your route first.'); return; }
       if (idle.note) idle.note.hidden = true;
       if (!window.DriverLocation) { showIdleNote('Location sharing could not load. Refresh the page and try again.'); return; }
       window.DriverLocation.start(gpsHandlers()); // inside the tap, so the phone asks for permission
-      speak(' ');                                 // and so the phone allows the voice
       var label = idle.start.querySelector('span');
       idle.start.disabled = true;
       label.textContent = 'Starting…';
@@ -837,13 +785,13 @@
         window.DriverLocation.setTrip(st.tripId);
         if (st.pos) onFix(st.pos);
         requestLine(true);
-        speak('Starting ' + (st.route ? st.route.route_name : 'your route'));
+        syncPage();
       }).catch(function (error) {
         if (!st.tripId) { window.DriverLocation.stop(); leaveNav(); }
         showIdleNote(error.message);
       }).then(function () {
         idle.start.disabled = false;
-        label.textContent = 'Go';
+        label.textContent = driving() ? 'Open map' : 'Go';
       });
     }
     function endTrip() {
@@ -887,47 +835,32 @@
     ui.end.addEventListener('click', function () { setSheetOpen(false); ui.confirm.hidden = false; syncSheet(); });
     ui.keep.addEventListener('click', function () { ui.confirm.hidden = true; syncSheet(); });
     ui.endYes.addEventListener('click', endTrip);
+    ui.minimize.addEventListener('click', minimizeNav);
+    if (idle.end) idle.end.addEventListener('click', function () { enterNav(); ui.confirm.hidden = false; syncSheet(); });
     ui.compass.addEventListener('click', function () {
       prefs.orientation = prefs.orientation === 'heading' ? 'north' : 'heading';
-      savePrefs(); syncToolbar();
+      savePrefs();
       toast(prefs.orientation === 'heading' ? 'Direction of travel' : 'North', 1200);
       if (st.following && st.pos) follow(true);
       else if (st.map) st.map.easeTo({ bearing: prefs.orientation === 'heading' && st.heading !== null ? st.heading : 0, duration: 500 });
     });
-    ui.sound.addEventListener('click', function () {
-      prefs.muted = !prefs.muted;
-      savePrefs(); syncToolbar();
-      if (prefs.muted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-      else speak('Voice guidance on');
+    ui.open.addEventListener('click', function (event) {
+      event.stopPropagation();
+      ui.menu.hidden = !ui.menu.hidden;
+      ui.open.setAttribute('aria-expanded', String(!ui.menu.hidden));
     });
-    ui.layersBtn.addEventListener('click', function () {
-      ui.layers.hidden = !ui.layers.hidden;
-      ui.layersBtn.setAttribute('aria-expanded', String(!ui.layers.hidden));
+    ui.menu.addEventListener('click', function (event) {
+      var app = event.target.closest('[data-nav-app]');
+      if (!app) return;
+      closeMenu();
+      openNavApp(app.getAttribute('data-nav-app'));
     });
-    ui.layers.addEventListener('click', function (event) {
-      var button = event.target.closest('[data-value]');
-      if (!button) return;
-      prefs[button.parentNode.getAttribute('data-pref')] = button.getAttribute('data-value');
-      savePrefs();
-      applyStyle();
-    });
-    ui.tilt.addEventListener('change', function () {
-      prefs.tilt = ui.tilt.checked;
-      savePrefs(); applyStyle();
-      if (st.following && st.pos) follow(true);
-      else if (st.map) st.map.easeTo({ pitch: prefs.tilt ? 55 : 0, duration: 500 });
-    });
-    ui.heading.addEventListener('change', function () {
-      prefs.orientation = ui.heading.checked ? 'heading' : 'north';
-      savePrefs(); syncToolbar();
-      if (st.following && st.pos) follow(true);
-      else if (st.map) st.map.easeTo({ bearing: prefs.orientation === 'heading' && st.heading !== null ? st.heading : 0, duration: 500 });
+    nav.addEventListener('click', function (event) {
+      if (!ui.menu.hidden && !event.target.closest('.drvn-open')) closeMenu();
     });
     $('drvn-zoom-in').addEventListener('click', function () { if (st.map) st.map.zoomIn(); });
     $('drvn-zoom-out').addEventListener('click', function () { if (st.map) st.map.zoomOut(); });
     ui.more.addEventListener('click', function (event) {
-      var app = event.target.closest('[data-nav-app]');
-      if (app) { openNavApp(app.getAttribute('data-nav-app')); return; }
       var skip = event.target.closest('[data-skip]');
       if (skip) {
         st.passed = Number(skip.getAttribute('data-skip'));
@@ -936,12 +869,10 @@
         renderStops();
       }
     });
-    window.addEventListener('resize', function () { if (!nav.hidden) { syncSheet(); if (st.map) st.map.resize(); } });
-    // Auto day/night follows the clock during a long trip.
-    setInterval(function () { if (!nav.hidden && prefs.theme === 'auto') applyStyle(); }, 60000);
+    window.addEventListener('resize', function () { if (!nav.hidden) { fitUnderHeader(); syncSheet(); if (st.map) st.map.resize(); } });
 
     /* ---------- begin ---------- */
-    syncToolbar();
+    syncLook();
     var firstRoute = cfg.activeTrip ? findRoute(cfg.activeTrip.route_id) : (idle.select ? findRoute(idle.select.value) : routes[0] || null);
     setRoute(firstRoute);
     if (driving()) {
