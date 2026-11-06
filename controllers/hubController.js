@@ -134,6 +134,7 @@ const hubController = {
 
   // Hub Login Authentication
   hubLoginPost: async (req, res) => {
+    if (await require('../utils/shards/routing').sentToLoginShard(req, res, req.body?.email)) return;
     const { email, password } = req.body;
 
     try {
@@ -259,7 +260,7 @@ const hubController = {
       }
 
       res.clearCookie('connect.sid', { path: '/' });
-      res.clearCookie('connect.sid', { path: '/', domain: '.managira.com' });
+      res.clearCookie('connect.sid', { path: '/', domain: (process.env.SESSION_COOKIE_DOMAIN === undefined ? ".managira.com" : process.env.SESSION_COOKIE_DOMAIN || undefined) });
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.redirect('/hub/login');
     });

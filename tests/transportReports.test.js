@@ -61,7 +61,7 @@ test("a report of another school can't be reviewed", async () => {
 
 test("a driver only ever holds driving and transportation permissions", () => {
   assert.deepEqual(effectivePermissionsForRole("Driver", ["manage_students", "paygira_bills"]), []);
-  const lead = effectivePermissionsForRole("Driver", ["driver_lead", "manage_transportation", "transport_drivers", "transport_reports", "manage_employees"]);
+  const lead = effectivePermissionsForRole("Driver", ["driver_lead", "manage_transportation", "transport_drivers", "transport_reports", "manage_students"]);
   assert.deepEqual(lead.sort(), ["driver_lead", "manage_transportation", "transport_drivers", "transport_reports"].sort());
   assert.equal(isDriverPermission("students_delete"), false);
   assert.equal(isDriverPermission("transport_student_routes"), true);
@@ -108,4 +108,59 @@ test("while a driver's phone is silent, the bus keeps moving along its road, mar
   const real = await liveBus.liveForStudent(db, org, 8, 1);
   assert.equal(real.estimated, undefined, "a working phone is never estimated");
   assert.equal(real.longitude, 0.0001);
+});
+
+test("Users / Employees can only be held by a driver who is a lead", () => {
+  assert.deepEqual(effectivePermissionsForRole("Driver", ["manage_employees", "employees_edit"]), [], "not a lead");
+  const lead = effectivePermissionsForRole("Driver", ["driver_lead", "manage_employees", "employees_add", "employees_edit"]);
+  assert.ok(["manage_employees", "employees_add", "employees_edit"].every((key) => lead.includes(key)));
+  assert.deepEqual(effectivePermissionsForRole("Driver", ["driver_lead", "employees_edit"]), ["driver_lead"], "a follow-up needs its main permission");
+  const access = workspaceAccess({ permissions: lead, features: [], role: "Driver" });
+  assert.equal(access.management.employees, true);
+  assert.equal(access.employees.canEdit, true);
+  assert.equal(access.employees.canChangeManagers, false);
+});
+
+test("teachers get Class Bus Reports by default, drivers can't hold it, and it follows Transportation", () => {
+  assert.ok(effectivePermissionsForRole("Teacher", []).includes("transport_class_reports"));
+  assert.deepEqual(effectivePermissionsForRole("Driver", ["transport_class_reports"]), []);
+  assert.ok(!permissionOptionsFor({ transportActivated: false }).some((option) => option.key === "transport_class_reports"));
+  assert.ok(permissionOptionsFor({ transportActivated: true }).some((option) => option.key === "transport_class_reports"));
+  assert.equal(workspaceAccess({ permissions: ["transport_class_reports"], features: [], role: "Teacher" }).transport.classReports, true);
+  assert.equal(workspaceAccess({ permissions: [], features: [], role: "Teacher" }).transport.classReports, false);
+});
+
+test("only a manager changes a manager, and nobody but a manager changes their own account", async () => {
+  const { staffChangeRefusal } = require("../utils/staffChangeGuard");
+  const db = (accountType) => ({
+    query: async (sql) => ({ rows: /account_type/.test(sql) ? [{ account_type: accountType }] : [] }),
+  });
+  const lead = { session: { organizationId: 777003, userId: 5, userRole: "Driver" } };
+  assert.match(await staffChangeRefusal(db("Teacher"), lead, 5), /your own account/);
+  assert.match(await staffChangeRefusal(db("Manager"), lead, 6), /Only a manager/);
+  assert.equal(await staffChangeRefusal(db("Teacher"), lead, 6), null);
+  const manager = { session: { organizationId: 777003, userId: 5, userRole: "Manager" } };
+  assert.equal(await staffChangeRefusal(db("Manager"), manager, 5), null);
+  const broken = { query: async () => { throw new Error("busy"); } };
+  assert.match(await staffChangeRefusal(broken, lead, 6), /try again/, "if it can't check, it refuses");
+});
+
+test("Report Builder for a driver: their own rows unless a transportation permission opens everyone's", () => {
+  const { REPORTS, allowedBy, ownRowsFor, buildQueries } = require("../utils/reportBuilder");
+  assert.deepEqual(effectivePermissionsForRole("Driver", ["driver_report_builder"]).sort(), ["driver_report_builder", "reports_builder"]);
+  assert.deepEqual(effectivePermissionsForRole("Driver", ["reports_builder", "manage_reports"]), [], "the school-wide report permissions stay out of reach");
+
+  const driverOnly = new Set(["driver_report_builder", "feature:transport", "feature:transportChecks"]);
+  const can = allowedBy(driverOnly);
+  assert.ok(can(REPORTS.transport_trips) && can(REPORTS.transport_riders) && can(REPORTS.transport_driver_reports));
+  assert.ok(!can(REPORTS.transport_buses_list) && !can(REPORTS.students) && !can(REPORTS.payments));
+  assert.ok(!can(REPORTS.transport_riders.columns.home_address), "home address needs its own permission");
+  assert.equal(ownRowsFor(REPORTS.transport_trips, driverOnly, 243), 243);
+  assert.equal(ownRowsFor(REPORTS.transport_trips, new Set(["manage_transportation"]), 243), null);
+  assert.equal(ownRowsFor(REPORTS.transport_trips, driverOnly, null), 0, "no id means no rows, never everyone's");
+
+  const { data } = buildQueries(REPORTS.transport_trips, { columns: ["route"], organizationId: 63, allowedClassIds: [], ownRowsOf: 243 });
+  assert.match(data.sql, /t\.driver_user_id = \$2/);
+  assert.equal(data.values[1], 243);
+  assert.doesNotMatch(data.sql, /1 = 0/, "a transport report isn't limited by the classes someone teaches");
 });

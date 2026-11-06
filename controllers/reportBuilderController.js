@@ -8,12 +8,14 @@ const {
   MAX_EXPORT_ROWS,
   getReport,
   allowedBy,
+  ownRowsFor,
   normalizeColumns,
   normalizeCriteria,
   buildQueries,
 } = require("../utils/reportBuilder");
 const { userHasPermission } = require("../middleware/permissionMiddleware");
 const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
+const releaseFeatures = require("../utils/shards/features");
 const { normalizeBranding, loadReportHeader } = require("../utils/reportBranding");
 
 const elevatedRoles = new Set(["organization", "manager", "supervisor", "admin", "mini admin"]);
@@ -383,9 +385,10 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
     const allowedClassIds = await getClassAccess(identity);
     const permissions = [...new Set(Object.values(REPORTS).flatMap((report) => [
       report.permission,
+      report.fullAccess,
       ...Object.values(report.columns).map((column) => column.permission),
       ...(report.criteria || []).map((criterion) => criterion.permission),
-    ]).filter(Boolean))];
+    ]).flat().filter(Boolean))];
     const featureNames = Object.keys(FEATURES);
     const [results, features] = await Promise.all([
       Promise.all(permissions.map((key) => Promise.resolve(hasPermission(db, identity, key)).catch(() => false))),
@@ -400,7 +403,8 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
     ]);
     const allowed = allowedBy(granted);
     const accessible = Object.entries(REPORTS).filter(([, report]) =>
-      allowed(report) && (!allowedClassIds || report.classExpression || report.orgWide));
+      allowed(report) && (!allowedClassIds || report.classExpression || report.orgWide)
+      && (!report.releaseFeature || releaseFeatures.isOn(report.releaseFeature, { organizationId: identity.organizationId })));
     // Some reports add the school's own columns (each subject, custom remark
     // types, assessment categories); they are merged into a copy per request.
     const extended = await Promise.all(accessible.map(async ([key, report]) => {
@@ -433,6 +437,7 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
       criteria: input.criteria,
       organizationId: context.organizationId,
       allowedClassIds: context.allowedClassIds,
+      ownRowsOf: ownRowsFor(input.report, context.granted, context.identity.userId),
       sort,
       limit,
       offset,

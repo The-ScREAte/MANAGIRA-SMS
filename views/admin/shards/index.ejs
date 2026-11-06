@@ -1,0 +1,74 @@
+<%
+  const _production = shards.filter((s) => s.environment === 'production' && s.status !== 'retired');
+  const _testing = shards.filter((s) => s.environment !== 'production' && s.status !== 'retired');
+  const _place = (name) => (name ? name.charAt(0).toUpperCase() + name.slice(1) : '');
+  const _sum = (key) => shards.reduce((total, s) => total + (Number(s[key]) || 0), 0);
+  const _active = shards.reduce((total, s) => total + (Number(s.stats && s.stats.activeSessions) || 0), 0);
+  const _where = (s) => [s.region === 'testing' ? 'Testing' : s.region.toUpperCase(), s.countries.join(', '), _place(s.hosting_location)].filter(Boolean).join(' · ');
+  const _time = (d) => new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminShards.css') %>" />
+
+<div class="ah">
+  <%- include('../../partials/flash') %>
+
+  <header class="ah-head">
+    <h1 class="ah-head__title">Shards</h1>
+    <div class="ah-head__actions">
+      <a href="/admin/shards/features" class="ah-btn" data-no-spa><i class="fa-solid fa-toggle-on" aria-hidden="true"></i> Features</a>
+      <a href="/admin/shards/releases" class="ah-btn" data-no-spa><i class="fa-solid fa-rocket" aria-hidden="true"></i> Releases</a>
+      <a href="/admin/shards/new" class="ah-btn ah-btn--primary" data-no-spa><i class="fa-solid fa-plus" aria-hidden="true"></i> Create shard</a>
+    </div>
+  </header>
+
+  <% if (!shards.length) { %><p class="sh-note">Run the shard migration first.</p><% } %>
+  <% if (shards.length && !secretReady) { %><p class="sh-note">Set SHARD_SECRET before adding a shard.</p><% } %>
+
+  <div class="ah-kpis">
+    <div class="ah-kpi ah-kpi--teal"><span class="ah-kpi__icon"><i class="fa-solid fa-server" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Production</div><div class="ah-kpi__value"><%= _production.length %></div></div></div>
+    <div class="ah-kpi ah-kpi--blue"><span class="ah-kpi__icon"><i class="fa-solid fa-flask" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Testing</div><div class="ah-kpi__value"><%= _testing.length %></div></div></div>
+    <div class="ah-kpi ah-kpi--green"><span class="ah-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Schools</div><div class="ah-kpi__value"><%= _sum('schools').toLocaleString('en-US') %></div></div></div>
+    <div class="ah-kpi ah-kpi--amber"><span class="ah-kpi__icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Signed in</div><div class="ah-kpi__value"><%= _active.toLocaleString('en-US') %></div></div></div>
+  </div>
+
+  <div class="sh-grid">
+    <% shards.forEach((shard) => {
+         const pct = Math.min(100, Math.round((shard.schools / (shard.capacity_schools || 1)) * 100)); %>
+      <a class="sh-card" href="/admin/shards/<%= shard.shard_id %>" data-no-spa data-shard="<%= shard.name %>">
+        <div class="sh-card__top">
+          <div>
+            <h2 class="sh-card__name"><%= shard.name %></h2>
+            <p class="sh-card__where"><%= _where(shard) %></p>
+          </div>
+          <span class="sh-pill sh-pill--<%= shard.health.tone %>"><%= shard.health.label %></span>
+        </div>
+        <div class="sh-card__numbers">
+          <div class="sh-number"><strong><%= shard.schools.toLocaleString('en-US') %></strong><span>Schools</span></div>
+          <div class="sh-number"><strong><%= shard.users.toLocaleString('en-US') %></strong><span>Users</span></div>
+          <div class="sh-number"><strong><%= shard.stats && shard.stats.activeSessions != null ? shard.stats.activeSessions.toLocaleString('en-US') : '—' %></strong><span>Signed in</span></div>
+        </div>
+        <div class="sh-bar" aria-hidden="true"><span class="<%= pct >= 85 ? 'is-full' : '' %>" style="width:<%= pct %>%"></span></div>
+        <div class="sh-card__foot">
+          <span><%= shard.schools %> of <%= shard.capacity_schools %></span>
+          <% if (shard.accepts_new) { %><span>Taking new schools</span><% } %>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+
+  <% if (activity.length) { %>
+    <details class="ah-card sh-section sh-details">
+      <summary>Activity</summary>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <tbody>
+            <% activity.forEach((entry) => { %>
+              <tr><td><%= _time(entry.created_at) %></td><td><%= entry.actor %></td><td><%= entry.action.replace(/_/g, ' ') %></td><td><%= entry.target || '' %></td></tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  <% } %>
+</div>

@@ -2337,6 +2337,17 @@ main {
 .tp-route__count { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748b); white-space: nowrap; }
 .tp-live { padding: 2px 8px; border-radius: 999px; background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; }
 .tp-riders { display: grid; }
+.tp-reports { margin-top: 18px; }
+.tp-reports__title { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+.tp-reports__list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #fff); overflow: hidden; }
+.tp-report { padding: 10px 14px; }
+.tp-report + .tp-report { border-top: 1px solid var(--border); }
+.tp-report__top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tp-report__top strong { min-width: 0; font-size: 14px; font-weight: 600; }
+.tp-report__top time { flex: none; color: var(--muted, #64748b); font-size: 12px; }
+.tp-report__issue { margin-top: 1px; font-size: 13px; font-weight: 600; color: var(--muted, #64748b); }
+.tp-report__text { margin: 4px 0 0; font-size: 13px; line-height: 1.4; }
+.tp-report__text--note { color: var(--muted, #64748b); }
 .tp-rider { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) 76px 76px; gap: 10px; align-items: center; padding: 9px 14px; font-size: 13px; color: var(--text, #0f172a); border-top: 1px solid var(--border); cursor: pointer; transition: background-color .15s; }
 .tp-rider:first-child + .tp-rider { border-top: 0; }
 .tp-rider:focus-visible { background: color-mix(in srgb, var(--route) 7%, transparent); }
@@ -4450,10 +4461,13 @@ main {
               <% } else { %>
               <p class="card-subtext">No students in this class ride a bus yet.</p>
               <% } %>
-            <div class="tp-reports" id="classBusReports" data-class-id="<%= classId %>" hidden>
-                <h3 class="card-title" style="font-size:15px;margin:18px 0 8px;">Bus reports</h3>
-                <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px;" id="classBusReportsList"></ul>
+              <% const canSeeBusReports = typeof workspaceAccess === 'function' && workspaceAccess().transport.classReports; %>
+              <% if (canSeeBusReports) { %>
+              <div class="tp-reports" id="classBusReports" data-class-id="<%= classId %>" hidden>
+                <h3 class="tp-reports__title">Bus reports</h3>
+                <ul class="tp-reports__list" id="classBusReportsList"></ul>
               </div>
+              <% } %>
               <script>
                 (function () {
                   var search = document.getElementById('tpRiderSearch');
@@ -4473,11 +4487,13 @@ main {
                   });
                 })();
               </script>
+              <% if (canSeeBusReports) { %>
               <script>
                 (function () {
                   var box = document.getElementById('classBusReports');
                   if (!box || !window.IntersectionObserver) return;
                   var clean = function (v) { var d = document.createElement('div'); d.textContent = v == null ? '' : v; return d.innerHTML; };
+                  var when = function (v) { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
                   var panel = document.getElementById('panel-transportation');
                   var loaded = false;
                   new IntersectionObserver(function (entries) {
@@ -4488,13 +4504,18 @@ main {
                       .then(function (data) {
                         if (!data.success || !data.reports.length) return;
                         document.getElementById('classBusReportsList').innerHTML = data.reports.map(function (r) {
-                          return '<li style="padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;"><strong>' + clean(r.studentName || r.categoryLabel) + '</strong>' + (r.issue ? '<div style="font-size:13px;font-weight:600;">' + clean(r.issue) + '</div>' : '') + (r.details ? '<div style="font-size:13px;">' + clean(r.details) + '</div>' : '') + (r.note ? '<div style="font-size:12px;color:#64748b;">School note: ' + clean(r.note) + '</div>' : '') + '<div style="font-size:12px;color:#64748b;">' + clean(new Date(r.createdAt).toLocaleDateString()) + '</div></li>';
+                          return '<li class="tp-report"><div class="tp-report__top"><strong>' + clean(r.studentName || r.categoryLabel) + '</strong><time>' + clean(when(r.createdAt)) + '</time></div>'
+                            + (r.issue ? '<div class="tp-report__issue">' + clean(r.issue) + '</div>' : '')
+                            + (r.details ? '<p class="tp-report__text">' + clean(r.details) + '</p>' : '')
+                            + (r.note ? '<p class="tp-report__text tp-report__text--note">From the school: ' + clean(r.note) + '</p>' : '')
+                            + '</li>';
                         }).join('');
                         box.hidden = false;
                       }).catch(function () {});
                   }).observe(panel);
                 })();
               </script>
+              <% } %>
             </section>
             <% } %>
 

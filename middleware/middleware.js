@@ -37,6 +37,20 @@ function expectsJsonResponse(req) {
     return req.xhr || requestedWith === 'xmlhttprequest' || accept.includes('application/json');
 }
 
+// A driver reaches only the pages their permissions cover, and otherwise stays in
+// their own portal.
+const DRIVER_PAGES = [
+    { permission: 'manage_transportation', pages: /^\/(transportation\/|common\/management|common\/ui-preferences)/ },
+    { permission: 'manage_employees', pages: /^\/common\/(management|ui-preferences|manageEmployees|createEmployee|modifyEmployee|deleteEmployee|enableEmployee|toggleHoldEmployee|employeeDetails|getSubjectsByClass)/ },
+    { permission: 'reports_builder', pages: /^\/common\/(reports(\/|\?|$)|report-builder|ui-preferences)/ },
+];
+
+function driverMayOpen(req, res) {
+    const held = res.locals?.userPermissions || [];
+    const url = req.originalUrl || '';
+    return DRIVER_PAGES.some(({ permission, pages }) => held.includes(permission) && pages.test(url));
+}
+
 // Middleware to check if the user is authenticated
 async function isAuthenticated(req, res, next) {
     try {
@@ -60,9 +74,7 @@ async function isAuthenticated(req, res, next) {
 
         // Drivers work only from their own portal (/driver) and its trip and
         // live-location endpoints; every other staff page is off limits.
-        const leadCanOpen = req.session && req.session.userRole === 'Driver'
-            && (res.locals?.userPermissions || []).includes('manage_transportation')
-            && /^\/(transportation\/|common\/management|common\/ui-preferences)/.test(req.originalUrl || '');
+        const leadCanOpen = req.session && req.session.userRole === 'Driver' && driverMayOpen(req, res);
         if (req.session && req.session.userRole === 'Driver' && !leadCanOpen && !/^\/transportation\/driver\//.test(req.originalUrl || '')) {
             if (expectsJsonResponse(req)) {
                 return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
@@ -132,10 +144,7 @@ function blockGuardians(req, res, next) {
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/student/dashboard');
     }
-    if (req.session.userRole === 'Driver' && !(
-        (res.locals?.userPermissions || []).includes('manage_transportation')
-        && /^\/transportation\//.test(req.originalUrl || '')
-    )) {
+    if (req.session.userRole === 'Driver' && !driverMayOpen(req, res)) {
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/driver/dashboard');
     }

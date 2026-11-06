@@ -27,7 +27,7 @@ const {
   effectivePermissionsForRole,
   rolePresetPermissions,
   resolvePermissionSelection,
-  isDriverPermission,
+  driverPermissions,
   permissionFullLabel,
   HIGH_RISK_PERMISSIONS,
   PERMISSIONS_SAVED_KEY,
@@ -3492,6 +3492,7 @@ async function loadGradeLabelResolver(dbClient, organizationId, classId, termId)
   };
 }
 
+const { staffChangeRefusal } = require("../utils/staffChangeGuard");
 const DRIVER_ONLY_KEY = /^driver_/;
 const commonController = {
   orgDashboard: async (req, res, db) => {
@@ -9765,7 +9766,7 @@ const commonController = {
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
     // Drivers only hold driving and transportation permissions, even if more are requested.
-    const permissionSelection = resolvePermissionSelection(account_type === "Driver" ? sanitizedRequestedPermissions.filter(isDriverPermission) : sanitizedRequestedPermissions.filter((key) => !DRIVER_ONLY_KEY.test(key)));
+    const permissionSelection = resolvePermissionSelection(account_type === "Driver" ? driverPermissions(sanitizedRequestedPermissions) : sanitizedRequestedPermissions.filter((key) => !DRIVER_ONLY_KEY.test(key)));
     if (permissionSelection.error) {
       req.flash("error", permissionSelection.error);
       return res.redirect(createEmployeeRedirectUrl);
@@ -10579,6 +10580,11 @@ const commonController = {
     const { userId } = req.params;
     const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
     const modifyEmployeeRedirectUrl = `/common/modifyEmployee?userId=${userId}${isEmbedded ? "&embed=workspace" : ""}`;
+    const holdRefusal = await staffChangeRefusal(db, req, userId);
+    if (holdRefusal) {
+      req.flash("error", holdRefusal);
+      return res.redirect("/common/manageEmployees");
+    }
     try {
       const result = await db.query(
         "UPDATE users SET on_hold = NOT on_hold WHERE user_id = $1 AND organization_id = $2 RETURNING on_hold",
@@ -10637,6 +10643,11 @@ const commonController = {
         return;
       }
       const user = userResult.rows[0];
+      const editRefusal = await staffChangeRefusal(db, req, userId);
+      if (editRefusal) {
+        req.flash("error", editRefusal);
+        return res.redirect("/common/manageEmployees");
+      }
 
       const classesResult = await db.query(
         `
@@ -10786,6 +10797,8 @@ const commonController = {
     if (!require("../utils/employeeAcknowledgement").isAcknowledged(req.body)) {
       return respondModifyEmployeeError(400, "Confirm that this person should have the role and access selected.");
     }
+    const changeRefusal = await staffChangeRefusal(db, req, userId);
+    if (changeRefusal) return respondModifyEmployeeError(403, changeRefusal, "/common/manageEmployees");
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
     // Plan features only; a permission the employee already holds for a feature
     // the plan no longer shows is kept (sent back from the form as a hidden field).
@@ -10815,7 +10828,7 @@ const commonController = {
 
     // Persist exactly what was selected in the form (after safety filtering).
     // Drivers only hold driving and transportation permissions.
-    const permissionSelection = resolvePermissionSelection(accountType === "Driver" ? sanitizedRequestedPermissions.filter(isDriverPermission) : sanitizedRequestedPermissions.filter((key) => !DRIVER_ONLY_KEY.test(key)));
+    const permissionSelection = resolvePermissionSelection(accountType === "Driver" ? driverPermissions(sanitizedRequestedPermissions) : sanitizedRequestedPermissions.filter((key) => !DRIVER_ONLY_KEY.test(key)));
     if (permissionSelection.error) {
       return respondModifyEmployeeError(400, permissionSelection.error);
     }
@@ -16630,6 +16643,11 @@ NUMBERING:
       req.flash("error", "Choose a user to remove.");
       return res.redirect(back);
     }
+    const removeRefusal = await staffChangeRefusal(db, req, userId);
+    if (removeRefusal) {
+      req.flash("error", removeRefusal);
+      return res.redirect(back);
+    }
 
     try {
       const removed = require("../utils/removedUsers");
@@ -16695,6 +16713,8 @@ NUMBERING:
       return res.redirect(back);
     };
     if (!/^\d+$/.test(String(userId || ""))) return reply(400, "Choose a user to enable.");
+    const enableRefusal = await staffChangeRefusal(db, req, userId);
+    if (enableRefusal) return reply(403, enableRefusal);
 
     try {
       const removed = require("../utils/removedUsers");

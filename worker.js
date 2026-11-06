@@ -6,6 +6,7 @@ require("dotenv").config();
 require("./utils/processGuards").install("Worker");
 require("./utils/memoryRelief").install();
 const scheduler = require("./jobs/scheduler");
+require("./jobs/shardSync");
 const db = require("./config/db");
 const { runningJobCount } = require("./utils/dbLock");
 

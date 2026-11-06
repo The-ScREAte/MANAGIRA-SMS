@@ -11,8 +11,14 @@
 - Define permissions in `PERMISSION_OPTIONS` (group, description, `highRisk`, `parent`); the employee form renders from it, and a follow-up counts only while its `parent` is held. PayGira rows saved before follow-ups existed are expanded in `withLegacyPaygira`.
 - Plan features are enforced centrally: `userHasPermission` refuses anything outside the school's plan for everyone, including owners, and `permissionOptionsFor` hides it from forms. Tie a permission to a plan with `PERMISSION_FEATURES` or its option's `features`; don't add a separate check.
 - Keep `utils/processGuards.js` installed first in every long-running process: Node exits with status 1 on an unhandled rejection otherwise. Keep lists keyed by visitors or schools in `BoundedMap`, and uploads behind `uploadGate`; the database has only 64 MB of shared buffers, so raise pool sizes only with `DB_POOL_MAX`.
-- A driver holds only Driver and Transportation permissions (`isDriverPermission`). A lead driver is a driver with `manage_transportation`: `isAuthenticated` then lets them reach `/transportation/`, Management and its menu preferences, and nothing else.
-- A driver's report stays between them and the leads until a lead shares it (`utils/transportReports.js`); only reports about a student can be shared with parents or teachers.
+- A driver holds only `driverPermissions`: Driver and Transportation, plus Users / Employees once they are a lead. `isAuthenticated` lets them reach only the pages `DRIVER_PAGES` ties to what they hold, and nothing else.
+- A driver's report stays between them and the leads until a lead shares it (`utils/transportReports.js`); only reports about a student can be shared with parents or teachers, and teachers also need Class Bus Reports.
+- Only a manager can change a manager, and only a manager can change their own account through the staff pages. Check `staffChangeRefusal` on every page that edits, holds, removes or restores staff.
+- A driver with Report Builder sees their own rows; a report's `fullAccess` permission opens everyone's (`ownerWhere`, `ownRowsFor`).
 - Read and write live bus positions through `utils/liveBus.js`: drivers and viewers share an in-memory position, with one database write per 15 seconds per trip and one read per few seconds per school, so viewers add no database load.
 - In auth middleware, pass database-busy errors to `next(error)` (`isDatabaseUnavailable`): a busy database must show the "try again" page, never sign anyone out. Don't raise `DB_POOL_MAX` above 15 to handle load: at 2,000 active users, 30 was measurably slower.
 - Put new table changes in `database/migrations/*.sql` (run by `npm run migrate`), written to be safe to repeat, not in code that runs while pages load.
+- Shards are in `docs/SHARDS.md`. Every table must be classified in `utils/shards/schoolTables.js`, or every move stops. Write links with `via(...)`: a bare column would match every school's rows.
+- `/admin/shards` is for platform super admins with a fresh password (`middleware/shardAdminGuard.js`); record each action with `registry.audit`.
+- Limit a new feature to chosen schools with `utils/shards/features.js`, not a separate list. Code reaches a whole shard at once.
+- A test shard gets nothing of production's: no control database, keys or shared secrets (`environmentFor`).

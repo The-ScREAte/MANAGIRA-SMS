@@ -2536,6 +2536,18 @@
           Management
         </a></li>
         <% } %>
+        <% if (typeof workspaceAccess === 'function' && workspaceAccess().reports.builder) { %>
+        <li class="nav-item"><a href="/common/reports" class="nav-item-link management-link" data-no-spa>
+          <span class="menu-icon"><%- navIcon('reports') %></span>
+          Reports
+        </a></li>
+        <% } %>
+        <% if (typeof workspaceAccess === 'function' && workspaceAccess().driver.website) { %>
+        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
+          <span class="menu-icon"><%- navIcon('website') %></span>
+          School Website
+        </a></li>
+        <% } %>
         <li class="nav-item"><a href="/driver/settings" class="nav-item-link management-link">
           <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings

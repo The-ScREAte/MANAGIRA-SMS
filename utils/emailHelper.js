@@ -791,12 +791,14 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     const messageIdDomain = (fromAddress.split('@')[1] || 'managira.com').trim();
     const messageId = `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`;
 
+    const { withShardLinks } = require("./shards/routing");
     const info = await transporter.sendMail({
       from,
       replyTo: restOptions.replyTo || fromAddress,
       ...restOptions,
+      ...(restOptions.html ? { html: withShardLinks(restOptions.html) } : {}),
       to: recipientHeader,
-      text: textBody,
+      text: withShardLinks(textBody),
       attachments: mergedAttachments,
       envelope,
       messageId,

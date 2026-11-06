@@ -1520,6 +1520,391 @@ const REPORTS = {
 
 // What the "Create new report" list shows: a few entries, each with one or
 // more views (report keys). Views of one entry are switched on the next steps.
+// ---- Transportation -------------------------------------------------------------
+// A driver with Report Builder sees the rows about their own work; the matching
+// transportation permission opens everyone's (`fullAccess`, `ownerWhere`).
+const DRIVER_BUILDER = "driver_report_builder";
+const RIDER_PERMISSIONS = ["transport_students", "transport_student_routes"];
+const busName = (alias) => `COALESCE(NULLIF(${alias}.bus_name, ''), ${alias}.bus_number)`;
+const clockTime = (expression) => `TO_CHAR(${expression}, 'HH12:MI AM')`;
+const yesNo = (expression) => `CASE WHEN ${expression} THEN 'Yes' ELSE 'No' END`;
+const ROUTE_OPTIONS = "SELECT route_id::text AS value, route_name AS label FROM transport_routes WHERE organization_id = $1 ORDER BY route_name LIMIT 200";
+const BUS_OPTIONS = "SELECT bus_id::text AS value, COALESCE(NULLIF(bus_name, ''), bus_number) AS label FROM transport_buses WHERE organization_id = $1 ORDER BY 2 LIMIT 200";
+const REPORT_CATEGORY = (column) => `CASE ${column}
+  WHEN 'student' THEN 'Student' WHEN 'bus' THEN 'Bus' WHEN 'route' THEN 'Route or road'
+  WHEN 'complaint' THEN 'Complaint' WHEN 'arrival' THEN 'Arrival check' ELSE 'Other' END`;
+const ARRIVAL_REASON = (column) => `CASE ${column}
+  WHEN 'absent' THEN 'Absent today' WHEN 'parent' THEN 'Picked up by parent' WHEN 'elsewhere' THEN 'Got off elsewhere'
+  WHEN 'missed' THEN 'Missed the bus' WHEN 'other' THEN 'Other' END`;
+const DROVE_IT = (expression) => (bind, viewerId) => `${expression} = ${bind(viewerId)}`;
+
+const TRANSPORT_REPORT_NAMES = ["transport_riders", "transport_requests", "transport_trips", "transport_arrivals", "transport_driver_reports", "transport_buses_list", "transport_driver_list", "transport_routes_list"];
+
+Object.assign(REPORTS, {
+  transport_riders: {
+    title: "Riders",
+    variant: "Riders",
+    permission: [...RIDER_PERMISSIONS, DRIVER_BUILDER],
+    fullAccess: RIDER_PERMISSIONS,
+    ownerWhere: (bind, viewerId) => {
+      const me = bind(viewerId);
+      return `(a.bus_id IN (SELECT bus_id FROM transport_buses WHERE driver_user_id = ${me})
+        OR a.bus_id IN (SELECT assigned_bus_id FROM transport_drivers WHERE user_id = ${me})
+        OR a.route_id IN (SELECT assigned_route_id FROM transport_drivers WHERE user_id = ${me}))`;
+    },
+    requires: "transport",
+    orgWide: true,
+    organizationExpression: "a.organization_id",
+    classExpression: "s.class_id",
+    stableOrderExpressions: ["a.assignment_id"],
+    from: `FROM transport_student_assignments a
+      JOIN students s ON s.student_id = a.student_id AND s.organization_id = a.organization_id
+      LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+      LEFT JOIN transport_buses b ON b.bus_id = a.bus_id AND b.organization_id = a.organization_id
+      LEFT JOIN transport_routes r ON r.route_id = a.route_id AND r.organization_id = a.organization_id
+      LEFT JOIN transport_stops st ON st.stop_id = a.stop_id AND st.organization_id = a.organization_id`,
+    joins: { parent: STUDENT_JOINS.parent },
+    defaultColumns: ["student_name", "class_name", "bus", "route", "stop", "pickup_time", "status"],
+    defaultSort: { key: "student_name", dir: "asc" },
+    columns: {
+      student_name: { label: "Student", expression: STUDENT_NAME },
+      student_id: { label: "Student ID", expression: STUDENT_ID },
+      class_name: { label: "Class", expression: "c.class_name" },
+      bus: { label: "Bus", expression: busName("b") },
+      license_plate: { label: "License plate", expression: "b.license_plate" },
+      route: { label: "Route", expression: "r.route_name" },
+      stop: { label: "Stop", expression: "st.stop_name" },
+      pickup_time: { label: "Pickup time", expression: clockTime("a.pickup_time") },
+      dropoff_time: { label: "Drop-off time", expression: clockTime("a.dropoff_time") },
+      distance_km: { label: "Distance (km)", expression: "a.distance_km", type: "number" },
+      home_address: { label: "Home address", expression: "a.home_address", permission: [...RIDER_PERMISSIONS, "driver_student_details"] },
+      parent_name: { label: "Parent / guardian", expression: "parent.parent_name", join: "parent", permission: [...RIDER_PERMISSIONS, "driver_student_details"] },
+      parent_phone: { label: "Parent phone", expression: "parent.parent_phone", join: "parent", permission: [...RIDER_PERMISSIONS, "driver_student_details"] },
+      status: { label: "Status", expression: "CASE WHEN a.active THEN 'Active' ELSE 'Not riding' END" },
+      added_at: { label: "Added", expression: "a.created_at", type: "datetime" },
+    },
+    criteria: [
+      nameCriterion("search", "Student", fieldsMatch([STUDENT_NAME])),
+      classCriterion("s.class_id"),
+      selectCriterion("bus", "Bus", "a.bus_id", BUS_OPTIONS),
+      selectCriterion("route", "Route", "a.route_id", ROUTE_OPTIONS),
+      choiceCriterion("status", "Status", [
+        { value: "active", label: "Active", sql: "a.active = TRUE" },
+        { value: "inactive", label: "Not riding", sql: "a.active = FALSE" },
+      ]),
+      dateCriterion("Added between", "a.created_at"),
+    ],
+  },
+
+  transport_requests: {
+    title: "Bus requests",
+    variant: "Bus requests",
+    permission: RIDER_PERMISSIONS,
+    requires: "transportRequests",
+    orgWide: true,
+    organizationExpression: "q.organization_id",
+    classExpression: "s.class_id",
+    stableOrderExpressions: ["q.request_id"],
+    from: `FROM transport_student_requests q
+      JOIN students s ON s.student_id = q.student_id AND s.organization_id = q.organization_id
+      LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+      LEFT JOIN transport_routes r ON r.route_id = q.route_id AND r.organization_id = q.organization_id
+      LEFT JOIN transport_stops st ON st.stop_id = q.stop_id AND st.organization_id = q.organization_id`,
+    defaultColumns: ["requested_at", "student_name", "class_name", "requester", "route", "status"],
+    defaultSort: { key: "requested_at", dir: "desc" },
+    columns: {
+      requested_at: { label: "Requested", expression: "q.created_at", type: "datetime" },
+      student_name: { label: "Student", expression: STUDENT_NAME },
+      class_name: { label: "Class", expression: "c.class_name" },
+      requester: { label: "Requested by", expression: "q.requester_name" },
+      requester_type: { label: "Requester type", expression: initcap("q.requester_type") },
+      address: { label: "Address", expression: "q.address" },
+      route: { label: "Route", expression: "r.route_name" },
+      stop: { label: "Stop", expression: "st.stop_name" },
+      distance_km: { label: "Distance (km)", expression: "q.distance_km", type: "number" },
+      status: { label: "Status", expression: initcap("q.status") },
+      decided_by: { label: "Decided by", expression: "q.decided_by_name" },
+      decided_at: { label: "Decided", expression: "q.decided_at", type: "datetime" },
+      decision_note: { label: "Note", expression: "q.decision_note" },
+    },
+    criteria: [
+      nameCriterion("search", "Student", fieldsMatch([STUDENT_NAME])),
+      classCriterion("s.class_id"),
+      selectCriterion("route", "Route", "q.route_id", ROUTE_OPTIONS),
+      selectCriterion("status", "Status", "q.status", distinctOptions("transport_student_requests", "status")),
+      dateCriterion("Requested between", "q.created_at"),
+    ],
+  },
+
+  transport_trips: {
+    title: "Trips",
+    variant: "Trips",
+    permission: ["manage_transportation", DRIVER_BUILDER],
+    fullAccess: "manage_transportation",
+    ownerWhere: DROVE_IT("t.driver_user_id"),
+    requires: "transport",
+    orgWide: true,
+    organizationExpression: "t.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["t.trip_id"],
+    from: `FROM transport_trip_sessions t
+      LEFT JOIN transport_routes r ON r.route_id = t.route_id AND r.organization_id = t.organization_id
+      LEFT JOIN transport_buses b ON b.bus_id = t.bus_id AND b.organization_id = t.organization_id
+      LEFT JOIN users d ON d.user_id = t.driver_user_id`,
+    joins: {
+      arrivals: `LEFT JOIN LATERAL (
+          SELECT COUNT(*) FILTER (WHERE ar.arrived)::int AS arrived, COUNT(*) FILTER (WHERE NOT ar.arrived)::int AS missed
+            FROM transport_trip_arrivals ar
+           WHERE ar.trip_id = t.trip_id AND ar.organization_id = t.organization_id
+        ) arr ON TRUE`,
+    },
+    defaultColumns: ["started_at", "route", "bus", "driver", "minutes", "status"],
+    defaultSort: { key: "started_at", dir: "desc" },
+    columns: {
+      started_at: { label: "Started", expression: "t.started_at", type: "datetime" },
+      ended_at: { label: "Ended", expression: "t.ended_at", type: "datetime" },
+      minutes: { label: "Minutes", expression: "ROUND(EXTRACT(EPOCH FROM (t.ended_at - t.started_at)) / 60)", type: "number" },
+      route: { label: "Route", expression: "r.route_name" },
+      bus: { label: "Bus", expression: busName("b") },
+      driver: { label: "Driver", expression: fullName("d") },
+      arrived: { label: "Arrived", expression: "arr.arrived", type: "number", join: "arrivals", requires: "transportChecks" },
+      not_arrived: { label: "Did not arrive", expression: "arr.missed", type: "number", join: "arrivals", requires: "transportChecks" },
+      status: { label: "Status", expression: initcap("t.status") },
+    },
+    criteria: [
+      selectCriterion("route", "Route", "t.route_id", ROUTE_OPTIONS),
+      selectCriterion("bus", "Bus", "t.bus_id", BUS_OPTIONS),
+      selectCriterion("driver", "Driver", "t.driver_user_id",
+        `SELECT DISTINCT d.user_id::text AS value, ${fullName("d")} AS label FROM transport_trip_sessions t JOIN users d ON d.user_id = t.driver_user_id WHERE t.organization_id = $1 ORDER BY 2 LIMIT 200`,
+        { permission: "manage_transportation" }),
+      selectCriterion("status", "Status", "t.status", distinctOptions("transport_trip_sessions", "status")),
+      dateCriterion("Started between", "t.started_at"),
+    ],
+  },
+
+  transport_arrivals: {
+    title: "Arrival checks",
+    variant: "Arrival checks",
+    permission: ["transport_reports", DRIVER_BUILDER],
+    fullAccess: "transport_reports",
+    ownerWhere: DROVE_IT("ar.driver_user_id"),
+    requires: "transportChecks",
+    orgWide: true,
+    organizationExpression: "ar.organization_id",
+    classExpression: "s.class_id",
+    stableOrderExpressions: ["ar.arrival_id"],
+    from: `FROM transport_trip_arrivals ar
+      JOIN students s ON s.student_id = ar.student_id AND s.organization_id = ar.organization_id
+      LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+      LEFT JOIN transport_trip_sessions t ON t.trip_id = ar.trip_id AND t.organization_id = ar.organization_id
+      LEFT JOIN transport_routes r ON r.route_id = t.route_id AND r.organization_id = ar.organization_id
+      LEFT JOIN transport_buses b ON b.bus_id = t.bus_id AND b.organization_id = ar.organization_id
+      LEFT JOIN users d ON d.user_id = ar.driver_user_id`,
+    defaultColumns: ["checked_at", "student_name", "class_name", "route", "arrived", "reason", "parent_status"],
+    defaultSort: { key: "checked_at", dir: "desc" },
+    columns: {
+      checked_at: { label: "Checked", expression: "ar.created_at", type: "datetime" },
+      student_name: { label: "Student", expression: STUDENT_NAME },
+      student_id: { label: "Student ID", expression: STUDENT_ID },
+      class_name: { label: "Class", expression: "c.class_name" },
+      route: { label: "Route", expression: "r.route_name" },
+      bus: { label: "Bus", expression: busName("b") },
+      driver: { label: "Driver", expression: fullName("d") },
+      arrived: { label: "Arrived", expression: yesNo("ar.arrived") },
+      reason: { label: "Reason", expression: ARRIVAL_REASON("ar.reason") },
+      note: { label: "Note", expression: "ar.note" },
+      parent_status: { label: "Parent answer", expression: initcap("ar.parent_status") },
+      parent_answered_at: { label: "Parent answered", expression: "ar.parent_answered_at", type: "datetime" },
+    },
+    criteria: [
+      nameCriterion("search", "Student", fieldsMatch([STUDENT_NAME])),
+      classCriterion("s.class_id"),
+      selectCriterion("route", "Route", "t.route_id", ROUTE_OPTIONS),
+      choiceCriterion("arrived", "Arrived", [
+        { value: "yes", label: "Yes", sql: "ar.arrived = TRUE" },
+        { value: "no", label: "No", sql: "ar.arrived = FALSE" },
+      ]),
+      selectCriterion("parent_status", "Parent answer", "ar.parent_status", distinctOptions("transport_trip_arrivals", "parent_status")),
+      dateCriterion("Checked between", "ar.created_at"),
+    ],
+  },
+
+  transport_driver_reports: {
+    title: "Driver reports",
+    variant: "Driver reports",
+    permission: ["transport_reports", DRIVER_BUILDER],
+    fullAccess: "transport_reports",
+    ownerWhere: DROVE_IT("dr.driver_user_id"),
+    requires: "transportChecks",
+    orgWide: true,
+    organizationExpression: "dr.organization_id",
+    classExpression: "s.class_id",
+    stableOrderExpressions: ["dr.report_id"],
+    from: `FROM transport_driver_reports dr
+      LEFT JOIN students s ON s.student_id = dr.student_id AND s.organization_id = dr.organization_id
+      LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+      LEFT JOIN transport_routes r ON r.route_id = dr.route_id AND r.organization_id = dr.organization_id
+      LEFT JOIN transport_buses b ON b.bus_id = dr.bus_id AND b.organization_id = dr.organization_id`,
+    defaultColumns: ["reported_at", "category", "issue", "student_name", "driver", "priority", "status"],
+    defaultSort: { key: "reported_at", dir: "desc" },
+    columns: {
+      reported_at: { label: "Reported", expression: "dr.created_at", type: "datetime" },
+      category: { label: "Type", expression: REPORT_CATEGORY("dr.category") },
+      issue: { label: "Issue", expression: "dr.issue" },
+      student_name: { label: "Student", expression: `NULLIF(${STUDENT_NAME}, '')` },
+      class_name: { label: "Class", expression: "c.class_name" },
+      driver: { label: "Driver", expression: "dr.driver_name" },
+      route: { label: "Route", expression: "r.route_name" },
+      bus: { label: "Bus", expression: busName("b") },
+      priority: { label: "Priority", expression: initcap("dr.priority") },
+      status: { label: "Status", expression: initcap("dr.status") },
+      details: { label: "Details", expression: "dr.details" },
+      shared_parents: { label: "Shared with parents", expression: yesNo("dr.share_with_parents"), permission: "transport_reports" },
+      shared_teachers: { label: "Shared with teachers", expression: yesNo("dr.share_with_teachers"), permission: "transport_reports" },
+      lead_note: { label: "Lead's note", expression: "dr.review_note", permission: "transport_reports" },
+      reviewed_by: { label: "Reviewed by", expression: "dr.reviewed_by_name", permission: "transport_reports" },
+      reviewed_at: { label: "Reviewed", expression: "dr.reviewed_at", type: "datetime", permission: "transport_reports" },
+    },
+    criteria: [
+      selectCriterion("category", "Type", "dr.category", distinctOptions("transport_driver_reports", "category")),
+      textCriterion("issue", "Issue", fieldsMatch(["dr.issue"])),
+      nameCriterion("search", "Student", fieldsMatch([STUDENT_NAME])),
+      classCriterion("s.class_id"),
+      selectCriterion("driver", "Driver", "dr.driver_user_id",
+        "SELECT DISTINCT driver_user_id::text AS value, driver_name AS label FROM transport_driver_reports WHERE organization_id = $1 ORDER BY 2 LIMIT 200",
+        { permission: "transport_reports" }),
+      choiceCriterion("priority", "Priority", [
+        { value: "normal", label: "Normal", sql: "dr.priority = 'normal'" },
+        { value: "urgent", label: "Urgent", sql: "dr.priority = 'urgent'" },
+      ]),
+      choiceCriterion("status", "Status", [
+        { value: "new", label: "New", sql: "dr.status = 'new'" },
+        { value: "reviewed", label: "Reviewed", sql: "dr.status = 'reviewed'" },
+      ]),
+      dateCriterion("Reported between", "dr.created_at"),
+    ],
+  },
+
+  transport_buses_list: {
+    title: "Buses",
+    variant: "Buses",
+    permission: "transport_buses",
+    requires: "transport",
+    orgWide: true,
+    organizationExpression: "b.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["b.bus_id"],
+    from: `FROM transport_buses b
+      LEFT JOIN users d ON d.user_id = b.driver_user_id`,
+    joins: {
+      riders: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS total FROM transport_student_assignments a
+           WHERE a.bus_id = b.bus_id AND a.organization_id = b.organization_id AND a.active
+        ) rid ON TRUE`,
+    },
+    defaultColumns: ["bus", "license_plate", "capacity", "riders", "driver", "status"],
+    defaultSort: { key: "bus", dir: "asc" },
+    columns: {
+      bus: { label: "Bus", expression: busName("b") },
+      bus_number: { label: "Bus number", expression: "b.bus_number" },
+      license_plate: { label: "License plate", expression: "b.license_plate" },
+      vehicle: { label: "Vehicle", expression: "NULLIF(TRIM(CONCAT_WS(' ', b.vehicle_year, b.vehicle_make, b.vehicle_model)), '')" },
+      vehicle_color: { label: "Color", expression: "b.vehicle_color" },
+      fuel_type: { label: "Fuel", expression: "b.fuel_type" },
+      odometer: { label: "Odometer", expression: "b.odometer", type: "number" },
+      capacity: { label: "Seats", expression: "b.capacity", type: "number" },
+      riders: { label: "Riders", expression: "rid.total", type: "number", join: "riders" },
+      driver: { label: "Driver", expression: fullName("d") },
+      status: { label: "Status", expression: initcap("b.status") },
+      added_at: { label: "Added", expression: "b.created_at", type: "datetime" },
+    },
+    criteria: [
+      textCriterion("search", "Bus", fieldsMatch(["b.bus_name", "b.bus_number", "b.license_plate"])),
+      selectCriterion("status", "Status", "b.status", distinctOptions("transport_buses", "status")),
+      dateCriterion("Added between", "b.created_at"),
+    ],
+  },
+
+  transport_driver_list: {
+    title: "Drivers",
+    variant: "Drivers",
+    permission: "transport_drivers",
+    requires: "transport",
+    orgWide: true,
+    organizationExpression: "dv.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["dv.driver_id"],
+    from: `FROM transport_drivers dv
+      LEFT JOIN transport_buses b ON b.bus_id = dv.assigned_bus_id AND b.organization_id = dv.organization_id
+      LEFT JOIN transport_routes r ON r.route_id = dv.assigned_route_id AND r.organization_id = dv.organization_id`,
+    joins: {
+      trips: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS total, MAX(t.started_at) AS last_trip FROM transport_trip_sessions t
+           WHERE t.driver_user_id = dv.user_id AND t.organization_id = dv.organization_id
+        ) tr ON TRUE`,
+    },
+    defaultColumns: ["driver", "phone", "bus", "route", "trips", "last_trip", "status"],
+    defaultSort: { key: "driver", dir: "asc" },
+    columns: {
+      driver: { label: "Driver", expression: "dv.driver_name" },
+      phone: { label: "Phone", expression: "dv.phone" },
+      email: { label: "Email", expression: "dv.email" },
+      license_number: { label: "License number", expression: "dv.license_number" },
+      bus: { label: "Bus", expression: busName("b") },
+      route: { label: "Route", expression: "r.route_name" },
+      trips: { label: "Trips", expression: "tr.total", type: "number", join: "trips" },
+      last_trip: { label: "Last trip", expression: "tr.last_trip", type: "datetime", join: "trips" },
+      status: { label: "Status", expression: initcap("dv.status") },
+      added_at: { label: "Added", expression: "dv.created_at", type: "datetime" },
+    },
+    criteria: [
+      nameCriterion("search", "Driver", fieldsMatch(["dv.driver_name"])),
+      selectCriterion("status", "Status", "dv.status", distinctOptions("transport_drivers", "status")),
+      dateCriterion("Added between", "dv.created_at"),
+    ],
+  },
+
+  transport_routes_list: {
+    title: "Routes",
+    variant: "Routes",
+    permission: "transport_routes",
+    requires: "transport",
+    orgWide: true,
+    organizationExpression: "r.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["r.route_id"],
+    from: "FROM transport_routes r",
+    joins: {
+      stops: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS total FROM transport_stops st
+           WHERE st.route_id = r.route_id AND st.organization_id = r.organization_id
+        ) stp ON TRUE`,
+      riders: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS total FROM transport_student_assignments a
+           WHERE a.route_id = r.route_id AND a.organization_id = r.organization_id AND a.active
+        ) rid ON TRUE`,
+    },
+    defaultColumns: ["route", "route_code", "stops", "riders", "status"],
+    defaultSort: { key: "route", dir: "asc" },
+    columns: {
+      route: { label: "Route", expression: "r.route_name" },
+      route_code: { label: "Code", expression: "r.route_code" },
+      stops: { label: "Stops", expression: "stp.total", type: "number", join: "stops" },
+      riders: { label: "Riders", expression: "rid.total", type: "number", join: "riders" },
+      destination: { label: "Destination", expression: "r.destination_address" },
+      status: { label: "Status", expression: initcap("r.route_status") },
+      added_at: { label: "Added", expression: "r.created_at", type: "datetime" },
+    },
+    criteria: [
+      textCriterion("search", "Route", fieldsMatch(["r.route_name", "r.route_code"])),
+      selectCriterion("status", "Status", "r.route_status", distinctOptions("transport_routes", "route_status")),
+      dateCriterion("Added between", "r.created_at"),
+    ],
+  },
+});
+
+TRANSPORT_REPORT_NAMES.forEach((name) => { REPORTS[name].releaseFeature = "transport_report_builder"; });
+
 const FAMILIES = [
   { key: "students", group: "Students", title: "Students", description: "Profiles, class, parents, bus and status, current and former", views: ["students"] },
   { key: "admissions", group: "Students", title: "Admissions & enrollment", description: "Online applications and enrollment by term", views: ["admissions", "enrollments"] },
@@ -1533,8 +1918,11 @@ const FAMILIES = [
   { key: "fees", group: "School", title: "Fees & payments", description: "Balances owed and payments received", views: ["fee_balances", "payments"] },
   { key: "school_updates", group: "School", title: "Announcements & events", description: "Posts to staff and parents, and calendar events", views: ["announcements", "events"] },
   { key: "activity_log", group: "School", title: "Activity log", description: "Who did what in the app, and when", views: ["activity_log", "activity_audit"] },
+  { key: "transport_people", group: "Transportation", title: "Riders & requests", description: "Who rides which bus, and requests for a bus", views: ["transport_riders", "transport_requests"] },
+  { key: "transport_trips", group: "Transportation", title: "Trips & reports", description: "Trips driven, arrival checks and driver reports", views: ["transport_trips", "transport_arrivals", "transport_driver_reports"] },
+  { key: "transport_fleet", group: "Transportation", title: "Buses, drivers & routes", description: "The fleet, its drivers and the routes they run", views: ["transport_buses_list", "transport_driver_list", "transport_routes_list"] },
 ];
-const GROUP_ORDER = ["Students", "Parents & messages", "School"];
+const GROUP_ORDER = ["Students", "Parents & messages", "School", "Transportation"];
 
 // Class and term lead every filter list, in that order.
 const FILTER_ORDER = { class: 0, term: 1 };
@@ -1560,8 +1948,16 @@ async function planHas(db, organizationId, names) {
   return (Array.isArray(features) ? features : []).some((name) => names.includes(name));
 }
 
+const tableExists = (...tables) => async (db) => (await db.query(
+  "SELECT COUNT(*)::int AS found FROM unnest($1::text[]) AS name WHERE to_regclass('public.' || name) IS NOT NULL",
+  [tables]
+)).rows[0]?.found === tables.length;
+
 const FEATURES = {
   transport: "SELECT EXISTS (SELECT 1 FROM transport_routes WHERE organization_id = $1) AS available",
+  // Newer tables: their reports appear once the school's database has them.
+  transportChecks: tableExists("transport_trip_arrivals", "transport_driver_reports"),
+  transportRequests: tableExists("transport_student_requests"),
   // Fee reports need PayGira in the plan, and the school using it.
   fees: async (db, organizationId) => (await planHas(db, organizationId, ["PayGira", "Pay Gira", "PayGira & Payments", "PayGira and Payments"]))
     && (await db.query("SELECT EXISTS (SELECT 1 FROM finance_bills WHERE organization_id = $1) AS available", [organizationId])).rows[0]?.available,
@@ -1584,8 +1980,12 @@ function getReport(reportType) {
 // Columns and criteria can carry their own permission (fee figures need the
 // fee permission even on the student roster).
 // `granted` holds the person's permissions plus "feature:<name>" for features the school uses.
+const holdsAny = (granted, keys) => [].concat(keys).some((key) => granted.has(key));
 const allowedBy = (granted) => (item) => !granted
-  || ((!item.permission || granted.has(item.permission)) && (!item.requires || granted.has(`feature:${item.requires}`)));
+  || ((!item.permission || holdsAny(granted, item.permission)) && (!item.requires || granted.has(`feature:${item.requires}`)));
+
+// The reader's id when this report shows them only their own rows; otherwise null.
+const ownRowsFor = (report, granted, userId) => (report.fullAccess && !holdsAny(granted, report.fullAccess) ? (userId || 0) : null);
 
 function normalizeColumns(report, selectedColumns, granted = null) {
   const requested = Array.isArray(selectedColumns) ? selectedColumns : [];
@@ -1661,7 +2061,7 @@ function normalizeSort(report, columns, sort) {
 
 // Builds the count and data queries for one run. Both share the same bound
 // values; the data query adds LIMIT/OFFSET at the end.
-function buildQueries(report, { columns, criteria = {}, organizationId, allowedClassIds = null, sort, limit, offset = 0 }) {
+function buildQueries(report, { columns, criteria = {}, organizationId, allowedClassIds = null, ownRowsOf = null, sort, limit, offset = 0 }) {
   const values = [organizationId];
   const bind = (value) => {
     values.push(value);
@@ -1671,6 +2071,7 @@ function buildQueries(report, { columns, criteria = {}, organizationId, allowedC
   const fromSql = typeof report.from === "function" ? report.from(bind, criteria) : report.from;
   const clauses = [`${report.organizationExpression} = $1`];
   if (report.baseWhere) clauses.push(report.baseWhere);
+  if (ownRowsOf !== null) clauses.push(report.ownerWhere(bind, ownRowsOf));
   if (allowedClassIds) {
     if (report.orgWide) { /* Not about any one class: the report's permission decides. */ }
     else if (!allowedClassIds.length || !report.classExpression) clauses.push("1 = 0");
@@ -1802,6 +2203,7 @@ module.exports = {
   MAX_EXPORT_ROWS,
   getReport,
   allowedBy,
+  ownRowsFor,
   splitTerms,
   normalizeColumns,
   normalizeCriteria,

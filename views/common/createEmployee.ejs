@@ -666,7 +666,7 @@
           <label class="form-label" for="account_type">Role</label>
           <select id="account_type" name="account_type" class="form-select" required>
             <option value="">-- Select Role --</option>
-            <option value="Manager">Manager</option>
+            <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager">Manager</option><% } %>
             <option value="Supervisor">Supervisor</option>
             <option value="Teacher">Teacher</option>
             <option value="Driver">Driver</option>
@@ -696,7 +696,7 @@
           <%- include('../partials/permissionPicker', { selectedPermissions: [] }) %>
           <div id="permissionsBox">
             <div class="permissions-note" id="permissionsNote">Permissions are pre-selected based on the chosen role. You can add or remove any before saving. High-risk permissions (Billing, Settings) require a Manager account.</div>
-            <div class="permissions-note" id="driverPermissionsNote" style="display:none;">Drivers use the Driver dashboard for their routes and riders. They do not get school-management access, so no permissions are set here.</div>
+            <div class="permissions-note" id="driverPermissionsNote" style="display:none;">Drivers use the Driver dashboard for their routes and riders. Anything more is chosen above.</div>
           </div>
         </div>
 

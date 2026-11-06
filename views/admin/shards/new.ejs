@@ -1,0 +1,98 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminShards.css') %>" />
+
+<div class="ah">
+  <%- include('../../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin/shards" data-no-spa>Shards</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Create</span>
+  </nav>
+
+  <header class="ah-head"><h1 class="ah-head__title">Create shard</h1></header>
+
+  <% if (!secretReady) { %><p class="sh-note">Set SHARD_SECRET first.</p><% } %>
+
+  <section class="ah-card ah-pad">
+    <form class="sh-form" method="post" action="/admin/shards" data-no-spa autocomplete="off">
+      <div class="sh-form__row">
+        <label class="sh-field">Name
+          <input name="name" required placeholder="us-shard-02" pattern="[a-z]+-shard-[0-9]{2}" />
+        </label>
+        <label class="sh-field">Type
+          <select name="environment">
+            <option value="production">Production</option>
+            <option value="testing">Testing</option>
+            <option value="staging">Staging</option>
+          </select>
+        </label>
+        <label class="sh-field">Region
+          <select name="region">
+            <option value="us">United States</option>
+            <option value="af">Africa</option>
+            <option value="eu">Europe</option>
+            <option value="as">Asia</option>
+            <option value="testing">None</option>
+          </select>
+        </label>
+        <label class="sh-field">Hosted in
+          <select name="hostingLocation">
+            <option value="oregon">Oregon</option>
+            <option value="ohio">Ohio</option>
+            <option value="virginia">Virginia</option>
+            <option value="frankfurt">Frankfurt</option>
+            <option value="singapore">Singapore</option>
+          </select>
+        </label>
+      </div>
+      <div class="sh-form__row">
+        <label class="sh-field">Countries
+          <input name="countries" placeholder="All in region" />
+        </label>
+        <label class="sh-field">Most schools
+          <input name="capacitySchools" type="number" min="1" value="200" required />
+        </label>
+        <label class="sh-field">Most signed in
+          <input name="capacityUsers" type="number" min="1" value="1000" required />
+        </label>
+      </div>
+      <% if (renderReady) { %>
+        <div class="sh-form__row">
+          <label class="sh-field">Server
+            <select name="serverPlan">
+              <option value="standard">Standard</option>
+              <option value="pro">Pro</option>
+              <option value="pro_plus">Pro Plus</option>
+              <option value="starter">Starter</option>
+            </select>
+          </label>
+          <label class="sh-field">Database
+            <select name="databasePlan">
+              <option value="basic_1gb">Basic 1 GB</option>
+              <option value="basic_4gb">Basic 4 GB</option>
+              <option value="pro_4gb">Pro 4 GB</option>
+              <option value="pro_8gb">Pro 8 GB</option>
+              <option value="pro_16gb">Pro 16 GB</option>
+              <option value="basic_256mb">Basic 256 MB</option>
+            </select>
+          </label>
+        </div>
+      <% } %>
+      <details class="sh-details--plain"<%= renderReady ? '' : ' open' %>>
+        <summary>Already on Render</summary>
+        <div class="sh-form__row" style="margin-top:10px">
+          <label class="sh-field">Server address
+            <input name="appUrl" type="url" placeholder="https://..." />
+          </label>
+          <label class="sh-field">Database address
+            <input name="databaseUrl" type="password" placeholder="postgres://..." />
+          </label>
+        </div>
+      </details>
+      <label class="sh-check"><input type="checkbox" name="acceptsNew" /> Take new schools</label>
+      <div class="ah-form__actions">
+        <a href="/admin/shards" class="ah-btn" data-no-spa>Cancel</a>
+        <button type="submit" class="ah-btn ah-btn--primary">Create shard</button>
+      </div>
+    </form>
+  </section>
+</div>

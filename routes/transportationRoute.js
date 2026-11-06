@@ -98,7 +98,7 @@ module.exports = (db) => {
   router.get("/arrivals/mine", guardianOnly, (req, res) => transportationController.arrivalsMineGet(req, res, db));
   router.post("/arrivals/:arrivalId/answer", guardianOnly, (req, res) => transportationController.arrivalAnswerPost(req, res, db));
   router.get("/reports/mine", guardianOnly, (req, res) => transportationController.reportsMineGet(req, res, db));
-  router.get("/reports/class/:classId", isAuthenticated, blockGuardians, (req, res) => transportationController.reportsForClassGet(req, res, db));
+  router.get("/reports/class/:classId", isAuthenticated, blockGuardians, requirePermission([PERMISSIONS.TRANSPORT_CLASS_REPORTS, PERMISSIONS.TRANSPORT_REPORTS]), (req, res) => transportationController.reportsForClassGet(req, res, db));
   router.get("/requests/mine", guardianOnly, (req, res) => transportationController.requestsMineGet(req, res, db));
   router.post("/requests/:requestId/cancel", guardianOnly, (req, res) => transportationController.requestCancelPost(req, res, db));
 

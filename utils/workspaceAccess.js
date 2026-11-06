@@ -3,6 +3,7 @@
 // never offers a page that would send them away, and a menu with no items for
 // this person stays out of the hamburger.
 const FULL_MENU_ROLES = new Set(["organization", "admin", "mini admin", "manager", "supervisor", "superviser"]);
+const MANAGER_ROLES = new Set(["organization", "admin", "mini admin", "manager"]);
 
 function workspaceAccess({ permissions, features, role } = {}) {
   const granted = new Set((Array.isArray(permissions) ? permissions : []).map((key) => String(key || "").trim().toLowerCase()));
@@ -75,10 +76,12 @@ function workspaceAccess({ permissions, features, role } = {}) {
       riderList: can("transport_students"),
       studentRoutes: can("transport_student_routes", "transport_students"),
       reports: can("transport_reports"),
+      classReports: can("transport_class_reports", "transport_reports"),
       settings: can("transport_settings"),
     },
+    driver: { website: can("driver_school_website") && hasFeature("School Website", "SchoolWebsite") },
     events: { announcements: can("events_announcements"), events: can("events_events") },
-    employees: { canAdd: can("employees_add"), canEdit: can("employees_edit"), canRemove: can("employees_remove") },
+    employees: { canAdd: can("employees_add"), canEdit: can("employees_edit"), canRemove: can("employees_remove"), canChangeManagers: MANAGER_ROLES.has(String(role || "").trim().toLowerCase()) },
     students: { canAdd: can("students_add"), canEdit: can("students_edit"), canDelete: can("students_delete") },
     settings: {
       profile: can("settings_profile"),

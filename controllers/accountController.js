@@ -2734,6 +2734,8 @@ const accountController = {
     let proof1Url = "";
     let proof2Url = "";
     try {
+      const shardRouting = require("../utils/shards/routing");
+      shardRouting.restoreSignup(req, res);
       const planSelection = req.session.planSelection;
 
       if (!planSelection) {
@@ -2767,6 +2769,8 @@ const accountController = {
       let orgNickName = req.body.orgNickName;
       const normalizedOrgCountry = String(orgCountry || '').trim().toUpperCase();
       const normalizedOrgPhone = String(orgPhone || '').trim();
+      // A new school belongs on the shard for its country.
+      if (await shardRouting.sentToSignupShard(req, res, normalizedOrgCountry)) return;
 
       const existingProofDraft = req.session.registrationProofDraft || {};
       proof1Url = String(existingProofDraft.proof1Url || "");
@@ -5409,6 +5413,9 @@ const accountController = {
     const { email, password } = req.body;
 
     try {
+      // Someone from a school on another shard continues there.
+      if (await require("../utils/shards/routing").sentToLoginShard(req, res, email)) return;
+
       // Store the requested URL if not already stored
 
       if (
@@ -5869,6 +5876,7 @@ const accountController = {
     const { identifier, password } = req.body;
 
     try {
+      if (await require("../utils/shards/routing").sentToLoginShard(req, res, identifier)) return;
       // Normalise to digits + leading '+' only so stored phones like "024-412-3456"
       // match typed inputs like "0244123456" regardless of formatting.
       const cleanedPhone = String(identifier || "").replace(/[^\d+]/g, "");
@@ -6019,6 +6027,7 @@ const accountController = {
   studentLoginPost: async (req, res, db) => {
     const email = normalizeStudentEmail(req.body.email);
     const { password } = req.body;
+    if (await require("../utils/shards/routing").sentToLoginShard(req, res, email)) return;
     const clearStudentAuthSession = () => {
       if (!req.session) return;
       req.session.user = null;
@@ -6233,7 +6242,7 @@ const accountController = {
       // Clear client-side cookies
 
       res.clearCookie("connect.sid", { path: "/" });
-      res.clearCookie("connect.sid", { path: "/", domain: ".managira.com" });
+      res.clearCookie("connect.sid", { path: "/", domain: (process.env.SESSION_COOKIE_DOMAIN === undefined ? ".managira.com" : process.env.SESSION_COOKIE_DOMAIN || undefined) });
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
 
       // Redirect based on environment
@@ -8181,6 +8190,7 @@ const accountController = {
 
   forgetPasswordPost: async (req, res) => {
     const email = String(req.body.email || "").trim();
+    await require("../utils/shards/routing").passResetToOtherShards(req, email);
     const baseUrl = res.locals.BASE_URL || `${req.protocol}://${req.get("host")}`;
 
     try {

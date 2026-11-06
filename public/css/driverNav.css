@@ -228,3 +228,22 @@ html.drv-navigating .chatbot-toggle, html.drv-navigating .chatbot-container { di
 .drvf .drvf__btn { width: auto !important; height: 40px; margin: 0 !important; padding: 0 16px !important; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #0f172a; font-size: .92rem; font-weight: 700; cursor: pointer; }
 .drvf .drvf__btn--go { border-color: var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; }
 .drvf .drvf__btn:disabled { opacity: .6; }
+
+/* Dropdowns drawn inside the form, so the list always opens right under its field. */
+.drvs { position: relative; min-width: 0; }
+.drvs select { display: none !important; }
+.drvs .drvs__btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100% !important; min-height: 42px; margin: 0 !important; padding: 9px 12px !important; border: 1px solid var(--n-line, #e2e8f0); border-radius: 10px; background: var(--n-surface, #fff) !important; color: var(--n-text, #0f172a) !important; font: inherit; font-size: 15px; font-weight: 500; line-height: 1.25; text-align: left; box-shadow: none; transform: none; cursor: pointer; }
+.drvs .drvs__btn span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drvs .drvs__btn svg { flex: none; width: 16px; height: 16px; color: #64748b; transition: transform .12s ease; }
+.drvs.is-open .drvs__btn { border-color: var(--org-primary-color, #01535b); }
+.drvs.is-open .drvs__btn svg { transform: rotate(180deg); }
+.drvs .drvs__btn.is-empty { color: #64748b !important; }
+.drvs .drvs__btn:disabled { background: #f8fafc !important; color: #94a3b8 !important; cursor: default; }
+.drvs .drvs__btn:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 1px; }
+.drvs__list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; max-height: 232px; overflow-y: auto; padding: 4px; border: 1px solid var(--n-line, #e2e8f0); border-radius: 10px; background: var(--n-surface, #fff); color: var(--n-text, #0f172a); box-shadow: 0 10px 28px rgba(15, 23, 42, .16); }
+.drvs__list[hidden] { display: none; }
+.drvs .drvs__opt { display: block; width: 100% !important; margin: 0 !important; padding: 9px 10px !important; border: 0; border-radius: 7px; background: none !important; color: inherit !important; font: inherit; font-size: 15px; font-weight: 400; line-height: 1.25; text-align: left; box-shadow: none; transform: none; cursor: pointer; }
+.drvs .drvs__opt:hover, .drvs .drvs__opt:focus-visible { background: rgba(100, 116, 139, .14) !important; outline: 0; }
+.drvs .drvs__opt.is-on { color: var(--org-primary-color, #01535b) !important; font-weight: 600; }
+.drvf button { font-family: inherit; }
+.drvf__pick span { font-weight: 500; }

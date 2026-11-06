@@ -1,0 +1,236 @@
+<%
+  const _stats = shard.stats || {};
+  const _bytes = (n) => { if (n == null) return '—'; const mb = n / 1048576; return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB'; };
+  const _time = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _moveLabel = { running: ['Running', 'amber'], done: ['Done', 'green'], failed: ['Stopped', 'red'], needs_cleanup: ['Old copy left', 'amber'] };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminShards.css') %>" />
+
+<div class="ah" id="shardPage" data-shard="<%= shard.shard_id %>">
+  <%- include('../../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin/shards" data-no-spa>Shards</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span><%= shard.name %></span>
+  </nav>
+
+  <header class="ah-head">
+    <h1 class="ah-head__title"><%= shard.name %> <span class="sh-pill sh-pill--<%= shard.health.tone %>" style="vertical-align:middle"><%= shard.health.label %></span></h1>
+    <% if (openLink && shard.status === 'active') { %><div class="ah-head__actions"><a class="ah-btn" href="<%= openLink %>" data-no-spa>Open admin</a></div><% } %>
+  </header>
+
+  <% if (_stats.error && shard.status === 'active') { %><p class="sh-note"><%= _stats.error %></p><% } %>
+
+  <div class="ah-kpis sh-kpis">
+    <div class="ah-kpi ah-kpi--teal"><span class="ah-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Schools</div><div class="ah-kpi__value"><%= schools.length.toLocaleString('en-US') %></div><div class="ah-kpi__note">of <%= shard.capacity_schools %></div></div></div>
+    <div class="ah-kpi ah-kpi--green"><span class="ah-kpi__icon"><i class="fa-solid fa-users" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Users</div><div class="ah-kpi__value"><%= shard.users.toLocaleString('en-US') %></div></div></div>
+    <div class="ah-kpi ah-kpi--amber"><span class="ah-kpi__icon"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Signed in</div><div class="ah-kpi__value"><%= _stats.activeSessions != null ? _stats.activeSessions.toLocaleString('en-US') : '—' %></div></div></div>
+    <div class="ah-kpi ah-kpi--blue"><span class="ah-kpi__icon"><i class="fa-solid fa-database" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Database</div><div class="ah-kpi__value"><%= _bytes(_stats.databaseBytes) %></div><div class="ah-kpi__note"><%= _stats.connections != null ? _stats.connections + ' / ' + _stats.maxConnections : '' %></div></div></div>
+    <div class="ah-kpi ah-kpi--teal"><span class="ah-kpi__icon"><i class="fa-solid fa-memory" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Memory</div><div class="ah-kpi__value"><%= _bytes(_stats.memoryBytes) %></div><div class="ah-kpi__note"><%= _stats.commit ? _stats.commit.slice(0, 7) : '' %></div></div></div>
+  </div>
+
+  <% if (shard.provision_log && shard.provision_log.length && shard.status !== 'active') { %>
+    <section class="ah-card ah-pad sh-section" aria-label="Setup progress" id="shardSetup">
+      <h2 class="ah-card__title">Setup</h2>
+      <ul class="sh-log" style="margin-top:10px">
+        <% shard.provision_log.forEach((entry) => { %><li><time><%= _time(entry.at) %></time><%= entry.text %></li><% }) %>
+      </ul>
+    </section>
+  <% } %>
+
+  <section class="ah-card sh-section" aria-label="Schools on this shard">
+    <div class="ah-card__bar">
+      <h2 class="ah-card__title">Schools</h2>
+      <% if (schools.length > 1) { %>
+        <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="shardSchoolSearch" placeholder="Search schools" aria-label="Search schools" /></label>
+      <% } %>
+    </div>
+    <% if (schools.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>School</th><th>Country</th><th>Staff</th><th>Students</th><th>Parents</th><th class="ah-num">Actions</th></tr></thead>
+          <tbody>
+            <% const _hubsShown = new Set(); schools.forEach((school) => {
+                 const firstOfHub = school.hub_id && !_hubsShown.has(school.hub_id);
+                 if (school.hub_id) _hubsShown.add(school.hub_id); %>
+              <tr data-shard-school="<%= [school.name, school.subdomain, school.country].join(' ').toLowerCase() %>">
+                <td><span class="ah-name__link"><%= school.name %></span><span class="ah-sub"><%= school.subdomain || '' %><%= school.hub_name ? ' · ' + school.hub_name : '' %></span></td>
+                <td><%= school.country || '—' %></td>
+                <td><%= school.staff_count.toLocaleString('en-US') %></td>
+                <td><%= school.student_count.toLocaleString('en-US') %></td>
+                <td><%= school.parent_count.toLocaleString('en-US') %></td>
+                <td class="ah-num">
+                  <% if (school.status === 'moving') { %><span class="sh-pill sh-pill--amber">Moving</span>
+                  <% } else if (targets.length && (!school.hub_id || firstOfHub)) { %><button type="button" class="ah-btn" data-move-school="<%= school.organization_id %>" data-school-name="<%= school.hub_name ? school.hub_name + ' and its schools' : school.name %>"><%= school.hub_id ? 'Move hub' : 'Move' %></button><% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <p class="ah-empty">No schools.</p>
+    <% } %>
+  </section>
+
+  <% if (moves.length) { %>
+    <section class="ah-card sh-section" aria-label="Recent moves">
+      <div class="ah-card__bar"><h2 class="ah-card__title">Moves</h2></div>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>School</th><th>From</th><th>To</th><th>When</th><th>Result</th></tr></thead>
+          <tbody>
+            <% moves.forEach((move) => { const label = _moveLabel[move.status] || [move.status, 'muted']; %>
+              <tr>
+                <td><%= move.school_name %><% if (move.rehearsal) { %><span class="ah-sub">Test</span><% } %></td>
+                <td><%= move.from_name %></td>
+                <td><%= move.to_name %></td>
+                <td><%= _time(move.started_at) %></td>
+                <td>
+                  <span class="sh-pill sh-pill--<%= label[1] %>"><%= label[0] %></span>
+                  <% if (move.summary && move.status === 'done') { %><span class="ah-sub"><%= Number(move.summary.rows).toLocaleString('en-US') %> rows · <%= move.summary.seconds %>s</span><% } %>
+                  <% if (move.error) { %><span class="ah-sub ah-sub--warn"><%= move.error %></span><% } %>
+                  <% if (move.status === 'needs_cleanup') { %><form method="post" action="/admin/shards/moves/<%= move.move_id %>/retry-cleanup" data-no-spa style="margin-top:6px"><button class="ah-btn" type="submit">Remove</button></form><% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% } %>
+
+  <details class="ah-card sh-section sh-details">
+    <summary>Settings</summary>
+    <div class="ah-pad">
+      <form class="sh-form" method="post" action="/admin/shards/<%= shard.shard_id %>/settings" data-no-spa autocomplete="off">
+        <% if (shard.environment === 'production') { %>
+          <label class="sh-check"><input type="checkbox" name="acceptsNew" <%= shard.accepts_new ? 'checked' : '' %> /> Take new schools</label>
+        <% } %>
+        <div class="sh-form__row">
+          <label class="sh-field">Most schools<input name="capacitySchools" type="number" min="1" value="<%= shard.capacity_schools %>" required /></label>
+          <label class="sh-field">Most signed in<input name="capacityUsers" type="number" min="1" value="<%= shard.capacity_users %>" required /></label>
+          <label class="sh-field">Countries<input name="countries" value="<%= shard.countries.join(', ') %>" placeholder="All in region" /></label>
+        </div>
+        <div class="sh-form__row">
+          <label class="sh-field">Server address<input name="appUrl" type="url" value="<%= shard.app_url || '' %>" /></label>
+          <label class="sh-field">Render service ID<input name="renderServiceId" value="<%= shard.render_service_id || '' %>" placeholder="srv-..." /></label>
+          <label class="sh-field">Database address<input name="databaseUrl" type="password" placeholder="Unchanged" /></label>
+        </div>
+        <div class="ah-form__actions"><button type="submit" class="ah-btn ah-btn--primary">Save</button></div>
+      </form>
+      <% if (!shard.is_control) { %>
+        <form method="post" action="/admin/shards/<%= shard.shard_id %>/retired" data-no-spa style="margin-top:12px">
+          <input type="hidden" name="retired" value="<%= shard.status === 'retired' ? '0' : '1' %>" />
+          <button type="submit" class="ah-btn"><%= shard.status === 'retired' ? 'Reactivate' : 'Retire' %></button>
+        </form>
+      <% } %>
+    </div>
+  </details>
+
+  <dialog class="sh-dialog" id="moveDialog">
+    <div class="sh-dialog__body">
+      <h2>Move <span id="moveSchoolName"></span></h2>
+      <label class="sh-field">To
+        <select id="moveTarget">
+          <% targets.forEach((target) => { %><option value="<%= target.shard_id %>"><%= target.name %> · <%= target.schools %> of <%= target.capacity_schools %></option><% }) %>
+        </select>
+      </label>
+      <ol class="sh-progress" id="moveProgress" hidden></ol>
+      <div class="sh-result" id="moveResult" hidden></div>
+      <div class="sh-dialog__foot">
+        <button type="button" class="ah-btn" id="moveClose">Close</button>
+        <button type="button" class="ah-btn" id="moveRehearse">Test move</button>
+        <button type="button" class="ah-btn ah-btn--primary" id="moveNow">Move now</button>
+      </div>
+    </div>
+  </dialog>
+</div>
+
+<script>
+  (function () {
+    var page = document.getElementById('shardPage');
+    if (!page || page.dataset.bound) return;
+    page.dataset.bound = '1';
+
+    var search = document.getElementById('shardSchoolSearch');
+    if (search) {
+      search.addEventListener('input', function () {
+        var wanted = search.value.trim().toLowerCase();
+        page.querySelectorAll('[data-shard-school]').forEach(function (row) {
+          row.hidden = Boolean(wanted) && row.getAttribute('data-shard-school').indexOf(wanted) < 0;
+        });
+      });
+    }
+
+    var dialog = document.getElementById('moveDialog');
+    var target = document.getElementById('moveTarget');
+    var progress = document.getElementById('moveProgress');
+    var result = document.getElementById('moveResult');
+    var rehearse = document.getElementById('moveRehearse');
+    var moveNow = document.getElementById('moveNow');
+    var school = null;
+    var finished = false;
+    var clean = function (value) { var d = document.createElement('div'); d.textContent = value == null ? '' : value; return d.innerHTML; };
+    var setBusy = function (busy) { rehearse.disabled = busy; moveNow.disabled = busy; target.disabled = busy; };
+    var show = function (ok, text) { result.hidden = false; result.className = 'sh-result sh-result--' + (ok ? 'ok' : 'bad'); result.textContent = text; };
+
+    page.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-move-school]');
+      if (!button) return;
+      school = button.getAttribute('data-move-school');
+      document.getElementById('moveSchoolName').textContent = button.getAttribute('data-school-name');
+      progress.hidden = true;
+      progress.innerHTML = '';
+      result.hidden = true;
+      finished = false;
+      setBusy(false);
+      dialog.showModal();
+    });
+    document.getElementById('moveClose').addEventListener('click', function () {
+      dialog.close();
+      if (finished) location.reload();
+    });
+
+    function watch(moveId) {
+      fetch('/admin/shards/moves/' + moveId + '.json', { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var move = data.move;
+          progress.hidden = false;
+          progress.innerHTML = (move.steps || []).map(function (step) { return '<li>' + clean(step.text) + '</li>'; }).join('');
+          if (move.status === 'running') { setTimeout(function () { watch(moveId); }, 1000); return; }
+          finished = true;
+          setBusy(false);
+          progress.hidden = true;
+          if (move.status === 'failed') { show(false, move.error); return; }
+          var summary = move.summary || {};
+          var notes = (summary.notes || []).map(function (note) { return ' ' + note.table + ': ' + note.rows + ' ' + note.what + '.'; }).join('');
+          if (move.status === 'needs_cleanup') { show(false, 'Moved. Old copy left: ' + move.error); return; }
+          show(true, (move.rehearsal ? 'Test passed: ' : 'Moved: ') + Number(summary.rows).toLocaleString() + ' rows checked in ' + summary.seconds + 's.' + notes);
+          if (!move.rehearsal) moveNow.disabled = true;
+        })
+        .catch(function () { setTimeout(function () { watch(moveId); }, 2000); });
+    }
+
+    function start(isRehearsal) {
+      if (!isRehearsal && !window.confirm('Move now? The school pauses and everyone signs in again.')) return;
+      setBusy(true);
+      result.hidden = true;
+      fetch('/admin/shards/moves', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ organizationId: school, toShardId: target.value, rehearsal: isRehearsal ? '1' : '0' })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.confirm) { location.href = data.confirm + '?next=' + encodeURIComponent(location.pathname); return; }
+        if (!data.success) { setBusy(false); show(false, data.message); return; }
+        watch(data.moveId);
+      }).catch(function () { setBusy(false); show(false, 'Please try again.'); });
+    }
+    rehearse.addEventListener('click', function () { start(true); });
+    moveNow.addEventListener('click', function () { start(false); });
+
+    // Setup finishes on its own: keep the page current while it runs.
+    if (document.getElementById('shardSetup') && '<%= shard.status %>' === 'provisioning') setTimeout(function () { location.reload(); }, 5000);
+  })();
+</script>

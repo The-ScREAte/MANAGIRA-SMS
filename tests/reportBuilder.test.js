@@ -57,7 +57,7 @@ test("every report belongs to exactly one list entry", () => {
   const views = FAMILIES.flatMap((family) => family.views);
   assert.deepEqual([...views].sort(), Object.keys(REPORTS).sort());
   assert.equal(new Set(views).size, views.length);
-  assert.ok(FAMILIES.length <= 12, "the list stays short");
+  assert.ok(FAMILIES.length <= 15, "the list stays short");
 });
 
 test("students cover former students and bus riders", () => {

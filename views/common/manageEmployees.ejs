@@ -504,6 +504,7 @@
       removedOn: e.removed_on ? new Date(e.removed_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
       removedBy: e.removed_by_name || '',
       owner: Boolean(e.is_owner),
+      locked: !workspaceAccess().employees.canChangeManagers && (e.account_type === 'Manager' || Boolean(e.is_owner) || String(e.user_id) === String(session.userId || (session.user && session.user.user_id))),
       photo: e.photo_url || '',
       joined: e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
       lastLogin: _fmtWhen(e.last_login),
@@ -852,7 +853,7 @@
             return '<div class="ux-class"><strong>' + uxEsc(c.name) + '</strong>' + (c.subjects.length ? '<span>' + c.subjects.map(uxEsc).join(', ') + '</span>' : '<span class="ux-muted">No subjects</span>') + '</div>';
           }).join('') : '<p class="ux-muted">Not assigned to a class.</p>') +
         '</section>' +
-        (user.removed
+        (user.locked ? '<p class="ux-muted">Only a manager can change this account.</p>' : user.removed
           ? !UX_ACCESS.canRemove ? '' : '<form class="ux-actions" method="post" action="/common/enableEmployee/' + encodeURIComponent(user.id) + '" data-no-spa><button type="submit" class="ws-btn ws-btn--primary" id="uxEnable"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Enable</button></form>'
           : !UX_ACCESS.canEdit ? '' : '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>');
       document.getElementById('uxPanelBody').innerHTML = html;

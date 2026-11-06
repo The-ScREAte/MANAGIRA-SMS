@@ -1,0 +1,20 @@
+# The two new services shards need. Existing services are not listed, so applying this
+# leaves them as they are. In Render: New > Blueprint, then fill in the values marked
+# sync: false. See docs/SHARDS.md.
+services:
+  # The front door. It only goes live for visitors when managira.com is pointed at it.
+  - type: web
+    name: managira-edge
+    runtime: node
+    plan: starter
+    region: oregon
+    numInstances: 2
+    autoDeploy: false
+    buildCommand: npm ci --omit=dev
+    startCommand: node edge.js
+    healthCheckPath: /edge/health
+    envVars:
+      - key: CONTROL_DB_URL
+        sync: false
+      - key: SHARD_SECRET
+        sync: false

@@ -41,6 +41,7 @@ require("./config/passport")(passport);
 require("./config/passportHub")(passport); // Hub authentication
 // Scheduled jobs run here unless RUN_SCHEDULED_JOBS=false (then worker.js runs them).
 if (process.env.RUN_SCHEDULED_JOBS !== "false") require("./jobs/scheduler");
+if (process.env.NODE_ENV === "production" && (process.env.RUN_SCHEDULED_JOBS !== "false" || process.env.SHARD_SYNC === "on")) require("./jobs/shardSync");
 require("./jobs/keepAlive"); // Start the keep-alive scheduler
 
 const setCurrentTerm = require("./middleware/setCurrentTerm"); // Middleware to set the current term
@@ -57,6 +58,11 @@ const app = express();
 // real address and req.protocol "https". Rate limits read utils/authRateLimit's clientIp.
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+// Requests through the shard router carry the visitor's real host and address.
+const shardRouting = require("./utils/shards/routing");
+app.use(shardRouting.trustEdge);
+// Shards talking to each other: signed, and needing nothing else below.
+app.use("/internal/shard", require("./routes/shardInternalRoute"));
 // Security headers + block form posts from other websites (see docs/SECURITY.md).
 const { securityHeaders, crossSiteRequestGuard } = require("./middleware/securityMiddleware");
 app.use(require("./middleware/botProbes"));
@@ -735,7 +741,7 @@ if (process.env.NODE_ENV === "production") {
         // Session cookie only travels over HTTPS (SESSION_COOKIE_SECURE=false to turn off).
         secure: process.env.SESSION_COOKIE_SECURE !== "false",
         httpOnly: true,
-        domain: ".managira.com",
+        domain: (process.env.SESSION_COOKIE_DOMAIN === undefined ? ".managira.com" : process.env.SESSION_COOKIE_DOMAIN || undefined),
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24-hour hard ceiling (idle timeout enforces 4h inactivity limit)
       },
@@ -771,7 +777,7 @@ app.use((req, res, next) => {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      ...(process.env.NODE_ENV === "production" ? { domain: ".managira.com", secure: process.env.SESSION_COOKIE_SECURE !== "false" } : {}),
+      ...(process.env.NODE_ENV === "production" ? { domain: (process.env.SESSION_COOKIE_DOMAIN === undefined ? ".managira.com" : process.env.SESSION_COOKIE_DOMAIN || undefined), secure: process.env.SESSION_COOKIE_SECURE !== "false" } : {}),
     });
   }
   next();
@@ -834,6 +840,8 @@ app.use((req, res, next) => {
 
 // Flash messages middleware
 app.use(flash());
+// A school being moved to another shard waits on a short page; everyone else is untouched.
+app.use(shardRouting.pauseWhileMoving);
 
 // Pass session and flash messages to all views
 app.use((req, res, next) => {
@@ -1190,6 +1198,7 @@ if (process.env.NODE_ENV === "production") {
 app.use("/account/settings", financeRoute);
 app.use("/account/settings", payoutRoute);
 app.use("/account", accountRoute);
+app.use("/admin/shards", require("./routes/shardAdminRoute"));
 app.use("/admin", adminRoute);
 // Private calendar subscription feed (Google Calendar / Outlook / Apple fetch it without a login).
 app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>

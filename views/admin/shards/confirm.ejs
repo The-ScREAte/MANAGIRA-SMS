@@ -1,0 +1,16 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminShards.css') %>" />
+
+<div class="ah sh-confirm">
+  <%- include('../../partials/flash') %>
+  <section class="ah-card ah-pad">
+    <h1 class="ah-card__title">Confirm your password</h1>
+    <form class="sh-form" method="post" action="/admin/shards/confirm" data-no-spa style="margin-top:14px">
+      <input type="hidden" name="next" value="<%= next %>" />
+      <label class="sh-field">Password
+        <input type="password" name="password" autocomplete="current-password" required autofocus />
+      </label>
+      <button type="submit" class="ah-btn ah-btn--primary">Continue</button>
+    </form>
+  </section>
+</div>

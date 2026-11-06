@@ -15,7 +15,7 @@
   const _renderNode = (option) => {
     const children = _childrenOf(option.key);
 %>
-  <div class="perm-node" data-permission-node="<%= option.key %>">
+  <div class="perm-node" data-permission-node="<%= option.key %>"<% if (option.forDrivers) { %> data-perm-driver<% } %><% if (option.forLeadDrivers) { %> data-perm-lead<% } %>>
     <label class="perm-row permission-item" data-permission-key="<%= option.key %>"<% if (option.presets) { %> data-perm-presets="<%= option.presets.join(' ') %>"<% } %>>
       <span class="perm-text">
         <span class="perm-title"><%= option.label %></span>
@@ -67,6 +67,8 @@
   .perm-group { min-width: 0; }
   .perm-group-title { margin: 0; padding-bottom: 4px; font-size: 0.66rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .62; border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent); }
   .perm-node { min-width: 0; }
+  .perm-node[hidden], .perm-group[hidden] { display: none; }
+  .perm-group[data-perm-group="Driver"] { order: -1; }
   .perm-group > .perm-node + .perm-node { border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
   .perm-picker .perm-row { display: flex !important; flex-direction: row; align-items: center; gap: 8px; width: 100%; min-height: 34px; margin: 0; padding: 5px 0; cursor: pointer; font-weight: 400; }
   .perm-text { display: grid; gap: 1px; flex: 1 1 auto; min-width: 0; }
@@ -124,18 +126,31 @@
         count.textContent = children.length ? on + ' of ' + children.length : '';
       });
     };
-    // A driver's list holds only Driver and Transportation; nobody else sees Driver.
+    // A driver's list holds Driver and Transportation, plus Users / Employees once
+    // they are a lead; nobody else sees Driver.
+    var driverRole = false;
     var forRole = function (isDriver) {
+      driverRole = isDriver;
+      var leadBox = picker.querySelector('input.perm-switch[value="driver_lead"]');
+      var isLead = isDriver && leadBox && leadBox.checked;
       picker.querySelectorAll('[data-perm-group]').forEach(function (section) {
         var group = section.getAttribute('data-perm-group');
-        var show = isDriver ? (group === 'Driver' || group === 'Transportation') : group !== 'Driver';
-        section.hidden = !show;
-        if (!show) section.querySelectorAll('input.perm-switch').forEach(function (box) { box.checked = false; });
+        var anyShown = false;
+        section.querySelectorAll(':scope > .perm-node').forEach(function (node) {
+          var show = isDriver
+            ? group === 'Driver' || node.hasAttribute('data-perm-driver') || (isLead && node.hasAttribute('data-perm-lead'))
+            : group !== 'Driver';
+          node.hidden = !show;
+          anyShown = anyShown || show;
+          if (!show) node.querySelectorAll('input.perm-switch').forEach(function (box) { box.checked = false; });
+        });
+        section.hidden = !anyShown;
       });
       refresh();
     };
     // Lead Driver turns on what a lead usually needs; each one can still be turned off.
     picker.addEventListener('change', function (event) {
+      if (event.target.value === 'driver_lead') forRole(driverRole);
       var row = event.target.closest && event.target.closest('[data-perm-presets]');
       if (!row || !event.target.checked) return;
       row.getAttribute('data-perm-presets').split(' ').forEach(function (key) {

@@ -362,7 +362,7 @@
       if (!report) return;
       openPanel(report.issue || report.categoryLabel, row);
       var who = report.studentId
-        ? '<section class="ux-sec"><h3>Who else sees this</h3><label class="tm-check"><input type="checkbox" name="shareWithParents" value="1"' + (report.shareWithParents ? ' checked' : '') + ' /> Parents</label><label class="tm-check" style="margin-top:8px;"><input type="checkbox" name="shareWithTeachers" value="1"' + (report.shareWithTeachers ? ' checked' : '') + ' /> Teachers</label></section>'
+        ? '<section class="ux-sec"><h3>Who else sees this</h3><label class="tm-check"><input type="checkbox" name="shareWithParents" value="1"' + (report.shareWithParents ? ' checked' : '') + ' /> Parents</label><label class="tm-check" style="margin-top:8px;"><input type="checkbox" name="shareWithTeachers" value="1"' + (report.shareWithTeachers ? ' checked' : '') + ' /> Teachers</label><p class="ux-muted" style="margin-top:6px;">Teachers of this student\'s class who have Class Bus Reports.</p></section>'
         : '';
       panelBody.innerHTML = '<form class="tm-form" novalidate><section class="ux-sec tm-sec--first">'
         + '<div class="ux-kv"><span>Type</span><strong>' + esc(report.categoryLabel) + '</strong></div>'

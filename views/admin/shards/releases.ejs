@@ -1,0 +1,84 @@
+<%
+  const _time = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _status = { candidate: ['Testing', 'amber'], approved: ['Approved', 'green'] };
+  const _deploy = { deploying: ['Deploying', 'amber'], live: ['Live', 'green'], failed: ['Failed', 'red'] };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminShards.css') %>" />
+
+<div class="ah">
+  <%- include('../../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin/shards" data-no-spa>Shards</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Releases</span>
+  </nav>
+
+  <header class="ah-head">
+    <h1 class="ah-head__title">Releases</h1>
+    <div class="ah-head__actions">
+      <form method="post" action="/admin/shards/releases/candidate" data-no-spa>
+        <button type="submit" class="ah-btn ah-btn--primary"<%= testing.length ? '' : ' disabled' %>><i class="fa-solid fa-plus" aria-hidden="true"></i> Add from test shard</button>
+      </form>
+    </div>
+  </header>
+
+  <% if (!testing.length) { %><p class="sh-note">No test shard yet.</p><% } %>
+  <% if (!renderReady) { %><p class="sh-note">Render isn't connected.</p><% } %>
+
+  <section class="ah-card sh-section" aria-label="What each shard runs">
+    <div class="ah-scroll">
+      <table class="ah-table">
+        <thead><tr><th>Shard</th><th>Version</th><th>Schools</th></tr></thead>
+        <tbody>
+          <% [...production, ...testing].forEach((shard) => { %>
+            <tr data-running="<%= shard.name %>"><td><%= shard.name %></td><td><code class="sh-code"><%= shard.stats && shard.stats.commit ? shard.stats.commit.slice(0, 7) : '—' %></code></td><td><%= shard.schools %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ah-card sh-section" aria-label="Releases">
+    <% if (!releases.length) { %><p class="ah-empty">No releases yet.</p><% } %>
+    <% releases.forEach((release) => { const status = _status[release.status] || [release.status, 'muted']; %>
+      <div class="sh-release" data-release="<%= release.release_id %>">
+        <div class="sh-release__top">
+          <div>
+            <h2 class="sh-release__title"><code class="sh-code"><%= release.commit_sha.slice(0, 7) %></code></h2>
+            <p class="sh-release__sub"><%= release.approved_by ? release.approved_by + ' · ' + _time(release.approved_at) : (release.tested_on || '') %></p>
+          </div>
+          <span class="sh-pill sh-pill--<%= status[1] %>"><%= status[0] %></span>
+        </div>
+        <% if (release.status === 'candidate') { %>
+          <form method="post" action="/admin/shards/releases/<%= release.release_id %>/approve" data-no-spa style="margin-top:10px">
+            <button type="submit" class="ah-btn ah-btn--primary">Approve</button>
+          </form>
+        <% } else if (release.status === 'approved') { %>
+          <form class="sh-rollout" method="post" action="/admin/shards/releases/<%= release.release_id %>/roll-out" data-no-spa>
+            <% production.forEach((shard) => { %>
+              <label class="sh-check"><input type="checkbox" name="shardIds" value="<%= shard.shard_id %>" /> <%= shard.name %></label>
+            <% }) %>
+            <button type="submit" class="ah-btn ah-btn--primary">Send</button>
+          </form>
+        <% } %>
+        <% if (release.deployments.length) { %>
+          <ul class="sh-deploys">
+            <% release.deployments.forEach((deployment) => { const d = _deploy[deployment.status] || [deployment.status, 'muted']; %>
+              <li>
+                <span class="sh-pill sh-pill--<%= d[1] %>"><%= d[0] %></span>
+                <strong><%= deployment.shard_name %></strong>
+                <span class="ah-muted"><%= deployment.is_rollback ? 'Rolled back · ' : '' %><%= _time(deployment.started_at) %></span>
+                <% if (deployment.error) { %><span class="ah-sub--warn"><%= deployment.error %></span><% } %>
+                <% if (deployment.previous_commit && deployment.status !== 'deploying' && !deployment.is_rollback) { %>
+                  <form method="post" action="/admin/shards/deployments/<%= deployment.deployment_id %>/roll-back" data-no-spa style="display:inline">
+                    <button type="submit" class="ah-btn">Roll back</button>
+                  </form>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div>
+    <% }) %>
+  </section>
+</div>

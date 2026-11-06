@@ -806,6 +806,7 @@
           + '<div class="drvn-yesno" role="group" aria-label="Arrived"><button type="button" data-arrived="1">Yes</button><button type="button" data-arrived="0">No</button></div></div>'
           + '<div class="drvn-arrival__why" hidden><select aria-label="Reason"><option value="">Reason</option><option value="absent">Absent today</option><option value="parent">Picked up by parent</option><option value="elsewhere">Got off elsewhere</option><option value="missed">Missed the bus</option><option value="other">Other</option></select><input maxlength="300" placeholder="Note (optional)" aria-label="Note" /></div></div>';
       }).join('');
+      enhanceSelects(ui.arrivals);
       ui.arrivals.hidden = !riders.length;
       ui.confirm.hidden = false;
       syncArrivalCount();
@@ -883,7 +884,7 @@
     function syncPage() {
       if (!idle.start) return;
       idle.start.querySelector('span').textContent = driving() ? 'Open map' : 'Go';
-      if (idle.select) idle.select.disabled = driving();
+      if (idle.select) { idle.select.disabled = driving(); syncSelect(idle.select); }
       if (idle.live) idle.live.hidden = !driving();
       if (idle.end) idle.end.hidden = !driving();
     }
@@ -1009,6 +1010,51 @@
     }
 
     /* ---------- report to the lead ---------- */
+    /* ---------- dropdowns ---------- */
+    // Drawn inside the form, so the list always opens right under its field. The real
+    // <select> stays underneath and still holds the value.
+    function enhanceSelects(root) {
+      root.querySelectorAll('select:not([data-drvs])').forEach(function (select) {
+        select.setAttribute('data-drvs', '');
+        var wrap = document.createElement('div');
+        wrap.className = 'drvs';
+        wrap.innerHTML = '<button type="button" class="drvs__btn" aria-haspopup="listbox" aria-expanded="false"><span></span>' + toolSvg('<path d="m6 9 6 6 6-6"/>') + '</button><div class="drvs__list" role="listbox" hidden></div>';
+        var name = select.getAttribute('aria-label');
+        if (name) wrap.firstChild.setAttribute('aria-label', name);
+        select.parentNode.insertBefore(wrap, select);
+        wrap.appendChild(select);
+        syncSelect(select);
+      });
+    }
+    function syncSelect(select) {
+      var wrap = select.closest('.drvs');
+      if (!wrap) return;
+      var button = wrap.querySelector('.drvs__btn');
+      var chosen = select.options[select.selectedIndex];
+      button.querySelector('span').textContent = chosen ? chosen.textContent : '';
+      button.classList.toggle('is-empty', !select.value);
+      button.disabled = select.disabled;
+    }
+    function closeSelects() {
+      document.querySelectorAll('.drvs.is-open').forEach(function (wrap) {
+        wrap.classList.remove('is-open');
+        wrap.querySelector('.drvs__btn').setAttribute('aria-expanded', 'false');
+        wrap.querySelector('.drvs__list').hidden = true;
+      });
+    }
+    function openSelect(wrap) {
+      var select = wrap.querySelector('select');
+      var list = wrap.querySelector('.drvs__list');
+      list.innerHTML = Array.prototype.filter.call(select.options, function (option) { return option.value; }).map(function (option) {
+        return '<button type="button" class="drvs__opt' + (option.selected ? ' is-on' : '') + '" role="option" aria-selected="' + option.selected + '" data-value="' + esc(option.value) + '">' + esc(option.textContent) + '</button>';
+      }).join('');
+      wrap.classList.add('is-open');
+      wrap.querySelector('.drvs__btn').setAttribute('aria-expanded', 'true');
+      list.hidden = false;
+      list.scrollIntoView({ block: 'nearest' });
+      (list.querySelector('.is-on') || list.firstChild || wrap.firstChild).focus({ preventScroll: true });
+    }
+
     function openReport() {
       if (document.querySelector('.drvf')) return;
       var types = cfg.reportTypes || {};
@@ -1031,11 +1077,12 @@
         + '<div class="drvf__picklist">' + everyone.map(function (student) {
             return '<label class="drvf__pick" data-name="' + esc(student.name.toLowerCase()) + '"><input type="checkbox" value="' + student.id + '" /><span>' + esc(student.name) + '</span><small>' + esc(student.className || '') + '</small></label>';
           }).join('') + '</div></div>'
-        + '<label class="drvf__field"><span class="drvf__label">Priority</span><select name="priority"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></label>'
+        + '<div class="drvf__field"><span class="drvf__label">Priority</span><select name="priority" aria-label="Priority"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></div>'
         + '<label class="drvf__field"><span class="drvf__label">Details</span><textarea name="details" rows="3" maxlength="2000" placeholder="Anything your lead should know"></textarea></label>'
         + '<p class="drvf__error" role="alert" hidden></p>'
         + '</div><div class="drvf__foot"><button type="button" class="drvf__btn" data-close>Cancel</button><button type="submit" class="drvf__btn drvf__btn--go">Send</button></div></form>';
       document.body.appendChild(box);
+      enhanceSelects(box);
       var form = box.querySelector('form');
       var rows = box.querySelector('[data-rows]');
       var error = box.querySelector('.drvf__error');
@@ -1052,7 +1099,7 @@
         var target = event.target.closest ? event.target : null;
         if (!target) return;
         if (event.target === box || target.closest('[data-close]')) { box.remove(); return; }
-        if (target.closest('[data-add]')) { rows.insertAdjacentHTML('beforeend', rowHtml); syncForm(); return; }
+        if (target.closest('[data-add]')) { rows.insertAdjacentHTML('beforeend', rowHtml); enhanceSelects(rows); syncForm(); return; }
         var remove = target.closest('[data-remove]');
         if (remove) { remove.closest('.drvf__row').remove(); syncForm(); }
       });
@@ -1064,6 +1111,7 @@
           issue.disabled = !type;
           issue.innerHTML = '<option value="">Issue</option>' + (type ? type.issues.map(function (label) { return '<option>' + esc(label) + '</option>'; }).join('') : '');
           if (type && type.issues.length === 1) issue.selectedIndex = 1;
+          syncSelect(issue);
         }
         syncForm();
       });
@@ -1092,7 +1140,8 @@
     }
 
     /* ---------- controls ---------- */
-    if (idle.select) idle.select.addEventListener('change', function () { if (idle.note) idle.note.hidden = true; setRoute(findRoute(idle.select.value)); });
+    if (idle.select) enhanceSelects(idle.select.parentNode);
+    if (idle.select) idle.select.addEventListener('change', function () { syncSelect(idle.select); if (idle.note) idle.note.hidden = true; setRoute(findRoute(idle.select.value)); });
     if (idle.start) idle.start.addEventListener('click', go);
     ui.recenter.addEventListener('click', function () { setFollowing(true); follow(true); });
     ui.overview.addEventListener('click', function () { setFollowing(false); frameRoute(); });
@@ -1150,6 +1199,36 @@
     });
     document.addEventListener('click', function (event) {
       if (event.target.closest && event.target.closest('[data-drv-report]')) openReport();
+    });
+    document.addEventListener('click', function (event) {
+      var target = event.target.closest ? event.target : null;
+      var option = target && target.closest('.drvs__opt');
+      if (option) {
+        var holder = option.closest('.drvs');
+        var select = holder.querySelector('select');
+        select.value = option.getAttribute('data-value');
+        syncSelect(select);
+        closeSelects();
+        holder.querySelector('.drvs__btn').focus();
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
+      var button = target && target.closest('.drvs__btn');
+      var wrap = button && button.closest('.drvs');
+      var wasOpen = wrap && wrap.classList.contains('is-open');
+      closeSelects();
+      if (wrap && !wasOpen) openSelect(wrap);
+    });
+    document.addEventListener('keydown', function (event) {
+      var wrap = event.target.closest && event.target.closest('.drvs.is-open');
+      if (!wrap) return;
+      if (event.key === 'Escape') { event.stopPropagation(); closeSelects(); wrap.querySelector('.drvs__btn').focus(); return; }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      var options = Array.prototype.slice.call(wrap.querySelectorAll('.drvs__opt'));
+      var at = options.indexOf(document.activeElement);
+      var next = options[(at + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length];
+      if (next) next.focus();
     });
     ui.keep.addEventListener('click', function () { ui.confirm.hidden = true; syncSheet(); });
     ui.endYes.addEventListener('click', endTrip);

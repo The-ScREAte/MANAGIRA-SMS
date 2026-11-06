@@ -443,7 +443,7 @@
         <label for="accountType">Role:</label>
         <select name="accountType">
             <option value="">-- Select Role --</option>
-            <option value="Manager" <%= user.account_type === 'Manager' ? 'selected' : '' %>>Manager</option>
+            <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager" <%= user.account_type === 'Manager' ? 'selected' : '' %>>Manager</option><% } %>
             <option value="Supervisor" <%= user.account_type === 'Supervisor' ? 'selected' : '' %>>Supervisor</option>
             <option value="Teacher" <%= user.account_type === 'Teacher' ? 'selected' : '' %>>Teacher</option>
             <option value="Driver" <%= user.account_type === 'Driver' ? 'selected' : '' %>>Driver</option>

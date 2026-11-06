@@ -1,0 +1,67 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminShards.css') %>" />
+
+<div class="ah" id="featurePage">
+  <%- include('../../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin/shards" data-no-spa>Shards</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Features</span>
+  </nav>
+
+  <header class="ah-head"><h1 class="ah-head__title">Features</h1></header>
+
+  <% features.forEach((feature) => { %>
+    <section class="ah-card ah-pad sh-section" data-feature="<%= feature.key %>">
+      <form class="sh-form" method="post" action="/admin/shards/features/<%= feature.key %>" data-no-spa>
+        <div class="sh-feature__top">
+          <h2 class="ah-card__title"><%= feature.label %></h2>
+          <label class="sh-field sh-feature__access">
+            <span class="sr-only">Who sees it</span>
+            <select name="access" data-feature-access>
+              <option value="everyone"<%= feature.access === 'everyone' ? ' selected' : '' %>>Everyone</option>
+              <option value="selected"<%= feature.access === 'selected' ? ' selected' : '' %>>Selected</option>
+              <option value="off"<%= feature.access === 'off' ? ' selected' : '' %>>Off</option>
+            </select>
+          </label>
+        </div>
+        <div class="sh-feature__choose" data-feature-choose<%= feature.access === 'selected' ? '' : ' hidden' %>>
+          <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search" aria-label="Search schools and hubs" data-feature-search /></label>
+          <div class="sh-picklist">
+            <% hubs.forEach((hub) => { %>
+              <label class="sh-pick" data-name="<%= String(hub.name || '').toLowerCase() %>">
+                <input type="checkbox" name="hubIds" value="<%= hub.hub_id %>"<%= feature.hubIds.includes(hub.hub_id) ? ' checked' : '' %> />
+                <span><%= hub.name %></span><small>Hub · <%= hub.shard %></small>
+              </label>
+            <% }) %>
+            <% schools.forEach((school) => { %>
+              <label class="sh-pick" data-name="<%= String(school.name || '').toLowerCase() %>">
+                <input type="checkbox" name="organizationIds" value="<%= school.organization_id %>"<%= feature.organizationIds.includes(school.organization_id) ? ' checked' : '' %> />
+                <span><%= school.name %></span><small><%= school.shard %></small>
+              </label>
+            <% }) %>
+          </div>
+        </div>
+        <div class="ah-form__actions"><button type="submit" class="ah-btn ah-btn--primary">Save</button></div>
+      </form>
+    </section>
+  <% }) %>
+</div>
+
+<script>
+  (function () {
+    var page = document.getElementById('featurePage');
+    if (!page || page.dataset.bound) return;
+    page.dataset.bound = '1';
+    page.addEventListener('change', function (event) {
+      if (!event.target.matches('[data-feature-access]')) return;
+      event.target.closest('form').querySelector('[data-feature-choose]').hidden = event.target.value !== 'selected';
+    });
+    page.addEventListener('input', function (event) {
+      if (!event.target.matches('[data-feature-search]')) return;
+      var wanted = event.target.value.trim().toLowerCase();
+      event.target.closest('form').querySelectorAll('.sh-pick').forEach(function (pick) {
+        pick.hidden = Boolean(wanted) && pick.getAttribute('data-name').indexOf(wanted) < 0;
+      });
+    });
+  })();
+</script>
