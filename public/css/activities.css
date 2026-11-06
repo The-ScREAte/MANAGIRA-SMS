@@ -1,0 +1,43 @@
+/* Activities for staff: a class's tab and the Management Tools page. */
+.workspace-panel > [data-activities] { padding: 4px 16px 16px; }
+.act-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.act-count { margin: 0; color: var(--muted, #64748b); font-size: 13px; }
+.act-btn { width: auto !important; height: 40px; margin: 0 !important; padding: 0 14px !important; border: 1px solid var(--border, #e5e9ef); border-radius: 10px; background: var(--card-bg, #fff); color: var(--text, #0f172a); box-shadow: none; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.act-btn--go { border-color: var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; }
+.act-btn--danger { border-color: transparent; background: none; color: #d92d20; }
+.act-btn:disabled { opacity: .6; }
+.act-list { display: grid; gap: 8px; }
+.act-empty { margin: 8px 0; color: var(--muted, #64748b); font-size: 14px; }
+.act-row { display: flex; align-items: flex-start; gap: 12px; width: 100% !important; margin: 0 !important; padding: 12px !important; border: 1px solid var(--border, #e5e9ef); border-radius: 12px; background: var(--card-bg, #fff); color: var(--text, #0f172a); box-shadow: none; text-align: left; font: inherit; cursor: pointer; }
+.act-date { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 48px; height: 52px; border-radius: 10px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, transparent); color: var(--org-primary-color, #01535b); }
+.act-date small { font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.act-date strong { font-size: 18px; font-weight: 700; line-height: 1.1; }
+.act-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.act-text > strong { font-size: 14px; font-weight: 600; }
+.act-text > small { color: var(--muted, #64748b); font-size: 12.5px; }
+.act-details { color: var(--muted, #64748b); font-size: 13px; line-height: 1.4; display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.act-past { margin-top: 14px; }
+.act-past summary { margin-bottom: 8px; color: var(--muted, #64748b); font-size: 13px; font-weight: 600; cursor: pointer; }
+.act-past .act-row { opacity: .7; }
+
+.act-modal { position: fixed; z-index: 11000; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+.act-sheet { display: flex; flex-direction: column; width: 100%; max-width: 480px; max-height: 100%; margin: 0; padding: 0; border-radius: 16px; background: var(--card-bg, #fff); color: var(--text, #0f172a); box-shadow: 0 12px 40px rgba(15, 23, 42, .3); }
+.act-head { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+.act-head h2 { margin: 0; padding: 0; color: inherit; font-size: 16px; font-weight: 600; text-align: left; }
+.act-x { flex: none; width: 32px !important; height: 32px; margin: 0 !important; padding: 0 !important; border: 0; border-radius: 50%; background: none; color: var(--muted, #64748b); box-shadow: none; font-size: 22px; line-height: 1; cursor: pointer; }
+.act-body { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 10px; }
+.act-field { display: block; margin: 0 0 10px; }
+.act-field > span { display: block; margin-bottom: 4px; color: var(--muted, #64748b); font-size: 12.5px; font-weight: 600; }
+.act-field input, .act-field select, .act-field textarea { display: block; box-sizing: border-box; width: 100%; height: 40px; margin: 0; padding: 0 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background: var(--card-bg, #fff); color: var(--text, #0f172a); font: inherit; font-size: 16px; }
+.act-field textarea { height: auto; padding: 8px 10px; resize: vertical; }
+.act-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.act-error { margin: 0; color: #d92d20; font-size: 13px; font-weight: 600; }
+.act-error[hidden] { display: none; }
+.act-foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; }
+.act-foot > span { flex: 1; }
+@media (max-width: 480px) {
+  .act-modal { align-items: flex-end; padding: 0; }
+  .act-sheet { max-width: none; max-height: 92%; border-radius: 16px 16px 0 0; }
+}
+.manage-activities { box-sizing: border-box; width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+.manage-activities h1 { margin: 0 0 14px; padding: 0; color: var(--text, #0f172a); font-size: 1.2rem; font-weight: 700; text-align: left; }

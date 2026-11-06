@@ -20,6 +20,8 @@ const {
   ensureExternalSchoolWebsiteSchema,
   normalizeExternalSchoolWebsiteUrl,
 } = require("../utils/externalSchoolWebsite");
+const activitiesController = require("../controllers/activitiesController");
+const parentResourcesController = require("../controllers/parentResourcesController");
 
 function redirectToExternalSchoolWebsite(db) {
   return async (req, res, next) => {
@@ -465,6 +467,17 @@ module.exports = (db) => {
   router.get("/assessment/options", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
     commonController.getAssessmentOptionsByScope(req, res, db)
   );
+  router.get("/activities", isAuthenticated, blockGuardians, (req, res) => activitiesController.page(req, res, db));
+  router.get("/activities/list", isAuthenticated, blockGuardians, (req, res) => activitiesController.list(req, res, db));
+  router.post("/activities/save", isAuthenticated, blockGuardians, express.json(), (req, res) => activitiesController.save(req, res, db));
+  router.post("/activities/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), (req, res) => activitiesController.remove(req, res, db));
+
+  const parentPortalGuards = [isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature];
+  router.get("/assessment/questions/parent-portal", ...parentPortalGuards, (req, res) => parentResourcesController.read(req, res, db));
+  router.post("/assessment/questions/parent-portal", ...parentPortalGuards, express.json(), (req, res) => parentResourcesController.save(req, res, db));
+  router.post("/assessment/questions/parent-portal/files", ...parentPortalGuards, upload.array("files", 10), (req, res) => parentResourcesController.addFiles(req, res, db));
+  router.post("/assessment/questions/parent-portal/files/:id(\\d+)/delete", ...parentPortalGuards, (req, res) => parentResourcesController.removeFile(req, res, db));
+
   router.post("/assessment/questions/upsert", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
     commonController.upsertAssessmentQuestionSet(req, res, db)
   );

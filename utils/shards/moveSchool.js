@@ -340,10 +340,21 @@ async function setMoveState(client, scope, state, only = null) {
   if (scope.hubId) await client.query(`UPDATE managira_hubs SET shard_move_state = $1 WHERE hub_id = ANY($2::int[])${onlyThese}`, only ? [state, [scope.hubId], only] : [state, [scope.hubId]]);
 }
 
+function sameDatabaseUrl(a, b) {
+  try {
+    const [first, second] = [new URL(a), new URL(b)];
+    return first.hostname === second.hostname && (first.port || "5432") === (second.port || "5432") && first.pathname === second.pathname;
+  } catch (_error) {
+    return a === b;
+  }
+}
+
 async function moveSchool({ organizationIds, hubId = null, sourceUrl, destinationUrl, rehearsal = false, onStep = () => {}, repoint = async () => {} }) {
   const ids = [...new Set((organizationIds || []).map(Number))];
   if (!ids.length || ids.some((id) => !Number.isInteger(id) || id <= 0)) throw new MoveRefused("Choose a school.");
   if (hubId !== null && !Number.isInteger(hubId)) throw new MoveRefused("Choose a hub.");
+  // A move ends by removing the old copy. On one database that would delete the school.
+  if (sameDatabaseUrl(sourceUrl, destinationUrl)) throw new MoveRefused("Those shards share a database. Nothing can be copied between them.");
   const scope = { ids, hubId };
   const startedAt = Date.now();
   const source = connectTo(sourceUrl);

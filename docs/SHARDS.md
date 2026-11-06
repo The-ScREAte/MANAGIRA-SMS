@@ -107,3 +107,15 @@ move stops until it is. Write links with `via(...)`, which fails loudly on a wro
 - Admin dashboards list the schools on their own shard. Use Open admin on a shard's page.
 - Moves run best in quiet hours: writing to a shard's tables waits while a school arrives.
 - Moved files stay in the shared S3 bucket.
+
+## The sandbox shard
+
+`sandbox-shard` shares the main shard's database. Moving a school or hub onto it changes only the directory: no rows are copied or removed, and `moveSchool` refuses to run between two shards on one database.
+
+New features start on the sandbox. Add each one to `utils/shards/features.js` with `access: "selected"` and wrap it with `isOn`. Schools on the sandbox shard get it as soon as it is pushed. From `/admin/shards/features` it can then go to other shards, hubs and schools, or to everyone.
+
+While every shard runs on one Render service, this limits what people see, not which code runs. To keep the code itself off the other shards:
+
+1. Create a second Render service from this repo on branch `main`, with the same environment as production, plus `SHARD_NAME=sandbox-shard`. Add its address to the shard on its admin page.
+2. Point the production service at a `production` branch, with auto-deploy off.
+3. Deploy the router (`managira-edge`) and point the domain at it, so sandbox schools reach the new service.

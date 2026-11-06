@@ -2482,6 +2482,12 @@
           School Website
         </a></li>
         <% } %>
+        <% if (locals.featureOn && featureOn('class_activities')) { %>
+        <li class="nav-item"><a href="/guardian/calendar" class="management-link">
+          <span class="menu-icon"><%- navIcon('calendar') %></span>
+          Calendar
+        </a></li>
+        <% } %>
         <li class="nav-item"><a href="/guardian/reports" class="management-link">
           <span class="menu-icon"><%- navIcon('messages') %></span>
           Messages
@@ -2530,6 +2536,12 @@
           <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
+        <% if (locals.featureOn && featureOn('class_activities')) { %>
+        <li class="nav-item"><a href="/common/calendar" class="management-link" data-no-spa>
+          <span class="menu-icon"><%- navIcon('calendar') %></span>
+          Calendar
+        </a></li>
+        <% } %>
         <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.any) { %>
         <li class="nav-item"><a href="/common/management" class="nav-item-link management-link" data-no-spa>
           <span class="menu-icon"><%- navIcon('management') %></span>

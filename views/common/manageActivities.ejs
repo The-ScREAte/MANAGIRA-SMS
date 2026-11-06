@@ -1,0 +1,7 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/activities.css') %>" />
+<div class="manage-activities">
+  <%- include('../partials/flash') %>
+  <h1>Activities</h1>
+  <div data-activities data-classes="<%= JSON.stringify(classes) %>"></div>
+</div>
+<script src="<%= assetUrl('/js/activities.js') %>" defer></script>

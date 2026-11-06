@@ -1255,6 +1255,8 @@ app.use("/api/chatbot", chatbotRoute);
 app.use("/guardian", guardianRoute);
 app.use("/student", studentRoute);
 app.use("/documents", documentRoute);
+// Who sees each feature is known before the first request, so nothing starts in the wrong state.
+require("./utils/shards/features").keepFresh();
 app.use("/transportation", transportationRoute);
 app.use("/driver", driverRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes

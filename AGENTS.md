@@ -16,9 +16,11 @@
 - Only a manager can change a manager, and only a manager can change their own account through the staff pages. Check `staffChangeRefusal` on every page that edits, holds, removes or restores staff.
 - A driver with Report Builder sees their own rows; a report's `fullAccess` permission opens everyone's (`ownerWhere`, `ownRowsFor`).
 - Read and write live bus positions through `utils/liveBus.js`: drivers and viewers share an in-memory position, with one database write per 15 seconds per trip and one read per few seconds per school, so viewers add no database load.
+- Read and write boarding and who's riding today through `utils/transportBoarding.js`: viewers of a school share one read per few seconds. A driver only marks exceptions: a bus driving off a stop counts as all boarded (saved as `auto`), and ending a trip counts everyone on board as arrived.
 - In auth middleware, pass database-busy errors to `next(error)` (`isDatabaseUnavailable`): a busy database must show the "try again" page, never sign anyone out. Don't raise `DB_POOL_MAX` above 15 to handle load: at 2,000 active users, 30 was measurably slower.
 - Put new table changes in `database/migrations/*.sql` (run by `npm run migrate`), written to be safe to repeat, not in code that runs while pages load.
 - Shards are in `docs/SHARDS.md`. Every table must be classified in `utils/shards/schoolTables.js`, or every move stops. Write links with `via(...)`: a bare column would match every school's rows.
 - `/admin/shards` is for platform super admins with a fresh password (`middleware/shardAdminGuard.js`); record each action with `registry.audit`.
-- Limit a new feature to chosen schools with `utils/shards/features.js`, not a separate list. Code reaches a whole shard at once.
+- Every new feature goes in `utils/shards/features.js` with `access: "selected"` and is wrapped with `isOn` (`featureOn` in views): a push must reach only the sandbox shard until it's released from `/admin/shards/features`.
+- `sandbox-shard` shares the main shard's database. A move between them changes only the directory; never let `moveSchool` run on one database, because it ends by deleting the old copy.
 - A test shard gets nothing of production's: no control database, keys or shared secrets (`environmentFor`).

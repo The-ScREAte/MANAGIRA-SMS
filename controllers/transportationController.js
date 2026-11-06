@@ -12,6 +12,8 @@ const { geocodeAddress } = require("../utils/geocode");
 const { checkRateLimit } = require("../utils/rateLimiter");
 const liveBus = require("../utils/liveBus");
 const busRequests = require("../utils/transportationRequests");
+const transportBoarding = require("../utils/transportBoarding");
+const features = require("../utils/shards/features");
 const transportReports = require("../utils/transportReports");
 const { locateAddress } = require("../utils/transportationRequests");
 const { BoundedMap } = require("../utils/boundedMap");
@@ -146,6 +148,27 @@ function limitRequests(req, action, max) {
   if (!checkRateLimit(`busreq:${action}:${who}`, { max, windowMs: 60000 }).allowed) {
     throw new busRequests.RequestError("Too many tries. Please wait a minute and try again.", 429);
   }
+}
+
+function requireBoarding(req) {
+  if (!features.isOn("bus_boarding", { organizationId: req.session.organizationId })) throw new transportReports.ReportError("Not available.", 404);
+}
+
+// A teacher's own class, or any class for those who manage students.
+async function classStudentIds(db, req, res) {
+  const session = req.session;
+  const organizationId = session.organizationId;
+  const classId = toInt(req.params.classId);
+  const mine = await db.query(
+    "SELECT 1 FROM user_classes uc JOIN classes c ON c.class_id = uc.class_id WHERE uc.user_id = $1 AND uc.class_id = $2 AND c.organization_id = $3 LIMIT 1",
+    [session.userId || session.user?.user_id || 0, classId, organizationId]
+  );
+  const role = String(session.userRole || "").toLowerCase();
+  if (!mine.rows[0] && role !== "manager" && !(res.locals.userPermissions || []).includes("manage_students")) {
+    throw new transportReports.ReportError("You can only see your own classes.", 403);
+  }
+  const { rows } = await db.query("SELECT student_id FROM students WHERE organization_id = $1 AND class_id = $2", [organizationId, classId]);
+  return rows.map((row) => Number(row.student_id));
 }
 
 function staffIdentity(session) {
@@ -2444,6 +2467,66 @@ const transportationController = {
     if (!trip) throw new transportReports.ReportError("Active trip not found.", 404);
     const result = await transportReports.saveArrivals(db, organizationId, driver, trip, req.body?.arrivals);
     return { success: true, ...result };
+  }),
+
+  /* ---------- boarding, and who is riding today ---------- */
+  driverBoardingPost: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const organizationId = req.session.organizationId;
+    const driver = staffIdentity(req.session);
+    const trip = await liveBus.tripForDriver(db, organizationId, toInt(req.body?.tripId), driver.userId);
+    if (!trip) throw new transportReports.ReportError("Active trip not found.", 404);
+    return { success: true, ...(await transportBoarding.saveBoarding(db, organizationId, driver, trip, req.body || {})) };
+  }),
+
+  driverNotRidingGet: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const reading = await transportBoarding.schoolDay(db, req.session.organizationId, transportBoarding.dayFrom(req.query.date));
+    return { success: true, studentIds: reading.notRiding.map((row) => row.studentId) };
+  }),
+
+  parentRidingGet: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const session = req.session;
+    const family = await transportBoarding.familyOf(db, session.organizationId, session.guardianId, () => guardianStudentIds(db, session));
+    const reading = await transportBoarding.schoolDay(db, session.organizationId, transportBoarding.dayFrom(req.query.date));
+    return { success: true, riders: family.riders, ...transportBoarding.forStudents(reading, family.studentIds) };
+  }),
+
+  parentRidingPost: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const session = req.session;
+    const studentId = toInt(req.body?.studentId);
+    if (!(await guardianStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student isn't yours.", 403);
+    const name = [session.firstName, session.lastName].filter(Boolean).join(" ");
+    await transportBoarding.setRiding(db, session.organizationId, studentId, transportBoarding.dayFrom(req.body?.date), req.body?.coming === true, { by: "parent", name });
+    return { success: true };
+  }),
+
+  parentStopBusPost: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const session = req.session;
+    const studentId = toInt(req.body?.studentId);
+    if (!(await guardianStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student isn't yours.", 403);
+    await transportBoarding.askToStopBus(db, session.organizationId, studentId, [session.firstName, session.lastName].filter(Boolean).join(" "));
+    return { success: true };
+  }),
+
+  classRidingGet: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const organizationId = req.session.organizationId;
+    const studentIds = await classStudentIds(db, req, res);
+    const reading = await transportBoarding.schoolDay(db, organizationId, transportBoarding.dayFrom(req.query.date));
+    return { success: true, ...transportBoarding.forStudents(reading, studentIds) };
+  }),
+
+  classRidingPost: (req, res, db) => answer(res, async () => {
+    requireBoarding(req);
+    const studentId = toInt(req.body?.studentId);
+    if (!(await classStudentIds(db, req, res)).includes(studentId)) throw new transportReports.ReportError("That student isn't in this class.", 403);
+    const who = staffIdentity(req.session);
+    await transportBoarding.setRiding(db, req.session.organizationId, studentId, transportBoarding.dayFrom(req.body?.date), req.body?.coming === true, { by: "staff", name: who.name });
+    return { success: true };
   }),
 
   driverLocatePost: (req, res, db) => answer(res, async () => {

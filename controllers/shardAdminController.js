@@ -36,6 +36,7 @@ const statusOf = (shard) => {
   if (shard.status === "failed") return { label: "Failed", tone: "red" };
   if (shard.status === "retired") return { label: "Retired", tone: "muted" };
   if (!shard.stats?.healthy) return { label: "Down", tone: "red" };
+  if (shard.environment === "sandbox") return { label: "Sandbox", tone: "blue" };
   if (shard.environment !== "production") return { label: "Testing", tone: "blue" };
   return { label: "Healthy", tone: "green" };
 };
@@ -100,8 +101,10 @@ const shardAdmin = {
         shard: { ...shard, health: statusOf(shard) },
         schools: schools.rows,
         moves: recent.rows,
-        openLink: shard.is_control || !process.env.SHARD_SECRET ? null : `/admin?via=${encodeURIComponent(routeValue(shard.name))}`,
-        targets: shards.filter((row) => row.shard_id !== id && row.status === "active" && (row.environment === "production") === (shard.environment === "production")),
+        openLink: shard.is_control || shard.same_database || !process.env.SHARD_SECRET ? null : `/admin?via=${encodeURIComponent(routeValue(shard.name))}`,
+        targets: shards.filter((row) => row.shard_id !== id && row.status === "active" && (
+          registry.sharesDatabase(row, shard) || (!row.same_database && !shard.same_database && (row.environment === "production") === (shard.environment === "production"))
+        )),
       });
     } catch (error) {
       return next(error);
@@ -225,7 +228,7 @@ const shardAdmin = {
         title: "Releases",
         releases: list,
         production: shards.filter((shard) => shard.environment === "production" && shard.status === "active"),
-        testing: shards.filter((shard) => shard.environment !== "production" && shard.status === "active"),
+        testing: shards.filter((shard) => shard.environment !== "production" && shard.status === "active" && !shard.same_database),
         renderReady: render.isConfigured(),
       });
     } catch (error) {

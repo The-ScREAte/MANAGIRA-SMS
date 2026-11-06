@@ -10,6 +10,8 @@ const {
   isAttendanceCountableForDate,
 } = require("../utils/attendanceCalendar");
 const { getStudentTransportationSnapshot } = require("./transportationController");
+const features = require("../utils/shards/features");
+const { listActivities } = require("../utils/classActivities");
 
 const STUDENT_TESTING_ROOM_FEATURE_NAMES = [
   "Set Assessment Questions",
@@ -477,6 +479,7 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
         a.edit_window_end,
         s.subject_name,
         COALESCE(sa.submitted_count, 0)::int AS submitted_attempts,
+            qs.question_set_id,
             qs.question_count,
             qs.updated_at AS latest_question_update
        FROM assessments a
@@ -532,7 +535,7 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
           COALESCE(sa.submitted_count, 0) < GREATEST(COALESCE(a.max_attempts, 1), 1)
           OR (salo.id IS NOT NULL AND COALESCE(salo.is_locked, FALSE) = FALSE)
         )
-      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, salo.is_locked, a.time_limit_minutes, a.max_attempts, a.edit_window_end, s.subject_name, sa.submitted_count, qs.question_count, qs.updated_at
+      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, salo.is_locked, a.time_limit_minutes, a.max_attempts, a.edit_window_end, s.subject_name, sa.submitted_count, qs.question_count, qs.updated_at, qs.question_set_id
       ORDER BY s.subject_name ASC, a.title ASC`,
     [organizationId, classId, termId, studentId]
   );
@@ -638,6 +641,7 @@ module.exports = {
       if (!selectedTerm) {
         req.flash("error", "No school term is currently available.");
         return res.render("student/dashboard", {
+        studentActivities: [],
           title: "Student Portal",
           student,
           selectedTerm: null,
@@ -992,7 +996,11 @@ module.exports = {
         })
       );
 
+      const studentActivities = features.isOn("class_activities", { organizationId })
+        ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], from: new Date().toISOString().slice(0, 10) })
+        : [];
       res.render("student/dashboard", {
+        studentActivities,
         title: "Student Portal",
         student,
         selectedTerm,
@@ -2000,3 +2008,6 @@ module.exports = {
     }
   },
 };
+
+module.exports.getOpenAssessments = getOpenAssessments;
+module.exports.resolveCurrentStudentTermContext = resolveCurrentStudentTermContext;

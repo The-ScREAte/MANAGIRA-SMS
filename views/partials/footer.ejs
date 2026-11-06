@@ -389,6 +389,9 @@
     text-overflow: ellipsis;
   }
   .footer-hub-text strong { color: #fff; font-weight: 600; }
+  <% if (locals.featureOn && featureOn('parent_student_hub')) { %>
+  @media (max-width: 360px) { .footer-hub-section { flex-wrap: wrap; justify-content: center; } .footer-hub-text { min-width: 0; max-width: 100%; text-align: center; overflow-wrap: anywhere; } }
+  <% } %>
 
   /* ===== TABLET ===== */
   @media (max-width: 1024px) {

@@ -2376,6 +2376,9 @@ main {
   .tp-rider { grid-template-columns: minmax(0, 1fr) 64px 64px; }
   .tp-rider__stop { display: none; }
   .tp-rider--head span:nth-child(2) { display: none; }
+  .tp-rider.tp-rider--today { grid-template-columns: minmax(0, 1fr) 62px 96px; }
+  .tp-rider--today .tp-rider__time--off { display: none; }
+  .tp-rider--today.tp-rider--head span:nth-child(4) { display: none; }
   .tp-map__chips { right: 12px; }
   .tp-map__chips button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
@@ -4002,6 +4005,14 @@ main {
               </button>
             </li>
             <% } %>
+            <% if (locals.featureOn && featureOn('class_activities')) { %>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="activities" onclick="openWorkspaceTabByKey('activities')">
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('activities') %></span>
+                <span class="nav-link-label">Activities</span>
+              </button>
+            </li>
+            <% } %>
             <% if (_canOpenPaygiraWorkspace) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
@@ -4372,6 +4383,14 @@ main {
             </section>
 
             <% if (transportActive) { %>
+            <% if (locals.featureOn && featureOn('class_activities')) { %>
+            <section class="workspace-panel" id="panel-activities" data-panel-key="activities">
+              <link rel="stylesheet" href="<%= assetUrl('/css/activities.css') %>" />
+              <div class="workspace-panel-head"><div><h2 class="card-title">Activities</h2></div></div>
+              <div data-activities data-class-id="<%= classId %>"></div>
+              <script src="<%= assetUrl('/js/activities.js') %>" defer></script>
+            </section>
+            <% } %>
             <section class="workspace-panel" id="panel-transportation" data-panel-key="transportation">
               <%
                 // Riders grouped by route (in pickup order); details load on demand when a rider is opened.
@@ -4424,7 +4443,12 @@ main {
               </div>
               <% } %>
               <input type="search" class="tp-search" id="tpRiderSearch" placeholder="Search students" autocomplete="off" aria-label="Search students" style="display:block;box-sizing:border-box;width:100%;height:38px;margin:10px 0;padding:0 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:transparent;color:inherit;" />
-              <div class="tp-routes">
+              <% const _boardingOn = locals.featureOn && featureOn('bus_boarding'); %>
+              <% if (_boardingOn) { %>
+              <link rel="stylesheet" href="<%= assetUrl('/css/busBoarding.css') %>" />
+              <script src="<%= assetUrl('/js/busBoarding.js') %>" defer></script>
+              <% } %>
+              <div class="tp-routes"<% if (_boardingOn) { %> data-class-riding="<%= classId %>"<% } %>>
                 <% tpRoutes.forEach(function(route) { %>
                 <details class="tp-route" style="--route:<%= route.color %>">
                   <summary class="tp-route__head">
@@ -4438,15 +4462,17 @@ main {
                     <svg class="tp-route__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                   </summary>
                   <div class="tp-riders" role="list">
-                    <div class="tp-rider tp-rider--head" aria-hidden="true"><span>Student</span><span>Stop</span><span>Pick-up</span><span>Drop-off</span></div>
+                    <div class="tp-rider tp-rider--head<%= _boardingOn ? ' tp-rider--today' : '' %>" aria-hidden="true"><span>Student</span><span>Stop</span><span>Pick-up</span><span>Drop-off</span><% if (_boardingOn) { %><span>Today</span><% } %></div>
                     <% route.riders.forEach(function(row) { %>
-                    <button type="button" class="tp-rider" role="listitem"
-                      onclick="openStudentTransportModal(<%= row.studentId %>, '<%= String(row.studentName || '').replace(/'/g, "\\'") %>', event)">
+                    <div class="tp-rider<%= _boardingOn ? ' tp-rider--today' : '' %>" role="listitem" tabindex="0"
+                      onkeydown="if ((event.key === 'Enter' || event.key === ' ') && event.target === this) { event.preventDefault(); this.click(); }"
+                      onclick="if (!event.target.closest('.tp-coming')) openStudentTransportModal(<%= row.studentId %>, '<%= String(row.studentName || '').replace(/'/g, "\\'") %>', event)">
                       <span class="tp-rider__name"><%= row.studentName %></span>
                       <span class="tp-rider__stop"><%= row.stopName || '—' %></span>
                       <span class="tp-rider__time"><%= tpTime(row.pickupTime) || '—' %></span>
-                      <span class="tp-rider__time"><%= tpTime(row.dropoffTime) || '—' %></span>
-                    </button>
+                      <span class="tp-rider__time tp-rider__time--off"><%= tpTime(row.dropoffTime) || '—' %></span>
+                      <% if (_boardingOn) { %><button type="button" class="tp-coming" data-coming="<%= row.studentId %>" aria-pressed="true">Coming</button><% } %>
+                    </div>
                     <% }); %>
                   </div>
                 </details>
@@ -5044,6 +5070,16 @@ main {
         };
       }
 
+      function getWorkspaceActivitiesTab() {
+        return {
+          id: 'activities',
+          title: 'Activities',
+          panelId: 'panel-activities',
+          routePath: workspaceContext.basePath + '/activities',
+          sidebarKey: 'activities',
+        };
+      }
+
       function getWorkspaceTransportationTab() {
         return {
           id: 'transportation',
@@ -5174,6 +5210,7 @@ main {
         if (tabKey === 'reports') return openWorkspaceTab(getWorkspaceReportsTab(), options || {});
         if (tabKey === 'schedule') return openWorkspaceTab(getWorkspaceScheduleTab(), options || {});
         if (tabKey === 'transportation') return openWorkspaceTab(getWorkspaceTransportationTab(), options || {});
+        if (tabKey === 'activities') return openWorkspaceTab(getWorkspaceActivitiesTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
         if (tabKey === 'assessment-questions') return openWorkspaceTab(getWorkspaceAssessmentQuestionsTab(), options || {});
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
@@ -5929,6 +5966,7 @@ main {
         }
         if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
         if (safeRoute.panel === 'transportation') return openWorkspaceTabByKey('transportation', safeOptions);
+        if (safeRoute.panel === 'activities') return openWorkspaceTabByKey('activities', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);

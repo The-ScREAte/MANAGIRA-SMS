@@ -17172,6 +17172,8 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'schedule', itemId: '' };
       } else if (routePanel === 'transportation') {
         initialWorkspaceRoute = { panel: 'transportation', itemId: '' };
+      } else if (routePanel === 'activities') {
+        initialWorkspaceRoute = { panel: 'activities', itemId: '' };
       } else if (routePanel === 'students') {
         initialWorkspaceRoute = { panel: 'students', itemId: '' };
       } else if (routePanel === 'assessment-questions') {

@@ -6315,6 +6315,7 @@
           setQuestionEditorEnabled(true);
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
+          if (window.ParentResources) window.ParentResources.load(null);
           questionItems.appendChild(buildQuestionItem());
           setQuestionStatus('Create a new question set for this assessment.', false);
           renumberQuestionCards();
@@ -6327,6 +6328,7 @@
           setQuestionEditorEnabled(questionModalMode !== 'edit');
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
+          if (window.ParentResources) window.ParentResources.load(null);
           if (questionModalMode !== 'edit') {
             questionItems.appendChild(buildQuestionItem());
             setQuestionStatus('No question set found for this assessment. Create one now.', false);
@@ -6345,6 +6347,7 @@
         currentQuestionSetId = selectedSet.questionSetId || currentQuestionSetId || null;
         if (questionSetTitleInput) questionSetTitleInput.value = selectedSet.setTitle || '';
         if (questionSetDescriptionInput) questionSetDescriptionInput.value = selectedSet.setDescription || '';
+        if (window.ParentResources) window.ParentResources.load(selectedSet.questionSetId);
         applyQuestionCardsLayoutMode(selectedSet.questionCardLayout || 'stacked');
 
         (selectedSet.questions || []).forEach(function (question) {
@@ -7020,6 +7023,7 @@
           currentQuestionSetId = null;
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
+          if (window.ParentResources) window.ParentResources.load(null);
           if (questionItems) {
             questionItems.innerHTML = '';
           }
@@ -7350,6 +7354,7 @@
           if (questionModalMode === 'create') {
             if (questionSetTitleInput) questionSetTitleInput.value = '';
             if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
+          if (window.ParentResources) window.ParentResources.load(null);
             if (questionItems) {
               questionItems.innerHTML = '';
               questionItems.appendChild(buildQuestionItem());
@@ -7559,6 +7564,7 @@
           if (questionMaxAttemptsInput) questionMaxAttemptsInput.value = '1';
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
+          if (window.ParentResources) window.ParentResources.load(null);
           if (questionItems) questionItems.appendChild(buildQuestionItem());
           renumberQuestionCards();
           updateQuestionCount();
@@ -7633,6 +7639,7 @@
             }
 
             currentQuestionSetId = result.questionSetId || currentQuestionSetId;
+            if (window.ParentResources) await window.ParentResources.afterSave(currentQuestionSetId);
             setQuestionStatus(questionModalMode === 'edit' ? 'Question set updated and submitted for review successfully.' : 'Question set submitted for review successfully.', false);
             clearDraft();
             window.location.reload();
@@ -7890,5 +7897,6 @@
       }
     })();
   </script>
+<% if (locals.featureOn && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script><% } %>
 </body>
 </html>

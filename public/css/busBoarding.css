@@ -1,0 +1,25 @@
+/* A parent's boarding pop-up and "not coming" button, and a teacher's Coming switch. */
+.bb-popups { position: fixed; z-index: 11000; top: 76px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; width: min(360px, calc(100vw - 24px)); pointer-events: none; }
+.bb-popup { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #fff; color: #111827; box-shadow: 0 6px 24px rgba(15, 23, 42, .2); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; pointer-events: auto; }
+.bb-popup__icon { flex: none; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #e7f6ec; color: #12883f; }
+.bb-popup--no .bb-popup__icon { background: #fdecea; color: #d92d20; }
+.bb-popup__text { flex: 1; min-width: 0; }
+.bb-popup__text strong { display: block; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.bb-popup__text small { display: block; color: #667085; font-size: 12px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bb-popups .bb-popup__x { flex: none; display: flex; align-items: center; justify-content: center; width: 28px !important; height: 28px; margin: 0 !important; padding: 0 !important; border: 0; border-radius: 50%; background: none; color: #667085; box-shadow: none; cursor: pointer; }
+.bb-popups .bb-popup__x svg { width: 14px; height: 14px; }
+
+.bb-menu { position: fixed; z-index: 11000; min-width: 190px; padding: 4px; border: 1px solid #e5e9ef; border-radius: 10px; background: #fff; box-shadow: 0 6px 24px rgba(15, 23, 42, .16); }
+.bb-menu button { display: block; width: 100% !important; margin: 0 !important; padding: 10px 12px !important; border: 0; border-radius: 7px; background: none; color: #111827; box-shadow: none; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; }
+.bb-menu button:hover, .bb-menu button:focus-visible { background: #f1f4f8; }
+
+.child-actions-row { flex-wrap: wrap; }
+.child-actions-row .child-transport-btn.is-off, .child-actions-row .child-transport-btn.is-missed { background: #fdecea; border-color: #f7c9c4; color: #b42318; opacity: 1; }
+.child-actions-row .child-transport-btn.is-boarded { background: #e7f6ec; border-color: #bfe6cb; color: #12683a; opacity: 1; }
+
+.tp-coming { flex: none; width: auto !important; min-width: 88px; height: 28px; margin: 0 !important; padding: 0 10px !important; border: 1px solid #bfe6cb; border-radius: 999px; background: #e7f6ec; color: #12683a; box-shadow: none; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; cursor: pointer; }
+.tp-coming.is-off, .tp-coming.is-missed { border-color: #f7c9c4; background: #fdecea; color: #b42318; }
+.tp-coming.is-boarded { border-color: transparent; background: #12883f; color: #fff; }
+.tp-coming:disabled { cursor: default; opacity: 1; }
+.tp-rider.tp-rider--today { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) 70px 70px 96px; }
+@media (max-width: 640px) { .tp-rider.tp-rider--today { grid-template-columns: minmax(0, 1fr) 62px 96px; } }

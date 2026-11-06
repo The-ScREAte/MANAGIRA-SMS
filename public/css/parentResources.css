@@ -1,0 +1,14 @@
+/* The parent portal section in the question set form. */
+.pr-box { margin: 10px 0; padding: 12px; border: 1px solid var(--border, #e5e9ef); border-radius: 10px; background: var(--card-bg, #fff); }
+.pr-switch { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+.pr-switch input { flex: none; width: 18px; height: 18px; margin: 0; }
+.pr-field { display: block; margin: 10px 0 0; }
+.pr-field > span { display: block; margin-bottom: 4px; color: var(--muted, #64748b); font-size: 12.5px; font-weight: 600; }
+.pr-field textarea, .pr-field input[type="file"] { display: block; box-sizing: border-box; width: 100%; margin: 0; padding: 8px 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background: var(--card-bg, #fff); color: inherit; font: inherit; font-size: 14px; }
+.pr-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.pr-list:empty { display: none; }
+.pr-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border, #e5e9ef); font-size: 13px; }
+.pr-list li span { min-width: 0; overflow-wrap: anywhere; }
+.pr-box .pr-remove { flex: none; width: auto !important; height: auto; margin: 0 !important; padding: 0 !important; border: 0; background: none; color: #d92d20; box-shadow: none; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.pr-error { margin: 8px 0 0; color: #d92d20; font-size: 13px; font-weight: 600; }
+.pr-error[hidden] { display: none; }

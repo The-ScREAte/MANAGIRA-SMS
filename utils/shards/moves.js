@@ -3,12 +3,33 @@
 const { connectTo } = require("./catalog");
 const { moveSchool, retryRemoval, setMoveState, MoveRefused } = require("./moveSchool");
 const registry = require("./registry");
+const features = require("./features");
 
 async function addStep(control, moveId, text) {
   await control.query(
     "UPDATE shard_moves SET steps = steps || $2::jsonb WHERE move_id = $1",
     [moveId, JSON.stringify([{ at: new Date().toISOString(), text }])]
   ).catch(() => {});
+}
+
+// Two shards on one database: the school's rows stay exactly where they are, and only the
+// directory changes. One statement, so it either all happens or none of it does.
+async function repointOnly({ control, members, hubId, label, from, to, organizationId, rehearsal, actor }) {
+  const summary = JSON.stringify({ rows: 0, seconds: 0, sameDatabase: true });
+  const { rows } = await control.query(
+    `WITH schools AS (
+       UPDATE shard_schools SET shard_id = $2, updated_at = NOW() WHERE $7 = FALSE AND organization_id = ANY($1::int[]) RETURNING 1
+     ), hubs AS (
+       UPDATE shard_hubs SET shard_id = $2, updated_at = NOW() WHERE $7 = FALSE AND hub_id = $3 RETURNING 1
+     )
+     INSERT INTO shard_moves (organization_id, organization_ids, hub_id, school_name, from_shard_id, to_shard_id, rehearsal, requested_by, status, summary, finished_at)
+     SELECT $4, $1::int[], $3, $5, $6, $2, $7, $8, 'done', $9::jsonb, NOW()
+       FROM (SELECT COUNT(*) AS n FROM schools) s, (SELECT COUNT(*) AS n FROM hubs) h
+     RETURNING *`,
+    [members, to.shard_id, hubId, organizationId, label, from.shard_id, Boolean(rehearsal), actor, summary]
+  );
+  await features.refresh();
+  return rows[0];
 }
 
 async function startMove({ organizationId, toShardId, rehearsal, actor }) {
@@ -23,8 +44,10 @@ async function startMove({ organizationId, toShardId, rehearsal, actor }) {
   const to = shards.find((shard) => shard.shard_id === Number(toShardId));
   if (!to || to.status !== "active") throw new MoveRefused("Choose a shard that is running.");
   if (from.shard_id === to.shard_id) throw new MoveRefused("The school is already on that shard.");
-  if (from.environment === "production" && to.environment !== "production") throw new MoveRefused("Real schools can't go to a test shard.");
-  if (from.environment !== "production" && to.environment === "production") throw new MoveRefused("Test schools can't go to a production shard.");
+  const oneDatabase = registry.sharesDatabase(from, to);
+  if (!oneDatabase && (from.same_database || to.same_database)) throw new MoveRefused("The sandbox shard shares the main shard's database. Move the school to the main shard first.");
+  if (!oneDatabase && from.environment === "production" && to.environment !== "production") throw new MoveRefused("Real schools can't go to a test shard.");
+  if (!oneDatabase && from.environment !== "production" && to.environment === "production") throw new MoveRefused("Test schools can't go to a production shard.");
   // A hub and all its schools move together.
   const members = school.hub_id
     ? (await control.query("SELECT organization_id FROM shard_schools WHERE hub_id = $1", [school.hub_id])).rows.map((row) => row.organization_id)
@@ -36,6 +59,7 @@ async function startMove({ organizationId, toShardId, rehearsal, actor }) {
   }
   const running = await control.query("SELECT 1 FROM shard_moves WHERE organization_ids && $1::int[] AND status = 'running'", [members]);
   if (running.rows.length) throw new MoveRefused("Already moving.");
+  if (oneDatabase) return repointOnly({ control, members, hubId: school.hub_id, label: hubName || school.name, from, to, organizationId, rehearsal, actor });
 
   const sourceUrl = registry.shardDatabaseUrl(from);
   const destinationUrl = registry.shardDatabaseUrl(to);

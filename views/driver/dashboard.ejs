@@ -83,6 +83,8 @@
   school: { lat: schoolLatitude, lng: schoolLongitude },
   routes: routeList,
   activeTrip: activeTrip || null,
+  boarding: typeof boardingOn !== 'undefined' ? boardingOn : false,
+  tripBoardings: typeof tripBoardings !== 'undefined' ? tripBoardings : [],
   unit: distanceUnit === 'mi' ? 'mi' : 'km',
   navApps: navApps,
 }) %></script>

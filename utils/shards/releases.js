@@ -19,7 +19,7 @@ async function listReleases() {
 
 // Whatever the test shard is running right now becomes a release to approve.
 async function addCandidate(actor) {
-  const test = (await registry.listShards({ fresh: true })).find((shard) => shard.environment !== "production" && shard.status === "active");
+  const test = (await registry.listShards({ fresh: true })).find((shard) => shard.environment !== "production" && shard.status === "active" && !shard.same_database);
   if (!test) throw new ReleaseError("There is no test shard running yet.");
   const stats = await registry.statsFor(test);
   if (!stats.healthy) throw new ReleaseError(`${test.name} isn't answering: ${stats.error}`);

@@ -607,6 +607,14 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.activities && locals.featureOn && featureOn('class_activities')) { %>
+        <li>
+          <a class="nav-link" href="/common/activities" data-no-spa data-section="class-activities" data-embed-url="/common/activities" data-embed-label="Activities">
+            <span class="nav-link-icon"><%- navIcon('activities') %></span>
+            <span>Activities</span>
+          </a>
+        </li>
+        <% } %>
         <% if (hasPublicWebsiteFeature && menuAccess.website) { %>
         <li>
           <a class="nav-link" href="/account/managePublicContent" data-no-spa data-section="public-website" data-embed-url="/account/managePublicContent" data-embed-label="School Website">
@@ -771,6 +779,11 @@
       </section>
       <% } %>
 
+      <% if (locals.featureOn && featureOn('class_activities')) { %>
+      <section class="management-section" id="class-activities">
+        <div class="embed-loading"><p>Loading Activities…</p></div>
+      </section>
+      <% } %>
       <section class="management-section" id="announcements-events">
         <div class="embed-panel-body">
           <div class="embed-placeholder">

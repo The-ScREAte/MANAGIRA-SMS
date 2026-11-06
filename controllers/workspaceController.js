@@ -25,6 +25,8 @@ const {
 const { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents } = require("../utils/calendarSync");
 const calConnect = require("../utils/calendarConnect");
 const { lessonItems } = require("../utils/lessonCalendar");
+const features = require("../utils/shards/features");
+const { listActivities } = require("../utils/classActivities");
 
 const PLATFORM_ROLES = ["admin", "internal worker", "mini admin"];
 
@@ -237,7 +239,10 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
     [organizationId, start, end, actor.id, ownerIds]
   ));
 
-  const [owners, events, personal, announcements, tasks, imports, lessons, conns, eventTags, personalTags] = await Promise.all([
+  const activitiesP = features.isOn("class_activities", { organizationId })
+    ? listActivities(db, organizationId, { from: start, to: end })
+    : [];
+  const [owners, events, personal, announcements, tasks, imports, lessons, conns, eventTags, personalTags, activities] = await Promise.all([
     ownersP,
     eventsP,
     personalP,
@@ -267,11 +272,16 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
     // Tags load as soon as their events arrive.
     eventsP.then((r) => tagsFor(db, "school_event_tags", r.rows.map((e) => e.id))),
     personalP.then((r) => tagsFor(db, "personal_event_tags", r.rows.map((e) => e.id))),
+    activitiesP,
   ]);
   const ownerName = new Map(owners.map((o) => [o.id, o.name]));
 
   const items = [];
   events.rows.forEach((e) => items.push(eventItem(e, { kind: "event", layer: "event", tags: eventTags.get(e.id), editable: canPublish })));
+  activities.forEach((a) => items.push(eventItem({
+    id: a.id, title: a.className ? `${a.title} (${a.className})` : a.title, event_date: a.date, end_date: a.endDate,
+    start_time: a.startTime, end_time: a.endTime, all_day: !a.startTime, location: a.location, details: a.details, color: "green",
+  }, { kind: "activity", layer: "event", tags: [], editable: false })));
   personal.rows.forEach((e) => {
     const shared = !e.mine && !e.tagged && ownerName.has(e.owner_id);
     items.push(eventItem(e, {

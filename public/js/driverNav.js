@@ -8,6 +8,8 @@
   var MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
   var STYLE_DAY = 'https://tiles.openfreemap.org/styles/liberty';
   var ARRIVE_M = 60;           // within 60 m of a stop counts as served
+  var LEAVE_STOP_M = 150;      // this far from where the bus stopped: it has driven off
+  var RIDING_EVERY_MS = 60000;
   var PASS_M = 35;
   var OFF_ROUTE_M = 80;        // further than this from the line: plan again
   var SNAP_M = 35;             // closer than this to the line: draw the bus on it
@@ -73,7 +75,7 @@
     var delta = ((next - prev + 540) % 360) - 180;
     return (prev + delta * 0.35 + 360) % 360;
   }
-  function fmtMin(min) { if (!isFinite(min)) return '–'; var r = Math.max(1, Math.round(min)); return r < 60 ? r + ' min' : Math.floor(r / 60) + ' h ' + (r % 60) + ' min'; }
+  function fmtMin(min) { if (!isFinite(min)) return '–'; var r = Math.max(1, Math.round(min)); return r < 60 ? r + ' min' : r % 60 ? Math.floor(r / 60) + ' h ' + (r % 60) + ' m' : (r / 60) + ' h'; }
   function fmtClock(ms) { try { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (_) { return ''; } }
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
@@ -137,7 +139,8 @@
       line: null, lineAt: 0, linePending: false, lineReq: 0, offRoute: false,
       tripId: cfg.activeTrip && cfg.activeTrip.trip_id ? Number(cfg.activeTrip.trip_id) : null,
       pos: null, speed: null, heading: null, following: true, cameraAt: 0, gps: 'idle', sync: 'idle',
-      arrivedSaid: false, lastListAt: 0
+      arrivedSaid: false, lastListAt: 0,
+      board: null, boarded: {}, stopsDone: {}, boardingOut: [], boardingBusy: null, boardingAt: 0, ridingAt: 0, ridingKnown: false, stopCard: null, skipArrivals: false, endExcept: false
     };
 
     function driving() { return Boolean(st.tripId); }
@@ -152,7 +155,8 @@
       st.alongValue = p && p.offset <= OFF_ROUTE_M ? p : null;
       return st.alongValue;
     }
-    function studentsAt(stopId) { return (cfg.students || []).filter(function (s) { return s.hasAccess && s.stopId && String(s.stopId) === String(stopId); }); }
+    function studentsAt(stopId) { return (cfg.students || []).filter(function (s) { return s.hasAccess && !s.notRiding && s.stopId && String(s.stopId) === String(stopId); }); }
+    function notComingAt(stopId) { return (cfg.students || []).filter(function (s) { return s.hasAccess && s.notRiding && s.stopId && String(s.stopId) === String(stopId); }); }
     // Who this trip picks up: riders on the chosen route, or on this bus with no route yet.
     function ridersOnRoute() {
       var routeId = st.route ? String(st.route.route_id) : '';
@@ -164,8 +168,9 @@
     }
     function fmtDistance(m) {
       if (!isFinite(m)) return '–';
-      if (unit === 'mi') { var mi = m / 1609.344; return mi < 0.1 ? Math.max(10, Math.round(m * 3.28084 / 10) * 10) + ' ft' : mi.toFixed(1) + ' mi'; }
-      return m < 1000 ? Math.max(10, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(1) + ' km';
+      if (unit === 'mi') { var mi = m / 1609.344; return mi < 0.1 ? Math.max(10, Math.round(m * 3.28084 / 10) * 10) + ' ft' : mi < 100 ? mi.toFixed(1) + ' mi' : Math.round(mi).toLocaleString() + ' mi'; }
+      if (m < 1000) return Math.max(10, Math.round(m / 10) * 10) + ' m';
+      return m < 100000 ? (m / 1000).toFixed(1) + ' km' : Math.round(m / 1000).toLocaleString() + ' km';
     }
     /* ---------- the route ---------- */
     function setRoute(route) {
@@ -325,11 +330,15 @@
     function renderIdle() {
       if (!idle.stops) return;
       idle.stops.textContent = st.stops.length;
-      idle.students.textContent = ridersOnRoute().length;
-      renderStudents();
+      renderIdleCounts();
       idle.distance.textContent = '–';
       idle.time.textContent = '–';
       if (idle.count) idle.count.textContent = st.stops.length;
+    }
+    function renderIdleCounts() {
+      if (!idle.stops) return;
+      idle.students.textContent = ridersOnRoute().filter(function (s) { return !s.notRiding; }).length;
+      renderStudents();
       if (idle.list) {
         idle.list.innerHTML = st.stops.map(function (s) {
           var count = studentsAt(s.id).length;
@@ -357,7 +366,7 @@
       }
       list.innerHTML = shown.map(function (student) {
         var parts = studentTab === 'yes'
-          ? [student.stopName, student.className]
+          ? [student.notRiding ? 'Not coming today' : '', student.stopName, student.className]
           : [student.className, student.otherBus ? 'Another bus or route' : 'No bus access'];
         var extra = (student.address ? '<span class="drv-sub">' + esc(student.address) + '</span>' : '')
           + (student.parentPhone ? '<a class="drv-phone" href="tel:' + esc(student.parentPhone) + '">Parent: ' + esc(student.parentPhone) + '</a>' : '');
@@ -402,13 +411,14 @@
       + '</div>'
       + '<button type="button" class="drvn-recenter" id="drvn-recenter" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>Re-center</button>'
       + '<p class="drvn-toast" id="drvn-toast" role="status" hidden></p>'
+      + '<div class="drvn-board" id="drvn-board" hidden><div class="drvn-board__head"><strong id="drvn-board-stop"></strong><small id="drvn-board-count"></small></div><div class="drvn-picks" id="drvn-board-list" hidden></div><div class="drvn-confirm__btns"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-board-all">All boarded</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-board-except">Except</button></div></div>'
       + '<section class="drvn-sheet" id="drvn-sheet" aria-label="Trip">'
       +   '<button type="button" class="drvn-grab" id="drvn-grab" aria-label="Show stops" aria-expanded="false"><i></i></button>'
       +   '<div class="drvn-eta"><div class="drvn-eta__text"><strong class="drvn-eta__time" id="drvn-eta-time">–</strong><span class="drvn-eta__sub"><i class="drvn-dot" id="drvn-dot" aria-hidden="true"></i><span id="drvn-eta-sub">Finding GPS…</span></span></div>'
       +     '<div class="drvn-open"><button type="button" class="drvn-openbtn" id="drvn-open" aria-haspopup="menu" aria-expanded="false">Navigate<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>'
-      +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '<p class="drvn-menu__note">Families see an estimated position until you come back here.</p></div></div>'
+      +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '<p class="drvn-menu__note">Families see an estimate until you return.</p></div></div>'
       +     '<button type="button" class="drvn-end" id="drvn-end">End</button></div>'
-      +   '<div class="drvn-confirm" id="drvn-confirm" hidden><p id="drvn-confirm-title"></p><div class="drvn-arrival-tools" id="drvn-arrival-tools" hidden><div class="drvn-arrival-tools__row"><button type="button" class="drvn-plain drvn-plain--go" id="drvn-all-arrived">All arrived</button><button type="button" class="drvn-plain" id="drvn-no-students">No students this trip</button></div><input type="search" class="drvn-search" id="drvn-arrival-search" placeholder="Search students" autocomplete="off" aria-label="Search students" /><small id="drvn-arrival-count"></small></div><div class="drvn-arrivals" id="drvn-arrivals"></div><div class="drvn-confirm__btns"><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button><button type="button" class="drvn-plain drvn-plain--danger" id="drvn-end-yes">End trip</button></div></div>'
+      +   '<div class="drvn-confirm" id="drvn-confirm" hidden><div class="drvn-confirm__head"><p id="drvn-confirm-title"></p><small id="drvn-arrival-count"></small></div><input type="search" class="drvn-search" id="drvn-arrival-search" placeholder="Search students" autocomplete="off" aria-label="Search students" hidden /><div class="drvn-arrivals" id="drvn-arrivals" hidden></div><p class="drvn-confirm__error" id="drvn-end-error" role="alert" hidden></p><div class="drvn-confirm__btns drvn-confirm__main" id="drvn-arrive-answer"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-arrive-yes">Yes</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-arrive-no">No</button></div><button type="button" class="drvn-plain drvn-plain--danger drvn-endmain" id="drvn-end-yes" hidden>End trip</button><div class="drvn-confirm__btns drvn-confirm__minor"><button type="button" class="drvn-plain" id="drvn-except-back" hidden>Back</button><button type="button" class="drvn-plain" id="drvn-no-students">No students</button><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button></div></div>'
       +   '<div class="drvn-more" id="drvn-more" hidden>'
       +     '<div class="drvn-morehead"><strong id="drvn-route-name"></strong><button type="button" class="drvn-morex" id="drvn-more-close" aria-label="Close stops">' + toolSvg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>'
       +     '<input type="search" class="drvn-search" id="drvn-stops-search" placeholder="Find a stop or student" autocomplete="off" aria-label="Find a stop or student" />'
@@ -418,13 +428,15 @@
       +   '</div>'
       + '</section>';
     document.body.appendChild(nav);
+    // A box getting focus can scroll even a screen that doesn't scroll, and leave it moved.
+    nav.addEventListener('scroll', function () { nav.scrollTop = 0; nav.scrollLeft = 0; });
 
     var ui = {
       turn: $('drvn-turn'), turnIcon: $('drvn-turn-icon'), turnDist: $('drvn-turn-dist'), turnWhat: $('drvn-turn-what'), chip: $('drvn-chip'),
       minimize: $('drvn-minimize'), compass: $('drvn-compass'), needle: $('drvn-compass-needle'), overview: $('drvn-overview'), recenter: $('drvn-recenter'), toast: $('drvn-toast'),
       sheet: $('drvn-sheet'), grab: $('drvn-grab'), etaTime: $('drvn-eta-time'), etaSub: $('drvn-eta-sub'), dot: $('drvn-dot'), open: $('drvn-open'), menu: $('drvn-menu'), end: $('drvn-end'), confirm: $('drvn-confirm'),
       keep: $('drvn-keep'), endYes: $('drvn-end-yes'), more: $('drvn-more'), routeName: $('drvn-route-name'), stops: $('drvn-stops'), msg: $('drvn-msg'),
-      confirmTitle: $('drvn-confirm-title'), arrivals: $('drvn-arrivals'), arrivalTools: $('drvn-arrival-tools'), addStop: $('drvn-addstop'), addStopInput: $('drvn-addstop-input')
+      confirmTitle: $('drvn-confirm-title'), arrivals: $('drvn-arrivals'), board: $('drvn-board'), boardStop: $('drvn-board-stop'), boardCount: $('drvn-board-count'), boardList: $('drvn-board-list'), boardAll: $('drvn-board-all'), boardExcept: $('drvn-board-except'), addStop: $('drvn-addstop'), addStopInput: $('drvn-addstop-input')
     };
 
     // The panels follow the app's own look; the map itself stays the one clear map.
@@ -437,13 +449,18 @@
       nav.style.top = (header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0) + 'px';
     }
     function sheetHeight() { return ui.sheet.offsetHeight || 96; }
-    function syncSheet() { nav.style.setProperty('--n-sheet', (window.innerWidth >= 720 ? 10 : 0) + sheetHeight() + 'px'); }
+    function syncSheet() {
+      ui.sheet.classList.toggle('is-checking', !ui.confirm.hidden);
+      nav.style.setProperty('--n-sheet', (window.innerWidth >= 720 ? 10 : 0) + sheetHeight() + 'px');
+      nav.classList.toggle('drvn--tall', sheetHeight() > nav.clientHeight * 0.4);
+    }
 
     var CHIP_ARROW = '<svg class="drvn-chip__arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     var toastTimer = 0;
     function toast(text, ms) {
       ui.toast.textContent = text;
       ui.toast.hidden = false;
+      ui.toast.style.bottom = ui.board.hidden ? '' : (sheetHeight() + ui.board.offsetHeight + 22) + 'px';
       clearTimeout(toastTimer);
       toastTimer = setTimeout(function () { ui.toast.hidden = true; }, ms || 3500);
     }
@@ -471,7 +488,7 @@
         else if (cfg.lastLocation) { var last = point(cfg.lastLocation.latitude, cfg.lastLocation.longitude); if (last) placeBus(last, true, false); }
       }).catch(function () {
         ui.msg.hidden = false;
-        ui.msg.textContent = 'The map could not load. Your trip is still running. Open the list below to navigate with another app.';
+        ui.msg.textContent = 'The map could not load. Your trip is still running.';
       });
     }
     function addRouteLayers() {
@@ -525,6 +542,7 @@
         el.className = 'drvn-mark' + (done ? ' is-done' : (s.seq === nextSeq ? ' is-next' : ''));
         el.textContent = done ? '' : s.seq + 1;
         el.title = s.name;
+        el.addEventListener('click', function (event) { event.stopPropagation(); showStop(s); });
         st.markers.push(new gl.Marker({ element: el }).setLngLat([s.lng, s.lat]).addTo(st.map));
       });
       if (st.dest) {
@@ -534,6 +552,16 @@
         school.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg>';
         st.markers.push(new gl.Marker({ element: school }).setLngLat([st.dest.lng, st.dest.lat]).addTo(st.map));
       }
+    }
+    function closeStopCard() { if (st.stopCard) { st.stopCard.remove(); st.stopCard = null; } }
+    function showStop(stop) {
+      closeStopCard();
+      var names = studentsAt(stop.id).map(function (student) { return student.name; });
+      var shown = names.slice(0, 6).map(esc).join(', ') + (names.length > 6 ? ' +' + (names.length - 6) : '');
+      st.stopCard = new window.maplibregl.Popup({ closeButton: false, offset: 20, maxWidth: '240px', className: 'drvn-stopcard' })
+        .setLngLat([stop.lng, stop.lat])
+        .setHTML('<strong>' + esc(stop.name) + '</strong><span>' + (names.length ? names.length + (names.length === 1 ? ' student: ' : ' students: ') + shown : 'No students') + '</span>')
+        .addTo(st.map);
     }
     function syncCompass() {
       if (st.map) ui.needle.style.transform = 'rotate(' + (-st.map.getBearing()) + 'deg)';
@@ -623,10 +651,7 @@
         st.passed = s.seq;
       }
       if (st.passed !== before) {
-        var reachedStop = st.stops[st.passed];
-        var riders = studentsAt(reachedStop.id).length;
-        var message = 'Arrived at ' + reachedStop.name + (riders ? '. ' + riders + ' student' + (riders === 1 ? '' : 's') : '');
-        toast(message);
+        for (var j = before + 1; j <= st.passed; j++) stopReached(st.stops[j]);
         drawMarkers();
         requestLine(true);
       }
@@ -651,7 +676,10 @@
       st.shown = onRoad ? onRoad.point : fix;
       placeBus(st.shown, false, !wasWaiting);
       if (!driving()) return;
+      leftStop(fix);
       checkProgress();
+      if (Date.now() - st.ridingAt > RIDING_EVERY_MS) refreshRiding();
+      if (st.boardingOut.length && Date.now() - st.boardingAt > 15000) flushBoarding();
       var p = busAlong();
       if (wasWaiting) { requestLine(true); follow(true); }
       else if (!st.line || !p) {
@@ -715,10 +743,9 @@
       if (nearEnd && !st.arrivedSaid) { st.arrivedSaid = true; toast('You have arrived'); openEndCheck(); }
       ui.chip.hidden = false;
       if (isDest) {
-        ui.chip.innerHTML = esc(nearEnd ? 'You have arrived' : 'Final stop: ' + st.dest.label) + CHIP_ARROW;
+        ui.chip.innerHTML = '<span class="drvn-chip__name">' + esc(nearEnd ? 'You have arrived' : st.dest.label) + '</span>' + CHIP_ARROW;
       } else {
-        var riders = studentsAt(target.id).length;
-        ui.chip.innerHTML = 'Stop ' + (target.seq + 1) + ' of ' + st.stops.length + ': ' + esc(target.name) + ' <small>' + (riders ? '· ' + riders + ' student' + (riders === 1 ? '' : 's') + ' ' : '') + (toNext !== null ? '· ' + esc(fmtDistance(toNext)) : '') + '</small>' + CHIP_ARROW;
+        ui.chip.innerHTML = '<span class="drvn-chip__name">' + (target.seq + 1) + '/' + st.stops.length + ' ' + esc(target.name) + '</span><small>' + (toNext !== null ? esc(fmtDistance(toNext)) : '') + '</small>' + CHIP_ARROW;
       }
 
       // Time left: the road route's own time for what is left, plus a short wait per stop.
@@ -739,11 +766,12 @@
       if (!proj) proj = busAlong();
       if (pace === undefined) pace = st.line && st.line.length ? st.line.durationS / st.line.length : 0;
       ui.routeName.textContent = st.route ? st.route.route_name : 'Stops';
+      closeStopCard();
       var nextSeq = (remaining()[0] || {}).seq;
       var waited = 0;
       var row = function (s) {
         var done = s.seq <= st.passed;
-        var names = studentsAt(s.id).map(function (r) { return r.name; }).join(', ');
+        var names = stopLine(s);
         var eta = '';
         if (!done && proj && pace) {
           var along = alongOf(s.seq);
@@ -752,7 +780,8 @@
         }
         return '<li class="' + (done ? 'is-done' : (s.seq === nextSeq ? 'is-next' : '')) + '"><span class="drvn-num">' + (done ? '✓' : s.seq + 1) + '</span><div class="drvn-stop-text"><strong>' + esc(s.name) + '</strong>' + (names ? '<small>' + esc(names) + '</small>' : '') + '</div>'
           + (eta ? '<em>' + esc(eta) + '</em>' : '')
-          + (s.seq === nextSeq ? '<button type="button" class="drvn-skip" data-skip="' + s.seq + '">Skip</button>' : '')
+          + (s.seq === nextSeq ? (cfg.boarding ? '<button type="button" class="drvn-skip" data-here="' + s.seq + '">Here</button>' : '') + '<button type="button" class="drvn-skip" data-skip="' + s.seq + '">Skip</button>' : '')
+          + (done && st.stopsDone[s.id] ? '<button type="button" class="drvn-skip" data-change="' + s.seq + '">Change</button>' : '')
           + '</li>';
       };
       var searchFor = ($('drvn-stops-search').value || '').trim().toLowerCase();
@@ -793,41 +822,204 @@
         JSON.parse(localStorage.getItem(extraKey()) || '[]').forEach(function (stop) { insertStop(stop, Math.min(stop.seq, st.stops.length)); });
       } catch (_) { /* nothing saved */ }
     }
-    // At the destination, or when ending early: did each rider arrive?
+    /* ---------- boarding at each stop ---------- */
+    // The bus reaching a stop opens its card. One tap says all boarded, and driving off
+    // says the same, so a busy driver never has to stop for it.
+    function stopLine(stop) {
+      var here = studentsAt(stop.id);
+      var away = notComingAt(stop.id).map(function (student) { return student.name; });
+      var line;
+      if (st.stopsDone[stop.id]) {
+        var missed = here.filter(function (student) { return st.boarded[student.id] === false; }).map(function (student) { return student.name; });
+        var boarded = here.length - missed.length;
+        line = boarded + ' boarded' + (missed.length ? ' · Didn’t board: ' + missed.join(', ') : '');
+      } else {
+        line = here.map(function (student) { return student.name; }).join(', ');
+      }
+      return line + (away.length ? (line ? ' · ' : '') + 'Not coming: ' + away.join(', ') : '');
+    }
+    // Everyone starts on Yes, so the driver only touches the ones who didn't.
+    function pickRow(student, out) {
+      return '<div class="drvn-pick' + (out ? ' is-out' : '') + '" data-pick="' + student.id + '"><span>' + esc(student.name) + '</span><div class="drvn-yn" role="group" aria-label="' + esc(student.name) + '">'
+        + '<button type="button" class="drvn-yn__yes' + (out ? '' : ' is-on') + '" data-answer="yes" aria-pressed="' + !out + '">Yes</button>'
+        + '<button type="button" class="drvn-yn__no' + (out ? ' is-on' : '') + '" data-answer="no" aria-pressed="' + Boolean(out) + '">No</button></div></div>';
+    }
+    function markRow(row, out) {
+      row.classList.toggle('is-out', out);
+      row.querySelectorAll('[data-answer]').forEach(function (button) {
+        var on = (button.getAttribute('data-answer') === 'no') === out;
+        button.classList.toggle('is-on', on);
+        button.setAttribute('aria-pressed', String(on));
+      });
+    }
+    function rowIsOut(row) { return row.classList.contains('is-out'); }
+    function renderBoard() {
+      var card = st.board;
+      if (!card) { ui.board.hidden = true; return; }
+      var picked = Object.keys(card.except).length;
+      var away = notComingAt(card.stop.id).length;
+      ui.boardStop.textContent = card.listOpen ? 'Who didn’t board?' : card.stop.name;
+      ui.boardCount.textContent = card.listOpen
+        ? (picked ? picked + ' didn’t board' : '')
+        : card.riders.length + (card.riders.length === 1 ? ' student' : ' students') + (away ? ' · ' + away + ' not coming' : '');
+      ui.boardAll.textContent = card.listOpen ? 'Done' : 'All boarded';
+      ui.boardExcept.textContent = card.listOpen ? 'Back' : 'Except';
+      ui.boardExcept.classList.toggle('drvn-plain--no', !card.listOpen);
+      ui.boardList.hidden = !card.listOpen;
+      if (card.listOpen && !ui.boardList.children.length) ui.boardList.innerHTML = card.riders.map(function (student) { return pickRow(student, card.except[student.id]); }).join('');
+      if (!card.listOpen) ui.boardList.innerHTML = '';
+      ui.board.hidden = false;
+    }
+    function openBoard(stop, riders, except) {
+      st.board = { stop: stop, riders: riders, except: except, from: st.pos, listOpen: Object.keys(except).length > 0 };
+      ui.boardList.innerHTML = '';
+      renderBoard();
+    }
+    function settleBoarding(auto) {
+      var card = st.board;
+      if (!card) return;
+      st.board = null;
+      ui.board.hidden = true;
+      st.stopsDone[card.stop.id] = true;
+      var missed = [];
+      card.riders.forEach(function (student) {
+        var boarded = !card.except[student.id];
+        st.boarded[student.id] = boarded;
+        if (!boarded) missed.push(student.id);
+      });
+      st.boardingOut.push({
+        tripId: st.tripId, stopId: card.stop.id, auto: Boolean(auto),
+        studentIds: card.riders.map(function (student) { return student.id; }),
+        notBoarded: missed, tries: 0
+      });
+      flushBoarding();
+      toast(missed.length ? (card.riders.length - missed.length) + ' boarded, ' + missed.length + ' didn’t' : 'All boarded');
+      if (!ui.more.hidden) renderStops();
+    }
+    // A weak connection never holds up the road: answers wait here and go when they can.
+    function flushBoarding() {
+      if (st.boardingBusy) return st.boardingBusy;
+      var item = st.boardingOut[0];
+      if (!item) return Promise.resolve();
+      st.boardingAt = Date.now();
+      item.tries += 1;
+      st.boardingBusy = postJson('/transportation/driver/trips/boarding', item).then(function () {
+        st.boardingOut.shift();
+      }).catch(function () {
+        if (item.tries >= 5) st.boardingOut.shift();
+        else throw new Error('retry');
+      }).then(function () {
+        st.boardingBusy = null;
+        return flushBoarding();
+      }, function () {
+        st.boardingBusy = null;
+      });
+      return st.boardingBusy;
+    }
+    function stopReached(stop) {
+      if (!cfg.boarding) { toast('Arrived at ' + stop.name); return; }
+      settleBoarding(true);
+      var riders = stop.id ? studentsAt(stop.id) : [];
+      if (!riders.length || st.stopsDone[stop.id]) { toast('Arrived at ' + stop.name); return; }
+      openBoard(stop, riders, {});
+      refreshRiding();
+    }
+    function leftStop(fix) {
+      var card = st.board;
+      if (!card || !card.from || fix.accuracy > LEAVE_STOP_M) return;
+      if (distM(fix, card.from) > LEAVE_STOP_M) settleBoarding(true);
+    }
+    function localDay() {
+      var d = new Date();
+      var two = function (n) { return (n < 10 ? '0' : '') + n; };
+      return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate());
+    }
+    // A parent or teacher may change their mind at any time before the bus comes.
+    function refreshRiding() {
+      st.ridingAt = Date.now();
+      if (!cfg.boarding) return Promise.resolve();
+      return fetch('/transportation/driver/not-riding?date=' + localDay(), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (result) {
+          if (!result || !result.success) return;
+          var away = {};
+          result.studentIds.forEach(function (id) { away[id] = true; });
+          var changed = false, newlyAway = [];
+          (cfg.students || []).forEach(function (student) {
+            var now = Boolean(away[student.id]);
+            if (now === Boolean(student.notRiding)) return;
+            changed = true;
+            student.notRiding = now;
+            if (now && st.ridingKnown && student.hasAccess && st.stopsDone[student.stopId] !== true) newlyAway.push(student.name);
+          });
+          st.ridingKnown = true;
+          if (!changed) return;
+          if (newlyAway.length) toast(newlyAway.length === 1 ? newlyAway[0] + ' isn’t coming today' : newlyAway.length + ' students aren’t coming today');
+          if (st.board) {
+            st.board.riders = st.board.riders.filter(function (student) { return !student.notRiding; });
+            if (st.board.riders.length) renderBoard();
+            else { st.board = null; ui.board.hidden = true; }
+          }
+          renderIdleCounts();
+          updateStats();
+          if (!ui.more.hidden) renderStops();
+        })
+        .catch(function () { /* the next round tries again */ });
+    }
+    function seedBoarding() {
+      st.boarded = {}; st.stopsDone = {};
+      (cfg.tripBoardings || []).forEach(function (row) {
+        st.boarded[row.studentId] = row.boarded;
+        if (row.stopId) st.stopsDone[row.stopId] = true;
+      });
+      st.stops.forEach(function (stop) { if (st.stopsDone[stop.id]) st.passed = Math.max(st.passed, stop.seq); });
+    }
+    /* ---------- ending the trip ---------- */
+    // Everyone on board arrived, unless the driver says otherwise.
+    function onBoard() {
+      return ridersOnRoute().filter(function (student) { return !student.notRiding && st.boarded[student.id] !== false; });
+    }
     function openEndCheck() {
+      if (!ui.confirm.hidden) return; // already open: answers stay as they are
+      settleBoarding(true);
       setSheetOpen(false);
-      var riders = ridersOnRoute();
+      closeMenu();
       st.skipArrivals = false;
-      ui.confirmTitle.textContent = riders.length ? 'Did everyone arrive?' : 'End this trip? Families will stop seeing the bus.';
-      ui.arrivalTools.hidden = !riders.length;
+      st.endExcept = false;
+      endError('');
       $('drvn-arrival-search').value = '';
-      ui.arrivals.innerHTML = riders.map(function (student) {
-        return '<div class="drvn-arrival" data-student="' + student.id + '" data-name="' + esc(student.name.toLowerCase()) + '"><div class="drvn-arrival__row"><strong>' + esc(student.name) + '</strong>'
-          + '<div class="drvn-yesno" role="group" aria-label="Arrived"><button type="button" data-arrived="1">Yes</button><button type="button" data-arrived="0">No</button></div></div>'
-          + '<div class="drvn-arrival__why" hidden><select aria-label="Reason"><option value="">Reason</option><option value="absent">Absent today</option><option value="parent">Picked up by parent</option><option value="elsewhere">Got off elsewhere</option><option value="missed">Missed the bus</option><option value="other">Other</option></select><input maxlength="300" placeholder="Note (optional)" aria-label="Note" /></div></div>';
+      ui.arrivals.innerHTML = onBoard().map(function (student) {
+        return '<div class="drvn-arrival" data-student="' + student.id + '" data-name="' + esc(student.name.toLowerCase()) + '">' + pickRow(student, false)
+          + '<div class="drvn-arrival__why" hidden><select aria-label="Reason"><option value="">Reason</option><option value="absent">Absent today</option><option value="parent">Picked up by parent</option><option value="elsewhere">Got off elsewhere</option><option value="missed">Missed the bus</option><option value="other">Other</option></select></div></div>';
       }).join('');
       enhanceSelects(ui.arrivals);
-      ui.arrivals.hidden = !riders.length;
       ui.confirm.hidden = false;
-      syncArrivalCount();
+      syncEndCheck();
+    }
+    function syncEndCheck() {
+      var rows = ui.arrivals.querySelectorAll('.drvn-arrival').length;
+      var out = ui.arrivals.querySelectorAll('.drvn-pick.is-out').length;
+      ui.confirmTitle.textContent = !rows ? 'End this trip?' : (st.endExcept ? 'Who didn’t arrive?' : 'Did everyone arrive?');
+      $('drvn-arrival-count').textContent = st.endExcept ? (out ? out + ' didn’t arrive' : '') : (rows ? rows + (rows === 1 ? ' student' : ' students') : '');
+      ui.arrivals.hidden = !st.endExcept;
+      $('drvn-arrival-search').hidden = !st.endExcept || rows < 9;
+      $('drvn-arrive-answer').hidden = !rows || st.endExcept;
+      ui.endYes.hidden = rows > 0 && !st.endExcept;
+      $('drvn-except-back').hidden = !st.endExcept;
+      $('drvn-no-students').hidden = !rows || st.endExcept;
       syncSheet();
     }
-    function syncArrivalCount() {
-      var rows = ui.arrivals.querySelectorAll('.drvn-arrival');
-      var answered = ui.arrivals.querySelectorAll('.drvn-arrival [data-arrived].is-on').length;
-      $('drvn-arrival-count').textContent = answered + ' of ' + rows.length + ' answered';
+    function endError(text) {
+      var box = $('drvn-end-error');
+      box.textContent = text;
+      box.hidden = !text;
+      if (text) syncSheet();
     }
     function arrivalAnswers() {
-      var problem = false;
-      var answers = Array.prototype.map.call(ui.arrivals.querySelectorAll('.drvn-arrival'), function (row) {
-        var chosen = row.querySelector('[data-arrived].is-on');
-        if (!chosen) { problem = true; return null; }
-        var arrived = chosen.getAttribute('data-arrived') === '1';
-        var reason = row.querySelector('select').value;
-        if (!arrived && !reason) problem = true;
-        return { studentId: Number(row.getAttribute('data-student')), arrived: arrived, reason: arrived ? null : reason, note: arrived ? null : row.querySelector('input').value };
+      return Array.prototype.map.call(ui.arrivals.querySelectorAll('.drvn-arrival'), function (row) {
+        var out = rowIsOut(row.querySelector('.drvn-pick'));
+        return { studentId: Number(row.getAttribute('data-student')), arrived: !out, reason: out ? (row.querySelector('select').value || 'other') : null, note: null };
       });
-      return problem ? null : answers;
     }
     function renderStatus() {
       var state = 'idle', text = 'Finding GPS…';
@@ -838,8 +1030,11 @@
       else { state = 'live'; text = st.statsLine || 'Sharing live'; }
       ui.dot.setAttribute('data-state', state);
       ui.etaSub.textContent = (state === 'live' || !st.statsLine) ? text : text + ' · ' + st.statsLine;
-      if (st.gps === 'denied') { ui.msg.hidden = true; toast('Location is blocked. Allow it for this site in your phone’s settings so families can see the bus.', 6000); }
-      else if (st.gps === 'unsupported') toast('This browser can’t share location. Open the driver screen over a secure (https) connection.', 6000);
+      if (st.gps !== st.gpsSaid) {
+        st.gpsSaid = st.gps;
+        if (st.gps === 'denied') { ui.msg.hidden = true; toast('Location is blocked. Allow it in Settings.', 5000); }
+        else if (st.gps === 'unsupported') toast('This browser can’t share location.', 5000);
+      }
     }
     function gpsHandlers() {
       return { tripId: st.tripId, onFix: onFix, onStatus: function (s) { var was = st.gps; st.gps = s.gps; st.sync = s.sync; if (was !== s.gps || s.gps !== 'denied') renderStatus(); } };
@@ -878,7 +1073,7 @@
     function releaseMap() {
       if (st.glide) { cancelAnimationFrame(st.glide); st.glide = 0; }
       if (st.map) { try { st.map.remove(); } catch (_) { /* already gone */ } }
-      st.map = null; st.bus = null; st.markers = []; st.styleReady = false;
+      st.map = null; st.bus = null; st.markers = []; st.styleReady = false; st.stopCard = null;
     }
     // The plain page shows whether a trip is running.
     function syncPage() {
@@ -939,6 +1134,7 @@
       if (!window.DriverLocation) { showIdleNote('Location sharing could not load. Refresh the page and try again.'); return; }
       window.DriverLocation.start(gpsHandlers()); // inside the tap, so the phone asks for permission
       var label = idle.start.querySelector('span');
+      st.boarded = {}; st.stopsDone = {}; st.boardingOut = [];
       idle.start.disabled = true;
       label.textContent = 'Starting…';
       setRoute(findRoute(routeId));
@@ -960,14 +1156,18 @@
     }
     function endTrip() {
       if (!st.tripId) { leaveNav(); return; }
+      settleBoarding(true);
       var answers = st.skipArrivals ? [] : arrivalAnswers();
-      if (!answers) { toast('Answer Yes or No for every student, with a reason for each No. All arrived does it in one tap.', 5000); return; }
-      ui.endYes.disabled = true;
+      endError('');
+      var endButtons = [ui.endYes, $('drvn-arrive-yes'), $('drvn-arrive-no')];
+      endButtons.forEach(function (button) { button.disabled = true; });
       var endedTrip = st.tripId;
       // A failed save must never trap a driver in a trip: a second tap ends it anyway.
-      var saving = answers.length && !st.arrivalsFailed
-        ? postJson('/transportation/driver/trips/arrivals', { tripId: st.tripId, arrivals: answers })
-        : Promise.resolve();
+      var saving = flushBoarding().then(function () {
+        return answers.length && !st.arrivalsFailed
+          ? postJson('/transportation/driver/trips/arrivals', { tripId: st.tripId, arrivals: answers })
+          : null;
+      });
       saving.catch(function (error) {
         st.arrivalsFailed = true;
         error.arrivalCheck = true;
@@ -980,16 +1180,18 @@
         st.tripId = null;
         if (window.DriverLocation) { window.DriverLocation.setTrip(null); window.DriverLocation.stop(); }
         st.pos = null; st.speed = null; st.heading = null;
+        st.boarded = {}; st.stopsDone = {}; st.boardingOut = [];
+        cfg.tripBoardings = [];
         leaveNav();
         setRoute(findRoute(selectedRouteId()));
       }).catch(function (error) {
-        toast(error.arrivalCheck ? 'The arrival check could not be saved. Tap End trip again to end anyway, and tell your lead.' : error.message, 6000);
-      }).then(function () { ui.endYes.disabled = false; });
+        endError(error.arrivalCheck ? 'Answers not saved. Tap End trip to end anyway.' : (error instanceof TypeError ? 'No connection. Try again.' : error.message));
+      }).then(function () { endButtons.forEach(function (button) { button.disabled = false; }); });
     }
     function openNavApp(app) {
       var pts = remaining().map(function (s) { return [s.lat, s.lng]; });
       if (st.dest) pts.push([st.dest.lat, st.dest.lng]);
-      if (!pts.length) { toast('There are no stops left to navigate to.'); return; }
+      if (!pts.length) { toast('No stops left.'); return; }
       var dest = pts[pts.length - 1], via = pts.slice(0, -1), url;
       if (app === 'waze') url = 'https://waze.com/ul?ll=' + dest[0] + ',' + dest[1] + '&navigate=yes';
       else if (app === 'apple') url = 'https://maps.apple.com/?saddr=Current%20Location&daddr=' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join('+to:') + '&dirflg=d';
@@ -997,8 +1199,13 @@
         url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=' + dest[0] + ',' + dest[1];
         if (via.length) url += '&waypoints=' + encodeURIComponent(via.slice(0, 9).map(function (p) { return p[0] + ',' + p[1]; }).join('|'));
       }
-      var win = window.open(url, '_blank', 'noopener');
-      if (!win) window.location.href = url;
+      var link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
     function setSheetOpen(open) {
       ui.more.hidden = !open;
@@ -1143,7 +1350,29 @@
     if (idle.select) enhanceSelects(idle.select.parentNode);
     if (idle.select) idle.select.addEventListener('change', function () { syncSelect(idle.select); if (idle.note) idle.note.hidden = true; setRoute(findRoute(idle.select.value)); });
     if (idle.start) idle.start.addEventListener('click', go);
-    ui.recenter.addEventListener('click', function () { setFollowing(true); follow(true); });
+    ui.recenter.addEventListener('click', function () {
+      setFollowing(true);
+      if (st.pos) follow(true);
+      else { frameRoute(); toast('Waiting for GPS.'); }
+    });
+    ui.boardAll.addEventListener('click', function () { settleBoarding(false); });
+    ui.boardExcept.addEventListener('click', function () {
+      var card = st.board;
+      if (!card) return;
+      card.listOpen = !card.listOpen;
+      if (!card.listOpen) card.except = {};
+      renderBoard();
+    });
+    ui.boardList.addEventListener('click', function (event) {
+      var answer = event.target.closest('[data-answer]');
+      if (!answer || !st.board) return;
+      var row = answer.closest('[data-pick]');
+      var id = row.getAttribute('data-pick');
+      var out = answer.getAttribute('data-answer') === 'no';
+      if (out) st.board.except[id] = true; else delete st.board.except[id];
+      markRow(row, out);
+      renderBoard();
+    });
     ui.overview.addEventListener('click', function () { setFollowing(false); frameRoute(); });
     ui.grab.addEventListener('click', function () { setSheetOpen(ui.more.hidden); });
     ui.end.addEventListener('click', openEndCheck);
@@ -1157,7 +1386,7 @@
     });
     $('drvn-addstop-here').addEventListener('click', function () {
       var at = st.pos;
-      if (!at) { toast('Waiting for GPS. Enter the address instead.'); return; }
+      if (!at) { toast('Waiting for GPS.'); return; }
       addStop(ui.addStopInput.value.trim() || 'Added stop', at.lat, at.lng);
     });
     ui.addStop.addEventListener('submit', function (event) {
@@ -1171,21 +1400,26 @@
       }).catch(function (error) { toast(error.message); }).then(function () { save.disabled = false; });
     });
     ui.arrivals.addEventListener('click', function (event) {
-      var choice = event.target.closest('[data-arrived]');
-      if (!choice) return;
-      var row = choice.closest('.drvn-arrival');
-      row.querySelectorAll('[data-arrived]').forEach(function (b) { b.classList.toggle('is-on', b === choice); });
-      row.querySelector('.drvn-arrival__why').hidden = choice.getAttribute('data-arrived') === '1';
-      syncArrivalCount();
-      syncSheet();
+      var answer = event.target.closest('[data-answer]');
+      if (!answer) return;
+      var row = answer.closest('.drvn-arrival');
+      var out = answer.getAttribute('data-answer') === 'no';
+      markRow(row.querySelector('.drvn-pick'), out);
+      row.querySelector('.drvn-arrival__why').hidden = !out;
+      syncEndCheck();
     });
-    $('drvn-all-arrived').addEventListener('click', function () {
+    $('drvn-arrive-yes').addEventListener('click', endTrip);
+    $('drvn-arrive-no').addEventListener('click', function () {
+      st.endExcept = true;
+      syncEndCheck();
+    });
+    $('drvn-except-back').addEventListener('click', function () {
+      st.endExcept = false;
       ui.arrivals.querySelectorAll('.drvn-arrival').forEach(function (row) {
-        row.querySelectorAll('[data-arrived]').forEach(function (b) { b.classList.toggle('is-on', b.getAttribute('data-arrived') === '1'); });
+        markRow(row.querySelector('.drvn-pick'), false);
         row.querySelector('.drvn-arrival__why').hidden = true;
       });
-      syncArrivalCount();
-      syncSheet();
+      syncEndCheck();
     });
     $('drvn-no-students').addEventListener('click', function () {
       st.skipArrivals = true;
@@ -1234,10 +1468,13 @@
     ui.endYes.addEventListener('click', endTrip);
     ui.minimize.addEventListener('click', minimizeNav);
     if (idle.end) idle.end.addEventListener('click', function () { enterNav(); openEndCheck(); });
+    function syncCompassMode() { ui.compass.setAttribute('aria-pressed', String(prefs.orientation === 'heading')); }
+    syncCompassMode();
     ui.compass.addEventListener('click', function () {
       prefs.orientation = prefs.orientation === 'heading' ? 'north' : 'heading';
       savePrefs();
-      toast(prefs.orientation === 'heading' ? 'Direction of travel' : 'North', 1200);
+      syncCompassMode();
+      toast(prefs.orientation === 'heading' ? 'Direction of travel' : 'North up', 1200);
       if (st.following && st.pos) follow(true);
       else if (st.map) st.map.easeTo({ bearing: prefs.orientation === 'heading' && st.heading !== null ? st.heading : 0, duration: 500 });
     });
@@ -1255,15 +1492,40 @@
     nav.addEventListener('click', function (event) {
       if (!ui.menu.hidden && !event.target.closest('.drvn-open')) closeMenu();
     });
-    $('drvn-zoom-in').addEventListener('click', function () { if (st.map) st.map.zoomIn(); });
-    $('drvn-zoom-out').addEventListener('click', function () { if (st.map) st.map.zoomOut(); });
+    // Following would undo the zoom at the next GPS fix, so zooming stops it, as a pinch does.
+    $('drvn-zoom-in').addEventListener('click', function () { if (!st.map) return; setFollowing(false); st.map.zoomIn(); });
+    $('drvn-zoom-out').addEventListener('click', function () { if (!st.map) return; setFollowing(false); st.map.zoomOut(); });
     ui.more.addEventListener('click', function (event) {
       var skip = event.target.closest('[data-skip]');
       if (skip) {
+        settleBoarding(true);
         st.passed = Number(skip.getAttribute('data-skip'));
         drawMarkers();
         requestLine(true);
         renderStops();
+        return;
+      }
+      // For when GPS can't tell: the driver says the bus is at the stop.
+      var here = event.target.closest('[data-here]');
+      if (here) {
+        var reached = st.stops[Number(here.getAttribute('data-here'))];
+        st.passed = reached.seq;
+        setSheetOpen(false);
+        stopReached(reached);
+        drawMarkers();
+        requestLine(true);
+        return;
+      }
+      var change = event.target.closest('[data-change]');
+      if (change) {
+        var stop = st.stops[Number(change.getAttribute('data-change'))];
+        var except = {};
+        settleBoarding(true);
+        studentsAt(stop.id).forEach(function (student) { if (st.boarded[student.id] === false) except[student.id] = true; });
+        setSheetOpen(false);
+        openBoard(stop, studentsAt(stop.id), except);
+        st.board.listOpen = true;
+        renderBoard();
       }
     });
     window.addEventListener('resize', function () { if (!nav.hidden) { fitUnderHeader(); syncSheet(); if (st.map) st.map.resize(); } });
@@ -1272,7 +1534,9 @@
     syncLook();
     var firstRoute = cfg.activeTrip ? findRoute(cfg.activeTrip.route_id) : (idle.select ? findRoute(idle.select.value) : routes[0] || null);
     setRoute(firstRoute);
+    refreshRiding();
     if (driving()) {
+      seedBoarding();
       restoreExtras();
       enterNav();
       if (window.DriverLocation) window.DriverLocation.start(gpsHandlers());

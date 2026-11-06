@@ -50,6 +50,8 @@ async function listShards({ fresh = false } = {}) {
 const forgetShards = () => { cached = { at: 0, shards: [] }; };
 
 const isLive = (shard) => shard.status === "active";
+// The sandbox shard and the main shard are one database: nothing is ever copied between them.
+const sharesDatabase = (a, b) => Boolean((a.same_database || a.is_control) && (b.same_database || b.is_control) && (a.same_database || b.same_database));
 const isProduction = (shard) => shard.environment === "production";
 
 async function thisShard() {
@@ -167,6 +169,7 @@ async function shardStats(db = localDb) {
 // Live facts from one shard. A shard that doesn't answer is reported, never fatal.
 async function statsFor(shard) {
   if (shard.name === thisShardName()) return shardStats().catch((error) => ({ healthy: false, error: error.message }));
+  if (shard.same_database && !shard.app_url) return { healthy: true, sharedServer: true };
   if (!shard.app_url) return { healthy: false, error: "No server connected yet." };
   return callShard(shard, "/stats").catch((error) => ({ healthy: false, error: error.message }));
 }
@@ -176,7 +179,7 @@ async function statsFor(shard) {
 // only ever updated by the shard it now lives on.
 async function syncDirectory(db = localDb) {
   const me = await thisShard();
-  if (!me) return 0;
+  if (!me || me.same_database) return 0; // Its schools are in the main shard's database.
   const { rows } = await db.query(`
     SELECT o.organization_id, o.nickname AS subdomain, o.organization_name AS name, o.organization_country AS country, o.hub_id,
            (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id) AS staff,
@@ -193,7 +196,7 @@ async function syncDirectory(db = localDb) {
       ON CONFLICT (organization_id) DO UPDATE SET
         subdomain = EXCLUDED.subdomain, name = EXCLUDED.name, country = EXCLUDED.country, hub_id = EXCLUDED.hub_id,
         staff_count = EXCLUDED.staff_count, student_count = EXCLUDED.student_count, parent_count = EXCLUDED.parent_count, updated_at = NOW()
-      WHERE shard_schools.shard_id = EXCLUDED.shard_id`, [JSON.stringify(rows), me.shard_id]);
+      WHERE shard_schools.shard_id = EXCLUDED.shard_id OR shard_schools.shard_id IN (SELECT shard_id FROM shards WHERE same_database)`, [JSON.stringify(rows), me.shard_id]);
   }
   // A hub keeps its row while it moves; only the shard it lives on can change the details.
   const { rows: hubs } = await db.query("SELECT hub_id, hub_nickname AS subdomain, hub_name AS name FROM managira_hubs");
@@ -202,12 +205,12 @@ async function syncDirectory(db = localDb) {
       INSERT INTO shard_hubs (hub_id, shard_id, subdomain, name, updated_at)
       SELECT r.hub_id, $2, r.subdomain, r.name, NOW() FROM JSON_TO_RECORDSET($1::json) AS r(hub_id INT, subdomain TEXT, name TEXT)
       ON CONFLICT (hub_id) DO UPDATE SET subdomain = EXCLUDED.subdomain, name = EXCLUDED.name, updated_at = NOW()
-      WHERE shard_hubs.shard_id = EXCLUDED.shard_id`, [JSON.stringify(hubs), me.shard_id]);
+      WHERE shard_hubs.shard_id = EXCLUDED.shard_id OR shard_hubs.shard_id IN (SELECT shard_id FROM shards WHERE same_database)`, [JSON.stringify(hubs), me.shard_id]);
   }
-  await control.query("DELETE FROM shard_hubs WHERE shard_id = $1 AND NOT (hub_id = ANY($2::int[]))", [me.shard_id, hubs.map((hub) => hub.hub_id)]);
+  await control.query("DELETE FROM shard_hubs WHERE (shard_id = $1 OR shard_id IN (SELECT shard_id FROM shards WHERE same_database)) AND NOT (hub_id = ANY($2::int[]))", [me.shard_id, hubs.map((hub) => hub.hub_id)]);
   // Schools that no longer exist on this shard leave the directory.
   await control.query(
-    "DELETE FROM shard_schools WHERE shard_id = $1 AND status = 'active' AND NOT (organization_id = ANY($2::int[]))",
+    "DELETE FROM shard_schools WHERE (shard_id = $1 OR shard_id IN (SELECT shard_id FROM shards WHERE same_database)) AND status = 'active' AND NOT (organization_id = ANY($2::int[]))",
     [me.shard_id, rows.map((row) => row.organization_id)]
   );
   return rows.length;
@@ -229,6 +232,7 @@ module.exports = {
   listShards,
   forgetShards,
   thisShard,
+  sharesDatabase,
   otherLiveShards,
   pickShardForCountry,
   callShard,

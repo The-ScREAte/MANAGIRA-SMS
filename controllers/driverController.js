@@ -3,6 +3,8 @@ const {
   getTransportationIntegrationStatus,
 } = require("../utils/transportation");
 const { uploadToS3 } = require("../middleware/s3Upload");
+const transportBoarding = require("../utils/transportBoarding");
+const features = require("../utils/shards/features");
 
 function toFloat(value) {
   const parsed = Number.parseFloat(value);
@@ -171,6 +173,8 @@ const driverController = {
         driverProfile,
         driverPhotoUrl: (driverProfile && driverProfile.image_url) || req.session.profileImageUrl || null,
         activeTrip,
+        boardingOn: features.isOn("bus_boarding", { organizationId }),
+        tripBoardings: activeTrip && features.isOn("bus_boarding", { organizationId }) ? await transportBoarding.tripBoardings(db, organizationId, activeTrip.trip_id) : [],
         lastLocation,
         assignedRoutes,
         students,

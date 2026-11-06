@@ -1,0 +1,45 @@
+<%
+  const _q = 'studentId=' + child.id;
+  const _tiles = [{ href: '/guardian/academic-details?' + _q + (child.termId ? '&termId=' + child.termId : ''), icon: 'stats', name: 'Academic info' }];
+  _tiles.push({ href: '/guardian/child/schedule?' + _q, icon: 'schedule', name: 'Schedule' });
+  if (showActivities) {
+    _tiles.push({ href: '/guardian/calendar?' + _q, icon: 'calendar', name: 'Calendar' });
+    _tiles.push({ href: '/guardian/child/activities?' + _q, icon: 'activities', name: 'Activities', count: 'activities' });
+  }
+  if (showSchoolwork) {
+    _tiles.push({ href: '/guardian/child/homework?' + _q, icon: 'homework', name: 'Homework', count: 'homework' });
+    _tiles.push({ href: '/guardian/child/testing-room?' + _q, icon: 'questions', name: 'Testing Room', count: 'testing' });
+    _tiles.push({ href: '/guardian/child/documents?' + _q, icon: 'docs', name: 'Assessment documents', count: 'documents' });
+  }
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<div class="ph" data-hub-counts="<%= child.id %>">
+  <%- include('../partials/flash') %>
+  <a class="ph-back" href="/guardian/dashboard">My children</a>
+  <header class="ph-child">
+    <img class="ph-child__img" src="<%= publicImageUrl(child.imageUrl && child.imageUrl !== 'profilePlaceholder.png' ? child.imageUrl : '/images/profilePlaceholder.png') %>" alt="" />
+    <div><h1><%= child.name %></h1><p><%= child.className || 'No class assigned' %></p></div>
+  </header>
+  <div class="app-tiles">
+    <% _tiles.forEach((tile) => { %>
+      <a class="app-tile" href="<%= tile.href %>">
+        <span class="app-tile__icon"><%- navIcon(tile.icon) %></span>
+        <span class="app-tile__name"><%= tile.name %></span>
+        <% if (tile.count) { %><span class="app-tile__badge" data-count="<%= tile.count %>" hidden></span><% } %>
+      </a>
+    <% }) %>
+    <% if (showTransport) { %>
+      <button type="button" class="app-tile" data-transport-tile data-bus-tracker-name="<%= child.firstName %>">
+        <span class="app-tile__icon"><%- navIcon('transportation') %></span>
+        <span class="app-tile__name">Transportation</span>
+      </button>
+    <% } %>
+    <a class="app-tile" href="/guardian/reports">
+      <span class="app-tile__icon"><%- navIcon('messages') %></span>
+      <span class="app-tile__name">Messages</span>
+    </a>
+  </div>
+</div>
+<% if (showTransport) { %><script src="/js/busTracker.js?v=<%= assetVersion %>" defer></script><% } %>
+<script src="<%= assetUrl('/js/parentHub.js') %>" defer></script>

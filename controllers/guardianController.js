@@ -2519,3 +2519,5 @@ module.exports = {
     }
   },
 };
+
+module.exports.guardianHasStudentAccess = guardianHasStudentAccess;

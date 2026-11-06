@@ -1,0 +1,45 @@
+<%
+  const _q = 'studentId=' + child.id;
+  const _due = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<div class="ph">
+  <%- include('../partials/flash') %>
+  <a class="ph-back" href="/guardian/child/<%= work.homework ? 'homework' : 'testing-room' %>?<%= _q %>"><%= work.homework ? 'Homework' : 'Testing Room' %></a>
+  <h1 class="ph-title"><%= work.title %></h1>
+  <p class="ph-sub"><%= [work.subject, child.firstName].filter(Boolean).join(' · ') %><% if (work.due) { %> · Closes <%= _due(work.due) %><% } %></p>
+
+  <% if (work.notes) { %>
+    <section class="ph-card">
+      <h2>From the teacher</h2>
+      <p class="ph-notes"><%= work.notes %></p>
+    </section>
+  <% } %>
+
+  <% if (files.length) { %>
+    <section class="ph-card">
+      <h2>Resources</h2>
+      <div class="ph-files">
+        <% files.forEach((file) => { %>
+          <a class="ph-filelink" href="/guardian/child/file/<%= file.id %>?<%= _q %>" target="_blank" rel="noopener" data-no-spa>
+            <span class="ph-file"><%- navIcon('docs') %></span><span><%= file.name %></span>
+          </a>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="ph-card">
+    <h2>Questions (<%= questions.length %>)</h2>
+    <ol class="ph-questions">
+      <% questions.forEach((question) => { %>
+        <li>
+          <div class="ph-question"><%- question.html %></div>
+          <% if (question.options.length) { %>
+            <ul class="ph-options"><% question.options.forEach((option) => { %><li><%= option %></li><% }) %></ul>
+          <% } %>
+        </li>
+      <% }) %>
+    </ol>
+  </section>
+</div>

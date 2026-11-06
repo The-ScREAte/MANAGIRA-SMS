@@ -9,6 +9,7 @@
   </nav>
 
   <header class="ah-head"><h1 class="ah-head__title">Features</h1></header>
+  <% if (locals.sandboxName) { %><p class="sh-note">New features start on <%= sandboxName %>. Choose who else gets each one.</p><% } %>
 
   <% features.forEach((feature) => { %>
     <section class="ah-card ah-pad sh-section" data-feature="<%= feature.key %>">
@@ -18,8 +19,8 @@
           <label class="sh-field sh-feature__access">
             <span class="sr-only">Who sees it</span>
             <select name="access" data-feature-access>
+              <option value="selected"<%= feature.access === 'selected' ? ' selected' : '' %>>Sandbox and selected</option>
               <option value="everyone"<%= feature.access === 'everyone' ? ' selected' : '' %>>Everyone</option>
-              <option value="selected"<%= feature.access === 'selected' ? ' selected' : '' %>>Selected</option>
               <option value="off"<%= feature.access === 'off' ? ' selected' : '' %>>Off</option>
             </select>
           </label>
@@ -27,15 +28,21 @@
         <div class="sh-feature__choose" data-feature-choose<%= feature.access === 'selected' ? '' : ' hidden' %>>
           <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search" aria-label="Search schools and hubs" data-feature-search /></label>
           <div class="sh-picklist">
+            <% (locals.shards || []).forEach((row) => { %>
+              <label class="sh-pick" data-name="<%= String(row.name || '').toLowerCase() %>">
+                <input type="checkbox" name="shardIds" value="<%= row.shard_id %>"<%= (feature.shardIds || []).includes(row.shard_id) ? ' checked' : '' %> />
+                <span><%= row.name %></span><small>Whole shard</small>
+              </label>
+            <% }) %>
             <% hubs.forEach((hub) => { %>
               <label class="sh-pick" data-name="<%= String(hub.name || '').toLowerCase() %>">
-                <input type="checkbox" name="hubIds" value="<%= hub.hub_id %>"<%= feature.hubIds.includes(hub.hub_id) ? ' checked' : '' %> />
+                <input type="checkbox" name="hubIds" value="<%= hub.hub_id %>"<%= feature.hubIds.includes(hub.hub_id) || hub.sandbox ? ' checked' : '' %><%= hub.sandbox ? ' disabled' : '' %> />
                 <span><%= hub.name %></span><small>Hub · <%= hub.shard %></small>
               </label>
             <% }) %>
             <% schools.forEach((school) => { %>
               <label class="sh-pick" data-name="<%= String(school.name || '').toLowerCase() %>">
-                <input type="checkbox" name="organizationIds" value="<%= school.organization_id %>"<%= feature.organizationIds.includes(school.organization_id) ? ' checked' : '' %> />
+                <input type="checkbox" name="organizationIds" value="<%= school.organization_id %>"<%= feature.organizationIds.includes(school.organization_id) || school.sandbox ? ' checked' : '' %><%= school.sandbox ? ' disabled' : '' %> />
                 <span><%= school.name %></span><small><%= school.shard %></small>
               </label>
             <% }) %>

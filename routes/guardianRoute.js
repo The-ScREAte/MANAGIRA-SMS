@@ -5,11 +5,24 @@ const guardianController = require("../controllers/guardianController");
 const financeController = require("../controllers/financeController");
 const { upload } = require("../middleware/s3Upload");
 const { hasPaygiraFeature } = require("../utils/paygiraAccess");
+const parentHub = require("../controllers/parentHubController");
 
 module.exports = (db) => {
   router.get("/dashboard", isGuardianAuthenticated, (req, res) =>
     guardianController.dashboardGet(req, res, db)
   );
+
+  router.get("/child", isGuardianAuthenticated, (req, res) => parentHub.hub(req, res, db));
+  router.get("/child/counts", isGuardianAuthenticated, (req, res) => parentHub.counts(req, res, db));
+  router.get("/child/schedule", isGuardianAuthenticated, (req, res) => parentHub.schedule(req, res, db));
+  router.get("/child/activities", isGuardianAuthenticated, (req, res) => parentHub.activities(req, res, db));
+  router.get("/child/homework", isGuardianAuthenticated, (req, res) => parentHub.homework(req, res, db));
+  router.get("/child/testing-room", isGuardianAuthenticated, (req, res) => parentHub.testingRoom(req, res, db));
+  router.get("/child/documents", isGuardianAuthenticated, (req, res) => parentHub.documents(req, res, db));
+  router.get("/child/work/:setId", isGuardianAuthenticated, (req, res) => parentHub.work(req, res, db));
+  router.get("/child/file/:fileId", isGuardianAuthenticated, (req, res) => parentHub.file(req, res, db));
+  router.get("/calendar", isGuardianAuthenticated, (req, res) => parentHub.calendar(req, res, db));
+  router.get("/calendar/feed", isGuardianAuthenticated, (req, res) => parentHub.calendarFeed(req, res, db));
 
   router.get("/academic-details", isGuardianAuthenticated, (req, res) =>
     guardianController.academicDetailsGet(req, res, db)

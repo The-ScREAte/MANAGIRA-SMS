@@ -9,6 +9,7 @@ const {
   PERMISSION_OPTIONS,
 } = require('./permissionMiddleware');
 const { workspaceAccess } = require('../utils/workspaceAccess');
+const features = require("../utils/shards/features");
 
 /**
  * Global middleware: sets res.locals.userPermissions to an array of permission
@@ -41,6 +42,7 @@ const setAllowedPermissions = async (req, res, next) => {
     res.setHeader('X-Managira-Access', stamp);
   };
   // Called from views and controllers so it reads the final permissions and features.
+  res.locals.featureOn = (key) => features.isOn(key, { organizationId: req.session?.organizationId });
   res.locals.workspaceAccess = () => workspaceAccess({
     permissions: res.locals.userPermissions,
     features: res.locals.allowedFeatures,

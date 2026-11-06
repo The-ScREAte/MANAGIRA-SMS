@@ -902,6 +902,19 @@
           <% } %>
         </div>
 
+        <% if (locals.featureOn && featureOn('class_activities')) { %>
+        <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
+        <div class="app-tiles sp-app-tiles">
+          <button class="sp-action-tile app-tile" type="button" data-panel="schedule"><span class="app-tile__icon"><%- navIcon('schedule') %></span><span class="app-tile__name">Schedule</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="activities"><span class="app-tile__icon"><%- navIcon('activities') %></span><span class="app-tile__name">Activities</span><% if (studentActivities && studentActivities.length) { %><span class="app-tile__badge"><%= studentActivities.length > 99 ? '99+' : studentActivities.length %></span><% } %></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('stats') %></span><span class="app-tile__name">Grades</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('staff') %></span><span class="app-tile__name">Subject Teachers</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="transport"><span class="app-tile__icon"><%- navIcon('transportation') %></span><span class="app-tile__name">Transportation</span></button>
+          <% if (testingRoomEnabled) { %>
+          <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span></a>
+          <% } %>
+        </div>
+        <% } else { %>
         <div class="sp-action-tiles <%= testingRoomEnabled ? '' : 'sp-action-tiles-no-testing' %>">
           <button class="sp-action-tile" type="button" data-panel="teachers">
             <h4 class="sp-action-title">Subject Teachers</h4>
@@ -926,7 +939,42 @@
           </a>
           <% } %>
         </div>
+        <% } %>
       </section>
+
+      <% if (locals.featureOn && featureOn('class_activities')) { %>
+      <section class="sp-panel" id="panel-activities" hidden>
+        <h3 class="sp-section-title">Activities</h3>
+        <% if (studentActivities && studentActivities.length) { %>
+          <ul class="sp-activities">
+            <% studentActivities.forEach((row) => { const d = new Date(row.date + 'T12:00:00Z'); %>
+              <li>
+                <span class="sp-activities__date"><small><%= d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><strong><%= d.getUTCDate() %></strong></span>
+                <span class="sp-activities__text">
+                  <strong><%= row.title %></strong>
+                  <% if (row.location) { %><small><%= row.location %></small><% } %>
+                  <% if (row.details) { %><span class="sp-activities__details"><%= row.details %></span><% } %>
+                </span>
+              </li>
+            <% }) %>
+          </ul>
+        <% } else { %>
+          <p class="sp-tile-note">No activities coming up.</p>
+        <% } %>
+      </section>
+      <style>
+        .sp-activities { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+        .sp-activities li { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid #e5e9ef; border-radius: 12px; background: #fff; }
+        .sp-activities__date { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 48px; height: 52px; border-radius: 10px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); }
+        .sp-activities__date small { font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .sp-activities__date strong { font-size: 18px; font-weight: 700; line-height: 1.1; }
+        .sp-activities__text { min-width: 0; display: grid; gap: 2px; }
+        .sp-activities__text strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+        .sp-activities__text small { color: #667085; font-size: 12.5px; }
+        .sp-activities__details { color: #475467; font-size: 13px; line-height: 1.45; white-space: pre-line; }
+        .sp-app-tiles { margin-top: 10px; }
+      </style>
+      <% } %>
 
       <section class="sp-panel" id="panel-transport" hidden>
         <h3 class="sp-section-title">Transportation</h3>
@@ -1220,7 +1268,7 @@
   tiles.forEach(function (tile) {
     tile.addEventListener('click', function () {
       var panelKey = tile.getAttribute('data-panel');
-      var label = (tile.querySelector('.sp-action-title') || {}).textContent || 'Details';
+      var label = (tile.querySelector('.sp-action-title, .app-tile__name') || {}).textContent || 'Details';
       openModal(panelKey, label.trim());
     });
   });

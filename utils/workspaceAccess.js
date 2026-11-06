@@ -28,6 +28,7 @@ function workspaceAccess({ permissions, features, role } = {}) {
     transportation: can("manage_transportation"),
     mira: can("settings_mira"),
     events: can("publish_events_announcements"),
+    activities: can("publish_events_announcements"),
     website: can("settings_website") && hasFeature("School Website", "SchoolWebsite", "Public Website", "PublicWebsite"),
     docs: (fullMenuRole || can("manage_records")) && hasFeature("Create Files", "Files & Sheets", "Docs/Sheets"),
     paygira: can("paygira_workspace") && can("paygira_show_in_management") && hasFeature("PayGira", "Pay Gira", "PayGira & Payments", "PayGira and Payments"),

@@ -97,6 +97,11 @@ module.exports = (db) => {
   router.post("/requests", authorizeBusRequester, (req, res) => transportationController.requestCreatePost(req, res, db));
   router.get("/arrivals/mine", guardianOnly, (req, res) => transportationController.arrivalsMineGet(req, res, db));
   router.post("/arrivals/:arrivalId/answer", guardianOnly, (req, res) => transportationController.arrivalAnswerPost(req, res, db));
+  router.get("/riding/mine", guardianOnly, (req, res) => transportationController.parentRidingGet(req, res, db));
+  router.post("/riding/mine", guardianOnly, (req, res) => transportationController.parentRidingPost(req, res, db));
+  router.post("/riding/mine/stop", guardianOnly, (req, res) => transportationController.parentStopBusPost(req, res, db));
+  router.get("/class/:classId/riding", isAuthenticated, blockGuardians, (req, res) => transportationController.classRidingGet(req, res, db));
+  router.post("/class/:classId/riding", isAuthenticated, blockGuardians, (req, res) => transportationController.classRidingPost(req, res, db));
   router.get("/reports/mine", guardianOnly, (req, res) => transportationController.reportsMineGet(req, res, db));
   router.get("/reports/class/:classId", isAuthenticated, blockGuardians, requirePermission([PERMISSIONS.TRANSPORT_CLASS_REPORTS, PERMISSIONS.TRANSPORT_REPORTS]), (req, res) => transportationController.reportsForClassGet(req, res, db));
   router.get("/requests/mine", guardianOnly, (req, res) => transportationController.requestsMineGet(req, res, db));
@@ -345,6 +350,8 @@ module.exports = (db) => {
     transportationController.driverArrivalsPost(req, res, db)
   );
 
+  router.post("/driver/trips/boarding", isAuthenticated, (req, res) => transportationController.driverBoardingPost(req, res, db));
+  router.get("/driver/not-riding", isAuthenticated, (req, res) => transportationController.driverNotRidingGet(req, res, db));
   router.post("/driver/locate", isAuthenticated, (req, res) =>
     transportationController.driverLocatePost(req, res, db)
   );

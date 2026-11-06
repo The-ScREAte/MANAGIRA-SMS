@@ -1,0 +1,19 @@
+/* Tiles for parents and students: a clear icon with its name under it. */
+.app-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 600px) { .app-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 900px) { .app-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 290px) { .app-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.app-tiles .app-tile { position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; width: auto !important; min-width: 0; min-height: 108px; margin: 0 !important; padding: 14px 6px 12px !important; border: 1px solid #e5e9ef; border-radius: 14px; background: #fff; color: #0f172a; box-shadow: none; font: inherit; text-align: center; text-decoration: none; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: border-color .12s; }
+.app-tiles .app-tile:hover, .app-tiles .app-tile:focus-visible { border-color: var(--org-primary-color, #01535b); background: #fff; color: #0f172a; transform: none; }
+.app-tile__icon { flex: none; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); }
+.app-tile__icon svg { display: block; width: 26px; height: 26px; }
+.app-tile__name { display: block; max-width: 100%; color: inherit; font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.app-tile__badge { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #d92d20; color: #fff; font-size: 11.5px; font-weight: 700; line-height: 1; }
+.app-tile__badge[hidden] { display: none; }
+@media (max-width: 340px) {
+  .app-tiles { gap: 8px; }
+  .app-tiles .app-tile { min-height: 98px; padding: 10px 4px !important; }
+  .app-tile__icon { width: 42px; height: 42px; }
+  .app-tile__icon svg { width: 22px; height: 22px; }
+  .app-tile__name { font-size: 11.5px; overflow-wrap: normal; }
+}
