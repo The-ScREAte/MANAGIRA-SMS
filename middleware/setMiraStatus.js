@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const { getMiraIntegrationStatus } = require('../utils/miraIntegration');
+const { createShortCache } = require('../utils/shortCache');
+const miraStatuses = createShortCache({ ttlMs: 30000 });
 
 // Makes "is Mira activated for this org" available to every EJS render
 // (used by partials/header.ejs to show/hide the header icon) without every
@@ -20,7 +22,8 @@ const setMiraStatus = async (req, res, next) => {
   }
 
   try {
-    const status = await getMiraIntegrationStatus(db, req.session.organizationId);
+    const organizationId = req.session.organizationId;
+    const status = await miraStatuses.get(organizationId, 'status', () => getMiraIntegrationStatus(db, organizationId));
     res.locals.miraActivated = !!status.activated;
   } catch (err) {
     console.error('❌ Error fetching Mira activation status:', err);

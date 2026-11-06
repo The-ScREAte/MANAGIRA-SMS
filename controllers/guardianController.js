@@ -24,6 +24,7 @@ const {
   setGuardianPreferences,
 } = require("../utils/emailPreferences");
 const { getStudentTransportationSnapshot } = require("./transportationController");
+const { getTransportationIntegrationStatus } = require("../utils/transportation");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const { resolveFinanceStripeRuntime } = require("./financeController");
@@ -342,6 +343,7 @@ module.exports = {
       }));
       const allChildren = [...approvedChildren, ...pendingKids.rows];
       const childTransportationMap = {};
+      const transportationIntegration = await getTransportationIntegrationStatus(db, organizationId).catch(() => null);
 
       await Promise.all(
         approvedChildren.map(async (child) => {
@@ -363,6 +365,7 @@ module.exports = {
         guardian: guardian,
         children: allChildren,
         childTransportationMap,
+        transportationActive: Boolean(transportationIntegration && transportationIntegration.activated),
         inboxSummary,
         currentTermId: req.session.currentTermId || null,
         messages: req.flash(),

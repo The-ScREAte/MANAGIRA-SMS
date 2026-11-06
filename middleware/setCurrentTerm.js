@@ -1,3 +1,6 @@
+const { createShortCache } = require("../utils/shortCache");
+const currentTerms = createShortCache({ ttlMs: 20000 });
+
 module.exports = async function setCurrentTerm(req, res, next) {
   const db = req.app.get("db");
   const organizationId = req.session?.organizationId;
@@ -17,23 +20,25 @@ module.exports = async function setCurrentTerm(req, res, next) {
   }
 
   try {
-    const termResult = await db.query(
-      `
-        SELECT t.term_id, t.term_name, t.start_date, t.end_date, t.school_year_id
-        FROM terms t
-        JOIN school_years sy ON t.school_year_id = sy.id
-        WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE
-        LIMIT 1
-      `,
-      [organizationId]
-    );
+    const currentTerm = await currentTerms.get(organizationId, "term", async () => {
+      const termResult = await db.query(
+        `
+          SELECT t.term_id, t.term_name, t.start_date, t.end_date, t.school_year_id
+          FROM terms t
+          JOIN school_years sy ON t.school_year_id = sy.id
+          WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE
+          LIMIT 1
+        `,
+        [organizationId]
+      );
+      return termResult.rows[0] || null;
+    });
 
-    if (termResult.rows.length > 0) {
-      const currentTerm = termResult.rows[0];
-      req.session.currentTermId = currentTerm.term_id;
+    if (currentTerm) {
+      if (req.session.currentTermId !== currentTerm.term_id) req.session.currentTermId = currentTerm.term_id;
       res.locals.currentTerm = currentTerm;
     } else {
-      delete req.session.currentTermId;
+      if (req.session.currentTermId !== undefined) delete req.session.currentTermId;
       res.locals.currentTerm = null;
     }
 

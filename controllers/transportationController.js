@@ -9,6 +9,10 @@ const {
 const { uploadToS3 } = require("../middleware/s3Upload");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { geocodeAddress } = require("../utils/geocode");
+const { checkRateLimit } = require("../utils/rateLimiter");
+const liveBus = require("../utils/liveBus");
+const busRequests = require("../utils/transportationRequests");
+const { BoundedMap } = require("../utils/boundedMap");
 
 function normalizeStatus(value, fallback = "active") {
   const normalized = String(value || "").trim().toLowerCase();
@@ -117,7 +121,154 @@ function safeFileName(name) {
 // recently - trips that were never ended don't show an old position as live.
 const LIVE_WINDOW_MINUTES = 30;
 
-async function getStudentTransportationSnapshot(db, organizationId, studentId) {
+/* Answers every bus request and side panel call as JSON, with a message people can read. */
+async function answer(res, work) {
+  try {
+    return res.json(await work());
+  } catch (error) {
+    if (error instanceof busRequests.RequestError) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    console.error("[Transportation requests]", error.message);
+    return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
+  }
+}
+
+async function requireTransportationOn(db, organizationId) {
+  const integration = await getTransportationIntegrationStatus(db, organizationId);
+  if (!integration.activated) throw new busRequests.RequestError("Transportation is not turned on for this school.", 403);
+}
+
+function limitRequests(req, action, max) {
+  const who = req.session.guardianId ? `g${req.session.guardianId}` : `u${req.session.userId || req.sessionID}`;
+  if (!checkRateLimit(`busreq:${action}:${who}`, { max, windowMs: 60000 }).allowed) {
+    throw new busRequests.RequestError("Too many tries. Please wait a minute and try again.", 429);
+  }
+}
+
+function staffIdentity(session) {
+  const user = session.user || {};
+  return {
+    type: "staff",
+    userId: session.userId || user.user_id || null,
+    name: [session.firstName || user.first_name, session.lastName || user.last_name].filter(Boolean).join(" ").trim(),
+  };
+}
+
+async function guardianStudentIds(db, session) {
+  const { rows } = await db.query(
+    `SELECT s.student_id FROM students s
+      WHERE s.organization_id = $1
+        AND (
+          EXISTS (SELECT 1 FROM guardians g WHERE g.student_id = s.student_id AND g.guardian_id = $2 AND g.organization_id = $1)
+          OR EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.student_id = s.student_id AND gs.guardian_id = $2)
+        )`,
+    [session.organizationId, session.guardianId]
+  );
+  return rows.map((row) => Number(row.student_id));
+}
+
+// Turns a student's pickup address into a stop the bus passes through. A stop shared
+// with other riders (siblings) is left as it is; the student moves only if the address did.
+async function useAddressAsStop(db, organizationId, student, geocoded, routeId = null) {
+  const studentName = [student.first_name, student.last_name].filter(Boolean).join(" ").trim();
+  const existingStop = await db.query(
+    `SELECT tsa.stop_id FROM transport_student_assignments tsa
+      WHERE tsa.organization_id = $1 AND tsa.student_id = $2 AND tsa.stop_id IS NOT NULL`,
+    [organizationId, student.student_id]
+  );
+
+  let stopId = existingStop.rows[0]?.stop_id || null;
+  // A stop shared with other riders (siblings) is left as it is; this
+  // student moves to another stop only if their address moved.
+  if (stopId) {
+    const shared = await db.query(
+      `SELECT st.stop_name, st.stop_address, st.latitude, st.longitude,
+              (SELECT COUNT(*)::int FROM transport_student_assignments o
+                WHERE o.organization_id = $2 AND o.stop_id = st.stop_id AND o.student_id <> $3 AND o.active) AS others
+         FROM transport_stops st WHERE st.stop_id = $1 AND st.organization_id = $2`,
+      [stopId, organizationId, student.student_id]
+    );
+    const current = shared.rows[0];
+    if (!current) {
+      stopId = null;
+    } else if (current.others === 0 && busRequests.isPrivateStop(current)) {
+      await db.query(
+        `UPDATE transport_stops
+            SET stop_name = $3, stop_address = $4, latitude = $5, longitude = $6, updated_at = NOW()
+          WHERE stop_id = $1 AND organization_id = $2`,
+        [stopId, organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
+      );
+    } else {
+      const samePlace = current.latitude !== null && current.longitude !== null
+        && Math.abs(Number(current.latitude) - geocoded.lat) < 0.0003
+        && Math.abs(Number(current.longitude) - geocoded.lng) < 0.0003;
+      if (!samePlace) stopId = null;
+    }
+  }
+  if (!stopId) {
+    // Same address or the same spot (about 30 m): use that stop, don't add another.
+    const nearby = await db.query(
+      `SELECT stop_id FROM transport_stops
+        WHERE organization_id = $1
+          AND (LOWER(TRIM(COALESCE(stop_address, ''))) = LOWER(TRIM($2))
+               OR (latitude IS NOT NULL AND longitude IS NOT NULL
+                   AND ABS(latitude - $3) < 0.0003 AND ABS(longitude - $4) < 0.0003))
+        ORDER BY route_id IS NULL, stop_id
+        LIMIT 1`,
+      [organizationId, student.address, geocoded.lat, geocoded.lng]
+    );
+    stopId = nearby.rows[0]?.stop_id || null;
+  }
+  if (!stopId) {
+    const insertedStop = await db.query(
+      `INSERT INTO transport_stops (organization_id, route_id, stop_name, stop_address, latitude, longitude, stop_order)
+       VALUES ($1, $6::int, $2, $3, $4, $5,
+               COALESCE((SELECT MAX(stop_order) + 1 FROM transport_stops WHERE route_id = $6::int AND organization_id = $1), 0))
+       RETURNING stop_id`,
+      [organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng, routeId]
+    );
+    stopId = insertedStop.rows[0].stop_id;
+  }
+
+  await db.query(
+    `UPDATE transport_student_assignments
+        SET stop_id = $3,
+            route_id = COALESCE((SELECT route_id FROM transport_stops WHERE stop_id = $3), route_id),
+            home_address = $4, home_latitude = $5, home_longitude = $6, updated_at = NOW()
+      WHERE organization_id = $1 AND student_id = $2`,
+    [organizationId, student.student_id, stopId, student.address, geocoded.lat, geocoded.lng]
+  );
+}
+
+// A student's bus, route and stops change rarely, while the map asks every few seconds.
+// So this part is kept for a short while; saving anything under /manage starts it afresh.
+const STUDENT_BUS_TTL_MS = 30000;
+const studentBusCache = new BoundedMap(5000);
+const studentBusGeneration = new BoundedMap(5000);
+
+function forgetStudentBuses(organizationId) {
+  studentBusGeneration.set(organizationId, (studentBusGeneration.get(organizationId) || 0) + 1);
+}
+
+function studentBusDetails(db, organizationId, studentId) {
+  const key = `${organizationId}:${studentId}:${studentBusGeneration.get(organizationId) || 0}`;
+  const hit = studentBusCache.get(key);
+  if (hit && (hit.pending || hit.expires > Date.now())) return hit.pending || Promise.resolve(hit.value);
+  const pending = readStudentBusDetails(db, organizationId, studentId)
+    .then((value) => {
+      studentBusCache.set(key, { value, expires: Date.now() + STUDENT_BUS_TTL_MS });
+      return value;
+    })
+    .catch((error) => {
+      studentBusCache.delete(key);
+      throw error;
+    });
+  studentBusCache.set(key, { pending });
+  return pending;
+}
+
+async function readStudentBusDetails(db, organizationId, studentId) {
   await ensureTransportationSchema(db);
   const school = await getOrganizationDestination(db, organizationId).catch(() => ({
     address: null,
@@ -200,40 +351,6 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
   const row = result.rows[0] || null;
   if (!row) return null;
 
-  const tripResult = await db.query(
-    `SELECT
-       trip.trip_id,
-       trip.status,
-       trip.started_at,
-       live.latitude,
-       live.longitude,
-       live.speed_kmh,
-       live.heading_deg,
-       live.recorded_at
-     FROM transport_trip_sessions trip
-     LEFT JOIN LATERAL (
-       SELECT latitude, longitude, speed_kmh, heading_deg, recorded_at
-       FROM transport_live_locations
-       WHERE organization_id = trip.organization_id
-         AND trip_id = trip.trip_id
-       ORDER BY recorded_at DESC
-       LIMIT 1
-     ) live ON TRUE
-     WHERE trip.organization_id = $1
-       AND trip.status = 'active'
-       AND (
-         (trip.bus_id IS NOT NULL AND trip.bus_id = $2)
-         OR
-         (trip.route_id IS NOT NULL AND trip.route_id = $3)
-       )
-       -- A trip whose phone stopped reporting long ago (never ended) isn't live.
-       AND COALESCE(live.recorded_at, trip.started_at) > NOW() - INTERVAL '${LIVE_WINDOW_MINUTES} minutes'
-     ORDER BY (trip.bus_id IS NOT DISTINCT FROM $2) DESC, trip.started_at DESC
-     LIMIT 1`,
-    [organizationId, row.bus_id || null, row.route_id || null]
-  );
-
-  const live = tripResult.rows[0] || null;
   const routeStopsResult = row.route_id
     ? await db.query(
         `SELECT stop_id, stop_name, stop_address, latitude, longitude, stop_order
@@ -246,6 +363,15 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
         [organizationId, row.route_id]
       ).catch(() => ({ rows: [] }))
     : { rows: [] };
+
+  return { school, row, routeStopsResult };
+}
+
+async function getStudentTransportationSnapshot(db, organizationId, studentId) {
+  const details = await studentBusDetails(db, organizationId, studentId);
+  if (!details) return null;
+  const { school, row, routeStopsResult } = details;
+  const live = await liveBus.liveForStudent(db, organizationId, row.bus_id || null, row.route_id || null);
 
   return {
     assignmentId: row.assignment_id,
@@ -327,6 +453,7 @@ async function getClassTransportationSnapshot(db, organizationId, classId, termI
        s.student_id,
        s.first_name,
        s.last_name,
+       tsa.assignment_id,
        tsa.pickup_time,
        tsa.dropoff_time,
        tsa.distance_km,
@@ -450,6 +577,7 @@ async function getClassTransportationSnapshot(db, organizationId, classId, termI
   return rows.rows.map((row) => ({
     studentId: Number(row.student_id),
     studentName: [row.first_name, row.last_name].filter(Boolean).join(" ").trim(),
+    hasBusAccess: row.assignment_id !== null && row.assignment_id !== undefined,
     routeId: row.route_id !== null ? Number(row.route_id) : null,
     busNumber: row.bus_number || null,
     routeName: row.route_name || null,
@@ -2213,6 +2341,188 @@ const transportationController = {
     return res.redirect("/transportation/manage");
   },
 
+  /* ---------- bus requests ---------- */
+  requestStartGet: (req, res, db) => answer(res, async () => {
+    await requireTransportationOn(db, req.session.organizationId);
+    const data = await busRequests.requestStart(db, req.session.organizationId, req.busRequester.studentId);
+    return { success: true, ...data };
+  }),
+
+  requestOptionsPost: (req, res, db) => answer(res, async () => {
+    limitRequests(req, "options", 30);
+    await requireTransportationOn(db, req.session.organizationId);
+    const data = await busRequests.findOptions(db, req.session.organizationId, req.body || {});
+    return { success: true, ...data };
+  }),
+
+  requestCreatePost: (req, res, db) => answer(res, async () => {
+    limitRequests(req, "create", 10);
+    await requireTransportationOn(db, req.session.organizationId);
+    const requestId = await busRequests.createRequest(db, req.session.organizationId, req.busRequester, {
+      ...(req.body || {}),
+      studentId: req.busRequester.studentId,
+    });
+    return { success: true, requestId, message: "Request sent to the school." };
+  }),
+
+  requestsMineGet: (req, res, db) => answer(res, async () => {
+    const studentIds = await guardianStudentIds(db, req.session);
+    const requests = studentIds.length
+      ? await busRequests.listRequests(db, req.session.organizationId, {
+          bucket: req.query.bucket === "old" ? "old" : "new",
+          guardianStudentIds: studentIds,
+        })
+      : [];
+    return { success: true, requests };
+  }),
+
+  requestCancelPost: (req, res, db) => answer(res, async () => {
+    const studentIds = await guardianStudentIds(db, req.session);
+    await busRequests.cancelRequest(db, req.session.organizationId, toInt(req.params.requestId), studentIds);
+    return { success: true, message: "Request cancelled." };
+  }),
+
+  manageRequestsGet: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    const [requests, newCount] = await Promise.all([
+      busRequests.listRequests(db, organizationId, { bucket: req.query.bucket === "old" ? "old" : "new" }),
+      busRequests.countNewRequests(db, organizationId),
+    ]);
+    return { success: true, requests, newCount };
+  }),
+
+  manageRequestApprovePost: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    await busRequests.approveRequest(db, organizationId, toInt(req.params.requestId), staffIdentity(req.session), req.body || {});
+    return { success: true, message: "Approved. The student now has bus access.", newCount: await busRequests.countNewRequests(db, organizationId) };
+  }),
+
+  manageRequestDeclinePost: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    await busRequests.declineRequest(db, organizationId, toInt(req.params.requestId), staffIdentity(req.session), req.body?.note);
+    return { success: true, message: "Request declined.", newCount: await busRequests.countNewRequests(db, organizationId) };
+  }),
+
+  /* ---------- the student side panel ---------- */
+  studentPanelGet: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    const studentId = toInt(req.params.studentId);
+    const [student, assignment] = await Promise.all([
+      db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.address, c.class_name
+           FROM students s
+           LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+          WHERE s.student_id = $1 AND s.organization_id = $2 AND COALESCE(s.graduated, FALSE) = FALSE`,
+        [studentId, organizationId]
+      ),
+      db.query(
+        `SELECT tsa.active, tsa.bus_id, tsa.route_id, tsa.stop_id, tsa.pickup_time, tsa.dropoff_time, tsa.home_address, st.stop_name
+           FROM transport_student_assignments tsa
+           LEFT JOIN transport_stops st ON st.stop_id = tsa.stop_id AND st.organization_id = tsa.organization_id
+          WHERE tsa.student_id = $1 AND tsa.organization_id = $2`,
+        [studentId, organizationId]
+      ),
+    ]);
+    const row = student.rows[0];
+    if (!row) throw new busRequests.RequestError("Student not found.", 404);
+    const bus = assignment.rows[0] || null;
+    return {
+      success: true,
+      student: {
+        id: Number(row.student_id),
+        firstName: row.first_name || "",
+        lastName: row.last_name || "",
+        address: row.address || "",
+        className: row.class_name || "",
+      },
+      assignment: {
+        active: Boolean(bus && bus.active),
+        busId: bus ? bus.bus_id : null,
+        routeId: bus ? bus.route_id : null,
+        stopId: bus ? bus.stop_id : null,
+        pickupTime: bus && bus.pickup_time ? String(bus.pickup_time).slice(0, 5) : "",
+        dropoffTime: bus && bus.dropoff_time ? String(bus.dropoff_time).slice(0, 5) : "",
+        homeAddress: (bus && bus.home_address) || "",
+        addressAsStop: Boolean(bus && busRequests.isPrivateStop({ stop_name: bus.stop_name })),
+      },
+    };
+  }),
+
+  studentPanelSavePost: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    const studentId = toInt(req.params.studentId);
+    const body = req.body || {};
+    const found = await db.query(
+      `SELECT student_id, first_name, last_name, address FROM students
+        WHERE student_id = $1 AND organization_id = $2 AND COALESCE(graduated, FALSE) = FALSE`,
+      [studentId, organizationId]
+    );
+    const student = found.rows[0];
+    if (!student) throw new busRequests.RequestError("Student not found.", 404);
+
+    const hasAccess = String(body.busAccess) === "1";
+    if (!hasAccess) {
+      await db.query(
+        `UPDATE transport_student_assignments SET active = FALSE, updated_at = NOW() WHERE organization_id = $1 AND student_id = $2`,
+        [organizationId, studentId]
+      );
+      return { success: true, hasAccess: false, message: "Saved." };
+    }
+
+    const busId = toInt(body.busId);
+    const routeId = toInt(body.routeId);
+    const stopId = toInt(body.stopId);
+    if (!(await verifyOrgIds(db, organizationId, busId, routeId))) {
+      throw new busRequests.RequestError("That bus or route is not part of this school.");
+    }
+    if (stopId) {
+      const stop = await db.query(`SELECT 1 FROM transport_stops WHERE stop_id = $1 AND organization_id = $2`, [stopId, organizationId]);
+      if (!stop.rows[0]) throw new busRequests.RequestError("That stop is not part of this school.");
+    }
+    const clock = (value) => (/^\d{2}:\d{2}/.test(String(value || "")) ? String(value).slice(0, 5) : null);
+    const pickupAddress = String(body.homeAddress || "").trim().slice(0, 300) || null;
+    const asStop = String(body.addressAsStop) === "1";
+    let place = null;
+    if (pickupAddress || asStop) {
+      const school = await db.query(
+        `SELECT organization_province, organization_country FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      place = await busRequests.locateAddress(
+        pickupAddress || student.address || "",
+        school.rows[0]?.organization_province,
+        school.rows[0]?.organization_country
+      );
+    }
+
+    await db.query(
+      `INSERT INTO transport_student_assignments (
+         organization_id, student_id, bus_id, route_id, stop_id, pickup_time, dropoff_time,
+         home_address, home_latitude, home_longitude, active
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE)
+       ON CONFLICT (organization_id, student_id) DO UPDATE SET
+         bus_id = EXCLUDED.bus_id, route_id = EXCLUDED.route_id, stop_id = EXCLUDED.stop_id,
+         pickup_time = EXCLUDED.pickup_time, dropoff_time = EXCLUDED.dropoff_time,
+         home_address = EXCLUDED.home_address, home_latitude = EXCLUDED.home_latitude,
+         home_longitude = EXCLUDED.home_longitude, active = TRUE, updated_at = NOW()`,
+      [
+        organizationId, studentId, busId, routeId, stopId, clock(body.pickupTime), clock(body.dropoffTime),
+        pickupAddress, place ? place.lat : null, place ? place.lng : null,
+      ]
+    );
+
+    let warning = null;
+    if (asStop) {
+      const address = pickupAddress || student.address;
+      if (!address) warning = "Add a pickup address to use it as a stop.";
+      else if (!place) warning = "Saved, but that address could not be found on the map, so no stop was added.";
+      else await useAddressAsStop(db, organizationId, { ...student, address }, place, routeId);
+    } else if (pickupAddress && !place) {
+      warning = "Saved, but that address could not be found on the map.";
+    }
+    return { success: true, hasAccess: true, warning, message: "Saved." };
+  }),
+
   bulkUpdateStudentAccessPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     if (!organizationId) {
@@ -2346,73 +2656,7 @@ const transportationController = {
               continue;
             }
 
-            const studentName = [student.first_name, student.last_name].filter(Boolean).join(" ").trim();
-            const existingStop = await db.query(
-              `SELECT tsa.stop_id FROM transport_student_assignments tsa
-                WHERE tsa.organization_id = $1 AND tsa.student_id = $2 AND tsa.stop_id IS NOT NULL`,
-              [organizationId, student.student_id]
-            );
-
-            let stopId = existingStop.rows[0]?.stop_id || null;
-            // A stop shared with other riders (siblings) is left as it is; this
-            // student moves to another stop only if their address moved.
-            if (stopId) {
-              const shared = await db.query(
-                `SELECT st.stop_address, st.latitude, st.longitude,
-                        (SELECT COUNT(*)::int FROM transport_student_assignments o
-                          WHERE o.organization_id = $2 AND o.stop_id = st.stop_id AND o.student_id <> $3 AND o.active) AS others
-                   FROM transport_stops st WHERE st.stop_id = $1 AND st.organization_id = $2`,
-                [stopId, organizationId, student.student_id]
-              );
-              const current = shared.rows[0];
-              if (!current) {
-                stopId = null;
-              } else if (current.others === 0) {
-                await db.query(
-                  `UPDATE transport_stops
-                      SET stop_name = $3, stop_address = $4, latitude = $5, longitude = $6, updated_at = NOW()
-                    WHERE stop_id = $1 AND organization_id = $2`,
-                  [stopId, organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
-                );
-              } else {
-                const samePlace = current.latitude !== null && current.longitude !== null
-                  && Math.abs(Number(current.latitude) - geocoded.lat) < 0.0003
-                  && Math.abs(Number(current.longitude) - geocoded.lng) < 0.0003;
-                if (!samePlace) stopId = null;
-              }
-            }
-            if (!stopId) {
-              // Same address or the same spot (about 30 m): use that stop, don't add another.
-              const nearby = await db.query(
-                `SELECT stop_id FROM transport_stops
-                  WHERE organization_id = $1
-                    AND (LOWER(TRIM(COALESCE(stop_address, ''))) = LOWER(TRIM($2))
-                         OR (latitude IS NOT NULL AND longitude IS NOT NULL
-                             AND ABS(latitude - $3) < 0.0003 AND ABS(longitude - $4) < 0.0003))
-                  ORDER BY route_id IS NULL, stop_id
-                  LIMIT 1`,
-                [organizationId, student.address, geocoded.lat, geocoded.lng]
-              );
-              stopId = nearby.rows[0]?.stop_id || null;
-            }
-            if (!stopId) {
-              const insertedStop = await db.query(
-                `INSERT INTO transport_stops (organization_id, route_id, stop_name, stop_address, latitude, longitude, stop_order)
-                 VALUES ($1, NULL, $2, $3, $4, $5, 0)
-                 RETURNING stop_id`,
-                [organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
-              );
-              stopId = insertedStop.rows[0].stop_id;
-            }
-
-            await db.query(
-              `UPDATE transport_student_assignments
-                  SET stop_id = $3,
-                      route_id = COALESCE((SELECT route_id FROM transport_stops WHERE stop_id = $3), route_id),
-                      home_address = $4, home_latitude = $5, home_longitude = $6, updated_at = NOW()
-                WHERE organization_id = $1 AND student_id = $2`,
-              [organizationId, student.student_id, stopId, student.address, geocoded.lat, geocoded.lng]
-            );
+            await useAddressAsStop(db, organizationId, student, geocoded);
             stopsCreated += 1;
           } catch (error) {
             // Best-effort per student — one failed geocode shouldn't block the rest.
@@ -2523,6 +2767,7 @@ const transportationController = {
         [organizationId, busId]
       );
 
+      liveBus.tripStarted(organizationId);
       return res.json({ success: true, trip: result.rows[0] });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to start trip." });
@@ -2570,6 +2815,7 @@ const transportationController = {
         );
       }
 
+      await liveBus.tripEnded(db, organizationId, tripId);
       return res.json({ success: true });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to end trip." });
@@ -2604,40 +2850,12 @@ const transportationController = {
     }
 
     try {
-      await ensureTransportationSchema(db);
-      const trip = await db.query(
-        `SELECT trip_id, route_id, bus_id
-           FROM transport_trip_sessions
-          WHERE organization_id = $1
-            AND trip_id = $2
-            AND driver_user_id = $3
-            AND status = 'active'
-          LIMIT 1`,
-        [organizationId, tripId, userId]
-      );
-
-      if (!trip.rows.length) {
+      const trip = await liveBus.tripForDriver(db, organizationId, tripId, userId);
+      if (!trip) {
         return res.status(404).json({ success: false, message: "Active trip not found." });
       }
-
-      const record = trip.rows[0];
-      await db.query(
-        `INSERT INTO transport_live_locations (
-           organization_id, trip_id, route_id, bus_id, driver_user_id,
-           latitude, longitude, speed_kmh, heading_deg
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          organizationId,
-          record.trip_id,
-          record.route_id,
-          record.bus_id,
-          userId,
-          latitude,
-          longitude,
-          speedKmh,
-          headingDeg,
-        ]
-      );
+      // Not awaited: the driver's phone never waits on the database.
+      liveBus.recordFix(db, organizationId, userId, trip, { latitude, longitude, speedKmh, headingDeg });
 
       return res.json({ success: true });
     } catch (error) {
@@ -2661,6 +2879,18 @@ const transportationController = {
     }
   },
 
+  // Every route at once, so a map with many routes asks once instead of once per route.
+  getLiveRoutes: async (req, res, db) => {
+    res.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+    const organizationId = req.session.organizationId;
+    if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
+    try {
+      return res.json({ success: true, data: await liveBus.liveByRoute(db, organizationId) });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Unable to load live data." });
+    }
+  },
+
   getLiveByRoute: async (req, res, db) => {
     res.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
     const organizationId = req.session.organizationId;
@@ -2670,35 +2900,8 @@ const transportationController = {
     if (!routeId) return res.status(400).json({ success: false, message: "Route is required." });
 
     try {
-      await ensureTransportationSchema(db);
-      const rows = await db.query(
-        `SELECT
-           l.latitude,
-           l.longitude,
-           l.speed_kmh,
-           l.heading_deg,
-           l.recorded_at,
-           t.trip_id,
-           t.bus_id,
-           b.bus_number,
-           t.started_at
-         FROM transport_trip_sessions t
-         JOIN transport_live_locations l
-           ON l.trip_id = t.trip_id
-          AND l.organization_id = t.organization_id
-         LEFT JOIN transport_buses b
-           ON b.bus_id = t.bus_id
-          AND b.organization_id = t.organization_id
-         WHERE t.organization_id = $1
-           AND t.route_id = $2
-           AND t.status = 'active'
-           AND l.recorded_at > NOW() - INTERVAL '${LIVE_WINDOW_MINUTES} minutes'
-         ORDER BY l.recorded_at DESC
-         LIMIT 1`,
-        [organizationId, routeId]
-      );
-
-      return res.json({ success: true, data: rows.rows[0] || null });
+      const live = await liveBus.liveByRoute(db, organizationId);
+      return res.json({ success: true, data: live[routeId] || null });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to load route live data." });
     }
@@ -2707,6 +2910,9 @@ const transportationController = {
 
 module.exports = {
   transportationController,
+  forgetStudentBuses,
+  guardianStudentIds,
+  staffIdentity,
   getStudentTransportationSnapshot,
   getClassTransportationSnapshot,
 };

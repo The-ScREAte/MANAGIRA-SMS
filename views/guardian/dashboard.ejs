@@ -732,6 +732,7 @@
     }
   }
   .view-progress-btn:hover, .edit-btn:hover, .withdraw-btn:hover, .guardian-quick-link:hover { transform: none; }
+  .child-transport-btn.child-transport-btn--none { background: #f1f5f9; border-color: #e2e8f0; color: #64748b; }
   .child-actions-row .child-transport-btn { width: auto !important; height: 44px; margin: 0 !important; padding: 0 16px !important; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) {
     .child-transport-btn { transition: none; }
@@ -787,7 +788,22 @@
   </div>
 
   <!-- Children Section -->
-  <div class="children-section">
+  <% const parentBusRequests = !!locals.transportationActive && children.length > 0; %>
+  <% if (parentBusRequests) { %>
+    <link rel="stylesheet" href="<%= assetUrl('/css/busRequest.css') %>" />
+    <div class="gdr-tabs" role="tablist" aria-label="Sections" data-gdr-tabs>
+      <button type="button" class="gdr-tab is-on" role="tab" aria-selected="true" data-gdr-tab="children">My Children</button>
+      <button type="button" class="gdr-tab" role="tab" aria-selected="false" data-gdr-tab="requests">Requests <span class="gdr-badge" data-gdr-count hidden></span></button>
+    </div>
+    <section class="gdr" data-gdr-panel="requests" hidden>
+      <div class="gdr-segment" role="tablist" aria-label="Requests">
+        <button type="button" class="is-on" role="tab" aria-selected="true" data-gdr-bucket="new">New</button>
+        <button type="button" role="tab" aria-selected="false" data-gdr-bucket="old">Old</button>
+      </div>
+      <div data-gdr-list aria-live="polite"><p class="gdr-empty">Loading…</p></div>
+    </section>
+  <% } %>
+  <div class="children-section" data-gdr-panel="children">
     <% if (!children.length) { %>
       <div class="no-students-message">
         <div class="no-students-icon">📚</div>
@@ -852,6 +868,17 @@
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v11a2 2 0 0 1-1 1.7V19a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.3A2 2 0 0 1 4 16V5a2 2 0 0 1 2-2Zm0 3v5h12V6H6Zm1.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
                   Track bus
                 </button>
+                <% } else if (parentBusRequests) { %>
+                <button
+                  type="button"
+                  class="child-transport-btn child-transport-btn--none"
+                  aria-label="Request a bus for <%= childDisplayName %>"
+                  data-bus-request="<%= child.student_id %>"
+                  data-bus-request-name="<%= childDisplayName %>"
+                  data-bus-request-cancel>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v11a2 2 0 0 1-1 1.7V19a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.3A2 2 0 0 1 4 16V5a2 2 0 0 1 2-2zm0 2v6h12V5H6zm1.5 8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>
+                  Request bus
+                </button>
                 <% } %>
                 <a 
                   class="view-progress-btn"
@@ -868,6 +895,7 @@
 </div>
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
+<% if (parentBusRequests) { %><script src="<%= assetUrl('/js/busRequest.js') %>"></script><% } %>
 <script>
   async function withdrawApplication(pendingId, button) {
     const studentName = button && button.dataset.studentName ? button.dataset.studentName : 'this student';

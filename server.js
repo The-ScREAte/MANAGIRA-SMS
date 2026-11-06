@@ -75,6 +75,8 @@ const BASE_PORT = Number(process.env.PORT) || 4000;
 
 const expressLayouts = require("express-ejs-layouts");
 const pgSession = require("connect-pg-simple")(session);
+const { withSessionCache } = require("./utils/cachedSessionStore");
+const CachedPgSession = withSessionCache(pgSession);
 const sessionStoreConfig = {
   pool: db,
   tableName: "user_sessions",
@@ -717,11 +719,12 @@ app.use("/uploads", (req, res, next) => {
 app.use(require("./utils/requestStats").requestStats);
 app.use("/api/v1", require("./routes/publicApiRoute"));
 
+app.use(require("./utils/cachedSessionStore").markSmallRequests);
 if (process.env.NODE_ENV === "production") {
   // Production: subdomain sharing
   app.use(
     session({
-      store: new pgSession(sessionStoreConfig),
+      store: new CachedPgSession(sessionStoreConfig),
       secret: SESSION_SECRET,
       resave: false,
       rolling: false,
@@ -742,7 +745,7 @@ if (process.env.NODE_ENV === "production") {
   // Localhost: no domain sharing
   app.use(
     session({
-      store: new pgSession(sessionStoreConfig),
+      store: new CachedPgSession(sessionStoreConfig),
       secret: SESSION_SECRET,
       resave: false,
       rolling: false,
@@ -921,6 +924,7 @@ app.use(async (req, res, next) => {
   req.db = db; // Attach the database instance to the request object
   next();
 });
+app.use(require("./utils/shortCache").forgetSchoolAfterChanges);
 app.use(setCurrentTerm);
 // Schools in a hub show the hub's logo in their footer.
 app.use(require("./utils/hubBrand").hubBrandMiddleware(db));
@@ -1037,7 +1041,7 @@ app.get("/public-image", async (req, res) => {
       "Content-Type": publicImageUrl.imageContentType(key),
       "Content-Disposition": "inline",
       "X-Content-Type-Options": "nosniff",
-      "Cache-Control": `${isPublic ? "public" : "private"}, max-age=300`,
+      "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${Math.max(300, Math.min(3600, Number(expires) - Math.floor(Date.now() / 1000)))}`,
     });
     if (!isPublic) res.set("Vary", "Cookie");
     object.Body.once("error", (error) => {

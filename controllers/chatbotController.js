@@ -371,6 +371,9 @@ const _extractSentenceSteps = (plainText, expandedTerms = []) => {
   return _dedupe(ranked);
 };
 
+// Asked on every page, and working it out goes through the whole help library.
+let popularQuestions = { value: [], expires: 0 };
+
 class ChatbotController {
   static async _getDocumentationCatalog() {
     const now = Date.now();
@@ -1074,6 +1077,10 @@ class ChatbotController {
   // Return popular documentation links for the welcome screen
   static async getPopularQuestions(req, res) {
     try {
+      res.set('Cache-Control', 'private, max-age=300');
+      if (popularQuestions.expires > Date.now()) {
+        return res.json({ success: true, questions: popularQuestions.value });
+      }
       const docs = await listDocumentationArticles({ includeDrafts: false });
       const topDocs = docs
         .filter((article) => article && article.slug && article.title)
@@ -1091,8 +1098,10 @@ class ChatbotController {
           url: '/legal/user-documentation/' + article.slug,
         }));
 
+      popularQuestions = { value: topDocs, expires: Date.now() + 5 * 60 * 1000 };
       return res.json({ success: true, questions: topDocs });
     } catch (error) {
+      res.set('Cache-Control', 'no-store');
       return res.json({ success: false, message: 'Unable to load documentation suggestions' });
     }
   }

@@ -3893,6 +3893,9 @@ main {
 .student-remark-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .student-transport-btn svg,
 .student-remark-btn svg { width: 17px; height: 17px; }
+/* The bus icon: in colour with bus access, grey without (a grey one asks for a bus). */
+.student-transport-btn.has-bus svg { stroke: var(--primary); stroke-width: 2.2; }
+.student-transport-btn.no-bus svg { stroke: #b4bcc8; }
 
 /* Header: the class-details and options buttons share one size and shape. */
 .workspace-meta-toggle,
@@ -4231,7 +4234,7 @@ main {
                         <% sortedOverviewStudents.forEach(function(student, i) { %>
                           <% const studentFullName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
                           <% const transportRow = classTransportByStudentId[Number(student.student_id)] || null; %>
-                          <% const hasTransportAccess = !!(transportRow && (transportRow.busNumber || transportRow.routeName || transportRow.stopName)); %>
+                          <% const hasTransportAccess = !!(transportRow && transportRow.hasBusAccess); %>
                           <% const transportSummary = transportRow ? [transportRow.busNumber, transportRow.routeName, transportRow.stopName].filter(Boolean).join(' | ') : ''; %>
                           <% const transportSchedule = transportRow ? [transportRow.scheduleDayOfWeek, transportRow.scheduleStartTime, transportRow.scheduleEndTime].filter(Boolean).join(' ') : ''; %>
                           <li data-student-name="<%= studentFullName.toLowerCase() %>" data-student-id="<%= student.student_id %>">
@@ -4240,13 +4243,23 @@ main {
                               <span class="student-name"><%= studentFullName %></span>
                               <span class="student-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
                             </button>
-                            <% if (hasTransportAccess) { %>
+                            <% if (transportActive && hasTransportAccess) { %>
                             <button
-                              class="student-transport-btn"
+                              class="student-transport-btn has-bus"
                               type="button"
-                              title="Transportation details"
-                              aria-label="Transportation details for <%= studentFullName %>"
+                              title="Has bus access"
+                              aria-label="Bus details for <%= studentFullName %>"
                               onclick="openStudentTransportModal(<%= student.student_id %>, '<%= studentFullName.replace(/'/g, "\\'") %>', event)">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
+                            </button>
+                            <% } else if (transportActive) { %>
+                            <button
+                              class="student-transport-btn no-bus"
+                              type="button"
+                              title="No bus access. Request a bus"
+                              aria-label="Request a bus for <%= studentFullName %>"
+                              data-bus-request="<%= student.student_id %>"
+                              data-bus-request-name="<%= studentFullName %>">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
                             </button>
                             <% } else { %>
@@ -4518,6 +4531,7 @@ main {
           </div>
         </div>
 
+        <% if (transportActive) { %><script src="<%= assetUrl('/js/busRequest.js') %>" defer></script><% } %>
         <div class="transport-modal-overlay" id="studentTransportModal" onclick="handleStudentTransportModalOverlayClick(event)">
           <div class="transport-modal-box" role="dialog" aria-modal="true" aria-labelledby="studentTransportModalTitle">
             <div class="transport-modal-head">
@@ -5143,6 +5157,7 @@ main {
         if (!tab) return openWorkspaceTabByKey('students', options || {});
         return openWorkspaceTab(tab, options || {});
       }
+      window.__classTransportRows = <%- JSON.stringify(classTransportByStudentId).replace(/</g, '\\u003c') %>;
       var studentTransportState = {
         classId: Number(<%- JSON.stringify(Number(classId)) %>) || 0,
         school: <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>,
@@ -5358,7 +5373,10 @@ main {
           event.stopPropagation();
         }
         // The live bus tracker (public/js/busTracker.js).
-        if (window.BusTracker) return window.BusTracker.open(studentId, studentName);
+        if (window.BusTracker) {
+          var knownRow = (window.__classTransportRows || {})[studentId];
+          return window.BusTracker.open(studentId, { name: studentName, snapshot: knownRow || null });
+        }
         var modal = document.getElementById('studentTransportModal');
         var titleEl = document.getElementById('studentTransportModalTitle');
         var statusEl = document.getElementById('studentTransportModalStatus');
@@ -6075,11 +6093,8 @@ main {
       var classRouteLiveMarkers = {};
       function startClassRouteLivePolling(routeId, layerGroup, L) {
         if (!Number.isInteger(routeId) || routeId <= 0) return;
-        var tick = function () {
-          fetch('/transportation/live/route/' + routeId, {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-          }).then(function (r) { return r.json(); }).then(function (payload) {
-            var live = payload && payload.success ? payload.data : null;
+        classLiveRoutes.push(function (payload) {
+            var live = payload && payload.success ? (payload.data[routeId] || null) : null;
             var marker = classRouteLiveMarkers[routeId];
             // Trip over, or no signal for 2 minutes (driver offline): the bus leaves the map.
             if (!live || live.latitude === null || live.latitude === undefined || window.ManagiraMaps.isOffline(live.recorded_at)) {
@@ -6106,10 +6121,25 @@ main {
               marker.setIcon(icon);
               marker.setPopupContent(popupText);
             }
+        });
+        startClassLiveTimer(layerGroup);
+      }
+      // One request for every route on the class map, and only while it can be seen.
+      var classLiveRoutes = [];
+      var classLiveTimer = 0;
+      function startClassLiveTimer() {
+        if (classLiveTimer) return;
+        var tick = function () {
+          var map = document.getElementById('classDashboardTransportMap');
+          if (document.hidden || !map || !map.offsetWidth) return;
+          fetch('/transportation/live/routes', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+          }).then(function (r) { return r.json(); }).then(function (payload) {
+            classLiveRoutes.forEach(function (update) { update(payload); });
           }).catch(function () {});
         };
-        tick();
-        window.setInterval(function () { if (!document.hidden) tick(); }, 5000);
+        classLiveTimer = window.setInterval(tick, 5000);
+        setTimeout(tick, 200);
       }
 
       <% if (transportActive && classTransportationMapRows.length) { %>

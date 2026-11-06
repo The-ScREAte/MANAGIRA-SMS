@@ -27,6 +27,9 @@
       var href;
       try { href = frame.contentWindow.location.href; } catch (err) { return; }
       if (href !== target || frame.dataset.touched === '1') return;
+      var now = Date.now();
+      if (now - Number(frame.dataset.swappedAt || 0) < 60000) return;
+      frame.dataset.swappedAt = String(now);
       try { frame.contentWindow.location.reload(); } catch (err) { /* ignore */ }
     });
   });

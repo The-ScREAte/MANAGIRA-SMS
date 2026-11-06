@@ -42,11 +42,14 @@
     flag: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 21V4h11l-1.5 3.5L16 11H7v10H5Z"/></svg>'
   };
 
+  ICON.expand = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>';
+  ICON.shrink = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 10h-6V4M14 10l7-7M4 14h6v6M10 14l-7 7"/></svg>';
+
   var CSS = [
     'html.trk-lock,html.trk-lock body{overflow:hidden}',
-    '.trk-overlay{--trk-gap:60px;position:fixed;top:0;right:0;bottom:0;left:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:24px 24px calc(24px + var(--trk-gap));background:rgba(15,23,42,.48);color:#0f172a;font:inherit;line-height:1.4;text-align:left;-webkit-tap-highlight-color:transparent;animation:trk-fade .16s ease-out}',
+    '.trk-overlay{--trk-gap:60px;position:fixed;top:0;right:0;bottom:0;left:0;z-index:14000;display:flex;align-items:center;justify-content:center;padding:24px 24px calc(24px + var(--trk-gap));background:rgba(15,23,42,.48);color:#0f172a;font:inherit;line-height:1.4;text-align:left;-webkit-tap-highlight-color:transparent;animation:trk-fade .16s ease-out}',
     '.trk-overlay *,.trk-overlay *::before,.trk-overlay *::after{box-sizing:border-box}',
-    '.trk-sheet{position:relative;display:flex;flex-direction:column;width:min(980px,100%);height:min(700px,100%);overflow:hidden;background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(15,23,42,.28)}',
+    '.trk-sheet{position:relative;display:flex;flex-direction:column;width:min(460px,100%);max-height:100%;overflow:hidden;background:#fff;border-radius:16px;box-shadow:0 24px 64px rgba(15,23,42,.28)}',
     '.trk-head{display:flex;align-items:center;gap:12px;padding:14px 14px 14px 20px;border-bottom:1px solid #e3e8ef}',
     '.trk-head-text{flex:1;min-width:0}',
     '.trk-overlay .trk-title{margin:0;font-size:1.05rem;font-weight:700;line-height:1.3;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -55,7 +58,25 @@
     '.trk-overlay button.trk-icon{width:40px!important;min-width:40px;height:40px;border-radius:999px;background:#f1f4f8;color:#0f172a;box-shadow:none}',
     '.trk-overlay button.trk-icon:hover{background:#e6ebf1}',
     '.trk-overlay button:focus-visible{outline:2px solid #1a73e8;outline-offset:2px}',
-    '.trk-body{position:relative;flex:1;min-height:0;background:#e9eef3}',
+    '.trk-body{position:relative;flex:none;height:220px;background:#e9eef3}',
+    '.trk-overlay.is-expanded .trk-sheet{width:min(1100px,100%);height:100%}',
+    '.trk-overlay.is-expanded .trk-body{flex:1;height:auto;min-height:0}',
+    '.trk-overlay:not(.is-expanded) .trk-zoom{display:none}',
+    '.trk-overlay:not(.is-expanded) button.trk-tool{width:36px!important;min-width:36px;height:36px;border-radius:10px}',
+    '.trk-overlay:not(.is-expanded) .trk-tools{top:8px;right:8px}',
+    '.trk-overlay:not(.is-expanded) .trk-status{top:8px;left:8px;max-width:calc(100% - 60px);padding:6px 10px;gap:8px;border-radius:10px}',
+    '.trk-overlay:not(.is-expanded) .trk-status strong{font-size:.82rem}',
+    '.trk-overlay:not(.is-expanded) .trk-status small{display:none}',
+    '.trk-overlay:not(.is-expanded) .trk-panel{padding:12px 16px 14px}',
+    '.trk-overlay:not(.is-expanded) .trk-eta{min-height:0}',
+    '.trk-overlay:not(.is-expanded) .trk-eta-value{font-size:1.15rem}',
+    '.trk-overlay:not(.is-expanded) .trk-eta-label{font-size:.85rem}',
+    '.trk-overlay:not(.is-expanded) .trk-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin-top:10px;padding-top:10px}',
+    '.trk-overlay:not(.is-expanded) .trk-fact dt{font-size:.72rem}',
+    '.trk-overlay:not(.is-expanded) .trk-fact dd{font-size:.86rem}',
+    '.trk-overlay:not(.is-expanded) .trk-head{padding:10px 10px 10px 16px}',
+    '.trk-overlay:not(.is-expanded) .trk-title{font-size:.98rem}',
+    '.trk-overlay button.trk-icon + button.trk-icon{margin-left:-4px!important}',
     '.trk-map{position:absolute!important;top:0;right:0;bottom:0;left:0;z-index:0;background:#e9eef3}',
     '.trk-map-msg{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;margin:0;padding:24px;font-size:.92rem;color:#5b6b7f;text-align:center}',
     '.trk-status{position:absolute;z-index:600;top:12px;left:12px;display:flex;align-items:center;gap:10px;max-width:calc(100% - 84px);padding:10px 14px;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.08),0 6px 20px rgba(15,23,42,.14);pointer-events:none}',
@@ -102,13 +123,14 @@
     '.trk-pin::after{content:"";position:absolute;left:10px;top:8px;width:8px;height:8px;border-radius:50%;background:#fff}',
     '.trk-badge{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#fff;color:#344054;border:2px solid #344054;box-shadow:0 2px 6px rgba(15,23,42,.25)}',
     '@media (max-width:640px){',
-    '.trk-overlay{padding:0;align-items:stretch;justify-content:stretch}',
-    '.trk-sheet{width:100%;height:100%;border-radius:0;box-shadow:none}',
-    '.trk-head{padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px 16px}',
-    '.trk-panel{margin-top:-16px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px) + var(--trk-gap));border-top:0;border-radius:18px 18px 0 0;box-shadow:0 -6px 24px rgba(15,23,42,.1)}',
+    '.trk-overlay{padding:12px}',
+    '.trk-overlay.is-expanded{padding:0;align-items:stretch;justify-content:stretch}',
+    '.trk-overlay.is-expanded .trk-sheet{width:100%;height:100%;border-radius:0;box-shadow:none}',
+    '.trk-overlay.is-expanded .trk-head{padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px 16px}',
+    '.trk-overlay.is-expanded .trk-panel{margin-top:-16px;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px) + var(--trk-gap));border-top:0;border-radius:18px 18px 0 0;box-shadow:0 -6px 24px rgba(15,23,42,.1)}',
     '.trk-body .leaflet-bottom{bottom:16px}',
-    '.trk-overlay .trk-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}',
-    '.trk-eta-value{font-size:1.45rem}',
+    '.trk-overlay.is-expanded .trk-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}',
+    '.trk-overlay.is-expanded .trk-eta-value{font-size:1.45rem}',
     '}',
     '@media (hover:none),(max-width:640px){.trk-zoom{display:none}}',
     '@media (prefers-reduced-motion:reduce){.trk-overlay,.trk-dot,.trk-dot::after{animation:none!important}}'
@@ -451,7 +473,17 @@
     if (s.abort) { try { s.abort.abort(); } catch (_) { /* ignore */ } }
     if (s.glideFrame) cancelAnimationFrame(s.glideFrame);
     if (s.resizeObserver) s.resizeObserver.disconnect();
-    if (s.map) { try { s.map.remove(); } catch (_) { /* ignore */ } }
+    if (s.map) {
+      // Kept for the next student: only this student's marks come off.
+      try {
+        s.map.off('dragstart', s.onDrag);
+        s.map.off('zoomstart', s.onZoom);
+        if (s.busMarker) s.busMarker.remove();
+        s.routeLayer.clearLayers();
+        s.approachLayer.clearLayers();
+        s.placesLayer.clearLayers();
+      } catch (_) { /* ignore */ }
+    }
     if (s.root && s.root.parentNode) s.root.parentNode.removeChild(s.root);
     document.documentElement.classList.remove('trk-lock');
     document.removeEventListener('keydown', onKey, true);
@@ -498,6 +530,7 @@
       '<div class="trk-sheet">' +
         '<header class="trk-head">' +
           '<div class="trk-head-text"><h2 class="trk-title" id="trk-title"></h2><p class="trk-sub"></p></div>' +
+          '<button type="button" class="trk-icon" data-trk="expand" aria-label="Make the map bigger" title="Make the map bigger" aria-pressed="false" data-ap-skip>' + ICON.expand + '</button>' +
           '<button type="button" class="trk-icon" data-trk="close" aria-label="Close" data-ap-skip>' + ICON.close + '</button>' +
         '</header>' +
         '<div class="trk-body">' +
@@ -539,6 +572,14 @@
       if (!btn) return;
       var act = btn.getAttribute('data-trk');
       if (act === 'close') close();
+      else if (act === 'expand') {
+        var big = root.classList.toggle('is-expanded');
+        btn.innerHTML = big ? ICON.shrink : ICON.expand;
+        btn.setAttribute('aria-pressed', String(big));
+        btn.setAttribute('aria-label', big ? 'Make the map smaller' : 'Make the map bigger');
+        btn.setAttribute('title', big ? 'Make the map smaller' : 'Make the map bigger');
+        if (s.map) { s.map.invalidateSize({ pan: false }); frame(s, 'now'); }
+      }
       else if (act === 'zoom-in' && s.map) s.map.zoomIn();
       else if (act === 'zoom-out' && s.map) s.map.zoomOut();
       else if (act === 'follow') { setFollowing(s, true); frame(s, 'now'); }
@@ -623,21 +664,38 @@
     }
   }
 
+  var kept = null;
+
   function initMap(s, L) {
     var d = s.data;
     var start = d.live || d.stop || d.home || d.school || d.stops[0] || null;
-    var map = L.map(s.mapEl, { zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 120 });
+    // One map stays alive on the page: building it again is what makes opening slow.
+    var map;
+    if (kept && kept.L === L) {
+      map = kept.map;
+      s.mapEl.parentNode.replaceChild(kept.el, s.mapEl);
+      s.mapEl = kept.el;
+      s.routeLayer = kept.routeLayer;
+      s.approachLayer = kept.approachLayer;
+      s.placesLayer = kept.placesLayer;
+    } else {
+      map = L.map(s.mapEl, { zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 120 });
+      if (map.attributionControl) map.attributionControl.setPrefix(false);
+      addTiles(map, L);
+      map.createPane('trk-route').style.zIndex = 410;
+      map.createPane('trk-approach').style.zIndex = 420;
+      s.routeLayer = L.layerGroup().addTo(map);
+      s.approachLayer = L.layerGroup().addTo(map);
+      s.placesLayer = L.layerGroup().addTo(map);
+      kept = { L: L, map: map, el: s.mapEl, routeLayer: s.routeLayer, approachLayer: s.approachLayer, placesLayer: s.placesLayer };
+    }
     s.map = map;
-    if (map.attributionControl) map.attributionControl.setPrefix(false);
-    addTiles(map, L);
-    map.createPane('trk-route').style.zIndex = 410;
-    map.createPane('trk-approach').style.zIndex = 420;
-    s.routeLayer = L.layerGroup().addTo(map);
-    s.approachLayer = L.layerGroup().addTo(map);
-    s.placesLayer = L.layerGroup().addTo(map);
-    map.setView(start ? [start.lat, start.lng] : [20, 0], start ? 14 : 2);
-    map.on('dragstart', function () { setFollowing(s, false); });
-    map.on('zoomstart', function () { if (Date.now() - s.cameraAt > 700) setFollowing(s, false); });
+    map.invalidateSize({ pan: false });
+    map.setView(start ? [start.lat, start.lng] : [20, 0], start ? 14 : 2, { animate: false });
+    s.onDrag = function () { setFollowing(s, false); };
+    s.onZoom = function () { if (Date.now() - s.cameraAt > 700) setFollowing(s, false); };
+    map.on('dragstart', s.onDrag);
+    map.on('zoomstart', s.onZoom);
     if (window.ResizeObserver) {
       s.resizeObserver = new ResizeObserver(function () { if (session === s && s.map) s.map.invalidateSize({ pan: false }); });
       s.resizeObserver.observe(s.mapEl);
@@ -975,7 +1033,7 @@
         if (s.speedEma !== null && s.speedEma < 0.8) return ['live', 'Stopped', updated];
         return ['live', 'On the way', updated];
       default:
-        return ['idle', 'Not on the road right now', trip.lastSeen && fmtLastSeen(trip.lastSeen)
+        return ['idle', 'Not started', trip.lastSeen && fmtLastSeen(trip.lastSeen)
           ? 'Last seen ' + fmtLastSeen(trip.lastSeen)
           : 'Tracking starts when the driver begins the trip.'];
     }
@@ -997,7 +1055,7 @@
     if (trip.state === 'loading') return ['', 'Loading the live position\u2026'];
     var planned = fmtScheduleTime(d.pickupTime);
     if (planned) return [planned, 'Scheduled pick-up' + (name ? ' at ' + name : '')];
-    return ['No trip', 'The bus appears here when the driver starts the trip.'];
+    return ['No trip', 'The bus shows here when the trip starts.'];
   }
 
   function updateText(s, trip) {
@@ -1112,6 +1170,20 @@
       snapshot: snapshot
     });
   });
+
+  // The map tools load when the pointer reaches a bus button, so the click opens at once.
+  var warmed = false;
+  function warm(e) {
+    if (warmed || !e.target || !e.target.closest) return;
+    if (!e.target.closest('[data-bus-tracker], .student-transport-btn, .child-transport-btn')) return;
+    warmed = true;
+    loadLeaflet().then(function () {
+      if (window.ManagiraMaps && window.ManagiraMaps.warm) window.ManagiraMaps.warm();
+    }).catch(function () { warmed = false; });
+  }
+  document.addEventListener('mouseover', warm, { passive: true });
+  document.addEventListener('touchstart', warm, { passive: true });
+  document.addEventListener('focusin', warm);
 
   window.BusTracker = {
     version: 2,

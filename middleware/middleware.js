@@ -1,6 +1,12 @@
 const multer = require('multer');
 const db = require('../config/db');
 const { hydrateOrganizationSession } = require('../utils/sessionContext');
+const { createShortCache } = require('../utils/shortCache');
+
+// "Is this school and account still active?" is asked on every request. A few seconds
+// is soon enough for a hold or removal to take effect, and a change this school saves
+// applies at once (utils/shortCache.js).
+const accountChecks = createShortCache({ ttlMs: 15000, max: 20000 });
 
 const storage = multer.memoryStorage(); // Store files in memory to send to S3
 
@@ -69,15 +75,15 @@ async function isAuthenticated(req, res, next) {
             return res.redirect('/account/login');
         }
 
-        // Both checks run at once: each is a round trip to the database.
-        const [orgResult, userResult] = await Promise.all([
+        const schoolKey = req.session.organizationId || 'none';
+        const [orgResult, userResult] = await accountChecks.get(schoolKey, req.session.userId || 'none', () => Promise.all([
             req.session.organizationId
                 ? db.query('SELECT organization_id, deleted FROM organizations WHERE organization_id = $1', [req.session.organizationId])
                 : null,
             req.session.userId
                 ? db.query('SELECT user_id, on_hold FROM users WHERE user_id = $1', [req.session.userId])
                 : null,
-        ]);
+        ]));
 
         if (orgResult) {
             if (orgResult.rows.length === 0 || orgResult.rows[0].deleted) {

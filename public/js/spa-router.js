@@ -25,7 +25,7 @@
     TRANSITION_MS: 120,        // fade out/in duration (skipped on cache hits)
     PRELOAD_VISIBLE: false,    // disabled: caused preload stampede on dashboards
     SCROLL_BEHAVIOR: 'instant',
-    SPINNER_DELAY_MS: 350,     // show center spinner only if nav takes longer than this
+    SPINNER_DELAY_MS: 1200,    // show center spinner only if nav takes longer than this
     TOPBAR_DELAY_MS: 120,      // show top progress bar only if nav takes longer than this
     MAX_CONCURRENT_PRELOADS: 3 // cap to avoid saturating the browser / server
   };

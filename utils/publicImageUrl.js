@@ -147,7 +147,12 @@ function publicImageUrl(value, options = {}) {
   const object = bucket ? resolveS3Object(imageKeyPath, bucket) : null;
 
   if (object && isRoutableImageKey(object.key) && options.secret) {
-    const expires = Math.floor(Date.now() / 1000) + (options.expiresInSeconds || 3600);
+    // Rounded to a shared time window, so an image keeps one address across page
+    // loads: the browser reuses its copy instead of downloading and repainting it,
+    // and a page's HTML doesn't differ from one request to the next.
+    const lifetime = options.expiresInSeconds || 3600;
+    const span = Math.max(1, Math.floor(lifetime / 2));
+    const expires = Math.floor((Math.floor(Date.now() / 1000) + lifetime) / span) * span;
     const publicScope = options.public === true || isPublicImageKey(object.key);
     const viewer = publicScope ? "" : options.viewer || "";
     const signature = imageSignature(object.key, expires, options.secret, viewer, publicScope ? "public" : "");

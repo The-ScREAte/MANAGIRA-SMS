@@ -25,8 +25,14 @@ const CACHE_NAME = 'managira-static-v3';
 //     switches or signs out): the "generation" changes and every copy is dropped;
 //   • when older than PANEL_MAX_AGE_MS;
 //   • when the fresh request is redirected (signed out, no access).
-const PANEL_CACHE = 'managira-panels-v6';
+const PANEL_CACHE = 'managira-panels-v7';
 const PANEL_MAX_AGE_MS = 30 * 60 * 1000;
+// A copy this new is shown without asking the server again. A panel that has just
+// been refreshed therefore can't trigger another refresh of itself, and opening a
+// menu page repeatedly doesn't send a burst of page requests to the server.
+const PANEL_FRESH_MS = 60 * 1000;
+// What changes between two identical page loads is not a change to the page.
+const comparable = (text) => String(text || '').replace(/(?:[?&]|&amp;)(?:expires|signature)=[^&"'\s<]*/g, '');
 const CHANGING_GET = /\/(delete|remove|toggle|obsolete|enable|disable|unarchive|archive|logout|switch|impersonat)/i;
 // The generation is kept next to the copies, since the browser stops an idle
 // service worker after about 30 seconds and its memory starts over.
@@ -110,7 +116,7 @@ async function freshPanel(request, generation, cachedText, key = request.url, ca
     const cache = await caches.open(PANEL_CACHE);
     await cache.put(key, new Response(text, { status: 200, headers }));
   }
-  return { response, changed: cachedText !== undefined && cachedText !== text };
+  return { response, changed: cachedText !== undefined && comparable(cachedText) !== comparable(text) };
 }
 
 async function servePanel(event, key = event.request.url, fetchRequest = event.request) {
@@ -128,6 +134,7 @@ async function servePanel(event, key = event.request.url, fetchRequest = event.r
     // shows "can't be reached"), so send the person on to where it led.
     return response.redirected ? Response.redirect(response.url, 302) : response;
   }
+  if (Date.now() - Number(cached.headers.get('x-panel-time') || 0) < PANEL_FRESH_MS) return cached;
   const cachedText = await cached.clone().text();
   // Show the kept copy now; check for a newer one in the background.
   event.waitUntil(

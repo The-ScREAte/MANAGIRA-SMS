@@ -33,9 +33,29 @@ function remember(key, value, ttl) {
   while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
 }
 
+// The turn-by-turn list for the driver's screen, without what the screen doesn't use.
+function compactSteps(legs) {
+  const steps = [];
+  (Array.isArray(legs) ? legs : []).forEach((leg, legIndex) => {
+    (leg.steps || []).forEach((step) => {
+      const maneuver = step.maneuver || {};
+      if (!Array.isArray(maneuver.location)) return;
+      steps.push({
+        type: maneuver.type || "turn",
+        modifier: maneuver.modifier || null,
+        exit: maneuver.exit || null,
+        name: step.name || step.ref || "",
+        leg: legIndex,
+        at: [Number(maneuver.location[1].toFixed(6)), Number(maneuver.location[0].toFixed(6))],
+      });
+    });
+  });
+  return steps;
+}
+
 async function fetchFrom(base, points) {
   const coords = points.map(([lat, lng]) => `${lng},${lat}`).join(";");
-  const url = `${base.replace(/\/$/, "")}/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false&continue_straight=false`;
+  const url = `${base.replace(/\/$/, "")}/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true&continue_straight=false`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 7000);
   try {
@@ -49,6 +69,7 @@ async function fetchFrom(base, points) {
       coordinates: line.map(([lng, lat]) => [Number(lat.toFixed(6)), Number(lng.toFixed(6))]),
       distanceM: Math.round(route.distance || 0),
       durationS: Math.round(route.duration || 0),
+      steps: compactSteps(route.legs),
     };
   } finally {
     clearTimeout(timer);
@@ -84,4 +105,4 @@ async function roadRoute(rawPoints) {
   }
 }
 
-module.exports = { roadRoute, parsePoints, MAX_POINTS };
+module.exports = { roadRoute, parsePoints, compactSteps, MAX_POINTS };

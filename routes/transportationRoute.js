@@ -3,10 +3,15 @@ const router = express.Router();
 const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const { roadRoute } = require("../utils/roadRouting");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
-const { transportationController } = require("../controllers/transportationController");
+const { transportationController, forgetStudentBuses, guardianStudentIds, staffIdentity } = require("../controllers/transportationController");
+const { BoundedMap } = require("../utils/boundedMap");
 const { upload } = require("../middleware/s3Upload");
 
 module.exports = (db) => {
+  // The map asks every few seconds, so a parent's link to their child is remembered briefly.
+  const ownChildChecks = new BoundedMap(5000);
+  const OWN_CHILD_TTL_MS = 60000;
+
   // Live bus location for a single student is staff-only by default, but a
   // guardian may fetch it for their own linked child, and a student may
   // fetch it for themself — each strictly scoped, everyone else 401/403s.
@@ -27,6 +32,8 @@ module.exports = (db) => {
         return res.status(403).json({ success: false, message: "Forbidden." });
       }
 
+      const ownKey = `${organizationId}:${session.guardianId}:${studentId}`;
+      if ((ownChildChecks.get(ownKey) || 0) > Date.now()) return next();
       try {
         const ownership = await db.query(
           `SELECT 1 FROM students s
@@ -38,7 +45,10 @@ module.exports = (db) => {
             LIMIT 1`,
           [studentId, organizationId, session.guardianId]
         );
-        if (ownership.rows.length) return next();
+        if (ownership.rows.length) {
+          ownChildChecks.set(ownKey, Date.now() + OWN_CHILD_TTL_MS);
+          return next();
+        }
         return res.status(403).json({ success: false, message: "Forbidden." });
       } catch (error) {
         return res.status(500).json({ success: false, message: "Authorization check failed." });
@@ -48,9 +58,54 @@ module.exports = (db) => {
     return isAuthenticated(req, res, next);
   }
 
+  // Who may ask for a bus: a parent for their own child, or staff of the school.
+  async function authorizeBusRequester(req, res, next) {
+    const session = req.session || {};
+    const role = session.userRole;
+    const studentId = Number.parseInt((req.body && req.body.studentId) || req.query.studentId, 10);
+    if (role === "Student") return res.status(403).json({ success: false, message: "Forbidden." });
+    if (role === "Guardian") {
+      if (!session.organizationId || !session.guardianId) return res.status(401).json({ success: false, message: "Please sign in." });
+      try {
+        const ownIds = await guardianStudentIds(db, session);
+        if (Number.isInteger(studentId) && !ownIds.includes(studentId)) {
+          return res.status(403).json({ success: false, message: "Forbidden." });
+        }
+        req.busRequester = {
+          type: "guardian",
+          guardianId: session.guardianId,
+          name: [session.firstName, session.lastName].filter(Boolean).join(" ").trim(),
+          studentId,
+        };
+        return next();
+      } catch (error) {
+        return res.status(500).json({ success: false, message: "Authorization check failed." });
+      }
+    }
+    return isAuthenticated(req, res, () => {
+      req.busRequester = { ...staffIdentity(session), studentId };
+      next();
+    });
+  }
+  function guardianOnly(req, res, next) {
+    if (req.session && req.session.userRole === "Guardian" && req.session.guardianId) return next();
+    return res.status(403).json({ success: false, message: "Forbidden." });
+  }
+
+  router.get("/requests/start", authorizeBusRequester, (req, res) => transportationController.requestStartGet(req, res, db));
+  router.post("/requests/options", authorizeBusRequester, (req, res) => transportationController.requestOptionsPost(req, res, db));
+  router.post("/requests", authorizeBusRequester, (req, res) => transportationController.requestCreatePost(req, res, db));
+  router.get("/requests/mine", guardianOnly, (req, res) => transportationController.requestsMineGet(req, res, db));
+  router.post("/requests/:requestId/cancel", guardianOnly, (req, res) => transportationController.requestCancelPost(req, res, db));
+
   // Drivers get their own dedicated /driver/dashboard portal — the admin
   // console below (bus/route/driver-profile CRUD) is staff-only.
   router.use("/manage", blockGuardians);
+  // Anything saved here can change what a student's bus map shows.
+  router.use("/manage", (req, res, next) => {
+    if (req.method === "POST") res.on("finish", () => forgetStudentBuses(req.session && req.session.organizationId));
+    next();
+  });
 
   router.get(
     "/manage",
@@ -209,6 +264,41 @@ module.exports = (db) => {
   );
 
   router.get(
+    "/manage/requests",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    (req, res) => transportationController.manageRequestsGet(req, res, db)
+  );
+
+  router.post(
+    "/manage/requests/:requestId/approve",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    (req, res) => transportationController.manageRequestApprovePost(req, res, db)
+  );
+
+  router.post(
+    "/manage/requests/:requestId/decline",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    (req, res) => transportationController.manageRequestDeclinePost(req, res, db)
+  );
+
+  router.get(
+    "/manage/students/:studentId",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    (req, res) => transportationController.studentPanelGet(req, res, db)
+  );
+
+  router.post(
+    "/manage/students/:studentId/save",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    (req, res) => transportationController.studentPanelSavePost(req, res, db)
+  );
+
+  router.get(
     "/driver/mobile",
     isAuthenticated,
     (req, res) => res.redirect("/driver/dashboard")
@@ -236,7 +326,8 @@ module.exports = (db) => {
       const route = await roadRoute(req.query.points);
       res.set("Cache-Control", "private, max-age=3600");
       if (!route) return res.json({ success: false, message: "Road route unavailable right now." });
-      return res.json({ success: true, ...route });
+      const { steps, ...line } = route;
+      return res.json({ success: true, ...line, ...(req.query.steps === "1" ? { steps } : {}) });
     } catch (error) {
       return res.json({ success: false, message: "Road route unavailable right now." });
     }
@@ -244,6 +335,10 @@ module.exports = (db) => {
 
   router.get("/live/student/:studentId", authorizeStudentLiveAccess, (req, res) =>
     transportationController.getLiveByStudent(req, res, db)
+  );
+
+  router.get("/live/routes", isAuthenticated, blockGuardians, (req, res) =>
+    transportationController.getLiveRoutes(req, res, db)
   );
 
   router.get("/live/route/:routeId", isAuthenticated, blockGuardians, (req, res) =>

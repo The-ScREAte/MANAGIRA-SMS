@@ -12,6 +12,8 @@
 
   var POST_URL = '/transportation/driver/live-location';
   var SEND_EVERY_MS = 5000;
+  var PARKED_SEND_EVERY_MS = 15000;
+  var PARKED_RADIUS_M = 12;
   var QUIET_MS = 10000;
   var MAX_SEND_AGE_MS = 45000;
   var GOOD_ACCURACY_M = 35;
@@ -101,7 +103,7 @@
     st.last = fix;
     setGps(fix.accuracy > POOR_ACCURACY_M ? 'weak' : 'good');
     call('onFix', fix);
-    if (st.tripId && now - st.sentAt >= SEND_EVERY_MS - 250) send();
+    if (st.tripId && dueToSend(fix, now)) send();
   }
 
   function onError(err) {
@@ -142,6 +144,12 @@
     }).catch(function () { /* unsupported */ });
   }
 
+  // Every 5 seconds on the move, every 15 while parked: families see no difference.
+  function dueToSend(fix, now) {
+    var moved = !st.sentFix || distM(st.sentFix, fix) > PARKED_RADIUS_M;
+    return now - st.sentAt >= (moved ? SEND_EVERY_MS : PARKED_SEND_EVERY_MS) - 250;
+  }
+
   function send() {
     if (!st.running || !st.tripId || st.sending) return;
     var fix = st.last;
@@ -149,6 +157,7 @@
     if (!fix || now - fix.receivedAt > MAX_SEND_AGE_MS) return;
     st.sending = true;
     st.sentAt = now;
+    st.sentFix = fix;
     var body = new URLSearchParams();
     body.set('tripId', String(st.tripId));
     body.set('latitude', fix.lat.toFixed(7));
@@ -183,7 +192,7 @@
     var now = Date.now();
     if (!fix || now - fix.receivedAt > QUIET_MS) refreshFix();
     if (fix && now - fix.receivedAt > MAX_SEND_AGE_MS && st.gps === 'good') setGps('weak');
-    send();
+    if (fix && dueToSend(fix, now)) send();
   }
 
   function keepAwake() {

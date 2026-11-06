@@ -1409,6 +1409,13 @@
       if (!sectionId || !url || warmedSections.has(sectionId)) return;
       const conn = navigator.connection;
       if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
+      // Warm the panels once per sitting: they stay saved, so opening this menu
+      // again shouldn't ask the server for every page in it.
+      try {
+        const warmKey = 'hubWarmed:' + location.pathname;
+        if (Date.now() - Number(sessionStorage.getItem(warmKey) || 0) < 10 * 60 * 1000) return;
+        sessionStorage.setItem(warmKey, String(Date.now()));
+      } catch (_) { /* private browsing: warm as usual */ }
       warmedSections.add(sectionId);
       loadEmbed(sectionId, url, link.getAttribute('data-embed-label'), false, true);
     }

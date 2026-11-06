@@ -8,6 +8,9 @@
   crossorigin=""
 />
 
+<link rel="stylesheet" href="<%= assetUrl('/css/manage.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/peoplePanel.css') %>" />
+
 <style>
   :root {
     --tm-bg: #f3f7fb;
@@ -949,6 +952,73 @@
     .tm-ov-actions .tm-btn { flex: 1 1 calc(50% - 8px); }
     .tm-list li.tm-item { align-items: flex-start; }
   }
+
+  /* Clean, quiet layout: a plain side list, flat cards, and one accent color. */
+  .tm-app { grid-template-columns: 196px minmax(0, 1fr); gap: 28px; padding: 20px 24px 48px; }
+  body .tm-app .tm-sidebar { position: sticky; top: 16px; padding: 0; border: 0 !important; border-radius: 0; background: transparent !important; box-shadow: none !important; }
+  .tm-brand { display: none; }
+  body .tm-app .tm-main { border: 0 !important; border-radius: 0; background: transparent !important; box-shadow: none !important; }
+  .tm-main > .tm-pane { padding: 0; }
+  #tm-panel { z-index: 13100; }
+  #tm-panel-backdrop { z-index: 13090; }
+  .tm-nav { gap: 2px; }
+  .tm-nav-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; box-shadow: none; font-size: 14px; font-weight: 600; color: #475569; text-align: left; }
+  .tm-nav-btn.active { background: color-mix(in srgb, var(--tm-accent) 10%, transparent); color: var(--tm-accent); box-shadow: none; }
+  .tm-nav-badge { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--tm-accent); color: #fff; font-size: 11px; font-weight: 700; text-align: center; }
+  .tm-nav-badge[hidden] { display: none; }
+  .tm-card { border-radius: 12px; box-shadow: none; }
+  .tm-ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+  .tm-ov-tile { border-radius: 12px; box-shadow: none; }
+
+  /* Students and Requests: laid out like the employee list. */
+  .tm-pane.ws-root { padding: 0 !important; }
+  .tm-pane .ws-head { margin-bottom: 16px; }
+  .tm-pane table.ws-cards { width: 100%; border-collapse: collapse; background: #fff; }
+  .tm-pane table.ws-cards th { padding: 10px 14px; border-bottom: 1px solid var(--ws-line, #e2e8f0); background: var(--ws-soft, #f8fafc); color: var(--ws-muted, #64748b); font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+  .tm-pane table.ws-cards td { padding: 12px 14px; border-bottom: 1px solid var(--ws-line-soft, #f1f5f9); font-size: .875rem; text-align: left; vertical-align: middle; }
+  .tm-pane table.ws-cards tbody tr:last-child td { border-bottom: 0; }
+  .tm-pane .ws-cards-wrap { overflow: hidden; border: 1px solid var(--ws-line, #e2e8f0); border-radius: 12px; background: #fff; }
+  .tm-pill--none { background: #f1f5f9; color: #64748b; }
+  .tm-col-access { width: 170px; }
+  .tm-check-cell { display: none; width: 36px; }
+  .is-bulk .tm-check-cell { display: table-cell; }
+  .is-bulk tr.ux-row { cursor: default; }
+  .tm-check-cell input { width: 16px; height: 16px; margin: 0; }
+  .tm-class-tools { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--ws-line, #e2e8f0); }
+  .tm-class-tools[hidden], .tm-class-tools [hidden] { display: none !important; }
+  .tm-class-tools p { margin: 0; color: var(--ws-muted, #64748b); font-size: 12px; }
+  .tm-segment { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: #f1f5f9; }
+  .tm-segment button { display: inline-flex; align-items: center; gap: 6px; width: auto; margin: 0; padding: 6px 16px; border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: #64748b; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .tm-segment button.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
+
+  /* The panel's form */
+  .tm-form__class { margin: 0 0 12px; }
+  .tm-sec--first { padding-top: 0; border-top: 0; }
+  .tm-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tm-fields[hidden] { display: none; }
+  .ux-sec > .tm-switch + .tm-fields { margin-top: 14px; }
+  .tm-field { display: flex; flex-direction: column; gap: 5px; margin: 0; min-width: 0; font-size: 12px; font-weight: 600; color: var(--ws-muted, #64748b); }
+  .tm-field--wide { grid-column: 1 / -1; }
+  .tm-field input, .tm-field select { box-sizing: border-box; width: 100%; height: 38px; margin: 0; padding: 0 10px; border: 1px solid var(--ws-line, #cbd5e1); border-radius: 8px; background: #fff; color: #0f172a; font-size: 14px; font-weight: 400; }
+  .tm-check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: #0f172a; cursor: pointer; }
+  .tm-check input { width: 16px; height: 16px; margin: 0; }
+  .tm-switch { display: flex; align-items: center; justify-content: space-between; margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; cursor: pointer; }
+  .tm-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .tm-switch i { position: relative; width: 40px; height: 24px; border-radius: 999px; background: #cbd5e1; transition: background .15s ease; }
+  .tm-switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .15s ease; }
+  .tm-switch input:checked + i { background: var(--tm-accent); }
+  .tm-switch input:checked + i::after { transform: translateX(16px); }
+  .tm-switch input:focus-visible + i { outline: 2px solid var(--tm-accent); outline-offset: 2px; }
+  .tm-form__note { margin: 0 0 10px; color: var(--ws-muted, #64748b); font-size: 13px; }
+  .tm-form__note.is-error { color: #b91c1c; }
+  .tm-form__actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 14px; border-top: 1px solid var(--ws-line, #e2e8f0); }
+
+  @media (max-width: 1180px) {
+    .tm-app { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px 12px 40px; }
+    body .tm-app .tm-sidebar { position: static; }
+    .tm-brand { display: flex; justify-content: flex-end; margin: 0 0 8px; padding: 0; }
+    .tm-logo { display: none; }
+  }
 </style>
 
 <div class="tm-app">
@@ -965,6 +1035,7 @@
     <nav class="tm-nav" aria-label="Transportation sections" id="tm-nav">
       <button class="tm-nav-btn active" type="button" data-pane="overview">Overview</button>
       <% const transportAccess = workspaceAccess().transport; %>
+      <% if (transportAccess.students) { %><button class="tm-nav-btn" type="button" data-pane="requests">Requests <span class="tm-nav-badge" id="tm-requests-badge" hidden></span></button><% } %>
       <% if (transportAccess.buses) { %><button class="tm-nav-btn" type="button" data-pane="buses">Buses</button><% } %>
       <% if (transportAccess.drivers) { %><button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button><% } %>
       <% if (transportAccess.schedules || transportAccess.routes) { %><button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button><% } %>
@@ -993,7 +1064,8 @@
         <button type="button" class="tm-ov-tile" data-tm-pane="drivers"><span><%= (drivers || []).length %></span>Drivers</button>
         <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (routes || []).length %></span>Routes</button>
         <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (stops || []).length %></span>Stops</button>
-        <button type="button" class="tm-ov-tile" data-tm-pane="students"><span><%= (assignments || []).length %><small>/<%= (students || []).length %></small></span>Students riding</button>
+        <button type="button" class="tm-ov-tile" data-tm-pane="students"><span><b id="tm-riders-count" style="font-weight:inherit"><%= (assignments || []).length %></b><small>/<%= (students || []).length %></small></span>Students riding</button>
+        <% if (transportAccess.students) { %><button type="button" class="tm-ov-tile" data-tm-pane="requests"><span id="tm-requests-tile">0</span>New requests</button><% } %>
         <button type="button" class="tm-ov-tile" data-tm-pane="schedule"><span><%= todaySchedules.length %></span>Trips today</button>
       </div>
 
@@ -1693,106 +1765,99 @@
       </div>
     </section>
 
-    <section class="tm-pane" data-pane-id="students">
-      <div class="tm-head">
-        <h2>Students</h2>
-      </div>
+    <section class="tm-pane ws-root" data-pane-id="requests">
+      <header class="ws-head">
+        <div class="ws-head__text">
+          <h1 class="ws-head__title">Requests</h1>
+          <p class="ws-head__sub">Bus requests from parents and teachers. Select one to answer it.</p>
+        </div>
+        <div class="tm-segment" role="tablist" aria-label="Requests">
+          <button type="button" class="is-on" role="tab" aria-selected="true" data-request-bucket="new">New <span class="tm-nav-badge" id="tm-requests-tab-count" hidden></span></button>
+          <button type="button" role="tab" aria-selected="false" data-request-bucket="old">Old</button>
+        </div>
+      </header>
+      <div class="ws-cards-wrap" id="tm-requests-list" aria-live="polite"></div>
+    </section>
 
-      <div class="tm-grid">
-        <article class="tm-card span-12">
-          <h3>Student Transportation Status</h3>
-          <p class="tm-map-note">Home pickup is supported. You can assign students with home address/coordinates and the system can map to nearest stop automatically.</p>
-          <ul class="tm-list">
-            <% const assignmentByStudentId = Object.fromEntries((assignments || []).map(function(a) { return [Number(a.student_id), a]; })); %>
-            <% const groupedByClass = {}; %>
-            <% (students || []).forEach(function(student) { %>
-              <% const className = (student.class_name || 'Unassigned').trim() || 'Unassigned'; %>
-              <% const classKey = student.class_id ? String(student.class_id) : '__unassigned__'; %>
-              <% if (!groupedByClass[classKey]) groupedByClass[classKey] = { className: className, classId: student.class_id || null, students: [] }; %>
-              <% groupedByClass[classKey].students.push(student); %>
-            <% }) %>
-            <% Object.keys(groupedByClass).forEach(function(classKey) { %>
-              <% const classGroup = groupedByClass[classKey]; %>
-              <% const sortedStudents = classGroup.students.slice().sort(function(a, b) {
-                const aAssigned = assignmentByStudentId[Number(a.student_id)] ? 1 : 0;
-                const bAssigned = assignmentByStudentId[Number(b.student_id)] ? 1 : 0;
-                if (aAssigned !== bAssigned) return bAssigned - aAssigned;
-                const aLast = String(a.last_name || '').toLowerCase();
-                const bLast = String(b.last_name || '').toLowerCase();
-                if (aLast !== bLast) return aLast.localeCompare(bLast);
-                return String(a.first_name || '').toLowerCase().localeCompare(String(b.first_name || '').toLowerCase());
-              }); %>
-              <% const accessCount = sortedStudents.filter(function(s) { return !!assignmentByStudentId[Number(s.student_id)]; }).length; %>
-              <li class="tm-class-group" data-class-group data-class-id="<%= classGroup.classId ? classGroup.classId : '__unassigned__' %>">
-                <details>
-                  <summary>Class: <%= classGroup.className %> (<%= sortedStudents.length %>) | With Bus Access: <%= accessCount %></summary>
-                  <div class="tm-class-toolbar">
-                    <button class="tm-btn" type="button" data-action="edit-class-access">Edit</button>
-                    <span class="tm-class-edit-controls">
-                      <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#334155;">
-                        <input type="checkbox" data-action="select-all-class" /> Select all
-                      </label>
-                      <button class="tm-btn tm-btn--primary" type="button" data-action="save-class-access">Save</button>
-                      <button class="tm-btn" type="button" data-action="cancel-class-access">Cancel</button>
-                    </span>
-                    <% if (canBroadcastToGuardians && classGroup.classId) { %>
-                    <button
-                      class="tm-btn notify-guardians-btn"
-                      type="button"
-                      style="background:#f0fdf4;color:#166534;border-color:#bbf7d0;"
-                      data-context="transportation"
-                      data-context-id="<%= classGroup.classId %>"
-                    >Notify Guardians</button>
-                    <% } %>
-                    <span class="tm-map-note" data-class-feedback></span>
-                  </div>
-                  <div class="tm-class-group-list">
-                    <% sortedStudents.forEach(function(student) { %>
-                      <% const assigned = assignmentByStudentId[Number(student.student_id)] || null; %>
-                      <div class="tm-student-row" data-student-row>
-                        <div class="tm-student-main">
-                          <input
-                            class="tm-student-check"
-                            type="checkbox"
-                            data-student-access-checkbox
-                            value="<%= student.student_id %>"
-                            data-initial-checked="<%= assigned ? '1' : '0' %>"
-                            <%= assigned ? 'checked' : '' %>
-                          />
-                          <div>
-                            <strong><%= student.last_name %> <%= student.first_name %></strong>
-                            <span class="tm-student-access-tag <%= assigned ? 'tm-student-access-tag--yes' : 'tm-student-access-tag--no' %>"><%= assigned ? 'Bus access' : 'No bus access' %></span>
-                            <br/>
-                            Address: <%= student.address || '-' %>
-                            | Bus: <%= assigned ? (assigned.bus_number || '-') : '-' %>
-                            | Route: <%= assigned ? (assigned.route_name || '-') : '-' %>
-                            | Stop: <%= assigned ? (assigned.stop_name || '-') : '-' %>
-                            <br/>
-                            <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#334155;font-weight:400;">
-                              <input
-                                type="checkbox"
-                                data-make-stop-checkbox
-                                value="<%= student.student_id %>"
-                                <%= (assigned && assigned.stop_id) ? 'checked' : '' %>
-                                <%= student.address ? '' : 'disabled' %>
-                              />
-                              Make this student's address a stop (bus will pass through to pick them up)
-                              <% if (!student.address) { %><em>(no address on file)</em><% } %>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    <% }) %>
-                  </div>
-                </details>
-              </li>
-            <% }) %>
-          </ul>
-        </article>
+    <section class="tm-pane ws-root" data-pane-id="students">
+      <%
+        const accessByStudent = new Set((assignments || []).map(function (a) { return Number(a.student_id); }));
+        const studentRows = (students || []).map(function (student) {
+          return {
+            id: student.student_id,
+            name: [student.first_name, student.last_name].filter(Boolean).join(' ').trim(),
+            sortName: [student.last_name, student.first_name].filter(Boolean).join(' ').toLowerCase(),
+            classId: student.class_id ? String(student.class_id) : '__unassigned__',
+            className: String(student.class_name || '').trim() || 'No class',
+            access: accessByStudent.has(Number(student.student_id)),
+          };
+        }).sort(function (a, b) { return a.sortName.localeCompare(b.sortName); });
+        const studentClasses = Array.from(new Map(studentRows.map(function (row) { return [row.classId, row.className]; })).entries())
+          .sort(function (a, b) { return a[1].localeCompare(b[1]); });
+      %>
+      <header class="ws-head">
+        <div class="ws-head__text">
+          <h1 class="ws-head__title">Students</h1>
+          <p class="ws-head__sub">Select a student to manage their bus.</p>
+        </div>
+      </header>
+      <div class="ux-layout">
+        <aside class="ux-filters" aria-label="Filter students">
+          <div class="ux-filters__head">
+            <strong>Filters</strong>
+            <button type="button" class="ux-link" id="tm-filters-clear">Clear</button>
+          </div>
+          <label class="ux-field"><span>Name</span><input type="search" id="tm-filter-name" placeholder="Find by name" autocomplete="off" /></label>
+          <label class="ux-field"><span>Class</span>
+            <select id="tm-filter-class"><option value="">All classes</option><% studentClasses.forEach(function (klass) { %><option value="<%= klass[0] %>"><%= klass[1] %></option><% }) %></select>
+          </label>
+          <label class="ux-field"><span>Bus access</span>
+            <select id="tm-filter-access"><option value="">Everyone</option><option value="yes">Bus access</option><option value="no">No bus access</option></select>
+          </label>
+          <p class="ux-shown" id="tm-students-shown" aria-live="polite"></p>
+          <div class="tm-class-tools" id="tm-class-tools" hidden>
+            <button type="button" class="ws-btn ws-btn--sm" id="tm-class-edit">Edit class access</button>
+            <button type="button" class="ws-btn ws-btn--sm ws-btn--primary" id="tm-class-save" hidden>Save</button>
+            <button type="button" class="ws-btn ws-btn--sm" id="tm-class-cancel" hidden>Cancel</button>
+            <% if (canBroadcastToGuardians) { %><button type="button" class="ws-btn ws-btn--sm notify-guardians-btn" id="tm-class-notify" data-context="transportation" data-context-id="" hidden>Notify guardians</button><% } %>
+            <p id="tm-class-note" role="status"></p>
+          </div>
+        </aside>
+        <div class="ws-cards-wrap">
+          <table class="ws-cards" id="tm-students-table">
+            <thead><tr><th class="tm-check-cell"></th><th>Name</th><th class="tm-col-access">Bus access</th></tr></thead>
+            <tbody>
+              <% studentRows.forEach(function (row) { %>
+              <tr class="ux-row" tabindex="0" data-student-id="<%= row.id %>" data-name="<%= row.name.toLowerCase() %>" data-class-id="<%= row.classId %>" data-access="<%= row.access ? 'yes' : 'no' %>">
+                <td class="tm-check-cell"><input type="checkbox" aria-label="Bus access for <%= row.name %>"<%= row.access ? ' checked' : '' %> /></td>
+                <td data-label="Name" class="ws-card-title"><strong data-name><%= row.name %></strong></td>
+                <td data-label="Bus access"><span data-access-pill class="ws-pill <%= row.access ? 'ws-pill--green' : 'tm-pill--none' %>"><%= row.access ? 'Bus access' : 'No bus access' %></span></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <p class="ux-empty" id="tm-students-empty" hidden>No students match these filters.</p>
+        </div>
       </div>
     </section>
   </main>
 </div>
+
+<div class="ux-panel-backdrop" id="tm-panel-backdrop" hidden></div>
+<aside class="ux-panel" id="tm-panel" role="dialog" aria-modal="true" aria-labelledby="tm-panel-title" aria-hidden="true">
+  <div class="ux-panel__bar">
+    <strong id="tm-panel-title">Student</strong>
+    <button type="button" class="ux-close" id="tm-panel-close" aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="ux-panel__body" id="tm-panel-body"></div>
+</aside>
+<script type="application/json" id="tm-people-data"><%- safeJson({
+  unit: distanceUnit === 'mi' ? 'mi' : 'km',
+  buses: (buses || []).map(function (b) { return { bus_id: b.bus_id, bus_number: b.bus_number }; }),
+  routes: (routes || []).map(function (r) { return { route_id: r.route_id, route_name: r.route_name }; }),
+  stops: (stops || []).map(function (st) { return { stop_id: st.stop_id, route_id: st.route_id, stop_name: st.stop_name }; }),
+}) %></script>
+<script src="<%= assetUrl('/js/transportPeople.js') %>" defer></script>
 
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -2019,7 +2084,14 @@
       minZoom: 4,
       maxZoom: 18,
     }).setView(mapDefaultCenter, mapDefaultZoom);
-    window.ManagiraMaps.addTiles(map);
+    // A panel warming up out of sight draws nothing until it is actually shown.
+    let tilesAdded = false;
+    const addTilesWhenShown = () => {
+      if (tilesAdded || !mapEl.offsetWidth) return;
+      tilesAdded = true;
+      window.ManagiraMaps.addTiles(map);
+    };
+    addTilesWhenShown();
     // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
     map.attributionControl.setPrefix(false);
 
@@ -2038,6 +2110,7 @@
         if (!entry) return;
         const size = entry.contentRect.width + entry.contentRect.height;
         if (size > 0 && size !== lastKnownSize) {
+          addTilesWhenShown();
           const wasZero = lastKnownSize === 0;
           lastKnownSize = size;
           map.invalidateSize();
@@ -2944,97 +3017,6 @@
       });
     }
 
-    const classGroups = Array.from(document.querySelectorAll('[data-class-group]'));
-
-    function resetClassGroupSelection(classGroup) {
-      const checkboxes = Array.from(classGroup.querySelectorAll('[data-student-access-checkbox]'));
-      checkboxes.forEach((checkbox) => {
-        checkbox.checked = checkbox.dataset.initialChecked === '1';
-      });
-    }
-
-    function syncSelectAllCheckbox(classGroup) {
-      const selectAll = classGroup.querySelector('[data-action="select-all-class"]');
-      if (!selectAll) return;
-      const checkboxes = Array.from(classGroup.querySelectorAll('[data-student-access-checkbox]'));
-      if (!checkboxes.length) {
-        selectAll.checked = false;
-        return;
-      }
-      selectAll.checked = checkboxes.every((checkbox) => checkbox.checked);
-    }
-
-    classGroups.forEach((classGroup) => {
-      const feedback = classGroup.querySelector('[data-class-feedback]');
-      const editBtn = classGroup.querySelector('[data-action="edit-class-access"]');
-      const selectAll = classGroup.querySelector('[data-action="select-all-class"]');
-      const saveBtn = classGroup.querySelector('[data-action="save-class-access"]');
-      const cancelBtn = classGroup.querySelector('[data-action="cancel-class-access"]');
-      const checkboxes = Array.from(classGroup.querySelectorAll('[data-student-access-checkbox]'));
-
-      if (editBtn) {
-        editBtn.addEventListener('click', () => {
-          classGroup.classList.add('is-editing');
-          if (feedback) feedback.textContent = 'Edit mode enabled. Check students with bus access and save.';
-          syncSelectAllCheckbox(classGroup);
-        });
-      }
-
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-          resetClassGroupSelection(classGroup);
-          classGroup.classList.remove('is-editing');
-          if (feedback) feedback.textContent = '';
-          syncSelectAllCheckbox(classGroup);
-        });
-      }
-
-      if (selectAll) {
-        selectAll.addEventListener('change', () => {
-          checkboxes.forEach((checkbox) => {
-            checkbox.checked = selectAll.checked;
-          });
-        });
-      }
-
-      checkboxes.forEach((checkbox) => {
-        checkbox.addEventListener('change', () => {
-          syncSelectAllCheckbox(classGroup);
-        });
-      });
-
-      if (saveBtn) {
-        saveBtn.addEventListener('click', async () => {
-          if (feedback) feedback.textContent = 'Saving student access...';
-          saveBtn.disabled = true;
-
-          try {
-            const classId = classGroup.dataset.classId || '';
-            const selectedIds = checkboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
-            const allIds = checkboxes.map((checkbox) => checkbox.value);
-            const makeStopIds = Array.from(classGroup.querySelectorAll('[data-make-stop-checkbox]:checked')).map((checkbox) => checkbox.value);
-
-            const formData = new FormData();
-            formData.append('classId', classId);
-            allIds.forEach((id) => formData.append('allStudentIds', id));
-            selectedIds.forEach((id) => formData.append('selectedStudentIds', id));
-            makeStopIds.forEach((id) => formData.append('makeStopStudentIds', id));
-
-            const result = await postForm('/transportation/manage/students/access', formData, {
-              defaultError: 'Unable to update student bus access.',
-            });
-
-            if (feedback) feedback.textContent = (result.message || 'Student access updated.') + ' Refreshing...';
-            window.setTimeout(() => window.location.reload(), makeStopIds.length ? 1600 : 300);
-          } catch (error) {
-            if (feedback) feedback.textContent = error.message || 'Unable to update student bus access.';
-          } finally {
-            saveBtn.disabled = false;
-          }
-        });
-      }
-    });
-
     async function drawLayers() {
       const currentRevision = ++drawRevision;
       mapLayer.clearLayers();
@@ -3314,16 +3296,17 @@
       liveBusPollInFlight = true;
       try {
         const routeIds = Object.keys(routeNameById).map(Number);
-        await Promise.allSettled(routeIds.map(async (routeId) => {
-          let response;
-          try {
-            response = await fetch(`/transportation/live/route/${routeId}`, { credentials: 'same-origin' });
-          } catch (_error) {
-            return;
-          }
-          if (!response.ok) return;
-          const payload = await response.json().catch(() => null);
-          const live = payload && payload.data;
+        let response;
+        try {
+          response = await fetch('/transportation/live/routes', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        } catch (_error) {
+          return;
+        }
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        if (!payload || !payload.success) return;
+        routeIds.forEach((routeId) => {
+          const live = payload.data[routeId] || null;
           const lat = live ? Number(live.latitude) : null;
           const lng = live ? Number(live.longitude) : null;
           const existing = liveBusMarkers.get(routeId);
@@ -3350,7 +3333,7 @@
             liveBusMarkers.set(routeId, marker);
             marker.bindPopup(buildBusPopup({ dayOfWeek: null }, bus, routeNameById[routeId]));
           }
-        }));
+        });
       } finally {
         liveBusPollInFlight = false;
         showLiveCount();
@@ -3358,8 +3341,8 @@
       }
     }
 
-    const initialLiveBusPoll = pollLiveBuses();
-    const liveBusPollTimer = window.setInterval(() => { if (!document.hidden) pollLiveBuses(); }, 5000);
+    const initialLiveBusPoll = mapEl.offsetWidth ? pollLiveBuses() : Promise.resolve();
+    const liveBusPollTimer = window.setInterval(() => { if (!document.hidden && mapEl.offsetWidth) pollLiveBuses(); }, 5000);
     window.addEventListener('pagehide', () => window.clearInterval(liveBusPollTimer), { once: true });
 
     async function centerByCity() {

@@ -210,6 +210,7 @@
   else ensureStyles();
 
   window.ManagiraMaps = {
+    warm: function () { loadVector().catch(function () {}); },
     roadRoute: roadRoute,
     roadPoints: roadPoints,
     addTiles: addTiles,

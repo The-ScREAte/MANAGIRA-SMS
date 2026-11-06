@@ -65,7 +65,7 @@ async function resolveMyStudents(db, organizationId, userId, driverBus) {
     ? await db.query(
         `SELECT s.student_id, s.first_name, s.last_name, c.class_name,
                 tsa.home_latitude, tsa.home_longitude, tsa.home_address,
-                st.stop_name, st.latitude AS stop_latitude, st.longitude AS stop_longitude
+                tsa.stop_id, st.stop_name, st.latitude AS stop_latitude, st.longitude AS stop_longitude
            FROM transport_student_assignments tsa
            JOIN students s
              ON s.student_id = tsa.student_id AND s.organization_id = tsa.organization_id
@@ -85,7 +85,7 @@ async function resolveMyStudents(db, organizationId, userId, driverBus) {
   const classStudentsResult = await db.query(
     `SELECT DISTINCT s.student_id, s.first_name, s.last_name, c.class_name,
             NULL::numeric AS home_latitude, NULL::numeric AS home_longitude, NULL::text AS home_address,
-            NULL::text AS stop_name, NULL::numeric AS stop_latitude, NULL::numeric AS stop_longitude
+            NULL::int AS stop_id, NULL::text AS stop_name, NULL::numeric AS stop_latitude, NULL::numeric AS stop_longitude
        FROM user_classes uc
        JOIN students s
          ON s.class_id = uc.class_id AND s.organization_id = $2
@@ -155,6 +155,7 @@ const driverController = {
 
       return res.render("driver/dashboard", {
         title: "Driver Dashboard",
+        disableMainZoom: true,
         driverBus,
         driverProfile,
         driverPhotoUrl: (driverProfile && driverProfile.image_url) || req.session.profileImageUrl || null,
@@ -173,6 +174,7 @@ const driverController = {
       req.flash("error", "Unable to load your dashboard right now.");
       return res.render("driver/dashboard", {
         title: "Driver Dashboard",
+        disableMainZoom: true,
         driverBus: null,
         driverProfile: null,
         driverPhotoUrl: null,
