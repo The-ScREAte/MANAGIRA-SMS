@@ -367,6 +367,21 @@
           + '</li>';
       }).join('') + '</ul>';
     }
+    // Reports about their children that the school chose to share with them.
+    function loadReports() {
+      var box = document.querySelector('[data-gdr-reports]');
+      if (!box) return;
+      request('/transportation/reports/mine').then(function (result) {
+        if (!result.reports.length) { box.innerHTML = '<p class="gdr-empty">No bus reports.</p>'; return; }
+        box.innerHTML = '<ul class="gdr-list">' + result.reports.map(function (r) {
+          return '<li class="gdr-item"><div class="gdr-item__top"><strong>' + esc(r.studentName || r.categoryLabel) + '</strong><span>' + esc(new Date(r.createdAt).toLocaleDateString()) + '</span></div>'
+            + (r.issue ? '<p><b>' + esc(r.issue) + '</b></p>' : '') + (r.details ? '<p>' + esc(r.details) + '</p>' : '') + (r.note ? '<p>School\'s note: ' + esc(r.note) + '</p>' : '') + '</li>';
+        }).join('') + '</ul>';
+      }).catch(function (error) {
+        box.innerHTML = '<p class="gdr-empty"></p>';
+        box.firstChild.textContent = error.message;
+      });
+    }
     function load() {
       var asked = bucket;
       return request('/transportation/requests/mine?bucket=' + asked).then(function (result) {
@@ -391,6 +406,7 @@
         section.hidden = section.getAttribute('data-gdr-panel') !== name;
       });
       if (name === 'requests') load();
+      if (name === 'reports') loadReports();
     });
     panel.addEventListener('click', function (event) {
       var segment = event.target.closest('[data-gdr-bucket]');
@@ -416,7 +432,41 @@
     });
     document.addEventListener('busrequest:changed', load);
     load();
+    loadArrivalChecks();
   }
+
+  // When the school asks for it: did your child arrive?
+  function loadArrivalChecks() {
+    var box = document.querySelector('[data-gdr-confirm]');
+    if (!box) return;
+    request('/transportation/arrivals/mine').then(function (result) {
+      box.hidden = !result.arrivals.length;
+      box.innerHTML = result.arrivals.map(function (a) {
+        var when = '';
+        try { when = new Date(a.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (_) { /* no time */ }
+        return '<div class="gdr-check" data-arrival="' + a.id + '"><div class="gdr-check__text"><strong>Did ' + esc(a.studentName) + ' arrive?</strong><span>The driver marked them as arrived' + (when ? ' at ' + esc(when) : '') + (a.routeName ? ', ' + esc(a.routeName) : '') + '.</span></div>'
+          + '<div class="gdr-check__btns"><button type="button" class="gdr-check__yes" data-answer="1">Yes</button><button type="button" class="gdr-check__no" data-answer="0">No</button></div>'
+          + '<div class="gdr-check__why" hidden><input maxlength="300" placeholder="What happened? (optional)" aria-label="What happened" /><button type="button" class="gdr-check__no" data-send-no>Tell the school</button></div></div>';
+      }).join('');
+    }).catch(function () { box.hidden = true; });
+  }
+  document.addEventListener('click', function (event) {
+    var target = event.target.closest ? event.target : null;
+    if (!target) return;
+    var answerBtn = target.closest('[data-answer]');
+    var sendNo = target.closest('[data-send-no]');
+    if (!answerBtn && !sendNo) return;
+    var row = target.closest('[data-arrival]');
+    if (answerBtn && answerBtn.getAttribute('data-answer') === '0') { row.querySelector('.gdr-check__why').hidden = false; row.querySelector('.gdr-check__btns').hidden = true; return; }
+    var arrived = Boolean(answerBtn);
+    target.disabled = true;
+    request('/transportation/arrivals/' + row.getAttribute('data-arrival') + '/answer', { arrived: arrived, note: arrived ? '' : row.querySelector('input').value }).then(function () {
+      row.innerHTML = '<div class="gdr-check__text"><strong>Thank you.</strong><span>' + (arrived ? 'We\'ve noted that they arrived.' : 'The school has been told.') + '</span></div>';
+    }).catch(function (error) {
+      target.disabled = false;
+      window.alert(error.message);
+    });
+  });
 
   window.BusRequest = { open: open, mountParentRequests: mountParentRequests };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountParentRequests);

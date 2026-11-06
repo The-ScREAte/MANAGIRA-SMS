@@ -16,7 +16,7 @@
     const children = _childrenOf(option.key);
 %>
   <div class="perm-node" data-permission-node="<%= option.key %>">
-    <label class="perm-row permission-item" data-permission-key="<%= option.key %>">
+    <label class="perm-row permission-item" data-permission-key="<%= option.key %>"<% if (option.presets) { %> data-perm-presets="<%= option.presets.join(' ') %>"<% } %>>
       <span class="perm-text">
         <span class="perm-title"><%= option.label %></span>
         <% if (option.description) { %><span class="perm-desc"><%= option.description %></span><% } %>
@@ -55,7 +55,7 @@
 <% }; %>
 <div class="perm-picker" id="permissionPicker">
   <% _groups.forEach((group) => { %>
-    <section class="perm-group">
+    <section class="perm-group" data-perm-group="<%= group %>">
       <h4 class="perm-group-title"><%= group %></h4>
       <% _options.filter((o) => !o.parent && o.group === group).forEach(_renderNode) %>
     </section>
@@ -124,8 +124,28 @@
         count.textContent = children.length ? on + ' of ' + children.length : '';
       });
     };
+    // A driver's list holds only Driver and Transportation; nobody else sees Driver.
+    var forRole = function (isDriver) {
+      picker.querySelectorAll('[data-perm-group]').forEach(function (section) {
+        var group = section.getAttribute('data-perm-group');
+        var show = isDriver ? (group === 'Driver' || group === 'Transportation') : group !== 'Driver';
+        section.hidden = !show;
+        if (!show) section.querySelectorAll('input.perm-switch').forEach(function (box) { box.checked = false; });
+      });
+      refresh();
+    };
+    // Lead Driver turns on what a lead usually needs; each one can still be turned off.
+    picker.addEventListener('change', function (event) {
+      var row = event.target.closest && event.target.closest('[data-perm-presets]');
+      if (!row || !event.target.checked) return;
+      row.getAttribute('data-perm-presets').split(' ').forEach(function (key) {
+        var box = picker.querySelector('input.perm-switch[value="' + key + '"]');
+        if (box && !box.checked) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); }
+      });
+      refresh();
+    });
     // Role presets change switches from code, so the forms ask for a recount.
-    window.ManagiraPermissionPicker = { refresh: refresh };
+    window.ManagiraPermissionPicker = { forRole: forRole, refresh: refresh };
 
     picker.addEventListener('click', function (event) {
       var caret = event.target.closest('[data-perm-caret]');

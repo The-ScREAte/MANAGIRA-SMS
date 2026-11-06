@@ -791,9 +791,11 @@
   <% const parentBusRequests = !!locals.transportationActive && children.length > 0; %>
   <% if (parentBusRequests) { %>
     <link rel="stylesheet" href="<%= assetUrl('/css/busRequest.css') %>" />
+    <div class="gdr gdr-confirm" data-gdr-confirm hidden></div>
     <div class="gdr-tabs" role="tablist" aria-label="Sections" data-gdr-tabs>
       <button type="button" class="gdr-tab is-on" role="tab" aria-selected="true" data-gdr-tab="children">My Children</button>
       <button type="button" class="gdr-tab" role="tab" aria-selected="false" data-gdr-tab="requests">Requests <span class="gdr-badge" data-gdr-count hidden></span></button>
+      <button type="button" class="gdr-tab" role="tab" aria-selected="false" data-gdr-tab="reports">Bus reports</button>
     </div>
     <section class="gdr" data-gdr-panel="requests" hidden>
       <div class="gdr-segment" role="tablist" aria-label="Requests">
@@ -801,6 +803,9 @@
         <button type="button" role="tab" aria-selected="false" data-gdr-bucket="old">Old</button>
       </div>
       <div data-gdr-list aria-live="polite"><p class="gdr-empty">Loading…</p></div>
+    </section>
+    <section class="gdr" data-gdr-panel="reports" hidden>
+      <div data-gdr-reports aria-live="polite"><p class="gdr-empty">Loading…</p></div>
     </section>
   <% } %>
   <div class="children-section" data-gdr-panel="children">

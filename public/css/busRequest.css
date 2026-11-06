@@ -88,3 +88,18 @@ html.brq-open, html.brq-open body { overflow: hidden; }
 .gdr-pill--cancelled { background: #f1f5f9; color: #64748b; }
 .gdr-empty { margin: 0; padding: 28px 16px; border: 1px dashed var(--brq-line); border-radius: 12px; color: var(--brq-muted); text-align: center; }
 .gdr .gdr-cancel { width: auto !important; margin: 10px 0 0 !important; padding: 0 !important; border: 0; background: none; color: var(--brq-danger); font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: none; }
+
+/* Parents confirming arrival */
+.gdr-confirm { display: grid; gap: 8px; margin: 0 0 14px; }
+.gdr-confirm[hidden] { display: none; }
+.gdr-check { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border: 1px solid var(--brq-accent); border-radius: 12px; background: var(--brq-surface); }
+.gdr-check__text { flex: 1 1 220px; min-width: 0; }
+.gdr-check__text strong { display: block; font-size: 15px; }
+.gdr-check__text span { display: block; color: var(--brq-muted); font-size: 13px; }
+.gdr-check__btns { display: flex; gap: 8px; }
+.gdr-check__btns[hidden], .gdr-check__why[hidden] { display: none; }
+.gdr .gdr-check__yes, .gdr .gdr-check__no { width: auto !important; height: 38px; margin: 0 !important; padding: 0 18px !important; border: 0; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: none; }
+.gdr .gdr-check__yes { background: var(--brq-accent); color: #fff; }
+.gdr .gdr-check__no { background: var(--brq-soft); color: var(--brq-text); }
+.gdr-check__why { flex: 1 1 100%; display: flex; gap: 8px; }
+.gdr-check__why input { flex: 1; min-width: 0; height: 38px; margin: 0; padding: 0 10px; border: 1px solid var(--brq-line); border-radius: 10px; background: var(--brq-surface); color: var(--brq-text); font-size: 15px; }

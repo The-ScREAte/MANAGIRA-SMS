@@ -42,6 +42,11 @@ const PERMISSIONS = {
   TRANSPORT_SCHEDULES: "transport_schedules",
   TRANSPORT_STUDENTS: "transport_students",
   TRANSPORT_SETTINGS: "transport_settings",
+  TRANSPORT_STUDENT_ROUTES: "transport_student_routes",
+  TRANSPORT_REPORTS: "transport_reports",
+  DRIVER_LEAD: "driver_lead",
+  DRIVER_STUDENT_DETAILS: "driver_student_details",
+  DRIVER_ANY_ROUTE: "driver_any_route",
   REPORTS_TERMINAL: "reports_terminal",
   REPORTS_SETTINGS: "reports_settings",
   REPORTS_BUILDER: "reports_builder",
@@ -130,11 +135,17 @@ const PERMISSION_OPTIONS = [
 
   { key: PERMISSIONS.MANAGE_TRANSPORTATION, label: "Transportation", group: "Transportation", description: "See the transportation overview. Choose what else they can do below" },
   { key: PERMISSIONS.TRANSPORT_BUSES, label: "Buses", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add, change and pause buses" },
-  { key: PERMISSIONS.TRANSPORT_DRIVERS, label: "Drivers", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add, change and pause drivers" },
+  { key: PERMISSIONS.TRANSPORT_DRIVERS, label: "Manage Drivers", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add, change and pause drivers" },
   { key: PERMISSIONS.TRANSPORT_ROUTES, label: "Routes & Stops", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Create routes and the stops on them" },
   { key: PERMISSIONS.TRANSPORT_SCHEDULES, label: "Schedules", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Set weekly bus schedules" },
-  { key: PERMISSIONS.TRANSPORT_STUDENTS, label: "Student Assignments", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Put students on buses and control live tracking access" },
+  { key: PERMISSIONS.TRANSPORT_STUDENTS, label: "Rider List", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add students to the transport list, or take them off it" },
+  { key: PERMISSIONS.TRANSPORT_STUDENT_ROUTES, label: "Student Stops & Routes", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Change a rider's bus, route, stop and pickup details" },
+  { key: PERMISSIONS.TRANSPORT_REPORTS, label: "Driver Reports", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Read driver reports and arrival checks, and choose who else sees them" },
   { key: PERMISSIONS.TRANSPORT_SETTINGS, label: "Transportation Settings", parent: PERMISSIONS.MANAGE_TRANSPORTATION, highRisk: true, description: "Map provider, units and the school's location" },
+
+  { key: PERMISSIONS.DRIVER_LEAD, label: "Lead Driver", group: "Driver", description: "Leads the other drivers. Turns on Transportation with Manage Drivers and Driver Reports, and adds Management to their menu", presets: [PERMISSIONS.MANAGE_TRANSPORTATION, PERMISSIONS.TRANSPORT_DRIVERS, PERMISSIONS.TRANSPORT_REPORTS] },
+  { key: PERMISSIONS.DRIVER_STUDENT_DETAILS, label: "Student Details", group: "Driver", description: "See riders' home address and parent phone on the driver page" },
+  { key: PERMISSIONS.DRIVER_ANY_ROUTE, label: "Any Route", group: "Driver", description: "Drive any route, not only the ones assigned to them" },
 
   { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira", group: "Finance", description: "Fees and payments. Choose where they can work below", childrenRequired: "Choose Classroom PayGira, Main PayGira or both" },
   { key: PERMISSIONS.PAYGIRA_CLASSROOM, label: "Classroom PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "Only in the class dashboard: collect fees for bills given to them and sign off" },
@@ -201,7 +212,7 @@ function permissionOptionsFor({ allowedFeatures, miraActivated, transportActivat
   return PERMISSION_OPTIONS.filter((option) => {
     if (option.retired) return false;
     if ((option.key === PERMISSIONS.USE_MIRA || option.key === PERMISSIONS.SETTINGS_MIRA) && miraActivated === false) return false;
-    if (rootPermission(option.key) === PERMISSIONS.MANAGE_TRANSPORTATION && transportActivated === false) return false;
+    if ((rootPermission(option.key) === PERMISSIONS.MANAGE_TRANSPORTATION || option.group === "Driver") && transportActivated === false) return false;
     if (!features) return true;
     return [PERMISSION_FEATURES[rootPermission(option.key)], option.features]
       .every((needs) => !needs || needs.some((name) => have.has(name.toLowerCase())));
@@ -240,8 +251,8 @@ const ROLE_DEFAULT_PERMISSIONS = {
     PERMISSIONS.GENERATE_TRANSCRIPTS,
     PERMISSIONS.MANAGE_PROMOTIONS,
   ],
-  // Drivers work only from the Driver dashboard (their routes and riders),
-  // so they get no school-management permissions.
+  // Drivers start with only the Driver dashboard (their routes and riders); anything
+  // more is ticked per driver, and only from the Driver and Transportation groups.
   Driver: [],
 };
 
@@ -353,13 +364,19 @@ function mergePermissionsForRole(role, customPermissions = []) {
   return [...new Set([...defaults, ...custom])];
 }
 
+// Drivers can only ever hold what belongs to driving and transportation, whatever is saved.
+function isDriverPermission(key) {
+  const option = PERMISSION_OPTIONS.find((item) => item.key === key);
+  return Boolean(option) && (option.group === "Driver" || rootPermission(key) === PERMISSIONS.MANAGE_TRANSPORTATION);
+}
+
 // What someone can really do from their saved rows: once a person's permissions
 // have been saved those ticks are the answer; only someone never saved falls
 // back to their role's defaults. Managers hold only what they were given, and
-// drivers never get school-management access.
+// drivers can only hold driving and transportation permissions.
 function effectivePermissionsForRole(role, savedPermissions = []) {
   const normalizedRole = normalizeRole(role);
-  if (normalizedRole === "Driver") return [];
+  if (normalizedRole === "Driver") return dropOrphanFollowUps(savedPermissions.filter(isDriverPermission));
   if (savedPermissions.includes(PERMISSIONS_SAVED_KEY)) {
     return dropOrphanFollowUps(savedPermissions.filter((key) => key !== PERMISSIONS_SAVED_KEY));
   }
@@ -664,10 +681,6 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
 
   if (isManagerLikeRole(userRole)) return true;
   if (!userId) return false;
-  // Older driver records may still carry saved permission rows; drivers never
-  // get school-management access (see ROLE_DEFAULT_PERMISSIONS.Driver).
-  if (normalizedUserRole === "Driver") return false;
-
   await ensurePermissionsSchema(database);
 
   const savedPermissions = await getUserPermissions(database, userId, organizationId);
@@ -747,6 +760,7 @@ module.exports = {
   getPrimaryManagerUserId,
   getUserPermissions,
   userHasPermission,
+  isDriverPermission,
   invalidateUserPermissionCache,
   requirePermission,
   isManagerLikeRole,

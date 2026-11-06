@@ -497,7 +497,7 @@
           <input type="hidden" name="permissions" value="<%= key %>">
         <% }) %>
         <div style="margin-top:8px; color:#64748b; font-size:12px;" id="permissionsNote">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
-        <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Drivers use the Driver dashboard for their routes and riders. They do not get school-management access, so no permissions are set here.</div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Choose what this driver can do. Lead Driver also adds Management to their menu.</div>
       </div>
     </div>
     <%- include('../partials/employeeAccessAck', { mode: 'update' }) %>
@@ -583,19 +583,18 @@
       const driverPermissionsNote = document.getElementById("driverPermissionsNote");
       const driverSubjectsNote = document.getElementById("driverSubjectsNote");
 
-      // Drivers get no school-management permissions and are never assigned
-      // subjects — hide the inapplicable UI instead of merely defaulting it.
+      // Drivers are never assigned subjects, and only see driving and transportation
+      // permissions — hide what doesn't apply instead of merely defaulting it.
       const applyDriverModeUI = (isDriver) => {
         document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
           const item = cb.closest(".permission-item");
           if (isDriver) {
-            cb.checked = false;
+            /* the picker shows a driver's permissions below */
           } else if (item) {
             item.style.display = "";
           }
         });
-        document.getElementById("permissionPicker").hidden = isDriver;
-        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.refresh();
+        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.forRole(isDriver);
         if (permissionsNote) permissionsNote.style.display = isDriver ? "none" : "block";
         if (driverPermissionsNote) driverPermissionsNote.style.display = isDriver ? "block" : "none";
         if (driverSubjectsNote) driverSubjectsNote.style.display = isDriver ? "block" : "none";

@@ -1,6 +1,5 @@
 <%- include('../partials/flash') %>
 <link rel="stylesheet" href="<%= assetUrl('/css/driverNav.css') %>" />
-<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
 <%
   var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
   var navApps = [{ key: 'google', label: 'Google Maps' }, { key: 'apple', label: 'Apple Maps' }];
@@ -12,8 +11,11 @@
 
 <div class="drv" id="drv-page">
   <header class="drv-top">
-    <h1>Today’s trip</h1>
-    <p><%= [session.firstName, driverBus ? 'Bus ' + driverBus.bus_number : 'No bus assigned yet', driverBus && driverBus.license_plate, driverBus && driverBus.capacity ? driverBus.capacity + ' seats' : ''].filter(Boolean).join(' · ') %></p>
+    <div>
+      <h1>Today’s trip</h1>
+      <p><%= [session.firstName, driverBus ? 'Bus ' + driverBus.bus_number : 'No bus assigned yet', driverBus && driverBus.license_plate, driverBus && driverBus.capacity ? driverBus.capacity + ' seats' : ''].filter(Boolean).join(' · ') %></p>
+    </div>
+    <button type="button" class="drv-reportbtn" data-drv-report>Report</button>
   </header>
 
   <section class="drv-card drv-trip" aria-label="Trip">
@@ -48,7 +50,7 @@
         <span class="drv-live" id="drv-live" hidden><i aria-hidden="true"></i>Live</span>
         <p class="drv-note" id="drv-note" role="alert" hidden></p>
       </div>
-      <div class="drv-mini" id="drv-mini" role="img" aria-label="Small map of this route"></div>
+      <div class="drv-mini" id="drv-mini" role="img" aria-label="Small map of this route"><span class="drv-mini__credit">© OpenFreeMap © OpenStreetMap</span></div>
     <% } %>
   </section>
 
@@ -60,26 +62,23 @@
     </section>
     <% } %>
     <section class="drv-card">
-      <h2>Students <span class="drv-count"><%= (students || []).length %></span></h2>
-      <% if (!(students || []).length) { %>
-        <p class="drv-empty">No students are assigned to your bus yet.</p>
-      <% } else { %>
-        <ul class="drv-list">
-          <% students.forEach(function (student) { %>
-            <li><div>
-              <strong><%= [student.first_name, student.last_name].filter(Boolean).join(' ') %></strong>
-              <span class="drv-sub"><%= student.class_name || 'No class' %><% if (student.stop_name) { %> · <%= student.stop_name %><% } %></span>
-            </div></li>
-          <% }) %>
-        </ul>
-      <% } %>
+      <div class="drv-cardhead">
+        <h2>Students</h2>
+        <div class="drv-tabs" role="tablist" aria-label="Students">
+          <button type="button" class="is-on" role="tab" aria-selected="true" data-student-tab="yes">Bus access <span id="drv-count-yes"></span></button>
+          <button type="button" role="tab" aria-selected="false" data-student-tab="no">No bus access <span id="drv-count-no"></span></button>
+        </div>
+      </div>
+      <input type="search" class="drv-search" id="drv-students-search" placeholder="Search students" autocomplete="off" aria-label="Search students" />
+      <ul class="drv-list" id="drv-students-list"></ul>
     </section>
   </div>
 </div>
 
 <script type="application/json" id="drv-config"><%- safeJson({
   bus: driverBus || null,
-  students: (students || []).map(function (s) { return { id: s.student_id, name: [s.first_name, s.last_name].filter(Boolean).join(' '), stopId: s.stop_id || null }; }),
+  students: students || [],
+  reportTypes: typeof reportTypes !== 'undefined' ? reportTypes : {},
   lastLocation: lastLocation || null,
   school: { lat: schoolLatitude, lng: schoolLongitude },
   routes: routeList,

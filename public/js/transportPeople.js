@@ -206,7 +206,7 @@
         + '<div class="ux-kv"><span>Class</span><strong>' + esc(s.className || 'None') + '</strong></div>'
         + '<div class="ux-kv"><span>Home address</span><strong>' + esc(s.address || 'None') + '</strong></div>'
         + '</section>'
-        + '<section class="ux-sec"><label class="tm-switch"><span>Bus access</span><input type="checkbox" name="busAccess" value="1"' + (a.active ? ' checked' : '') + ' /><i aria-hidden="true"></i></label>'
+        + '<section class="ux-sec"><label class="tm-switch"><span>Bus access</span><input type="checkbox" name="busAccess" value="1"' + (a.active ? ' checked' : '') + (data.canRiderList ? '' : ' disabled') + ' /><i aria-hidden="true"></i></label>'
         + '<div class="tm-fields" data-bus-fields' + (a.active ? '' : ' hidden') + '>'
         + '<label class="tm-field tm-field--wide"><span>Bus</span><select name="busId">' + busOptions(a.busId) + '</select></label>'
         + '<label class="tm-field tm-field--wide"><span>Route</span><select name="routeId">' + routeOptions(a.routeId) + '</select></label>'
@@ -221,6 +221,10 @@
         + '</form>';
       var form = panelBody.querySelector('form');
       bindRouteStop(form);
+      // Someone with only the Rider List can't change bus, route or stop, and the other way round.
+      if (!data.canStudentRoutes) {
+        ['busId', 'routeId', 'stopId', 'pickupTime', 'dropoffTime', 'homeAddress', 'addressAsStop'].forEach(function (name) { form.elements[name].disabled = true; });
+      }
       form.elements.busAccess.addEventListener('change', function () {
         form.querySelector('[data-bus-fields]').hidden = !form.elements.busAccess.checked;
       });
@@ -262,6 +266,160 @@
       }
     });
     applyFilters();
+  }
+
+  // Search boxes above the Requests and Reports lists, which redraw as they refresh.
+  document.querySelectorAll('[data-search-list]').forEach(function (input) {
+    var target = $(input.getAttribute('data-search-list'));
+    if (!target) return;
+    var apply = function () {
+      var wanted = input.value.trim().toLowerCase();
+      target.querySelectorAll('tr.ux-row').forEach(function (row) {
+        row.hidden = Boolean(wanted) && row.textContent.toLowerCase().indexOf(wanted) < 0;
+      });
+    };
+    input.addEventListener('input', apply);
+    new MutationObserver(apply).observe(target, { childList: true });
+  });
+
+  // Who decides: a setting that saves itself.
+  var parentConfirm = $('tm-parent-confirm');
+  if (parentConfirm) {
+    parentConfirm.addEventListener('change', function () {
+      var note = $('tm-parent-confirm-note');
+      var wanted = parentConfirm.checked;
+      note.textContent = 'Saving…';
+      postForm('/transportation/manage/arrival-setting', { parentConfirm: wanted ? '1' : '0' }).then(function () {
+        note.textContent = wanted ? 'On. Parents will be asked after each arrival check.' : 'Off.';
+      }).catch(function (error) {
+        parentConfirm.checked = !wanted;
+        note.textContent = error.message;
+      });
+    });
+  }
+
+  /* ---------- driver reports ---------- */
+  var reportList = $('tm-reports-list');
+  if (reportList) {
+    var reportBucket = 'new';
+    var reportCache = {};
+    var reportDrawn = null;
+    var setReportCount = function (count) {
+      [$('tm-reports-badge'), $('tm-reports-tab-count')].forEach(function (el) {
+        if (!el) return;
+        el.textContent = count;
+        el.hidden = !count;
+      });
+      var tile = $('tm-reports-tile');
+      if (tile) tile.textContent = count;
+    };
+    var drawReports = function (result) {
+      var key = reportBucket + JSON.stringify(reportBucket === 'arrivals' ? result.arrivals : result.reports);
+      if (key === reportDrawn) return;
+      reportDrawn = key;
+      if (reportBucket === 'arrivals') {
+        if (!result.arrivals.length) { reportList.innerHTML = '<p class="ux-empty">No arrival checks yet.</p>'; return; }
+        reportList.innerHTML = '<table class="ws-cards"><thead><tr><th>Date</th><th>Route</th><th>Driver</th><th>Arrived</th></tr></thead><tbody>' + result.arrivals.map(function (a) {
+          var all = a.arrived === a.total;
+          return '<tr class="ux-row" tabindex="0" data-trip-id="' + a.tripId + '"><td data-label="Date" class="ux-when">' + esc(fmtDate(a.checkedAt)) + '</td><td data-label="Route" class="ws-card-title"><strong>' + esc(a.routeName || 'Route') + '</strong></td><td data-label="Driver">' + esc(a.driverName || '–') + '</td><td data-label="Arrived"><span class="ws-pill ' + (all ? 'ws-pill--green' : 'ws-pill--amber') + '">' + a.arrived + ' of ' + a.total + '</span></td></tr>';
+        }).join('') + '</tbody></table>';
+        return;
+      }
+      if (!result.reports.length) { reportList.innerHTML = '<p class="ux-empty">' + (reportBucket === 'old' ? 'No old reports yet.' : 'No new reports.') + '</p>'; return; }
+      reportList.innerHTML = '<table class="ws-cards"><thead><tr><th>Type</th><th>About</th><th>Driver</th><th>Date</th><th>Priority</th></tr></thead><tbody>' + result.reports.map(function (r) {
+        return '<tr class="ux-row" tabindex="0" data-report-id="' + r.id + '"><td data-label="Type" class="ws-card-title"><strong>' + esc(r.issue || r.categoryLabel) + '</strong></td><td data-label="About">' + esc(r.studentName || [r.busNumber ? 'Bus ' + r.busNumber : '', r.routeName].filter(Boolean).join(' · ') || '–') + '</td><td data-label="Driver">' + esc(r.driverName || '–') + '</td><td data-label="Date" class="ux-when">' + esc(fmtDate(r.createdAt)) + '</td><td data-label="Priority"><span class="ws-pill ' + (r.priority === 'urgent' ? 'ws-pill--red' : 'tm-pill--none') + '">' + (r.priority === 'urgent' ? 'Urgent' : 'Normal') + '</span></td></tr>';
+      }).join('') + '</tbody></table>';
+    };
+    var loadReports = function () {
+      var asked = reportBucket;
+      if (reportCache[asked]) drawReports(reportCache[asked]);
+      else { reportDrawn = null; reportList.innerHTML = '<p class="ux-empty">Loading…</p>'; }
+      return getJson('/transportation/manage/reports?bucket=' + asked).then(function (result) {
+        reportCache[asked] = result;
+        setReportCount(result.newCount);
+        if (asked === reportBucket) drawReports(result);
+      }).catch(function (error) {
+        if (asked === reportBucket && !reportCache[asked]) reportList.innerHTML = '<p class="ux-alert">' + esc(error.message) + '</p>';
+      });
+    };
+    var openReportPanel = function (row) {
+      var cached = reportCache[reportBucket] || {};
+      if (row.dataset.tripId) {
+        var trip = (cached.arrivals || []).find(function (a) { return String(a.tripId) === row.dataset.tripId; });
+        if (!trip) return;
+        openPanel(trip.routeName || 'Trip', row);
+        panelBody.innerHTML = '<section class="ux-sec tm-sec--first">'
+          + '<div class="ux-kv"><span>Date</span><strong>' + esc(fmtDate(trip.checkedAt)) + '</strong></div>'
+          + '<div class="ux-kv"><span>Driver</span><strong>' + esc(trip.driverName || '–') + '</strong></div>'
+          + '<div class="ux-kv"><span>Bus</span><strong>' + esc(trip.busNumber || '–') + '</strong></div>'
+          + '<div class="ux-kv"><span>Arrived</span><strong>' + trip.arrived + ' of ' + trip.total + '</strong></div>'
+          + (trip.parentConfirmed + trip.parentPending + trip.parentNotArrived ? '<div class="ux-kv"><span>Parents</span><strong>' + trip.parentConfirmed + ' confirmed, ' + trip.parentNotArrived + ' said no, ' + trip.parentPending + ' waiting</strong></div>' : '')
+          + '</section>'
+          + (trip.missing.length ? '<section class="ux-sec"><h3>Did not arrive</h3>' + trip.missing.map(function (m) { return '<div class="ux-kv"><span>' + esc(m.student) + '</span><strong>' + esc(m.reason) + (m.note ? '<br />' + esc(m.note) : '') + '</strong></div>'; }).join('') + '</section>' : '');
+        return;
+      }
+      var report = (cached.reports || []).find(function (r) { return String(r.id) === row.dataset.reportId; });
+      if (!report) return;
+      openPanel(report.issue || report.categoryLabel, row);
+      var who = report.studentId
+        ? '<section class="ux-sec"><h3>Who else sees this</h3><label class="tm-check"><input type="checkbox" name="shareWithParents" value="1"' + (report.shareWithParents ? ' checked' : '') + ' /> Parents</label><label class="tm-check" style="margin-top:8px;"><input type="checkbox" name="shareWithTeachers" value="1"' + (report.shareWithTeachers ? ' checked' : '') + ' /> Teachers</label></section>'
+        : '';
+      panelBody.innerHTML = '<form class="tm-form" novalidate><section class="ux-sec tm-sec--first">'
+        + '<div class="ux-kv"><span>Type</span><strong>' + esc(report.categoryLabel) + '</strong></div>'
+        + (report.issue ? '<div class="ux-kv"><span>Issue</span><strong>' + esc(report.issue) + '</strong></div>' : '')
+        + '<div class="ux-kv"><span>From</span><strong>' + esc(report.driverName || '–') + '</strong></div>'
+        + (report.studentName ? '<div class="ux-kv"><span>Student</span><strong>' + esc(report.studentName) + (report.className ? ', ' + esc(report.className) : '') + '</strong></div>' : '')
+        + (report.busNumber ? '<div class="ux-kv"><span>Bus</span><strong>' + esc(report.busNumber) + '</strong></div>' : '')
+        + (report.routeName ? '<div class="ux-kv"><span>Route</span><strong>' + esc(report.routeName) + '</strong></div>' : '')
+        + '<div class="ux-kv"><span>Date</span><strong>' + esc(fmtDate(report.createdAt)) + '</strong></div>'
+        + (report.details ? '<p style="margin:10px 0 0;white-space:pre-wrap;">' + esc(report.details) + '</p>' : '') + '</section>'
+        + who
+        + '<section class="ux-sec"><label class="tm-field"><span>Note' + (report.studentId ? ' (shown to whoever you share with)' : '') + '</span><input name="note" maxlength="300" autocomplete="off" value="' + esc(report.reviewNote || '') + '" /></label></section>'
+        + '<p class="tm-form__note" data-form-note role="status" hidden></p>'
+        + '<div class="tm-form__actions"><button type="button" class="ws-btn" data-close>Cancel</button><button type="submit" class="ws-btn ws-btn--primary">' + (report.status === 'new' ? 'Mark reviewed' : 'Save') + '</button></div></form>';
+      var form = panelBody.querySelector('form');
+      form.querySelector('[data-close]').addEventListener('click', closePanel);
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var submit = form.querySelector('[type="submit"]');
+        submit.disabled = true;
+        formMessage(form, 'Saving…');
+        postForm('/transportation/manage/reports/' + report.id + '/review', {
+          note: form.elements.note.value,
+          shareWithParents: form.elements.shareWithParents && form.elements.shareWithParents.checked ? '1' : '0',
+          shareWithTeachers: form.elements.shareWithTeachers && form.elements.shareWithTeachers.checked ? '1' : '0'
+        }).then(function (result) {
+          reportCache = {};
+          setReportCount(result.newCount);
+          closePanel();
+          loadReports();
+        }).catch(function (error) {
+          submit.disabled = false;
+          formMessage(form, error.message, true);
+        });
+      });
+    };
+    reportList.addEventListener('click', function (event) {
+      var row = event.target.closest('tr.ux-row');
+      if (row) openReportPanel(row);
+    });
+    reportList.addEventListener('keydown', function (event) {
+      if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('tr.ux-row')) { event.preventDefault(); openReportPanel(event.target); }
+    });
+    document.querySelectorAll('[data-report-bucket]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        reportBucket = button.dataset.reportBucket;
+        document.querySelectorAll('[data-report-bucket]').forEach(function (other) {
+          other.classList.toggle('is-on', other === button);
+          other.setAttribute('aria-selected', String(other === button));
+        });
+        loadReports();
+      });
+    });
+    document.querySelectorAll('[data-pane="reports"], [data-tm-pane="reports"]').forEach(function (button) {
+      button.addEventListener('click', loadReports);
+    });
+    if ($('tm-reports-badge')) loadReports();
   }
 
   /* ---------- requests ---------- */
@@ -408,6 +566,6 @@
     document.querySelectorAll('[data-pane="requests"], [data-tm-pane="requests"]').forEach(function (button) {
       button.addEventListener('click', function () { loadRequests(true); });
     });
-    loadRequests();
+    if ($('tm-requests-badge')) loadRequests();
   }
 })();

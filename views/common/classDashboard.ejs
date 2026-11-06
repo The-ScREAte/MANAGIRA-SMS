@@ -4412,6 +4412,7 @@ main {
                 </div>
               </div>
               <% } %>
+              <input type="search" class="tp-search" id="tpRiderSearch" placeholder="Search students" autocomplete="off" aria-label="Search students" style="display:block;box-sizing:border-box;width:100%;height:38px;margin:10px 0;padding:0 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:transparent;color:inherit;" />
               <div class="tp-routes">
                 <% tpRoutes.forEach(function(route) { %>
                 <details class="tp-route" style="--route:<%= route.color %>">
@@ -4449,6 +4450,51 @@ main {
               <% } else { %>
               <p class="card-subtext">No students in this class ride a bus yet.</p>
               <% } %>
+            <div class="tp-reports" id="classBusReports" data-class-id="<%= classId %>" hidden>
+                <h3 class="card-title" style="font-size:15px;margin:18px 0 8px;">Bus reports</h3>
+                <ul style="list-style:none;margin:0;padding:0;display:grid;gap:8px;" id="classBusReportsList"></ul>
+              </div>
+              <script>
+                (function () {
+                  var search = document.getElementById('tpRiderSearch');
+                  if (!search) return;
+                  search.addEventListener('input', function () {
+                    var wanted = search.value.trim().toLowerCase();
+                    document.querySelectorAll('.tp-route').forEach(function (route) {
+                      var any = false;
+                      route.querySelectorAll('.tp-rider:not(.tp-rider--head)').forEach(function (rider) {
+                        var match = !wanted || rider.textContent.toLowerCase().indexOf(wanted) >= 0;
+                        rider.style.display = match ? '' : 'none';
+                        any = any || match;
+                      });
+                      route.style.display = any ? '' : 'none';
+                      if (wanted) route.open = any;
+                    });
+                  });
+                })();
+              </script>
+              <script>
+                (function () {
+                  var box = document.getElementById('classBusReports');
+                  if (!box || !window.IntersectionObserver) return;
+                  var clean = function (v) { var d = document.createElement('div'); d.textContent = v == null ? '' : v; return d.innerHTML; };
+                  var panel = document.getElementById('panel-transportation');
+                  var loaded = false;
+                  new IntersectionObserver(function (entries) {
+                    if (loaded || !entries[0].isIntersecting) return;
+                    loaded = true;
+                    fetch('/transportation/reports/class/' + box.getAttribute('data-class-id'), { headers: { Accept: 'application/json' } })
+                      .then(function (r) { return r.json(); })
+                      .then(function (data) {
+                        if (!data.success || !data.reports.length) return;
+                        document.getElementById('classBusReportsList').innerHTML = data.reports.map(function (r) {
+                          return '<li style="padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;"><strong>' + clean(r.studentName || r.categoryLabel) + '</strong>' + (r.issue ? '<div style="font-size:13px;font-weight:600;">' + clean(r.issue) + '</div>' : '') + (r.details ? '<div style="font-size:13px;">' + clean(r.details) + '</div>' : '') + (r.note ? '<div style="font-size:12px;color:#64748b;">School note: ' + clean(r.note) + '</div>' : '') + '<div style="font-size:12px;color:#64748b;">' + clean(new Date(r.createdAt).toLocaleDateString()) + '</div></li>';
+                        }).join('');
+                        box.hidden = false;
+                      }).catch(function () {});
+                  }).observe(panel);
+                })();
+              </script>
             </section>
             <% } %>
 
@@ -6102,8 +6148,8 @@ main {
               return;
             }
             var stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
-            var icon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale: stale });
-            var popupText = 'Bus ' + (live.bus_number || '') + ' - updated ' + window.ManagiraMaps.ago(live.recorded_at || Date.now());
+            var icon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', photo: live.driver_photo_url, stale: stale });
+            var popupText = window.ManagiraMaps.driverCard(live);
             if (!marker) {
               marker = L.marker([live.latitude, live.longitude], { icon: icon, title: 'Bus ' + (live.bus_number || ''), zIndexOffset: 1000 }).bindPopup(popupText);
               marker.addTo(layerGroup);
@@ -6143,6 +6189,17 @@ main {
       }
 
       <% if (transportActive && classTransportationMapRows.length) { %>
+      // The map tools load only when the Transportation tab is opened, not with every class page.
+      (function whenClassMapShown(draw) {
+        var mapBox = document.getElementById('classDashboardTransportMap');
+        if (!mapBox || !window.IntersectionObserver) { draw(); return; }
+        var seen = new IntersectionObserver(function (entries) {
+          if (!entries[0].isIntersecting) return;
+          seen.disconnect();
+          draw();
+        });
+        seen.observe(mapBox);
+      })(function () {
       renderTransportMap('classDashboardTransportMap', {
         school: <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>,
         stop: null,
@@ -6251,6 +6308,7 @@ main {
           }
           Promise.all(routePromises).then(fit);
         });
+      });
       });
       <% } %>
 

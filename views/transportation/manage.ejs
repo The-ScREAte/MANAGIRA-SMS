@@ -991,6 +991,9 @@
   .tm-segment button { display: inline-flex; align-items: center; gap: 6px; width: auto; margin: 0; padding: 6px 16px; border: 0; border-radius: 8px; background: transparent; box-shadow: none; color: #64748b; font-size: 13px; font-weight: 600; cursor: pointer; }
   .tm-segment button.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
 
+  .tm-settings-stack[hidden] { display: none; }
+  .tm-list-search { display: block; box-sizing: border-box; width: 100%; max-width: 420px; height: 38px; margin: 0 0 12px; padding: 0 12px; border: 1px solid var(--ws-line, #e2e8f0); border-radius: 8px; background: #fff; color: #0f172a; font-size: 14px; }
+
   /* The panel's form */
   .tm-form__class { margin: 0 0 12px; }
   .tm-sec--first { padding-top: 0; border-top: 0; }
@@ -1035,12 +1038,13 @@
     <nav class="tm-nav" aria-label="Transportation sections" id="tm-nav">
       <button class="tm-nav-btn active" type="button" data-pane="overview">Overview</button>
       <% const transportAccess = workspaceAccess().transport; %>
-      <% if (transportAccess.students) { %><button class="tm-nav-btn" type="button" data-pane="requests">Requests <span class="tm-nav-badge" id="tm-requests-badge" hidden></span></button><% } %>
+      <% if (transportAccess.riderList) { %><button class="tm-nav-btn" type="button" data-pane="requests">Requests <span class="tm-nav-badge" id="tm-requests-badge" hidden></span></button><% } %>
+      <% if (transportAccess.reports) { %><button class="tm-nav-btn" type="button" data-pane="reports">Reports <span class="tm-nav-badge" id="tm-reports-badge" hidden></span></button><% } %>
       <% if (transportAccess.buses) { %><button class="tm-nav-btn" type="button" data-pane="buses">Buses</button><% } %>
       <% if (transportAccess.drivers) { %><button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button><% } %>
       <% if (transportAccess.schedules || transportAccess.routes) { %><button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button><% } %>
       <% if (transportAccess.students) { %><button class="tm-nav-btn" type="button" data-pane="students">Students</button><% } %>
-      <% if (transportAccess.settings) { %><button class="tm-nav-btn" type="button" data-pane="settings">Settings</button><% } %>
+      <% if (transportAccess.settings || transportAccess.reports) { %><button class="tm-nav-btn" type="button" data-pane="settings">Settings</button><% } %>
     </nav>
   </aside>
 
@@ -1052,10 +1056,10 @@
       <div class="tm-head tm-ov-head">
         <h2>Transportation</h2>
         <div class="tm-ov-actions" role="group" aria-label="Add">
-          <button type="button" class="tm-btn tm-btn--primary" data-tm-click="open-add-driver-modal" data-tm-pane="drivers">Add driver</button>
-          <button type="button" class="tm-btn" data-tm-click="open-add-bus-modal" data-tm-pane="buses">Add bus</button>
-          <button type="button" class="tm-btn" data-tm-click="open-add-route-modal" data-tm-pane="buses">Add route</button>
-          <button type="button" class="tm-btn" data-tm-click="open-add-stop-modal" data-tm-pane="buses">Add stop</button>
+          <% if (transportAccess.drivers) { %><button type="button" class="tm-btn tm-btn--primary" data-tm-click="open-add-driver-modal" data-tm-pane="drivers">Add driver</button><% } %>
+          <% if (transportAccess.buses) { %><button type="button" class="tm-btn" data-tm-click="open-add-bus-modal" data-tm-pane="buses">Add bus</button><% } %>
+          <% if (transportAccess.routes) { %><button type="button" class="tm-btn" data-tm-click="open-add-route-modal" data-tm-pane="buses">Add route</button>
+          <button type="button" class="tm-btn" data-tm-click="open-add-stop-modal" data-tm-pane="buses">Add stop</button><% } %>
         </div>
       </div>
 
@@ -1065,7 +1069,8 @@
         <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (routes || []).length %></span>Routes</button>
         <button type="button" class="tm-ov-tile" data-tm-pane="buses"><span><%= (stops || []).length %></span>Stops</button>
         <button type="button" class="tm-ov-tile" data-tm-pane="students"><span><b id="tm-riders-count" style="font-weight:inherit"><%= (assignments || []).length %></b><small>/<%= (students || []).length %></small></span>Students riding</button>
-        <% if (transportAccess.students) { %><button type="button" class="tm-ov-tile" data-tm-pane="requests"><span id="tm-requests-tile">0</span>New requests</button><% } %>
+        <% if (transportAccess.riderList) { %><button type="button" class="tm-ov-tile" data-tm-pane="requests"><span id="tm-requests-tile">0</span>New requests</button><% } %>
+        <% if (transportAccess.reports) { %><button type="button" class="tm-ov-tile" data-tm-pane="reports"><span id="tm-reports-tile">0</span>New reports</button><% } %>
         <button type="button" class="tm-ov-tile" data-tm-pane="schedule"><span><%= todaySchedules.length %></span>Trips today</button>
       </div>
 
@@ -1638,7 +1643,13 @@
         <h2>Settings</h2>
       </div>
 
-      <div class="tm-settings-stack">
+      <article class="tm-card" style="margin-bottom:12px;">
+        <label class="tm-switch"><span>Parents confirm arrival</span><input type="checkbox" id="tm-parent-confirm"<%= locals.parentConfirmArrival ? ' checked' : '' %> /><i aria-hidden="true"></i></label>
+        <p class="tm-map-note" style="margin:6px 0 0;">After the driver's arrival check, parents confirm in their portal that their child arrived. A "not arrived" goes straight to Reports.</p>
+        <p class="tm-map-note" id="tm-parent-confirm-note" role="status" style="margin:4px 0 0;"></p>
+      </article>
+
+      <div class="tm-settings-stack"<%= transportAccess.settings ? '' : ' hidden' %>>
         <article class="tm-card">
           <details>
             <summary class="tm-card-summary"><h3>Map</h3></summary>
@@ -1776,7 +1787,24 @@
           <button type="button" role="tab" aria-selected="false" data-request-bucket="old">Old</button>
         </div>
       </header>
+      <input type="search" class="tm-list-search" data-search-list="tm-requests-list" placeholder="Search by student, class or route" autocomplete="off" aria-label="Search requests" />
       <div class="ws-cards-wrap" id="tm-requests-list" aria-live="polite"></div>
+    </section>
+
+    <section class="tm-pane ws-root" data-pane-id="reports">
+      <header class="ws-head">
+        <div class="ws-head__text">
+          <h1 class="ws-head__title">Reports</h1>
+          <p class="ws-head__sub">What drivers send you, and each trip's arrival check. You choose who else sees a report.</p>
+        </div>
+        <div class="tm-segment" role="tablist" aria-label="Reports">
+          <button type="button" class="is-on" role="tab" aria-selected="true" data-report-bucket="new">New <span class="tm-nav-badge" id="tm-reports-tab-count" hidden></span></button>
+          <button type="button" role="tab" aria-selected="false" data-report-bucket="old">Old</button>
+          <button type="button" role="tab" aria-selected="false" data-report-bucket="arrivals">Arrivals</button>
+        </div>
+      </header>
+      <input type="search" class="tm-list-search" data-search-list="tm-reports-list" placeholder="Search by student, driver or issue" autocomplete="off" aria-label="Search reports" />
+      <div class="ws-cards-wrap" id="tm-reports-list" aria-live="polite"></div>
     </section>
 
     <section class="tm-pane ws-root" data-pane-id="students">
@@ -1816,7 +1844,7 @@
           </label>
           <p class="ux-shown" id="tm-students-shown" aria-live="polite"></p>
           <div class="tm-class-tools" id="tm-class-tools" hidden>
-            <button type="button" class="ws-btn ws-btn--sm" id="tm-class-edit">Edit class access</button>
+            <button type="button" class="ws-btn ws-btn--sm" id="tm-class-edit"<%= transportAccess.riderList ? '' : ' hidden' %>>Edit class access</button>
             <button type="button" class="ws-btn ws-btn--sm ws-btn--primary" id="tm-class-save" hidden>Save</button>
             <button type="button" class="ws-btn ws-btn--sm" id="tm-class-cancel" hidden>Cancel</button>
             <% if (canBroadcastToGuardians) { %><button type="button" class="ws-btn ws-btn--sm notify-guardians-btn" id="tm-class-notify" data-context="transportation" data-context-id="" hidden>Notify guardians</button><% } %>
@@ -1853,6 +1881,8 @@
 </aside>
 <script type="application/json" id="tm-people-data"><%- safeJson({
   unit: distanceUnit === 'mi' ? 'mi' : 'km',
+  canRiderList: !!transportAccess.riderList,
+  canStudentRoutes: !!transportAccess.studentRoutes,
   buses: (buses || []).map(function (b) { return { bus_id: b.bus_id, bus_number: b.bus_number }; }),
   routes: (routes || []).map(function (r) { return { route_id: r.route_id, route_name: r.route_name }; }),
   stops: (stops || []).map(function (st) { return { stop_id: st.stop_id, route_id: st.route_id, stop_name: st.stop_name }; }),
@@ -3318,10 +3348,11 @@
           }
 
           const stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
-          const busIcon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale });
+          const busIcon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale, photo: live.driver_photo_url });
           if (existing) {
             glideMarker(existing, [lat, lng]);
             existing.setIcon(busIcon);
+            existing.setPopupContent(window.ManagiraMaps.driverCard(live));
             existing._stale = stale;
           } else {
             const bus = busById[live.bus_id] || null;
@@ -3331,7 +3362,7 @@
             }).addTo(busLayer);
             marker._stale = stale;
             liveBusMarkers.set(routeId, marker);
-            marker.bindPopup(buildBusPopup({ dayOfWeek: null }, bus, routeNameById[routeId]));
+            marker.bindPopup(window.ManagiraMaps.driverCard(live));
           }
         });
       } finally {

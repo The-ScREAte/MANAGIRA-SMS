@@ -144,8 +144,24 @@
     function findRoute(id) { return routes.find(function (r) { return String(r.route_id) === String(id); }) || null; }
     function remaining() { return st.stops.filter(function (s) { return s.seq > st.passed; }); }
     function alongOf(seq) { if (!st.line) return null; var hit = st.line.stops.find(function (x) { return x.seq === seq; }); return hit ? hit.along : null; }
-    function busAlong() { if (!st.line || !st.pos) return null; var p = project(st.line.pts, st.line.cum, st.pos); return p && p.offset <= OFF_ROUTE_M ? p : null; }
-    function studentsAt(stopId) { return (cfg.students || []).filter(function (s) { return s.stopId && String(s.stopId) === String(stopId); }); }
+    function busAlong() {
+      if (!st.line || !st.pos) return null;
+      if (st.alongFor === st.pos && st.alongLine === st.line) return st.alongValue;
+      var p = project(st.line.pts, st.line.cum, st.pos);
+      st.alongFor = st.pos; st.alongLine = st.line;
+      st.alongValue = p && p.offset <= OFF_ROUTE_M ? p : null;
+      return st.alongValue;
+    }
+    function studentsAt(stopId) { return (cfg.students || []).filter(function (s) { return s.hasAccess && s.stopId && String(s.stopId) === String(stopId); }); }
+    // Who this trip picks up: riders on the chosen route, or on this bus with no route yet.
+    function ridersOnRoute() {
+      var routeId = st.route ? String(st.route.route_id) : '';
+      return (cfg.students || []).filter(function (s) { return s.hasAccess && (!routeId || s.routeId === null || String(s.routeId) === routeId); });
+    }
+    function notPickingUp() {
+      var riders = ridersOnRoute();
+      return (cfg.students || []).filter(function (s) { return riders.indexOf(s) < 0; });
+    }
     function fmtDistance(m) {
       if (!isFinite(m)) return '–';
       if (unit === 'mi') { var mi = m / 1609.344; return mi < 0.1 ? Math.max(10, Math.round(m * 3.28084 / 10) * 10) + ' ft' : mi.toFixed(1) + ' mi'; }
@@ -175,7 +191,7 @@
       renderIdle();
       drawMarkers();
       requestLine(true);
-      drawMini();
+      scheduleMini();
     }
 
     function fetchLine(points) {
@@ -195,14 +211,14 @@
       if (st.pos && driving()) { pts.push([st.pos.lat, st.pos.lng]); fromBus = true; }
       rest.forEach(function (s) { pts.push([s.lat, s.lng]); });
       if (st.dest) pts.push([st.dest.lat, st.dest.lng]);
-      if (pts.length < 2) { st.line = null; drawLine(); renderIdleTotals(null); updateStats(); return; }
+      if (pts.length < 2) { st.line = null; drawLine(true); renderIdleTotals(null); updateStats(); return; }
       var req = ++st.lineReq;
       st.linePending = true;
       st.lineAt = now;
       fetchLine(pts).then(function (data) {
         if (req !== st.lineReq) return;
         st.linePending = false;
-        if (!data) { st.line = null; drawLine(); updateStats(); return; }
+        if (!data) { st.line = null; drawLine(true); updateStats(); scheduleMini(); return; }
         var line = data.coordinates.map(function (p) { return { lat: Number(p[0]), lng: Number(p[1]) }; });
         var cum = measure(line), from = 1;
         var stops = rest.map(function (s) {
@@ -222,8 +238,8 @@
         }).filter(function (step) { return step.type !== 'depart' && !(step.type === 'new name' && !step.name); });
         st.line = { pts: line, cum: cum, length: cum[cum.length - 1], durationS: Number(data.durationS) || 0, stops: stops, steps: steps };
         st.offRoute = false;
-        if (!driving()) { renderIdleTotals(data); drawMini(); }
-        drawLine();
+        if (!driving()) { renderIdleTotals(data); scheduleMini(); }
+        drawLine(true);
         updateStats();
         if (driving() && !st.pos) frameRoute();
       });
@@ -240,49 +256,64 @@
     }
 
     /* ---------- the small map on the page before Go ---------- */
-    var mini = { map: null, ready: false, markers: [] };
+    // Drawn once when the page is idle and kept as a picture, so this page holds no map
+    // engine, graphics memory or map traffic until Go.
+    var mini = { key: '', timer: 0, map: null };
+    function scheduleMini() {
+      if (!$('drv-mini') || mini.timer) return;
+      var run = function () { mini.timer = 0; drawMini(); };
+      mini.timer = 1;
+      if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 1500 }); else setTimeout(run, 600);
+    }
     function drawMini() {
       var el = $('drv-mini');
-      if (!el || nav.hidden === false) return;
+      if (!el || !nav.hidden || st.linePending) return;
+      var key = (st.route ? st.route.route_id : '') + '|' + (st.line ? st.line.pts.length : 0);
+      if (key === mini.key || (!st.line && !st.stops.length)) return;
+      mini.key = key;
       loadEngine().then(function () {
         var gl = window.maplibregl;
-        if (gl.supported && !gl.supported()) { el.hidden = true; return; }
-        if (!mini.map) {
-          var first = st.stops[0] || st.dest || point(cfg.school && cfg.school.lat, cfg.school && cfg.school.lng);
-          mini.map = new gl.Map({
-            container: el, style: STYLE_DAY, interactive: false, attributionControl: false,
-            center: first ? [first.lng, first.lat] : [0, 20], zoom: first ? 12 : 1
-          });
-          mini.map.addControl(new gl.AttributionControl({ compact: true }), 'bottom-right');
-          mini.map.on('style.load', function () {
-            keepCreditsSmall(mini.map, el);
-            (mini.map.getStyle().layers || []).forEach(function (layer) {
-              if (/^poi|housenumber/.test(layer.id) || layer.type === 'fill-extrusion') mini.map.setLayoutProperty(layer.id, 'visibility', 'none');
-            });
-            mini.map.addSource('line', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] }, properties: {} } });
-            mini.map.addLayer({ id: 'line', type: 'line', source: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1a73e8', 'line-width': 3 } });
-            mini.ready = true;
-            drawMini();
-          });
-          return;
-        }
-        if (!mini.ready) return;
+        if (gl.supported && !gl.supported()) return;
+        if (mini.map) { mini.map.remove(); mini.map = null; }
         var coords = st.line ? st.line.pts.map(function (q) { return [q.lng, q.lat]; }) : [];
-        mini.map.getSource('line').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} });
-        mini.markers.forEach(function (marker) { marker.remove(); });
-        mini.markers = st.stops.map(function (s) {
-          var dot = document.createElement('div');
-          dot.className = 'drvn-mark drvn-mark--mini';
-          return new gl.Marker({ element: dot }).setLngLat([s.lng, s.lat]).addTo(mini.map);
-        });
-        var all = coords.concat(st.stops.map(function (s) { return [s.lng, s.lat]; }));
+        var stops = st.stops.map(function (s) { return [s.lng, s.lat]; });
+        var all = coords.concat(stops);
         if (st.dest) all.push([st.dest.lng, st.dest.lat]);
-        if (all.length) {
-          var bounds = new gl.LngLatBounds(all[0], all[0]);
-          all.forEach(function (c) { bounds.extend(c); });
-          mini.map.fitBounds(bounds, { padding: 16, maxZoom: 14, animate: false });
-        }
-      }).catch(function () { el.hidden = true; });
+        if (!all.length) return;
+        var bounds = new gl.LngLatBounds(all[0], all[0]);
+        all.forEach(function (c) { bounds.extend(c); });
+        var box = document.createElement('div');
+        box.className = 'drv-mini__draw';
+        el.appendChild(box);
+        var map = mini.map = new gl.Map({
+          container: box, style: STYLE_DAY, interactive: false, attributionControl: false, fadeDuration: 0, preserveDrawingBuffer: true,
+          bounds: bounds, fitBoundsOptions: { padding: 16, maxZoom: 14 }
+        });
+        var finish = function (keep) {
+          if (keep) {
+            var img = el.querySelector('img') || el.appendChild(document.createElement('img'));
+            img.alt = '';
+            try { img.src = map.getCanvas().toDataURL('image/jpeg', 0.82); } catch (_) { /* keep the last picture */ }
+          }
+          if (mini.map === map) mini.map = null;
+          map.remove();
+          box.remove();
+        };
+        var giveUp = setTimeout(function () { if (mini.map === map) finish(false); }, 15000);
+        map.on('load', function () {
+          (map.getStyle().layers || []).forEach(function (layer) {
+            if (/^poi|housenumber/.test(layer.id) || layer.type === 'fill-extrusion') map.setLayoutProperty(layer.id, 'visibility', 'none');
+          });
+          map.addSource('line', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: {} } });
+          map.addLayer({ id: 'line', type: 'line', source: 'line', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#1a73e8', 'line-width': 3 } });
+          map.addSource('stops', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'MultiPoint', coordinates: stops }, properties: {} } });
+          map.addLayer({ id: 'stops', type: 'circle', source: 'stops', paint: { 'circle-radius': 4, 'circle-color': '#fff', 'circle-stroke-color': '#1a73e8', 'circle-stroke-width': 2 } });
+          map.once('idle', function () {
+            clearTimeout(giveUp);
+            if (mini.map === map) finish(true);
+          });
+        });
+      }).catch(function () { /* the page works without the picture */ });
     }
 
     /* ---------- the page before Go ---------- */
@@ -294,8 +325,8 @@
     function renderIdle() {
       if (!idle.stops) return;
       idle.stops.textContent = st.stops.length;
-      var riders = st.stops.reduce(function (sum, s) { return sum + studentsAt(s.id).length; }, 0);
-      idle.students.textContent = riders || (cfg.students || []).length;
+      idle.students.textContent = ridersOnRoute().length;
+      renderStudents();
       idle.distance.textContent = '–';
       idle.time.textContent = '–';
       if (idle.count) idle.count.textContent = st.stops.length;
@@ -306,6 +337,44 @@
         }).join('') + (st.dest ? '<li><span class="drv-num"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg></span><div><strong>' + esc(st.dest.label) + '</strong><span class="drv-sub">Final stop</span></div></li>' : '');
       }
     }
+    var studentTab = 'yes';
+    function renderStudents() {
+      var list = $('drv-students-list');
+      if (!list) return;
+      var yes = ridersOnRoute(), no = notPickingUp();
+      $('drv-count-yes').textContent = yes.length;
+      $('drv-count-no').textContent = no.length;
+      var shown = studentTab === 'yes' ? yes : no;
+      var searchBox = $('drv-students-search');
+      var wanted = searchBox ? searchBox.value.trim().toLowerCase() : '';
+      if (wanted) {
+        shown = shown.filter(function (student) { return student.name.toLowerCase().indexOf(wanted) >= 0; });
+        if (!shown.length) { list.innerHTML = '<li class="drv-none">No student matches.</li>'; return; }
+      }
+      if (!shown.length) {
+        list.innerHTML = '<li class="drv-none">' + (studentTab === 'yes' ? 'No riders on this route yet.' : 'Everyone you see has bus access.') + '</li>';
+        return;
+      }
+      list.innerHTML = shown.map(function (student) {
+        var parts = studentTab === 'yes'
+          ? [student.stopName, student.className]
+          : [student.className, student.otherBus ? 'Another bus or route' : 'No bus access'];
+        var extra = (student.address ? '<span class="drv-sub">' + esc(student.address) + '</span>' : '')
+          + (student.parentPhone ? '<a class="drv-phone" href="tel:' + esc(student.parentPhone) + '">Parent: ' + esc(student.parentPhone) + '</a>' : '');
+        return '<li><div><strong>' + esc(student.name) + '</strong><span class="drv-sub">' + esc(parts.filter(Boolean).join(' · ')) + '</span>' + extra + '</div></li>';
+      }).join('');
+    }
+    document.querySelectorAll('[data-student-tab]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        studentTab = tab.getAttribute('data-student-tab');
+        document.querySelectorAll('[data-student-tab]').forEach(function (other) {
+          other.classList.toggle('is-on', other === tab);
+          other.setAttribute('aria-selected', String(other === tab));
+        });
+        renderStudents();
+      });
+    });
+    if ($('drv-students-search')) $('drv-students-search').addEventListener('input', renderStudents);
     function renderIdleTotals(data) {
       if (!idle.distance) return;
       idle.distance.textContent = data ? fmtDistance(data.distanceM) : '–';
@@ -323,7 +392,7 @@
       + '<div class="drvn-map" id="drvn-map"></div><p class="drvn-msg" id="drvn-msg" hidden></p>'
       + '<div class="drvn-top" id="drvn-top">'
       +   '<div class="drvn-turn" id="drvn-turn" hidden><span id="drvn-turn-icon"></span><div class="drvn-turn__text"><strong class="drvn-turn__dist" id="drvn-turn-dist"></strong><span class="drvn-turn__what" id="drvn-turn-what"></span></div></div>'
-      +   '<div class="drvn-chip" id="drvn-chip"></div>'
+      +   '<button type="button" class="drvn-chip" id="drvn-chip" aria-expanded="false" aria-controls="drvn-more"></button>'
       + '</div>'
       + '<div class="drvn-tools">'
       +   '<button type="button" class="drvn-tool" id="drvn-minimize" aria-label="Minimize the map" title="Minimize">' + toolSvg(TOOL.minimize) + '</button>'
@@ -337,10 +406,16 @@
       +   '<button type="button" class="drvn-grab" id="drvn-grab" aria-label="Show stops" aria-expanded="false"><i></i></button>'
       +   '<div class="drvn-eta"><div class="drvn-eta__text"><strong class="drvn-eta__time" id="drvn-eta-time">–</strong><span class="drvn-eta__sub"><i class="drvn-dot" id="drvn-dot" aria-hidden="true"></i><span id="drvn-eta-sub">Finding GPS…</span></span></div>'
       +     '<div class="drvn-open"><button type="button" class="drvn-openbtn" id="drvn-open" aria-haspopup="menu" aria-expanded="false">Navigate<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>'
-      +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '</div></div>'
+      +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '<p class="drvn-menu__note">Families see an estimated position until you come back here.</p></div></div>'
       +     '<button type="button" class="drvn-end" id="drvn-end">End</button></div>'
-      +   '<div class="drvn-confirm" id="drvn-confirm" hidden><p>End this trip? Families will stop seeing the bus.</p><div><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button><button type="button" class="drvn-plain drvn-plain--danger" id="drvn-end-yes">End trip</button></div></div>'
-      +   '<div class="drvn-more" id="drvn-more" hidden><p class="drvn-h" id="drvn-route-name"></p><ol class="drvn-stops" id="drvn-stops"></ol></div>'
+      +   '<div class="drvn-confirm" id="drvn-confirm" hidden><p id="drvn-confirm-title"></p><div class="drvn-arrival-tools" id="drvn-arrival-tools" hidden><div class="drvn-arrival-tools__row"><button type="button" class="drvn-plain drvn-plain--go" id="drvn-all-arrived">All arrived</button><button type="button" class="drvn-plain" id="drvn-no-students">No students this trip</button></div><input type="search" class="drvn-search" id="drvn-arrival-search" placeholder="Search students" autocomplete="off" aria-label="Search students" /><small id="drvn-arrival-count"></small></div><div class="drvn-arrivals" id="drvn-arrivals"></div><div class="drvn-confirm__btns"><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button><button type="button" class="drvn-plain drvn-plain--danger" id="drvn-end-yes">End trip</button></div></div>'
+      +   '<div class="drvn-more" id="drvn-more" hidden>'
+      +     '<div class="drvn-morehead"><strong id="drvn-route-name"></strong><button type="button" class="drvn-morex" id="drvn-more-close" aria-label="Close stops">' + toolSvg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>'
+      +     '<input type="search" class="drvn-search" id="drvn-stops-search" placeholder="Find a stop or student" autocomplete="off" aria-label="Find a stop or student" />'
+      +     '<div id="drvn-stops"></div>'
+      +     '<form class="drvn-addstop" id="drvn-addstop" hidden><input id="drvn-addstop-input" maxlength="300" autocomplete="off" placeholder="Stop address" aria-label="Stop address" /><div class="drvn-confirm__btns"><button type="button" class="drvn-plain" id="drvn-addstop-here">Use my location</button><button type="submit" class="drvn-plain drvn-plain--go" id="drvn-addstop-save">Add stop</button></div></form>'
+      +     '<div class="drvn-morebtns"><button type="button" class="drvn-plain" id="drvn-addstop-open">Add stop</button><button type="button" class="drvn-plain" data-drv-report>Report</button></div>'
+      +   '</div>'
       + '</section>';
     document.body.appendChild(nav);
 
@@ -348,7 +423,8 @@
       turn: $('drvn-turn'), turnIcon: $('drvn-turn-icon'), turnDist: $('drvn-turn-dist'), turnWhat: $('drvn-turn-what'), chip: $('drvn-chip'),
       minimize: $('drvn-minimize'), compass: $('drvn-compass'), needle: $('drvn-compass-needle'), overview: $('drvn-overview'), recenter: $('drvn-recenter'), toast: $('drvn-toast'),
       sheet: $('drvn-sheet'), grab: $('drvn-grab'), etaTime: $('drvn-eta-time'), etaSub: $('drvn-eta-sub'), dot: $('drvn-dot'), open: $('drvn-open'), menu: $('drvn-menu'), end: $('drvn-end'), confirm: $('drvn-confirm'),
-      keep: $('drvn-keep'), endYes: $('drvn-end-yes'), more: $('drvn-more'), routeName: $('drvn-route-name'), stops: $('drvn-stops'), msg: $('drvn-msg')
+      keep: $('drvn-keep'), endYes: $('drvn-end-yes'), more: $('drvn-more'), routeName: $('drvn-route-name'), stops: $('drvn-stops'), msg: $('drvn-msg'),
+      confirmTitle: $('drvn-confirm-title'), arrivals: $('drvn-arrivals'), arrivalTools: $('drvn-arrival-tools'), addStop: $('drvn-addstop'), addStopInput: $('drvn-addstop-input')
     };
 
     // The panels follow the app's own look; the map itself stays the one clear map.
@@ -363,6 +439,7 @@
     function sheetHeight() { return ui.sheet.offsetHeight || 96; }
     function syncSheet() { nav.style.setProperty('--n-sheet', (window.innerWidth >= 720 ? 10 : 0) + sheetHeight() + 'px'); }
 
+    var CHIP_ARROW = '<svg class="drvn-chip__arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     var toastTimer = 0;
     function toast(text, ms) {
       ui.toast.textContent = text;
@@ -413,11 +490,14 @@
       map.addLayer({ id: 'drv-done', type: 'line', source: 'drv-done', layout: lineLayout, paint: { 'line-color': '#98a2b3', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 4, 18, 10], 'line-opacity': .8 } }, beforeId);
       map.addLayer({ id: 'drv-casing', type: 'line', source: 'drv-ahead', layout: lineLayout, paint: { 'line-color': '#fff', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 7, 18, 16] } }, beforeId);
       map.addLayer({ id: 'drv-ahead', type: 'line', source: 'drv-ahead', layout: lineLayout, paint: { 'line-color': '#1a73e8', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 4, 18, 11] } }, beforeId);
-      drawLine();
+      drawLine(true);
     }
-    function drawLine() {
+    function drawLine(force) {
       var map = st.map;
       if (!map || !st.styleReady || !map.getSource('drv-ahead')) return;
+      var drawNow = Date.now();
+      if (!force && drawNow - (st.lineDrawnAt || 0) < 3000) return;
+      st.lineDrawnAt = drawNow;
       var ahead = [], done = [];
       if (st.line) {
         var toCoord = function (q) { return [q.lng, q.lat]; };
@@ -465,7 +545,7 @@
       if (!st.bus) {
         var el = document.createElement('div');
         el.className = 'drvn-puck';
-        el.innerHTML = '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="#fff"/><path d="M24 7l13 31-13-7-13 7z" fill="#1a73e8"/></svg>';
+        el.innerHTML = '<svg viewBox="0 0 32 56" aria-hidden="true"><rect class="drvn-puck__body" x="3" y="2" width="26" height="52" rx="7" fill="#1a73e8" stroke="#fff" stroke-width="2.5"/><rect x="7.5" y="8" width="17" height="9" rx="2.5" fill="#dbeafe"/><rect x="7.5" y="42" width="17" height="6" rx="2" fill="#dbeafe" opacity=".75"/></svg>';
         st.bus = new window.maplibregl.Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'viewport' }).setLngLat([p.lng, p.lat]).addTo(st.map);
       } else if (animate) {
         glideTo(p);
@@ -512,7 +592,7 @@
         bearing: prefs.orientation === 'heading' && st.heading !== null ? st.heading : 0,
         padding: cameraPadding(),
         duration: force ? 800 : 1000,
-        easing: force ? undefined : function (t) { return t; },
+        easing: force ? function (t) { return t * (2 - t); } : function (t) { return t; },
         essential: true
       });
     }
@@ -553,9 +633,8 @@
     }
     // GPS wanders a few metres: while the bus is on its route, show it on the road and
     // point it the way the road goes.
-    function roadPoint(fix) {
-      if (!st.line) return null;
-      var p = project(st.line.pts, st.line.cum, fix);
+    function roadPoint() {
+      var p = busAlong();
       if (!p || p.offset > SNAP_M) return null;
       var a = st.line.pts[p.index - 1], b = st.line.pts[p.index];
       var y = Math.sin((b.lng - a.lng) * RAD) * Math.cos(b.lat * RAD);
@@ -566,7 +645,7 @@
       var wasWaiting = !st.pos;
       st.pos = fix;
       if (fix.speed !== null && fix.speed !== undefined) st.speed = st.speed === null ? fix.speed : st.speed * 0.6 + fix.speed * 0.4;
-      var onRoad = driving() ? roadPoint(fix) : null;
+      var onRoad = driving() ? roadPoint() : null;
       if (st.heading === null || (fix.speed !== null && fix.speed > 1.5)) st.heading = smoothHeading(st.heading, onRoad ? onRoad.bearing : fix.heading);
       fix.heading = st.heading;
       st.shown = onRoad ? onRoad.point : fix;
@@ -633,13 +712,13 @@
 
       // Next stop
       var nearEnd = isDest && st.pos && st.dest && distM(st.pos, st.dest) <= ARRIVE_M;
-      if (nearEnd && !st.arrivedSaid) { st.arrivedSaid = true; toast('You have arrived'); }
+      if (nearEnd && !st.arrivedSaid) { st.arrivedSaid = true; toast('You have arrived'); openEndCheck(); }
       ui.chip.hidden = false;
       if (isDest) {
-        ui.chip.innerHTML = esc(nearEnd ? 'You have arrived' : 'Final stop: ' + st.dest.label);
+        ui.chip.innerHTML = esc(nearEnd ? 'You have arrived' : 'Final stop: ' + st.dest.label) + CHIP_ARROW;
       } else {
         var riders = studentsAt(target.id).length;
-        ui.chip.innerHTML = 'Stop ' + (target.seq + 1) + ' of ' + st.stops.length + ': ' + esc(target.name) + ' <small>' + (riders ? '· ' + riders + ' student' + (riders === 1 ? '' : 's') + ' ' : '') + (toNext !== null ? '· ' + esc(fmtDistance(toNext)) : '') + '</small>';
+        ui.chip.innerHTML = 'Stop ' + (target.seq + 1) + ' of ' + st.stops.length + ': ' + esc(target.name) + ' <small>' + (riders ? '· ' + riders + ' student' + (riders === 1 ? '' : 's') + ' ' : '') + (toNext !== null ? '· ' + esc(fmtDistance(toNext)) : '') + '</small>' + CHIP_ARROW;
       }
 
       // Time left: the road route's own time for what is left, plus a short wait per stop.
@@ -659,10 +738,10 @@
       st.lastListAt = Date.now();
       if (!proj) proj = busAlong();
       if (pace === undefined) pace = st.line && st.line.length ? st.line.durationS / st.line.length : 0;
-      ui.routeName.textContent = st.route ? st.route.route_name : '';
+      ui.routeName.textContent = st.route ? st.route.route_name : 'Stops';
       var nextSeq = (remaining()[0] || {}).seq;
       var waited = 0;
-      ui.stops.innerHTML = st.stops.map(function (s) {
+      var row = function (s) {
         var done = s.seq <= st.passed;
         var names = studentsAt(s.id).map(function (r) { return r.name; }).join(', ');
         var eta = '';
@@ -671,12 +750,83 @@
           if (along !== null) eta = fmtClock(Date.now() + (Math.max(0, along - proj.along) * pace + waited * DWELL_S) * 1000);
           waited += 1;
         }
-        return '<li class="' + (done ? 'is-done' : '') + '"><span class="drvn-num">' + (s.seq + 1) + '</span><div class="drvn-stop-text"><strong>' + esc(s.name) + '</strong>' + (names ? '<small>' + esc(names) + '</small>' : '') + '</div>'
+        return '<li class="' + (done ? 'is-done' : (s.seq === nextSeq ? 'is-next' : '')) + '"><span class="drvn-num">' + (done ? '✓' : s.seq + 1) + '</span><div class="drvn-stop-text"><strong>' + esc(s.name) + '</strong>' + (names ? '<small>' + esc(names) + '</small>' : '') + '</div>'
           + (eta ? '<em>' + esc(eta) + '</em>' : '')
           + (s.seq === nextSeq ? '<button type="button" class="drvn-skip" data-skip="' + s.seq + '">Skip</button>' : '')
           + '</li>';
-      }).join('');
+      };
+      var searchFor = ($('drvn-stops-search').value || '').trim().toLowerCase();
+      var matches = function (s) {
+        if (!searchFor) return true;
+        return s.name.toLowerCase().indexOf(searchFor) >= 0 || studentsAt(s.id).some(function (r) { return r.name.toLowerCase().indexOf(searchFor) >= 0; });
+      };
+      var todo = st.stops.filter(function (s) { return s.seq > st.passed && matches(s); });
+      var done = st.stops.filter(function (s) { return s.seq <= st.passed && matches(s); });
+      ui.stops.innerHTML = '<p class="drvn-h">To go (' + todo.length + ')</p>'
+        + (todo.length ? '<ol class="drvn-stops">' + todo.map(row).join('') + '</ol>' : '<p class="drvn-none">Every stop is covered.</p>')
+        + '<p class="drvn-h">Covered (' + done.length + ')</p>'
+        + (done.length ? '<ol class="drvn-stops">' + done.map(row).join('') + '</ol>' : '<p class="drvn-none">None yet.</p>');
       syncSheet();
+    }
+    // A stop for this trip only: it goes next, and the route is planned again.
+    function extraKey() { return 'managira-trip-stops-' + st.tripId; }
+    function saveExtras() {
+      try { localStorage.setItem(extraKey(), JSON.stringify(st.stops.filter(function (s) { return s.extra; }).map(function (s) { return { name: s.name, lat: s.lat, lng: s.lng, seq: s.seq }; }))); } catch (_) { /* this device only */ }
+    }
+    function insertStop(stop, at) {
+      st.stops.splice(at, 0, { lat: stop.lat, lng: stop.lng, name: stop.name, id: null, extra: true });
+      st.stops.forEach(function (s, i) { s.seq = i; });
+    }
+    function addStop(name, lat, lng) {
+      insertStop({ name: name, lat: lat, lng: lng }, st.passed + 1);
+      saveExtras();
+      ui.addStop.hidden = true;
+      ui.addStopInput.value = '';
+      drawMarkers();
+      requestLine(true);
+      renderStops();
+      updateStats();
+      toast('Stop added');
+    }
+    function restoreExtras() {
+      try {
+        JSON.parse(localStorage.getItem(extraKey()) || '[]').forEach(function (stop) { insertStop(stop, Math.min(stop.seq, st.stops.length)); });
+      } catch (_) { /* nothing saved */ }
+    }
+    // At the destination, or when ending early: did each rider arrive?
+    function openEndCheck() {
+      setSheetOpen(false);
+      var riders = ridersOnRoute();
+      st.skipArrivals = false;
+      ui.confirmTitle.textContent = riders.length ? 'Did everyone arrive?' : 'End this trip? Families will stop seeing the bus.';
+      ui.arrivalTools.hidden = !riders.length;
+      $('drvn-arrival-search').value = '';
+      ui.arrivals.innerHTML = riders.map(function (student) {
+        return '<div class="drvn-arrival" data-student="' + student.id + '" data-name="' + esc(student.name.toLowerCase()) + '"><div class="drvn-arrival__row"><strong>' + esc(student.name) + '</strong>'
+          + '<div class="drvn-yesno" role="group" aria-label="Arrived"><button type="button" data-arrived="1">Yes</button><button type="button" data-arrived="0">No</button></div></div>'
+          + '<div class="drvn-arrival__why" hidden><select aria-label="Reason"><option value="">Reason</option><option value="absent">Absent today</option><option value="parent">Picked up by parent</option><option value="elsewhere">Got off elsewhere</option><option value="missed">Missed the bus</option><option value="other">Other</option></select><input maxlength="300" placeholder="Note (optional)" aria-label="Note" /></div></div>';
+      }).join('');
+      ui.arrivals.hidden = !riders.length;
+      ui.confirm.hidden = false;
+      syncArrivalCount();
+      syncSheet();
+    }
+    function syncArrivalCount() {
+      var rows = ui.arrivals.querySelectorAll('.drvn-arrival');
+      var answered = ui.arrivals.querySelectorAll('.drvn-arrival [data-arrived].is-on').length;
+      $('drvn-arrival-count').textContent = answered + ' of ' + rows.length + ' answered';
+    }
+    function arrivalAnswers() {
+      var problem = false;
+      var answers = Array.prototype.map.call(ui.arrivals.querySelectorAll('.drvn-arrival'), function (row) {
+        var chosen = row.querySelector('[data-arrived].is-on');
+        if (!chosen) { problem = true; return null; }
+        var arrived = chosen.getAttribute('data-arrived') === '1';
+        var reason = row.querySelector('select').value;
+        if (!arrived && !reason) problem = true;
+        return { studentId: Number(row.getAttribute('data-student')), arrived: arrived, reason: arrived ? null : reason, note: arrived ? null : row.querySelector('input').value };
+      });
+      return problem ? null : answers;
     }
     function renderStatus() {
       var state = 'idle', text = 'Finding GPS…';
@@ -721,7 +871,7 @@
       setSheetOpen(false);
       releaseMap();
       syncPage();
-      drawMini();
+      scheduleMini();
     }
     // The big map is built again when it's opened: no hidden map using the phone's battery.
     function releaseMap() {
@@ -763,6 +913,19 @@
         });
       });
     }
+    function postJson(url, data) {
+      return fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(data)
+      }).then(function (res) {
+        return res.json().catch(function () { return null; }).then(function (json) {
+          if (!res.ok || !json || !json.success) throw new Error((json && json.message) || 'Something went wrong. Try again.');
+          return json;
+        });
+      });
+    }
     function selectedRouteId() {
       if (idle.select) return idle.select.value;
       return routes[0] ? routes[0].route_id : '';
@@ -796,14 +959,31 @@
     }
     function endTrip() {
       if (!st.tripId) { leaveNav(); return; }
+      var answers = st.skipArrivals ? [] : arrivalAnswers();
+      if (!answers) { toast('Answer Yes or No for every student, with a reason for each No. All arrived does it in one tap.', 5000); return; }
       ui.endYes.disabled = true;
-      post('/transportation/driver/trips/end', { tripId: String(st.tripId) }).then(function () {
+      var endedTrip = st.tripId;
+      // A failed save must never trap a driver in a trip: a second tap ends it anyway.
+      var saving = answers.length && !st.arrivalsFailed
+        ? postJson('/transportation/driver/trips/arrivals', { tripId: st.tripId, arrivals: answers })
+        : Promise.resolve();
+      saving.catch(function (error) {
+        st.arrivalsFailed = true;
+        error.arrivalCheck = true;
+        throw error;
+      }).then(function () {
+        return post('/transportation/driver/trips/end', { tripId: String(st.tripId) });
+      }).then(function () {
+        st.arrivalsFailed = false;
+        try { localStorage.removeItem('managira-trip-stops-' + endedTrip); } catch (_) { /* nothing saved */ }
         st.tripId = null;
         if (window.DriverLocation) { window.DriverLocation.setTrip(null); window.DriverLocation.stop(); }
         st.pos = null; st.speed = null; st.heading = null;
         leaveNav();
         setRoute(findRoute(selectedRouteId()));
-      }).catch(function (error) { toast(error.message); }).then(function () { ui.endYes.disabled = false; });
+      }).catch(function (error) {
+        toast(error.arrivalCheck ? 'The arrival check could not be saved. Tap End trip again to end anyway, and tell your lead.' : error.message, 6000);
+      }).then(function () { ui.endYes.disabled = false; });
     }
     function openNavApp(app) {
       var pts = remaining().map(function (s) { return [s.lat, s.lng]; });
@@ -822,8 +1002,93 @@
     function setSheetOpen(open) {
       ui.more.hidden = !open;
       ui.grab.setAttribute('aria-expanded', String(open));
+      ui.chip.setAttribute('aria-expanded', String(open));
+      if (!open) ui.addStop.hidden = true;
       if (open) { ui.confirm.hidden = true; renderStops(); }
       syncSheet();
+    }
+
+    /* ---------- report to the lead ---------- */
+    function openReport() {
+      if (document.querySelector('.drvf')) return;
+      var types = cfg.reportTypes || {};
+      var typeOptions = Object.keys(types).map(function (key) { return '<option value="' + esc(key) + '">' + esc(types[key].label) + '</option>'; }).join('');
+      var rowHtml = '<div class="drvf__row"><select name="category" aria-label="Type"><option value="">Type</option>' + typeOptions + '</select><select name="issue" aria-label="Issue" disabled><option value="">Issue</option></select><button type="button" class="drvf__remove" data-remove aria-label="Remove" hidden>' + toolSvg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>';
+      var riders = ridersOnRoute();
+      var everyone = riders.concat(notPickingUp());
+      var box = document.createElement('div');
+      box.className = 'drvf';
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.setAttribute('aria-label', 'Send a report');
+      box.innerHTML = '<form class="drvf__sheet" novalidate>'
+        + '<div class="drvf__head"><div><h2>Send a report</h2><p>It goes to your lead.</p></div><button type="button" class="drvf__x" data-close aria-label="Close">' + toolSvg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>'
+        + '<div class="drvf__body">'
+        + '<p class="drvf__label">What is it about?</p><div data-rows>' + rowHtml + '</div>'
+        + '<button type="button" class="drvf__add" data-add>Add another issue</button>'
+        + '<div class="drvf__field" data-students hidden><p class="drvf__label">Students <span data-picked></span></p>'
+        + '<input type="search" placeholder="Search students" autocomplete="off" aria-label="Search students" data-student-search />'
+        + '<div class="drvf__picklist">' + everyone.map(function (student) {
+            return '<label class="drvf__pick" data-name="' + esc(student.name.toLowerCase()) + '"><input type="checkbox" value="' + student.id + '" /><span>' + esc(student.name) + '</span><small>' + esc(student.className || '') + '</small></label>';
+          }).join('') + '</div></div>'
+        + '<label class="drvf__field"><span class="drvf__label">Priority</span><select name="priority"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></label>'
+        + '<label class="drvf__field"><span class="drvf__label">Details</span><textarea name="details" rows="3" maxlength="2000" placeholder="Anything your lead should know"></textarea></label>'
+        + '<p class="drvf__error" role="alert" hidden></p>'
+        + '</div><div class="drvf__foot"><button type="button" class="drvf__btn" data-close>Cancel</button><button type="submit" class="drvf__btn drvf__btn--go">Send</button></div></form>';
+      document.body.appendChild(box);
+      var form = box.querySelector('form');
+      var rows = box.querySelector('[data-rows]');
+      var error = box.querySelector('.drvf__error');
+      var fail = function (text) { error.textContent = text; error.hidden = false; };
+      var syncForm = function () {
+        var list = rows.querySelectorAll('.drvf__row');
+        list.forEach(function (row) { row.querySelector('[data-remove]').hidden = list.length < 2; });
+        var aboutStudents = Array.prototype.some.call(rows.querySelectorAll('[name="category"]'), function (select) { return select.value === 'student'; });
+        box.querySelector('[data-students]').hidden = !aboutStudents;
+        var picked = box.querySelectorAll('.drvf__pick input:checked').length;
+        box.querySelector('[data-picked]').textContent = picked ? '(' + picked + ' chosen)' : '';
+      };
+      box.addEventListener('click', function (event) {
+        var target = event.target.closest ? event.target : null;
+        if (!target) return;
+        if (event.target === box || target.closest('[data-close]')) { box.remove(); return; }
+        if (target.closest('[data-add]')) { rows.insertAdjacentHTML('beforeend', rowHtml); syncForm(); return; }
+        var remove = target.closest('[data-remove]');
+        if (remove) { remove.closest('.drvf__row').remove(); syncForm(); }
+      });
+      form.addEventListener('change', function (event) {
+        if (event.target.name === 'category') {
+          // The second dropdown follows the first.
+          var issue = event.target.closest('.drvf__row').querySelector('[name="issue"]');
+          var type = types[event.target.value];
+          issue.disabled = !type;
+          issue.innerHTML = '<option value="">Issue</option>' + (type ? type.issues.map(function (label) { return '<option>' + esc(label) + '</option>'; }).join('') : '');
+          if (type && type.issues.length === 1) issue.selectedIndex = 1;
+        }
+        syncForm();
+      });
+      box.querySelector('[data-student-search]').addEventListener('input', function (event) {
+        var wanted = event.target.value.trim().toLowerCase();
+        box.querySelectorAll('.drvf__pick').forEach(function (pick) {
+          pick.hidden = Boolean(wanted) && pick.getAttribute('data-name').indexOf(wanted) < 0;
+        });
+      });
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        error.hidden = true;
+        var issues = Array.prototype.map.call(rows.querySelectorAll('.drvf__row'), function (row) {
+          return { category: row.querySelector('[name="category"]').value, issue: row.querySelector('[name="issue"]').value };
+        });
+        if (issues.some(function (row) { return !row.category || !row.issue; })) { fail('Choose a type and an issue for each line.'); return; }
+        var studentIds = Array.prototype.map.call(box.querySelectorAll('.drvf__pick input:checked'), function (input) { return Number(input.value); });
+        if (issues.some(function (row) { return row.category === 'student'; }) && !studentIds.length) { fail('Choose at least one student.'); return; }
+        var send = form.querySelector('[type="submit"]');
+        send.disabled = true;
+        postJson('/transportation/driver/reports', { issues: issues, studentIds: studentIds, priority: form.elements.priority.value, details: form.elements.details.value }).then(function () {
+          box.querySelector('.drvf__body').innerHTML = '<p class="drvf__done">Sent to your lead.</p>';
+          box.querySelector('.drvf__foot').innerHTML = '<button type="button" class="drvf__btn drvf__btn--go" data-close>Done</button>';
+        }).catch(function (err) { send.disabled = false; fail(err.message); });
+      });
     }
 
     /* ---------- controls ---------- */
@@ -832,11 +1097,64 @@
     ui.recenter.addEventListener('click', function () { setFollowing(true); follow(true); });
     ui.overview.addEventListener('click', function () { setFollowing(false); frameRoute(); });
     ui.grab.addEventListener('click', function () { setSheetOpen(ui.more.hidden); });
-    ui.end.addEventListener('click', function () { setSheetOpen(false); ui.confirm.hidden = false; syncSheet(); });
+    ui.end.addEventListener('click', openEndCheck);
+    ui.chip.addEventListener('click', function () { setSheetOpen(ui.more.hidden); });
+    $('drvn-more-close').addEventListener('click', function () { setSheetOpen(false); });
+    $('drvn-stops-search').addEventListener('input', function () { renderStops(); });
+    $('drvn-addstop-open').addEventListener('click', function () {
+      ui.addStop.hidden = !ui.addStop.hidden;
+      syncSheet();
+      if (!ui.addStop.hidden) ui.addStopInput.focus();
+    });
+    $('drvn-addstop-here').addEventListener('click', function () {
+      var at = st.pos;
+      if (!at) { toast('Waiting for GPS. Enter the address instead.'); return; }
+      addStop(ui.addStopInput.value.trim() || 'Added stop', at.lat, at.lng);
+    });
+    ui.addStop.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var address = ui.addStopInput.value.trim();
+      if (!address) { toast('Enter the stop address.'); return; }
+      var save = $('drvn-addstop-save');
+      save.disabled = true;
+      postJson('/transportation/driver/locate', { address: address }).then(function (place) {
+        addStop(address, place.lat, place.lng);
+      }).catch(function (error) { toast(error.message); }).then(function () { save.disabled = false; });
+    });
+    ui.arrivals.addEventListener('click', function (event) {
+      var choice = event.target.closest('[data-arrived]');
+      if (!choice) return;
+      var row = choice.closest('.drvn-arrival');
+      row.querySelectorAll('[data-arrived]').forEach(function (b) { b.classList.toggle('is-on', b === choice); });
+      row.querySelector('.drvn-arrival__why').hidden = choice.getAttribute('data-arrived') === '1';
+      syncArrivalCount();
+      syncSheet();
+    });
+    $('drvn-all-arrived').addEventListener('click', function () {
+      ui.arrivals.querySelectorAll('.drvn-arrival').forEach(function (row) {
+        row.querySelectorAll('[data-arrived]').forEach(function (b) { b.classList.toggle('is-on', b.getAttribute('data-arrived') === '1'); });
+        row.querySelector('.drvn-arrival__why').hidden = true;
+      });
+      syncArrivalCount();
+      syncSheet();
+    });
+    $('drvn-no-students').addEventListener('click', function () {
+      st.skipArrivals = true;
+      endTrip();
+    });
+    $('drvn-arrival-search').addEventListener('input', function (event) {
+      var wanted = event.target.value.trim().toLowerCase();
+      ui.arrivals.querySelectorAll('.drvn-arrival').forEach(function (row) {
+        row.hidden = Boolean(wanted) && row.getAttribute('data-name').indexOf(wanted) < 0;
+      });
+    });
+    document.addEventListener('click', function (event) {
+      if (event.target.closest && event.target.closest('[data-drv-report]')) openReport();
+    });
     ui.keep.addEventListener('click', function () { ui.confirm.hidden = true; syncSheet(); });
     ui.endYes.addEventListener('click', endTrip);
     ui.minimize.addEventListener('click', minimizeNav);
-    if (idle.end) idle.end.addEventListener('click', function () { enterNav(); ui.confirm.hidden = false; syncSheet(); });
+    if (idle.end) idle.end.addEventListener('click', function () { enterNav(); openEndCheck(); });
     ui.compass.addEventListener('click', function () {
       prefs.orientation = prefs.orientation === 'heading' ? 'north' : 'heading';
       savePrefs();
@@ -876,6 +1194,7 @@
     var firstRoute = cfg.activeTrip ? findRoute(cfg.activeTrip.route_id) : (idle.select ? findRoute(idle.select.value) : routes[0] || null);
     setRoute(firstRoute);
     if (driving()) {
+      restoreExtras();
       enterNav();
       if (window.DriverLocation) window.DriverLocation.start(gpsHandlers());
     }

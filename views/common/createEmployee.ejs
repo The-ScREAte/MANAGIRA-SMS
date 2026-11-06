@@ -558,19 +558,18 @@
         const isDriver = selectedRole === "Driver";
         const defaults = ROLE_DEFAULT_PERMISSIONS_MAP[selectedRole] || [];
 
-        // Drivers get no school-management permissions, so the list hides for them.
+        // Drivers see only their own permissions (the picker's forRole, below).
         document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
           const item = cb.closest(".permission-item");
           if (isDriver) {
-            cb.checked = false;
+            /* the picker shows a driver's permissions below */
           } else {
             if (item) item.style.display = "";
             cb.checked = defaults.includes(cb.value);
           }
         });
 
-        document.getElementById("permissionPicker").hidden = isDriver;
-        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.refresh();
+        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.forRole(isDriver);
         if (permissionsNote) permissionsNote.style.display = isDriver ? "none" : "block";
         if (driverPermissionsNote) driverPermissionsNote.style.display = isDriver ? "block" : "none";
         if (driverSubjectsNote) driverSubjectsNote.style.display = isDriver ? "block" : "none";

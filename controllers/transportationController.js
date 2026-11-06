@@ -12,6 +12,8 @@ const { geocodeAddress } = require("../utils/geocode");
 const { checkRateLimit } = require("../utils/rateLimiter");
 const liveBus = require("../utils/liveBus");
 const busRequests = require("../utils/transportationRequests");
+const transportReports = require("../utils/transportReports");
+const { locateAddress } = require("../utils/transportationRequests");
 const { BoundedMap } = require("../utils/boundedMap");
 
 function normalizeStatus(value, fallback = "active") {
@@ -126,7 +128,7 @@ async function answer(res, work) {
   try {
     return res.json(await work());
   } catch (error) {
-    if (error instanceof busRequests.RequestError) {
+    if (error instanceof busRequests.RequestError || error instanceof transportReports.ReportError) {
       return res.status(error.status).json({ success: false, message: error.message });
     }
     console.error("[Transportation requests]", error.message);
@@ -438,6 +440,10 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
           busNumber: row.bus_number || null,
           recordedAt: live.recorded_at,
           startedAt: live.started_at,
+          driverName: live.driver_name || null,
+          driverPhoto: live.driver_photo || null,
+          licensePlate: live.license_plate || null,
+          estimated: Boolean(live.estimated),
         }
       : null,
   };
@@ -790,6 +796,11 @@ const transportationController = {
         );
       }
 
+      const parentConfirmArrival = await db.query(
+        "SELECT transportation_parent_confirm_arrival AS ask FROM organizations WHERE organization_id = $1",
+        [organizationId]
+      ).then((result) => Boolean(result.rows[0] && result.rows[0].ask)).catch(() => false);
+
       const transportMessagingStatus = await getMessagingChannelStatus(db, organizationId).catch(() => ({
         sms: { ready: false },
         whatsapp: { ready: false },
@@ -802,6 +813,7 @@ const transportationController = {
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
         canBroadcastToGuardians: Boolean(transportMessagingStatus.sms?.ready || transportMessagingStatus.whatsapp?.ready),
+        parentConfirmArrival,
         integration,
         buses: buses.rows,
         drivers: drivers.rows,
@@ -2403,6 +2415,106 @@ const transportationController = {
     return { success: true, message: "Request declined.", newCount: await busRequests.countNewRequests(db, organizationId) };
   }),
 
+  /* ---------- from the driver ---------- */
+  driverReportPost: (req, res, db) => answer(res, async () => {
+    if (req.session.userRole !== "Driver") throw new transportReports.ReportError("Only drivers send these reports.", 403);
+    limitRequests(req, "report", 10);
+    const organizationId = req.session.organizationId;
+    const driver = staffIdentity(req.session);
+    const trip = await db.query(
+      `SELECT trip_id, bus_id, route_id FROM transport_trip_sessions
+        WHERE organization_id = $1 AND driver_user_id = $2 AND status = 'active'
+        ORDER BY started_at DESC LIMIT 1`,
+      [organizationId, driver.userId]
+    );
+    const bus = trip.rows[0] ? null : await db.query("SELECT bus_id FROM transport_buses WHERE organization_id = $1 AND driver_user_id = $2 LIMIT 1", [organizationId, driver.userId]);
+    const saved = await transportReports.createReports(db, organizationId, {
+      ...driver,
+      tripId: trip.rows[0]?.trip_id,
+      busId: trip.rows[0]?.bus_id || bus?.rows[0]?.bus_id,
+      routeId: trip.rows[0]?.route_id,
+    }, req.body || {});
+    return { success: true, saved, message: "Sent to your lead." };
+  }),
+
+  driverArrivalsPost: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    const driver = staffIdentity(req.session);
+    const trip = await liveBus.tripForDriver(db, organizationId, toInt(req.body?.tripId), driver.userId);
+    if (!trip) throw new transportReports.ReportError("Active trip not found.", 404);
+    const result = await transportReports.saveArrivals(db, organizationId, driver, trip, req.body?.arrivals);
+    return { success: true, ...result };
+  }),
+
+  driverLocatePost: (req, res, db) => answer(res, async () => {
+    limitRequests(req, "locate", 15);
+    const address = String(req.body?.address || "").trim().slice(0, 300);
+    if (!address) throw new transportReports.ReportError("Enter the stop's address.");
+    const school = await db.query("SELECT organization_province, organization_country FROM organizations WHERE organization_id = $1", [req.session.organizationId]);
+    const place = await locateAddress(address, school.rows[0]?.organization_province, school.rows[0]?.organization_country);
+    if (!place) throw new transportReports.ReportError("We couldn't find that address. Check the spelling.", 404);
+    return { success: true, lat: place.lat, lng: place.lng };
+  }),
+
+  /* ---------- for the leads ---------- */
+  manageReportsGet: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    const bucket = req.query.bucket;
+    const [newCount, reports, arrivals] = await Promise.all([
+      transportReports.countNewReports(db, organizationId),
+      bucket === "arrivals" ? [] : transportReports.listReports(db, organizationId, bucket === "old" ? "old" : "new"),
+      bucket === "arrivals" ? transportReports.arrivalSummaries(db, organizationId) : [],
+    ]);
+    return { success: true, newCount, reports, arrivals };
+  }),
+
+  manageReportReviewPost: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    await transportReports.reviewReport(db, organizationId, toInt(req.params.reportId), staffIdentity(req.session), req.body || {});
+    return { success: true, message: "Saved.", newCount: await transportReports.countNewReports(db, organizationId) };
+  }),
+
+  arrivalSettingPost: (req, res, db) => answer(res, async () => {
+    const on = String(req.body?.parentConfirm) === "1";
+    await db.query("UPDATE organizations SET transportation_parent_confirm_arrival = $1 WHERE organization_id = $2", [on, req.session.organizationId]);
+    return { success: true, parentConfirm: on };
+  }),
+
+  arrivalsMineGet: (req, res, db) => answer(res, async () => {
+    const studentIds = await guardianStudentIds(db, req.session);
+    return { success: true, arrivals: await transportReports.pendingArrivalsForParent(db, req.session.organizationId, studentIds) };
+  }),
+
+  arrivalAnswerPost: (req, res, db) => answer(res, async () => {
+    const studentIds = await guardianStudentIds(db, req.session);
+    await transportReports.answerArrival(db, req.session.organizationId, toInt(req.params.arrivalId), {
+      guardianId: req.session.guardianId,
+      studentIds,
+      name: [req.session.firstName, req.session.lastName].filter(Boolean).join(" "),
+    }, req.body?.arrived === true || req.body?.arrived === "1", req.body?.note);
+    return { success: true };
+  }),
+
+  reportsMineGet: (req, res, db) => answer(res, async () => {
+    const studentIds = await guardianStudentIds(db, req.session);
+    return { success: true, reports: await transportReports.reportsForParent(db, req.session.organizationId, studentIds) };
+  }),
+
+  reportsForClassGet: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    const classId = toInt(req.params.classId);
+    const session = req.session;
+    const role = String(session.userRole || "").toLowerCase();
+    const mine = await db.query(
+      "SELECT 1 FROM user_classes uc JOIN classes c ON c.class_id = uc.class_id WHERE uc.user_id = $1 AND uc.class_id = $2 AND c.organization_id = $3 LIMIT 1",
+      [session.userId || session.user?.user_id || 0, classId, organizationId]
+    );
+    if (!mine.rows[0] && role !== "manager" && !(res.locals.userPermissions || []).includes("manage_students")) {
+      throw new transportReports.ReportError("You can only see your own classes.", 403);
+    }
+    return { success: true, reports: await transportReports.reportsForClass(db, organizationId, classId) };
+  }),
+
   /* ---------- the student side panel ---------- */
   studentPanelGet: (req, res, db) => answer(res, async () => {
     const organizationId = req.session.organizationId;
@@ -2460,7 +2572,17 @@ const transportationController = {
     const student = found.rows[0];
     if (!student) throw new busRequests.RequestError("Student not found.", 404);
 
-    const hasAccess = String(body.busAccess) === "1";
+    const held = res.locals.userPermissions || [];
+    const canChangeList = held.includes("transport_students");
+    // Staff with Rider List keep what they always had; for a driver the two are separate.
+    const canChangeStops = held.includes("transport_student_routes") || (canChangeList && req.session.userRole !== "Driver");
+    const current = await db.query("SELECT active FROM transport_student_assignments WHERE organization_id = $1 AND student_id = $2", [organizationId, studentId]);
+    const wasOn = Boolean(current.rows[0] && current.rows[0].active);
+    const hasAccess = canChangeList ? String(body.busAccess) === "1" : wasOn;
+    if (!canChangeStops && hasAccess && wasOn) {
+      throw new busRequests.RequestError("You can't change this student's bus, route or stop.", 403);
+    }
+    if (!canChangeList && !wasOn) throw new busRequests.RequestError("This student isn't on the rider list.", 403);
     if (!hasAccess) {
       await db.query(
         `UPDATE transport_student_assignments SET active = FALSE, updated_at = NOW() WHERE organization_id = $1 AND student_id = $2`,
@@ -2741,7 +2863,7 @@ const transportationController = {
           WHERE s.organization_id = $1 AND d.user_id = $2 AND s.route_id = $3`,
         [organizationId, userId, routeId]
       );
-      if (!assignedRouteCheck.rows.length) {
+      if (!assignedRouteCheck.rows.length && !(res.locals.userPermissions || []).includes("driver_any_route")) {
         return res.status(403).json({ success: false, message: "This route is not assigned to you." });
       }
 
@@ -2873,6 +2995,12 @@ const transportationController = {
 
     try {
       const snapshot = await getStudentTransportationSnapshot(db, organizationId, studentId);
+      if (snapshot && snapshot.live) {
+        snapshot.live.driverPhotoUrl = snapshot.live.driverPhoto ? res.locals.publicImageUrl(snapshot.live.driverPhoto) : null;
+        delete snapshot.live.driverPhoto;
+      }
+      // While the map is open it only needs the position, not the whole route again.
+      if (req.query.liveOnly === "1") return res.json({ success: true, data: { live: snapshot ? snapshot.live : null } });
       return res.json({ success: true, data: snapshot });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to load live tracking." });
@@ -2885,7 +3013,12 @@ const transportationController = {
     const organizationId = req.session.organizationId;
     if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
     try {
-      return res.json({ success: true, data: await liveBus.liveByRoute(db, organizationId) });
+      const live = await liveBus.liveByRoute(db, organizationId);
+      Object.values(live).forEach((row) => {
+        row.driver_photo_url = row.driver_photo ? res.locals.publicImageUrl(row.driver_photo) : null;
+        delete row.driver_photo;
+      });
+      return res.json({ success: true, data: live });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to load live data." });
     }
@@ -2901,7 +3034,12 @@ const transportationController = {
 
     try {
       const live = await liveBus.liveByRoute(db, organizationId);
-      return res.json({ success: true, data: live[routeId] || null });
+      const row = live[routeId] || null;
+      if (row) {
+        row.driver_photo_url = row.driver_photo ? res.locals.publicImageUrl(row.driver_photo) : null;
+        delete row.driver_photo;
+      }
+      return res.json({ success: true, data: row });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to load route live data." });
     }

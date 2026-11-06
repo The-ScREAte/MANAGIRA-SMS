@@ -9,8 +9,12 @@ function toFloat(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function resolveAssignedRoutes(db, organizationId, driverProfile) {
+async function resolveAssignedRoutes(db, organizationId, driverProfile, anyRoute = false) {
   const routeIdCandidates = new Set();
+  if (anyRoute) {
+    const all = await db.query("SELECT route_id FROM transport_routes WHERE organization_id = $1", [organizationId]);
+    all.rows.forEach((row) => routeIdCandidates.add(Number(row.route_id)));
+  }
   if (driverProfile && driverProfile.assigned_route_id) {
     routeIdCandidates.add(Number(driverProfile.assigned_route_id));
   }
@@ -58,52 +62,58 @@ async function resolveAssignedRoutes(db, organizationId, driverProfile) {
   }));
 }
 
-async function resolveMyStudents(db, organizationId, userId, driverBus) {
-  // "My Students": every student riding the driver's assigned bus, plus
-  // every student in any class explicitly assigned to this driver.
-  const busStudentsResult = driverBus
-    ? await db.query(
-        `SELECT s.student_id, s.first_name, s.last_name, c.class_name,
-                tsa.home_latitude, tsa.home_longitude, tsa.home_address,
-                tsa.stop_id, st.stop_name, st.latitude AS stop_latitude, st.longitude AS stop_longitude
-           FROM transport_student_assignments tsa
-           JOIN students s
-             ON s.student_id = tsa.student_id AND s.organization_id = tsa.organization_id
-           LEFT JOIN classes c
-             ON c.class_id = s.class_id AND c.organization_id = s.organization_id
-           LEFT JOIN transport_stops st
-             ON st.stop_id = tsa.stop_id AND st.organization_id = tsa.organization_id
-          WHERE tsa.organization_id = $1
-            AND tsa.bus_id = $2
-            AND tsa.active = TRUE
-            AND COALESCE(s.graduated, FALSE) = FALSE
-          ORDER BY s.last_name ASC, s.first_name ASC`,
-        [organizationId, driverBus.bus_id]
-      )
-    : { rows: [] };
-
-  const classStudentsResult = await db.query(
-    `SELECT DISTINCT s.student_id, s.first_name, s.last_name, c.class_name,
-            NULL::numeric AS home_latitude, NULL::numeric AS home_longitude, NULL::text AS home_address,
-            NULL::int AS stop_id, NULL::text AS stop_name, NULL::numeric AS stop_latitude, NULL::numeric AS stop_longitude
-       FROM user_classes uc
-       JOIN students s
-         ON s.class_id = uc.class_id AND s.organization_id = $2
-       LEFT JOIN classes c
-         ON c.class_id = s.class_id AND c.organization_id = s.organization_id
-      WHERE uc.user_id = $1
-        AND COALESCE(s.graduated, FALSE) = FALSE`,
-    [userId, organizationId]
+// Everyone this driver might come across, split into who has bus access on this driver's
+// bus or routes (pick up) and who doesn't (don't pick up).
+async function resolveMyStudents(db, organizationId, userId, driverBus, routeIds, withDetails) {
+  const { rows } = await db.query(
+    `SELECT DISTINCT ON (s.student_id)
+            s.student_id, s.first_name, s.last_name, s.address, c.class_name,
+            tsa.assignment_id, tsa.bus_id, tsa.route_id, tsa.stop_id, tsa.home_address, st.stop_name
+       FROM students s
+       LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+       LEFT JOIN transport_student_assignments tsa
+         ON tsa.student_id = s.student_id AND tsa.organization_id = s.organization_id AND tsa.active = TRUE
+       LEFT JOIN transport_stops st ON st.stop_id = tsa.stop_id AND st.organization_id = s.organization_id
+      WHERE s.organization_id = $1
+        AND COALESCE(s.graduated, FALSE) = FALSE
+        AND (
+          ($2::int IS NOT NULL AND tsa.bus_id = $2)
+          OR tsa.route_id = ANY($3::int[])
+          OR s.class_id IN (SELECT class_id FROM user_classes WHERE user_id = $4)
+        )
+      ORDER BY s.student_id`,
+    [organizationId, driverBus ? driverBus.bus_id : null, routeIds, userId]
   );
-
-  const studentMap = new Map();
-  [...busStudentsResult.rows, ...classStudentsResult.rows].forEach((student) => {
-    if (!studentMap.has(student.student_id)) studentMap.set(student.student_id, student);
-  });
-  return Array.from(studentMap.values()).sort((a, b) =>
-    String(a.last_name || "").localeCompare(String(b.last_name || ""))
-  );
+  const busId = driverBus ? Number(driverBus.bus_id) : null;
+  const routes = new Set(routeIds.map(Number));
+  const students = rows.map((row) => ({
+    id: Number(row.student_id),
+    name: [row.first_name, row.last_name].filter(Boolean).join(" "),
+    lastName: row.last_name || "",
+    className: row.class_name || "",
+    hasAccess: Boolean(row.assignment_id) && ((busId !== null && Number(row.bus_id) === busId) || routes.has(Number(row.route_id))),
+    otherBus: Boolean(row.assignment_id),
+    routeId: row.route_id === null ? null : Number(row.route_id),
+    stopId: row.stop_id === null ? null : Number(row.stop_id),
+    stopName: row.stop_name || "",
+    address: withDetails ? row.home_address || row.address || "" : "",
+    parentPhone: "",
+  })).sort((a, b) => a.lastName.localeCompare(b.lastName) || a.name.localeCompare(b.name));
+  if (withDetails && students.length) {
+    const phones = await db.query(
+      `SELECT DISTINCT ON (gs.student_id) gs.student_id, gp.phone
+         FROM guardian_students gs JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+        WHERE gs.student_id = ANY($1::int[]) AND gp.organization_id = $2 AND COALESCE(gp.phone, '') <> ''
+        ORDER BY gs.student_id, gp.guardian_id`,
+      [students.map((student) => student.id), organizationId]
+    ).catch(() => ({ rows: [] }));
+    const byStudent = new Map(phones.rows.map((row) => [Number(row.student_id), row.phone]));
+    students.forEach((student) => { student.parentPhone = byStudent.get(student.id) || ""; });
+  }
+  return students;
 }
+
+const { REPORT_TYPES } = require("../utils/transportReports");
 
 const driverController = {
   dashboardGet: async (req, res, db) => {
@@ -115,14 +125,15 @@ const driverController = {
     try {
       await ensureTransportationSchema(db);
 
-      const [assignedRoutes, schoolResult, students, integration] = await Promise.all([
-        resolveAssignedRoutes(db, organizationId, driverProfile),
+      const held = res.locals.userPermissions || [];
+      const assignedRoutes = await resolveAssignedRoutes(db, organizationId, driverProfile, held.includes("driver_any_route"));
+      const [schoolResult, students, integration] = await Promise.all([
         db.query(
           `SELECT organization_address, geo_lat, geo_lng, transportation_distance_unit
              FROM organizations WHERE organization_id = $1 LIMIT 1`,
           [organizationId]
         ),
-        resolveMyStudents(db, organizationId, userId, driverBus),
+        resolveMyStudents(db, organizationId, userId, driverBus, assignedRoutes.map((route) => route.route_id), held.includes("driver_student_details")),
         getTransportationIntegrationStatus(db, organizationId),
       ]);
 
@@ -163,6 +174,7 @@ const driverController = {
         lastLocation,
         assignedRoutes,
         students,
+        reportTypes: REPORT_TYPES,
         schoolAddress: schoolResult.rows[0]?.organization_address || null,
         schoolLatitude: toFloat(schoolResult.rows[0]?.geo_lat),
         schoolLongitude: toFloat(schoolResult.rows[0]?.geo_lng),

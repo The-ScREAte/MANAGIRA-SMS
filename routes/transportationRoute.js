@@ -95,6 +95,10 @@ module.exports = (db) => {
   router.get("/requests/start", authorizeBusRequester, (req, res) => transportationController.requestStartGet(req, res, db));
   router.post("/requests/options", authorizeBusRequester, (req, res) => transportationController.requestOptionsPost(req, res, db));
   router.post("/requests", authorizeBusRequester, (req, res) => transportationController.requestCreatePost(req, res, db));
+  router.get("/arrivals/mine", guardianOnly, (req, res) => transportationController.arrivalsMineGet(req, res, db));
+  router.post("/arrivals/:arrivalId/answer", guardianOnly, (req, res) => transportationController.arrivalAnswerPost(req, res, db));
+  router.get("/reports/mine", guardianOnly, (req, res) => transportationController.reportsMineGet(req, res, db));
+  router.get("/reports/class/:classId", isAuthenticated, blockGuardians, (req, res) => transportationController.reportsForClassGet(req, res, db));
   router.get("/requests/mine", guardianOnly, (req, res) => transportationController.requestsMineGet(req, res, db));
   router.post("/requests/:requestId/cancel", guardianOnly, (req, res) => transportationController.requestCancelPost(req, res, db));
 
@@ -263,6 +267,27 @@ module.exports = (db) => {
     (req, res) => transportationController.bulkUpdateStudentAccessPost(req, res, db)
   );
 
+  router.post(
+    "/manage/arrival-setting",
+    isAuthenticated,
+    requirePermission([PERMISSIONS.TRANSPORT_SETTINGS, PERMISSIONS.TRANSPORT_REPORTS]),
+    (req, res) => transportationController.arrivalSettingPost(req, res, db)
+  );
+
+  router.get(
+    "/manage/reports",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_REPORTS),
+    (req, res) => transportationController.manageReportsGet(req, res, db)
+  );
+
+  router.post(
+    "/manage/reports/:reportId/review",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.TRANSPORT_REPORTS),
+    (req, res) => transportationController.manageReportReviewPost(req, res, db)
+  );
+
   router.get(
     "/manage/requests",
     isAuthenticated,
@@ -287,14 +312,14 @@ module.exports = (db) => {
   router.get(
     "/manage/students/:studentId",
     isAuthenticated,
-    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    requirePermission([PERMISSIONS.TRANSPORT_STUDENTS, PERMISSIONS.TRANSPORT_STUDENT_ROUTES]),
     (req, res) => transportationController.studentPanelGet(req, res, db)
   );
 
   router.post(
     "/manage/students/:studentId/save",
     isAuthenticated,
-    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
+    requirePermission([PERMISSIONS.TRANSPORT_STUDENTS, PERMISSIONS.TRANSPORT_STUDENT_ROUTES]),
     (req, res) => transportationController.studentPanelSavePost(req, res, db)
   );
 
@@ -310,6 +335,18 @@ module.exports = (db) => {
 
   router.post("/driver/trips/end", isAuthenticated, (req, res) =>
     transportationController.endTripPost(req, res, db)
+  );
+
+  router.post("/driver/reports", isAuthenticated, (req, res) =>
+    transportationController.driverReportPost(req, res, db)
+  );
+
+  router.post("/driver/trips/arrivals", isAuthenticated, (req, res) =>
+    transportationController.driverArrivalsPost(req, res, db)
+  );
+
+  router.post("/driver/locate", isAuthenticated, (req, res) =>
+    transportationController.driverLocatePost(req, res, db)
   );
 
   router.post("/driver/live-location", isAuthenticated, (req, res) =>

@@ -60,7 +60,10 @@ async function isAuthenticated(req, res, next) {
 
         // Drivers work only from their own portal (/driver) and its trip and
         // live-location endpoints; every other staff page is off limits.
-        if (req.session && req.session.userRole === 'Driver' && !/^\/transportation\/driver\//.test(req.originalUrl || '')) {
+        const leadCanOpen = req.session && req.session.userRole === 'Driver'
+            && (res.locals?.userPermissions || []).includes('manage_transportation')
+            && /^\/(transportation\/|common\/management|common\/ui-preferences)/.test(req.originalUrl || '');
+        if (req.session && req.session.userRole === 'Driver' && !leadCanOpen && !/^\/transportation\/driver\//.test(req.originalUrl || '')) {
             if (expectsJsonResponse(req)) {
                 return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
             }
@@ -129,7 +132,10 @@ function blockGuardians(req, res, next) {
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/student/dashboard');
     }
-    if (req.session.userRole === 'Driver') {
+    if (req.session.userRole === 'Driver' && !(
+        (res.locals?.userPermissions || []).includes('manage_transportation')
+        && /^\/transportation\//.test(req.originalUrl || '')
+    )) {
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/driver/dashboard');
     }

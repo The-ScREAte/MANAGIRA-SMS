@@ -111,10 +111,39 @@
     '<rect x="6" y="17" width="14" height="22" rx="2" fill="#fcd34d"/>' +
     '<path d="M6 23h14M6 29h14M6 35h14" stroke="#e0a100" stroke-width="1.2"/>' +
     '<rect x="7" y="41" width="12" height="2.5" rx="1" fill="#1e293b"/></svg>';
+  function safeAttr(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  var BUS_BADGE = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v11a2 2 0 0 1-1 1.7V19a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.3A2 2 0 0 1 4 16V5a2 2 0 0 1 2-2zm0 2v6h12V5H6zm1.5 8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>';
+  // A small card about the driver, for tapping the bus on any map.
+  function driverCard(live) {
+    if (!live) return "";
+    var photo = live.driver_photo_url || live.driverPhotoUrl;
+    var name = live.driver_name || live.driverName || "Driver";
+    var bus = live.bus_number || live.busNumber;
+    var plate = live.license_plate || live.licensePlate;
+    var at = live.recorded_at || live.recordedAt;
+    return '<div class="mgm-card">' + (photo ? '<img src="' + safeAttr(photo) + '" alt="" />' : "") + "<div><strong>" + safeAttr(name) + "</strong>" +
+      "<span>" + safeAttr(["Bus " + (bus || ""), plate].filter(Boolean).join(" · ")) + "</span>" +
+      "<small>" + (live.estimated ? "Estimated position" : "Updated " + safeAttr(ago(at))) + "</small></div></div>";
+  }
+
   function busIcon(options) {
     var L = window.L;
     options = options || {};
     var heading = isFinite(options.heading) && options.heading !== null ? Number(options.heading) : 0;
+    // With the driver's photo, the marker is the driver.
+    if (options.photo) {
+      return L.divIcon({
+        className: "mgm-icon",
+        iconSize: [46, 46],
+        iconAnchor: [23, 23],
+        popupAnchor: [0, -24],
+        html: '<div class="mgm-driver' + (options.stale ? " stale" : "") + '"><img src="' + safeAttr(options.photo) + '" alt="" /><span class="mgm-driver-bus">' + BUS_BADGE + "</span></div>",
+      });
+    }
     var html = '<div class="mgm-veh' + (options.stale ? " stale" : "") + '">' +
       '<span class="mgm-veh-body" style="transform: rotate(' + heading + 'deg)">' + VEHICLE_SVG + "</span>" +
       (options.label ? '<span class="mgm-bus-label">' + String(options.label).replace(/[<>&"]/g, "") + "</span>" : "") +
@@ -192,6 +221,8 @@
       ".mgm-pin svg{width:62%;height:62%}" +
       ".mgm-pin.mine{background:var(--c);color:#fff;border-color:#fff;box-shadow:0 0 0 3px var(--c),0 3px 10px rgba(15,23,42,.35)}" +
       ".mgm-school{width:34px;height:34px;border-radius:10px;background:#0f9d58;color:#fff;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);box-sizing:border-box}" +
+      ".mgm-driver{position:relative;width:46px;height:46px}.mgm-driver img{display:block;width:46px;height:46px;border-radius:50%;object-fit:cover;border:3px solid #1a73e8;background:#fff;box-shadow:0 2px 8px rgba(15,23,42,.35)}.mgm-driver.stale img{border-color:#98a2b3}.mgm-driver-bus{position:absolute;right:-3px;bottom:-3px;display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:#1a73e8;color:#fff}.mgm-driver.stale .mgm-driver-bus{background:#98a2b3}" +
+      ".mgm-card{display:flex;align-items:center;gap:10px;min-width:170px}.mgm-card img{flex:none;width:42px;height:42px;border-radius:50%;object-fit:cover}.mgm-card strong{display:block;font-size:14px}.mgm-card span{display:block;font-size:12px;color:#475467}.mgm-card small{display:block;font-size:11px;color:#667085}" +
       "@keyframes mgm-pulse{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.6);opacity:0}}" +
       "@media (prefers-reduced-motion:reduce){.mgm-bus::after{animation:none}}";
     document.head.appendChild(style);
@@ -217,6 +248,7 @@
     routeColor: routeColor,
     drawRoute: drawRoute,
     busIcon: busIcon,
+    driverCard: driverCard,
     isOffline: isOffline,
     stopIcon: stopIcon,
     stopPin: stopPin,

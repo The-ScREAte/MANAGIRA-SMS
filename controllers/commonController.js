@@ -27,6 +27,7 @@ const {
   effectivePermissionsForRole,
   rolePresetPermissions,
   resolvePermissionSelection,
+  isDriverPermission,
   permissionFullLabel,
   HIGH_RISK_PERMISSIONS,
   PERMISSIONS_SAVED_KEY,
@@ -3491,6 +3492,7 @@ async function loadGradeLabelResolver(dbClient, organizationId, classId, termId)
   };
 }
 
+const DRIVER_ONLY_KEY = /^driver_/;
 const commonController = {
   orgDashboard: async (req, res, db) => {
     // ...removed log for clean background operation...
@@ -9762,8 +9764,8 @@ const commonController = {
 
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
-    // Drivers get no school-management permissions, even if requested.
-    const permissionSelection = resolvePermissionSelection(account_type === "Driver" ? [] : sanitizedRequestedPermissions);
+    // Drivers only hold driving and transportation permissions, even if more are requested.
+    const permissionSelection = resolvePermissionSelection(account_type === "Driver" ? sanitizedRequestedPermissions.filter(isDriverPermission) : sanitizedRequestedPermissions.filter((key) => !DRIVER_ONLY_KEY.test(key)));
     if (permissionSelection.error) {
       req.flash("error", permissionSelection.error);
       return res.redirect(createEmployeeRedirectUrl);
@@ -10812,8 +10814,8 @@ const commonController = {
       : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission) || heldEffectivePermissions.has(permission));
 
     // Persist exactly what was selected in the form (after safety filtering).
-    // Drivers get no school-management permissions.
-    const permissionSelection = resolvePermissionSelection(accountType === "Driver" ? [] : sanitizedRequestedPermissions);
+    // Drivers only hold driving and transportation permissions.
+    const permissionSelection = resolvePermissionSelection(accountType === "Driver" ? sanitizedRequestedPermissions.filter(isDriverPermission) : sanitizedRequestedPermissions.filter((key) => !DRIVER_ONLY_KEY.test(key)));
     if (permissionSelection.error) {
       return respondModifyEmployeeError(400, permissionSelection.error);
     }

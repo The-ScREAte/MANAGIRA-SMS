@@ -18,13 +18,14 @@ function splitStatements(sql) {
     .filter(Boolean);
 }
 
-async function runMigrations(db, { dir = DEFAULT_DIR, log = console.log } = {}) {
+async function runMigrations(db, { dir = DEFAULT_DIR, log = console.log, only = null } = {}) {
   await db.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
     name TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   const done = new Set((await db.query("SELECT name FROM schema_migrations")).rows.map((row) => row.name));
-  const files = fs.readdirSync(dir).filter((file) => file.endsWith(".sql")).sort();
+  const files = fs.readdirSync(dir).filter((file) => file.endsWith(".sql") && (!only || file === only)).sort();
+  if (only && !files.length) throw new Error(`No migration named ${only}`);
   const applied = [];
   for (const file of files) {
     if (done.has(file)) continue;
@@ -53,7 +54,9 @@ if (require.main === module) {
     const client = await db.connect();
     try {
       await client.query("SET statement_timeout = 0");
-      return await runMigrations(client);
+      // `npm run migrate -- --only name.sql` runs just that one file.
+      const onlyAt = process.argv.indexOf("--only");
+      return await runMigrations(client, { only: onlyAt > -1 ? process.argv[onlyAt + 1] : null });
     } finally {
       client.release(true);
     }

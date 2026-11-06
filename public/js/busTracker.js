@@ -101,6 +101,14 @@
     '.trk-overlay .trk-zoom button.trk-tool+button.trk-tool{border-top:1px solid #e3e8ef}',
     '.trk-overlay button.trk-tool:hover{background:#f6f8fb;color:#0f172a}',
     '.trk-overlay button.trk-tool[aria-pressed="true"]{color:#1a73e8}',
+    '.trk-driver{position:absolute;z-index:600;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:10px;max-width:320px;padding:8px 8px 8px 10px;border-radius:12px;background:#fff;box-shadow:0 2px 12px rgba(15,23,42,.22)}',
+    '.trk-driver[hidden],.trk-driver-photo[hidden]{display:none}',
+    '.trk-driver-photo{flex:none;width:42px;height:42px;border-radius:50%;object-fit:cover}',
+    '.trk-driver-text{flex:1;min-width:0}',
+    '.trk-overlay .trk-driver-text strong{display:block;font-size:.9rem;line-height:1.25;color:#0f172a}',
+    '.trk-overlay .trk-driver-text span{display:block;font-size:.8rem;line-height:1.3;color:#475467}',
+    '.trk-overlay .trk-driver-text small{display:block;font-size:.74rem;line-height:1.3;color:#667085}',
+    '.trk-overlay button.trk-driver-x{width:30px!important;min-width:30px;height:30px}',
     '.trk-panel{position:relative;z-index:1;flex:none;padding:16px 20px 18px;background:#fff;border-top:1px solid #e3e8ef}',
     '.trk-eta{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;min-height:34px}',
     '.trk-eta-value{font-size:1.6rem;font-weight:800;line-height:1.1;letter-spacing:-.01em;color:#0f172a;font-variant-numeric:tabular-nums}',
@@ -340,6 +348,10 @@
     p.speedKmh = num(pick(l, ['speedKmh', 'speed_kmh']));
     p.recordedAt = parseTime(pick(l, ['recordedAt', 'recorded_at', 'updatedAt', 'updated_at']));
     p.busNumber = pick(l, ['busNumber', 'bus_number']) || '';
+    p.driverName = pick(l, ['driverName', 'driver_name']) || '';
+    p.driverPhotoUrl = pick(l, ['driverPhotoUrl', 'driver_photo_url']) || '';
+    p.licensePlate = pick(l, ['licensePlate', 'license_plate']) || '';
+    p.estimated = l.estimated === true;
     p.active = !(l.active === false || l.isActive === false || l.tripActive === false || /ended|complete|cancel|finished/.test(status));
     return p;
   }
@@ -543,6 +555,7 @@
             '</div>' +
             '<button type="button" class="trk-tool" data-trk="follow" aria-pressed="true" aria-label="Keep the bus in view" title="Keep the bus in view" data-ap-skip>' + ICON.locate + '</button>' +
           '</div>' +
+          '<div class="trk-driver" hidden><img class="trk-driver-photo" alt="" hidden /><div class="trk-driver-text"><strong></strong><span></span><small></small></div><button type="button" class="trk-icon trk-driver-x" data-trk="driver-close" aria-label="Close" data-ap-skip>' + ICON.close + '</button></div>' +
           '<p class="trk-sr" aria-live="polite"></p>' +
         '</div>' +
         '<section class="trk-panel" aria-label="Trip details">' +
@@ -572,6 +585,7 @@
       if (!btn) return;
       var act = btn.getAttribute('data-trk');
       if (act === 'close') close();
+      else if (act === 'driver-close') { s.driverOpen = false; updateDriverCard(s); }
       else if (act === 'expand') {
         var big = root.classList.toggle('is-expanded');
         btn.innerHTML = big ? ICON.shrink : ICON.expand;
@@ -584,6 +598,24 @@
       else if (act === 'zoom-out' && s.map) s.map.zoomOut();
       else if (act === 'follow') { setFollowing(s, true); frame(s, 'now'); }
     });
+  }
+
+  // Tapping the bus shows who is driving and where things stand.
+  function updateDriverCard(s) {
+    var card = s.root.querySelector('.trk-driver');
+    var live = s.data.live;
+    if (!s.driverOpen || !live) { card.hidden = true; return; }
+    var photo = card.querySelector('.trk-driver-photo');
+    if (live.driverPhotoUrl) {
+      if (photo.getAttribute('src') !== live.driverPhotoUrl) photo.setAttribute('src', live.driverPhotoUrl);
+      photo.hidden = false;
+    } else {
+      photo.hidden = true;
+    }
+    setText(card.querySelector('strong'), live.driverName || s.data.driverName || 'Driver');
+    setText(card.querySelector('span'), ['Bus ' + (s.data.busNumber || live.busNumber || ''), live.licensePlate].filter(Boolean).join(' \u00b7 '));
+    setText(card.querySelector('small'), s.statusTitle.textContent);
+    card.hidden = false;
   }
 
   function renderText(s) {
@@ -627,10 +659,10 @@
     }).addTo(map);
   }
 
-  function busIcon(L, heading, stale, label) {
+  function busIcon(L, heading, stale, label, photo) {
     var custom = mm('busIcon');
     if (custom) {
-      try { var icon = custom({ heading: heading, label: label || 'Bus', stale: stale }); if (icon) return icon; } catch (_) { /* fall back */ }
+      try { var icon = custom({ heading: heading, label: label || 'Bus', stale: stale, photo: photo }); if (icon) return icon; } catch (_) { /* fall back */ }
     }
     var h = typeof heading === 'number' && isFinite(heading) ? Math.round(heading) : null;
     return L.divIcon({
@@ -879,17 +911,18 @@
     var heading = s.lastFix ? s.lastFix.heading : null;
     var stale = trip.state === 'weak';
     var label = s.data.busNumber || 'Bus';
-    var iconKey = [heading === null || heading === undefined ? 'x' : Math.round(heading / 5) * 5, stale, label].join('|');
+    var photo = s.data.live && s.data.live.driverPhotoUrl ? s.data.live.driverPhotoUrl : '';
+    var iconKey = [heading === null || heading === undefined ? 'x' : Math.round(heading / 5) * 5, stale, label, photo].join('|');
     if (!s.busMarker) {
-      s.busMarker = L.marker([trip.bus.lat, trip.bus.lng], { icon: busIcon(L, heading, stale, label), zIndexOffset: 1000, keyboard: false })
-        .bindTooltip('', { direction: 'top', offset: [0, -18] })
+      s.busMarker = L.marker([trip.bus.lat, trip.bus.lng], { icon: busIcon(L, heading, stale, label, photo), zIndexOffset: 1000, keyboard: false })
+        .on('click', function () { s.driverOpen = !s.driverOpen; updateDriverCard(s); })
         .addTo(s.map);
       s.busIconKey = iconKey;
       s.busTarget = trip.bus;
       return;
     }
     if (iconKey !== s.busIconKey) {
-      s.busMarker.setIcon(busIcon(L, heading, stale, label));
+      s.busMarker.setIcon(busIcon(L, heading, stale, label, photo));
       s.busIconKey = iconKey;
     }
     if (s.busTarget && s.busTarget.lat === trip.bus.lat && s.busTarget.lng === trip.bus.lng) return;
@@ -1027,6 +1060,7 @@
       case 'denied': return ['error', 'Live tracking is unavailable', 'This account can\u2019t view this bus.'];
       case 'weak': return ['weak', trip.age > 3 * 60000 ? 'Signal lost' : 'Weak signal', 'Last update ' + fmtAgo(trip.age) + ', showing the last position'];
       case 'live':
+        if (s.data.live && s.data.live.estimated) return ['live', 'Estimated position', 'The driver is navigating in another app. This is where the bus should be.'];
         if (trip.passed) return ['passed', 'Bus has passed ' + where, updated];
         if (trip.atStop) return ['arriving', 'Bus is at ' + where, updated];
         if (trip.arriving) return ['arriving', 'Arriving now', updated];
@@ -1080,6 +1114,7 @@
     renderText(s);
     var trip = s.trip = computeTrip(s);
     updateText(s, trip);
+    updateDriverCard(s);
     if (!s.mapReady) return;
     drawPlaces(s);
     drawRoute(s);
@@ -1123,7 +1158,10 @@
     var timeout = setTimeout(function () { if (ctrl) ctrl.abort(); }, 12000);
     s.abort = ctrl;
     s.inflight = true;
-    fetch(LIVE_URL + encodeURIComponent(s.id), {
+    // Whole route once a minute; in between, only the position.
+    s.polls = (s.polls || 0) + 1;
+    var positionOnly = s.loaded && s.polls % 12 !== 1;
+    fetch(LIVE_URL + encodeURIComponent(s.id) + (positionOnly ? '?liveOnly=1' : ''), {
       method: 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
