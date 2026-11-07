@@ -49,3 +49,24 @@
   .sso-set .sso-btn { width: 100% !important; }
   .sso-row > .sso-btn { flex: 1 1 100%; }
 }
+
+/* Settings: Tenant configuration (sign-in rules), with Single sign-on under it. */
+.tc-title { margin: 22px 0 2px; padding: 0; color: inherit; font-size: 17px; font-weight: 600; text-align: left; }
+.tc-lead { margin: 0 0 12px; color: var(--muted, #64748b); font-size: 13.5px; }
+.tc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 8px 0; border-top: 1px solid var(--border, #eef1f5); font-size: 14px; }
+.sso-card h2 + .tc-row { border-top: 0; }
+.tc-row[hidden] { display: none; }
+.sso-set .tc-select { flex: none; width: 132px; height: 36px; margin: 0; padding: 0 28px 0 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background-color: var(--card-bg, #fff); color: inherit; font: inherit; font-size: 14px; }
+.tc-switch { position: relative; display: inline-flex; flex: none; margin: 0; cursor: pointer; }
+.tc-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.tc-switch span { position: relative; width: 34px; height: 20px; border-radius: 10px; background: #cbd5e1; transition: background .2s; }
+.tc-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: left .2s; }
+.tc-switch input:checked + span { background: var(--org-primary-color, #01535b); }
+.tc-switch input:checked + span::after { left: 16px; }
+.tc-switch input:focus-visible + span { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
+.tc-save { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tc-save .sso-msg { margin: 0; }
+@media (max-width: 480px) {
+  .sso-set .tc-select { width: 120px; font-size: 16px; }
+  .tc-save .sso-btn { width: 100% !important; }
+}

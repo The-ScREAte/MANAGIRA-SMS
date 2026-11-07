@@ -24,7 +24,7 @@
     var loader = document.getElementById('authLoader');
     if (!loader) return;
     var words = loader.querySelector('[data-loader-text]');
-    var message = <%- JSON.stringify(typeof loaderText !== 'undefined' ? loaderText : 'Signing you in').replace(/</g, '\u003c') %>;
+    var message = <%- JSON.stringify(typeof loaderText !== 'undefined' ? loaderText : 'Signing you in').replace(/</g, '\\u003c') %>;
     var slow, stuck;
     function hide() { loader.hidden = true; clearTimeout(slow); clearTimeout(stuck); }
     function show(text) {

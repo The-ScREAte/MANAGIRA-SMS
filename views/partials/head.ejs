@@ -135,19 +135,6 @@
     }
     #spa-progress.active { opacity: 1; }
 
-    /* Center spinner overlay shown for slow navigations (>250ms) */
-    .page-loading-overlay {
-      position: fixed;
-      inset: 0;
-      background: transparent;
-      pointer-events: none;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 9998;
-    }
-    .page-loading-overlay.active { display: flex; }
-
     .spinner {
       width: 44px;
       height: 44px;
@@ -156,16 +143,6 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    .page-loading-overlay .spinner {
-      width: 48px;
-      height: 48px;
-      border: 0 !important;
-      border-radius: 0;
-      background: url("/images/managira-logo-sm.png") center / contain no-repeat;
-      transform-origin: 50% 100%;
-      animation: page-hop 0.5s cubic-bezier(0.33, 0, 0.67, 1) infinite alternate;
-    }
-    @keyframes page-hop { 0% { transform: translateY(0) scale(1.07, 0.93); } 18% { transform: translateY(-3px) scale(1, 1); } 100% { transform: translateY(-16px) scale(0.98, 1.02); } }
     @keyframes spin { to { transform: rotate(360deg); } }
     /* Phones zoom into a field with text under 16px when it is tapped: on touch
        screens every field stays at least 16px (with maximum-scale=1 in the viewport). */

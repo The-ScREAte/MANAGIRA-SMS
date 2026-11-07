@@ -426,6 +426,7 @@ const transcriptController = (db) => ({
             const emailSent = await sendEmailSafely(
                 {
                     to: recipientEmail,
+                    sender: "reports",
                     skipMxCheck: true,
                     subject: `Official Transcript - ${student.first_name} ${student.last_name}`,
                     html: emailHtml,

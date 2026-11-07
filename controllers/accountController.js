@@ -5315,15 +5315,23 @@ const accountController = {
   },
 
   // step: "email" first; "password" once the email is known not to use single sign-on.
-  loginGet: async (req, res, db, { step = "email", email = "", next = "", ssoAlso = "" } = {}) => {
+  loginGet: async (req, res, db, { step = "email", email = "", next = "", ssoAlso = "", codeError = "", codeNote = "" } = {}) => {
     const school = req.schoolDetails;
+    const loginCode = require("../utils/loginCode");
+    const pending = step === "code" ? loginCode.pendingOf(req) : null;
+    if (step === "code" && (!pending || pending.expired)) step = "email";
+    const trust = pending && !pending.expired ? await loginCode.trustChoiceFor(db, pending) : { allowed: true, days: 30 };
     const schoolLogo = school && school.logo ? res.locals.publicImageUrl(school.logo, { public: true, width: 128 }) : "";
     res.render("account/login", {
       layout: false,
       title: "Login",
       url: req.url,
       messages: req.flash(),
-      step: step === "password" ? "password" : "email",
+      step: ["password", "code"].includes(step) ? step : "email",
+      codeTo: pending && !pending.expired ? pending.email : "",
+      trust,
+      codeError,
+      codeNote,
       email,
       next: next === "mira" || req.query.next === "mira" ? "mira" : "",
       ssoAlso,

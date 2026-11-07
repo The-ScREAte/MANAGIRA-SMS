@@ -5,7 +5,7 @@ const {
   GROUP_ORDER,
   PAGE_SIZES,
   PAGE_SIZE,
-  MAX_EXPORT_ROWS,
+  exportRowsFor,
   getReport,
   allowedBy,
   ownRowsFor,
@@ -669,15 +669,19 @@ function reportBuilderController(db, options = {}) {
         if (!context) return signedOut(res);
         const input = service.validateInput(req.body, context);
         if (input.error) return res.status(400).json({ success: false, error: input.error });
-        const { rows, total } = await service.loadData(context, input, { limit: MAX_EXPORT_ROWS, sort: req.body?.sort });
-        if (total > MAX_EXPORT_ROWS) {
+        const format = FORMATS.has(req.body?.format) ? req.body.format : "xlsx";
+        const most = exportRowsFor(format);
+        const { rows, total } = await service.loadData(context, input, { limit: most, sort: req.body?.sort });
+        if (total > most) {
+          const csv = exportRowsFor("csv");
           return res.status(413).json({
             success: false,
-            error: `This report has ${total.toLocaleString()} rows. Add criteria to export ${MAX_EXPORT_ROWS.toLocaleString()} rows or fewer.`,
+            error: format !== "csv" && total <= csv
+              ? `This report has ${total.toLocaleString()} rows. ${format === "docx" ? "Word" : "Excel"} takes up to ${most.toLocaleString()}; download it as CSV instead, or add a filter.`
+              : `This report has ${total.toLocaleString()} rows. Add a filter to export ${most.toLocaleString()} rows or fewer.`,
           });
         }
         const name = String(req.body?.name || "").trim().slice(0, 120) || input.report.title;
-        const format = FORMATS.has(req.body?.format) ? req.body.format : "xlsx";
         const header = format === "csv" ? null : await loadReportHeader(db, context.organizationId, req.body?.branding);
         const file = await buildFile(rows, input.columns, input.report, format, name, header);
         res.setHeader("Cache-Control", "no-store");
@@ -1070,14 +1074,16 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
           continue;
         }
         if (!recipient.email) continue;
-        const { rows, total } = await service.loadData(context, input, { limit: MAX_EXPORT_ROWS });
+        const most = exportRowsFor(row.file_format);
+        const { rows, total } = await service.loadData(context, input, { limit: most });
         const file = await buildFile(rows, input.columns, input.report, row.file_format, row.report_name, header);
-        const note = total > MAX_EXPORT_ROWS
-          ? `This report has ${total.toLocaleString()} rows; the first ${MAX_EXPORT_ROWS.toLocaleString()} are attached.`
+        const note = total > most
+          ? `This report has ${total.toLocaleString()} rows; the first ${most.toLocaleString()} are attached.`
           : `${total.toLocaleString()} ${total === 1 ? "row" : "rows"}.`;
         const email = recipient.email;
         await deliver({
           to: email,
+          sender: "reports",
           subject: `${row.report_name} · ${row.organization_name}`,
           html: renderCleanEmail({
             title: escapeHtml(row.report_name),

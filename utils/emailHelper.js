@@ -39,6 +39,15 @@ const MANAGIRA_LOGO_URL = `${MANAGIRA_PUBLIC_BASE}/images/managira.png`;
 // Display name used on every outgoing email. Mail clients prefer a human-
 // readable “From”; emails with just an address score higher for Promotions.
 const MANAGIRA_FROM_NAME = process.env.EMAIL_FROM_NAME || "Managira";
+// Reminders and security codes come from their own address, an alias of the same mailbox.
+// A caller asks for it with { sender: "reminders" }; nothing else changes about the send.
+const REMINDERS_ADDRESS = String(process.env.REMINDERS_EMAIL || "reminders@managira.com").trim();
+// Report cards, terminal reports, transcripts and saved reports come from reports@managira.com.
+const SENDER_ADDRESSES = {
+  reminders: REMINDERS_ADDRESS,
+  reports: String(process.env.REPORTS_EMAIL || "reports@managira.com").trim(),
+};
+const senderAddress = (sender) => (SENDER_ADDRESSES[sender] && EMAIL_ADDRESS_PATTERN.test(SENDER_ADDRESSES[sender]) ? SENDER_ADDRESSES[sender] : null);
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
 // Strip HTML to a clean plain-text body. Gmail/Outlook flag HTML-only mail as
@@ -672,6 +681,16 @@ async function sendEmailSafely(mailOptions, context = "Email") {
   try {
     const { user, pass } = resolveSmtpConfig();
 
+    // The local test copy writes emails to a file instead of sending them. Never on the real site.
+    if (process.env.EMAIL_TEST_OUTBOX && process.env.RENDER === undefined) {
+      const fromAddress = senderAddress(mailOptions.sender) || user || "info@managira.com";
+      require("fs").appendFileSync(process.env.EMAIL_TEST_OUTBOX, JSON.stringify({
+        at: new Date().toISOString(), context, from: `"${mailOptions.senderName || MANAGIRA_FROM_NAME}" <${fromAddress}>`,
+        to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html, text: mailOptions.text || htmlToPlainText(mailOptions.html || ""),
+      }) + "\n");
+      return true;
+    }
+
     if (!user || !pass) {
       console.warn(`[Email][${context}] SMTP credentials not configured — skipping.`);
       return false;
@@ -760,8 +779,8 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     // Build a friendly From header (“Managira <notify@…>”). Mail clients penalize
     // bare-address senders in their Promotions classifier.
-    const fromAddress = user;
-    const from = `"${MANAGIRA_FROM_NAME}" <${fromAddress}>`;
+    const fromAddress = senderAddress(mailOptions.sender) || user;
+    const from = `"${mailOptions.senderName || MANAGIRA_FROM_NAME}" <${fromAddress}>`;
 
     // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
     const {
@@ -769,6 +788,8 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       from: _ignoredFrom,
       skipMxCheck: _skipMxCheck,
       failureNotification: _failureNotification,
+      sender: _sender,
+      senderName: _senderName,
       ...restOptions
     } = mailOptions;
 
@@ -779,7 +800,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     // want. Real file attachments (PDF reports, resumes, etc.) are kept.
     const mergedAttachments = (Array.isArray(restOptions.attachments) ? restOptions.attachments : [])
       .filter((item) => !(item && item.cid === 'managira_logo'));
-    const envelope = buildEnvelopeConfig(restOptions.envelope, fromAddress, deliverableRecipients);
+    const envelope = buildEnvelopeConfig(restOptions.envelope, user, deliverableRecipients);
 
     // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
     // alternative mail is a strong Primary-tab signal.

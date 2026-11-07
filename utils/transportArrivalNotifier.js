@@ -61,7 +61,7 @@ async function sendArrivalNotification(database, { organizationId, student, even
         paragraphs: [message],
         noReply: true,
       });
-      sendEmailInBackground({ to: contact.email, subject: title, html }, "TransportArrival").catch(() => {});
+      sendEmailInBackground({ to: contact.email, subject: title, html, sender: "reminders" }, "TransportArrival").catch(() => {});
     }
 
     // WhatsApp is sent additionally, only when the organization has it active.

@@ -24,6 +24,6 @@
     <span class="shadow" aria-hidden="true"></span>
     <p>Taking you to the <%= portal %></p>
   </div>
-  <script>location.replace(<%- JSON.stringify(target).replace(/</g, '\u003c') %>);</script>
+  <script>location.replace(<%- JSON.stringify(target).replace(/</g, '\\u003c') %>);</script>
 </body>
 </html>

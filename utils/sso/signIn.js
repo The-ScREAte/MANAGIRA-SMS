@@ -62,6 +62,10 @@ function schoolSession(req, school) {
   req.session.signedInWith = "sso";
   // The provider decides how long people stay signed in there; here it lasts the browser session.
   req.session.keepSignedIn = false;
+  // The school's provider checked who this is: no emailed code is needed.
+  req.session.verifiedBy = "sso";
+  req.session.lastActivity = Date.now();
+  req.session.signedInAt = Date.now();
 }
 
 function logged(req, school, id, name, role, what) {

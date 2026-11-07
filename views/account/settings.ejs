@@ -3197,7 +3197,10 @@
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
         const _canSecuritySettings = typeof canAccessSecuritySettings === 'boolean' ? canAccessSecuritySettings : true;
-        const _canSso = Boolean(locals.featureOn && featureOn('sso') && (locals.userPermissions || []).includes('manage_sso') && (String(locals.userRole || '').toLowerCase() === 'manager' || locals.accountType === 'Organization'));
+        const _isManager = String(locals.userRole || '').toLowerCase() === 'manager' || locals.accountType === 'Organization';
+        const _canSso = Boolean(locals.featureOn && featureOn('sso') && (locals.userPermissions || []).includes('manage_sso') && _isManager);
+        // Tenant configuration: a manager's sign-in rules, with Single sign-on under it.
+        const _canTenant = Boolean(locals.featureOn && featureOn('tenant_config') && (locals.userPermissions || []).includes('manage_settings') && _isManager);
         const _settingsAccess = workspaceAccess().settings;
         const _canProfileSettings = _canCustomizeSettings && _settingsAccess.profile;
         const _canIntegrationSettings = _canCustomizeSettings && _settingsAccess.integrations;
@@ -3251,7 +3254,12 @@
             <span>Security</span>
           </button></li>
           <% } %>
-          <% if (_canSso) { %>
+          <% if (_canTenant) { %>
+          <li><button class="nav-link" data-target="tenant">
+            <span class="nav-link-icon"><%- navIcon('security') %></span>
+            <span>Tenant configuration</span>
+          </button></li>
+          <% } else if (_canSso) { %>
           <li><button class="nav-link" data-target="sso">
             <span class="nav-link-icon"><%- navIcon('security') %></span>
             <span>Single sign-on</span>
@@ -4923,7 +4931,7 @@
         <% } %>
 
         <% if (_canSecuritySettings && !_isOnHoldRestricted) { %>
-        <% if (_canSso) { %><%- include('partials/ssoSettings') %><% } %>
+        <% if (_canTenant) { %><%- include('partials/tenantSettings', { withSso: _canSso }) %><% } else if (_canSso) { %><%- include('partials/ssoSettings') %><% } %>
         <section id="security" class="settings-section">
           <h1>Security</h1>
           <p class="lead">Manage your account security and password.</p>
@@ -6359,6 +6367,8 @@
 
         function showSection(targetId, options = {}) {
           const availableSectionIds = sections.map((sec) => sec.id);
+          // Single sign-on now lives under Tenant configuration.
+          if (targetId === "sso" && !availableSectionIds.includes("sso")) targetId = "tenant";
           const resolvedTargetId = availableSectionIds.includes(targetId)
             ? targetId
             : (availableSectionIds[0] || null);

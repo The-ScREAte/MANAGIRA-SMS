@@ -113,11 +113,19 @@ router.post("/login", express.urlencoded({ extended: true }), async (req, res) =
         // indistinguishable from a real success redirect).
         Referer: `${MAIN_APP_INTERNAL_BASE_URL}/account/login`,
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, next: "mira" }),
     });
 
     const location = relayResponse.headers.get("location") || "";
     const isRedirect = relayResponse.status >= 300 && relayResponse.status < 400;
+    // A school that asks for a verification code: the browser takes the held sign-in to the code
+    // page, which comes back to Mira once the code is right.
+    if (relayResponse.headers.get("x-managira-login") === "code") {
+      const held = (relayResponse.headers.getSetCookie ? relayResponse.headers.getSetCookie() : [relayResponse.headers.get("set-cookie")].filter(Boolean))
+        .find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`));
+      if (held) res.append("Set-Cookie", held);
+      return res.redirect(`${MAIN_APP_PUBLIC_URL}/account/login/code`);
+    }
     // A school that signs in with its own provider sends people to SSO instead.
     if (isRedirect && /\/account\/login\?sso=1|\/account\/sso/.test(location)) {
       return res.redirect(`${MAIN_APP_PUBLIC_URL}/account/login?next=mira`);

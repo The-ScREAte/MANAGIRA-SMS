@@ -25,7 +25,6 @@
     TRANSITION_MS: 120,        // fade out/in duration (skipped on cache hits)
     PRELOAD_VISIBLE: false,    // disabled: caused preload stampede on dashboards
     SCROLL_BEHAVIOR: 'instant',
-    SPINNER_DELAY_MS: 1200,    // show center spinner only if nav takes longer than this
     TOPBAR_DELAY_MS: 120,      // show top progress bar only if nav takes longer than this
     MAX_CONCURRENT_PRELOADS: 3 // cap to avoid saturating the browser / server
   };
@@ -231,7 +230,6 @@
       // Track in-flight navigation fetches keyed by path (request dedupe).
       this._pendingNavigations = new Map();
       // Spinner-delay timer (set by _showProgress, cleared by _hideProgress).
-      this._spinnerTimer = null;
       // Whether the current swap may skip the fade (cache hits skip it).
       this._skipFade = false;
 
@@ -1275,7 +1273,6 @@
       // responses (including preloaded ones that arrive between mousedown and
       // click) don't flash any UI at all.
       if (this._topbarTimer) clearTimeout(this._topbarTimer);
-      if (this._spinnerTimer) clearTimeout(this._spinnerTimer);
 
       this._topbarTimer = setTimeout(() => {
         let bar = document.getElementById('spa-progress');
@@ -1289,24 +1286,10 @@
         requestAnimationFrame(() => { bar.style.width = '70%'; });
       }, CONFIG.TOPBAR_DELAY_MS);
 
-      this._spinnerTimer = setTimeout(() => {
-        let overlay = document.querySelector('.page-loading-overlay');
-        if (!overlay) {
-          overlay = document.createElement('div');
-          overlay.className = 'page-loading-overlay';
-          overlay.innerHTML = '<div class="spinner" aria-label="Loading"></div>';
-          document.body.appendChild(overlay);
-        }
-        overlay.classList.add('active');
-      }, CONFIG.SPINNER_DELAY_MS);
     }
 
     _hideProgress() {
       if (this._topbarTimer) { clearTimeout(this._topbarTimer); this._topbarTimer = null; }
-      if (this._spinnerTimer) { clearTimeout(this._spinnerTimer); this._spinnerTimer = null; }
-
-      const overlay = document.querySelector('.page-loading-overlay');
-      if (overlay) overlay.classList.remove('active');
 
       const bar = document.getElementById('spa-progress');
       if (bar && bar.classList.contains('active')) {

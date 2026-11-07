@@ -40,6 +40,10 @@ main { padding: 0 !important; max-width: none !important; }
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.docs-search { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+.docs-search input { flex: 1 1 240px; min-width: 0; height: 40px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; }
+.docs-search .btn { height: 40px; }
+.docs-note { margin: 0 0 12px; color: #64748b; font-size: 0.875rem; }
 .docs-header h1 {
   margin: 0;
   text-align: left;
@@ -387,6 +391,16 @@ main { padding: 0 !important; max-width: none !important; }
       <% } %>
     </div>
   </div>
+
+  <% if ((typeof documentsCapped !== 'undefined' && documentsCapped) || (typeof documentSearch !== 'undefined' && documentSearch)) { %>
+    <form class="docs-search" method="get" action="/documents">
+      <% if (classId) { %><input type="hidden" name="classId" value="<%= classId %>" /><% } %>
+      <input type="search" name="q" value="<%= documentSearch %>" placeholder="Search all documents by name" aria-label="Search documents" />
+      <button type="submit" class="btn">Search</button>
+      <% if (documentSearch) { %><a href="/documents<%= classId ? '?classId=' + classId : '' %>">Clear</a><% } %>
+    </form>
+    <% if (documentsCapped && !documentSearch) { %><p class="docs-note">Showing the 300 most recently changed. Search to find older ones.</p><% } %>
+  <% } %>
 
   <% if (documents.length === 0) { %>
     <div class="empty-state">

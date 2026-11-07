@@ -336,7 +336,9 @@ async function sendLoggedEmail(database, params) {
     body: `An email for ${recipientKind || 'a recipient'} could not be delivered to ${recipientEmail}.`,
   });
 
-  const sendOptions = { to: recipientEmail, subject, html, failureNotification };
+  // Weekly digests and the daily absence alert are reminders; a reply to a parent's message isn't.
+  const sender = /digest|absence|reminder/.test(String(eventType || "")) ? "reminders" : undefined;
+  const sendOptions = { to: recipientEmail, subject, html, failureNotification, ...(sender ? { sender } : {}) };
 
   if (background) {
     sendEmailSafely(sendOptions, context || eventType)

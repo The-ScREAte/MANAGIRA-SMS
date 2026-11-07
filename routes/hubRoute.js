@@ -46,7 +46,7 @@ router.use((req, res, next) => {
 
 // Public routes
 router.get('/login', hubController.hubLoginGet);
-router.post('/login', signInGuard('hub-login', { field: 'email' }), require('../utils/keepSignedIn').keepSignedInChoice, hubController.hubLoginPost);
+router.post('/login', signInGuard('hub-login', { field: 'email' }), require('../utils/keepSignedIn').keepSignedInChoice, require('../utils/loginCode').holdForCode, hubController.hubLoginPost);
 router.get('/logout', hubController.hubLogoutGet);
 router.get('/setup-password', hubController.setupPasswordGet);
 router.post('/setup-password', hubController.setupPasswordPost);

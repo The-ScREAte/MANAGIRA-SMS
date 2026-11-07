@@ -43,23 +43,23 @@ async function recordPromotionAuditRows(client, rows) {
   if (!Array.isArray(rows) || rows.length === 0) return;
   await ensurePromotionAuditSchema();
 
-  const values = [];
-  const placeholders = [];
-  rows.forEach((row, index) => {
-    const offset = index * 10;
-    values.push(
+  // Sent as one list per column, so a whole school's promotion is one statement of 10 values
+  // (a list of rows would stop at 65,535 values, about 6,500 rows).
+  const num = (value) => (value == null ? null : Number(value));
+  const columns = [[], [], [], [], [], [], [], [], [], []];
+  rows.forEach((row) => {
+    [
       Number(row.scheduleId),
       Number(row.organizationId),
       String(row.actionType || '').trim(),
-      row.enrollmentId == null ? null : Number(row.enrollmentId),
-      row.enrolledClassId == null ? null : Number(row.enrolledClassId),
-      row.enrolledStudentId == null ? null : Number(row.enrolledStudentId),
-      row.studentId == null ? null : Number(row.studentId),
-      row.classId == null ? null : Number(row.classId),
-      row.subjectId == null ? null : Number(row.subjectId),
-      JSON.stringify(row.details || {})
-    );
-    placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}::jsonb)`);
+      num(row.enrollmentId),
+      num(row.enrolledClassId),
+      num(row.enrolledStudentId),
+      num(row.studentId),
+      num(row.classId),
+      num(row.subjectId),
+      JSON.stringify(row.details || {}),
+    ].forEach((value, index) => columns[index].push(value));
   });
 
   await client.query(
@@ -75,8 +75,10 @@ async function recordPromotionAuditRows(client, rows) {
        subject_id,
        details_json
      )
-     VALUES ${placeholders.join(', ')}`,
-    values
+     SELECT s, o, a, e, ec, es, st, c, sub, d::jsonb
+       FROM unnest($1::int[], $2::int[], $3::text[], $4::int[], $5::int[], $6::int[], $7::int[], $8::int[], $9::int[], $10::text[])
+         AS t(s, o, a, e, ec, es, st, c, sub, d)`,
+    columns
   );
 }
 
@@ -852,20 +854,14 @@ async function savePromotionSubjectSelections({ organizationId, termId, subjectS
     );
 
     if (insertRows.length > 0) {
-      const values = [];
-      const placeholders = [];
-      insertRows.forEach((row, index) => {
-        const offset = index * 4;
-        values.push(organizationId, normalizedTermId, row.studentId, row.subjectId);
-        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
-      });
-
+      // One statement for any number of students and subjects.
       await client.query(
         `INSERT INTO promotion_subject_selections (organization_id, term_id, student_id, subject_id)
-         VALUES ${placeholders.join(', ')}
+         SELECT $1, $2, t.student_id, t.subject_id
+           FROM unnest($3::int[], $4::int[]) AS t(student_id, subject_id)
          ON CONFLICT (organization_id, term_id, student_id, subject_id)
          DO UPDATE SET updated_at = CURRENT_TIMESTAMP`,
-        values
+        [organizationId, normalizedTermId, insertRows.map((row) => row.studentId), insertRows.map((row) => row.subjectId)]
       );
     }
 
@@ -1684,14 +1680,17 @@ module.exports = {
     }
 
     // 6️⃣ Insert students
+    // One statement for the whole school, however many students move.
     let enrolledCount = 0;
-    for (const { student_id, target_class_id } of finalEnrollments) {
+    {
       const result = await client.query(`
         INSERT INTO enrolled_students (enrollment_id, student_id, class_id, added_by_promotion)
-        VALUES ($1, $2, $3, TRUE)
+        SELECT $1, t.student_id, t.class_id, TRUE
+          FROM unnest($2::int[], $3::int[]) WITH ORDINALITY AS t(student_id, class_id, n)
+         ORDER BY t.n
         ON CONFLICT DO NOTHING
         RETURNING enrolled_student_id, student_id, class_id
-      `, [enrollmentId, student_id, target_class_id]);
+      `, [enrollmentId, finalEnrollments.map((row) => row.student_id), finalEnrollments.map((row) => row.target_class_id)]);
       enrolledCount += result.rowCount;
       result.rows.forEach((row) => {
         const studentId = Number(row.student_id);
@@ -1795,31 +1794,26 @@ module.exports = {
     }
 
     if (subjectInsertRows.length > 0) {
-      const values = [];
-      const placeholders = [];
-      subjectInsertRows.forEach((row, index) => {
-        const offset = index * 4;
-        const targetClassId = finalEnrollments.find((entry) => Number(entry.student_id) === Number(row.studentId))?.target_class_id || null;
-        values.push(row.studentId, row.subjectId, organization_id, targetClassId == null ? null : Number(targetClassId));
-        placeholders.push(`($${offset + 1}::int, $${offset + 2}::int, $${offset + 3}::int, $${offset + 4}::int)`);
+      const classOfStudent = new Map();
+      finalEnrollments.forEach((entry) => {
+        const id = Number(entry.student_id);
+        if (!classOfStudent.has(id)) classOfStudent.set(id, Number(entry.target_class_id));
       });
-
+      // One statement for every student's subjects (a list of rows would stop at 65,535 values).
       const insertedSubjectResult = await client.query(
-        `WITH source_rows(student_id, subject_id, organization_id, class_id) AS (
-           VALUES ${placeholders.join(', ')}
-         )
-         INSERT INTO student_subjects (student_id, subject_id, organization_id)
-         SELECT student_id::int, subject_id::int, organization_id::int
-         FROM source_rows
+        `INSERT INTO student_subjects (student_id, subject_id, organization_id)
+         SELECT t.student_id, t.subject_id, $3
+           FROM unnest($1::int[], $2::int[]) WITH ORDINALITY AS t(student_id, subject_id, n)
+          ORDER BY t.n
          ON CONFLICT DO NOTHING
          RETURNING student_id, subject_id`,
-        values
+        [subjectInsertRows.map((row) => row.studentId), subjectInsertRows.map((row) => row.subjectId), organization_id]
       );
 
       insertedSubjectResult.rows.forEach((row) => {
         const studentId = Number(row.student_id);
         const subjectId = Number(row.subject_id);
-        const classId = Number(finalEnrollments.find((entry) => Number(entry.student_id) === studentId)?.target_class_id);
+        const classId = classOfStudent.get(studentId);
         auditRows.push({
           scheduleId,
           organizationId: organization_id,

@@ -19,6 +19,13 @@ async function revokeSessions(db, { userId, organizationOwnerId, studentId, guar
   if (hubUserId) add("sess->>'hubUserId' = $?", hubUserId);
   if (!match.length) return 0;
 
+  // A browser remembered for its sign-in code isn't trusted any more either.
+  const keys = [
+    userId && `user:${userId}`, organizationOwnerId && `owner:${organizationOwnerId}`, studentId && `student:${studentId}`,
+    guardianId && `guardian:${guardianId}`, hubOwnerId && `hub:${hubOwnerId}`, hubUserId && `hubuser:${hubUserId}`,
+  ].filter(Boolean);
+  await db.query("DELETE FROM login_trusted_devices WHERE account_key = ANY($1::text[])", [keys]).catch(() => {});
+
   let sql = `DELETE FROM user_sessions WHERE (${match.join(" OR ")})`;
   if (exceptSid) {
     params.push(String(exceptSid));

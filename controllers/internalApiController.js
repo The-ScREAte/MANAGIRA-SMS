@@ -9230,6 +9230,7 @@ async function sendReportCardsApi(req, res) {
               });
               const ok = await sendEmailSafely({
                 to: email,
+                sender: "reports",
                 subject: `Report Card - ${studentName(student)} | ${schoolName}`,
                 html,
                 attachments: [{ filename: `${safeFileNameSegment(studentName(student), "report")}_Report.pdf`, content: pdf.buffer, contentType: "application/pdf" }],

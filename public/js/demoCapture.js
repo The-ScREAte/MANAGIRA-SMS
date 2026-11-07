@@ -27,7 +27,7 @@
 
   const SWATCHES = ["#14b8a6", "#3b82f6", "#8b5cf6", "#f59e0b", "#f43f5e", "#0b1b2b"];
   // Only this bar and things that never show (scripts, loading indicators) are left out.
-  const STRIP = ["script", "noscript", "template", "[data-mcap-ui]", ".page-loading-overlay", "#spa-progress"].join(",");
+  const STRIP = ["script", "noscript", "template", "[data-mcap-ui]", "#spa-progress"].join(",");
   const INTERACTIVE = [
     "a[href]", "button", "summary", "label", "select", "input", "textarea",
     "[role='button']", "[role='tab']", "[role='switch']", "[role='menuitem']", "[role='option']", "[role='checkbox']",

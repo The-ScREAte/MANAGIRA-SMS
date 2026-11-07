@@ -11,7 +11,7 @@
 const crypto = require("crypto");
 const db = require("../config/db");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
-const { MAX_EXPORT_ROWS } = require("../utils/reportBuilder");
+const { exportRowsFor } = require("../utils/reportBuilder");
 const reportBuilder = require("./reportBuilderController")(db);
 
 const ROW_LIMIT = 50; // rows handed to the assistant per run; totals are always exact
@@ -457,8 +457,8 @@ module.exports = {
       applied = def.applied;
     }
     const check = ok(await invoke(reportBuilder.run, caller, { body: { ...definition, page: 1, pageSize: 25 } })).json;
-    if (format !== "mgrt" && check.total > MAX_EXPORT_ROWS) {
-      throw fail(413, `This report has ${check.total.toLocaleString()} rows; exports take up to ${MAX_EXPORT_ROWS.toLocaleString()}. Add a filter (a class, term or dates).`);
+    if (format !== "mgrt" && check.total > exportRowsFor(format)) {
+      throw fail(413, `This report has ${check.total.toLocaleString()} rows; ${format} files take up to ${exportRowsFor(format).toLocaleString()} (CSV up to ${exportRowsFor("csv").toLocaleString()}). Choose CSV or add a filter (a class, term or dates).`);
     }
     const token = sealLink({ u: caller.userId, o: caller.organizationId, x: Date.now() + LINK_HOURS * 3600 * 1000, d: { ...definition, name: name.slice(0, 120), format } });
     return {

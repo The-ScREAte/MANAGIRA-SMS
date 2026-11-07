@@ -1,3 +1,11 @@
+<% if (locals.inner) { %>
+<div class="sso-set tc-sso">
+  <h2 class="tc-title" id="sso-title">Single sign-on</h2>
+  <p class="tc-lead">Sign in with your school's provider, like Google, Microsoft or Okta.</p>
+</div>
+<div class="sso-set" id="ssoSettings" aria-labelledby="sso-title"></div>
+<script src="<%= assetUrl('/js/ssoSettings.js') %>" defer></script>
+<% } else { %>
 <section id="sso" class="settings-section">
   <h1>Single sign-on</h1>
   <p class="lead">Let your school sign in with its own provider, like Google, Microsoft or Okta.</p>
@@ -5,3 +13,4 @@
   <div class="sso-set" id="ssoSettings"></div>
   <script src="<%= assetUrl('/js/ssoSettings.js') %>" defer></script>
 </section>
+<% } %>

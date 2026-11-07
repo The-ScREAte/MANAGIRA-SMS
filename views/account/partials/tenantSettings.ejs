@@ -1,0 +1,8 @@
+<section id="tenant" class="settings-section">
+  <h1>Tenant configuration</h1>
+  <p class="lead">Sign-in rules for everyone at your school.</p>
+  <link rel="stylesheet" href="<%= assetUrl('/css/sso.css') %>" />
+  <div class="sso-set" id="tenantSettings"></div>
+  <script src="<%= assetUrl('/js/tenantSettings.js') %>" defer></script>
+  <% if (locals.withSso) { %><%- include('ssoSettings', { inner: true }) %><% } %>
+</section>

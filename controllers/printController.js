@@ -7106,6 +7106,7 @@ const printController = (db) => ({
 
               sendEmailInBackground({
                 to: target.guardianEmail,
+                sender: "reports",
                 subject: `Report Card Ready - ${target.studentName} (${termName})`,
                 html: guardianEmailHtml,
               }, 'Report Card Ready Guardian');
@@ -7142,6 +7143,7 @@ const printController = (db) => ({
 
               sendEmailInBackground({
                 to: staff.email,
+                sender: "reports",
                 subject: `Report Cards Ready - ${className} (${termName})`,
                 html: staffEmailHtml,
               }, 'Report Card Ready Staff');

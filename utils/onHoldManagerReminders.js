@@ -52,6 +52,7 @@ async function sendOnHoldReminderEmail({ email, name, organizationName }) {
     {
       to: email,
       subject: "Managira: Your Account Is Still On Hold",
+      sender: "reminders",
       html,
     },
     "OnHoldManagerReminder"

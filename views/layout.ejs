@@ -100,10 +100,6 @@
 </head>
 <body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= _isStudentPortal ? 'student-portal' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
-        <!-- Loading overlay for smooth transitions -->
-        <div class="page-loading-overlay">
-            <div class="spinner"></div>
-        </div>
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
             <%

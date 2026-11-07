@@ -316,6 +316,9 @@ const documentController = {
     const userId = req.session.userId || req.session.user?.user_id || null;
     const userRole = req.session.userRole;
     const accountType = req.session.accountType;
+    // A school's documents can run to thousands: the page lists the 300 most recently changed,
+    // and a search reaches the rest. Drawing every one of them took a third of the server's time.
+    const search = String(req.query.q || "").trim().slice(0, 100) || null;
     const classId = req.query.classId ? Number(req.query.classId) : null;
     const canManageRecords = await userHasPermission(
       db,
@@ -374,8 +377,10 @@ const documentController = {
             FROM documents d
             JOIN users u ON d.created_by = u.user_id
             WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+              AND ($3::text IS NULL OR d.title ILIKE '%' || $3 || '%')
             ORDER BY d.updated_at DESC
-          `, [orgId, classId]);
+            LIMIT 300
+          `, [orgId, classId, search]);
           documentRows = docs.rows;
         } else {
           // Regular user (teacher etc): show only docs they can access for this class.
@@ -394,6 +399,7 @@ const documentController = {
               JOIN users u ON d.created_by = u.user_id
               JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $2
               WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+                AND ($4::text IS NULL OR d.title ILIKE '%' || $4 || '%')
                 AND EXISTS (
                   SELECT 1 FROM user_classes ce
                   WHERE ce.class_id = $2 AND ce.user_id = $3
@@ -423,6 +429,7 @@ const documentController = {
               JOIN users u ON d.created_by = u.user_id
               LEFT JOIN document_permissions dp ON dp.document_id = d.id AND dp.user_id = $3
               WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+                AND ($4::text IS NULL OR d.title ILIKE '%' || $4 || '%')
                 AND (d.created_by = $3 OR dp.user_id IS NOT NULL)
                 AND NOT EXISTS (
                   SELECT 1 FROM document_class_assignments dca4
@@ -430,7 +437,8 @@ const documentController = {
                 )
             ) sub
             ORDER BY updated_at DESC
-          `, [orgId, classId, effectiveUserId]);
+            LIMIT 300
+          `, [orgId, classId, effectiveUserId, search]);
           console.log('[DOCS][LIST][USER] query returned', docs.rows.length, 'rows for classId', classId, 'userId', userId, 'effectiveUserId', effectiveUserId);
           documentRows = docs.rows;
         }
@@ -446,8 +454,10 @@ const documentController = {
           FROM documents d
           JOIN users u ON d.created_by = u.user_id
           WHERE d.organization_id = $1 AND d.is_deleted = FALSE
+            AND ($2::text IS NULL OR d.title ILIKE '%' || $2 || '%')
           ORDER BY d.updated_at DESC
-        `, [orgId]);
+          LIMIT 300
+        `, [orgId, search]);
         documentRows = docs.rows;
       } else {
         // No classId, no manage-records — user sees only their own / permitted docs
@@ -464,8 +474,10 @@ const documentController = {
           LEFT JOIN user_classes ce ON ce.class_id = dca.class_id AND ce.user_id = $1
           WHERE d.organization_id = $2 AND d.is_deleted = FALSE
             AND (d.created_by = $1 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
+            AND ($3::text IS NULL OR d.title ILIKE '%' || $3 || '%')
           ORDER BY d.updated_at DESC
-        `, [effectiveUserId, orgId]);
+          LIMIT 300
+        `, [effectiveUserId, orgId, search]);
         documentRows = docs.rows;
       }
 
@@ -486,6 +498,8 @@ const documentController = {
       `, [orgId]);
 
       res.render("common/documents", {
+        documentSearch: search || "",
+        documentsCapped: documentRows.length >= 300,
         title: "Docs/Sheets",
         documents: documentRows,
         classes: classes.rows,

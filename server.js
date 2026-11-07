@@ -796,20 +796,35 @@ const IDLE_SKIP_PATHS = new Set([
   '/notifications/feed',
   '/health',
 ]);
-app.use((req, res, next) => {
+const tenantSettings = require("./utils/tenantSettings");
+app.use(async (req, res, next) => {
   if (!req.session || !req.session.organizationId) return next();
   if (IDLE_SKIP_PATHS.has(req.path)) return next();
 
   const now = Date.now();
   const lastActivity = req.session.lastActivity || now;
+  // A sign-in lasts as long as its school allows (24 hours unless the school chose otherwise,
+  // or its Keep me logged in time), however busy it has been. One already open starts counting now.
+  // The school's rules are read once a minute per server; if they can't be read, nobody is signed out.
+  if (!req.session.signedInAt) req.session.signedInAt = now;
+  // Schools get it with Tenant configuration (sandbox first, then everyone once released in admin).
+  let tooOld = false;
+  if (require("./utils/shards/features").isOn("tenant_config", { organizationId: req.session.organizationId })) {
+    try {
+      const settings = await tenantSettings.settingsFor(db, req.session.organizationId);
+      tooOld = now - req.session.signedInAt > tenantSettings.sessionLimitMs(settings, req.session.keepSignedIn);
+    } catch (_error) {
+      tooOld = false;
+    }
+  }
 
   // Someone who ticked Keep me logged in isn't timed out for a quiet spell.
-  if (now - lastActivity > require("./utils/keepSignedIn").idleLimitFor(req.session, IDLE_TIMEOUT_MS)) {
+  if (tooOld || now - lastActivity > require("./utils/keepSignedIn").idleLimitFor(req.session, IDLE_TIMEOUT_MS)) {
     return req.session.destroy(() => {
       if (req.xhr || (req.headers.accept || '').includes('application/json')) {
-        return res.status(401).json({ error: 'Session expired due to inactivity. Please log in again.' });
+        return res.status(401).json({ error: 'Your sign-in has ended. Please log in again.' });
       }
-      return res.redirect('/account/login?reason=idle');
+      return res.redirect(`/account/login?reason=${tooOld ? 'expired' : 'idle'}`);
     });
   }
 

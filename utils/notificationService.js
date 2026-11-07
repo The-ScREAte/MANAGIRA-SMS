@@ -271,12 +271,20 @@ async function createNotifications(db, list) {
       idx += 8;
     }
     if (!values.length) return;
-    await db.query(
-      `INSERT INTO notifications
-         (organization_id, recipient_type, recipient_id, type, title, body, link, ref_id)
-       VALUES ${values.join(',')}`,
-      params
-    );
+    // A statement takes at most 65,535 values: a whole school goes in batches of 5,000.
+    const BATCH = 5000;
+    for (let start = 0; start < values.length; start += BATCH) {
+      const chunk = values.slice(start, start + BATCH).map((_row, i) => {
+        const at = i * 8 + 1;
+        return `($${at},$${at + 1},$${at + 2},$${at + 3},$${at + 4},$${at + 5},$${at + 6},$${at + 7})`;
+      });
+      await db.query(
+        `INSERT INTO notifications
+           (organization_id, recipient_type, recipient_id, type, title, body, link, ref_id)
+         VALUES ${chunk.join(',')}`,
+        params.slice(start * 8, (start + BATCH) * 8)
+      );
+    }
   } catch (err) {
     console.error('[NotificationService] createNotifications failed:', err.message);
   }
@@ -297,7 +305,7 @@ async function queueBirthdayEmailIfNeeded(db, opts) {
   );
   birthdayEmailState.set(key, Date.now());
   if (!inserted.rows.length) return;
-  sendEmailInBackground({ to: normalizedEmail, subject, html }, `Birthday:${emailKind}`);
+  sendEmailInBackground({ to: normalizedEmail, subject, html, sender: "reminders" }, `Birthday:${emailKind}`);
 }
 
 async function getStaffBirthdayContext(db, { recipientId, orgId }) {

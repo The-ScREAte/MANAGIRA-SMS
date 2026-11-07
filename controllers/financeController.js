@@ -4038,6 +4038,7 @@ module.exports = {
           note: "This message was sent from the Managira Fee Recovery workspace.",
         });
         const ok = await sendEmailSafely({
+          sender: "reminders",
           to: recipientEmail,
           subject,
           html,
@@ -5656,27 +5657,81 @@ module.exports = {
   },
 
   // Send reminder — logs it; triggers email if mailer configured
+  // Emails each family with money still owed on this bill: what, for whom, how much, by when,
+  // and the way to pay. From reminders@managira.com.
   sendReminderPost: async (req, res) => {
     if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
     const orgId = req.session.organizationId;
     try {
-      // Log the reminder action (can be wired to email provider later)
+      const { rows } = await db.query(
+        `SELECT a.assignment_id, a.amount, COALESCE(a.amount_paid, 0) AS amount_paid, COALESCE(a.late_fee_applied, 0) AS late_fee,
+                b.title, b.due_date, s.first_name, s.last_name, o.organization_name, o.nickname, o.organization_currency,
+                ARRAY(
+                  SELECT DISTINCT LOWER(TRIM(c.email)) FROM (
+                    SELECT gp.email FROM guardian_profiles gp JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
+                     WHERE gs.student_id = a.student_id AND gp.organization_id = a.organization_id
+                    UNION
+                    SELECT g.email FROM guardians g WHERE g.student_id = a.student_id AND g.organization_id = a.organization_id
+                  ) c WHERE c.email IS NOT NULL AND TRIM(c.email) <> ''
+                ) AS emails
+           FROM finance_bill_assignments a
+           JOIN finance_bills b ON b.bill_id = a.bill_id
+           JOIN students s ON s.student_id = a.student_id AND s.organization_id = a.organization_id
+           JOIN organizations o ON o.organization_id = a.organization_id
+          WHERE a.bill_id = $1 AND a.organization_id = $2 AND a.status IN ('pending', 'overdue', 'partial')`,
+        [req.params.id, orgId]
+      );
+      const { sendEmailInBackground } = require("../utils/emailHelper");
+      const base = process.env.NODE_ENV === "production" ? "https://managira.com" : `${req.protocol}://${req.get("host")}`;
+      let families = 0;
+      for (const row of rows) {
+        const owed = Number(row.amount) + Number(row.late_fee) - Number(row.amount_paid);
+        if (!(owed > 0) || !row.emails.length) continue;
+        let amount;
+        try { amount = new Intl.NumberFormat("en-US", { style: "currency", currency: row.organization_currency || "USD" }).format(owed); } catch (_) { amount = owed.toFixed(2); }
+        const studentName = [row.first_name, row.last_name].filter(Boolean).join(" ");
+        const due = row.due_date ? new Date(row.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : "";
+        const subject = `Payment reminder: ${row.title} for ${studentName}`;
+        const payUrl = row.nickname && process.env.NODE_ENV === "production" ? `https://${row.nickname}.managira.com/guardian/paygira` : `${base}/guardian/paygira`;
+        const html = renderCleanEmail({
+          title: "Payment reminder",
+          greeting: "Hello,",
+          paragraphs: [
+            `This is a friendly reminder from ${row.organization_name}: ${amount} is still due for ${row.title} for ${studentName}.`,
+            "If you've already paid, thank you, and please ignore this reminder.",
+          ],
+          details: [
+            { label: "Student", value: studentName },
+            { label: "For", value: row.title },
+            { label: "Amount due", value: amount },
+            ...(due ? [{ label: "Due date", value: due }] : []),
+          ],
+          cta: { url: payUrl, text: "View and pay" },
+          noReply: true,
+        });
+        row.emails.forEach((to) => sendEmailInBackground({ to, subject, html, sender: "reminders" }, "PayGira bill reminder").catch(() => {}));
+        families += 1;
+      }
       await db.query(
-        `UPDATE finance_bill_assignments SET updated_at=now()
-         WHERE bill_id=$1 AND organization_id=$2 AND status IN ('pending','overdue','partial')`,
+        `UPDATE finance_bill_assignments SET updated_at = now()
+          WHERE bill_id = $1 AND organization_id = $2 AND status IN ('pending', 'overdue', 'partial')`,
         [req.params.id, orgId]
       );
       const billRow = (await db.query(`SELECT title FROM finance_bills WHERE bill_id=$1 AND organization_id=$2`, [req.params.id, orgId])).rows[0];
-      req.flash("success", "Reminder sent to all outstanding assignees.");
+      if (families) req.flash("success", `Reminder sent to ${families} ${families === 1 ? "family" : "families"}.`);
+      else req.flash("error", rows.length ? "No family with money owed has an email address on file." : "Nobody owes anything on this bill.");
       await logPaygira(req, {
         actionType: "Sent Reminder",
         recordType: "Bill",
         recordId: req.params.id,
         recordLabel: billRow?.title || `Bill #${req.params.id}`,
-        description: `Sent reminder to outstanding assignees for bill "${billRow?.title || req.params.id}".`,
+        description: `Sent a payment reminder to ${families} ${families === 1 ? "family" : "families"} for "${billRow?.title || req.params.id}".`,
         changedFields: [],
       });
-    } catch (e) { req.flash("error", "Could not send reminder."); }
+    } catch (e) {
+      console.error("[PayGira] reminder:", e.message);
+      req.flash("error", "Could not send reminder.");
+    }
     res.redirect("/account/settings/finance?section=bills");
   },
 

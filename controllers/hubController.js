@@ -1580,6 +1580,7 @@ const hubController = {
 
       await sendEmail({
         to: invitation.contact_person_email,
+        sender: "reminders",
         subject: `Reminder: respond to your ${hub.hub_name} Hub invitation`,
         html: emailHtml
       });

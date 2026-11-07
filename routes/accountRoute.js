@@ -7,6 +7,8 @@ const themeController = require("../controllers/themeController");
 const accountValidation = require("../validation/accountValidation");
 const { authRateLimit, signInGuard } = require("../utils/authRateLimit");
 const { keepSignedInChoice } = require("../utils/keepSignedIn");
+const loginCode = require("../utils/loginCode");
+const { holdForCode } = loginCode;
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/s3Upload");
 const db = require("../config/db");
@@ -72,6 +74,18 @@ router.post(
 router.get("/login", (req, res) => accountController.loginGet(req, res, db));
 // The first step of the login page: the email decides between a password and single sign-on.
 router.post("/login/continue", (req, res) => require("../controllers/ssoController").continueWithEmail(req, res, db));
+// The verification code step, once the password was right.
+router.get("/login/code", (req, res) => loginCode.page(req, res, db));
+// Settings, Tenant configuration: a school's sign-in rules. Managers only.
+{
+  const { blockGuardians } = require("../middleware/authMiddleware");
+  const tenant = require("../controllers/tenantController");
+  const door = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SETTINGS), tenant.managersOnly, tenant.guard];
+  router.get("/settings/tenant", ...door, (req, res) => tenant.get(req, res, db));
+  router.post("/settings/tenant", ...door, (req, res) => tenant.save(req, res, db));
+}
+router.post("/login/verify-code", signInGuard("login-code", { field: "email" }), (req, res) => loginCode.verify(req, res, db));
+router.post("/login/resend-code", (req, res) => loginCode.resend(req, res, db));
 // Sign-in page ads: PDFs served same-origin so PDF.js can render them, plus click counts.
 const loginAdsController = require("../controllers/loginAdsController");
 router.get("/login-ads/:id(\\d+)/file", loginAdsController.serveFile);
@@ -80,6 +94,7 @@ router.post(
   "/login",
   signInGuard("login", { field: "email" }),
   keepSignedInChoice,
+  holdForCode,
   accountValidation.validateLogin,
   accountValidation.validateLoginResult,
   (req, res) => accountController.loginPost(req, res, db)
@@ -93,6 +108,7 @@ router.post(
   "/guardian-login",
   signInGuard("guardian-login", { field: "identifier" }),
   keepSignedInChoice,
+  holdForCode,
   accountValidation.validateGuardianLogin,
   accountValidation.validateGuardianLoginResult,
   (req, res) => accountController.guardianLoginPost(req, res, db)
@@ -104,6 +120,7 @@ router.post(
   "/student-login",
   signInGuard("student-login", { field: "email" }),
   keepSignedInChoice,
+  holdForCode,
   accountValidation.validateStudentLogin,
   accountValidation.validateStudentLoginResult,
   (req, res) => accountController.studentLoginPost(req, res, db)

@@ -14,6 +14,8 @@ const FEATURES = {
   // parents, students and hubs to their own portal is on for everyone. Each portal still checks
   // its own password.
   smart_login: { label: "Main login takes parents, students and hubs to their portal", access: "everyone" },
+  login_code: { label: "Verification code by email at sign-in", access: "selected" },
+  tenant_config: { label: "Tenant configuration: sign-in rules in Settings, and signing out after 24 hours unless a school changes it", access: "selected" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

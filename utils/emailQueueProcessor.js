@@ -89,6 +89,7 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
         if (!allowed) continue;
         const sent = await sendEmailSafely({
           to: email,
+          sender: "reports",
           subject: `Report Card - ${student_name} | ${org.organization_name}`,
           html: emailHtml,
           failureNotification: {

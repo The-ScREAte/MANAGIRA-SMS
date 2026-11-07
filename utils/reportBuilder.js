@@ -1970,7 +1970,11 @@ const FEATURES = {
 
 const PAGE_SIZES = [25, 50, 100];
 const PAGE_SIZE = 25;
-const MAX_EXPORT_ROWS = 10000;
+// The most rows each kind of file takes. A CSV is plain text and cheap at any size; an Excel or
+// Word file is built in memory (100,000 rows of Excel needs about 1 GB), so they take fewer.
+const EXPORT_ROWS = Object.freeze({ csv: 100000, xlsx: 25000, docx: 10000 });
+const MAX_EXPORT_ROWS = EXPORT_ROWS.csv;
+const exportRowsFor = (format) => EXPORT_ROWS[format] || EXPORT_ROWS.xlsx;
 
 function getReport(reportType) {
   const key = String(reportType || "");
@@ -2201,6 +2205,8 @@ module.exports = {
   PAGE_SIZES,
   PAGE_SIZE,
   MAX_EXPORT_ROWS,
+  EXPORT_ROWS,
+  exportRowsFor,
   getReport,
   allowedBy,
   ownRowsFor,

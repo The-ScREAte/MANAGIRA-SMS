@@ -120,6 +120,19 @@
     .btn-primary[disabled] { opacity: 0.75; cursor: wait; }
     .field-error { margin: 8px 0 0; font-size: 0.875rem; color: var(--error-text); }
     .field-error[hidden] { display: none; }
+    .lead { margin: -14px 0 24px; color: var(--muted); font-size: 0.95rem; line-height: 1.5; text-align: center; }
+    .lead strong { color: var(--text); font-weight: 600; }
+    .note-ok { margin: -10px 0 18px; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); color: var(--ok-text); font-size: 0.9rem; text-align: center; }
+    .code-input { text-align: center; font: 700 1.5rem/1 "SFMono-Regular", Menlo, Consolas, monospace !important; letter-spacing: 0.4em; text-transform: uppercase; }
+    .code-input::placeholder { letter-spacing: 0.4em; color: #cbd5e1; }
+    .field-help { margin: 8px 0 0; font-size: 0.85rem; color: var(--soft); }
+    .trust { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.875rem; font-weight: 400; color: var(--muted); cursor: pointer; }
+    .trust input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); }
+    #codeForm .btn-primary { margin-top: 18px; }
+    .code-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; font-size: 0.9rem; }
+    .code-actions form { margin: 0; }
+    .code-actions a, .link-button { padding: 0; border: 0; background: none; color: var(--brand); font: inherit; font-weight: 500; text-decoration: none; cursor: pointer; }
+    .code-actions a:hover, .link-button:hover { text-decoration: underline; }
     .after { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 0.925rem; color: var(--muted); text-align: center; }
     .after a { color: var(--brand); font-weight: 500; text-decoration: none; }
     .after a:hover { text-decoration: underline; }
@@ -144,10 +157,29 @@
   <div class="page-wrapper<%= (typeof loginAds !== 'undefined' && loginAds && loginAds.length) ? ' auth-split' : '' %>">
     <main class="login-card">
       <% if (locals.schoolLogo) { %><img class="login-school" src="<%= schoolLogo %>" alt="" /><% } %>
-      <h1><%= locals.schoolName ? `Log in to ${schoolName}` : 'Log in to your account' %></h1>
+      <% const _codeStep = locals.step === 'code'; %>
+      <h1><%= _codeStep ? 'Check your email' : (locals.schoolName ? `Log in to ${schoolName}` : 'Log in to your account') %></h1>
 
       <%- include('../partials/flash') %>
 
+      <% if (_codeStep) { %>
+      <p class="lead">We sent a 6-character code to <strong><%= locals.codeTo %></strong>. Enter it below to finish logging in. It expires in 10 minutes.</p>
+      <% if (locals.codeNote) { %><p class="note-ok" role="status"><%= codeNote %></p><% } %>
+      <form id="codeForm" action="/account/login/verify-code" method="post" novalidate data-loader-text="Signing you in">
+        <div class="field">
+          <div class="field-top"><label for="code">Verification code</label></div>
+          <input type="text" id="code" name="code" class="code-input" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="ABC123" required autofocus aria-describedby="codeHelp" />
+          <% if (locals.codeError) { %><p class="field-error" role="alert"><%= codeError %></p><% } %>
+          <p class="field-help" id="codeHelp">Can't find it? Check your spam or junk folder.</p>
+        </div>
+        <% if (!locals.trust || trust.allowed) { %><label class="trust"><input type="checkbox" name="trust" value="on" checked /><span>Don't ask again on this browser for <%= locals.trust ? trust.days : 30 %> days</span></label><% } %>
+        <button type="submit" class="btn-primary" data-submit>Verify</button>
+      </form>
+      <div class="code-actions">
+        <form action="/account/login/resend-code" method="post" data-loader-text="Sending a new code"><button type="submit" class="link-button">Send a new code</button></form>
+        <a href="/account/login">Use a different account</a>
+      </div>
+      <% } else { %>
       <% const _passwordStep = locals.step === 'password'; %>
       <form id="loginForm" action="<%= _passwordStep ? '/account/login' : '/account/login/continue' %>" method="post" novalidate data-step="<%= _passwordStep ? 'password' : 'email' %>">
         <% if (locals.next) { %><input type="hidden" name="next" value="<%= next %>" /><% } %>
@@ -175,10 +207,11 @@
           <button type="button" class="help-dot" aria-label="About keeping you logged in" aria-describedby="keepHelp" aria-expanded="false" data-help>?</button>
           <div class="help-tip" id="keepHelp" role="tooltip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-            <span>You'll stay signed in for 30 days, even if you close all browser windows, unless you log out or clear your browser's cookies. Don't use it on a public or shared computer.</span>
+            <span>You'll stay signed in even if you close all browser windows, for as long as your school allows (30 days unless it chose otherwise), unless you log out or clear your browser's cookies. Don't use it on a public or shared computer.</span>
           </div>
         </div>
       </form>
+      <% } %>
 
       <div class="after">
         <span>New to Managira? <a href="/account/service-plan">Create an account</a></span>
@@ -198,6 +231,14 @@
         params.delete('clearRegisterDraft');
         var rest = params.toString();
         history.replaceState({}, document.title, location.pathname + (rest ? '?' + rest : '') + location.hash);
+      }
+      var codeInput = document.getElementById('code');
+      if (codeInput) {
+        // A code pasted with a space or a dash still works; the box shows it as one word.
+        codeInput.addEventListener('input', function () { var v = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); if (v !== codeInput.value) codeInput.value = v; });
+        document.getElementById('codeForm').addEventListener('submit', function (event) { if (codeInput.value.length !== 6) { event.preventDefault(); codeInput.setCustomValidity('Enter the 6-character code.'); codeInput.reportValidity(); codeInput.setCustomValidity(''); } });
+        document.querySelectorAll('.flash-close').forEach(function (x) { x.addEventListener('click', function () { x.parentElement.remove(); }); });
+        return;
       }
       var toggle = document.querySelector('[data-show-password]');
       var password = document.getElementById('password');
