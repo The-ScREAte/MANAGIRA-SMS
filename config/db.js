@@ -67,8 +67,10 @@ const pool = new Pool({
   // handshake, which made the first page after a quiet spell noticeably slow.
   // Only connections above this number close when idle, after a minute: each
   // reopen costs the database a login, and it logged login timeouts under load.
-  min: parseInt(process.env.DB_POOL_MIN || (process.env.NODE_ENV === 'production' ? '3' : '1'), 10),
-  idleTimeoutMillis: 60000,
+  // One dashboard asks for about eight things at once, so that's how many stay open: with
+  // only three, the first page after a quiet minute waited seconds for the logins.
+  min: parseInt(process.env.DB_POOL_MIN || (process.env.NODE_ENV === 'production' ? '8' : '1'), 10),
+  idleTimeoutMillis: 300000,
   // Idle connections don't keep a script alive; the server stays up anyway.
   allowExitOnIdle: true,
   connectionTimeoutMillis: 6000,

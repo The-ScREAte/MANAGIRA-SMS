@@ -32,7 +32,9 @@ async function repointOnly({ control, members, hubId, label, from, to, organizat
   return rows[0];
 }
 
-async function startMove({ organizationId, toShardId, rehearsal, actor }) {
+// A hub usually moves with all its schools. On one database a single school can go on its own:
+// the hub then has schools on both shards, and shows on each with the schools that are there.
+async function startMove({ organizationId, toShardId, rehearsal, actor, wholeHub = true }) {
   const control = registry.controlDb();
   const school = (await control.query(
     "SELECT d.*, s.environment AS from_environment FROM shard_schools d JOIN shards s ON s.shard_id = d.shard_id WHERE d.organization_id = $1",
@@ -48,18 +50,19 @@ async function startMove({ organizationId, toShardId, rehearsal, actor }) {
   if (!oneDatabase && (from.same_database || to.same_database)) throw new MoveRefused("The sandbox shard shares the main shard's database. Move the school to the main shard first.");
   if (!oneDatabase && from.environment === "production" && to.environment !== "production") throw new MoveRefused("Real schools can't go to a test shard.");
   if (!oneDatabase && from.environment !== "production" && to.environment === "production") throw new MoveRefused("Test schools can't go to a production shard.");
-  // A hub and all its schools move together.
-  const members = school.hub_id
+  // Separate databases can't split a hub: its own records live with its schools.
+  if (school.hub_id && !wholeHub && !oneDatabase) throw new MoveRefused("A school can only leave its hub's shard for one on the same database.");
+  const members = school.hub_id && wholeHub
     ? (await control.query("SELECT organization_id FROM shard_schools WHERE hub_id = $1", [school.hub_id])).rows.map((row) => row.organization_id)
     : [organizationId];
-  const hubName = school.hub_id ? (await control.query("SELECT name FROM shard_hubs WHERE hub_id = $1", [school.hub_id])).rows[0]?.name : null;
+  const hubName = school.hub_id && wholeHub ? (await control.query("SELECT name FROM shard_hubs WHERE hub_id = $1", [school.hub_id])).rows[0]?.name : null;
   if (!rehearsal) {
     const { rows } = await control.query("SELECT COUNT(*)::int AS schools FROM shard_schools WHERE shard_id = $1", [to.shard_id]);
     if (rows[0].schools + members.length > to.capacity_schools) throw new MoveRefused(`${to.name} is full.`);
   }
   const running = await control.query("SELECT 1 FROM shard_moves WHERE organization_ids && $1::int[] AND status = 'running'", [members]);
   if (running.rows.length) throw new MoveRefused("Already moving.");
-  if (oneDatabase) return repointOnly({ control, members, hubId: school.hub_id, label: hubName || school.name, from, to, organizationId, rehearsal, actor });
+  if (oneDatabase) return repointOnly({ control, members, hubId: wholeHub ? school.hub_id : null, label: hubName || school.name, from, to, organizationId, rehearsal, actor });
 
   const sourceUrl = registry.shardDatabaseUrl(from);
   const destinationUrl = registry.shardDatabaseUrl(to);

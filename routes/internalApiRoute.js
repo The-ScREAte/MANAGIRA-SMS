@@ -80,6 +80,15 @@ router.post("/transportation/schedules/delete", internalApiController.deleteTran
 router.post("/transportation/students/assign", internalApiController.assignStudentTransportationApi);
 router.post("/transportation/students/remove", internalApiController.removeStudentTransportationApi);
 router.get("/events", internalApiController.listEventsApi);
+router.get("/calendar/items", internalApiController.myCalendarApi);
+router.get("/calendar/sync-status", internalApiController.calendarSyncStatusApi);
+const discover = require("../controllers/internalDiscoverController");
+router.get("/whats-new", discover.whatsNew);
+router.get("/activities", discover.listActivities);
+router.post("/activities/create", discover.createActivity);
+router.get("/transport/riding", discover.ridingToday);
+router.post("/parent-help/show", discover.showWorkToParents);
+router.get("/sso/status", discover.ssoStatus);
 router.get("/school-announcements", internalApiController.listSchoolAnnouncementsApi);
 router.post("/events/create", internalApiController.createEventApi);
 router.post("/events/update", internalApiController.updateEventApi);

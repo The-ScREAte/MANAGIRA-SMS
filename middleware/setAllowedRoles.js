@@ -36,7 +36,11 @@ module.exports = async (req, res, next) => {
 
         let resolvedRole = sessionRole;
 
-        if (userId && organizationId) {
+        // A student's or parent's id comes from another table. Looked up here, it could match a
+        // member of staff with the same number and turn this session into theirs.
+        const isPortalSession = ['guardian', 'student'].includes(sessionRole.toLowerCase());
+
+        if (userId && organizationId && !isPortalSession) {
             const dbRole = await getCurrentRoleFromDb(userId, organizationId);
             if (dbRole) {
                 resolvedRole = String(dbRole).trim();

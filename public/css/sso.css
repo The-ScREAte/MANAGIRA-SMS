@@ -1,0 +1,51 @@
+/* Settings: Single sign-on. */
+.sso-set { max-width: 720px; }
+.sso-card { margin: 0 0 12px; padding: 16px; border: 1px solid var(--border, #e5e9ef); border-radius: 12px; background: var(--card-bg, #fff); }
+.sso-card h2 { margin: 0 0 4px; padding: 0; color: inherit; font-size: 15px; font-weight: 600; text-align: left; }
+.sso-card p { margin: 0 0 12px; color: var(--muted, #64748b); font-size: 13.5px; line-height: 1.45; }
+.sso-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sso-pill { flex: none; padding: 3px 10px; border-radius: 999px; background: #eef1f5; color: #475467; font-size: 12px; font-weight: 600; }
+.sso-pill.is-on { background: #dcfae6; color: #067647; }
+.sso-pill.is-ready { background: #e0f2fe; color: #026aa2; }
+.sso-providers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.sso-set .sso-provider { width: 100% !important; min-height: 44px; margin: 0 !important; padding: 8px 10px !important; border: 1px solid var(--border, #e5e9ef); border-radius: 10px; background: none; color: inherit; box-shadow: none; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; }
+.sso-set .sso-provider.is-on { border-color: var(--org-primary-color, #01535b); background: color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent); }
+.sso-tabs { display: inline-flex; gap: 2px; margin: 12px 0 0; padding: 2px; border-radius: 8px; background: #eef1f5; }
+.sso-set .sso-tabs button { width: auto !important; margin: 0 !important; padding: 6px 12px !important; border: 0; border-radius: 6px; background: none; color: #475467; box-shadow: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sso-set .sso-tabs button.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
+.sso-copy { display: grid; gap: 4px; margin-bottom: 10px; }
+.sso-copy > span { color: var(--muted, #64748b); font-size: 12.5px; font-weight: 600; }
+.sso-copy > div { display: flex; gap: 6px; min-width: 0; }
+.sso-copy code { flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background: rgba(148, 163, 184, .08); font-size: 12.5px; overflow-wrap: anywhere; }
+.sso-set .sso-btn { flex: none; width: auto !important; height: 40px; margin: 0 !important; padding: 0 14px !important; border: 1px solid var(--border, #e5e9ef); border-radius: 10px; background: var(--card-bg, #fff); color: inherit; box-shadow: none; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.sso-set .sso-btn--go { border-color: var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; }
+.sso-set .sso-btn--danger { border-color: transparent; background: none; color: #b42318; }
+.sso-set .sso-btn:disabled { opacity: .55; cursor: default; }
+.sso-field { display: block; margin: 0 0 10px; }
+.sso-field[hidden] { display: none; }
+.sso-field > span { display: block; margin-bottom: 4px; color: var(--muted, #64748b); font-size: 12.5px; font-weight: 600; }
+.sso-field input, .sso-field textarea { display: block; box-sizing: border-box; width: 100%; height: 40px; margin: 0; padding: 0 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background: var(--card-bg, #fff); color: inherit; font: inherit; font-size: 16px; }
+.sso-field textarea { height: 96px; padding: 8px 10px; font-size: 13px; resize: vertical; }
+.sso-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sso-row > .sso-grow { flex: 1 1 220px; margin: 0; }
+.sso-check { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 10px; font-size: 14px; line-height: 1.4; }
+.sso-check input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; }
+.sso-check small { display: block; color: var(--muted, #64748b); font-size: 12.5px; }
+.sso-msg { margin: 8px 0 0; font-size: 13px; font-weight: 600; }
+.sso-msg:empty { margin: 0; }
+.sso-msg.is-bad { color: #b42318; }
+.sso-msg.is-good { color: #067647; }
+.sso-more { margin: 8px 0 10px; font-size: 13px; }
+.sso-more summary { color: var(--muted, #64748b); font-weight: 600; cursor: pointer; }
+.sso-more[open] summary { margin-bottom: 8px; }
+.sso-events { margin: 0; padding: 0; list-style: none; }
+.sso-events li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--border, #eef1f5); font-size: 13px; }
+.sso-events li:first-child { border-top: 0; }
+.sso-events small { color: var(--muted, #64748b); font-size: 12px; }
+.sso-events .is-no { color: #b42318; }
+@media (max-width: 480px) {
+  .sso-providers { grid-template-columns: 1fr 1fr; }
+  .sso-copy > div { flex-direction: column; }
+  .sso-set .sso-btn { width: 100% !important; }
+  .sso-row > .sso-btn { flex: 1 1 100%; }
+}

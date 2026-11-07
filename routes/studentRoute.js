@@ -45,6 +45,12 @@ module.exports = (db) => {
     studentController.dashboardGet(req, res, db)
   );
 
+  const familyCalendar = require("../controllers/familyCalendarController");
+  router.get("/calendar", isStudentAuthenticated, (req, res) => familyCalendar.studentPage(req, res, db));
+  router.get("/calendar/feed", isStudentAuthenticated, (req, res) => familyCalendar.studentFeed(req, res, db));
+  router.get("/calendar/sync", isStudentAuthenticated, (req, res) => familyCalendar.studentSync(req, res, db));
+  router.post("/calendar/sync/reset", isStudentAuthenticated, (req, res) => familyCalendar.studentReset(req, res, db));
+
   router.get("/testing-room", isStudentAuthenticated, requireStudentTestingRoomFeature, (req, res) =>
     studentController.testingRoomGet(req, res, db)
   );

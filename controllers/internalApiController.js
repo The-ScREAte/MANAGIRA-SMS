@@ -4307,6 +4307,77 @@ async function listSchoolAnnouncementsApi(req, res) {
 
 // POST /internal/api/events/create
 // { organizationId, ..., eventName, eventDate, eventDetails, visibility?, notifyByEmail?, confirm? }
+// The person's own calendar: exactly what /common/calendar shows them, minus outside calendars.
+async function myCalendarApi(req, res) {
+  try {
+    const organizationId = Number(req.query.organizationId);
+    const userId = Number(req.query.userId);
+    if (!organizationId || !userId) return res.status(403).json({ error: "This needs a staff account." });
+    const known = await db.query("SELECT first_name, last_name, account_type FROM users WHERE user_id = $1 AND organization_id = $2", [userId, organizationId]);
+    if (!known.rows[0]) return res.status(403).json({ error: "This needs a staff account of this school." });
+    const today = new Date().toISOString().slice(0, 10);
+    const validDay = (value) => (/^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) && !Number.isNaN(Date.parse(value)) ? String(value) : null);
+    const start = validDay(req.query.start) || today;
+    const lastAsked = validDay(req.query.end) || new Date(Date.parse(start) + 14 * 864e5).toISOString().slice(0, 10);
+    const lastAllowed = new Date(Date.parse(start) + 62 * 864e5).toISOString().slice(0, 10);
+    const last = lastAsked > lastAllowed ? lastAllowed : lastAsked;
+    const end = new Date(Date.parse(last) + 864e5).toISOString().slice(0, 10);
+    const { collectItems } = require("./workspaceController");
+    const { items } = await collectItems(db, {
+      organizationId,
+      actor: { id: userId, name: [known.rows[0].first_name, known.rows[0].last_name].filter(Boolean).join(" ") },
+      start, end,
+      canPublish: false,
+      seesAllClasses: ["manager", "organization", "supervisor", "superviser"].includes(String(known.rows[0].account_type || "").trim().toLowerCase()),
+    });
+    const list = items
+      .filter((item) => (item.extendedProps.date || String(item.start).slice(0, 10)) <= last)
+      .map((item) => ({
+        title: item.title,
+        kind: item.extendedProps.kind,
+        date: item.extendedProps.date || String(item.start).slice(0, 10),
+        endDate: item.extendedProps.endDate || null,
+        startTime: item.extendedProps.startTime || null,
+        endTime: item.extendedProps.endTime || null,
+        location: item.extendedProps.location || null,
+        owner: item.extendedProps.owner || null,
+      }))
+      .sort((a, b) => `${a.date}${a.startTime || ""}`.localeCompare(`${b.date}${b.startTime || ""}`));
+    // Everything that happens once comes first; a full timetable mustn't crowd it out.
+    const once = list.filter((item) => item.kind !== "lesson" && item.kind !== "trip");
+    const weekly = list.filter((item) => item.kind === "lesson" || item.kind === "trip");
+    return res.json({ from: start, to: last, total: list.length, weeklyClassesAndRuns: weekly.length, items: [...once, ...weekly].slice(0, 150), cutShort: list.length > 150, calendarLink: "/common/calendar" });
+  } catch (error) {
+    console.error("[internalApi/myCalendarApi]", error.message);
+    return res.status(500).json({ error: "Unable to load the calendar." });
+  }
+}
+
+// Whether their personal calendar is connected. Never a token, never a link to their calendar.
+async function calendarSyncStatusApi(req, res) {
+  try {
+    const organizationId = Number(req.query.organizationId);
+    const userId = Number(req.query.userId);
+    if (!organizationId || !userId) return res.status(403).json({ error: "This needs a staff account." });
+    const calConnect = require("../utils/calendarConnect");
+    await calConnect.ensureConnectSchema(db);
+    const { rows } = await db.query(
+      `SELECT provider, last_synced_at, last_error FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 ORDER BY provider`,
+      [organizationId, userId]
+    );
+    const needs = (error) => (error === "reconnect" ? "Needs connecting again" : error ? "Will retry by itself" : "Working");
+    return res.json({
+      connections: rows.map((row) => ({ provider: row.provider === "google" ? "Google Calendar" : "Outlook", lastSynced: row.last_synced_at, status: needs(row.last_error) })),
+      available: calConnect.providersConfigured(),
+      howToConnect: "They sign in themselves on the Sync & share page.",
+      syncPage: "/common/calendar?sync=1",
+    });
+  } catch (error) {
+    console.error("[internalApi/calendarSyncStatusApi]", error.message);
+    return res.status(500).json({ error: "Unable to read calendar sync." });
+  }
+}
+
 async function createEventApi(req, res) {
   try {
     const organizationId = await assertHasPermission(req, PERMISSIONS.EVENTS_EVENTS, "You don't have permission to manage events.");
@@ -9906,6 +9977,8 @@ module.exports = {
   assignStudentTransportationApi,
   removeStudentTransportationApi,
   listEventsApi,
+  myCalendarApi,
+  calendarSyncStatusApi,
   listSchoolAnnouncementsApi,
   createEventApi,
   updateEventApi,

@@ -22,10 +22,12 @@ const {
   baseUrl,
   isOrgMember,
 } = require("../utils/workspace");
-const { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents } = require("../utils/calendarSync");
+const { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents, lockSecret } = require("../utils/calendarSync");
 const calConnect = require("../utils/calendarConnect");
-const { lessonItems } = require("../utils/lessonCalendar");
+const { lessonItems, tripItems } = require("../utils/lessonCalendar");
 const features = require("../utils/shards/features");
+const MANAGER_ROLES = new Set(["organization", "manager", "mini admin", "admin", "supervisor", "superviser"]);
+const isManagerRole = (role) => MANAGER_ROLES.has(String(role || "").trim().toLowerCase());
 const { listActivities } = require("../utils/classActivities");
 
 const PLATFORM_ROLES = ["admin", "internal worker", "mini admin"];
@@ -203,7 +205,7 @@ function eventItem(row, { kind, tags, editable, layer, owner }) {
 }
 
 // All calendar items one person can see in a date range.
-async function collectItems(db, { organizationId, actor, start, end, canPublish, includeImports = true }) {
+async function collectItems(db, { organizationId, actor, start, end, canPublish, seesAllClasses = canPublish }) {
   // Each query is a round trip to the database, so they all run at once. Only
   // personal events and tasks wait for the calendars shared with this person.
   const ownersP = sharedOwners(db, organizationId, actor.id);
@@ -214,12 +216,12 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
       return [];
     })
     : [];
-  const connsP = includeImports && actor.id
-    ? calConnect.ensureConnectSchema(db).then(() => db.query(
-      `SELECT * FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 AND show_in_managira`,
-      [organizationId, actor.id]
-    ))
-    : { rows: [] };
+  const tripsP = actor.id
+    ? tripItems(db, { organizationId, userId: actor.id, start, end }).catch((err) => {
+      console.error("[Calendar] trips failed:", err.message);
+      return [];
+    })
+    : [];
   const eventsP = db.query(
     `SELECT id, name, event_date, end_date, start_time, end_time, all_day, location, color, details, visibility
        FROM school_events
@@ -239,10 +241,20 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
     [organizationId, start, end, actor.id, ownerIds]
   ));
 
+  // Those who run the school see every class; a teacher sees their own classes and the
+  // whole-school activities; anyone else sees the whole-school ones.
   const activitiesP = features.isOn("class_activities", { organizationId })
-    ? listActivities(db, organizationId, { from: start, to: end })
+    ? (async () => {
+      if (seesAllClasses || !actor.id) return listActivities(db, organizationId, { from: start, to: end });
+      // Drivers are linked to classes for transport, not teaching.
+      const mine = await db.query(
+        `SELECT uc.class_id FROM user_classes uc JOIN users u ON u.user_id = uc.user_id WHERE uc.user_id = $1 AND u.account_type <> 'Driver'`,
+        [actor.id]
+      );
+      return listActivities(db, organizationId, { classIds: mine.rows.map((row) => Number(row.class_id)), from: start, to: end });
+    })()
     : [];
-  const [owners, events, personal, announcements, tasks, imports, lessons, conns, eventTags, personalTags, activities] = await Promise.all([
+  const [owners, events, personal, announcements, tasks, lessons, trips, eventTags, personalTags, activities] = await Promise.all([
     ownersP,
     eventsP,
     personalP,
@@ -264,11 +276,8 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
                OR EXISTS (SELECT 1 FROM org_task_assignees x WHERE x.task_id = t.task_id AND x.user_id = ANY($5::int[])))`,
       [organizationId, start, end, actor.id, ownerIds]
     )),
-    includeImports
-      ? db.query(`SELECT import_id, label, provider, url FROM calendar_imports WHERE organization_id = $1 AND user_id = $2`, [organizationId, actor.id])
-      : { rows: [] },
     lessonsP,
-    connsP,
+    tripsP,
     // Tags load as soon as their events arrive.
     eventsP.then((r) => tagsFor(db, "school_event_tags", r.rows.map((e) => e.id))),
     personalP.then((r) => tagsFor(db, "personal_event_tags", r.rows.map((e) => e.id))),
@@ -323,12 +332,22 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
     });
   });
 
-  // The viewer's lessons from the class timetables.
-  items.push(...lessons);
+  // The viewer's lessons from the class timetables, and a driver's weekly bus runs.
+  items.push(...lessons, ...trips);
+  return { items, owners };
+}
 
-  // Connected and subscribed calendars are fetched from outside services, all at once.
+// Google, Outlook and subscribed calendars come from outside services, so they load on their
+// own: the calendar never waits for them, and one slow service can't hold up the others.
+async function collectOutsideItems(db, { organizationId, actor, start, end, timeZone }) {
+  if (!actor.id) return { items: [], errors: [] };
+  await calConnect.ensureConnectSchema(db);
+  const [conns, imports] = await Promise.all([
+    db.query(`SELECT * FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 AND show_in_managira`, [organizationId, actor.id]),
+    db.query(`SELECT import_id, label, provider, url FROM calendar_imports WHERE organization_id = $1 AND user_id = $2`, [organizationId, actor.id]),
+  ]);
   const errors = [];
-  const connected = (includeImports && actor.id ? conns.rows : []).map(async (conn) => {
+  const connected = conns.rows.map(async (conn) => {
     try {
       const pulled = await calConnect.pullEvents(db, conn, start, end);
       if (conn.last_error && conn.last_synced_at) db.query(`UPDATE calendar_connections SET last_error = NULL WHERE connection_id = $1`, [conn.connection_id]).catch(() => {});
@@ -342,7 +361,7 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
   });
   const subscribed = imports.rows.map(async (imp) => {
     try {
-      const ext = await importedEvents(imp, start, end);
+      const ext = await importedEvents(imp, start, end, timeZone);
       ext.forEach((x) => { x.extendedProps.layer = `ext-${imp.import_id}`; });
       db.query(`UPDATE calendar_imports SET last_synced_at = NOW(), last_error = NULL WHERE import_id = $1`, [imp.import_id]).catch(() => {});
       return ext;
@@ -352,8 +371,8 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
       return [];
     }
   });
-  (await Promise.all([...connected, ...subscribed])).forEach((list) => items.push(...list));
-  return { items, owners, errors };
+  const lists = await Promise.all([...connected, ...subscribed]);
+  return { items: lists.flat(), errors };
 }
 
 async function canEditPersonal(db, organizationId, id, actorId) {
@@ -380,10 +399,10 @@ async function syncConnection(db, conn, siteUrl) {
   const actor = { id: conn.user_id, name: fullName(who.rows[0]) };
   const start = dateKey(new Date(Date.now() - 30 * 864e5));
   const end = dateKey(new Date(Date.now() + 240 * 864e5));
-  const { items } = await collectItems(db, { organizationId: conn.organization_id, actor, start, end, canPublish: false, includeImports: false });
+  const { items } = await collectItems(db, { organizationId: conn.organization_id, actor, start, end, canPublish: false });
   const site = siteUrl || process.env.BASE_URL_PRODUCTION || "https://managira.com";
   const push = items
-    .filter((it) => ["event", "personal", "task"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
+    .filter((it) => ["event", "personal", "task", "activity"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
     .map((it) => {
       const p = it.extendedProps;
       const timed = !it.allDay;
@@ -471,11 +490,46 @@ module.exports = {
         actor: resolveActor(req),
         start, end,
         canPublish: can(res, "publish_events_announcements"),
+        seesAllClasses: can(res, "publish_events_announcements") || isManagerRole(req.session.userRole || req.session.accountType),
       });
       res.json(items);
     } catch (err) {
       console.error("[Calendar] feed failed:", err.message);
       fail(res, 500, "Could not load the calendar.");
+    }
+  },
+
+  // GET /common/calendar/feed/outside?start=&end=&tz= (Google, Outlook, subscribed calendars)
+  calendarOutsideFeed: async (req, res, db) => {
+    try {
+      await ensureWorkspaceSchema(db);
+      const start = parseDate(String(req.query.start || "").slice(0, 10)) || dateKey(new Date(Date.now() - 45 * 864e5));
+      const end = parseDate(String(req.query.end || "").slice(0, 10)) || dateKey(new Date(Date.now() + 45 * 864e5));
+      const { items, errors } = await collectOutsideItems(db, {
+        organizationId: Number(req.session.organizationId),
+        actor: resolveActor(req),
+        start, end,
+        timeZone: String(req.query.tz || "").slice(0, 64) || "UTC",
+      });
+      res.json({ success: true, items, errors });
+    } catch (err) {
+      console.error("[Calendar] outside feed failed:", err.message);
+      res.json({ success: false, items: [], errors: [] });
+    }
+  },
+
+  // POST /common/calendar/sync/reset: the old private link stops working at once.
+  resetFeedLink: async (req, res, db) => {
+    try {
+      await ensureWorkspaceSchema(db);
+      const actor = resolveActor(req);
+      if (!actor.id) return fail(res, 400, "Calendar sync needs a staff account.");
+      const token = await ensureFeedToken(db, Number(req.session.organizationId), actor.id, { reset: true });
+      const feedUrl = `${baseUrl(req)}/calendar/ics/${token}.ics`;
+      res.json({ success: true, feedUrl, webcalUrl: feedUrl.replace(/^https?:\/\//, "webcal://") });
+    } catch (err) {
+      console.error("[Calendar] reset link failed:", err.message);
+      fail(res, 500, "Could not make a new link.");
     }
   },
 
@@ -643,7 +697,7 @@ module.exports = {
       const organizationId = Number(req.session.organizationId);
       const actor = resolveActor(req);
       if (!actor.id) return fail(res, 400, "Calendar sync needs a staff account.");
-      const token = await ensureFeedToken(db, organizationId, actor.id, { reset: req.query.reset === "1" });
+      const token = await ensureFeedToken(db, organizationId, actor.id);
       const [imports, shares, owners] = await Promise.all([
         db.query(`SELECT import_id, label, provider, last_error, last_synced_at FROM calendar_imports WHERE organization_id = $1 AND user_id = $2 ORDER BY created_at`, [organizationId, actor.id]),
         db.query(`SELECT viewer_id FROM calendar_shares WHERE organization_id = $1 AND owner_id = $2`, [organizationId, actor.id]),
@@ -698,7 +752,7 @@ module.exports = {
       const label = cleanText(req.body.label, 80) || ({ google: "Google Calendar", outlook: "Outlook", apple: "Apple Calendar" }[provider] || "My calendar");
       const r = await db.query(
         `INSERT INTO calendar_imports (organization_id, user_id, label, provider, url, last_synced_at) VALUES ($1,$2,$3,$4,$5,NOW()) RETURNING import_id`,
-        [organizationId, actor.id, label, provider, url]
+        [organizationId, actor.id, label, provider, lockSecret(url)]
       );
       res.json({ success: true, id: r.rows[0].import_id });
     } catch (err) {
@@ -774,19 +828,19 @@ module.exports = {
       const actor = { id: row.user_id, name: fullName(row) };
       const start = dateKey(new Date(Date.now() - 60 * 864e5));
       const end = dateKey(new Date(Date.now() + 365 * 864e5));
-      const { items } = await collectItems(db, { organizationId: row.organization_id, actor, start, end, canPublish: false, includeImports: false });
+      const { items } = await collectItems(db, { organizationId: row.organization_id, actor, start, end, canPublish: false });
       const site = baseUrl(req);
       const ics = buildIcs(
         items
-          .filter((it) => ["event", "personal", "task", "lesson"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
+          .filter((it) => ["event", "personal", "task", "lesson", "trip", "activity"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
           .map((it) => {
             const p = it.extendedProps;
             const timed = !it.allDay;
-            if (p.kind === "lesson") {
+            if (p.kind === "lesson" || p.kind === "trip") {
               return {
-                uid: `lesson-${p.recordId}`, title: it.title, details: p.details, location: p.location,
+                uid: `${p.kind}-${p.recordId}`, title: it.title, details: p.details, location: p.location,
                 date: p.date, endDate: p.date, startTime: p.startTime, endTime: p.endTime, allDay: false,
-                url: `${site}/common/classDashboard/${p.classId}`,
+                url: p.kind === "lesson" ? `${site}/common/classDashboard/${p.classId}` : `${site}/driver/dashboard`,
               };
             }
             return {
@@ -1113,5 +1167,6 @@ module.exports = {
     }
   },
 };
+module.exports.collectItems = collectItems;
 module.exports.scheduleOrgSync = scheduleOrgSync;
 module.exports.startSyncLoop = startSyncLoop;

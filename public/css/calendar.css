@@ -166,3 +166,7 @@ body.org-themed #calendar .fc-toolbar-title,
 body.org-themed #calendar .fc-daygrid-day-number { color: #111827 !important; }
 body.org-themed #calendar .fc-day-today .fc-daygrid-day-number { background: var(--org-primary-color); color: #fff !important; }
 body.org-themed .cal-side__head p, body.org-themed .cal-up__when { color: #374151 !important; }
+
+.cal-ev--trip { --c: #0369a1; }
+.sync-link { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.sync-link .ws-btn { flex: 1 1 auto; justify-content: center; text-decoration: none !important; }

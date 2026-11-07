@@ -361,9 +361,6 @@ module.exports = (db) => {
     router.get('/scheduled-holds', ensureAdmin, adminController.scheduledHoldsPage);
 
     router.get("/announcements", isAuthenticated, ensureAdmin, adminController.getAdminAnnouncements);
-    // Dashboard notices are now a format of the unified announcements; the
-    // older notice form and create route point back to the Announcements page.
-    router.get("/announcements/new", isAuthenticated, ensureAdmin, (req, res) => res.redirect("/admin/announcements"));
     // Request Feedback (star rating + comment) from chosen roles in chosen schools.
     const feedbackRequests = require("../controllers/feedbackRequestController");
     router.get("/feedback-requests/new", isAuthenticated, ensureAdmin, feedbackRequests.formPage);
@@ -447,13 +444,8 @@ module.exports = (db) => {
         req.flash("info", 'Dashboard notices are now created with "New Announcement" (choose Dashboard notice).');
         res.redirect("/admin/announcements");
     });
-    router.post("/announcements/toggle/:id", isAuthenticated, ensureAdmin, adminController.toggleAdminAnnouncement);
-    router.post("/announcements/delete/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminAnnouncement);
     router.get('/email-suppressions', isAuthenticated, ensureAdmin, adminController.getEmailSuppressionsPage);
     router.post('/email-suppressions/remove', isAuthenticated, ensureAdmin, express.urlencoded({ extended: true }), adminController.removeEmailSuppression);
-    // Available to Admin / Mini Admin / Internal Worker so they can dismiss
-    // dashboard announcements that are flagged "show for admins".
-    router.post("/announcements/seen/:id", isAuthenticated, ensureAdminOrInternal, adminController.markAdminAnnouncementSeen);
     router.get("/announcements/email-campaigns", isAuthenticated, ensureAdmin, adminController.listAdminEmailCampaigns);
     router.get("/announcements/email-recipients", isAuthenticated, ensureAdmin, adminController.searchAdminEmailRecipients);
     router.post("/announcements/email-campaigns", isAuthenticated, ensureAdmin, adminController.createAdminEmailCampaign);
@@ -560,8 +552,6 @@ module.exports = (db) => {
     router.post('/permanentDeleteMessage', ensureAdmin, adminController.permanentDeleteMessage); 
 
     router.get('/servicePricing', ensureAdmin, adminController.servicePricingGet);
-    router.post("/updateFeature", ensureAdmin, adminController.updateFeature);
-    router.post("/features", ensureAdmin, adminController.addFeature);
 
     router.post('/togglePlanStatus', ensureAdmin, adminController.togglePlanStatus); 
     router.post('/addFeatureToPlan', ensureAdmin, adminController.addFeatureToPlan);  
@@ -571,20 +561,13 @@ module.exports = (db) => {
 
     // Add missing routes for admin settings
     router.post('/updateFreeTrialSettings', ensureAdmin, adminController.updateFreeTrialSettings);
-    router.post('/updateBillingInterval', ensureAdmin, adminController.updateBillingInterval);
     router.post('/updatePlatformFeeSettings', ensureAdmin, adminController.updatePlatformFeeSettings);
-    router.post('/updateBillingPeriod', ensureAdmin, adminController.updateBillingPeriod);
-    router.get('/getBillingPeriods', ensureAdmin, adminController.getBillingPeriods);
     router.post('/updatePaymentProviderSettings', ensureAdmin, adminController.updatePaymentProviderSettings);
     router.post('/updatePaystackSettings', ensureAdmin, adminController.updatePaystackSettings);
     router.post('/updateStripeSettings', ensureAdmin, adminController.updateStripeSettings);
 
-    // Student count tier routes
-    router.post('/addStudentTier', ensureAdmin, adminController.addStudentTier);
     router.post('/saveStudentTiers', ensureAdmin, adminController.saveStudentTiers);
-    router.post('/updateStudentTier', ensureAdmin, adminController.updateStudentTier);
     router.post('/deleteStudentTier', ensureAdmin, adminController.deleteStudentTier);
-    router.get('/getStudentTiers', ensureAdmin, adminController.getStudentTiers);
 
     // ============================================================
     // Dynamic Pricing v2 (Beta) — parallel routes, isolated from the live system

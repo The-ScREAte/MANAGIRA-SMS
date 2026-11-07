@@ -294,7 +294,7 @@ const DEFAULT_ARTICLES = [
     seoDescription: 'Set the grading scale and grade boundaries your school uses before working with tests and report calculations.',
     contentHtml: `
       <h2>Where to manage it</h2>
-      <p>Open <a href="/common/gradingSystem">Grading System</a>.</p>
+      <p>Open <a href="/print/reportSettings">Report Settings</a> and go to <strong>Promotion &amp; grading by class</strong>.</p>
       <h2>Steps</h2>
       <ol>
         <li>Define the grading scale your school uses.</li>

@@ -1191,30 +1191,16 @@
             }
         }
 
+        const filterChoices = <%- JSON.stringify({ classes: typeof filterClasses !== 'undefined' ? filterClasses : [], terms: typeof filterTerms !== 'undefined' ? filterTerms : [] }).replace(/</g, '\\u003c') %>;
         async function loadFilters() {
-            try {
-                const classesResponse = await fetch(`/common/classes/${organizationId}/active`);
-                const classesResult = await classesResponse.json();
-
-                if (classesResult.success && Array.isArray(classesResult.classes)) {
-                    const classFilter = document.getElementById('classFilter');
-                    classFilter.innerHTML = '<option value="">All Classes</option>' +
-                        classesResult.classes.map((c) => `<option value="${escapeHtml(c.class_id)}">${escapeHtml(c.class_name)}</option>`).join('');
-                    if (defaultClassId) classFilter.value = defaultClassId;
-                }
-
-                const termsResponse = await fetch(`/common/terms/${organizationId}`);
-                const termsResult = await termsResponse.json();
-
-                if (termsResult.success && Array.isArray(termsResult.terms)) {
-                    const termFilter = document.getElementById('termFilter');
-                    termFilter.innerHTML = '<option value="">All Terms</option>' +
-                        termsResult.terms.map((t) => `<option value="${escapeHtml(t.term_id)}">${escapeHtml(t.term_name)}</option>`).join('');
-                    if (defaultTermId) termFilter.value = defaultTermId;
-                }
-            } catch (error) {
-                console.error('Error loading filters:', error);
-            }
+            const classFilter = document.getElementById('classFilter');
+            classFilter.innerHTML = '<option value="">All Classes</option>' +
+                filterChoices.classes.map((c) => `<option value="${escapeHtml(c.class_id)}">${escapeHtml(c.class_name)}</option>`).join('');
+            if (defaultClassId) classFilter.value = defaultClassId;
+            const termFilter = document.getElementById('termFilter');
+            termFilter.innerHTML = '<option value="">All Terms</option>' +
+                filterChoices.terms.map((t) => `<option value="${escapeHtml(t.term_id)}">${escapeHtml(t.term_name)}</option>`).join('');
+            if (defaultTermId) termFilter.value = defaultTermId;
         }
 
         function clearFilters() {

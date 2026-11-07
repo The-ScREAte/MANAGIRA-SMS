@@ -60,6 +60,7 @@ const PERMISSIONS = {
   SETTINGS_INTEGRATIONS: "settings_integrations",
   SETTINGS_MIRA: "settings_mira",
   SETTINGS_SERVICE_ACCOUNTS: "settings_service_accounts",
+  MANAGE_SSO: "manage_sso",
   SETTINGS_ADMISSIONS: "settings_admissions",
   PAYGIRA_CLASSROOM: "paygira_classroom",
   PAYGIRA_WORKSPACE: "paygira_workspace",
@@ -178,6 +179,8 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.SETTINGS_INTEGRATIONS, label: "Integrations", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "Turn on and connect Google, WhatsApp, SMS and other services" },
   { key: PERMISSIONS.SETTINGS_MIRA, label: "Mira Settings", parent: PERMISSIONS.MANAGE_SETTINGS, description: "Turn Mira on and choose who can use her" },
   { key: PERMISSIONS.SETTINGS_SERVICE_ACCOUNTS, label: "Service Accounts", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "API keys that reach school data" },
+  // Decides who can get into the whole school: it only ever works for a Manager (ssoController.managersOnly).
+  { key: PERMISSIONS.MANAGE_SSO, label: "Single Sign-On", group: "Administration", highRisk: true, sandboxFeature: "sso", description: "Set up signing in through the school's own provider (SAML or OpenID Connect)" },
 ];
 
 const PERMISSION_BY_KEY = new Map(PERMISSION_OPTIONS.map((option) => [option.key, option]));
@@ -214,11 +217,12 @@ const PERMISSION_FEATURES = {
 // Transportation while switched off, is left out rather than greyed out. Only
 // when the plan could not be read at all (null, a database error) is nothing
 // hidden, so a brief failure can't wipe someone's permissions on save.
-function permissionOptionsFor({ allowedFeatures, miraActivated, transportActivated } = {}) {
+function permissionOptionsFor({ allowedFeatures, miraActivated, transportActivated, organizationId } = {}) {
   const features = Array.isArray(allowedFeatures) ? allowedFeatures : null;
   const have = new Set((features || []).map((name) => String(name || "").trim().toLowerCase()));
   return PERMISSION_OPTIONS.filter((option) => {
     if (option.retired) return false;
+    if (option.sandboxFeature && !require("../utils/shards/features").isOn(option.sandboxFeature, { organizationId })) return false;
     if ((option.key === PERMISSIONS.USE_MIRA || option.key === PERMISSIONS.SETTINGS_MIRA) && miraActivated === false) return false;
     if ((option.group === "Transportation" || rootPermission(option.key) === PERMISSIONS.MANAGE_TRANSPORTATION || option.group === "Driver") && transportActivated === false) return false;
     if (!features) return true;
@@ -349,6 +353,8 @@ function isManagerRole(role) {
 function isManagerLikeRole(role) {
   return MANAGER_LIKE_ROLES.has(normalizeRoleLower(role));
 }
+
+const isPortalRole = (role) => ["guardian", "student"].includes(normalizeRoleLower(role));
 
 function normalizePermissionsList(rawPermissions) {
   const incoming = Array.isArray(rawPermissions)
@@ -670,6 +676,10 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   if (!permissionKey) return true;
   if (!organizationId) return false;
 
+  // Parents and students hold no staff permission. Their ids come from other tables, so
+  // looking them up below could match a member of staff with the same number.
+  if (isPortalRole(userRole) || isPortalRole(accountType)) return false;
+
   // Outside the school's plan nobody has it, the owner included. This one check
   // covers pages, actions, Mira and reports.
   if (!(await planAllowsPermission(database, organizationId, permissionKey))) return false;
@@ -684,23 +694,10 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
     return true;
   }
 
-  // Any user record that matches the organization's signup email is the
-  // organization owner and should always have full access.
-  if (userEmail) {
-    const ownerEmailResult = await isOrganizationOwnerEmail(database, organizationId, userEmail);
-
-    if (ownerEmailResult) {
-      if (userId && !isManagerRole(normalizedUserRole)) {
-        await database.query(
-          `UPDATE users
-           SET account_type = 'Manager', updated_at = NOW()
-           WHERE user_id = $1
-             AND organization_id = $2`,
-          [userId, organizationId]
-        );
-      }
-      return true;
-    }
+  // The manager whose email is the school's signup email is its owner, with full access.
+  // Only a manager: an email alone, which people can edit, never gives anyone this.
+  if (userEmail && isManagerRole(normalizedUserRole) && await isOrganizationOwnerEmail(database, organizationId, userEmail)) {
+    return true;
   }
 
   if (isManagerLikeRole(userRole)) return true;
@@ -778,6 +775,8 @@ module.exports = {
   permissionFullLabel,
   HIGH_RISK_PERMISSIONS,
   isOrganizationOwnerEmail,
+  isPortalRole,
+  isManagerRole,
   withinPlan,
   PERMISSIONS_SAVED_KEY,
   getSuggestedPermissionsForRole,

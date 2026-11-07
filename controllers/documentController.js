@@ -1059,67 +1059,7 @@ const documentController = {
     }
   },
 
-  // Get documents accessible by a teacher for a specific class
-  async classDocuments(req, res, db) {
-    try {
-      const classId = req.query.classId;
-      const userId = req.session.userId;
-      const orgId = req.session.organizationId;
-      const userRole = req.session.userRole;
-      const canManageRecords = await userHasPermission(
-        db,
-        { userId, userRole, organizationId: orgId },
-        PERMISSIONS.MANAGE_RECORDS
-      );
 
-      const classExists = await classBelongsToOrg(db, classId, orgId);
-      if (!classExists) {
-        return res.json({ success: true, documents: [] });
-      }
-
-      if (!canManageRecords) {
-        const classMembership = await db.query(`
-          SELECT 1
-          FROM user_classes ce
-          JOIN classes c ON c.class_id = ce.class_id
-          WHERE ce.class_id = $1 AND ce.user_id = $2 AND c.organization_id = $3
-          LIMIT 1
-        `, [classId, userId, orgId]);
-
-        if (classMembership.rows.length === 0) {
-          return res.json({ success: true, documents: [] });
-        }
-      }
-
-      // Documents assigned to this class and accessible to the current user
-      const docs = await db.query(`
-        SELECT DISTINCT d.id, d.title, d.doc_type, d.updated_at,
-          u.first_name || ' ' || u.last_name AS created_by_name,
-          COALESCE(dca.permission_level, dp.permission_level, 'view') AS permission_level
-        FROM documents d
-        JOIN users u ON d.created_by = u.user_id
-        JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $1
-        JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
-        LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $2
-        WHERE d.organization_id = $3 AND d.is_deleted = FALSE
-          AND (
-            d.created_by = $2
-            OR dp.user_id IS NOT NULL
-            OR $4 = TRUE
-            OR EXISTS (
-              SELECT 1 FROM user_classes ce
-              WHERE ce.class_id = dca.class_id AND ce.user_id = $2
-            )
-          )
-        ORDER BY d.updated_at DESC
-      `, [classId, userId, orgId, canManageRecords]);
-
-      res.json({ success: true, documents: docs.rows });
-    } catch (error) {
-      console.error("Error fetching class documents:", error);
-      res.status(500).json({ success: false });
-    }
-  },
 
   // Get students and subjects for a class (for spreadsheet insertion)
   // Turn a Doc / Sheet into a report card template and choose its classes.

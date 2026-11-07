@@ -721,15 +721,26 @@
         padding-right: 10px;
       }
     }
+    /* Plain and calm: the same type on every screen, and nothing where there's nothing to show. */
+    .dashboard-wrapper, .dashboard-wrapper button, .dashboard-wrapper input, .dashboard-wrapper select, .dashboard-wrapper table { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .dashboard-header h1 { font-size: 1.25rem; font-weight: 700; }
+    .section-header h2 { font-size: .95rem; font-weight: 600; }
+    .section-header:last-child { border-bottom: 0; }
+    .section-card { margin-bottom: 12px; }
+    @media (max-width: 640px) {
+      .dashboard-wrapper { padding-left: 12px; padding-right: 12px; }
+      .header-actions { width: 100%; }
+      .header-actions > * { flex: 1 1 0; justify-content: center; text-align: center; }
+    }
   </style>
 </head>
 <body>
   <div class="dashboard-wrapper">
     <div class="dashboard-header">
-      <h1>Super Admin Dashboard</h1>
+      <h1>Super Admin</h1>
       <div class="header-actions">
         <button type="button" class="btn-secondary is-accent" id="open-users-modal">All Users</button>
-        <a href="/admin/superSettings" class="btn-secondary">⚙️ Settings</a>
+        <a href="/admin/superSettings" class="btn-secondary">Settings</a>
       </div>
     </div>
 
@@ -876,7 +887,7 @@
 
     <div class="section-card">
       <div class="section-header">
-        <h2>🗑️ Deleted Applications</h2>
+        <h2>Deleted applications</h2>
         <span class="muted"><%= deletedAccounts ? deletedAccounts.length : 0 %> records</span>
       </div>
       <% if (deletedAccounts && deletedAccounts.length > 0) { %>
@@ -933,13 +944,13 @@
         </table>
       </div>
       <% } else { %>
-      <div class="empty-state">No deleted applications available.</div>
+      
       <% } %>
     </div>
 
     <div class="section-card">
       <div class="section-header">
-        <h2>🏢 Deleted Hubs</h2>
+        <h2>Deleted hubs</h2>
         <span class="muted"><%= deletedHubs ? deletedHubs.length : 0 %> records</span>
       </div>
       <% if (deletedHubs && deletedHubs.length > 0) { %>
@@ -1023,13 +1034,13 @@
         </table>
       </div>
       <% } else { %>
-      <div class="empty-state">No deleted hubs available.</div>
+      
       <% } %>
     </div>
 
     <div class="section-card">
       <div class="section-header">
-        <h2>📨 Deleted Tickets</h2>
+        <h2>Deleted tickets</h2>
         <span class="muted"><%= deletedTickets ? deletedTickets.length : 0 %> records</span>
       </div>
       <% if (deletedTickets && deletedTickets.length > 0) { %>
@@ -1098,13 +1109,13 @@
         </table>
       </div>
       <% } else { %>
-      <div class="empty-state">No deleted tickets available.</div>
+      
       <% } %>
     </div>
 
     <div class="section-card">
       <div class="section-header">
-        <h2>📇 Deleted Referrals</h2>
+        <h2>Deleted referrals</h2>
         <span class="muted"><%= deletedContacts ? deletedContacts.length : 0 %> records</span>
       </div>
       <% if (deletedContacts && deletedContacts.length > 0) { %>
@@ -1170,7 +1181,7 @@
         </table>
       </div>
       <% } else { %>
-      <div class="empty-state">No deleted referrals available.</div>
+      
       <% } %>
     </div>
   </div>

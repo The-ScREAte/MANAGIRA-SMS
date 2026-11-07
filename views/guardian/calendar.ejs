@@ -2,6 +2,6 @@
 <div class="ph ph--calendar">
   <%- include('../partials/flash') %>
   <h1 class="ph-title">Calendar</h1>
-  <div id="parentCalendar" data-children="<%= JSON.stringify(children) %>" data-date="<%= initialDate %>" data-child="<%= initialChild %>"></div>
+  <div id="parentCalendar" data-children="<%= JSON.stringify(children) %>" data-date="<%= initialDate %>" data-child="<%= initialChild %>" data-base="<%= locals.calendarBase || '/guardian/calendar' %>"></div>
 </div>
 <script src="<%= assetUrl('/js/parentCalendar.js') %>" defer></script>

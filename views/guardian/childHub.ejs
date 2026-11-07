@@ -18,7 +18,7 @@
   <%- include('../partials/flash') %>
   <a class="ph-back" href="/guardian/dashboard">My children</a>
   <header class="ph-child">
-    <img class="ph-child__img" src="<%= publicImageUrl(child.imageUrl && child.imageUrl !== 'profilePlaceholder.png' ? child.imageUrl : '/images/profilePlaceholder.png') %>" alt="" />
+    <img class="ph-child__img" src="<%= publicImageUrl(child.imageUrl && child.imageUrl !== 'profilePlaceholder.png' ? child.imageUrl : '/images/profilePlaceholder.png', { width: 256 }) %>" alt="" />
     <div><h1><%= child.name %></h1><p><%= child.className || 'No class assigned' %></p></div>
   </header>
   <div class="app-tiles">

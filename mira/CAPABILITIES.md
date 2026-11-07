@@ -45,6 +45,19 @@ Simple running list. Every action below is scoped to the logged-in user's own or
 
 **Charts, a new capability**: Mira's chat UI previously had zero chart-rendering ability (markdown tables only). It was extended to support markdown image syntax (`![alt](url)`), **restricted specifically to `https://quickchart.io/` URLs** - not arbitrary image hosts - since allowing any external image host would let injected text render a tracking-pixel-style `<img>` pointing at an attacker's server. `get_organization_statistics` and `compare_classes` build real Chart.js configs (bar/line/doughnut/radar) rendered by the free QuickChart.io service and return them as ready-to-embed URLs - Mira should actually embed these in replies (`![Attendance by Class](url)`), not just describe the numbers. Only aggregate counts/percentages/class names are ever sent to build a chart - never individual student names or other PII.
 
+## Newer features (only for schools that have them)
+
+| Tool | What it does |
+|---|---|
+| `whats_new` | What's new for this school and where to find it. Always loaded, and only lists what the school has |
+| `get_my_calendar` | The person's own calendar between two dates, matching what they see on the page |
+| `get_calendar_sync_status` | Whether their Google or Outlook is connected. They connect it themselves; Mira never handles sign-ins |
+| `list_activities` | Class and whole-school activities: a teacher's own classes, or all for someone who publishes events |
+| `create_activity` | Needs Publish Events & Announcements, or being that class's teacher. Parents get a notification |
+| `get_bus_riding_today` | Who isn't coming, how many boarded, who didn't. A teacher's own classes, or every bus for transport staff |
+| `show_work_to_parents` | Needs Set Assessment Questions. Show a question set on the parent portal, with notes |
+| `get_sso_status` | Needs the Single Sign-On permission. Provider, whether it's on, recent sign-ins. Read-only and never a secret |
+
 ## Change things (each requires the specific real permission below)
 
 ### Admissions & Students

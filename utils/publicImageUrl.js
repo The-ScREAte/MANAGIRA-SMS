@@ -157,7 +157,9 @@ function publicImageUrl(value, options = {}) {
     const viewer = publicScope ? "" : options.viewer || "";
     const signature = imageSignature(object.key, expires, options.secret, viewer, publicScope ? "public" : "");
     const publicParam = publicScope ? "&public=1" : "";
-    return `/public-image?key=${encodeURIComponent(object.key)}&expires=${expires}&signature=${encodeURIComponent(signature)}${publicParam}`;
+    // A smaller copy where a page only shows a small picture (the sizes the route accepts).
+    const widthParam = options.width ? `&w=${Number(options.width)}` : "";
+    return `/public-image?key=${encodeURIComponent(object.key)}&expires=${expires}&signature=${encodeURIComponent(signature)}${publicParam}${widthParam}`;
   }
 
   if (object && bucket && region) return s3ObjectUrl(object.key, { bucket, region });

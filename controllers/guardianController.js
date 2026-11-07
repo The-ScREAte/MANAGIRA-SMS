@@ -383,279 +383,7 @@ module.exports = {
     }
   },
 
-  studentDetailsCommonGet: async (req, res, db) => {
-    const organizationId = req.session.organizationId;
-    const guardianId = req.session.guardianId;
-
-    const studentId = req.query.studentId;
-    const termId = req.query.termId || req.session.currentTermId;
-
-    if (!studentId || !termId) {
-      return res.status(400).send("Student ID and Term ID are required.");
-    }
-
-    try {
-      if (!organizationId) {
-        req.flash("error", "Organization ID is missing.");
-        return res.redirect("/guardian/dashboard");
-      }
-
-      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentId);
-
-      if (!hasAccess) {
-        req.flash("error", "You do not have access to that student.");
-        return res.redirect("/guardian/dashboard");
-      }
-
-      // Fetch student details
-      const studentResult = await db.query(
-        `
-          SELECT s.*, c.class_name, c.class_id, g.name AS grad_year_group_name
-          FROM students s
-          LEFT JOIN classes c ON s.class_id = c.class_id
-          LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
-          WHERE s.student_id = $1 AND s.organization_id = $2
-        `,
-        [studentId, organizationId]
-      );
-
-      if (studentResult.rows.length === 0) {
-        return res.status(404).send("Student not found.");
-      }
-
-      const student = studentResult.rows[0];
-      const effectiveClass = await resolveEffectiveClassForStudentTerm(
-        db,
-        organizationId,
-        studentId,
-        termId
-      );
-      const classId = effectiveClass?.class_id || student.class_id;
-      const className = effectiveClass?.class_name || student.class_name;
-      student.class_id = classId;
-      student.class_name = className;
-
-      // For guardians: show subjects the student is enrolled in
-      const subjectsResult = await db.query(
-        `
-          SELECT DISTINCT s.subject_id, s.subject_name
-          FROM student_subjects_in_term($3::int) ss
-          INNER JOIN subjects s ON ss.subject_id = s.subject_id
-          WHERE ss.student_id = $1 AND ss.organization_id = $2
-          ORDER BY s.subject_name
-        `,
-        [studentId, organizationId, Number.parseInt(termId, 10) || null]
-      );
-
-      const subjectsMap = new Map();
-      const subjectKeyById = new Map();
-      subjectsResult.rows.forEach((subject) => {
-        const subjectKey = String(subject.subject_name || "").trim().toLowerCase();
-        subjectKeyById.set(subject.subject_id, subjectKey);
-
-        if (!subjectsMap.has(subjectKey)) {
-          subjectsMap.set(subjectKey, {
-            ...subject,
-            subjectIds: [subject.subject_id],
-            totalScore: 0,
-            totalMaxScore: 0,
-            totalPercentage: null,
-            grade: null,
-            position: null,
-            assessments: [],
-          });
-          return;
-        }
-
-        const existing = subjectsMap.get(subjectKey);
-        existing.subjectIds.push(subject.subject_id);
-      });
-
-      // Fetch assessments and scores for the student for the specified term
-      const assessmentsResult = await db.query(
-        `
-          SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, ar.choice_label, a.subject_id, a.max_score, a.category,
-                 ar.total_subject_score,
-                 ar.total_percentage,
-                 COALESCE(
-                   (
-                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
-                       CASE
-                         WHEN ar.total_percentage >= 90 THEN 'A'
-                         WHEN ar.total_percentage >= 80 THEN 'B'
-                         WHEN ar.total_percentage >= 70 THEN 'C'
-                         ELSE 'D'
-                       END
-                     )
-                     FROM score_remarks sr
-                     WHERE sr.organization_id = $3
-                       AND sr.class_id = $2
-                       AND sr.term_id = $4
-                       AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
-                     ORDER BY
-                       CASE
-                         WHEN ar.total_percentage IS NULL THEN 1000000000
-                         WHEN ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage THEN 0
-                         WHEN ar.total_percentage::numeric < sr.from_percentage THEN sr.from_percentage - ar.total_percentage::numeric
-                         ELSE ar.total_percentage::numeric - sr.to_percentage
-                       END ASC,
-                       sr.from_percentage DESC
-                     LIMIT 1
-                   ),
-                   CASE
-                     WHEN ar.total_percentage IS NULL THEN NULL
-                     WHEN ar.total_percentage >= 90 THEN 'A'
-                     WHEN ar.total_percentage >= 80 THEN 'B'
-                     WHEN ar.total_percentage >= 70 THEN 'C'
-                     ELSE 'D'
-                   END
-                 ) AS grade
-          FROM assessments a
-          LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
-          WHERE a.subject_id IN (SELECT subject_id FROM subjects WHERE class_id = $2)
-          AND a.organization_id = $3 AND a.term_id = $4
-          ORDER BY a.assessment_id
-        `,
-        [studentId, classId, organizationId, termId]
-      );
-
-      assessmentsResult.rows.forEach((assessment) => {
-        const subjectKey = subjectKeyById.get(assessment.subject_id);
-        if (!subjectKey || !subjectsMap.has(subjectKey)) return;
-
-        const subject = subjectsMap.get(subjectKey);
-        subject.assessments.push(assessment);
-        if (assessment.score !== null) {
-          subject.totalScore += parseFloat(assessment.score);
-          subject.totalMaxScore += parseFloat(assessment.max_score);
-        }
-        if (assessment.total_percentage !== null) {
-          subject.totalPercentage = parseFloat(assessment.total_percentage);
-        }
-        if (assessment.grade) {
-          subject.grade = assessment.grade;
-        }
-      });
-
-      // Positions
-      const positionsResult = await db.query(
-        `
-          SELECT subject_id, position
-          FROM student_term_positions
-          WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
-        `,
-        [studentId, organizationId, termId]
-      );
-
-      const positions = positionsResult.rows.reduce((acc, position) => {
-        acc[position.subject_id] = position.position;
-        return acc;
-      }, {});
-
-      subjectsMap.forEach((subject) => {
-        subject.position = (subject.subjectIds || [subject.subject_id]).map((id) => positions[id]).find(Boolean) || "-";
-      });
-
-      const subjects = Array.from(subjectsMap.values());
-
-      // Unique assessments for headers
-      const uniqueAssessments = Array.from(
-        new Set(assessmentsResult.rows.map((a) => a.title))
-      ).map((title) => {
-        return assessmentsResult.rows.find((a) => a.title === title);
-      });
-
-      // Guardians associated with the student (staff page shows this; for guardians we'll keep it, but the template will hide it)
-      const guardiansResult = await db.query(
-        `SELECT * FROM guardians WHERE student_id = $1 AND organization_id = $2`,
-        [studentId, organizationId]
-      );
-
-      const currentTermId = req.session.currentTermId;
-      let studentEnrolledInCurrent = false;
-      let currentSchoolYearLabel = null;
-      let currentTermName = null;
-
-      if (currentTermId) {
-        const currentInfoResult = await db.query(
-          `
-            SELECT t.term_id, t.term_name, sy.id AS school_year_id, sy.year_label
-            FROM terms t
-            INNER JOIN school_years sy ON t.school_year_id = sy.id
-            WHERE t.term_id = $1 AND t.organization_id = $2
-          `,
-          [currentTermId, organizationId]
-        );
-
-        if (currentInfoResult.rows.length > 0) {
-          const { school_year_id, year_label, term_name } =
-            currentInfoResult.rows[0];
-          currentSchoolYearLabel = year_label;
-          currentTermName = term_name;
-
-          const enrollmentCheck = await db.query(
-            `
-              SELECT 1
-              FROM enrollments e
-              INNER JOIN enrolled_students es ON e.enrollment_id = es.enrollment_id
-              WHERE e.term_id = $1 AND e.school_year_id = $2
-                AND es.student_id = $3 AND e.organization_id = $4
-              LIMIT 1
-            `,
-            [currentTermId, school_year_id, studentId, organizationId]
-          );
-
-          studentEnrolledInCurrent = enrollmentCheck.rows.length > 0;
-        }
-      }
-
-      const enrolledClassForTerm = className || "Not enrolled";
-
-      const termResult = await db.query(
-        `
-          SELECT term_name
-          FROM terms
-          WHERE term_id = $1 AND organization_id = $2
-          LIMIT 1
-        `,
-        [termId, organizationId]
-      );
-
-      const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
-
-      const sidSettingsResult = await db.query(
-        `SELECT use_custom_student_id, student_id_prefix
-           FROM organizations
-          WHERE organization_id = $1`,
-        [organizationId]
-      );
-      const studentIdSettings = sidSettingsResult.rows[0] || {};
-
-      return res.render("common/studentDetails", {
-        archiveStatus: await require("../utils/studentArchive").getStudentArchiveStatus(db, organizationId, student.student_id),
-        title: "Student Details",
-        student,
-        studentIdSettings,
-        guardians: guardiansResult.rows,
-        subjects,
-        uniqueAssessments,
-        isMainTeacher: false,
-        getOrdinalSuffix,
-        gradYearGroupName:
-          student.grad_year_group_name || "No graduation year group assigned",
-        currentTerm: termId,
-        currentSchoolYearLabel,
-        currentTermName,
-        enrolledClassForTerm,
-        termNameForPage,
-        studentEnrolledInCurrent,
-        messages: req.flash(),
-      });
-    } catch (error) {
-            req.flash("error", "Error loading student details");
-      return res.redirect("/guardian/dashboard");
-    }
-  },
+  
 
   studentDetailsGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
@@ -2328,6 +2056,10 @@ module.exports = {
   },
 
   editPendingStudentGet: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    const organizationId = req.session.organizationId;
+    const pendingId = Number.parseInt(req.query.pendingId, 10);
+    if (!Number.isInteger(pendingId)) return res.redirect('/guardian/dashboard');
 
     try {
       // Verify the guardian has access to this pending student
@@ -2345,8 +2077,6 @@ module.exports = {
         return res.redirect('/guardian/dashboard');
       }
 
-      const student = studentQuery.rows[0];
-
       // Verify guardian access
       const guardianProfile = await db.query(
         `SELECT first_name, last_name, phone, email
@@ -2361,11 +2091,12 @@ module.exports = {
       }
 
       const guardian = guardianProfile.rows[0];
-      
-      // Check if guardian matches
-      if (student.guardian_first_name !== guardian.first_name || 
-          student.guardian_last_name !== guardian.last_name ||
-          (student.guardian_phone !== guardian.phone && student.guardian_email !== guardian.email)) {
+
+      // An application can name more than one guardian: this has to be one of them.
+      const student = studentQuery.rows.find((row) => row.guardian_first_name === guardian.first_name
+        && row.guardian_last_name === guardian.last_name
+        && (row.guardian_phone === guardian.phone || row.guardian_email === guardian.email));
+      if (!student) {
         req.flash('error', 'You do not have permission to edit this application');
         return res.redirect('/guardian/dashboard');
       }
@@ -2408,7 +2139,7 @@ module.exports = {
                 pg.phone as guardian_phone, pg.email as guardian_email
          FROM pending_students ps
          JOIN pending_guardians pg ON pg.pending_id = ps.pending_id
-         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.approved = false AND ps.status = 'pending'`,
+         WHERE ps.pending_id = $1 AND ps.organization_id = $2 AND ps.status = 'pending'`,
         [pendingId, organizationId]
       );
 
@@ -2424,11 +2155,10 @@ module.exports = {
       );
 
       const guardian = guardianProfile.rows[0];
-      const student = accessCheck.rows[0];
-
-      if (student.guardian_first_name !== guardian.first_name || 
-          student.guardian_last_name !== guardian.last_name ||
-          (student.guardian_phone !== guardian.phone && student.guardian_email !== guardian.email)) {
+      const allowed = guardian && accessCheck.rows.some((row) => row.guardian_first_name === guardian.first_name
+        && row.guardian_last_name === guardian.last_name
+        && (row.guardian_phone === guardian.phone || row.guardian_email === guardian.email));
+      if (!allowed) {
         return res.status(403).json({ success: false, error: 'Access denied' });
       }
 

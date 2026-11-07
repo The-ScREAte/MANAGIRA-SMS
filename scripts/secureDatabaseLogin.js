@@ -1,7 +1,8 @@
 // Gives the app its own database login that can't create databases or other logins.
 //
 //   node scripts/secureDatabaseLogin.js            shows what would change, changes nothing
-//   node scripts/secureDatabaseLogin.js --apply    does it, then prints the new connection URL
+//   node scripts/secureDatabaseLogin.js --apply --out FILE    does it, and saves the new
+//                                                             connection URL only in FILE
 //
 // Render's default login stays as the admin login. It keeps full access (it is a member
 // of the new login), so the running app is unaffected until you switch
@@ -9,8 +10,12 @@
 //
 // The new login owns the tables, because the app still adds columns and tables while it
 // runs. Everything it does today keeps working; it just can't create a database or a login.
+// The admin login acts as the new login by default, so whatever it creates from now on
+// (a dev server, a migration) belongs to the new login too and nothing is ever left out of
+// its reach. Anything that truly needs the admin powers starts with RESET ROLE, as this does.
 require("dotenv").config();
 const crypto = require("crypto");
+const fs = require("fs");
 const { Client } = require("pg");
 
 const APP_LOGIN = process.env.DB_APP_LOGIN || "managira_app";
@@ -58,6 +63,7 @@ async function secureLogin(client, { password }) {
   await client.query(`GRANT ${ident(APP_LOGIN)} TO ${ident(me.name)} WITH INHERIT TRUE, SET TRUE`);
   await client.query(`GRANT CONNECT, TEMPORARY ON DATABASE ${ident(me.db)} TO ${ident(APP_LOGIN)}`);
   await client.query(`GRANT USAGE, CREATE ON SCHEMA public TO ${ident(APP_LOGIN)}`);
+  await client.query(`ALTER ROLE ${ident(me.name)} IN DATABASE ${ident(me.db)} SET role = ${ident(APP_LOGIN)}`);
   const objects = (await client.query(OWNED_OBJECTS)).rows;
   // One round trip, so tables are locked for moments. A busy table stops it cleanly: try again.
   const statements = objects.map(({ kind, name }) => `ALTER ${kind} public.${name} OWNER TO ${ident(APP_LOGIN)}`);
@@ -92,6 +98,14 @@ async function verifyLogin(url) {
   await attempt("can't create a database", "CREATE DATABASE secure_login_check", false);
   await attempt("can't create a login", "CREATE ROLE secure_login_check", false);
   results["role has no extra powers"] = !role.rolcreatedb && !role.rolcreaterole && !role.rolsuper;
+  const outOfReach = (await client.query(`
+    SELECT count(*)::int AS n
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND (
+       (c.relkind IN ('r', 'p', 'v') AND NOT has_table_privilege(current_user, c.oid, 'SELECT, INSERT, UPDATE, DELETE'))
+       OR (c.relkind = 'S' AND NOT has_sequence_privilege(current_user, c.oid, 'USAGE, UPDATE'))
+     )`)).rows[0].n;
+  results[`every table and sequence is in reach${outOfReach ? ` (${outOfReach} are not)` : ""}`] = outOfReach === 0;
   await client.end();
   return results;
 }
@@ -108,6 +122,7 @@ async function main() {
   if (!adminUrl) throw new Error("DB_CONNECTION_STRING is not set.");
   const client = connectTo(adminUrl);
   await client.connect();
+  await client.query("RESET ROLE");
   const me = (await client.query("SELECT r.rolname, r.rolcreatedb, r.rolcreaterole, r.rolsuper FROM pg_roles r WHERE r.rolname = current_user")).rows[0];
   const objects = (await client.query(OWNED_OBJECTS)).rows;
   console.log(`Connected as ${me.rolname}: can create databases ${me.rolcreatedb}, can create logins ${me.rolcreaterole}.`);
@@ -132,9 +147,16 @@ async function main() {
   console.log(`Handed ${moved} objects to ${APP_LOGIN}.`);
   Object.entries(results).forEach(([name, passed]) => console.log(`  ${passed ? "ok  " : "FAIL"} ${name}`));
   if (failed.length) throw new Error(`Don't switch yet: ${failed.join(", ")}.`);
-  console.log("\nThe running app is unaffected. To finish, set this as DB_CONNECTION_STRING on Render and deploy:");
-  console.log(url);
-  console.log("\nIt is shown only here, so keep it private. To undo, put the old value back.");
+  console.log("\nThe running app is unaffected. To finish, set the new URL as DB_CONNECTION_STRING on Render and deploy.");
+  const outAt = process.argv.indexOf("--out");
+  if (outAt > -1 && process.argv[outAt + 1]) {
+    fs.writeFileSync(process.argv[outAt + 1], `${url}\n`, { mode: 0o600 });
+    console.log(`The URL is in ${process.argv[outAt + 1]}, readable only by you. Delete that file once it's on Render.`);
+  } else {
+    console.log(url);
+    console.log("It is shown only here, so keep it private.");
+  }
+  console.log("To undo, put the old value back.");
 }
 
 if (require.main === module) {

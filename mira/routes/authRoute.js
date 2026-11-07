@@ -118,6 +118,10 @@ router.post("/login", express.urlencoded({ extended: true }), async (req, res) =
 
     const location = relayResponse.headers.get("location") || "";
     const isRedirect = relayResponse.status >= 300 && relayResponse.status < 400;
+    // A school that signs in with its own provider sends people to SSO instead.
+    if (isRedirect && /\/account\/login\?sso=1|\/account\/sso/.test(location)) {
+      return res.redirect(`${MAIN_APP_PUBLIC_URL}/account/login?next=mira`);
+    }
     const isSuccess = isRedirect && !location.includes("/account/login");
 
     if (!isSuccess) {

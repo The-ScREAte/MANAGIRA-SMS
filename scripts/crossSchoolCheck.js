@@ -119,8 +119,8 @@ function leakMarkers(...values) {
       add("owner", owner, "Other school's document (edit)", `/documents/edit/${docB.document_id}`, leakMarkers(docB.title));
       add("owner", owner, "Other school's document (content)", `/documents/content/${docB.document_id}`, leakMarkers(docB.title));
     }
-    if (billB) add("owner", owner, "Other school's invoice", `/account/settings/finance/invoice/${billB.assignment_id}`, studentMarkers.concat(orgMarkers));
-    if (payB) add("owner", owner, "Other school's receipt", `/account/settings/finance/receipt/${payB.payment_id}`, studentMarkers.concat(orgMarkers));
+    if (billB) add("owner", owner, "Other school's invoice", `/account/settings/my-paygira/invoice/${billB.assignment_id}`, studentMarkers.concat(orgMarkers));
+    if (payB) add("owner", owner, "Other school's receipt", `/account/settings/my-paygira/receipt/${payB.payment_id}`, studentMarkers.concat(orgMarkers));
     if (arrB) add("owner", owner, "Other school's arrears report", `/account/settings/finance/arrears/reports/${arrB.report_id}/view`, orgMarkers);
     if (taskB) add("owner", owner, "Other school's task comments", `/common/tasks/${taskB.task_id}/comments`, leakMarkers(taskB.title));
     add("owner", owner, "Other school's uploaded file", `/print/preview/${encodeURIComponent(`migrations/org_${SCHOOL_B}/x.pdf`)}`, []);

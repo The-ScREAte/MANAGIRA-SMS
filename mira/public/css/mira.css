@@ -1534,3 +1534,4 @@ button { font-family: inherit; }
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+.mira-auth-sso { display: flex; width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--mira-border, #d7dde5); color: inherit; }

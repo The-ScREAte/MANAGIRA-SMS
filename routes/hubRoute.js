@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const hubController = require('../controllers/hubController');
-const { authRateLimit } = require('../utils/authRateLimit');
+const { signInGuard } = require('../utils/authRateLimit');
 const hubUsersController = require('../controllers/hubUsersController');
 const hubBillingController = require('../controllers/hubBillingController');
 const { isHubAuthenticated, fetchHubInfo } = require('../middleware/hubAuthMiddleware');
@@ -46,7 +46,7 @@ router.use((req, res, next) => {
 
 // Public routes
 router.get('/login', hubController.hubLoginGet);
-router.post('/login', authRateLimit('hub-login', { field: 'email' }), hubController.hubLoginPost);
+router.post('/login', signInGuard('hub-login', { field: 'email' }), require('../utils/keepSignedIn').keepSignedInChoice, hubController.hubLoginPost);
 router.get('/logout', hubController.hubLogoutGet);
 router.get('/setup-password', hubController.setupPasswordGet);
 router.post('/setup-password', hubController.setupPasswordPost);

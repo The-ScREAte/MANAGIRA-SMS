@@ -8,6 +8,7 @@ const axios = require("axios");
 // Loaded on first use: this library alone is over 100 MB of memory.
 const googleLib = () => require("googleapis").google;
 const { createGoogleOauthClient, hasGoogleOauthConfig } = require("./googleClassroomSync");
+const { lockSecret, openSecret, zoned } = require("./calendarSync");
 
 const GOOGLE_SCOPES = [
   "openid",
@@ -63,9 +64,21 @@ function ensureConnectSchema(db) {
           PRIMARY KEY (connection_id, item_uid)
         )
       `);
+      await lockExistingSignIns(db).catch((err) => console.error("[Calendar] locking sign-ins:", err.message));
     })().catch((err) => { schemaPromise = null; throw err; });
   }
   return schemaPromise;
+}
+
+// Sign-ins saved before they were stored locked.
+async function lockExistingSignIns(db) {
+  const { rows } = await db.query(
+    `SELECT connection_id, access_token, refresh_token FROM calendar_connections
+      WHERE (access_token IS NOT NULL AND access_token NOT LIKE 'enc1:%') OR (refresh_token IS NOT NULL AND refresh_token NOT LIKE 'enc1:%')`
+  );
+  for (const row of rows) {
+    await db.query(`UPDATE calendar_connections SET access_token = $2, refresh_token = $3 WHERE connection_id = $1`, [row.connection_id, lockSecret(row.access_token), lockSecret(row.refresh_token)]);
+  }
 }
 
 const msConfigured = () => !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
@@ -162,7 +175,7 @@ async function finishOauth(db, req, provider) {
        access_token = EXCLUDED.access_token, refresh_token = COALESCE(EXCLUDED.refresh_token, calendar_connections.refresh_token),
        expires_at = EXCLUDED.expires_at, time_zone = EXCLUDED.time_zone, last_error = NULL
      RETURNING connection_id`,
-    [Number(req.session.organizationId), userId, provider, normalizedEmail, tokens.access, tokens.refresh || null, tokens.expires, pending.timeZone]
+    [Number(req.session.organizationId), userId, provider, normalizedEmail, lockSecret(tokens.access), lockSecret(tokens.refresh), tokens.expires, pending.timeZone]
   );
   return { email, connectionId: saved.rows[0].connection_id };
 }
@@ -170,32 +183,32 @@ async function finishOauth(db, req, provider) {
 // ---------- API clients ----------
 function realGoogleApi(db, conn) {
   const client = createGoogleOauthClient();
-  client.setCredentials({ access_token: conn.access_token, refresh_token: conn.refresh_token, expiry_date: conn.expires_at ? new Date(conn.expires_at).getTime() : undefined });
+  client.setCredentials({ access_token: openSecret(conn.access_token), refresh_token: openSecret(conn.refresh_token), expiry_date: conn.expires_at ? new Date(conn.expires_at).getTime() : undefined });
   client.on("tokens", (t) => {
     db.query(
       `UPDATE calendar_connections SET access_token = $2, expires_at = $3, refresh_token = COALESCE($4, refresh_token) WHERE connection_id = $1`,
-      [conn.connection_id, t.access_token, t.expiry_date ? new Date(t.expiry_date) : null, t.refresh_token || null]
+      [conn.connection_id, lockSecret(t.access_token), t.expiry_date ? new Date(t.expiry_date) : null, lockSecret(t.refresh_token)]
     ).catch(() => {});
   });
   return googleLib().calendar({ version: "v3", auth: client });
 }
 
 async function msToken(db, conn) {
-  if (conn.access_token && conn.expires_at && new Date(conn.expires_at).getTime() > Date.now() + 60000) return conn.access_token;
+  if (conn.access_token && conn.expires_at && new Date(conn.expires_at).getTime() > Date.now() + 60000) return openSecret(conn.access_token);
   const r = await axios.post(`${MS_AUTH}/token`, new URLSearchParams({
     client_id: process.env.MICROSOFT_CLIENT_ID,
     client_secret: process.env.MICROSOFT_CLIENT_SECRET,
     grant_type: "refresh_token",
-    refresh_token: conn.refresh_token,
+    refresh_token: openSecret(conn.refresh_token),
     scope: MS_SCOPES.join(" "),
   }), { timeout: 10000 });
-  conn.access_token = r.data.access_token;
+  conn.access_token = lockSecret(r.data.access_token);
   conn.expires_at = new Date(Date.now() + (r.data.expires_in || 3600) * 1000);
   await db.query(
     `UPDATE calendar_connections SET access_token = $2, expires_at = $3, refresh_token = COALESCE($4, refresh_token) WHERE connection_id = $1`,
-    [conn.connection_id, conn.access_token, conn.expires_at, r.data.refresh_token || null]
+    [conn.connection_id, conn.access_token, conn.expires_at, lockSecret(r.data.refresh_token)]
   );
-  return conn.access_token;
+  return r.data.access_token;
 }
 async function realGraph(db, conn, method, path, data, headers = {}) {
   const token = await msToken(db, conn);
@@ -301,9 +314,6 @@ async function pushItems(db, conn, items, orgName) {
 
 // ---------- pull (Google/Outlook -> Managira) ----------
 const pullCache = new BoundedMap(500);
-const pad = (n) => String(n).padStart(2, "0");
-const localKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const localTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 async function pullEvents(db, conn, start, end) {
   const key = `${conn.connection_id}:${start}:${end}`;
@@ -314,8 +324,8 @@ async function pullEvents(db, conn, start, end) {
   const out = [];
   if (conn.provider === "google") {
     const r = await googleApi(db, conn).events.list({
-      calendarId: "primary", timeMin: new Date(`${start}T00:00:00`).toISOString(), timeMax: new Date(`${end}T23:59:59`).toISOString(),
-      singleEvents: true, orderBy: "startTime", maxResults: 500,
+      calendarId: "primary", timeMin: new Date(Date.parse(`${start}T00:00:00Z`) - 864e5).toISOString(), timeMax: new Date(Date.parse(`${end}T23:59:59Z`) + 864e5).toISOString(),
+      singleEvents: true, orderBy: "startTime", maxResults: 500, timeZone: conn.time_zone || "UTC",
     });
     (r.data.items || []).forEach((e) => {
       if (e.status === "cancelled" || (e.extendedProperties && e.extendedProperties.private && e.extendedProperties.private.managiraUid)) return;
@@ -323,9 +333,11 @@ async function pullEvents(db, conn, start, end) {
       const s = allDay ? e.start.date : (e.start && e.start.dateTime ? new Date(e.start.dateTime) : null);
       if (!s) return;
       const en = allDay ? e.end && e.end.date : (e.end && e.end.dateTime ? new Date(e.end.dateTime) : null);
+      const at = allDay ? null : zoned(s, conn.time_zone);
+      const until = allDay || !en ? null : zoned(en, conn.time_zone);
       out.push({
         id: `${layer}-${e.id}`, title: e.summary || "(No title)",
-        start: allDay ? s : `${localKey(s)}T${localTime(s)}`, end: en ? (allDay ? en : `${localKey(en)}T${localTime(en)}`) : null,
+        start: allDay ? s : `${at.day}T${at.time}`, end: en ? (allDay ? en : `${until.day}T${until.time}`) : null,
         allDay, editable: false, classNames: ["cal-ev", "cal-ev--external"],
         extendedProps: { kind: "external", layer, provider: "google", source: label, details: e.description || "", location: e.location || "", link: e.htmlLink || "" },
       });
@@ -357,7 +369,7 @@ async function disconnect(db, conn) {
     }
   } catch (_e) { /* calendar may already be gone */ }
   if (conn.provider === "google" && conn.refresh_token) {
-    axios.post(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(conn.refresh_token)}`).catch(() => {});
+    axios.post(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(openSecret(conn.refresh_token))}`).catch(() => {});
   }
   await db.query(`DELETE FROM calendar_connections WHERE connection_id = $1`, [conn.connection_id]);
   for (const k of pullCache.keys()) if (k.startsWith(`${conn.connection_id}:`)) pullCache.delete(k);

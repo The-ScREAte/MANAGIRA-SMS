@@ -881,19 +881,7 @@ const transportationController = {
     }
   },
 
-  updateMapProviderPost: async (req, res, db) => {
-    const organizationId = req.session.organizationId;
-    if (!organizationId) return res.redirect("/account/login");
-
-    try {
-      const provider = normalizeMapProvider(req.body.mapProvider);
-      await setTransportationMapProvider(db, organizationId, provider);
-      req.flash("success", "Transportation map provider updated.");
-    } catch (error) {
-      req.flash("error", "Unable to update map provider.");
-    }
-    return res.redirect("/transportation/manage");
-  },
+  
 
   updateDistanceUnitPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
@@ -1483,7 +1471,7 @@ const transportationController = {
         `SELECT user_id FROM users WHERE organization_id = $1 AND LOWER(email) = LOWER($2) AND user_id != $3`,
         [organizationId, email, userId]
       );
-      if (emailOwner.rows.length) {
+      if (emailOwner.rows.length || await require("../utils/staffChangeGuard").takesOwnersEmail(db, organizationId, userId, email)) {
         const message = "Another employee already uses this email address.";
         if (wantsJson(req)) return res.status(409).json({ ok: false, message });
         req.flash("error", message);
@@ -2401,6 +2389,7 @@ const transportationController = {
 
   /* ---------- bus requests ---------- */
   requestStartGet: (req, res, db) => answer(res, async () => {
+    if (!Number.isInteger(req.busRequester.studentId)) throw new busRequests.RequestError("Choose a student first.", 400);
     await requireTransportationOn(db, req.session.organizationId);
     const data = await busRequests.requestStart(db, req.session.organizationId, req.busRequester.studentId);
     return { success: true, ...data };
@@ -2483,14 +2472,7 @@ const transportationController = {
     return { success: true, saved, message: "Sent to your lead." };
   }),
 
-  driverArrivalsPost: (req, res, db) => answer(res, async () => {
-    const organizationId = req.session.organizationId;
-    const driver = staffIdentity(req.session);
-    const trip = await liveBus.tripForDriver(db, organizationId, toInt(req.body?.tripId), driver.userId);
-    if (!trip) throw new transportReports.ReportError("Active trip not found.", 404);
-    const result = await transportReports.saveArrivals(db, organizationId, driver, trip, req.body?.arrivals);
-    return { success: true, ...result };
-  }),
+  
 
   /* ---------- boarding, and who is riding today ---------- */
   driverBoardingPost: (req, res, db) => answer(res, async () => {

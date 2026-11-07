@@ -7,6 +7,8 @@ const {
   isOrganizationOwnerEmail,
   withinPlan,
   PERMISSION_OPTIONS,
+  isPortalRole,
+  isManagerRole,
 } = require('./permissionMiddleware');
 const { workspaceAccess } = require('../utils/workspaceAccess');
 const features = require("../utils/shards/features");
@@ -74,13 +76,14 @@ const setAllowedPermissions = async (req, res, next) => {
     }
 
     const userId = req.session?.user?.user_id || req.session?.userId || null;
-    if (!userId) {
+    // A parent or student holds no staff permission: their ids come from other tables.
+    if (!userId || isPortalRole(userRole)) {
       return next();
     }
 
-    // The school's signup email is its owner, whatever role the record holds.
+    // The manager with the school's signup email is its owner.
     const userEmail = req.session?.user?.email || null;
-    if (userEmail && await isOrganizationOwnerEmail(db, organizationId, userEmail)) {
+    if (userEmail && isManagerRole(userRole) && await isOrganizationOwnerEmail(db, organizationId, userEmail)) {
       grant(ALL_PERMISSION_KEYS);
       return next();
     }

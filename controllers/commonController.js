@@ -45,6 +45,8 @@ const { libraryPickLists, librarySubjectName, listTermDefinitions, renameTermDef
 const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/recordGuards");
 const assessmentEntry = require("../utils/assessmentEntry");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
+
+const parseTruthyFlag = (value) => ["1", "true", "yes", "on"].includes(String(value === undefined || value === null ? "" : value).trim().toLowerCase());
 const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
 const { REJECTED_KEEP_DAYS, ensureAdmissionStatusSchema, rejectApplication, reverseRejection } = require("../utils/admissionRejections");
 const {
@@ -7993,41 +7995,7 @@ const commonController = {
     }
   },
 
-  getMajorityGraduationYearGroup: async (req, res, db) => {
-    const { classId } = req.query;
-
-    if (!classId) {
-      return res.status(400).json({ error: "Class ID is required." });
-    }
-
-    try {
-      const result = await db.query(
-        `
-                SELECT graduation_year_group_id, COUNT(*) as count
-                FROM students
-                WHERE class_id = $1 AND organization_id = $2
-                GROUP BY graduation_year_group_id
-                ORDER BY count DESC
-                LIMIT 1;
-            `,
-        [classId, req.session.organizationId]
-      );
-
-      if (result.rows.length > 0) {
-        res.json({
-          majorityGraduationYearGroupId:
-            result.rows[0].graduation_year_group_id,
-        });
-      } else {
-        res.json({ majorityGraduationYearGroupId: null });
-      }
-    } catch (err) {
-      // ...removed error log for clean background operation...
-      res
-        .status(500)
-        .json({ error: "Failed to fetch majority graduation year group." });
-    }
-  },
+  
 
   getSubjectsForClass: async (req, res, db) => {
     const { classId } = req.query;
@@ -8446,57 +8414,7 @@ const commonController = {
         }
   },
 
-  studentInfo: async (req, res, db) => {
-    const studentId = req.query.studentId;
-
-    if (!studentId) {
-      return res.status(400).send("Student ID is required.");
-    }
-
-    try {
-      const organizationId = req.session.organizationId;
-
-      // Fetch student details
-      const studentResult = await db.query(
-        `
-            SELECT s.*, c.class_name, g.name AS grad_year_group_name
-            FROM students s
-            LEFT JOIN classes c ON s.class_id = c.class_id
-            LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
-            WHERE s.student_id = $1 AND s.organization_id = $2
-        `,
-        [studentId, organizationId]
-      );
-
-      if (studentResult.rows.length === 0) {
-        return res.status(404).send("Student not found.");
-      }
-
-      const student = studentResult.rows[0];
-
-      // Fetch guardians for the student
-      const guardiansResult = await db.query(
-        `
-            SELECT * FROM guardians WHERE student_id = $1
-        `,
-        [studentId]
-      );
-
-      const guardians = guardiansResult.rows;
-
-      res.render("common/studentInfo", {
-        title: "Student Info",
-        student,
-        guardians,
-        gradYearGroupName:
-          student.grad_year_group_name || "No graduation year group assigned",
-        messages: req.flash(),
-      });
-    } catch (err) {
-      // ...removed error log for clean background operation...
-      res.status(500).send("Failed to fetch student information.");
-    }
-  },
+  
 
   editStudentGet: async (req, res, db) => {
     try {
@@ -9674,7 +9592,7 @@ const commonController = {
       );
 
       // Only permissions for features this school's plan (and integrations) include.
-      const permissionOptions = permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) });
+      const permissionOptions = permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) });
       const availablePermissionKeys = new Set(permissionOptions.map((option) => option.key));
       const stripUnavailablePermissions = (permissions = []) =>
         permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
@@ -9722,7 +9640,7 @@ const commonController = {
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
-    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) }).map((option) => option.key));
+    const availablePermissionKeys = new Set(permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) }).map((option) => option.key));
     const featureFilteredPermissions = requestedPermissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
     const highRiskPermissions = HIGH_RISK_PERMISSIONS;
 
@@ -10091,16 +10009,18 @@ const commonController = {
   },
 
   setPasswordPost: async (req, res, db) => {
-    const { token, password, confirmPassword, type } = req.body;
+    const { token, confirmPassword, type } = req.body;
+    const password = String(req.body.password || "");
+    const backToForm = `/common/set-password?token=${encodeURIComponent(token || "")}&type=${encodeURIComponent(type || "")}`;
 
-    if (password !== confirmPassword) {
+    if (password !== String(confirmPassword || "")) {
       req.flash("error", "Passwords do not match.");
-      return res.redirect(`/common/set-password?token=${token}&type=${type || ''}`);
+      return res.redirect(backToForm);
     }
 
     if (password.length < 6) {
       req.flash("error", "Password must be at least 6 characters long.");
-      return res.redirect(`/common/set-password?token=${token}&type=${type || ''}`);
+      return res.redirect(backToForm);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -10719,7 +10639,7 @@ const commonController = {
       const mailroomScope = rawSelectedPermissions.includes(MAILROOM_ALL_ACCESS_KEY) ? "all" : "classes";
 
       // Only permissions for features this school's plan (and integrations) include.
-      const permissionOptions = permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) });
+      const permissionOptions = permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) });
       const availablePermissionKeys = new Set(permissionOptions.map((option) => option.key));
       const stripUnavailablePermissions = (permissions = []) =>
         permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
@@ -10802,7 +10722,7 @@ const commonController = {
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
     // Plan features only; a permission the employee already holds for a feature
     // the plan no longer shows is kept (sent back from the form as a hidden field).
-    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) }).map((option) => option.key));
+    const availablePermissionKeys = new Set(permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: await transportationIsOn(db, req) }).map((option) => option.key));
     const heldPermissionKeys = new Set(await getUserPermissions(db, userId, req.session.organizationId).catch(() => []));
     const featureFilteredPermissions = requestedPermissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey) || heldPermissionKeys.has(permissionKey));
     const highRiskPermissions = HIGH_RISK_PERMISSIONS;
@@ -13000,92 +12920,9 @@ NUMBERING:
     }
   },
 
-  listClassAssessmentExams: async (req, res, db) => {
-    const organizationId = req.session.organizationId;
-    const classId = Number(req.query.classId);
-    const termId = Number(req.query.termId || req.session.currentTermId);
-    const role = normalizeRoleKey(req.session.userRole || req.session.accountType || req.session.user?.account_type);
+  
 
-    if (!["manager", "supervisor"].includes(role)) {
-      return res.status(403).json({ success: false, error: "Access denied." });
-    }
-
-    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId)) {
-      return res.status(400).json({ success: false, error: "classId and termId are required." });
-    }
-
-    try {
-      const result = await db.query(
-        `SELECT
-           a.group_id,
-           MIN(a.title) AS exam_title,
-           COUNT(*)::int AS assessment_count,
-           ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.subject_name ORDER BY s.subject_name), NULL) AS subjects
-         FROM assessments a
-         LEFT JOIN subjects s ON s.subject_id = a.subject_id
-         WHERE a.organization_id = $1
-           AND a.class_id = $2
-           AND a.term_id = $3
-         GROUP BY a.group_id
-         ORDER BY MIN(a.title) ASC`,
-        [organizationId, classId, termId]
-      );
-
-      return res.json({ success: true, exams: result.rows });
-    } catch (error) {
-      return res.status(500).json({ success: false, error: "Failed to load class assessment exams." });
-    }
-  },
-
-  renameClassAssessmentExam: async (req, res, db) => {
-    const organizationId = req.session.organizationId;
-    const classId = Number(req.body.classId);
-    const termId = Number(req.body.termId || req.session.currentTermId);
-    const groupId = Number(req.body.groupId);
-    const newTitle = String(req.body.newTitle || "").trim();
-    const role = normalizeRoleKey(req.session.userRole || req.session.accountType || req.session.user?.account_type);
-
-    if (!["manager", "supervisor"].includes(role)) {
-      return res.status(403).json({ success: false, error: "Access denied." });
-    }
-
-    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId) || !Number.isInteger(groupId) || !newTitle) {
-      return res.status(400).json({ success: false, error: "groupId, classId, termId and newTitle are required." });
-    }
-
-    try {
-      const updateResult = await db.query(
-        `UPDATE assessments
-         SET title = $1
-         WHERE organization_id = $2
-           AND class_id = $3
-           AND term_id = $4
-           AND group_id = $5`,
-        [newTitle, organizationId, classId, termId, groupId]
-      );
-
-      if (!updateResult.rowCount) {
-        return res.status(404).json({ success: false, error: "Assessment exam group not found." });
-      }
-
-      try {
-        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
-        if (googleIntegration.shouldShowFeatures) {
-          await markGoogleSync(
-            db,
-            organizationId,
-            "queued",
-            "Assessment exam rename detected. Google Classroom sync queued."
-          );
-        }
-      } catch (_) {
-      }
-
-      return res.json({ success: true, message: "Assessment exam renamed successfully." });
-    } catch (error) {
-      return res.status(500).json({ success: false, error: "Failed to rename class assessment exam." });
-    }
-  },
+  
 
   calculateGrade: function (totalPercentage) {
     if (totalPercentage === "-" || isNaN(totalPercentage)) return "-";
@@ -13124,48 +12961,9 @@ NUMBERING:
     return getDefaultGradeLabel(totalPercentage);
   },
 
-  getAssessments: async (req, res, db) => {
-    const { classId, subjectId } = req.query;
+  
 
-    try {
-      await ensureAssessmentControlSchema(db);
-      const result = await db.query(
-        `SELECT *,
-                obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
-                COALESCE(is_active, TRUE) AS is_active,
-                edit_window_start,
-                edit_window_end
-         FROM assessments
-         WHERE class_id = $1 AND subject_id = $2 AND organization_id = $3
-         ORDER BY assessment_id ASC`,
-        [classId, subjectId, req.session.organizationId]
-      );
-      res.json(result.rows);
-    } catch (error) {
-            res.status(500).send("Failed to fetch assessments");
-    }
-  },
-
-  getScores: async (req, res, db) => {
-    const { classId, subjectId } = req.query;
-
-    try {
-      const result = await db.query(
-        `
-                SELECT ar.student_id, ar.assessment_id, ar.score, s.first_name, s.last_name
-                FROM assessment_results ar
-                JOIN students s ON ar.student_id = s.student_id
-                JOIN assessments a ON ar.assessment_id = a.assessment_id
-                WHERE a.class_id = $1 AND a.subject_id = $2 AND s.organization_id = $3
-                ORDER BY ar.assessment_id ASC, s.student_id ASC`,
-        [classId, subjectId, req.session.organizationId]
-      );
-
-      res.json(result.rows);
-    } catch (error) {
-            res.status(500).send("Failed to fetch scores");
-    }
-  },
+  
 
   manageAssessment: async (req, res, db) => {
     const isEmbedded = isEmbeddedRequest(req, "manageAssessment");
@@ -16189,55 +15987,7 @@ NUMBERING:
     }
   },
 
-  updateAssessmentItemControlPost: async (req, res, db) => {
-    const organizationId = Number(req.session.organizationId);
-    const assessmentId = Number(req.body.assessmentId);
-    const action = String(req.body.action || "").trim().toLowerCase();
-
-    if (!organizationId || !Number.isInteger(assessmentId) || assessmentId <= 0 || !action) {
-      return res.status(400).json({ success: false, error: "assessmentId and action are required." });
-    }
-
-    const allowedActions = new Set(["lock", "open", "reactivate"]);
-    if (!allowedActions.has(action)) {
-      return res.status(400).json({ success: false, error: "Invalid action." });
-    }
-
-    try {
-      await ensureAssessmentControlSchema(db);
-
-      let updateQuery = "";
-      if (action === "lock") {
-        updateQuery = `
-          UPDATE assessments
-          SET is_locked = TRUE
-          WHERE assessment_id = $1 AND organization_id = $2
-        `;
-      } else if (action === "open") {
-        updateQuery = `
-          UPDATE assessments
-          SET is_locked = FALSE
-          WHERE assessment_id = $1 AND organization_id = $2
-        `;
-      } else {
-        updateQuery = `
-          UPDATE assessments
-          SET is_locked = FALSE,
-              is_active = TRUE
-          WHERE assessment_id = $1 AND organization_id = $2
-        `;
-      }
-
-      const updateResult = await db.query(updateQuery, [assessmentId, organizationId]);
-      if (!updateResult.rowCount) {
-        return res.status(404).json({ success: false, error: "Assessment not found." });
-      }
-
-      return res.json({ success: true, message: "Assessment status updated successfully." });
-    } catch (_error) {
-      return res.status(500).json({ success: false, error: "Failed to update assessment status." });
-    }
-  },
+  
 
   // Controller to delete an assessment group
   deleteAssessmentPost: async (req, res, db) => {
@@ -18042,47 +17792,11 @@ NUMBERING:
     }
   },
 
-  getClasses: async (req, res, db) => {
-    try {
-      const classesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
-        [req.session.organizationId]
-      );
-      res.json(classesResult.rows);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch classes." });
-    }
-  },
+  
 
-  registerSchoolYearEvent: async (req, res, db) => {
-    try {
-      await db.query(
-        "INSERT INTO school_events (name, event_date, details, organization_id, visibility) VALUES ($1, $2, $3, $4, $5)",
-        [
-          req.body.eventName,
-          req.body.startDate,
-          req.body.eventDetails,
-          req.session.organizationId,
-          req.body.visibility,
-        ]
-      );
-      res.redirect("/common/manageRecords");
-    } catch (error) {
-            res.status(500).send("Error processing your request");
-    }
-  },
+  
 
-  registerSchoolYearAnnouncement: async (req, res, db) => {
-    try {
-      await db.query(
-        "INSERT INTO announcements (message, organization_id, visibility) VALUES ($1, $2, $3)",
-        [req.body.announcement, req.session.organizationId, req.body.visibility]
-      );
-      res.redirect("/common/manageRecords");
-    } catch (error) {
-            res.status(500).send("Error processing your request");
-    }
-  },
+  
 
   getSchoolYearsData: async (db, organizationId) => {
     const schoolYearsResult = await db.query(
@@ -19214,18 +18928,7 @@ NUMBERING:
     }
   },
 
-  updateTerm: async (req, res, db) => {
-    const { term_id, term_name, start_date, end_date } = req.body;
-    try {
-      await db.query(
-        "UPDATE terms SET term_name = $1, start_date = $2, end_date = $3 WHERE term_id = $4 AND organization_id = $5",
-        [term_name, start_date, end_date, term_id, req.session.organizationId]
-      );
-      res.redirect("/common/manageRecords");
-    } catch (error) {
-            res.status(500).send("Error updating term");
-    }
-  },
+  
 
   // Renames one of the school's term names in every school year that uses it.
   renameTermName: async (req, res, db) => {
@@ -19698,7 +19401,7 @@ NUMBERING:
         req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
       ).trim().toLowerCase();
       const allowed = ['organization', 'admin', 'mini admin', 'supervisor', 'superviser', 'manager'].includes(role);
-      if (!allowed) return res.status(403).render('403', { title: 'Access Denied' });
+      if (!allowed) { req.flash('error', 'You do not have permission to access this page.'); return res.redirect('/common/orgDashboard'); }
 
       // Ensure the table exists (auto-create on first visit)
       try {
@@ -19919,6 +19622,9 @@ NUMBERING:
          AND NOT (user_id = $3 AND $4 = 'staff') LIMIT 1`,
         [newEmail, orgId, failure.user_id, failure.user_type]
       );
+      if (failure.user_type === 'staff' && await require("../utils/staffChangeGuard").takesOwnersEmail(db, orgId, failure.user_id, newEmail)) {
+        return res.json({ success: false, error: 'That email address is already in use by another account.' });
+      }
       if (dupStaff.rows.length > 0) {
         return res.json({ success: false, error: 'That email address is already in use by another staff member in this organisation.' });
       }
@@ -20700,34 +20406,7 @@ NUMBERING:
     }
   },
 
-  getGradYearGroupByClassId: async (req, res, db) => {
-    const { classId } = req.query;
-    if (!classId) {
-      return res.status(400).json({ error: "Class ID is required" });
-    }
-    try {
-      const result = await db.query(
-        `
-                SELECT g.name as grad_year_group_name
-                FROM classes c
-                JOIN graduation_year_groups g ON c.graduation_year_group_id = g.id
-                WHERE c.class_id = $1 AND c.organization_id = $2`,
-        [classId, req.session.organizationId]
-      );
-
-      if (result.rows.length > 0) {
-        res.json({ grad_year_group_name: result.rows[0].grad_year_group_name });
-      } else {
-        res.status(404).json({
-          error: "Graduation year group not found for the given class ID.",
-        });
-      }
-    } catch (err) {
-            res
-        .status(500)
-        .json({ error: "Failed to fetch graduation year group data." });
-    }
-  },
+  
 
   closeSchoolYear: async (req, res, db) => {
     try {
@@ -21382,9 +21061,7 @@ NUMBERING:
     }
   },
 
-  deleteSchoolYearPost: async (req, res, db) => {
-    return commonController.deleteSchoolYear(req, res, db);
-  },
+  
 
   // Guardian Management Functions
   guardiansListGet: async (req, res, db) => {

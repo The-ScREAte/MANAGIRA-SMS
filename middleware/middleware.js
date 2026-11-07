@@ -60,7 +60,7 @@ async function isAuthenticated(req, res, next) {
 
         // A background preload of a page this person can't open: just say no, no message.
 
-        if (req.session && ['Student', 'Driver'].includes(req.session.userRole) && req.get && req.get('X-SPA-Preload') === '1') {
+        if (req.session && ['Student', 'Driver', 'Guardian'].includes(req.session.userRole) && req.get && req.get('X-SPA-Preload') === '1') {
 
             return res.status(403).end();
 
@@ -72,6 +72,16 @@ async function isAuthenticated(req, res, next) {
             }
             req.flash('error', 'You do not have permission to access that page.');
             return res.redirect('/student/dashboard');
+        }
+
+        // Parents have their own door (isGuardianAuthenticated). This one is for staff, and a
+        // parent is never let through it to rely on each page refusing them.
+        if (req.session && req.session.userRole === 'Guardian') {
+            if (expectsJsonResponse(req)) {
+                return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
+            }
+            req.flash('error', 'You do not have permission to access that page.');
+            return res.redirect('/guardian/dashboard');
         }
 
         // Drivers work only from their own portal (/driver) and its trip and

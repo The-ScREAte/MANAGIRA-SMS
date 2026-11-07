@@ -27,3 +27,17 @@
 - Every new feature goes in `utils/shards/features.js` with `access: "selected"` and is wrapped with `isOn` (`featureOn` in views): a push must reach only the sandbox shard until it's released from `/admin/shards/features`.
 - `sandbox-shard` shares the main shard's database. A move between them changes only the directory; never let `moveSchool` run on one database, because it ends by deleting the old copy.
 - A test shard gets nothing of production's: no control database, keys or shared secrets (`environmentFor`).
+- Single sign-on lives in `utils/sso/`. One connection per school; an answer can only ever sign in an account of that school, never a platform admin. A connection stays off until a real test passes and a manager confirms their password, and changing how it signs in turns it off again. A new session field on a password sign-in must also go in `utils/sso/signIn.js`.
+- A school's main manager can always use a password (`passwordRefused`): if a provider goes down, someone must still get in. Single sign-on opens their account only if they turned it on themselves (`turned_on_by_main`).
+- Only a Manager reaches single sign-on settings, whatever permissions anyone else holds (`managersOnly`). Once it's on, saving or turning it off asks for the password, and only the protocol in use keeps its keys.
+- From the main login, single sign-on goes to a school only if no other school has that email (`connectionForEmail`): a school can add any email to its lists. A link from another site asks first (`ssoConfirm`). Nothing looks up an email while someone types.
+- Sign-in forms use `signInGuard`, never `authRateLimit`: nobody is ever refused and a right password always gets in. Past a free allowance, wrong tries wait their turn before the password is checked.
+- Every password sign-in page includes `partials/authLoader`; it only covers the screen. Mira's login has its own copy.
+- Parent pages use `isGuardianAuthenticated`. `isAuthenticated` is the staff door and refuses parents and students; a page never relies on `blockGuardians` alone.
+- Student and parent ids come from other tables, so they're never looked up as staff: `userHasPermission`, `setAllowedRoles` and `setAllowedPermissions` skip them (`isPortalRole`). A school's signup email counts as its owner only for a Manager, and `takesOwnersEmail` stops anyone editing their way onto it.
+- `/static` answers 404 in production: it holds a design copy for the local Vite preview, not pages.
+- Fetch an address someone typed only through `utils/safeFetch.js`: it refuses the server's own network at the moment of connecting, including after a redirect.
+- Calendar sign-ins and secret links are stored with `lockSecret` and read with `openSecret`. Google, Outlook and subscribed calendars load through `collectOutsideItems`, never inside `collectItems`: one slow outside service must not hold up anyone's calendar.
+- The main login takes parents, students and hub users to their portal only after their own sign-in has checked the password (`utils/smartLogin.js`); before that it says nothing about an email.
+- A hub moves with all its schools. Only between shards on one database can a single school move alone (`wholeHub: false`); the hub then shows on each shard with the schools that are there.
+- The database login the app uses can't create databases or logins (`scripts/secureDatabaseLogin.js`). The admin login acts as that login by default, so new tables stay in its reach; anything needing admin powers starts with `RESET ROLE`.

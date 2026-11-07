@@ -31,15 +31,12 @@ module.exports = (db) => {
     router.post('/saveReportTemplates', isAuthenticated, canManageReports, express.json(), printController.saveReportTemplates); // Which report card layout each class uses
     router.post('/saveScoreRemarks', isAuthenticated, canManageReports, printController.saveScoreRemarks); // Save score remarks
     router.post('/saveScoreRemarksAjax', isAuthenticated, canManageReports, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
-    router.post('/getScoreRemarkClassCoverageAjax', isAuthenticated, canManageReports, printController.getScoreRemarkClassCoverageAjax); // Fetch class coverage for a score remark range/value
-    router.post('/setScoreRemarkClassLockAjax', isAuthenticated, canManageReports, printController.setScoreRemarkClassLockAjax); // Lock/unlock a specific score remark rule range for selected classes
+// Lock/unlock a specific score remark rule range for selected classes
     router.post('/saveRemarks', isAuthenticated, printController.saveRemarks); // Save remarks
     router.post('/createCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.createCustomRemarkTypeAjax); // Create custom remark type via AJAX
     router.post('/deleteCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.deleteCustomRemarkTypeAjax); // Delete custom remark type via AJAX
     router.post('/saveClassroomRemarkTypes', isAuthenticated, printController.saveClassroomRemarkTypes); // Save classroom remark visibility controls
     router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
-    router.get('/deleteStatusSettings', isAuthenticated, canManageReports, printController.deleteStatusSettings);
-
     // Merit sheet generation (supports GET refresh + POST form submit)
     router.get('/generateMeritSheet', checkFeatureAccess, isAuthenticated, printController.generateMeritSheet);
     router.post('/generateMeritSheet', isAuthenticated, printController.generateMeritSheet); // Generate merit sheet
@@ -48,8 +45,6 @@ module.exports = (db) => {
     // Route to upload a signature image using multer's memory storage
     router.post('/uploadSignatureImage', isAuthenticated, canManageReports, upload.single('signatureImage'), printController.uploadSignatureImage);
 
-    // Routes for deleting signature image, remarks, and score remarks
-    router.get('/deleteSignatureImage', isAuthenticated, canManageReports, printController.deleteSignatureImage);
     router.get('/deleteSignatureForClass', isAuthenticated, canManageReports, printController.deleteSignatureForClass);
     router.get('/deleteEntireSignature', isAuthenticated, canManageReports, printController.deleteEntireSignature);
     router.post('/addClassesToSignature', isAuthenticated, canManageReports, printController.addClassesToSignature);
@@ -94,15 +89,28 @@ module.exports = (db) => {
     router.post('/saveDisplaySettings', isAuthenticated, express.json(), printController.saveDisplaySettings);
 
    // Email reports
-    router.get('/emailHistoryPage', isAuthenticated, (req, res) => {
+    router.get('/emailHistoryPage', isAuthenticated, async (req, res, next) => {
         const { classId = '', termId = '' } = req.query;
-        res.render('print/emailHistory', {
-          organizationId: req.session.organizationId,
-          classId,
-          termId,
-          hideGlobalHeader: true,
-          hideGlobalFooter: true,
-        });
+        const organizationId = req.session.organizationId;
+        try {
+          // The filters' choices come with the page: this school's classes and its terms, newest first.
+          const [classes, terms] = await Promise.all([
+            db.query('SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY class_name', [organizationId]),
+            db.query(`SELECT t.term_id, t.term_name, sy.year_label FROM terms t JOIN school_years sy ON sy.id = t.school_year_id
+                       WHERE t.organization_id = $1 ORDER BY t.start_date DESC NULLS LAST LIMIT 40`, [organizationId]),
+          ]);
+          res.render('print/emailHistory', {
+            organizationId,
+            classId,
+            termId,
+            filterClasses: classes.rows,
+            filterTerms: terms.rows.map((t) => ({ term_id: t.term_id, term_name: t.year_label ? `${t.term_name} (${t.year_label})` : t.term_name })),
+            hideGlobalHeader: true,
+            hideGlobalFooter: true,
+          });
+        } catch (error) {
+          next(error);
+        }
     });
    router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
     router.get('/getGuardianWhatsappNumbers', isAuthenticated, printController.getGuardianWhatsappNumbers);

@@ -5,7 +5,7 @@
 // loaded, so a short follow-up ("yes", "the first one") keeps the tools it
 // needs. The model can always ask for another area with load_tools.
 
-const CORE_TOOLS = ["find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
+const CORE_TOOLS = ["whats_new", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
 
 // name -> { label (shown to the model), keywords (matched against the
 // conversation), tools }
@@ -35,9 +35,10 @@ const AREAS = {
     ],
   },
   assessments: {
-    label: "Tests/assessments, online question sets, grading attempts, posting scores",
-    keywords: /\b(tests?|exams?|assessments?|quiz\w*|questions?|scores?|marks?|weights?|lock\w*|unlock\w*|attempts?|online|grad(e|ing) (the )?attempts?|post(ed)? scores?)\b/,
+    label: "Tests/assessments, online question sets, grading attempts, posting scores, showing work to parents",
+    keywords: /\b(homework|parent portal|tests?|exams?|assessments?|quiz\w*|questions?|scores?|marks?|weights?|lock\w*|unlock\w*|attempts?|online|grad(e|ing) (the )?attempts?|post(ed)? scores?)\b/,
     tools: [
+      "show_work_to_parents",
       "list_assessments", "create_test", "modify_test", "delete_test", "set_test_status", "set_test_date_window",
       "list_question_sets", "set_test_questions", "delete_question_set", "review_question_set", "reuse_question_set",
       "list_question_set_students", "post_question_set_scores", "unpost_question_set_scores", "set_student_assessment_status",
@@ -83,9 +84,10 @@ const AREAS = {
     tools: ["list_employees", "create_employee", "set_employee_hold"],
   },
   transport: {
-    label: "Transportation (buses, drivers, routes, stops, schedules, student transport)",
-    keywords: /\b(bus(es)?|transport\w*|drivers?|routes?|stops?|pick ?ups?|drop ?offs?|rides?|vehicles?)\b/,
+    label: "Transportation (buses, drivers, routes, stops, schedules, student transport, who's riding or boarded today)",
+    keywords: /\b(bus(es)?|transport\w*|drivers?|routes?|stops?|pick ?ups?|drop ?offs?|rides?|riding|boarded|boarding|not coming|vehicles?)\b/,
     tools: [
+      "get_bus_riding_today",
       "list_transport_buses", "list_transport_drivers", "list_transport_routes", "list_transport_stops", "list_transport_schedules",
       "get_student_transportation", "get_transportation_live_status", "create_transport_bus", "set_transport_bus_status",
       "delete_transport_bus", "create_transport_route", "set_transport_route_status", "delete_transport_route", "create_transport_stop",
@@ -95,10 +97,10 @@ const AREAS = {
     ],
   },
   communication: {
-    label: "Messages to guardians (Mailroom: email/text/WhatsApp), events, announcements, failed emails, notification preferences",
-    keywords: /\b(events?|announce\w*|notices?|messages?|emails?|notify|notifications?|send|calendar|holidays?|bounced?|failed|draft|mailroom|text|sms|whatsapp|remind\w*)\b/,
+    label: "Messages to guardians (Mailroom: email/text/WhatsApp), events, class activities, the calendar, announcements, failed emails, notification preferences",
+    keywords: /\b(activit(y|ies)|field trips?|clubs?|events?|announce\w*|notices?|messages?|emails?|notify|notifications?|send|calendars?|agenda|schedule|sync|synced|outlook|holidays?|bounced?|failed|draft|mailroom|text|sms|whatsapp|remind\w*)\b/,
     tools: [
-      "list_events", "create_event", "update_event", "delete_event", "list_school_announcements", "create_school_announcement",
+      "get_my_calendar", "get_calendar_sync_status", "list_activities", "create_activity", "list_events", "create_event", "update_event", "delete_event", "list_school_announcements", "create_school_announcement",
       "update_school_announcement", "delete_school_announcement", "create_announcement", "draft_message", "list_failed_emails",
       "check_email_availability", "fix_failed_email", "send_message", "list_sent_messages", "get_notification_preferences", "set_notification_preferences",
       "set_organization_notification_preferences",
@@ -124,10 +126,10 @@ const AREAS = {
     ],
   },
   settings: {
-    label: "School settings (profile, logo, font, display, nickname, student IDs, integrations status, feedback)",
-    keywords: /\b(settings?|integrations?|font|logo|profile|nickname|display|name format|student ids?|customi[sz]\w*|feedback|bugs?|suggest\w*|whatsapp|sms|google classroom|portal)\b/,
+    label: "School settings (profile, logo, font, display, nickname, student IDs, integrations status, single sign-on status, feedback)",
+    keywords: /\b(sso|saml|single sign|sign[- ]?on|okta|entra|openid|oidc|settings?|integrations?|font|logo|profile|nickname|display|name format|student ids?|customi[sz]\w*|feedback|bugs?|suggest\w*|whatsapp|sms|google classroom|portal)\b/,
     tools: [
-      "get_integrations_status", "get_school_customization", "update_school_profile", "set_school_font", "set_display_preferences",
+      "get_sso_status", "get_integrations_status", "get_school_customization", "update_school_profile", "set_school_font", "set_display_preferences",
       "set_school_nickname", "set_student_id_settings", "submit_feedback",
     ],
   },

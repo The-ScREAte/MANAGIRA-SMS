@@ -71,7 +71,6 @@
       '/account/update-plan',
       '/account/cancel-subscription',
       '/common/studentDetails',
-      '/common/studentInfo',
       '/common/editStudent',
       '/common/admissionPending',
       '/common/archivedStudents',
@@ -100,12 +99,9 @@
       '/enrollment/manageEnrollment',
       '/enrollment/modifyEnrollment',
       '/common/attendanceCollection',
-      '/print/transcript',
-      '/print/modifyStatusSettings',
       '/print/meritSheetPage',
       '/print/emailHistoryPage',
       '/promotion/apply',
-      '/promotion/closeGraduationYearGroup',
       '/legal/help',
       '/legal/employment',
       '/legal/donations',
@@ -123,7 +119,6 @@
       '/guardian/paygira',
       '/guardian/academic-details',
       '/guardian/student',
-      '/guardian/studentDetails',
       '/guardian/settings',
       '/guardian/report',
       '/guardian/reports',
@@ -192,16 +187,19 @@
     '/common/registerSchoolYear',// Complex form submissions
     '/stats/',                   // Chart.js initialization (all stats pages)
     '/print/',                   // Server-rendered PDF/print templates
-    '/promotion/applyPromotion', // Cascading dropdowns
     '/common/createEmployee',    // File uploads
     '/common/modifyEmployee',    // File uploads
     '/common/createTest',        // Rich editor
-    '/common/editTest',          // Rich editor
     '/account/managePublicContent', // Quill editor + image uploads
     '/account/personalization',  // Theme switching with full reload
     '/common/reports',           // Dynamic filters + tables; safer to full-load
     '/common/publicDashboard',   // School website: its own page, styles, light/dark and scripts
-    '/common/publicRegister'     // Online registration: its own page and styles
+    '/common/publicRegister',    // Online registration: its own page and styles
+    '/account/login',            // Sign-in pages: their own page, nothing else to load
+    '/account/sso',
+    '/account/student-login',
+    '/account/guardian-login',
+    '/hub/login'
   ];
 
   // Routes that should still SPA-navigate (fast, no full reload) but whose
@@ -596,8 +594,10 @@
       const newMain = doc.querySelector('main');
       const newBody = doc.querySelector('body');
 
-      if (!currentMain || !newMain) {
-        throw new Error('Missing <main> element');
+      // A page with its own design (sign-in pages, prints) has no app frame around it: swapping
+      // only its middle into this page mixed the two. It opens as a page of its own instead.
+      if (!doc.getElementById('app-scale-root') || !currentMain || !newMain) {
+        throw new Error('Not a page of the app frame');
       }
 
       // 0. Run any cleanup callbacks registered by the outgoing page.
@@ -1151,6 +1151,8 @@
     }
 
     _preloadPriorityPages() {
+      // A visitor on the login page needs that page and nothing else: warming others only slows it.
+      if (!this.userType || this.userType === 'public') return;
       if (this._slowConnection()) return;
       // Warm-up never competes with the page itself: wait until it has loaded.
       if (document.readyState !== 'complete') {
@@ -1160,32 +1162,19 @@
         }
         return;
       }
-      const pages = PRELOAD_PRIORITY[this.userType] || PRELOAD_PRIORITY.public;
-      pages.forEach(page => {
+      const pages = PRELOAD_PRIORITY[this.userType] || [];
+      pages.slice(0, 2).forEach(page => {
         if (page !== this.currentPath) {
           this._preload(page);
         }
       });
 
-      this._preloadClassDashboardsFromOrgDashboard();
+      // Class pages, like every other link, load when the pointer reaches them or a finger
+      // touches them (_onLinkHover, _onTouchStart). Loading every class right after a sign-in
+      // cost a big school megabytes and a busy server before anyone had chosen a class.
 
-      // Also warm any SPA-able link currently rendered on screen (nav menus,
-      // sidebars, tabs). Scheduled on idle so it never competes with the user.
-      const schedule = (cb) => ('requestIdleCallback' in window)
-        ? requestIdleCallback(cb, { timeout: 4000 })
-        : setTimeout(cb, 600);
-
-      schedule(() => {
-        const seen = new Set();
-        document.querySelectorAll('header a[href], nav a[href], .sidebar a[href], aside a[href]').forEach(link => {
-          const href = link.getAttribute('href');
-          if (!href || seen.has(href)) return;
-          seen.add(href);
-          if (this._shouldHandle(href) && !this._isExcluded(href)) {
-            this._preload(href);
-          }
-        });
-      });
+      // Other links warm on hover or touch: rendering every menu item right after a sign-in
+      // filled the server with pages nobody had asked for, just as the first page was loading.
 
       // NOTE: We intentionally do NOT warm *every* route for this user type.
       // That background sweep fired a full server render for each route on
@@ -1193,56 +1182,6 @@
       // browser's connection pool so the user's actual click had to queue
       // behind it. Hover/mousedown + the priority + visible-link preloads
       // already keep the common pages hot without the request storm.
-    }
-
-    _preloadClassDashboardsFromOrgDashboard() {
-      if (this.userType !== 'organization') return;
-      if (!this.currentPath.startsWith('/common/orgDashboard')) return;
-
-      const classLinks = Array.from(
-        document.querySelectorAll('[data-od-classes] a[href^="/common/classDashboard?classId="], .classes-container a[href^="/common/classDashboard?classId="]')
-      );
-
-      if (classLinks.length === 0) return;
-
-      const queue = [];
-      const seen = new Set();
-
-      classLinks.forEach((link) => {
-        const href = link.getAttribute('href');
-        if (!href || seen.has(href)) return;
-        seen.add(href);
-        if (!this._shouldHandle(href) || this._isExcluded(href)) return;
-        const normalized = this._normalizePath(href);
-        if (this.cache.has(normalized) || this._preloadsInFlight.has(normalized)) return;
-        queue.push(href);
-      });
-
-      if (queue.length === 0) return;
-
-      const schedule = (cb) => ('requestIdleCallback' in window)
-        ? requestIdleCallback(cb, { timeout: 5000 })
-        : setTimeout(cb, 500);
-
-      const pump = () => {
-        if (queue.length === 0) return;
-        if (this.isNavigating) {
-          schedule(pump);
-          return;
-        }
-        if (this._preloadsInFlight.size >= CONFIG.MAX_CONCURRENT_PRELOADS) {
-          schedule(pump);
-          return;
-        }
-
-        const next = queue.shift();
-        if (next) {
-          this._preload(next);
-        }
-        schedule(pump);
-      };
-
-      schedule(pump);
     }
 
     /**

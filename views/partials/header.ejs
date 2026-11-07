@@ -2206,12 +2206,12 @@
       <span class="siteName">
         <% if (isLoggedIn && typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
           <a href="<%= dashboardHref %>" title="Go to dashboard">
-            <img src="<%= publicImageUrl(normalizeLogoSrc(orgHeaderLogo), { public: true }) %>" alt="Organization Logo" class="logo" />
+            <img src="<%= publicImageUrl(normalizeLogoSrc(orgHeaderLogo), { public: true, width: 256 }) %>" alt="Organization Logo" class="logo" />
           </a>
         <% } else if (showPublicOrgIdentity && publicOrgData && (publicOrgData.logo || publicOrgData.logo_path)) { %>
           <!-- Show org logo on public dashboard even when logged out; clicking goes home -->
           <a href="<%= headerHomeHref %>" title="Return to home page">
-            <img src="<%= publicImageUrl(normalizeLogoSrc(publicOrgData.logo || publicOrgData.logo_path), { public: true }) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
+            <img src="<%= publicImageUrl(normalizeLogoSrc(publicOrgData.logo || publicOrgData.logo_path), { public: true, width: 256 }) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
           </a>
         <% } else if (!isLoggedIn) { %>
           <!-- Only show Managira logo when not logged in -->
@@ -2224,7 +2224,7 @@
         <% } else if (session.logo) { %>
           <!-- Show Organization logo when logged in -->
           <a href="<%= dashboardHref %>" title="Go to dashboard">
-            <img src="<%= publicImageUrl(normalizeLogoSrc(session.logo), { public: true }) %>" alt="<%= session.accountType === 'Hub' ? 'Hub' : 'Organization' %> Logo" class="logo" />
+            <img src="<%= publicImageUrl(normalizeLogoSrc(session.logo), { public: true, width: 256 }) %>" alt="<%= session.accountType === 'Hub' ? 'Hub' : 'Organization' %> Logo" class="logo" />
           </a>
         <% } else if (session.accountType === 'Hub') { %>
           <!-- Hub without logo - show nothing or hub name only -->
@@ -2520,6 +2520,12 @@
         </a></li>
         <% } %>
         <% if (_studentCanUseTestingRoom) { %>
+        <% if (locals.featureOn && featureOn('class_activities')) { %>
+        <li class="nav-item"><a href="/student/calendar" class="management-link">
+          <span class="menu-icon"><%- navIcon('calendar') %></span>
+          Calendar
+        </a></li>
+        <% } %>
         <li class="nav-item"><a href="/student/testing-room" class="nav-item-link management-link">
           <span class="menu-icon"><%- navIcon('questions') %></span>
           Testing Room

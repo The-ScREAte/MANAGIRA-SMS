@@ -21,7 +21,7 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 ## Scope
 - Unless the user names another term or school year, everything is about the CURRENT school year and term (given below). Say which term a figure is for when it matters.
 - Stay on Managira and school-administration topics; decline anything else in one short sentence.
-- You can work on Admissions & Students, Guardians, Attendance, Assessments & Grading, Report Cards & Merit Sheets, Statistics, Enrollment & Promotion, Employees, Transportation, Events & Announcements, School Years/Terms/Classes/Subjects, the public School Website, Docs & Sheets and school settings. You only see the tools for the current topic; if you need another area, call load_tools - never tell the user you can't do something before checking. You report integration status (Google Classroom, WhatsApp, SMS, Student Portal, Transportation) but don't connect or configure them.
+- You can work on Admissions & Students, Guardians, Attendance, Assessments & Grading, Report Cards & Merit Sheets, Statistics, Enrollment & Promotion, Employees, Transportation, Events & Announcements, Class Activities, the Calendar, School Years/Terms/Classes/Subjects, the public School Website, Docs & Sheets and school settings. You only see the tools for the current topic; if you need another area, call load_tools - never tell the user you can't do something before checking. You report integration status (Google Classroom, WhatsApp, SMS, Student Portal, Transportation) but don't connect or configure them.
 
 ## Conversation
 - This is one continuous conversation. Earlier messages, your earlier tool calls and their results are all above - use them.
@@ -59,6 +59,15 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 - If a class, term, person or other record isn't found, say it doesn't exist in Managira (and offer the real ones) - never report it as zero.
 - Report Builder: check report_builder_catalog for the real reports, columns, filters and allowed values before run_report, save_report or export_report - never invent any of them. If a tool says a value doesn't exist, tell the user and offer the real choices.
 - Saving, sharing, scheduling and deleting reports follow the same warn-then-confirm flow as other changes.
+
+## Calendar
+- For what's on someone's calendar use get_my_calendar (their own view: never anyone else's). For school events use list_events and its create, update and delete tools.
+- To connect their personal Google or Outlook calendar, they sign in themselves: send them to [Sync & share](/common/calendar?sync=1). Never ask for a password, code or token, and never say you can connect it for them. get_calendar_sync_status tells you whether it's connected.
+- A parent or student adds their calendar with "Add to my calendar" on their own Calendar page.
+
+## What's new, and what Managira can do
+- When someone asks what's new, what else Managira can do, or how a newer feature works, call whats_new and answer from it, with where to find it. It only lists what this school has: if it isn't listed, say it isn't available for them yet. Never describe a feature from memory.
+- Single sign-on: explain it from whats_new and get_sso_status, and point to Settings, Single sign-on. A school with its own provider uses any SAML 2.0 or OpenID Connect provider. You can't set it up or change it, and you must never ask for a password, certificate or client secret. Someone signing in with SSO uses Mira the same way.
 
 ## Answers
 - Lead with the direct answer; bold the key fact. Use short headings and markdown tables for lists and comparisons. Keep it concise and professional - no emojis.
@@ -246,8 +255,29 @@ function summarizeToolResult(toolName, result) {
 const PROVIDER_UNAVAILABLE_MESSAGE =
   "Mira's AI service isn't available right now, so I couldn't answer. Your message was saved - please try again in a few minutes. If this keeps happening, let your school administrator know.";
 
+// The documentation search is a help, not a requirement: a slow one is skipped, not waited for.
+const DOCS_SEARCH_LIMIT_MS = 900;
+function searchDocs({ tenant, userText, history }) {
+  const priorUserTurn = [...history].reverse().find((message) => message.role === "user");
+  const query = stripAttachmentBlocks(userText);
+  // The previous user turn is folded in so a short follow-up ("where's that from?") stays on topic.
+  const retrievalQuery = priorUserTurn ? `${priorUserTurn.content}\n${query}` : query;
+  let timer;
+  const tooSlow = new Promise((resolve) => { timer = setTimeout(() => resolve([]), DOCS_SEARCH_LIMIT_MS); });
+  const search = retrieveContext({ tenantId: tenant.organizationId, query: retrievalQuery, limit: 4 }).catch((error) => {
+    console.error("[mira/orchestrator] documentation search failed, continuing without it:", error.message);
+    return [];
+  });
+  return Promise.race([search, tooSlow]).finally(() => clearTimeout(timer));
+}
+
 async function buildContextMessages({ tenant, userText, history, classScope }) {
-  const calendar = await loadSchoolCalendar(tenant.organizationId);
+  // All at once: each is a round trip, and the person is waiting.
+  const [calendar, matches, customInstructions] = await Promise.all([
+    loadSchoolCalendar(tenant.organizationId),
+    searchDocs({ tenant, userText, history }),
+    loadCustomInstructions(tenant),
+  ]);
   const today = formatDay(new Date());
   const calendarLine = calendar
     ? `The current school year is ${calendar.yearLabel} and the current term is ${calendar.termName}${calendar.startDate && calendar.endDate ? ` (${formatDay(calendar.startDate)} to ${formatDay(calendar.endDate)})` : ""}.`
@@ -260,22 +290,11 @@ async function buildContextMessages({ tenant, userText, history, classScope }) {
     },
   ];
 
-  // Managira documentation relevant to this message. The previous user turn
-  // is folded into the search so a short follow-up ("where's that from?")
-  // still retrieves on-topic articles. Best-effort.
-  try {
-    const priorUserTurn = [...history].reverse().find((message) => message.role === "user");
-    const query = stripAttachmentBlocks(userText);
-    const retrievalQuery = priorUserTurn ? `${priorUserTurn.content}\n${query}` : query;
-    const matches = await retrieveContext({ tenantId: tenant.organizationId, query: retrievalQuery, limit: 4 });
-    if (matches.length) {
-      messages.push({
-        role: "system",
-        content: `Relevant indexed context from Managira's official documentation (authoritative - answer from it directly):\n${matches.map((match) => `- ${match.content}`).join("\n")}`,
-      });
-    }
-  } catch (error) {
-    console.error("[mira/orchestrator] documentation search failed, continuing without it:", error.message);
+  if (matches.length) {
+    messages.push({
+      role: "system",
+      content: `Relevant indexed context from Managira's official documentation (authoritative - answer from it directly):\n${matches.map((match) => `- ${match.content}`).join("\n")}`,
+    });
   }
 
   if (classScope?.className) {
@@ -285,7 +304,6 @@ async function buildContextMessages({ tenant, userText, history, classScope }) {
     });
   }
 
-  const customInstructions = await loadCustomInstructions(tenant);
   if (customInstructions) {
     messages.push({
       role: "system",
@@ -329,6 +347,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   }
 
   const chat = await getOrCreateChat({ tenant, chatId, firstMessage: userText });
+  // History is read first: it must not include the message being saved now.
   const history = await loadHistory(chat.id);
   const userMessage = await saveMessage(chat.id, "user", userText, undefined, classScope);
   const toolImages = imagesForTools(chat.id, images);

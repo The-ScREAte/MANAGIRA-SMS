@@ -88,23 +88,55 @@ const shardAdmin = {
         return res.redirect("/admin/shards");
       }
       const control = registry.controlDb();
-      const [schools, recent] = await Promise.all([
-        control.query(`SELECT d.*, h.name AS hub_name FROM shard_schools d LEFT JOIN shard_hubs h ON h.hub_id = d.hub_id WHERE d.shard_id = $1 ORDER BY h.name NULLS FIRST, LOWER(d.name)`, [id]),
+      const [schools, hubRows, elsewhere, recent] = await Promise.all([
+        control.query(`SELECT d.* FROM shard_schools d WHERE d.shard_id = $1 ORDER BY LOWER(d.name)`, [id]),
+        // A hub shows on its own shard and on any shard one of its schools is on.
+        control.query(
+          `SELECT h.hub_id, h.name, h.subdomain, h.shard_id, s.name AS home_name
+             FROM shard_hubs h JOIN shards s ON s.shard_id = h.shard_id
+            WHERE h.shard_id = $1 OR h.hub_id IN (SELECT d.hub_id FROM shard_schools d WHERE d.shard_id = $1 AND d.hub_id IS NOT NULL)
+            ORDER BY LOWER(h.name)`,
+          [id]
+        ),
+        control.query(
+          `SELECT d.hub_id, s.shard_id, s.name, COUNT(*)::int AS schools
+             FROM shard_schools d JOIN shards s ON s.shard_id = d.shard_id
+            WHERE d.hub_id IS NOT NULL AND d.shard_id <> $1
+            GROUP BY 1, 2, 3 ORDER BY 3`,
+          [id]
+        ),
         control.query(
           `SELECT m.*, a.name AS from_name, b.name AS to_name FROM shard_moves m JOIN shards a ON a.shard_id = m.from_shard_id JOIN shards b ON b.shard_id = m.to_shard_id
             WHERE m.from_shard_id = $1 OR m.to_shard_id = $1 ORDER BY m.started_at DESC LIMIT 15`,
           [id]
         ),
       ]);
+      const hubs = hubRows.rows.map((hub) => {
+        const here = schools.rows.filter((school) => school.hub_id === hub.hub_id);
+        const add = (key) => here.reduce((sum, school) => sum + Number(school[key] || 0), 0);
+        return {
+          ...hub,
+          isHome: hub.shard_id === id,
+          schools: here,
+          elsewhere: elsewhere.rows.filter((row) => row.hub_id === hub.hub_id),
+          staff: add("staff_count"),
+          students: add("student_count"),
+          parents: add("parent_count"),
+        };
+      });
+      const knownHubs = new Set(hubs.map((hub) => hub.hub_id));
+      const targets = shards.filter((row) => row.shard_id !== id && row.status === "active" && (
+        registry.sharesDatabase(row, shard) || (!row.same_database && !shard.same_database && (row.environment === "production") === (shard.environment === "production"))
+      )).map((row) => ({ ...row, oneDatabase: registry.sharesDatabase(row, shard) }));
       return res.render("admin/shards/detail", {
         title: shard.name,
         shard: { ...shard, health: statusOf(shard) },
         schools: schools.rows,
+        hubs,
+        singles: schools.rows.filter((school) => !school.hub_id || !knownHubs.has(school.hub_id)),
         moves: recent.rows,
         openLink: shard.is_control || shard.same_database || !process.env.SHARD_SECRET ? null : `/admin?via=${encodeURIComponent(routeValue(shard.name))}`,
-        targets: shards.filter((row) => row.shard_id !== id && row.status === "active" && (
-          registry.sharesDatabase(row, shard) || (!row.same_database && !shard.same_database && (row.environment === "production") === (shard.environment === "production"))
-        )),
+        targets,
       });
     } catch (error) {
       return next(error);
@@ -176,6 +208,7 @@ const shardAdmin = {
         toShardId: toId(req.body.toShardId),
         rehearsal: req.body.rehearsal === "1" || req.body.rehearsal === true,
         actor: actorOf(req),
+        wholeHub: req.body.schoolOnly !== "1" && req.body.schoolOnly !== true,
       });
       registry.audit(req, move.rehearsal ? "tested_move" : "moved_school", move.school_name, { organizationId: move.organization_id, from: move.from_shard_id, to: move.to_shard_id });
       res.json({ success: true, moveId: move.move_id });

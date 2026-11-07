@@ -10,6 +10,14 @@
 // don't declare a third parameter are unaffected; JS simply ignores it.
 const { runAsCaller } = require("../internalApiClient");
 const findStudent = require("./findStudent");
+const getMyCalendar = require("./getMyCalendar");
+const getCalendarSyncStatus = require("./getCalendarSyncStatus");
+const whatsNew = require("./whatsNew");
+const listActivities = require("./listActivities");
+const createActivity = require("./createActivity");
+const getBusRidingToday = require("./getBusRidingToday");
+const showWorkToParents = require("./showWorkToParents");
+const getSsoStatus = require("./getSsoStatus");
 const findContact = require("./findContact");
 const getFees = require("./getFees");
 const getAttendance = require("./getAttendance");
@@ -179,6 +187,14 @@ const reportBuilderTools = require("./reportBuilder");
 const ALL_TOOLS = [
   ...reportBuilderTools,
   findStudent,
+  getMyCalendar,
+  getCalendarSyncStatus,
+  whatsNew,
+  listActivities,
+  createActivity,
+  getBusRidingToday,
+  showWorkToParents,
+  getSsoStatus,
   findContact,
   getFees,
   getAttendance,

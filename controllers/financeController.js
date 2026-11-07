@@ -3730,67 +3730,7 @@ module.exports = {
     res.redirect("/account/settings/finance/arrears");
   },
 
-  arrearsGuardianSavePost: async (req, res) => {
-    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
-    const orgId = req.session.organizationId;
-    const studentId = parseInt(req.body.student_id, 10);
-    const [firstName, ...restNames] = String(req.body.guardian_name || "").trim().split(/\s+/).filter(Boolean);
-    const lastName = restNames.join(" ");
-    const email = String(req.body.email || "").trim();
-    const phone = String(req.body.phone || "").trim();
-    const relationship = String(req.body.relationship || "Guardian").trim() || "Guardian";
-    const savePermanently = String(req.body.save_permanently || "on").toLowerCase() !== "false";
-    try {
-      if (!studentId || !firstName) {
-        req.flash("error", "Guardian name and student are required.");
-        return res.redirect("/account/settings/finance/arrears");
-      }
-      if (savePermanently) {
-        await db.query(`
-          CREATE TABLE IF NOT EXISTS guardian_profiles (
-            guardian_id SERIAL PRIMARY KEY,
-            organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
-            first_name VARCHAR(100) NOT NULL,
-            last_name VARCHAR(100),
-            phone VARCHAR(30),
-            email VARCHAR(255),
-            address TEXT,
-            hometown VARCHAR(255),
-            image_url TEXT,
-            created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW()
-          )`).catch(() => null);
-        await db.query(`
-          CREATE TABLE IF NOT EXISTS guardian_students (
-            guardian_id INT NOT NULL REFERENCES guardian_profiles(guardian_id) ON DELETE CASCADE,
-            student_id INT NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
-            relationship VARCHAR(50) DEFAULT 'Guardian',
-            created_at TIMESTAMP DEFAULT NOW(),
-            PRIMARY KEY (guardian_id, student_id)
-          )`).catch(() => null);
-        const inserted = await db.query(
-          `INSERT INTO guardian_profiles (organization_id, first_name, last_name, phone, email)
-           VALUES ($1,$2,$3,$4,$5)
-           RETURNING guardian_id`,
-          [orgId, firstName, lastName || null, phone || null, email || null]
-        );
-        const guardianId = inserted.rows[0]?.guardian_id;
-        if (guardianId) {
-          await db.query(
-            `INSERT INTO guardian_students (guardian_id, student_id, relationship)
-             VALUES ($1,$2,$3)
-             ON CONFLICT (guardian_id, student_id) DO NOTHING`,
-            [guardianId, studentId, relationship]
-          );
-        }
-      }
-      req.flash("success", savePermanently ? "Guardian saved to student profile." : "Guardian details captured for this recovery workflow.");
-    } catch (error) {
-      console.error("[arrearsGuardianSavePost]", error);
-      req.flash("error", "Could not save guardian details.");
-    }
-    res.redirect("/account/settings/finance/arrears");
-  },
+  
 
   arrearsReportCreatePost: async (req, res) => {
     if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
@@ -4843,6 +4783,8 @@ module.exports = {
       client = await db.connect();
       await client.query("BEGIN");
 
+      // Only the payment row is locked: Postgres refuses to lock the optional side of a LEFT
+      // JOIN, which had made every Correct / Delete fail.
       const paymentResult = await client.query(
         `SELECT p.payment_id, p.organization_id, p.assignment_id, p.bill_id, p.student_id,
                 p.amount, p.method, p.reference, p.notes, p.occurrence_date::text AS occurrence_date,
@@ -4867,7 +4809,7 @@ module.exports = {
            LEFT JOIN students s ON s.student_id = p.student_id
           WHERE p.payment_id = $1 AND p.organization_id = $2
           LIMIT 1
-          FOR UPDATE`,
+          FOR UPDATE OF p`,
         [paymentId, orgId]
       );
 
@@ -5637,109 +5579,9 @@ module.exports = {
     res.redirect("/account/settings/finance?section=bills");
   },
 
-  // Overdue sweep — marks all past-due pending assignments as overdue and applies late fees
-  overdueSweepPost: async (req, res) => {
-    if (!(await isFinanceAdmin(req))) return res.redirect("/account/settings");
-    const orgId = req.session.organizationId;
-    try {
-      await ensureFinanceSchema();
-      // Mark overdue
-      await db.query(
-        `UPDATE finance_bill_assignments a SET status='overdue', updated_at=now()
-         FROM finance_bills b
-         WHERE a.bill_id = b.bill_id
-           AND a.organization_id = $1
-           AND a.status IN ('pending','partial')
-           AND b.due_date IS NOT NULL
-           AND b.due_date < CURRENT_DATE`,
-        [orgId]
-      );
-      // Apply late fees where bill has late_fee_amount > 0 and not yet applied
-      const fees = await db.query(
-        `SELECT a.assignment_id, b.late_fee_amount, b.late_fee_after_days, b.due_date
-           FROM finance_bill_assignments a
-           JOIN finance_bills b ON b.bill_id = a.bill_id
-          WHERE a.organization_id = $1
-            AND a.status = 'overdue'
-            AND a.late_fee_applied = 0
-            AND b.late_fee_amount > 0
-            AND b.due_date IS NOT NULL
-            AND b.due_date + (b.late_fee_after_days || ' days')::interval < now()`,
-        [orgId]
-      );
-      for (const row of fees.rows) {
-        await db.query(
-          `UPDATE finance_bill_assignments SET late_fee_applied=$1, updated_at=now() WHERE assignment_id=$2`,
-          [Number(row.late_fee_amount), row.assignment_id]
-        );
-      }
-      req.flash("success", `Overdue sweep complete. ${fees.rows.length} late fee(s) applied.`);
-      await logPaygira(req, {
-        actionType: "Swept",
-        recordType: "Overdue Sweep",
-        recordId: null,
-        recordLabel: "Overdue Sweep",
-        description: `Ran overdue sweep — ${fees.rows.length} late fee(s) applied to overdue assignments.`,
-        changedFields: [{ field: "Late Fees Applied", value: String(fees.rows.length) }],
-      });
-    } catch (e) { console.error(e); req.flash("error", "Overdue sweep failed: " + e.message); }
-    res.redirect("/account/settings/finance?section=overview");
-  },
 
-  // CSV export — bills with paid/outstanding summary
-  exportCsvGet: async (req, res) => {
-    if (!(await isFinanceAdmin(req))) return res.status(403).send("Access denied.");
-    const orgId = req.session.organizationId;
-    const type = req.query.type || "bills";
-    try {
-      await ensureFinanceSchema();
-      let rows = [];
-      let headers = [];
-      if (type === "payments") {
-        const r = await db.query(
-          `SELECT p.received_at, s.first_name, s.last_name, b.title AS bill,
-                  p.amount, p.method, p.reference, p.notes
-             FROM finance_payments p
-             LEFT JOIN students s ON s.student_id = p.student_id
-             LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
-            WHERE p.organization_id = $1
-            ORDER BY p.received_at DESC`,
-          [orgId]
-        );
-        headers = ["Date","First Name","Last Name","Bill","Amount","Method","Reference","Notes"];
-        rows = r.rows.map(x => [
-          new Date(x.received_at).toISOString().slice(0,10),
-          x.first_name||"", x.last_name||"", x.bill||"",
-          Number(x.amount).toFixed(2), x.method||"", x.reference||"", x.notes||""
-        ]);
-      } else {
-        const r = await db.query(
-          `SELECT b.title, b.bill_type, b.due_date, b.status,
-                  COUNT(a.assignment_id) AS students,
-                  COALESCE(SUM(a.amount),0) AS total_billed,
-                  COALESCE(SUM(a.amount_paid),0) AS total_paid,
-                  COALESCE(SUM(GREATEST(a.amount+a.late_fee_applied-a.amount_paid,0)),0) AS outstanding
-             FROM finance_bills b
-             LEFT JOIN finance_bill_assignments a ON a.bill_id=b.bill_id
-            WHERE b.organization_id=$1
-            GROUP BY b.bill_id
-            ORDER BY b.created_at DESC`,
-          [orgId]
-        );
-        headers = ["Bill","Type","Due Date","Status","Students","Total Billed","Total Paid","Outstanding"];
-        rows = r.rows.map(x => [
-          x.title, x.bill_type||"", x.due_date ? new Date(x.due_date).toISOString().slice(0,10) : "",
-          x.status, x.students,
-          Number(x.total_billed).toFixed(2), Number(x.total_paid).toFixed(2), Number(x.outstanding).toFixed(2)
-        ]);
-      }
-      const escape = v => `"${String(v).replace(/"/g,'""')}"`;
-      const csv = [headers.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\r\n");
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", `attachment; filename="paygira-${type}-${Date.now()}.csv"`);
-      res.send(csv);
-    } catch (e) { console.error(e); res.status(500).send("Export failed."); }
-  },
+
+
 
   // Student detail JSON — full billing breakdown for drawer
   studentDetailGet: async (req, res) => {

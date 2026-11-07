@@ -42,10 +42,6 @@ module.exports = (db) => {
     documentController.updatePermissions(req, res, db)
   );
 
-  // Get documents for a class (teacher view)
-  router.get("/class", checkFeatureAccess, isAuthenticated, (req, res) =>
-    documentController.classDocuments(req, res, db)
-  );
 
   // Get class data (students/subjects) for spreadsheet
   router.get("/classData", checkFeatureAccess, isAuthenticated, (req, res) =>

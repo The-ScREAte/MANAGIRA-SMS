@@ -32,4 +32,16 @@ async function staffChangeRefusal(db, req, targetUserId) {
   }
 }
 
-module.exports = { staffChangeRefusal };
+// The school's signup email belongs to its owner. Someone else moving onto it could pick up
+// their password resets and their single sign-on, so it can't be taken by editing a profile.
+async function takesOwnersEmail(db, organizationId, userId, email) {
+  const { rows } = await db.query(
+    `SELECT 1 FROM organizations o
+      WHERE o.organization_id = $1 AND LOWER(o.email) = LOWER($2)
+        AND NOT EXISTS (SELECT 1 FROM users u WHERE u.user_id = $3 AND u.organization_id = o.organization_id AND LOWER(u.email) = LOWER($2))`,
+    [organizationId, String(email || ""), userId]
+  );
+  return rows.length > 0;
+}
+
+module.exports = { staffChangeRefusal, takesOwnersEmail };

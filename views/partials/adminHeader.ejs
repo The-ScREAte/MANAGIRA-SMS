@@ -9,6 +9,10 @@
     const _ahCanViewOrgChart = !!(session && session.canViewOrgChart);
   %>
   <% if (session.firstName && _ahIsAdminLike) { %>
+    <style>
+      /* On a phone there's no room for the title beside the menu: the logo says it. */
+      @media (max-width: 520px) { .admin-header-pro .admin-header-title { display: none; } .admin-header-pro .admin-header-left { flex: none; width: auto; min-width: 0; } }
+    </style>
     <div class="admin-header-pro">
       <div class="admin-header-left">
         <img src="/images/managira-logo-sm.png" alt="Logo" class="admin-header-logo" />
@@ -74,6 +78,8 @@
             _ahGroups.push({ label: 'Overview', items: [
               { href: '/admin', icon: 'fa-gauge', text: 'Dashboard' },
               ...(_ahIsFullAdmin ? [{ href: '/admin/superDashboard', icon: 'fa-user-shield', text: 'Super Admin' }] : []),
+              // Only a platform super admin, and the page itself checks again and asks for their password.
+              ...(['Admin', 'super_admin'].includes(session.accountType) && !session.superAdminOrgSwitch ? [{ href: '/admin/shards', icon: 'fa-server', text: 'Shards' }] : []),
             ] });
             if (_ahIsFullAdmin) {
               _ahGroups.push({ label: 'Schools & billing', items: [

@@ -85,7 +85,6 @@
   /* Set for a moment while the theme script reads colors. */
   html.ap-still *, html.ap-still *::before, html.ap-still *::after { transition: none !important; }
 
-  html[data-appearance="dark"] .page-loading-overlay { background: color-mix(in srgb, var(--ap-page) 60%, transparent) !important; }
   html[data-appearance="dark"] .spinner { border-color: var(--ap-line) !important; border-top-color: var(--ap-text) !important; }
 
   /* Rich text editor (its stylesheet comes from another site). */

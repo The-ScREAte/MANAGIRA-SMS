@@ -65,8 +65,6 @@ router.get('/app-demo/play/:id(\\d+)', appDemoController.playerPage);
 router.get('/request-demo', legalController.requestDemoPage);
 router.post('/request-demo', legalController.submitDemoRequest);
 router.get('/user-documentation/api/search', documentationController.documentationSearchJson);
-router.get('/user-documentation/api/index', documentationController.documentationIndexJson);
-router.get('/user-documentation/api/article/:slug', documentationController.documentationArticleJson);
 router.post('/user-documentation/api/helpful', documentationController.documentationHelpfulVote);
 
 router.post('/user-documentation/api/articles', isAuthenticated, ensureAdmin, documentationController.documentationCreateArticle);

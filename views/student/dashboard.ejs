@@ -840,7 +840,7 @@
         <div class="sp-summary">
           <img
             class="sp-avatar"
-            src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png') %>"
+            src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png', { width: 256 }) %>"
             alt="Student photo"
           />
 
@@ -906,6 +906,7 @@
         <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
         <div class="app-tiles sp-app-tiles">
           <button class="sp-action-tile app-tile" type="button" data-panel="schedule"><span class="app-tile__icon"><%- navIcon('schedule') %></span><span class="app-tile__name">Schedule</span></button>
+          <a class="sp-action-tile app-tile" href="/student/calendar"><span class="app-tile__icon"><%- navIcon('calendar') %></span><span class="app-tile__name">Calendar</span></a>
           <button class="sp-action-tile app-tile" type="button" data-panel="activities"><span class="app-tile__icon"><%- navIcon('activities') %></span><span class="app-tile__name">Activities</span><% if (studentActivities && studentActivities.length) { %><span class="app-tile__badge"><%= studentActivities.length > 99 ? '99+' : studentActivities.length %></span><% } %></button>
           <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('stats') %></span><span class="app-tile__name">Grades</span></button>
           <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('staff') %></span><span class="app-tile__name">Subject Teachers</span></button>

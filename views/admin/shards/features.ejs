@@ -39,8 +39,13 @@
                 <input type="checkbox" name="hubIds" value="<%= hub.hub_id %>"<%= feature.hubIds.includes(hub.hub_id) || hub.sandbox ? ' checked' : '' %><%= hub.sandbox ? ' disabled' : '' %> />
                 <span><%= hub.name %></span><small>Hub · <%= hub.shard %></small>
               </label>
-            <% }) %>
-            <% schools.forEach((school) => { %>
+            <% schools.filter((row) => row.hub_id === hub.hub_id).forEach((school) => { %>
+              <label class="sh-pick sh-pick--child" data-name="<%= String(school.name || '').toLowerCase() %>">
+                <input type="checkbox" name="organizationIds" value="<%= school.organization_id %>"<%= feature.organizationIds.includes(school.organization_id) || school.sandbox ? ' checked' : '' %><%= school.sandbox ? ' disabled' : '' %> />
+                <span><%= school.name %></span><small><%= school.shard %></small>
+              </label>
+            <% }) %><% }) %>
+            <% schools.filter((row) => !row.hub_id || !hubs.some((hub) => hub.hub_id === row.hub_id)).forEach((school) => { %>
               <label class="sh-pick" data-name="<%= String(school.name || '').toLowerCase() %>">
                 <input type="checkbox" name="organizationIds" value="<%= school.organization_id %>"<%= feature.organizationIds.includes(school.organization_id) || school.sandbox ? ' checked' : '' %><%= school.sandbox ? ' disabled' : '' %> />
                 <span><%= school.name %></span><small><%= school.shard %></small>

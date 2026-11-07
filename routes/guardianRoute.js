@@ -21,8 +21,11 @@ module.exports = (db) => {
   router.get("/child/documents", isGuardianAuthenticated, (req, res) => parentHub.documents(req, res, db));
   router.get("/child/work/:setId", isGuardianAuthenticated, (req, res) => parentHub.work(req, res, db));
   router.get("/child/file/:fileId", isGuardianAuthenticated, (req, res) => parentHub.file(req, res, db));
-  router.get("/calendar", isGuardianAuthenticated, (req, res) => parentHub.calendar(req, res, db));
-  router.get("/calendar/feed", isGuardianAuthenticated, (req, res) => parentHub.calendarFeed(req, res, db));
+  const familyCalendar = require("../controllers/familyCalendarController");
+  router.get("/calendar", isGuardianAuthenticated, (req, res) => familyCalendar.guardianPage(req, res, db));
+  router.get("/calendar/feed", isGuardianAuthenticated, (req, res) => familyCalendar.guardianFeed(req, res, db));
+  router.get("/calendar/sync", isGuardianAuthenticated, (req, res) => familyCalendar.guardianSync(req, res, db));
+  router.post("/calendar/sync/reset", isGuardianAuthenticated, (req, res) => familyCalendar.guardianReset(req, res, db));
 
   router.get("/academic-details", isGuardianAuthenticated, (req, res) =>
     guardianController.academicDetailsGet(req, res, db)
@@ -32,9 +35,6 @@ module.exports = (db) => {
     guardianController.studentDetailsGet(req, res, db)
   );
 
-  router.get("/studentDetails", isGuardianAuthenticated, (req, res) =>
-    guardianController.studentDetailsCommonGet(req, res, db)
-  );
 
   router.get('/student-report-cards', isGuardianAuthenticated, (req, res) =>
     guardianController.studentReportCardsListGet(req, res, db)

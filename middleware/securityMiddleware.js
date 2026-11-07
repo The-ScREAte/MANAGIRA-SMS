@@ -51,7 +51,12 @@ function fromAnotherSite(req) {
   try { return !isOwnHost(new URL(referer).hostname, req.get("host")); } catch (_) { return true; }
 }
 
+// A sign-on provider answers with a post from its own site. Its answer proves itself: it's
+// signed, single use, and only counts in the browser that started the sign-in.
+const SSO_ANSWER = /^\/account\/sso\/saml\/[a-f0-9]{24}\/acs$/;
+
 function crossSiteRequestGuard(req, res, next) {
+  if (req.method === "POST" && SSO_ANSWER.test(req.path)) return next();
   if (SAFE_METHODS.has(req.method)) {
     if (req.method === "GET" && GET_ACTIONS_THAT_CHANGE_DATA.test(req.path) && fromAnotherSite(req)) {
       console.warn(`[Security] Blocked cross-site GET ${req.originalUrl}`);
@@ -81,7 +86,8 @@ function crossSiteRequestGuard(req, res, next) {
 const { checkRateLimit } = require("../utils/rateLimiter");
 const REQUEST_WINDOW_MS = 60 * 1000;
 const SIGNED_IN_PER_MINUTE = Number(process.env.REQUEST_LIMIT_SIGNED_IN || 600);
-const VISITOR_PER_MINUTE = Number(process.env.REQUEST_LIMIT_VISITOR || 1200);
+// A whole school signs in from one address at 8am, a few requests each, so this is only for floods.
+const VISITOR_PER_MINUTE = Number(process.env.REQUEST_LIMIT_VISITOR || 3000);
 // Health checks and payment/messaging provider callbacks are never limited.
 const UNLIMITED_PATHS = /^\/(health|favicon\.ico|service-worker\.js)$|^\/account\/settings\/finance\/webhooks\/|^\/account\/(paystack-webhook|webhook|whatsapp\/webhook)$/;
 

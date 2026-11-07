@@ -1,4 +1,5 @@
 <%
+  const escapeHtml = (value) => String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const _stats = shard.stats || {};
   const _bytes = (n) => { if (n == null) return '—'; const mb = n / 1048576; return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB'; };
   const _time = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
@@ -39,35 +40,45 @@
     </section>
   <% } %>
 
-  <section class="ah-card sh-section" aria-label="Schools on this shard">
+  <section class="ah-card sh-section" aria-label="Hubs and schools on this shard">
     <div class="ah-card__bar">
-      <h2 class="ah-card__title">Schools</h2>
+      <h2 class="ah-card__title">Hubs and schools</h2>
       <% if (schools.length > 1) { %>
-        <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="shardSchoolSearch" placeholder="Search schools" aria-label="Search schools" /></label>
+        <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="shardSchoolSearch" placeholder="Search" aria-label="Search hubs and schools" /></label>
       <% } %>
     </div>
-    <% if (schools.length) { %>
-      <div class="ah-scroll">
-        <table class="ah-table">
-          <thead><tr><th>School</th><th>Country</th><th>Staff</th><th>Students</th><th>Parents</th><th class="ah-num">Actions</th></tr></thead>
-          <tbody>
-            <% const _hubsShown = new Set(); schools.forEach((school) => {
-                 const firstOfHub = school.hub_id && !_hubsShown.has(school.hub_id);
-                 if (school.hub_id) _hubsShown.add(school.hub_id); %>
-              <tr data-shard-school="<%= [school.name, school.subdomain, school.country].join(' ').toLowerCase() %>">
-                <td><span class="ah-name__link"><%= school.name %></span><span class="ah-sub"><%= school.subdomain || '' %><%= school.hub_name ? ' · ' + school.hub_name : '' %></span></td>
-                <td><%= school.country || '—' %></td>
-                <td><%= school.staff_count.toLocaleString('en-US') %></td>
-                <td><%= school.student_count.toLocaleString('en-US') %></td>
-                <td><%= school.parent_count.toLocaleString('en-US') %></td>
-                <td class="ah-num">
-                  <% if (school.status === 'moving') { %><span class="sh-pill sh-pill--amber">Moving</span>
-                  <% } else if (targets.length && (!school.hub_id || firstOfHub)) { %><button type="button" class="ah-btn" data-move-school="<%= school.organization_id %>" data-school-name="<%= school.hub_name ? school.hub_name + ' and its schools' : school.name %>"><%= school.hub_id ? 'Move hub' : 'Move' %></button><% } %>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
+    <% const _splitTargets = targets.filter((t) => t.oneDatabase); %>
+    <% const _numbers = (staff, students, parents) => `<span class="sh-n" data-label="Staff">${Number(staff || 0).toLocaleString('en-US')}</span><span class="sh-n" data-label="Students">${Number(students || 0).toLocaleString('en-US')}</span><span class="sh-n" data-label="Parents">${Number(parents || 0).toLocaleString('en-US')}</span>`; %>
+    <% const _schoolRow = (school, inHub) => { const search = [school.name, school.subdomain, school.country].join(' ').toLowerCase(); const canMove = inHub ? _splitTargets.length : targets.length; return `
+      <div class="sh-row sh-row--school${inHub ? ' sh-row--child' : ''}" data-shard-school="${escapeHtml(search)}">
+        <div class="sh-row__name"><strong>${escapeHtml(school.name)}</strong><small>${escapeHtml([school.subdomain, school.country].filter(Boolean).join(' · '))}</small></div>
+        ${_numbers(school.staff_count, school.student_count, school.parent_count)}
+        <div class="sh-row__act">${school.status === 'moving' ? '<span class="sh-pill sh-pill--amber">Moving</span>' : (canMove ? `<button type="button" class="ah-btn" data-move-school="${school.organization_id}" data-school-name="${escapeHtml(school.name)}" data-school-only="${inHub ? '1' : '0'}">Move</button>` : '')}</div>
+      </div>`; }; %>
+    <% if (hubs.length || singles.length) { %>
+      <div class="sh-tree" id="shardTree">
+        <div class="sh-row sh-row--head" aria-hidden="true"><span>Name</span><span>Staff</span><span>Students</span><span>Parents</span><span></span></div>
+        <% hubs.forEach((hub) => { %>
+          <div class="sh-hub" data-hub>
+            <div class="sh-row sh-row--hub">
+              <button type="button" class="sh-expand" aria-expanded="false" aria-controls="hub-<%= hub.hub_id %>" data-hub-toggle>
+                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                <span class="sh-row__name"><strong><%= hub.name %></strong><small><%= hub.schools.length %> <%= hub.schools.length === 1 ? 'school' : 'schools' %> here<% hub.elsewhere.forEach((row) => { %> · <%= row.schools %> on <%= row.name %><% }) %></small></span>
+              </button>
+              <%- _numbers(hub.staff, hub.students, hub.parents) %>
+              <div class="sh-row__act">
+                <% if (targets.length && hub.schools.length) { const first = hub.schools[0]; const total = hub.schools.length + hub.elsewhere.reduce((sum, row) => sum + row.schools, 0); %>
+                  <button type="button" class="ah-btn" data-move-school="<%= first.organization_id %>" data-school-name="<%= hub.name %> and its <%= total %> <%= total === 1 ? 'school' : 'schools' %>" data-school-only="0">Move hub</button>
+                <% } %>
+              </div>
+            </div>
+            <div class="sh-children" id="hub-<%= hub.hub_id %>" hidden>
+              <% if (hub.schools.length) { hub.schools.forEach((school) => { %><%- _schoolRow(school, true) %><% }) } else { %><p class="sh-row--note">No schools of this hub on this shard.</p><% } %>
+              <% if (hub.elsewhere.length) { %><p class="sh-row--note"><% hub.elsewhere.forEach((row, index) => { %><%= index ? ', ' : 'Also: ' %><a href="/admin/shards/<%= row.shard_id %>" data-no-spa><%= row.schools %> on <%= row.name %></a><% }) %></p><% } %>
+            </div>
+          </div>
+        <% }) %>
+        <% singles.forEach((school) => { %><%- _schoolRow(school, false) %><% }) %>
       </div>
     <% } else { %>
       <p class="ah-empty">No schools.</p>
@@ -77,27 +88,19 @@
   <% if (moves.length) { %>
     <section class="ah-card sh-section" aria-label="Recent moves">
       <div class="ah-card__bar"><h2 class="ah-card__title">Moves</h2></div>
-      <div class="ah-scroll">
-        <table class="ah-table">
-          <thead><tr><th>School</th><th>From</th><th>To</th><th>When</th><th>Result</th></tr></thead>
-          <tbody>
-            <% moves.forEach((move) => { const label = _moveLabel[move.status] || [move.status, 'muted']; %>
-              <tr>
-                <td><%= move.school_name %><% if (move.rehearsal) { %><span class="ah-sub">Test</span><% } %></td>
-                <td><%= move.from_name %></td>
-                <td><%= move.to_name %></td>
-                <td><%= _time(move.started_at) %></td>
-                <td>
-                  <span class="sh-pill sh-pill--<%= label[1] %>"><%= label[0] %></span>
-                  <% if (move.summary && move.status === 'done') { %><% if (move.summary.sameDatabase) { %><span class="ah-sub">Nothing copied</span><% } else { %><span class="ah-sub"><%= Number(move.summary.rows).toLocaleString('en-US') %> rows · <%= move.summary.seconds %>s</span><% } %><% } %>
-                  <% if (move.error) { %><span class="ah-sub ah-sub--warn"><%= move.error %></span><% } %>
-                  <% if (move.status === 'needs_cleanup') { %><form method="post" action="/admin/shards/moves/<%= move.move_id %>/retry-cleanup" data-no-spa style="margin-top:6px"><button class="ah-btn" type="submit">Remove</button></form><% } %>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+      <ul class="sh-moves">
+        <% moves.forEach((move) => { const label = _moveLabel[move.status] || [move.status, 'muted']; %>
+          <li>
+            <div class="sh-moves__what"><strong><%= move.school_name %><% if (move.rehearsal) { %> (test)<% } %></strong><small><%= move.from_name %> to <%= move.to_name %> · <%= _time(move.started_at) %></small></div>
+            <div class="sh-moves__result">
+              <span class="sh-pill sh-pill--<%= label[1] %>"><%= label[0] %></span>
+              <% if (move.summary && move.status === 'done') { %><% if (move.summary.sameDatabase) { %><small>Nothing copied</small><% } else { %><small><%= Number(move.summary.rows || 0).toLocaleString('en-US') %> rows</small><% } %><% } %>
+              <% if (move.error) { %><small class="ah-sub--warn"><%= move.error %></small><% } %>
+              <% if (move.status === 'needs_cleanup') { %><form method="post" action="/admin/shards/moves/<%= move.move_id %>/retry-cleanup" data-no-spa><button type="submit" class="ah-btn">Try again</button></form><% } %>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
     </section>
   <% } %>
 
@@ -134,7 +137,7 @@
       <h2>Move <span id="moveSchoolName"></span></h2>
       <label class="sh-field">To
         <select id="moveTarget">
-          <% targets.forEach((target) => { %><option value="<%= target.shard_id %>"><%= target.name %> · <%= target.schools %> of <%= target.capacity_schools %></option><% }) %>
+          <% targets.forEach((target) => { %><option value="<%= target.shard_id %>" data-one-database="<%= target.oneDatabase ? '1' : '0' %>"><%= target.name %> · <%= target.schools %> of <%= target.capacity_schools %></option><% }) %>
         </select>
       </label>
       <ol class="sh-progress" id="moveProgress" hidden></ol>
@@ -154,12 +157,31 @@
     if (!page || page.dataset.bound) return;
     page.dataset.bound = '1';
 
+    function setOpen(hub, open) {
+      var toggle = hub.querySelector('[data-hub-toggle]');
+      toggle.setAttribute('aria-expanded', String(open));
+      hub.querySelector('.sh-children').hidden = !open;
+    }
+    page.addEventListener('click', function (event) {
+      var toggle = event.target.closest('[data-hub-toggle]');
+      if (!toggle) return;
+      setOpen(toggle.closest('[data-hub]'), toggle.getAttribute('aria-expanded') !== 'true');
+    });
+
     var search = document.getElementById('shardSchoolSearch');
     if (search) {
       search.addEventListener('input', function () {
         var wanted = search.value.trim().toLowerCase();
         page.querySelectorAll('[data-shard-school]').forEach(function (row) {
           row.hidden = Boolean(wanted) && row.getAttribute('data-shard-school').indexOf(wanted) < 0;
+        });
+        page.querySelectorAll('[data-hub]').forEach(function (hub) {
+          var name = hub.querySelector('.sh-expand strong').textContent.toLowerCase();
+          var someSchool = Array.prototype.some.call(hub.querySelectorAll('[data-shard-school]'), function (row) { return !row.hidden; });
+          var matchesHub = name.indexOf(wanted) >= 0;
+          if (matchesHub) hub.querySelectorAll('[data-shard-school]').forEach(function (row) { row.hidden = false; });
+          hub.hidden = Boolean(wanted) && !matchesHub && !someSchool;
+          setOpen(hub, Boolean(wanted) && (matchesHub || someSchool));
         });
       });
     }
@@ -171,7 +193,11 @@
     var rehearse = document.getElementById('moveRehearse');
     var moveNow = document.getElementById('moveNow');
     var school = null;
+    var schoolOnly = false;
     var finished = false;
+    var oneDatabase = function () { var picked = target.options[target.selectedIndex]; return Boolean(picked) && picked.getAttribute('data-one-database') === '1'; };
+    var syncChoice = function () { rehearse.hidden = oneDatabase(); };
+    target.addEventListener('change', syncChoice);
     var clean = function (value) { var d = document.createElement('div'); d.textContent = value == null ? '' : value; return d.innerHTML; };
     var setBusy = function (busy) { rehearse.disabled = busy; moveNow.disabled = busy; target.disabled = busy; };
     var show = function (ok, text) { result.hidden = false; result.className = 'sh-result sh-result--' + (ok ? 'ok' : 'bad'); result.textContent = text; };
@@ -180,7 +206,17 @@
       var button = event.target.closest('[data-move-school]');
       if (!button) return;
       school = button.getAttribute('data-move-school');
+      schoolOnly = button.getAttribute('data-school-only') === '1';
       document.getElementById('moveSchoolName').textContent = button.getAttribute('data-school-name');
+      // A school alone can only go to a shard on the same database.
+      Array.prototype.forEach.call(target.options, function (option) {
+        var allowed = !schoolOnly || option.getAttribute('data-one-database') === '1';
+        option.hidden = !allowed;
+        option.disabled = !allowed;
+      });
+      var firstAllowed = Array.prototype.filter.call(target.options, function (option) { return !option.disabled; })[0];
+      if (firstAllowed) target.value = firstAllowed.value;
+      syncChoice();
       progress.hidden = true;
       progress.innerHTML = '';
       result.hidden = true;
@@ -208,6 +244,7 @@
           var summary = move.summary || {};
           var notes = (summary.notes || []).map(function (note) { return ' ' + note.table + ': ' + note.rows + ' ' + note.what + '.'; }).join('');
           if (move.status === 'needs_cleanup') { show(false, 'Moved. Old copy left: ' + move.error); return; }
+          if (summary.sameDatabase) { show(true, 'Moved. Nothing needed copying, and nobody was signed out.'); moveNow.disabled = true; return; }
           show(true, (move.rehearsal ? 'Test passed: ' : 'Moved: ') + Number(summary.rows).toLocaleString() + ' rows checked in ' + summary.seconds + 's.' + notes);
           if (!move.rehearsal) moveNow.disabled = true;
         })
@@ -215,13 +252,13 @@
     }
 
     function start(isRehearsal) {
-      if (!isRehearsal && !window.confirm('Move now? The school pauses and everyone signs in again.')) return;
+      if (!isRehearsal && !window.confirm(oneDatabase() ? 'Move now? Nobody is signed out and nothing is copied.' : 'Move now? The school pauses and everyone signs in again.')) return;
       setBusy(true);
       result.hidden = true;
       fetch('/admin/shards/moves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ organizationId: school, toShardId: target.value, rehearsal: isRehearsal ? '1' : '0' })
+        body: JSON.stringify({ organizationId: school, toShardId: target.value, rehearsal: isRehearsal ? '1' : '0', schoolOnly: schoolOnly ? '1' : '0' })
       }).then(function (r) { return r.json(); }).then(function (data) {
         if (data.confirm) { location.href = data.confirm + '?next=' + encodeURIComponent(location.pathname); return; }
         if (!data.success) { setBusy(false); show(false, data.message); return; }

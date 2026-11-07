@@ -2,7 +2,7 @@
 // Checks the protections listed in docs/SECURITY.md against a running server.
 // Usage: node scripts/securityCheck.js [baseUrl]   (default http://localhost:4000)
 // Safe to run against production: it only signs in with a fake .invalid account
-// (which gets rate-limited for 15 minutes) and sends requests that are rejected.
+// and sends requests that are rejected.
 "use strict";
 
 const BASE = (process.argv[2] || process.env.SECURITY_CHECK_URL || "http://localhost:4000").replace(/\/$/, "");
@@ -66,7 +66,8 @@ function form(data) {
     lastStatus = r.status;
     if (r.status === 429 && !blockedAt) blockedAt = i;
   }
-  record("Sign-in limited after 10 tries (429)", blockedAt === 11, `blocked at try ${blockedAt || "never"} (last ${lastStatus})`);
+  // Nobody is ever locked out of signing in: wrong tries only wait their turn (signInGuard).
+  record("Sign-in never locks anyone out", !blockedAt, `blocked at try ${blockedAt || "never"} (last ${lastStatus})`);
 
   // 5. Signed-out users can't reach staff, student or API pages
   for (const path of ["/common/orgDashboard", "/student/testing-room", "/account/settings", "/common/assessment/questions/bank"]) {

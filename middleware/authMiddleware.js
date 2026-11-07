@@ -50,7 +50,7 @@ const isAuthenticated = async (req, res, next) => {
 
         // A background preload of a page this person can't open: just say no, no message.
 
-        if (req.session && ['Student', 'Driver'].includes(req.session.userRole) && req.get && req.get('X-SPA-Preload') === '1') {
+        if (req.session && ['Student', 'Driver', 'Guardian'].includes(req.session.userRole) && req.get && req.get('X-SPA-Preload') === '1') {
 
             return res.status(403).end();
 
@@ -64,6 +64,12 @@ const isAuthenticated = async (req, res, next) => {
         if (req.session && req.session.userRole === 'Driver') {
             safeFlash(req, 'error', 'You do not have permission to access that page.');
             return res.redirect('/driver/dashboard');
+        }
+
+        // Parents have their own door (isGuardianAuthenticated): never this staff one.
+        if (req.session && req.session.userRole === 'Guardian') {
+            safeFlash(req, 'error', 'You do not have permission to access that page.');
+            return res.redirect('/guardian/dashboard');
         }
 
         // Debug log removed for production

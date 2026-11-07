@@ -311,6 +311,16 @@ const LOGIN_REDIRECT_PERMISSION_RULES = [
   },
 ];
 
+// A parent, student or hub user on the main login goes to their own portal, once its own
+// sign-in has checked their password.
+function routeToOwnPortal(req, res, db, email) {
+  return require("../utils/smartLogin").routeToPortal(req, res, db, email, {
+    guardian: module.exports.guardianLoginPost,
+    student: module.exports.studentLoginPost,
+    hub: (hubReq, hubRes) => require("./hubController").hubLoginPost(hubReq, hubRes),
+  });
+}
+
 async function resolveSafeLoginRedirect(database, permissionContext, returnTo, fallbackUrl) {
   const normalizedReturnTo = normalizeLoginReturnPath(returnTo);
   if (!normalizedReturnTo) return fallbackUrl;
@@ -4800,99 +4810,7 @@ const accountController = {
     }
   },
 
-  addCardPost: async (req, res) => {
-    try {
-      // For Paystack, cards are automatically saved during payment transactions
-
-      // This endpoint will handle manual card tokenization if needed
-
-      const { authorizationCode } = req.body;
-
-      const orgId = req.session.organizationId;
-
-      if (!authorizationCode) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Authorization code is required. Please complete a payment first to save your card.",
-        });
-      }
-
-      // Retrieve Paystack customer code
-
-      const result = await db.query(
-        "SELECT paystack_customer_code FROM organizations WHERE organization_id = $1",
-
-        [orgId]
-      );
-
-      if (result.rows.length === 0) {
-                return res.status(404).json({
-          success: false,
-
-          message: "Paystack customer not found. Please contact support.",
-        });
-      }
-
-      const paystackCustomerCode = result.rows[0].paystack_customer_code;
-
-      // Fetch updated customer data with saved cards
-
-      const customerResponse = await axios.get(
-        `https://api.paystack.co/customer/${paystackCustomerCode}`,
-
-        {
-          headers: {
-            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
-          },
-        }
-      );
-
-      const customer = customerResponse.data.data;
-
-      let paymentMethods = [];
-
-      let defaultPaymentMethod = null;
-
-      if (customer.authorizations && customer.authorizations.length > 0) {
-        paymentMethods = customer.authorizations
-          .filter((auth) => auth.channel === "card" && auth.reusable)
-          .map((auth) => ({
-            id: auth.authorization_code,
-
-            brand: auth.brand,
-
-            last4: auth.last4,
-
-            expMonth: auth.exp_month,
-
-            expYear: auth.exp_year,
-
-            email: auth.email,
-          }));
-
-        defaultPaymentMethod = paymentMethods[0] || null;
-      }
-
-      res.json({
-        success: true,
-
-        message: "Card information updated successfully.",
-
-        paymentMethods,
-
-        defaultPaymentMethod,
-      });
-    } catch (error) {
-            res.status(500).json({
-        success: false,
-
-        message: "An error occurred while updating the card. Please try again.",
-
-        error: error.message,
-      });
-    }
-  },
+  
 
   setPrimaryCardPost: async (req, res) => {
     try {
@@ -5396,16 +5314,21 @@ const accountController = {
     }
   },
 
-  loginGet: (req, res) => {
-    const url = req.url;
-
+  // step: "email" first; "password" once the email is known not to use single sign-on.
+  loginGet: async (req, res, db, { step = "email", email = "", next = "", ssoAlso = "" } = {}) => {
+    const school = req.schoolDetails;
+    const schoolLogo = school && school.logo ? res.locals.publicImageUrl(school.logo, { public: true, width: 128 }) : "";
     res.render("account/login", {
+      layout: false,
       title: "Login",
-
-      url,
-
-      showFooterTopSection: true,
+      url: req.url,
       messages: req.flash(),
+      step: step === "password" ? "password" : "email",
+      email,
+      next: next === "mira" || req.query.next === "mira" ? "mira" : "",
+      ssoAlso,
+      schoolName: school ? (school.nickname_display && String(school.nickname_display).trim()) || school.organization_name : "",
+      schoolLogo,
     });
   },
 
@@ -5485,7 +5408,7 @@ const accountController = {
             const redirectUrl =
               process.env.NODE_ENV === "production" ? "/admin" : "/admin";
 
-            return res.redirect(req.session.returnTo || redirectUrl);
+            return res.redirect(localPath(req.session.returnTo, redirectUrl));
           });
         });
 
@@ -5514,6 +5437,12 @@ const accountController = {
         }
 
         const match = await bcrypt.compare(password, user.password);
+
+        // The school signs in through its own provider. Its main manager can always use a password.
+        if (match && !user.removed_at && await require("../utils/sso/connections").passwordRefused(db, user.organization_id, { isMainManager: await require("../utils/sso/connections").isMainManager(db, user.organization_id, user) })) {
+          req.flash("error", "Your school signs in with its own sign-in. Enter your email and choose Continue.");
+          return res.redirect("/account/login?sso=1");
+        }
 
         // Removed by the school: the account is kept (and can be enabled again).
         if (match && user.removed_at) {
@@ -5691,6 +5620,8 @@ const accountController = {
             return;
           }
         } else {
+          // The same email can also be a parent's, a student's or a hub's, with its own password.
+          if (await routeToOwnPortal(req, res, db, email)) return;
           req.flash("error", "Invalid email or password.");
 
           return res.redirect("/account/login");
@@ -5839,19 +5770,19 @@ const accountController = {
 
           return;
         } else {
+          if (await routeToOwnPortal(req, res, db, email)) return;
           req.flash("error", "Invalid email or password.");
 
           return res.redirect("/account/login");
         }
       }
 
+      // Not staff: a parent, student or hub user on the wrong page, once their password checks out.
+      if (await routeToOwnPortal(req, res, db, email)) return;
+
       // ❌ No match found
-
-      req.flash(
-        "error",
-
-        "No account found with that email. Please register first"
-      );
+      await require("../utils/authRateLimit").takeTheSameTime(password);
+      req.flash("error", "Invalid email or password.");
 
       res.redirect("/account/login");
     } catch (error) {
@@ -5901,6 +5832,7 @@ const accountController = {
       );
 
       if (!guardianAcc.rows.length) {
+        await require("../utils/authRateLimit").takeTheSameTime(req.body.password);
         req.flash("error", "Invalid email/phone or password.");
         return res.redirect("/account/guardian-login");
       }
@@ -5999,9 +5931,16 @@ const accountController = {
     }
   },
 
-  studentLoginGet: (req, res) => {
+  studentLoginGet: async (req, res, db) => {
     const url = req.url;
     const reason = String(req.query.reason || "").trim();
+    const ssoConnections = require("../utils/sso/connections");
+    const studentSchool = req.schoolDetails;
+    let ssoOffered = false;
+    if (studentSchool && ssoConnections.isOn(studentSchool.organization_id)) {
+      const row = await ssoConnections.connectionFor(db, studentSchool.organization_id).catch(() => null);
+      ssoOffered = Boolean(row && row.status === "active" && row.allow_students);
+    }
     const loginReasonMessages = {
       portal_inactive:
         "Student Portal is currently deactivated for this school. Please contact your school administrator.",
@@ -6021,6 +5960,7 @@ const accountController = {
       showFooterTopSection: true,
       messages: req.flash(),
       accessReasonMessage: loginReasonMessages[reason] || "",
+      ssoOffered,
     });
   },
 
@@ -6055,6 +5995,7 @@ const accountController = {
 
       if (!studentAccountsResult.rows.length) {
         clearStudentAuthSession();
+        await require("../utils/authRateLimit").takeTheSameTime(password);
         req.flash("error", "Invalid student email or password.");
         return res.redirect("/account/student-login");
       }
@@ -6103,6 +6044,12 @@ const accountController = {
         }
         studentAccount = account;
         break;
+      }
+
+      if (studentAccount && await require("../utils/sso/connections").passwordRefused(db, studentAccount.organization_id, { isStudent: true })) {
+        clearStudentAuthSession();
+        req.flash("error", "Your school signs in with its own sign-in. Enter your email and choose Continue.");
+        return res.redirect("/account/login?sso=1");
       }
 
       if (!studentAccount && matchedSuspended) {
@@ -6257,13 +6204,7 @@ const accountController = {
     });
   },
 
-  accountGet: (req, res) => {
-    res.render("account/account", {
-      title: "Account Management",
-
-      messages: req.flash(),
-    });
-  },
+  
 
   updateGet: async (req, res) => {
     // Log entire session object
@@ -6447,6 +6388,10 @@ const accountController = {
         req.session.save();
       } else {
         // Update user
+        if (await require("../utils/staffChangeGuard").takesOwnersEmail(db, orgId, userId, email)) {
+          req.flash("error", "Email is already in use by another account.");
+          return res.redirect("/account/update");
+        }
 
         let updateQuery = `UPDATE users SET first_name = $1, last_name = $2, email = $3`;
 
@@ -6868,6 +6813,11 @@ const accountController = {
       ]);
 
       if (emailCheckResult.rows.length > 0) {
+        req.flash("error", "Email is already in use by another account.");
+        return res.redirect(localPath(redirectTo, "/account/settings"));
+      }
+
+      if (!isOrgAccount && await require("../utils/staffChangeGuard").takesOwnersEmail(db, orgId, userId, email)) {
         req.flash("error", "Email is already in use by another account.");
         return res.redirect(localPath(redirectTo, "/account/settings"));
       }
@@ -10596,313 +10546,13 @@ const accountController = {
     }
   },
 
-  addFlutterwaveAccountPost: async (req, res) => {
-    const { organizationId, organizationName } = req.session;
+  
 
-    const {
-      account_number,
+  
 
-      account_name,
+  
 
-      bank_or_provider,
-
-      country,
-
-      account_type,
-
-      makePrimary,
-    } = req.body;
-
-    const safeAccountNumber = String(account_number || "").trim();
-
-    const safeAccountName = String(account_name || "").trim();
-
-    const safeBankOrProvider = String(bank_or_provider || "").trim();
-
-    const safeCountry = country || "US";
-
-    const safePaymentType = account_type || "bank";
-
-    const isPrimary = makePrimary === "on";
-
-    try {
-      // Enforce max 1 subaccount per type (bank/momo) per org
-
-      const existingAccounts = await db.query(
-        `SELECT * FROM flutterwave_accounts WHERE organization_id = $1 AND account_type = $2`,
-
-        [organizationId, safePaymentType]
-      );
-
-      if (existingAccounts.rows.length > 0) {
-        const message = `Only one ${safePaymentType.toUpperCase()} subaccount is allowed.`;
-
-        if (req.headers["content-type"] === "application/json") {
-          return res.status(400).json({ success: false, message });
-        } else {
-          req.flash("error", message);
-
-          return res.redirect("/account/update-card");
-        }
-      }
-
-      // Create subaccount in Flutterwave
-
-      const response = await axios.post(
-        "https://api.flutterwave.com/v3/subaccounts",
-
-        {
-          account_bank: safeBankOrProvider,
-
-          account_number: safeAccountNumber,
-
-          business_name: `${organizationName}-${organizationId}`,
-
-          business_email: `${organizationName
-
-            .replace(/\s+/g, "")
-
-            .toLowerCase()}@managira.com`,
-
-          business_contact: safeAccountName,
-
-          business_contact_mobile: "0000000000",
-
-          country: safeCountry,
-
-          split_type: "percentage",
-
-          split_value: 0.9,
-        },
-
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.FLW_SECRET_KEY}`,
-          },
-        }
-      );
-
-      const subaccountId = response.data?.data?.subaccount_id;
-
-      if (!subaccountId)
-        throw new Error("No subaccount ID returned from Flutterwave.");
-
-      // Set as primary (unset others)
-
-      if (isPrimary) {
-        await db.query(
-          `UPDATE flutterwave_accounts SET is_primary = FALSE
-
-           WHERE organization_id = $1 AND account_type = $2`,
-
-          [organizationId, safePaymentType]
-        );
-      }
-
-      // Insert into DB
-
-      await db.query(
-        `INSERT INTO flutterwave_accounts (
-
-          organization_id, account_type, account_name, account_number,
-
-          bank_or_provider, country, subaccount_id, is_primary
-
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-
-        [
-          organizationId,
-
-          safePaymentType,
-
-          safeAccountName,
-
-          safeAccountNumber,
-
-          safeBankOrProvider,
-
-          safeCountry,
-
-          subaccountId,
-
-          isPrimary,
-        ]
-      );
-
-      if (req.headers["content-type"] === "application/json") {
-        return res.status(200).json({ success: true });
-      } else {
-        req.flash("success", "🎉 Flutterwave account connected successfully.");
-
-        return res.redirect("/account/update-card");
-      }
-    } catch (error) {
-      const message =
-        error.response?.data?.message || error.message || "Unknown error";
-
-            if (req.headers["content-type"] === "application/json") {
-        return res.status(500).json({ success: false, message });
-      } else {
-        req.flash("error", `Failed to connect Flutterwave account: ${message}`);
-
-        return res.redirect("/account/update-card");
-      }
-    }
-  },
-
-  getFlutterwaveAccountById: async (req, res) => {
-    const { id } = req.params;
-
-    const { organizationId } = req.session;
-
-    if (!organizationId) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
-    try {
-      const result = await db.query(
-        `SELECT id, account_type, account_name, account_number, bank_or_provider, country
-
-         FROM flutterwave_accounts
-
-         WHERE id = $1 AND organization_id = $2`,
-
-        [id, organizationId]
-      );
-
-      if (result.rows.length === 0) {
-        return res
-
-          .status(404)
-
-          .json({ success: false, message: "Account not found" });
-      }
-
-      return res.json({ success: true, account: result.rows[0] });
-    } catch (error) {
-            res.status(500).json({ success: false, message: "Server error" });
-    }
-  },
-
-  updateFlutterwaveAccount: async (req, res) => {
-    const {
-      id,
-
-      account_name,
-
-      account_number,
-
-      bank_or_provider,
-
-      country,
-
-      account_type,
-    } = req.body;
-
-    const { organizationId } = req.session;
-
-    try {
-      const safeAccountName = String(account_name || "").trim();
-
-      const safeAccountNumber = String(account_number || "").trim();
-
-      const safeBankOrProvider = String(bank_or_provider || "").trim();
-
-      const safeCountry = country || "US";
-
-      const safeAccountType = account_type || "bank";
-
-      const result = await db.query(
-        `UPDATE flutterwave_accounts
-
-         SET account_name = $1, account_number = $2,
-
-             bank_or_provider = $3, country = $4
-
-         WHERE id = $5 AND organization_id = $6 AND account_type = $7`,
-
-        [
-          safeAccountName,
-
-          safeAccountNumber,
-
-          safeBankOrProvider,
-
-          safeCountry,
-
-          id,
-
-          organizationId,
-
-          safeAccountType,
-        ]
-      );
-
-      res.json({ success: true, message: "Account updated successfully" });
-    } catch (error) {
-            res
-
-        .status(500)
-
-        .json({ success: false, message: "Failed to update account" });
-    }
-  },
-
-  deleteFlutterwaveAccount: async (req, res) => {
-    const { id } = req.params;
-
-    const { organizationId } = req.session;
-
-    try {
-      // Step 1: Get the subaccount_id from DB
-
-      const result = await db.query(
-        `SELECT subaccount_id FROM flutterwave_accounts
-
-         WHERE id = $1 AND organization_id = $2`,
-
-        [id, organizationId]
-      );
-
-      if (result.rows.length === 0) {
-        return res
-
-          .status(404)
-
-          .json({ success: false, message: "Account not found" });
-      }
-
-      const subaccountId = result.rows[0].subaccount_id;
-
-      // Step 2: Delete from Flutterwave (optional – Flutterwave might not fully delete)
-
-      try {
-        await axios.delete(
-          `https://api.flutterwave.com/v3/subaccounts/${subaccountId}`,
-
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.FLW_SECRET_KEY}`,
-            },
-          }
-        );
-      } catch (flwErr) {
-        // Optionally ignore if subaccount is already gone
-      }
-
-      // Step 3: Delete locally
-
-      await db.query(
-        `DELETE FROM flutterwave_accounts WHERE id = $1 AND organization_id = $2`,
-
-        [id, organizationId]
-      );
-
-      res.json({ success: true });
-    } catch (err) {
-            res.status(500).json({ success: false, message: "Delete failed." });
-    }
-  },
+  
 
   // ✅ Card tokenization without payment
 
@@ -12270,96 +11920,7 @@ const accountController = {
     }
   },
 
-  whatsappDiagnoseRecipientPost: async (req, res) => {
-    const orgId = req.session.organizationId;
-    if (!orgId) {
-      return res.status(401).json({ success: false, message: "Not authenticated." });
-    }
-
-    try {
-      await ensureWhatsappIntegrationSchema(db);
-
-      const integrationStatus = await getWhatsappIntegrationStatus(db, orgId);
-      if (!integrationStatus.activated || !integrationStatus.connected) {
-        return res.status(400).json({
-          success: false,
-          message: "Activate and connect WhatsApp before running recipient diagnostics.",
-        });
-      }
-
-      const credentials = await getWhatsappMessagingCredentials(db, orgId);
-      if (!credentials.configured || !credentials.phoneNumberId || !credentials.accessToken) {
-        return res.status(400).json({
-          success: false,
-          message: "WhatsApp access credentials are incomplete. Reconnect WhatsApp and try again.",
-        });
-      }
-
-      if (
-        credentials.tokenExpiresAt &&
-        Number(new Date(credentials.tokenExpiresAt).getTime()) > 0 &&
-        Number(new Date(credentials.tokenExpiresAt).getTime()) <= Date.now()
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "The stored WhatsApp access token has expired. Reconnect WhatsApp to refresh it, then retry diagnosis.",
-        });
-      }
-
-      await ensureWhatsappCloudReady(
-        credentials.accessToken,
-        integrationStatus.wabaId,
-        credentials.phoneNumberId,
-        getWhatsappRegistrationPinFromEnv() || null
-      );
-
-      const recipient = normalizePhoneDigits(req.body.recipient || req.body.to || "");
-      if (!recipient) {
-        return res.status(400).json({ success: false, message: "Enter the recipient number in international format (e.g. +13854521960)." });
-      }
-
-      const templateName = String(req.body.templateName || "jaspers_market_order_confirmation_v1").trim() || "jaspers_market_order_confirmation_v1";
-      const languageCode = String(req.body.languageCode || "en_US").trim() || "en_US";
-
-      const result = await sendWhatsappTemplateMessage(
-        credentials.accessToken,
-        credentials.phoneNumberId,
-        {
-          to: recipient,
-          defaultCountry: credentials.countryCode,
-          templateName,
-          languageCode,
-          bodyParameters: ["Managira", "DIAG-RECIPIENT", new Date().toISOString().slice(0, 10)],
-        }
-      );
-
-      return res.json({
-        success: true,
-        reachable: true,
-        message: "Recipient check passed. Meta accepted this number for the current sender line.",
-        recipient,
-        senderPhoneNumberId: credentials.phoneNumberId,
-        messageId: result?.messages?.[0]?.id || "",
-      });
-    } catch (error) {
-      const apiError = error?.response?.data?.error || {};
-      const apiCode = Number(apiError?.code || 0) || null;
-      const apiMessage = String(apiError?.message || error?.message || "Unable to diagnose recipient.").trim();
-
-      const resolvedMessage = apiCode === 133010
-        ? "Meta rejected this number for the currently connected sender line (code 133010). Verify this exact number is allowed/reachable in WhatsApp API Setup for this sender. If this WABA is in test mode, add and verify this number as a test recipient."
-        : (apiCode === 131030
-            ? "This recipient is not approved as a WhatsApp test recipient for the current app/sender context. Add and verify it in Meta API Setup, then retry."
-            : apiMessage);
-
-      return res.status(400).json({
-        success: false,
-        reachable: false,
-        message: resolvedMessage,
-        errorCode: apiCode,
-      });
-    }
-  },
+  
 
   smsActivationPost: async (req, res) => {
     const orgId = req.session.organizationId;
@@ -12862,7 +12423,7 @@ const accountController = {
         miraIntegration,
         employees,
         seatCount,
-        permissionOptions: permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => !option.parent),
+        permissionOptions: permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => !option.parent),
         flash: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -12973,7 +12534,7 @@ const accountController = {
       // Owner included - no free bypass; Mira access is read straight from
       // their real granted permissions like anyone else.
       const permissions = effectivePermissionsForRole(employee.account_type, await getUserPermissions(db, userId, orgId));
-      const modalOptions = permissionOptionsFor({ allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => option.key !== PERMISSIONS.USE_MIRA).filter((option) => !option.parent);
+      const modalOptions = permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => option.key !== PERMISSIONS.USE_MIRA).filter((option) => !option.parent);
 
       return res.json({
         userId: employee.user_id,

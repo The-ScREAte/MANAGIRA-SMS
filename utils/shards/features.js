@@ -9,6 +9,11 @@ const FEATURES = {
   bus_boarding: { label: "Bus boarding and not coming", access: "selected" },
   class_activities: { label: "Activities and calendars", access: "selected" },
   parent_student_hub: { label: "Parent tiles and homework help", access: "selected" },
+  sso: { label: "Single sign-on (SAML and OpenID Connect)", access: "selected" },
+  // The login page has one email box for everyone and no links to the other portals, so taking
+  // parents, students and hubs to their own portal is on for everyone. Each portal still checks
+  // its own password.
+  smart_login: { label: "Main login takes parents, students and hubs to their portal", access: "everyone" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

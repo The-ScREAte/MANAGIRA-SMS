@@ -1106,13 +1106,7 @@ class ChatbotController {
     }
   }
 
-  // FAQ endpoint kept only for backward compatibility, but disabled by design.
-  static getFAQById(req, res) {
-    return res.json({
-      success: false,
-      message: 'FAQ responses are disabled. Please use documentation search.',
-    });
-  }
+
 }
 
 module.exports = ChatbotController;

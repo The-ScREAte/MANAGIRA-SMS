@@ -120,4 +120,89 @@ async function lessonItems(db, { organizationId, userId, start, end }) {
   return items;
 }
 
-module.exports = { lessonItems };
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+// A driver's weekly bus runs, as calendar items.
+async function tripItems(db, { organizationId, userId, start, end }) {
+  if (!organizationId || !userId || !start || !end) return [];
+  const { rows } = await db.query(
+    `SELECT s.schedule_id, LOWER(s.day_of_week) AS day_of_week, to_char(s.start_time, 'HH24:MI') AS start_time, to_char(s.end_time, 'HH24:MI') AS end_time,
+            r.route_name, b.bus_number
+       FROM transport_bus_schedules s
+       JOIN transport_buses b ON b.bus_id = s.bus_id AND b.organization_id = s.organization_id
+       LEFT JOIN transport_routes r ON r.route_id = s.route_id AND r.organization_id = s.organization_id
+       LEFT JOIN transport_drivers d ON d.driver_id = s.driver_id AND d.organization_id = s.organization_id
+      WHERE s.organization_id = $1 AND COALESCE(s.status, 'active') = 'active' AND (d.user_id = $2 OR b.driver_user_id = $2)
+      ORDER BY s.start_time`,
+    [organizationId, userId]
+  );
+  const items = [];
+  const lastDay = addDays(end, -1);
+  rows.forEach((row) => {
+    if (!row.start_time) return;
+    for (let day = start, n = 0; day <= lastDay && n < MAX_DAYS; day = addDays(day, 1), n++) {
+      if (WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()] !== row.day_of_week) continue;
+      const route = row.route_name || "Bus run";
+      items.push({
+        id: `trip-${row.schedule_id}-${day}`,
+        title: route,
+        start: `${day}T${row.start_time}`,
+        end: row.end_time ? `${day}T${row.end_time}` : null,
+        allDay: false,
+        editable: false,
+        classNames: ["cal-ev", "cal-ev--trip"],
+        extendedProps: {
+          kind: "trip", layer: "trip", recordId: `${row.schedule_id}-${day}`,
+          details: row.bus_number ? `Bus ${row.bus_number}` : "", location: "",
+          date: day, endDate: day, startTime: row.start_time, endTime: row.end_time,
+        },
+      });
+    }
+  });
+  return items;
+}
+
+// A class's lessons on one day or many, for the people in that class. Same days as a
+// teacher's: only inside the term, and never on a day the school marked closed.
+async function classLessonItems(db, { organizationId, classIds, start, end }) {
+  if (!organizationId || !classIds || !classIds.length || !start || !end) return [];
+  const { rows } = await db.query(
+    `SELECT e.entry_id, e.day_of_week, to_char(e.start_time, 'HH24:MI') AS start_time, to_char(e.end_time, 'HH24:MI') AS end_time,
+            e.custom_label, s.subject_name, c.class_id, c.class_name, t.term_id,
+            to_char(t.start_date, 'YYYY-MM-DD') AS term_start, to_char(t.end_date, 'YYYY-MM-DD') AS term_end
+       FROM class_schedule_entries e
+       JOIN class_schedules cs ON cs.schedule_id = e.schedule_id
+       JOIN terms t ON t.term_id = cs.term_id
+       JOIN classes c ON c.class_id = cs.class_id AND c.obsolete_at IS NULL
+       LEFT JOIN subjects s ON s.subject_id = e.subject_id
+      WHERE cs.organization_id = $1 AND cs.class_id = ANY($4::int[])
+        AND t.start_date IS NOT NULL AND t.end_date IS NOT NULL
+        AND t.start_date < $3::date AND t.end_date >= $2::date
+      ORDER BY e.start_time`,
+    [organizationId, start, end, classIds]
+  );
+  if (!rows.length) return [];
+  const lastDay = addDays(end, -1);
+  const terms = new Map();
+  rows.forEach((r) => { if (!terms.has(r.term_id)) terms.set(r.term_id, r); });
+  const closedByTerm = new Map();
+  await Promise.all([...terms.values()].map(async (t) => {
+    const from = t.term_start > start ? t.term_start : start;
+    const to = t.term_end < lastDay ? t.term_end : lastDay;
+    closedByTerm.set(t.term_id, await closedDays(db, organizationId, t.term_id, from, to).catch(() => new Map()));
+  }));
+  const items = [];
+  rows.forEach((r) => {
+    const from = r.term_start > start ? r.term_start : start;
+    const to = r.term_end < lastDay ? r.term_end : lastDay;
+    const closed = closedByTerm.get(r.term_id);
+    for (let day = from, n = 0; day <= to && n < MAX_DAYS; day = addDays(day, 1), n++) {
+      const isoDay = new Date(`${day}T00:00:00Z`).getUTCDay() || 7;
+      if (isoDay !== Number(r.day_of_week) || closed.has(day)) continue;
+      items.push({ entryId: r.entry_id, classId: Number(r.class_id), date: day, startTime: r.start_time, endTime: r.end_time, title: r.subject_name || r.custom_label || "Lesson" });
+    }
+  });
+  return items;
+}
+
+module.exports = { lessonItems, tripItems, classLessonItems };

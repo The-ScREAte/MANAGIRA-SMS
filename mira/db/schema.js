@@ -91,12 +91,15 @@ async function ensureMiraSchema(db) {
     )
   `);
 
-  // Vector store. CREATE EXTENSION requires privileges most managed
-  // Postgres plans grant by default (confirmed available, not yet enabled,
-  // on this project's instance) - if it's not permitted in a given
-  // environment this throws clearly rather than silently degrading, since
-  // RAG is non-functional without it.
-  await db.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+  // Vector store. Without it Mira still works and answers from the school's
+  // data; only the documentation search is skipped.
+  try {
+    await db.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+  } catch (error) {
+    console.error("[mira/schema] documentation search is off, the vector extension isn't available:", error.message);
+    schemaReady = true;
+    return;
+  }
   await db.query(`
     CREATE TABLE IF NOT EXISTS mira_embeddings (
       id              SERIAL PRIMARY KEY,

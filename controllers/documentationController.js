@@ -431,42 +431,6 @@ async function documentationSearchJson(req, res) {
   }
 }
 
-async function documentationIndexJson(req, res) {
-  try {
-    const documentationAdmin = isDocumentationAdmin(req);
-    const pageData = await buildDocumentationPageData({
-      includeDrafts: documentationAdmin,
-      database: db,
-    });
-
-    return res.json({
-      success: true,
-      articles: pageData.index,
-      topics: pageData.availableTopics,
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Unable to load documentation index.' });
-  }
-}
-
-async function documentationArticleJson(req, res) {
-  try {
-    const documentationAdmin = isDocumentationAdmin(req);
-    const article = await getDocumentationArticleBySlug(req.params.slug, {
-      includeDrafts: documentationAdmin,
-      database: db,
-    });
-
-    if (!article) {
-      return res.status(404).json({ success: false, message: 'Article not found.' });
-    }
-
-    return res.json({ success: true, article });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Unable to load article.' });
-  }
-}
-
 async function documentationHelpfulVote(req, res) {
   try {
     const articleId = Number(req.body.articleId || req.body.article_id);
@@ -632,12 +596,10 @@ async function documentationUploadMedia(req, res) {
 }
 
 module.exports = {
-  documentationArticleJson,
   documentationCreateArticle,
   documentationDeleteArticle,
   documentationDuplicateArticle,
   documentationHelpfulVote,
-  documentationIndexJson,
   documentationSearchJson,
   documentationToggleStatus,
   documentationUpdateArticle,

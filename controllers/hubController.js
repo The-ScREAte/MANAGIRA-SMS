@@ -172,6 +172,7 @@ const hubController = {
             req.flash('error', 'Invalid email or password.');
             return res.redirect('/hub/login');
           }
+          await new Promise((resolve, reject) => req.session.regenerate((error) => (error ? reject(error) : resolve())));
           req.session.hubId = user.hub_id;
           req.session.hubUserId = user.hub_user_id;
           req.session.accountType = 'Hub';
@@ -186,6 +187,7 @@ const hubController = {
       }
 
       if (!hub) {
+        await require('../utils/authRateLimit').takeTheSameTime(req.body.password);
         req.flash('error', 'Invalid email or password.');
         return res.redirect('/hub/login');
       }
@@ -212,8 +214,8 @@ const hubController = {
         return res.redirect('/hub/login');
       }
 
-      // Set hub session
-      delete req.session.hubUserId;
+      // A new session at sign-in, so one planted beforehand can't become this person's.
+      await new Promise((resolve, reject) => req.session.regenerate((error) => (error ? reject(error) : resolve())));
       req.session.hubId = hub.hub_id;
       req.session.accountType = 'Hub';
       req.session.hubName = hub.hub_name;

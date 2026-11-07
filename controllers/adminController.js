@@ -3365,19 +3365,7 @@ const adminController = {
     res.redirect('/admin/servicePricing');
   },
 
-  updateBillingInterval: async (req, res) => {
-    try {
-      const { billing_interval } = req.body;
-      const allowed = ['5_minutes', 'daily', 'weekly', 'monthly', 'yearly', '2_years', '3_years'];
-      const interval = allowed.includes(billing_interval) ? billing_interval : 'monthly';
-      await db.query(`INSERT INTO app_settings(key, value) VALUES ('billing_interval', $1)
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [interval]);
-      req.flash('success', 'Billing interval updated.');
-    } catch (error) {
-            req.flash('error', 'Failed to update billing interval.');
-    }
-    res.redirect('/admin/servicePricing');
-  },
+  
 
   updatePlatformFeeSettings: async (req, res) => {
     try {
@@ -3408,14 +3396,7 @@ const adminController = {
     }
   },
 
-  getBillingPeriods: async (req, res) => {
-    try {
-      const result = await db.query('SELECT * FROM billing_periods ORDER BY sort_order');
-      return res.json({ success: true, periods: result.rows });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: 'Failed to fetch billing periods.' });
-    }
-  },
+  
 
   updatePaystackSettings: async (req, res) => {
     try {
@@ -3534,20 +3515,7 @@ const adminController = {
     }
   },
 
-  addFeature: async (req, res) => {
-    const { featureName, priceUsd } = req.body;
-    try {
-      await db.query(
-        "INSERT INTO features (feature_name, price_usd) VALUES ($1, $2)",
-        [featureName, priceUsd]
-      );
-      req.flash("success", "Feature added successfully.");
-      res.redirect("/admin/servicePricing");
-    } catch (error) {
-            req.flash("error", "Failed to add feature.");
-      res.redirect("/admin/servicePricing");
-    }
-  },
+  
 
   updateFeature: async (req, res) => {
     const { featureId, featureName, priceUsd } = req.body;
@@ -4180,48 +4148,9 @@ const adminController = {
 
   // ── Student Count Tier CRUD ──
 
-  addStudentTier: async (req, res) => {
-    const { plan_id, min_students, max_students, adjustment_percentage } = req.body;
-    try {
-      const planCheck = await db.query('SELECT id FROM plans WHERE id = $1', [plan_id]);
-      if (planCheck.rows.length === 0) {
-        req.flash("error", "Plan not found.");
-        return res.redirect("/admin/servicePricing");
-      }
-      const minVal = parseInt(min_students, 10) || 0;
-      const maxVal = max_students === '' || max_students === undefined || max_students === null ? null : parseInt(max_students, 10);
-      const label = maxVal != null ? `${minVal} – ${maxVal} students` : `${minVal}+ students`;
-      const adjustment = Number.parseFloat(adjustment_percentage);
-      const sortOrder = await db.query('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM plan_student_tiers WHERE plan_id = $1', [plan_id]);
-      await db.query(
-        `INSERT INTO plan_student_tiers (plan_id, label, min_students, max_students, price_usd, adjustment_percentage, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [plan_id, label, minVal, maxVal, 0, Number.isFinite(adjustment) ? adjustment : 0, sortOrder.rows[0].next]
-      );
-      req.flash("success", "Student tier added.");
-    } catch (error) {
-      req.flash("error", "Failed to add student tier.");
-    }
-    res.redirect("/admin/servicePricing");
-  },
+  
 
-  updateStudentTier: async (req, res) => {
-    const { tier_id, min_students, max_students, adjustment_percentage } = req.body;
-    try {
-      const minVal = parseInt(min_students, 10) || 0;
-      const maxVal = max_students === '' || max_students === undefined || max_students === null ? null : parseInt(max_students, 10);
-      const label = maxVal != null ? `${minVal} – ${maxVal} students` : `${minVal}+ students`;
-      const adjustment = Number.parseFloat(adjustment_percentage);
-      await db.query(
-        `UPDATE plan_student_tiers SET label = $1, min_students = $2, max_students = $3, adjustment_percentage = $4 WHERE id = $5`,
-        [label, minVal, maxVal, Number.isFinite(adjustment) ? adjustment : 0, tier_id]
-      );
-      req.flash("success", "Student tier updated.");
-    } catch (error) {
-      req.flash("error", "Failed to update student tier.");
-    }
-    res.redirect("/admin/servicePricing");
-  },
+  
 
   saveStudentTiers: async (req, res) => {
     const {
@@ -4336,18 +4265,7 @@ const adminController = {
     res.redirect("/admin/servicePricing");
   },
 
-  getStudentTiers: async (req, res) => {
-    const { plan_id } = req.query;
-    try {
-      const result = await db.query(
-        'SELECT * FROM plan_student_tiers WHERE plan_id = $1 ORDER BY sort_order, min_students',
-        [plan_id]
-      );
-      return res.json({ success: true, tiers: result.rows });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: 'Failed to fetch student tiers.' });
-    }
-  },
+  
 
   deleteEmployment: async (req, res) => {
     await ensureEmploymentSchema(db);
@@ -5150,29 +5068,7 @@ const adminController = {
     res.redirect("/admin/announcements");
   },
 
-  // Mark an admin-targeted announcement as seen for the current admin-side user.
-  // Idempotent — repeated calls don't create duplicate rows.
-  markAdminAnnouncementSeen: async (req, res) => {
-    const userId = req.session && req.session.userId;
-    const announcementId = parseInt(req.params.id, 10);
-    if (!userId || !Number.isFinite(announcementId)) {
-      return res.status(400).json({ success: false, message: "Invalid request." });
-    }
-    try {
-      await ensureAdminAnnouncementSchema(db);
-      await db.query(
-        `INSERT INTO announcement_views (user_id, announcement_id, last_viewed)
-         VALUES ($1, $2, CURRENT_TIMESTAMP)
-         ON CONFLICT (user_id, announcement_id)
-         DO UPDATE SET last_viewed = CURRENT_TIMESTAMP`,
-        [userId, announcementId]
-      );
-      return res.json({ success: true });
-    } catch (error) {
-      console.error('[markAdminAnnouncementSeen] error:', error && error.message);
-      return res.status(500).json({ success: false, message: "Could not mark announcement as seen." });
-    }
-  },
+
 
   // POST /admin/broadcasts/:id/active { active } and /admin/broadcasts/:id/delete
   setBroadcastActive: async (req, res) => {
@@ -5198,32 +5094,9 @@ const adminController = {
     }
   },
 
-  toggleAdminAnnouncement: async (req, res) => {
-    const { id } = req.params;
-    try {
-      await db.query(
-        `UPDATE admin_announcements SET is_active = NOT is_active WHERE id = $1`,
-        [id]
-      );
-      req.flash("success", "Announcement status toggled.");
-    } catch (error) {
-            req.flash("error", "Failed to update announcement.");
-    }
+  
 
-    res.redirect("/admin/announcements");
-  },
-
-  deleteAdminAnnouncement: async (req, res) => {
-    const { id } = req.params;
-    try {
-      await db.query(`DELETE FROM admin_announcements WHERE id = $1`, [id]);
-      req.flash("success", "Announcement deleted.");
-    } catch (error) {
-            req.flash("error", "Failed to delete announcement.");
-    }
-
-    res.redirect("/admin/announcements");
-  },
+  
 
   listAdminEmailCampaigns: async (req, res) => {
     try {

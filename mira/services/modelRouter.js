@@ -497,6 +497,13 @@ function estimateTokens(messages, tools) {
  * priority order (openrouter, then telnyx, then openai, then anthropic) on
  * error/timeout before giving up.
  */
+const restingUntil = new Map();
+// Out of credit or over a limit won't fix itself soon; a blip might.
+function restFor(error) {
+  const status = Number(error?.status || error?.response?.status || 0);
+  return [400, 401, 402, 403, 413].includes(status) ? 10 * 60 * 1000 : 60 * 1000;
+}
+
 async function streamCompletion({ task = "default", messages, tools = [], onToken, onToolCall }) {
   if (MOCK_MODE) {
     return mockStreamCompletion({ messages, tools, onToken, onToolCall });
@@ -516,16 +523,30 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
     configuredProviders = [...configuredProviders.filter((p) => p !== "openrouter"), "openrouter"];
   }
 
+  // One that just failed waits at the back of the queue for a while, so nobody sits through
+  // the same failure on every step of every reply. It's still tried if nothing else answers.
+  const now = Date.now();
+  const ready = configuredProviders.filter((provider) => !(restingUntil.get(provider) > now));
+  const resting = configuredProviders.filter((provider) => restingUntil.get(provider) > now);
+
   let lastError = null;
-  for (const provider of configuredProviders) {
+  for (const provider of [...ready, ...resting]) {
+    let started = false;
     try {
       const taskMap = TASK_MODEL_MAPS[provider];
       const model = taskMap[task] || taskMap.default;
-      const result = await callProvider(provider, { model, messages, tools, onToken, onToolCall });
+      const result = await callProvider(provider, {
+        model, messages, tools, onToolCall,
+        onToken: (text) => { started = true; onToken(text); },
+      });
+      restingUntil.delete(provider);
       return { ...result, provider, model };
     } catch (error) {
       console.error(`[mira/modelRouter] ${provider} failed, will try fallback if available:`, error.message);
       lastError = error;
+      restingUntil.set(provider, Date.now() + restFor(error));
+      // Words already on the person's screen can't be taken back by starting over elsewhere.
+      if (started) throw error;
     }
   }
   throw lastError || new Error("No LLM provider is configured (set OPENROUTER_API_KEY, TELNYX_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).");

@@ -123,12 +123,6 @@ module.exports = (db) => {
     (req, res) => transportationController.manageGet(req, res, db)
   );
 
-  router.post(
-    "/manage/map-provider",
-    isAuthenticated,
-    requirePermission(PERMISSIONS.TRANSPORT_SETTINGS),
-    (req, res) => transportationController.updateMapProviderPost(req, res, db)
-  );
 
   router.post(
     "/manage/units",
@@ -258,12 +252,6 @@ module.exports = (db) => {
     (req, res) => transportationController.deleteStopPost(req, res, db)
   );
 
-  router.post(
-    "/manage/assignments",
-    isAuthenticated,
-    requirePermission(PERMISSIONS.TRANSPORT_STUDENTS),
-    (req, res) => transportationController.assignStudentPost(req, res, db)
-  );
 
   router.post(
     "/manage/students/access",
@@ -346,9 +334,6 @@ module.exports = (db) => {
     transportationController.driverReportPost(req, res, db)
   );
 
-  router.post("/driver/trips/arrivals", isAuthenticated, (req, res) =>
-    transportationController.driverArrivalsPost(req, res, db)
-  );
 
   router.post("/driver/trips/boarding", isAuthenticated, (req, res) => transportationController.driverBoardingPost(req, res, db));
   router.get("/driver/not-riding", isAuthenticated, (req, res) => transportationController.driverNotRidingGet(req, res, db));

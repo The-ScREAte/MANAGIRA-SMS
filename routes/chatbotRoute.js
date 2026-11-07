@@ -18,7 +18,5 @@ router.post('/query', questionLimit, ChatbotController.getResponse);
 // GET /api/chatbot/popular - Get popular questions
 router.get('/popular', ChatbotController.getPopularQuestions);
 
-// GET /api/chatbot/faq/:id - Get specific FAQ by ID
-router.get('/faq/:id', ChatbotController.getFAQById);
 
 module.exports = router;

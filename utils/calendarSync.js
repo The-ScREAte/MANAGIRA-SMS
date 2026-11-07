@@ -5,14 +5,46 @@ const { BoundedMap } = require("./boundedMap");
 // - In: a person can connect the private iCal address of their Google/Outlook
 //   calendar; those events then show inside the Managira calendar.
 const crypto = require("crypto");
-const dns = require("dns").promises;
-const net = require("net");
 const axios = require("axios");
 const ical = require("node-ical");
+const { safeAgent, checkedUrl, lookupPublic } = require("./safeFetch");
+const { encryptSecret, decryptSecret, isSettingsEncryptionKeyConfigured } = require("./encryption");
 
 const MAX_ICS_BYTES = 5 * 1024 * 1024;
 const CACHE_MS = 10 * 60 * 1000;
 const cache = new BoundedMap(500); // url -> { at, data }
+
+// Google and Microsoft sign-ins and secret calendar links are stored locked. Older rows may
+// still be plain; they open as they are and get locked the next time they're written.
+const LOCKED = "enc1:";
+function lockSecret(value) {
+  if (!value || String(value).startsWith(LOCKED) || !isSettingsEncryptionKeyConfigured()) return value || null;
+  return LOCKED + encryptSecret(String(value));
+}
+function openSecret(value) {
+  if (!value) return null;
+  const text = String(value);
+  return text.startsWith(LOCKED) ? decryptSecret(text.slice(LOCKED.length)) || null : text;
+}
+
+// A moment in a person's own time zone, not the server's.
+const formats = new Map();
+function zoned(date, timeZone) {
+  const zone = timeZone || "UTC";
+  if (!formats.has(zone)) {
+    let format;
+    try {
+      format = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    } catch (_error) {
+      format = new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    }
+    if (formats.size > 200) formats.clear();
+    formats.set(zone, format);
+  }
+  const parts = {};
+  formats.get(zone).formatToParts(date).forEach((part) => { parts[part.type] = part.value; });
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
 
 async function ensureFeedToken(db, organizationId, userId, { reset = false } = {}) {
   if (!reset) {
@@ -33,12 +65,23 @@ const icsText = (v) => String(v == null ? "" : v).replace(/\\/g, "\\\\").replace
 const icsDate = (key) => key.replace(/-/g, "");
 const icsDateTime = (key, time) => `${icsDate(key)}T${String(time).slice(0, 5).replace(":", "")}00`;
 const icsStamp = (d) => new Date(d).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+// Lines stop at 75 bytes, never in the middle of a character.
 function fold(line) {
-  if (line.length <= 74) return line;
+  if (Buffer.byteLength(line) <= 74) return line;
   const parts = [];
-  let rest = line;
-  while (rest.length > 74) { parts.push(rest.slice(0, 74)); rest = rest.slice(74); }
-  parts.push(rest);
+  let current = "";
+  let bytes = 0;
+  for (const character of line) {
+    const size = Buffer.byteLength(character);
+    if (bytes + size > 73) {
+      parts.push(current);
+      current = "";
+      bytes = 0;
+    }
+    current += character;
+    bytes += size;
+  }
+  parts.push(current);
   return parts.join("\r\n ");
 }
 function addDaysKey(key, n) {
@@ -105,27 +148,19 @@ function detectProvider(url) {
   return "other";
 }
 
-function isPrivateIp(ip) {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
-  }
-  const v6 = ip.toLowerCase();
-  return v6 === "::1" || v6.startsWith("fc") || v6.startsWith("fd") || v6.startsWith("fe80") || v6.startsWith("::ffff:127.") || v6.startsWith("::ffff:10.") || v6.startsWith("::ffff:192.168.");
-}
-
 // Fetch an external calendar safely (https only, no internal addresses, size + time limits).
 async function fetchIcs(url) {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
-  const host = new URL(url).hostname;
-  const addresses = await dns.lookup(host, { all: true });
-  if (!addresses.length || addresses.some((a) => isPrivateIp(a.address))) throw new Error("That address can't be reached.");
+  await lookupPublic(checkedUrl(url).hostname);
   const res = await axios.get(url, {
     timeout: 8000,
     maxContentLength: MAX_ICS_BYTES,
     maxRedirects: 3,
     responseType: "text",
+    httpsAgent: safeAgent,
+    proxy: false,
+    beforeRedirect: (options) => { checkedUrl(options.href); },
     headers: { Accept: "text/calendar, text/plain, */*", "User-Agent": "Managira-Calendar/1.0" },
     validateStatus: (s) => s >= 200 && s < 300,
   });
@@ -138,13 +173,13 @@ async function fetchIcs(url) {
 
 const pad = (n) => String(n).padStart(2, "0");
 const localKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const localTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 /** Events from one connected calendar between start and end (YYYY-MM-DD). */
-async function importedEvents(imp, start, end) {
-  const data = await fetchIcs(imp.url);
-  const from = new Date(`${start}T00:00:00`);
-  const to = new Date(`${end}T23:59:59`);
+async function importedEvents(imp, start, end, timeZone) {
+  const data = await fetchIcs(openSecret(imp.url));
+  // A day either side, because the server's day isn't the viewer's.
+  const from = new Date(Date.parse(`${start}T00:00:00Z`) - 864e5);
+  const to = new Date(Date.parse(`${end}T23:59:59Z`) + 864e5);
   const out = [];
   Object.values(data).forEach((ev) => {
     if (!ev || ev.type !== "VEVENT" || ev.recurrenceid) return;
@@ -155,11 +190,13 @@ async function importedEvents(imp, start, end) {
       const s = new Date(inst.start);
       const e = inst.end ? new Date(inst.end) : null;
       const title = typeof inst.summary === "string" ? inst.summary : (inst.summary && inst.summary.val) || ev.summary || "Busy";
+      const at = zoned(s, timeZone);
+      const until = e ? zoned(e, timeZone) : null;
       out.push({
         id: `ext-${imp.import_id}-${String(ev.uid || title).slice(0, 60)}-${i}-${s.getTime()}`,
         title: String(title),
-        start: inst.isFullDay ? localKey(s) : `${localKey(s)}T${localTime(s)}`,
-        end: e ? (inst.isFullDay ? localKey(e) : `${localKey(e)}T${localTime(e)}`) : null,
+        start: inst.isFullDay ? localKey(s) : `${at.day}T${at.time}`,
+        end: e ? (inst.isFullDay ? localKey(e) : `${until.day}T${until.time}`) : null,
         allDay: !!inst.isFullDay,
         editable: false,
         classNames: ["cal-ev", "cal-ev--external"],
@@ -177,4 +214,4 @@ async function importedEvents(imp, start, end) {
   return out;
 }
 
-module.exports = { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents };
+module.exports = { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents, lockSecret, openSecret, zoned };

@@ -616,7 +616,8 @@
   const upcomingEvents = _allEvents.filter((e) => e.event_date && new Date(e.event_date) >= _startOfToday)
     .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
   const pastEvents = _allEvents.filter((e) => !e.event_date || new Date(e.event_date) < _startOfToday)
-    .sort((a, b) => new Date(b.event_date || 0) - new Date(a.event_date || 0));
+    .sort((a, b) => new Date(b.event_date || 0) - new Date(a.event_date || 0))
+    .slice(0, 50); // A school's history can run to thousands: the dashboard only needs the latest.
   const _allAnnouncements = Array.isArray(announcements) ? announcements : [];
   const _canPublish = _perm('publish_events_announcements');
   const _canEditStaff = _perm('manage_employees');
@@ -853,7 +854,7 @@
               _href: u.kind === 'task' ? null : '/common/calendar?date=' + d.getFullYear() + '-' + _pad2(d.getMonth() + 1) + '-' + _pad2(d.getDate()),
             };
           });
-          const _upcomingAll = upcomingEvents.concat(_myUpcoming).sort((a, b) => (new Date(a.event_date) - new Date(b.event_date)) || String(a.start_time || '').localeCompare(String(b.start_time || '')));
+          const _upcomingAll = upcomingEvents.concat(_myUpcoming).sort((a, b) => (new Date(a.event_date) - new Date(b.event_date)) || String(a.start_time || '').localeCompare(String(b.start_time || ''))).slice(0, 100);
           const _KIND = { task: 'Task', personal: 'Personal' };
         %>
         <% const _eventList = (list, isPast) => { %>

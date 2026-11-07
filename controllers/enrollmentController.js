@@ -269,27 +269,7 @@ const enrollmentController = {
           
         
 
-    getStudentsByClass: async (req, res, db) => {
-        const { classId } = req.query;
-        const organizationId = req.session.organizationId;
-
-        if (!organizationId) {
-            return res.status(401).json({ error: 'Unauthorized.' });
-        }
     
-        try {
-            const studentsResult = await db.query(`
-                SELECT student_id, first_name, last_name
-                FROM students
-                WHERE class_id = $1 AND organization_id = $2 AND graduated = FALSE
-                ORDER BY last_name, first_name
-            `, [Number.parseInt(classId, 10) || null, organizationId]);
-    
-            res.json({ students: studentsResult.rows });
-        } catch (error) {
-                        res.status(500).json({ error: 'Failed to fetch students.' });
-        } 
-    },
     
 
     manageEnrollmentGet: async (req, res, db) => {

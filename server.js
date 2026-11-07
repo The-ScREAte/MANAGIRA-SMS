@@ -579,7 +579,6 @@ Allow: /
 Disallow: /account/
 Disallow: /admin/
 Disallow: /api/
-Disallow: /common/save-order
 Disallow: /documents/
 Disallow: /enrollment/
 Disallow: /guardian/
@@ -693,6 +692,10 @@ app.get("/health", (req, res) => {
 // whenever the file does, so that copy can be kept for a year. Anything else,
 // including hand-written ?v=2 links, keeps the one-day cache.
 const { assetUrl: versionedAssetUrl } = require("./utils/assetUrl");
+// The folder holds a design copy of the homepage for the local preview. On the real site it
+// doesn't exist: a stale copy of a page is one nobody keeps safe.
+app.use("/static", (req, res, next) => (process.env.NODE_ENV === "production" ? res.sendStatus(404) : next()));
+
 app.use(express.static("public", {
   maxAge: '1d',
   etag: true,
@@ -800,7 +803,8 @@ app.use((req, res, next) => {
   const now = Date.now();
   const lastActivity = req.session.lastActivity || now;
 
-  if (now - lastActivity > IDLE_TIMEOUT_MS) {
+  // Someone who ticked Keep me logged in isn't timed out for a quiet spell.
+  if (now - lastActivity > require("./utils/keepSignedIn").idleLimitFor(req.session, IDLE_TIMEOUT_MS)) {
     return req.session.destroy(() => {
       if (req.xhr || (req.headers.accept || '').includes('application/json')) {
         return res.status(401).json({ error: 'Session expired due to inactivity. Please log in again.' });
@@ -1057,6 +1061,19 @@ app.get("/public-image", async (req, res) => {
       if (!res.headersSent) res.status(502).end("Image could not be loaded.");
       else res.destroy();
     });
+    // A phone showing a small round photo shouldn't download a 2 MB picture. Only these sizes,
+    // so nobody can make the server produce endless versions.
+    const width = [128, 256, 512].includes(Number(req.query.w)) ? Number(req.query.w) : null;
+    if (width && /^image\/(jpeg|png|webp)$/i.test(publicImageUrl.imageContentType(key) || "")) {
+      const smaller = require("sharp")({ failOn: "none" }).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 80 });
+      smaller.once("error", (error) => {
+        console.error("[Public image] couldn't make a smaller copy:", error.message);
+        if (!res.headersSent) res.status(502).end("Image could not be loaded.");
+        else res.destroy();
+      });
+      res.set("Content-Type", "image/webp");
+      return object.Body.pipe(smaller).pipe(res);
+    }
     return object.Body.pipe(res);
   } catch (error) {
     if (error.name === "NoSuchKey" || error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
@@ -1197,12 +1214,19 @@ if (process.env.NODE_ENV === "production") {
 // Use routes
 app.use("/account/settings", financeRoute);
 app.use("/account/settings", payoutRoute);
+const ssoRoutes = require("./routes/ssoRoute")(db);
+app.use("/account/sso", ssoRoutes.signIn);
+app.use("/account/settings/sso", ssoRoutes.settings);
 app.use("/account", accountRoute);
 app.use("/admin/shards", require("./routes/shardAdminRoute"));
 app.use("/admin", adminRoute);
 // Private calendar subscription feed (Google Calendar / Outlook / Apple fetch it without a login).
 app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>
   require("./controllers/workspaceController").icsFeed(req, res, db)
+);
+// The same for parents and students: their own school calendar, read only.
+app.get("/calendar/family/:token([a-f0-9]{48}).ics", (req, res) =>
+  require("./controllers/familyCalendarController").ics(req, res, db)
 );
 app.use("/common", commonRoute);
 // Service accounts, access tokens and client secrets (school admin screens).

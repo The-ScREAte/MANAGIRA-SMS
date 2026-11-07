@@ -5,7 +5,8 @@ const accountController = require("../controllers/accountController");
 const guardianMessagingController = require("../controllers/guardianMessagingController");
 const themeController = require("../controllers/themeController");
 const accountValidation = require("../validation/accountValidation");
-const { authRateLimit } = require("../utils/authRateLimit");
+const { authRateLimit, signInGuard } = require("../utils/authRateLimit");
+const { keepSignedInChoice } = require("../utils/keepSignedIn");
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/s3Upload");
 const db = require("../config/db");
@@ -69,13 +70,16 @@ router.post(
 
 // Login and Logout Routes
 router.get("/login", (req, res) => accountController.loginGet(req, res, db));
+// The first step of the login page: the email decides between a password and single sign-on.
+router.post("/login/continue", (req, res) => require("../controllers/ssoController").continueWithEmail(req, res, db));
 // Sign-in page ads: PDFs served same-origin so PDF.js can render them, plus click counts.
 const loginAdsController = require("../controllers/loginAdsController");
 router.get("/login-ads/:id(\\d+)/file", loginAdsController.serveFile);
 router.post("/login-ads/:id(\\d+)/click", loginAdsController.recordSignInClick);
 router.post(
   "/login",
-  authRateLimit("login", { field: "email" }),
+  signInGuard("login", { field: "email" }),
+  keepSignedInChoice,
   accountValidation.validateLogin,
   accountValidation.validateLoginResult,
   (req, res) => accountController.loginPost(req, res, db)
@@ -87,7 +91,8 @@ router.get("/guardian-login", (req, res) =>
 );
 router.post(
   "/guardian-login",
-  authRateLimit("guardian-login", { field: "identifier" }),
+  signInGuard("guardian-login", { field: "identifier" }),
+  keepSignedInChoice,
   accountValidation.validateGuardianLogin,
   accountValidation.validateGuardianLoginResult,
   (req, res) => accountController.guardianLoginPost(req, res, db)
@@ -97,7 +102,8 @@ router.get("/student-login", (req, res) =>
 );
 router.post(
   "/student-login",
-  authRateLimit("student-login", { field: "email" }),
+  signInGuard("student-login", { field: "email" }),
+  keepSignedInChoice,
   accountValidation.validateStudentLogin,
   accountValidation.validateStudentLoginResult,
   (req, res) => accountController.studentLoginPost(req, res, db)
@@ -106,10 +112,6 @@ router.get("/logout", (req, res) =>
   accountController.logoutGet(req, res, db)
 );
 
-// Account Management Routes
-router.get("/account", isAuthenticated, (req, res) =>
-  accountController.accountGet(req, res, db)
-);
 router.get("/update", isAuthenticated, (req, res) =>
   accountController.updateGet(req, res, db)
 );
@@ -146,9 +148,6 @@ router.post("/personalization/display-preferences", isAuthenticated, requirePerm
 );
 router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   themeController.updateThemePost(req, res)
-);
-router.post(["/appearance", "/personalization/appearance"], isAuthenticated, (req, res) =>
-  themeController.updateAppearancePost(req, res)
 );
 router.post("/personalization/student-id", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.updateStudentIdSettingsPost(req, res, db)
@@ -422,12 +421,6 @@ router.post(
   accountController.whatsappTestMessagePost
 );
 router.post(
-  "/whatsapp/diagnose-recipient",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
-  accountController.whatsappDiagnoseRecipientPost
-);
-router.post(
   "/sms/activate",
   isAuthenticated,
   requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
@@ -545,9 +538,6 @@ router.get("/update-card", checkFeatureAccess, isAuthenticated, requirePermissio
   }
   accountController.updateCardGet(req, res, db);
 });
-router.post("/add-card", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
-  accountController.addCardPost(req, res, db)
-);
 router.post("/cards/stripe/setup-intent", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.createStripeCardSetupIntentPost(req, res, db)
 );
@@ -620,10 +610,6 @@ router.post("/paystack/stripe-bank-account", isAuthenticated, requirePermission(
 // Utility API: Paystack banks
 router.get('/paystack-banks', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) => accountController.listPaystackBanks(req, res));
 
-// Unified Payout Destination (Stripe Connect + Paystack)
-router.get('/settings/payout-context.json', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
-  accountController.getPayoutContextJson(req, res)
-);
 router.post('/settings/payout-preference', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.updatePayoutPreferencePost(req, res)
 );
@@ -680,30 +666,6 @@ router.post(
   accountController.updatePublicRegistration
 );
 
-router.get(
-  "/flutterwave/:id",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_BILLING),
-  accountController.getFlutterwaveAccountById
-);
-router.put(
-  "/flutterwave",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_BILLING),
-  accountController.updateFlutterwaveAccount
-);
-router.delete(
-  "/flutterwave/:id",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_BILLING),
-  accountController.deleteFlutterwaveAccount
-);
-router.post(
-  "/add-flutterwave-account",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_BILLING),
-  accountController.addFlutterwaveAccountPost
-);
 
 // Hub Invitation Routes
 router.get("/accept-hub-invitation/:token", accountController.hubInvitationAcceptGet);

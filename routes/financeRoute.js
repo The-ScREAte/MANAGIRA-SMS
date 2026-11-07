@@ -175,7 +175,6 @@ router.get("/finance", isAuthenticated, requireFinanceSettingsAccess, c.financeP
 router.get("/finance/arrears", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.financeArrearsPageGet);
 router.post("/finance/arrears/presets", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsPresetCreatePost);
 router.post("/finance/arrears/notes", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsNoteCreatePost);
-router.post("/finance/arrears/guardians", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsGuardianSavePost);
 router.post("/finance/arrears/reports", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportCreatePost);
 router.get("/finance/arrears/reports/:id/view", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportViewGet);
 router.get("/finance/arrears/reports/:id/download", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECOVERY), c.arrearsReportDownloadGet);
@@ -202,14 +201,10 @@ router.get("/finance/_assignments.json", isAuthenticated, paygiraPage(PERMISSION
 router.post("/finance/signoffs/:id/unsign", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_DELETE_PAYMENTS), c.signoffUnsignPost);
 router.get("/finance/signoffs/:id/report", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_PAYMENTS, PERMISSIONS.PAYGIRA_DELETE_PAYMENTS), c.signoffReportGet);
 
-// Overdue sweep
-router.post("/finance/sweep-overdue", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.overdueSweepPost);
 
 // Student detail JSON
 router.get("/finance/students/:id/detail.json", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS, PERMISSIONS.PAYGIRA_ORG_BILLS, PERMISSIONS.PAYGIRA_PAYMENTS, PERMISSIONS.PAYGIRA_RECORD_PAYMENTS, PERMISSIONS.PAYGIRA_RECOVERY), c.studentDetailGet);
 
-// CSV export
-router.get("/finance/export/csv", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_PAYMENTS), c.exportCsvGet);
 
 // PSP / Payment-Settings save (stripe, momo, bank, general)
 router.post("/finance/psp/:provider", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_SETTINGS), c.pspSavePost);
@@ -225,7 +220,5 @@ router.get("/my-paygira/occurrence-summary", isAuthenticated, requireMyPaygiraAc
 // Invoices & receipts (staff side — assignee or admin)
 router.get("/my-paygira/invoice/:assignmentId", isAuthenticated, c.invoiceGet);
 router.get("/my-paygira/receipt/:paymentId", isAuthenticated, c.receiptGet);
-router.get("/finance/invoice/:assignmentId", isAuthenticated, c.invoiceGet);
-router.get("/finance/receipt/:paymentId", isAuthenticated, c.receiptGet);
 
 module.exports = router;
