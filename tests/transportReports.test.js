@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { REPORT_TYPES, normalizeReport, expandReport, normalizeArrivals, reviewReport, answerArrival, ReportError } = require("../utils/transportReports");
 const liveBus = require("../utils/liveBus");
+const transportReports = require("../utils/transportReports");
 const { effectivePermissionsForRole, isDriverPermission, permissionOptionsFor } = require("../middleware/permissionMiddleware");
 const { workspaceAccess } = require("../utils/workspaceAccess");
 
@@ -108,6 +109,56 @@ test("while a driver's phone is silent, the bus keeps moving along its road, mar
   const real = await liveBus.liveForStudent(db, org, 8, 1);
   assert.equal(real.estimated, undefined, "a working phone is never estimated");
   assert.equal(real.longitude, 0.0001);
+});
+
+test("saving arrivals takes the same few queries however many students are on the bus", async () => {
+  const run = async (count) => {
+    let queries = 0;
+    const ids = Array.from({ length: count }, (_, i) => i + 1);
+    const db = {
+      connect: () => { throw new Error("no held connection, no transaction round trips"); },
+      query: async (sql) => {
+        queries += 1;
+        if (/FROM students/.test(sql)) return { rows: ids.map((student_id) => ({ student_id })) };
+        if (/transportation_parent_confirm_arrival/.test(sql)) return { rows: [{ ask: true }] };
+        return { rows: [{ not_arrived: 1 }] };
+      },
+    };
+    const list = ids.map((studentId, i) => (i === 0 ? { studentId, arrived: false, reason: "absent" } : { studentId, arrived: true }));
+    const result = await transportReports.saveArrivals(db, 63, { userId: 5, name: "John" }, { trip_id: 1, bus_id: 2, route_id: 3 }, list);
+    assert.equal(result.saved, count);
+    assert.equal(result.notArrived, 1);
+    return queries;
+  };
+  assert.equal(await run(3), 3);
+  assert.equal(await run(300), 3);
+});
+
+test("an estimate stays honest: it pauses at stops, and a bus off its route stays where it was seen", async () => {
+  const stops = [[0, 0.005], [0, 0.01]];
+  const line = liveBus.buildLine([[0, 0], [0, 0.01], [0, 0.02]], 300, stops);
+  assert.equal(line.stopsAlong.length, 2);
+  const speed = line.metresPerSecond;
+  const firstStop = line.stopsAlong[0];
+  assert.ok(Math.abs(liveBus.alongAfter(line, firstStop - 100, 100 / speed + 10) - firstStop) < 1, "still at the stop 10 s after reaching it");
+  assert.ok(liveBus.alongAfter(line, firstStop - 100, 100 / speed + 40) > firstStop, "moves on after its pause");
+  const plain = liveBus.buildLine([[0, 0], [0, 0.01], [0, 0.02]], 300);
+  assert.ok(liveBus.alongAfter(line, 0, 200) < liveBus.alongAfter(plain, 0, 200), "stops slow it down");
+
+  const away = { trip_id: 9101, route_id: 1, bus_id: 17, latitude: 0.05, longitude: 0.0001, recorded_at: new Date(Date.now() - 120000) };
+  const onIt = { trip_id: 9102, route_id: 1, bus_id: 18, latitude: 0, longitude: 0.0001, recorded_at: new Date(Date.now() - 120000) };
+  const brief = { trip_id: 9103, route_id: 1, bus_id: 19, latitude: 0, longitude: 0.0001, recorded_at: new Date(Date.now() - 30000) };
+  [away, onIt, brief].forEach((trip) => liveBus._setRouteLine(trip.trip_id, line));
+  const db = { query: async () => ({ rows: [away, onIt, brief] }) };
+  const org = 777778;
+  const lost = await liveBus.liveForStudent(db, org, 17, 1);
+  assert.equal(lost.estimated, undefined, "off its route: no guessing");
+  assert.equal(lost.latitude, 0.05);
+  const moving = await liveBus.liveForStudent(db, org, 18, 1);
+  assert.equal(moving.estimated, true);
+  assert.ok(moving.last_gps_at, "viewers can see how old the real position is");
+  const shortGap = await liveBus.liveForStudent(db, org, 19, 1);
+  assert.equal(shortGap.estimated, undefined, "a short gap in signal isn't a reason to guess");
 });
 
 test("Users / Employees can only be held by a driver who is a lead", () => {

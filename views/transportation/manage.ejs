@@ -3347,7 +3347,7 @@
             return;
           }
 
-          const stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
+          const stale = Boolean(live.estimated) || (live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000);
           const busIcon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale, photo: live.driver_photo_url });
           if (existing) {
             glideMarker(existing, [lat, lng]);
@@ -3373,7 +3373,7 @@
     }
 
     const initialLiveBusPoll = mapEl.offsetWidth ? pollLiveBuses() : Promise.resolve();
-    const liveBusPollTimer = window.setInterval(() => { if (!document.hidden && mapEl.offsetWidth) pollLiveBuses(); }, 5000);
+    const liveBusPollTimer = window.setInterval(() => { if (!document.hidden && mapEl.offsetWidth) pollLiveBuses(); }, 3000);
     window.addEventListener('pagehide', () => window.clearInterval(liveBusPollTimer), { once: true });
 
     async function centerByCity() {

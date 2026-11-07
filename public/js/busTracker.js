@@ -6,7 +6,7 @@
  *           data-bus-tracker-unit="km" data-transport-snapshot="{...}">Track bus</button>
  * or from code: BusTracker.open(123, { name: 'Ama', snapshot: {...}, unit: 'mi' })
  *
- * Polls GET /transportation/live/student/:id every 5 s while open and visible.
+ * Polls GET /transportation/live/student/:id every 3 s while a bus is out, 10 s otherwise.
  */
 (function (window, document) {
   'use strict';
@@ -14,10 +14,15 @@
   if (window.BusTracker && window.BusTracker.version >= 2) return;
 
   var LIVE_URL = '/transportation/live/student/';
-  var POLL_MS = 5000;
+  var POLL_MS = 3000;
+  var IDLE_POLL_MS = 10000;
   var WEAK_MS = 45 * 1000;
   var OFFLINE_MS = 30 * 60 * 1000;
-  var GLIDE_MS = 4800;
+  var GLIDE_MS = 2800;
+  var ON_ROUTE_M = 150;
+  var OLD_SNAPSHOT_MS = 20000;
+  var BUS_PACE = 0.85; // of a car's, which is what road routing assumes
+  var SAME_ROAD_M = 30;
   var AT_STOP_M = 60;
   var ARRIVING_M = 250;
   var NEAR_M = 120;
@@ -218,11 +223,11 @@
     return cum;
   }
 
-  function project(line, cum, p) {
+  function project(line, cum, p, from) {
     var best = null;
     var kx = Math.cos(p.lat * RAD) * 111320;
     var ky = 110540;
-    for (var i = 1; i < line.length; i++) {
+    for (var i = from || 1; i < line.length; i++) {
       var a = line[i - 1];
       var b = line[i];
       var ax = (a.lng - p.lng) * kx;
@@ -241,6 +246,20 @@
           along: cum[i - 1] + t * (cum[i] - cum[i - 1]),
           point: { lat: a.lat + t * (b.lat - a.lat), lng: a.lng + t * (b.lng - a.lng) }
         };
+      }
+    }
+    return best;
+  }
+
+  // Where a road is used twice a bus is on the earlier pass, until it shows otherwise.
+  function projectEarliest(line, cum, p, from) {
+    var best = project(line, cum, p, from);
+    if (!best) return null;
+    for (var i = from || 1; i < best.index; i++) {
+      var hit = project(line.slice(i - 1, i + 1), [cum[i - 1], cum[i]], p);
+      if (hit && hit.offset <= best.offset + SAME_ROAD_M) {
+        hit.index = i;
+        return hit;
       }
     }
     return best;
@@ -352,6 +371,7 @@
     p.driverPhotoUrl = pick(l, ['driverPhotoUrl', 'driver_photo_url']) || '';
     p.licensePlate = pick(l, ['licensePlate', 'license_plate']) || '';
     p.estimated = l.estimated === true;
+    p.lastGpsAt = parseTime(pick(l, ['lastGpsAt', 'last_gps_at']));
     p.active = !(l.active === false || l.isActive === false || l.tripActive === false || /ended|complete|cancel|finished/.test(status));
     return p;
   }
@@ -435,6 +455,14 @@
 
   var session = null;
 
+  // The page may have been open a while: an old position would show the bus in the wrong place.
+  function withoutOldPosition(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return null;
+    var at = snapshot.live ? parseTime(pick(snapshot.live, ['recordedAt', 'recorded_at'])) : null;
+    if (!snapshot.live || (at && Date.now() - at < OLD_SNAPSHOT_MS)) return snapshot;
+    return merge(snapshot, { live: null });
+  }
+
   function open(studentId, options) {
     if (studentId === null || studentId === undefined || String(studentId).trim() === '') return;
     var opts = typeof options === 'string' ? { name: options } : (options || {});
@@ -445,7 +473,7 @@
       id: String(studentId).trim(),
       name: String(opts.name || '').trim(),
       unit: /^(mi|km)$/i.test(String(opts.unit || '')) ? String(opts.unit).toLowerCase() : '',
-      raw: opts.snapshot && typeof opts.snapshot === 'object' ? opts.snapshot : null,
+      raw: withoutOldPosition(opts.snapshot),
       returnFocus: document.activeElement,
       loaded: false, errors: 0, denied: false, clockOffset: 0,
       following: true, cameraAt: 0, frameMode: '',
@@ -683,6 +711,16 @@
     return L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="trk-badge">' + (ICON[kind] || ICON.flag) + '</div>' });
   }
 
+  function roadRoute(latlngs) {
+    var fn = mm('roadRoute');
+    if (!fn) return Promise.resolve(null);
+    try {
+      return Promise.resolve(fn(latlngs)).then(function (route) { return route || null; }, function () { return null; });
+    } catch (_) {
+      return Promise.resolve(null);
+    }
+  }
+
   function roadPoints(latlngs) {
     var fn = mm('roadPoints');
     if (!fn) return Promise.resolve(null);
@@ -787,8 +825,13 @@
     s.routeKey = key;
     s.routeLayer.clearLayers();
     if (pts.length < 2) return;
-    roadPoints(pts).then(function (line) {
-      if (session !== s || s.routeKey !== key || !line) return;
+    s.road = null;
+    roadRoute(pts).then(function (route) {
+      if (session !== s || s.routeKey !== key || !route) return;
+      var line = toLine(route.coordinates);
+      if (line.length < 2) return;
+      setRoad(s, line, route.durationS);
+      refresh(s);
       var ll = line.map(function (p) { return [p.lat, p.lng]; });
       L.polyline(ll, { pane: 'trk-route', color: '#fff', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(s.routeLayer);
       L.polyline(ll, { pane: 'trk-route', color: '#8ab4f8', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(s.routeLayer);
@@ -796,6 +839,43 @@
   }
 
   /* ---------------- Live position, progress and ETA ---------------- */
+
+  // The road the bus really takes: through each stop in order, on to the destination.
+  function setRoad(s, line, durationS) {
+    var cum = measure(line);
+    var length = cum[cum.length - 1];
+    var d = s.data;
+    var alongs = [];
+    var from = 1;
+    d.stops.forEach(function (p) {
+      var hit = projectEarliest(line, cum, p, from);
+      if (hit && hit.offset <= ON_ROUTE_M) { alongs.push(hit.along); from = hit.index; }
+      else alongs.push(null);
+    });
+    var t = target(s);
+    var targetAlong = null;
+    if (t) {
+      var mine = d.stop ? nearestStopIndex(d.stops, d.stop, 40) : -1;
+      if (mine >= 0 && alongs[mine] !== null) targetAlong = alongs[mine];
+      else { var near = project(line, cum, t); if (near && near.offset <= ON_ROUTE_M) targetAlong = near.along; }
+    }
+    var pace = durationS > 0 ? (length / durationS) * BUS_PACE : 30 / 3.6;
+    s.road = {
+      line: line, cum: cum, length: length, stopsAt: alongs, targetAlong: targetAlong,
+      pace: Math.max(MIN_PLAN_MPS, Math.min(MAX_PLAN_MPS, pace))
+    };
+  }
+
+  // Onwards from where it last was, so a road used twice doesn't send the bus backwards.
+  function progressOnRoad(s, bus) {
+    var road = s.road;
+    if (!road) return null;
+    var hit = s.progress ? projectEarliest(road.line, road.cum, bus, Math.max(1, s.progress.index - 20)) : null;
+    if (!hit || hit.offset > ON_ROUTE_M) hit = projectEarliest(road.line, road.cum, bus);
+    if (!hit || hit.offset > ON_ROUTE_M) return null;
+    s.progress = hit;
+    return hit;
+  }
 
   function target(s) { return s.data.stop || s.data.home || null; }
 
@@ -813,7 +893,17 @@
     var now = Date.now();
     var fix = { lat: live.lat, lng: live.lng, t: live.recordedAt || now, heading: live.heading };
     var prev = s.lastFix;
-    if (prev) {
+    if (live.estimated) {
+      // Only where it should be: it doesn't say how fast it goes, or that it passed anyone.
+      if (prev) fix.heading = fix.heading === null ? prev.heading : fix.heading;
+      fix.estimated = true;
+      s.jumpHold = null;
+      s.lastFix = fix;
+      s.changesSeen += 1;
+      return;
+    }
+    // The first real position after an estimate is simply right, however far apart they are.
+    if (prev && !prev.estimated) {
       var gap = Math.max(1, (fix.t - prev.t) / 1000);
       var confirmed = s.jumpHold && distM(s.jumpHold, fix) < 200;
       if (distM(prev, fix) / gap > 45 && !confirmed) { s.jumpHold = fix; return; }
@@ -871,33 +961,47 @@
     var t = target(s);
     if (!t) return trip;
     var straight = distM(trip.bus, t);
-    trip.atStop = straight <= AT_STOP_M;
-    trip.arriving = !trip.atStop && straight <= ARRIVING_M;
+    var estimated = Boolean(live && live.estimated);
+    trip.estimated = estimated;
+    trip.atStop = !estimated && straight <= AT_STOP_M;
+    trip.arriving = !estimated && !trip.atStop && straight <= ARRIVING_M;
 
-    if (straight <= NEAR_M) {
+    var road = s.road;
+    var onRoad = road && road.targetAlong !== null ? progressOnRoad(s, trip.bus) : null;
+    trip.onRoad = onRoad;
+
+    if (straight <= NEAR_M && !estimated) {
       s.passed = false;
-    } else if (!s.passed) {
+    } else if (!s.passed && !estimated) {
       var observed = s.minDist <= NEAR_M && straight >= s.minDist + PASSED_M;
+      var beyond = onRoad && onRoad.along > road.targetAlong + PASSED_M;
       var myIdx = d.stop ? nearestStopIndex(d.stops, d.stop, 40) : -1;
       var busIdx = nearestStopIndex(d.stops, trip.bus, 150);
       var inferred = s.awayTrend && myIdx >= 0 && busIdx > myIdx;
-      if (observed || inferred) s.passed = true;
+      if (observed || beyond || inferred) s.passed = true;
     }
     trip.passed = s.passed;
 
     var remaining = null;
     var dwell = 0;
-    var ap = s.approach;
-    if (ap && ap.line) {
-      var proj = project(ap.line, ap.cum, trip.bus);
-      if (proj && proj.offset <= 120) {
-        remaining = Math.max(0, ap.length - proj.along);
-        dwell = ap.stopsAlong.filter(function (a) { return a > proj.along + 20; }).length;
+    if (onRoad) {
+      remaining = Math.max(0, road.targetAlong - onRoad.along);
+      dwell = road.stopsAt.filter(function (a) { return a !== null && a > onRoad.along + 20 && a < road.targetAlong - 20; }).length;
+    } else {
+      var ap = s.approach;
+      if (ap && ap.line) {
+        var proj = project(ap.line, ap.cum, trip.bus);
+        if (proj && proj.offset <= 120) {
+          remaining = Math.max(0, ap.length - proj.along);
+          dwell = ap.stopsAlong.filter(function (a) { return a > proj.along + 20; }).length;
+        }
       }
     }
     if (remaining === null) remaining = straight * 1.3;
     trip.remaining = remaining;
-    var v = s.speedEma === null || s.speedEma < 3 ? 30 / 3.6 : Math.max(MIN_PLAN_MPS, Math.min(MAX_PLAN_MPS, s.speedEma));
+    var plan = road ? road.pace : 30 / 3.6;
+    var moving = !estimated && s.speedEma !== null && s.speedEma >= 3;
+    var v = moving ? Math.max(MIN_PLAN_MPS, Math.min(MAX_PLAN_MPS, (plan + s.speedEma) / 2)) : plan;
     trip.etaMin = (remaining / v + dwell * DWELL_S) / 60;
     return trip;
   }
@@ -909,7 +1013,7 @@
       return;
     }
     var heading = s.lastFix ? s.lastFix.heading : null;
-    var stale = trip.state === 'weak';
+    var stale = trip.state === 'weak' || Boolean(trip.estimated);
     var label = s.data.busNumber || 'Bus';
     var photo = s.data.live && s.data.live.driverPhotoUrl ? s.data.live.driverPhotoUrl : '';
     var iconKey = [heading === null || heading === undefined ? 'x' : Math.round(heading / 5) * 5, stale, label, photo].join('|');
@@ -958,32 +1062,59 @@
       s.approachLines = null;
       return;
     }
-    var ap = s.approach;
-    var needFetch = !ap || (!ap.line && Date.now() - ap.at > 30000);
-    if (ap && ap.line) {
-      var proj = project(ap.line, ap.cum, trip.bus);
-      if (proj && proj.offset <= 80) {
-        var rest = [[proj.point.lat, proj.point.lng]].concat(ap.line.slice(proj.index).map(function (p) { return [p.lat, p.lng]; }));
-        if (!s.approachLines) {
-          s.approachLines = [
-            L.polyline(rest, { pane: 'trk-approach', color: '#fff', weight: 10, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(s.approachLayer),
-            L.polyline(rest, { pane: 'trk-approach', color: ROUTE_BLUE, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(s.approachLayer)
-          ];
-        } else {
-          s.approachLines[0].setLatLngs(rest);
-          s.approachLines[1].setLatLngs(rest);
-        }
-      } else {
-        needFetch = true;
+    var rest = null;
+    if (trip.onRoad && s.road) {
+      rest = roadAhead(s.road, trip.onRoad);
+    } else {
+      var ap = s.approach;
+      var needFetch = !ap || (!ap.line && Date.now() - ap.at > 30000);
+      if (ap && ap.line) {
+        var proj = project(ap.line, ap.cum, trip.bus);
+        if (proj && proj.offset <= 80) rest = [[proj.point.lat, proj.point.lng]].concat(ap.line.slice(proj.index).map(function (p) { return [p.lat, p.lng]; }));
+        else needFetch = true;
       }
+      if (needFetch) fetchApproach(s, trip.bus, t);
     }
-    if (needFetch) fetchApproach(s, trip.bus, t);
+    if (!rest) {
+      s.approachLayer.clearLayers();
+      s.approachLines = null;
+      return;
+    }
+    if (!s.approachLines) {
+      s.approachLines = [
+        L.polyline(rest, { pane: 'trk-approach', color: '#fff', weight: 10, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(s.approachLayer),
+        L.polyline(rest, { pane: 'trk-approach', color: ROUTE_BLUE, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(s.approachLayer)
+      ];
+    } else {
+      s.approachLines[0].setLatLngs(rest);
+      s.approachLines[1].setLatLngs(rest);
+    }
   }
 
+  // From the bus to this child's stop, along the road it really takes.
+  function roadAhead(road, at) {
+    var pts = [[at.point.lat, at.point.lng]];
+    for (var i = at.index; i < road.line.length && road.cum[i] < road.targetAlong; i++) pts.push([road.line[i].lat, road.line[i].lng]);
+    return pts;
+  }
+
+  // A bus off its route (a detour, or on its way to the first stop): the road from there
+  // through the stops it still has before this child's. Asked rarely: every answer is a
+  // new request, because the bus has moved.
   function fetchApproach(s, from, to) {
-    if (s.approachPending || (s.approach && Date.now() - s.approach.at < 8000)) return;
+    if (s.approachPending || (s.approach && Date.now() - s.approach.at < 30000)) return;
     s.approachPending = true;
-    roadPoints([[round4(from.lat), round4(from.lng)], [to.lat, to.lng]]).then(function (line) {
+    var d = s.data;
+    var road = s.road;
+    var mine = d.stop ? nearestStopIndex(d.stops, d.stop, 40) : -1;
+    var via = [];
+    if (mine > 0) {
+      d.stops.slice(0, mine).forEach(function (p, i) {
+        var at = road && road.stopsAt[i];
+        if (!s.progress || at === null || at === undefined || at > s.progress.along + 20) via.push([p.lat, p.lng]);
+      });
+    }
+    roadPoints([[round4(from.lat), round4(from.lng)]].concat(via, [[to.lat, to.lng]])).then(function (line) {
       s.approachPending = false;
       if (session !== s) return;
       if (!line) { s.approach = { line: null, at: Date.now() }; return; }
@@ -1014,7 +1145,17 @@
     var t = target(s);
     var pts = [];
     var kind;
-    if (trip.bus && !trip.passed) { kind = 'bus'; pts.push(trip.bus); if (t) pts.push(t); }
+    if (trip.bus && !trip.passed) {
+      kind = 'bus';
+      pts.push(trip.bus);
+      if (t) pts.push(t);
+      // The stops it still has on the way, so the whole road ahead can be seen.
+      if (trip.onRoad && s.road) {
+        s.road.stopsAt.forEach(function (at, i) {
+          if (at !== null && at > trip.onRoad.along && at < s.road.targetAlong && d.stops[i]) pts.push(d.stops[i]);
+        });
+      }
+    }
     else if (trip.bus) { kind = 'passed'; pts.push(trip.bus); if (d.destination) pts.push(d.destination); }
     else {
       kind = 'route';
@@ -1060,7 +1201,10 @@
       case 'denied': return ['error', 'Live tracking is unavailable', 'This account can\u2019t view this bus.'];
       case 'weak': return ['weak', trip.age > 3 * 60000 ? 'Signal lost' : 'Weak signal', 'Last update ' + fmtAgo(trip.age) + ', showing the last position'];
       case 'live':
-        if (s.data.live && s.data.live.estimated) return ['live', 'Estimated position', 'The driver is navigating in another app. This is where the bus should be.'];
+        if (trip.estimated) {
+          var lastGps = s.data.live && s.data.live.lastGpsAt;
+          return ['weak', 'Estimated position', lastGps ? 'Last GPS ' + fmtAgo(Date.now() + s.clockOffset - lastGps) : ''];
+        }
         if (trip.passed) return ['passed', 'Bus has passed ' + where, updated];
         if (trip.atStop) return ['arriving', 'Bus is at ' + where, updated];
         if (trip.arriving) return ['arriving', 'Arriving now', updated];
@@ -1083,7 +1227,7 @@
       if (trip.atStop) return ['Here', 'The bus is at ' + name];
       if (trip.arriving) return ['Arriving', 'at ' + name + ', ' + fmtDistance(trip.remaining, unit) + ' away'];
       var arrive = fmtClock(Date.now() + trip.etaMin * 60000);
-      return [fmtMinutes(trip.etaMin), 'to ' + name + ', ' + fmtDistance(trip.remaining, unit) +
+      return [(trip.estimated ? 'About ' : '') + fmtMinutes(trip.etaMin), 'to ' + name + ', ' + fmtDistance(trip.remaining, unit) +
         (arrive ? ' (about ' + arrive + ')' : '') + (trip.state === 'weak' ? ', signal weak' : '')];
     }
     if (trip.state === 'loading') return ['', 'Loading the live position\u2026'];
@@ -1160,7 +1304,7 @@
     s.inflight = true;
     // Whole route once a minute; in between, only the position.
     s.polls = (s.polls || 0) + 1;
-    var positionOnly = s.loaded && s.polls % 12 !== 1;
+    var positionOnly = s.loaded && s.polls % 20 !== 1;
     fetch(LIVE_URL + encodeURIComponent(s.id) + (positionOnly ? '?liveOnly=1' : ''), {
       method: 'GET',
       credentials: 'same-origin',
@@ -1188,7 +1332,7 @@
       if (session !== s) return;
       s.inflight = false;
       s.abort = null;
-      var wait = s.denied ? 60000 : (s.errors ? Math.min(30000, POLL_MS * Math.pow(2, s.errors - 1)) : POLL_MS);
+      var wait = s.denied ? 60000 : (s.errors ? Math.min(30000, POLL_MS * Math.pow(2, s.errors - 1)) : (s.data && s.data.live ? POLL_MS : IDLE_POLL_MS));
       s.pollTimer = setTimeout(function () { poll(s); }, wait);
     });
   }

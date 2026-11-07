@@ -116,12 +116,30 @@
     }
   }
 
+  // On a driver's page only the map zooms: a quick second tap on a button must never
+  // enlarge the page. iPhones ignore the viewport tag, so they need touch-action and these.
+  function pageZoom(allowed) {
+    document.documentElement.classList.toggle('drv-nozoom', !allowed);
+    var tag = document.querySelector('meta[name="viewport"]');
+    if (!tag) return;
+    if (tag.getAttribute('data-usual') === null) tag.setAttribute('data-usual', tag.getAttribute('content') || '');
+    var usual = tag.getAttribute('data-usual');
+    tag.setAttribute('content', allowed ? usual : usual + ', user-scalable=no');
+  }
+  ['gesturestart', 'gesturechange'].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      if (!document.documentElement.classList.contains('drv-nozoom')) return;
+      if (!(event.target && event.target.closest && event.target.closest('.maplibregl-map'))) event.preventDefault();
+    }, { passive: false });
+  });
+
   function mount() {
     var configEl = document.getElementById('drv-config');
     if (configEl && configEl.dataset.bound === '1') return;
     // A new page, or the header's menu led elsewhere: the map doesn't stay on top of it.
     document.querySelectorAll('body > .drvn').forEach(function (old) { old.remove(); });
     document.documentElement.classList.remove('drv-navigating');
+    pageZoom(!configEl);
     if (!configEl) return;
     configEl.dataset.bound = '1';
 
@@ -142,6 +160,17 @@
       arrivedSaid: false, lastListAt: 0,
       board: null, boarded: {}, stopsDone: {}, boardingOut: [], boardingBusy: null, boardingAt: 0, ridingAt: 0, ridingKnown: false, stopCard: null, skipArrivals: false, endExcept: false
     };
+
+    // The driver is done the moment they tap: the trip's end goes to the server from here,
+    // and waits for signal if there is none.
+    var END_KEY = 'managira-trip-ending';
+    var ENDED_KEY = 'managira-trip-ended';
+    st.endList = [];
+    try { st.ending = JSON.parse(localStorage.getItem(END_KEY) || 'null'); } catch (_) { st.ending = null; }
+    if (st.ending && Date.now() - st.ending.at > 24 * 3600 * 1000) { st.ending = null; try { localStorage.removeItem(END_KEY); } catch (_) { /* nothing saved */ } }
+    if (st.ending && st.tripId === Number(st.ending.tripId)) { st.tripId = null; cfg.activeTrip = null; }
+    // The page may have been drawn a moment before the end reached the server.
+    try { if (st.tripId && st.tripId === Number(localStorage.getItem(ENDED_KEY))) { st.tripId = null; cfg.activeTrip = null; } } catch (_) { /* nothing saved */ }
 
     function driving() { return Boolean(st.tripId); }
     function findRoute(id) { return routes.find(function (r) { return String(r.route_id) === String(id); }) || null; }
@@ -389,7 +418,7 @@
       idle.distance.textContent = data ? fmtDistance(data.distanceM) : '–';
       idle.time.textContent = data ? fmtMin((data.durationS + st.stops.length * DWELL_S) / 60) : '–';
     }
-    function showIdleNote(message) { if (!idle.note) return; idle.note.textContent = message; idle.note.hidden = false; }
+    function showIdleNote(message, good) { if (!idle.note) return; idle.note.textContent = message; idle.note.classList.toggle('is-good', Boolean(good)); idle.note.hidden = false; }
 
     /* ---------- the navigation screen ---------- */
     var nav = document.createElement('div');
@@ -418,7 +447,7 @@
       +     '<div class="drvn-open"><button type="button" class="drvn-openbtn" id="drvn-open" aria-haspopup="menu" aria-expanded="false">Navigate<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>'
       +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '<p class="drvn-menu__note">Families see an estimate until you return.</p></div></div>'
       +     '<button type="button" class="drvn-end" id="drvn-end">End</button></div>'
-      +   '<div class="drvn-confirm" id="drvn-confirm" hidden><div class="drvn-confirm__head"><p id="drvn-confirm-title"></p><small id="drvn-arrival-count"></small></div><input type="search" class="drvn-search" id="drvn-arrival-search" placeholder="Search students" autocomplete="off" aria-label="Search students" hidden /><div class="drvn-arrivals" id="drvn-arrivals" hidden></div><p class="drvn-confirm__error" id="drvn-end-error" role="alert" hidden></p><div class="drvn-confirm__btns drvn-confirm__main" id="drvn-arrive-answer"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-arrive-yes">Yes</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-arrive-no">No</button></div><button type="button" class="drvn-plain drvn-plain--danger drvn-endmain" id="drvn-end-yes" hidden>End trip</button><div class="drvn-confirm__btns drvn-confirm__minor"><button type="button" class="drvn-plain" id="drvn-except-back" hidden>Back</button><button type="button" class="drvn-plain" id="drvn-no-students">No students</button><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button></div></div>'
+      +   '<div class="drvn-confirm" id="drvn-confirm" hidden><div class="drvn-confirm__head"><p id="drvn-confirm-title"></p><small id="drvn-arrival-count"></small></div><input type="search" class="drvn-search" id="drvn-arrival-search" placeholder="Search students" autocomplete="off" aria-label="Search students" hidden /><div class="drvn-arrivals" id="drvn-arrivals" hidden></div><div class="drvn-confirm__btns drvn-confirm__main" id="drvn-arrive-answer"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-arrive-yes">Yes</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-arrive-no">No</button></div><button type="button" class="drvn-plain drvn-plain--danger drvn-endmain" id="drvn-end-yes" hidden>End trip</button><div class="drvn-confirm__btns drvn-confirm__minor"><button type="button" class="drvn-plain" id="drvn-except-back" hidden>Back</button><button type="button" class="drvn-plain" id="drvn-no-students">No students</button><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button></div></div>'
       +   '<div class="drvn-more" id="drvn-more" hidden>'
       +     '<div class="drvn-morehead"><strong id="drvn-route-name"></strong><button type="button" class="drvn-morex" id="drvn-more-close" aria-label="Close stops">' + toolSvg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>'
       +     '<input type="search" class="drvn-search" id="drvn-stops-search" placeholder="Find a stop or student" autocomplete="off" aria-label="Find a stop or student" />'
@@ -903,10 +932,9 @@
       if (!item) return Promise.resolve();
       st.boardingAt = Date.now();
       item.tries += 1;
-      st.boardingBusy = postJson('/transportation/driver/trips/boarding', item).then(function () {
-        st.boardingOut.shift();
-      }).catch(function () {
-        if (item.tries >= 5) st.boardingOut.shift();
+      var drop = function () { if (st.boardingOut[0] === item) st.boardingOut.shift(); };
+      st.boardingBusy = postJson('/transportation/driver/trips/boarding', item).then(drop).catch(function () {
+        if (item.tries >= 5) drop();
         else throw new Error('retry');
       }).then(function () {
         st.boardingBusy = null;
@@ -986,18 +1014,24 @@
       closeMenu();
       st.skipArrivals = false;
       st.endExcept = false;
-      endError('');
       $('drvn-arrival-search').value = '';
-      ui.arrivals.innerHTML = onBoard().map(function (student) {
+      st.endList = onBoard();
+      ui.arrivals.innerHTML = '';
+      ui.confirm.hidden = false;
+      syncEndCheck();
+    }
+    // Only drawn when the driver says someone didn't arrive: most trips never need it.
+    function drawArrivalRows() {
+      if (ui.arrivals.firstChild) return;
+      ui.arrivals.innerHTML = st.endList.map(function (student) {
         return '<div class="drvn-arrival" data-student="' + student.id + '" data-name="' + esc(student.name.toLowerCase()) + '">' + pickRow(student, false)
           + '<div class="drvn-arrival__why" hidden><select aria-label="Reason"><option value="">Reason</option><option value="absent">Absent today</option><option value="parent">Picked up by parent</option><option value="elsewhere">Got off elsewhere</option><option value="missed">Missed the bus</option><option value="other">Other</option></select></div></div>';
       }).join('');
       enhanceSelects(ui.arrivals);
-      ui.confirm.hidden = false;
-      syncEndCheck();
     }
     function syncEndCheck() {
-      var rows = ui.arrivals.querySelectorAll('.drvn-arrival').length;
+      var rows = st.endList.length;
+      if (st.endExcept) drawArrivalRows();
       var out = ui.arrivals.querySelectorAll('.drvn-pick.is-out').length;
       ui.confirmTitle.textContent = !rows ? 'End this trip?' : (st.endExcept ? 'Who didn’t arrive?' : 'Did everyone arrive?');
       $('drvn-arrival-count').textContent = st.endExcept ? (out ? out + ' didn’t arrive' : '') : (rows ? rows + (rows === 1 ? ' student' : ' students') : '');
@@ -1009,13 +1043,8 @@
       $('drvn-no-students').hidden = !rows || st.endExcept;
       syncSheet();
     }
-    function endError(text) {
-      var box = $('drvn-end-error');
-      box.textContent = text;
-      box.hidden = !text;
-      if (text) syncSheet();
-    }
     function arrivalAnswers() {
+      if (!ui.arrivals.firstChild) return st.endList.map(function (student) { return { studentId: Number(student.id), arrived: true, reason: null, note: null }; });
       return Array.prototype.map.call(ui.arrivals.querySelectorAll('.drvn-arrival'), function (row) {
         var out = rowIsOut(row.querySelector('.drvn-pick'));
         return { studentId: Number(row.getAttribute('data-student')), arrived: !out, reason: out ? (row.querySelector('select').value || 'other') : null, note: null };
@@ -1041,7 +1070,7 @@
     }
 
     /* ---------- open and close ---------- */
-    function enterNav() {
+    function enterNav(withoutMap) {
       nav.hidden = false;
       document.documentElement.classList.add('drv-navigating');
       window.scrollTo(0, 0);
@@ -1050,6 +1079,12 @@
       syncSheet();
       setFollowing(true);
       syncPage();
+      nav.classList.toggle('drvn--nomap', Boolean(withoutMap));
+      if (!withoutMap) showMap();
+    }
+    function showMap() {
+      nav.classList.remove('drvn--nomap');
+      if (st.map) return;
       ensureMap().then(function () {
         if (!st.map) return;
         st.map.resize();
@@ -1139,7 +1174,11 @@
       label.textContent = 'Starting…';
       setRoute(findRoute(routeId));
       enterNav();
-      post('/transportation/driver/trips/start', { routeId: routeId, busId: String(cfg.bus.bus_id) }).then(function (result) {
+      // The last trip's answers go first: starting closes whatever is still open.
+      (st.ending ? sendEnd() : Promise.resolve()).then(function () {
+        if (st.ending) throw new Error('No connection. Try again.');
+        return post('/transportation/driver/trips/start', { routeId: routeId, busId: String(cfg.bus.bus_id) });
+      }).then(function (result) {
         if (!result.trip) throw new Error('The trip could not start. Try again.');
         st.tripId = Number(result.trip.trip_id);
         window.DriverLocation.setTrip(st.tripId);
@@ -1157,36 +1196,56 @@
     function endTrip() {
       if (!st.tripId) { leaveNav(); return; }
       settleBoarding(true);
-      var answers = st.skipArrivals ? [] : arrivalAnswers();
-      endError('');
-      var endButtons = [ui.endYes, $('drvn-arrive-yes'), $('drvn-arrive-no')];
-      endButtons.forEach(function (button) { button.disabled = true; });
-      var endedTrip = st.tripId;
-      // A failed save must never trap a driver in a trip: a second tap ends it anyway.
-      var saving = flushBoarding().then(function () {
-        return answers.length && !st.arrivalsFailed
-          ? postJson('/transportation/driver/trips/arrivals', { tripId: st.tripId, arrivals: answers })
-          : null;
+      st.ending = {
+        tripId: st.tripId, at: Date.now(),
+        arrivals: st.skipArrivals ? [] : arrivalAnswers(),
+        boardings: st.boardingOut.splice(0).map(function (item) {
+          return { stopId: item.stopId, auto: item.auto, studentIds: item.studentIds, notBoarded: item.notBoarded };
+        })
+      };
+      try {
+        localStorage.setItem(END_KEY, JSON.stringify(st.ending));
+        localStorage.removeItem('managira-trip-stops-' + st.tripId);
+      } catch (_) { /* it still goes now */ }
+      st.tripId = null;
+      if (window.DriverLocation) { window.DriverLocation.setTrip(null); window.DriverLocation.stop(); }
+      st.pos = null; st.speed = null; st.heading = null;
+      st.boarded = {}; st.stopsDone = {};
+      cfg.tripBoardings = [];
+      leaveNav();
+      setRoute(findRoute(selectedRouteId()));
+      showIdleNote('Trip ended.', true);
+      sendEnd();
+    }
+    // Safe to repeat: answers are saved once, and a trip already ended answers 404.
+    function sendEnd() {
+      var job = st.ending;
+      if (!job) return Promise.resolve();
+      if (st.endSending) return st.endSending;
+      clearTimeout(st.endRetry);
+      var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+      var limit = setTimeout(function () { if (ctrl) ctrl.abort(); }, 15000);
+      st.endSending = fetch('/transportation/driver/trips/end', {
+        method: 'POST',
+        credentials: 'same-origin',
+        keepalive: !job.tries, // finishes even if the phone leaves the page
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ tripId: job.tripId, arrivals: job.arrivals, boardings: job.boardings }),
+        signal: ctrl ? ctrl.signal : undefined
+      }).then(function (res) {
+        if (!res.ok && res.status !== 404 && res.status !== 400) throw new Error('HTTP ' + res.status);
+        st.ending = null;
+        try { localStorage.removeItem(END_KEY); localStorage.setItem(ENDED_KEY, String(job.tripId)); } catch (_) { /* nothing saved */ }
+        if (idle.note && /^Trip ended/.test(idle.note.textContent)) idle.note.textContent = 'Trip ended.';
+      }).catch(function () {
+        job.tries = (job.tries || 0) + 1;
+        if (job.tries >= 2) showIdleNote('Trip ended. Saving when there’s signal.', true);
+        st.endRetry = setTimeout(sendEnd, Math.min(30000, 2000 * Math.pow(2, job.tries - 1)));
+      }).then(function () {
+        clearTimeout(limit);
+        st.endSending = null;
       });
-      saving.catch(function (error) {
-        st.arrivalsFailed = true;
-        error.arrivalCheck = true;
-        throw error;
-      }).then(function () {
-        return post('/transportation/driver/trips/end', { tripId: String(st.tripId) });
-      }).then(function () {
-        st.arrivalsFailed = false;
-        try { localStorage.removeItem('managira-trip-stops-' + endedTrip); } catch (_) { /* nothing saved */ }
-        st.tripId = null;
-        if (window.DriverLocation) { window.DriverLocation.setTrip(null); window.DriverLocation.stop(); }
-        st.pos = null; st.speed = null; st.heading = null;
-        st.boarded = {}; st.stopsDone = {}; st.boardingOut = [];
-        cfg.tripBoardings = [];
-        leaveNav();
-        setRoute(findRoute(selectedRouteId()));
-      }).catch(function (error) {
-        endError(error.arrivalCheck ? 'Answers not saved. Tap End trip to end anyway.' : (error instanceof TypeError ? 'No connection. Try again.' : error.message));
-      }).then(function () { endButtons.forEach(function (button) { button.disabled = false; }); });
+      return st.endSending;
     }
     function openNavApp(app) {
       var pts = remaining().map(function (s) { return [s.lat, s.lng]; });
@@ -1464,10 +1523,12 @@
       var next = options[(at + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length];
       if (next) next.focus();
     });
-    ui.keep.addEventListener('click', function () { ui.confirm.hidden = true; syncSheet(); });
+    ui.keep.addEventListener('click', function () { ui.confirm.hidden = true; syncSheet(); showMap(); });
     ui.endYes.addEventListener('click', endTrip);
     ui.minimize.addEventListener('click', minimizeNav);
-    if (idle.end) idle.end.addEventListener('click', function () { enterNav(); openEndCheck(); });
+    // No map to build just to say the trip is over.
+    if (idle.end) idle.end.addEventListener('click', function () { enterNav(true); openEndCheck(); });
+    window.addEventListener('online', sendEnd);
     function syncCompassMode() { ui.compass.setAttribute('aria-pressed', String(prefs.orientation === 'heading')); }
     syncCompassMode();
     ui.compass.addEventListener('click', function () {
@@ -1535,6 +1596,8 @@
     var firstRoute = cfg.activeTrip ? findRoute(cfg.activeTrip.route_id) : (idle.select ? findRoute(idle.select.value) : routes[0] || null);
     setRoute(firstRoute);
     refreshRiding();
+    syncPage();
+    sendEnd();
     if (driving()) {
       seedBoarding();
       restoreExtras();

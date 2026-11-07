@@ -215,48 +215,51 @@ function normalizeArrivals(list) {
 
 // Saved once per student per trip. Each student who didn't arrive also goes to the leads
 // as a report, so they can follow up and decide who else needs to know.
+// One statement however many students are on the bus, so ending a trip stays quick.
 async function saveArrivals(db, organizationId, driver, trip, list) {
   const arrivals = normalizeArrivals(list);
   if (!arrivals.length) return { saved: 0, notArrived: 0 };
   const ids = arrivals.map((row) => row.studentId);
-  const known = await db.query("SELECT student_id FROM students WHERE organization_id = $1 AND student_id = ANY($2::int[])", [organizationId, ids]);
-  if (known.rows.length !== new Set(ids).size) throw new ReportError("That student isn't part of this school.");
+  const [known, askParents] = await Promise.all([
+    db.query("SELECT student_id FROM students WHERE organization_id = $1 AND student_id = ANY($2::int[])", [organizationId, ids]),
+    db.query("SELECT transportation_parent_confirm_arrival AS ask FROM organizations WHERE organization_id = $1", [organizationId])
+      .then((result) => Boolean(result.rows[0] && result.rows[0].ask))
+      .catch(() => false),
+  ]);
+  if (known.rows.length !== ids.length) throw new ReportError("That student isn't part of this school.");
 
-  const askParents = await db.query(
-    "SELECT transportation_parent_confirm_arrival AS ask FROM organizations WHERE organization_id = $1",
-    [organizationId]
-  ).then((result) => Boolean(result.rows[0] && result.rows[0].ask)).catch(() => false);
-
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
-    let notArrived = 0;
-    for (const row of arrivals) {
-      const saved = await client.query(
-        `INSERT INTO transport_trip_arrivals (organization_id, trip_id, student_id, arrived, reason, note, driver_user_id, parent_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (trip_id, student_id) DO NOTHING
-         RETURNING arrival_id`,
-        [organizationId, trip.trip_id, row.studentId, row.arrived, row.reason, row.note, driver.userId, row.arrived && askParents ? "pending" : null]
-      );
-      if (saved.rows[0] && !row.arrived) {
-        notArrived += 1;
-        await client.query(
-          `INSERT INTO transport_driver_reports (
-             organization_id, driver_user_id, driver_name, trip_id, bus_id, route_id, student_id, category, issue, priority, details
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'arrival', $8, 'urgent', $9)`,
-          [organizationId, driver.userId, driver.name, trip.trip_id, trip.bus_id, trip.route_id, row.studentId, ARRIVAL_REASONS[row.reason], `Did not reach the destination: ${ARRIVAL_REASONS[row.reason]}${row.note ? `. ${row.note}` : ""}`]
-        );
-      }
-    }
-    await client.query("COMMIT");
-    return { saved: arrivals.length, notArrived };
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
-  } finally {
-    client.release();
-  }
+  const issueOf = (row) => (row.arrived ? null : ARRIVAL_REASONS[row.reason]);
+  const { rows } = await db.query(
+    `WITH input AS (
+       SELECT * FROM UNNEST($3::int[], $4::boolean[], $5::text[], $6::text[], $7::text[], $8::text[])
+         AS t(student_id, arrived, reason, note, issue, details)
+     ), saved AS (
+       INSERT INTO transport_trip_arrivals (organization_id, trip_id, student_id, arrived, reason, note, driver_user_id, parent_status)
+       SELECT $1, $2, i.student_id, i.arrived, i.reason, i.note, $9, CASE WHEN i.arrived AND $10::boolean THEN 'pending' END
+         FROM input i
+       ON CONFLICT (trip_id, student_id) DO NOTHING
+       RETURNING student_id, arrived
+     ), reports AS (
+       INSERT INTO transport_driver_reports (
+         organization_id, driver_user_id, driver_name, trip_id, bus_id, route_id, student_id, category, issue, priority, details
+       )
+       SELECT $1, $9, $11, $2, $12, $13, i.student_id, 'arrival', i.issue, 'urgent', i.details
+         FROM saved s JOIN input i ON i.student_id = s.student_id
+        WHERE NOT s.arrived
+       RETURNING 1
+     )
+     SELECT COUNT(*)::int AS not_arrived FROM reports`,
+    [
+      organizationId, trip.trip_id, ids,
+      arrivals.map((row) => row.arrived),
+      arrivals.map((row) => row.reason),
+      arrivals.map((row) => row.note),
+      arrivals.map(issueOf),
+      arrivals.map((row) => (row.arrived ? null : `Did not reach the destination: ${issueOf(row)}${row.note ? `. ${row.note}` : ""}`)),
+      driver.userId, askParents, driver.name, trip.bus_id, trip.route_id,
+    ]
+  );
+  return { saved: arrivals.length, notArrived: rows[0].not_arrived };
 }
 
 // What a parent is asked to confirm: only their own children, and only recent trips.

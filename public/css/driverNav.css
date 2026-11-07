@@ -42,6 +42,7 @@
 .drv-live i { width: 8px; height: 8px; border-radius: 50%; background: #12a150; }
 .drv-note { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: #fef3f2; color: #b42318; font-size: .85rem; }
 .drv-note[hidden] { display: none; }
+.drv-note.is-good { background: #ecfdf3; color: #067647; }
 .drv-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
 .drv .drv-lists h2 { margin: 0; padding: 0; font-size: .92rem; font-weight: 700; color: inherit; text-align: left; }
 .drv-count { margin-left: 4px; color: var(--drv-muted); font-weight: 500; }
@@ -138,7 +139,6 @@ html.drv-navigating .chatbot-toggle, html.drv-navigating .chatbot-container { di
 .drvn-confirm__head { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .drvn-confirm__head p { margin: 0; font-size: 15px; font-weight: 600; }
 .drvn-confirm__head small { flex: none; color: var(--n-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.drvn-confirm__error { flex: none; margin: 0 0 8px; color: #d92d20; font-size: 13px; font-weight: 600; }
 .drvn-confirm__error[hidden] { display: none; }
 .drvn-confirm__btns[hidden] { display: none; }
 .drvn-confirm__main { margin-bottom: 8px; }
@@ -304,3 +304,11 @@ html.drv-navigating .chatbot-toggle, html.drv-navigating .chatbot-container { di
   .drvn .drvn-end { padding: 0 12px !important; }
   .drvn .drvn-yn button { min-width: 42px; padding: 0 6px !important; }
 }
+
+/* The page never zooms, only the map does. A tap answers at once, with no wait for a second one. */
+html.drv-nozoom, html.drv-nozoom body, html.drv-nozoom body * { touch-action: pan-x pan-y; }
+html.drv-nozoom .maplibregl-canvas-container, html.drv-nozoom .maplibregl-canvas { touch-action: none; }
+html.drv-nozoom { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Ending from the plain page: no map behind the question, so none of its tools either. */
+.drvn.drvn--nomap { background: rgba(15, 23, 42, .45); }
+.drvn--nomap > *:not(.drvn-sheet):not(.drvn-map) { visibility: hidden; }

@@ -15,6 +15,7 @@ const busRequests = require("../utils/transportationRequests");
 const transportBoarding = require("../utils/transportBoarding");
 const features = require("../utils/shards/features");
 const transportReports = require("../utils/transportReports");
+const { isDatabaseUnavailable } = require("../middleware/errorMiddleware");
 const { locateAddress } = require("../utils/transportationRequests");
 const { BoundedMap } = require("../utils/boundedMap");
 
@@ -392,6 +393,27 @@ async function readStudentBusDetails(db, organizationId, studentId) {
   return { school, row, routeStopsResult };
 }
 
+// The driver's phone sends the trip's last answers with End, so one request does it all.
+// A busy database fails the request and the phone sends it again. Anything else that stops
+// an answer being saved is logged, and the trip still ends: the bus must not stay live.
+async function saveLastAnswers(req, db, organizationId, userId, tripId) {
+  const arrivals = Array.isArray(req.body?.arrivals) ? req.body.arrivals : [];
+  const boardings = Array.isArray(req.body?.boardings) ? req.body.boardings : [];
+  if (!arrivals.length && !boardings.length) return;
+  const trip = await liveBus.tripForDriver(db, organizationId, tripId, userId);
+  if (!trip) return; // Already ended: this is a repeat after a lost answer.
+  const driver = staffIdentity(req.session);
+  const ignoringBadAnswers = (work) => work.catch((error) => {
+    if (isDatabaseUnavailable(error)) throw error;
+    console.error("[Transport] End trip answers not saved:", tripId, error.message);
+  });
+  const allowed = features.isOn("bus_boarding", { organizationId }) ? boardings.slice(0, 200) : [];
+  await Promise.all([
+    ...allowed.map((item) => ignoringBadAnswers(transportBoarding.saveBoarding(db, organizationId, driver, trip, item || {}))),
+    ignoringBadAnswers(transportReports.saveArrivals(db, organizationId, driver, trip, arrivals)),
+  ]);
+}
+
 async function getStudentTransportationSnapshot(db, organizationId, studentId) {
   const details = await studentBusDetails(db, organizationId, studentId);
   if (!details) return null;
@@ -467,6 +489,7 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
           driverPhoto: live.driver_photo || null,
           licensePlate: live.license_plate || null,
           estimated: Boolean(live.estimated),
+          lastGpsAt: live.last_gps_at || null,
         }
       : null,
   };
@@ -2994,14 +3017,23 @@ const transportationController = {
 
     try {
       await ensureTransportationSchema(db);
+      await saveLastAnswers(req, db, organizationId, userId, tripId);
       const tripResult = await db.query(
-        `UPDATE transport_trip_sessions
-            SET status = 'completed', ended_at = NOW()
-          WHERE organization_id = $1
-            AND trip_id = $2
-            AND driver_user_id = $3
-            AND status = 'active'
-          RETURNING bus_id`,
+        `WITH ended AS (
+           UPDATE transport_trip_sessions
+              SET status = 'completed', ended_at = NOW()
+            WHERE organization_id = $1
+              AND trip_id = $2
+              AND driver_user_id = $3
+              AND status = 'active'
+            RETURNING bus_id
+         ), bus AS (
+           UPDATE transport_buses b
+              SET status = 'active', updated_at = NOW()
+             FROM ended
+            WHERE b.organization_id = $1 AND b.bus_id = ended.bus_id
+         )
+         SELECT bus_id FROM ended`,
         [organizationId, tripId, userId]
       );
 
@@ -3009,20 +3041,10 @@ const transportationController = {
         return res.status(404).json({ success: false, message: "Active trip not found." });
       }
 
-      const busId = tripResult.rows[0].bus_id;
-      if (busId) {
-        await db.query(
-          `UPDATE transport_buses
-              SET status = 'active', updated_at = NOW()
-            WHERE organization_id = $1
-              AND bus_id = $2`,
-          [organizationId, busId]
-        );
-      }
-
-      await liveBus.tripEnded(db, organizationId, tripId);
+      liveBus.tripEnded(db, organizationId, tripId).catch(() => {});
       return res.json({ success: true });
     } catch (error) {
+      console.error("[Transport] End trip:", error.message);
       return res.status(500).json({ success: false, message: "Unable to end trip." });
     }
   },

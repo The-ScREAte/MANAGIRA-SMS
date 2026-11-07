@@ -11,7 +11,7 @@
   if (window.DriverLocation) return;
 
   var POST_URL = '/transportation/driver/live-location';
-  var SEND_EVERY_MS = 5000;
+  var SEND_EVERY_MS = 3000;
   var PARKED_SEND_EVERY_MS = 15000;
   var PARKED_RADIUS_M = 12;
   var QUIET_MS = 10000;
@@ -144,7 +144,7 @@
     }).catch(function () { /* unsupported */ });
   }
 
-  // Every 5 seconds on the move, every 15 while parked: families see no difference.
+  // Every 3 seconds on the move, every 15 while parked: families see no difference.
   function dueToSend(fix, now) {
     var moved = !st.sentFix || distM(st.sentFix, fix) > PARKED_RADIUS_M;
     return now - st.sentAt >= (moved ? SEND_EVERY_MS : PARKED_SEND_EVERY_MS) - 250;
@@ -180,6 +180,7 @@
       setSync('ok');
     }).catch(function () {
       st.failures += 1;
+      st.sentAt = 0; // not sent: the next tick tries again, moving or not
       if (st.failures >= 2) setSync('failing');
     }).then(function () {
       st.sending = false;

@@ -14,8 +14,15 @@ const IDLE_BOARD_TTL_MS = 15000;
 const LIVE_WINDOW_MINUTES = 30;
 // A browser page can't send GPS while the phone is showing another app (Google or Apple
 // Maps). While a driver's phone is silent, viewers see the bus move along its route at
-// the route's usual pace, marked as estimated, until a real position arrives again.
-const ESTIMATE_AFTER_MS = 25000;
+// the route's usual pace, pausing at its stops, marked as estimated, until a real position
+// arrives again. A bus that was off its route stays where it was last seen: there's no
+// telling which way it went.
+const ESTIMATE_AFTER_MS = 45000;
+const ON_ROUTE_M = 200;
+const AT_STOP_M = 60;
+const STOP_PAUSE_S = 30;
+const BUS_PACE = 0.85; // of a car's, which is what road routing assumes
+const SAME_ROAD_M = 30;
 const RAD = Math.PI / 180;
 
 const fixes = new BoundedMap(5000); // tripId -> newest position
@@ -95,9 +102,7 @@ async function tripEnded(db, organizationId, tripId) {
   for (const key of driverTrips.keys()) {
     if (key.startsWith(`${organizationId}:${tripId}:`)) driverTrips.delete(key);
   }
-  if (fix && !fix.saved) {
-    await saveFix(db, organizationId, fix.driverUserId, fix.trip, fix).catch(() => {});
-  }
+  if (fix && !fix.saved) saveFix(db, organizationId, fix.driverUserId, fix.trip, fix).catch(() => {});
 }
 
 async function readBoard(db, organizationId) {
@@ -167,22 +172,14 @@ function distanceM(a, b) {
   return Math.sqrt(x * x + y * y) * 6371000;
 }
 
-function buildLine(coordinates, durationS) {
-  const pts = coordinates.map(([lat, lng]) => ({ lat: Number(lat), lng: Number(lng) }));
-  const cum = [0];
-  for (let i = 1; i < pts.length; i += 1) cum.push(cum[i - 1] + distanceM(pts[i - 1], pts[i]));
-  const length = cum[cum.length - 1];
-  // Usual pace on this route, kept to what a school bus really does.
-  const pace = durationS > 0 ? length / durationS : 7;
-  return { pts, cum, length, metresPerSecond: Math.max(4, Math.min(17, pace)) };
-}
-
-// Where a bus would be after going `metres` further along the line from a point.
-function advanceAlong(line, lat, lng, metres) {
+// The nearest point on the line, searching onwards from segment `from`. Where a road is used
+// twice a bus is on the earlier pass, until it shows otherwise.
+function nearestOnLine(line, lat, lng, from = 1) {
   const kx = Math.cos(lat * RAD) * 111320;
   const ky = 110540;
-  let best = { along: 0, offset: Infinity };
-  for (let i = 1; i < line.pts.length; i += 1) {
+  let best = { along: 0, offset: Infinity, index: from };
+  const passes = [];
+  for (let i = from; i < line.pts.length; i += 1) {
     const a = line.pts[i - 1];
     const b = line.pts[i];
     const ax = (a.lng - lng) * kx;
@@ -192,9 +189,57 @@ function advanceAlong(line, lat, lng, metres) {
     const len2 = dx * dx + dy * dy;
     const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
     const offset = Math.hypot(ax + t * dx, ay + t * dy);
-    if (offset < best.offset) best = { along: line.cum[i - 1] + t * (line.cum[i] - line.cum[i - 1]), offset };
+    const here = { along: line.cum[i - 1] + t * (line.cum[i] - line.cum[i - 1]), offset, index: i };
+    passes.push(here);
+    if (offset < best.offset) best = here;
   }
-  const target = Math.min(line.length, best.along + metres);
+  return passes.find((pass) => pass.offset <= best.offset + SAME_ROAD_M) || best;
+}
+
+function buildLine(coordinates, durationS, stops = []) {
+  const pts = coordinates.map(([lat, lng]) => ({ lat: Number(lat), lng: Number(lng) }));
+  const cum = [0];
+  for (let i = 1; i < pts.length; i += 1) cum.push(cum[i - 1] + distanceM(pts[i - 1], pts[i]));
+  const length = cum[cum.length - 1];
+  // Usual pace on this route, kept to what a school bus really does.
+  const pace = durationS > 0 ? (length / durationS) * BUS_PACE : 7;
+  const line = { pts, cum, length, metresPerSecond: Math.max(4, Math.min(17, pace)), stopsAlong: [] };
+  // In route order, so a road used twice can't put a stop on the wrong pass.
+  let from = 1;
+  stops.forEach(([lat, lng]) => {
+    const hit = nearestOnLine(line, lat, lng, from);
+    if (hit.offset > ON_ROUTE_M) return;
+    line.stopsAlong.push(hit.along);
+    from = hit.index;
+  });
+  return line;
+}
+
+// How far along the line a bus gets in this long, pausing at each stop it reaches.
+function alongAfter(line, from, seconds) {
+  let at = from;
+  let left = seconds;
+  for (const stop of line.stopsAlong || []) {
+    if (stop < from - AT_STOP_M) continue;
+    if (stop > at) {
+      const toStop = (stop - at) / line.metresPerSecond;
+      if (left <= toStop) return at + left * line.metresPerSecond;
+      left -= toStop;
+      at = stop;
+    }
+    left -= STOP_PAUSE_S;
+    if (left <= 0) return at;
+  }
+  return at + left * line.metresPerSecond;
+}
+
+// Where a bus would be after going `metres` further along the line from a point.
+function advanceAlong(line, lat, lng, metres) {
+  return spotAlong(line, nearestOnLine(line, lat, lng).along + metres);
+}
+
+function spotAlong(line, along) {
+  const target = Math.min(line.length, along);
   let i = 1;
   while (i < line.pts.length - 1 && line.cum[i] < target) i += 1;
   const a = line.pts[i - 1];
@@ -233,7 +278,7 @@ async function loadRouteLine(db, organizationId, trip) {
     if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) points.push([Number(lat), Number(lng)]);
   }
   const route = await roadRoute(points);
-  return route ? buildLine(route.coordinates, route.durationS) : null;
+  return route ? buildLine(route.coordinates, route.durationS, stops.rows.map((row) => [Number(row.latitude), Number(row.longitude)])) : null;
 }
 
 function lineForTrip(db, organizationId, trip) {
@@ -254,7 +299,9 @@ function estimateIfSilent(db, organizationId, trip) {
   if (kept && kept.lastGps === String(trip.recorded_at) && Date.now() - kept.at < ESTIMATE_REUSE_MS) return kept.value;
   const line = lineForTrip(db, organizationId, trip);
   if (!line) return trip;
-  const spot = advanceAlong(line, Number(trip.latitude), Number(trip.longitude), (silentFor / 1000) * line.metresPerSecond);
+  const last = nearestOnLine(line, Number(trip.latitude), Number(trip.longitude));
+  if (last.offset > ON_ROUTE_M) return trip;
+  const spot = spotAlong(line, alongAfter(line, last.along, silentFor / 1000));
   const value = {
     ...trip,
     latitude: spot.lat,
@@ -301,6 +348,7 @@ module.exports = {
   liveForStudent,
   liveByRoute,
   advanceAlong,
+  alongAfter,
   buildLine,
   ESTIMATE_AFTER_MS,
   _setRouteLine: (tripId, line) => routeLines.set(tripId, { line }),

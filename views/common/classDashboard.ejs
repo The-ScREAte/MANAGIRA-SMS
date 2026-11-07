@@ -6207,7 +6207,7 @@ main {
               return;
             }
             var stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
-            var icon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', photo: live.driver_photo_url, stale: stale });
+            var icon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', photo: live.driver_photo_url, stale: stale || live.estimated });
             var popupText = window.ManagiraMaps.driverCard(live);
             if (!marker) {
               marker = L.marker([live.latitude, live.longitude], { icon: icon, title: 'Bus ' + (live.bus_number || ''), zIndexOffset: 1000 }).bindPopup(popupText);
@@ -6243,7 +6243,7 @@ main {
             classLiveRoutes.forEach(function (update) { update(payload); });
           }).catch(function () {});
         };
-        classLiveTimer = window.setInterval(tick, 5000);
+        classLiveTimer = window.setInterval(tick, 3000);
         setTimeout(tick, 200);
       }
 
