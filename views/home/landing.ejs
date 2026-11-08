@@ -1,0 +1,394 @@
+<%#
+  managira.com: the public homepage. Dark, glassy, in Managira's colours. Shared head, header and
+  footer are in views/home/partials; menus, icons and brand marks in utils/landing.js.
+%><%
+  const icon = lp.icon;
+  const product = lp.product;
+  const brand = lp.brand;
+  const RINGS = [
+    { tone: 'teal', label: 'For administrators', verb: 'Runs', title: 'The Whole<br>School', href: '#administrators' },
+    { tone: 'aqua', label: 'For students', verb: 'Empowers', title: 'Every<br>Learner', href: '#students' },
+    { tone: 'gold', label: 'For parents & community', verb: 'Connects', title: 'Every<br>Family', href: '#parents' },
+  ];
+  const TRUST = ['amazonwebservices', 'stripe', 'Paystack', 'whatsapp', 'twilio', 'googleclassroom', 'googlecalendar', 'visa', 'mastercard', 'okta', 'owasp', 'snyk'];
+  const PLATFORM = [
+    { icon: 'admissions', title: 'Admissions & enrollment', text: 'Online applications to class lists, in one flow.' },
+    { icon: 'attendance', title: 'Attendance', text: 'Mark a class in seconds, on any device.' },
+    { icon: 'clock', title: 'Timetable', text: 'Classes, periods and teachers, organized.', href: product('student', 'time-table') },
+    { icon: 'calendar', title: 'Calendar & events', text: 'One school calendar, synced with Google and Outlook.' },
+    { icon: 'exam', title: 'Testing Room', text: 'Online exams with results straight to records.', href: product('student', 'testing-room') },
+    { icon: 'report', title: 'Report cards & transcripts', text: 'Generate, print or email in a few clicks.', href: product('student', 'detailed-reports') },
+    { icon: 'stairs', title: 'Promotion', text: 'Move the whole school up a year in one step.' },
+    { icon: 'chart', title: 'Report Builder', text: 'Any report, filtered your way, exported fast.' },
+    { icon: 'wallet', title: 'PayGira', text: 'Fees by card, bank transfer and mobile money.', href: product('operational', 'paygira') },
+    { icon: 'bus', title: 'Transportation', text: 'Routes, drivers, boarding and live bus tracking.' },
+    { icon: 'message', title: 'Messaging & digests', text: 'Email, text and WhatsApp, plus weekly digests.', href: product('family', 'communication') },
+    { icon: 'device', title: 'Parent & student portals', text: 'Grades, homework, fees and updates at home.', href: product('family', 'parent-portal') },
+    { icon: 'key', title: 'Staff & permissions', text: 'The right access for every role, nothing more.' },
+    { icon: 'globe', title: 'School website', text: 'Your public site, news and online registration.', href: product('family', 'school-website') },
+    { icon: 'network', title: 'Districts & hubs', text: 'Many schools, one dashboard.', href: product('operational', 'hub-management') },
+    { icon: 'sparkle', title: 'Mira AI assistant', text: 'Ask a question or hand it a task.', href: '/legal/mira-ai-assistant' },
+  ];
+  const INTEGRATIONS = [
+    { title: 'Payments', items: ['stripe', 'Paystack', 'visa', 'mastercard', 'applepay', 'googlepay', 'MTN MoMo', 'M-Pesa', 'airtel', 'vodafone'] },
+    { title: 'Messaging', items: ['whatsapp', 'twilio', 'Email'] },
+    { title: 'Learning & calendars', items: ['googleclassroom', 'googlecalendar', 'Outlook Calendar', 'iCal feeds'] },
+    { title: 'Single sign-on', items: ['google', 'Microsoft Entra ID', 'okta', 'auth0', 'OneLogin', 'JumpCloud', 'ClassLink', 'Clever'] },
+  ];
+  const SERVICES = [
+    { icon: 'book', label: 'Library' },
+    { icon: 'food', label: 'Food services' },
+    { icon: 'health', label: 'Health & wellbeing' },
+    { icon: 'shirt', label: 'Uniforms & books' },
+    { icon: 'trip', label: 'Trips & activities' },
+    { icon: 'trophy', label: 'Clubs & sports' },
+    { icon: 'bus', label: 'Transport' },
+    { icon: 'plus', label: 'Anything else you offer' },
+  ];
+  const API_POINTS = [
+    'Students, guardians, staff, classes and terms',
+    'Attendance, grades, events and announcements',
+    'PayGira bills, balances and payments',
+    'Transport routes, stops and assignments',
+    'Only changes since your last sync',
+  ];
+  const STATS = [
+    { value: '99.9%', label: 'Uptime guaranteed' },
+    { value: '24/7', label: 'Dedicated support' },
+    { value: '15 min', label: 'Setup time' },
+    { value: '0', label: 'Paper exams target' },
+  ];
+  const STEPS = [
+    { n: '01', title: 'Set up your school', text: 'Add your profile, logo, classes and staff in under 15 minutes.' },
+    { n: '02', title: 'Bring in your students', text: 'Import or register students, subjects and enrollment in one flow.' },
+    { n: '03', title: 'Run every day', text: 'Attendance, exams, grades and reports, with parents kept informed.' },
+  ];
+  const WHY = [
+    { icon: 'clock', title: 'Hours back every week', text: 'Attendance, exams and messages run themselves.' },
+    { icon: 'shield', title: 'Secure & compliant', text: 'Encryption and strict access controls. FERPA and GDPR compliant.' },
+    { icon: 'device', title: 'Works on any device', text: 'Phones, tablets and desktops. Nothing to install.' },
+    { icon: 'heart', title: 'Affordable for every school', text: 'Plans for schools of every size. No hidden costs.' },
+  ];
+  const PAY = ['Card', 'Bank transfer', 'Mobile money', 'Apple Pay', 'Google Pay'];
+%><%- include('partials/top') %>
+  <%- include('../partials/homeStructuredData') %>
+</head>
+<body class="lp">
+<%- include('partials/header') %>
+  <main id="main">
+    <!-- Hero: headline, actions and the three rings, all in the first screen -->
+    <section class="lp-hero lp-hero--home">
+      <div class="lp-hero__glow" aria-hidden="true"></div>
+      <div class="lp-wrap lp-hero__inner">
+        <h1 class="lp-hero__title">Manage smarter &mdash; <span class="lp-grad lp-nowrap">not harder</span></h1>
+        <p class="lp-hero__lead">One platform for administrators, students and parents. Admissions, attendance, report cards, fees, messaging and every service your school runs, made effortless with Mira, your built-in AI assistant.</p>
+        <div class="lp-hero__cta">
+          <a class="lp-btn lp-btn--light lp-btn--lg" href="/account/service-plan">Get started</a>
+          <a class="lp-btn lp-btn--ghost lp-btn--lg" href="https://www.youtube.com/watch?v=y1J0KahfA-c" target="_blank" rel="noopener"><%- icon('play', 16) %> Watch demo</a>
+        </div>
+
+        <div class="lp-rings" aria-label="Who Managira is for">
+          <% RINGS.forEach((ring, i) => { %>
+            <div class="lp-rings__cell">
+              <p class="lp-rings__label lp-tone-<%= ring.tone %>"><%= ring.label %></p>
+              <a class="lp-ring lp-ring--<%= ring.tone %>" href="<%= ring.href %>">
+                <span class="lp-ring__outer" aria-hidden="true"></span>
+                <span class="lp-ring__inner" aria-hidden="true"></span>
+                <span class="lp-ring__orbit" aria-hidden="true"><i></i></span>
+                <span class="lp-ring__body">
+                  <span class="lp-ring__verb"><%= ring.verb %></span>
+                  <span class="lp-ring__title"><%- ring.title %></span>
+                  <span class="lp-ring__more">Discover <%- icon('arrow', 15) %></span>
+                </span>
+              </a>
+            </div>
+            <% if (i < RINGS.length - 1) { %>
+              <div class="lp-rings__link" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            <% } %>
+          <% }) %>
+          <div class="lp-rings__base" aria-hidden="true"><span>One connected school</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trust -->
+    <section class="lp-trust" aria-label="Secured and integrated with">
+      <p class="lp-eyebrow">Secured and integrated with</p>
+      <div class="lp-marquee">
+        <div class="lp-marquee__track">
+          <% [0, 1].forEach((copy) => { %>
+            <% TRUST.forEach((key) => { %><span class="lp-logo-item"<%- copy ? ' aria-hidden="true"' : '' %>><%- brand(key, 22) %></span><% }) %>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <!-- Administrators -->
+    <section class="lp-section lp-split" id="administrators">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-teal">For school administrators</p>
+          <h2 class="lp-h2">Run the whole school from one place.</h2>
+          <p class="lp-lead">Admissions, attendance, report cards, fees and staff, with the numbers you need when you need them.</p>
+          <ul class="lp-checks">
+            <li><%- icon('check', 16) %> Admissions, enrollment and promotion</li>
+            <li><%- icon('check', 16) %> Report Builder for any report, exported in seconds</li>
+            <li><%- icon('check', 16) %> Districts and hubs: many schools, one dashboard</li>
+          </ul>
+          <a class="lp-more" href="<%= product('operational') %>">Explore operations <%- icon('arrow', 16) %></a>
+        </div>
+        <div class="lp-glass lp-mock" data-reveal aria-hidden="true">
+          <div class="lp-mock__head"><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-dot"></span><b>School overview</b></div>
+          <div class="lp-mock__stats">
+            <div><small>Students</small><strong>1,248</strong></div>
+            <div><small>Attendance today</small><strong>96%</strong></div>
+            <div><small>Report cards</small><strong>312</strong></div>
+          </div>
+          <div class="lp-mock__progress"><span>Fees collected this term</span><b>82%</b><i><em style="width:82%"></em></i></div>
+          <div class="lp-mock__bars" aria-hidden="true">
+            <% [52, 64, 58, 72, 80, 76, 88].forEach((h) => { %><span style="height:<%= h %>%"></span><% }) %>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Students -->
+    <section class="lp-section lp-split lp-split--flip" id="students">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-aqua">For students</p>
+          <h2 class="lp-h2">Everything a student needs, in one portal.</h2>
+          <p class="lp-lead">Assignments, timetables, grades and exams, on any device.</p>
+          <ul class="lp-checks">
+            <li><%- icon('check', 16) %> A Student Portal for assignments, timetable and results</li>
+            <li><%- icon('check', 16) %> Testing Room: sit exams online, results go straight to records</li>
+            <li><%- icon('check', 16) %> Report cards and official transcripts</li>
+          </ul>
+          <a class="lp-more" href="<%= product('student') %>">Explore student features <%- icon('arrow', 16) %></a>
+        </div>
+        <div class="lp-glass lp-mock" data-reveal aria-hidden="true">
+          <div class="lp-mock__head"><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-dot"></span><b>Student Portal</b></div>
+          <p class="lp-mock__hello">Good morning, Ama</p>
+          <div class="lp-mock__row"><span class="lp-chip lp-chip--aqua">Next class</span><span>Mathematics &middot; 9:00 AM</span></div>
+          <div class="lp-mock__row"><span class="lp-chip">Due Friday</span><span>Science project</span></div>
+          <div class="lp-mock__cards">
+            <div><small>English</small><strong>A</strong><em>92%</em></div>
+            <div><small>Mathematics</small><strong>A</strong><em>88%</em></div>
+            <div><small>Science</small><strong>B</strong><em>79%</em></div>
+          </div>
+          <div class="lp-mock__exam"><span><%- icon('exam', 18) %> Testing Room &middot; Science quiz</span><b>Start</b></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Parents and community -->
+    <section class="lp-section lp-split" id="parents">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-gold">For parents &amp; community</p>
+          <h2 class="lp-h2">Keep every family in the loop.</h2>
+          <p class="lp-lead">Grades, fees, messages and the school bus on their phone, and a school website for the wider community.</p>
+          <ul class="lp-checks">
+            <li><%- icon('check', 16) %> A Parent Portal for grades, homework and attendance</li>
+            <li><%- icon('check', 16) %> Live bus tracking with arrival times</li>
+            <li><%- icon('check', 16) %> Fees paid online with PayGira</li>
+          </ul>
+          <a class="lp-more" href="<%= product('family') %>">Explore family features <%- icon('arrow', 16) %></a>
+        </div>
+        <div class="lp-glass lp-mock lp-mock--phone" data-reveal aria-hidden="true">
+          <div class="lp-mock__head"><b>Parent Portal</b></div>
+          <div class="lp-mock__bus">
+            <div><span><%- icon('bus', 18) %> Bus 2</span><b>4 min away</b></div>
+            <i><em></em></i>
+            <small><span>School</span><span>Oak St</span><span>Home</span></small>
+          </div>
+          <div class="lp-mock__row"><span class="lp-chip lp-chip--gold">Fees</span><span>$120 due Nov 30</span><b class="lp-mock__pay">Pay</b></div>
+          <div class="lp-mock__row"><span class="lp-chip lp-chip--aqua">Present</span><span>Kofi arrived at 7:58 AM</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mira -->
+    <section class="lp-section">
+      <div class="lp-wrap">
+        <div class="lp-glass lp-mira" data-reveal>
+          <div class="lp-mira__text">
+            <img class="lp-mira__mark" src="/images/site/mira-mark.webp" width="72" height="66" alt="" loading="lazy" decoding="async">
+            <p class="lp-eyebrow lp-tone-aqua">Mira AI assistant</p>
+            <h2 class="lp-h2">Meet Mira, <span class="lp-grad">your AI assistant.</span></h2>
+            <p class="lp-lead">Ask a question or hand it a task. Mira works inside your school's workspace: looking up records, drafting messages and getting real work done.</p>
+            <a class="lp-btn lp-btn--light" href="/legal/mira-ai-assistant">Explore Mira <%- icon('arrow', 16) %></a>
+          </div>
+          <div class="lp-chat" aria-hidden="true">
+            <p class="lp-chat__me">How many students were absent today in Class 3?</p>
+            <p class="lp-chat__mira">4 students were absent in Class 3 today. Would you like me to message their parents?</p>
+            <p class="lp-chat__me">Yes, please.</p>
+            <p class="lp-chat__mira">Done. 4 messages sent.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="lp-stats" aria-label="Managira in numbers">
+      <div class="lp-wrap lp-stats__grid">
+        <% STATS.forEach((stat) => { %>
+          <div data-reveal><strong class="lp-grad"><%= stat.value %></strong><span><%= stat.label %></span></div>
+        <% }) %>
+      </div>
+    </section>
+
+    <!-- Platform -->
+    <section class="lp-section" id="platform">
+      <div class="lp-wrap">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">The platform</p>
+          <h2 class="lp-h2">Everything your school needs, in one place.</h2>
+        </div>
+        <div class="lp-tiles">
+          <% PLATFORM.forEach((tile) => { %>
+            <% if (tile.href) { %><a class="lp-glass lp-tile lp-tile--link" href="<%= tile.href %>" data-reveal><% } else { %><div class="lp-glass lp-tile" data-reveal><% } %>
+              <span class="lp-tile__icon"><%- icon(tile.icon, 20) %></span>
+              <h3><%= tile.title %><% if (tile.href) { %> <%- icon('arrow', 14) %><% } %></h3>
+              <p><%= tile.text %></p>
+            <% if (tile.href) { %></a><% } else { %></div><% } %>
+          <% }) %>
+        </div>
+        <div class="lp-glass lp-services" data-reveal>
+          <div class="lp-services__text">
+            <p class="lp-eyebrow lp-tone-gold">Built around your school</p>
+            <h3>Every service your school runs, set up your way.</h3>
+            <p>Bill it through PayGira, keep the details on each student's record and report on it in Report Builder.</p>
+          </div>
+          <ul class="lp-services__list">
+            <% SERVICES.forEach((item) => { %><li><%- icon(item.icon, 18) %> <%= item.label %></li><% }) %>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Integrations -->
+    <section class="lp-section lp-section--tight" id="integrations">
+      <div class="lp-wrap">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">Integrations</p>
+          <h2 class="lp-h2">Works with the tools you already use.</h2>
+        </div>
+        <div class="lp-integrations">
+          <% INTEGRATIONS.forEach((group) => { %>
+            <div class="lp-glass lp-integrations__group" data-reveal>
+              <h3><%= group.title %></h3>
+              <ul>
+                <% group.items.forEach((key) => { %><li><%- brand(key, 18) %></li><% }) %>
+              </ul>
+            </div>
+          <% }) %>
+        </div>
+        <div class="lp-glass lp-api" data-reveal>
+          <div class="lp-api__text">
+            <p class="lp-eyebrow lp-tone-aqua"><%- icon('code', 14) %> Open API</p>
+            <h3>Connect your own apps.</h3>
+            <p>Give an app its own service account and keep your other systems in sync, read-only and only with the access you grant.</p>
+            <ul class="lp-checks">
+              <% API_POINTS.forEach((point) => { %><li><%- icon('check', 16) %> <%= point %></li><% }) %>
+            </ul>
+          </div>
+          <pre class="lp-code" aria-label="Example request"><span class="lp-code__m">GET</span> /api/v1/students?class_id=12
+<span class="lp-code__k">Authorization:</span> Bearer &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;
+
+<span class="lp-code__ok">200 OK</span>
+{
+  <span class="lp-code__k">"data"</span>: [
+    { <span class="lp-code__k">"id"</span>: 1042, <span class="lp-code__k">"first_name"</span>: <span class="lp-code__s">"Ama"</span>,
+      <span class="lp-code__k">"class_name"</span>: <span class="lp-code__s">"Grade 4"</span>, <span class="lp-code__k">"status"</span>: <span class="lp-code__s">"active"</span> }
+  ],
+  <span class="lp-code__k">"has_more"</span>: false
+}</pre>
+        </div>
+        <p class="lp-center" data-reveal><a class="lp-more" href="/legal/request-demo">Need another integration? Talk to us <%- icon('arrow', 16) %></a></p>
+      </div>
+    </section>
+
+    <!-- PayGira -->
+    <section class="lp-section lp-split lp-split--flip" id="paygira-section">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-gold">PayGira by Managira</p>
+          <h2 class="lp-h2">Collect fees without the chase.</h2>
+          <p class="lp-lead">Families pay by card, bank transfer or mobile money. Every payment lands in finance and reporting in real time.</p>
+          <ul class="lp-pills" aria-label="Ways to pay">
+            <% PAY.forEach((name) => { %><li><%= name %></li><% }) %>
+          </ul>
+        </div>
+        <div class="lp-glass lp-mock" data-reveal aria-hidden="true">
+          <div class="lp-mock__head"><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-dot"></span><b>PayGira</b></div>
+          <div class="lp-mock__stats">
+            <div><small>Billed</small><strong>$48,200</strong></div>
+            <div><small>Collected</small><strong class="lp-up">$39,540</strong></div>
+            <div><small>Outstanding</small><strong>$8,660</strong></div>
+          </div>
+          <div class="lp-mock__row"><span class="lp-chip lp-chip--aqua">Card</span><span>Tuition &middot; Grade 4</span><b class="lp-up">+$450</b></div>
+          <div class="lp-mock__row"><span class="lp-chip lp-chip--gold">Mobile money</span><span>Exam fee &middot; Grade 7</span><b class="lp-up">+$35</b></div>
+          <div class="lp-mock__row"><span class="lp-chip">Bank transfer</span><span>Books &middot; Grade 2</span><b class="lp-up">+$120</b></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="lp-section">
+      <div class="lp-wrap">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">How it works</p>
+          <h2 class="lp-h2">Get started in minutes, not months.</h2>
+        </div>
+        <ol class="lp-steps">
+          <% STEPS.forEach((step) => { %>
+            <li class="lp-glass" data-reveal><span class="lp-steps__n lp-grad"><%= step.n %></span><h3><%= step.title %></h3><p><%= step.text %></p></li>
+          <% }) %>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Why -->
+    <section class="lp-section lp-section--tight" id="why-managira">
+      <div class="lp-wrap">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">Why Managira</p>
+          <h2 class="lp-h2">Built for schools that want to grow.</h2>
+        </div>
+        <div class="lp-why">
+          <% WHY.forEach((item) => { %>
+            <div data-reveal><span class="lp-tile__icon"><%- icon(item.icon, 20) %></span><h3><%= item.title %></h3><p><%= item.text %></p></div>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing -->
+    <section class="lp-section lp-close">
+      <div class="lp-close__glow" aria-hidden="true"></div>
+      <div class="lp-wrap">
+        <h2 class="lp-h2 lp-close__title" data-reveal>Ready to transform your school?</h2>
+        <div class="lp-close__grid">
+          <div class="lp-glass" data-reveal>
+            <h3>Start with Managira</h3>
+            <p>Set up your school in under 15 minutes.</p>
+            <a class="lp-btn lp-btn--light" href="/account/service-plan">Get started</a>
+          </div>
+          <div class="lp-glass" data-reveal>
+            <h3>See it in action</h3>
+            <p>A short walkthrough with our team.</p>
+            <a class="lp-btn lp-btn--ghost" href="/legal/request-demo">Book a demo</a>
+          </div>
+          <div class="lp-glass" data-reveal>
+            <h3>Get in touch</h3>
+            <p>Questions? We're here to help.</p>
+            <a class="lp-btn lp-btn--ghost" href="/legal/help">Contact us</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+<%- include('partials/footer') %>
+</body>
+</html>

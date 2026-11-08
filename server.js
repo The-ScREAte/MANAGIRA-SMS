@@ -1178,9 +1178,13 @@ app.use(createOrganizationActivityLogMiddleware(db));
 // Only admin pages need unresolved help-thread notifications.
 app.use("/admin", fetchUnresolvedCount);
 
+const landingPages = require("./utils/landing");
 app.use((req, res, next) => {
   res.locals.req = req;
   res.locals.url = req.originalUrl;
+  // Signed-out pages get the public site's header and footer once new_landing is on.
+  res.locals.lp = landingPages;
+  res.locals.newPublicLook = landingPages.isNewLook();
   next();
 });
 
@@ -1489,11 +1493,13 @@ app.get("/", async (req, res) => {
   }
 
   if (!req.schoolDetails) homeSeo.homePricing = await getHomePricing();
+  // The new homepage: everywhere in development; in production once released in admin (new_landing).
+  const homeView = require("./utils/landing").isNewLook() ? "home/landing" : "index";
+  const homeLocals = homeView === "index" ? homeSeo : { ...homeSeo, layout: false, lp: require("./utils/landing") };
 
   // ✅ Case 1: Production root domain (e.g. managira.com or www)
   if (isProduction && req.isRootDomain) {
-  // ...removed log for clean background operation...
-    return res.render("index", homeSeo);
+    return res.render(homeView, homeLocals);
   }
 
   // ✅ Case 2: Production subdomain (e.g. myschool.managira.com)
@@ -1526,16 +1532,13 @@ app.get("/", async (req, res) => {
 
   // ✅ Case 3: Render default domain for web service
   if (isProduction && isRenderDomain) {
-    return res.render("index", homeSeo);
+    return res.render(homeView, homeLocals);
   }
 
   // ✅ Case 4: Development (localhost) — just render landing
   if (!isProduction) {
   // ...removed log for clean background operation...
-    return res.render("index", {
-      ...homeSeo,
-      title: "Managira | All-in-One School Management Software [DEV]",
-    });
+    return res.render(homeView, { ...homeLocals, title: "Managira | All-in-One School Management Software [DEV]" });
   }
 
   // 🛑 Fallback

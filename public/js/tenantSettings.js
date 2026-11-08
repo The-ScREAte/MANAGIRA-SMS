@@ -36,7 +36,7 @@
   function row(title, control, hide) {
     return '<div class="tc-row"' + (hide ? ' data-hide="' + hide + '"' : '') + '><span>' + esc(title) + '</span>' + control + '</div>';
   }
-  var days = function (d) { return d + ' days'; };
+  var days = function (d) { return Number(d) === 1 ? '1 day' : d + ' days'; };
 
   function render(root, state) {
     var s = state.settings, c = state.choices;

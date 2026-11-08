@@ -1,0 +1,81 @@
+<%# The header of managira.com's public pages: glass on scroll, menus from utils/landing.js. %>
+<% const icon = lp.icon; const MENUS = lp.MENUS; %>
+  <a class="lp-skip lp-chrome" href="<%= locals.inner ? '#app-scale-root' : '#main' %>">Skip to content</a>
+
+  <a class="lp-announce lp-chrome" href="/legal/mira-ai-assistant">
+    <span>Meet Mira, the AI assistant built into Managira</span> <span aria-hidden="true">&rarr;</span>
+  </a>
+
+  <header class="lp-header lp-chrome<%= locals.inner ? ' is-light' : '' %>" data-lp-header>
+    <div class="lp-wrap lp-header__bar">
+      <a class="lp-logo" href="/" aria-label="Managira home">
+        <img src="/images/managira-logo-sm.png" width="32" height="32" alt="">
+        <span>managira</span>
+      </a>
+
+      <nav class="lp-nav" aria-label="Main">
+        <ul class="lp-nav__list">
+          <% MENUS.forEach((menu) => { %>
+            <li class="lp-nav__item<%= menu.groups ? ' has-menu' : '' %>">
+              <% if (menu.groups) { %>
+                <button class="lp-nav__link" type="button" aria-expanded="false" aria-controls="lp-menu-<%= menu.key %>" data-menu-trigger>
+                  <%= menu.label %> <%- icon('chevron', 16) %>
+                </button>
+                <div class="lp-menu<%= menu.wide ? ' lp-menu--wide' : '' %><%= menu.feature ? ' lp-menu--feature' : '' %>" id="lp-menu-<%= menu.key %>" data-menu>
+                  <% if (menu.feature) { %>
+                    <a class="lp-menu__feature" href="<%= menu.feature.href %>">
+                      <img src="<%= menu.feature.image %>" alt="" width="300" height="82" loading="lazy" decoding="async">
+                      <strong><%= menu.feature.title %></strong>
+                      <span><%= menu.feature.text %></span>
+                      <em><%= menu.feature.cta %> <%- icon('arrow', 14) %></em>
+                    </a>
+                  <% } %>
+                  <% menu.groups.forEach((group) => { %>
+                    <div class="lp-menu__group">
+                      <% if (group.image) { %><img class="lp-menu__image" src="<%= group.image %>" alt="" width="280" height="70" loading="lazy" decoding="async"><% } %>
+                      <% if (group.title) { %><p class="lp-menu__title"><%= group.title %></p><% } %>
+                      <% group.links.forEach((link) => { %>
+                        <a class="lp-menu__link" href="<%= link.href %>"><strong><%= link.label %></strong><span><%= link.note %></span></a>
+                      <% }) %>
+                      <% if (group.all) { %><a class="lp-menu__all" href="<%= group.all.href %>"><%= group.all.label %> <%- icon('arrow', 14) %></a><% } %>
+                    </div>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <a class="lp-nav__link" href="<%= menu.href %>"><%= menu.label %></a>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </nav>
+
+      <div class="lp-actions">
+        <a class="lp-nav__link lp-login" href="/account/login">Log in</a>
+        <a class="lp-btn lp-btn--ghost lp-hide-sm" href="/account/service-plan">Sign up</a>
+        <a class="lp-btn lp-btn--light lp-hide-sm" href="/legal/request-demo">Book a demo</a>
+        <button class="lp-burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="lp-sheet" data-burger><span></span><span></span></button>
+      </div>
+    </div>
+
+    <div class="lp-sheet" id="lp-sheet" data-sheet hidden>
+      <div class="lp-sheet__inner">
+        <% MENUS.forEach((menu) => { %>
+          <% if (menu.groups) { %>
+            <details class="lp-sheet__group">
+              <summary><%= menu.label %> <%- icon('chevron', 18) %></summary>
+              <% menu.groups.forEach((group) => { %>
+                <% if (group.title) { %><p class="lp-menu__title"><%= group.title %></p><% } %>
+                <% group.links.forEach((link) => { %><a href="<%= link.href %>"><%= link.label %></a><% }) %>
+              <% }) %>
+            </details>
+          <% } else { %>
+            <a class="lp-sheet__top" href="<%= menu.href %>"><%= menu.label %></a>
+          <% } %>
+        <% }) %>
+        <div class="lp-sheet__actions">
+          <a class="lp-btn lp-btn--ghost" href="/account/service-plan">Sign up</a>
+          <a class="lp-btn lp-btn--light" href="/legal/request-demo">Book a demo</a>
+        </div>
+      </div>
+    </div>
+  </header>

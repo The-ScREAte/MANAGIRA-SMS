@@ -10,13 +10,13 @@ const DEFAULTS = Object.freeze({
   keep_signed_in_days: 30,
   login_code_required: true,
   remember_device_allowed: true,
-  remember_device_days: 30,
+  remember_device_days: 3,
 });
 // The choices the page offers; nothing else is saved.
 const CHOICES = Object.freeze({
   session_hours: [8, 12, 24, 72, 168],
   keep_signed_in_days: [7, 14, 30, 60, 90],
-  remember_device_days: [7, 14, 30, 60, 90],
+  remember_device_days: [1, 3, 7, 14, 30],
 });
 const CACHE_MS = 60 * 1000;
 const TABLE_MISSING = "42P01";

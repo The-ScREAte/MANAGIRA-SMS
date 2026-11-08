@@ -1188,8 +1188,13 @@
 </head>
 <body>
 
+<% const _publicChrome = !documentationAdmin && locals.newPublicLook && !(locals.session && locals.session.firstName); %>
 <% if (documentationAdmin) { %>
 <%- include('../partials/adminHeader') %>
+<% } else if (_publicChrome) { %>
+<link rel="stylesheet" href="<%= assetUrl('/css/landing.css') %>">
+<script src="<%= assetUrl('/js/landing.js') %>" defer></script>
+<%- include('../home/partials/header', { inner: true }) %>
 <% } else { %>
 <%- include('../partials/header', { showFooterTopSection: showFooterTopSection }) %>
 <% } %>
@@ -1391,7 +1396,7 @@
 
 </div>
 
-<%- include('../partials/footer', { showFooterTopSection: showFooterTopSection }) %>
+<% if (_publicChrome) { %><div class="lp-footer"><%- include('../partials/footer', { showFooterTopSection: true }) %></div><% } else { %><%- include('../partials/footer', { showFooterTopSection: showFooterTopSection }) %><% } %>
 
 <!-- ── Edit slide-over (admin only) ──────────────── -->
 <% if (!pageNotFound && documentationAdmin) { %>

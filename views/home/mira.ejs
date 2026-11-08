@@ -1,0 +1,235 @@
+<%#
+  managira.com/legal/mira-ai-assistant: Mira, Managira's AI assistant, in the homepage's look,
+  with Mira's own images (public/images/site/mira-*.webp).
+%><%
+  const icon = lp.icon;
+  const CAPABILITIES = [
+    { icon: 'speak', title: 'Say what, not how', text: 'Ask in plain language. Mira finds the records and pages it would have taken to get there.' },
+    { icon: 'draft', title: 'Drafts, not surprises', text: 'Messages, reports and records are drafted for review first. Anything irreversible gets a warning.' },
+    { icon: 'calendar', title: 'Knows your school year', text: "Terms, classes and enrollment are already loaded. Mira answers against what's active now." },
+    { icon: 'bolt', title: 'Fast, not eventually', text: 'Lookups that take a page hunt come back in a sentence, even mid-conversation with a parent.' },
+    { icon: 'lock', title: 'Yours alone', text: "Every lookup and action stays inside your school. Mira never sees another school's data." },
+    { icon: 'key', title: "Only what's granted", text: "Mira only does what a person's own permissions allow. The same rules as the app, never more." },
+  ];
+  const PROMPTS = [
+    'List the current tests for this term',
+    'Create a quiz for MATH 101',
+    'How many students were absent today?',
+    'Summarize attendance and fees this term',
+    'Send Eng 103 report cards to parents',
+    'Lock all tests for this term',
+    'Generate a report for CS 201',
+    "Show my school's statistics this term",
+  ];
+  const SAFE = [
+    { icon: 'lock', title: 'Your school only', text: "Mira can't see or touch another school's data." },
+    { icon: 'key', title: 'Your permissions', text: 'It does only what the person asking is allowed to do.' },
+    { icon: 'draft', title: 'Review first', text: 'Drafts before anything is sent, warnings before anything is final.' },
+    { icon: 'shield', title: 'Every step recorded', text: 'What Mira looked up and did is kept on record.' },
+  ];
+  const FAQ = [
+    { q: 'Is Mira included with Managira?', a: "Yes. Mira comes with Managira. Turn it on in Integrations once your school is set up." },
+    { q: "Can Mira see other schools' data?", a: "No. Every lookup and every action stays inside your own school." },
+    { q: 'Can Mira change things without asking?', a: "No. Messages, reports and records are drafted for your review first, and anything irreversible gets a warning before it happens." },
+    { q: 'Who at my school can use Mira?', a: "Anyone your school allows, and only within their own permissions: the same rules as the rest of the app." },
+  ];
+%><%- include('partials/top') %>
+  <script type="application/ld+json"><%- JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SoftwareApplication',
+        name: 'Mira AI Assistant',
+        applicationCategory: 'EducationalApplication',
+        description: locals.description,
+        url: 'https://managira.com/legal/mira-ai-assistant',
+        image: 'https://managira.com/images/miralogo.png',
+        publisher: { '@type': 'Organization', name: 'Managira', legalName: 'scREAte Ltd.', url: 'https://managira.com', logo: 'https://managira.com/images/managira.png' },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: FAQ.map((item) => ({ '@type': 'Question', name: item.q, acceptedAnswer: { '@type': 'Answer', text: item.a } })),
+      },
+    ],
+  }).replace(/</g, '\\u003c') %></script>
+</head>
+<body class="lp">
+<%- include('partials/header') %>
+  <main id="main">
+    <!-- Hero -->
+    <section class="lp-hero lp-hero--page lp-hero--mira">
+      <div class="lp-hero__glow" aria-hidden="true"></div>
+      <div class="lp-wrap lp-hero__inner">
+        <img class="lp-mira-hero__mark" src="/images/site/mira-mark.webp" width="96" height="88" alt="" fetchpriority="high">
+        <p class="lp-eyebrow lp-tone-aqua">Mira AI assistant</p>
+        <h1 class="lp-hero__title lp-hero__title--page">The educational intelligence <span class="lp-grad">for easy management.</span></h1>
+        <p class="lp-hero__lead">Give Mira a goal and it works across your students, classes and records, from anywhere in your workspace. You come back to polished work, ready for your review.</p>
+        <div class="lp-hero__cta">
+          <a class="lp-btn lp-btn--light lp-btn--lg" href="/legal/request-demo">Request a demo</a>
+          <a class="lp-btn lp-btn--ghost lp-btn--lg" href="/legal/user-documentation/mira-ai-assistant">Read the docs</a>
+        </div>
+        <figure class="lp-showcase" data-reveal>
+          <img src="/images/site/mira-showcase.webp" width="1400" height="933" alt="Mira on a computer and a phone, listing the current tests for this term in a table" decoding="async">
+        </figure>
+      </div>
+    </section>
+
+    <!-- Capabilities -->
+    <section class="lp-section">
+      <div class="lp-wrap">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">Core capabilities</p>
+          <h2 class="lp-h2">Everything Mira does, it does inside your workspace.</h2>
+          <p class="lp-lead">Never a separate tool to learn.</p>
+        </div>
+        <div class="lp-tiles lp-tiles--3">
+          <% CAPABILITIES.forEach((item) => { %>
+            <div class="lp-glass lp-tile" data-reveal>
+              <span class="lp-tile__icon"><%- icon(item.icon, 20) %></span>
+              <h3><%= item.title %></h3>
+              <p><%= item.text %></p>
+            </div>
+          <% }) %>
+        </div>
+        <p class="lp-center" data-reveal><a class="lp-more" href="/legal/user-documentation/mira-ai-capabilities">Read the full capabilities documentation <%- icon('arrow', 16) %></a></p>
+      </div>
+    </section>
+
+    <!-- Things to ask -->
+    <section class="lp-section lp-section--tight">
+      <div class="lp-wrap">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">Just ask</p>
+          <h2 class="lp-h2">Things schools ask Mira every day.</h2>
+        </div>
+        <ul class="lp-prompts">
+          <% PROMPTS.forEach((prompt) => { %><li data-reveal><%- icon('speak', 16) %> <%= prompt %></li><% }) %>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Enrollment and reporting -->
+    <section class="lp-section lp-split">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-teal">Enrollment and reporting</p>
+          <h2 class="lp-h2">Easy enrollment, easy reporting.</h2>
+          <p class="lp-lead">Manage applications, send report cards and see who needs a follow-up.</p>
+        </div>
+        <div class="lp-glass lp-mock" data-reveal aria-hidden="true">
+          <div class="lp-mock__head"><img src="/images/site/mira-mark.webp" width="20" height="18" alt=""><b>Mira</b></div>
+          <div class="lp-chat">
+            <p class="lp-chat__me">Send Eng 103 report cards to parents</p>
+            <div class="lp-chat__mira lp-chat__card">
+              <table class="lp-table">
+                <tbody>
+                  <tr><td>Emily Johnson</td><td>Eng 103</td><td><span class="lp-chip lp-chip--aqua">Sent</span></td></tr>
+                  <tr><td>Olivia Brown</td><td>Eng 103</td><td><span class="lp-chip lp-chip--gold">Pending</span></td></tr>
+                  <tr><td>Ethan Davis</td><td>Admissions</td><td><span class="lp-chip">Review</span></td></tr>
+                  <tr><td>Sophia Wilson</td><td>Admissions</td><td><span class="lp-chip lp-chip--aqua">Approved</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="lp-chat__next">Follow up with parents who haven't opened their report?</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How the school is doing -->
+    <section class="lp-section lp-split lp-split--flip">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-gold">School insights</p>
+          <h2 class="lp-h2">See how your school is doing.</h2>
+          <p class="lp-lead">Attendance, fees and enrollment at a glance. Compare classes, terms and school years, without building a report.</p>
+        </div>
+        <div class="lp-glass lp-mock" data-reveal aria-hidden="true">
+          <div class="lp-mock__head"><img src="/images/site/mira-mark.webp" width="20" height="18" alt=""><b>Mira</b></div>
+          <div class="lp-chat">
+            <p class="lp-chat__me">Summarize attendance and fees this term</p>
+            <div class="lp-chat__mira lp-chat__card">
+              <table class="lp-table">
+                <tbody>
+                  <tr><td>Eng 103</td><td>Attendance</td><td>96%</td><td><span class="lp-chip lp-chip--aqua">Good</span></td></tr>
+                  <tr><td>Sc 200</td><td>Attendance</td><td>91%</td><td><span class="lp-chip lp-chip--aqua">Good</span></td></tr>
+                  <tr><td>Math 101</td><td>Fees</td><td>82% paid</td><td><span class="lp-chip lp-chip--gold">Attention</span></td></tr>
+                  <tr><td>Hist 201</td><td>Fees</td><td>95% paid</td><td><span class="lp-chip lp-chip--aqua">Good</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="lp-chat__next">Draft a board meeting summary?</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Any device -->
+    <section class="lp-section lp-split">
+      <div class="lp-wrap lp-split__inner">
+        <div class="lp-split__text" data-reveal>
+          <p class="lp-eyebrow lp-tone-aqua">Anywhere</p>
+          <h2 class="lp-h2">Type it or say it, on any device.</h2>
+          <p class="lp-lead">Mira works on your computer and your phone. Speak a request between classes, then pick up the same chat at your desk.</p>
+          <ul class="lp-checks">
+            <li><%- icon('check', 16) %> Voice input on desktop and phone</li>
+            <li><%- icon('check', 16) %> Your chat history, searchable and in one place</li>
+            <li><%- icon('check', 16) %> Copy, download or share an answer</li>
+          </ul>
+        </div>
+        <figure class="lp-phone" data-reveal>
+          <img src="/images/site/mira-phone.webp" width="420" height="931" alt="Mira on a phone, with voice input" loading="lazy" decoding="async">
+        </figure>
+      </div>
+    </section>
+
+    <!-- Safe by design -->
+    <section class="lp-section lp-section--tight">
+      <div class="lp-wrap">
+        <div class="lp-glass lp-safe" data-reveal>
+          <div class="lp-safe__head">
+            <p class="lp-eyebrow lp-tone-teal">Trust and permissions</p>
+            <h2 class="lp-h2">Safe by design.</h2>
+          </div>
+          <div class="lp-safe__grid">
+            <% SAFE.forEach((item) => { %>
+              <div><span class="lp-tile__icon"><%- icon(item.icon, 20) %></span><h3><%= item.title %></h3><p><%= item.text %></p></div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Questions -->
+    <section class="lp-section lp-section--tight">
+      <div class="lp-wrap lp-faq">
+        <div class="lp-head" data-reveal>
+          <p class="lp-eyebrow">Questions</p>
+          <h2 class="lp-h2">Good to know.</h2>
+        </div>
+        <% FAQ.forEach((item, i) => { %>
+          <details class="lp-faq__item" data-reveal<%= i === 0 ? ' open' : '' %>>
+            <summary><%= item.q %> <%- icon('chevron', 18) %></summary>
+            <p><%= item.a %></p>
+          </details>
+        <% }) %>
+      </div>
+    </section>
+
+    <!-- Closing -->
+    <section class="lp-section lp-close">
+      <div class="lp-close__glow" aria-hidden="true"></div>
+      <div class="lp-wrap">
+        <img class="lp-close__wordmark" src="/images/site/mira-wordmark.webp" width="600" height="163" alt="Mira" loading="lazy" decoding="async" data-reveal>
+        <h2 class="lp-h2 lp-close__title" data-reveal>Bring Mira to your school.</h2>
+        <p class="lp-lead lp-close__lead" data-reveal>Mira comes with Managira. Turn it on in Integrations once you're set up, or talk to us first.</p>
+        <div class="lp-hero__cta" data-reveal>
+          <a class="lp-btn lp-btn--light lp-btn--lg" href="/legal/request-demo">Request a demo</a>
+          <a class="lp-btn lp-btn--ghost lp-btn--lg" href="/account/service-plan">Get started</a>
+        </div>
+      </div>
+    </section>
+  </main>
+<%- include('partials/footer') %>
+</body>
+</html>

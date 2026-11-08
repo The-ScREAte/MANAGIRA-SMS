@@ -9,13 +9,14 @@ const FEATURES = {
   bus_boarding: { label: "Bus boarding and not coming", access: "selected" },
   class_activities: { label: "Activities and calendars", access: "selected" },
   parent_student_hub: { label: "Parent tiles and homework help", access: "selected" },
-  sso: { label: "Single sign-on (SAML and OpenID Connect)", access: "selected" },
+  sso: { label: "Single sign-on (SAML and OpenID Connect)", access: "everyone" },
   // The login page has one email box for everyone and no links to the other portals, so taking
   // parents, students and hubs to their own portal is on for everyone. Each portal still checks
   // its own password.
   smart_login: { label: "Main login takes parents, students and hubs to their portal", access: "everyone" },
-  login_code: { label: "Verification code by email at sign-in", access: "selected" },
-  tenant_config: { label: "Tenant configuration: sign-in rules in Settings, and signing out after 24 hours unless a school changes it", access: "selected" },
+  login_code: { label: "Verification code by email at sign-in", access: "everyone" },
+  new_landing: { label: "New managira.com homepage and Mira page (release to everyone to show it)", access: "everyone" },
+  tenant_config: { label: "Tenant configuration: sign-in rules in Settings, and signing out after 24 hours unless a school changes it", access: "everyone" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

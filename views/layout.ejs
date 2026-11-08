@@ -27,6 +27,12 @@
       : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white');
   }
   if (_isStudentPortal && !locals.isPrintRender) _appearance = 'white';
+  // Signed-out marketing pages (not a school's own site): the public site's header and footer.
+  const _publicChrome = !!(locals.newPublicLook && !(locals.session && locals.session.firstName)
+    && !String(locals.url || '').includes('/publicDashboard') && !(locals.req && locals.req.schoolDetails)
+    && !locals.hideGlobalHeader);
+  // Visitors on those pages see each page as designed: no recolouring pass, so nothing waits to show.
+  if (_publicChrome) _appearance = 'none';
 %>
 <!DOCTYPE html>
 <html lang="en" data-appearance="<%= _appearance %>">
@@ -132,6 +138,10 @@
                 <% } else { %>
                     <%- include('partials/adminHeader') %>
                 <% } %>
+            <% } else if (_publicChrome) { %>
+                <link rel="stylesheet" href="<%= assetUrl('/css/landing.css') %>" />
+                <script src="<%= assetUrl('/js/landing.js') %>" defer></script>
+                <%- include('home/partials/header', { inner: true }) %>
             <% } else { %>
                 <%- include('partials/header') %>
             <% } %>
@@ -179,7 +189,7 @@
             <% } %>
         <% } %>
 
-        <main>
+        <main<%- _publicChrome ? ' class="lp-public-main"' : '' %>>
             <%- body %>
         </main>
 
@@ -324,7 +334,7 @@
             }
         </style>
         <% if (!(typeof hideGlobalFooter !== 'undefined' && hideGlobalFooter)) { %>
-            <%- include('partials/footer') %>
+            <% if (_publicChrome) { %><div class="lp-footer"><%- include('partials/footer', { showFooterTopSection: true }) %></div><% } else { %><%- include('partials/footer') %><% } %>
         <% } %>
     </div>
 

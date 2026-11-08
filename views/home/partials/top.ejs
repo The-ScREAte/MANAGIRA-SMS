@@ -1,0 +1,40 @@
+<%# The start of a managira.com public page: its <head> up to the page's own extras.
+    The page closes </head> itself (after its structured data). %><%
+  const _title = locals.title || 'Managira | All-in-One School Management Software';
+  const _description = locals.description || '';
+  const _keywords = locals.keywords || '';
+  const _canonical = locals.canonicalUrl || 'https://managira.com/';
+  const _share = locals.shareImage ? { url: locals.shareImage, width: locals.shareImageWidth || 512, height: locals.shareImageHeight || 512 } : { url: 'https://managira.com/images/image.png', width: 804, height: 461 };
+%><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= _title %></title>
+  <% if (_description) { %><meta name="description" content="<%= _description %>"><% } %>
+  <% if (_keywords) { %><meta name="keywords" content="<%= _keywords %>"><% } %>
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="Managira">
+  <meta name="theme-color" content="#040a0b">
+  <link rel="canonical" href="<%= _canonical %>">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Managira">
+  <meta property="og:title" content="<%= _title %>">
+  <% if (_description) { %><meta property="og:description" content="<%= _description %>"><% } %>
+  <meta property="og:url" content="<%= _canonical %>">
+  <meta property="og:image" content="<%= _share.url %>">
+  <meta property="og:image:width" content="<%= _share.width %>">
+  <meta property="og:image:height" content="<%= _share.height %>">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= _title %>">
+  <% if (_description) { %><meta name="twitter:description" content="<%= _description %>"><% } %>
+  <meta name="twitter:image" content="<%= _share.url %>">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon_io/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png">
+  <link rel="manifest" href="/images/favicon_io/site.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="<%= assetUrl('/css/landing.css') %>">
+  <script src="<%= assetUrl('/js/landing.js') %>" defer></script>

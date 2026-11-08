@@ -126,8 +126,6 @@
     .code-input { text-align: center; font: 700 1.5rem/1 "SFMono-Regular", Menlo, Consolas, monospace !important; letter-spacing: 0.4em; text-transform: uppercase; }
     .code-input::placeholder { letter-spacing: 0.4em; color: #cbd5e1; }
     .field-help { margin: 8px 0 0; font-size: 0.85rem; color: var(--soft); }
-    .trust { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.875rem; font-weight: 400; color: var(--muted); cursor: pointer; }
-    .trust input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); }
     #codeForm .btn-primary { margin-top: 18px; }
     .code-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; font-size: 0.9rem; }
     .code-actions form { margin: 0; }
@@ -172,7 +170,6 @@
           <% if (locals.codeError) { %><p class="field-error" role="alert"><%= codeError %></p><% } %>
           <p class="field-help" id="codeHelp">Can't find it? Check your spam or junk folder.</p>
         </div>
-        <% if (!locals.trust || trust.allowed) { %><label class="trust"><input type="checkbox" name="trust" value="on" checked /><span>Don't ask again on this browser for <%= locals.trust ? trust.days : 30 %> days</span></label><% } %>
         <button type="submit" class="btn-primary" data-submit>Verify</button>
       </form>
       <div class="code-actions">

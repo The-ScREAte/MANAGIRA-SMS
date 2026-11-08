@@ -123,10 +123,13 @@ async function isTrusted(req, db, snapshot, settings) {
   const account = accountKeyOf(snapshot);
   if (!token || !account || !settings.remember_device_allowed) return false;
   try {
+    // Counted from when the code was entered, and never pushed forward by signing in again:
+    // with 3 days, the code is asked for at least every 3 days. A school that shortens it
+    // shortens browsers already remembered too.
     const { rows } = await db.query(
-      `UPDATE login_trusted_devices SET last_used_at = NOW(), expires_at = NOW() + make_interval(days => $4)
+      `UPDATE login_trusted_devices SET last_used_at = NOW()
         WHERE device_hash = $1 AND account_key = $2 AND expires_at > NOW() AND device_family = $3
-          AND created_at > NOW() - make_interval(days => $4 * 3)
+          AND created_at > NOW() - make_interval(days => $4)
         RETURNING id`,
       [deviceHashOf(token), account, deviceFamilyOf(req.get("user-agent")), settings.remember_device_days]
     );
@@ -145,7 +148,7 @@ async function trustDevice(req, res, db, snapshot, settings) {
     await db.query(
       `INSERT INTO login_trusted_devices (device_hash, account_key, organization_id, hub_id, device_family, expires_at)
        VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(days => $6))
-       ON CONFLICT (device_hash, account_key) DO UPDATE SET device_family = EXCLUDED.device_family, last_used_at = NOW(), expires_at = EXCLUDED.expires_at`,
+       ON CONFLICT (device_hash, account_key) DO UPDATE SET device_family = EXCLUDED.device_family, created_at = NOW(), last_used_at = NOW(), expires_at = EXCLUDED.expires_at`,
       [deviceHashOf(token), account, snapshot.organizationId || null, snapshot.hubId || null, deviceFamilyOf(req.get("user-agent")), settings.remember_device_days]
     );
     res.cookie(DEVICE_COOKIE, token, deviceCookieOptions(req));
@@ -228,12 +231,6 @@ function holdForCode(req, res, next) {
   return next();
 }
 
-// What the code page offers: whether a browser can be remembered, and for how long.
-async function trustChoiceFor(db, pending) {
-  const settings = await settingsFor(db, pending && pending.snapshot ? pending.snapshot.organizationId : null);
-  return { allowed: settings.remember_device_allowed, days: settings.remember_device_days };
-}
-
 function pendingOf(req) {
   const pending = req.session && req.session.pendingLogin;
   if (!pending || !pending.snapshot) return null;
@@ -274,7 +271,7 @@ async function verify(req, res, db) {
   req.session.verifiedBy = "email-code";
   await save(req);
   // "Don't ask again on this browser" is ticked unless the person unticks it.
-  if (String((req.body && req.body.trust) || "") === "on") await trustDevice(req, res, db, snapshot, settings);
+  await trustDevice(req, res, db, snapshot, settings);
   if (next === "mira" && !snapshot.studentId && !snapshot.guardianId) {
     return res.redirect(`${(process.env.MIRA_PUBLIC_URL || "https://mira.managira.com").replace(/\/$/, "")}/continue`);
   }
@@ -306,4 +303,4 @@ function page(req, res, db) {
   return require("../controllers/accountController").loginGet(req, res, db, { step: "code" });
 }
 
-module.exports = { trustChoiceFor, holdForCode, verify, resend, page, pendingOf, sendCode, forgetDevices, accountKeyOf, deviceFamilyOf, DEVICE_COOKIE, newCode, tidy, hashOf, masked, CODE_LENGTH, LETTERS };
+module.exports = { holdForCode, verify, resend, page, pendingOf, sendCode, forgetDevices, accountKeyOf, deviceFamilyOf, DEVICE_COOKIE, newCode, tidy, hashOf, masked, CODE_LENGTH, LETTERS };

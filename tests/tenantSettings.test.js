@@ -28,6 +28,7 @@ test("a school that never chose anything signs out after 24 hours", async () => 
   assert.strictEqual(settings.session_hours, 24);
   assert.strictEqual(tenant.sessionLimitMs(settings, false), 24 * HOUR);
   assert.strictEqual(tenant.sessionLimitMs(settings, true), 30 * DAY);
+  assert.strictEqual(settings.remember_device_days, 3);
 });
 
 test("before the table exists, the defaults apply and nothing breaks", async () => {

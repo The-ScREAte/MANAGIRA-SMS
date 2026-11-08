@@ -5320,7 +5320,6 @@ const accountController = {
     const loginCode = require("../utils/loginCode");
     const pending = step === "code" ? loginCode.pendingOf(req) : null;
     if (step === "code" && (!pending || pending.expired)) step = "email";
-    const trust = pending && !pending.expired ? await loginCode.trustChoiceFor(db, pending) : { allowed: true, days: 30 };
     const schoolLogo = school && school.logo ? res.locals.publicImageUrl(school.logo, { public: true, width: 128 }) : "";
     res.render("account/login", {
       layout: false,
@@ -5329,7 +5328,6 @@ const accountController = {
       messages: req.flash(),
       step: ["password", "code"].includes(step) ? step : "email",
       codeTo: pending && !pending.expired ? pending.email : "",
-      trust,
       codeError,
       codeNote,
       email,
