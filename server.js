@@ -1353,6 +1353,9 @@ const fetchSitemapOrganizations = async () => {
       WHERE o.deleted = false
         AND o.nickname IS NOT NULL
         AND o.nickname <> ''
+        -- Test schools ("(TEST)" in the name, or "test" as a word of the address) aren't listed for search engines.
+        AND o.organization_name !~* '\\(test\\)'
+        AND o.nickname !~* '(^|-)test(-|$)'
         AND COALESCE(mh.on_hold, false) = false
         AND (
           NOT EXISTS (

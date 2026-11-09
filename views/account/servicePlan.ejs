@@ -927,7 +927,7 @@
         const hasBillingCards = periodBtns.length > 0;
 
         // Currency localization — display all prices in the visitor's local currency
-        // (detected from their location). Ghana visitors see GHS, others see their own.
+        // (detected from their location), in their own currency.
         var USER_CURRENCY = '<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : "USD" %>';
         var USD_TO_USER = Number('<%= (currencyProfile && currencyProfile.usdToUserRate) ? currencyProfile.usdToUserRate : 1 %>') || 1;
         var USER_LOCALE = '<%= (currencyProfile && currencyProfile.locale) ? currencyProfile.locale : "en-US" %>';

@@ -39,7 +39,8 @@
     <% if (typeof keywords !== 'undefined' && keywords) { %>
       <meta name="keywords" content="<%= keywords %>">
     <% } %>
-    <meta name="robots" content="index, follow">
+    <% const _testSite = Boolean(orgDetails) && (/\(test\)/i.test(String(orgDetails.organization_name || '')) || /(^|-)test(-|$)/i.test(String(orgDetails.nickname || ''))); %>
+    <meta name="robots" content="<%= _testSite ? 'noindex, nofollow' : 'index, follow' %>">
     <meta name="author" content="<%= (orgDetails && (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname)) ? (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname) : 'School' %>">
     <% if (typeof canonicalUrl !== 'undefined' && canonicalUrl) { %>
       <link rel="canonical" href="<%= canonicalUrl %>">

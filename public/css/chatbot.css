@@ -8,7 +8,7 @@
   right: 20px !important;
   width: 52px !important;
   height: 52px !important;
-  background: linear-gradient(135deg, var(--org-primary-color) 0%, var(--org-primary-hover) 100%) !important;
+  background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #0b4a54) 100%) !important;
   border-radius: 50% !important;
   border: none !important;
   cursor: pointer !important;
@@ -206,7 +206,7 @@ body[data-page="publicDashboard"] .chatbot-container {
 
 /* Chatbot Header - uses organization theme */
 .chatbot-header {
-  background: linear-gradient(135deg, var(--org-primary-color), var(--org-primary-hover));
+  background: linear-gradient(135deg, var(--org-primary-color, #0f5a66), var(--org-primary-hover, #0b4a54));
   color: white;
   padding: 10px 10px;
   display: flex;
@@ -369,7 +369,7 @@ body[data-page="publicDashboard"] .chatbot-container {
 }
 
 .message-user .message-bubble {
-  background: var(--org-primary-color);
+  background: var(--org-primary-color, #0f5a66);
   color: white;
   border-bottom-right-radius: 6px;
 }
@@ -421,7 +421,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   font-size: 13px;
   line-height: 1.35;
   font-weight: 700;
-  color: var(--org-primary-color);
+  color: var(--org-primary-color, #0f5a66);
 }
 
 .chatbot-doc-card__excerpt {
@@ -450,7 +450,7 @@ body[data-page="publicDashboard"] .chatbot-container {
 
 .faq-question {
   font-weight: 600;
-  color: var(--org-primary-color);
+  color: var(--org-primary-color, #0f5a66);
   font-size: 13px;
   margin-bottom: 4px;
 }
@@ -548,7 +548,7 @@ body[data-page="publicDashboard"] .chatbot-container {
   margin-bottom: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: var(--org-primary-color);
+  color: var(--org-primary-color, #0f5a66);
   transition: all 0.2s ease;
 }
 
@@ -595,7 +595,7 @@ body[data-page="publicDashboard"] .chatbot-container {
 }
 
 .chatbot-input:focus {
-  border-color: var(--org-primary-color);
+  border-color: var(--org-primary-color, #0f5a66);
 }
 
 .chatbot-send {

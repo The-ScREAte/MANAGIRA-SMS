@@ -16,7 +16,7 @@ Help center: https://managira.com/legal/user-documentation
 - Assessments and grading: tests and assessments, configurable grading scales and remarks, report cards, merit sheets and official transcripts (PDF, printable and emailable to families).
 - Promotion and graduation: promote, repeat or graduate students between terms, with reversal.
 - Staff: employee accounts with individually granted permissions, so each person sees only what their job needs.
-- PayGira (fees and payments): bills for classes or individual students, online payment by card and mobile money (through Stripe and Paystack), receipts, arrears and payment tracking, and the school's own payout account.
+- PayGira (fees and payments): bills for classes or individual students, online card payments through Stripe, receipts, arrears and payment tracking, and the school's own payout account.
 - Transportation: buses, routes and stops, rider assignments and live bus location for staff and parents, with a driver portal.
 - Parent (guardian) portal: report cards, attendance, bills and payments, and messages with the school.
 - Student portal: students sign in to take online assessments and see their own information.
@@ -25,7 +25,7 @@ Help center: https://managira.com/legal/user-documentation
 - School website: a public website for each school on its own managira.com address, with online admission.
 - Districts and networks: Hubs let a district or network oversee many member schools (including central billing) while each school keeps its own records.
 - Reports and analytics: dashboards, activity logs and exports.
-- Integrations: Google Classroom, Google Calendar, Outlook, WhatsApp Business (Meta), and SMS through Twilio (US, Canada, UK, Europe), Arkesel (Ghana) or Africa's Talking (Africa). Schools connect their own messaging accounts and pay providers directly, with no per-message markup from Managira.
+- Integrations: Google Classroom, Google Calendar, Outlook, WhatsApp Business (Meta), and text messages (SMS) through the school's own Twilio account. Schools connect their own messaging accounts and pay providers directly, with no per-message markup from Managira.
 - Works in any modern web browser on computers, tablets and phones, and can be installed on a device like an app.
 
 ## Mira, the AI assistant
@@ -46,17 +46,17 @@ More: https://managira.com/legal/mira-ai-assistant
 - Pages are protected against clickjacking and cross-site request forgery.
 - Sending messages to families requires the sender to confirm their password.
 - Staff actions are recorded in each school's activity log.
-- Card payments are processed by Stripe and Paystack. Managira never stores full card numbers; saved cards keep only the brand, last four digits and the provider's token.
+- Card payments are processed by Stripe. Managira never stores full card numbers; saved cards keep only the brand, last four digits and the provider's token.
 - Privacy policy: https://managira.com/legal/privacy-policy
 
 ## Pricing
 
-Managira is priced per school, per month. Prices are shown in local currency where available and depend on the country and the number of students. Current plans and prices: https://managira.com/account/service-plan
+Managira is priced per school, per month, based on the number of students. Current plans and prices: https://managira.com/account/service-plan
 
 ## Who Managira is a good fit for
 
 - Schools that want one system for academics, administration, fees and family communication instead of separate tools.
-- Schools that collect fees by card or mobile money, including in Ghana, Nigeria and other African countries, as well as schools in the United States.
+- K-12 schools in the United States, public, private and charter, that want one student information system for academics, operations and family engagement.
 - School districts and networks that need oversight of several schools while each school runs independently.
 - Schools that want an AI assistant that works inside their own data and permissions.
 
@@ -123,7 +123,6 @@ The full text of every article is in https://managira.com/llms-full.txt
 ### Integrations
 
 - [Integrations](https://managira.com/legal/user-documentation/integrations): Connect Managira to WhatsApp, text messages (SMS), Google Classroom and more. How to turn integrations on, what they cost and where to find each setup guide.
-- [Set up text messages (SMS): Twilio, Arkesel and Africa’s Talking](https://managira.com/legal/user-documentation/sms-integrations): Send text messages to parents from your school’s own SMS account. Step-by-step setup for Twilio (US, Canada, Europe), Arkesel (Ghana) and Africa’s Talking, with a free connection test.
 
 ### Parents & Guardians
 

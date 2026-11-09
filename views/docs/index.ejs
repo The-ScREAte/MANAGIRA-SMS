@@ -1,0 +1,68 @@
+<%# The help center home for visitors (admins keep the editor in legal&Compliance/userDocumentation).
+    locals: nav, topics, popular, resources, searchIndexJson, docsIcon, lp. %>
+<%- include('partials/head') %>
+<main id="main" class="docs docs--index">
+  <div class="docs-bar">
+    <button type="button" data-docs-open aria-expanded="false" aria-controls="docs-side"><%- docsIcon('doc', 16) %> Browse docs</button>
+    <span>All guides by topic</span>
+  </div>
+  <%- include('partials/side', { currentSlug: null, currentTopic: null }) %>
+
+  <div class="docs-main" style="max-width: none;">
+    <section class="docs-hero" aria-labelledby="docs-hero-title">
+      <p class="docs-hero__eyebrow">Help center</p>
+      <h1 id="docs-hero-title">How can we help?</h1>
+      <p>Step-by-step guides for everything in Managira, the K-12 student information system: setting up your school, students and families, grades and reports, transportation, payments, your school website and Mira.</p>
+      <div class="docs-search" data-docs-search role="search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" placeholder="Search the guides, e.g. report cards, single sign-on, bus" aria-label="Search the guides" autocomplete="off">
+        <div class="docs-results" hidden></div>
+      </div>
+      <% if (popular.length) { %>
+        <div class="docs-popular"><span>Popular:</span>
+          <% popular.forEach(function (item) { %><a href="/legal/user-documentation/<%= item.slug %>"><%= item.label %></a><% }) %>
+        </div>
+      <% } %>
+    </section>
+
+    <h2 class="docs-section-title">Browse by topic</h2>
+    <div class="docs-topics">
+      <% topics.forEach(function (topic) { %>
+        <section class="docs-topic" aria-labelledby="topic-<%= topic.anchor %>">
+          <div class="docs-topic__head">
+            <span class="docs-topic__ico"><%- docsIcon(topic.icon, 19) %></span>
+            <h3 id="topic-<%= topic.anchor %>"><%= topic.name %></h3>
+          </div>
+          <p><%= topic.blurb %></p>
+          <ul>
+            <% topic.articles.slice(0, 5).forEach(function (item) { %>
+              <li><a href="/legal/user-documentation/<%= item.slug %>"><%= item.title %></a></li>
+            <% }) %>
+          </ul>
+          <% if (topic.articles.length > 5) { %>
+            <details class="docs-topic__more">
+              <summary>Show <%= topic.articles.length - 5 %> more</summary>
+              <ul>
+                <% topic.articles.slice(5).forEach(function (item) { %>
+                  <li><a href="/legal/user-documentation/<%= item.slug %>"><%= item.title %></a></li>
+                <% }) %>
+              </ul>
+            </details>
+          <% } %>
+        </section>
+      <% }) %>
+    </div>
+
+    <h2 class="docs-section-title">Videos and downloads</h2>
+    <div class="docs-resources">
+      <% resources.forEach(function (item) { %>
+        <a href="<%= item.url %>" target="_blank" rel="noopener"><%- docsIcon(item.type === 'youtube' ? 'board' : 'doc', 18) %><span><small><%= item.type === 'youtube' ? 'Video' : (item.type === 'file' ? 'PDF' : 'Guide') %></small><%= item.title %></span></a>
+      <% }) %>
+    </div>
+
+  </div>
+</main>
+<script type="application/json" id="docs-index"><%- searchIndexJson %></script>
+<%- include('../home/partials/footer') %>
+</body>
+</html>

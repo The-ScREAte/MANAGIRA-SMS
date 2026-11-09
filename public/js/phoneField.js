@@ -1,5 +1,5 @@
 // Under every phone field: how the number will be dialled for texts and
-// WhatsApp ("+233 24 412 3456"), or a note when it can't receive them.
+// WhatsApp ("+1 555 010 2030"), or a note when it can't receive them.
 // Numbers are checked on the server with the school's country (/phone-check),
 // so local numbers ("0244 123 456") are fine as typed. Never blocks a form.
 (function () {

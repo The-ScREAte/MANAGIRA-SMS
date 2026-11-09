@@ -2322,7 +2322,7 @@
                   <div id="phonesList" class="dynamic-list">
                     <% aboutPhones.forEach((phoneValue) => { %>
                       <div class="dynamic-item-row">
-                        <input type="text" name="contactPhones" value="<%= phoneValue %>" class="form-field" placeholder="+233..." required>
+                        <input type="text" name="contactPhones" value="<%= phoneValue %>" class="form-field" placeholder="+1 555 010 2030" required>
                         <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
                       </div>
                     <% }); %>
@@ -3387,7 +3387,7 @@
 
             if (addPhoneBtn && lists.phones) {
               addPhoneBtn.addEventListener('click', function () {
-                lists.phones.appendChild(createDynamicRow('text', 'contactPhones', '+233...'));
+                lists.phones.appendChild(createDynamicRow('text', 'contactPhones', '+1 555 010 2030'));
               });
             }
 

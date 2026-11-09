@@ -1,0 +1,12 @@
+<%# The help center's <head> and header: the public site's look (views/home/partials), plus
+    docs.css and the page's structured data. locals: title, description, keywords, canonicalUrl,
+    robots, structuredData, lp. %>
+<%- include('../../home/partials/top') %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/docs.css') %>">
+  <% if (locals.structuredData) { %><script type="application/ld+json"><%- JSON.stringify(structuredData).replace(/</g, '\\u003c') %></script><% } %>
+  <script src="<%= assetUrl('/js/docs.js') %>" defer></script>
+  <link rel="stylesheet" href="<%= assetUrl('/css/chatbot.css') %>">
+  <script src="<%= assetUrl('/js/chatbot.js') %>" defer></script>
+</head>
+<body class="docs-body">
+<%- include('../../home/partials/header', { inner: true }) %>

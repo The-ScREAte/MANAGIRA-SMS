@@ -1,0 +1,23 @@
+<%# The help center's sidebar: every topic and its guides, the current one marked.
+    locals: nav, currentSlug, currentTopic, docsIcon %>
+<aside class="docs-side" data-docs-side aria-label="Documentation">
+  <a class="docs-side__brand" href="/legal/user-documentation"><%- docsIcon('doc', 16) %> Managira docs</a>
+  <div class="docs-filter">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" placeholder="Filter guides" aria-label="Filter guides" autocomplete="off">
+  </div>
+  <nav aria-label="Guides by topic">
+    <% nav.forEach(function (group) { %>
+      <details class="docs-group"<%= group.name === locals.currentTopic ? ' open' : '' %>>
+        <summary><span class="docs-ico"><%- docsIcon(group.icon, 17) %></span><%= group.name %><svg class="docs-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <ul>
+          <% group.articles.forEach(function (item) { %>
+            <li><a href="/legal/user-documentation/<%= item.slug %>"<%- item.slug === locals.currentSlug ? ' aria-current="page"' : '' %>><%= item.title %></a></li>
+          <% }) %>
+        </ul>
+      </details>
+    <% }) %>
+  </nav>
+  <p class="docs-side__empty">No guides match.</p>
+</aside>
+<div class="docs-scrim" aria-hidden="true"></div>

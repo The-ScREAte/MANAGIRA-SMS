@@ -320,13 +320,40 @@ const _extractNeedleSentences = (plainText, needles = []) => {
   ).slice(0, 4).map((s) => _sentenceCase(s));
 };
 
+// What an answer is read from: the guide's words without pictures, captions, notes, code or the
+// questions section, with a sentence break wherever a block ends (so headings don't run into text).
+const _answerText = (article) => {
+  if (!article) return '';
+  if (article._answerText) return article._answerText;
+  const text = String(article.contentHtml || article.plainText || '')
+    .replace(/<figure[\s\S]*?<\/figure>/gi, ' ')
+    .replace(/<div class="doc-callout[\s\S]*?<\/div>/gi, ' ')
+    .replace(/<pre[\s\S]*?<\/pre>/gi, ' ')
+    .replace(/<table[\s\S]*?<\/table>/gi, ' ')
+    .replace(/<h2[^>]*>\s*Frequently asked questions[\s\S]*$/i, ' ')
+    .replace(/<h[2-4][^>]*>[\s\S]*?<\/h[2-4]>/gi, ' ')
+    .replace(/<\/(p|li|div|ul|ol)>/gi, '. ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"')
+    .replace(/\s+([.,;:])/g, '$1')
+    .replace(/([.!?])(\s*\.)+/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  Object.defineProperty(article, '_answerText', { value: text, enumerable: false });
+  return text;
+};
+
 const _extractListStepsFromHtml = (contentHtml) => {
-  const html = String(contentHtml || '');
+  // Screenshots and their captions aren't steps; the guide's numbered steps come first.
+  const html = String(contentHtml || '').replace(/<figure[\s\S]*?<\/figure>/gi, ' ');
   if (!html) return [];
 
-  const matches = html.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || [];
+  const ordered = (html.match(/<ol[^>]*>[\s\S]*?<\/ol>/i) || [''])[0];
+  const orderedItems = ordered.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || [];
+  const matches = orderedItems.length ? orderedItems : (html.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || []);
   const cleaned = matches
     .map((item) => _stripTags(item))
+    .map((item) => item.replace(/\s+([.,;:!?)])/g, '$1').replace(/\(\s+/g, '(').replace(/\s+/g, ' '))
     .map((item) => item.replace(/^\d+[\).\-:\s]*/, '').trim())
     .filter((item) => item.length >= 8)
     .slice(0, 8);
@@ -373,6 +400,10 @@ const _extractSentenceSteps = (plainText, expandedTerms = []) => {
 
 // Asked on every page, and working it out goes through the whole help library.
 let popularQuestions = { value: [], expires: 0 };
+
+const { BoundedMap } = require('../utils/boundedMap');
+const ANSWER_CACHE_MS = 5 * 60 * 1000;
+const ANSWER_CACHE = new BoundedMap(500);
 
 class ChatbotController {
   static async _getDocumentationCatalog() {
@@ -697,8 +728,8 @@ class ChatbotController {
     const questionType = ChatbotController._detectQuestionType(query);
     const hasMainTeacherIntent = _hasMainTeacherIntent(query, matchedTerms, matchedTerms);
     const listSteps = _extractListStepsFromHtml(topArticle && topArticle.contentHtml);
-    const sentenceSteps = _extractSentenceSteps(topArticle && topArticle.plainText, matchedTerms || []);
-    const allSentences = _splitSentences(topArticle && topArticle.plainText);
+    const sentenceSteps = _extractSentenceSteps(_answerText(topArticle), matchedTerms || []);
+    const allSentences = _splitSentences(_answerText(topArticle));
     const rankedForType = ChatbotController._rankSentencesForType(allSentences, questionType, matchedTerms);
     const topLines = _dedupe(rankedForType.map((entry) => _sentenceCase(entry.sentence)).filter(Boolean)).slice(0, 4);
 
@@ -718,14 +749,12 @@ class ChatbotController {
     }
 
     if (questionType === 'how') {
-      const steps = _dedupe(listSteps.concat(sentenceSteps))
+      const steps = _dedupe(listSteps.length >= 2 ? listSteps : listSteps.concat(sentenceSteps))
         .map((line) => _sentenceCase(String(line || '').replace(/\s+/g, ' ').trim()))
         .filter(Boolean)
         .slice(0, 5);
 
-      const lead = intent && intent.entity
-        ? `How to ${intent.action} ${_withArticle(intent.entity)} (from "${topArticle.title}")`
-        : `How to do this (from "${topArticle.title}")`;
+      const lead = `Here's how, from the guide “${topArticle.title}”:`;
 
       return {
         mode: 'how',
@@ -739,7 +768,7 @@ class ChatbotController {
       return {
         mode: 'where',
         title: 'Where To Find It',
-        lead: `Based on "${topArticle.title}":`,
+        lead: `From the guide “${topArticle.title}”:`,
         lines: topLines.length ? topLines : ['Open the primary documentation article to locate the exact menu path.'],
       };
     }
@@ -748,7 +777,7 @@ class ChatbotController {
       return {
         mode: 'why',
         title: 'Why It Matters',
-        lead: `From "${topArticle.title}":`,
+        lead: `From the guide “${topArticle.title}”:`,
         lines: topLines.length ? topLines : ['The documentation explains the purpose and expected outcome in the linked article.'],
       };
     }
@@ -757,7 +786,7 @@ class ChatbotController {
       return {
         mode: 'what',
         title: 'What It Is',
-        lead: `From "${topArticle.title}":`,
+        lead: `From the guide “${topArticle.title}”:`,
         lines: topLines.length ? topLines : ['Open the primary documentation article for the exact definition and scope.'],
       };
     }
@@ -766,7 +795,7 @@ class ChatbotController {
       return {
         mode: 'when',
         title: 'When To Use It',
-        lead: `From "${topArticle.title}":`,
+        lead: `From the guide “${topArticle.title}”:`,
         lines: topLines.length ? topLines : ['Use the linked article for timing, prerequisites, and order of actions.'],
       };
     }
@@ -775,7 +804,7 @@ class ChatbotController {
       return {
         mode: questionType,
         title: 'Answer',
-        lead: `From "${topArticle.title}":`,
+        lead: `From the guide “${topArticle.title}”:`,
         lines: topLines.length ? topLines : ['The linked documentation provides the exact eligibility and rule details.'],
       };
     }
@@ -783,14 +812,14 @@ class ChatbotController {
     return {
       mode: 'general',
       title: 'Answer',
-      lead: `From "${topArticle.title}":`,
+      lead: `From the guide “${topArticle.title}”:`,
       lines: topLines.length ? topLines : ['Open the primary documentation article for the complete answer.'],
     };
   }
 
   static _buildProcedurePayload(topArticle, intent, matchedTerms) {
     const listSteps = _extractListStepsFromHtml(topArticle && topArticle.contentHtml);
-    const sentenceSteps = _extractSentenceSteps(topArticle && topArticle.plainText, matchedTerms || []);
+    const sentenceSteps = _extractSentenceSteps(_answerText(topArticle), matchedTerms || []);
     const steps = _dedupe(listSteps.concat(sentenceSteps)).slice(0, 4);
 
     const actionLabel = intent && intent.entity
@@ -828,11 +857,19 @@ class ChatbotController {
   static async getResponse(req, res) {
     try {
       const { query } = req.body;
-      if (!query || query.trim().length === 0) {
+      if (!query || typeof query !== 'string' || query.trim().length === 0) {
         return res.json({ success: false, message: 'Please enter a question.' });
       }
 
-      const q = query.trim();
+      const q = query.trim().slice(0, 500);
+      // The same question within a few minutes gets the same answer at once, with no database work.
+      const cacheKey = _normalize(q);
+      const cached = ANSWER_CACHE.get(cacheKey);
+      if (cached && Date.now() - cached.at < ANSWER_CACHE_MS) return res.json(cached.payload);
+      const respond = (payload) => {
+        ANSWER_CACHE.set(cacheKey, { at: Date.now(), payload });
+        return res.json(payload);
+      };
       const nq = _normalize(q);
       const tokens = _tokenize(nq);
       const expandedTerms = _expandTokenSet(tokens);
@@ -937,7 +974,7 @@ class ChatbotController {
       }
 
       if (rankedEntries.length === 0) {
-        return res.json({
+        return respond({
           success: true,
           type: 'no_results',
           message: "I could not find this in the documentation. Please rephrase your request or open the documentation hub.",
@@ -1006,7 +1043,7 @@ class ChatbotController {
         && confidenceReport.coverage < 0.67;
 
       if (stillLowConfidence || stillTooManyMissingCoreTerms) {
-        return res.json({
+        return respond({
           success: true,
           type: 'no_results',
           message: "I could not find a reliable match for that in the documentation.",
@@ -1019,8 +1056,8 @@ class ChatbotController {
       const answer = ChatbotController._buildAnswerPayload(topArticle, intent, canonicalTerms, q);
 
       // Prefer lines that explicitly mention key query words from full text when available.
-      const evidenceLines = _extractNeedleSentences(
-        topArticle && topArticle.plainText,
+      const evidenceLines = answer && answer.mode === 'how' ? [] : _extractNeedleSentences(
+        _answerText(topArticle),
         _dedupe([...(coreTerms || []), ...(canonicalTerms || [])]).slice(0, 6)
       );
       const hasMainTeacherIntentNow = _hasMainTeacherIntent(q, tokens, expandedTerms);
@@ -1051,9 +1088,9 @@ class ChatbotController {
         .slice(0, 3)
         .map((entry) => entry.hit);
 
-      const summary = `${answer.lead} ${answer.lines.length} point${answer.lines.length === 1 ? '' : 's'} available.`;
+      const summary = answer.lead;
 
-      return res.json({
+      return respond({
         success: true,
         type: 'results',
         summary,

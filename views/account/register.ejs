@@ -550,13 +550,76 @@
       .verification-notice { font-size: 0.62rem !important; padding: 5px 7px !important; }
     }
   </style>
+
+  <%# A clean, professional layer over the form's original styles (same fields, same behavior). %>
+  <style>
+    body { background: #f6f8fa; }
+    .register-container { padding: 40px 16px 56px !important; }
+    .register-card { max-width: 680px !important; width: 100% !important; margin: 0 auto !important; padding: 36px 40px 30px !important; border: 1px solid #e3e8ee !important; border-radius: 18px !important; background: #fff !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 18px 40px -24px rgba(15, 23, 42, .25) !important; }
+    .register-header { text-align: left !important; margin: 0 0 18px !important; }
+    .register-header h1 { margin: 0 0 6px !important; font-size: 1.6rem !important; font-weight: 750 !important; letter-spacing: -.015em; color: #0f172a !important; text-align: left !important; }
+    .register-sub { margin: 0; font-size: .95rem; line-height: 1.55; color: #64748b; }
+    .register-card .notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 6px !important; padding: 10px 14px !important; border: 1px solid #cfe3e5 !important; border-radius: 12px !important; background: #f0f8f8 !important; color: #0f3d44 !important; font-size: .9rem !important; }
+    .register-card .notice-link { font-weight: 650; color: #0f5a66; text-decoration: none; white-space: nowrap; }
+    .register-card .notice-link:hover { text-decoration: underline; }
+    .register-card .section-title { display: flex !important; align-items: center !important; gap: 10px !important; margin: 30px 0 14px !important; padding: 0 0 10px !important; border-bottom: 1px solid #eef2f6 !important; font-size: 1rem !important; font-weight: 700 !important; color: #0f172a !important; }
+    .register-card .section-title svg { display: none !important; }
+    .register-card .section-num { width: 26px; height: 26px; flex: none; display: inline-grid; place-items: center; border-radius: 50%; background: #e8f3f4; color: #0f5a66; font-size: .8rem; font-weight: 750; }
+    .register-card .section-hint { margin: -4px 0 14px; font-size: .86rem; line-height: 1.55; color: #64748b; }
+    .register-card .form-row { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 16px !important; margin: 0 !important; }
+    .register-card .name-fields-row { margin: 0 !important; }
+    .register-card .form-group { margin: 0 0 14px !important; min-width: 0; }
+    .register-card .form-label { display: block; margin: 0 0 6px !important; font-size: .85rem !important; font-weight: 600 !important; color: #334155 !important; }
+    .register-card .form-optional { font-weight: 500; color: #94a3b8; }
+    .register-card .form-input, .register-card .phone-combo { width: 100% !important; min-height: 44px; border: 1px solid #d5dde5 !important; border-radius: 10px !important; background: #fff !important; font-size: .95rem !important; color: #0f172a !important; box-shadow: none !important; transition: border-color .15s ease, box-shadow .15s ease; }
+    .register-card .form-input { padding: 10px 12px !important; }
+    .register-card .form-input:focus, .register-card .phone-combo:focus-within { outline: none !important; border-color: #0f5a66 !important; box-shadow: 0 0 0 3px rgba(15, 90, 102, .14) !important; }
+    .register-card .form-input::placeholder { color: #a3adba; }
+    .register-card input[type="file"].form-input { padding: 8px !important; border-style: dashed !important; background: #fafbfc !important; font-size: .85rem !important; color: #475569 !important; cursor: pointer; }
+    .register-card input[type="file"]::file-selector-button { margin-right: 10px; padding: 7px 12px; border: 1px solid #cfd8e3; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-weight: 600; cursor: pointer; }
+    .register-card .subdomain-preview { position: static !important; top: auto !important; margin: 6px 0 0 !important; padding: 0 !important; border: 0 !important; background: none !important; font-size: .82rem !important; line-height: 1.4 !important; color: #64748b !important; }
+    .register-card .subdomain-preview { word-break: normal !important; }
+    .register-card .subdomain-preview strong { display: block; color: #0f5a66; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .register-card .subdomain-preview.is-invalid strong { color: #94a3b8; }
+    .register-card .password-requirements { margin: 0 0 16px !important; padding: 12px 14px !important; border: 1px solid #eef2f6 !important; border-radius: 12px !important; background: #fafbfc !important; }
+    .register-card .password-requirements p { margin: 0 0 8px !important; font-size: .82rem !important; font-weight: 600 !important; color: #475569 !important; }
+    .register-card .password-requirements ul { display: flex !important; flex-wrap: wrap; gap: 6px !important; margin: 0 !important; padding: 0 !important; list-style: none !important; }
+    .register-card .password-requirements li { margin: 0 !important; padding: 4px 10px !important; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; font-size: .78rem !important; color: #64748b !important; list-style: none !important; }
+    .register-card .password-requirements li::before { content: none !important; }
+    .register-card .password-requirements li.is-met { border-color: #bfe0d9; background: #effaf6; color: #0f5a66 !important; }
+    .register-card .password-requirements li.is-met::before { content: "✓ " !important; }
+    .register-card .terms-group { display: flex !important; align-items: flex-start !important; gap: 10px !important; margin: 4px 0 18px !important; padding: 0 !important; border: 0 !important; background: none !important; }
+    .register-card .terms-group input { margin-top: 3px; width: 17px; height: 17px; accent-color: #0f5a66; }
+    .register-card .terms-group label { font-size: .88rem !important; font-weight: 500 !important; color: #475569 !important; }
+    .register-card .terms-group a { color: #0f5a66 !important; font-weight: 600; }
+    .register-card .btn-primary { width: 100% !important; height: 48px !important; border: 0 !important; border-radius: 12px !important; background: #0f5a66 !important; color: #fff !important; font-size: 1rem !important; font-weight: 650 !important; cursor: pointer; transition: background .15s ease, transform .1s ease; }
+    .register-card .btn-primary:hover { background: #0b4a54 !important; }
+    .register-card .btn-primary:active { transform: translateY(1px); }
+    .register-card .btn-primary:disabled { background: #9fbfc4 !important; cursor: not-allowed; }
+    .login-link { margin: 18px 0 0 !important; text-align: center; font-size: .9rem !important; color: #64748b !important; }
+    .login-link a { color: #0f5a66 !important; font-weight: 650; }
+    .register-card .password-strength { margin: 6px 0 0 !important; font-size: .8rem !important; font-weight: 600; }
+    @media (max-width: 640px) {
+      .register-container { padding: 18px 12px 40px !important; }
+      .register-card { padding: 24px 18px 22px !important; border-radius: 16px !important; }
+      .register-header h1 { font-size: 1.35rem !important; }
+      .register-card .form-row { grid-template-columns: minmax(0, 1fr) !important; gap: 0 !important; }
+      .register-card .form-label { font-size: .85rem !important; }
+      .register-card .form-input { font-size: 16px !important; }
+      .register-card .subdomain-preview { font-size: .8rem !important; }
+      .register-card .password-requirements p { font-size: .8rem !important; }
+      .register-card .password-requirements li { font-size: .76rem !important; }
+      .register-card .terms-group label { font-size: .86rem !important; }
+    }
+  </style>
 </head>
 <body>
   <div class="page-wrapper">
     <div class="register-container">
     <div class="register-card">
       <div class="register-header">
-        <h1>Register Your Organization</h1>
+        <h1>Create your school's account</h1>
+        <p class="register-sub">It takes about five minutes. You'll add classes, students and staff after this.</p>
       </div>
 
       <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
@@ -567,15 +630,15 @@
         <% const hasPreselectedPlan = !!(preferredPlanId && preferredPlanName); %>
         <% if (hasPreselectedPlan && trialRequested) { %>
           <div class="notice">
-            ✨ You're requesting a <strong>free trial</strong> of our premium experience. Register your organization below to activate your trial.
+            You're starting a <strong>free trial</strong>. Create your school's account below to begin.
           </div>
         <% } else if (hasPreselectedPlan) { %>
           <div class="notice">
-            Plan chosen: <strong><%= preferredPlanName %></strong>. Continue to register.
+            <span><strong><%= preferredPlanName %></strong> plan</span><a class="notice-link" href="/account/service-plan">Change plan</a>
           </div>
         <% } else if (trialRequested) { %>
           <div class="notice">
-            ✨ You're requesting a <strong>premium free trial</strong>. Register below to verify your card and activate the trial.
+            You're starting a <strong>free trial</strong>. Create your account, then verify your card to begin.
           </div>
         <% } %>
 
@@ -584,17 +647,17 @@
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
-          Personal Details
+          <span class="section-num">1</span> About you
         </h2>
 
         <div class="form-row name-fields-row">
           <div class="form-group">
-            <label class="form-label" for="firstName">First Name *</label>
-            <input type="text" name="firstName" maxlength="100" id="firstName" class="form-input" placeholder="John" required value="<%= formData?.firstName || '' %>">
+            <label class="form-label" for="firstName">First name</label>
+            <input type="text" name="firstName" maxlength="100" id="firstName" class="form-input" placeholder="Jane" autocomplete="given-name" required value="<%= formData?.firstName || '' %>">
           </div>
           <div class="form-group">
-            <label class="form-label" for="lastName">Last Name *</label>
-            <input type="text" name="lastName" maxlength="100" id="lastName" class="form-input" placeholder="Doe" required value="<%= formData?.lastName || '' %>">
+            <label class="form-label" for="lastName">Last name</label>
+            <input type="text" name="lastName" maxlength="100" id="lastName" class="form-input" placeholder="Smith" autocomplete="family-name" required value="<%= formData?.lastName || '' %>">
           </div>
         </div>
 
@@ -603,20 +666,20 @@
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
             <polyline points="9 22 9 12 15 12 15 22"></polyline>
           </svg>
-          Organization Information
+          <span class="section-num">2</span> Your school
         </h2>
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="orgName">Org Name *</label>
-            <input type="text" name="orgName" maxlength="200" id="orgName" class="form-input" placeholder="University of Greenwood" required value="<%= formData?.orgName || '' %>">
+            <label class="form-label" for="orgName">School name</label>
+            <input type="text" name="orgName" maxlength="200" id="orgName" class="form-input" placeholder="Riverside Academy" autocomplete="organization" required value="<%= formData?.orgName || '' %>">
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="orgNickName">Org Nickname *</label>
-            <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="UGW, MIS Sch, The Best" minlength="3" maxlength="60" required value="<%= formData?.orgNickName || '' %>" autocomplete="off">
+            <label class="form-label" for="orgNickName">Short name</label>
+            <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="Riverside" minlength="3" maxlength="60" required value="<%= formData?.orgNickName || '' %>" autocomplete="off">
             <div id="subdomain-preview" class="subdomain-preview" aria-live="polite">
-              Org URL: <strong><span id="subdomain-slug">your-school</span>.managira.com</strong>
+              Your web address: <strong><span id="subdomain-slug">your-school</span>.managira.com</strong>
             </div>
           </div>
         </div>
@@ -696,13 +759,13 @@
         </script>
 
         <div class="form-group">
-          <label class="form-label" for="orgAddress">Org Address *</label>
-          <input type="text" name="orgAddress" maxlength="250" id="orgAddress" class="form-input" placeholder="123 Main St, Provo, UT" required value="<%= formData?.orgAddress || '' %>">
+          <label class="form-label" for="orgAddress">School address</label>
+          <input type="text" name="orgAddress" maxlength="250" id="orgAddress" class="form-input" placeholder="100 River Road, Springfield" autocomplete="street-address" required value="<%= formData?.orgAddress || '' %>">
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="orgCountry">Country *</label>
+            <label class="form-label" for="orgCountry">Country</label>
             <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : ((typeof registerDefaultCountry !== 'undefined' && registerDefaultCountry) ? registerDefaultCountry : 'US')); %>
             <select name="orgCountry" id="orgCountry" class="form-input" required>
               <option value="">Select country</option>
@@ -714,13 +777,13 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="orgProvince">Province / Region / State *</label>
-            <input type="text" name="orgProvince" maxlength="100" id="orgProvince" class="form-input" placeholder="Utah" required value="<%= formData?.orgProvince || '' %>">
+            <label class="form-label" for="orgProvince">State or region</label>
+            <input type="text" name="orgProvince" maxlength="100" id="orgProvince" class="form-input" placeholder="Illinois" required value="<%= formData?.orgProvince || '' %>">
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="orgPhone">Org Phone *</label>
+          <label class="form-label" for="orgPhone">School phone</label>
           <div class="phone-combo" data-default-iso2="US">
             <select class="phone-dial-select"></select>
             <input type="tel" name="orgPhone" id="orgPhone" class="phone-local-input" required autocomplete="tel" value="<%= formData?.orgPhone || '' %>">
@@ -732,17 +795,22 @@
         <% const hasCachedProof2 = !!(formData?.hasProof2 || registerProofDraft?.proof2Url); %>
         <% if (hasCachedProof2) { %>
           <div class="notice" style="margin-top: -8px; margin-bottom: 16px;">
-            ✅ Your previously uploaded additional proof is still saved. Choose a new file only if you want to replace it.
+            Your earlier document is still saved. Choose a new file only to replace it.
           </div>
         <% } %>
 
+        <h2 class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
+          <span class="section-num">3</span> Verify your school
+        </h2>
+        <p class="section-hint">Upload a document that shows your school is registered, such as a state registration, an accreditation letter or a certificate (PDF, Word or image).</p>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="proof1">Proof of Existence *</label>
+            <label class="form-label" for="proof1">Proof of registration</label>
             <input type="file" name="proof1" id="proof1" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" <%= hasCachedProof1 ? '' : 'required' %>>
           </div>
           <div class="form-group">
-            <label class="form-label" for="proof2">Additional Proof (Optional)</label>
+            <label class="form-label" for="proof2">Another document <span class="form-optional">(optional)</span></label>
             <input type="file" name="proof2" id="proof2" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
             <% if (hasCachedProof2) { %>
               <p class="form-hint">A temporary cached file already exists for this field.</p>
@@ -750,32 +818,29 @@
           </div>
         </div>
 
-        <div class="notice verification-notice" style="margin-top: 8px; font-size: 0.76rem; padding: 8px 10px;">
-          <strong>📄 For Verification:</strong> Upload any (certificate, registration document, or website screenshot).
-        </div>
 
         <h2 class="section-title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
-          Sign-In Credentials
+          <span class="section-num">4</span> Your sign-in
         </h2>
 
         <div class="form-row">
           <div class="form-group" style="margin-bottom: 10px;">
-            <label class="form-label" for="email">Email *</label>
-            <input type="email" name="email" maxlength="254" id="email" class="form-input" placeholder="you@example.com" required value="<%= formData?.email || '' %>">
+            <label class="form-label" for="email">Work email</label>
+            <input type="email" name="email" maxlength="254" id="email" class="form-input" placeholder="you@yourschool.org" autocomplete="email" required value="<%= formData?.email || '' %>">
           </div>
           <div class="form-group" style="margin-bottom: 10px;">
-            <label class="form-label" for="confirmEmail">Confirm Email *</label>
+            <label class="form-label" for="confirmEmail">Confirm email</label>
             <input type="email" name="confirmEmail" maxlength="254" id="confirmEmail" class="form-input" placeholder="Re-enter email" required value="<%= formData?.confirmEmail || '' %>">
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group" style="margin-bottom: 10px;">
-            <label class="form-label" for="password">Password *</label>
+            <label class="form-label" for="password">Password</label>
             <div class="password-input-wrapper">
               <input type="password" name="password" id="password" class="form-input" placeholder="Create a password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
               <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
@@ -787,7 +852,7 @@
             <p id="password-strength" class="password-strength"></p>
           </div>
           <div class="form-group" style="margin-bottom: 10px;">
-            <label class="form-label" for="confirmPassword">Confirm Password *</label>
+            <label class="form-label" for="confirmPassword">Confirm password</label>
             <div class="password-input-wrapper">
               <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter password" required value="<%= formData?.confirmPassword || '' %>">
             </div>
@@ -795,13 +860,13 @@
         </div>
 
         <div class="password-requirements" style="margin-top: 0; margin-bottom: 10px;">
-          <p>Password requirements:</p>
+          <p>Your password needs:</p>
           <ul>
-            <li>At least 6 characters</li>
-            <li>One uppercase letter (A-Z)</li>
-            <li>One lowercase letter (a-z)</li>
-            <li>One number (0-9)</li>
-            <li>One special character (!@#$%^&*)</li>
+            <li data-rule="length">6 or more characters</li>
+            <li data-rule="upper">An uppercase letter</li>
+            <li data-rule="lower">A lowercase letter</li>
+            <li data-rule="number">A number</li>
+            <li data-rule="symbol">A symbol (!@#$%^&amp;*)</li>
           </ul>
         </div>
 
@@ -812,7 +877,7 @@
           </label>
         </div>
 
-        <button type="submit" class="btn-primary" id="registerSubmitBtn">Proceed to Payment</button>
+        <button type="submit" class="btn-primary" id="registerSubmitBtn">Continue to payment</button>
       </form>
 
       <p class="login-link">
@@ -941,18 +1006,23 @@
 
     function checkPasswordStrength(password) {
       const strengthText = document.getElementById("password-strength");
+      // Each requirement ticks itself off as it's met.
+      const rules = { length: /.{6,}/, upper: /[A-Z]/, lower: /[a-z]/, number: /\d/, symbol: /[!@#$%^&*]/ };
+      document.querySelectorAll('.password-requirements [data-rule]').forEach(function (li) {
+        li.classList.toggle('is-met', rules[li.getAttribute('data-rule')].test(password || ''));
+      });
       const weak = /.{6,}/;
       const medium = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
       const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
       if (!strengthText) return;
       if (strong.test(password)) {
-        strengthText.textContent = 'Strong Password 💪';
+        strengthText.textContent = 'Strong password';
         strengthText.className = 'password-strength strong';
       } else if (medium.test(password)) {
-        strengthText.textContent = 'Medium Strength ⚠️';
+        strengthText.textContent = 'Medium strength';
         strengthText.className = 'password-strength medium';
       } else if (weak.test(password)) {
-        strengthText.textContent = 'Weak Password ❌';
+        strengthText.textContent = 'Weak password';
         strengthText.className = 'password-strength weak';
       } else {
         strengthText.textContent = '';

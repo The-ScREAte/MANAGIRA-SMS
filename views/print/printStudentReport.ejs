@@ -5127,7 +5127,7 @@ function updateClass(studentId) {
         return /^\+[1-9]\d{7,14}$/.test(String(phone || '').replace(/[()\s-]/g, ''));
     }
 
-    // Cosmetic grouping only — "+233 24 510 1108" instead of a raw digit
+    // Cosmetic grouping only — "+1 555 010 2030" instead of a raw digit
     // string. Never changes the underlying value; validation/collection
     // always re-strips spaces first.
     function formatPhoneDisplay(value) {
@@ -5180,7 +5180,7 @@ function updateClass(studentId) {
     function srContactRowHtml(studentId, value, guardianId, source, type, rowId, contactMethodId = null, contactName = '') {
         const displayValue = type === 'phone' ? formatPhoneDisplay(value) : value;
         const inputType = type === 'email' ? 'email' : 'tel';
-        const placeholder = type === 'email' ? 'Enter email address' : 'Enter number with country code (e.g. +233...)';
+        const placeholder = type === 'email' ? 'Enter email address' : 'Enter number with country code (e.g. +1...)';
         return `<div data-row-id="${rowId}">
             <input type="text" maxlength="160" class="sr-contact-name-input" value="${escapeHtmlClient(contactName)}" placeholder="Contact name" aria-label="Contact name">
             <div class="sr-contact-row" data-row-id="${rowId}" data-original-value="${escapeHtmlClient(value || '')}" data-guardian-id="${guardianId || ''}" data-source="${source || ''}" data-contact-method-id="${contactMethodId || ''}" data-contact-name="${escapeHtmlClient(contactName)}">
@@ -5211,7 +5211,7 @@ function updateClass(studentId) {
             const isDuplicate = siblingValues.includes(val.toLowerCase());
             if (!ok) {
                 row.classList.add('sr-row-invalid');
-                errorEl.textContent = type === 'email' ? 'Doesn’t look like a valid email.' : 'Needs a country code, e.g. +233...';
+                errorEl.textContent = type === 'email' ? 'Doesn’t look like a valid email.' : 'Needs a country code, e.g. +1...';
                 errorEl.style.display = 'block';
             } else if (isDuplicate) {
                 row.classList.add('sr-row-invalid');

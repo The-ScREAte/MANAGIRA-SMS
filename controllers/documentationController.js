@@ -16,6 +16,8 @@ const {
   updateDocumentationArticle,
 } = require('../utils/documentationCenter');
 const managiraFAQ = require('../utils/managiraFAQ');
+const docsCatalog = require('../utils/docs/catalog');
+const docsPresent = require('../utils/docs/present');
 const db = require('../config/db');
 const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
 
@@ -43,8 +45,8 @@ function buildStructuredData(article) {
     return {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
-      name: 'Managira Documentation Center',
-      description: 'Structured documentation and help center for Managira.',
+      name: 'Managira Help Center',
+      description: 'Step-by-step guides for Managira, the K-12 student information system.',
       url: buildCanonicalDocumentationUrl(),
     };
   }
@@ -263,6 +265,76 @@ function buildMediaResponseHtml(media) {
   return '';
 }
 
+// The guides people look for most (shown under the search box).
+const POPULAR = [
+  { slug: 'register-a-school-and-complete-first-time-setup', label: 'Set up your school' },
+  { slug: 'create-and-add-student', label: 'Add a student' },
+  { slug: 'report-card', label: 'Report cards' },
+  { slug: 'single-sign-on', label: 'Single sign-on' },
+  { slug: 'school-website', label: 'School website' },
+  { slug: 'service-accounts-and-access-tokens', label: 'API access tokens' },
+];
+
+function docsLocals(articles) {
+  return {
+    layout: false,
+    lp: require('../utils/landing'),
+    docsIcon: docsPresent.icon,
+    nav: docsPresent.navigation(articles),
+    searchIndexJson: escapeJsonForScript(docsPresent.searchIndex(articles)),
+  };
+}
+
+async function renderPublicIndex(req, res, pageData) {
+  const locals = docsLocals(pageData.articles);
+  const live = new Set(pageData.articles.map((article) => article.slug));
+  return res.render('docs/index', {
+    ...locals,
+    title: 'Managira Help Center: Guides for the K-12 Student Information System',
+    description: 'Step-by-step guides with screenshots for Managira: school setup, students and admissions, families, grades and report cards, transportation, payments, school websites, integrations and Mira.',
+    keywords: 'managira help center, managira documentation, student information system guide, k-12 sis help, school software how to',
+    canonicalUrl: 'https://managira.com/legal/user-documentation',
+    robots: 'index, follow, max-snippet:-1, max-image-preview:large',
+    structuredData: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        buildStructuredData(null),
+        {
+          '@type': 'ItemList',
+          name: 'Managira guides',
+          itemListElement: pageData.articles.filter((article) => article.status === 'active').map((article, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            url: buildCanonicalDocumentationUrl(article.slug),
+            name: article.title,
+          })),
+        },
+      ],
+    },
+    topics: locals.nav.map((group) => ({ ...group, anchor: docsPresent.plain(group.name).toLowerCase().replace(/[^a-z0-9]+/g, '-') })),
+    popular: POPULAR.filter((item) => live.has(item.slug)),
+    resources: QUICK_START_RESOURCES.filter((item) => item.type !== 'link'),
+  });
+}
+
+async function renderPublicArticle(req, res, pageData, article) {
+  const locals = docsLocals(pageData.articles);
+  const prepared = docsPresent.prepareArticle(article.contentHtml);
+  return res.render('docs/article', {
+    ...locals,
+    title: `${article.title} | Managira Help Center`,
+    description: buildExcerpt(article),
+    keywords: (article.tags || []).join(', '),
+    canonicalUrl: buildCanonicalDocumentationUrl(article.slug),
+    robots: 'index, follow, max-snippet:-1, max-image-preview:large',
+    structuredData: buildStructuredData(article),
+    article,
+    body: prepared.html,
+    toc: prepared.toc,
+    minutes: prepared.minutes,
+  });
+}
+
 async function renderDocumentationIndex(req, res) {
   const documentationAdmin = isDocumentationAdmin(req);
   const headerIdentity = buildDocumentationHeaderIdentity(req, documentationAdmin);
@@ -272,6 +344,7 @@ async function renderDocumentationIndex(req, res) {
     includeDrafts: documentationAdmin,
     database: db,
   });
+  if (!documentationAdmin) return renderPublicIndex(req, res, pageData);
 
   return res.render('legal&Compliance/userDocumentation', {
     title: 'User Documentation - Managira School Management System',
@@ -292,6 +365,10 @@ async function renderDocumentationArticle(req, res) {
   const documentationAdmin = isDocumentationAdmin(req);
   const headerIdentity = buildDocumentationHeaderIdentity(req, documentationAdmin);
   const requestedSlug = req.params.slug || null;
+  // An older address of a guide goes to its current page for good.
+  if (requestedSlug && docsCatalog.REDIRECTS[requestedSlug]) {
+    return res.redirect(301, `/legal/user-documentation/${docsCatalog.REDIRECTS[requestedSlug]}`);
+  }
 
   await ensureDocumentationSchema(db);
   const pageData = await buildDocumentationPageData({
@@ -326,6 +403,7 @@ async function renderDocumentationArticle(req, res) {
   }
 
   const selectedArticle = pageData.selectedArticle;
+  if (!documentationAdmin) return renderPublicArticle(req, res, pageData, selectedArticle);
   const relatedArticles = buildRelatedArticles(selectedArticle, pageData.articles, 4);
   const title = selectedArticle
     ? `${selectedArticle.title} - Managira Documentation`

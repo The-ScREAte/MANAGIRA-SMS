@@ -110,7 +110,7 @@ const managiraFAQ = [
     category: "Billing & Subscription",
     question: "What payment methods are supported?",
     answer: "Supported methods depend on your configured payment provider and school settings.",
-    keywords: ["payment methods", "stripe", "paystack", "bank", "card"]
+    keywords: ["payment methods", "stripe", "bank", "card"]
   },
   {
     id: 29,
@@ -137,7 +137,7 @@ const managiraFAQ = [
     id: 35,
     category: "Security & Access",
     question: "Is student data secured?",
-    answer: "Yes. All traffic uses HTTPS, and each school's data is kept separate so staff and parents only see their own school. Every staff account has individually granted permissions, sessions end after inactivity, sending messages to families requires the sender's password, and staff actions are recorded in the school's activity log. Card payments are processed by Stripe and Paystack, and Managira never stores full card numbers.",
+    answer: "Yes. All traffic uses HTTPS, and each school's data is kept separate so staff and parents only see their own school. Every staff account has individually granted permissions, sessions end after inactivity, sending messages to families requires the sender's password, and staff actions are recorded in the school's activity log. Card payments are processed by Stripe, and Managira never stores full card numbers.",
     keywords: ["security", "data protection", "encryption"]
   },
   {
@@ -263,7 +263,7 @@ const managiraFAQ = [
     id: 200,
     category: "Getting Started",
     question: "What makes Managira different from other school management systems?",
-    answer: "Managira puts the whole school in one system: admissions, records, attendance, grading and report cards, promotion, staff permissions, fee collection (PayGira), transportation with live bus tracking, parent and student portals, messaging by email, SMS and WhatsApp, a school website, and Mira, an AI assistant that carries out tasks on the school's own data within each person's permissions. It is priced in local currency, accepts card and mobile money payments, and supports districts and school networks through Hubs.",
+    answer: "Managira puts the whole school in one system: admissions, records, attendance, grading and report cards, promotion, staff permissions, fee collection (PayGira), transportation with live bus tracking, parent and student portals, messaging by email, SMS and WhatsApp, a school website, and Mira, an AI assistant that carries out tasks on the school's own data within each person's permissions. It is priced per school by student count, accepts online card payments, and supports districts and school networks through Hubs.",
     keywords: ["managira vs", "compare school software", "why managira", "school management system comparison", "best school management software"]
   },
   {
@@ -276,16 +276,16 @@ const managiraFAQ = [
   {
     id: 202,
     category: "Billing & Subscription",
-    question: "Can parents pay school fees online with mobile money or card?",
-    answer: "Yes. With PayGira, schools create bills for classes or individual students, and parents pay online by card or mobile money through Stripe or Paystack. Payments go to the school's own payout account, receipts are issued automatically, and staff can track what is paid and what is outstanding.",
-    keywords: ["mobile money school fees", "pay school fees online", "paygira", "school fee collection", "card payments"]
+    question: "Can parents pay school fees online?",
+    answer: "Yes. With PayGira, schools create bills for classes or individual students, and parents pay online by card through Stripe. Payments go to the school's own payout account, receipts are issued automatically, and staff can track what is paid and what is outstanding.",
+    keywords: ["pay school fees online", "paygira", "school fee collection", "card payments", "tuition payments"]
   },
   {
     id: 203,
     category: "Getting Started",
-    question: "Is Managira a good fit for schools in Ghana, Nigeria and the rest of Africa?",
-    answer: "Managira is built for it: prices are shown in local currency, parents can pay fees by mobile money or card through Paystack, schools can text parents through Arkesel (Ghana) or Africa's Talking, and WhatsApp messaging uses the school's own WhatsApp Business number. It runs in any web browser, including on phones.",
-    keywords: ["school software ghana", "school management system nigeria", "school software africa", "mobile money"]
+    question: "Is Managira a good fit for K-12 schools in the United States?",
+    answer: "Yes. Managira is a K-12 student information system built for public, private and charter schools and districts in the United States: student information, teaching and learning, family engagement, business operations, transportation and analytics in one place. Families pay online by card, schools text parents through their own Twilio account, and everything runs in any web browser, including on phones.",
+    keywords: ["k-12 student information system", "school software united states", "sis for schools", "district student information system"]
   },
   {
     id: 204,
@@ -326,7 +326,7 @@ const managiraFAQ = [
     id: 209,
     category: "Technical & Platform",
     question: "Can schools message parents by SMS and WhatsApp?",
-    answer: "Yes. From the Mail Room, staff message families by email, SMS or WhatsApp, and answer parents' messages in one inbox. Schools connect their own SMS provider (Twilio, Arkesel or Africa's Talking) and WhatsApp Business number, and pay the provider directly with no markup from Managira.",
+    answer: "Yes. From the Mail Room, staff message families by email, SMS or WhatsApp, and answer parents' messages in one inbox. Schools connect their own Twilio account for text messages and their own WhatsApp Business number, and pay the provider directly with no markup from Managira.",
     keywords: ["sms parents", "whatsapp school", "message parents", "school communication"]
   },
   {

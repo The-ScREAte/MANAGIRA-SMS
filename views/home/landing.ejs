@@ -12,7 +12,7 @@
     { tone: 'aqua', label: 'For teachers & students', verb: 'Empowers', title: 'Every<br>Learner', href: '#classroom' },
     { tone: 'gold', label: 'For families & community', verb: 'Connects', title: 'Every<br>Family', href: '#families' },
   ];
-  const TRUST = ['amazonwebservices', 'stripe', 'Paystack', 'whatsapp', 'twilio', 'googleclassroom', 'googlecalendar', 'visa', 'mastercard', 'okta', 'owasp', 'snyk'];
+  const TRUST = ['amazonwebservices', 'stripe', 'whatsapp', 'twilio', 'googleclassroom', 'googlecalendar', 'visa', 'mastercard', 'okta', 'owasp', 'snyk'];
   const STORIES = [
     { id: 'leaders', photo: 'school', tone: 'teal', eyebrow: 'For school leaders', title: 'See it all.', accent: 'Act sooner.', text: 'Real-time insight across every classroom, campus and office, so decisions rest on facts, not spreadsheets.', points: ['Live numbers, never last month\'s', 'Board-ready reports in one click', 'Every campus side by side'], shot: { src: '/images/site/app-reports.webp', w: 1600, h: 2011, kind: 'desk', alt: 'The Managira Reports page: organization statistics for the term, with enrollment, average score, pass rate, attendance, class and subject performance, top students, enrollment over terms and staff by role' }, link: { label: 'Explore analytics & reporting', href: product('student', 'analytics-reporting') } },
     { id: 'classroom', photo: 'teachers', tone: 'aqua', eyebrow: 'For teachers', title: 'Less admin.', accent: 'More teaching.', text: 'Routine work takes minutes, not evenings, so teachers get back to what they do best.', points: ['Every class task in one workspace', 'Quizzes that grade themselves', 'Parents updated automatically'], moments: [{ icon: 'attendance', title: 'Attendance saved', text: '7th Grade · 21 of 21 present', time: '8:02 AM' }, { icon: 'exam', title: 'Quiz graded', text: 'Science · class average 88%', time: '11:40 AM' }, { icon: 'calendar', title: 'Tasks scheduled', text: '3 tasks set for next week', time: '2:10 PM' }, { icon: 'report', title: 'Report cards ready', text: 'Shared with 21 families', time: '3:15 PM' }], link: { label: 'Explore teaching & learning', href: product('student') } },
@@ -28,7 +28,7 @@
     { icon: 'network', title: 'District & Network Management', text: 'Consistent standards and shared oversight across all your schools.', href: product('operational', 'hub-management') },
   ];
   const INTEGRATIONS = [
-    { title: 'Payments', items: ['stripe', 'Paystack', 'visa', 'mastercard', 'applepay', 'googlepay', 'MTN MoMo', 'M-Pesa', 'airtel', 'vodafone'] },
+    { title: 'Payments', items: ['stripe', 'visa', 'mastercard', 'applepay', 'googlepay'] },
     { title: 'Communications', items: ['whatsapp', 'twilio', 'Email'] },
     { title: 'Learning & calendars', items: ['googleclassroom', 'googlecalendar', 'Outlook Calendar', 'iCal feeds'] },
     { title: 'Identity & single sign-on', items: ['google', 'Microsoft Entra ID', 'okta', 'auth0', 'OneLogin', 'JumpCloud', 'ClassLink', 'Clever'] },

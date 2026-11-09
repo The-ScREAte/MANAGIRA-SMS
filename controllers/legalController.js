@@ -845,7 +845,7 @@ const legalController = {
         res.render('legal&Compliance/userDocumentation', {
             title: 'User Documentation - Managira School Management System',
             description: 'Complete user documentation for Managira school management system. Learn how to manage students, attendance, assessments, reports, promotions, admissions, and more.',
-            keywords: 'managira user documentation, managira guide, school management guide, how to use managira, managira help, managira tutorial, managira Nigeria, school management Nigeria',
+            keywords: 'managira user documentation, managira guide, school management guide, how to use managira, managira help, managira tutorial, k-12 student information system guide',
             canonicalUrl: 'https://managira.com/legal/user-documentation',
             showFooterTopSection: true
         });

@@ -13,7 +13,7 @@
   <title><%= _title %></title>
   <% if (_description) { %><meta name="description" content="<%= _description %>"><% } %>
   <% if (_keywords) { %><meta name="keywords" content="<%= _keywords %>"><% } %>
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="<%= locals.robots || 'index, follow' %>">
   <meta name="author" content="Managira">
   <meta name="theme-color" content="#040a0b">
   <link rel="canonical" href="<%= _canonical %>">
