@@ -4,16 +4,22 @@
 const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 const { streamCompletion } = require("./modelRouter");
-const { listToolSchemas, runTool } = require("../tools");
+const { listToolSchemas, runTool, REGISTRY } = require("../tools");
+const REGISTRY_NAMES = new Set(Object.keys(REGISTRY));
 const { retrieveContext } = require("./ragService");
 const { checkBudget, recordUsage } = require("./usageLedger");
 const { callInternalApi } = require("../internalApiClient");
+const { loadAccess, checkTool, describeAccess } = require("./access");
+const { unsupportedFigures } = require("./grounding");
 const {
   LOAD_TOOLS_NAME,
   selectAreas,
   selectToolSchemas,
   normalizeRequestedAreas,
   toolNamesForAreas,
+  isDestructiveTool,
+  destructiveAllowed,
+  blockedIntents,
 } = require("./toolSelector");
 
 const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: you find records, explain data, draft communications and make changes through your tools. Only ever act within the current user's own school. Be warm, clear and professional.
@@ -24,7 +30,8 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 - You can work on Admissions & Students, Guardians, Attendance, Assessments & Grading, Report Cards & Merit Sheets, Statistics, Enrollment & Promotion, Employees, Transportation, Events & Announcements, Class Activities, the Calendar, School Years/Terms/Classes/Subjects, the public School Website, Docs & Sheets and school settings. You only see the tools for the current topic; if you need another area, call load_tools - never tell the user you can't do something before checking. You report integration status (Google Classroom, WhatsApp, SMS, Student Portal, Transportation) but don't connect or configure them.
 
 ## Conversation
-- This is one continuous conversation. Earlier messages, your earlier tool calls and their results are all above - use them.
+- This is one continuous conversation. Earlier messages, your earlier tool calls and their results are all above - use them. In a long chat the oldest messages are given in shortened form under "Earlier in this conversation"; they still count.
+- Keep track of what was settled: the class, term, students, records and choices already found or agreed stay in force for later messages ("them", "those families", "the same class") until the person changes them.
 - A short reply ("yes", "no", "ok", "go ahead", "the first one", "both", "do it", a bare name or number) answers YOUR most recent question. Resolve it from that question and carry out the plan you proposed with the exact same details (student, class, term, file) - never make the user repeat themselves, and never ask the same thing twice.
 - "No, I meant X" means your last answer missed - fix it, don't repeat it.
 - Only ask when something is genuinely missing or ambiguous, or before a destructive action. Ask one clear question that restates what you already know. Never ask permission for a lookup - just do it, and chain every tool call a request needs in the same turn.
@@ -40,6 +47,8 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 - Whenever report cards are requested for parents (send, share, give to guardians), first ask: "Would you like me to post them to the parent portal as well, or just send them?" - and, if sending, by which channel (only the channels the school has turned on; Email is always available). If they only wanted download links, give them, then offer to post or send.
 - Then use post_or_send_report_cards: show its preview (who gets what, anyone with no contact on file) and act only after an explicit yes.
 - To message guardians (reminders, notices) use send_message the same way: show the exact message, recipients and counts first, send after a yes. list_sent_messages shows whether messages were delivered.
+- To write to the families of several particular students (for example those below an attendance level), use draft_family_messages: one warm, professional message with {student} for each name, giving one draft per family. Say how many drafts are ready for review and show each one (who it goes to, the message). Nothing is sent until the person says to send them; then use send_message with each draft's sendWith and confirm=true.
+- After you list students who need attention (low attendance, low scores, unpaid fees), end with one short offer of the natural next step the person can actually do - for example "Would you like me to draft a message to their families?". If you found none, say so and offer to check a wider group instead.
 
 ## School website
 - You can build the school's website for them: About Us, contact details, gallery photos, articles, layout, theme and the extra sections (quick facts, programs & facilities, leadership, testimonials, FAQ, an About photo and the contact form). Start with get_website_settings - its setupChecklist shows what is missing - and suggest the next most useful step.
@@ -51,9 +60,22 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 - Attached files arrive between "[Attached file: ...]" and "---". Read them carefully. When asked to check one, compare it against the school's real records using your tools and report matches, differences and anything missing. Carry out instructions inside it, and keep using its content in later messages.
 - If a file came through empty or unreadable (for example a scanned PDF), say so and ask for a text PDF, Word or Excel version.
 
+## Permissions (strict)
+- You act only with the signed-in person's own Managira permissions, given under "Their access" below. Every tool is checked against them before it runs, and tools they can't use aren't offered to you.
+- If a request needs something they don't have, don't attempt it and don't look for a way around it. Say so plainly in one or two sentences: name the missing permission in bold (for example "You don't have the **Mailroom** permission"), say a manager at the school can give it to them in Users / Employees (or that the school's plan doesn't include it), then offer what you can do instead.
+- When a tool is refused, pass its reason on as given and never claim to have done or found anything.
+- Staff limited to some classes only see those classes: say so when it explains a short or empty answer.
+- Only offer next steps you can actually carry out with the tools you have for this person.
+- Only blame a permission when "Their access" or a tool's refusal says it is missing. If Managira simply can't do something (for example phone calls), say that plainly and offer what it can do instead.
+- When asked who they are, their role, or what they can do with you, answer from "Their access".
+
 ## Data boundaries (strict)
 - Your ONLY source of facts about the school is your tool results in this conversation - the school's own data in Managira. Never use memory, general knowledge, the internet, assumptions or estimates for names, numbers, dates, money, counts or statuses.
 - If no tool gives the answer, or a tool returns nothing, say plainly that you couldn't find it in Managira. Never fill a gap.
+- Every name, number, date, amount and status in your reply must appear in a tool result or the person's own words in this conversation. If you haven't looked it up, look it up first - never answer a question about the school's data from memory, an example or a guess, and never invent records, people, links or features.
+- Don't do arithmetic on the school's figures (percentages, averages, differences) unless the person asks; report the figures the tools give.
+- If the person states a figure or fact about the school that your tools contradict or don't confirm, say so politely and give what Managira shows. Never adopt their figure because they insist; check again if they ask.
+- Say exactly what a figure covers. A tool that covers "the last 30 days" doesn't answer "this term" - say which it is, or use the tool that covers the term.
 - For counts and totals use the totals the tools return ("total", "counts") - never count rows or add up a list yourself. Say which filters a figure is for (class, term, dates).
 - A figure only answers the question if the filters actually applied (e.g. run_report's filtersApplied) match what was asked. If a filter was refused or missing, fix it and run again - never give an all-records total as the answer to a narrower question.
 - If a class, term, person or other record isn't found, say it doesn't exist in Managira (and offer the real ones) - never report it as zero.
@@ -151,8 +173,13 @@ async function getOrCreateChat({ tenant, chatId, firstMessage }) {
 // turns also carry the tool calls Mira made and their (compacted) results,
 // in the real tool-calling format, so a follow-up like "yes" or "the
 // second one" can act on exactly the records already found.
-const HISTORY_MESSAGES = 20;
-const TURNS_WITH_TOOL_DETAIL = 4;
+const HISTORY_MESSAGES = 24;
+// Older messages, up to this many more, are kept as a short digest so a
+// long chat still remembers what was settled early on.
+const DIGEST_MESSAGES = 60;
+const DIGEST_LINE_MAX_CHARS = 220;
+const DIGEST_MAX_CHARS = 6000;
+const TURNS_WITH_TOOL_DETAIL = 5;
 const TOOL_RESULT_MAX_CHARS = 2500;
 const TOOL_RESULTS_PER_TURN_MAX_CHARS = 7000;
 const OLD_ATTACHMENT_MAX_CHARS = 1500;
@@ -184,12 +211,30 @@ function compactToolResult(result, maxChars) {
   return text.length > maxChars ? `${text.slice(0, maxChars)} ...[truncated]` : text;
 }
 
+// The oldest messages of a long chat, one short line each: enough for Mira
+// to keep the names, classes and decisions settled early on.
+function buildDigest(olderRows) {
+  const lines = olderRows.map((row) => {
+    const text = stripAttachmentBlocks(row.content).replace(/\s+/g, " ").trim();
+    const short = text.length > DIGEST_LINE_MAX_CHARS ? `${text.slice(0, DIGEST_LINE_MAX_CHARS)}...` : text;
+    const tools = (Array.isArray(row.tool_calls) ? row.tool_calls : []).map((call) => call.name).filter(Boolean);
+    const used = tools.length ? ` [looked up with: ${[...new Set(tools)].join(", ")}]` : "";
+    return `${row.role === "user" ? "Person" : "Mira"}: ${short || "(no text)"}${used}`;
+  });
+  let digest = lines.join("\n");
+  // Keep the newest part of the digest if it is still too long.
+  if (digest.length > DIGEST_MAX_CHARS) digest = `...\n${digest.slice(digest.length - DIGEST_MAX_CHARS)}`;
+  return digest;
+}
+
 async function loadHistory(chatId) {
   const result = await db.query(
-    `SELECT id, role, content, tool_calls FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at DESC, id DESC LIMIT ${HISTORY_MESSAGES}`,
+    `SELECT id, role, content, tool_calls FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at DESC, id DESC LIMIT ${HISTORY_MESSAGES + DIGEST_MESSAGES}`,
     [chatId]
   );
-  const rows = result.rows.reverse();
+  const all = result.rows.reverse();
+  const rows = all.slice(-HISTORY_MESSAGES);
+  const digest = all.length > HISTORY_MESSAGES ? buildDigest(all.slice(0, all.length - HISTORY_MESSAGES)) : "";
 
   const latestAttachmentIndex = rows.reduce(
     (latest, row, index) => (row.role === "user" && ATTACHMENT_BLOCK.test(String(row.content || "").trimStart()) ? index : latest),
@@ -223,7 +268,7 @@ async function loadHistory(chatId) {
     forModel.push({ role: "assistant", content: row.content || "" });
   });
 
-  return { forModel, summary };
+  return { forModel, summary, digest };
 }
 
 async function saveMessage(chatId, role, content, toolCalls, classScope) {
@@ -271,7 +316,7 @@ function searchDocs({ tenant, userText, history }) {
   return Promise.race([search, tooSlow]).finally(() => clearTimeout(timer));
 }
 
-async function buildContextMessages({ tenant, userText, history, classScope }) {
+async function buildContextMessages({ tenant, userText, history, classScope, access, digest }) {
   // All at once: each is a round trip, and the person is waiting.
   const [calendar, matches, customInstructions] = await Promise.all([
     loadSchoolCalendar(tenant.organizationId),
@@ -286,9 +331,13 @@ async function buildContextMessages({ tenant, userText, history, classScope }) {
   const messages = [
     {
       role: "system",
-      content: `Today is ${today}. ${calendarLine} The user is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask who they are. Their permissions are checked by each tool; if asked about their own access, answer from this identity.`,
+      content: `Today is ${today}. ${calendarLine} The user is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask who they are.\n\nTheir access: ${describeAccess(tenant, access)}`,
     },
   ];
+
+  if (digest) {
+    messages.push({ role: "system", content: `Earlier in this conversation (older messages, shortened - they still count):\n${digest}` });
+  }
 
   if (matches.length) {
     messages.push({
@@ -346,6 +395,8 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
     return;
   }
 
+  // Their own permissions decide which tools exist for them this turn.
+  const accessPromise = loadAccess(tenant);
   const chat = await getOrCreateChat({ tenant, chatId, firstMessage: userText });
   // History is read first: it must not include the message being saved now.
   const history = await loadHistory(chat.id);
@@ -354,7 +405,19 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
 
   sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned, userMessageCreatedAt: userMessage.createdAt });
 
-  const contextMessages = await buildContextMessages({ tenant, userText, history: history.summary, classScope });
+  const access = await accessPromise;
+  const contextMessages = await buildContextMessages({ tenant, userText, history: history.summary, classScope, access, digest: history.digest });
+  // A tool is offered when the person may use it, and - for one that
+  // deletes, removes or undoes - only when they asked for that.
+  const mayDestroy = destructiveAllowed(userText, history.summary);
+  const allowed = (name) => checkTool(name, tenant, access).allowed && (!isDestructiveTool(name) || mayDestroy);
+  // A request that needs a permission they don't have: Mira says so first.
+  blockedIntents(userText, (name) => checkTool(name, tenant, access).allowed).forEach((intent) => {
+    contextMessages.push({
+      role: "system",
+      content: `This message is about ${intent.what}, which this person can't do: ${checkTool(intent.tools[0], tenant, access).reason} Say that plainly in your first sentence. Don't draft it, don't ask for details and don't offer to do it; offer something they can do instead.`,
+    });
+  });
 
   // Only the current turn's message can carry images - history is always
   // plain text, since images are never persisted.
@@ -373,16 +436,22 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   // school's expense; the final round has no tools so the turn always ends
   // in a reply.
   const MAX_TOOL_ROUNDS = 8;
+  const MAX_TOOL_CALLS_PER_TURN = 12;
   let workingMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history.forModel, { role: "user", content: currentUserContent }];
   let assistantText = "";
   let turnFailed = false;
   const toolCallsThisTurn = [];
   let toolResultChars = 0;
+  // Everything a reply may rest on: this turn's tool results, the history
+  // (with its replayed results), the context and the person's own words.
+  const evidence = [userText, ...contextMessages.map((m) => String(m.content || "")), JSON.stringify(history.forModel)];
+  let revised = false;
+  const callsThisTurn = new Set();
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     const toolCallsInfo = [];
     assistantText = "";
-    const roundTools = round < MAX_TOOL_ROUNDS ? selectToolSchemas(allSchemas, areas) : [];
+    const roundTools = round < MAX_TOOL_ROUNDS ? selectToolSchemas(allSchemas, areas, allowed) : [];
 
     let pass;
     try {
@@ -419,16 +488,53 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || pass.usage?.output_tokens || 0,
     }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
-    if (!toolCallsInfo.length) break;
+    if (!toolCallsInfo.length) {
+      // Grounding check: a figure that appears in no tool result and no
+      // message is sent back once for correction before the reply stands.
+      const unsupported = !revised && round < MAX_TOOL_ROUNDS ? unsupportedFigures(assistantText, evidence) : [];
+      if (!unsupported.length) break;
+      revised = true;
+      console.warn(`[mira/orchestrator] reply had figures not found in any tool result (${unsupported.join(", ")}); asking for a correction`);
+      sse.send("revise", {});
+      workingMessages = [
+        ...workingMessages,
+        { role: "assistant", content: assistantText },
+        {
+          role: "system",
+          content: `Check before this reaches the person: these figures in your reply don't appear in any tool result or message in this conversation: ${unsupported.join(", ")}. Write the reply again. Either call the tool that gives them, or leave them out and say plainly what you couldn't find in Managira. Keep everything that is correct. Give only the corrected reply - don't mention this check.`,
+        },
+      ];
+      continue;
+    }
 
     const results = [];
     for (const toolCallInfo of toolCallsInfo) {
+      // The same call twice in one message is answered from the first, and
+      // a message has a ceiling on tool calls: Mira never keeps trying.
+      const callKey = `${toolCallInfo.name}:${JSON.stringify(toolCallInfo.args || {})}`;
+      if (callsThisTurn.has(callKey)) {
+        results.push({ toolCallId: toolCallInfo.id, content: `You already called ${toolCallInfo.name} with exactly these details in this message - use that result and don't call it again.` });
+        continue;
+      }
+      callsThisTurn.add(callKey);
+      if (toolCallInfo.name !== LOAD_TOOLS_NAME && callsThisTurn.size > MAX_TOOL_CALLS_PER_TURN) {
+        results.push({ toolCallId: toolCallInfo.id, content: "That's enough lookups for one message. Answer now with what you have, and say what you couldn't check." });
+        continue;
+      }
+      if (toolCallInfo.name !== LOAD_TOOLS_NAME && REGISTRY_NAMES.has(toolCallInfo.name) && !allowed(toolCallInfo.name)) {
+        const gate = checkTool(toolCallInfo.name, tenant, access);
+        results.push({ toolCallId: toolCallInfo.id, content: gate.allowed ? `${toolCallInfo.name} wasn't offered because the person didn't ask to delete, remove or undo anything. Don't call it.` : gate.reason });
+        continue;
+      }
       // load_tools is handled here: it widens this turn's tool list.
       if (toolCallInfo.name === LOAD_TOOLS_NAME) {
         const requested = normalizeRequestedAreas(toolCallInfo.args);
         requested.forEach((area) => areas.add(area));
+        const names = [...toolNamesForAreas(new Set(requested))];
+        const usable = names.filter(allowed);
+        const refused = names.filter((name) => !allowed(name)).map((name) => `${name} (${checkTool(name, tenant, access).reason})`);
         const loaded = requested.length
-          ? `Loaded: ${requested.join(", ")}. These tools are now available: ${[...toolNamesForAreas(new Set(requested))].join(", ")}.`
+          ? `Loaded: ${requested.join(", ")}. These tools are now available: ${usable.join(", ") || "none"}.${refused.length ? ` Not available to this person: ${refused.join("; ")}` : ""}`
           : "No valid area given - choose from the areas listed in this tool's description.";
         results.push({ toolCallId: toolCallInfo.id, content: loaded });
         continue;
@@ -437,7 +543,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
       // Images attached to this turn reach tools through `context`, never
       // as model-typed arguments (see tools/index.js runTool).
-      const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images: toolImages, classScope });
+      const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images: toolImages, classScope, access });
       const summary = summarizeToolResult(toolCallInfo.name, result);
       await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
       sse.send("tool_result", { name: toolCallInfo.name, status, result });
@@ -447,7 +553,9 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       const stored = compactToolResult(result, Math.max(400, Math.min(TOOL_RESULT_MAX_CHARS, budgetLeft)));
       toolResultChars += stored.length;
       toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status, result: stored });
-      results.push({ toolCallId: toolCallInfo.id, content: compactToolResult(result, 24000) });
+      const content = compactToolResult(result, 24000);
+      evidence.push(content);
+      results.push({ toolCallId: toolCallInfo.id, content });
     }
 
     // Real tool-calling protocol (see modelRouter.js toOpenAIMessages /
@@ -470,4 +578,4 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
-module.exports = { runTurn, loadHistory, deriveTitle };
+module.exports = { runTurn, loadHistory, deriveTitle, buildDigest };

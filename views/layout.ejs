@@ -334,7 +334,7 @@
             }
         </style>
         <% if (!(typeof hideGlobalFooter !== 'undefined' && hideGlobalFooter)) { %>
-            <% if (_publicChrome) { %><div class="lp-footer"><%- include('partials/footer', { showFooterTopSection: true }) %></div><% } else { %><%- include('partials/footer') %><% } %>
+            <% if (_publicChrome) { %><%- include('home/partials/footer') %><% } else { %><%- include('partials/footer') %><% } %>
         <% } %>
     </div>
 

@@ -1396,7 +1396,7 @@
 
 </div>
 
-<% if (_publicChrome) { %><div class="lp-footer"><%- include('../partials/footer', { showFooterTopSection: true }) %></div><% } else { %><%- include('../partials/footer', { showFooterTopSection: showFooterTopSection }) %><% } %>
+<% if (_publicChrome) { %><%- include('../home/partials/footer') %><% } else { %><%- include('../partials/footer', { showFooterTopSection: showFooterTopSection }) %><% } %>
 
 <!-- ── Edit slide-over (admin only) ──────────────── -->
 <% if (!pageNotFound && documentationAdmin) { %>

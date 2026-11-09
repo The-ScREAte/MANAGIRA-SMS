@@ -107,7 +107,16 @@ async function setMiraIntegrationActivation(dbClient, organizationId, activated,
   );
 }
 
+// Where Mira is: MIRA_PUBLIC_URL, else mira.managira.com in production and
+// the local Mira server in development - never production from a laptop.
+function miraPublicUrl() {
+  const configured = String(process.env.MIRA_PUBLIC_URL || "").trim().replace(/\/$/, "");
+  if (configured) return configured;
+  return process.env.NODE_ENV === "production" ? "https://mira.managira.com" : `http://localhost:${process.env.MIRA_PORT || 4100}`;
+}
+
 module.exports = {
+  miraPublicUrl,
   ensureMiraIntegrationSchema,
   getMiraIntegrationStatus,
   setMiraIntegrationActivation,

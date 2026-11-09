@@ -27,7 +27,7 @@ function backToPage(req, res, message, next) {
 
 const isActive = (connection) => connection && connection.status === "active" && connections.isOn(connection.organization_id);
 const nextOf = (value) => (value === "mira" ? "mira" : "");
-const miraAddress = () => `${(process.env.MIRA_PUBLIC_URL || "https://mira.managira.com").replace(/\/$/, "")}/continue`;
+const miraAddress = () => `${require("../utils/miraIntegration").miraPublicUrl()}/continue`;
 
 // The provider's address for this sign-in. The request it starts is tied to this browser.
 async function startUrlFor(req, res, db, connection, kind, { loginHint = null, next = "" } = {}) {

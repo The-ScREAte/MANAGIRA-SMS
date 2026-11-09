@@ -273,7 +273,7 @@ async function verify(req, res, db) {
   // "Don't ask again on this browser" is ticked unless the person unticks it.
   await trustDevice(req, res, db, snapshot, settings);
   if (next === "mira" && !snapshot.studentId && !snapshot.guardianId) {
-    return res.redirect(`${(process.env.MIRA_PUBLIC_URL || "https://mira.managira.com").replace(/\/$/, "")}/continue`);
+    return res.redirect(`${require("./miraIntegration").miraPublicUrl()}/continue`);
   }
   return res.redirect(target || homeOf(snapshot));
 }

@@ -15,9 +15,14 @@ const setMiraStatus = async (req, res, next) => {
   // Only use the localhost fallback outside production, where it's the
   // correct behavior for local development.
   res.locals.miraPublicUrl = process.env.MIRA_PUBLIC_URL ||
-    (process.env.NODE_ENV === "production" ? null : `http://localhost:${process.env.MIRA_PORT || 4100}`);
+    (process.env.NODE_ENV === "production" ? null : require("../utils/miraIntegration").miraPublicUrl());
 
   if (!req.session.organizationId) {
+    return next();
+  }
+  // Mira is for a school's staff: parents and students never see it.
+  const role = String(req.session.userRole || req.session.accountType || "").trim().toLowerCase();
+  if (req.session.guardianId || req.session.studentId || ["guardian", "parent", "student"].includes(role)) {
     return next();
   }
 

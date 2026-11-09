@@ -21,7 +21,8 @@ const MIRA_SIGNED_OUT_COOKIE = "mira_signed_out";
 // every cache miss costs a full round trip to the main app's internal API
 // (measured 800ms-1s on a cold cache, vs ~170ms warm) - the dominant cause
 // of history-chat clicks feeling slow when they land just past expiry.
-const IDENTITY_CACHE_TTL_SEC = 300;
+// Short, so a sign-out or a school's sign-in limit reaches Mira within seconds.
+const IDENTITY_CACHE_TTL_SEC = 30;
 
 // In-memory fallback so SSO still works (just without cross-process
 // caching) when Redis isn't configured, matching the main app's own
@@ -56,19 +57,12 @@ async function setCachedIdentity(cacheKey, identity) {
   memoryCache.set(cacheKey, { identity, expiresAt: Date.now() + IDENTITY_CACHE_TTL_SEC * 1000 });
 }
 
-function isSignedOutOfMira(req) {
-  const cookies = cookie.parse(req.headers.cookie || "");
-  return cookies[MIRA_SIGNED_OUT_COOKIE] === "1";
-}
 
 // Resolves identity without writing any response - shared by the JSON API
 // guard (ssoAuth) and the browser-page guard (pageAuth), and also usable
 // directly by routes/authRoute.js's login page to check "is the underlying
 // Managira session still alive?" regardless of the Mira-local signed-out flag.
-async function resolveIdentity(req, { ignoreMiraSignedOut = false } = {}) {
-  if (!ignoreMiraSignedOut && isSignedOutOfMira(req)) {
-    return { identity: null, reason: "signed_out" };
-  }
+async function resolveIdentity(req) {
 
   const cookies = cookie.parse(req.headers.cookie || "");
   const rawCookieValue = cookies[SESSION_COOKIE_NAME];
@@ -106,9 +100,7 @@ async function ssoAuth(req, res, next) {
     if (!identity) {
       const status = reason === "no_organization" ? 403 : 401;
       const message =
-        reason === "signed_out"
-          ? "Signed out of Mira."
-          : reason === "expired"
+        reason === "expired"
           ? "Your Managira session has expired. Please log in again."
           : reason === "no_organization"
           ? "No organization context on this session."
@@ -140,4 +132,14 @@ async function pageAuth(req, res, next) {
   }
 }
 
-module.exports = { ssoAuth, pageAuth, resolveIdentity, MIRA_SIGNED_OUT_COOKIE };
+// Forgets this browser's identity at once (Mira's Log out).
+async function forgetIdentity(req) {
+  const rawCookieValue = cookie.parse(req.headers.cookie || "")[SESSION_COOKIE_NAME];
+  if (!rawCookieValue) return;
+  const cacheKey = `identity:${hashCookie(rawCookieValue)}`;
+  memoryCache.delete(cacheKey);
+  const client = await getRedisClient();
+  if (client) await client.del(prefixed(cacheKey)).catch(() => {});
+}
+
+module.exports = { ssoAuth, pageAuth, resolveIdentity, forgetIdentity, MIRA_SIGNED_OUT_COOKIE };

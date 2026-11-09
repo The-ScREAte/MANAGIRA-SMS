@@ -19,10 +19,10 @@ const AREAS = {
     ],
   },
   students: {
-    label: "Students, guardians, fees, attendance, birthdays, archived students",
+    label: "Students, guardians, fees, attendance (including who is below an attendance level), birthdays, archived students",
     keywords: /\b(students?|pupils?|learners?|child(ren)?|kids?|guardians?|parents?|contacts?|fees?|paid|payments?|owe|owing|balance|attendance|absent|absences|present|late|birthdays?|archiv\w*|duplicates?)\b/,
     tools: [
-      "find_student", "list_students", "check_student_duplicates", "create_students", "get_fees", "get_attendance",
+      "find_student", "list_students", "check_student_duplicates", "create_students", "get_fees", "get_attendance", "find_low_attendance",
       "find_contact", "get_guardian_details", "list_archived_students", "unarchive_students", "get_upcoming_birthdays",
     ],
   },
@@ -97,11 +97,11 @@ const AREAS = {
     ],
   },
   communication: {
-    label: "Messages to guardians (Mailroom: email/text/WhatsApp), events, class activities, the calendar, announcements, failed emails, notification preferences",
-    keywords: /\b(activit(y|ies)|field trips?|clubs?|events?|announce\w*|notices?|messages?|emails?|notify|notifications?|send|calendars?|agenda|schedule|sync|synced|outlook|holidays?|bounced?|failed|draft|mailroom|text|sms|whatsapp|remind\w*)\b/,
+    label: "Messages to guardians (Mailroom: email/text/WhatsApp, and a draft for each family to review), events, class activities, the calendar, announcements, failed emails, notification preferences",
+    keywords: /\b(activit(y|ies)|field trips?|clubs?|events?|announce\w*|notices?|messages?|emails?|notify|notifications?|send|famil(y|ies)|write to|reach out|calendars?|agenda|schedule|sync|synced|outlook|holidays?|bounced?|failed|draft|mailroom|text|sms|whatsapp|remind\w*)\b/,
     tools: [
       "get_my_calendar", "get_calendar_sync_status", "list_activities", "create_activity", "list_events", "create_event", "update_event", "delete_event", "list_school_announcements", "create_school_announcement",
-      "update_school_announcement", "delete_school_announcement", "create_announcement", "draft_message", "list_failed_emails",
+      "update_school_announcement", "delete_school_announcement", "create_announcement", "draft_message", "draft_family_messages", "list_failed_emails",
       "check_email_availability", "fix_failed_email", "send_message", "list_sent_messages", "get_notification_preferences", "set_notification_preferences",
       "set_organization_notification_preferences",
     ],
@@ -203,9 +203,11 @@ function toolNamesForAreas(areas) {
 
 // Narrows the full schema list to the chosen areas, always keeping
 // load_tools so the model can reach anything else.
-function selectToolSchemas(allSchemas, areas) {
+// `allowed(name)` (the person's own permissions, services/access.js) drops
+// tools they can't use, so Mira is never offered them.
+function selectToolSchemas(allSchemas, areas, allowed = () => true) {
   const names = toolNamesForAreas(areas);
-  return [...allSchemas.filter((schema) => names.has(schema.name)), LOAD_TOOLS_SCHEMA];
+  return [...allSchemas.filter((schema) => names.has(schema.name) && allowed(schema.name)), LOAD_TOOLS_SCHEMA];
 }
 
 function normalizeRequestedAreas(args) {
@@ -213,7 +215,40 @@ function normalizeRequestedAreas(args) {
   return requested.map((area) => String(area || "").trim().toLowerCase()).filter((area) => AREAS[area]);
 }
 
+// Tools that delete, remove or undo are only offered when the person asked
+// for that in this message or the two before it (a "yes" to a delete warning
+// still finds the request). A model never reaches for one on its own.
+const DESTRUCTIVE_TOOL = /^(delete_|remove_|close_|reverse_|cancel_|unpost_|reject_|unassign_|set_employee_hold$)/;
+const DESTRUCTIVE_ASK = /\b(delete\w*|remov\w*|eras\w*|drop|close|closing|revers\w*|undo|cancel\w*|unpost\w*|reject\w*|declin\w*|unassign\w*|take (it |them |him |her )?off|get rid|on hold|hold|suspend\w*|archive\w*)\b/i;
+
+function destructiveAllowed(userText, history) {
+  const recentUser = [userText, ...history.filter((m) => m.role === "user").slice(-2).map((m) => m.content)];
+  return recentUser.some((text) => DESTRUCTIVE_ASK.test(stripAttachments(text)));
+}
+
+function isDestructiveTool(name) {
+  return DESTRUCTIVE_TOOL.test(name);
+}
+
+// Common requests and the tools that can do them. When the person can use
+// none of them, Mira is told before it answers, so it says so at once.
+const INTENTS = [
+  { test: /\b(send|message|email|e-mail|text|sms|whatsapp|notify|write to|reach out|draft)\b[^.?!]*\b(parents?|guardians?|famil(y|ies)|mothers?|fathers?)\b|\b(parents?|guardians?|famil(y|ies))\b[^.?!]*\b(message|email|text|notify)\b/i, tools: ["send_message", "draft_family_messages", "draft_message"], what: "messaging families" },
+  { test: /\b(fees?|owe[sd]?|owing|balance|payments?|paid|bills?|tuition|arrears)\b/i, tools: ["get_fees"], what: "fees and payments" },
+  { test: /\b(staff|employees?|teachers?)\b[^.?!]*\b(list|all|emails?|contacts?|phone|who)\b|\b(list|all|who are)\b[^.?!]*\b(staff|employees)\b/i, tools: ["list_employees"], what: "the staff list" },
+  { test: /\b(admissions?|applicants?|applications?)\b/i, tools: ["list_pending_admissions"], what: "admissions" },
+  { test: /\breport cards?\b|\bmerit sheets?\b/i, tools: ["generate_report_pdf", "post_or_send_report_cards", "get_merit_sheet"], what: "report cards" },
+];
+
+function blockedIntents(userText, allowed) {
+  const text = stripAttachments(userText);
+  return INTENTS.filter((intent) => intent.test.test(text) && !intent.tools.some(allowed));
+}
+
 module.exports = {
+  isDestructiveTool,
+  destructiveAllowed,
+  blockedIntents,
   AREAS,
   AREA_NAMES,
   CORE_TOOLS,

@@ -778,6 +778,7 @@ module.exports = {
   isPortalRole,
   isManagerRole,
   withinPlan,
+  planAllowsPermission,
   PERMISSIONS_SAVED_KEY,
   getSuggestedPermissionsForRole,
   getPrimaryManagerUserId,

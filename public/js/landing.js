@@ -63,7 +63,7 @@
     }
     if (burger) burger.addEventListener('click', function () { setSheet(burger.getAttribute('aria-expanded') !== 'true'); });
     if (sheet) sheet.addEventListener('click', function (event) { if (event.target.closest('a')) setSheet(false); });
-    window.addEventListener('resize', function () { if (window.innerWidth > 1100) setSheet(false); });
+    window.addEventListener('resize', function () { if (window.innerWidth > 1180) setSheet(false); });
 
     // Sections ease in as they arrive; everything shows at once without motion support.
     var parts = document.querySelectorAll('[data-reveal]');

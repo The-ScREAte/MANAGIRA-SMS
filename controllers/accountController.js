@@ -6202,9 +6202,12 @@ const accountController = {
 
       const isProduction = process.env.NODE_ENV === "production";
 
-      const redirectUrl = isProduction
-        ? "https://managira.com"
-        : "/account/login";
+      // Signed out from Mira: back to the sign-in page, ready to sign in to Mira again.
+      const redirectUrl = req.query.next === "mira"
+        ? "/account/login?next=mira"
+        : isProduction
+          ? "https://managira.com"
+          : "/account/login";
 
       res.redirect(redirectUrl);
     });

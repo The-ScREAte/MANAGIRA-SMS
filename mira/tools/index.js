@@ -9,6 +9,7 @@
 // bytes for, not a model-retyped description of them. Existing tools that
 // don't declare a third parameter are unaffected; JS simply ignores it.
 const { runAsCaller } = require("../internalApiClient");
+const { checkTool } = require("../services/access");
 const findStudent = require("./findStudent");
 const getMyCalendar = require("./getMyCalendar");
 const getCalendarSyncStatus = require("./getCalendarSyncStatus");
@@ -25,6 +26,8 @@ const getClass = require("./getClass");
 const getTerm = require("./getTerm");
 const listProjects = require("./listProjects");
 const draftMessage = require("./draftMessage");
+const draftFamilyMessages = require("./draftFamilyMessages");
+const findLowAttendance = require("./findLowAttendance");
 const createAnnouncement = require("./createAnnouncement");
 const generateReportCardSummary = require("./generateReportCardSummary");
 const listSchoolYears = require("./listSchoolYears");
@@ -198,10 +201,12 @@ const ALL_TOOLS = [
   findContact,
   getFees,
   getAttendance,
+  findLowAttendance,
   getClass,
   getTerm,
   listProjects,
   draftMessage,
+  draftFamilyMessages,
   createAnnouncement,
   generateReportCardSummary,
   listSchoolYears,
@@ -366,11 +371,18 @@ function listToolSchemas() {
   return Object.values(REGISTRY).map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }));
 }
 
+// Without the person's access (context.access, see services/access.js) only
+// tools that need no permission run: unknown access is no access.
+const NO_ACCESS = { ok: false, held: new Set(), notInPlan: new Set(), labels: new Map(), permissions: [], classes: null, features: {} };
+
 async function runTool(name, args, tenant, context) {
   const tool = REGISTRY[name];
   if (!tool) {
     return { status: "denied", result: `Unknown tool: ${name}` };
   }
+  // The person's own permissions decide, before anything is read or changed.
+  const gate = checkTool(name, tenant, context?.access || NO_ACCESS);
+  if (!gate.allowed) return { status: "denied", result: gate.reason };
   try {
     // Every internal API call this tool makes carries the caller's identity
     // (see internalApiClient.js), so the main app applies its own

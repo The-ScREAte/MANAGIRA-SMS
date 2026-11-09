@@ -3,7 +3,7 @@ const { assertIsStaff } = require("./_writeAuth");
 
 module.exports = {
   name: "get_attendance",
-  description: "Get a student's attendance records and a status summary for the last N days (default 30) within the caller's own school. Staff only.",
+  description: "Get one student's attendance marks and a summary for the last N days (default 30, up to 180) - not a whole term. Say which days it covers. For a term's attendance percentage use find_low_attendance or run_report (attendance per student).",
   parameters: {
     type: "object",
     properties: {
@@ -17,7 +17,9 @@ module.exports = {
   // other student's attendance this way.
   async handler(args, tenant) {
     assertIsStaff(tenant, "view attendance records");
-    const params = new URLSearchParams({ organizationId: String(tenant.organizationId), days: String(args?.days || 30) });
-    return callInternalApi(`/internal/api/students/${encodeURIComponent(args?.studentId)}/attendance?${params.toString()}`);
+    const days = Math.min(180, Math.max(1, Number(args?.days) || 30));
+    const params = new URLSearchParams({ organizationId: String(tenant.organizationId), days: String(days) });
+    const result = await callInternalApi(`/internal/api/students/${encodeURIComponent(args?.studentId)}/attendance?${params.toString()}`);
+    return { covers: `the last ${days} days only (not the whole term)`, ...result };
   },
 };

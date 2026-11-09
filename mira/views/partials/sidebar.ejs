@@ -77,7 +77,7 @@
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.3M8 12.9v1.3M14.2 8h-1.3M3.1 8H1.8M12.2 3.8l-.9.9M4.7 11.3l-.9.9M12.2 12.2l-.9-.9M4.7 4.7l-.9-.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         Settings
       </button>
-      <a class="mira-user-menu-item mira-user-menu-action" href="/logout" title="Signs out of Mira only - you'll stay logged in to Managira">
+      <a class="mira-user-menu-item mira-user-menu-action" href="/logout" title="Signs you out of Managira and Mira">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10.5 11l3-3-3-3M13.5 8H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Log out
       </a>
@@ -117,6 +117,22 @@
           </div>
         </div>
       </div>
+      <% if (typeof access !== 'undefined' && access && access.ok) { %>
+        <div class="mira-settings-block mira-settings-access">
+          <div class="mira-settings-block-label">What Mira can do for you</div>
+          <p class="mira-settings-block-hint">Mira works only with your own permissions<% if (access.classes) { %>, and only with <%= access.classes.length ? access.classes.join(', ') : 'the classes you are assigned to' %><% } %>.</p>
+          <ul class="mira-access-list">
+            <% (access.can.length ? access.can : ['Questions about your school year, terms and classes']).forEach(function (label) { %><li><%= label %></li><% }) %>
+          </ul>
+          <% if (access.cannot.length) { %>
+            <div class="mira-settings-block-label mira-settings-access-missing">Not part of your access</div>
+            <ul class="mira-access-list is-missing">
+              <% access.cannot.forEach(function (label) { %><li><%= label %></li><% }) %>
+            </ul>
+            <p class="mira-settings-block-hint">A manager at your school can change this in Users / Employees.</p>
+          <% } %>
+        </div>
+      <% } %>
       <a class="mira-btn mira-btn-secondary mira-settings-manage-btn" href="<%= mainAppUrl %>/account/settings" target="_blank" rel="noopener">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.3M8 12.9v1.3M14.2 8h-1.3M3.1 8H1.8M12.2 3.8l-.9.9M4.7 11.3l-.9.9M12.2 12.2l-.9-.9M4.7 4.7l-.9-.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         <span class="mira-btn-label">Manage account in Managira</span>

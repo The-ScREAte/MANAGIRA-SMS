@@ -21,7 +21,10 @@ module.exports = {
     });
     try {
       const { employees } = await callInternalApi(`/internal/api/employees?${params.toString()}`);
-      return { employees };
+      // The exact count, by role, so Mira never counts a list itself.
+      const byRole = {};
+      (employees || []).forEach((e) => { const role = e.account_type || e.role || "Other"; byRole[role] = (byRole[role] || 0) + 1; });
+      return { total: (employees || []).length, byRole, employees };
     } catch (error) {
       if (error.status === 403) {
         error.denied = true;

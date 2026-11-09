@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
   <title><%= typeof title !== 'undefined' ? title : 'Sign in - Mira' %></title>
   <link rel="icon" type="image/png" href="/images/miralogo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/mira.css" />
   <script>
     (function () {
@@ -19,92 +20,18 @@
   </script>
 </head>
 <body class="mira-auth-page">
-  <div class="mira-auth-shell">
+  <%# Shown only when Mira can't reach Managira to check a sign-in. Signing in itself happens on Managira's own page. %>
+  <main class="mira-auth-shell">
     <div class="mira-auth-card">
       <%- include('partials/logo', { size: 'hero', animate: true }) %>
-
-      <% if (hasUnderlyingSession) { %>
-        <h1 class="mira-auth-title">Welcome back<%= displayName ? ', ' + displayName.split(' ')[0] : '' %></h1>
-        <p class="mira-auth-subtitle">
-          <% if (reason === 'signed_out') { %>
-            You're still signed in to Managira — just continue below.
-          <% } else { %>
-            You're already signed in to Managira.
-          <% } %>
-        </p>
-        <a class="mira-btn mira-btn-primary mira-auth-btn" href="/continue">
-          <span class="mira-btn-label">Continue to Mira</span>
-        </a>
-      <% } else { %>
-        <h1 class="mira-auth-title">Sign in to Mira</h1>
-        <p class="mira-auth-subtitle">
-          <% if (reason === 'expired') { %>
-            Your Managira session has expired. Log in again to continue.
-          <% } else { %>
-            Use your Managira account. Already signed in on another tab? It'll be picked up automatically.
-          <% } %>
-        </p>
-
-        <form class="mira-auth-form" method="POST" action="/login">
-          <% if (typeof formError !== 'undefined' && formError) { %>
-            <div class="mira-auth-error"><%= formError %></div>
-          <% } %>
-          <div class="mira-auth-field">
-            <label for="miraLoginEmail">Email</label>
-            <input type="email" id="miraLoginEmail" name="email" value="<%= typeof formEmail !== 'undefined' ? formEmail : '' %>" autocomplete="email" required autofocus />
-          </div>
-          <div class="mira-auth-field">
-            <label for="miraLoginPassword">Password</label>
-            <input type="password" id="miraLoginPassword" name="password" autocomplete="current-password" required />
-          </div>
-          <button type="submit" class="mira-btn mira-btn-primary mira-auth-btn mira-auth-submit">
-            <span class="mira-btn-label">Log in</span>
-          </button>
-          <a class="mira-btn mira-auth-btn mira-auth-sso" id="miraSso" href="<%= mainAppUrl %>/account/login?next=mira">Log in with SSO</a>
-        </form>
-      <% } %>
+      <h1 class="mira-auth-title">Sign in to Mira</h1>
+      <p class="mira-auth-subtitle">Mira couldn't reach Managira to check your sign-in. Please try again in a moment.</p>
+      <a class="mira-btn mira-btn-primary mira-auth-btn" href="/login">
+        <span class="mira-btn-label">Try again</span>
+      </a>
+      <a class="mira-btn mira-auth-btn mira-auth-sso" href="<%= signInUrl %>">Go to Managira sign-in</a>
     </div>
-  </div>
-
+  </main>
   <script src="/js/mira-logo.js" defer></script>
-<div id="authLoader" class="auth-loader" role="status" aria-live="polite" hidden>
-  <div class="auth-loader__card">
-    <img class="auth-loader__logo" src="/images/managira-logo-sm.png" width="52" height="52" alt="" />
-    <span class="auth-loader__shadow" aria-hidden="true"></span>
-    <p data-loader-text></p>
-  </div>
-</div>
-<style>
-  .auth-loader { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, 0.32); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); animation: auth-loader-in 0.12s ease-out; }
-  .auth-loader[hidden] { display: none; }
-  .auth-loader__card { display: flex; flex-direction: column; align-items: center; min-width: 176px; padding: 26px 28px 18px; border-radius: 18px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22); color: #374151; font: 600 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-  .auth-loader__card p { margin: 12px 0 0; }
-  .auth-loader__logo { display: block; animation: auth-loader-hop 0.5s cubic-bezier(0.33, 0, 0.67, 1) infinite alternate; transform-origin: 50% 100%; }
-  .auth-loader__shadow { display: block; width: 34px; height: 6px; margin-top: 2px; border-radius: 50%; background: rgba(15, 23, 42, 0.16); animation: auth-loader-shadow 0.5s cubic-bezier(0.33, 0, 0.67, 1) infinite alternate; }
-  @keyframes auth-loader-hop { 0% { transform: translateY(0) scale(1.07, 0.93); } 18% { transform: translateY(-3px) scale(1, 1); } 100% { transform: translateY(-18px) scale(0.98, 1.02); } }
-  @keyframes auth-loader-shadow { 100% { transform: scale(0.55); opacity: 0.5; } }
-  @keyframes auth-loader-in { from { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .auth-loader__logo, .auth-loader__shadow { animation-duration: 1.6s; } }
-</style>
-<script>
-  (function () {
-    var loader = document.getElementById('authLoader');
-    if (!loader) return;
-    var words = loader.querySelector('[data-loader-text]');
-    var message = 'Signing you in';
-    var slow, stuck;
-    function hide() { loader.hidden = true; clearTimeout(slow); clearTimeout(stuck); }
-    document.addEventListener('submit', function (event) {
-      var form = event.target;
-      if (event.defaultPrevented || !form || String(form.method).toLowerCase() !== 'post') return;
-      words.textContent = message;
-      loader.hidden = false;
-      slow = setTimeout(function () { words.textContent = 'Almost there'; }, 5000);
-      stuck = setTimeout(hide, 30000);
-    });
-    // Coming back with the browser's Back button shows the form again, not a loading screen.
-    window.addEventListener('pageshow', hide);
-  })();
-</script>
 </body>
 </html>

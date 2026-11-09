@@ -63,8 +63,6 @@
     background-color: transparent;
   }
 
-  
-
   .nav-link svg {
     width: 1rem;
     height: 1rem;
@@ -77,84 +75,6 @@
     padding: 20px 20px 60px;
     display: flex;
     flex-direction: column;
-  }
-
-  .guardian-profile-card {
-    background: var(--org-primary-color, #0f5a66);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 24px;
-    box-shadow: none;
-    display: flex;
-    gap: 16px;
-    align-items: center;
-  }
-
-  .guardian-avatar-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-  }
-
-  .guardian-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  }
-
-  .guardian-details {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .guardian-name {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0 0 4px 0;
-    line-height: 1.2;
-  }
-
-  .guardian-subtitle {
-    margin: 0 0 12px 0;
-    opacity: 0.95;
-    font-size: 13px;
-  }
-
-  .guardian-info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .guardian-info-item {
-    background: rgba(255, 255, 255, 0.15);
-    padding: 8px 10px;
-    border-radius: 6px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-
-  .guardian-info-label {
-    font-size: 10px;
-    opacity: 0.85;
-    margin-bottom: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 500;
-  }
-
-  .guardian-info-value {
-    font-size: 14px;
-    font-weight: 600;
-    word-break: break-word;
-    line-height: 1.3;
   }
 
   .section-header {
@@ -189,59 +109,6 @@
 
   .children-section {
     width: 100%;
-  }
-
-  .guardian-quick-link {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    text-decoration: none;
-    color: #0f2d32;
-    background: rgba(255, 255, 255, 0.96);
-    border: 1px solid rgba(255, 255, 255, 0.42);
-    border-radius: 14px;
-    box-shadow: 0 8px 22px rgba(9, 30, 66, 0.14);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  }
-
-  .guardian-quick-link:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 24px rgba(15, 90, 102, 0.2);}
-
-  .guardian-quick-link.unread {
-    border-color: #0f5a66;
-    box-shadow: 0 10px 24px rgba(15, 90, 102, 0.26);
-  }
-
-  .guardian-quick-link svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .quick-link-count {
-    position: absolute;
-    top: -7px;
-    right: -7px;
-    min-width: 22px;
-    height: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background: #e2e8f0;
-    color: #334155;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 0 6px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
-  }
-
-  .guardian-quick-link.unread .quick-link-count {
-    background: #0f5a66;
-    color: white;
   }
 
   .children-grid {
@@ -468,77 +335,6 @@
       padding: 12px 12px 60px;
     }
 
-    .guardian-profile-card {
-      flex-direction: row;
-      text-align: left;
-      padding: 20px;
-      margin-bottom: 20px;
-      align-items: stretch;
-    }
-
-    .guardian-avatar-wrapper {
-      margin-bottom: 0;
-      flex-shrink: 0;
-      align-items: flex-start;
-      align-self: stretch;
-      justify-content: space-between;
-      gap: 0;
-    }
-
-    .guardian-avatar-wrapper .guardian-quick-link {
-      margin-top: 0;
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-    }
-
-    .guardian-avatar-wrapper .guardian-quick-link svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .guardian-avatar-wrapper .quick-link-count {
-      min-width: 17px;
-      height: 17px;
-      font-size: 9px;
-      top: -5px;
-      right: -5px;
-      padding: 0 4px;
-    }
-
-    .guardian-avatar {
-      width: 74px;
-      height: 74px;
-    }
-
-    .guardian-details {
-      min-width: 0;
-    }
-
-    .guardian-name {
-      font-size: 20px;
-    }
-
-    .guardian-subtitle {
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-
-    .guardian-info-grid {
-      grid-template-columns: 1fr;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .guardian-info-item {
-      padding: 10px;
-      text-align: left;
-    }
-
-    .guardian-info-value {
-      font-size: 13px;
-    }
-
     .section-header {
       flex-wrap: wrap;
       margin-bottom: 16px;
@@ -659,61 +455,6 @@
       padding: 10px 10px 60px;
     }
 
-    .guardian-profile-card {
-      padding: 16px;
-      border-radius: 12px;
-      gap: 10px;
-      align-items: stretch;
-    }
-
-    .guardian-avatar {
-      width: 64px;
-      height: 64px;
-      border-width: 3px;
-    }
-
-    .guardian-avatar-wrapper .guardian-quick-link {
-      margin-top: 0;
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-    }
-
-    .guardian-avatar-wrapper .guardian-quick-link svg {
-      width: 14px;
-      height: 14px;
-    }
-
-    .guardian-avatar-wrapper .quick-link-count {
-      min-width: 15px;
-      height: 15px;
-      font-size: 8px;
-      top: -4px;
-      right: -4px;
-      padding: 0 4px;
-    }
-
-    .guardian-name {
-      font-size: 18px;
-    }
-
-    .guardian-info-grid {
-      margin-top: 12px;
-      grid-template-columns: repeat(2, 1fr) !important;
-      gap: 6px;
-    }
-
-    .guardian-info-item {
-      padding: 6px 8px;
-      min-width: 0;
-    }
-
-    .guardian-info-value {
-      font-size: 13px;
-      word-break: break-word;
-      overflow-wrap: break-word;
-    }
-
     .section-title {
       font-size: 17px;
     }
@@ -737,54 +478,107 @@
   @media (prefers-reduced-motion: reduce) {
     .child-transport-btn { transition: none; }
   }
+
+  /* Welcome banner: the parent's photo, a short hello and their inbox - nothing private. */
+  .guardian-profile-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: var(--org-primary-color, #0f5a66);
+    color: #fff;
+  }
+  .guardian-avatar {
+    flex: none;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+  }
+  .guardian-details { flex: 1; min-width: 0; text-align: left; }
+  .guardian-name {
+    margin: 0;
+    overflow: hidden;
+    text-align: left;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .guardian-subtitle { margin: 2px 0 0; font-size: 13px; text-align: left; opacity: 0.82; }
+  .guardian-quick-link {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    text-decoration: none;
+    transition: background 0.2s ease;
+  }
+  .guardian-quick-link:hover { background: rgba(255, 255, 255, 0.24); }
+  .guardian-quick-link svg { width: 19px; height: 19px; }
+  .quick-link-count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--org-primary-color, #0f5a66);
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+  .guardian-quick-link:not(.unread) .quick-link-count { display: none; }
+  @media (max-width: 480px) {
+    .guardian-profile-card { gap: 12px; padding: 12px 14px; }
+    .guardian-avatar { width: 46px; height: 46px; }
+    .guardian-name { font-size: 17px; }
+    .guardian-subtitle { font-size: 12.5px; }
+  }
 </style>
 
 <div class="dashboard-container">
   <!-- Guardian Profile Card -->
   <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
   <div class="guardian-profile-card">
-    <div class="guardian-avatar-wrapper">
-      <img 
-        src="<%= publicImageUrl(guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png', { width: 256 }) %>"
-        alt="<%= guardianDisplayName %>"
-        class="guardian-avatar"
-      />
-      <a
-        href="/guardian/reports"
-        class="guardian-quick-link <%= inboxSummary && inboxSummary.totalUnreadMessages > 0 ? 'unread' : '' %>"
-        aria-label="Inbox"
-        title="Inbox"
-      >
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 7.5C4 6.11929 5.11929 5 6.5 5H17.5C18.8807 5 20 6.11929 20 7.5V16.5C20 17.8807 18.8807 19 17.5 19H6.5C5.11929 19 4 17.8807 4 16.5V7.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          <path d="M5 7L11.1056 11.274C11.6507 11.6556 12.3493 11.6556 12.8944 11.274L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="quick-link-count"><%= inboxSummary ? inboxSummary.totalUnreadMessages : 0 %></span>
-      </a>
-    </div>
+    <img
+      src="<%= publicImageUrl(guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png', { width: 128 }) %>"
+      alt=""
+      class="guardian-avatar"
+    />
     <div class="guardian-details">
-      <h1 class="guardian-name">Hello, <%= guardianDisplayName %>!</h1>
-      <p class="guardian-subtitle">Welcome to your Parent Portal Dashboard</p>
-
-      <div class="guardian-info-grid">
-        <div class="guardian-info-item">
-          <div class="guardian-info-label">Email</div>
-          <div class="guardian-info-value"><%= guardian.email || guardian.login_email || 'Not provided' %></div>
-        </div>
-        <div class="guardian-info-item">
-          <div class="guardian-info-label">Phone</div>
-          <div class="guardian-info-value"><%= guardian.phone || 'Not provided' %></div>
-        </div>
-        <div class="guardian-info-item">
-          <div class="guardian-info-label">Address</div>
-          <div class="guardian-info-value"><%= guardian.address || 'Not provided' %></div>
-        </div>
-        <div class="guardian-info-item">
-          <div class="guardian-info-label">Hometown</div>
-          <div class="guardian-info-value"><%= guardian.hometown || 'Not provided' %></div>
-        </div>
-      </div>
+      <h1 class="guardian-name">Hello, <%= (guardian.first_name || guardianDisplayName || '').trim() %></h1>
+      <p class="guardian-subtitle">Welcome to your parent portal</p>
     </div>
+    <% const unreadMessages = inboxSummary ? inboxSummary.totalUnreadMessages : 0; %>
+    <a
+      href="/guardian/reports"
+      class="guardian-quick-link <%= unreadMessages > 0 ? 'unread' : '' %>"
+      aria-label="Inbox<%= unreadMessages > 0 ? ', ' + unreadMessages + ' unread' : '' %>"
+      title="Inbox"
+    >
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 7.5C4 6.11929 5.11929 5 6.5 5H17.5C18.8807 5 20 6.11929 20 7.5V16.5C20 17.8807 18.8807 19 17.5 19H6.5C5.11929 19 4 17.8807 4 16.5V7.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M5 7L11.1056 11.274C11.6507 11.6556 12.3493 11.6556 12.8944 11.274L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="quick-link-count"><%= unreadMessages %></span>
+    </a>
   </div>
 
   <!-- Children Section -->

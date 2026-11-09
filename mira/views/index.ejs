@@ -1,5 +1,5 @@
 <div class="mira-shell">
-  <%- include('partials/sidebar', { tenant, mainAppUrl }) %>
+  <%- include('partials/sidebar', { tenant, mainAppUrl, access }) %>
 
   <main class="mira-main">
     <div class="mira-mobile-topbar">
@@ -117,6 +117,7 @@
           <span class="mira-thinking-dots" id="miraThinkingDots" hidden>
             <span></span><span></span><span></span>
           </span>
+          <span class="mira-thinking-label" id="miraThinkingLabel" aria-live="polite" hidden></span>
         </div>
       </div>
       <div class="mira-composer-docked">

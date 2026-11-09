@@ -1466,9 +1466,9 @@ app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
   const homeSeo = {
-    title: "Managira | All-in-One School Management Software",
+    title: "Managira | K-12 Student Information System",
     description:
-      "All-in-one school management software for admissions, attendance, report cards, fees (PayGira), parent portal and messaging, with Mira, a built-in AI assistant.",
+      "Managira is the cloud student information system for K-12 schools and districts: one secure record for every student, connected classrooms, engaged families and Mira, a built-in AI assistant.",
     keywords:
       "school management system, school management software, management system for schools, student information system, school ERP, school portal, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, education management software, Managira",
     canonicalUrl: "https://managira.com/",

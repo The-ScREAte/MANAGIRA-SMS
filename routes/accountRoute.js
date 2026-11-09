@@ -90,8 +90,31 @@ router.post("/login/resend-code", (req, res) => loginCode.resend(req, res, db));
 const loginAdsController = require("../controllers/loginAdsController");
 router.get("/login-ads/:id(\\d+)/file", loginAdsController.serveFile);
 router.post("/login-ads/:id(\\d+)/click", loginAdsController.recordSignInClick);
+// Signing in for Mira (next=mira): staff go back to Mira once signed in, and a
+// wrong try keeps the way back. Parents and students go to their own portal:
+// Mira is for staff only.
+function backToMiraAfterSignIn(req, res, next) {
+  if (String((req.body && req.body.next) || req.query.next || "") !== "mira") return next();
+  const redirect = res.redirect.bind(res);
+  res.redirect = (...args) => {
+    const status = args.length > 1 ? args[0] : 302;
+    const url = String(args.length > 1 ? args[1] : args[0] || "");
+    const session = req.session || {};
+    const staffSignedIn = !!session.userId && !session.guardianId && !session.studentId && !session.pendingLogin;
+    if (/^\/account\/login(\?|$)/.test(url)) {
+      return redirect(status, url.includes("next=mira") ? url : `${url}${url.includes("?") ? "&" : "?"}next=mira`);
+    }
+    if (staffSignedIn && !/^\/account\//.test(url)) {
+      return redirect(303, `${require("../utils/miraIntegration").miraPublicUrl()}/continue`);
+    }
+    return redirect(...args);
+  };
+  return next();
+}
+
 router.post(
   "/login",
+  backToMiraAfterSignIn,
   signInGuard("login", { field: "email" }),
   keepSignedInChoice,
   holdForCode,

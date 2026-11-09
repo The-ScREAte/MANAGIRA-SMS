@@ -559,6 +559,25 @@
       threadLogoMark.classList.toggle("mira-logo-idle", !working);
     }
     if (thinkingDots) thinkingDots.hidden = !working;
+    if (!working) setThinkingLabel("");
+  }
+
+  // A few plain words on what Mira is doing while it looks things up.
+  var thinkingLabel = document.getElementById("miraThinkingLabel");
+  function setThinkingLabel(text) {
+    if (!thinkingLabel) return;
+    thinkingLabel.textContent = text || "";
+    thinkingLabel.hidden = !text;
+  }
+  function describeTool(name) {
+    var n = String(name || "");
+    if (/attendance/.test(n)) return "Checking attendance\u2026";
+    if (/^draft_/.test(n)) return "Writing drafts\u2026";
+    if (/^(send_|post_or_send)/.test(n)) return "Preparing to send\u2026";
+    if (/report|merit|statistics|compare/.test(n)) return "Running the numbers\u2026";
+    if (/^(create|update|set|add|rename|assign|approve|schedule|upload)_/.test(n)) return "Getting it ready\u2026";
+    if (/^(delete|remove|reject|reverse|cancel)_/.test(n)) return "Checking what this would change\u2026";
+    return "Looking it up\u2026";
   }
 
   function appendAssistantMessage() {
@@ -648,6 +667,7 @@
         try {
           if (eventName === "chat") handlers.onChat?.(data);
           else if (eventName === "token") handlers.onToken?.(data);
+          else if (eventName === "revise") handlers.onRevise?.(data);
           else if (eventName === "tool_call") handlers.onToolCall?.(data);
           else if (eventName === "tool_result") handlers.onToolResult?.(data);
           else if (eventName === "error") handlers.onError?.(data.message);
@@ -729,10 +749,19 @@
           setThreadLogoWorking(false);
         }
         rawText += data.text;
+        setThinkingLabel("");
         bubble.innerHTML = renderMarkdown(rawText);
         scrollToBottom();
       },
-      onToolCall: function () {},
+      // Mira is correcting a reply before it stands (a figure it couldn't
+      // back up): clear what was shown and wait for the corrected one.
+      onRevise: function () {
+        rawText = "";
+        bubble.innerHTML = "";
+        receivedFirstToken = false;
+        setThreadLogoWorking(true);
+      },
+      onToolCall: function (data) { setThinkingLabel(describeTool(data && data.name)); },
       onToolResult: function () {},
       onError: function (message) {
         bubble.textContent = message || "Something went wrong.";
@@ -1228,8 +1257,11 @@
   }
   if (historySelectAll) {
     historySelectAll.addEventListener("change", function () {
+      // Read once: each setChatSelected re-checks the box against the list,
+      // which mid-loop would turn it off and deselect the rest.
+      var selectAll = historySelectAll.checked;
       var visible = currentVisibleChats();
-      visible.forEach(function (c) { setChatSelected(c.id, historySelectAll.checked); });
+      visible.forEach(function (c) { setChatSelected(c.id, selectAll); });
     });
   }
   if (historySelectDelete) {

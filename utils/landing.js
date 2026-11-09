@@ -8,38 +8,39 @@ const MENUS = [
   {
     key: "platform", label: "Platform", wide: true,
     groups: [
-      { title: "Student success", image: "/images/site/menu-students.webp", links: [
-        { label: "Testing Room", href: product("student", "testing-room"), note: "Online exams, straight to records" },
-        { label: "Report cards", href: product("student", "detailed-reports"), note: "Generate, print or email" },
-        { label: "Transcripts", href: product("student", "official-transcript"), note: "Official academic history" },
-        { label: "Timetable", href: product("student", "time-table"), note: "Classes and periods, organized" },
-      ], all: { label: "All student features", href: product("student") } },
-      { title: "Family connections", image: "/images/site/menu-families.webp", links: [
-        { label: "Parent Portal", href: product("family", "parent-portal"), note: "Grades, fees and updates" },
-        { label: "Communication", href: product("family", "communication"), note: "Email, text and WhatsApp" },
-        { label: "School website", href: product("family", "school-website"), note: "Your public presence" },
-        { label: "Student schedule plan", href: product("family", "student-schedule-plan"), note: "Routines families can follow" },
-      ], all: { label: "All family features", href: product("family") } },
-      { title: "Operations", image: "/images/site/menu-operations.webp", links: [
-        { label: "PayGira", href: product("operational", "paygira"), note: "Fees and payments" },
-        { label: "Hub management", href: product("operational", "hub-management"), note: "Many schools, one dashboard" },
-        { label: "Digest notifications", href: product("operational", "digest-notification"), note: "Scheduled updates" },
-        { label: "Questions setter", href: product("operational", "questions-setter"), note: "Question banks for exams" },
-      ], all: { label: "All operational features", href: product("operational") } },
+      { title: "Student information", image: "/images/site/menu-students.webp", links: [
+        { label: "Student records & attendance", href: product("student", "student-records-attendance"), note: "Enrollment, demographics and daily attendance" },
+        { label: "Scheduling", href: product("student", "time-table"), note: "Master schedule and timetables" },
+        { label: "Gradebook & assessment", href: product("student", "assessment-tracking"), note: "Grades, assessments and online testing" },
+        { label: "Report cards & transcripts", href: product("student", "detailed-reports"), note: "Progress reports and official transcripts" },
+      ], all: { label: "Explore student information", href: product("student") } },
+      { title: "Family & student engagement", image: "/images/site/menu-families.webp", links: [
+        { label: "Parent portal", href: product("family", "parent-portal"), note: "Grades, attendance and fees at home" },
+        { label: "Student portal", href: product("student", "student-portal"), note: "Classes, assignments and results" },
+        { label: "Online enrollment", href: product("family", "online-admissions"), note: "Applications and registration" },
+        { label: "Communications", href: product("family", "communication"), note: "Email, SMS and WhatsApp" },
+      ], all: { label: "Explore family engagement", href: product("family") } },
+      { title: "Business operations", image: "/images/site/menu-operations.webp", links: [
+        { label: "Finance & fee management", href: product("operational", "finance-management"), note: "Billing and payments with PayGira" },
+        { label: "Staff management", href: product("operational", "employee-management"), note: "Staff records and roles" },
+        { label: "Role-based access", href: product("operational", "role-based-access-control"), note: "The right access for every role" },
+        { label: "District & network management", href: product("operational", "hub-management"), note: "Many schools, one view" },
+      ], all: { label: "Explore business operations", href: product("operational") } },
     ],
   },
   {
     key: "solutions", label: "Solutions",
     groups: [{ links: [
-      { label: "For school administrators", href: "/#administrators", note: "Run the whole school" },
-      { label: "For students", href: "/#students", note: "One portal for learning" },
-      { label: "For parents", href: "/#parents", note: "Every family in the loop" },
-      { label: "For districts and hubs", href: product("operational", "hub-management"), note: "Coordinate many schools" },
+      { label: "School leaders", href: "/#leaders", note: "Run the whole school with clarity" },
+      { label: "Teachers & students", href: "/#classroom", note: "Less admin, more teaching" },
+      { label: "Families & community", href: "/#families", note: "Every family in the loop" },
+      { label: "Districts & networks", href: product("operational", "hub-management"), note: "Shared standards across schools" },
+      { label: "Analytics & reporting", href: product("student", "analytics-reporting"), note: "Insight at every level" },
     ] }],
   },
   {
     key: "mira", label: "Mira",
-    feature: { image: "/images/site/mira-wordmark.webp", title: "Your school's AI assistant", text: "Ask a question or hand it a task. Mira works inside your school, within your permissions.", href: "/legal/mira-ai-assistant", cta: "Meet Mira" },
+    feature: { image: "/images/site/mira-wordmark.webp", title: "AI built into your SIS", text: "Ask a question or hand it a task. Mira works inside your school, within your permissions.", href: "/legal/mira-ai-assistant", cta: "Meet Mira" },
     groups: [{ links: [
       { label: "What Mira can do", href: "/legal/mira-ai-assistant", note: "Questions, tasks and drafts" },
       { label: "Capabilities", href: "/legal/user-documentation/mira-ai-capabilities", note: "Everything Mira can help with" },
@@ -49,8 +50,9 @@ const MENUS = [
   {
     key: "resources", label: "Resources",
     groups: [{ links: [
-      { label: "Help center", href: "/legal/help", note: "Answers and support" },
+      { label: "Product tour", href: "/legal/app-demo", note: "See Managira in action" },
       { label: "Documentation", href: "/legal/user-documentation", note: "Setup and usage guides" },
+      { label: "Help center", href: "/legal/help", note: "Answers and support" },
       { label: "FAQ", href: "/legal/faq", note: "Common questions" },
     ] }],
   },
@@ -63,6 +65,45 @@ const MENUS = [
     ] }],
   },
   { key: "pricing", label: "Pricing", href: "/account/service-plan" },
+];
+
+// The public footer: the columns leading SIS sites carry, every link to a real page.
+const FOOTER = [
+  { title: "Platform", links: [
+    ["Student information system", product("student", "student-records-attendance")],
+    ["Teaching & learning", product("student", "assessment-tracking")],
+    ["Family engagement", product("family", "parent-portal")],
+    ["Business operations", product("operational", "finance-management")],
+    ["Analytics & reporting", product("student", "analytics-reporting")],
+    ["Mira AI assistant", "/legal/mira-ai-assistant"],
+  ] },
+  { title: "Solutions", links: [
+    ["School leaders", "/#leaders"],
+    ["Teachers", "/#classroom"],
+    ["Students", "/#students"],
+    ["Families", "/#families"],
+    ["Districts & networks", product("operational", "hub-management")],
+  ] },
+  { title: "Parents & students", links: [
+    ["Parent login", "/account/guardian-login"],
+    ["Student login", "/account/student-login"],
+    ["Online enrollment", product("family", "online-admissions")],
+    ["Login help", "/legal/help"],
+  ] },
+  { title: "Resources", links: [
+    ["Product tour", "/legal/app-demo"],
+    ["Documentation", "/legal/user-documentation"],
+    ["Help center", "/legal/help"],
+    ["FAQ", "/legal/faq"],
+    ["Pricing", "/account/service-plan"],
+  ] },
+  { title: "Company", links: [
+    ["About us", "/legal/about-us"],
+    ["Careers", "/legal/employment"],
+    ["Give to Managira", "/legal/donations"],
+    ["Request a demo", "/legal/request-demo"],
+    ["Contact us", "/legal/help"],
+  ] },
 ];
 
 const ICONS = {
@@ -98,6 +139,15 @@ const ICONS = {
   trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
   plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
   code: '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  school: '<path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-4 0v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/>',
+  layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+  doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  audit: '<path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/>',
   globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
   network: '<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M5 16v-3h14v3"/><path d="M12 13V8"/>',
 };
@@ -125,4 +175,4 @@ function isNewLook() {
   return process.env.NODE_ENV !== "production" || require("./shards/features").isOn("new_landing");
 }
 
-module.exports = { MENUS, icon, product, brand, isNewLook };
+module.exports = { MENUS, FOOTER, icon, product, brand, isNewLook };

@@ -16,6 +16,7 @@ const FEATURES = {
   smart_login: { label: "Main login takes parents, students and hubs to their portal", access: "everyone" },
   login_code: { label: "Verification code by email at sign-in", access: "everyone" },
   new_landing: { label: "New managira.com homepage and Mira page (release to everyone to show it)", access: "everyone" },
+  mira_outreach: { label: "Mira: students below an attendance level, and a message draft for each family", access: "everyone" },
   tenant_config: { label: "Tenant configuration: sign-in rules in Settings, and signing out after 24 hours unless a school changes it", access: "everyone" },
 };
 

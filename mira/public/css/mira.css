@@ -1535,3 +1535,99 @@ button { font-family: inherit; }
   to { transform: translateY(0); opacity: 1; }
 }
 .mira-auth-sso { display: flex; width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--mira-border, #d7dde5); color: inherit; }
+
+/* ---------------------------------------------------------------- glass
+   The sidebar is frosted glass over a soft glow of the Mira colours, in
+   both themes, and opens, closes and collapses smoothly. */
+:root {
+  --mira-glass-bg: rgba(255, 255, 255, 0.64);
+  --mira-glass-border: rgba(255, 255, 255, 0.75);
+  --mira-glass-shadow: 0 18px 50px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --mira-glow-a: rgba(1, 83, 91, 0.1);
+  --mira-glow-b: rgba(20, 184, 166, 0.08);
+  --mira-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mira-glass-bg: rgba(22, 32, 44, 0.58);
+    --mira-glass-border: rgba(255, 255, 255, 0.08);
+    --mira-glass-shadow: 0 18px 50px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --mira-glow-a: rgba(20, 184, 166, 0.12);
+    --mira-glow-b: rgba(34, 211, 238, 0.06);
+  }
+}
+:root[data-theme="dark"] {
+  --mira-glass-bg: rgba(22, 32, 44, 0.58);
+  --mira-glass-border: rgba(255, 255, 255, 0.08);
+  --mira-glass-shadow: 0 18px 50px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --mira-glow-a: rgba(20, 184, 166, 0.12);
+  --mira-glow-b: rgba(34, 211, 238, 0.06);
+}
+
+.mira-shell {
+  background:
+    radial-gradient(60rem 40rem at 0% 0%, var(--mira-glow-a), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 100%, var(--mira-glow-b), transparent 60%),
+    var(--mira-bg);
+}
+.mira-sidebar {
+  background: var(--mira-glass-bg);
+  border-color: var(--mira-glass-border);
+  box-shadow: var(--mira-glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  transition: width 0.28s var(--mira-ease), transform 0.32s var(--mira-ease), box-shadow 0.2s ease;
+}
+.mira-mobile-topbar {
+  background: var(--mira-glass-bg);
+  border-bottom-color: var(--mira-glass-border);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+/* What Mira is doing while a reply is on its way ("Checking attendance..."). */
+.mira-thinking-label { margin-left: 8px; color: var(--mira-text-secondary); font-size: 0.82rem; }
+
+/* Your access, in Settings: what Mira can and can't do for this person. */
+.mira-access-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.mira-access-list li { padding: 4px 10px; border: 1px solid var(--mira-border); border-radius: 999px; color: var(--mira-text-primary); font-size: 0.78rem; }
+.mira-access-list.is-missing li { color: var(--mira-text-tertiary); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--mira-text-tertiary) 60%, transparent); }
+
+@media (max-width: 860px) {
+  .mira-sidebar { border-right: 1px solid var(--mira-glass-border); }
+  /* The backdrop fades instead of popping in. */
+  .mira-sidebar-backdrop {
+    display: block;
+    background: rgba(15, 23, 42, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    transition: opacity 0.3s var(--mira-ease);
+  }
+  .mira-sidebar-backdrop.is-visible { opacity: 1; pointer-events: auto; }
+}
+
+/* Phones: the greeting sits in the middle and the message box at the
+   bottom, within thumb reach, as in every chat app. */
+@media (max-width: 640px) {
+  .mira-empty-state { justify-content: flex-start; gap: 18px; padding: 16px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .mira-empty-state > :first-child { margin-top: auto; }
+  .mira-empty-state > .mira-composer { width: 100%; margin-top: auto; }
+  .mira-empty-heading { font-size: 1.3rem; }
+  .mira-composer-docked { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mira-sidebar, .mira-sidebar-backdrop { transition: none; }
+}
+.mira-settings-access { margin: 4px 0 14px; }
+.mira-settings-access-missing { margin-top: 14px; }
+/* Settings never grows past the window: the header (and its close button)
+   stays in view and the body scrolls. */
+.mira-modal { display: flex; flex-direction: column; max-height: calc(100dvh - 48px); overflow: hidden; }
+.mira-modal-header { flex: none; }
+.mira-modal-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 860px) {
+  .mira-modal { max-height: calc(100dvh - 20px); }
+}

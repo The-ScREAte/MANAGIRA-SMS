@@ -20,6 +20,8 @@ const {
   isManagerLikeRole,
   normalizePermissionsList,
   getUserPermissions,
+  permissionFullLabel,
+  planAllowsPermission,
 } = require("../middleware/permissionMiddleware");
 const {
   commonController,
@@ -125,10 +127,26 @@ async function validateSession(req, res) {
     const sessionData = await getSessionRecord(sid);
     if (!sessionData) return res.status(401).json({ error: "Session not found or expired." });
 
+    // The same limits server.js applies to every page: a quiet spell, and the
+    // school's own sign-in length (24 hours unless it chose otherwise, or its
+    // Keep me logged in time). If the rules can't be read, nobody is signed out.
     if (sessionData.organizationId) {
-      const lastActivity = sessionData.lastActivity || Date.now();
-      if (Date.now() - lastActivity > IDLE_TIMEOUT_MS) {
+      const now = Date.now();
+      const lastActivity = sessionData.lastActivity || now;
+      if (now - lastActivity > require("../utils/keepSignedIn").idleLimitFor(sessionData, IDLE_TIMEOUT_MS)) {
         return res.status(401).json({ error: "Session expired due to inactivity." });
+      }
+      if (sessionData.signedInAt && require("../utils/shards/features").isOn("tenant_config", { organizationId: sessionData.organizationId })) {
+        const tenantSettings = require("../utils/tenantSettings");
+        const settings = await tenantSettings.settingsFor(db, sessionData.organizationId).catch(() => null);
+        if (settings && now - sessionData.signedInAt > tenantSettings.sessionLimitMs(settings, sessionData.keepSignedIn)) {
+          return res.status(401).json({ error: "Your sign-in has ended. Please log in again." });
+        }
+      }
+      // Working in Mira is activity: the shared sign-in isn't timed out for it.
+      // An update only, never an insert, so a signed-out session stays gone.
+      if (now - lastActivity > 5 * 60 * 1000) {
+        await db.query("UPDATE user_sessions SET sess = sess::jsonb || $2::jsonb WHERE sid = $1", [sid, JSON.stringify({ lastActivity: now })]).catch(() => {});
       }
     }
 
@@ -413,6 +431,58 @@ async function getMiraActivationStatusApi(req, res) {
   } catch (error) {
     console.error("[internalApi/getMiraActivationStatusApi]", error);
     return res.status(500).json({ error: "Unable to load Mira activation status." });
+  }
+}
+
+// GET /internal/api/mira/access?organizationId=&viewerType=&userId=&userRole=&accountType=&userEmail=
+// What this person may do, worked out exactly as the rest of the app does
+// (userHasPermission: role defaults, saved rows, the owner, the school's plan).
+// Mira offers only the tools they can use and tells them plainly what they
+// can't do, and why: not given to them, or not in the school's plan.
+// Parents and students hold no staff permission.
+const MIRA_FEATURES = ["mira_outreach"];
+async function getMiraAccessApi(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
+    const viewerType = ["guardian", "student"].includes(req.query.viewerType) ? req.query.viewerType : "staff";
+    const features = require("../utils/shards/features");
+    const options = PERMISSION_OPTIONS.filter((option) => !option.retired && option.key !== PERMISSIONS.USE_MIRA);
+    const [inPlan, held] = await Promise.all([
+      Promise.all(options.map((option) => planAllowsPermission(db, organizationId, option.key).catch(() => true))),
+      viewerType !== "staff" ? options.map(() => false) : Promise.all(options.map((option) => userHasPermission(db, {
+        userId: parseInt(req.query.userId, 10) || null,
+        userRole: req.query.userRole || "",
+        accountType: req.query.accountType || "",
+        userEmail: req.query.userEmail || "",
+        organizationId,
+      }, option.key).catch(() => false))),
+    ]);
+
+    // Teachers and others outside the elevated roles work within their own classes.
+    let classes = null;
+    const role = String(req.query.userRole || req.query.accountType || "").trim().toLowerCase();
+    const userId = parseInt(req.query.userId, 10);
+    if (viewerType === "staff" && Number.isInteger(userId) && !["organization", "manager", "supervisor", "admin", "mini admin"].includes(role)) {
+      classes = (await db.query(
+        `SELECT DISTINCT c.class_name FROM user_classes uc
+           JOIN classes c ON c.class_id = uc.class_id AND c.organization_id = $2
+          WHERE uc.user_id = $1 ORDER BY c.class_name`,
+        [userId, organizationId]
+      )).rows.map((row) => row.class_name);
+    }
+
+    return res.json({
+      viewerType,
+      held: options.filter((_, index) => held[index]).map((option) => option.key),
+      notInPlan: options.filter((_, index) => !inPlan[index]).map((option) => option.key),
+      permissions: options.map((option) => ({ key: option.key, label: permissionFullLabel(option), description: option.description || "", parent: option.parent || null, group: option.group || null })),
+      classes,
+      features: Object.fromEntries(MIRA_FEATURES.map((key) => [key, features.isOn(key, { organizationId })])),
+    });
+  } catch (error) {
+    console.error("[internalApi/getMiraAccessApi]", error);
+    return res.status(500).json({ error: "Unable to load this person's access." });
   }
 }
 
@@ -10039,6 +10109,7 @@ module.exports = {
   deleteDocumentApi,
   getIntegrationsStatusApi,
   getMiraActivationStatusApi,
+  getMiraAccessApi,
   listFailedEmailsApi,
   checkEmailAvailabilityApi,
   fixFailedEmailApi,

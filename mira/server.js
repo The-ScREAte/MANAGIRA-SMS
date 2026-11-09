@@ -49,10 +49,14 @@ app.use(require("./routes/authRoute"));
 
 // The main page: browser navigation, so an auth failure means a redirect
 // to /login, not a raw JSON 401.
-app.get("/", pageAuth, tenantScope, requireMiraActivated, (req, res) => {
+app.get("/", pageAuth, tenantScope, requireMiraActivated, async (req, res) => {
+  // Settings shows what Mira can do for this person, from their own permissions.
+  const { loadAccess, accessSummary } = require("./services/access");
+  const access = accessSummary(req.tenant, await loadAccess(req.tenant));
   res.render("index", {
     title: "Mira",
     tenant: req.tenant,
+    access,
     mainAppUrl: MAIN_APP_PUBLIC_URL,
   });
 });

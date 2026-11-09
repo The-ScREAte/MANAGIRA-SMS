@@ -20,6 +20,7 @@ require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env"
 // failure is fast (~1s, a fast 402) - the real hang risk was Telnyx itself
 // having no request timeout (fixed via PROVIDER_TIMEOUT_MS below), not the
 // order providers are tried in.
+const MIRA_TEMPERATURE = Math.min(1, Math.max(0, Number(process.env.MIRA_TEMPERATURE ?? 0.2) || 0));
 const PROVIDER_PRIORITY = ["openrouter", "telnyx", "openai", "anthropic"];
 
 function isProviderConfigured(provider) {
@@ -351,6 +352,9 @@ async function runOpenAICompatibleStream(client, { model, messages, tools, onTok
     // tool call never needs anywhere near this; matches the cap the direct
     // Anthropic path below already sets.
     max_tokens: 2048,
+    // Low temperature: Mira reports facts from tool results; creative
+    // variation is where invented names and numbers come from.
+    temperature: MIRA_TEMPERATURE,
     stream: true,
   });
 
@@ -449,6 +453,7 @@ async function anthropicStreamCompletion({ model, messages, tools, onToken, onTo
   const stream = client.messages.stream({
     model,
     max_tokens: 1024,
+    temperature: MIRA_TEMPERATURE,
     system: systemMessages.map((m) => extractText(m.content)).filter(Boolean).join("\n\n"),
     messages: conversational.flatMap(toAnthropicMessages),
     tools: tools?.length ? tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) : undefined,

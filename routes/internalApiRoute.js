@@ -149,6 +149,7 @@ router.post("/documents/class-assignment/remove", internalApiController.unassign
 router.post("/documents/delete", internalApiController.deleteDocumentApi);
 router.get("/integrations", internalApiController.getIntegrationsStatusApi);
 router.get("/mira/activation-status", internalApiController.getMiraActivationStatusApi);
+router.get("/mira/access", internalApiController.getMiraAccessApi);
 router.get("/email-issues", internalApiController.listFailedEmailsApi);
 router.get("/email-issues/check", internalApiController.checkEmailAvailabilityApi);
 router.post("/email-issues/fix", internalApiController.fixFailedEmailApi);
