@@ -71,7 +71,7 @@
       <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
   </div>
-  <p class="mwx-hint" style="margin:0 0 14px;color:#6b7280;font-size:0.9rem;">Each section appears on your website only when it's switched on and has content. Images can be added to the welcome message, programs, leadership and the About section.</p>
+  <p class="mwx-hint" style="margin:0 0 14px;color:#6b7280;font-size:0.9rem;">A section shows once it's switched on and filled in.</p>
   <div class="mwx-grid">
     <div class="mwx-card" data-mwx-section="hero"></div>
     <div class="mwx-card" data-mwx-section="quickFacts"></div>
@@ -106,7 +106,7 @@
           <button type="button" class="mwx-tab" data-status="archived">Archived</button>
         </div>
       </div>
-      <p class="mwx-hint">Messages people send through the contact form. They're also emailed to the school.</p>
+      <p class="mwx-hint">Also emailed to the school.</p>
       <div class="mwx-messages" id="mwxMessages"><div class="mwx-empty">Loading messages...</div></div>
     </div>
   </div>
@@ -126,16 +126,16 @@
     // What each section edits. type: text | textarea | image.
     var SCHEMAS = {
       quickFacts: {
-        title: 'Quick Facts', hint: 'Short highlights shown as numbers near the top, e.g. "450+ Students", "25 Years of excellence".',
+        title: 'Quick Facts', hint: 'Big numbers, e.g. "450+ Students".',
         noun: 'fact', fields: [{ key: 'value', label: 'Number or short value', ph: '450+' }, { key: 'label', label: 'What it means', ph: 'Students enrolled' }], pair: true,
       },
       programs: {
-        title: 'Programs & Facilities', hint: 'Show what your school offers - programs, clubs, labs, sports, boarding - each with a photo.',
+        title: 'Programs & Facilities', hint: 'Programs, clubs and facilities, each with a photo.',
         noun: 'item', heading: 'Programs & Facilities', intro: true,
         fields: [{ key: 'title', label: 'Name', ph: 'Science Laboratory' }, { key: 'description', label: 'Description', type: 'textarea', ph: 'What students do here...' }, { key: 'imageUrl', label: 'Photo', type: 'image' }],
       },
       leadership: {
-        title: 'Leadership', hint: 'Introduce your head teacher and school leaders, with a photo and a short message.',
+        title: 'Leadership', hint: 'Your head and school leaders.',
         noun: 'person', heading: 'Our Leadership',
         fields: [{ key: 'name', label: 'Name', ph: 'Mrs. Ama Mensah' }, { key: 'role', label: 'Role', ph: 'Head Teacher' }, { key: 'message', label: 'Short message (optional)', type: 'textarea', ph: 'A welcome from...' }, { key: 'imageUrl', label: 'Photo', type: 'image' }],
       },
@@ -145,22 +145,22 @@
         fields: [{ key: 'quote', label: 'What they said', type: 'textarea', ph: 'My children love...' }, { key: 'name', label: 'Name', ph: 'Kofi Asare' }, { key: 'relation', label: 'Relation (optional)', ph: 'Parent, JSS 2' }],
       },
       welcome: {
-        title: 'Welcome Message', hint: 'A personal welcome from your head of school, shown with their photo and name.',
+        title: 'Welcome Message', hint: 'A welcome from your head of school.',
         noun: 'message', heading: 'A Word of Welcome',
         fields: [{ key: 'name', label: 'Name', ph: 'Dr. Sarah Mitchell' }, { key: 'role', label: 'Role', ph: 'Head of School' }, { key: 'message', label: 'Message', type: 'textarea', ph: 'Welcome to our school...' }, { key: 'imageUrl', label: 'Photo', type: 'image' }],
       },
       admissions: {
-        title: 'Admissions', hint: 'Explain how to join your school, step by step. An Apply button appears while online registration is open.',
+        title: 'Admissions', hint: 'How to join, step by step.',
         noun: 'step', heading: 'Admissions', intro: true,
         fields: [{ key: 'title', label: 'Step', ph: 'Apply online' }, { key: 'description', label: 'Details (optional)', type: 'textarea', ph: 'Fill in the short application form...' }],
       },
       achievements: {
-        title: 'Achievements & Awards', hint: 'Competitions won, awards and milestones your school is proud of.',
+        title: 'Achievements & Awards', hint: 'Awards and milestones.',
         noun: 'achievement', heading: 'Achievements & Awards',
         fields: [{ key: 'title', label: 'Achievement', ph: 'State Science Fair - 1st Place' }, { key: 'year', label: 'Year (optional)', ph: '2026' }, { key: 'description', label: 'Details (optional)', type: 'textarea', ph: 'Grade 8 team, renewable energy project' }],
       },
       faq: {
-        title: 'FAQ', hint: 'Answer the questions parents ask most - admissions, fees, uniforms, transport.',
+        title: 'FAQ', hint: 'Answers to what parents ask most.',
         noun: 'question', heading: 'Frequently Asked Questions',
         fields: [{ key: 'question', label: 'Question', ph: 'When do admissions open?' }, { key: 'answer', label: 'Answer', type: 'textarea', ph: 'Admissions open in...' }],
       },
@@ -322,7 +322,7 @@
       var data = settings.about || {};
       card.innerHTML =
         '<div class="mwx-card-head"><h3>About Section Image</h3><span data-mwx-status>' + statusHtml('about', data) + '</span></div>' +
-        '<p class="mwx-hint">A photo shown with your About Us text - your building, students or campus.</p>' +
+        '<p class="mwx-hint">A photo beside your About text.</p>' +
         imageFieldHtml({ key: 'imageUrl', label: 'Image' }, data.imageUrl) +
         fieldHtml({ key: 'imageCaption', label: 'Caption (optional)', ph: 'Our main campus' }, data.imageCaption) +
         '<div class="mwx-actions"><span></span><button type="button" class="mwx-btn mwx-btn-primary" data-mwx-save>Save</button></div>';
@@ -350,7 +350,7 @@
       var data = settings.social || {};
       card.innerHTML =
         '<div class="mwx-card-head"><h3>Social Media</h3><span data-mwx-status>' + statusHtml('social', data) + '</span></div>' +
-        '<p class="mwx-hint">Links to your school\'s pages, shown in the website footer. Only links to each network\'s own site are kept.</p>' +
+        '<p class="mwx-hint">Shown in the website footer.</p>' +
         '<label class="mwx-switch"><input type="checkbox" data-mwx-enabled ' + (data.enabled ? 'checked' : '') + '> Show social links</label>' +
         '<div class="mwx-row-2" style="margin-top:10px;">' +
         SOCIAL.map(function (n) { return fieldHtml({ key: n.key, label: n.label, ph: n.ph }, data[n.key]); }).join('') +
@@ -364,7 +364,7 @@
       var data = settings.contact || {};
       card.innerHTML =
         '<div class="mwx-card-head"><h3>Contact Form</h3><span data-mwx-status>' + statusHtml('contact', data) + '</span></div>' +
-        '<p class="mwx-hint">Lets visitors message the school from your website. Your phone numbers and emails from About Our School are shown beside it.</p>' +
+        '<p class="mwx-hint">Visitors message the school from your website.</p>' +
         '<label class="mwx-switch"><input type="checkbox" data-mwx-enabled ' + (data.enabled ? 'checked' : '') + '> Show the contact form on the website</label>' +
         '<div class="mwx-row-2" style="margin-top:10px;">' +
         fieldHtml({ key: 'title', label: 'Section heading', ph: 'Contact Us' }, data.title) +

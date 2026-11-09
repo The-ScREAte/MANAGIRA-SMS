@@ -76,20 +76,11 @@ module.exports = {
     }
   },
 
-  // GET /common/contact-template
+  // GET /common/contact-template: the parents and guardians fields now sit with the
+  // student fields in one place, Admissions > Admission Settings.
   templatePage: async (req, res) => {
-    const access = await contactAccess(req).catch(() => ({}));
-    if (!access.template) {
-      req.flash("error", "You don't have permission to edit the contact template.");
-      return res.redirect("/common/management");
-    }
-    const template = await contacts.getTemplate(db, Number(req.session.organizationId)).catch(() => ({ sections: [], fields: [] }));
-    return res.render("common/contactTemplate", {
-      title: "Contact Template",
-      template,
-      baseFields: contacts.BASE_FIELDS,
-      fieldTypes: contacts.FIELD_TYPES,
-    });
+    const embed = req.query.embed ? `&embed=${encodeURIComponent(String(req.query.embed))}` : "";
+    return res.redirect(`/common/admissionSettings?tab=family${embed}`);
   },
 
   // JSON API behind the template page.
@@ -107,6 +98,12 @@ module.exports = {
       if (action === "createSection") await contacts.createSection(db, organizationId, body);
       if (action === "renameSection") await contacts.renameSection(db, organizationId, id, body);
       if (action === "deleteSection") await contacts.deleteSection(db, organizationId, id);
+      if (action === "shareSection") {
+        if (!require("../utils/shards/features").isOn("family_sharing", { organizationId })) {
+          return res.status(404).json({ success: false, error: "Sharing isn't available for your school yet." });
+        }
+        await contacts.setSectionSharing(db, organizationId, id, body.shared);
+      }
       if (action === "order") await contacts.saveOrder(db, organizationId, body);
       return res.json({ success: true, ...(await contacts.getTemplate(db, organizationId)) });
     } catch (err) {

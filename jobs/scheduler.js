@@ -121,6 +121,17 @@ if (shouldRunNotifications) {
     }
   });
 
+  // 16:00 UTC: tomorrow's activity reminders to families (still the same calendar day from the
+  // US west coast to east Africa). Each activity is sent once (utils/classActivities.js).
+  cron.schedule('0 16 * * *', 'activity-reminders', async () => {
+    try {
+      const summary = await require('../utils/classActivities').sendActivityReminders(require('../config/db'));
+      if (summary.emails) console.log(`[Activity Reminders] ${summary.activities} activities, ${summary.emails} emails`);
+    } catch (error) {
+      console.error('[Activity Reminders] Failed:', error.message);
+    }
+  });
+
   // Hourly digest window sweep; each organization policy controls weekday/hour send.
   cron.schedule('0 * * * *', 'weekly-digest', async () => {
     try {

@@ -1,51 +1,69 @@
+<%#
+  Website setup: how far along the website is, at a glance. Each item opens its
+  panel (utils/websiteExtras.js buildWebsiteOverview).
+%>
 <%
   const mwo = (typeof websiteOverview !== 'undefined' && websiteOverview) || null;
 %>
 <% if (mwo) { %>
+<%
+  const mwoPct = Math.round((mwo.doneCount / Math.max(mwo.totalCount, 1)) * 100);
+  const mwoLeft = mwo.totalCount - mwo.doneCount;
+  const mwoRing = 2 * Math.PI * 21;
+%>
 <style>
-  .mwo { margin: 0 0 18px; padding: 18px 20px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
-  .mwo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-  .mwo-head h2 { margin: 0; font-size: 1.08rem; font-weight: 800; color: #0f172a; text-align: left; }
-  .mwo-head p { margin: 2px 0 0; font-size: 0.86rem; color: #64748b; }
-  .mwo-progress { display: flex; align-items: center; gap: 10px; min-width: 200px; font-size: 0.82rem; font-weight: 700; color: #334155; }
-  .mwo-bar { flex: 1; height: 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); overflow: hidden; }
-  .mwo-bar span { display: block; height: 100%; border-radius: 999px; background: var(--org-primary-color, #01535b); }
-  .mwo-alert { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: 0.9rem; font-weight: 600; }
-  .mwo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-  .mwo-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; margin: 0; padding: 11px 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; text-align: left; font: inherit; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
-  .mwo-item:focus-visible { border-color: var(--org-primary-color, #01535b); background: #fff; }
-  .mwo-dot { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }
-  .mwo-item.done .mwo-dot { background: #dcfce7; color: #166534; }
-  .mwo-item.todo .mwo-dot { background: #fef3c7; color: #92400e; }
-  .mwo-item.optional.todo .mwo-dot { background: #f1f5f9; color: #64748b; }
+  .mwo { margin: 0 0 14px; padding: 16px 18px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; }
+  .mwo-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .mwo-ring { position: relative; flex: none; width: 52px; height: 52px; }
+  .mwo-ring svg { width: 52px; height: 52px; transform: rotate(-90deg); }
+  .mwo-ring circle { fill: none; stroke-width: 5; }
+  .mwo-ring .mwo-ring__track { stroke: #eef1f4; }
+  .mwo-ring .mwo-ring__done { stroke: var(--org-primary-color, #01535b); stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+  .mwo-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.78rem; font-weight: 800; color: #0f172a; }
+  .mwo-head h2 { margin: 0; font-size: 1.02rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .mwo-head p { margin: 2px 0 0; font-size: 0.84rem; color: #64748b; }
+  .mwo-alert { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 8%, #fff); border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, #fff); color: #0f172a; font-size: 0.86rem; font-weight: 600; }
+  .mwo-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .mwo-item { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; margin: 0; padding: 9px 11px; border: 1px solid #edf0f3; border-radius: 12px; background: #fafbfc; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s ease, background-color .15s ease; }
+  .mwo-item:hover, .mwo-item:focus-visible { border-color: color-mix(in srgb, var(--org-primary-color, #01535b) 35%, #fff); background: #fff; outline: none; }
+  .mwo-dot { flex: none; position: relative; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 0.8rem; background: #f1f5f9; color: #64748b; }
+  .mwo-item.done .mwo-dot { background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #fff); color: var(--org-primary-color, #01535b); }
+  .mwo-item.todo:not(.optional) .mwo-dot { background: #fef3c7; color: #92400e; }
+  .mwo-dot::after { content: ""; position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: #cbd5e1; }
+  .mwo-item.done .mwo-dot::after { background: #16a34a; }
+  .mwo-item.todo:not(.optional) .mwo-dot::after { background: #f59e0b; }
   .mwo-text { min-width: 0; }
-  .mwo-text strong { display: block; font-size: 0.88rem; color: #0f172a; }
-  .mwo-text span { display: block; margin-top: 2px; font-size: 0.8rem; color: #64748b; overflow-wrap: anywhere; }
-  .mwo-btn { width: auto; margin: 0; padding: 7px 14px; border-radius: 9px; border: 1px solid var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
-  @media (max-width: 640px) { .mwo { padding: 14px; } .mwo-progress { min-width: 0; width: 100%; } }
+  .mwo-text strong { display: block; font-size: 0.84rem; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mwo-text span { display: block; margin-top: 1px; font-size: 0.76rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mwo-btn { width: auto; margin: 0; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+  .mwo-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (max-width: 1100px) { .mwo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .mwo { padding: 14px; } .mwo-grid { gap: 6px; } .mwo-item { padding: 8px 9px; gap: 8px; } .mwo-dot { width: 26px; height: 26px; } }
+  @media (max-width: 360px) { .mwo-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>
 <section class="mwo" aria-labelledby="mwoTitle">
   <div class="mwo-head">
-    <div>
-      <h2 id="mwoTitle">Your website setup</h2>
-      <p>Click any item to jump to it. Anything not set up stays hidden from visitors.</p>
+    <div class="mwo-ring" role="img" aria-label="<%= mwo.doneCount %> of <%= mwo.totalCount %> essentials done">
+      <svg viewBox="0 0 52 52" aria-hidden="true"><circle class="mwo-ring__track" cx="26" cy="26" r="21"/><circle class="mwo-ring__done" cx="26" cy="26" r="21" stroke-dasharray="<%= mwoRing.toFixed(1) %>" stroke-dashoffset="<%= (mwoRing * (1 - mwoPct / 100)).toFixed(1) %>"/></svg>
+      <span aria-hidden="true"><%= mwo.doneCount %>/<%= mwo.totalCount %></span>
     </div>
-    <div class="mwo-progress" aria-label="<%= mwo.doneCount %> of <%= mwo.totalCount %> essentials done">
-      <span><%= mwo.doneCount %> of <%= mwo.totalCount %> done</span>
-      <div class="mwo-bar"><span style="width: <%= Math.round((mwo.doneCount / Math.max(mwo.totalCount, 1)) * 100) %>%"></span></div>
+    <div>
+      <h2 id="mwoTitle">Website setup</h2>
+      <p><%= mwoLeft ? (mwoLeft + ' essential' + (mwoLeft > 1 ? 's' : '') + ' left. Anything not set up stays hidden.') : 'All set. Tap any item to change it.' %></p>
     </div>
   </div>
   <% if (mwo.unreadMessages > 0) { %>
   <div class="mwo-alert" role="status">
-    <span>You have <%= mwo.unreadMessages %> new message<%= mwo.unreadMessages > 1 ? 's' : '' %> from your website.</span>
-    <button type="button" class="mwo-btn" data-mwo-target="mwxContact">Read messages</button>
+    <span><%= mwo.unreadMessages %> new message<%= mwo.unreadMessages > 1 ? 's' : '' %> from your website.</span>
+    <button type="button" class="mwo-btn" data-mwo-target="mwxContact">Read</button>
   </div>
   <% } %>
   <div class="mwo-grid">
     <% mwo.items.forEach((item) => { %>
-    <button type="button" class="mwo-item <%= item.done ? 'done' : 'todo' %><%= item.optional ? ' optional' : '' %>" data-mwo-target="<%= item.target %>">
-      <span class="mwo-dot" aria-hidden="true"><%= item.done ? '✓' : (item.optional ? '–' : '!') %></span>
+    <button type="button" class="mwo-item <%= item.done ? 'done' : 'todo' %><%= item.optional ? ' optional' : '' %>" data-mwo-target="<%= item.target %>" title="<%= item.label %>: <%= item.detail %>">
+      <span class="mwo-dot" aria-hidden="true"><i class="fa-solid <%= item.icon || 'fa-circle' %>"></i></span>
       <span class="mwo-text"><strong><%= item.label %></strong><span><%= item.detail %></span></span>
+      <span class="mwo-sr"><%= item.done ? 'Done' : (item.optional ? 'Optional' : 'To do') %></span>
     </button>
     <% }) %>
   </div>

@@ -581,6 +581,8 @@
     </a>
   </div>
 
+  <%- include('../partials/familyDetailsCard', { mode: 'parent' }) %>
+
   <!-- Children Section -->
   <% const parentBusRequests = !!locals.transportationActive && children.length > 0; %>
   <% if (parentBusRequests) { %>

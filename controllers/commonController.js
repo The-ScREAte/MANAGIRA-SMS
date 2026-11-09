@@ -3985,6 +3985,32 @@ const commonController = {
         [organizationId]
       );
 
+      // Upcoming activities for this person ("Activity & Announcements" > Activities): the whole
+      // school's for those who look after events, otherwise their own classes' and students'.
+      // canAddActivity: the New task dialog offers Activity to the same people (the whole school
+      // with Events & Announcements, otherwise a teacher's own classes; the server checks again).
+      let canAddActivity = false;
+      const dashboardActivitiesPromise = (async () => {
+        if (!require("../utils/shards/features").isOn("class_activities", { organizationId: Number(organizationId) })) return null;
+        const held = res.locals.userPermissions || [];
+        const role = String(req.session.userRole || req.session.accountType || "").trim().toLowerCase();
+        const seesAll = ["organization", "admin", "mini admin", "manager", "supervisor", "superviser"].includes(role) || held.includes("publish_events_announcements");
+        const from = new Date().toISOString().slice(0, 10);
+        const to = new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10);
+        const { listActivities } = require("../utils/classActivities");
+        if (seesAll) {
+          canAddActivity = true;
+          return listActivities(db, Number(organizationId), { from, to });
+        }
+        const actorId = resolveWorkspaceActor(req).id;
+        const mine = actorId ? (await db.query("SELECT class_id FROM user_classes WHERE user_id = $1", [actorId])).rows.map((row) => Number(row.class_id)) : [];
+        canAddActivity = mine.length > 0;
+        return listActivities(db, Number(organizationId), { classIds: mine, from, to });
+      })().catch((err) => {
+        console.error("[orgDashboard] activities failed:", err.message);
+        return null;
+      });
+
       // Tasks and tagged events for this person ("Activity & Announcements").
       const viewerActivityPromise = loadViewerActivity(db, {
         organizationId: Number(organizationId),
@@ -4036,6 +4062,7 @@ const commonController = {
         nextTermResult,
         orgResult,
         workspaceMember,
+        dashboardActivities,
       ] = await Promise.all([
         todayAttendanceStatusPromise,
         classesPromise,
@@ -4045,6 +4072,7 @@ const commonController = {
         nextTermPromise,
         orgHeaderPromise,
         isWorkspaceMember(db, req),
+        dashboardActivitiesPromise,
       ]);
       const events = eventsResult.rows;
       const announcements = announcementsResult.rows;
@@ -4090,6 +4118,8 @@ const commonController = {
         announcements,
         dashboardInsights,
         viewerActivity,
+        dashboardActivities,
+        canAddActivity: Boolean(dashboardActivities) && canAddActivity,
         workspaceActorId: resolveWorkspaceActor(req).id,
         workspaceMember,
         organizationId,
@@ -4580,7 +4610,9 @@ const commonController = {
       const publicSiteAppearance = await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId);
 
       // One content model for every website layout (views/partials/website).
-      const site = require("../utils/websiteView").buildSiteModel({
+      const websiteView = require("../utils/websiteView");
+      const websiteFeatureOn = (key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) });
+      const site = websiteView.buildSiteModel({
         orgDetails,
         aboutDetails,
         slideshowImages,
@@ -4590,9 +4622,10 @@ const commonController = {
         announcements,
         extras: websiteExtras,
         page: websitePage,
+        isOn: websiteFeatureOn,
         // Staff of this school can preview another layout before saving it.
         layout: (req.query.previewLayout
-          && require("../utils/websiteView").LAYOUT_VALUES.includes(String(req.query.previewLayout))
+          && websiteView.layoutsFor(websiteFeatureOn).some((l) => l.value === String(req.query.previewLayout))
           && req.session && String(req.session.organizationId) === String(organizationId))
           ? String(req.query.previewLayout)
           : publicDashboardLayout,
@@ -16728,6 +16761,17 @@ NUMBERING:
         .map((studentRow) => Number(studentRow.student_id))
         .filter((studentIdValue) => Number.isInteger(studentIdValue) && studentIdValue > 0);
 
+      // The class pickup list (feature "family_sharing"): who each student goes home with,
+      // and the emergency & pickup details the school shares with teachers.
+      let classPickup = null;
+      if (require("../utils/shards/features").isOn("family_sharing", { organizationId: Number(organizationId) })) {
+        const contactsUtil = require("../utils/contacts");
+        const sharedWithTeachers = await contactsUtil.sharedSections(db, Number(organizationId), "teachers").catch(() => []);
+        if (sharedWithTeachers.length) {
+          classPickup = Object.fromEntries(await contactsUtil.familyDetailsForStudents(db, Number(organizationId), classStudentIds, "teachers").catch(() => new Map()));
+        }
+      }
+
       const transportationIntegration = await getTransportationIntegrationStatus(db, organizationId).catch(
         () => ({ activated: false })
       );
@@ -16940,6 +16984,8 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'subject', itemId: routeItemId };
       } else if (routePanel === 'docs') {
         initialWorkspaceRoute = { panel: 'docs', itemId: '' };
+      } else if (routePanel === 'pickup') {
+        initialWorkspaceRoute = { panel: 'pickup', itemId: '' };
       }
 
       // This person's own order of the Class Tools menu, if they've set one.
@@ -16980,6 +17026,7 @@ NUMBERING:
         canAccessAssessmentQuestions,
         transportationIntegration,
         classTransportationSnapshot,
+        classPickup,
         classTransportationSchoolDestination,
         classroomTermOptions: canAssessOtherYears ? classroomTermOptions : [],
         classroomTermView,
@@ -18544,8 +18591,20 @@ NUMBERING:
         whatsapp: { ready: false },
       }));
 
+      // Activities sit here too (one place for what's coming up): the same permission.
+      const activitiesHere = require("../utils/shards/features").isOn("class_activities", { organizationId: Number(req.session.organizationId) })
+        && res.locals.workspaceAccess().management.activities;
+      const activityClasses = activitiesHere
+        ? (await db.query(
+            "SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY LOWER(class_name)",
+            [req.session.organizationId]
+          )).rows.map((row) => ({ id: Number(row.class_id), name: row.class_name }))
+        : [];
       res.render("common/manageEventsAnnouncements", {
         title: "Manage Events & Announcements",
+        activitiesHere,
+        activityClasses,
+        initialTab: ["events", "activities", "announcements"].includes(String(req.query.tab || "")) ? String(req.query.tab) : "",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -19379,7 +19438,8 @@ NUMBERING:
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
-        canEditContactTemplate,
+        // The contact template is edited in Admissions > Admission Settings now (Parents & guardians).
+        canEditContactTemplate: false,
         // Service accounts have their own permission (routes/apiAccessRoute.js checks it too).
         canManageApiAccess: menuAccess.serviceAccounts,
       });

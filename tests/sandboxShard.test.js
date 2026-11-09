@@ -44,38 +44,43 @@ test("a move between two shards on one database is refused before touching anyth
 });
 
 test("a new feature reaches the sandbox only, until it's released", async (t) => {
+  // A feature on its first, sandbox-only release (a stand-in, so this holds whatever is released).
+  const NEW = "test_new_feature";
+  features.FEATURES[NEW] = { label: "Test feature", access: "selected" };
   const original = registry.controlDb;
-  t.after(() => { registry.controlDb = original; });
+  t.after(() => { registry.controlDb = original; delete features.FEATURES[NEW]; });
 
   await useControl(fakeControl([]));
-  assert.strictEqual(features.isOn("class_activities", { organizationId: SANDBOX_SCHOOL }), true);
-  assert.strictEqual(features.isOn("class_activities", { hubId: SANDBOX_HUB }), true);
-  assert.strictEqual(features.isOn("class_activities", { organizationId: MAIN_SCHOOL }), false);
-  assert.strictEqual(features.isOn("class_activities", {}), false);
+  assert.strictEqual(features.isOn(NEW, { organizationId: SANDBOX_SCHOOL }), true);
+  assert.strictEqual(features.isOn(NEW, { hubId: SANDBOX_HUB }), true);
+  assert.strictEqual(features.isOn(NEW, { organizationId: MAIN_SCHOOL }), false);
+  assert.strictEqual(features.isOn(NEW, {}), false);
 
-  await useControl(fakeControl([{ feature_key: "class_activities", access: "selected", organization_ids: [RELEASED_SCHOOL], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
-  assert.strictEqual(features.isOn("class_activities", { organizationId: RELEASED_SCHOOL }), true);
-  assert.strictEqual(features.isOn("class_activities", { organizationId: MAIN_SCHOOL }), false);
+  await useControl(fakeControl([{ feature_key: NEW, access: "selected", organization_ids: [RELEASED_SCHOOL], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
+  assert.strictEqual(features.isOn(NEW, { organizationId: RELEASED_SCHOOL }), true);
+  assert.strictEqual(features.isOn(NEW, { organizationId: MAIN_SCHOOL }), false);
 
   // Released to a whole shard: the query already expands it to that shard's schools.
-  await useControl(fakeControl([{ feature_key: "class_activities", access: "selected", organization_ids: [], hub_ids: [], reached_schools: [MAIN_SCHOOL], reached_hubs: [] }]));
-  assert.strictEqual(features.isOn("class_activities", { organizationId: MAIN_SCHOOL }), true);
+  await useControl(fakeControl([{ feature_key: NEW, access: "selected", organization_ids: [], hub_ids: [], reached_schools: [MAIN_SCHOOL], reached_hubs: [] }]));
+  assert.strictEqual(features.isOn(NEW, { organizationId: MAIN_SCHOOL }), true);
 
-  await useControl(fakeControl([{ feature_key: "class_activities", access: "everyone", organization_ids: [], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
-  assert.strictEqual(features.isOn("class_activities", { organizationId: 999 }), true);
+  await useControl(fakeControl([{ feature_key: NEW, access: "everyone", organization_ids: [], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
+  assert.strictEqual(features.isOn(NEW, { organizationId: 999 }), true);
 
-  await useControl(fakeControl([{ feature_key: "class_activities", access: "off", organization_ids: [], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
-  assert.strictEqual(features.isOn("class_activities", { organizationId: SANDBOX_SCHOOL }), false);
+  await useControl(fakeControl([{ feature_key: NEW, access: "off", organization_ids: [], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
+  assert.strictEqual(features.isOn(NEW, { organizationId: SANDBOX_SCHOOL }), false);
 
   // What was already out for everyone stays that way.
   assert.strictEqual(features.isOn("transport_report_builder", { organizationId: MAIN_SCHOOL }), true);
 });
 
 test("a failed read keeps the last answer, so a database hiccup can't open a feature to everyone", async (t) => {
+  const NEW = "test_new_feature";
+  features.FEATURES[NEW] = { label: "Test feature", access: "selected" };
   const original = registry.controlDb;
-  t.after(() => { registry.controlDb = original; });
+  t.after(() => { registry.controlDb = original; delete features.FEATURES[NEW]; });
   await useControl(fakeControl([]));
   await useControl({ query: async () => { throw new Error("busy"); } });
-  assert.strictEqual(features.isOn("class_activities", { organizationId: MAIN_SCHOOL }), false);
-  assert.strictEqual(features.isOn("class_activities", { organizationId: SANDBOX_SCHOOL }), true);
+  assert.strictEqual(features.isOn(NEW, { organizationId: MAIN_SCHOOL }), false);
+  assert.strictEqual(features.isOn(NEW, { organizationId: SANDBOX_SCHOOL }), true);
 });

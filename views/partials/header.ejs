@@ -454,7 +454,6 @@
             Settings
           </a>
         </li>
-        <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item">
           <a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
             <span class="menu-icon"><%- navIcon('logout') %></span>
@@ -471,7 +470,6 @@
           <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings
         </a></li>
-        <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/hub/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
@@ -489,6 +487,10 @@
         </a></li>
         <% } %>
         <% if (locals.featureOn && featureOn('class_activities')) { %>
+        <li class="nav-item"><a href="/guardian/activities" class="management-link">
+          <span class="menu-icon"><%- navIcon('activities') %></span>
+          Activities
+        </a></li>
         <li class="nav-item"><a href="/guardian/calendar" class="management-link">
           <span class="menu-icon"><%- navIcon('calendar') %></span>
           Calendar
@@ -508,7 +510,6 @@
           <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings
         </a></li>
-        <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
@@ -525,19 +526,26 @@
           School Website
         </a></li>
         <% } %>
-        <% if (_studentCanUseTestingRoom) { %>
         <% if (locals.featureOn && featureOn('class_activities')) { %>
+        <li class="nav-item"><a href="/student/activities" class="management-link">
+          <span class="menu-icon"><%- navIcon('activities') %></span>
+          Activities
+        </a></li>
         <li class="nav-item"><a href="/student/calendar" class="management-link">
           <span class="menu-icon"><%- navIcon('calendar') %></span>
           Calendar
         </a></li>
         <% } %>
+        <% if (_studentCanUseTestingRoom) { %>
         <li class="nav-item"><a href="/student/testing-room" class="nav-item-link management-link">
           <span class="menu-icon"><%- navIcon('questions') %></span>
           Testing Room
         </a></li>
         <% } %>
-        <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
+        <li class="nav-item"><a href="/student/settings" class="nav-item-link management-link">
+          <span class="menu-icon"><%- navIcon('settings') %></span>
+          Settings
+        </a></li>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
@@ -576,7 +584,6 @@
           <span class="menu-icon"><%- navIcon('settings') %></span>
           Settings
         </a></li>
-        <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <span class="menu-icon"><%- navIcon('logout') %></span>
           Logout
@@ -650,7 +657,6 @@
             Settings
           </a>
         </li>
-        <% if (locals.appearanceOwner) { %><li class="nav-item ap-menu-item"><%- include('appearanceToggle') %></li><% } %>
         <li class="nav-item">
           <a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
             <span class="menu-icon"><%- navIcon('logout') %></span>

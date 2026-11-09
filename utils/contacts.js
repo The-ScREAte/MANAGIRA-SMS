@@ -169,11 +169,156 @@ async function listFields(db, organizationId) {
 
 async function listSections(db, organizationId) {
   await ensureContactsSchema(db);
+  const sharing = await hasSharing(db);
   const { rows } = await db.query(
-    `SELECT section_id, name FROM contact_field_sections WHERE organization_id = $1 ORDER BY position, section_id`,
+    `SELECT section_id, name${sharing ? ", shared_with" : ""} FROM contact_field_sections WHERE organization_id = $1 ORDER BY position, section_id`,
     [organizationId]
   );
-  return rows.map((r) => ({ id: r.section_id, name: r.name }));
+  return rows.map((r) => ({ id: r.section_id, name: r.name, shared: Array.isArray(r.shared_with) ? r.shared_with.filter((a) => AUDIENCES.includes(a)) : [] }));
+}
+
+// ---------- Sharing (feature "family_sharing") ----------
+// A section can be shared beyond the office: with parents (who also update it in their
+// portal), students, teachers (the class pickup list) and drivers (with the driver
+// permission "Pickup & Emergency"). The column comes from database/migrations/
+// 2026-11-09_family_sharing.sql; until it has run, nothing is shared.
+const AUDIENCES = ["parents", "students", "teachers", "drivers"];
+let sharingKnown = { value: null, at: 0 };
+async function hasSharing(db) {
+  if (sharingKnown.value === true || (sharingKnown.value === false && Date.now() - sharingKnown.at < 60000)) return sharingKnown.value;
+  try {
+    await db.query("SELECT shared_with FROM contact_field_sections LIMIT 0");
+    sharingKnown = { value: true, at: Date.now() };
+  } catch (err) {
+    sharingKnown = { value: false, at: Date.now() };
+  }
+  return sharingKnown.value;
+}
+
+async function setSectionSharing(db, organizationId, sectionId, shared) {
+  await ensureContactsSchema(db);
+  if (!(await hasSharing(db))) throw new ContactError("Sharing isn't ready yet. Please try again shortly.", 503);
+  await assertSection(db, organizationId, sectionId);
+  const list = [...new Set((Array.isArray(shared) ? shared : []).map(String))].filter((a) => AUDIENCES.includes(a));
+  await db.query(`UPDATE contact_field_sections SET shared_with = $3::text[] WHERE section_id = $1 AND organization_id = $2`, [sectionId, organizationId, list]);
+  return list;
+}
+
+// The sections shared with an audience, each with its active fields in order.
+async function sharedSections(db, organizationId, audience) {
+  if (!AUDIENCES.includes(audience) || !(await hasSharing(db))) return [];
+  const { sections, fields } = await getTemplate(db, organizationId);
+  return sections
+    .filter((sec) => sec.shared.includes(audience))
+    .map((sec) => ({ id: sec.id, name: sec.name, fields: fields.filter((f) => f.sectionId === sec.id && f.status === "active") }))
+    .filter((sec) => sec.fields.length);
+}
+
+const answerText = (field, value) => (field.type === "yes_no" ? (value === "yes" ? "Yes" : value === "no" ? "No" : "") : String(value || ""));
+
+// Who each student goes home with: their parents and guardians, with the details in the
+// sections shared with this audience. Map studentId -> [{ name, relationship, sections }].
+async function familyDetailsForStudents(db, organizationId, studentIds, audience) {
+  const ids = [...new Set((studentIds || []).map(Number).filter(Number.isInteger))];
+  const out = new Map();
+  if (!ids.length) return out;
+  const sections = await sharedSections(db, organizationId, audience);
+  if (!sections.length) return out;
+  const people = (await db.query(
+    `SELECT gs.student_id, 'profile:' || gp.guardian_id AS contact_key, gp.first_name, gp.last_name, gs.relationship
+       FROM guardian_students gs
+       JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $1
+      WHERE gs.student_id = ANY($2::int[])
+     UNION ALL
+     SELECT g.student_id, 'legacy:' || g.guardian_id, g.first_name, g.last_name, NULL
+       FROM guardians g
+      WHERE g.organization_id = $1 AND g.student_id = ANY($2::int[])`,
+    [organizationId, ids]
+  )).rows;
+  if (!people.length) return out;
+  const fieldIds = sections.flatMap((sec) => sec.fields.map((f) => f.id));
+  const values = (await db.query(
+    `SELECT field_id, contact_key, value, updated_at FROM contact_field_values
+      WHERE organization_id = $1 AND field_id = ANY($2::int[]) AND contact_key = ANY($3::text[])`,
+    [organizationId, fieldIds, [...new Set(people.map((p) => p.contact_key))]]
+  )).rows;
+  // One person per student and name (a parent can be stored more than once); the newest answer wins.
+  const byStudent = new Map();
+  people.forEach((p) => {
+    const name = [p.first_name, p.last_name].filter(Boolean).join(" ").trim() || "Parent / guardian";
+    const list = byStudent.get(Number(p.student_id)) || [];
+    let person = list.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    // "Parent/Guardian" is the default relationship: only a real one (Mother, Aunt...) is shown.
+    const relationship = /^\s*parent\s*\/\s*guardian\s*$/i.test(p.relationship || "") ? "" : (p.relationship || "");
+    if (!person) { person = { name, relationship, keys: new Set() }; list.push(person); }
+    if (relationship && !person.relationship) person.relationship = relationship;
+    person.keys.add(p.contact_key);
+    byStudent.set(Number(p.student_id), list);
+  });
+  byStudent.forEach((list, studentId) => {
+    out.set(studentId, list.map((person) => {
+      const latest = new Map();
+      values.filter((v) => person.keys.has(v.contact_key)).forEach((v) => {
+        const seen = latest.get(v.field_id);
+        if (!seen || new Date(v.updated_at) > new Date(seen.updated_at)) latest.set(v.field_id, v);
+      });
+      return {
+        name: person.name,
+        relationship: person.relationship,
+        sections: sections.map((sec) => ({
+          name: sec.name,
+          items: sec.fields.map((f) => ({ label: f.label, value: answerText(f, latest.get(f.id) && latest.get(f.id).value) })).filter((i) => i.value),
+        })).filter((sec) => sec.items.length),
+      };
+    }));
+  });
+  return out;
+}
+
+// A parent's own details in the sections shared with parents, for their portal.
+async function parentPortalDetails(db, organizationId, guardianId) {
+  const sections = await sharedSections(db, organizationId, "parents");
+  if (!sections.length) return { sections: [] };
+  const key = `profile:${Number(guardianId)}`;
+  const values = (await db.query(
+    `SELECT field_id, value FROM contact_field_values WHERE organization_id = $1 AND contact_key = $2 AND field_id = ANY($3::int[])`,
+    [organizationId, key, sections.flatMap((sec) => sec.fields.map((f) => f.id))]
+  )).rows;
+  const answer = new Map(values.map((v) => [v.field_id, v.value]));
+  return {
+    sections: sections.map((sec) => ({
+      id: sec.id,
+      name: sec.name,
+      fields: sec.fields.map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options, helpText: f.helpText, value: answer.get(f.id) || "" })),
+    })),
+  };
+}
+
+// A parent updates their own answers, only in the sections shared with parents.
+async function saveParentPortalDetails(db, organizationId, guardianId, body) {
+  const sections = await sharedSections(db, organizationId, "parents");
+  const allowed = new Map(sections.flatMap((sec) => sec.fields).map((f) => [String(f.id), f]));
+  const incoming = body && body.fields && typeof body.fields === "object" ? body.fields : {};
+  const answers = Object.keys(incoming)
+    .filter((id) => allowed.has(id))
+    .map((id) => {
+      const f = allowed.get(id);
+      return { id: f.id, value: checkAnswer({ field_type: f.type, label: f.label, options: f.options }, incoming[id]) };
+    });
+  if (!answers.length) return parentPortalDetails(db, organizationId, guardianId);
+  const key = `profile:${Number(guardianId)}`;
+  const clear = answers.filter((a) => !a.value).map((a) => a.id);
+  const set = answers.filter((a) => a.value);
+  if (clear.length) await db.query(`DELETE FROM contact_field_values WHERE organization_id = $1 AND contact_key = $2 AND field_id = ANY($3::int[])`, [organizationId, key, clear]);
+  if (set.length) {
+    await db.query(
+      `INSERT INTO contact_field_values (field_id, organization_id, contact_key, value, updated_by, updated_at)
+       SELECT a.field_id, $1, $4, a.value, NULL, NOW() FROM unnest($2::int[], $3::text[]) AS a(field_id, value)
+       ON CONFLICT (field_id, contact_key) DO UPDATE SET value = EXCLUDED.value, updated_by = NULL, updated_at = NOW()`,
+      [organizationId, set.map((a) => a.id), set.map((a) => a.value), key]
+    );
+  }
+  return parentPortalDetails(db, organizationId, guardianId);
 }
 
 async function getTemplate(db, organizationId) {
@@ -585,6 +730,13 @@ async function saveContact(db, organizationId, keys, body, userId) {
 }
 
 module.exports = {
+  AUDIENCES,
+  hasSharing,
+  setSectionSharing,
+  sharedSections,
+  familyDetailsForStudents,
+  parentPortalDetails,
+  saveParentPortalDetails,
   FIELD_TYPES,
   BASE_FIELDS,
   ContactError,

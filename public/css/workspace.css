@@ -312,6 +312,10 @@ body .cal-main .fc .fc-list-day > * { background: #f8fafc; }
   .cal-main .fc .fc-toolbar-title { font-size: 1.1rem; text-align: center; }
   .ws-row, .ws-row--3 { grid-template-columns: minmax(0, 1fr); }
   .ws-dialog__foot { flex-wrap: wrap; }
+  /* Four tabs (Event, Announcement, Task, Activity) fit a phone, and swipe if needed. */
+  .ws-tabs { gap: 0; padding: 10px 12px 0; overflow-x: auto; scrollbar-width: none; }
+  .ws-tabs::-webkit-scrollbar { display: none; }
+  .ws-tab { flex: 0 0 auto; gap: 5px; padding: 8px 9px; font-size: 0.84rem; }
 }
 .sync-add[hidden] { display: none !important; }
 

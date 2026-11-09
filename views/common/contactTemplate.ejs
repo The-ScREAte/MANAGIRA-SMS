@@ -110,14 +110,33 @@
     .ct-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ct-type { display: none; }
   }
+  /* Who else sees a section. */
+  #ctRoot .ct-share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -2px 14px 10px; padding: 8px 10px; border-radius: 10px; background: #f6f8fa; }
+  #ctRoot .ct-share__label { display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; font-size: 12px; font-weight: 700; color: #64748b; }
+  #ctRoot .ct-share__label svg { width: 14px; height: 14px; }
+  #ctRoot .ct-share__chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 11px; border: 1px solid #dfe5ec; border-radius: 999px; background: #fff; color: #475569; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  #ctRoot .ct-share__chip svg { width: 12px; height: 12px; }
+  #ctRoot .ct-share__chip:hover { border-color: #c3ccd6; }
+  #ctRoot .ct-share__chip.is-on { border-color: color-mix(in srgb, var(--ct-primary) 45%, #fff); background: color-mix(in srgb, var(--ct-primary) 10%, #fff); color: var(--ct-primary); }
+  #ctRoot .ct-share__chip:focus-visible { outline: 2px solid var(--ct-primary); outline-offset: 1px; }
+  #ctRoot .ct-share__none { font-size: 12px; color: #94a3b8; }
+  /* Inside Admissions > Admission Settings: a card-sized heading, not a page heading. */
+  #ctRoot .ct-head--inline { align-items: center; margin-bottom: 14px; }
+  #ctRoot .ct-head--inline .ct-head__title { margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a; text-align: left; }
+  #ctRoot .ct-head--inline p { margin-top: 2px; }
 </style>
 
 <div id="ctRoot">
   <div class="ct-wrap">
-    <div class="ct-head">
+    <div class="ct-head<%= locals.inAdmissions ? ' ct-head--inline' : '' %>">
       <div>
-        <h1>Contact template</h1>
-        <p>What you keep for every parent and guardian. Each section is a tab on the contact card in Mail Room. Drag to arrange.</p>
+        <% if (locals.inAdmissions) { %>
+          <h2 class="ct-head__title">Parents &amp; guardians</h2>
+          <p>Kept once for each parent and shown on their card in Mail Room. Each section is a tab there. Drag to arrange.</p>
+        <% } else { %>
+          <h1>Parents &amp; guardians</h1>
+          <p>Kept once for each parent and shown on their card in Mail Room. Each section is a tab there. Drag to arrange.</p>
+        <% } %>
       </div>
       <div class="ct-head__actions">
         <button type="button" class="ct-btn" data-add-section>
@@ -134,7 +153,7 @@
     <section class="ct-card">
       <header class="ct-sec__head">
         <span class="ct-lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-        <div class="ct-sec__title"><strong>Contact info</strong><span>Standard details on every contact. Always collected and can't be changed.</span></div>
+        <div class="ct-sec__title"><strong>Always asked</strong><span>On every parent's card. They can't be changed.</span></div>
       </header>
       <div class="ct-base">
         <% baseFields.forEach(function (f) { %>
@@ -147,7 +166,7 @@
 
     <p class="ct-note">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
-      <span>Rename fields, change choices and rearrange at any time. A field that has been filled in for someone can't be deleted. Make it obsolete instead: it leaves the form, and saved answers stay on the card.</span>
+      <span>A field that's been filled in can't be deleted: make it obsolete to hide it, and saved answers stay on the card.</span>
     </p>
   </div>
   <div class="ct-toast" id="ctToast" role="status"></div>
@@ -155,7 +174,7 @@
 
 <div id="ctDialog" role="dialog" aria-modal="true" aria-labelledby="ctDialogTitle"><div class="ct-dlg" id="ctDlg"></div></div>
 
-<script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes }).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes, sharing: Boolean(locals.featureOn && featureOn('family_sharing')) }).replace(/</g, '\\u003c') %></script>
 <script>
 (function () {
   const root = document.getElementById('ctRoot');
@@ -170,7 +189,10 @@
   const dlg = document.getElementById('ctDlg');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const svg = (d, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 2}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const SHARING = Boolean(data.sharing);
   const ICON = {
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>',
     grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
     edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
     archive: svg('<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>'),
@@ -220,8 +242,25 @@
           <button type="button" class="ct-icon-btn ct-icon-btn--danger" data-delete-section title="Delete section" aria-label="Delete ${esc(sec.name)}">${ICON.trash}</button>` : ''}
         </div>
       </header>
+      ${custom && SHARING ? shareHtml(sec) : ''}
       <div class="ct-fields" data-zone="${sec.id}">${list.map(rowHtml).join('')}</div>
     </section>`;
+  }
+
+  // Who else sees a section (feature "family_sharing"): parents can also update it in their portal.
+  const AUDIENCES = [
+    { key: 'parents', label: 'Parents', hint: 'See and update it in the parent portal' },
+    { key: 'students', label: 'Students', hint: 'See it in the student portal' },
+    { key: 'teachers', label: 'Teachers', hint: 'See it on the class pickup list' },
+    { key: 'drivers', label: 'Drivers', hint: 'See it for their riders (driver permission Pickup & Emergency)' },
+  ];
+  function shareHtml(sec) {
+    const shared = Array.isArray(sec.shared) ? sec.shared : [];
+    return `<div class="ct-share" role="group" aria-label="Who sees ${esc(sec.name)}">
+      <span class="ct-share__label">${ICON.eye} Shared with</span>
+      ${AUDIENCES.map((a) => `<button type="button" class="ct-share__chip${shared.includes(a.key) ? ' is-on' : ''}" data-share="${a.key}" aria-pressed="${shared.includes(a.key)}" title="${esc(a.hint)}">${shared.includes(a.key) ? ICON.check : ''}${a.label}</button>`).join('')}
+      ${shared.length ? '' : '<span class="ct-share__none">Only the office</span>'}
+    </div>`;
   }
 
   // "More details" holds fields without a section; it's shown when it has any
@@ -326,6 +365,21 @@
   root.querySelector('[data-add-field]').addEventListener('click', () => fieldDialog(null, 0));
   root.querySelector('[data-add-section]').addEventListener('click', () => sectionDialog(null));
   host.addEventListener('click', async (e) => {
+    const shareBtn = e.target.closest('[data-share]');
+    if (shareBtn) {
+      const sec = sections.find((x) => String(x.id) === shareBtn.closest('[data-section]').dataset.section);
+      if (!sec) return;
+      const key = shareBtn.dataset.share;
+      const next = (sec.shared || []).includes(key) ? sec.shared.filter((k) => k !== key) : (sec.shared || []).concat(key);
+      shareBtn.disabled = true;
+      try {
+        await call(`/common/contact-template/sections/${sec.id}/sharing`, { shared: next });
+        render();
+        const label = AUDIENCES.find((a) => a.key === key).label;
+        toast(next.includes(key) ? `${label} can see ${sec.name} now.` : `${label} no longer see ${sec.name}.`);
+      } catch (err) { toast(err.message); shareBtn.disabled = false; }
+      return;
+    }
     const secEl = e.target.closest('[data-section]');
     const rowEl = e.target.closest('[data-field]');
     const f = rowEl && fields.find((x) => x.id === Number(rowEl.dataset.field));

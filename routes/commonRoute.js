@@ -328,6 +328,7 @@ module.exports = (db) => {
   router.post("/contact-template/sections", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("createSection"));
   router.post("/contact-template/sections/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("renameSection"));
   router.post("/contact-template/sections/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("deleteSection"));
+  router.post("/contact-template/sections/:id(\\d+)/sharing", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("shareSection"));
   router.post("/contact-template/order", isAuthenticated, blockGuardians, express.json(), contactsController.templateApi("order"));
   router.get("/classReports", isAuthenticated, (req, res) =>
     commonController.classReports(req, res, db)
@@ -457,6 +458,8 @@ module.exports = (db) => {
   );
   router.get("/activities", isAuthenticated, blockGuardians, (req, res) => activitiesController.page(req, res, db));
   router.get("/activities/list", isAuthenticated, blockGuardians, (req, res) => activitiesController.list(req, res, db));
+  router.get("/activities/students", isAuthenticated, blockGuardians, (req, res) => activitiesController.students(req, res, db));
+  router.get("/activities/classes", isAuthenticated, blockGuardians, (req, res) => activitiesController.classes(req, res, db));
   router.post("/activities/save", isAuthenticated, blockGuardians, express.json(), (req, res) => activitiesController.save(req, res, db));
   router.post("/activities/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), (req, res) => activitiesController.remove(req, res, db));
 

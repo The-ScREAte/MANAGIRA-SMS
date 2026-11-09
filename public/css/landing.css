@@ -617,3 +617,15 @@
   .lp-story--flip .lp-story__shot--phone { margin-right: 0; margin-left: 6%; }
   .lp-story--flip .lp-story__shade { background: linear-gradient(0deg, rgba(4, 10, 11, 0.96) 0%, rgba(4, 10, 11, 0.78) 30%, rgba(4, 10, 11, 0.25) 62%, rgba(4, 10, 11, 0.05) 100%), linear-gradient(270deg, rgba(4, 10, 11, 0.55) 0%, rgba(4, 10, 11, 0) 55%); }
 }
+
+/* Phones: a steady page. Nothing is sized from the screen's height (it changes as the
+   browser's bars slide in and out), sections fade in without sliding, and the hero
+   rings stay still, so scrolling is smooth. */
+@media (max-width: 760px) {
+  .lp-hero--home { padding-top: 28px; }
+  .lp-hero--home .lp-ring { max-width: 200px; }
+  .lp-story__inner { padding-bottom: 48px; }
+  .lp-js [data-reveal] { transform: none; transition: opacity .45s ease; }
+  .lp-js .lp-moments[data-reveal] .lp-moment { transform: none; transition: opacity .45s ease; }
+  .lp-ring__outer, .lp-ring__inner, .lp-ring__orbit { animation: none; }
+}

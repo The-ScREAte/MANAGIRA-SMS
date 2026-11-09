@@ -1,0 +1,78 @@
+<%#
+  Upcoming activities for a family (controllers/familyActivitiesController.js): grouped by
+  day, each with whose it is, when and where. Long details open on demand.
+  locals: activities, calendarHref, viewer ("parent" | "student")
+%>
+<%
+  const faClock = (t) => { if (!t) return ''; const [h, m] = String(t).split(':').map(Number); return ((h % 12) || 12) + ':' + String(m || 0).padStart(2, '0') + (h < 12 ? ' AM' : ' PM'); };
+  const faWhen = (a) => a.endDate ? 'Until ' + new Date(a.endDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : (a.startTime ? faClock(a.startTime) + (a.endTime ? ' – ' + faClock(a.endTime) : '') : 'All day');
+  const faDays = [];
+  activities.forEach((a) => { let d = faDays.find((x) => x.date === a.date); if (!d) { d = { date: a.date, items: [] }; faDays.push(d); } d.items.push(a); });
+  const faToday = new Date().toISOString().slice(0, 10);
+  const faLabel = (key) => {
+    const d = new Date(key + 'T12:00:00Z');
+    const diff = Math.round((d - new Date(faToday + 'T12:00:00Z')) / 86400000);
+    const named = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : '';
+    return { named, full: d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }) };
+  };
+%>
+<style>
+  .fa-wrap { max-width: 860px; margin: 0 auto; padding: 8px 16px 40px; }
+  .fa-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 16px; }
+  .fa-head h1 { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .fa-head p { margin: 2px 0 0; font-size: .88rem; color: #64748b; }
+  .fa-btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--primary, #0f5a66) 40%, #fff); border-radius: 10px; color: var(--primary, #0f5a66); background: #fff; font-size: .86rem; font-weight: 700; text-decoration: none; }
+  .fa-day { margin: 18px 0 8px; display: flex; align-items: baseline; gap: 8px; }
+  .fa-day strong { font-size: .95rem; color: #0f172a; }
+  .fa-day span { font-size: .82rem; color: #64748b; }
+  .fa-list { display: grid; gap: 8px; }
+  .fa-item { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 12px 14px; border: 1px solid #e5e9ef; border-radius: 14px; background: #fff; }
+  .fa-date { display: grid; place-items: center; align-content: center; height: 52px; border-radius: 12px; background: color-mix(in srgb, var(--primary, #0f5a66) 10%, #fff); color: var(--primary, #0f5a66); }
+  .fa-date small { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .fa-date b { font-size: 1.25rem; line-height: 1; }
+  .fa-main h2 { margin: 0; font-size: .98rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .fa-meta { margin: 3px 0 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .82rem; color: #475569; }
+  .fa-who { display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 999px; background: #f1f4f7; color: #334155; font-size: .74rem; font-weight: 700; }
+  .fa-details { margin-top: 6px; font-size: .86rem; color: #334155; }
+  .fa-details summary { cursor: pointer; color: var(--primary, #0f5a66); font-weight: 700; list-style: none; }
+  .fa-details summary::-webkit-details-marker { display: none; }
+  .fa-details p { margin: 6px 0 0; white-space: pre-line; }
+  .fa-empty { margin: 30px 0; padding: 28px 18px; border: 1px dashed #d5dce4; border-radius: 16px; text-align: center; color: #64748b; }
+  .fa-empty strong { display: block; color: #0f172a; font-size: 1rem; margin-bottom: 4px; }
+  @media (max-width: 560px) { .fa-item { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 10px 12px; } .fa-date { height: 44px; } .fa-date b { font-size: 1.05rem; } }
+</style>
+<div class="fa-wrap">
+  <div class="fa-head">
+    <div>
+      <h1>Activities</h1>
+      <p><%= viewer === 'student' ? 'What’s coming up for you.' : 'What’s coming up for your children.' %></p>
+    </div>
+    <a class="fa-btn" href="<%= calendarHref %>">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Calendar
+    </a>
+  </div>
+  <% if (!faDays.length) { %>
+    <div class="fa-empty"><strong>Nothing coming up</strong>New activities show here, and on your calendar.</div>
+  <% } %>
+  <% faDays.forEach((day) => { const lbl = faLabel(day.date); %>
+    <div class="fa-day"><strong><%= lbl.named || lbl.full %></strong><% if (lbl.named) { %><span><%= lbl.full %></span><% } %></div>
+    <div class="fa-list">
+      <% day.items.forEach((a) => { const d = new Date(a.date + 'T12:00:00Z'); %>
+        <article class="fa-item">
+          <span class="fa-date" aria-hidden="true"><small><%= d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><b><%= d.getUTCDate() %></b></span>
+          <div class="fa-main">
+            <h2><%= a.title %></h2>
+            <p class="fa-meta"><span><%= faWhen(a) %></span><% if (a.location) { %><span><%= a.location %></span><% } %></p>
+            <% if (a.who) { %><span class="fa-who"><%= a.who %></span><% } %>
+            <% if (a.details) { %>
+              <% if (a.details.length > 140) { %>
+                <details class="fa-details"><summary>Details</summary><p><%= a.details %></p></details>
+              <% } else { %><p class="fa-details"><%= a.details %></p><% } %>
+            <% } %>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% }) %>
+</div>

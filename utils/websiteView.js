@@ -5,21 +5,47 @@
 // all of them and only the design changes.
 
 // Stored layout values (organization_dashboard.order_data.layout) -> design.
+// group: where the design picker lists it (standard, 3d, emblem).
+// A design with a "feature" shows only where that feature is on (utils/shards/features.js);
+// motion: true designs animate in 3D as visitors scroll (public/js/schoolSiteMotion.js);
+// emblem: true designs show the school's emblem as a watermark (utils/websiteEmblems.js);
+// base: an emblem design drawn on another design's page structure.
+const DESIGNS_FEATURE = "website_designs";
 const LAYOUTS = [
-  { value: "wireframe9", key: "academy", name: "Academy", description: "Full-screen photo or video opening, clear next steps, big numbers and a rich footer, like leading private schools." },
-  { value: "wireframe1", key: "classic", name: "Classic", description: "Full-width photo banner, centered sections in alternating bands." },
-  { value: "wireframe2", key: "horizon", name: "Modern", description: "Split welcome with photos beside it, clean card sections." },
-  { value: "wireframe3", key: "editorial", name: "Magazine", description: "Newspaper masthead, lead story, side column for events and notices." },
-  { value: "wireframe4", key: "story", name: "Story", description: "Large photo opening, numbered chapters and an events timeline." },
-  { value: "wireframe5", key: "campus", name: "Campus", description: "Side navigation with the school's details, focused content beside it." },
-  { value: "wireframe6", key: "spotlight", name: "Spotlight", description: "Bold brand-color welcome beside your photos, sections in alternating rows." },
-  { value: "wireframe7", key: "minimal", name: "Minimal", description: "Quiet and text-first: headings on the left, content on the right." },
-  { value: "wireframe8", key: "mosaic", name: "Mosaic", description: "A grid of tiles: photos, welcome, facts, events and news side by side." },
+  { value: "wireframe9", key: "academy", name: "Academy", description: "A full-screen opening, next steps and big numbers." },
+  { value: "wireframe1", key: "classic", name: "Classic", description: "A wide photo banner and centered sections." },
+  { value: "wireframe2", key: "horizon", name: "Modern", description: "Your welcome beside your photos, in clean cards." },
+  { value: "wireframe3", key: "editorial", name: "Magazine", description: "A newspaper look with a lead story." },
+  { value: "wireframe4", key: "story", name: "Story", description: "A large photo opening and numbered chapters." },
+  { value: "wireframe5", key: "campus", name: "Campus", description: "A side menu with your school's details." },
+  { value: "wireframe6", key: "spotlight", name: "Spotlight", description: "A bold welcome in your color beside your photos." },
+  { value: "wireframe7", key: "minimal", name: "Minimal", description: "Quiet and text-first." },
+  { value: "wireframe8", key: "mosaic", name: "Mosaic", description: "A grid of tiles: photos, facts and news." },
+  { value: "wireframe10", key: "glide", name: "Glide", group: "3d", feature: DESIGNS_FEATURE, motion: true, style: "Simple", description: "Calm and simple. Your photo tilts into place as visitors scroll." },
+  { value: "wireframe11", key: "prism", name: "Prism", group: "3d", feature: DESIGNS_FEATURE, motion: true, style: "Modern", description: "Glass panels, a 3D photo stack and a photo wall that straightens." },
+  { value: "wireframe12", key: "panorama", name: "Panorama", group: "3d", feature: DESIGNS_FEATURE, motion: true, style: "Bold", description: "Full-screen scenes and a gallery that sweeps sideways." },
+  { value: "wireframe13", key: "orbit", base: "prism", name: "Orbit", group: "3d", feature: DESIGNS_FEATURE, motion: true, emblem: true, style: "Emblem", description: "Your emblem floats in 3D behind glass and turns as visitors scroll." },
+  { value: "wireframe14", key: "crest", base: "classic", name: "Crest", group: "emblem", feature: DESIGNS_FEATURE, emblem: true, style: "Classic", description: "Your emblem large behind the school's name, with a soft pattern." },
+  { value: "wireframe15", key: "mascot", base: "spotlight", name: "Mascot", group: "emblem", feature: DESIGNS_FEATURE, emblem: true, style: "Spirit", description: "A bold welcome in your color with your mascot beside it." },
 ];
+LAYOUTS.forEach((l) => { if (!l.group) l.group = "standard"; });
 const LAYOUT_VALUES = LAYOUTS.map((l) => l.value);
+// Whole photos (never cropped; a soft blur of the photo fills any spare space) come with the same release.
+const WHOLE_PHOTOS_FEATURE = DESIGNS_FEATURE;
+const LAYOUT_GROUPS = [
+  { key: "standard", name: "Standard", note: "Clean, classic pages." },
+  { key: "3d", name: "3D", note: "Smooth 3D movement as visitors scroll." },
+  { key: "emblem", name: "Emblem", note: "Your mascot or symbol as a soft watermark." },
+];
 
-function layoutFor(value) {
-  return LAYOUTS.find((l) => l.value === value) || LAYOUTS.find((l) => l.value === "wireframe1");
+const everyFeature = () => true;
+// The designs a school can use: every design, less those behind a feature that is off for it.
+function layoutsFor(isOn = everyFeature) {
+  return LAYOUTS.filter((l) => !l.feature || isOn(l.feature));
+}
+
+function layoutFor(value, isOn = everyFeature) {
+  return layoutsFor(isOn).find((l) => l.value === value) || LAYOUTS.find((l) => l.value === "wireframe1");
 }
 
 // Default order of the page's sections (the school can change it).
@@ -105,11 +131,24 @@ function registrationInfo(org, now) {
   };
 }
 
+// The emblem an emblem design shows: one of ours, the school's logo or its own image.
+// Image links go into the page's CSS, so only plain https links are used.
+const cssSafeUrl = (url) => (/^https:\/\/[^\s"'()<>\\]+$/i.test(String(url || "")) ? String(url) : "");
+function emblemFor(setting, org) {
+  const s = setting || {};
+  const placement = s.placement === "single" ? "single" : "pattern";
+  const imageUrl = s.kind === "image" ? cssSafeUrl(s.imageUrl) : (s.kind === "logo" ? cssSafeUrl(clean(org.logo)) : "");
+  if (imageUrl) return { kind: "image", imageUrl, placement, isLogo: s.kind === "logo" };
+  const emblems = require("./websiteEmblems");
+  const icon = emblems.isEmblem(s.icon) ? s.icon : emblems.DEFAULT_EMBLEM;
+  return { kind: "icon", icon, placement, svg: (prefix) => emblems.emblemSvg(icon, { idPrefix: prefix }), maskUrl: emblems.emblemMaskUrl(icon), patternUrl: emblems.emblemPatternUrl(icon) };
+}
+
 /**
  * @param {object} input
  *   orgDetails, aboutDetails, slideshowImages, galleryImages, texts, events,
  *   announcements, extras (visibleSections), page ({order,hidden,titles}),
- *   layout (stored value), now
+ *   layout (stored value), now, isOn (feature key -> on for this school)
  */
 function buildSiteModel(input = {}) {
   const org = input.orgDetails || {};
@@ -117,7 +156,8 @@ function buildSiteModel(input = {}) {
   const extras = input.extras || {};
   const page = input.page || { order: [], hidden: [], titles: {} };
   const now = input.now || new Date();
-  const layout = layoutFor(input.layout);
+  const isOn = typeof input.isOn === "function" ? input.isOn : () => false;
+  const layout = layoutFor(input.layout, isOn);
 
   const emails = list(about.emails);
   const phones = list(about.phones);
@@ -192,8 +232,13 @@ function buildSiteModel(input = {}) {
   };
 
   return {
-    layout: layout.key,
+    // The page structure, and the design drawn on it (the same, unless the design has a base).
+    layout: layout.base || layout.key,
+    design: layout.key,
     layoutName: layout.name,
+    motion: Boolean(layout.motion),
+    wholePhotos: Boolean(layout.motion) || isOn(WHOLE_PHOTOS_FEATURE),
+    emblem: layout.emblem ? emblemFor(extras.emblem, org) : null,
     school: {
       id: org.organization_id,
       name: clean(org.organization_name) || "Our School",
@@ -227,4 +272,4 @@ function buildSiteModel(input = {}) {
   };
 }
 
-module.exports = { LAYOUTS, LAYOUT_VALUES, layoutFor, buildSiteModel, stripHtml };
+module.exports = { LAYOUTS, LAYOUT_GROUPS, LAYOUT_VALUES, WHOLE_PHOTOS_FEATURE, DESIGNS_FEATURE, layoutsFor, layoutFor, buildSiteModel, stripHtml };

@@ -567,6 +567,14 @@ main { padding: 0 !important; max-width: none !important; }
   transition: opacity 0.12s ease, max-width 0.16s ease;
 }
 
+/* A long menu label may wrap onto a second line instead of being cut off. */
+.hub-nav .nav-link > span.nav-link-wrap,
+.management-nav .nav-link > span.nav-link-wrap,
+.settings-nav .nav-link > span.nav-link-wrap {
+  white-space: normal;
+  line-height: 1.25;
+}
+
 .hub-nav.is-collapsed .nav-link > span:not(.nav-link-icon),
 .management-nav.is-collapsed .nav-link > span:not(.nav-link-icon),
 .settings-nav.is-collapsed .nav-link > span:not(.nav-link-icon) {

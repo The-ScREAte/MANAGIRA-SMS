@@ -1,0 +1,16 @@
+<%#
+  An uploaded photo, always shown whole. When the photo's shape is close to its
+  frame's it fills the frame edge to edge; otherwise the whole photo shows over a
+  soft, blurred copy of itself, so nothing is ever cut off (the script in site.ejs
+  decides once the photo has loaded; without scripts the whole photo shows).
+  fit: "photo" (crops at most 12%, e.g. a 3:2 camera photo in a 4:3 frame), "person" (faces: up to 30%, kept near the top),
+  "hero" (big openings: up to 22%). Without whole photos (site.wholePhotos off) this
+  is the plain image the designs always had.
+  locals: site, src, alt, cls, fit, lazy (default true), priority, signed
+%>
+<%
+  // signed: the link is made for this visitor (photos kept outside the public folders).
+  const photoUrl = locals.signed ? publicImageUrl(src) : publicImageUrl(src, { public: true });
+  const loadAttr = locals.lazy === false ? (locals.priority ? ' fetchpriority="high"' : '') : ' loading="lazy"';
+%>
+<% if (!site.wholePhotos) { %><img class="<%= locals.cls || '' %>" src="<%= photoUrl %>" alt="<%= alt %>"<%- loadAttr %>><% } else { %><span class="sw-photo <%= locals.cls || '' %>" data-sw-photo="<%= locals.fit || 'photo' %>"><img class="sw-photo__blur" src="<%= photoUrl %>" alt="" aria-hidden="true" loading="lazy" decoding="async"><img class="sw-photo__img" src="<%= photoUrl %>" alt="<%= alt %>"<%- loadAttr %> decoding="async"></span><% } %>

@@ -1,0 +1,25 @@
+<%#
+  The menu of the 3D designs (Glide, Prism, Panorama): the school's name, its
+  main sections and the main action, with a thin line that fills as visitors
+  scroll down the page. locals: site, variant ("light" | "glass" | "dark")
+%>
+<%
+  const navSchool = site.school;
+  const navKeys = site.blocks.filter((k) => !['quickFacts', 'welcome', 'testimonials', 'achievements', 'faq', 'leadership'].includes(k)).slice(0, 6);
+  const navNames = { about: 'About', programs: 'Programs', admissions: 'Admissions', gallery: 'Gallery', events: 'Events', announcements: 'Notices', articles: 'News', contact: 'Contact' };
+%>
+<nav class="sw-mo-nav sw-mo-nav--<%= variant %>" aria-label="Website sections">
+  <div class="sw-wrap sw-mo-nav__in">
+    <a class="sw-mo-brand" href="#top">
+      <% if (navSchool.logo) { %><img src="<%= publicImageUrl(navSchool.logo, { public: true }) %>" alt="" aria-hidden="true"><% } else { %><span class="sw-mo-brand__initials" aria-hidden="true"><%= navSchool.initials %></span><% } %>
+      <span class="sw-mo-brand__name"><%= navSchool.name %></span>
+    </a>
+    <% if (navKeys.length) { %>
+      <div class="sw-mo-nav__links">
+        <% navKeys.forEach((key) => { %><a href="#<%= site.anchors[key] || ('sw-' + key) %>"><%= navNames[key] || key %></a><% }) %>
+      </div>
+    <% } %>
+    <% if (site.registration.open) { %><a class="sw-btn sw-btn--primary sw-mo-nav__cta" href="<%= site.registration.url %>">Apply</a><% } else if (site.blocks.includes('contact')) { %><a class="sw-btn sw-btn--primary sw-mo-nav__cta" href="#contact">Contact us</a><% } %>
+  </div>
+  <span class="sw-mo-progress" aria-hidden="true"><i></i></span>
+</nav>

@@ -6,9 +6,9 @@ const registry = require("./registry");
 // Add a new feature here with access "selected", then wrap it: isOn("key", { organizationId }).
 const FEATURES = {
   transport_report_builder: { label: "Transportation reports", access: "everyone" },
-  bus_boarding: { label: "Bus boarding and not coming", access: "selected" },
-  class_activities: { label: "Activities and calendars", access: "selected" },
-  parent_student_hub: { label: "Parent tiles and homework help", access: "selected" },
+  bus_boarding: { label: "Bus boarding and not coming", access: "everyone" },
+  class_activities: { label: "Activities and calendars", access: "everyone" },
+  parent_student_hub: { label: "Parent tiles and homework help", access: "everyone" },
   sso: { label: "Single sign-on (SAML and OpenID Connect)", access: "everyone" },
   // The login page has one email box for everyone and no links to the other portals, so taking
   // parents, students and hubs to their own portal is on for everyone. Each portal still checks
@@ -18,6 +18,8 @@ const FEATURES = {
   new_landing: { label: "New managira.com homepage and Mira page (release to everyone to show it)", access: "everyone" },
   mira_outreach: { label: "Mira: students below an attendance level, and a message draft for each family", access: "everyone" },
   tenant_config: { label: "Tenant configuration: sign-in rules in Settings, and signing out after 24 hours unless a school changes it", access: "everyone" },
+  family_sharing: { label: "Emergency & pickup details shared with parents (who can update them), students, teachers and drivers", access: "everyone" },
+  website_designs: { label: "School website: 3D designs that move as visitors scroll, emblem designs with the school's mascot as a watermark, and photos always shown whole", access: "everyone" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

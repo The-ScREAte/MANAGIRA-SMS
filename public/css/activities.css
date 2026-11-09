@@ -41,3 +41,8 @@
 }
 .manage-activities { box-sizing: border-box; width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
 .manage-activities h1 { margin: 0 0 14px; padding: 0; color: var(--text, #0f172a); font-size: 1.2rem; font-weight: 700; text-align: left; }
+
+/* The reminder choice on the add/edit form. */
+.act-check { display: flex; align-items: center; gap: 9px; margin: 2px 0 0; font-size: .88rem; font-weight: 600; color: #334155; cursor: pointer; }
+.act-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary, #0f5a66); }
+.act-field[hidden] { display: none; }

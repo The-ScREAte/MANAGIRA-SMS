@@ -437,7 +437,7 @@
 
   <div class="mr-setup-banner mr-send-only" id="mrSetupBanner">
     <span id="mrSetupBannerText">Text and WhatsApp aren't set up for this school yet — only Email can be used to reach guardians.</span>
-    <a href="/common/management?panel=integrations&page=%2Faccount%2Fsettings%3Fsection%3Dintegrations&label=Integrations">Activate in Integrations</a>
+    <a href="/common/management?panel=integrations&page=%2Faccount%2Fsettings%3Fsection%3Dintegrations&label=Integrations" data-no-spa>Activate in Integrations</a>
   </div>
 
   <div class="mr-drawer-backdrop" id="mrDrawerBackdrop"></div>
@@ -706,9 +706,9 @@
   // Opened from a name in the contact list (needs "See Contacts"). With "Edit
   // Contacts" every field is editable in place and Save lights up once
   // something changes. Tabs: Contact info, Children, then one per section of
-  // the school's contact template (Management Tools > Contact template).
+  // the school's parents and guardians fields (Admissions > Admission Settings).
   const canSeeContacts = document.getElementById('mailroomRoot').dataset.canSeeContacts === '1';
-  const TEMPLATE_URL = '/common/management?panel=contact-template&page=%2Fcommon%2Fcontact-template&label=Contact%20Template';
+  const TEMPLATE_URL = '/common/admissions?panel=online-admission-settings&page=%2Fcommon%2FadmissionSettings%3Ftab%3Dfamily&label=Admission%20Settings';
   const cardState = { contact: null, data: null, tab: 'info', initial: '', saving: false };
   const AVATAR_COLORS = ['#7c5cf0', '#0ea5e9', '#0f9f8f', '#f97316', '#e0457b', '#5b6ee8', '#16a34a', '#c2410c'];
   const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
@@ -781,7 +781,7 @@
           </div>
         </div>
         <div class="cc-actions">
-          ${canEditTemplate ? `<a class="cc-btn" href="${TEMPLATE_URL}" data-no-spa data-card-template title="Change the fields every contact card has">${cardSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>')}Edit template</a>` : ''}
+          ${canEditTemplate ? `<a class="cc-btn" href="${TEMPLATE_URL}" data-no-spa data-card-template title="Change the fields every parent's card has">${cardSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>')}Edit fields</a>` : ''}
           <button type="button" class="cc-btn" data-card-close>Close</button>
           ${canEdit ? '<button type="button" class="cc-btn cc-btn--primary" data-card-save disabled>Save</button>' : ''}
         </div>
@@ -816,7 +816,7 @@
               ${ccField('hometown', 'Hometown', b.hometown, { attrs: `maxlength="120" ${ro}` })}
             </div>
           </div>
-          ${!d.fields.length && canEditTemplate ? '<p class="cc-empty" style="padding:14px">Keep more details for every contact: <a href="${TEMPLATE_URL}" data-no-spa data-card-template>add fields in the contact template</a>.</p>' : ''}`)}
+          ${!d.fields.length && canEditTemplate ? `<p class="cc-empty" style="padding:14px">Keep more details for every family: <a href="${TEMPLATE_URL}" data-no-spa data-card-template>add parent fields</a>.</p>` : ''}`)}
         ${panel('kids', d.students.length
           ? `<div class="cc-kids">${d.students.map((k) => `<div class="cc-kid"><span class="cc-kid__av">${escapeHtml(initials(k.name))}</span><div><strong>${escapeHtml(k.name)}</strong><span>${escapeHtml([k.className, k.relationship].filter(Boolean).join(' · ') || 'Student')}</span></div></div>`).join('')}</div>`
           : '<div class="cc-empty">No children are linked to this contact.</div>')}

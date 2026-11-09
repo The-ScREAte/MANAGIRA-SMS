@@ -1,4 +1,4 @@
-// Shared calendar/task UI: create dialog (event / announcement / task), people
+// Shared calendar/task UI: create dialog (event / announcement / task / activity), people
 // picker, @mention autocomplete and a toast. Exposes window.Workspace.
 // Used by views/common/calendar.ejs and views/common/orgDashboard.ejs.
 (function () {
@@ -31,7 +31,7 @@
     });
     let data = {};
     try { data = await r.json(); } catch (_e) { /* ignore */ }
-    if (!r.ok || data.success === false) throw new Error(data.error || 'Something went wrong. Please try again.');
+    if (!r.ok || data.success === false) throw new Error(data.error || data.message || 'Something went wrong. Please try again.');
     return data;
   }
 
@@ -206,6 +206,7 @@
           <button type="button" class="ws-tab" data-ws-tab="event" role="tab"><i class="fa-regular fa-calendar"></i> Event</button>
           <button type="button" class="ws-tab" data-ws-tab="announcement" role="tab"><i class="fa-solid fa-bullhorn"></i> Announcement</button>
           <button type="button" class="ws-tab" data-ws-tab="task" role="tab"><i class="fa-regular fa-square-check"></i> Task</button>
+          <button type="button" class="ws-tab" data-ws-tab="activity" role="tab" hidden><i class="fa-regular fa-calendar-check"></i> Activity</button>
         </div>
         <div class="ws-dialog__body">
           <div class="ws-pane" data-ws-pane="event">
@@ -251,6 +252,27 @@
                 <div class="ws-seg">${['low', 'normal', 'high'].map((p) => `<label><input type="radio" name="tk_priority" value="${p}"${p === 'normal' ? ' checked' : ''}><span>${p[0].toUpperCase() + p.slice(1)}</span></label>`).join('')}</div></div>
             </div>
           </div>
+          <div class="ws-pane" data-ws-pane="activity" hidden>
+            <input class="ws-input ws-input--title" name="ac_title" placeholder="Add a title, e.g. Field trip to the museum" maxlength="200" aria-label="Activity title">
+            <div class="ws-row">
+              <div class="ws-field"><label class="ws-label" for="ws-ac-for">For</label><select class="ws-select" id="ws-ac-for" name="ac_class"></select></div>
+              <div class="ws-field" data-ws-ac-student style="display:none"><label class="ws-label" for="ws-ac-student">Student</label><select class="ws-select" id="ws-ac-student" name="ac_student"><option value="">The whole class</option></select></div>
+            </div>
+            <div class="ws-inline">
+              <label class="ws-check"><input type="checkbox" name="ac_allday" checked> All day</label>
+            </div>
+            <div class="ws-row">
+              <div class="ws-field"><label class="ws-label" for="ws-ac-date">Date</label><input class="ws-input" type="date" id="ws-ac-date" name="ac_date"></div>
+              <div class="ws-field"><label class="ws-label" for="ws-ac-enddate">Ends <span class="ws-hint">(optional)</span></label><input class="ws-input" type="date" id="ws-ac-enddate" name="ac_enddate"></div>
+            </div>
+            <div class="ws-row" data-ws-ac-time>
+              <div class="ws-field"><label class="ws-label" for="ws-ac-start">Start time</label><input class="ws-input" type="time" id="ws-ac-start" name="ac_start" step="300"></div>
+              <div class="ws-field"><label class="ws-label" for="ws-ac-end">End time</label><input class="ws-input" type="time" id="ws-ac-end" name="ac_end" step="300"></div>
+            </div>
+            <div class="ws-field"><label class="ws-label" for="ws-ac-loc">Location</label><input class="ws-input" id="ws-ac-loc" name="ac_location" placeholder="e.g. City science museum" maxlength="200"></div>
+            <div class="ws-field"><label class="ws-label" for="ws-ac-details">Details</label><textarea class="ws-textarea" id="ws-ac-details" name="ac_details" placeholder="What should families know or bring?"></textarea><span class="ws-hint">Families see it in their portal and on their calendar.</span></div>
+            <label class="ws-check" data-ws-ac-remind style="display:none"><input type="checkbox" name="ac_remind"> Email families a reminder the day before</label>
+          </div>
           <p class="ws-error" data-ws-error role="alert"></p>
         </div>
         <div class="ws-dialog__foot">
@@ -274,6 +296,9 @@
     form.ev_allday.addEventListener('change', syncAllDay);
     form.ev_visibility.addEventListener('change', syncVisibility);
     form.ev_date.addEventListener('change', () => { if (!form.ev_enddate.value || form.ev_enddate.value < form.ev_date.value) form.ev_enddate.value = form.ev_date.value; });
+    form.ac_allday.addEventListener('change', syncActivityTime);
+    form.ac_class.addEventListener('change', loadActivityStudents);
+    form.ac_date.addEventListener('change', () => { if (form.ac_enddate.value && form.ac_enddate.value < form.ac_date.value) form.ac_enddate.value = ''; });
     form.addEventListener('submit', (e) => { e.preventDefault(); save(); });
     dialog.querySelector('[data-ws-delete]').addEventListener('click', remove);
   }
@@ -288,6 +313,60 @@
     dialog.querySelectorAll('[data-ws-time]').forEach((el) => { el.style.display = allDay ? 'none' : ''; });
   }
 
+  // ---------- activity (whole school, a class or one student) ----------
+  // Where this person can add one comes from the server once per page (GET /common/activities/classes).
+  let placesPromise = null;
+  function loadActivityPlaces() {
+    if (!placesPromise) {
+      placesPromise = fetch('/common/activities/classes', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then((r) => r.json().catch(() => ({})).then((d) => (r.ok && d.success ? d : { wholeSchool: false, classes: [], oneStudent: false, failed: true })))
+        .catch(() => ({ wholeSchool: false, classes: [], oneStudent: false, failed: true }));
+    }
+    return placesPromise;
+  }
+
+  async function fillActivityPlaces() {
+    const form = dialog.querySelector('form');
+    const select = form.ac_class;
+    if (select.dataset.ready === '1') return;
+    select.innerHTML = '<option value="">Loading…</option>';
+    const places = await loadActivityPlaces();
+    if (places.failed) placesPromise = null;
+    const options = (places.wholeSchool ? ['<option value="">Whole school</option>'] : [])
+      .concat(places.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`));
+    select.innerHTML = options.join('') || '<option value="" disabled>No classes yet</option>';
+    select.dataset.ready = places.failed ? '' : '1';
+    select.dataset.oneStudent = places.oneStudent ? '1' : '';
+    dialog.querySelector('[data-ws-ac-remind]').style.display = places.oneStudent ? '' : 'none';
+    if (places.failed) dialog.querySelector('[data-ws-error]').textContent = 'Classes could not load. Close this and try again.';
+    else if (!options.length) dialog.querySelector('[data-ws-error]').textContent = 'You can add activities for your own classes once you have one.';
+    loadActivityStudents();
+  }
+
+  // One student: pick them from the chosen class (only once the school's database has it).
+  let studentsRequest = 0;
+  async function loadActivityStudents() {
+    const form = dialog.querySelector('form');
+    const row = dialog.querySelector('[data-ws-ac-student]');
+    const classId = form.ac_class.value;
+    form.ac_student.innerHTML = '<option value="">The whole class</option>';
+    row.style.display = classId && form.ac_class.dataset.oneStudent === '1' ? '' : 'none';
+    if (!classId || form.ac_class.dataset.oneStudent !== '1') return;
+    const ask = ++studentsRequest;
+    try {
+      const r = await fetch('/common/activities/students?classId=' + encodeURIComponent(classId), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      const d = await r.json();
+      if (ask !== studentsRequest || !d.success) return;
+      form.ac_student.innerHTML = '<option value="">The whole class</option>'
+        + d.students.map((st) => `<option value="${st.id}">${esc(st.name)}</option>`).join('');
+    } catch (_e) { /* the whole class stays chosen */ }
+  }
+
+  function syncActivityTime() {
+    const allDay = dialog.querySelector('[name="ac_allday"]').checked;
+    dialog.querySelector('[data-ws-ac-time]').style.display = allDay ? 'none' : '';
+  }
+
   function showTab(type) {
     current.type = type;
     dialog.querySelectorAll('[data-ws-tab]').forEach((t) => {
@@ -297,7 +376,8 @@
     });
     dialog.querySelectorAll('[data-ws-pane]').forEach((p) => { p.hidden = p.dataset.wsPane !== type; });
     dialog.querySelector('[data-ws-error]').textContent = '';
-    const focus = { event: '[name="ev_title"]', announcement: '[name="an_message"]', task: '[name="tk_title"]' }[type];
+    if (type === 'activity') fillActivityPlaces();
+    const focus = { event: '[name="ev_title"]', announcement: '[name="an_message"]', task: '[name="tk_title"]', activity: '[name="ac_title"]' }[type];
     setTimeout(() => { const el = dialog.querySelector(focus); if (el) el.focus(); }, 30);
   }
 
@@ -315,6 +395,7 @@
     dialog.querySelector('[data-ws-tab="event"]').hidden = false;
     dialog.querySelector('[data-ws-tab="announcement"]').hidden = !canPublish || editing;
     dialog.querySelector('[data-ws-tab="task"]').hidden = editing;
+    dialog.querySelector('[data-ws-tab="activity"]').hidden = editing || !opts.canActivity;
     dialog.querySelector('.ws-tabs').style.display = editing ? 'none' : '';
     dialog.querySelector('#ws-dialog-title').textContent = editing ? (opts.event.kind === 'personal' ? 'Edit personal event' : 'Edit event') : 'Create';
     dialog.querySelector('[data-ws-delete]').hidden = !editing;
@@ -348,6 +429,14 @@
     form.an_visibility.value = opts.hasWebsite ? 'both' : 'org';
     pickers.event.set([]);
     pickers.task.set([]);
+    form.ac_date.value = dateKey(start);
+    form.ac_enddate.value = '';
+    form.ac_allday.checked = true;
+    form.ac_start.value = '09:00';
+    form.ac_end.value = '';
+    form.ac_class.selectedIndex = form.ac_class.options.length ? 0 : -1;
+    syncActivityTime();
+    if (form.ac_class.dataset.ready === '1') loadActivityStudents();
 
     if (editing) {
       const ev = opts.event;
@@ -367,7 +456,8 @@
 
     syncAllDay();
     syncVisibility();
-    const type = editing ? 'event' : (opts.type === 'announcement' && !canPublish ? 'event' : (opts.type || 'event'));
+    const type = editing ? 'event'
+      : (opts.type === 'announcement' && !canPublish) || (opts.type === 'activity' && !opts.canActivity) ? 'event' : (opts.type || 'event');
     if (!dialog.open) dialog.showModal();
     showTab(type);
   }
@@ -402,6 +492,26 @@
       const base = personal ? '/common/calendar/personal' : '/common/calendar/events';
       url = current.event ? `${base}/${current.event.id}` : base;
       if (personal) body.notifyByEmail = false;
+    } else if (current.type === 'activity') {
+      const allDay = form.ac_allday.checked;
+      body = {
+        title: form.ac_title.value.trim(),
+        classId: form.ac_class.value || null,
+        studentId: form.ac_student.value || null,
+        date: form.ac_date.value,
+        endDate: form.ac_enddate.value || '',
+        startTime: allDay ? '' : form.ac_start.value,
+        endTime: allDay ? '' : form.ac_end.value,
+        location: form.ac_location.value.trim(),
+        details: form.ac_details.value.trim(),
+        remind: form.ac_remind.checked && form.ac_class.dataset.oneStudent === '1',
+      };
+      if (form.ac_class.dataset.ready !== '1' || !form.ac_class.options.length || form.ac_class.selectedOptions[0]?.disabled) { error.textContent = 'Choose who the activity is for.'; return; }
+      if (!body.title) { error.textContent = 'Give the activity a title.'; form.ac_title.focus(); return; }
+      if (!body.date) { error.textContent = 'Pick a date.'; return; }
+      if (!allDay && !body.startTime) { error.textContent = 'Pick a start time, or tick All day.'; return; }
+      if (body.endDate && body.endDate < body.date) { error.textContent = 'The end date is before the start date.'; return; }
+      url = '/common/activities/save';
     } else if (current.type === 'announcement') {
       body = { message: form.an_message.value.trim(), visibility: form.an_visibility.value, notifyByEmail: form.an_notify.checked };
       if (!body.message) { error.textContent = 'Write the announcement first.'; form.an_message.focus(); return; }
@@ -426,7 +536,7 @@
       const type = current.type;
       const onSaved = current.onSaved;
       dialog.close();
-      toast({ event: current.event ? 'Event updated' : 'Event added', announcement: 'Announcement posted', task: 'Task sent' }[type]);
+      toast({ event: current.event ? 'Event updated' : 'Event added', announcement: 'Announcement posted', task: 'Task sent', activity: 'Activity added' }[type]);
       if (onSaved) onSaved(type);
     } catch (err) {
       error.textContent = err.message;

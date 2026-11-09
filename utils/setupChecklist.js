@@ -161,7 +161,7 @@ const STEPS = [
     feature: WEBSITE,
     title: "Open online admissions",
     hint: "Let families apply from your website; you review them in Admissions → Online Admission.",
-    href: admissions("online-admission-settings", "/account/managePublicContent?focus=registration", "Online admission settings"),
+    href: admissions("online-admission-settings", "/common/admissionSettings", "Admission Settings"),
     sql: `SELECT COALESCE(public_registration_enabled, FALSE) AS done FROM organizations WHERE organization_id = $1`,
   },
 ];

@@ -3,6 +3,7 @@
 const db = require("../config/db");
 const fields = require("../utils/studentFormFields");
 const websiteExtras = require("../utils/websiteExtras");
+const contacts = require("../utils/contacts");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 
 function actor(req) {
@@ -17,6 +18,9 @@ function actor(req) {
 }
 
 const canManage = (req) => userHasPermission(db, actor(req), PERMISSIONS.SETTINGS_ADMISSIONS).catch(() => false);
+// The parents and guardians fields (the contact template) are edited here too: one
+// place for everything a school records about its students and their families.
+const canEditFamily = (req) => userHasPermission(db, actor(req), PERMISSIONS.EDIT_CONTACT_TEMPLATE).catch(() => false);
 
 // Online admission needs the school website (its Apply Now button).
 const hasWebsite = (res) => {
@@ -31,29 +35,39 @@ function fail(res, err, fallback) {
 }
 
 module.exports = {
-  // GET /common/admissionSettings?tab=online|forms
+  // GET /common/admissionSettings?tab=online|forms|family
+  // Online admission and student fields need Admission Settings; the parents and
+  // guardians fields need Edit Contact Template. Each person sees the tabs they can use.
   page: async (req, res) => {
-    if (!(await canManage(req))) {
+    const [canAdmissions, canFamily] = await Promise.all([canManage(req), canEditFamily(req)]);
+    if (!canAdmissions && !canFamily) {
       req.flash("error", "You don't have permission to change admission settings.");
       return res.redirect("/common/admissions");
     }
     try {
       const organizationId = Number(req.session.organizationId);
-      const website = hasWebsite(res);
-      const [orgRow, list] = await Promise.all([
+      const website = hasWebsite(res) && canAdmissions;
+      const [orgRow, list, familyTemplate] = await Promise.all([
         db.query(
           `SELECT public_registration_enabled, registration_start_date, registration_end_date,
                   public_registration_price, public_registration_currency
              FROM organizations WHERE organization_id = $1`,
           [organizationId]
         ),
-        fields.listFields(db, organizationId),
+        canAdmissions ? fields.listFields(db, organizationId) : [],
+        canFamily ? contacts.getTemplate(db, organizationId).catch(() => ({ sections: [], fields: [] })) : null,
       ]);
       const org = orgRow.rows[0] || {};
-      const tab = website && req.query.tab !== "forms" ? "online" : "forms";
+      const tabs = [website && "online", canAdmissions && "forms", canFamily && "family"].filter(Boolean);
+      const tab = tabs.includes(req.query.tab) ? req.query.tab : tabs[0];
       return res.render("common/admissionSettings", {
         title: "Admission Settings",
         tab,
+        canAdmissions,
+        canFamily,
+        familyTemplate,
+        familyBaseFields: contacts.BASE_FIELDS,
+        familyFieldTypes: contacts.FIELD_TYPES,
         hasWebsite: website,
         org,
         organizationId,
@@ -61,7 +75,11 @@ module.exports = {
         formFields: list,
         fieldTypes: fields.FIELD_TYPES,
         standardFields: fields.STANDARD_FIELDS,
-        fieldSections: fields.SECTIONS,
+        // Parent details belong under Parents & guardians (kept once per parent). The student
+        // form's Guardian Details part is offered only to schools already using it.
+        fieldSections: (canFamily && !list.some((f) => f.section === "guardian"))
+          ? Object.fromEntries(Object.entries(fields.SECTIONS).filter(([key]) => key !== "guardian"))
+          : fields.SECTIONS,
         messages: req.flash(),
       });
     } catch (err) {

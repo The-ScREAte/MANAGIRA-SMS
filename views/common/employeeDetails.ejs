@@ -59,9 +59,17 @@
 
   .employee-details {
     flex: 1;
+    min-width: 0;
     font-size: 14px;
     color: #333;
     text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  /* Phones: the photo above the details, so a long email never pushes the page sideways. */
+  @media (max-width: 560px) {
+    .employee-info-container { flex-direction: column; gap: 12px; }
+    .employee-details { width: 100%; }
   }
 
   .employee-details h2 {

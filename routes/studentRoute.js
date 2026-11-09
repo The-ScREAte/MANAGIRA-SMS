@@ -46,6 +46,10 @@ module.exports = (db) => {
   );
 
   const familyCalendar = require("../controllers/familyCalendarController");
+  router.get("/family-details", isStudentAuthenticated, require("../controllers/familyDetailsController").studentGet);
+  router.get("/activities", isStudentAuthenticated, require("../controllers/familyActivitiesController").studentPage);
+  // A student's own settings (appearance; it isn't in the menu any more).
+  router.get("/settings", isStudentAuthenticated, (req, res) => res.render("student/settings", { title: "Settings" }));
   router.get("/calendar", isStudentAuthenticated, (req, res) => familyCalendar.studentPage(req, res, db));
   router.get("/calendar/feed", isStudentAuthenticated, (req, res) => familyCalendar.studentFeed(req, res, db));
   router.get("/calendar/sync", isStudentAuthenticated, (req, res) => familyCalendar.studentSync(req, res, db));

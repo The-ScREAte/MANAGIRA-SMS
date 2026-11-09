@@ -1,0 +1,161 @@
+<%#
+  The emblem for the emblem designs (Crest, Mascot, Orbit): one of our mascots
+  or symbols (utils/websiteEmblems.js), the school's logo, or its own image,
+  shown as a soft pattern or one large emblem. It is saved with the design
+  (Save design): the emblem first, then the design form.
+  locals: emblems, emblem, logoUrl
+%>
+<%
+  const _em = emblem || {};
+  const _kind = _em.kind === 'image' && _em.imageUrl ? 'image' : (_em.kind === 'logo' && logoUrl ? 'logo' : 'icon');
+  const _icon = (emblems.find((e) => e.key === _em.icon) || emblems.find((e) => e.key === 'shield') || emblems[0] || {});
+  const _imageUrl = _em.imageUrl ? publicImageUrl(_em.imageUrl, { public: true }) : '';
+  const _place = _em.placement === 'single' ? 'single' : 'pattern';
+%>
+<section class="mpc-emblem" id="mpcEmblem" aria-labelledby="mpcEmblemTitle"
+  data-kind="<%= _kind %>" data-icon="<%= _icon.key %>" data-image="<%= _em.imageUrl || '' %>" data-placement="<%= _place %>">
+  <div class="mpc-emblem__top">
+    <div class="mpc-emblem__intro">
+      <h3 id="mpcEmblemTitle">Your emblem</h3>
+      <p>A soft watermark in your school color.</p>
+    </div>
+    <div class="mpc-emblem__preview<%= _place === 'single' ? ' is-single' : '' %>" data-ap-skip aria-hidden="true">
+      <span class="mpc-emblem__pattern" data-emblem-pattern style="<%= _kind === 'icon' ? '--pat: url("' + _icon.pattern + '")' : '--img: url("' + (_kind === 'logo' ? logoUrl : _imageUrl) + '")' %>"></span>
+      <span class="mpc-emblem__big" data-emblem-big><% if (_kind === 'icon') { %><%- _icon.svg %><% } else { %><img src="<%= _kind === 'logo' ? logoUrl : _imageUrl %>" alt=""><% } %></span>
+    </div>
+  </div>
+
+  <div class="mpc-seg" role="radiogroup" aria-label="Emblem">
+    <label class="mpc-seg__opt"><input type="radio" name="emblemKind" value="icon"<%= _kind === 'icon' ? ' checked' : '' %>><span><i class="fa-solid fa-paw" aria-hidden="true"></i> Mascots &amp; symbols</span></label>
+    <label class="mpc-seg__opt"><input type="radio" name="emblemKind" value="logo"<%= _kind === 'logo' ? ' checked' : '' %><%= logoUrl ? '' : ' disabled' %>><span><i class="fa-solid fa-certificate" aria-hidden="true"></i> School logo</span></label>
+    <label class="mpc-seg__opt"><input type="radio" name="emblemKind" value="image"<%= _kind === 'image' ? ' checked' : '' %>><span><i class="fa-solid fa-image" aria-hidden="true"></i> Your image</span></label>
+  </div>
+
+  <div class="mpc-emblem__pane" data-emblem-pane="icon"<%= _kind === 'icon' ? '' : ' hidden' %>>
+    <% [['mascot', 'Mascots'], ['symbol', 'Symbols']].forEach(([group, label]) => { %>
+      <p class="mpc-emblem__sub"><%= label %></p>
+      <div class="mpc-emblem__grid" role="radiogroup" aria-label="<%= label %>">
+        <% emblems.filter((e) => e.group === group).forEach((e) => { %>
+          <label class="mpc-emblem__icon" title="<%= e.name %>">
+            <input type="radio" name="emblemIcon" value="<%= e.key %>"<%= e.key === _icon.key ? ' checked' : '' %> data-pattern="<%= e.pattern %>">
+            <span class="mpc-emblem__svg"><%- e.svg %></span>
+            <span class="mpc-emblem__name"><%= e.name %></span>
+          </label>
+        <% }) %>
+      </div>
+    <% }) %>
+  </div>
+  <div class="mpc-emblem__pane mpc-emblem__pane--row" data-emblem-pane="logo"<%= _kind === 'logo' ? '' : ' hidden' %>>
+    <% if (logoUrl) { %><img class="mpc-emblem__thumb" src="<%= logoUrl %>" alt="Your school logo"><span>Your logo from Settings.</span><% } else { %><span>Add your logo in Settings first.</span><% } %>
+  </div>
+  <div class="mpc-emblem__pane mpc-emblem__pane--row" data-emblem-pane="image"<%= _kind === 'image' ? '' : ' hidden' %>>
+    <img class="mpc-emblem__thumb" data-emblem-thumb src="<%= _imageUrl %>" alt="Your emblem image"<%= _imageUrl ? '' : ' hidden' %>>
+    <button type="button" class="mpc-btn-ghost" data-emblem-upload><i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i> <%= _imageUrl ? 'Replace image' : 'Upload image' %></button>
+    <span class="mpc-emblem__tip">A PNG with a clear background works best.</span>
+    <input type="file" accept="image/png,image/jpeg,image/webp" data-emblem-file hidden>
+  </div>
+
+  <div class="mpc-seg mpc-seg--small" role="radiogroup" aria-label="How it shows">
+    <label class="mpc-seg__opt"><input type="radio" name="emblemPlacement" value="pattern"<%= _place === 'pattern' ? ' checked' : '' %>><span>Pattern</span></label>
+    <label class="mpc-seg__opt"><input type="radio" name="emblemPlacement" value="single"<%= _place === 'single' ? ' checked' : '' %>><span>One large emblem</span></label>
+  </div>
+  <p class="mpc-emblem__status" data-emblem-status role="status" aria-live="polite"></p>
+</section>
+<script>
+  (function () {
+    var box = document.getElementById('mpcEmblem');
+    if (!box) return;
+    var form = box.closest('form');
+    var logoUrl = <%- JSON.stringify(logoUrl || '').replace(/</g, '\\u003c') %>;
+    var state = { kind: box.dataset.kind, icon: box.dataset.icon, imageUrl: box.dataset.image, placement: box.dataset.placement };
+    var saved = JSON.stringify(state);
+    var preview = box.querySelector('.mpc-emblem__preview');
+    var pattern = box.querySelector('[data-emblem-pattern]');
+    var big = box.querySelector('[data-emblem-big]');
+    var status = box.querySelector('[data-emblem-status]');
+    var thumb = box.querySelector('[data-emblem-thumb]');
+    var shownImage = <%- JSON.stringify(_imageUrl || '').replace(/</g, '\\u003c') %>;
+
+    function draw() {
+      box.querySelectorAll('[data-emblem-pane]').forEach(function (pane) { pane.hidden = pane.getAttribute('data-emblem-pane') !== state.kind; });
+      preview.classList.toggle('is-single', state.placement === 'single');
+      if (state.kind === 'icon') {
+        var chosen = box.querySelector('input[name="emblemIcon"][value="' + state.icon + '"]');
+        pattern.style.cssText = chosen ? '--pat: url("' + chosen.getAttribute('data-pattern') + '")' : '';
+        big.innerHTML = chosen ? chosen.closest('label').querySelector('.mpc-emblem__svg').innerHTML : '';
+      } else {
+        var src = state.kind === 'logo' ? logoUrl : shownImage;
+        pattern.style.cssText = src ? '--img: url("' + src.replace(/"/g, '%22') + '")' : '';
+        big.innerHTML = '';
+        if (src) { var img = document.createElement('img'); img.src = src; img.alt = ''; big.appendChild(img); }
+      }
+    }
+
+    box.addEventListener('change', function (event) {
+      var t = event.target;
+      if (t.name === 'emblemKind') state.kind = t.value;
+      if (t.name === 'emblemIcon') state.icon = t.value;
+      if (t.name === 'emblemPlacement') state.placement = t.value;
+      status.textContent = '';
+      draw();
+    });
+
+    // Upload an image (the website's image upload: optimized and stored for the website).
+    var file = box.querySelector('[data-emblem-file]');
+    var uploadBtn = box.querySelector('[data-emblem-upload]');
+    uploadBtn.addEventListener('click', function () { file.click(); });
+    file.addEventListener('change', async function () {
+      if (!file.files || !file.files[0]) return;
+      var body = new FormData();
+      body.append('image', file.files[0]);
+      uploadBtn.disabled = true;
+      status.className = 'mpc-emblem__status';
+      status.textContent = 'Uploading…';
+      try {
+        var res = await fetch('/account/website/image', { method: 'POST', body: body, credentials: 'same-origin' });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error(data.message || 'The image could not be uploaded.');
+        state.imageUrl = data.url;
+        shownImage = data.url;
+        thumb.src = data.url; thumb.hidden = false;
+        uploadBtn.lastChild.textContent = ' Replace image';
+        status.textContent = 'Uploaded. Save design to use it.';
+        draw();
+      } catch (error) {
+        status.className = 'mpc-emblem__status is-error';
+        status.textContent = error.message;
+      } finally {
+        uploadBtn.disabled = false;
+        file.value = '';
+      }
+    });
+
+    // Save design: the emblem first (when it changed), then the design itself.
+    if (form) form.addEventListener('submit', async function (event) {
+      if (JSON.stringify(state) === saved) return;
+      event.preventDefault();
+      if (state.kind === 'image' && !state.imageUrl) {
+        status.className = 'mpc-emblem__status is-error';
+        status.textContent = 'Upload an image, or pick a mascot or symbol.';
+        return;
+      }
+      var button = form.querySelector('[type="submit"]');
+      if (button) button.disabled = true;
+      try {
+        var res = await fetch('/account/website/section/emblem', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(state),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error(data.message || 'Could not save the emblem.');
+        saved = JSON.stringify(state);
+        form.submit();
+      } catch (error) {
+        status.className = 'mpc-emblem__status is-error';
+        status.textContent = error.message;
+        if (button) button.disabled = false;
+      }
+    });
+  })();
+</script>

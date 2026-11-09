@@ -1,20 +1,22 @@
 <%#
   Photo and video slider. Photos are shown whole (never cropped) over a soft,
   blurred copy of themselves; variant "fill" (Academy) covers the frame edge to
-  edge instead. Videos play muted and move on when they end. variant "cover"
-  is a full-width stage; "card" sits in a rounded frame.  locals: site, variant
+  edge instead. With whole photos (site.wholePhotos) every slide fills its frame
+  only when its shape is close, and otherwise shows whole over the blur.
+  Videos play muted and move on when they end. variant "cover" is a full-width
+  stage; "card" sits in a rounded frame.  locals: site, variant
 %>
-<% const hasVideo = site.slides.some((s) => s.type === 'video'); %>
+<% const hasVideo = site.slides.some((s) => s.type === 'video'); const withBlur = variant !== 'fill' || site.wholePhotos; %>
 <div class="sw-slider sw-slider--<%= variant %>" data-sw-slider aria-roledescription="carousel" aria-label="School photos and videos">
   <% site.slides.forEach((s, i) => { %>
-    <figure class="sw-slide<%= i === 0 ? ' is-active' : '' %><%= s.type === 'video' ? ' sw-slide--video' : '' %>" aria-roledescription="slide" aria-label="<%= i + 1 %> of <%= site.slides.length %>">
+    <figure class="sw-slide<%= i === 0 ? ' is-active' : '' %><%= s.type === 'video' ? ' sw-slide--video' : '' %>" aria-roledescription="slide" aria-label="<%= i + 1 %> of <%= site.slides.length %>"<% if (site.wholePhotos) { %> data-sw-photo="<%= variant === 'card' ? 'photo' : 'hero' %>"<% } %>>
       <% if (s.type === 'video') { %>
-        <% if (s.poster && variant !== 'fill') { %><img class="sw-slide__backdrop" src="<%= publicImageUrl(s.poster, { public: true }) %>" alt="" aria-hidden="true" loading="lazy"><% } %>
+        <% if (s.poster && withBlur) { %><img class="sw-slide__backdrop" src="<%= publicImageUrl(s.poster, { public: true }) %>" alt="" aria-hidden="true" loading="lazy"><% } %>
         <video class="sw-slide__img sw-slide__video" muted playsinline preload="<%= i === 0 ? 'auto' : 'none' %>"<% if (s.poster) { %> poster="<%= publicImageUrl(s.poster, { public: true }) %>"<% } %><%= site.slides.length === 1 ? ' loop' : '' %> aria-label="<%= s.caption || site.school.name %>">
           <source src="<%= s.url %>" type="video/mp4">
         </video>
       <% } else { %>
-        <% if (variant !== 'fill') { %><img class="sw-slide__backdrop" src="<%= publicImageUrl(s.url, { public: true }) %>" alt="" aria-hidden="true"<%= i === 0 ? '' : ' loading="lazy"' %>><% } %>
+        <% if (withBlur) { %><img class="sw-slide__backdrop" src="<%= publicImageUrl(s.url, { public: true }) %>" alt="" aria-hidden="true"<%= i === 0 ? '' : ' loading="lazy"' %>><% } %>
         <img class="sw-slide__img" src="<%= publicImageUrl(s.url, { public: true }) %>" alt="<%= s.caption || site.school.name %>"<%= i === 0 ? ' fetchpriority="high"' : ' loading="lazy"' %>>
       <% } %>
       <% if (s.caption && variant !== 'fill') { %><figcaption class="sw-slide__caption"><%= s.caption %></figcaption><% } %>

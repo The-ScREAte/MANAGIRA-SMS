@@ -398,7 +398,12 @@
           ? [student.notRiding ? 'Not coming today' : '', student.stopName, student.className]
           : [student.className, student.otherBus ? 'Another bus or route' : 'No bus access'];
         var extra = (student.address ? '<span class="drv-sub">' + esc(student.address) + '</span>' : '')
-          + (student.parentPhone ? '<a class="drv-phone" href="tel:' + esc(student.parentPhone) + '">Parent: ' + esc(student.parentPhone) + '</a>' : '');
+          + (student.parentPhone ? '<a class="drv-phone" href="tel:' + esc(student.parentPhone) + '">Parent: ' + esc(student.parentPhone) + '</a>' : '')
+          // Pickup & emergency details the school shares with drivers.
+          + (student.family || []).map(function (person) {
+            return '<span class="drv-family"><b>' + esc(person.name) + (person.relationship ? ' · ' + esc(person.relationship) : '') + '</b>'
+              + person.items.map(function (item) { return '<span>' + esc(item.label) + ': <em>' + esc(item.value) + '</em></span>'; }).join('') + '</span>';
+          }).join('');
         return '<li><div><strong>' + esc(student.name) + '</strong><span class="drv-sub">' + esc(parts.filter(Boolean).join(' · ')) + '</span>' + extra + '</div></li>';
       }).join('');
     }

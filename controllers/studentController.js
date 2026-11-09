@@ -997,7 +997,7 @@ module.exports = {
       );
 
       const studentActivities = features.isOn("class_activities", { organizationId })
-        ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], from: new Date().toISOString().slice(0, 10) })
+        ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], studentIds: [Number(studentId)].filter(Boolean), from: new Date().toISOString().slice(0, 10) })
         : [];
       res.render("student/dashboard", {
         studentActivities,

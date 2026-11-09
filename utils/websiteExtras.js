@@ -34,7 +34,7 @@ async function ensureWebsiteSchema(db) {
   schemaReady = true;
 }
 
-const SECTION_KEYS = ["quickFacts", "programs", "leadership", "testimonials", "faq", "about", "contact", "page", "welcome", "admissions", "achievements", "social", "hero"];
+const SECTION_KEYS = ["quickFacts", "programs", "leadership", "testimonials", "faq", "about", "contact", "page", "welcome", "admissions", "achievements", "social", "hero", "emblem"];
 
 // Everything on the website below the slideshow, in its default order. The
 // school can reorder these, rename the built-in ones and hide them (the
@@ -179,6 +179,18 @@ function normalizeSection(key, input = {}) {
         kicker: text(input.kicker, 60),
         tagline: text(input.tagline, 160),
       };
+    case "emblem": {
+      // The emblem designs' watermark (utils/websiteEmblems.js): one of our emblems,
+      // the school's logo, or its own image, as a pattern or one large emblem.
+      const kind = ["icon", "logo", "image"].includes(input.kind) ? input.kind : "icon";
+      const icon = require("./websiteEmblems").isEmblem(input.icon) ? input.icon : require("./websiteEmblems").DEFAULT_EMBLEM;
+      return {
+        kind: kind === "image" && !imageUrl(input.imageUrl) ? "icon" : kind,
+        icon,
+        imageUrl: imageUrl(input.imageUrl),
+        placement: input.placement === "single" ? "single" : "pattern",
+      };
+    }
     case "page": {
       const order = [...new Set((Array.isArray(input.order) ? input.order : []).map(String).filter((k) => PAGE_KEYS.includes(k)))];
       const hidden = [...new Set((Array.isArray(input.hidden) ? input.hidden : []).map(String).filter((k) => BUILTIN_KEYS.includes(k)))];
@@ -246,6 +258,7 @@ function visibleSections(settings) {
     welcome: on(s.welcome) ? s.welcome : null,
     admissions: s.admissions && s.admissions.enabled && (s.admissions.items.length || s.admissions.intro) ? s.admissions : null,
     achievements: on(s.achievements) ? s.achievements : null,
+    emblem: s.emblem,
     social: s.social && s.social.enabled ? SOCIAL_NETWORKS.filter((n) => s.social[n.key]).map((n) => ({ key: n.key, label: n.label, url: s.social[n.key] })) : [],
     hero: s.hero,
   };
@@ -290,7 +303,8 @@ async function countUnreadMessages(db, organizationId) {
   return row ? row.n : 0;
 }
 
-const LAYOUT_NAMES = { wireframe1: "Classic", wireframe2: "Modern", wireframe3: "Magazine", wireframe4: "Story", wireframe5: "Campus", wireframe6: "Spotlight", wireframe7: "Minimal", wireframe8: "Mosaic", wireframe9: "Academy" };
+// Design names come from the one list of designs (utils/websiteView.js).
+const LAYOUT_NAMES = Object.fromEntries(require("./websiteView").LAYOUTS.map((l) => [l.value, l.name]));
 
 // The setup checklist at the top of Manage Website: what's done, what's
 // left, and where to fix it (target = panel id on the page).
@@ -301,24 +315,23 @@ function buildWebsiteOverview({ orgDetails = {}, aboutDetails = {}, settings, im
   const emails = (aboutDetails.emails || []).filter(Boolean);
   const phones = (aboutDetails.phones || []).filter(Boolean);
   const liveSections = ["quickFacts", "programs", "leadership", "testimonials", "faq"].filter((k) => visible[k]).length;
-  const themeName = String(theme || "classic").replace(/^\w/, (c) => c.toUpperCase());
   const items = [
-    { key: "about", label: "About your school", target: "mpcAbout", done: aboutText.length >= 40,
-      detail: aboutText.length >= 40 ? "Description added" : "Write a short description of your school" },
-    { key: "contactInfo", label: "Phone & email", target: "mpcAbout", done: emails.length > 0 && phones.length > 0,
-      detail: emails.length && phones.length ? `${emails.length} email${emails.length > 1 ? "s" : ""}, ${phones.length} phone${phones.length > 1 ? "s" : ""}` : "Add the school's phone and email" },
-    { key: "photos", label: "Photos", target: "mpcGallery", done: imageCount > 0,
-      detail: imageCount ? `${imageCount} photo${imageCount > 1 ? "s" : ""} on the website` : "Upload photos for the slideshow and gallery" },
-    { key: "sections", label: "Website sections", target: "mwxSections", done: liveSections > 0,
-      detail: liveSections ? `${liveSections} of 5 sections live` : "Add programs, leadership, FAQs and more" },
-    { key: "contact", label: "Contact form", target: "mwxContact", done: Boolean(visible.contact),
-      detail: visible.contact ? `Messages go to ${s.contact.notifyEmail}` : "Add your school email to receive messages" },
-    { key: "design", label: "Layout & style", target: "mpcLayout", done: true,
-      detail: `${LAYOUT_NAMES[layout] || "Traditional"} layout, ${themeName} style` },
-    { key: "articles", label: "News & articles", target: "mpcArticles", done: articleCount > 0, optional: true,
-      detail: articleCount ? `${articleCount} article${articleCount > 1 ? "s" : ""}` : "Optional - share school news" },
-    { key: "registration", label: "Online registration", target: "mpcRegistration", done: Boolean(registration && registration.open), optional: true,
-      detail: registration ? registration.message : "Optional" },
+    { key: "about", label: "About", icon: "fa-circle-info", target: "mpcAbout", done: aboutText.length >= 40,
+      detail: aboutText.length >= 40 ? "Added" : "Add a short description" },
+    { key: "contactInfo", label: "Phone & email", icon: "fa-phone", target: "mpcAbout", done: emails.length > 0 && phones.length > 0,
+      detail: emails.length && phones.length ? `${emails.length} email${emails.length > 1 ? "s" : ""}, ${phones.length} phone${phones.length > 1 ? "s" : ""}` : "Add both" },
+    { key: "photos", label: "Photos", icon: "fa-images", target: "mpcGallery", done: imageCount > 0,
+      detail: imageCount ? `${imageCount} photo${imageCount > 1 ? "s" : ""}` : "Add photos" },
+    { key: "sections", label: "Sections", icon: "fa-layer-group", target: "mwxSections", done: liveSections > 0,
+      detail: liveSections ? `${liveSections} live` : "Add programs, FAQs…" },
+    { key: "contact", label: "Contact form", icon: "fa-envelope", target: "mwxContact", done: Boolean(visible.contact),
+      detail: visible.contact ? s.contact.notifyEmail : "Add your email" },
+    { key: "design", label: "Design", icon: "fa-palette", target: "mpcLayout", done: true,
+      detail: LAYOUT_NAMES[layout] || "Classic" },
+    { key: "articles", label: "News", icon: "fa-newspaper", target: "mpcArticles", done: articleCount > 0, optional: true,
+      detail: articleCount ? `${articleCount} article${articleCount > 1 ? "s" : ""}` : "Optional" },
+    { key: "registration", label: "Online admission", icon: "fa-graduation-cap", target: "mpcRegistration", done: Boolean(registration && registration.open), optional: true,
+      detail: registration && registration.open ? (registration.endLabel ? `Open until ${registration.endLabel}` : "Open") : "Closed" },
   ];
   const required = items.filter((i) => !i.optional);
   return {

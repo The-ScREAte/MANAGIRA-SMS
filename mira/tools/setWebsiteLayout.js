@@ -1,12 +1,15 @@
 const { logMiraActivity } = require("./_activityLog");
 const { assertIsStaff, callWriteApi } = require("./_writeAuth");
+const { LAYOUTS } = require("../../utils/websiteView");
 
 module.exports = {
   name: "set_website_layout",
-  description: "Change the school's public website layout - one of 8 designs: wireframe1 (Classic: full-width photo banner, centered sections), wireframe2 (Modern: split welcome with photos, card sections), wireframe3 (Magazine: newspaper masthead, lead story, side column for events and notices), wireframe4 (Story: large opening photo, numbered chapters, events timeline), wireframe5 (Campus: side menu with the school's details), wireframe6 (Spotlight: brand-color welcome beside photos, alternating rows), wireframe7 (Minimal: text-first, headings on the left), wireframe8 (Mosaic: a grid of tiles). Needs Manage Settings.",
+  // Every design, from the same list the Manage Website page uses. A design still being
+  // released reaches only some schools: the API refuses it elsewhere and Mira says so.
+  description: `Change the school's public website design. The designs: ${LAYOUTS.map((l) => `${l.value} (${l.name}${l.motion ? ", 3D, animates as visitors scroll" : ""}: ${l.description})`).join("; ")}. Every design shows the same content. A design that isn't available for this school yet is refused: tell the person so. Needs Manage Settings.`,
   parameters: {
     type: "object",
-    properties: { layout: { type: "string", enum: ["wireframe1", "wireframe2", "wireframe3", "wireframe4", "wireframe5", "wireframe6", "wireframe7", "wireframe8"] } },
+    properties: { layout: { type: "string", enum: LAYOUTS.map((l) => l.value) } },
     required: ["layout"],
   },
   async handler(args, tenant) {

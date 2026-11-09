@@ -1,0 +1,6 @@
+<%#
+  The school's emblem, large and soft, behind an opening (Crest, Mascot) or
+  floating in 3D (Orbit). Decorative: hidden from screen readers.
+  locals: site, cls, prefix
+%>
+<% if (site.emblem) { %><span class="sw-emblem-mark <%= cls %><%= site.emblem.kind === 'image' ? ' sw-emblem-mark--image' : '' %>" aria-hidden="true"<%- locals.attrs || '' %>><% if (site.emblem.kind === 'image') { %><img src="<%= publicImageUrl(site.emblem.imageUrl, { public: true }) %>" alt="" loading="lazy" decoding="async"><% } else { %><%- site.emblem.svg(prefix) %><% } %></span><% } %>

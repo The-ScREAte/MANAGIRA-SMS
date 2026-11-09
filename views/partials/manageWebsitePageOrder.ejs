@@ -54,7 +54,7 @@
       <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
   </div>
-  <p class="mwx-hint" style="margin:0 0 12px;color:#64748b;font-size:0.88rem;">Drag sections by the ⋮⋮ handle (or use the arrows) to set the order they appear on your website, below the slideshow. Rename built-in headings and hide any you don't want. Sections with nothing in them are hidden automatically.</p>
+  <p class="mwx-hint" style="margin:0 0 12px;color:#64748b;font-size:0.88rem;">Drag to reorder. Rename or hide the built-in sections; empty ones stay hidden.</p>
   <ol class="mpo-list" id="mpoList">
     <% mpoOrdered.forEach((b) => {
          let status; let live;
@@ -80,7 +80,7 @@
           <% if (b.builtin) { %>
             <label class="mpo-switch"><input type="checkbox" data-mpo-show <%= (mpoPage.hidden || []).includes(b.key) ? '' : 'checked' %>> Show</label>
           <% } %>
-          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } else if (b.key === 'events' || b.key === 'announcements') { %><a class="mpo-edit" href="/common/management?panel=announcements-events&page=%2Fcommon%2FmanageEventsAnnouncements&label=Announcements%20%26%20Events" target="_top">Manage</a><% } %>
+          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } else if (b.key === 'events' || b.key === 'announcements') { %><a class="mpo-edit" href="/common/management?panel=announcements-events&page=%2Fcommon%2FmanageEventsAnnouncements&label=Events%2C%20announcements%20%26%20activities" target="_top">Manage</a><% } %>
           <button type="button" class="mpo-move" data-mpo-up aria-label="Move <%= b.label %> up">▲</button>
           <button type="button" class="mpo-move" data-mpo-down aria-label="Move <%= b.label %> down">▼</button>
         </div>

@@ -12,6 +12,12 @@ module.exports = (db) => {
     guardianController.dashboardGet(req, res, db)
   );
 
+  // Emergency & pickup details the school shares with parents: see and update their own.
+  const familyDetails = require("../controllers/familyDetailsController");
+  router.get("/family-details", isGuardianAuthenticated, familyDetails.parentGet);
+  router.get("/activities", isGuardianAuthenticated, require("../controllers/familyActivitiesController").guardianPage);
+  router.post("/family-details", isGuardianAuthenticated, express.json(), familyDetails.parentSave);
+
   router.get("/child", isGuardianAuthenticated, (req, res) => parentHub.hub(req, res, db));
   router.get("/child/counts", isGuardianAuthenticated, (req, res) => parentHub.counts(req, res, db));
   router.get("/child/schedule", isGuardianAuthenticated, (req, res) => parentHub.schedule(req, res, db));

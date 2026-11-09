@@ -19,13 +19,16 @@
   const _actions = [];
   const _addAction = (key, href, icon, label, compose) => _actions.push({ key, href, icon, label, compose });
   const _wsMember = typeof workspaceMember === 'undefined' ? true : !!workspaceMember;
+  // Events, announcements and activities are managed in the Management workspace's right-hand panel.
+  // These links load Management as a full page (data-no-spa): it reads which panel to open from the address.
+  const _eventsPanel = (tab) => '/common/management?panel=announcements-events&page=' + encodeURIComponent('/common/manageEventsAnnouncements' + (tab ? '?tab=' + tab : '')) + '&label=' + encodeURIComponent('Events, announcements & activities');
   if (_wsMember) _addAction('new-task', '/common/calendar?new=task', 'fa-square-check', 'New task', 'task');
   _addAction('calendar', '/common/calendar', 'fa-calendar-days', 'Calendar');
   if (_perm('manage_students')) { _addAction('add-student', '/common/addStudent', 'fa-user-plus', 'Add student'); _addAction('students', '/common/allStudents', 'fa-user-graduate', 'All students'); }
   if (_perm('manage_students') && !['teacher', 'driver', 'student_teacher'].includes(_roleKey)) _addAction('transport', '/transportation/manage', 'fa-bus', 'Transport');
   if (_perm('approve_admissions') && _feat('Student and Guardian Profile', 'Student and Guadian Profile')) _addAction('admissions', '/common/admissions', 'fa-inbox', 'Admissions');
   if (_perm('manage_employees')) { _addAction('add-staff', '/common/createEmployee', 'fa-id-badge', 'Add staff'); _addAction('management', '/common/management', 'fa-users-gear', 'Management'); }
-  if (_perm('publish_events_announcements')) _addAction('events', '/common/manageEventsAnnouncements', 'fa-calendar-plus', 'Events & announcements');
+  if (_perm('publish_events_announcements')) _addAction('events', _eventsPanel(), 'fa-calendar-plus', 'Events & announcements');
   if (_perm('paygira_workspace') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); if (_perm('paygira_recovery')) _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Arrears'); }
   if (_perm('mailroom')) _addAction('mailroom', '/common/mailroom', 'fa-paper-plane', 'Send a message');
   if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) _addAction('reports', '/common/reports', 'fa-chart-column', 'Reports');
@@ -308,6 +311,12 @@
   .od-newtask:hover { text-decoration: none !important;}
   .od-tabs { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--od-line); margin: -4px 0 4px; }
   .od-tab { display: inline-flex !important; align-items: center; gap: 6px; padding: 6px 9px !important; margin-bottom: -1px !important; border-bottom: 2px solid transparent !important; color: var(--od-muted) !important; font-size: 0.86rem; }
+  /* Phones: the tabs fit the card (and swipe if needed). */
+  @media (max-width: 600px) {
+    .od-tabs { overflow-x: auto; scrollbar-width: none; }
+    .od-tabs::-webkit-scrollbar { display: none; }
+    .od-tab { flex: 0 0 auto; white-space: nowrap; padding: 6px 7px !important; font-size: 0.82rem; }
+  }
   .od-tab.is-active { color: var(--od-primary) !important; border-bottom-color: var(--od-primary) !important; }
   
   .od-ann-manage { display: inline-block; margin-top: 5px; font-size: 0.8rem; }
@@ -487,7 +496,7 @@
           <div class="od-dd__title">Quick actions</div>
           <ul class="od-qa" data-od-qa>
             <% _actions.forEach(function(a, i) { %>
-              <li data-qa-key="<%= a.key %>" data-qa-index="<%= i %>"<%= i >= 6 ? ' class=od-qa--more' : '' %>><a href="<%= a.href %>"<% if (a.compose) { %> data-ws-compose="<%= a.compose %>"<% } %>><i class="fa-solid <%= a.icon %>" aria-hidden="true"></i><%= a.label %></a></li>
+              <li data-qa-key="<%= a.key %>" data-qa-index="<%= i %>"<%= i >= 6 ? ' class=od-qa--more' : '' %>><a href="<%= a.href %>"<% if (a.compose) { %> data-ws-compose="<%= a.compose %>"<% } %><% if (/^\/common\/management\?/.test(a.href)) { %> data-no-spa<% } %>><i class="fa-solid <%= a.icon %>" aria-hidden="true"></i><%= a.label %></a></li>
             <% }) %>
           </ul>
           <% if (_actions.length > 6) { %><button type="button" class="od-qa__all" data-od-qa-all>Show all <%= _actions.length %></button><% } %>
@@ -553,7 +562,7 @@
         Get started by setting up a school year and a term/semester. It's simple
         and intuitive!
       </p>
-      <a href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" class="start-link">Begin Your Journey Here</a>
+      <a href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" class="start-link" data-no-spa>Begin Your Journey Here</a>
     </div>
   </div>
 <% } else { %>
@@ -800,7 +809,7 @@
             <div class="od-next">
               <% if (nextTermSuggestion && canManageTermSwitch) { %>
                 <span class="od-next__text">This term has ended. Make the next term current in Manage Records.</span>
-                <a class="od-btn od-btn--primary" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
+                <a class="od-btn od-btn--primary" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" data-no-spa title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
                   Switch to <%= nextTermSuggestion.term_name %> · <%= nextTermSuggestion.year_label %>
                   <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                 </a>
@@ -894,10 +903,7 @@
         <section class="od-card" data-od-section="events" data-od-label="Events" aria-label="Events">
           <div class="od-card__head">
             <h2 class="od-card__title"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Events <span class="od-count"><%= _allEvents.length %></span></h2>
-            <span class="od-card__links">
-              <a class="od-link" href="/common/calendar">Calendar</a>
-              <% if (_canPublish) { %><a class="od-link" href="/common/manageEventsAnnouncements">Manage</a><% } %>
-            </span>
+            <% if (_canPublish) { %><span class="od-card__links"><a class="od-link" href="<%= _eventsPanel() %>" data-no-spa>Manage</a></span><% } %>
           </div>
           <% if (_upcomingAll.length) { %>
             <h3 class="od-sublabel">Upcoming</h3>
@@ -951,11 +957,54 @@
             <h2 class="od-card__title"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Activity &amp; Announcements</h2>
             <% if (_wsMember) { %><button type="button" class="od-link od-newtask" data-ws-compose="task"><i class="fa-solid fa-plus" aria-hidden="true"></i> New task</button><% } %>
           </div>
+          <%
+            // Upcoming activities this person should know about (whole school for those who look
+            // after events; otherwise their own classes' and students'). Shown when the feature is on.
+            const _acts = Array.isArray(locals.dashboardActivities) ? dashboardActivities : null;
+            const _actWhen = (a) => a.endDate
+              ? 'Until ' + new Date(a.endDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+              : (a.startTime ? new Date('2000-01-01T' + a.startTime + ':00Z').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) : 'All day');
+          %>
 
           <div class="od-tabs" role="tablist">
             <button type="button" class="od-tab<%= _defaultTab === 'you' ? ' is-active' : '' %>" role="tab" data-od-tab="you" aria-selected="<%= _defaultTab === 'you' %>">For you <% if (_openForMe) { %><span class="od-count"><%= _openForMe %></span><% } %></button>
+            <% if (_acts) { %><button type="button" class="od-tab" role="tab" data-od-tab="act" aria-selected="false">Activities <% if (_acts.length) { %><span class="od-count"><%= _acts.length %></span><% } %></button><% } %>
             <button type="button" class="od-tab<%= _defaultTab === 'ann' ? ' is-active' : '' %>" role="tab" data-od-tab="ann" aria-selected="<%= _defaultTab === 'ann' %>">Announcements <span class="od-count"><%= _allAnnouncements.length %></span></button>
           </div>
+
+          <% if (_acts) { %>
+          <div class="od-tabpane" data-od-pane="act" hidden>
+            <% if (!_acts.length) { %>
+              <p class="od-empty">No activities coming up.</p>
+            <% } else { %>
+              <ul class="od-list">
+                <% _acts.forEach(function (a, index) {
+                  const d = new Date(a.date + 'T12:00:00Z');
+                  const who = a.studentId ? 'For ' + (a.studentName || 'one student') : (a.className || 'Whole school');
+                %>
+                  <li class="od-event<%= index >= _LIST_LIMIT ? ' od-extra' : '' %>">
+                    <% if (a.details) { %>
+                      <details>
+                        <summary>
+                          <span class="od-date"><span class="od-date__m"><%= d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></span><span class="od-date__d"><%= d.getUTCDate() %></span></span>
+                          <span class="od-event__body"><span class="od-event__name"><%= a.title %></span><span class="od-event__meta"><%= [_actWhen(a), a.location, who].filter(Boolean).join(' · ') %></span></span>
+                          <i class="fa-solid fa-chevron-down od-event__caret" aria-hidden="true"></i>
+                        </summary>
+                        <p class="od-event__details"><%= a.details %></p>
+                      </details>
+                    <% } else { %>
+                      <div class="od-event__row">
+                        <span class="od-date"><span class="od-date__m"><%= d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></span><span class="od-date__d"><%= d.getUTCDate() %></span></span>
+                        <span class="od-event__body"><span class="od-event__name"><%= a.title %></span><span class="od-event__meta"><%= [_actWhen(a), a.location, who].filter(Boolean).join(' · ') %></span></span>
+                      </div>
+                    <% } %>
+                  </li>
+                <% }) %>
+              </ul>
+              <% if (_acts.length > _LIST_LIMIT) { %><button type="button" class="od-showall" data-od-showall data-more="Show all <%= _acts.length %>">Show all <%= _acts.length %></button><% } %>
+            <% } %>
+          </div>
+          <% } %>
 
           <div class="od-tabpane" data-od-pane="you"<%= _defaultTab === 'you' ? '' : ' hidden' %>>
             <% if (!_tasks.length && !(_act.taggedEvents || []).length) { %>
@@ -1092,7 +1141,7 @@
             <% } else { %>
               <p class="od-empty">No announcements yet.</p>
             <% } %>
-            <% if (_canPublish) { %><a class="od-link od-ann-manage" href="/common/manageEventsAnnouncements">Manage announcements</a><% } %>
+            <% if (_canPublish) { %><a class="od-link od-ann-manage" href="<%= _eventsPanel('announcements') %>" data-no-spa>Manage announcements</a><% } %>
           </div>
         </section>
       </div>
@@ -1136,7 +1185,7 @@
             <h2 class="od-card__title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent activity
               <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
             <% if (_perm('manage_reports') && _perm('manage_records') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) { %>
-              <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder">View all</a>
+              <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder" data-no-spa>View all</a>
             <% } %>
           </div>
           <% if (_activity.length) { %>
@@ -1259,6 +1308,7 @@
     const feed = root.querySelector('[data-od-feed]');
     const canPublishFlag = <%= _perm('publish_events_announcements') ? 'true' : 'false' %>;
     const hasWebsiteFlag = <%= _hasWebsite ? 'true' : 'false' %>;
+    const canActivityFlag = <%= (typeof canAddActivity !== 'undefined' && canAddActivity) ? 'true' : 'false' %>;
     const escText = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const postJson = (url, body) => fetch(url, {
       method: 'POST', credentials: 'same-origin',
@@ -1377,7 +1427,7 @@
       e.preventDefault();
       closeAll();
       window.Workspace.open({
-        type: trigger.dataset.wsCompose, canPublish: canPublishFlag, hasWebsite: hasWebsiteFlag,
+        type: trigger.dataset.wsCompose, canPublish: canPublishFlag, hasWebsite: hasWebsiteFlag, canActivity: canActivityFlag,
         onSaved: function () { window.location.reload(); },
       });
     });

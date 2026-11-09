@@ -82,7 +82,7 @@ async function itemsFor(db, organizationId, people, { from, to, withLessons = tr
   const classIds = [...new Set(people.map((person) => person.classId).filter(Boolean))].map(Number);
   const everyone = people.map((person) => person.id);
   const [activities, events, lessons] = await Promise.all([
-    listActivities(db, organizationId, { classIds, from, to }),
+    listActivities(db, organizationId, { classIds, studentIds: everyone, from, to }),
     db.query(
       `SELECT id, name, to_char(event_date, 'YYYY-MM-DD') AS day, to_char(end_date, 'YYYY-MM-DD') AS end_day, start_time, end_time, location, details
          FROM school_events

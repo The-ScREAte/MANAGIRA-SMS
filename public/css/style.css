@@ -834,3 +834,9 @@ form textarea {
     font-size: 0.85rem;
   }
 }
+
+/* Phones: rows of page buttons (Back, Previous, Next, Modify...) wrap instead of spilling sideways. */
+@media (max-width: 600px) {
+  .link-to-next-back { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 100%; box-sizing: border-box; padding-inline: 12px; }
+  .link-to-next-back a { max-width: 100%; box-sizing: border-box; white-space: normal; text-align: center; }
+}

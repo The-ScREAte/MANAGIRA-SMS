@@ -13,6 +13,8 @@
   const ini = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
   const allEvents = site.events.upcoming.concat(site.events.recent);
   const contactBlock = site.blocks.includes('contact');
+  // Uploaded photos are shown whole (./photo); a masonry gallery already shows them uncut.
+  const photo = (src, alt, cls, fit, signed) => include('./photo', { site, src, alt, cls, fit, signed });
 %>
 <section class="sw-section sw-block--<%= key %>" id="<%= id %>" aria-labelledby="<%= id %>-title" data-sw-block="<%= key %>">
 <% if (key === 'about') { %><span class="sw-anchor" id="about-us"></span><% } %>
@@ -27,7 +29,7 @@
 <% } else if (key === 'welcome') { const w = x.welcome.items[0]; %>
   <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
   <div class="sw-welcome<%= w.imageUrl ? '' : ' sw-welcome--text' %>">
-    <% if (w.imageUrl) { %><img class="sw-welcome__photo" src="<%= publicImageUrl(w.imageUrl, { public: true }) %>" alt="<%= w.name %>" loading="lazy"><% } %>
+    <% if (w.imageUrl) { %><%- photo(w.imageUrl, w.name, 'sw-welcome__photo', 'person') %><% } %>
     <div class="sw-welcome__body">
       <blockquote class="sw-welcome__message"><%= w.message %></blockquote>
       <p class="sw-welcome__sign"><strong><%= w.name %></strong><% if (w.role) { %><span><%= w.role %></span><% } %></p>
@@ -48,7 +50,7 @@
     </div>
     <% if (site.school.aboutImage) { %>
       <figure class="sw-about__figure">
-        <img src="<%= publicImageUrl(site.school.aboutImage.imageUrl, { public: true }) %>" alt="<%= site.school.aboutImage.imageCaption || site.school.name %>" loading="lazy">
+        <%- photo(site.school.aboutImage.imageUrl, site.school.aboutImage.imageCaption || site.school.name, 'sw-about__photo') %>
         <% if (site.school.aboutImage.imageCaption) { %><figcaption><%= site.school.aboutImage.imageCaption %></figcaption><% } %>
       </figure>
     <% } %>
@@ -59,7 +61,7 @@
   <div class="sw-cards sw-programs__grid">
     <% x.programs.items.forEach((p) => { %>
       <article class="sw-card sw-program">
-        <% if (p.imageUrl) { %><img class="sw-card__media" src="<%= publicImageUrl(p.imageUrl, { public: true }) %>" alt="<%= p.title %>" loading="lazy"><% } else { %><span class="sw-card__media sw-card__media--blank" aria-hidden="true"></span><% } %>
+        <% if (p.imageUrl) { %><%- photo(p.imageUrl, p.title, 'sw-card__media') %><% } else { %><span class="sw-card__media sw-card__media--blank" aria-hidden="true"></span><% } %>
         <div class="sw-card__body">
           <h3><%= p.title %></h3>
           <% if (p.description) { %><p><%= p.description %></p><% } %>
@@ -84,25 +86,31 @@
     <% if (contactBlock) { %><a class="sw-btn sw-btn--ghost" href="#contact">Ask a question</a><% } %>
   </div>
 
-<% } else if (key === 'gallery') { %>
+<% } else if (key === 'gallery') {
+  // The 3D designs show the first 12 photos; the rest open in the photo viewer.
+  const shown = site.motion ? 12 : site.gallery.length;
+%>
   <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
   <div class="sw-gallery sw-gallery--<%= L %>">
     <% site.gallery.forEach((img, i) => { %>
-      <figure class="sw-gallery__item">
+      <figure class="sw-gallery__item"<%= i >= shown ? ' hidden' : '' %>>
         <% if (img.type === 'video') { %>
           <button type="button" class="sw-gallery__open sw-gallery__open--video" data-sw-lightbox="<%= i %>" data-sw-video="<%= img.url %>" aria-label="Play video<%= img.caption ? ': ' + img.caption : '' %>">
-            <% if (img.poster) { %><img src="<%= publicImageUrl(img.poster, { public: true }) %>" alt="<%= img.caption || ('Video ' + (i + 1)) %>" loading="lazy"><% } else { %><video src="<%= img.url %>#t=1" muted playsinline preload="metadata" aria-hidden="true"></video><% } %>
+            <% if (img.poster) { %><%- L === 'horizon' ? include('./photo', { site: { wholePhotos: false }, src: img.poster, alt: img.caption || ('Video ' + (i + 1)), cls: '' }) : photo(img.poster, img.caption || ('Video ' + (i + 1)), 'sw-gallery__photo') %><% } else { %><video src="<%= img.url %>#t=1" muted playsinline preload="metadata" aria-hidden="true"></video><% } %>
             <span class="sw-gallery__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></span>
           </button>
         <% } else { %>
           <button type="button" class="sw-gallery__open" data-sw-lightbox="<%= i %>" aria-label="View photo<%= img.caption ? ': ' + img.caption : '' %>">
-            <img src="<%= publicImageUrl(img.url, { public: true }) %>" alt="<%= img.caption || ('Photo ' + (i + 1)) %>" loading="lazy">
+            <%- L === 'horizon' ? include('./photo', { site: { wholePhotos: false }, src: img.url, alt: img.caption || ('Photo ' + (i + 1)), cls: '' }) : photo(img.url, img.caption || ('Photo ' + (i + 1)), 'sw-gallery__photo') %>
           </button>
         <% } %>
         <% if (img.caption) { %><figcaption><%= img.caption %></figcaption><% } %>
       </figure>
     <% }) %>
   </div>
+  <% if (site.gallery.length > shown) { %>
+    <div class="sw-actions sw-gallery__more"><button type="button" class="sw-btn sw-btn--ghost" data-sw-lightbox-more="<%= shown %>">See <%= site.gallery.length - shown %> more photo<%= site.gallery.length - shown === 1 ? '' : 's' %></button></div>
+  <% } %>
 
 <% } else if (key === 'events') { %>
   <%- include('./head', { site, key, titleId: id + '-title', title: site.events.upcoming.length ? t : (site.titles.events === 'Upcoming Events' ? 'Recent Events' : t), intro: '', number }) %>
@@ -162,7 +170,7 @@
   <div class="sw-people">
     <% x.leadership.items.forEach((p) => { %>
       <article class="sw-person">
-        <% if (p.imageUrl) { %><img class="sw-person__photo" src="<%= publicImageUrl(p.imageUrl) %>" alt="<%= p.name %>" loading="lazy"><% } else { %><span class="sw-person__photo sw-person__photo--initials" aria-hidden="true"><%= ini(p.name) %></span><% } %>
+        <% if (p.imageUrl) { %><%- photo(p.imageUrl, p.name, 'sw-person__photo', 'person', true) %><% } else { %><span class="sw-person__photo sw-person__photo--initials" aria-hidden="true"><%= ini(p.name) %></span><% } %>
         <h3><%= p.name %></h3>
         <% if (p.role) { %><p class="sw-person__role"><%= p.role %></p><% } %>
         <% if (p.message) { %><p class="sw-person__message"><%= p.message %></p><% } %>

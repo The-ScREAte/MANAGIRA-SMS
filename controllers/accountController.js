@@ -7477,6 +7477,8 @@ const accountController = {
   },
 
   managePublicContentGet: async (req, res) => {
+    // Online admission is set in one place, Admissions > Admission Settings.
+    if (req.query.focus === "registration") return res.redirect("/common/admissionSettings");
     const { organizationId } = req.session;
     const isEmbedded = isEmbeddedRequest(req, "managePublicContent");
 
@@ -7689,7 +7691,13 @@ const accountController = {
         announcements: announcements.rows,
 
         publicSiteAppearance,
-        websiteLayouts: require("../utils/websiteView").LAYOUTS,
+        websiteLayouts: require("../utils/websiteView").layoutsFor((key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) })),
+        websiteLayoutGroups: require("../utils/websiteView").LAYOUT_GROUPS,
+        // The emblems the emblem designs can show (drawn once; the picker previews them).
+        websiteEmblems: (() => {
+          const emblems = require("../utils/websiteEmblems");
+          return emblems.EMBLEMS.map((e) => ({ key: e.key, name: e.name, group: e.group, svg: emblems.emblemSvg(e.key, { idPrefix: "pick" }), mask: emblems.emblemMaskUrl(e.key), pattern: emblems.emblemPatternUrl(e.key) }));
+        })(),
         publicDashboardTheme,
         publicDashboardLayout,
         aboutDetails,
@@ -7774,7 +7782,10 @@ const accountController = {
   updatePublicDashboardLayoutPost: async (req, res) => {
     const organizationId = req.session.organizationId;
     const layout = (req.body?.publicDashboardLayout || "").trim();
-    const allowedLayouts = new Set(require("../utils/websiteView").LAYOUT_VALUES);
+    // Only the designs this school has (a design still being released isn't offered elsewhere).
+    const allowedLayouts = new Set(require("../utils/websiteView")
+      .layoutsFor((key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) }))
+      .map((l) => l.value));
 
     if (!organizationId) {
       req.flash("error", "Missing organization.");

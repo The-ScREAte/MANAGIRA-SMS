@@ -769,3 +769,64 @@ body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName {
 .sw-site--academy .sw-welcome__message { font-family: var(--sw-serif); font-size: clamp(1.1rem, 1.8vw, 1.35rem); line-height: 1.65; color: var(--sw-ink); }
 .sw-site--academy .sw-about:not(.sw-about--image) { max-width: 860px; margin-inline: auto; }
 .sw-site--academy .sw-notices, .sw-site--academy .sw-faq { max-width: 860px; margin-inline: auto; }
+
+/* =====================================================================
+   WHOLE PHOTOS (views/partials/website/photo.ejs): an uploaded photo is never
+   cut off. It fills its frame when its shape is close to the frame's; when it
+   isn't, the whole photo shows over a soft, blurred copy of itself.
+   ===================================================================== */
+.sw-site .sw-photo { position: relative; display: block; overflow: hidden; isolation: isolate; background: color-mix(in srgb, var(--sw-accent) 16%, #10141b); }
+.sw-site .sw-photo.sw-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; aspect-ratio: auto; box-shadow: none; }
+.sw-site .sw-photo.sw-photo > img.sw-photo__blur { inset: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(20px) saturate(1.2) brightness(.78); }
+.sw-site .sw-photo.sw-photo > img.sw-photo__img { object-fit: contain; filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .3)); }
+.sw-site .sw-photo.sw-photo.is-fill > img.sw-photo__img { object-fit: cover; filter: none; }
+.sw-site .sw-photo.sw-photo.is-fill > img.sw-photo__blur { display: none; }
+.sw-site .sw-photo.sw-photo[data-sw-photo="person"] > img.sw-photo__img { object-position: 50% 24%; }
+.sw-site .sw-about__photo { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--sw-radius); }
+.sw-site .sw-gallery__photo { width: 100%; aspect-ratio: 4 / 3; }
+.sw-site--academy .sw-gallery__photo { height: 100%; aspect-ratio: auto; }
+.sw-site .sw-tile__photo { width: 100%; height: 100%; }
+.sw-site.sw-whole .sw-gallery__open--video video { object-fit: contain; background: #0d1014; }
+/* Slides: shown whole unless the photo's shape is close to the frame's. */
+.sw-site.sw-whole .sw-slide__img, .sw-site.sw-whole .sw-slider--fill .sw-slide__img { object-fit: contain; }
+.sw-site.sw-whole .sw-slide.is-fill .sw-slide__img { object-fit: cover; }
+.sw-site.sw-whole .sw-slide.is-fill .sw-slide__backdrop { visibility: hidden; }
+
+/* =====================================================================
+   EMBLEM DESIGNS (Crest, Mascot; Orbit is in school-website-3d.css): the
+   school's emblem (utils/websiteEmblems.js), its logo or its own image as a
+   soft watermark in the school's color. "pattern" repeats it across some
+   bands; "single" keeps just the one large emblem in the opening.
+   ===================================================================== */
+.sw-site .sw-emblem-mark { display: block; pointer-events: none; }
+.sw-site .sw-emblem-mark svg, .sw-site .sw-emblem-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.sw-site .sw-emblem-mark--image img { filter: grayscale(.25); }
+/* The pattern sits behind a band's content, above its background. */
+.sw-emblem--pattern .sw-emblem-band { position: relative; isolation: isolate; }
+.sw-emblem--pattern .sw-emblem-band::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: var(--sw-pattern-strength, .07); }
+.sw-emblem--icon.sw-emblem--pattern .sw-emblem-band::before { background-color: var(--sw-pattern-color, var(--sw-accent)); -webkit-mask: var(--sw-emblem-pattern) 0 0 / var(--sw-pattern-size, 112px) var(--sw-pattern-size, 112px) repeat; mask: var(--sw-emblem-pattern) 0 0 / var(--sw-pattern-size, 112px) var(--sw-pattern-size, 112px) repeat; }
+.sw-emblem--image.sw-emblem--pattern .sw-emblem-band::before { background: var(--sw-emblem-image) 0 0 / var(--sw-pattern-size, 112px) auto space; filter: grayscale(.3); opacity: var(--sw-pattern-strength-image, .06); }
+
+/* CREST: classic and calm. The emblem large behind the school's name, a soft pattern on the tinted bands. */
+.sw-site--crest { --sw-heading: var(--sw-serif); }
+.sw-site--crest .sw-band--tint { --sw-pattern-strength: .06; }
+.sw-site--crest .sw-intro { position: relative; isolation: isolate; overflow: hidden; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 14px; padding-block: clamp(52px, 8vw, 104px); text-align: center; border-bottom: 1px solid var(--sw-line); }
+.sw-site--crest .sw-intro__logo { width: 72px; height: 72px; }
+.sw-site .sw-site--crest .sw-intro__title, .sw-site--crest .sw-intro__title { text-align: center; font-size: clamp(2.2rem, 5vw, 3.8rem); }
+.sw-site--crest .sw-intro__kicker { letter-spacing: .2em; }
+.sw-site--crest .sw-intro__actions { justify-content: center; margin-top: 8px; }
+.sw-site--crest .sw-emblem-mark--intro { position: absolute; z-index: -1; left: 50%; top: 50%; width: min(64vw, 330px); aspect-ratio: 1; translate: -50% -50%; color: var(--sw-accent); opacity: .08; }
+.sw-site--crest .sw-head__title::after { content: ""; display: block; width: 48px; height: 2px; margin: 14px auto 0; background: var(--sw-accent); }
+.sw-site--crest .sw-band--accent { background: var(--sw-accent-deep); }
+
+/* MASCOT: school spirit. A bold welcome in the school's color with the mascot large beside it. */
+.sw-site--mascot { --sw-heading: var(--sw-sans); }
+.sw-site--mascot .sw-spot-hero__panel { position: relative; isolation: isolate; overflow: hidden; }
+.sw-site--mascot .sw-emblem-mark--panel { position: absolute; z-index: -1; right: -14%; bottom: -16%; width: min(88%, 460px); aspect-ratio: 1; color: var(--sw-on-accent, #fff); opacity: .16; rotate: -10deg; }
+.sw-site--mascot .sw-emblem-mark--panel.sw-emblem-mark--image { opacity: .2; }
+.sw-site .sw-site--mascot .sw-spot-hero__title, .sw-site--mascot .sw-spot-hero__title { font-size: clamp(2.2rem, 4.6vw, 3.8rem); font-weight: 900; letter-spacing: -.01em; text-transform: uppercase; line-height: 1.02; }
+.sw-site--mascot .sw-head__title { text-transform: uppercase; letter-spacing: .02em; font-weight: 900; }
+.sw-site--mascot .sw-band--facts { --sw-pattern-color: #ffffff; --sw-pattern-strength: .1; }
+.sw-site--mascot .sw-band--tint { --sw-pattern-strength: .06; }
+.sw-site--mascot .sw-band--facts .sw-fact__value { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 900; }
+@media (max-width: 760px) { .sw-site--mascot .sw-emblem-mark--panel { width: 70%; right: -10%; bottom: -10%; } }

@@ -1,0 +1,21 @@
+<%#
+  A student's own settings: how the portal looks for them (Light, Classic or Dark). Saved for
+  this student only (POST /appearance, handled by the layout).
+%>
+<style>
+  .st-settings { max-width: 760px; margin: 0 auto; padding: 18px 16px 40px; }
+  .st-settings h1 { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .st-settings > p { margin: 4px 0 18px; font-size: .9rem; color: #64748b; }
+  .st-card { padding: 18px; border: 1px solid #e5e9ef; border-radius: 16px; background: #fff; }
+  .st-card h2 { margin: 0 0 4px; font-size: 1rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .st-card > p { margin: 0 0 14px; font-size: .86rem; color: #64748b; }
+</style>
+<div class="st-settings">
+  <h1>Settings</h1>
+  <p>Just for you. Your school's settings don't change.</p>
+  <section class="st-card" id="appearance" aria-labelledby="stAppearance">
+    <h2 id="stAppearance">Appearance</h2>
+    <p>Choose how your portal looks.</p>
+    <%- include('../partials/appearancePicker') %>
+  </section>
+</div>

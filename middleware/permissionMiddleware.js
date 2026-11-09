@@ -50,6 +50,7 @@ const PERMISSIONS = {
   DRIVER_SCHOOL_WEBSITE: "driver_school_website",
   DRIVER_STUDENT_DETAILS: "driver_student_details",
   DRIVER_ANY_ROUTE: "driver_any_route",
+  DRIVER_FAMILY_DETAILS: "driver_family_details",
   REPORTS_TERMINAL: "reports_terminal",
   REPORTS_SETTINGS: "reports_settings",
   REPORTS_BUILDER: "reports_builder",
@@ -151,6 +152,7 @@ const PERMISSION_OPTIONS = [
 
   { key: PERMISSIONS.DRIVER_LEAD, label: "Lead Driver", group: "Driver", description: "Leads the other drivers. Turns on Transportation with Manage Drivers and Driver Reports, and adds Management to their menu", presets: [PERMISSIONS.MANAGE_TRANSPORTATION, PERMISSIONS.TRANSPORT_DRIVERS, PERMISSIONS.TRANSPORT_REPORTS] },
   { key: PERMISSIONS.DRIVER_STUDENT_DETAILS, label: "Student Details", group: "Driver", description: "See riders' home address and parent phone on the driver page" },
+  { key: PERMISSIONS.DRIVER_FAMILY_DETAILS, label: "Pickup & Emergency", group: "Driver", description: "See the pickup and emergency details the school shares with drivers" },
   { key: PERMISSIONS.DRIVER_REPORT_BUILDER, label: "Reports", group: "Driver", description: "Report Builder, for their own trips and riders plus anything their other permissions allow" },
   { key: PERMISSIONS.DRIVER_SCHOOL_WEBSITE, label: "School Website", group: "Driver", features: ["School Website", "SchoolWebsite"], description: "Show the school website in their menu" },
   { key: PERMISSIONS.DRIVER_ANY_ROUTE, label: "Any Route", group: "Driver", description: "Drive any route, not only the ones assigned to them" },

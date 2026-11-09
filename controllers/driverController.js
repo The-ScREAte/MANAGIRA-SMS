@@ -139,6 +139,19 @@ const driverController = {
         getTransportationIntegrationStatus(db, organizationId),
       ]);
 
+      // Pickup & emergency details the school shares with drivers (feature "family_sharing"),
+      // for this driver's own riders only, with the driver permission "Pickup & Emergency".
+      if (held.includes("driver_family_details") && require("../utils/shards/features").isOn("family_sharing", { organizationId: Number(organizationId) })) {
+        const riders = students.filter((student) => student.hasAccess).map((student) => student.id);
+        const family = await require("../utils/contacts").familyDetailsForStudents(db, Number(organizationId), riders, "drivers").catch(() => new Map());
+        students.forEach((student) => {
+          const people = (family.get(student.id) || [])
+            .map((p) => ({ name: p.name, relationship: p.relationship, items: [].concat(...p.sections.map((sec) => sec.items)) }))
+            .filter((p) => p.items.length);
+          if (people.length) student.family = people;
+        });
+      }
+
       let activeTrip = null;
       let lastLocation = null;
 

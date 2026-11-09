@@ -24,7 +24,8 @@ function workspaceAccess({ permissions, features, role } = {}) {
     promotion: can("approve_promotions"),
     employees: can("manage_employees"),
     guardians: can("manage_guardians") && hasProfile,
-    contactTemplate: can("edit_contact_template"),
+    // The contact template moved to Admissions > Admission Settings (Parents & guardians).
+    contactTemplate: false,
     transportation: can("manage_transportation"),
     mira: can("settings_mira"),
     events: can("publish_events_announcements"),
@@ -49,7 +50,8 @@ function workspaceAccess({ permissions, features, role } = {}) {
     alumni: can("students_alumni") && hasProfile,
     applications: can("approve_admissions") && hasProfile && hasFeature("School Website", "SchoolWebsite"),
     graduation: can("manage_school_year_terms") && hasProfile,
-    settings: can("settings_admissions") && hasProfile,
+    // Admission Settings: online admission and student fields, and the parents and guardians fields.
+    settings: can("settings_admissions", "edit_contact_template") && hasProfile,
   };
   // Each PayGira page, and what can be done on it.
   const inMain = (...keys) => can("paygira_workspace") && can(...keys);
@@ -104,7 +106,7 @@ function workspaceAccess({ permissions, features, role } = {}) {
 // what is listed once inside.
 const WORKSPACE_PERMISSIONS = {
   reports: ["reports_terminal", "reports_settings", "reports_builder", "manage_school_year_terms", "generate_transcripts", "manage_records"],
-  admissions: ["manage_students", "approve_admissions", "manage_school_year_terms", "settings_admissions"],
+  admissions: ["manage_students", "approve_admissions", "manage_school_year_terms", "settings_admissions", "edit_contact_template"],
 };
 
 module.exports = { workspaceAccess, WORKSPACE_PERMISSIONS };

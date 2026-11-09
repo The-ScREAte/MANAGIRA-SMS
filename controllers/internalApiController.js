@@ -5366,8 +5366,13 @@ async function setWebsiteLayoutApi(req, res) {
   try {
     const organizationId = await assertCanManageWebsite(req);
     const layout = String(req.body?.layout || "").trim();
-    if (!WEBSITE_LAYOUTS.has(layout)) {
-      return res.status(400).json({ error: `layout must be one of: ${[...WEBSITE_LAYOUTS].join(", ")}.` });
+    const schoolLayouts = require("../utils/websiteView")
+      .layoutsFor((key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) }))
+      .map((l) => l.value);
+    if (!WEBSITE_LAYOUTS.has(layout) || !schoolLayouts.includes(layout)) {
+      return res.status(400).json({ error: WEBSITE_LAYOUTS.has(layout)
+        ? "That design isn't available for this school yet."
+        : `layout must be one of: ${schoolLayouts.join(", ")}.` });
     }
 
     const capture = makeFlashCapture();

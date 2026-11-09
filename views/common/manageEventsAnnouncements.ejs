@@ -15,7 +15,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
-  <title>Events &amp; Announcements</title>
+  <title><%= (typeof activitiesHere !== 'undefined' && activitiesHere) ? 'Events, announcements & activities' : 'Events & announcements' %></title>
   <style>
     :root {
       --font:          "<%= fontFamily %>", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -154,9 +154,16 @@
       white-space: nowrap;
     }
     .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+    /* Phones: the three tabs share the width (and swipe if a name is long). */
+    @media (max-width: 600px) {
+      .tab-strip { width: auto; max-width: 100%; overflow-x: auto; scrollbar-width: none; margin-bottom: 18px; }
+      .tab-strip::-webkit-scrollbar { display: none; }
+      .tab-btn { flex: 1 0 auto; padding: 8px 12px; font-size: .84rem; }
+    }
     
 
     /* ── Tab panels ── */
+    .ea-tab-note { margin: 0 0 12px; font-size: 13px; color: #64748b; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
@@ -385,7 +392,7 @@
 <div class="ea-page ws-root ws-events">
   <header class="ws-head">
     <div class="ws-head__text">
-      <h1 class="ws-head__title">Events &amp; announcements</h1>
+      <h1 class="ws-head__title"><%= (typeof activitiesHere !== 'undefined' && activitiesHere) ? 'Events, announcements & activities' : 'Events & announcements' %></h1>
       <p class="ws-head__sub">Share dates and news with staff and families for this term.</p>
     </div>
   </header>
@@ -407,24 +414,45 @@
   <div class="ea-content">
 
     <!-- ── Tab strip ── -->
-    <% const eventsAccess = workspaceAccess().events; const eventsTabFirst = eventsAccess.events; %>
+    <%
+      const eventsAccess = workspaceAccess().events;
+      const _actHere = typeof activitiesHere !== 'undefined' && activitiesHere;
+      const _tabs = [eventsAccess.events && 'events', _actHere && 'activities', eventsAccess.announcements && 'announcements'].filter(Boolean);
+      const _first = (typeof initialTab !== 'undefined' && _tabs.includes(initialTab)) ? initialTab : _tabs[0];
+      const eventsTabFirst = _first === 'events';
+    %>
     <div class="tab-strip" role="tablist">
       <% if (eventsAccess.events) { %>
-      <button class="tab-btn active" role="tab" data-tab="events">
+      <button class="tab-btn<%= _first === 'events' ? ' active' : '' %>" role="tab" data-tab="events">
         Events
         <span class="count-pill"><%= (events || []).length %></span>
       </button>
       <% } %>
+      <% if (_actHere) { %>
+      <button class="tab-btn<%= _first === 'activities' ? ' active' : '' %>" role="tab" data-tab="activities">
+        Activities
+      </button>
+      <% } %>
       <% if (eventsAccess.announcements) { %>
-      <button class="tab-btn<%= eventsTabFirst ? '' : ' active' %>" role="tab" data-tab="announcements">
+      <button class="tab-btn<%= _first === 'announcements' ? ' active' : '' %>" role="tab" data-tab="announcements">
         Announcements
         <span class="count-pill"><%= (announcements || []).length %></span>
       </button>
       <% } %>
     </div>
 
+    <% if (_actHere) { %>
+    <!-- ══════════ ACTIVITIES TAB (for a class, one student or the whole school) ══════════ -->
+    <div id="tab-activities" class="tab-panel<%= _first === 'activities' ? ' active' : '' %>">
+      <link rel="stylesheet" href="<%= assetUrl('/css/activities.css') %>" />
+      <p class="ea-tab-note">For the whole school, a class or one student. Families see them on their calendar.</p>
+      <div data-activities data-classes="<%= JSON.stringify(activityClasses) %>"></div>
+      <script src="<%= assetUrl('/js/activities.js') %>" defer></script>
+    </div>
+    <% } %>
+
     <!-- ══════════ EVENTS TAB ══════════ -->
-    <div id="tab-events" class="tab-panel<%= eventsTabFirst ? ' active' : '' %>"<%= eventsAccess.events ? '' : ' hidden' %>>
+    <div id="tab-events" class="tab-panel<%= _first === 'events' ? ' active' : '' %>"<%= eventsAccess.events ? '' : ' hidden' %>>
       <div class="two-col">
 
         <!-- Create form -->
@@ -574,7 +602,7 @@
     </div>
 
     <!-- ══════════ ANNOUNCEMENTS TAB ══════════ -->
-    <div id="tab-announcements" class="tab-panel<%= eventsTabFirst ? '' : ' active' %>"<%= eventsAccess.announcements ? '' : ' hidden' %>>
+    <div id="tab-announcements" class="tab-panel<%= _first === 'announcements' ? ' active' : '' %>"<%= eventsAccess.announcements ? '' : ' hidden' %>>
       <div class="two-col">
 
         <!-- Create form -->
