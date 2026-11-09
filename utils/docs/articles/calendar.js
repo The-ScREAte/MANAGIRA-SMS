@@ -66,7 +66,7 @@ module.exports = [
           "Tick <strong>Email families a reminder the day before</strong> if you'd like a reminder sent.",
           "Save. Families are notified straight away.",
         ],
-        tip: "In a hurry? Use <strong>New task</strong> on the dashboard and choose the <strong>Activity</strong> tab.",
+        tip: "Teachers can also add activities from <strong>Activities</strong> in their class's Class Tools. In a hurry? Use <strong>New task</strong> on the dashboard and choose the <strong>Activity</strong> tab.",
         image: "new-task-dialog.webp",
         caption: "New task, Activity: add an activity without leaving the dashboard.",
       },

@@ -5,9 +5,22 @@
 // DEFAULT_TIME_ZONE, then UTC. Dates are keys like "2026-11-02".
 const COOKIE = "mgr_tz";
 
+// One formatter per time zone, reused: building an Intl.DateTimeFormat is slow, and this runs
+// on many requests. The zone comes from a cookie, so the list is capped.
+const formatters = new Map();
+function formatterFor(zone) {
+  let entry = formatters.get(zone);
+  if (entry === undefined) {
+    try { entry = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }); } catch (_e) { entry = null; }
+    if (formatters.size >= 500) formatters.clear();
+    formatters.set(zone, entry);
+  }
+  return entry;
+}
+
 function validZone(zone) {
   if (!zone) return null;
-  try { Intl.DateTimeFormat("en-US", { timeZone: zone }); return zone; } catch (_e) { return null; }
+  return formatterFor(zone) ? zone : null;
 }
 
 function timeZoneOf(req) {
@@ -18,7 +31,9 @@ function timeZoneOf(req) {
 
 // YYYY-MM-DD for a moment in a time zone.
 function dateKeyIn(timeZone, date = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+  const formatter = formatterFor(timeZone);
+  if (!formatter) throw new RangeError(`Invalid time zone specified: ${timeZone}`);
+  return formatter.format(date);
 }
 
 const todayKeyFor = (req) => dateKeyIn(timeZoneOf(req));

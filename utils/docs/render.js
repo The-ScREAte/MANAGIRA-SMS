@@ -8,7 +8,8 @@
 // Article fields:
 //   slug, title, topic, order, summary (the search result description, under 160 characters),
 //   tags, featured, who, intro (HTML), sections, faq [[question, answer]], related [slug].
-// A section: { title, text?, steps?, list?, table?, example?, tip?, note?, warning?, html? }.
+// A section: { title, text?, steps?, list?, table?, code?, subsections?, example?, tip?, note?, warning?, html? }.
+// A subsection: { title, text?, steps?, list?, table?, tables? [{ label, rows }], code?, prints?, tip?, note? }.
 // A step: "text", or [text, image, caption]: the image is a file in public/images/docs/.
 
 const IMAGE_ROOT = "/images/docs/";
@@ -37,11 +38,17 @@ function steps(list) {
 const callout = (kind, label, body) =>
   `<div class="doc-callout doc-callout--${kind}"><p><strong>${esc(label)}</strong> ${inline(body)}</p></div>`;
 
-function table(rows) {
+// Each cell carries its column's name, so a phone can show a row as a stacked card.
+function table(rows, cls) {
   const [head, ...body] = rows;
-  return `<table><thead><tr>${head.map((cell) => `<th scope="col">${inline(cell)}</th>`).join("")}</tr></thead>`
-    + `<tbody>${body.map((row) => `<tr>${row.map((cell) => `<td>${inline(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const label = (i) => esc(String(head[i] || "").replace(/<[^>]+>/g, ""));
+  return `<table${cls ? ` class="${cls}"` : ""}><thead><tr>${head.map((cell) => `<th scope="col">${inline(cell)}</th>`).join("")}</tr></thead>`
+    + `<tbody>${body.map((row) => `<tr>${row.map((cell, i) => `<td data-label="${label(i)}">${inline(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
+
+// A sheet drawn as a table (an example layout): long fields may wrap after a dot or colon.
+const breakable = (rows) => rows.map((row) => row.map((cell) => String(cell).replace(/<code>([^<]*)<\/code>/g,
+  (match, text) => `<code>${text.replace(/([.:])(?=.)/g, "$1<wbr>")}</code>`)));
 
 function section(part) {
   const out = [];
@@ -61,12 +68,19 @@ function section(part) {
   return out.join("\n");
 }
 
+// A labelled table, e.g. "In your sheet" next to "Prints".
+const labelled = ({ label, rows }) => `<p class="doc-table-label">${inline(label)}</p>${table(breakable(rows), "doc-sheet")}`;
+
 function subsection(part) {
   const out = [`<h3>${esc(part.title)}</h3>`];
   if (part.text) out.push(...[].concat(part.text).map((p) => `<p>${inline(p)}</p>`));
   if (part.steps) out.push(steps(part.steps));
   if (part.image) out.push(figure(part.image, part.caption, part.caption));
   if (part.list) out.push(`<ul>${part.list.map((item) => `<li>${inline(item)}</li>`).join("")}</ul>`);
+  if (part.table) out.push(table(part.table));
+  if (part.tables) part.tables.forEach((item) => out.push(labelled(item)));
+  if (part.code) out.push(`<pre><code>${esc(part.code)}</code></pre>`);
+  if (part.prints) out.push(`<p class="doc-table-label">Prints</p><p class="doc-prints">${inline(part.prints)}</p>`);
   if (part.tip) out.push(callout("tip", "Tip:", part.tip));
   if (part.note) out.push(callout("info", "Good to know:", part.note));
   return out.join("\n");

@@ -220,6 +220,51 @@ async function getGradeLabelFromScoreRemark(
   return configuredLabel || getDefaultGradeLabel(percentage);
 }
 
+// The class's grade bands for a term, read once: gradeFor(percentage) gives the same label as
+// getGradeLabelFromScoreRemark (the same band order as its SQL), without a query per subject.
+async function loadGradeBands(dbClient, organizationId, classId, termId) {
+  await ensureScoreRemarkGradeSchema(dbClient);
+  const { rows } = await dbClient.query(
+    `SELECT grade_label, from_percentage, to_percentage
+       FROM score_remarks
+      WHERE organization_id = $1
+        AND class_id = $2
+        AND term_id = $3
+        AND NULLIF(TRIM(grade_label), '') IS NOT NULL`,
+    [organizationId, classId, termId]
+  );
+  const num = (value) => (value === null || value === undefined ? null : Number(value));
+  const bands = rows.map((row) => ({ label: row.grade_label, from: num(row.from_percentage), to: num(row.to_percentage) }));
+  // ORDER BY <distance> ASC (NULLS LAST), from_percentage DESC (NULLS FIRST), as in the SQL.
+  const distance = (band, p) => {
+    if (band.from !== null && band.to !== null && p >= band.from && p <= band.to) return 0;
+    if (band.from !== null && p < band.from) return band.from - p;
+    return band.to !== null ? p - band.to : null;
+  };
+  const before = (a, da, b, db) => {
+    if (da !== db) {
+      if (da === null) return false;
+      if (db === null) return true;
+      return da < db;
+    }
+    if (a.from === b.from) return false;
+    if (a.from === null) return true;
+    if (b.from === null) return false;
+    return a.from > b.from;
+  };
+  return (percentage) => {
+    if (percentage === null || percentage === undefined || Number.isNaN(percentage)) return "-";
+    let best = null;
+    let bestDistance = null;
+    for (const band of bands) {
+      const d = distance(band, percentage);
+      if (best === null || before(band, d, best, bestDistance)) { best = band; bestDistance = d; }
+    }
+    const configuredLabel = String((best && best.label) || "").trim();
+    return configuredLabel || getDefaultGradeLabel(percentage);
+  };
+}
+
 function normalizeAnswerValue(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -971,21 +1016,18 @@ module.exports = {
         });
       });
 
+      const subjectSummaries = Array.from(subjectGradeMap.values());
+      const needsGrades = subjectSummaries.some((summary) => summary.has_entered_score && summary.total_max_score > 0);
+      const gradeFor = needsGrades ? await loadGradeBands(db, organizationId, effectiveClassId, selectedTerm.term_id) : null;
       const assessmentGrades = await Promise.all(
-        Array.from(subjectGradeMap.values()).map(async (summary) => {
+        subjectSummaries.map(async (summary) => {
           if (!summary.has_entered_score || summary.total_max_score <= 0) {
             return summary;
           }
 
           const percentage = (Number(summary.total_subject_score) / Number(summary.total_max_score)) * 100;
           const scaledScore = (percentage / 100) * Number(summary.scale_base || 100);
-          const grade = await getGradeLabelFromScoreRemark(
-            db,
-            organizationId,
-            effectiveClassId,
-            selectedTerm.term_id,
-            percentage
-          );
+          const grade = gradeFor(percentage);
 
           return {
             ...summary,

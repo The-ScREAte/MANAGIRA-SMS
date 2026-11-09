@@ -50,7 +50,7 @@ const MENUS = [
   {
     key: "resources", label: "Resources",
     groups: [{ links: [
-      { label: "Product tour", href: "/legal/app-demo", note: "See Managira in action" },
+      { label: "Product tour", href: "https://www.youtube.com/watch?v=y1J0KahfA-c", note: "Watch Managira in action", external: true },
       { label: "Documentation", href: "/legal/user-documentation", note: "Setup and usage guides" },
       { label: "Help center", href: "/legal/help", note: "Answers and support" },
       { label: "FAQ", href: "/legal/faq", note: "Common questions" },
@@ -68,6 +68,7 @@ const MENUS = [
 ];
 
 // The public footer: the columns leading SIS sites carry, every link to a real page.
+const DOCS = (slug) => `/legal/user-documentation/${slug}`;
 const FOOTER = [
   { title: "Platform", links: [
     ["Student information system", product("student", "student-records-attendance")],
@@ -75,7 +76,25 @@ const FOOTER = [
     ["Family engagement", product("family", "parent-portal")],
     ["Business operations", product("operational", "finance-management")],
     ["Analytics & reporting", product("student", "analytics-reporting")],
+    ["District & network management", product("operational", "hub-management")],
     ["Mira AI assistant", "/legal/mira-ai-assistant"],
+  ] },
+  { title: "Features", links: [
+    ["Attendance", DOCS("mark-attendance-for-a-class")],
+    ["Gradebook & report cards", DOCS("report-card")],
+    ["Report card templates", DOCS("report-card-templates")],
+    ["Online enrollment", product("family", "online-admissions")],
+    ["Bus tracking", DOCS("live-bus-tracking")],
+    ["Fees & payments", DOCS("set-up-paygira-bills-collections-and-guardian-payments")],
+    ["School websites", DOCS("school-website")],
+  ] },
+  { title: "Integrations", links: [
+    ["All integrations", "/#integrations"],
+    ["Text messages & WhatsApp", DOCS("mailroom-send-sms-whatsapp-and-email-to-guardians")],
+    ["Single sign-on", DOCS("single-sign-on")],
+    ["Calendar sync", DOCS("calendar-sync-google-outlook-apple")],
+    ["Open API", DOCS("service-accounts-and-access-tokens")],
+    ["Request an integration", "/legal/help"],
   ] },
   { title: "Solutions", links: [
     ["School leaders", "/#leaders"],
@@ -84,14 +103,8 @@ const FOOTER = [
     ["Families", "/#families"],
     ["Districts & networks", product("operational", "hub-management")],
   ] },
-  { title: "Parents & students", links: [
-    ["Parent login", "/account/guardian-login"],
-    ["Student login", "/account/student-login"],
-    ["Online enrollment", product("family", "online-admissions")],
-    ["Login help", "/legal/help"],
-  ] },
   { title: "Resources", links: [
-    ["Product tour", "/legal/app-demo"],
+    ["Product tour", "https://www.youtube.com/watch?v=y1J0KahfA-c"],
     ["Documentation", "/legal/user-documentation"],
     ["Help center", "/legal/help"],
     ["FAQ", "/legal/faq"],
@@ -100,10 +113,18 @@ const FOOTER = [
   { title: "Company", links: [
     ["About us", "/legal/about-us"],
     ["Careers", "/legal/employment"],
+    ["Security & privacy", "/#security"],
     ["Give to Managira", "/legal/donations"],
     ["Request a demo", "/legal/request-demo"],
     ["Contact us", "/legal/help"],
   ] },
+];
+
+// Signing in, for each kind of person (the footer's quick links).
+const SIGN_IN = [
+  ["Staff", "/account/login"],
+  ["Parents", "/account/guardian-login"],
+  ["Students", "/account/student-login"],
 ];
 
 const ICONS = {
@@ -175,4 +196,4 @@ function isNewLook() {
   return process.env.NODE_ENV !== "production" || require("./shards/features").isOn("new_landing");
 }
 
-module.exports = { MENUS, FOOTER, icon, product, brand, isNewLook };
+module.exports = { MENUS, FOOTER, SIGN_IN, icon, product, brand, isNewLook };

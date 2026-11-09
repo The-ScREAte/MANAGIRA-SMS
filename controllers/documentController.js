@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const { sendEmailInBackground } = require("../utils/emailHelper");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");

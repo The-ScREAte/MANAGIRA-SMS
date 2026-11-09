@@ -2,7 +2,7 @@ const { BoundedMap } = require("./boundedMap");
 // "Enter your password to continue" for sensitive actions: checks the signed-in
 // person's own password (a staff user, or the school's own account), with a
 // limit on wrong tries (correct ones never count against it).
-const bcrypt = require("bcryptjs");
+const bcrypt = require("./passwordHashing");
 const db = require("../config/db");
 
 const MAX_WRONG = 5;

@@ -1069,36 +1069,90 @@ module.exports = {
         return res.redirect('/guardian/dashboard');
       }
 
-      // Fetch student details
-      const studentResult = await db.query(
-        `SELECT s.*, c.class_name, c.class_id, g.name AS grad_year_group_name
+      // Everything that needs only the student and the term, fetched together.
+      const [
+        studentResult,
+        studentIdSettings,
+        termResult,
+        attendanceResult,
+        pastResultsQuery,
+        termsResult,
+        postedReportCardsCountResult,
+      ] = await Promise.all([
+        db.query(
+          `SELECT s.*, c.class_name, c.class_id, g.name AS grad_year_group_name
          FROM students s
          LEFT JOIN classes c ON s.class_id = c.class_id
          LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
          WHERE s.student_id = $1 AND s.organization_id = $2`,
-        [studentId, organizationId]
-      );
+          [studentId, organizationId]
+        ),
+        getOrganizationStudentIdSettings(db, organizationId),
+        db.query(
+          `SELECT t.term_name, t.term_id, t.school_year_id, sy.year_label
+         FROM terms t
+         INNER JOIN school_years sy ON t.school_year_id = sy.id
+         WHERE t.term_id = $1 AND t.organization_id = $2`,
+          [termId, organizationId]
+        ),
+        db.query(
+          `SELECT date, status
+         FROM attendance_records
+         WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
+         ORDER BY date DESC`,
+          [studentId, organizationId, termId]
+        ),
+        // Past report cards (if the table exists).
+        db.query(
+          `SELECT 
+             t.term_name,
+             sy.year_label,
+             rc.overall_average,
+             rc.overall_grade,
+             rc.class_position,
+             rc.total_students,
+             rc.remarks,
+             rc.created_at
+           FROM report_cards rc
+           INNER JOIN terms t ON rc.term_id = t.term_id
+           INNER JOIN school_years sy ON t.school_year_id = sy.id
+           WHERE rc.student_id = $1 
+             AND rc.organization_id = $2 
+             AND rc.term_id != $3
+           ORDER BY rc.created_at DESC
+           LIMIT 10`,
+          [studentId, organizationId, termId]
+        ).catch(() => ({ rows: [] })),
+        // The last 3 terms for the dropdown.
+        db.query(
+          `SELECT t.term_id, t.term_name, sy.year_label
+         FROM terms t
+         LEFT JOIN school_years sy ON sy.id = t.school_year_id
+         WHERE t.organization_id = $1
+         ORDER BY t.start_date DESC
+         LIMIT 3`,
+          [organizationId]
+        ),
+        ensurePostedReportCardsTable(db).then(() => db.query(
+          `SELECT COUNT(*)::int AS count
+         FROM posted_report_cards
+         WHERE organization_id = $1
+           AND student_id = $2
+         LIMIT 1`,
+          [organizationId, studentId]
+        )),
+      ]);
 
       if (!studentResult.rows.length) {
         req.flash('error', 'Student not found');
         return res.redirect('/guardian/dashboard');
       }
 
-      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
       const student = {
         ...studentResult.rows[0],
         display_student_id: buildStudentDisplayId(studentResult.rows[0], studentIdSettings),
       };
       const classId = student.class_id;
-
-      // Get term info
-      const termResult = await db.query(
-        `SELECT t.term_name, t.term_id, t.school_year_id, sy.year_label
-         FROM terms t
-         INNER JOIN school_years sy ON t.school_year_id = sy.id
-         WHERE t.term_id = $1 AND t.organization_id = $2`,
-        [termId, organizationId]
-      );
 
       const termNameForPage = termResult.rows[0]?.term_name || 'Unknown';
       const termSchoolYearId = termResult.rows[0]?.school_year_id || null;
@@ -1124,19 +1178,26 @@ module.exports = {
         enrolledClassResult.rows[0]?.class_name ||
         (effectiveClassId === classId ? student.class_name : 'Not enrolled');
 
-      // Fetch main teacher
-      const mainTeacherResult = await db.query(
-        `SELECT u.first_name, u.last_name, u.email
+      // Everything that needs the class: teachers, subjects, scores, positions and the timetable.
+      const [
+        mainTeacherResult,
+        subjectsResult,
+        subjectTeachersResult,
+        assessmentsResult,
+        positionsResult,
+        classSchedule,
+      ] = await Promise.all([
+        db.query(
+          `SELECT u.first_name, u.last_name, u.email
          FROM user_classes uc
          JOIN users u ON u.user_id = uc.user_id
          WHERE uc.class_id = $1 AND uc.main = TRUE
          LIMIT 1`,
-        [effectiveClassId]
-      );
-
-      // Fetch subjects student is enrolled in
-      const subjectsResult = await db.query(
-        `SELECT DISTINCT s.subject_id, s.subject_name
+          [effectiveClassId]
+        ),
+        // Subjects the student is enrolled in
+        db.query(
+          `SELECT DISTINCT s.subject_id, s.subject_name
          FROM student_subjects_in_term($4::int) ss
          INNER JOIN subjects s ON ss.subject_id = s.subject_id AND s.organization_id = ss.organization_id
          WHERE ss.student_id = $1
@@ -1145,12 +1206,11 @@ module.exports = {
            AND (ss.term_id IS NULL OR ss.term_id = $4)
            AND (s.term_id IS NULL OR s.term_id = $4)
          ORDER BY s.subject_name, s.subject_id`,
-        [studentId, organizationId, effectiveClassId, termId]
-      );
-
-      // Fetch subject teachers only for subjects the student is enrolled in
-      const subjectTeachersResult = await db.query(
-        `SELECT DISTINCT s.subject_id, s.subject_name, u.first_name, u.last_name, u.email
+          [studentId, organizationId, effectiveClassId, termId]
+        ),
+        // Subject teachers, only for subjects the student is enrolled in
+        db.query(
+          `SELECT DISTINCT s.subject_id, s.subject_name, u.first_name, u.last_name, u.email
          FROM student_subjects_in_term($4::int) ss
          INNER JOIN subjects s ON ss.subject_id = s.subject_id AND s.organization_id = ss.organization_id
          LEFT JOIN user_subjects us ON us.subject_id = s.subject_id
@@ -1161,36 +1221,11 @@ module.exports = {
            AND (ss.term_id IS NULL OR ss.term_id = $4)
            AND (s.term_id IS NULL OR s.term_id = $4)
          ORDER BY s.subject_name`,
-        [studentId, organizationId, effectiveClassId, termId]
-      );
-
-      const subjectsMap = new Map();
-      const subjectKeyById = new Map();
-      subjectsResult.rows.forEach((subject) => {
-        const subjectKey = String(subject.subject_name || '').trim().toLowerCase();
-        subjectKeyById.set(subject.subject_id, subjectKey);
-
-        if (!subjectsMap.has(subjectKey)) {
-          subjectsMap.set(subjectKey, {
-            ...subject,
-            subjectIds: [subject.subject_id],
-            totalScore: 0,
-            totalMaxScore: 0,
-            totalPercentage: null,
-            grade: null,
-            position: null,
-            assessments: [],
-          });
-          return;
-        }
-
-        const existing = subjectsMap.get(subjectKey);
-        existing.subjectIds.push(subject.subject_id);
-      });
-
-      // Fetch assessments and scores for current term
-      const assessmentsResult = await db.query(
-        `SELECT DISTINCT ON (a.assessment_id) 
+          [studentId, organizationId, effectiveClassId, termId]
+        ),
+        // Assessments and scores for the term
+        db.query(
+          `SELECT DISTINCT ON (a.assessment_id) 
            a.assessment_id, a.title, a.weight, ar.score, ar.choice_label, a.subject_id, a.max_score, a.category,
            ar.total_subject_score,
            ar.total_percentage,
@@ -1245,8 +1280,45 @@ module.exports = {
            AND a.class_id = $4
            AND ($5::int IS NULL OR t.school_year_id = $5)
          ORDER BY a.assessment_id`,
-        [studentId, termId, organizationId, effectiveClassId, termSchoolYearId]
-      );
+          [studentId, termId, organizationId, effectiveClassId, termSchoolYearId]
+        ),
+        db.query(
+          `SELECT subject_id, position
+         FROM student_term_positions
+         WHERE student_id = $1
+           AND organization_id = $2
+           AND term_id = $3
+           AND class_id = $4`,
+          [studentId, organizationId, termId, effectiveClassId]
+        ),
+        effectiveClassId
+          ? getClassScheduleForTerm(db, { organizationId, classId: effectiveClassId, termId })
+          : null,
+      ]);
+
+      const subjectsMap = new Map();
+      const subjectKeyById = new Map();
+      subjectsResult.rows.forEach((subject) => {
+        const subjectKey = String(subject.subject_name || '').trim().toLowerCase();
+        subjectKeyById.set(subject.subject_id, subjectKey);
+
+        if (!subjectsMap.has(subjectKey)) {
+          subjectsMap.set(subjectKey, {
+            ...subject,
+            subjectIds: [subject.subject_id],
+            totalScore: 0,
+            totalMaxScore: 0,
+            totalPercentage: null,
+            grade: null,
+            position: null,
+            assessments: [],
+          });
+          return;
+        }
+
+        const existing = subjectsMap.get(subjectKey);
+        existing.subjectIds.push(subject.subject_id);
+      });
 
       assessmentsResult.rows.forEach((assessment) => {
         const subjectKey = subjectKeyById.get(assessment.subject_id);
@@ -1265,17 +1337,6 @@ module.exports = {
           subject.grade = assessment.grade;
         }
       });
-
-      // Fetch positions
-      const positionsResult = await db.query(
-        `SELECT subject_id, position
-         FROM student_term_positions
-         WHERE student_id = $1
-           AND organization_id = $2
-           AND term_id = $3
-           AND class_id = $4`,
-        [studentId, organizationId, termId, effectiveClassId]
-      );
 
       const positions = positionsResult.rows.reduce((acc, position) => {
         acc[position.subject_id] = position.position;
@@ -1301,15 +1362,6 @@ module.exports = {
         return assessmentsResult.rows.find((a) => a.title === title);
       });
 
-      // Fetch attendance records for the term
-      const attendanceResult = await db.query(
-        `SELECT date, status
-         FROM attendance_records
-         WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
-         ORDER BY date DESC`,
-        [studentId, organizationId, termId]
-      );
-
       // Calculate attendance summary
       const attendance = attendanceResult.rows;
       const attendanceSummary = {
@@ -1326,59 +1378,9 @@ module.exports = {
         ).toFixed(1);
       }
 
-      // Fetch past report cards (if table exists)
-      let pastResults = [];
-      try {
-        const pastResultsQuery = await db.query(
-          `SELECT 
-             t.term_name,
-             sy.year_label,
-             rc.overall_average,
-             rc.overall_grade,
-             rc.class_position,
-             rc.total_students,
-             rc.remarks,
-             rc.created_at
-           FROM report_cards rc
-           INNER JOIN terms t ON rc.term_id = t.term_id
-           INNER JOIN school_years sy ON t.school_year_id = sy.id
-           WHERE rc.student_id = $1 
-             AND rc.organization_id = $2 
-             AND rc.term_id != $3
-           ORDER BY rc.created_at DESC
-           LIMIT 10`,
-          [studentId, organizationId, termId]
-        );
-        pastResults = pastResultsQuery.rows;
-      } catch (error) {
-                pastResults = [];
-      }
+      const pastResults = pastResultsQuery.rows;
 
-      // Fetch last 3 terms for dropdown
-      const termsResult = await db.query(
-        `SELECT t.term_id, t.term_name, sy.year_label
-         FROM terms t
-         LEFT JOIN school_years sy ON sy.id = t.school_year_id
-         WHERE t.organization_id = $1
-         ORDER BY t.start_date DESC
-         LIMIT 3`,
-        [organizationId]
-      );
-
-      await ensurePostedReportCardsTable(db);
-      const postedReportCardsCountResult = await db.query(
-        `SELECT COUNT(*)::int AS count
-         FROM posted_report_cards
-         WHERE organization_id = $1
-           AND student_id = $2
-         LIMIT 1`,
-        [organizationId, studentId]
-      );
       const hasPostedReportCards = (postedReportCardsCountResult.rows[0]?.count || 0) > 0;
-
-      const classSchedule = effectiveClassId
-        ? await getClassScheduleForTerm(db, { organizationId, classId: effectiveClassId, termId })
-        : null;
 
       const scheduleWatermarkUrl = resolveScheduleWatermarkUrl(req);
 

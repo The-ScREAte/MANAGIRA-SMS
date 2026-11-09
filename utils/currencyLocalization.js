@@ -857,18 +857,32 @@ function localizeUsdAmount(usdAmount, currencyProfile) {
   };
 }
 
+// Building an Intl.NumberFormat is slow; pages with many amounts format thousands of times.
+// One formatter per locale and currency (a handful in practice) is kept and reused.
+const currencyFormatters = new Map();
+function currencyFormatter(locale, currency) {
+  const key = `${locale}|${currency}`;
+  let formatter = currencyFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (currencyFormatters.size >= 200) currencyFormatters.clear();
+    currencyFormatters.set(key, formatter);
+  }
+  return formatter;
+}
+
 function formatCurrencyAmount(value, currencyCode, localeOverride) {
   const amount = Number(value || 0);
   const currency = normalizeCurrencyCode(currencyCode) || FALLBACK_CURRENCY;
   const locale = localeOverride || getLocaleForCurrency(currency);
 
   try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return currencyFormatter(locale, currency).format(amount);
   } catch (_) {
     return `${currency} ${roundTo2(amount).toFixed(2)}`;
   }

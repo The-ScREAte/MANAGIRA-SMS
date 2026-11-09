@@ -332,9 +332,9 @@ async function resolveSafeLoginRedirect(database, permissionContext, returnTo, f
   return allowed ? normalizedReturnTo : fallbackUrl;
 }
 
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 
-const bcryptjs = require("bcryptjs");
+const bcryptjs = require("../utils/passwordHashing");
 
 const db = require("../config/db");
 const websiteExtras = require("../utils/websiteExtras");

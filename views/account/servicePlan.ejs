@@ -725,16 +725,64 @@
         margin-top: 1px;
       }
     </style>
+
+    <%# A clean, professional layer over the plan page (same plans, prices and behavior). %>
+    <style>
+      body { background: #f6f8fa; }
+      .pricing-shell { max-width: 1120px !important; margin: 0 auto !important; padding: 36px 20px 48px !important; }
+      /* On the public site the page frame already leaves room under the header. */
+      .lp-public-main .pricing-shell { padding-top: 4px !important; }
+      .pricing-header { margin: 0 auto 26px !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; text-align: center; max-width: 640px; }
+      .pricing-eyebrow { margin: 0 0 8px !important; font-size: .78rem !important; font-weight: 700 !important; letter-spacing: .08em; text-transform: uppercase; color: #0f5a66 !important; }
+      .pricing-header h1 { margin: 0 0 10px !important; font-size: clamp(1.7rem, 3vw, 2.3rem) !important; font-weight: 800 !important; letter-spacing: -.02em; color: #0f172a !important; }
+      .pricing-header p { margin: 0 !important; font-size: 1rem !important; line-height: 1.6; color: #64748b !important; }
+      .plan-grid { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important; gap: 18px !important; align-items: stretch; }
+      .plan-card { display: flex !important; flex-direction: column !important; padding: 24px 22px 22px !important; border: 1px solid #e3e8ee !important; border-radius: 18px !important; background: #fff !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important; cursor: pointer; overflow: visible !important; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+      .plan-card:hover { border-color: #c9dfe2 !important; box-shadow: 0 16px 34px -22px rgba(15, 23, 42, .35) !important; transform: translateY(-2px); }
+      .plan-card.selected { border-color: #0f5a66 !important; box-shadow: 0 0 0 3px rgba(15, 90, 102, .16), 0 16px 34px -22px rgba(15, 90, 102, .45) !important; }
+      .plan-card { position: relative !important; }
+      .plan-card.selected::after { content: "Selected" !important; position: absolute !important; top: 20px !important; right: 18px !important; left: auto !important; bottom: auto !important; margin: 0; padding: 3px 10px !important; border-radius: 999px; background: #0f5a66 !important; color: #fff !important; font-size: .72rem !important; font-weight: 700; letter-spacing: .02em; width: auto !important; height: auto !important; }
+      .plan-card .plan-name, .plan-card.selected .plan-name { order: 1; margin: 0 0 6px !important; padding: 0 !important; background: none !important; color: #0f172a !important; text-align: left !important; font-size: 1.12rem !important; font-weight: 750 !important; border-radius: 0 !important; }
+      .plan-card .plan-price { order: 2; margin: 0 0 14px !important; padding: 0 0 16px !important; border: 0 !important; border-bottom: 1px solid #eef2f6 !important; background: none !important; text-align: left !important; }
+      .plan-card .plan-price strong { display: inline-block; font-size: 2rem !important; font-weight: 800 !important; letter-spacing: -.02em; color: #0f172a !important; }
+      .plan-card .price-caption { display: inline-block; margin-left: 4px; font-size: .9rem !important; color: #64748b !important; }
+      .plan-card .price-after-trial { margin-top: 2px; font-size: .8rem !important; font-style: normal !important; color: #94a3b8 !important; }
+      .plan-card .free-students-badge { display: inline-block; margin-top: 10px !important; padding: 4px 10px !important; border: 1px solid #cfe7e3 !important; border-radius: 999px !important; background: #f0f8f7 !important; color: #0f5a66 !important; font-size: .76rem !important; font-weight: 650; }
+      .plan-card .plan-content { order: 3; flex: 1; padding: 0 !important; }
+      .plan-card .plan-description { margin: 0 0 12px !important; font-size: .9rem !important; line-height: 1.55; color: #475569 !important; }
+      .plan-card .feature-list { margin: 0 !important; padding: 0 !important; list-style: none !important; border: 0 !important; }
+      .plan-card .feature-list li { position: relative; margin: 0 !important; padding: 6px 0 6px 26px !important; border: 0 !important; font-size: .9rem !important; line-height: 1.45; color: #334155 !important; }
+      .plan-card .feature-list li::before { content: "" !important; position: absolute; left: 0; top: 8px; width: 16px; height: 16px; border-radius: 50%; background: #e8f3f4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f5a66' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 10px no-repeat; }
+      .plan-card .core-toggle { width: 100%; margin: 0 0 8px !important; padding: 8px 12px !important; border: 1px solid #e3edef !important; border-radius: 10px !important; background: #f6fafb !important; color: #0f5a66 !important; font-size: .84rem !important; font-weight: 650 !important; text-align: left; cursor: pointer; }
+      .school-size-notice { margin: 18px 0 0 !important; padding: 12px 16px !important; border: 1px solid #e3e8ee !important; border-radius: 14px !important; background: #fff !important; color: #475569 !important; font-size: .88rem !important; text-align: left !important; }
+      .school-size-notice strong { color: #0f172a !important; }
+      .period-section { margin: 24px 0 0 !important; padding: 20px !important; border: 1px solid #e3e8ee !important; border-radius: 18px !important; background: #fff !important; box-shadow: none !important; }
+      .period-section h3 { margin: 0 0 14px !important; font-size: 1rem !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: none !important; color: #0f172a !important; text-align: left !important; }
+      .period-grid { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; gap: 10px !important; }
+      .period-card { padding: 12px !important; border: 1px solid #e3e8ee !important; border-radius: 12px !important; background: #fff !important; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+      .period-card:hover { border-color: #c9dfe2 !important; }
+      .period-card.active { border-color: #0f5a66 !important; background: #f3f9f9 !important; box-shadow: 0 0 0 3px rgba(15, 90, 102, .14) !important; }
+      #proceedPlanButton { width: 100% !important; height: 50px !important; margin: 0 !important; border: 0 !important; border-radius: 12px !important; background: #0f5a66 !important; color: #fff !important; font-size: 1rem !important; font-weight: 650 !important; cursor: pointer; }
+      #proceedPlanButton:hover:not(:disabled) { background: #0b4a54 !important; }
+      #proceedPlanButton:disabled { background: #a7c4c8 !important; cursor: not-allowed; }
+      @media (max-width: 640px) {
+        .pricing-shell { padding: 20px 14px 32px !important; }
+        .plan-card { padding: 20px 18px !important; }
+        .plan-card:hover { transform: none; }
+        .period-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      }
+    </style>
   </head>
 
   <body>
     <main class="pricing-shell">
       <section class="pricing-header">
-        <h1>Select a Service Plan</h1>
+        <p class="pricing-eyebrow">Plans and pricing</p>
+        <h1>Choose your plan</h1>
         <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
-          <p>Enjoy <strong><%= freeTrialLengthLabel %></strong> free on any plan. Choose a plan and billing cycle below.</p>
+          <p>Every plan starts with <strong><%= freeTrialLengthLabel %></strong> free. Pick a plan, then choose how often to pay.</p>
         <% } else { %>
-          <p>Choose the package that best fits your school and continue to registration.</p>
+          <p>Pick the plan that fits your school, then choose how often to pay.</p>
         <% } %>
       </section>
 
@@ -853,7 +901,7 @@
         <!-- Billing Period Cards -->
         <% if (typeof billingPeriods !== 'undefined' && billingPeriods.length > 1) { %>
         <div class="period-section">
-          <h3>Choose Your Billing Cycle</h3>
+          <h3>How often to pay</h3>
           <div class="period-grid" role="radiogroup" aria-label="Billing period">
             <% billingPeriods.forEach(function(bp, idx) { %>
               <div

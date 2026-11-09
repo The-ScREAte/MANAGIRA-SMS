@@ -270,9 +270,9 @@ const POPULAR = [
   { slug: 'register-a-school-and-complete-first-time-setup', label: 'Set up your school' },
   { slug: 'create-and-add-student', label: 'Add a student' },
   { slug: 'report-card', label: 'Report cards' },
+  { slug: 'report-card-templates', label: 'Report card templates' },
   { slug: 'single-sign-on', label: 'Single sign-on' },
   { slug: 'school-website', label: 'School website' },
-  { slug: 'service-accounts-and-access-tokens', label: 'API access tokens' },
 ];
 
 function docsLocals(articles) {

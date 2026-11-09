@@ -1,6 +1,6 @@
 // Who may touch shards: a platform super admin, checked against the database on every
 // request, on the control shard, who has confirmed their password in the last 30 minutes.
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const db = require("../config/db");
 const registry = require("../utils/shards/registry");
 

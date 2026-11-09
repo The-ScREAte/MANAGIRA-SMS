@@ -1,7 +1,7 @@
 
 // Helper to get first class for org
 const { getFirstClassForOrganization } = require("../models/classModel");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const { sendEmailSafely } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { renderTranscriptPdf, sessionCookieFromHeader, isServerRender } = require('../utils/pdfService');

@@ -9,7 +9,7 @@ const path = require("path");
 const PDFDocument = require("pdfkit");
 const Stripe = require("stripe");
 const axios = require("axios");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const db = require("../config/db");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { logOrganizationActivity } = require("../utils/activityLog");
@@ -69,12 +69,12 @@ function _finKey(orgId, name, extra) {
   return `paygira:${orgId}:${name}:${tag}`;
 }
 
-async function cachedLoad(orgId, name, extra, loader) {
+async function cachedLoad(orgId, name, extra, loader, { readOnly = false } = {}) {
   return cacheManager.getOrFetch(
     "organization",
     _finKey(orgId, name, extra),
     loader,
-    { ttl: FIN_CACHE_TTL_SECONDS }
+    { ttl: FIN_CACHE_TTL_SECONDS, copy: !readOnly }
   );
 }
 
@@ -3581,10 +3581,11 @@ module.exports = {
       const orgId = req.session.organizationId;
       if (!orgId) return res.status(401).json({ error: "no_org" });
       await ensureFinanceSchema();
-      const refs = await cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId));
+      // Read only here (polled every ~15s): the cached snapshots are shared, not copied.
+      const refs = await cachedLoad(orgId, "refs", null, () => loadClassesAndStudents(orgId), { readOnly: true });
       const currentAcademic = getCurrentAcademicContext(refs);
       const filters = overviewFiltersFor(req.query, currentAcademic);
-      const overview = await cachedLoad(orgId, "overview", filters, () => loadOverviewStats(orgId, filters));
+      const overview = await cachedLoad(orgId, "overview", filters, () => loadOverviewStats(orgId, filters), { readOnly: true });
       const t = overview?.totals || overview?.total_summary || overview || {};
       const credits = overview?.credits || {};
       res.set("Cache-Control", "private, max-age=5, stale-while-revalidate=20");

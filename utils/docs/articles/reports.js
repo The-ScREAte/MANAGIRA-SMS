@@ -16,7 +16,7 @@ module.exports = [
       {
         title: "Generate report cards",
         steps: [
-          ["Open <strong>Reports</strong>, then <strong>Term Reports</strong>, and choose the school year and term.", "term-reports.webp", "Reports, Term Reports: choose the term, then the class."],
+          ["Open <strong>Reports</strong>, then <strong>Term Reports</strong>, then <strong>Terminal reports</strong>, and choose the school year and term.", "term-reports.webp", "Reports, Terminal reports: choose the term, then the class."],
           "Choose the class and generate. Each student's report card opens, ready to check.",
           "Print them all, download them as a PDF, or email them to families.",
         ],
@@ -38,7 +38,7 @@ module.exports = [
       ["The grades look wrong.", "Check the grading scale in Report Settings and the assessment weights for the term."],
       ["Can parents download report cards?", "Yes. Parents see published report cards in the parent portal."],
     ],
-    related: ["report-settings", "merit-sheet", "configure-dynamic-grading-and-remarks", "grading-or-marking-assessment"],
+    related: ["report-settings", "report-card-templates", "merit-sheet", "configure-dynamic-grading-and-remarks", "grading-or-marking-assessment"],
   },
   {
     slug: "report-settings",
@@ -63,13 +63,198 @@ module.exports = [
         tip: "Set up one class completely, check its report card, then copy the settings to the rest.",
       },
     ],
-    related: ["report-card", "configure-dynamic-grading-and-remarks", "transcript"],
+    related: ["report-card", "report-card-templates", "configure-dynamic-grading-and-remarks", "transcript"],
+  },
+  {
+    slug: "report-card-templates",
+    title: "Custom report card templates",
+    topic: "Reports & analytics",
+    order: 3,
+    summary: "Design your school's own report card in a Sheet, a Doc or Excel, add fields for names, scores and remarks, and print it for the classes you choose.",
+    tags: ["report card template", "custom report card", "report card design", "excel report card", "report card fields", "placeholders", "tick box report card", "nursery report card"],
+    featured: true,
+    who: "Managers, and staff given <strong>Manage School Records</strong>.",
+    intro: "Make report cards look exactly like your school's own. Lay out the card once in Docs &amp; Sheets, or bring it in from Excel, and put a field such as <code>{{student.name}}</code> wherever a student's details belong. The classes you choose print with your layout; every other class keeps the standard report card.",
+    sections: [
+      {
+        title: "How fields work",
+        list: [
+          "A field is a name between double curly braces, like <code>{{student.name}}</code>. When report cards print, each field is replaced with that student's details.",
+          "Words around a field print as you typed them: <code>{{attendance.present}} of {{attendance.total}} days</code> prints <em>58 of 61 days</em>.",
+          "A row with subject fields, like <code>{{subject.name}}</code>, prints once for every subject the student takes.",
+          "Your formatting prints too: bold text, colors, borders, merged cells and column widths.",
+        ],
+      },
+      {
+        title: "Create the template",
+        steps: [
+          ["Open <strong>Management</strong>, then <strong>Docs &amp; sheets</strong>, and select <strong>New Doc/Sheet</strong>.", "rt-new.webp", "New doc or sheet: choose Sheet for a table layout."],
+          "Choose <strong>Sheet</strong> (best for most report cards: rows, columns, borders and merged cells) or <strong>Doc</strong> (a letter-style card). Name it, for example <em>7th Grade report card</em>, and select <strong>Create</strong>.",
+          ["Lay out the card as you would in a spreadsheet: the school's name at the top, labels in bold, a header row for subjects. Changes save as you go.", "rt-editor.webp", "A finished layout: labels in bold, and a field in each cell where data goes."],
+        ],
+        tip: "Want a head start? Open <strong>Fields</strong> and, under <strong>Start from a sample</strong>, choose <strong>Scores</strong>, <strong>Tick boxes</strong> or <strong>Nursery card</strong> for a complete layout you can adjust. Undo brings back what you had.",
+      },
+      {
+        title: "Bring in your card from Excel",
+        text: "Already have your report card in Excel? Upload it instead of starting over.",
+        steps: [
+          ["In the sheet, open <strong>File</strong> and select <strong>Upload Excel (.xlsx)</strong>.", "rt-upload.webp", "File, then Upload Excel (.xlsx)."],
+          "Choose the file. Its text, merged cells, fonts, fill colors, borders and column widths come across from the first sheet in the file.",
+          "Replace the sample names and numbers with fields, as shown below.",
+        ],
+        note: "You can also copy a range in Excel or Google Sheets and paste it straight into the sheet.",
+      },
+      {
+        title: "Add fields",
+        steps: [
+          "Select the cell where a detail belongs.",
+          ["Open <strong>Fields</strong> and click a field to put it in that cell. You can also type a field, or copy one with its copy button.", "rt-fields.webp", "Fields: grouped by School, Term, Student, Results, Subjects and more, with a search box."],
+          "For subjects, put the subject fields side by side in one row, under a row of headings. That one row repeats for each subject.",
+        ],
+      },
+      {
+        title: "Fields you can use",
+        text: "The <strong>Fields</strong> panel lists every field; your school's own remark types appear there under Remarks. These are the ones schools use most.",
+        subsections: [
+          {
+            title: "Student and results",
+            table: [
+              ["Field", "Prints"],
+              ["<code>{{student.name}}</code>", "Full name. Also <code>first_name</code> and <code>last_name</code>."],
+              ["<code>{{student.id}}</code>, <code>{{student.class}}</code>", "Student ID and class."],
+              ["<code>{{student.photo}}</code>", "The student's photo."],
+              ["<code>{{student.position_in_class}}</code>", "Position, e.g. <em>12th / 18 students</em>. Use <code>student.position</code> for just <em>12th</em>."],
+              ["<code>{{student.overall}}</code>", "Overall percentage and score, e.g. <em>78.00 % | 624.00 / 800.00</em>."],
+              ["<code>{{student.average}}</code>", "Average percentage."],
+              ["<code>{{student.promoted_to}}</code>", "The class the student moves up to, when promotion is on."],
+            ],
+          },
+          {
+            title: "Subjects (the row repeats for each subject)",
+            table: [
+              ["Field", "Prints"],
+              ["<code>{{subject.no}}</code>", "Row number: 1, 2, 3…"],
+              ["<code>{{subject.name}}</code>", "Subject name."],
+              ["<code>{{subject.class_score}}</code>, <code>{{subject.exam_score}}</code>", "Class and exam scores."],
+              ["<code>{{subject.total}}</code>, <code>{{subject.percentage}}</code>", "Total score and percentage."],
+              ["<code>{{subject.grade}}</code>, <code>{{subject.position}}</code>", "Grade, and position in the subject."],
+              ["<code>{{subject.remark}}</code>", "Remark, e.g. <em>Excellent</em>."],
+              ["<code>{{subject.mark:Excellent}}</code>", "A ✓ when the remark or grade is Excellent."],
+            ],
+          },
+          {
+            title: "School, term and attendance",
+            table: [
+              ["Field", "Prints"],
+              ["<code>{{school.name}}</code>, <code>{{school.motto}}</code>", "School name and motto."],
+              ["<code>{{school.address}}</code>, <code>{{school.phone}}</code>", "Address and phone."],
+              ["<code>{{school.logo}}</code>", "Your logo."],
+              ["<code>{{term.name}}</code>, <code>{{term.year}}</code>", "Term and school year."],
+              ["<code>{{term.next_begins}}</code>", "When school reopens."],
+              ["<code>{{attendance.present}}</code>, <code>{{attendance.total}}</code>", "Days present, and days school was open. Also <code>attendance.absent</code>."],
+            ],
+          },
+          {
+            title: "Remarks, fees and signature",
+            table: [
+              ["Field", "Prints"],
+              ["<code>{{remarks.teacher}}</code>", "The teacher's remark. Also <code>conduct</code>, <code>attitude</code> and <code>interest</code>."],
+              ["<code>{{fees.outstanding}}</code>", "Balance due. Also <code>total_billed</code> and <code>total_paid</code>. Filled from PayGira when bills are set to show in Report Settings."],
+              ["<code>{{signature.image}}</code>", "The signature from Report Settings."],
+              ["<code>{{signature.name}}</code>, <code>{{signature.title}}</code>", "Who signed, and their title."],
+              ["<code>{{grades.key}}</code>", "Your grading key, e.g. <em>A (90 to 100) = Excellent</em>."],
+            ],
+          },
+        ],
+      },
+      {
+        title: "Examples",
+        subsections: [
+          {
+            title: "A score table",
+            text: "Headings in one row, and the subject fields in the row under it.",
+            tables: [
+              { label: "In your sheet", rows: [
+                ["Subject", "Total", "Grade", "Remark"],
+                ["<code>{{subject.name}}</code>", "<code>{{subject.total}}</code>", "<code>{{subject.grade}}</code>", "<code>{{subject.remark}}</code>"],
+              ] },
+              { label: "Prints", rows: [
+                ["Subject", "Total", "Grade", "Remark"],
+                ["Mathematics", "92.00", "A", "Excellent"],
+                ["Science", "85.00", "B", "Very Good"],
+                ["Social Studies", "78.00", "C", "Good"],
+              ] },
+            ],
+          },
+          {
+            title: "Tick boxes",
+            text: "Put <code>mark:</code> and a remark or grade in each column. A ✓ appears in the column that matches the student's result.",
+            tables: [
+              { label: "In your sheet", rows: [
+                ["Subject", "Excellent", "Very Good"],
+                ["<code>{{subject.name}}</code>", "<code>{{subject.mark:Excellent}}</code>", "<code>{{subject.mark:Very Good}}</code>"],
+              ] },
+              { label: "Prints", rows: [
+                ["Subject", "Excellent", "Very Good"],
+                ["Reading", "✓", ""],
+                ["Mathematics", "", "✓"],
+              ] },
+            ],
+            note: "Add a column for each remark or grade you use. The word after <code>mark:</code> must match it; capital letters don't matter.",
+          },
+          {
+            title: "A sentence",
+            code: "{{student.first_name}} attended {{attendance.present}} of {{attendance.total}} days this term.",
+            prints: "Noah attended 58 of 61 days this term.",
+          },
+          {
+            title: "One subject in a fixed place",
+            text: "Put the subject's name in square brackets. The line doesn't repeat.",
+            code: "Mathematics: {{subject[Mathematics].total}} ({{subject[Mathematics].grade}})",
+            prints: "Mathematics: 92.00 (A)",
+          },
+          {
+            title: "Pictures at the size you want",
+            text: "Add a colon and a height in pixels to the logo, photo or signature.",
+            code: "{{school.logo:120}}   {{student.photo:90}}   {{signature.image:60}}",
+            note: "Without a size, the logo prints 80 pixels tall, a photo 90 and a signature 50.",
+          },
+          {
+            title: "Choice results",
+            text: "For assessments recorded as a choice (Yes / No, Pass / Fail), use the assessment's name after <code>choice:</code>. In the subject row, <code>{{subject.choice:Practical}}</code> prints that subject's result for <em>Practical</em>. <code>{{choices.all}}</code> lists every choice result in one line.",
+          },
+        ],
+      },
+      {
+        title: "Use it for your classes",
+        steps: [
+          ["Open <strong>Settings</strong>. Under <strong>Report card</strong>, turn on <strong>Use as a report card</strong>.", "rt-settings.webp", "Settings, Report card: turn it on, choose the classes, then save."],
+          "Under <strong>Classes</strong>, choose every class that should print with this layout, then select <strong>Save</strong>.",
+        ],
+        note: "Each class uses one template. Choosing a class here moves it from any other template, and classes without one keep the standard report card, so you can roll out a new layout one class at a time.",
+      },
+      {
+        title: "Preview and print",
+        steps: [
+          ["Under <strong>Preview with real data</strong>, choose a class and select <strong>Preview</strong>. The class's report cards open in a new tab.", "rt-preview.webp", "The preview: your layout filled in for each student, with a row for every subject."],
+          "Adjust the sheet and preview again until it looks right.",
+          "Print as usual: open <strong>Reports</strong>, then <strong>Term Reports</strong>, then <strong>Terminal reports</strong>. The classes you chose print with your layout.",
+        ],
+      },
+    ],
+    faq: [
+      ["A field prints blank.", "Check the spelling between the braces, and that the student has that information this term. For example, remarks must be entered first, and fees show only when bills are set to show in Report Settings."],
+      ["The subject row prints only once.", "Make sure the row has a field that starts with <code>subject.</code>, like <code>{{subject.name}}</code>. Fields for one named subject, like <code>{{subject[Mathematics].total}}</code>, stay in place on purpose."],
+      ["Can each grade level have its own layout?", "Yes. Make one template for each layout and choose its classes. Each class uses one template at a time."],
+      ["Why can't I download the template?", "A file used as a report card can't be downloaded. Print report cards from Terminal reports, or turn off <strong>Use as a report card</strong> to download the file."],
+    ],
+    related: ["report-card", "report-settings", "docs-and-sheets"],
   },
   {
     slug: "merit-sheet",
     title: "Merit sheets",
     topic: "Reports & analytics",
-    order: 3,
+    order: 4,
     summary: "Rank a class by performance for a term, for chosen subjects and assessment types, and print or share the sheet.",
     tags: ["merit sheet", "class ranking", "honor roll", "class position"],
     who: "Managers, and staff given <strong>Report Builder</strong>.",
@@ -91,7 +276,7 @@ module.exports = [
     slug: "transcript",
     title: "Transcripts",
     topic: "Reports & analytics",
-    order: 4,
+    order: 5,
     summary: "Produce an official, signed transcript of a student's results across every term, for current students and graduates, and email or print it.",
     tags: ["transcript", "official transcript", "academic record", "graduates", "signature"],
     who: "Managers, and staff given <strong>Generate Transcripts</strong>.",
@@ -119,7 +304,7 @@ module.exports = [
     slug: "report-builder",
     title: "Report Builder",
     topic: "Reports & analytics",
-    order: 5,
+    order: 6,
     summary: "Build any report you need: students, attendance, grades, staff, fees, messages, transportation and more. Filter, choose columns, save, share, export or email.",
     tags: ["report builder", "custom reports", "export", "csv", "excel", "word", "attendance report", "data"],
     featured: true,
@@ -219,7 +404,7 @@ module.exports = [
     slug: "analytical-dashboard",
     title: "School statistics and dashboards",
     topic: "Reports & analytics",
-    order: 6,
+    order: 7,
     summary: "See your school at a glance: performance, attendance, assessments, growth, demographics, enrollment, staffing and subject strengths.",
     tags: ["analytics", "statistics", "dashboard", "school performance", "enrollment trends", "data"],
     who: "Managers, and staff given <strong>Manage School Records</strong> (Organization Analytics &amp; Insights must be in your plan).",

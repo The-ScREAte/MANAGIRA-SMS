@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const nodemailer = require("nodemailer");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const { Parser } = require("json2csv");
 const crypto = require("crypto");
 const path = require("path");

@@ -383,7 +383,27 @@
     const SKIP_TAGS = new Set(['IMG', 'SVG', 'CANVAS', 'VIDEO', 'IFRAME', 'PICTURE', 'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'OPTION']);
     const SKIP_SEL = 'svg, canvas, video, [data-ap-skip]';
     const SIDES = ['top', 'right', 'bottom', 'left'];
-    const elementsOf = (scope) => (scope.nodeType === 1 ? [scope, ...scope.querySelectorAll('*')] : Array.from(scope.querySelectorAll('body *')));
+    // On a very large page (a school's whole student list), only what is drawn. A part that
+    // isn't (display: none: the list's other pages, a closed panel) is read once it shows, which
+    // the observer below sees (a class, style or hidden change), or after a resize that swaps
+    // layouts. Ordinary pages are read whole, as always.
+    const LARGE = 4000;
+    const elementsOf = (scope) => {
+      const start = scope.nodeType === 1 ? scope : scope.body;
+      if (!start) return [];
+      const all = start.getElementsByTagName('*');
+      if (all.length < LARGE) return scope.nodeType === 1 ? [scope, ...all] : Array.from(all);
+      const out = [];
+      if (scope.nodeType === 1) {
+        if (getComputedStyle(scope).display === 'none') return out;
+        out.push(scope);
+      }
+      const walker = document.createTreeWalker(start, 1 /* elements */, {
+        acceptNode: (el) => (getComputedStyle(el).display === 'none' ? 2 /* skip it and everything inside */ : 1),
+      });
+      for (let el = walker.nextNode(); el; el = walker.nextNode()) out.push(el);
+      return out;
+    };
     // A control under the pointer, pressed or focused shows its passing look
     // (a hover fill, a focus ring). Colors read then would stay after it ends,
     // e.g. a tab clicked in Classic kept the hover's white text on a light
@@ -643,7 +663,17 @@
           if (sheetsChanged && !roots.length) settle(document.body);
         });
       });
-      observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+      observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+
+      // A width change can show a part that was hidden (a table on a wide screen, cards on a phone).
+      let lastWidth = window.innerWidth;
+      let resizeTimer = 0;
+      window.addEventListener('resize', () => {
+        if (window.innerWidth === lastWidth) return;
+        lastWidth = window.innerWidth;
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => quiet(() => settle(document.body)), 300);
+      });
 
       window.addEventListener('load', () => { pass(); quiet(() => settle(document.body)); charts(); }, { once: true });
       window.addEventListener('spa:pageLoaded', () => { pass(); quiet(() => settle(document.body)); charts(); });

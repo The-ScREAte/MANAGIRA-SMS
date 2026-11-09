@@ -559,7 +559,7 @@ const legalController = {
             { title: 'Features Driving Managira Brochure', subtitle: 'Feature overview brochure (PDF)', url: '/managira%20pdf/Features%20driving%20managira%20Brochure.pdf', external: true, keywords: ['features', 'brochure', 'overview', 'capabilities', 'pdf'] },
             { title: 'User Documentation Hub', subtitle: 'All Managira guides in one page', url: '/legal/user-documentation', external: false, keywords: ['documentation hub', 'all guides', 'resources'] },
             { title: 'Request a Demo', subtitle: 'Schedule a personalised live demo', url: '/legal/request-demo', external: false, keywords: ['demo', 'request', 'sales', 'live demo', 'schedule', 'book'] },
-            { title: 'Interactive App Demo', subtitle: 'Explore the visual product tour', url: '/legal/app-demo', external: false, keywords: ['app demo', 'product tour', 'preview', 'see app', 'try'] },
+            { title: 'Product Tour Video', subtitle: 'Watch Managira in action', url: 'https://www.youtube.com/watch?v=y1J0KahfA-c', external: true, keywords: ['app demo', 'product tour', 'preview', 'see app', 'video', 'walkthrough'] },
         ];
 
         res.render('legal&Compliance/Help', {

@@ -26,8 +26,10 @@ const IDENTITY_CACHE_TTL_SEC = 30;
 
 // In-memory fallback so SSO still works (just without cross-process
 // caching) when Redis isn't configured, matching the main app's own
-// cacheManager.js optional-Redis convention.
-const memoryCache = new Map();
+// cacheManager.js optional-Redis convention. Keyed by each browser's
+// session, so it is capped: people who never come back must not pile up.
+const { BoundedMap } = require("../../utils/boundedMap");
+const memoryCache = new BoundedMap(5000);
 
 function hashCookie(value) {
   return crypto.createHash("sha256").update(value).digest("hex");

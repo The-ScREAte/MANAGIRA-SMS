@@ -7,7 +7,7 @@ const { s3Client } = require("../config/s3");
 const db = require("../config/db");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const reportTemplate = require("../utils/reportTemplate");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const {
   renderReportCardsPdf,
   renderReportCardsPerStudent,
@@ -2371,30 +2371,38 @@ const printController = (db) => ({
       // ✅ Auto-save promotion status to student_reports so promotion scheduler has data
       if (!isPostingMode && statusSettings.activate_promotion && cutOffPoint > 0) {
         try {
-          const autoSavePromises = students
+          // One statement for the whole class, and only rows whose promotion changed are written
+          // (opening the report cards used to rewrite every student's row, one query each).
+          const byStudent = new Map();
+          students
             .filter(s => s.promotionStatus && Number.isFinite(Number(s.promotionClassId)))
-            .map(student =>
-              db.query(
-                `INSERT INTO student_reports (
-                  organization_id, class_id, term_id, student_id,
-                  promotion_status, promotion_class_id
-                ) VALUES ($1, $2, $3, $4, $5, $6::int)
-                ON CONFLICT (organization_id, class_id, term_id, student_id)
-                DO UPDATE SET
-                  promotion_status = EXCLUDED.promotion_status,
-                  promotion_class_id = EXCLUDED.promotion_class_id,
-                  updated_at = CURRENT_TIMESTAMP`,
-                [
-                  organizationId,
-                  parsedClassId,
-                  parsedTermId,
-                  Number(student.student_id),
-                  student.promotionStatus,
-                  Number(student.promotionClassId),
-                ]
+            .forEach((student) => byStudent.set(Number(student.student_id), student));
+          if (byStudent.size) {
+            const rows = Array.from(byStudent.values());
+            await db.query(
+              `INSERT INTO student_reports (
+                organization_id, class_id, term_id, student_id,
+                promotion_status, promotion_class_id
               )
+              SELECT $1, $2, $3, s.student_id, s.promotion_status, s.promotion_class_id
+                FROM unnest($4::int[], $5::text[], $6::int[]) AS s(student_id, promotion_status, promotion_class_id)
+              ON CONFLICT (organization_id, class_id, term_id, student_id)
+              DO UPDATE SET
+                promotion_status = EXCLUDED.promotion_status,
+                promotion_class_id = EXCLUDED.promotion_class_id,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE student_reports.promotion_status IS DISTINCT FROM EXCLUDED.promotion_status
+                 OR student_reports.promotion_class_id IS DISTINCT FROM EXCLUDED.promotion_class_id`,
+              [
+                organizationId,
+                parsedClassId,
+                parsedTermId,
+                rows.map((student) => Number(student.student_id)),
+                rows.map((student) => student.promotionStatus),
+                rows.map((student) => Number(student.promotionClassId)),
+              ]
             );
-          await Promise.all(autoSavePromises);
+          }
         } catch (autoSaveErr) {
           console.error("[printStudentReport] Auto-save promotion status failed (non-blocking):", autoSaveErr.message);
         }

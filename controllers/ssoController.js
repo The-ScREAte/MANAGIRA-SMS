@@ -1,7 +1,7 @@
 "use strict";
 
 // Signing in through a school's own provider, and the page where a manager sets that up.
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const connections = require("../utils/sso/connections");
 const requests = require("../utils/sso/requests");
 const saml = require("../utils/sso/saml");

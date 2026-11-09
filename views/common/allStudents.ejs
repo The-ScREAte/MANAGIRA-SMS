@@ -1396,204 +1396,97 @@
           <th class="col-actions">Actions</th>
         </tr>
       </thead>
-      <tbody id="asTableBody">
-        <% students.forEach(s => {
-          const studentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim());
-          const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
-          const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
-          const isGrad = s.graduated === true || s.graduated === 'true';
-          const displayIdText = (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id);
-        %>
-        <tr
-          data-id="<%= s.student_id %>"
-          data-name="<%= String(studentDisplayName || '').toLowerCase() %>"
-          data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
-          data-class-id="<%= s.class_id || '' %>"
-          data-class-name="<%= String(s.class_name || '').toLowerCase() %>"
-          data-gender="<%= String(s.gender || '').toLowerCase() %>"
-          data-email="<%= String(s.email || '').toLowerCase() %>"
-          data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
-          data-school-year-id="<%= s.last_school_year_id || '' %>"
-          data-school-year-label="<%= String(s.last_school_year || '').toLowerCase() %>"
-          data-display-id="<%= String(s.display_student_id || '').toLowerCase() %>"
-          data-status="<%= isGrad ? 'graduated' : 'active' %>">
-
-          <td style="padding:11px 6px 11px 14px;">
-            <input type="checkbox" class="as-cb as-row-cb" data-id="<%= s.student_id %>">
-          </td>
-
-          <td>
-            <div class="as-student-cell">
-              <% if (s.image_url && s.image_url !== 'profilePlaceholder.png') { %>
-              <img class="as-avatar" src="<%= publicImageUrl(s.image_url) %>" alt="<%= studentDisplayName %>" loading="lazy">
-              <% } else { %>
-              <div class="as-avatar-placeholder"><%= initials %></div>
-              <% } %>
-              <a href="<%= detailsHref %>" class="as-name-link"><%= studentDisplayName %></a>
-            </div>
-          </td>
-
-          <td><span class="as-id-badge js-student-display-id"><%= displayIdText %></span></td>
-
-          <td>
-            <span class="js-student-class-value <%= s.class_name ? '' : 'as-class-blank' %>"><%= s.class_name || '—' %></span>
-          </td>
-
-          <td><%= s.gender || '—' %></td>
-
-          <td>
-            <div class="as-email-cell">
-              <span class="as-email-text"><%= s.email || '—' %></span>
-              <% if (studentPortalIntegrationActive && s.has_portal_access) { %>
-              <span class="as-portal-access-badge">Portal access</span>
-              <% } %>
-            </div>
-          </td>
-
-          <td>
-            <span class="js-student-year-value <%= s.last_school_year ? 'as-syear-curr' : 'as-syear-none' %>"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>—<% } %></span>
-          </td>
-
-          <td>
-            <span class="as-badge <%= isGrad ? 'graduated' : 'active' %>">
-              <span class="as-badge-dot"></span>
-              <%= isGrad ? 'Graduated' : 'Active' %>
-            </span>
-          </td>
-
-          <td>
-            <div class="as-actions">
-              <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-              </a>
-              <button class="as-btn as-btn-edit js-edit-class icon-only"
-                data-student-id="<%= s.student_id %>"
-                data-student-name="<%= studentDisplayName %>"
-                data-email="<%= s.email || '' %>"
-                data-class-id="<%= s.class_id || '' %>"
-                data-class-name="<%= s.class_name || '' %>"
-                data-school-year-id="<%= s.last_school_year_id || '' %>"
-                data-school-year-label="<%= s.last_school_year || '' %>"
-                data-year-current="<%= s.in_current_year ? 'true' : 'false' %>"
-                data-display-id="<%= s.display_student_id || '' %>"
-                data-editable-id="<%= s.editable_student_id || '' %>"
-                data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
-                data-initials="<%= initials %>"
-                title="Edit student"
-                aria-label="Edit student">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              </button>
-              <% if (canSendStudentPortalRequest) { %>
-              <button class="as-btn as-btn-reset js-student-password-reset icon-only"
-                data-student-id="<%= s.student_id %>"
-                data-student-name="<%= studentDisplayName %>"
-                data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
-                data-email-present="<%= s.email ? 'true' : 'false' %>"
-                style="<%= s.email ? '' : 'display:none;' %>"
-                title="Send student portal password setup/reset email"
-                aria-label="Send student portal password setup/reset email">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>
-              </button>
-              <% } %>
-            </div>
-          </td>
-        </tr>
-        <% }); %>
-      </tbody>
+      <tbody id="asTableBody"></tbody>
     </table>
 
     <%- /* ─── Mobile Card List ───────────────────────────────────────────── */ '' %>
-    <div class="as-card-list" id="asCardList">
-      <% students.forEach(s => {
+    <div class="as-card-list" id="asCardList"></div>
+    <%
+      // Each student's row and phone card are built in the browser from this short list: a big
+      // school's page used to be 30 MB of repeated markup, built on the server for every visit.
+      const _asStudents = students.map((s) => {
         const studentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim());
-        const initials = (s.first_name[0] || '') + (s.last_name[0] || '');
-        const detailsHref = `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`;
-        const isGrad = s.graduated === true || s.graduated === 'true';
-        const displayIdText = (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id);
-      %>
-      <div class="as-card"
-        data-id="<%= s.student_id %>"
-        data-name="<%= studentDisplayName.toLowerCase() %>"
-        data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
-        data-class-id="<%= s.class_id || '' %>"
-        data-gender="<%= s.gender || '' %>"
-        data-email="<%= String(s.email || '').toLowerCase() %>"
-        data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
-        data-school-year-id="<%= s.last_school_year_id || '' %>"
-        data-display-id="<%= s.display_student_id || '' %>"
-        data-status="<%= isGrad ? 'graduated' : 'active' %>">
-        <div class="as-card-top">
-          <input type="checkbox" class="as-cb as-card-cb" data-id="<%= s.student_id %>" style="margin-right:2px;">
-          <% if (s.image_url && s.image_url !== 'profilePlaceholder.png') { %>
-          <img class="as-avatar" src="<%= publicImageUrl(s.image_url) %>" alt="<%= studentDisplayName %>" loading="lazy">
-          <% } else { %>
-          <div class="as-avatar-placeholder"><%= initials %></div>
-          <% } %>
-          <div class="as-card-info">
-            <a href="<%= detailsHref %>" class="as-card-name"><%= studentDisplayName %></a>
-            <div class="as-card-sub">ID: <span class="js-student-display-id"><%= displayIdText %></span> &nbsp;·&nbsp; <%= s.gender || 'N/A' %></div>
-          </div>
-          <span class="as-badge <%= isGrad ? 'graduated' : 'active' %>" style="flex-shrink:0">
-            <span class="as-badge-dot"></span>
-            <%= isGrad ? 'Graduated' : 'Active' %>
-          </span>
-        </div>
-        <div class="as-card-meta">
-          <div class="as-card-meta-item">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-            <span class="js-student-class-value"><%= s.class_name || 'No class' %></span>
-          </div>
-          <div class="as-card-meta-item">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <span class="js-student-year-value"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>No year<% } %></span>
-          </div>
-          <div class="as-card-meta-item">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
-            <span class="as-email-cell">
-              <span class="as-email-text"><%= s.email || 'No email' %></span>
-              <% if (studentPortalIntegrationActive && s.has_portal_access) { %>
-              <span class="as-portal-access-badge">Portal access</span>
-              <% } %>
-            </span>
-          </div>
-        </div>
-        <div class="as-card-actions">
-          <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-          </a>
-          <button class="as-btn as-btn-edit js-edit-class icon-only"
-            data-student-id="<%= s.student_id %>"
-            data-student-name="<%= studentDisplayName %>"
-            data-email="<%= s.email || '' %>"
-            data-class-id="<%= s.class_id || '' %>"
-            data-class-name="<%= s.class_name || '' %>"
-            data-school-year-id="<%= s.last_school_year_id || '' %>"
-            data-school-year-label="<%= s.last_school_year || '' %>"
-            data-year-current="<%= s.in_current_year ? 'true' : 'false' %>"
-            data-display-id="<%= s.display_student_id || '' %>"
-            data-editable-id="<%= s.editable_student_id || '' %>"
-            data-image="<%= (s.image_url && s.image_url !== 'profilePlaceholder.png') ? s.image_url : '' %>"
-            data-initials="<%= initials %>"
-            title="Edit student"
-            aria-label="Edit student">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-          </button>
-          <% if (canSendStudentPortalRequest) { %>
-          <button class="as-btn as-btn-reset js-student-password-reset icon-only"
-            data-student-id="<%= s.student_id %>"
-            data-student-name="<%= studentDisplayName %>"
-            data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
-            data-email-present="<%= s.email ? 'true' : 'false' %>"
-            style="<%= s.email ? '' : 'display:none;' %>"
-            title="Send student portal password setup/reset email"
-            aria-label="Send student portal password setup/reset email">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>
-          </button>
-          <% } %>
-        </div>
-      </div>
-      <% }); %>
-    </div>
+        const hasImage = !!(s.image_url && s.image_url !== 'profilePlaceholder.png');
+        return {
+          i: s.student_id,
+          n: studentDisplayName,
+          in: (s.first_name[0] || '') + (s.last_name[0] || ''),
+          h: `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`,
+          g: (s.graduated === true || s.graduated === 'true') ? 1 : 0,
+          d: (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id),
+          sid: s.display_student_id || '',
+          ci: s.class_id || '',
+          cn: s.class_name || '',
+          ge: s.gender || '',
+          e: s.email || '',
+          pa: s.has_portal_access ? 1 : 0,
+          yi: s.last_school_year_id || '',
+          y: s.last_school_year || '',
+          yc: s.in_current_year ? 1 : 0,
+          ed: s.editable_student_id || '',
+          im: hasImage ? s.image_url : '',
+          iu: hasImage ? publicImageUrl(s.image_url) : '',
+        };
+      });
+    %>
+    <script type="application/json" id="asStudentsData"><%- JSON.stringify({ portal: !!studentPortalIntegrationActive, reset: !!canSendStudentPortalRequest, students: _asStudents }).replace(/</g, '\\u003c') %></script>
+    <script>
+      (function () {
+        var data = JSON.parse(document.getElementById('asStudentsData').textContent);
+        var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&#34;', "'": '&#39;' }[c]; }); };
+        var lower = function (v) { return String(v || '').toLowerCase(); };
+        var ICON_VIEW = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
+        var ICON_EDIT = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+        var ICON_KEY = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>';
+        var ICON_CLASS = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>';
+        var ICON_YEAR = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+        var ICON_MAIL = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>';
+        var CURRENT = '<span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>';
+        var avatar = function (s) {
+          return s.iu ? '<img class="as-avatar" src="' + esc(s.iu) + '" alt="' + esc(s.n) + '" loading="lazy">' : '<div class="as-avatar-placeholder">' + esc(s.in) + '</div>';
+        };
+        var badge = function (s, extra) {
+          return '<span class="as-badge ' + (s.g ? 'graduated' : 'active') + '"' + (extra || '') + '> <span class="as-badge-dot"></span> ' + (s.g ? 'Graduated' : 'Active') + ' </span>';
+        };
+        var portalBadge = function (s) { return data.portal && s.pa ? ' <span class="as-portal-access-badge">Portal access</span>' : ''; };
+        var actions = function (s) {
+          var html = '<a href="' + esc(s.h) + '" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student"> ' + ICON_VIEW + ' </a>'
+            + ' <button class="as-btn as-btn-edit js-edit-class icon-only" data-student-id="' + esc(s.i) + '" data-student-name="' + esc(s.n) + '" data-email="' + esc(s.e) + '" data-class-id="' + esc(s.ci) + '" data-class-name="' + esc(s.cn) + '" data-school-year-id="' + esc(s.yi) + '" data-school-year-label="' + esc(s.y) + '" data-year-current="' + (s.yc ? 'true' : 'false') + '" data-display-id="' + esc(s.sid) + '" data-editable-id="' + esc(s.ed) + '" data-image="' + esc(s.im) + '" data-initials="' + esc(s.in) + '" title="Edit student" aria-label="Edit student"> ' + ICON_EDIT + ' </button>';
+          if (data.reset) {
+            html += ' <button class="as-btn as-btn-reset js-student-password-reset icon-only" data-student-id="' + esc(s.i) + '" data-student-name="' + esc(s.n) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-email-present="' + (s.e ? 'true' : 'false') + '" style="' + (s.e ? '' : 'display:none;') + '" title="Send student portal password setup/reset email" aria-label="Send student portal password setup/reset email"> ' + ICON_KEY + ' </button>';
+          }
+          return html;
+        };
+        var rows = [];
+        var cards = [];
+        data.students.forEach(function (s) {
+          rows.push('<tr data-id="' + esc(s.i) + '" data-name="' + esc(lower(s.n)) + '" data-search-id="' + esc(lower(s.sid)) + '" data-class-id="' + esc(s.ci) + '" data-class-name="' + esc(lower(s.cn)) + '" data-gender="' + esc(lower(s.ge)) + '" data-email="' + esc(lower(s.e)) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-school-year-id="' + esc(s.yi) + '" data-school-year-label="' + esc(lower(s.y)) + '" data-display-id="' + esc(lower(s.sid)) + '" data-status="' + (s.g ? 'graduated' : 'active') + '">'
+            + '<td style="padding:11px 6px 11px 14px;"> <input type="checkbox" class="as-cb as-row-cb" data-id="' + esc(s.i) + '"> </td>'
+            + '<td> <div class="as-student-cell"> ' + avatar(s) + ' <a href="' + esc(s.h) + '" class="as-name-link">' + esc(s.n) + '</a> </div> </td>'
+            + '<td><span class="as-id-badge js-student-display-id">' + esc(s.d) + '</span></td>'
+            + '<td> <span class="js-student-class-value ' + (s.cn ? '' : 'as-class-blank') + '">' + esc(s.cn || '—') + '</span> </td>'
+            + '<td>' + esc(s.ge || '—') + '</td>'
+            + '<td> <div class="as-email-cell"> <span class="as-email-text">' + esc(s.e || '—') + '</span>' + portalBadge(s) + ' </div> </td>'
+            + '<td> <span class="js-student-year-value ' + (s.y ? 'as-syear-curr' : 'as-syear-none') + '">' + (s.y ? esc(s.y) + (s.yc ? CURRENT : '') : '—') + '</span> </td>'
+            + '<td> ' + badge(s) + ' </td>'
+            + '<td> <div class="as-actions"> ' + actions(s) + ' </div> </td>'
+            + '</tr>');
+          cards.push('<div class="as-card" data-id="' + esc(s.i) + '" data-name="' + esc(lower(s.n)) + '" data-search-id="' + esc(lower(s.sid)) + '" data-class-id="' + esc(s.ci) + '" data-gender="' + esc(s.ge) + '" data-email="' + esc(lower(s.e)) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-school-year-id="' + esc(s.yi) + '" data-display-id="' + esc(s.sid) + '" data-status="' + (s.g ? 'graduated' : 'active') + '">'
+            + '<div class="as-card-top"> <input type="checkbox" class="as-cb as-card-cb" data-id="' + esc(s.i) + '" style="margin-right:2px;"> ' + avatar(s)
+            + ' <div class="as-card-info"> <a href="' + esc(s.h) + '" class="as-card-name">' + esc(s.n) + '</a> <div class="as-card-sub">ID: <span class="js-student-display-id">' + esc(s.d) + '</span> &nbsp;·&nbsp; ' + esc(s.ge || 'N/A') + '</div> </div> '
+            + badge(s, ' style="flex-shrink:0"') + ' </div>'
+            + ' <div class="as-card-meta">'
+            + ' <div class="as-card-meta-item"> ' + ICON_CLASS + ' <span class="js-student-class-value">' + esc(s.cn || 'No class') + '</span> </div>'
+            + ' <div class="as-card-meta-item"> ' + ICON_YEAR + ' <span class="js-student-year-value">' + (s.y ? esc(s.y) + (s.yc ? ' ' + CURRENT : '') : 'No year') + '</span> </div>'
+            + ' <div class="as-card-meta-item"> ' + ICON_MAIL + ' <span class="as-email-cell"> <span class="as-email-text">' + esc(s.e || 'No email') + '</span>' + portalBadge(s) + ' </span> </div>'
+            + ' </div>'
+            + ' <div class="as-card-actions"> ' + actions(s) + ' </div>'
+            + '</div>');
+        });
+        document.getElementById('asTableBody').innerHTML = rows.join('');
+        document.getElementById('asCardList').innerHTML = cards.join('');
+      })();
+    </script>
 
     <!-- Empty state (shown by JS when no rows match filters) -->
     <div class="as-empty" id="asEmpty" style="display:none">

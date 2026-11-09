@@ -6,7 +6,7 @@ const { saveGuardianBaseInfo } = require("../utils/contacts");
 const studentFormFields = require("../utils/studentFormFields");
 const path = require("path");
 const fs = require("fs");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 require("dotenv").config(); // Load environment variables from .env file
@@ -10312,6 +10312,7 @@ const commonController = {
           );
 
           if (existingOwnerUser.rows.length > 0) {
+            // Only when something differs: opening this page used to rewrite the owner's row every time.
             await db.query(
               `
                 UPDATE users
@@ -10321,6 +10322,10 @@ const commonController = {
                     account_type = 'Manager',
                     updated_at = NOW()
                 WHERE user_id = $4
+                  AND (first_name IS DISTINCT FROM $1
+                    OR last_name IS DISTINCT FROM $2
+                    OR email IS DISTINCT FROM $3
+                    OR account_type IS DISTINCT FROM 'Manager')
               `,
               [
                 orgOwner.first_name,

@@ -55,13 +55,17 @@ router.post('/employment/:id/apply', (req, res, next) => {
 }, legalController.submitEmploymentApplication);
 router.get('/donations', legalController.donationsPage);
 const appDemoController = require('../controllers/appDemoController');
-router.get('/app-demo', (req, res, next) => {
+// The app demo is not public: platform admins can still open it; everyone else gets the product tour video.
+const PRODUCT_TOUR_VIDEO = 'https://www.youtube.com/watch?v=y1J0KahfA-c';
+const isPlatformAdmin = (req) => ['admin'].includes(String((req.session && (req.session.accountType || req.session.userRole)) || '').trim().toLowerCase());
+const adminsOnlyDemo = (req, res, next) => (isPlatformAdmin(req) ? next() : res.redirect(302, PRODUCT_TOUR_VIDEO));
+router.get('/app-demo', adminsOnlyDemo, (req, res, next) => {
 	res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
 	return appDemoController.publicPage(req, res, next);
 });
 router.get('/app-demo/media/:id(\\d+)/file', appDemoController.serveFile);
 router.get('/app-demo/media/:id(\\d+)/poster', appDemoController.servePoster);
-router.get('/app-demo/play/:id(\\d+)', appDemoController.playerPage);
+router.get('/app-demo/play/:id(\\d+)', adminsOnlyDemo, appDemoController.playerPage);
 router.get('/request-demo', legalController.requestDemoPage);
 router.post('/request-demo', legalController.submitDemoRequest);
 router.get('/user-documentation/api/search', documentationController.documentationSearchJson);

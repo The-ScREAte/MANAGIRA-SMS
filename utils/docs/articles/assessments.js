@@ -54,7 +54,7 @@ module.exports = [
       {
         title: "Write a question set",
         steps: [
-          ["Open <strong>Management</strong>, then <strong>Assessment questions</strong> (or <strong>Assessment Questions</strong> on your class page), and choose the assessment.", "assessment-questions.webp", "Assessment questions: build an online test for an assessment."],
+          ["Open your class and choose <strong>Assessment Questions</strong> in Class Tools (or <strong>Management</strong>, <strong>Assessment questions</strong>), then choose the assessment.", "assessment-questions.webp", "Assessment Questions on the class page: each assessment's question set."],
           "Add questions: <strong>Multiple Choice</strong>, <strong>Short answer</strong> or <strong>Essay</strong>. Mark the right answers for multiple-choice questions.",
           "Set a <strong>Time Limit (minutes)</strong>, and choose <strong>Open Book</strong> if students may use their notes.",
           "Open the test when students should take it.",
@@ -63,6 +63,8 @@ module.exports = [
       {
         title: "Students take the test",
         text: "Students sign in to the student portal and open the <strong>Testing Room</strong>. Open tests are listed there; the timer starts when they begin. Multiple-choice answers are marked for you; you mark short answers and essays.",
+        image: "student-testing-room.webp",
+        caption: "The Testing Room in the student portal: open tests, ready to start.",
         note: "The Student Portal must be turned on in Management, Integrations. See <a href=\"/legal/user-documentation/student-portal\">The student portal</a>.",
       },
       {
@@ -87,9 +89,9 @@ module.exports = [
       {
         title: "Enter scores",
         steps: [
-          ["Open the class from your dashboard, choose <strong>Grading</strong>, and pick the subject.", "grading.webp", "A class's Grading: one row per student, one column per assessment."],
-          "Type each student's raw score (out of the assessment's maximum) in its column.",
-          "Save. Totals, grades and remarks update straight away.",
+          "Open the class from your dashboard. In <strong>Class Tools</strong>, open <strong>Grading</strong> and choose the subject.",
+          ["The subject's score sheet opens: one row per student and one column per assessment. An assessment marked <strong>Open</strong> takes scores; type each student's raw score, out of the <strong>Score out of</strong> shown.", "grading-sheet.webp", "The score sheet: totals, scaled score, percentage, grade and position update as you type."],
+          "Select <strong>Save</strong>. Totals, the scaled score, percentage, grade and class position are worked out for you.",
         ],
       },
       {

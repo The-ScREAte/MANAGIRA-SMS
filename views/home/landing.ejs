@@ -27,11 +27,14 @@
     { icon: 'chart', title: 'Analytics & Reporting', text: 'Dashboards and reports that turn school data into decisions.', href: product('student', 'analytics-reporting') },
     { icon: 'network', title: 'District & Network Management', text: 'Consistent standards and shared oversight across all your schools.', href: product('operational', 'hub-management') },
   ];
+  // Every name here is a connection Managira has today; "more" says any other can be added.
   const INTEGRATIONS = [
-    { title: 'Payments', items: ['stripe', 'visa', 'mastercard', 'applepay', 'googlepay'] },
-    { title: 'Communications', items: ['whatsapp', 'twilio', 'Email'] },
-    { title: 'Learning & calendars', items: ['googleclassroom', 'googlecalendar', 'Outlook Calendar', 'iCal feeds'] },
-    { title: 'Identity & single sign-on', items: ['google', 'Microsoft Entra ID', 'okta', 'auth0', 'OneLogin', 'JumpCloud', 'ClassLink', 'Clever'] },
+    { title: 'Payments', icon: 'wallet', items: ['stripe', 'Paystack', 'visa', 'mastercard', 'applepay', 'googlepay'], more: 'Add any payment provider' },
+    { title: 'Texting & messaging', icon: 'message', items: ['twilio', 'whatsapp', 'Arkesel', "Africa's Talking", 'Email'], more: 'Add any SMS gateway' },
+    { title: 'Learning & calendars', icon: 'calendar', items: ['googleclassroom', 'googlecalendar', 'Outlook Calendar', 'iCal feeds'], more: 'Add any LMS or calendar' },
+    { title: 'Identity & single sign-on', icon: 'key', items: ['google', 'Microsoft Entra ID', 'okta', 'auth0', 'OneLogin', 'JumpCloud', 'ClassLink', 'Clever'], more: 'Add any SAML or OpenID Connect provider' },
+    { title: 'Data & your systems', icon: 'layers', items: ['REST API', 'Service accounts', 'Excel & CSV import', 'Excel, Word & CSV export'], more: 'Connect any system you run' },
+    { title: 'Maps & transportation', icon: 'bus', items: ['OpenStreetMap', 'Live GPS bus tracking', 'Routes & stops', 'Arrival alerts'], more: 'Add your fleet or GPS provider' },
   ];
   const API_POINTS = [
     'Students, guardians, staff, classes and terms',
@@ -58,7 +61,7 @@
     { n: '03', title: 'Go live', text: 'Staff, students and families are up and running from day one.' },
   ];
   const RESOURCES = [
-    { icon: 'play', title: 'Product tour', text: 'See Managira in action, screen by screen.', href: '/legal/app-demo' },
+    { icon: 'play', title: 'Product tour', text: 'Watch Managira in action.', href: 'https://www.youtube.com/watch?v=y1J0KahfA-c', external: true },
     { icon: 'doc', title: 'Documentation', text: 'Setup and usage guides for every role.', href: '/legal/user-documentation' },
     { icon: 'help', title: 'FAQ', text: 'Quick answers to common questions.', href: '/legal/faq' },
     { icon: 'message', title: 'Help center', text: 'Talk to our team when you need us.', href: '/legal/help' },
@@ -77,8 +80,7 @@
         <h1 class="lp-hero__title">Manage smarter &mdash; <span class="lp-grad lp-nowrap">not harder</span></h1>
         <p class="lp-hero__lead">Bring your whole school community together. Fewer tools to juggle, cleaner data to act on, and more of every day given back to learning.</p>
         <div class="lp-hero__cta">
-          <a class="lp-btn lp-btn--light lp-btn--lg" href="/legal/request-demo">Request a demo</a>
-          <a class="lp-btn lp-btn--ghost lp-btn--lg" href="/legal/app-demo"><%- icon('play', 16) %> Take the product tour</a>
+          <a class="lp-btn lp-btn--light lp-btn--lg" href="https://www.youtube.com/watch?v=y1J0KahfA-c" target="_blank" rel="noopener"><%- icon('play', 16) %> Take the product tour</a>
         </div>
 
         <div class="lp-rings" aria-label="Who Managira is for">
@@ -163,7 +165,7 @@
         </div>
         <div class="lp-pillars">
           <% PILLARS.forEach((item) => { %>
-            <a class="lp-glass lp-pillar" href="<%= item.href %>" data-reveal>
+            <a class="lp-glass lp-pillar" href="<%= item.href %>"<%- item.external ? ' target="_blank" rel="noopener"' : '' %> data-reveal>
               <span class="lp-tile__icon"><%- icon(item.icon, 20) %></span>
               <h3><%= item.title %></h3>
               <p><%= item.text %></p>
@@ -209,17 +211,27 @@
       <div class="lp-wrap">
         <div class="lp-head" data-reveal>
           <p class="lp-eyebrow">Integrations &amp; interoperability</p>
-          <h2 class="lp-h2">Works with the tools you already use.</h2>
+          <h2 class="lp-h2">Connect any platform you use.</h2>
+          <p class="lp-lead">Payments, texting, calendars, sign-in and your own systems plug straight in. Use something that isn't listed? We'll integrate it for you.</p>
         </div>
         <div class="lp-integrations">
           <% INTEGRATIONS.forEach((group) => { %>
             <div class="lp-glass lp-integrations__group" data-reveal>
-              <h3><%= group.title %></h3>
+              <h3><span class="lp-integrations__ico"><%- icon(group.icon, 16) %></span><%= group.title %></h3>
               <ul>
                 <% group.items.forEach((key) => { %><li><%- brand(key, 18) %></li><% }) %>
               </ul>
+              <p class="lp-integrations__more"><%- icon('plus', 14) %> <%= group.more %></p>
             </div>
           <% }) %>
+        </div>
+        <div class="lp-glass lp-anyplatform" data-reveal>
+          <span class="lp-anyplatform__ico"><%- icon('network', 22) %></span>
+          <div>
+            <h3>Don't see your platform? We'll connect it.</h3>
+            <p>Tell us which system your school or district runs on, from accounting to learning tools. Our team sets up the integration with you, or your developers can connect it through the open API.</p>
+          </div>
+          <a class="lp-btn lp-btn--ghost" href="/legal/help">Ask about an integration <%- icon('arrow', 16) %></a>
         </div>
         <div class="lp-glass lp-api" data-reveal>
           <div class="lp-api__text">
@@ -242,7 +254,6 @@
   <span class="lp-code__k">"has_more"</span>: false
 }</pre>
         </div>
-        <p class="lp-center" data-reveal><a class="lp-more" href="/legal/request-demo">Need another integration? Talk to us <%- icon('arrow', 16) %></a></p>
       </div>
     </section>
 
@@ -288,7 +299,7 @@
         </div>
         <div class="lp-resources">
           <% RESOURCES.forEach((item) => { %>
-            <a class="lp-glass lp-pillar" href="<%= item.href %>" data-reveal>
+            <a class="lp-glass lp-pillar" href="<%= item.href %>"<%- item.external ? ' target="_blank" rel="noopener"' : '' %> data-reveal>
               <span class="lp-tile__icon"><%- icon(item.icon, 20) %></span>
               <h3><%= item.title %></h3>
               <p><%= item.text %></p>
@@ -306,14 +317,9 @@
         <h2 class="lp-h2 lp-close__title" data-reveal>Let's build a better school day.</h2>
         <div class="lp-close__grid">
           <div class="lp-glass" data-reveal>
-            <h3>Request a demo</h3>
-            <p>A walkthrough tailored to your school.</p>
-            <a class="lp-btn lp-btn--light" href="/legal/request-demo">Request a demo</a>
-          </div>
-          <div class="lp-glass" data-reveal>
             <h3>Start your free trial</h3>
             <p>30 days free on any plan.</p>
-            <a class="lp-btn lp-btn--ghost" href="/account/service-plan">Get started</a>
+            <a class="lp-btn lp-btn--light" href="/account/service-plan">Get started</a>
           </div>
           <div class="lp-glass" data-reveal>
             <h3>Talk to us</h3>

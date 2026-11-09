@@ -1,6 +1,6 @@
 const { activeStudentSql } = require("../utils/activeStudents");
 const db = require("../config/db");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const crypto = require("crypto");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");

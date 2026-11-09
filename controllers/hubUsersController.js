@@ -1,7 +1,7 @@
 // Hub users: the people (besides the owner) who sign in to a hub, their role
 // and what they are allowed to see and do.
 const db = require("../config/db");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const crypto = require("crypto");
 const { renderCleanEmail } = require("../utils/emailHelper");
 const {

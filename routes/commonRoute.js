@@ -828,7 +828,7 @@ module.exports = (db) => {
         ? await db.query("SELECT password FROM users WHERE user_id = $1 AND organization_id = $2", [userId, organizationId])
         : await db.query("SELECT password FROM organizations WHERE organization_id = $1", [organizationId]);
       const hash = stored.rows[0]?.password;
-      const ok = hash ? await require("bcryptjs").compare(password, hash) : false;
+      const ok = hash ? await require("../utils/passwordHashing").compare(password, hash) : false;
       if (!ok) return res.status(401).json({ success: false, message: "That password is not correct." });
       req.session.transcriptAccess = { studentId, until: Date.now() + 10 * 60 * 1000 };
       return res.json({ success: true, url: `/transcript/transcript/${studentId}` });

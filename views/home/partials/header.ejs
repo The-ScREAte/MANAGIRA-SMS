@@ -35,7 +35,7 @@
                       <% if (group.image) { %><img class="lp-menu__image" src="<%= group.image %>" alt="" width="280" height="70" loading="lazy" decoding="async"><% } %>
                       <% if (group.title) { %><p class="lp-menu__title"><%= group.title %></p><% } %>
                       <% group.links.forEach((link) => { %>
-                        <a class="lp-menu__link" href="<%= link.href %>"><strong><%= link.label %></strong><span><%= link.note %></span></a>
+                        <a class="lp-menu__link" href="<%= link.href %>"<%- link.external ? ' target="_blank" rel="noopener"' : '' %>><strong><%= link.label %></strong><span><%= link.note %></span></a>
                       <% }) %>
                       <% if (group.all) { %><a class="lp-menu__all" href="<%= group.all.href %>"><%= group.all.label %> <%- icon('arrow', 14) %></a><% } %>
                     </div>
@@ -65,7 +65,7 @@
               <summary><%= menu.label %> <%- icon('chevron', 18) %></summary>
               <% menu.groups.forEach((group) => { %>
                 <% if (group.title) { %><p class="lp-menu__title"><%= group.title %></p><% } %>
-                <% group.links.forEach((link) => { %><a href="<%= link.href %>"><%= link.label %></a><% }) %>
+                <% group.links.forEach((link) => { %><a href="<%= link.href %>"<%- link.external ? ' target="_blank" rel="noopener"' : '' %>><%= link.label %></a><% }) %>
               <% }) %>
             </details>
           <% } else { %>

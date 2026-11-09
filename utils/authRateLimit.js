@@ -140,7 +140,7 @@ function signInGuard(name, { field = "email", failedWhen = /login/i } = {}) {
 // taken tells a stranger which emails have accounts.
 const NOBODY = "$2a$10$CwTycUXWue0Thq9StjUM0uJ8.zfV3HtZ6Z0E0pJc6GEBk3qk3qR5K";
 async function takeTheSameTime(password) {
-  await require("bcryptjs").compare(String(password || ""), NOBODY).catch(() => false);
+  await require("./passwordHashing").compare(String(password || ""), NOBODY).catch(() => false);
 }
 
 module.exports = { authRateLimit, signInGuard, takeTheSameTime, clientIp, securityLog, maskAccount };

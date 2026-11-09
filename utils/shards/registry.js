@@ -2,7 +2,7 @@
 // this shard's own database until CONTROL_DB_URL says otherwise. With one shard, every
 // answer here is "stay where you are", at the cost of one small query every 30 seconds.
 const { Pool } = require("pg");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../passwordHashing");
 const localDb = require("../../config/db");
 const { decryptSecretOrThrow, encryptSecret } = require("../encryption");
 const { signCall, testShardSecret } = require("./signing");

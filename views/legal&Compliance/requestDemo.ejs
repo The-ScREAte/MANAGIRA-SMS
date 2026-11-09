@@ -285,19 +285,71 @@
     "url": "<%= typeof canonicalUrl !== 'undefined' ? canonicalUrl : 'https://managira.com/legal/request-demo' %>"
   }
   </script>
+
+  <%# A clean, professional layer over the request-a-demo page (same fields and behavior). %>
+  <style>
+    body { background: #f6f8fa; }
+    main:has(main > .demo-shell) { max-width: none !important; width: 100% !important; padding: 0 !important; }
+    main:has(> .demo-shell) { width: 100% !important; max-width: 1120px !important; padding: 28px 20px 40px !important; box-sizing: border-box; }
+    .demo-shell { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 520px) !important; gap: 56px !important; align-items: start !important; max-width: 1080px !important; width: 100% !important; margin: 0 auto !important; padding: 8px 20px 48px !important; }
+    .demo-hero { position: sticky; top: 104px; max-width: none !important; width: auto !important; padding: 8px 0 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; color: #0f172a !important; text-align: left !important; }
+    .demo-hero::before, .demo-hero::after { display: none !important; }
+    .demo-hero .eyebrow { display: inline-block; margin: 0 0 12px !important; font-size: .78rem !important; font-weight: 700 !important; letter-spacing: .08em; text-transform: uppercase; color: #0f5a66 !important; }
+    .demo-hero h1 { margin: 0 0 14px !important; font-size: clamp(1.9rem, 3.2vw, 2.6rem) !important; line-height: 1.12 !important; letter-spacing: -.02em; font-weight: 800 !important; color: #0f172a !important; text-align: left !important; }
+    .demo-hero > p { margin: 0 0 22px !important; font-size: 1.05rem !important; line-height: 1.6 !important; color: #475569 !important; }
+    .demo-points { margin: 0 0 24px !important; padding: 0 !important; list-style: none !important; }
+    .demo-points li { position: relative; margin: 0 0 12px !important; padding: 0 0 0 30px !important; font-size: .98rem !important; line-height: 1.5; color: #334155 !important; }
+    .demo-points li::before { content: "" !important; position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%; background: #e8f3f4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f5a66' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 12px no-repeat !important; border: 0 !important; box-shadow: none !important; }
+    .demo-tour { font-size: .95rem; font-weight: 650; color: #0f5a66; text-decoration: none; }
+    .demo-tour:hover { text-decoration: underline; }
+    .demo-form-panel { padding: 30px 30px 24px !important; border: 1px solid #e3e8ee !important; border-radius: 18px !important; background: #fff !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 18px 40px -24px rgba(15, 23, 42, .25) !important; }
+    .demo-form-head { margin: 0 0 18px !important; text-align: left !important; }
+    .demo-form-head h2 { margin: 0 0 4px !important; font-size: 1.3rem !important; font-weight: 750 !important; color: #0f172a !important; }
+    .demo-form-head p { margin: 0 !important; font-size: .92rem !important; color: #64748b !important; }
+    .demo-card { padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+    .demo-card .form-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 14px 14px !important; }
+    .demo-card .form-grid > div { margin: 0 !important; min-width: 0; }
+    .demo-card .form-grid .full { grid-column: 1 / -1 !important; }
+    .demo-card label { display: block; margin: 0 0 6px !important; font-size: .85rem !important; font-weight: 600 !important; color: #334155 !important; }
+    .demo-card input[type="text"], .demo-card input[type="email"], .demo-card input[type="tel"], .demo-card textarea { width: 100% !important; min-height: 44px; margin: 0 !important; padding: 10px 12px !important; border: 1px solid #d5dde5 !important; border-radius: 10px !important; background: #fff !important; font: inherit; font-size: .95rem !important; color: #0f172a !important; box-shadow: none !important; transition: border-color .15s ease, box-shadow .15s ease; }
+    .demo-card textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+    .demo-card input:focus, .demo-card textarea:focus { outline: none !important; border-color: #0f5a66 !important; box-shadow: 0 0 0 3px rgba(15, 90, 102, .14) !important; }
+    .demo-card input::placeholder, .demo-card textarea::placeholder { color: #a3adba; }
+    .demo-card .field-note { display: block; margin: 6px 0 0 !important; font-size: .8rem !important; color: #94a3b8 !important; }
+    .demo-card .confirm-row { display: flex !important; align-items: flex-start !important; gap: 10px !important; margin: 16px 0 18px !important; padding: 0 !important; border: 0 !important; background: none !important; font-size: .88rem !important; font-weight: 500 !important; color: #475569 !important; cursor: pointer; }
+    .demo-card .confirm-row input { margin: 2px 0 0; width: 17px; height: 17px; accent-color: #0f5a66; }
+    #demoSubmitBtn { width: 100% !important; height: 48px !important; border: 0 !important; border-radius: 12px !important; background: #0f5a66 !important; color: #fff !important; font-size: 1rem !important; font-weight: 650 !important; cursor: pointer; box-shadow: none !important; }
+    #demoSubmitBtn:hover { background: #0b4a54 !important; }
+    .demo-support { display: flex !important; flex-wrap: wrap; justify-content: center; gap: 6px !important; margin: 16px 0 0 !important; padding: 14px 0 0 !important; border-top: 1px solid #eef2f6 !important; font-size: .88rem !important; color: #64748b !important; text-align: center; }
+    .demo-support a { font-weight: 650; color: #0f5a66 !important; }
+    @media (max-width: 900px) {
+      .demo-shell { grid-template-columns: minmax(0, 1fr) !important; gap: 22px !important; padding: 22px 16px 36px !important; }
+      .demo-hero { position: static; display: block !important; }
+      .demo-hero h1 { font-size: 1.75rem !important; }
+      .demo-hero > p { margin-bottom: 10px !important; }
+      .demo-points { display: none !important; }
+      .demo-points li { font-size: .94rem !important; }
+    }
+    @media (max-width: 560px) {
+      .demo-form-panel { padding: 22px 18px 18px !important; border-radius: 16px !important; }
+      .demo-card .form-grid { grid-template-columns: minmax(0, 1fr) !important; }
+      .demo-card input[type="text"], .demo-card input[type="email"], .demo-card input[type="tel"], .demo-card textarea { font-size: 16px !important; }
+    }
+  </style>
 </head>
 <body>
   <main>
     <div class="demo-shell">
       <div class="demo-hero">
         <span class="eyebrow">See Managira in action</span>
-        <h1>Request a Personalised Demo</h1>
-        <p>Tell us a little about your school and our team will reach out to schedule a live walkthrough tailored to your workflows.</p>
+        <h1>Request a personalized demo</h1>
+        <p>Tell us about your school and we'll set up a live walkthrough around what matters to you.</p>
         <ul class="demo-points">
-          <li>See admissions, communication, academics, and Paygira in one connected flow.</li>
-          <li>Ask about parent portals, Testing Room, reports, and multi-school management.</li>
-          <li>Leave with clear next steps for rollout, pricing, and onboarding.</li>
+          <li>Student information, grades, attendance and family communication, working together.</li>
+          <li>The parent and student portals, transportation, payments and Mira, the AI assistant.</li>
+          <li>Clear next steps for setup, data import and training.</li>
         </ul>
+        <a class="demo-tour" href="https://www.youtube.com/watch?v=y1J0KahfA-c" target="_blank" rel="noopener">Can't wait? Watch the product tour &rarr;</a>
       </div>
 
       <div>
@@ -306,35 +358,35 @@
         <div class="demo-form-panel">
           <div class="demo-form-head">
             <h2>Tell us about your school</h2>
-            <p>We use this information to shape the walkthrough around the people, modules, and outcomes that matter to you.</p>
+            <p>It takes a minute. Our team will get back to you to find a time.</p>
           </div>
 
           <div class="demo-card">
             <form action="/legal/request-demo" method="POST" id="demoRequestForm">
               <div class="form-grid">
                 <div class="full">
-                  <label for="name">Full Name <span class="req">*</span></label>
-                  <input id="name" name="name" type="text" required autocomplete="name" placeholder="Your full name" maxlength="120">
+                  <label for="name">Full name</label>
+                  <input id="name" name="name" type="text" required autocomplete="name" placeholder="Jane Smith" maxlength="120">
                 </div>
 
                 <div class="full">
-                  <label for="organization">School Name <span class="req">*</span></label>
-                  <input id="organization" name="organization" type="text" required autocomplete="organization" placeholder="School or organisation name" maxlength="160">
+                  <label for="organization">School or district</label>
+                  <input id="organization" name="organization" type="text" required autocomplete="organization" placeholder="Riverside Academy" maxlength="160">
                 </div>
 
                 <div>
-                  <label for="email">Email Address <span class="req">*</span></label>
-                  <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@school.com" maxlength="160">
+                  <label for="email">Work email</label>
+                  <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@yourschool.org" maxlength="160">
                 </div>
                 <div>
-                  <label for="phone">Phone Number <span class="req">*</span></label>
+                  <label for="phone">Phone</label>
                   <input id="phone" name="phone" type="tel" required autocomplete="tel" placeholder="+1 (555) 010-2030" maxlength="40">
                 </div>
 
                 <div class="full">
-                  <label for="message">What would you like to know? <span class="req">*</span></label>
-                  <textarea id="message" name="message" rows="5" required minlength="20" maxlength="1500" placeholder="Tell us what you'd like to see in the demo — features, integrations, pricing questions, or anything specific to your school."></textarea>
-                  <small class="field-note">Minimum 20 characters. This helps us tailor the walkthrough to your needs.</small>
+                  <label for="message">What would you like to see?</label>
+                  <textarea id="message" name="message" rows="5" required minlength="20" maxlength="1500" placeholder="For example: online admission, report cards and the parent portal for our two K-8 campuses."></textarea>
+                  <small class="field-note">A sentence or two, at least 20 characters.</small>
                 </div>
               </div>
 
@@ -346,16 +398,16 @@
 
               <label class="confirm-row">
                 <input type="checkbox" id="confirmHuman" name="confirm_human" required>
-                <span>I confirm this is a genuine request, not spam.</span>
+                <span>I'm requesting a demo for my school or district.</span>
               </label>
 
-              <button type="submit" id="demoSubmitBtn">Request My Demo</button>
+              <button type="submit" id="demoSubmitBtn">Request my demo</button>
             </form>
           </div>
 
           <div class="demo-support">
-            <span>Prefer to talk first? We can help you choose the right modules before the walkthrough.</span>
-            <a href="/legal/help">Visit Help Center</a>
+            <span>Just have a question?</span>
+            <a href="/legal/help">Visit the Help Center</a>
           </div>
         </div>
       </div>

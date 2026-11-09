@@ -54,6 +54,17 @@ const { memo } = require("./utils/memo");
 
 const upload = multer();
 const app = express();
+
+// Response fingerprints (ETags) for small answers only. A page sent to someone signed in is marked
+// no-store, so the browser never keeps it and never asks "has this changed?"; hashing every page
+// body was work for nothing. Small answers (polled data) keep theirs, in the same format as before.
+const ETAG_MAX_BYTES = 16 * 1024;
+app.set("etag", (body, encoding) => {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(body, encoding);
+  if (buf.length > ETAG_MAX_BYTES) return undefined;
+  const hash = buf.length ? require("crypto").createHash("sha1").update(buf).digest("base64").substring(0, 27) : "2jmj7l5rSw0yVb/vlWAYkK/YBwk";
+  return `W/"${buf.length.toString(16)}-${hash}"`;
+});
 // Render's proxy sits in front of the app. Trusting one hop makes req.ip the visitor's
 // real address and req.protocol "https". Rate limits read utils/authRateLimit's clientIp.
 app.set("trust proxy", 1);
@@ -79,7 +90,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
 })();
 const BASE_PORT = Number(process.env.PORT) || 4000;
 
-const expressLayouts = require("express-ejs-layouts");
+const expressLayouts = require("./utils/expressLayouts"); // express-ejs-layouts, with a fast path for pages without contentFor
 const pgSession = require("connect-pg-simple")(session);
 const { withSessionCache } = require("./utils/cachedSessionStore");
 const CachedPgSession = withSessionCache(pgSession);

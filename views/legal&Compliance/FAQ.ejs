@@ -1,292 +1,186 @@
-<%
+<%#
+  The public FAQ (utils/managiraFAQ.js): a search, a topic list beside the questions (chips on phones) and one accordion card per topic.
+  Answers are plain text; the FAQPage structured data below is what search engines read.
+%><%
   const availableFaqEntries = Array.isArray(faqEntries) ? faqEntries : [];
-  const availableFaqCategories = Array.isArray(faqCategories) && faqCategories.length
+  const dataOrder = Array.isArray(faqCategories) && faqCategories.length
     ? faqCategories
     : Array.from(new Set(availableFaqEntries.map((entry) => entry.category).filter(Boolean)));
-  const faqCategorySlug = (value) => String(value || '')
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  // Topics in the order a visitor looks for them; anything new keeps its place at the end.
+  const PREFERRED = ['Getting Started', 'Mira AI Assistant', 'Educators & Admins', 'Student Management', 'Attendance', 'Parents & Guardians', 'Billing & Subscription', 'Hub Management', 'Security & Access', 'Technical & Platform', 'Account Management', 'Documentation', 'Employment'];
+  const groups = PREFERRED.filter((name) => dataOrder.includes(name)).concat(dataOrder.filter((name) => !PREFERRED.includes(name)))
+    .map((name) => ({ name, items: availableFaqEntries.filter((entry) => entry.category === name) }))
+    .filter((group) => group.items.length);
+  const slugOf = (value) => String(value || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 %>
 <style>
-  :root {
-    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-    --primary: #01535b;
-    --primary-light: #e8f4f5;
-    --border: #e5e7eb;
-    --text: #1f2937;
-    --text-muted: #6b7280;
-    --bg: #f9fafb;
+  .fq { --fq-accent: #0f5a66; --fq-accent-soft: #e8f3f4; --fq-text: #0f172a; --fq-body: #334155; --fq-muted: #64748b; --fq-line: #e5eaf0;
+    max-width: 1120px; margin: 0 auto; padding: 0 24px 16px; box-sizing: border-box; color: var(--fq-body);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  .fq *, .fq *::before, .fq *::after { box-sizing: border-box; }
+  .fq-hero { margin: 0 0 34px; text-align: center; }
+  #faq-page .fq-eyebrow { margin: 0 auto 8px; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fq-accent); }
+  .fq .fq-hero h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 3.4vw, 2.5rem); line-height: 1.15; letter-spacing: -.02em; font-weight: 800; color: var(--fq-text); }
+  .fq .fq-hero p { max-width: 580px; margin: 0 auto; font-size: 1.02rem; line-height: 1.6; color: var(--fq-muted); }
+  .fq .fq-hero p a { color: var(--fq-accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(15, 90, 102, .3); }
+  .fq-search { position: relative; max-width: 620px; margin: 22px auto 0; }
+  .fq-search svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+  .fq .fq-search input { width: 100%; height: 52px; margin: 0; padding: 0 16px 0 46px; border: 1px solid #d6dee6; border-radius: 14px; background: #fff;
+    font: inherit; font-size: 1rem; color: var(--fq-text); box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 28px -18px rgba(15, 23, 42, .3); -webkit-appearance: none; appearance: none; }
+  .fq .fq-search input:focus { outline: none; border-color: var(--fq-accent); box-shadow: 0 0 0 4px rgba(15, 90, 102, .12); }
+  .fq-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; align-items: start; text-align: left; }
+  .fq-topics { position: sticky; top: 96px; }
+  .fq .fq-topics__title { margin: 0 0 10px; font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fq-muted); }
+  .fq-chips { display: grid; gap: 2px; margin: 0; padding: 0 0 0 12px; border-left: 1px solid var(--fq-line); list-style: none; }
+  .fq .fq-chips a { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-left: -13px; padding: 7px 10px 7px 12px; border-left: 2px solid transparent;
+    border-radius: 0 8px 8px 0; color: var(--fq-body); font-size: .88rem; font-weight: 500; line-height: 1.35; text-decoration: none; transition: color .15s ease, background .15s ease; }
+  .fq .fq-chips a span { flex: none; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: var(--fq-muted); font-size: .74rem; font-weight: 600; text-align: center; }
+  .fq .fq-chips a:hover { color: var(--fq-accent); background: #f6fafa; }
+  .fq .fq-chips a.is-current { border-left-color: var(--fq-accent); background: var(--fq-accent-soft); color: var(--fq-accent); font-weight: 600; }
+  .fq-group { margin: 0 0 28px; scroll-margin-top: 130px; }
+  .fq .fq-group h2 { margin: 0 0 10px; padding: 0; border: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: -.005em; text-transform: none; color: var(--fq-text); }
+  .fq-list { border: 1px solid var(--fq-line); border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(15, 23, 42, .03); }
+  .fq-item + .fq-item { border-top: 1px solid var(--fq-line); }
+  .fq .fq-item summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0; padding: 16px 20px; cursor: pointer; list-style: none;
+    font-size: 1rem; font-weight: 600; line-height: 1.45; color: var(--fq-text); text-transform: none; letter-spacing: normal; }
+  .fq .fq-item summary::-webkit-details-marker { display: none; }
+  .fq .fq-item summary::marker { content: ""; }
+  .fq .fq-item summary:hover { background: #f8fafb; }
+  .fq .fq-item summary:focus-visible { outline: 2px solid var(--fq-accent); outline-offset: -2px; }
+  .fq-caret { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--fq-accent-soft); color: var(--fq-accent); transition: transform .2s ease; }
+  .fq-item[open] .fq-caret { transform: rotate(180deg); }
+  .fq .fq-answer { margin: 0; padding: 0 20px 18px; font-size: .97rem; line-height: 1.7; color: var(--fq-body); }
+  .fq-empty { margin: 0 0 28px; padding: 22px; border: 1px dashed #cfd8dc; border-radius: 16px; text-align: center; color: var(--fq-muted); }
+  .fq .fq-empty a { color: var(--fq-accent); font-weight: 600; }
+  .fq-cta { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 36px 0 0; padding: 22px 24px; border: 1px solid #d7e8ea; border-radius: 16px;
+    background: linear-gradient(135deg, #f1f8f9 0%, #fff 70%); }
+  .fq .fq-cta h2 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 700; color: var(--fq-text); }
+  .fq .fq-cta p { margin: 0; font-size: .95rem; line-height: 1.55; color: var(--fq-muted); }
+  .fq-cta__actions { display: flex; flex-wrap: wrap; gap: 10px; flex: none; }
+  .fq .fq-btn { display: inline-flex; align-items: center; justify-content: center; height: 42px; padding: 0 16px; border-radius: 10px; font-size: .92rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .fq .fq-btn--primary { border: 1px solid var(--fq-accent); background: var(--fq-accent); color: #fff; }
+  .fq .fq-btn--primary:hover { background: #0b4a54; }
+  .fq .fq-btn--ghost { border: 1px solid #cfd8dc; background: #fff; color: var(--fq-text); }
+  .fq .fq-btn--ghost:hover { border-color: var(--fq-accent); color: var(--fq-accent); }
+  .fq [hidden] { display: none !important; }
+  @media (max-width: 900px) {
+    .fq-layout { display: block; }
+    .fq-topics { position: static; margin: 0 0 22px; }
+    .fq .fq-topics__title { display: none; }
+    .fq .fq-chips { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 8px; overflow-x: auto; margin: 0 -24px; padding: 0 24px 4px; border: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .fq .fq-chips li { flex: none; }
+    .fq-chips::-webkit-scrollbar { display: none; }
+    .fq .fq-chips a { margin: 0; height: 36px; padding: 0 14px; border: 1px solid var(--fq-line); border-radius: 999px; background: #fff; font-size: .86rem; font-weight: 600; white-space: nowrap; }
+    .fq .fq-chips a span { display: none; }
+    .fq .fq-chips a.is-current { border-color: var(--fq-accent); }
   }
-
-  body {
-    font-family: var(--font-family);
-    color: var(--text);
-    margin: 0;
-    background-color: var(--bg);
-    line-height: 1.6;
-    box-sizing: border-box;
+  @media (max-width: 640px) {
+    .fq { padding: 28px 16px 8px; }
+    .fq-hero { margin-bottom: 22px; }
+    .fq .fq-chips { margin: 0 -16px; padding: 0 16px 4px; }
+    .fq .fq-item summary { padding: 15px 16px; font-size: .97rem; }
+    .fq .fq-answer { padding: 0 16px 16px; font-size: .95rem; }
+    .fq-cta { flex-direction: column; align-items: stretch; padding: 20px; }
+    .fq .fq-btn { flex: 1 1 auto; }
   }
-
-  *, *::before, *::after { box-sizing: border-box; }
-
-  main {
-    max-width: 1140px;
-    margin: 0 auto;
-  }
-
-  /* Override global chatbot FAQ styles leaking into the public FAQ page. */
-  main#faq-page .faq-category,
-  main#faq-page .faq-category h2,
-  main#faq-page .faq-question,
-  main#faq-page .faq-answer {
-    text-transform: none !important;
-    letter-spacing: normal !important;
-  }
-
-  .page-header {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-
-  .page-header h1 {
-    color: var(--primary);
-    font-size: 2.2rem;
-    font-weight: 700;
-    margin: 0 0 8px;
-  }
-
-  .page-header p {
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    margin: 0;
-  }
-
-  #search-bar {
-    width: 100%;
-    padding: 12px 16px;
-    margin-bottom: 28px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 1rem; /* 16px — prevents iOS Safari auto-zoom on tap */
-    font-family: var(--font-family);
-    background: #fff;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    box-sizing: border-box;
-    position: sticky;
-    top: 70px;
-    z-index: 10;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  }
-
-  #search-bar:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.08);
-  }
-
-  .faq-category {
-    margin-bottom: 32px;
-  }
-
-  .faq-category h2 {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--primary);
-    margin: 0 0 14px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--primary-light);
-  }
-
-  .faq-item {
-    margin-bottom: 8px;
-  }
-
-  .faq-question {
-    font-size: 0.98rem;
-    font-weight: 500;
-    color: var(--text);
-    cursor: pointer;
-    padding: 14px 44px 14px 18px;
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    position: relative;
-    transition: border-color 0.2s, background 0.2s;
-    line-height: 1.5;
-  }
-
-  
-
-  .faq-question::after {
-    content: '+';
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 1.3rem;
-    color: var(--primary);
-    font-weight: 300;
-    transition: transform 0.25s;
-    line-height: 1;
-  }
-
-  .faq-question.open {
-    border-color: var(--primary);
-    background: var(--primary-light);
-    border-radius: 10px 10px 0 0;
-    border-bottom: none;
-  }
-
-  .faq-question.open::after {
-    transform: translateY(-50%) rotate(45deg);
-  }
-
-  .faq-answer {
-    display: none;
-    font-size: 0.93rem;
-    line-height: 1.7;
-    color: var(--text-muted);
-    padding: 16px 18px;
-    background: #fff;
-    border: 1px solid var(--primary);
-    border-top: none;
-    border-radius: 0 0 10px 10px;
-    margin-top: 0;
-  }
-
-  .help-cta {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    text-align: center;
-    margin-top: 20px;
-  }
-
-  .help-cta p {
-    margin: 0 0 12px;
-    font-size: 0.95rem;
-    color: var(--text);
-  }
-
-  .help-cta a {
-    display: inline-block;
-    padding: 10px 24px;
-    background: var(--primary);
-    color: #fff;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.92rem;
-    transition: background 0.2s;
-  }
-
-  
-
-  @media (max-width: 768px) {
-    main { padding: 100px 20px 40px; }
-    .page-header h1 { font-size: 1.8rem; padding-top: 20px; }
-    #faq-container { margin: 0 12px; }
-  }
-
-  @media (max-width: 480px) {
-    main { padding: 110px 16px 40px; }
-    .page-header h1 { font-size: 1.5rem; padding-top: 30px; }
-    #faq-container { margin: 0 8px; }
-    .faq-question { font-size: 0.92rem; padding: 12px 40px 12px 14px; }
-    .faq-answer { font-size: 0.88rem; padding: 14px; }
-  }
+  @media (prefers-reduced-motion: reduce) { .fq-caret, .fq .fq-chips a { transition: none; } }
 </style>
 </head>
 <body>
-  <main id="faq-page">
-    <div class="page-header">
-      <h1>Frequently Asked Questions</h1>
-      <p>Find answers to common questions about Managira</p>
+  <div class="fq" id="faq-page">
+    <header class="fq-hero">
+      <p class="fq-eyebrow">FAQ</p>
+      <h1>Frequently asked questions</h1>
+      <p>Quick answers about Managira, the K-12 student information system. For step-by-step guides, see the <a href="/legal/user-documentation">Documentation</a>.</p>
+      <div class="fq-search" role="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="fq-search" placeholder="Search the questions" aria-label="Search the questions" autocomplete="off">
+      </div>
+    </header>
+
+    <div class="fq-layout">
+    <nav class="fq-topics" aria-label="Topics">
+      <p class="fq-topics__title">Topics</p>
+      <ul class="fq-chips">
+        <% groups.forEach(function (group) { %><li><a href="#<%= slugOf(group.name) %>" data-fq-topic><%= group.name %> <span><%= group.items.length %></span></a></li><% }) %>
+      </ul>
+    </nav>
+    <div class="fq-main">
+
+    <% if (!groups.length) { %>
+      <p class="fq-empty">No questions are available right now. Visit the <a href="/legal/help">Help Center</a>.</p>
+    <% } %>
+    <p class="fq-empty" data-fq-empty hidden>No questions match your search. Try other words, or browse the <a href="/legal/user-documentation">Documentation</a>.</p>
+
+    <% groups.forEach(function (group) { %>
+      <section class="fq-group" id="<%= slugOf(group.name) %>" aria-labelledby="fq-<%= slugOf(group.name) %>" data-fq-group>
+        <h2 id="fq-<%= slugOf(group.name) %>"><%= group.name %></h2>
+        <div class="fq-list">
+          <% group.items.forEach(function (item) { %>
+            <details class="fq-item" id="faq-<%= item.id %>" data-fq-item>
+              <summary><span><%= item.question %></span><span class="fq-caret" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+              <p class="fq-answer"><%= item.answer %></p>
+            </details>
+          <% }) %>
+        </div>
+      </section>
+    <% }) %>
+
+    <section class="fq-cta" aria-labelledby="fq-cta-title">
+      <div>
+        <h2 id="fq-cta-title">Can't find your answer?</h2>
+        <p>Browse the step-by-step guides, or ask our team.</p>
+      </div>
+      <div class="fq-cta__actions">
+        <a class="fq-btn fq-btn--ghost" href="/legal/user-documentation">Documentation</a>
+        <a class="fq-btn fq-btn--primary" href="/legal/help">Contact support</a>
+      </div>
+    </section>
     </div>
-
-    <input type="text" id="search-bar" placeholder="Search for a question...">
-
-    <div id="faq-container">
-      <% if (!availableFaqEntries.length) { %>
-        <p style="margin:0 0 20px; color: var(--text-muted);">No FAQ entries are available right now.</p>
-      <% } %>
-
-      <% availableFaqCategories.forEach(function(category) { %>
-        <% const items = availableFaqEntries.filter(function(entry) { return entry.category === category; }); %>
-        <% if (items.length) { %>
-          <div class="faq-category" data-category="<%= faqCategorySlug(category) %>">
-            <h2><%= category %></h2>
-            <% items.forEach(function(item) { %>
-              <div class="faq-item">
-                <div class="faq-question"><%= item.question %></div>
-                <div class="faq-answer"><%= item.answer %></div>
-              </div>
-            <% }); %>
-          </div>
-        <% } %>
-      <% }); %>
     </div>
-
-  </main>
+  </div>
 
   <script>
-    document.addEventListener('click', function (e) {
-      if (e.target.classList.contains('faq-question')) {
-        const wasOpen = e.target.classList.contains('open');
-        document.querySelectorAll('.faq-question.open').forEach(function(q) {
-          q.classList.remove('open');
-          q.nextElementSibling.style.display = 'none';
-        });
-        if (!wasOpen) {
-          e.target.classList.add('open');
-          e.target.nextElementSibling.style.display = 'block';
-        }
-      }
-    });
-
-    function runFaqSearch(term) {
-      term = (term || '').toLowerCase();
-      const categories = document.querySelectorAll('.faq-category');
-      let firstMatch = null;
-      categories.forEach(function(category) {
-        const items = category.querySelectorAll('.faq-item');
-        let hasVisible = false;
-        items.forEach(function(item) {
-          const question = item.querySelector('.faq-question').textContent.toLowerCase();
-          const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
-          const match = !term || question.includes(term) || answer.includes(term);
-          item.style.display = match ? 'block' : 'none';
-          if (match && !firstMatch && term) firstMatch = item;
-          if (match) hasVisible = true;
-        });
-        category.style.display = hasVisible ? 'block' : 'none';
-      });
-      if (firstMatch) {
-        const q = firstMatch.querySelector('.faq-question');
-        if (q && !q.classList.contains('open')) {
-          q.classList.add('open');
-          q.nextElementSibling.style.display = 'block';
-        }
-        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-
-    const searchBar = document.getElementById('search-bar');
-    searchBar.addEventListener('input', function () { runFaqSearch(this.value); });
-
-    // Pre-fill from ?q= when arriving from chatbot or Help Center search
     (function () {
-      const params = new URLSearchParams(window.location.search);
-      const q = params.get('q');
-      if (q) {
-        searchBar.value = q;
-        // Scroll so the sticky search bar is visible first, then run the search
-        searchBar.scrollIntoView({ behavior: 'instant', block: 'start' });
-        setTimeout(function() { runFaqSearch(q); }, 150);
+      var input = document.getElementById('fq-search');
+      if (!input) return;
+      var items = Array.prototype.slice.call(document.querySelectorAll('[data-fq-item]'));
+      var groups = Array.prototype.slice.call(document.querySelectorAll('[data-fq-group]'));
+      var empty = document.querySelector('[data-fq-empty]');
+      var textOf = items.map(function (item) { return item.textContent.toLowerCase(); });
+
+      function run(term, reveal) {
+        var words = String(term || '').toLowerCase().split(/\s+/).filter(Boolean);
+        var first = null;
+        items.forEach(function (item, i) {
+          var match = words.every(function (w) { return textOf[i].indexOf(w) !== -1; });
+          item.hidden = !match;
+          if (words.length) item.open = match && !first;
+          if (match && !first && words.length) first = item;
+        });
+        groups.forEach(function (group) { group.hidden = !group.querySelector('[data-fq-item]:not([hidden])'); });
+        if (empty) empty.hidden = !words.length || !!first;
+        if (reveal && first) first.scrollIntoView({ block: 'center' });
       }
+
+      // The topic in view is marked in the topic list.
+      var topicLinks = Array.prototype.slice.call(document.querySelectorAll('[data-fq-topic]'));
+      if ('IntersectionObserver' in window && topicLinks.length) {
+        var mark = function (id) { topicLinks.forEach(function (a) { a.classList.toggle('is-current', a.getAttribute('href') === '#' + id); }); };
+        var seen = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) { if (e.isIntersecting) mark(e.target.id); });
+        }, { rootMargin: '-30% 0px -60% 0px' });
+        groups.forEach(function (g) { seen.observe(g); });
+      }
+
+      var timer = null;
+      input.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(function () { run(input.value, false); }, 120); });
+
+      // Arriving from the site chat or Help Center search (?q=), or a link to one question (#faq-12).
+      var q = new URLSearchParams(window.location.search).get('q');
+      if (q) { input.value = q; run(q, true); }
+      var hash = window.location.hash && document.getElementById(window.location.hash.slice(1));
+      if (hash && hash.matches('[data-fq-item]')) { hash.open = true; hash.scrollIntoView({ block: 'center' }); }
     })();
   </script>
 
@@ -302,7 +196,7 @@
           "text": entry.answer
         }
       }))
-    }) %>
+    }).replace(/</g, '\\u003c') %>
   </script>
 </body>
 </html>

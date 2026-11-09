@@ -156,22 +156,48 @@ async function flushRedis(cacheType) {
   }
 }
 
+// Every reader gets its own copy, so one request can never change what the next one reads.
+// node-cache made that copy with a slow general-purpose cloner on every read and write, and the
+// permission and feature lists are read on every request; a list or record of plain values is
+// now copied directly, and anything else still goes through the same cloner as before.
+const deepClone = (() => { try { return require('clone'); } catch (_) { return (value) => structuredClone(value); } })();
+const isPlainValue = (value) => value === null || (typeof value !== 'object' && typeof value !== 'function');
+function copyOf(value) {
+  if (isPlainValue(value)) return value;
+  if (Array.isArray(value)) return value.every(isPlainValue) ? value.slice() : deepClone(value);
+  if (Object.getPrototypeOf(value) === Object.prototype && Object.values(value).every(isPlainValue)) return { ...value };
+  return deepClone(value);
+}
+function makeCache(options) {
+  const cache = new NodeCache({ ...options, useClones: false });
+  const rawGet = cache.get.bind(cache);
+  const rawSet = cache.set.bind(cache);
+  cache.get = (key) => {
+    const value = rawGet(key);
+    return value === undefined ? value : copyOf(value);
+  };
+  // The stored value itself, for a caller that only reads it (getOrFetch with copy: false).
+  cache.peek = rawGet;
+  cache.set = (key, value, ttl) => (ttl === undefined ? rawSet(key, copyOf(value)) : rawSet(key, copyOf(value), ttl));
+  return cache;
+}
+
 // Create separate caches for different data types with appropriate TTLs
 const caches = {
   // Admin cache - organizations list, admin data (5 min TTL)
-  admin: new NodeCache({ stdTTL: 300, checkperiod: 60 }),
+  admin: makeCache({ stdTTL: 300, checkperiod: 60 }),
   
   // Organization cache - org details, users, classes (3 min TTL)
-  organization: new NodeCache({ stdTTL: 180, checkperiod: 30 }),
+  organization: makeCache({ stdTTL: 180, checkperiod: 30 }),
   
   // Guardian cache - student data, grades (2 min TTL for freshness)
-  guardian: new NodeCache({ stdTTL: 120, checkperiod: 30 }),
+  guardian: makeCache({ stdTTL: 120, checkperiod: 30 }),
   
   // Static cache - features, plans, pricing (30 min TTL)
-  static: new NodeCache({ stdTTL: 1800, checkperiod: 120 }),
+  static: makeCache({ stdTTL: 1800, checkperiod: 120 }),
   
   // Session cache - user preferences, theme colors (10 min TTL)
-  session: new NodeCache({ stdTTL: 600, checkperiod: 60 })
+  session: makeCache({ stdTTL: 600, checkperiod: 60 })
 };
 
 // Cap each cache so a burst of distinct keys (many schools, many pages) can't
@@ -208,18 +234,22 @@ const cacheManager = {
       return fetchFn();
     }
 
-    const { ttl, forceRefresh = false } = options;
+    // copy: false is for callers that only read what they get (a large snapshot polled often):
+    // they share the stored value instead of receiving their own copy.
+    const { ttl, forceRefresh = false, copy = true } = options;
 
     // Return cached data if available and not forcing refresh
     if (!forceRefresh) {
-      const cached = cache.get(key);
+      const cached = copy ? cache.get(key) : cache.peek(key);
       if (cached !== undefined) {
-        // Background refresh if data is getting stale (> 70% of TTL)
+        // Background refresh if data is getting stale (> 70% of its own lifetime). Measured
+        // against the lifetime this entry was given: against the cache's longer default, an
+        // entry kept for 5 minutes always looked stale and was fetched again on every read.
         const ttlInfo = cache.getTtl(key);
         if (ttlInfo) {
           const remaining = (ttlInfo - Date.now()) / 1000;
-          const defaultTTL = caches[cacheType].options.stdTTL;
-          if (remaining < defaultTTL * 0.3) {
+          const lifetime = ttl || caches[cacheType].options.stdTTL;
+          if (remaining < lifetime * 0.3) {
             // Trigger background refresh
             this.backgroundRefresh(cacheType, key, fetchFn, ttl);
           }

@@ -38,7 +38,7 @@ module.exports = [
       {
         title: "4. Record payments taken at school",
         steps: [
-          "A collector opens their class and chooses <strong>My PayGira</strong>. Bills assigned to them are listed; use <strong>Past</strong>, <strong>All</strong> or <strong>Future</strong> to find one.",
+          ["A collector opens their class and chooses <strong>My PayGira</strong> in Class Tools. Bills assigned to them are listed; use <strong>Past</strong>, <strong>All</strong> or <strong>Future</strong> to find one.", "class-paygira.webp", "My PayGira on the class page: bills you collect, collected and outstanding."],
           "Select <strong>Collect</strong> beside the student, enter the amount, and select <strong>Record Payment</strong>. A receipt is created automatically.",
           "On a busy day, use bulk collection to record several students at once.",
         ],

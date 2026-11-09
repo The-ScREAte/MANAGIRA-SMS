@@ -4,7 +4,7 @@
 // resolves WHO receives it and WHAT the default message says (server-side,
 // so every page agrees), verifies the sender's password, then sends.
 const db = require("../config/db");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("../utils/passwordHashing");
 const { getMessagingChannelStatus, sendGuardianMessages } = require("../utils/guardianMessaging");
 const { createShortLink } = require("../utils/shortLink");
 const { ensureReportPdfLink } = require("../utils/reportPdf");

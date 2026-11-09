@@ -127,9 +127,10 @@ function sanitizeArticleContent(html) {
     allowedTags: [
       'h2', 'h3', 'h4', 'p', 'strong', 'em', 'b', 'i', 'u', 's', 'ul', 'ol', 'li', 'blockquote',
       'code', 'pre', 'a', 'img', 'figure', 'figcaption', 'iframe', 'video', 'source',
-      'div', 'span', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'br', 'mark'
+      'div', 'span', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'br', 'wbr', 'mark'
     ],
     allowedAttributes: {
+      p: ['class'],
       a: ['href', 'target', 'rel', 'title', 'class'],
       img: ['src', 'alt', 'title', 'class', 'data-caption'],
       figure: ['class', 'style'],
@@ -143,7 +144,7 @@ function sanitizeArticleContent(html) {
       pre: ['class'],
       table: ['class'],
       th: ['colspan', 'rowspan', 'scope'],
-      td: ['colspan', 'rowspan'],
+      td: ['colspan', 'rowspan', 'data-label'],
       hr: ['class'],
       mark: ['class'],
     },

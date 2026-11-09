@@ -1,26 +1,35 @@
-<%# The public site's footer: SIS-standard columns (utils/landing.js FOOTER), legal and trust links. %>
+<%# The public site's footer: SIS-standard columns (utils/landing.js FOOTER and SIGN_IN), contact, legal and trust links. %>
 <footer class="lp-foot lp-chrome">
   <div class="lp-foot__inner">
     <div class="lp-foot__brand">
-      <a class="lp-logo" href="/" aria-label="Managira home"><img src="/images/managira-logo-sm.png" width="32" height="32" alt=""><span>managira</span></a>
-      <p>The student information system for K-12 schools and districts.</p>
-      <a class="lp-btn lp-btn--light" href="/legal/request-demo">Request a demo</a>
+      <div class="lp-foot__about">
+        <a class="lp-logo" href="/" aria-label="Managira home"><img src="/images/managira-logo-sm.png" width="32" height="32" alt=""><span>managira</span></a>
+        <p>The student information system for K-12 schools and districts.</p>
+      </div>
+      <div class="lp-foot__reach">
+      <ul class="lp-foot__contact">
+        <li><a href="mailto:info@managira.com"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>info@managira.com</a></li>
+        <li><a href="/legal/help"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Help &amp; support</a></li>
+      </ul>
+      <p class="lp-foot__signin"><span>Sign in:</span><% lp.SIGN_IN.forEach(([label, href], i) => { %><%- i ? '<span aria-hidden="true">·</span>' : '' %><a href="<%= href %>"><%= label %></a><% }) %></p>
       <div class="lp-foot__social">
         <a href="https://www.youtube.com/@managira" target="_blank" rel="noopener" aria-label="Managira on YouTube"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6z"/></svg></a>
         <a href="https://www.linkedin.com/company/managira" target="_blank" rel="noopener" aria-label="Managira on LinkedIn"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg></a>
+      </div>
       </div>
     </div>
     <nav class="lp-foot__cols" aria-label="Footer">
       <% lp.FOOTER.forEach((col) => { %>
         <div>
           <p class="lp-foot__title"><%= col.title %></p>
-          <ul><% col.links.forEach(([label, href]) => { %><li><a href="<%= href %>"><%= label %></a></li><% }) %></ul>
+          <ul><% col.links.forEach(([label, href]) => { %><li><a href="<%= href %>"<%- /^https?:/.test(href) ? ' target="_blank" rel="noopener"' : '' %>><%= label %></a></li><% }) %></ul>
         </div>
       <% }) %>
     </nav>
   </div>
   <div class="lp-foot__bottom">
     <p>&copy; <%= new Date().getFullYear() %> ScREAte / Managira. All rights reserved.</p>
+    <p class="lp-foot__trust"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Encrypted connections · Single sign-on · Role-based access · Audit trails</p>
     <ul>
       <li><a href="/legal/privacy-policy">Privacy Policy</a></li>
       <li><a href="/legal/terms-of-service">Terms of Service</a></li>
