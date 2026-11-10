@@ -8,14 +8,12 @@
   const _activePlans = plans.filter((p) => p.is_active);
   const _gridPlans = plans.filter((p) => p.is_active || regions.some((r) => r.prices.some((x) => Number(x.plan_id) === Number(p.id) && Number(x.base_price_usd) > 0)));
   const _tabs = [['schools', 'Schools', 'fa-school'], ['hubs', 'Hubs', 'fa-network-wired'], ['payments', 'Payment settings', 'fa-credit-card']];
-  // Per school, or per seat where people get access one by one (Mira, the student and parent portals).
+  // How an add-on is charged: per school, or per seat (every add-on has its own kind of seat).
   const _unitPick = (field, key, saved) => {
-    const units = unitsFor(key);
     const unit = unitOf(key, saved);
-    if (units.length < 2) return '<span class="ap-unit">per school</span>';
     const label = integrations.find((i) => i.key === key).label;
     return `<select name="${field}" class="ahb-input ap-unit-pick" aria-label="${label}: charged">`
-      + ['seat', 'school'].map((u) => `<option value="${u}"${u === unit ? ' selected' : ''}>${unitLabel(key, u)}</option>`).join('')
+      + unitsFor(key).map((u) => `<option value="${u}"${u === unit ? ' selected' : ''}>${u === 'school' ? 'Per school' : unitLabel(key, u).replace(/^p/, 'P')}</option>`).join('')
       + '</select>';
   };
 %>
@@ -133,7 +131,7 @@
       <div class="ap-card__head">
         <div>
           <h2 class="ah-card__title" id="apAddons">Add-ons</h2>
-          <p class="ap-card__sub">Added each month when a school uses one. Empty is free. Price it per school, or per seat: staff given Mira, students or parents who can sign in.</p>
+          <p class="ap-card__sub">Added each month when a school uses one. Empty is free. Charge each one per school or per seat.</p>
         </div>
         <span class="ah-bill <%= use.released ? 'ah-bill--blue' : 'ah-bill--muted' %>" title="Who is charged follows the addon_pricing release (Admin › Shards › Releases)"><%= !use.total ? 'No single schools yet' : use.released === use.total ? 'Charged to every school' : `Charged to ${use.released} of ${use.total} schools` %></span>
       </div>
@@ -141,18 +139,14 @@
         <input type="hidden" name="part" value="schools" />
         <div class="ah-scroll">
           <table class="ah-table">
-            <thead><tr><th>Add-on</th><th>Price a month</th><th class="ah-num">Schools using it</th></tr></thead>
+            <thead><tr><th>Add-on</th><th>Price a month</th><th>Charged</th><th class="ah-num">Schools using it</th></tr></thead>
             <tbody>
               <% integrations.forEach((i) => { const sp = schoolPrices[i.key]; const u = use[i.key] || {}; %>
                 <tr>
-                  <td><strong><%= i.label %></strong><% if (i.key === 'parent_portal') { %><span class="ah-sub">Schools whose plan includes it</span><% } %></td>
-                  <td>
-                    <span class="ap-money-unit">
-                      <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="school[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? _fmt(sp.price) : '' %>" placeholder="Free" aria-label="<%= i.label %>: price a month" /></span>
-                      <%- _unitPick(`school[${i.key}][unit]`, i.key, sp && sp.unit) %>
-                    </span>
-                  </td>
-                  <td class="ah-num"><%= u.schools || 0 %><% if (u.seats != null && u.schools) { %><span class="ah-sub"><%= seatCount(i.key, u.seats) %></span><% } %></td>
+                  <td><strong><%= i.label %></strong><span class="ah-sub">A seat is <%= seatWho(i.key) %></span></td>
+                  <td><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="school[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? _fmt(sp.price) : '' %>" placeholder="Free" aria-label="<%= i.label %>: price a month" /></span></td>
+                  <td><%- _unitPick(`school[${i.key}][unit]`, i.key, sp && sp.unit) %></td>
+                  <td class="ah-num"><%= u.schools || 0 %><% if (u.schools && perSeat(i.key, sp && sp.unit)) { %><span class="ah-sub"><%= seatCount(i.key, u.seats || 0) %></span><% } %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -231,24 +225,20 @@
       <div class="ap-card__head">
         <div>
           <h2 class="ah-card__title" id="apHubAddons">Add-on prices for hubs</h2>
-          <p class="ap-card__sub">A new hub starts with these. <strong>Auto</strong> bills each school that uses it; <strong>Manual</strong> adds a charge the hub approves.</p>
+          <p class="ap-card__sub">A new hub starts with these. Each is a month's price: a bill that covers several months charges each one. <strong>Auto</strong> bills each school that uses it; <strong>Manual</strong> adds a charge the hub approves.</p>
         </div>
       </div>
       <form action="/admin/pricing/addons" method="POST" data-ah-ajax>
         <input type="hidden" name="part" value="hubs" />
         <div class="ah-scroll">
           <table class="ah-table">
-            <thead><tr><th>Add-on</th><th>Price each bill</th><th>Billed</th><th class="ah-num">Hubs with their own price</th></tr></thead>
+            <thead><tr><th>Add-on</th><th>Price a month</th><th>Charged</th><th>Billed</th><th class="ah-num">Hubs with their own price</th></tr></thead>
             <tbody>
               <% integrations.forEach((i) => { const sp = hubPrices[i.key]; %>
                 <tr>
-                  <td><strong><%= i.label %></strong></td>
-                  <td>
-                    <span class="ap-money-unit">
-                      <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="hub[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? _fmt(sp.price) : '' %>" placeholder="Free" aria-label="<%= i.label %>: hub price" /></span>
-                      <%- _unitPick(`hub[${i.key}][unit]`, i.key, sp && sp.unit) %>
-                    </span>
-                  </td>
+                  <td><strong><%= i.label %></strong><span class="ah-sub">A seat is <%= seatWho(i.key) %></span></td>
+                  <td><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="hub[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? _fmt(sp.price) : '' %>" placeholder="Free" aria-label="<%= i.label %>: hub price" /></span></td>
+                  <td><%- _unitPick(`hub[${i.key}][unit]`, i.key, sp && sp.unit) %></td>
                   <td>
                     <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="<%= i.label %>: how it is billed">
                       <label><input type="radio" name="hub[<%= i.key %>][mode]" value="auto" <%= !sp || sp.mode !== 'manual' ? 'checked' : '' %> /> <span>Auto</span></label>

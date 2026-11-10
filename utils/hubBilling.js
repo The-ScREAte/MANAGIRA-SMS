@@ -48,37 +48,53 @@ const INTEGRATIONS = [
   { key: 'mira', label: 'Mira AI assistant', columns: ['mira_activated'], seat: 'staff', unit: 'seat' },
   { key: 'student_portal', label: 'Student portal', columns: ['student_portal_activated'], seat: 'student', unit: 'school' },
   { key: 'parent_portal', label: 'Parent portal', sql: PARENT_PORTAL_ON_SQL, seat: 'parent', unit: 'seat' },
-  { key: 'whatsapp', label: 'WhatsApp messages', columns: ['whatsapp_activated'] },
-  { key: 'sms', label: 'Text messages (SMS)', columns: ['sms_twilio_activated', 'sms_africastalking_activated', 'sms_arkesel_activated'] },
-  { key: 'transportation', label: 'Transportation', columns: ['transportation_activated'] },
-  { key: 'maps', label: 'Maps navigation', columns: ['transportation_google_maps_nav_activated', 'transportation_apple_maps_nav_activated'] },
-  { key: 'google_classroom', label: 'Google Classroom', columns: ['google_classroom_activated'] },
+  { key: 'whatsapp', label: 'WhatsApp messages', columns: ['whatsapp_activated'], seat: 'enrolled', unit: 'school' },
+  { key: 'sms', label: 'Text messages (SMS)', columns: ['sms_twilio_activated', 'sms_africastalking_activated', 'sms_arkesel_activated'], seat: 'enrolled', unit: 'school' },
+  { key: 'transportation', label: 'Transportation', columns: ['transportation_activated'], seat: 'rider', unit: 'school' },
+  { key: 'maps', label: 'Maps navigation', columns: ['transportation_google_maps_nav_activated', 'transportation_apple_maps_nav_activated'], seat: 'driver', unit: 'school' },
+  { key: 'google_classroom', label: 'Google Classroom', columns: ['google_classroom_activated'], seat: 'enrolled', unit: 'school' },
 ];
 const INTEGRATION_BY_KEY = Object.fromEntries(INTEGRATIONS.map((i) => [i.key, i]));
 
-// The people an add-on can be priced by, counted in a school (alias o). Drivers and Managira's
-// own accounts are never Mira seats; only accounts that can sign in count for the portals.
+// The people an add-on can be priced by, counted in a school (alias o): every add-on has one,
+// so each can be priced per school or per seat. `who` says who counts, in the admin's words.
+// Drivers and Managira's own accounts are never Mira seats; only accounts that can sign in count
+// for the portals; messages and Google Classroom go by students enrolled, the bus by riders,
+// maps by drivers.
 const SEATS = {
   staff: {
-    unit: 'per staff seat', one: 'staff seat', many: 'staff seats',
+    unit: 'per staff seat', one: 'staff seat', many: 'staff seats', who: 'each member of staff given Mira',
     sql: (o) => `(SELECT COUNT(*)::int FROM users mu
         JOIN user_permissions mp ON mp.user_id = mu.user_id AND mp.organization_id = mu.organization_id AND mp.permission_key = 'use_mira'
        WHERE mu.organization_id = ${o}.organization_id AND mu.account_type IS DISTINCT FROM 'Driver'
          AND LOWER(COALESCE(mu.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin'))`,
   },
   student: {
-    unit: 'per student with access', one: 'student', many: 'students',
+    unit: 'per student with access', one: 'student', many: 'students', who: 'each student who can sign in',
     sql: (o) => `(SELECT COUNT(*)::int FROM student_accounts sa JOIN students st ON st.student_id = sa.student_id AND st.organization_id = sa.organization_id
        WHERE sa.organization_id = ${o}.organization_id AND sa.password_hash IS NOT NULL AND COALESCE(st.graduated, false) = false)`,
   },
   parent: {
-    unit: 'per parent with access', one: 'parent', many: 'parents',
+    unit: 'per parent with access', one: 'parent', many: 'parents', who: 'each parent who can sign in',
     sql: (o) => `(SELECT COUNT(*)::int FROM guardian_accounts ga WHERE ga.organization_id = ${o}.organization_id AND ga.password_hash IS NOT NULL)`,
+  },
+  enrolled: {
+    unit: 'per student', one: 'student', many: 'students', who: 'each student enrolled',
+    sql: (o) => `(SELECT COUNT(*)::int FROM students es WHERE es.organization_id = ${o}.organization_id AND COALESCE(es.graduated, false) = false)`,
+  },
+  rider: {
+    unit: 'per rider', one: 'rider', many: 'riders', who: 'each student on a bus route',
+    sql: (o) => `(SELECT COUNT(DISTINCT tsa.student_id)::int FROM transport_student_assignments tsa WHERE tsa.organization_id = ${o}.organization_id AND tsa.active = TRUE)`,
+  },
+  driver: {
+    unit: 'per driver', one: 'driver', many: 'drivers', who: 'each driver',
+    sql: (o) => `(SELECT COUNT(*)::int FROM users du WHERE du.organization_id = ${o}.organization_id AND du.account_type = 'Driver'
+       AND COALESCE(du.on_hold, false) = false AND du.removed_at IS NULL)`,
   },
 };
 const SEAT_KEYS = Object.keys(SEATS);
 const MIRA_SEATS_SQL = SEATS.staff.sql;
-// Every seat count for a school, as seats_staff, seats_student, seats_parent.
+// Every seat count for a school, as seats_staff, seats_student, seats_parent, seats_enrolled, seats_rider, seats_driver.
 const SEATS_SQL = (o) => SEAT_KEYS.map((k) => `${SEATS[k].sql(o)} AS seats_${k}`).join(',\n            ');
 
 // The units an add-on can be priced by, and which applies to a saved price ("school" | "seat").
@@ -87,6 +103,8 @@ const unitOf = (key, saved) => (unitsFor(key).includes(saved) ? saved : ((INTEGR
 const perSeat = (key, saved) => unitOf(key, saved) === 'seat';
 // "per school" / "per staff seat" / "per student with access" / "per parent with access".
 const unitLabel = (key, saved) => (perSeat(key, saved) ? SEATS[INTEGRATION_BY_KEY[key].seat].unit : 'per school');
+// Who counts as a seat of this add-on: "each student on a bus route".
+const seatWho = (key) => (SEATS[(INTEGRATION_BY_KEY[key] || {}).seat] || {}).who || '';
 // "3 staff seats", "120 students".
 const seatCount = (key, n) => {
   const seat = SEATS[(INTEGRATION_BY_KEY[key] || {}).seat];
@@ -460,14 +478,17 @@ function computeBill(billing, usage = {}, charges = []) {
     }
   });
 
-  // Add-ons billed automatically: for each school that uses one, or each seat in them.
+  // Add-ons billed automatically: for each school that uses one, or each seat in them. An
+  // add-on's price is always a month's, so a bill covering several months charges each month.
   INTEGRATIONS.forEach(({ key, label }) => {
     const f = integrationFeesOf(b)[key];
     if (!f || !f.on || f.mode !== 'auto' || !(Number(f.price) > 0)) return;
     const bySeat = perSeat(key, f.unit);
     const quantity = Number(((bySeat ? usage.integrationSeats : usage.integrationSchools) || usage.integrations || {})[key]) || 0;
-    const note = bySeat ? seatCount(key, quantity) : `${plural(quantity, 'school uses', 'schools use')} it`;
-    if (quantity > 0) add({ key: `integration:${key}`, label, quantity, unitPrice: Number(f.price), note });
+    const months = cycle.months || 1;
+    const who = bySeat ? seatCount(key, quantity) : `${plural(quantity, 'school uses', 'schools use')} it`;
+    const note = months > 1 ? `${who} · ${money(f.price, b.currency)} a month × ${months} months` : `${who} · ${money(f.price, b.currency)} a month`;
+    if (quantity > 0) add({ key: `integration:${key}`, label, quantity, unitPrice: round2(Number(f.price) * months), note });
   });
 
   // Schools and hub sign-ins beyond the plan, from today's numbers (if the plan prices them).
@@ -1449,7 +1470,7 @@ async function planDetails(db, hubId) {
     Number(billing.base_fee) > 0 ? `Plan fee: ${money(billing.base_fee, billing.currency)} each ${bill.cycle.per}` : null,
     ...INTEGRATIONS.filter((i) => integrationFeesOf(billing)[i.key] && integrationFeesOf(billing)[i.key].on).map((i) => {
       const f = integrationFeesOf(billing)[i.key];
-      return `${i.label}: ${money(f.price, billing.currency)} ${unitLabel(i.key, f.unit)} each ${bill.cycle.per}${f.mode === 'manual' ? ' (added when needed)' : ''}`;
+      return `${i.label}: ${money(f.price, billing.currency)} ${unitLabel(i.key, f.unit)} a month${f.mode === 'manual' ? ' (added when needed)' : ''}`;
     }),
     discountLabel(billing) ? `Discount: ${discountLabel(billing)}` : null,
     `Each bill: about ${money(bill.total, billing.currency)} with today’s numbers`,
@@ -1916,6 +1937,7 @@ module.exports = {
   unitsFor,
   unitOf,
   seatCount,
+  seatWho,
   SEATS,
   SEAT_KEYS,
   SEATS_SQL,

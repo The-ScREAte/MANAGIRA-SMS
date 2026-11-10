@@ -29,19 +29,30 @@ test("the pricing form: standard, own price or free for each add-on, and checked
   assert.ok(orgPricing.parseOverrides({ monthlyPrice: "-5" }).errors.length);
 });
 
-test("one add-on list for schools and hubs: per school, or per seat where people get access", () => {
+test("one add-on list for schools and hubs: each per school or per seat", () => {
   const keys = hubBilling.INTEGRATIONS.map((i) => i.key);
   ["mira", "student_portal", "parent_portal", "whatsapp", "sms", "transportation", "maps", "google_classroom"].forEach((key) => assert.ok(keys.includes(key), key));
   // Mira and the parent portal start per seat; the student portal per school, as before.
+  // Every add-on can be charged per school or per seat, and says who counts as a seat.
+  hubBilling.INTEGRATIONS.forEach((addon) => {
+    assert.deepEqual(hubBilling.unitsFor(addon.key), ["school", "seat"], addon.key);
+    assert.ok(hubBilling.SEATS[addon.seat], `${addon.key} names a kind of seat`);
+    assert.ok(hubBilling.seatWho(addon.key).startsWith("each "), addon.key);
+  });
+  assert.equal(hubBilling.unitLabel("transportation"), "per school", "per school unless per seat is chosen");
+  assert.equal(hubBilling.unitLabel("transportation", "seat"), "per rider");
+  assert.equal(hubBilling.unitLabel("maps", "seat"), "per driver");
+  assert.equal(hubBilling.unitLabel("whatsapp", "seat"), "per student");
+  assert.equal(hubBilling.seatCount("transportation", 12), "12 riders");
   assert.equal(hubBilling.unitLabel("mira"), "per staff seat");
   assert.equal(hubBilling.unitLabel("parent_portal"), "per parent with access");
   assert.equal(hubBilling.unitLabel("student_portal"), "per school");
   assert.equal(hubBilling.unitLabel("student_portal", "seat"), "per student with access");
   assert.equal(hubBilling.unitLabel("mira", "school"), "per school");
-  // Add-ons nobody gets one by one are only per school.
+  // The ones that used to be per school only still are, until per seat is chosen for them.
   ["whatsapp", "sms", "transportation", "maps", "google_classroom"].forEach((key) => {
-    assert.deepEqual(hubBilling.unitsFor(key), ["school"], key);
-    assert.equal(hubBilling.unitOf(key, "seat"), "school", key);
+    assert.equal(hubBilling.unitOf(key), "school", key);
+    assert.equal(hubBilling.unitOf(key, "seat"), "seat", key);
   });
 });
 

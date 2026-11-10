@@ -757,12 +757,11 @@
       .plan-card .plan-plus:hover span { text-decoration: underline; }
       .plan-card .plan-plus svg { transition: transform .15s ease; }
       .plan-card .plan-plus[aria-expanded="true"] svg { transform: rotate(180deg); }
-      .plan-card .plan-inherited { margin: 0 0 8px; padding: 0 0 8px; border-bottom: 1px dashed #e3e8ee; }
-      .plan-card .plan-inherited__from { margin: 8px 0 2px !important; font-size: .72rem !important; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #94a3b8 !important; }
-      .plan-card .feature-list--inherited li { color: #94a3b8 !important; font-size: .86rem !important; padding-top: 4px !important; padding-bottom: 4px !important; }
-      .plan-card .feature-list--inherited li::before { opacity: .55; }
-      .plan-example { margin: 18px 0 0 !important; text-align: center; font-size: .95rem !important; color: #475569 !important; }
-      .plan-example strong { color: #0f172a !important; }
+      .plan-card .plan-inherited { margin: 4px 0 14px; padding: 12px 14px; border-radius: 12px; background: #f6f8fa; }
+      .plan-card .plan-inherited__from { margin: 12px 0 4px !important; font-size: .7rem !important; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b !important; }
+      .plan-card .plan-inherited__from:first-child { margin-top: 0 !important; }
+      .plan-card .feature-list--inherited li { padding: 3px 0 3px 22px !important; font-size: .84rem !important; color: #7b8794 !important; }
+      .plan-card .feature-list--inherited li::before { top: 5px; width: 14px; height: 14px; opacity: .5; }
       .period-section h3:has(+ .period-note:not(:empty)) { margin-bottom: 4px !important; }
       .period-note { margin: 0 0 14px !important; font-size: .86rem !important; color: #64748b !important; text-align: left !important; }
       .period-note:empty { display: none; }
@@ -848,7 +847,7 @@
               </button>
               <div class="plan-inherited" hidden>
                 <% (plan.inherited || []).forEach(function(group) { %>
-                  <% if (plan.inherited.length > 1) { %><p class="plan-inherited__from">From <%= group.from %></p><% } %>
+                  <p class="plan-inherited__from"><%= group.from %></p>
                   <ul class="feature-list feature-list--inherited">
                     <% group.features.forEach(function(f) { %><li><%= f.feature_name %></li><% }); %>
                   </ul>
@@ -867,7 +866,7 @@
             <% if (dynamicMeta) { %>
               <% if (!_sharedIncluded) { %><div class="free-students-badge"><%= dynamicMeta.freeStudentPercent != null ? `First ${Number(dynamicMeta.freeStudentPercent)}% of students are free` : `First ${Number(dynamicMeta.freeStudentThreshold || 0)} students included` %></div><% } %>
               <% if (Number(dynamicMeta.perStudentRateUsd) > 0) { %>
-                <div class="extra-student-price" data-rate="<%= Number(dynamicMeta.perStudentRateUsd) %>">+ $<%= Number(dynamicMeta.perStudentRateUsd).toFixed(2) %> for each extra student a <%= Number(dynamicMeta.monthsPerTerm || 1) === 1 ? 'month' : 'term' %></div>
+                <div class="extra-student-price" data-rate="<%= Number(dynamicMeta.perStudentRateUsd) %>">+ $<%= Number(dynamicMeta.perStudentRateUsd).toFixed(2) %> per extra student a <%= Number(dynamicMeta.monthsPerTerm || 1) === 1 ? 'month' : 'term' %></div>
               <% } %>
             <% } %>
             <div class="price-local"></div>
@@ -875,18 +874,6 @@
         </article>
         <% }}); %>
         </section>
-
-        <%
-          const _popular = plans.find((p) => p.is_active && p.popular);
-          const _popMeta = _popular && typeof dynamicPriceMetaByPlan !== 'undefined' && dynamicPriceMetaByPlan ? dynamicPriceMetaByPlan[_popular.plan_id] : null;
-          const _exampleStudents = 100;
-          const _exampleUsd = _popMeta && _popMeta.freeStudentThreshold != null && Number(_popMeta.perStudentRateUsd) > 0
-            ? Number(_popMeta.basePriceUsd || 0) + Math.max(0, _exampleStudents - Number(_popMeta.freeStudentThreshold)) * Number(_popMeta.perStudentRateUsd) / Math.max(1, Number(_popMeta.monthsPerTerm || 1))
-            : null;
-        %>
-        <% if (_exampleUsd) { %>
-          <p class="plan-example">A <%= _exampleStudents %>-student school on <%= _popular.plan_name %> pays <strong data-example-usd="<%= _exampleUsd.toFixed(2) %>">$<%= _exampleUsd.toFixed(2).replace(/\.00$/, '') %></strong> a month.</p>
-        <% } %>
 
         <input type="hidden" name="approx_student_count" id="approxStudentCount" value="" />
 
@@ -1296,14 +1283,11 @@
             if (badgeEl && Number.isInteger(threshold)) {
               badgeEl.textContent = 'First ' + threshold + ' students included';
             }
-            // The example under the cards, in the visitor's currency too.
-            var exampleEl = document.querySelector('[data-example-usd]');
-            if (exampleEl) exampleEl.textContent = fmtLocal(parseFloat(exampleEl.getAttribute('data-example-usd')) || 0);
             // The price for each extra student, in the visitor's currency like the price above it.
             var extraEl = card.querySelector('.extra-student-price');
             if (extraEl) {
               var perMonth = (parseFloat(card.getAttribute('data-price-months-per-term')) || 0) === 1;
-              extraEl.textContent = '+ ' + fmtLocal(parseFloat(extraEl.getAttribute('data-rate')) || 0) + ' for each extra student a ' + (perMonth ? 'month' : 'term');
+              extraEl.textContent = '+ ' + fmtLocal(parseFloat(extraEl.getAttribute('data-rate')) || 0) + ' per extra student a ' + (perMonth ? 'month' : 'term');
             }
           });
         }

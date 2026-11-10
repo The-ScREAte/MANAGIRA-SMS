@@ -29,6 +29,9 @@
 .ap-row-off td { opacity: .6; }
 .ap-pill--default { background: #ecfeff !important; color: #0e7490 !important; border-color: #a5f3fc !important; }
 
+/* Add-ons: a price, then how it is charged, each in its own column. */
+.ap-card td > .ahb-money { width: 140px; }
+.ap-card td > .ap-unit-pick { min-width: 190px; }
 .ap-money-unit { display: inline-flex; align-items: center; gap: 10px; }
 .ap-money-unit .ahb-money { width: 150px; }
 .ap-unit { color: #64748b; font-size: .82rem; font-weight: 600; white-space: nowrap; }

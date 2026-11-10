@@ -188,6 +188,8 @@ async function pricingGet(req, res) {
       unitOf: hubBilling.unitOf,
       unitLabel: hubBilling.unitLabel,
       seatCount: hubBilling.seatCount,
+      seatWho: hubBilling.seatWho,
+      perSeat: hubBilling.perSeat,
       schoolPrices,
       hubPrices,
       use,

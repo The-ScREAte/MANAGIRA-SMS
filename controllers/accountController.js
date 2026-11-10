@@ -1135,6 +1135,9 @@ function computeNextPaymentEndDate({
   return nextDate;
 }
 
+// A free trial starts today or on any of the next 7 days.
+const TRIAL_START_WITHIN_DAYS = 7;
+
 async function buildRegistrationChargeContext(registrationDetails, promoCode, trialStartDate, options = {}) {
   let discountAmount = 0;
   let applyDiscountOnce = false;
@@ -1223,12 +1226,12 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
 
     const minDate = startOfDayLocal(new Date());
     const maxDate = startOfDayLocal(new Date());
-    maxDate.setMonth(maxDate.getMonth() + 3);
+    maxDate.setDate(maxDate.getDate() + TRIAL_START_WITHIN_DAYS);
 
     trialStartAt = parseDateInput(trialStartDate);
     if (!trialStartAt || trialStartAt < minDate || trialStartAt > maxDate) {
       const error = new Error(
-        "Please choose a valid trial start date between today and the next 3 months."
+        `Please choose a trial start date between today and the next ${TRIAL_START_WITHIN_DAYS} days.`
       );
       error.code = "INVALID_TRIAL_START_DATE";
       throw error;
@@ -3320,7 +3323,7 @@ const accountController = {
       let trialStartAt = null;
       const trialStartDateMin = formatDateForInput(startOfDayLocal(new Date()));
       const trialStartMaxDate = startOfDayLocal(new Date());
-      trialStartMaxDate.setMonth(trialStartMaxDate.getMonth() + 3);
+      trialStartMaxDate.setDate(trialStartMaxDate.getDate() + TRIAL_START_WITHIN_DAYS);
       const trialStartDateMax = formatDateForInput(trialStartMaxDate);
       let trialStartDateValue = trialStartDateMin;
 

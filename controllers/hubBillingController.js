@@ -299,7 +299,9 @@ const hubBillingController = {
         // A fee per seat is filled in with the school's seats (staff, students or parents with access).
         const bySeat = billing.perSeat(key, fee.unit);
         const seats = bySeat ? Math.max(1, Number(org.seats) || 0) : 1;
-        preset = { integrationKey: key, organizationId: org.organization_id, name: `${add.label}: ${org.organization_name}`.slice(0, 120), price: Number(fee.price), quantity: seats, description: bySeat ? `${org.organization_name}: ${billing.seatCount(key, seats)}.` : `${org.organization_name} uses ${add.label}.` };
+        // An add-on's price is a month's: the charge covers every month of the hub's bill.
+        const months = (billing.CYCLES[b.billing_cycle] || billing.CYCLES.month).months || 1;
+        preset = { integrationKey: key, organizationId: org.organization_id, name: `${add.label}: ${org.organization_name}`.slice(0, 120), price: Math.round(Number(fee.price) * months * 100) / 100, quantity: seats, description: bySeat ? `${org.organization_name}: ${billing.seatCount(key, seats)}.` : `${org.organization_name} uses ${add.label}.` };
       }
     }
     res.render('admin/forms/hubCharge', { hub, preset, per: (billing.CYCLES[b.billing_cycle] || billing.CYCLES.month).per, addons: await billing.listAddons(db, { activeOnly: true }), b: billing });

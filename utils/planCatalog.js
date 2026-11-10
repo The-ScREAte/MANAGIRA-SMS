@@ -46,17 +46,15 @@ const PLAN = [
   { key: "report_templates", tier: "Pro", names: ["Custom Report Card Templates"], label: "Custom report card templates" },
   { key: "merit_sheets", tier: "Pro", names: ["Class Base Merit Sheet"], aliases: ["Class Base Merrit sheet"], label: "Class merit sheets" },
   { key: "class_analytics", tier: "Pro", names: ["Class Base Analytics & Insights"], label: "Class analytics" },
-  { key: "mira_basic", tier: "Pro", names: ["Mira Basic"], label: "Mira Basic for staff", addon: "mira" },
   { key: "report_builder", tier: "Premium", names: ["Report Builder"], label: "Report builder" },
   { key: "website", tier: "Premium", names: ["School Website"], aliases: ["SchoolWebsite", "Public Website", "PublicWebsite"], label: "School website and online admissions" },
   { key: "docs", tier: "Premium", names: ["Create Files"], aliases: ["Files & Sheets", "Docs/Sheets"], label: "Docs and sheets" },
-  { key: "transportation", tier: "Premium", names: ["Transportation"], label: "Transportation", addon: "transportation" },
-  { key: "mira_full", tier: "Premium", names: ["Mira Full"], label: "Full Mira for all staff", addon: "mira" },
   { key: "priority_support", tier: "Premium", names: ["Priority Support"], label: "Priority support" },
 ];
 
-// Lesson Notes never had a page: its row stays on old plans but is never offered or shown.
-const NOT_IN_PLANS = [{ names: ["Lesson Notes"] }];
+// Never offered or shown: Lesson Notes never had a page; Mira and transportation are add-ons a
+// school buys (Admin › Pricing › Add-ons), not part of a plan.
+const NOT_IN_PLANS = [{ names: ["Lesson Notes"] }, { names: ["Mira Basic", "Mira Full", "Transportation"] }];
 
 const norm = (value) => String(value || "").trim().toLowerCase();
 const namesOf = (item) => [...(item.names || (item.name ? [item.name] : [])), ...(item.aliases || [])];
@@ -128,8 +126,8 @@ const POPULAR_PLAN = "Pro";
 
 // The plans as a ladder, in the order given: each plan's `features` (everything, for a plan
 // shown on its own) and, when it has all of the plan before it, `plusOf` (that plan's name),
-// `newFeatures` (only what it adds) and `inherited` (what it has from the plans before it, the
-// nearest first, each feature once: [{ from: "Pro", features }, { from: "Starter", features }]).
+// `newFeatures` (only what it adds) and `inherited` (what it has from the plans before it, in
+// the order of the plans, each feature once: [{ from: "Starter", features }, { from: "Pro", features }]).
 // Cards then read "Everything in Pro, plus", and open to show where each feature came from.
 function ladder(plans) {
   let before = null;
@@ -139,7 +137,7 @@ function ladder(plans) {
     const labels = new Set(all.map((f) => f.feature_name));
     const builds = Boolean(before) && [...before.labels].every((label) => labels.has(label)) && labels.size > before.labels.size;
     const newFeatures = builds ? all.filter((f) => !before.labels.has(f.feature_name)) : all;
-    const out = { ...plan, features: all, plusOf: builds ? before.name : null, newFeatures, inherited: builds ? [...chain].reverse() : [],
+    const out = { ...plan, features: all, plusOf: builds ? before.name : null, newFeatures, inherited: builds ? [...chain] : [],
       popular: norm(plan.plan_name) === norm(POPULAR_PLAN) };
     chain = builds ? [...chain, { from: plan.plan_name, features: newFeatures }] : [{ from: plan.plan_name, features: all }];
     before = { name: plan.plan_name, labels };

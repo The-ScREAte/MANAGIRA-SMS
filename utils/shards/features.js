@@ -21,9 +21,9 @@ const FEATURES = {
   family_sharing: { label: "Emergency & pickup details shared with parents (who can update them), students, teachers and drivers", access: "everyone" },
   website_designs: { label: "School website: 3D designs that move as visitors scroll, emblem designs with the school's mascot as a watermark, and photos always shown whole", access: "everyone" },
   addon_pricing: { label: "Billing: single schools pay for the add-ons they switch on (Mira per seat, transportation, student portal and others) at the prices in Admin › Pricing", access: "everyone" },
-  plan_page: { label: "Plan page and plan lists: each plan lists only what it adds (\"Everything in Starter, plus\"), Most popular on Pro, whole-dollar prices and an example (release to everyone to show it to visitors)", access: "selected" },
-  teacher_class_scope: { label: "Teachers open the gradebook and report cards of their own classes and subjects only", access: "selected" },
-  plan_catalog: { label: "Plans & add-ons: every plan includes the core of Managira, Report Builder is its own plan feature, and schools switch the parent portal on in Integrations", access: "selected" },
+  plan_page: { label: "Plan page and plan lists: each plan lists only what it adds (\"Everything in Starter, plus\"), Most popular on Pro, whole-dollar prices and an example (release to everyone to show it to visitors)", access: "everyone" },
+  teacher_class_scope: { label: "Teachers open the gradebook and report cards of their own classes and subjects only", access: "everyone" },
+  plan_catalog: { label: "Plans & add-ons: every plan includes the core of Managira, Report Builder is its own plan feature, and schools switch the parent portal on in Integrations", access: "everyone" },
   assessment_flow: { label: "Assessments: grades wait for the teacher's approval before parents see them; gradebook columns, + to add an assessment and its questions, picture questions, and sharing finished tests with parents", access: "everyone" },
 };
 

@@ -59,8 +59,12 @@ test("auto integration fees bill each school that uses it; manual ones don't", (
     sms: { on: false, price: 9, mode: "auto" },
   } };
   const bill = computeBill(billing, { integrations: { mira: 3, whatsapp: 2, sms: 4 } }, []);
-  assert.strictEqual(bill.total, 10 + 60);
-  assert.ok(bill.lines.some((l) => l.key === "integration:mira" && l.quantity === 3));
+  // An add-on's price is a month's: a term bill (4 months) charges each of the 3 schools 4 × $20.
+  assert.strictEqual(bill.total, 10 + 3 * 20 * 4);
+  assert.ok(bill.lines.some((l) => l.key === "integration:mira" && l.quantity === 3 && l.unitPrice === 80 && /\$20\.00 a month × 4 months/.test(l.note)));
+  // On a monthly bill it is the month's price.
+  const monthly = computeBill({ ...billing, billing_cycle: "month" }, { integrations: { mira: 3 } }, []);
+  assert.strictEqual(monthly.total, 10 + 3 * 20);
 });
 
 test("extra schools and hub licenses come from the real numbers", () => {

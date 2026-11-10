@@ -927,6 +927,57 @@
           padding: 9px 10px;
         }
       }
+
+      /* The checkout in the look of the plan page (views/account/servicePlan.ejs). */
+      .payment-container { max-width: 1000px !important; margin: 32px auto 56px !important; padding: 0 20px !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+      .pay-head { text-align: center; margin: 0 0 26px; }
+      .pay-eyebrow { margin: 0 0 8px; font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #0f5a66; }
+      .pay-head h1 { margin: 0 0 10px; font-size: clamp(1.7rem, 3vw, 2.2rem); font-weight: 800; letter-spacing: -.02em; color: #0f172a; }
+      .pay-head p { margin: 0 auto; max-width: 560px; font-size: 1rem; line-height: 1.6; color: #64748b; }
+      .pay-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+      .pay-card { padding: 24px 22px; border: 1px solid #e3e8ee; border-radius: 18px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+      .pay-label { margin: 0 0 4px; font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+      .pay-muted { margin: 4px 0 0; font-size: .86rem; line-height: 1.5; color: #64748b; }
+      .pay-link { color: #0f5a66; font-weight: 600; text-decoration: none; }
+      .pay-link:hover { text-decoration: underline; }
+      .pay-plan { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+      .pay-plan__name { margin: 0; font-size: 1.15rem; font-weight: 750; color: #0f172a; }
+      .pay-plan__price { margin: 10px 0 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; color: #0f172a; }
+      .pay-rows { margin: 18px 0 0; padding: 14px 0 0; border-top: 1px solid #eef2f6; }
+      .pay-rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: .92rem; }
+      .pay-rows dt { color: #475569; }
+      .pay-rows dd { margin: 0; color: #0f172a; text-align: right; }
+      .pay-strong { font-weight: 750; }
+      .pay-fold { margin-top: 12px; border-top: 1px solid #eef2f6; padding-top: 10px; }
+      .pay-fold__toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 6px 0; border: 0; background: none; font: inherit; font-size: .9rem; font-weight: 600; color: #0f5a66; cursor: pointer; text-align: left; }
+      .pay-fold__toggle[aria-expanded="true"] .pay-fold__icon { transform: rotate(180deg); }
+      .pay-fold__icon { transition: transform .15s ease; font-size: .8rem; }
+      .pay-fold__body { padding: 8px 0 4px; }
+      .pay-input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #d5dde5; border-radius: 10px; font: inherit; font-size: .92rem; color: #0f172a; background: #fff; box-sizing: border-box; }
+      .pay-input:focus { outline: none; border-color: #0f5a66; box-shadow: 0 0 0 3px rgba(15, 90, 102, .14); }
+      .pay-promo { display: flex; gap: 8px; }
+      .pay-btn-secondary { flex: none; height: 42px; padding: 0 16px; border: 1px solid #0f5a66; border-radius: 10px; background: #fff; color: #0f5a66; font: inherit; font-weight: 650; cursor: pointer; }
+      .pay-btn-secondary:hover { background: #f0f8f7; }
+      .pay-ok { margin: 8px 0 0; font-size: .85rem; color: #15803d; }
+      .pay-error { margin: 8px 0 0; font-size: .85rem; color: #b91c1c; }
+      .pay-school { margin-top: 14px; border-top: 1px solid #eef2f6; padding-top: 14px; }
+      .pay-school__name { margin: 0; font-weight: 650; color: #0f172a; }
+      .pay-method-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .pay-method-head h2 { margin: 0; font-size: 1.1rem; font-weight: 750; color: #0f172a; }
+      .pay-secure { display: inline-flex; align-items: center; gap: 5px; font-size: .78rem; font-weight: 650; color: #0f5a66; }
+      .pay-card .stripe-card-shell { margin: 16px 0 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+      .pay-card #stripe-card-element { padding: 13px 12px !important; border: 1px solid #d5dde5 !important; border-radius: 10px !important; background: #fff !important; min-height: 20px; }
+      .pay-alert { display: flex; flex-direction: column; gap: 3px; margin: 0 0 12px; padding: 11px 13px; border: 1px solid #cfe7e3; border-radius: 10px; background: #f0f8f7; font-size: .86rem; color: #134e4a; }
+      .pay-alert--error { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+      .pay-alert--test { margin: 12px 0 0; border-color: #e3e8ee; background: #f8fafc; color: #475569; }
+      .pay-card .express-shell { margin-top: 12px !important; padding: 0 !important; border: 0 !important; background: none !important; }
+      .pay-card .pay-submit { width: 100% !important; height: 50px !important; margin: 18px 0 0 !important; border: 0 !important; border-radius: 12px !important; background: #0f5a66 !important; color: #fff !important; font-size: 1rem !important; font-weight: 650 !important; cursor: pointer; }
+      .pay-card .pay-submit:hover:not(:disabled) { background: #0b4a54 !important; }
+      .pay-card .pay-submit:disabled { background: #a7c4c8 !important; cursor: not-allowed; }
+      .pay-fine { margin: 10px 0 0; text-align: center; font-size: .82rem; color: #64748b; }
+      @media (max-width: 820px) {
+        .pay-grid { grid-template-columns: 1fr; }
+      }
   </style>
 <%- include('../partials/flash') %>
 <script src="https://js.stripe.com/v3/"></script>
@@ -941,139 +992,116 @@
     <input type="hidden" name="selectedGateway" id="selectedGateway" value="" />
 
     <% if (registrationDetails && registrationDetails.plan) { %>
-      <div class="payment-header">
-        <h1>Complete Your Payment</h1>
-      </div>
+      <%
+        // "$59.00 per month (may increase as student count grows)": the price, and a note of its own.
+        const _renewal = String(postTrialPriceDisplay || 'USD 0.00').replace(/\s*\(may increase as student count grows\)\s*$/, '');
+        const _renewalPrice = _renewal.replace(/([.,]00)(?=\s|$)/, '');
+        const _trialDays = Number(typeof freeTrialDays !== 'undefined' ? freeTrialDays : 0) || 0;
+        const _trial = isTrialCheckout && freeTrialLengthLabel;
+      %>
+      <header class="pay-head">
+        <p class="pay-eyebrow">Checkout</p>
+        <h1><%= _trial ? 'Start your free trial' : 'Complete your payment' %></h1>
+        <p><%= _trial ? `Try everything free for ${freeTrialLengthLabel}. You won't be charged until the trial ends.` : 'Your school is ready as soon as your payment goes through.' %></p>
+      </header>
 
-      <div class="card-block">
-        <h2>Payment Summary</h2>
-        <% if (isTrialCheckout && freeTrialLengthLabel) { %>
-          <p class="summary-row summary-highlight"><strong>Free Trial:</strong> <%= freeTrialLengthLabel %></p>
-        <% } %>
-        <% if (trialEndDisplay) { %>
-          <p class="summary-row summary-highlight"><strong>Trial Ends:</strong> <%= trialEndDisplay %></p>
-        <% } %>
-        <div class="summary-list">
-          <p class="summary-row"><strong>Organization:</strong> <%= registrationDetails.orgName || 'N/A' %></p>
-          <p class="summary-row"><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
-          <p class="summary-row summary-edit"><a href="/account/register?edit=1" data-no-spa>Edit details</a></p>
-          <p class="summary-row"><strong>Plan:</strong> <%= planNameDisplay %></p>
-          <% if (!isTrialCheckout) { %>
-            <p class="summary-row" id="subtotal-row"><strong>Subtotal:</strong> <span id="subtotal-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="subtotal-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.subtotalAmount || 0).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
-            <p class="summary-row" id="amount-due-row"><strong>Due Now:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
-          <% } %>
-          <% if (isTrialCheckout && freeTrialLengthLabel) { %>
-            <p class="summary-row"><strong>Renewal Price:</strong> <span class="price-old-inline"><%= postTrialPriceDisplay || ("USD 0.00") %></span><span class="price-free-inline">FREE for <%= freeTrialLengthLabel %></span></p>
-          <% } else { %>
-            <p class="summary-row"><strong>Renewal Price:</strong> <%= postTrialPriceDisplay || ("USD 0.00") %></p>
-          <% } %>
-        </div>
-      </div>
-
-      <div class="<%= isTrialCheckout ? 'payment-side-grid' : 'payment-single-column' %>">
-      <div class="card-block">
-        <button type="button" id="promo-toggle" class="promo-toggle-btn" aria-expanded="false" aria-controls="promo-section">
-          <span>Have a promo code?</span>
-          <span class="promo-toggle-icon">▾</span>
-        </button>
-        <div id="promo-section" hidden>
-          <div class="promo-inline">
-            <input type="text" id="promoCode" name="promoCode" placeholder="Enter promo code" />
-            <button type="button" id="applyPromoCode" class="btn-primary promo-apply-btn" aria-label="Apply promo code">
-              <span class="promo-apply-label">Apply</span>
-              <span class="promo-apply-icon" aria-hidden="true">✓</span>
-            </button>
-          </div>
-          <p id="promo-message" style="color: green; display: none">Promo code applied successfully!</p>
-          <p id="promo-error" style="color: red; display: none"></p>
-        </div>
-      </div>
-
-      <% if (isTrialCheckout) { %>
-        <div class="card-block">
-          <button type="button" id="trial-date-toggle" class="trial-date-toggle-btn" aria-expanded="false" aria-controls="trial-date-section">
-            <span class="trial-date-toggle-left">
-              <span id="trial-date-current" class="trial-date-toggle-label"></span>
-            </span>
-            <span class="promo-toggle-icon">▾</span>
-          </button>
-          <div id="trial-date-section" hidden>
-            <label for="trialStartDate" class="trial-date-label">Your semester start date.</label>
-            <input
-              type="date"
-              id="trialStartDate"
-              name="trialStartDate"
-              class="trial-date-input"
-              min="<%= trialStartDateMin %>"
-              max="<%= trialStartDateMax %>"
-              value="<%= trialStartDateValue %>"
-              required
-            />
-          </div>
-        </div>
-      <% } %>
-      </div>
-
-      <div class="card-block payment-method-block">
-        <div class="payment-method-head">
-          <div class="payment-method-copy">
-            <h3 class="section-title">Payment Method</h3>
-          </div>
-          <span class="payment-method-badge">Stripe Secure</span>
-        </div>
-
-        <div class="stripe-card-shell" id="stripe-card-shell">
-          <% if (resolvedStripeConfigError) { %>
-          <div class="stripe-help-note" style="display: block; border-color: rgba(220, 38, 38, 0.25); background: rgba(254, 242, 242, 0.9); color: #991b1b;">
-            <div class="stripe-help-note-title">Stripe configuration error</div>
-            <div class="stripe-help-note-lines">
-              <div><%= resolvedStripeConfigError %></div>
-              <div>Update the Stripe mode or keys in admin settings or environment variables, then refresh this page.</div>
-            </div>
-          </div>
-          <% } %>
-          <% const _saved = (typeof savedCard !== 'undefined' && savedCard) || null; %>
-          <% if (_saved) { %>
-          <div class="saved-card-note" role="status">
-            <strong><%= _saved.type === 'setup' ? 'Your card is already saved' : 'Your payment already went through' %><%= _saved.cardLabel ? ` (${_saved.cardLabel})` : '' %>.</strong>
-            <span>Press “Finish setting up” to create your school. You won’t be charged twice.</span>
-          </div>
-          <% } %>
-          <div class="card-entry-head"<%= _saved ? ' hidden' : '' %>>
+      <div class="pay-grid">
+        <aside class="pay-card pay-summary" aria-label="Order summary">
+          <div class="pay-plan">
             <div>
-              <p class="card-entry-title">Card details</p>
-              <p class="card-entry-subtitle">Your card is encrypted and used for your recurring billing.</p>
+              <p class="pay-label">Plan</p>
+              <p class="pay-plan__name"><%= planNameDisplay %></p>
             </div>
+            <a href="/account/service-plan" class="pay-link" data-no-spa>Change</a>
           </div>
-          <div id="stripe-card-element"<%= _saved ? ' hidden' : '' %>></div>
-          <div class="express-shell" id="express-shell">
-            <div class="express-shell-header">
-              <p class="express-shell-title">Express Checkout</p>
-              <p class="express-shell-copy">Apple Pay or Google Pay appears when supported by your device and browser.</p>
+          <p class="pay-plan__price"><%= _renewalPrice %></p>
+          <p class="pay-muted">Students above those included in your plan are added each month.</p>
+
+          <dl class="pay-rows">
+            <% if (_trial) { %>
+              <div><dt>Free trial</dt><dd><%= freeTrialLengthLabel %></dd></div>
+              <div><dt>Due today</dt><dd class="pay-strong">$0</dd></div>
+              <% if (trialEndDisplay) { %><div><dt>First charge</dt><dd id="pay-first-charge" data-trial-days="<%= _trialDays %>"><%= trialEndDisplay %></dd></div><% } %>
+            <% } else { %>
+              <div id="subtotal-row"><dt>Subtotal</dt><dd><span id="subtotal-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="subtotal-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.subtotalAmount || stripePaymentDetails.amount || 0).toFixed(2) : '0.00' %></span></dd></div>
+              <div id="amount-due-row"><dt>Due today</dt><dd class="pay-strong"><span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : '0.00' %></span></dd></div>
+            <% } %>
+          </dl>
+
+          <% if (isTrialCheckout) { %>
+            <div class="pay-fold">
+              <button type="button" id="trial-date-toggle" class="pay-fold__toggle" aria-expanded="false" aria-controls="trial-date-section">
+                <span id="trial-date-current"></span>
+                <span class="pay-fold__icon" aria-hidden="true">▾</span>
+              </button>
+              <div id="trial-date-section" class="pay-fold__body" hidden>
+                <label for="trialStartDate" class="pay-label">Start your trial today or within 7 days</label>
+                <input type="date" id="trialStartDate" name="trialStartDate" class="pay-input" min="<%= trialStartDateMin %>" max="<%= trialStartDateMax %>" value="<%= trialStartDateValue %>" required />
+              </div>
             </div>
-            <div class="wallet-divider">Or use a supported wallet</div>
-            <div id="express-checkout-element"></div>
-          </div>
-          <p id="stripe-card-error" class="stripe-card-error"></p>
-          <% if (stripeMode === 'test') { %>
-          <div class="stripe-help-note" id="stripe-help-note">
-            <div class="stripe-help-note-title">Test mode</div>
-            <div class="stripe-help-note-lines">
-              <div>Use <strong>4242 4242 4242 4242</strong> for a successful test payment.</div>
-              <div>Use any future expiry date, any 3-digit CVC, and any ZIP or postal code.</div>
-              <div>Apple Pay and Google Pay only appear on supported devices, browsers, and verified domains.</div>
-            </div>
-          </div>
           <% } %>
-        </div>
+          <div class="pay-fold">
+            <button type="button" id="promo-toggle" class="pay-fold__toggle" aria-expanded="false" aria-controls="promo-section">
+              <span>Have a promo code?</span>
+              <span class="pay-fold__icon" aria-hidden="true">▾</span>
+            </button>
+            <div id="promo-section" class="pay-fold__body" hidden>
+              <div class="pay-promo">
+                <input type="text" id="promoCode" name="promoCode" class="pay-input" placeholder="Promo code" />
+                <button type="button" id="applyPromoCode" class="pay-btn-secondary" aria-label="Apply promo code">Apply</button>
+              </div>
+              <p id="promo-message" class="pay-ok" style="display: none">Promo code applied.</p>
+              <p id="promo-error" class="pay-error" style="display: none"></p>
+            </div>
+          </div>
 
-        <div class="gateway-flow-note" id="gateway-flow-note" aria-live="polite"></div>
+          <div class="pay-school">
+            <p class="pay-label">School</p>
+            <p class="pay-school__name"><%= registrationDetails.orgName || '' %></p>
+            <p class="pay-muted"><%= registrationDetails.email || '' %> · <a href="/account/register?edit=1" class="pay-link" data-no-spa>Edit</a></p>
+          </div>
+        </aside>
 
-        <% if (isTrialCheckout) { %>
-          <button type="button" id="pay-button" class="btn-primary">Begin Free Trial</button>
-        <% } else { %>
-          <button type="button" id="pay-button" class="btn-primary">Continue to Payment</button>
-        <% } %>
+        <section class="pay-card payment-method-block" aria-label="Payment method">
+          <div class="pay-method-head">
+            <h2>Card details</h2>
+            <span class="pay-secure"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> Secured by Stripe</span>
+          </div>
+          <p class="pay-muted"><%= _trial ? 'Your card is saved for after the trial. It is not charged today.' : 'Your card is used for this payment and each renewal.' %></p>
+
+          <div class="stripe-card-shell" id="stripe-card-shell">
+            <% if (resolvedStripeConfigError) { %>
+            <div class="pay-alert pay-alert--error">
+              <strong>Card payments aren't set up yet.</strong>
+              <span><%= resolvedStripeConfigError %></span>
+            </div>
+            <% } %>
+            <% const _saved = (typeof savedCard !== 'undefined' && savedCard) || null; %>
+            <% if (_saved) { %>
+            <div class="pay-alert" role="status">
+              <strong><%= _saved.type === 'setup' ? 'Your card is already saved' : 'Your payment already went through' %><%= _saved.cardLabel ? ` (${_saved.cardLabel})` : '' %>.</strong>
+              <span>Press “Finish setting up” to create your school. You won’t be charged twice.</span>
+            </div>
+            <% } %>
+            <div id="stripe-card-element"<%= _saved ? ' hidden' : '' %>></div>
+            <div class="express-shell" id="express-shell">
+              <div class="wallet-divider">Or pay with</div>
+              <div id="express-checkout-element"></div>
+            </div>
+            <p id="stripe-card-error" class="stripe-card-error"></p>
+            <% if (stripeMode === 'test') { %>
+            <div class="pay-alert pay-alert--test" id="stripe-help-note">
+              <strong>Test mode</strong>
+              <span>Use 4242 4242 4242 4242, any future date, any CVC and any ZIP code.</span>
+            </div>
+            <% } %>
+          </div>
+
+          <div class="gateway-flow-note" id="gateway-flow-note" aria-live="polite"></div>
+
+          <button type="button" id="pay-button" class="btn-primary pay-submit"><%= isTrialCheckout ? 'Start free trial' : 'Pay and continue' %></button>
+          <% if (!_trial) { %><p class="pay-fine">You can change your plan or cancel any time in Settings.</p><% } %>
+        </section>
       </div>
 
       <div id="payment-message"></div>
@@ -1536,7 +1564,15 @@
       function updateTrialDateCurrentLabel() {
         if (!trialDateCurrentEl || !trialStartDateInput) return;
         const prettyDate = formatTrialDateLabel(trialStartDateInput.value);
-        trialDateCurrentEl.textContent = prettyDate ? `Free trial start: ${prettyDate}` : "Free trial start";
+        trialDateCurrentEl.textContent = prettyDate ? `Trial starts ${prettyDate}` : "Choose when your trial starts";
+        // The first charge is the day the trial ends.
+        const firstCharge = document.getElementById("pay-first-charge");
+        const days = firstCharge ? Number(firstCharge.getAttribute("data-trial-days")) || 0 : 0;
+        if (firstCharge && days && trialStartDateInput.value) {
+          const end = new Date(trialStartDateInput.value + "T12:00:00");
+          end.setDate(end.getDate() + days);
+          firstCharge.textContent = end.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+        }
       }
 
       function setTrialDateExpanded(expanded) {
@@ -1617,7 +1653,7 @@
           const minDate = trialStartDateInput.min;
           const maxDate = trialStartDateInput.max;
           if (!selectedDate || selectedDate < minDate || selectedDate > maxDate) {
-            setPaymentMessage("Please select a valid trial start date (today to 3 months ahead).", "red");
+            setPaymentMessage("Please choose a trial start date between today and the next 7 days.", "red");
             trialStartDateInput.focus();
             return;
           }

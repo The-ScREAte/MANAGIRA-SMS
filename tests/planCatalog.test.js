@@ -82,13 +82,13 @@ test("plan cards list only what each plan adds to the one before it", () => {
     "Report cards and progress reports", "Parent portal", "Student portal", "PayGira fees and payments", "School analytics"]);
   assert.equal(plans[0].plusOf, null);
   assert.equal(plans[1].plusOf, "Starter");
-  assert.deepEqual(labels(plans[1].newFeatures), ["Online tests and Testing Room", "Official transcripts", "Custom report card templates", "Class merit sheets", "Class analytics", "Mira Basic for staff"]);
+  assert.deepEqual(labels(plans[1].newFeatures), ["Online tests and Testing Room", "Official transcripts", "Custom report card templates", "Class merit sheets", "Class analytics"]);
   assert.equal(plans[2].plusOf, "Pro");
-  assert.deepEqual(labels(plans[2].newFeatures), ["Report builder", "School website and online admissions", "Docs and sheets", "Transportation", "Full Mira for all staff", "Priority support"]);
-  // Opened, a card says where each inherited feature came from, the nearest plan first, each once.
+  assert.deepEqual(labels(plans[2].newFeatures), ["Report builder", "School website and online admissions", "Docs and sheets", "Priority support"]);
+  // Opened, a card says where each inherited feature came from, Starter first, each once.
   assert.deepEqual(plans[0].inherited, []);
   assert.deepEqual(plans[1].inherited.map((g) => g.from), ["Starter"]);
-  assert.deepEqual(plans[2].inherited.map((g) => [g.from, g.features.length]), [["Pro", 6], ["Starter", 9]]);
+  assert.deepEqual(plans[2].inherited.map((g) => [g.from, g.features.length]), [["Starter", 9], ["Pro", 5]]);
   assert.deepEqual(plans.map((p) => p.popular), [false, true, false], "Pro is the one marked Most popular");
   // A plan that doesn't have everything of the one before it is shown whole.
   const odd = catalog.ladder([{ plan_name: "A", features: ["PayGira", "Report Builder"] }, { plan_name: "B", features: ["PayGira"] }]);
@@ -98,7 +98,8 @@ test("plan cards list only what each plan adds to the one before it", () => {
 
 test("a plan's add-ons are the ones it includes", () => {
   assert.deepEqual([...catalog.includedAddons(STARTER)].sort(), ["parent_portal", "student_portal"]);
-  assert.deepEqual([...catalog.includedAddons(PRO)].sort(), ["mira", "parent_portal", "student_portal"]);
-  assert.deepEqual([...catalog.includedAddons(PREMIUM)].sort(), ["mira", "parent_portal", "student_portal", "transportation"]);
+  assert.deepEqual([...catalog.includedAddons(PRO)].sort(), ["parent_portal", "student_portal"]);
+  assert.deepEqual([...catalog.includedAddons(PREMIUM)].sort(), ["parent_portal", "student_portal"], "Mira and transportation are bought as add-ons");
+  assert.equal(catalog.forDisplay(["Mira Basic", "Mira Full", "Transportation"]).filter((f) => /Mira|Transportation/.test(f.feature_name)).length, 0, "never shown on a plan");
   assert.equal(catalog.includedAddons([]).size, 0);
 });

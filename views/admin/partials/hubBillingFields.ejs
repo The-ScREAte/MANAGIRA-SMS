@@ -11,7 +11,7 @@
   const _meters = b.metersOf(_b);
   const _fees = b.integrationFeesOf(_b);
   const _std = (typeof standardPrices !== 'undefined' && standardPrices) || {};
-  const _stdLabel = (key) => (_std[key] ? `$${Number(_std[key].price).toFixed(2)} ${b.unitLabel(key, _std[key].unit)}${_std[key].mode === 'manual' ? ', manual' : ''}` : 'free');
+  const _stdLabel = (key) => (_std[key] ? `$${Number(_std[key].price).toFixed(2)} ${b.unitLabel(key, _std[key].unit)} a month${_std[key].mode === 'manual' ? ', manual' : ''}` : 'free');
   const _isNew = !(typeof billingRow !== 'undefined' && billingRow);
   const _now = { student: _u.students, employee: _u.employees, user: _u.users };
   const _trial = !!_b.trial_end_date;
@@ -93,7 +93,7 @@
           </label>
           <div class="ahb-row__fields" data-ahb-fields>
             <label class="ahb-mini">
-              <span>Price</span>
+              <span>Price a month</span>
               <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="integrations[<%= i.key %>][price]" class="ahb-input" value="<%= _num(f.price) %>" placeholder="0.00" /></span>
             </label>
             <% if (b.unitsFor(i.key).length > 1) { %>

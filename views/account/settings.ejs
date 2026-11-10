@@ -3170,7 +3170,9 @@
       const standardMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0;
       const currentMonthlyBase = (_ownPrice.monthlyPrice != null ? Number(_ownPrice.monthlyPrice) : standardMonthlyBase) * (1 - Number(_ownPrice.discountPercent || 0) / 100);
       const schoolAddonsMonthly = _schoolPricing ? Number(_schoolPricing.addonsMonthly || 0) : 0;
-      const schoolAddonLines = _schoolPricing && _schoolPricing.charging ? (_schoolPricing.addons || []).filter((line) => line.amount > 0) : [];
+      // Every add-on the school uses, each with what it costs a month (or that it is free or in the plan).
+      const schoolAddonLines = _schoolPricing ? (_schoolPricing.addons || []) : [];
+      const _addonsCharged = Boolean(_schoolPricing && _schoolPricing.charging);
       const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1;
       const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0;
       const apiAddonMonthly = (typeof apiAddonMonthlyUsd !== 'undefined' && Number(apiAddonMonthlyUsd) > 0) ? Number(apiAddonMonthlyUsd) : 0;
@@ -4043,12 +4045,23 @@
                       <div class="current-plan-price-value-sub"><%= _ownPrice.monthlyPrice != null ? `${formatCurrentPlanAmount(_ownPrice.monthlyPrice)} a month` : 'Standard plan price' %><%= Number(_ownPrice.discountPercent) > 0 ? ` · ${Number(_ownPrice.discountPercent)}% off` : '' %>, included above</div>
                     </div>
                     <% } %>
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label"><%= planName || 'Plan' %></div>
+                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(currentMonthlyBase) %> a month<%= Number(currentPlanPricing.extraStudents || 0) > 0 ? ` (${Number(currentPlanPricing.freeStudentThreshold || 0)} students included + ${Number(currentPlanPricing.extraStudents)} more at ${formatCurrentPlanAmount(currentPlanPricing.perStudentRateUsd)} each)` : ` (up to ${Number(currentPlanPricing.freeStudentThreshold || 0)} students)` %></div>
+                    </div>
                     <% schoolAddonLines.forEach((line) => { %>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label"><%= line.label %></div>
-                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(line.amount) %> a month<%= line.note ? ` (${line.note})` : '' %>, included above</div>
+                      <div class="current-plan-price-value-sub"><%
+                        if (line.included) { %>Included in your plan<% }
+                        else if (!_addonsCharged || !(line.amount > 0)) { %>Free<%= line.note && /trial/.test(line.note) ? ` (${line.note})` : '' %><% }
+                        else { %><%= formatCurrentPlanAmount(line.amount) %> a month<%= line.quantity > 1 || /seat|per (student|parent|rider|driver)/.test(line.unit === 'seat' ? 'seat' : '') ? ` (${line.note || line.quantity} × ${formatCurrentPlanAmount(line.unitPrice)})` : '' %><% } %></div>
                     </div>
                     <% }) %>
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label">Each month</div>
+                      <div class="current-plan-price-value-sub"><strong><%= formatCurrentPlanAmount(currentMonthlyBase + schoolAddonsMonthly + apiAddonMonthly) %></strong></div>
+                    </div>
                     <% if (apiAddonMonthly > 0) { %>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label">API allowance</div>
