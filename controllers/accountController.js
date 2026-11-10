@@ -451,10 +451,12 @@ const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 // One address, with a name, an @ and a domain, and nothing that isn't part of an address.
 const looksLikeEmail = (value) => typeof value === "string" && value.length <= 254 && /^[^\s@<>"'(),;:\\]+@[^\s@<>"'(),;:\\]+\.[^\s@<>"'(),;:\\]{2,}$/.test(value.trim());
 
-// Plan lists as a ladder for the schools the `plan_page` release reaches; as they were elsewhere.
-const planLadderWhereReleased = (organizationId, plans) => (
-  require("../utils/shards/features").isOn("plan_page", { organizationId }) ? planLadder(plans) : plans
-);
+// The new plan page and plan lists: everywhere in development; in production for the schools the
+// `plan_page` release reaches (sandbox schools first), and for visitors once it is released to
+// everyone (a visitor belongs to no school). The same rule as the new homepage (utils/landing.js).
+const planPageOn = (organizationId) => process.env.NODE_ENV !== "production"
+  || require("../utils/shards/features").isOn("plan_page", { organizationId });
+const planLadderWhereReleased = (organizationId, plans) => (planPageOn(organizationId) ? planLadder(plans) : plans);
 
 // A connection taken from the pool by hand whose release() is safe to call more than once, so a
 // `finally` can always give it back whatever the code before it already did. A connection that
@@ -2537,8 +2539,7 @@ const accountController = {
         };
       });
 
-      // The new plan page, where released; the page as it was for everyone else.
-      const newPlanPage = require("../utils/shards/features").isOn("plan_page", { organizationId: req.session?.organizationId });
+      const newPlanPage = planPageOn(req.session?.organizationId);
       res.render(newPlanPage ? "account/servicePlan" : "account/servicePlanClassic", {
         title: "Choose Your Plan",
         description: `Managira pricing: school management software priced per school, per month, in local currency by country and number of students.${freeTrialEnabled && freeTrialLengthLabel ? ` Free trial: ${freeTrialLengthLabel}.` : ""}`,

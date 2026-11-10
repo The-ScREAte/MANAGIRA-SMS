@@ -763,7 +763,9 @@
       .plan-card .feature-list--inherited li::before { opacity: .55; }
       .plan-example { margin: 18px 0 0 !important; text-align: center; font-size: .95rem !important; color: #475569 !important; }
       .plan-example strong { color: #0f172a !important; }
-      .period-card-students { margin-top: 3px; font-size: 11px; color: #64748b; }
+      .period-section h3:has(+ .period-note:not(:empty)) { margin-bottom: 4px !important; }
+      .period-note { margin: 0 0 14px !important; font-size: .86rem !important; color: #64748b !important; text-align: left !important; }
+      .period-note:empty { display: none; }
       .plan-card .feature-list { margin: 0 !important; padding: 0 !important; list-style: none !important; border: 0 !important; }
       .plan-card .feature-list li { position: relative; margin: 0 !important; padding: 6px 0 6px 26px !important; border: 0 !important; font-size: .9rem !important; line-height: 1.45; color: #334155 !important; }
       .plan-card .feature-list li::before { content: "" !important; position: absolute; left: 0; top: 8px; width: 16px; height: 16px; border-radius: 50%; background: #e8f3f4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f5a66' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 10px no-repeat; }
@@ -793,8 +795,20 @@
       <section class="pricing-header">
         <p class="pricing-eyebrow">Plans and pricing</p>
         <h1>Choose your plan</h1>
-        <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
+        <%
+          // The students a plan includes: when every plan includes the same number, it is said
+          // once here and not on each card.
+          const _metaOf = (p) => (typeof dynamicPriceMetaByPlan !== 'undefined' && dynamicPriceMetaByPlan ? dynamicPriceMetaByPlan[p.plan_id] : null);
+          const _includedEach = plans.filter((p) => p.is_active).map((p) => { const m = _metaOf(p); return m && m.freeStudentPercent == null && m.freeStudentThreshold != null ? Number(m.freeStudentThreshold) : null; });
+          const _sharedIncluded = _includedEach.length && _includedEach[0] > 0 && _includedEach.every((n) => n === _includedEach[0]) ? _includedEach[0] : null;
+          const _trial = freeTrialEnabled && freeTrialLengthLabel;
+        %>
+        <% if (_trial && _sharedIncluded) { %>
+          <p>Every plan starts with <strong><%= freeTrialLengthLabel %></strong> free and includes your first <strong><%= _sharedIncluded %> students</strong>. Pick a plan, then choose how often to pay.</p>
+        <% } else if (_trial) { %>
           <p>Every plan starts with <strong><%= freeTrialLengthLabel %></strong> free. Pick a plan, then choose how often to pay.</p>
+        <% } else if (_sharedIncluded) { %>
+          <p>Every plan includes your first <strong><%= _sharedIncluded %> students</strong>. Pick the plan that fits your school, then choose how often to pay.</p>
         <% } else { %>
           <p>Pick the plan that fits your school, then choose how often to pay.</p>
         <% } %>
@@ -850,11 +864,8 @@
           <div class="plan-price">
             <strong><%= String(plan.defaultLocalizedPriceDisplay || plan.localizedPriceDisplay || plan.defaultPriceUsdDisplay || plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2))).replace(/[.,]00(?=\D*$)/, '') %></strong>
             <div class="price-caption">per month</div>
-            <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
-              <div class="price-after-trial">after trial ends</div>
-            <% } %>
             <% if (dynamicMeta) { %>
-              <div class="free-students-badge"><%= dynamicMeta.freeStudentPercent != null ? `First ${Number(dynamicMeta.freeStudentPercent)}% of students are free` : `First ${Number(dynamicMeta.freeStudentThreshold || 0)} students included` %></div>
+              <% if (!_sharedIncluded) { %><div class="free-students-badge"><%= dynamicMeta.freeStudentPercent != null ? `First ${Number(dynamicMeta.freeStudentPercent)}% of students are free` : `First ${Number(dynamicMeta.freeStudentThreshold || 0)} students included` %></div><% } %>
               <% if (Number(dynamicMeta.perStudentRateUsd) > 0) { %>
                 <div class="extra-student-price" data-rate="<%= Number(dynamicMeta.perStudentRateUsd) %>">+ $<%= Number(dynamicMeta.perStudentRateUsd).toFixed(2) %> for each extra student a <%= Number(dynamicMeta.monthsPerTerm || 1) === 1 ? 'month' : 'term' %></div>
               <% } %>
@@ -883,6 +894,7 @@
         <% if (typeof billingPeriods !== 'undefined' && billingPeriods.length > 1) { %>
         <div class="period-section">
           <h3>How often to pay</h3>
+          <p class="period-note" id="periodNote"></p>
           <div class="period-grid" role="radiogroup" aria-label="Billing period">
             <% billingPeriods.forEach(function(bp, idx) { %>
               <div
@@ -1167,14 +1179,14 @@
           var included = planCard ? parseInt(planCard.getAttribute('data-price-free-threshold'), 10) : NaN;
           var chargesExtra = planCard && (parseFloat(planCard.getAttribute('data-price-per-student')) || 0) > 0 && Number.isInteger(included);
 
+          var periodNote = document.getElementById('periodNote');
+          if (periodNote) periodNote.textContent = chargesExtra ? 'Prices here are for the plan. Students above ' + included + ' are added to each bill.' : '';
+
           periodBtns.forEach(function(card) {
             var months = parseInt(card.getAttribute('data-months')) || 1;
             var discount = parseInt(card.getAttribute('data-discount')) || 0;
             var priceEl = card.querySelector('[data-period-price]');
             if (!priceEl) return;
-            var note = card.querySelector('.period-card-students');
-            if (!note) { note = document.createElement('div'); note.className = 'period-card-students'; card.appendChild(note); }
-            note.textContent = chargesExtra ? 'plus students above ' + included : '';
 
             if (baseUsd <= 0) {
               priceEl.innerHTML = '';
@@ -1257,6 +1269,15 @@
         document.querySelectorAll('[data-plan-plus]').forEach(function(toggle) {
           toggle.addEventListener('click', function(event) {
             event.stopPropagation();
+            // Only the opened card grows: the others keep the height they have side by side.
+            var grid = toggle.closest('.plan-grid');
+            var cards = grid ? Array.prototype.slice.call(grid.querySelectorAll('.plan-card')) : [];
+            if (grid && !grid.getAttribute('data-heights-kept') && cards.length > 1 && cards[0].offsetTop === cards[1].offsetTop) {
+              grid.setAttribute('data-heights-kept', '1');
+              var height = Math.max.apply(null, cards.map(function(card) { return card.offsetHeight; }));
+              cards.forEach(function(card) { card.style.minHeight = height + 'px'; });
+              grid.style.setProperty('align-items', 'start', 'important');
+            }
             var list = toggle.nextElementSibling;
             var open = toggle.getAttribute('aria-expanded') !== 'true';
             toggle.setAttribute('aria-expanded', String(open));
