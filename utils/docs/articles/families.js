@@ -45,48 +45,6 @@ module.exports = [
     related: ["parent-portal", "emergency-and-pickup-details", "mailroom-send-sms-whatsapp-and-email-to-guardians"],
   },
   {
-    slug: "parent-portal",
-    title: "The parent portal",
-    topic: "Parents & families",
-    order: 2,
-    summary: "Parents see grades, report cards, attendance, schedules, activities and the calendar, pay bills, track the bus and message the school, on any device.",
-    tags: ["parent portal", "parent app", "report cards", "pay fees", "messages", "calendar", "bus tracking"],
-    featured: true,
-    who: "Parents and guardians your school has invited.",
-    intro: "The parent portal puts everything about a family's children in one place. Parents sign in on the same Managira sign-in page as staff, and it works on any phone or computer.",
-    sections: [
-      {
-        title: "What parents see",
-        image: "parent-portal.webp",
-        caption: "The parent portal on a phone: a card for each child, with what's new.",
-        list: [
-          "A card for each child. Selecting <strong>View</strong> opens tiles: academic information, schedule, calendar, activities, homework, the testing room, assessment documents, transportation and messages.",
-          "<strong>Report cards</strong> and results as soon as the school publishes them.",
-          "<strong>Attendance</strong>, including today's.",
-          "<strong>Activities</strong> and a <strong>Calendar</strong> with every child's classes, activities and school events, which they can add to their own Google, Outlook or Apple calendar.",
-          "<strong>Bills and payments</strong> through PayGira, with receipts.",
-          "<strong>Messages</strong> with the school in the inbox.",
-          "<strong>Track bus</strong>, and <strong>Not coming today</strong> for a child who won't ride, if the school uses Transportation.",
-          "Emergency and pickup details they can keep up to date, if the school shares them.",
-        ],
-      },
-      {
-        title: "Getting parents started",
-        steps: [
-          "Make sure each parent has an email address on their record.",
-          "Invite them from <strong>Management</strong>, <strong>Guardians</strong> (<strong>Parent portal</strong> on their page).",
-          "Share your school's sign-in link with families, for example in your next newsletter or in the Mail Room.",
-        ],
-      },
-    ],
-    faq: [
-      ["Can both parents use the portal?", "Yes. Each parent has their own sign-in with their own email, and sees the same children."],
-      ["A parent sees no children.", "They aren't linked to a student yet. Link them from Management, Guardians (Relink student)."],
-      ["Can parents change their details?", "They can update the emergency and pickup sections the school shares with them, and their own appearance in Settings."],
-    ],
-    related: ["create-manage-parent", "parent-tiles-and-homework-help", "live-bus-tracking", "set-up-paygira-bills-collections-and-guardian-payments"],
-  },
-  {
     slug: "emergency-and-pickup-details",
     title: "Emergency & pickup details",
     topic: "Parents & families",
@@ -134,32 +92,5 @@ module.exports = [
       ["Is anything shared by default?", "No. Nothing is shared beyond the office until you tick who should see it."],
     ],
     related: ["admission-settings", "parent-portal", "class-page", "driver-app"],
-  },
-  {
-    slug: "parent-tiles-and-homework-help",
-    title: "Child tiles and homework help for parents",
-    topic: "Parents & families",
-    order: 4,
-    summary: "Parents open a tile for each part of their child's day, and teachers can share an assessment's questions, notes and files for homework help.",
-    tags: ["parent portal", "homework help", "child tiles", "assessment documents", "teachers"],
-    who: "Parents see the tiles. Teachers choose what to share on assessments.",
-    sections: [
-      {
-        title: "Child tiles",
-        text: "In the parent portal, <strong>View</strong> on a child's card opens tiles: academic information, schedule, calendar, activities, homework, the testing room, assessment documents, transportation and messages. Each tile shows only that child's information.",
-        image: "parent-child-tiles.webp",
-        caption: "A child's tiles in the parent portal.",
-      },
-      {
-        title: "Share homework help",
-        steps: [
-          "When a teacher sets up an assessment's questions, they turn on <strong>Show on parent portal</strong>.",
-          "They can add notes for parents and attach files, such as a study guide or worked examples.",
-          "Parents see it under the child's <strong>Homework</strong> and <strong>Assessment documents</strong> tiles.",
-        ],
-        note: "Parents only ever see what their child can already see.",
-      },
-    ],
-    related: ["parent-portal", "assessment-questions-and-online-tests"],
   },
 ];

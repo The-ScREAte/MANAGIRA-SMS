@@ -1,0 +1,87 @@
+/* The assessments flow's panel, dialog and notice (public/js/assessmentFlow.js). */
+.af-drawer, .af-dialog, .af-toast {
+  --af-primary: var(--primary, #0f5a66);
+  --af-text: #0f172a;
+  --af-muted: #64748b;
+  --af-line: #e2e8f0;
+  font-family: inherit;
+  color: var(--af-text);
+}
+
+.af-drawer { position: fixed; inset: 0; z-index: 14000; pointer-events: none; }
+.af-drawer__scrim { position: absolute; inset: 0; background: rgba(15, 23, 42, .32); opacity: 0; transition: opacity .2s ease; }
+.af-drawer__panel {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(760px, 100vw);
+  background: #fff; box-shadow: -12px 0 40px rgba(15, 23, 42, .18);
+  display: flex; flex-direction: column; transform: translateX(100%); transition: transform .22s ease;
+}
+.af-drawer--wide .af-drawer__panel { width: min(760px, 100vw); }
+.af-drawer.is-open { pointer-events: auto; }
+.af-drawer.is-open .af-drawer__scrim { opacity: 1; }
+.af-drawer.is-open .af-drawer__panel { transform: none; }
+.af-drawer__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--af-line); background: #fff;
+}
+.af-drawer__title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--af-text); }
+.af-drawer__sub { margin: 2px 0 0; font-size: .8rem; color: var(--af-muted); }
+.af-drawer__body { position: relative; flex: 1; min-height: 0; background: #f8fafc; }
+.af-drawer__frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; opacity: 0; transition: opacity .15s ease; }
+.af-drawer__frame.is-ready { opacity: 1; }
+.af-drawer__loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--af-muted); font-size: .9rem; }
+.af-spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--af-line); border-top-color: var(--af-primary); animation: af-spin .8s linear infinite; }
+@keyframes af-spin { to { transform: rotate(360deg); } }
+
+.af-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
+  border: 1px solid var(--af-line); border-radius: 10px; background: #fff; color: var(--af-muted); cursor: pointer;
+}
+.af-icon-btn:hover { color: var(--af-text); background: #f1f5f9; }
+
+.af-dialog { position: fixed; inset: 0; z-index: 14100; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: none; }
+.af-dialog__scrim { position: absolute; inset: 0; background: rgba(15, 23, 42, .38); opacity: 0; transition: opacity .16s ease; }
+.af-dialog__card {
+  position: relative; width: min(440px, 100%); background: #fff; border-radius: 16px; padding: 22px 22px 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .25); transform: translateY(8px) scale(.98); opacity: 0;
+  transition: transform .16s ease, opacity .16s ease;
+}
+.af-dialog.is-open { pointer-events: auto; }
+.af-dialog.is-open .af-dialog__scrim { opacity: 1; }
+.af-dialog.is-open .af-dialog__card { transform: none; opacity: 1; }
+.af-dialog__icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+.af-dialog__icon--success { background: #ecfdf5; color: #047857; }
+.af-dialog__icon--info { background: #eff6ff; color: #1d4ed8; }
+.af-dialog__icon--warn { background: #fffbeb; color: #b45309; }
+.af-dialog__title { margin: 0 0 6px; font-size: 1.02rem; font-weight: 700; color: var(--af-text); line-height: 1.35; }
+.af-dialog__text { margin: 0 0 14px; font-size: .88rem; line-height: 1.5; color: #475569; }
+.af-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+
+.af-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 16px;
+  border-radius: 10px; font-size: .88rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; font-family: inherit;
+}
+.af-btn--primary { background: var(--af-primary); color: #fff; }
+.af-btn--primary:hover { filter: brightness(.94); }
+.af-btn--ghost { background: #fff; color: var(--af-text); border-color: var(--af-line); }
+.af-btn--ghost:hover { background: #f8fafc; }
+
+.af-field { display: grid; gap: 6px; margin: 0 0 14px; font-size: .8rem; font-weight: 600; color: #334155; }
+.af-select { min-height: 38px; border: 1px solid var(--af-line); border-radius: 10px; padding: 0 10px; font-size: .88rem; background: #fff; color: var(--af-text); font-family: inherit; }
+
+.af-toast {
+  position: fixed; left: 50%; bottom: 22px; z-index: 14200; transform: translate(-50%, 16px); opacity: 0;
+  background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: .86rem; font-weight: 500;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .3); transition: opacity .18s ease, transform .18s ease; pointer-events: none; max-width: min(560px, calc(100vw - 32px));
+}
+.af-toast.is-open { opacity: 1; transform: translate(-50%, 0); }
+.af-toast.is-error { background: #b91c1c; }
+
+@media (max-width: 640px) {
+  .af-drawer__panel, .af-drawer--wide .af-drawer__panel { width: 100vw; }
+  .af-dialog__actions .af-btn { flex: 1; }
+}
+
+/* Pages that style every button full width (the gradebook) keep these as they are. */
+.af-drawer .af-icon-btn, .af-dialog .af-btn { width: auto; margin: 0; flex: none; }
+.af-dialog .af-dialog__actions { flex-direction: row; }
+@media (max-width: 640px) { .af-dialog .af-dialog__actions .af-btn { flex: 1; } }

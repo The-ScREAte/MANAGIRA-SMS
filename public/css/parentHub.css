@@ -107,3 +107,8 @@
   .ph { padding-left: 12px; padding-right: 12px; }
   .ph .pc-cell { height: 42px; font-size: 13px; }
 }
+
+/* Finished tests the teacher shared (the assessments flow). */
+.ph-section { margin: 22px 0 10px; font-size: .78rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+.ph-grade { flex: none; margin-left: auto; padding: 4px 10px; border-radius: 999px; background: #ecfdf5; color: #065f46; font-size: .82rem; font-weight: 800; white-space: nowrap; }
+.ph-grade:empty { display: none; }

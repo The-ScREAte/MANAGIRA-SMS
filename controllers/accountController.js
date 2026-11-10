@@ -12402,10 +12402,11 @@ const accountController = {
       );
       const ownerEmail = String(orgResult.rows[0]?.email || "").trim().toLowerCase();
 
+      // Drivers are left out: their permissions are the driver app's only, so Mira can't be theirs.
       const employeesResult = await db.query(
         `SELECT user_id, first_name, last_name, email, account_type
          FROM users
-         WHERE organization_id = $1
+         WHERE organization_id = $1 AND account_type IS DISTINCT FROM 'Driver'
          ORDER BY first_name ASC, last_name ASC`,
         [orgId]
       );
@@ -12572,12 +12573,9 @@ const accountController = {
     }
   },
 
-  // POST /account/mira/user/:userId (AJAX/JSON) - saves one employee's
-  // "can open Mira" toggle plus which real app permissions they hold
-  // (the same ones that gate what Mira will actually let them do). Only
-  // touches the standard PERMISSION_OPTIONS keys - anything else already
-  // stored for this user (e.g. the mailroom "all access" marker, which is
-  // deliberately not a PERMISSION_OPTIONS entry) is left untouched.
+  // POST /account/mira/user/:userId (AJAX/JSON) - turns "can open Mira" on or off for one
+  // employee, and nothing else: what Mira can do follows their own permissions, which are
+  // changed on the staff form only. Same rule as the staff pages: only a manager changes a manager.
   miraUserPermissionsPost: async (req, res) => {
     const orgId = req.session.organizationId;
     if (!orgId) return res.status(401).json({ error: "Not signed in." });
@@ -12587,59 +12585,34 @@ const accountController = {
 
     try {
       const userResult = await db.query(
-        `SELECT user_id, email FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        `SELECT user_id FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
         [userId, orgId]
       );
-      const employee = userResult.rows[0];
-      if (!employee) return res.status(404).json({ error: "Employee not found." });
+      if (!userResult.rows[0]) return res.status(404).json({ error: "Employee not found." });
 
-      // Owner included - no special-case rejection; the owner is saved the
-      // same way as any other employee.
+      const refusal = await require("../utils/staffChangeGuard").staffChangeRefusal(db, req, userId);
+      if (refusal) return res.status(403).json({ error: refusal });
+
       const canUseMira = String(req.body.canUseMira || "").trim() === "1";
-      const rawPermissions = Array.isArray(req.body.permissions)
-        ? req.body.permissions
-        : req.body.permissions
-        ? [req.body.permissions]
-        : [];
-      const validKeys = new Set(PERMISSION_OPTIONS.map((option) => option.key));
-      const selectedOptionPermissions = new Set(
-        rawPermissions
-          .map((value) => String(value || "").trim())
-          .filter((value) => validKeys.has(value) && value !== PERMISSIONS.USE_MIRA)
-      );
-      if (canUseMira) selectedOptionPermissions.add(PERMISSIONS.USE_MIRA);
-
-      // This list shows main permissions only: their follow-ups stay as chosen on
-      // the employee form, and go if the main one is turned off.
-      const existing = await getUserPermissions(db, userId, orgId);
-      const staffRole = (await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role;
-      const followUps = effectivePermissionsForRole(staffRole, existing)
-        .filter((key) => PERMISSION_OPTIONS.some((option) => option.key === key && option.parent));
-      // Only managers can hand out high-risk permissions, same as the employee form.
-      const requestorRole = req.session.userRole || req.session.user?.account_type || req.session.accountType;
-      const canGrantHighRisk = isManagerLikeRole(requestorRole) || String(requestorRole || "").trim() === "Manager";
-      const heldNow = effectivePermissionsForRole(staffRole, existing);
-      const allowedSelection = [...selectedOptionPermissions].filter((key) => canGrantHighRisk || !HIGH_RISK_PERMISSIONS.has(key) || heldNow.includes(key));
-      const selection = resolvePermissionSelection([...allowedSelection, ...followUps]);
-      if (selection.error) return res.status(400).json({ error: selection.error });
-      const nonOptionPermissions = existing.filter((key) => !validKeys.has(key));
-      const nextPermissions = new Set([...nonOptionPermissions, ...selection.permissions, PERMISSIONS_SAVED_KEY]);
-
       const grantorId = req.session.user?.user_id || req.session.userId || null;
+      // What they can do now (role defaults included for someone never saved), with only Mira
+      // changed, saved as their own list; markers that aren't permissions (mailroom scope) stay.
+      const staffRole = (await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role;
+      const existing = await getUserPermissions(db, userId, orgId);
+      const next = new Set(effectivePermissionsForRole(staffRole, existing).filter((key) => key !== PERMISSIONS.USE_MIRA));
+      if (canUseMira) next.add(PERMISSIONS.USE_MIRA);
+      const optionKeys = new Set(PERMISSION_OPTIONS.map((option) => option.key));
+      const markers = existing.filter((key) => !optionKeys.has(key) && key !== PERMISSIONS_SAVED_KEY);
+      const rows = [...new Set([...markers, ...next, PERMISSIONS_SAVED_KEY])];
       const client = await db.connect();
       try {
         await client.query("BEGIN");
+        await client.query("DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2", [userId, orgId]);
         await client.query(
-          `DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
-          [userId, orgId]
+          `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+           SELECT $1, $2, key, $4 FROM unnest($3::text[]) AS key`,
+          [userId, orgId, rows, grantorId]
         );
-        if (nextPermissions.size > 0) {
-          await client.query(
-            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
-             SELECT $1, $2, unnest($3::text[]), $4`,
-            [userId, orgId, [...nextPermissions], grantorId]
-          );
-        }
         await client.query("COMMIT");
       } catch (txError) {
         await client.query("ROLLBACK");
@@ -12647,10 +12620,8 @@ const accountController = {
       } finally {
         client.release();
       }
-
       invalidateUserPermissionCache(orgId, userId);
-
-      return res.json({ success: true, canUseMira, permissions: [...selectedOptionPermissions].filter((key) => key !== PERMISSIONS.USE_MIRA) });
+      return res.json({ success: true, canUseMira });
     } catch (error) {
       console.error("[accountController/miraUserPermissionsPost]", error);
       return res.status(500).json({ error: "Unable to save this employee's Mira access." });

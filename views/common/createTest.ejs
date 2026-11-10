@@ -804,12 +804,14 @@
       <br />
       <%- include('../partials/flash') %>
       <div class="main-content">
+        <% if (!classes.length) { %>
+        <%# Only when this term has no enrolled classes: tests go to enrolled classes. %>
         <div class="notice">
           <p>
-            You must enroll classes for this term before you can create assessment scores, as scores are applied to enrolled classes.
-            If you haven’t done so yet, <a href="/enrollment/enroll">click here to enroll classes</a>.
+            No classes are enrolled for this term yet. <a href="/enrollment/enroll" target="_top">Enroll classes</a>, then add the test.
           </p>
         </div>
+        <% } %>
         <form id="addTestForm">
           <input type="hidden" name="organizationId" value="<%= organizationId %>" />
           <input type="hidden" name="termId" value="<%= termId %>" />
@@ -935,6 +937,7 @@
     </main>
 
   <script>
+    const CT_FLOW = <%= locals.flow ? 'true' : 'false' %>;
     let testFormCount = 1;
     const canUseQuestionSetIntegration = <%= canUseQuestionSetIntegration ? 'true' : 'false' %>;
 
@@ -1174,6 +1177,12 @@
           body: JSON.stringify({ organizationId, termId, tests }),
         });
         const result = await response.json();
+        if (response.ok && CT_FLOW && window.parent !== window) {
+          // Opened from the assessments flow: the page that opened this offers the next step
+          // (adding questions), so no alert and no list page here.
+          window.parent.postMessage({ type: 'managira:assessments-created', created: result.created || [], message: result.message }, window.location.origin);
+          return;
+        }
         if (response.ok) {
           alert(result.message);
           location.href = `/common/manageAssessment?organizationId=${organizationId}&termId=${termId}`;
@@ -1204,6 +1213,27 @@
       }
     }
   </script>
+<% if (locals.flow && locals.prefillClassId) { %>
+  <script>
+    // From a class's gradebook or the questions page: that class and subject come ticked.
+    (function () {
+      var classBox = document.querySelector('input[name="classes-1[]"][value="<%= Number(prefillClassId) %>"]');
+      if (!classBox) return;
+      classBox.checked = true;
+      if (typeof toggleSubjects === 'function') toggleSubjects('subjects-container-<%= Number(prefillClassId) %>-1', classBox);
+      <% if (locals.prefillSubjectId) { %>
+      var subjectBox = document.querySelector('input[name="subjects-1[]"][value="<%= Number(prefillClassId) %>-<%= Number(prefillSubjectId) %>"]');
+      if (subjectBox) subjectBox.checked = true;
+      <% } %>
+      var list = document.getElementById('class-list-1');
+      var arrow = document.getElementById('arrow-class-list-1');
+      if (list) list.style.display = 'block';
+      if (arrow) arrow.innerHTML = '&#9660;';
+      var name = document.querySelector('input[name="testName[]"]');
+      if (name) name.focus();
+    })();
+  </script>
+<% } %>
 </body>
 </html>
 

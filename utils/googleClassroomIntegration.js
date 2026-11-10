@@ -15,7 +15,8 @@ function parseBoolean(value, fallback = false) {
 
 function normalizeQuestionType(value) {
   const raw = String(value || "").trim().toLowerCase();
-  const allowed = new Set(["multiple_choice", "single_choice", "true_false", "short_text", "essay"]);
+  // image_label: "label the picture" (a picture with numbered spots, an answer for each).
+  const allowed = new Set(["multiple_choice", "single_choice", "true_false", "short_text", "essay", "image_label"]);
   return allowed.has(raw) ? raw : "short_text";
 }
 
@@ -279,6 +280,8 @@ function normalizeQuestionPayload(rawQuestions = []) {
         positionIndex: Number.isInteger(Number(question.positionIndex))
           ? Number(question.positionIndex)
           : index,
+        // A picture and its spots; checked where it's saved (utils/questionMedia.js).
+        media: question.media && typeof question.media === "object" ? question.media : null,
       };
     })
     .filter(Boolean);

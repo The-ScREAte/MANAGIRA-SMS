@@ -249,26 +249,36 @@ module.exports = [
     title: "Promote students and manage graduation",
     topic: "Students & admissions",
     order: 8,
-    summary: "Move students up a grade at the end of the year, keep some back, graduate your final year and record students who leave, with every step reversible.",
+    summary: "Decide who moves up on each report card, then promote whole classes into the next year or term, now or on a date. Graduate and withdraw students.",
     tags: ["promotion", "end of year", "graduation", "repeat a grade", "withdraw student", "alumni"],
     who: "Managers, and staff given the <strong>Promotion</strong> and <strong>School years &amp; terms</strong> permissions.",
-    intro: "At the end of the year, promotion moves each class's students into the next class for the new school year. Students who finish your highest grade graduate, and students who leave are recorded as former students. Their records always stay.",
+    intro: "Promotion moves students into their next class for a new school year or term, using the decision saved on each student's term report. Students who finish your highest grade graduate, and students who leave are recorded as former students. Their records always stay.",
     sections: [
       {
-        title: "Set promotion rules",
-        steps: [
-          ["Open <strong>Management</strong>, then <strong>Promotion</strong>.", "promotion.webp", "Management, Promotion: rules, students to promote, and history."],
-          "For each class, choose the class its students move into, and any minimum average for promotion.",
-          "Save the rules.",
-        ],
+        title: "1. Decide who moves up",
+        text: "On each class's term report, every student has a decision: <strong>Promoted To</strong> a class, or <strong>Repeated In</strong> a class. Save it with the report. See <a href=\"/legal/user-documentation/report-card\">Report cards</a>.",
+        tip: "The promotion page's <strong>Before you start</strong> links to <strong>Report and promotion settings</strong>.",
       },
       {
-        title: "Promote",
+        title: "2. Plan the promotion",
         steps: [
-          "Review the list of students and untick anyone who should repeat the year.",
-          "Select <strong>Apply Now</strong> and confirm. Students move into their new classes for the new school year.",
+          ["Open <strong>Management</strong>, then <strong>Promotion</strong>, and select <strong>Plan a promotion</strong>.", "promotion-plan.webp", "Plan Promotion: from which year and term, to which, and when."],
+          "Choose the school year and term you're promoting <strong>from</strong>, and the <strong>target</strong> school year and term.",
+          "Under <strong>When should this happen?</strong> choose <strong>Schedule Promotion</strong> and a date, or <strong>Apply Now</strong>.",
+          "Choose the classes (or <strong>Select All Classes</strong>). <strong>Saved Student Decisions</strong> lists each student, their class, the decision and where they go.",
+          "Select <strong>Schedule Promotion</strong> (or <strong>Apply Now</strong>). A scheduled promotion runs by itself on its date.",
         ],
-        note: "Made a mistake? Open the promotion history and reverse it. Students go back to their previous classes; check any work done in the new classes since.",
+        note: "Promotion runs from the current school year to the current or a future one.",
+      },
+      {
+        title: "3. Check, apply or reverse",
+        image: "promotion.webp",
+        caption: "Promotion History: each promotion, its status and what it did.",
+        list: [
+          "<strong>Promotion History</strong> lists every promotion. <strong>What this promotion did</strong> shows the enrollments, classes, students and subjects it added.",
+          "<strong>Apply Now</strong> runs a scheduled promotion straight away; <strong>Cancel</strong> stops it.",
+          "<strong>Reverse</strong> undoes a finished one: the enrollments, classes and subjects it created are removed, and students are back in their previous classes. Check any work done in the new classes since.",
+        ],
       },
       {
         title: "Graduate and withdraw",
@@ -284,42 +294,5 @@ module.exports = [
       ["Can graduates still get a transcript?", "Yes. See <a href=\"/legal/user-documentation/transcript\">Transcripts</a>."],
     ],
     related: ["create-school-years-terms-and-set-the-current-term", "transcript", "find-students"],
-  },
-  {
-    slug: "student-portal",
-    title: "The student portal",
-    topic: "Students & admissions",
-    order: 9,
-    summary: "Students sign in to see their classes, teachers, schedule, grades, activities, calendar and bus, and to take online tests in the Testing Room.",
-    tags: ["student portal", "student login", "testing room", "online tests", "student invite", "student calendar"],
-    who: "Students, once your school turns on <strong>Student Portal</strong> in Integrations and invites them.",
-    sections: [
-      {
-        title: "Give students access",
-        steps: [
-          "Turn on <strong>Student Portal</strong> in <strong>Management</strong>, <strong>Integrations</strong>.",
-          "Make sure each student has an email address.",
-          "Send invites: tick students in <strong>Admissions</strong>, <strong>All Students</strong> and choose <strong>Send Password Invite</strong>, or send one from a student's page in their class.",
-          "Students open the email, choose a password and sign in.",
-        ],
-      },
-      {
-        title: "What students see",
-        image: "student-portal.webp",
-        caption: "The student portal on a phone: classes, schedule, grades and what's coming up.",
-        list: [
-          "Their classes, teachers, schedule and grades.",
-          "<strong>Activities</strong> and their <strong>Calendar</strong>, including activities just for them.",
-          "The <strong>Testing Room</strong>, where they take online assessments their teachers open.",
-          "Who's picking them up, and their bus, if your school shares them.",
-          "<strong>Settings</strong>, where they choose Light, Classic or Dark.",
-        ],
-      },
-    ],
-    faq: [
-      ["A student didn't get the invite.", "Check their email in Admissions, All Students (Edit Student Emails), then send the invite again. Ask them to check spam."],
-      ["Can students see other students' grades?", "No. Students only ever see their own information."],
-    ],
-    related: ["assessment-questions-and-online-tests", "activities", "find-students"],
   },
 ];

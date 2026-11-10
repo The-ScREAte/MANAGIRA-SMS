@@ -611,8 +611,8 @@ module.exports = {
             organizationId, school_year_id, term_id, actor.id || null]
         );
         eventId = r.rows[0].id;
-        // Same broadcasts as the existing Events & Announcements page.
-        notifSvc.createNotification(db, {
+        // Same broadcasts as the existing Events & Announcements page (staff aren't told of website-only items).
+        if (e.visibility !== "public") notifSvc.createNotification(db, {
           orgId: organizationId, recipientType: "broadcast", recipientId: 0, type: "event_created",
           title: e.title, body: e.details || "", link: `/common/calendar?date=${e.date}`,
         }).catch(() => {});
@@ -673,7 +673,7 @@ module.exports = {
          VALUES ($1,$2,$3,$4,$5) RETURNING announcement_id`,
         [message, visibility, organizationId, school_year_id, term_id]
       );
-      notifSvc.createNotification(db, {
+      if (visibility !== "public") notifSvc.createNotification(db, {
         orgId: organizationId, recipientType: "broadcast", recipientId: 0, type: "announcement_created",
         title: message.slice(0, 80), body: "", link: "/common/orgDashboard",
       }).catch(() => {});

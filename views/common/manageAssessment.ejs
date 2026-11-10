@@ -68,7 +68,7 @@
       .ct-modal {
         position: relative;
         width: 100%;
-        max-width: 1200px;
+        max-width: 760px;
         height: 100%;
         min-height: 100%;
         max-height: 100%;
@@ -172,7 +172,7 @@
       .ma-modal {
         position: relative;
         width: 100%;
-        max-width: 900px;
+        max-width: 760px;
         height: 100%;
         min-height: 100%;
         max-height: 100%;
@@ -588,6 +588,7 @@
   @media (max-width: 640px) { .ma-term-pick select { max-width: 100%; } }
 </style>
 <script src="/js/manage.js" defer></script>
+<% if (locals.assessmentFlow) { %><link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><% } %>
 <div class="page-wrap ws-root">
 
   <header class="ws-head">
@@ -915,6 +916,31 @@
   const ctOrganizationId = <%= Number(organizationId) %>;
   const ctTermId = <%= Number(termId) %>;
   let ctModalIframeLoaded = false;
+  // The assessments flow: a new test can get its questions straight away (questions are
+  // optional; "Not now" just shows the list).
+  const CT_FLOW = <%= locals.assessmentFlow ? 'true' : 'false' %>;
+  const CT_CAN_ADD_QUESTIONS = <%= (locals.assessmentFlow && canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions) ? 'true' : 'false' %>;
+  if (CT_FLOW) {
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin || !event.data || event.data.type !== 'managira:assessments-created') return;
+      closeCreateTestModal();
+      const created = Array.isArray(event.data.created) ? event.data.created : [];
+      if (!created.length || !CT_CAN_ADD_QUESTIONS || !window.AssessmentFlow) { window.location.reload(); return; }
+      window.AssessmentFlow.askAddQuestions({ created: created }).then(function (pick) {
+        if (!pick) { window.location.reload(); return; }
+        window.AssessmentFlow.openQuestions({
+          classId: pick.classId,
+          subjectId: pick.subjectId,
+          termId: pick.termId || ctTermId,
+          schoolYearId: pick.schoolYearId,
+          assessmentId: pick.assessmentId,
+          title: 'Add questions · ' + (pick.title || ''),
+          subtitle: [pick.className, pick.subjectName].filter(Boolean).join(' · '),
+          onDone: function () { window.location.reload(); },
+        });
+      });
+    });
+  }
 
   function openCreateTestModal() {
     const overlay = document.getElementById('ctModalOverlay');
@@ -939,7 +965,7 @@
         if (loading) loading.style.display = 'none';
         iframe.style.display = 'block';
       });
-      iframe.src = '/common/createTest?organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace';
+      iframe.src = '/common/createTest?organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace' + (CT_FLOW ? '&flow=1' : '');
     }
 
     overlay.classList.add('is-open');

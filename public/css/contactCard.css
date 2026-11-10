@@ -1,0 +1,75 @@
+/* The parent / guardian contact card (public/js/contactCard.js), used by the Mail Room and by
+   Parents & guardians. Everything is scoped to the card's box (.cc-card). */
+.cc-card { --mr-primary: var(--org-primary-color, #01535b); --mr-text: #14232f; --mr-muted: #64748b; display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: #f5f7f9; color: var(--mr-text); }
+.cc-card :where(button) { width: auto; margin: 0; font-family: inherit; line-height: 1.2; }
+.cc-card .cc-head { display: flex; align-items: center; gap: 16px; padding: 20px 22px 0; background: #fff; }
+.cc-card .cc-avatar { flex: none; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--av, #8b5cf6); color: #fff; font-size: 22px; font-weight: 800; letter-spacing: .02em; overflow: hidden; box-shadow: 0 0 0 4px color-mix(in srgb, var(--av, #8b5cf6) 16%, #fff); }
+.cc-card .cc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cc-card .cc-id { flex: 1; min-width: 0; }
+.cc-card .cc-id h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.01em; text-align: left; color: var(--mr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-card .cc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.cc-card .cc-pill { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--mr-primary) 9%, #fff); color: var(--mr-primary); font-size: 12px; font-weight: 700; }
+.cc-card .cc-pill svg { width: 13px; height: 13px; }
+.cc-card .cc-pill--plain { background: #f1f4f7; color: #4a5b6c; }
+.cc-card .cc-actions { flex: none; display: flex; align-items: center; gap: 8px; align-self: flex-start; }
+.cc-card .cc-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border: 1px solid #dde4ea; border-radius: 10px; background: #fff; color: var(--mr-text); font-size: 13px; font-weight: 700; cursor: pointer; }
+.cc-card .cc-btn--primary { border-color: transparent; background: var(--mr-primary); color: #fff; }
+.cc-card .cc-btn:disabled { opacity: .45; cursor: default; filter: none; }
+.cc-card .cc-btn--primary:disabled { background: #c9d3dc; }
+.cc-card .cc-tabs { display: flex; gap: 4px; padding: 16px 22px 0; background: #fff; border-bottom: 1px solid #e4e9ee; overflow-x: auto; scrollbar-width: none; }
+.cc-card .cc-tabs::-webkit-scrollbar { display: none; }
+.cc-card .cc-tab { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border: 0; border-bottom: 2.5px solid transparent; border-radius: 0; background: none; color: #667788; font-size: 13px; font-weight: 700; cursor: pointer; }
+.cc-card .cc-tab.is-on { color: var(--mr-primary); border-bottom-color: var(--mr-primary); }
+.cc-card .cc-tab:focus { outline: none; box-shadow: none; }
+.cc-card .cc-tab:focus-visible { color: var(--mr-text); background: #f3f6f8; }
+.cc-card .cc-btn:focus { outline: none; }
+.cc-card .cc-btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mr-primary) 25%, transparent); }
+.cc-card a.cc-btn { text-decoration: none; }
+.cc-card .cc-btn svg { width: 15px; height: 15px; }
+.cc-card .cc-tab svg { width: 15px; height: 15px; }
+.cc-card .cc-tab b { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #eef2f5; color: #4a5b6c; font-size: 11px; line-height: 18px; text-align: center; }
+.cc-card .cc-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 22px 20px; }
+.cc-card .cc-panel { display: none; gap: 12px; }
+.cc-card .cc-panel.is-on { display: grid; }
+.cc-card .cc-row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cc-card .cc-box { padding: 14px 16px 16px; border: 1px solid #e4e9ee; border-radius: 12px; background: #fff; }
+.cc-card .cc-box h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 13px; font-weight: 800; color: var(--mr-text); text-align: left; }
+.cc-card .cc-box h4 svg { width: 15px; height: 15px; color: #8796a5; }
+.cc-card .cc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cc-card .cc-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cc-card .cc-grid .is-wide { grid-column: 1 / -1; }
+.cc-card .cc-field { display: grid; gap: 5px; align-content: start; margin: 0; min-width: 0; }
+.cc-card .cc-field > span { font-size: 11.5px; font-weight: 700; color: #556676; }
+.cc-card .cc-field > span i { font-style: normal; color: #d0453c; }
+.cc-card .cc-field small { font-size: 11.5px; color: #8796a5; }
+.cc-card .cc-field :is(input, select, textarea) { width: 100%; height: 38px; margin: 0; padding: 0 11px; border: 1px solid #dfe5eb; border-radius: 9px; background: #fff; color: var(--mr-text); font: inherit; font-size: 13.5px; transition: border-color .15s, box-shadow .15s; }
+.cc-card .cc-field textarea { height: auto; min-height: 84px; padding: 9px 11px; resize: vertical; }
+.cc-card .cc-field :is(input, select, textarea):focus { outline: none; border-color: var(--mr-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mr-primary) 14%, transparent); }
+.cc-card .cc-field :is(input, select, textarea)::placeholder { color: #a6b2be; }
+.cc-card .is-readonly .cc-field :is(input, select, textarea) { border-color: transparent; background: #f5f7f9; color: var(--mr-text); opacity: 1; -webkit-text-fill-color: var(--mr-text); }
+.cc-card .cc-with-action { display: flex; gap: 6px; }
+.cc-card .cc-with-action > input { flex: 1; min-width: 0; }
+.cc-card .cc-icon-link { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #dfe5eb; border-radius: 9px; background: #fff; color: #556676; text-decoration: none; }
+.cc-card .cc-icon-link[aria-disabled="true"] { pointer-events: none; opacity: .4; }
+.cc-card .cc-icon-link svg { width: 16px; height: 16px; }
+.cc-card .cc-obsolete > span::after { content: "Obsolete"; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #fdf3dc; color: #8a5a00; font-size: 10px; }
+.cc-card .cc-kids { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.cc-card .cc-kid { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #e4e9ee; border-radius: 12px; background: #fff; }
+.cc-card .cc-kid__av { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: #eef2f5; color: #4a5b6c; font-size: 13px; font-weight: 800; }
+.cc-card .cc-kid strong { display: block; font-size: 13.5px; }
+.cc-card .cc-kid span { font-size: 12px; color: #667788; }
+.cc-card .cc-empty { padding: 28px 12px; border: 1.5px dashed #dfe5eb; border-radius: 12px; text-align: center; font-size: 13px; color: #8796a5; }
+.cc-card .cc-empty a { color: var(--mr-primary); font-weight: 700; }
+.cc-card .cc-status { min-height: 0; margin: 0; padding: 0 22px; font-size: 12.5px; font-weight: 600; }
+.cc-card .cc-status:not(:empty) { padding: 10px 22px; border-top: 1px solid #e4e9ee; background: #fff; }
+.cc-card .cc-status.is-error { color: #c0262d; }
+.cc-card .cc-status.is-ok { color: #15803d; }
+.cc-card .cc-loading { flex: 1; display: grid; place-items: center; padding: 20px; font-size: 13px; color: var(--mr-muted); }
+@media (max-width: 700px) {
+  .cc-card .cc-head { flex-wrap: wrap; padding: 16px 16px 0; gap: 12px; }
+  .cc-card .cc-avatar { width: 48px; height: 48px; font-size: 17px; }
+  .cc-card .cc-actions { width: 100%; order: 3; }
+  .cc-card .cc-actions .cc-btn { flex: 1; justify-content: center; }
+  .cc-card .cc-tabs { padding: 10px 12px 0; }
+  .cc-card .cc-body { padding: 12px 14px 16px; }
+  .cc-card .cc-row2, .cc-card .cc-grid, .cc-card .cc-grid--2 { grid-template-columns: minmax(0, 1fr); }

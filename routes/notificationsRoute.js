@@ -61,7 +61,7 @@ function resolveReaderContext(req) {
   // Staff / org owner
   const userId = resolveStaffReaderId(session);
   if (userId === null || !orgId) return null;
-  return { recipientType: 'staff', recipientId: Number(userId), orgId: Number(orgId) };
+  return { recipientType: 'staff', recipientId: Number(userId), orgId: Number(orgId), who: require('../utils/notificationAudience').staffWho(session) };
 }
 
 // People signed in to a hub get the hub's own feed (see utils/hubNotifications).

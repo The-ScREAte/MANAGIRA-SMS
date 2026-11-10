@@ -1,0 +1,39 @@
+/* A finished test shared with parents and the student (views/partials/testReview.ejs). */
+.tr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 6px 0 18px; }
+.tr-kicker { margin: 0; font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+.tr-title { margin: 2px 0 2px; padding: 0; text-align: left; font-size: 1.35rem; font-weight: 800; color: #0f172a; }
+.tr-sub { margin: 0; font-size: .84rem; color: #64748b; }
+.tr-grade { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 108px; padding: 10px 14px; border-radius: 14px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.tr-grade small { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.tr-grade strong { font-size: 1.2rem; font-weight: 800; }
+.tr-questions { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.tr-q { padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+.tr-q__head { display: flex; align-items: flex-start; gap: 10px; }
+.tr-q__n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; background: #f1f5f9; font-size: .8rem; font-weight: 800; color: #334155; }
+.tr-q__text { flex: 1; font-weight: 600; color: #0f172a; line-height: 1.5; }
+.tr-q__text p { margin: 0; }
+.tr-q__marks { flex: none; font-size: .78rem; font-weight: 700; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; padding: 3px 9px; }
+.tr-pic { position: relative; display: inline-block; max-width: min(100% - 36px, 520px); margin: 10px 0 4px 36px; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; line-height: 0; }
+.tr-pic img { display: block; width: 100%; height: auto; }
+.tr-spot { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 999px; background: #0f172a; color: #fff; font-size: .74rem; font-weight: 800; border: 2px solid #fff; line-height: 1; }
+.tr-spot--static { position: static; transform: none; flex: none; }
+.tr-answers, .tr-options { list-style: none; margin: 10px 0 0 36px; padding: 0; display: grid; gap: 6px; }
+.tr-answers li, .tr-options li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; border: 1px solid #e2e8f0; font-size: .88rem; }
+.tr-answers li.is-right { background: #f0fdf4; border-color: #bbf7d0; }
+.tr-answers li.is-wrong { background: #fef2f2; border-color: #fecaca; }
+.tr-answers em { margin-left: auto; font-style: normal; font-size: .8rem; color: #166534; font-weight: 600; }
+.tr-options li.is-correct { background: #f0fdf4; border-color: #bbf7d0; }
+.tr-options li.is-picked:not(.is-correct) { background: #fef2f2; border-color: #fecaca; }
+.tr-tag { margin-left: auto; font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.tr-tag + .tr-tag { margin-left: 0; }
+.tr-tag--picked { background: #e0e7ff; color: #3730a3; }
+.tr-tag--correct { background: #dcfce7; color: #166534; }
+.tr-text { margin: 10px 0 0 36px; display: grid; gap: 6px; }
+.tr-text p { margin: 0; padding: 8px 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: .88rem; white-space: pre-wrap; }
+.tr-text small { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #64748b; margin-bottom: 2px; }
+.tr-text__key { background: #f0fdf4 !important; border-color: #bbf7d0 !important; }
+@media (max-width: 560px) {
+  .tr-head { flex-direction: column; }
+  .tr-pic, .tr-answers, .tr-options, .tr-text { margin-left: 0; }
+  .tr-pic { max-width: 100%; }
+}

@@ -20,6 +20,7 @@ const FEATURES = {
   tenant_config: { label: "Tenant configuration: sign-in rules in Settings, and signing out after 24 hours unless a school changes it", access: "everyone" },
   family_sharing: { label: "Emergency & pickup details shared with parents (who can update them), students, teachers and drivers", access: "everyone" },
   website_designs: { label: "School website: 3D designs that move as visitors scroll, emblem designs with the school's mascot as a watermark, and photos always shown whole", access: "everyone" },
+  assessment_flow: { label: "Assessments: grades wait for the teacher's approval before parents see them; gradebook columns, + to add an assessment and its questions, picture questions, and sharing finished tests with parents", access: "selected" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

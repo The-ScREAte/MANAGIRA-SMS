@@ -1,0 +1,60 @@
+<%# A finished test the teacher shared in full (utils/testResults.js review): the grade, then
+    each question with the student's answer and the right one. Used by the parent and student
+    pages. Needs: result; reviewer 'student' says "Your answer". %>
+<%
+  const _norm = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLowerCase();
+  const _accepts = (answer, given) => String(answer || '').split('/').map(_norm).filter(Boolean).includes(_norm(given));
+  const _theirs = locals.reviewer === 'student' ? 'Your answer' : 'Their answer';
+  const _score = result.choice ? result.choice : (result.score === null ? '–' : `${Number(result.score).toFixed(2).replace(/\.00$/, '')} / ${Number(result.maxScore).toFixed(2).replace(/\.00$/, '')}`);
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/testReview.css') %>" />
+<section class="tr-head">
+  <div>
+    <p class="tr-kicker"><%= result.subject %></p>
+    <h1 class="tr-title"><%= result.title %></h1>
+    <% if (result.submittedAt) { %><p class="tr-sub">Finished <%= new Date(result.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></p><% } %>
+  </div>
+  <div class="tr-grade" aria-label="Grade"><small>Grade</small><strong><%= _score %></strong></div>
+</section>
+
+<ol class="tr-questions">
+  <% result.questions.forEach(function (q, i) { %>
+    <li class="tr-q">
+      <div class="tr-q__head">
+        <span class="tr-q__n"><%= i + 1 %></span>
+        <div class="tr-q__text"><%- q.html %></div>
+        <span class="tr-q__marks"><%= q.awarded === null ? '–' : q.awarded %> / <%= q.marks %></span>
+      </div>
+      <% if (q.media && q.media.image && q.media.image.url) { %>
+        <div class="tr-pic"><img src="<%= q.media.image.url %>" alt="<%= q.media.image.alt || '' %>" loading="lazy" />
+          <% if (q.type === 'image_label') { (q.media.labels || []).forEach(function (label, s) { %><span class="tr-spot" style="left:<%= Number(label.x) * 100 %>%;top:<%= Number(label.y) * 100 %>%"><%= s + 1 %></span><% }) } %>
+        </div>
+      <% } %>
+      <% if (q.type === 'image_label') { %>
+        <ul class="tr-answers">
+          <% (q.media && q.media.labels || []).forEach(function (label, s) { const given = q.given[s] || ''; const right = given && _accepts(label.answer, given); %>
+            <li class="<%= right ? 'is-right' : 'is-wrong' %>"><span class="tr-spot tr-spot--static"><%= s + 1 %></span>
+              <span><%= given || 'No answer' %></span>
+              <% if (!right) { %><em>Answer: <%= label.answer %></em><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else if (q.options.length) { %>
+        <ul class="tr-options">
+          <% q.options.forEach(function (option) { const picked = q.given.map(_norm).includes(_norm(option)); const correct = q.correct.map(_norm).includes(_norm(option)); %>
+            <li class="<%= correct ? 'is-correct' : '' %> <%= picked ? 'is-picked' : '' %>">
+              <span><%= option %></span>
+              <% if (picked) { %><b class="tr-tag tr-tag--picked"><%= _theirs %></b><% } %>
+              <% if (correct) { %><b class="tr-tag tr-tag--correct">Right answer</b><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <div class="tr-text">
+          <p><small><%= _theirs %></small><%= q.given.join(', ') || 'No answer' %></p>
+          <% if (q.correct.length) { %><p class="tr-text__key"><small>Right answer</small><%= q.correct.join(', ') %></p><% } %>
+        </div>
+      <% } %>
+    </li>
+  <% }) %>
+</ol>

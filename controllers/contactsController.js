@@ -18,13 +18,15 @@ function actor(req) {
 
 async function contactAccess(req) {
   const who = actor(req);
-  const [see, edit, template] = await Promise.all([
+  const [see, edit, template, guardians] = await Promise.all([
     userHasPermission(db, who, PERMISSIONS.SEE_CONTACTS),
     userHasPermission(db, who, PERMISSIONS.EDIT_CONTACTS),
     userHasPermission(db, who, PERMISSIONS.EDIT_CONTACT_TEMPLATE),
+    userHasPermission(db, who, PERMISSIONS.MANAGE_GUARDIANS),
   ]);
-  // Editing a contact means seeing it first.
-  return { see: see || edit, edit, template };
+  // Editing a contact means seeing it first. Manage Guardians ("see and edit parents and
+  // guardians") opens and edits every parent's card, from Parents & guardians.
+  return { see: see || edit || guardians, edit: edit || guardians, template, guardians };
 }
 
 function fail(res, err, fallback) {
@@ -35,10 +37,12 @@ function fail(res, err, fallback) {
 
 // The requested keys that this person may open: the same guardians their
 // Mail Room contact list shows (all of them, or their classes' only).
-async function keysInScope(req) {
+async function keysInScope(req, access) {
   const who = actor(req);
   const keys = contacts.parseKeys(req.method === "GET" ? req.query.keys : req.body && req.body.keys);
   if (!keys.length) return [];
+  // Parents & guardians lists the whole school, so its cards are the whole school's.
+  if (access && access.guardians) return contacts.keysInSchool(db, who.organizationId, keys);
   const restricted = await getMailroomAllowedClassIdsFor({ orgId: who.organizationId, ...who });
   const allowed = await getMailroomContactsMap(who.organizationId, restricted);
   return keys.filter((k) => allowed.has(k.key));
@@ -50,7 +54,7 @@ module.exports = {
     try {
       const access = await contactAccess(req);
       if (!access.see) return res.status(403).json({ success: false, error: "You don't have permission to see contact details." });
-      const keys = await keysInScope(req);
+      const keys = await keysInScope(req, access);
       if (!keys.length) return res.status(404).json({ success: false, error: "This contact isn't in your contact list." });
       const contact = await contacts.readContact(db, Number(req.session.organizationId), keys);
       res.set("Cache-Control", "no-store");
@@ -65,7 +69,7 @@ module.exports = {
     try {
       const access = await contactAccess(req);
       if (!access.edit) return res.status(403).json({ success: false, error: "You don't have permission to edit contacts." });
-      const keys = await keysInScope(req);
+      const keys = await keysInScope(req, access);
       if (!keys.length) return res.status(404).json({ success: false, error: "This contact isn't in your contact list." });
       const organizationId = Number(req.session.organizationId);
       await contacts.saveContact(db, organizationId, keys, req.body || {}, actor(req).userId);

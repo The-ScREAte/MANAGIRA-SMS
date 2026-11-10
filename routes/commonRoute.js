@@ -427,7 +427,7 @@ module.exports = (db) => {
     "/allClassAssessmentExams",
     checkFeatureAccess,
     isAuthenticated,
-    requirePermission([PERMISSIONS.MANAGE_ASSESSMENTS, PERMISSIONS.SET_ASSESSMENT_QUESTIONS]),
+    // A follow-up of Manage Assessments, so holding it means holding both.
     requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS),
     requireSetAssessmentQuestionsFeature,
     (req, res) => commonController.allClassAssessmentExamsPage(req, res, db)
@@ -447,13 +447,16 @@ module.exports = (db) => {
   router.post("/saveAllScores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), upload.none(), (req, res) =>
     commonController.saveAllScores(req, res, db)
   );
+  // A teacher works only on the online tests of the subjects they teach (utils/questionScope.js).
+  const { requireQuestionScope } = require("../utils/questionScope");
+  const questionScope = requireQuestionScope(db);
   router.get("/assessment/questions/bank", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
     commonController.getQuestionBank(req, res, db)
   );
-  router.get("/assessment/questions", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
+  router.get("/assessment/questions", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, questionScope, (req, res) =>
     commonController.getAssessmentQuestionSets(req, res, db)
   );
-  router.get("/assessment/options", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
+  router.get("/assessment/options", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, questionScope, (req, res) =>
     commonController.getAssessmentOptionsByScope(req, res, db)
   );
   router.get("/activities", isAuthenticated, blockGuardians, (req, res) => activitiesController.page(req, res, db));
@@ -464,47 +467,57 @@ module.exports = (db) => {
   router.post("/activities/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), (req, res) => activitiesController.remove(req, res, db));
 
   const parentPortalGuards = [isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature];
-  router.get("/assessment/questions/parent-portal", ...parentPortalGuards, (req, res) => parentResourcesController.read(req, res, db));
-  router.post("/assessment/questions/parent-portal", ...parentPortalGuards, express.json(), (req, res) => parentResourcesController.save(req, res, db));
-  router.post("/assessment/questions/parent-portal/files", ...parentPortalGuards, upload.array("files", 10), (req, res) => parentResourcesController.addFiles(req, res, db));
-  router.post("/assessment/questions/parent-portal/files/:id(\\d+)/delete", ...parentPortalGuards, (req, res) => parentResourcesController.removeFile(req, res, db));
+  router.get("/assessment/questions/parent-portal", ...parentPortalGuards, questionScope, (req, res) => parentResourcesController.read(req, res, db));
+  router.post("/assessment/questions/parent-portal", ...parentPortalGuards, express.json(), questionScope, (req, res) => parentResourcesController.save(req, res, db));
+  router.post("/assessment/questions/parent-portal/files", ...parentPortalGuards, upload.array("files", 10), questionScope, (req, res) => parentResourcesController.addFiles(req, res, db));
+  router.post("/assessment/questions/parent-portal/files/:id(\\d+)/delete", ...parentPortalGuards, requireQuestionScope(db, { resourceParam: "id" }), (req, res) => parentResourcesController.removeFile(req, res, db));
 
-  router.post("/assessment/questions/upsert", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/upsert", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.upsertAssessmentQuestionSet(req, res, db)
   );
   router.post("/assessment/questions/extract-file", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, bulkUpload.single('examFile'), (req, res) =>
     commonController.extractAssessmentQuestionsFromPdf(req, res, db)
   );
-  router.post("/assessment/questions/review", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/review", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.reviewAssessmentQuestionSet(req, res, db)
   );
-  router.post("/assessment/questions/delete", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/delete", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.deleteAssessmentQuestionSet(req, res, db)
   );
-  router.post("/assessment/questions/reuse", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/reuse", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.reuseAssessmentQuestionSet(req, res, db)
   );
-  router.get("/assessment/questions/students", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
+  router.get("/assessment/questions/students", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, questionScope, (req, res) =>
     commonController.getAssessmentQuestionSetStudents(req, res, db)
   );
-  router.post("/assessment/questions/students/unlock", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/students/unlock", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.unlockAssessmentQuestionSetStudents(req, res, db)
   );
-  router.post("/assessment/questions/students/post-scores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/students/post-scores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.postAssessmentQuestionSetScores(req, res, db)
   );
-  router.post("/assessment/questions/students/unpost-scores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/questions/students/unpost-scores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.unpostAssessmentQuestionSetScores(req, res, db)
   );
   router.post("/assessment/verify-answer-password", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
     commonController.verifyAssessmentAnswerPassword(req, res, db)
   );
-  router.get("/assessment/attempt/grade", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
+  router.get("/assessment/attempt/grade", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, questionScope, (req, res) =>
     commonController.getAssessmentAttemptForGrading(req, res, db)
   );
-  router.post("/assessment/attempt/grade", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+  router.post("/assessment/attempt/grade", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.saveAssessmentAttemptGrade(req, res, db)
   );
+
+  // The assessments flow (feature assessment_flow): approving grades, the gradebook's columns,
+  // question pictures and the library of earlier questions (controllers/assessmentFlowController.js).
+  const assessmentFlow = require("../controllers/assessmentFlowController");
+  const questionGuards = [isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature];
+  router.post("/assessment/approve", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), express.json(), questionScope, (req, res) => assessmentFlow.approve(req, res, db));
+  router.post("/gradebook/view", isAuthenticated, blockGuardians, express.json(), (req, res) => assessmentFlow.saveGradebookView(req, res));
+  router.post("/assessment/questions/image", ...questionGuards, upload.single("image"), (req, res) => assessmentFlow.uploadQuestionImage(req, res));
+  router.get("/assessment/questions/library", ...questionGuards, (req, res) => assessmentFlow.library(req, res, db));
+  router.get("/assessment/questions/library/:setId(\\d+)", ...questionGuards, (req, res) => assessmentFlow.librarySet(req, res, db));
 
   router.get("/getSubjectsForClass", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.getSubjectsForClass(req, res, db)

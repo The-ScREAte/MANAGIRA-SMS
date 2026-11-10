@@ -1822,3 +1822,10 @@ body[data-page="publicDashboard"] .chatbot-container {
   .chatbot-messages { padding: 12px !important; }
   .chatbot-input-area { padding: 8px 10px !important; }
 }
+
+/* Steps aside while a side panel or popup is open (chatbot.js watchPanels). */
+.chatbot-toggle.chatbot-toggle--aside {
+  opacity: 0 !important;
+  transform: scale(0.6) !important;
+  pointer-events: none !important;
+}

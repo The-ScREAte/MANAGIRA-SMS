@@ -44,6 +44,7 @@ const { PAYGIRA_FEATURE_NAMES } = require("../utils/paygiraAccess");
 const { libraryPickLists, librarySubjectName, listTermDefinitions, renameTermDefinition } = require("../utils/academicLibrary");
 const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/recordGuards");
 const assessmentEntry = require("../utils/assessmentEntry");
+const assessmentApproval = require("../utils/assessmentApproval");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 
 const parseTruthyFlag = (value) => ["1", "true", "yes", "on"].includes(String(value === undefined || value === null ? "" : value).trim().toLowerCase());
@@ -9638,7 +9639,7 @@ const commonController = {
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
           Manager: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
-          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher")),
+          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher", { questions: assessmentApproval.flowOn(req.session.organizationId) })),
           Supervisor: stripUnavailablePermissions(rolePresetPermissions("Supervisor")),
           Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
@@ -10697,7 +10698,7 @@ const commonController = {
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
           Manager: stripUnavailablePermissions(mergePermissionsForRole("Manager", [])),
-          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher")),
+          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher", { questions: assessmentApproval.flowOn(req.session.organizationId) })),
           Supervisor: stripUnavailablePermissions(rolePresetPermissions("Supervisor")),
           Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
@@ -10993,6 +10994,8 @@ const commonController = {
       await ensureScoreRemarkGradeSchema(db);
       await ensureGoogleIntegrationSchema(db);
       ensureScoreSheetIndexes(db);
+      // The assessments flow's columns (until its migration runs, the page is as before).
+      const flowColumns = await assessmentApproval.whenColumnsChecked();
       const organizationId = req.session.organizationId;
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
@@ -11161,6 +11164,7 @@ const commonController = {
                        ar.student_id,
                        ar.score,
                        ar.choice_label,
+                       ${flowColumns ? "ar.pending_since, ar.pending_source," : ""}
                        sp.position
                 FROM assessment_results ar
                 LEFT JOIN student_term_positions sp
@@ -11201,9 +11205,11 @@ const commonController = {
             position: result.position,
             max_total_score: 0,
             choices: {},
+            states: {},
           };
         }
         studentScores[result.student_id].assessments[result.assessment_id] = result.score;
+        studentScores[result.student_id].states[result.assessment_id] = assessmentApproval.cellState(result);
         if (result.choice_label) studentScores[result.student_id].choices[result.assessment_id] = result.choice_label;
         if (result.score !== null && result.score !== undefined && result.score !== '') {
           const numericScore = Number(result.score);
@@ -11232,6 +11238,9 @@ const commonController = {
           : {};
         student.choices = studentScores[student.student_id]
           ? studentScores[student.student_id].choices
+          : {};
+        student.states = studentScores[student.student_id]
+          ? studentScores[student.student_id].states
           : {};
         student.total_subject_score = studentScores[student.student_id]
           ? studentScores[student.student_id].total_subject_score
@@ -11313,7 +11322,47 @@ const commonController = {
         return `/common/management?panel=assessment-scores&page=${encodeURIComponent(page)}&label=${encodeURIComponent("Assessments")}`;
       };
 
+      // The assessments flow: each score's state, what waits in each column, this person's
+      // columns, and the + that adds an assessment (and its questions).
+      const assessmentFlow = assessmentApproval.flowUi(organizationId);
+      let gradebookPrefs = { lastN: null, hidden: [] };
+      const questionSetByAssessment = {};
+      if (assessmentFlow) {
+        const counts = new Map();
+        results.forEach((row) => {
+          if (row.pending_since) counts.set(Number(row.assessment_id), (counts.get(Number(row.assessment_id)) || 0) + 1);
+        });
+        assessments.forEach((row) => { row.waiting_count = counts.get(Number(row.assessment_id)) || 0; });
+        const saved = await require("../utils/uiPreferences").getPreference(req.session, "gradebook-view").catch(() => null);
+        if (saved && typeof saved === "object") {
+          const lastN = Number(saved.lastN);
+          gradebookPrefs = {
+            lastN: [1, 2, 3, 4, 5].includes(lastN) ? lastN : null,
+            hidden: Array.isArray(saved.hidden) ? saved.hidden.filter((key) => ["raw", "scaled", "percent", "grade", "position"].includes(key)) : [],
+          };
+        }
+        if (assessments.length) {
+          const sets = await db.query(
+            `SELECT DISTINCT ON (assessment_id) assessment_id, question_set_id, LOWER(COALESCE(review_status, 'pending')) AS review_status
+               FROM assessment_question_sets
+              WHERE organization_id = $1 AND assessment_id = ANY($2::int[]) AND retake_student_id IS NULL
+              ORDER BY assessment_id, question_set_id DESC`,
+            [organizationId, assessments.map((row) => Number(row.assessment_id))]
+          ).catch(() => ({ rows: [] }));
+          sets.rows.forEach((row) => { questionSetByAssessment[row.assessment_id] = { id: Number(row.question_set_id), status: row.review_status }; });
+        }
+      }
+      const schoolYearIdForTerm = assessmentFlow
+        ? (await db.query("SELECT school_year_id FROM terms WHERE term_id = $1 AND organization_id = $2", [currentTerm.term_id, organizationId])).rows[0]?.school_year_id || null
+        : null;
+
       res.render("common/assessment", {
+        assessmentFlow,
+        gradebookPrefs,
+        questionSetByAssessment,
+        schoolYearIdForTerm,
+        canAddQuestions: canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions,
+        organizationId,
         canUnlockAssessments,
         unlockAssessmentUrl,
         title: "Assessment",
@@ -11758,20 +11807,32 @@ const commonController = {
 
           // Changed cells are written once, already carrying their totals, so
           // each new row is inserted (and FK-checked) a single time.
+          // With the assessments flow on, a changed score waits for the
+          // teacher's approval: parents keep seeing what they saw before
+          // (utils/assessmentApproval.js). Changing it back clears the wait.
           if (upsertStudentIds.length) {
             const upsertTotals = upsertStudentIds.map((id) => totalsByStudent.get(id));
+            const approvalColumns = assessmentApproval.columnsReady();
+            const awaitsApproval = approvalColumns && assessmentApproval.flowOn(organizationId);
+            const seenScore = "CASE WHEN assessment_results.pending_since IS NULL THEN assessment_results.score ELSE assessment_results.posted_score END";
+            const seenChoice = "CASE WHEN assessment_results.pending_since IS NULL THEN assessment_results.choice_label ELSE assessment_results.posted_choice END";
+            const stillWaiting = `$13::boolean AND (EXCLUDED.score IS DISTINCT FROM ${seenScore} OR EXCLUDED.choice_label IS DISTINCT FROM ${seenChoice})`;
             await client.query(
               `
                 INSERT INTO assessment_results (
                   student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category,
-                  total_subject_score, total_percentage, grade, choice_label
+                  total_subject_score, total_percentage, grade, choice_label${approvalColumns ? ", pending_since, pending_source" : ""}
                 )
                 SELECT u.student_id, u.assessment_id, u.score, $8, $9, $10, $11, u.category,
-                       u.total_score, u.total_percentage, u.grade, u.choice_label
+                       u.total_score, u.total_percentage, u.grade, u.choice_label${approvalColumns ? ",\n                       CASE WHEN $13::boolean THEN NOW() END, CASE WHEN $13::boolean THEN 'teacher' END" : ""}
                 FROM unnest($1::int[], $2::int[], $3::numeric[], $4::text[], $5::numeric[], $6::numeric[], $7::text[], $12::text[])
                      AS u(student_id, assessment_id, score, category, total_score, total_percentage, grade, choice_label)
                 ON CONFLICT (student_id, assessment_id)
                 DO UPDATE SET
+                    ${approvalColumns ? `posted_score = ${seenScore},
+                    posted_choice = ${seenChoice},
+                    pending_since = CASE WHEN ${stillWaiting} THEN COALESCE(assessment_results.pending_since, NOW()) END,
+                    pending_source = CASE WHEN ${stillWaiting} THEN 'teacher' END,` : ""}
                     score = EXCLUDED.score,
                     choice_label = EXCLUDED.choice_label,
                     term_id = EXCLUDED.term_id,
@@ -11796,6 +11857,7 @@ const commonController = {
                 organizationId,
                 classId,
                 upsertChoices,
+                ...(approvalColumns ? [awaitsApproval] : []),
               ]
             );
           }
@@ -12088,6 +12150,7 @@ const commonController = {
            qs.submitted_at,
            qs.created_at,
            qs.updated_at,
+           ${assessmentApproval.columnsReady() ? "qs.parent_share," : "NULL::text AS parent_share,"}
            a.title AS assessment_title,
            CONCAT(COALESCE(ru.first_name, ''), CASE WHEN ru.last_name IS NOT NULL AND ru.last_name <> '' THEN ' ' || ru.last_name ELSE '' END) AS reviewed_by_name
          FROM assessment_question_sets qs
@@ -12110,7 +12173,8 @@ const commonController = {
               options_layout,
                answer_key,
                marks,
-               position_index
+               position_index,
+               ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"}
              FROM assessment_questions
              WHERE question_set_id = ANY($1::int[])
              ORDER BY question_set_id ASC, position_index ASC, question_id ASC`,
@@ -12118,6 +12182,7 @@ const commonController = {
           )
         : { rows: [] };
 
+      const questionMedia = require("../utils/questionMedia");
       const questionsBySet = new Map();
       questionsResult.rows.forEach((row) => {
         const key = Number(row.question_set_id);
@@ -12131,11 +12196,13 @@ const commonController = {
           answerKey: row.answer_key || "",
           marks: Number(row.marks || 0),
           positionIndex: Number(row.position_index || 0),
+          media: questionMedia.forDisplay(row.media_json, res.locals.publicImageUrl, { withAnswers: true }),
         });
       });
 
       const sets = setsResult.rows.map((row) => ({
         questionSetId: row.question_set_id,
+        parentShare: row.parent_share || "",
         assessmentId: row.assessment_id,
         assessmentTitle: row.assessment_title || "Assessment",
         groupId: row.group_id,
@@ -12212,6 +12279,19 @@ const commonController = {
         seen.set(key, n);
       }
     }
+    // Pictures: only ones uploaded for this school, and a "label the picture" question needs
+    // its picture and an answer for each numbered spot (utils/questionMedia.js).
+    {
+      const questionMedia = require("../utils/questionMedia");
+      for (let i = 0; i < questions.length; i += 1) {
+        const checked = questionMedia.checkMedia(questions[i], organizationId);
+        if (checked.error) return res.status(400).json({ success: false, error: `Question ${i + 1}: ${checked.error}` });
+        questions[i].media = checked.media;
+        if (questions[i].questionType === "image_label") questions[i].answerKey = checked.answerKey;
+      }
+    }
+    const parentShareGiven = Object.prototype.hasOwnProperty.call(req.body || {}, "parentShare");
+    const parentShare = ["grade", "full"].includes(String(req.body.parentShare || "")) ? String(req.body.parentShare) : null;
 
     const client = await db.connect();
     try {
@@ -12248,6 +12328,15 @@ const commonController = {
         setTitle = [named.subject_name, named.title].filter(Boolean).join(" · ") || "Questions";
       }
       const isEditingExistingSet = Number.isInteger(questionSetId) && questionSetId > 0;
+      const questionFlow = assessmentApproval.flowOn(organizationId);
+      if (!assessmentRow.show_question_set_on_dashboard && !isEditingExistingSet && assessmentApproval.flowUi(organizationId)) {
+        // Adding questions is what turns them on for this assessment.
+        await client.query(
+          "UPDATE assessments SET show_question_set_on_dashboard = TRUE WHERE assessment_id = $1 AND organization_id = $2",
+          [assessmentId, organizationId]
+        );
+        assessmentRow.show_question_set_on_dashboard = true;
+      }
       if (!assessmentRow.show_question_set_on_dashboard && !isEditingExistingSet) {
         await client.query("ROLLBACK");
         return res.status(403).json({
@@ -12462,6 +12551,7 @@ const commonController = {
         [resolvedQuestionSetId]
       );
 
+      const mediaColumn = assessmentApproval.columnsReady();
       for (const question of questions) {
         await client.query(
           `INSERT INTO assessment_questions (
@@ -12473,9 +12563,9 @@ const commonController = {
              options_layout,
              answer_key,
              marks,
-             position_index
+             position_index${mediaColumn ? ",\n             media_json" : ""}
            )
-           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)`,
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9${mediaColumn ? ", $10::jsonb" : ""})`,
           [
             resolvedQuestionSetId,
             organizationId,
@@ -12486,7 +12576,16 @@ const commonController = {
             question.answerKey || null,
             question.marks,
             question.positionIndex,
+            ...(mediaColumn ? [question.media ? JSON.stringify(question.media) : null] : []),
           ]
+        );
+      }
+
+      // What parents and the student see of the finished test once its grade is posted.
+      if (questionFlow && parentShareGiven) {
+        await client.query(
+          "UPDATE assessment_question_sets SET parent_share = $1 WHERE question_set_id = $2 AND organization_id = $3",
+          [parentShare, resolvedQuestionSetId, organizationId]
         );
       }
 
@@ -13214,6 +13313,8 @@ NUMBERING:
 
       res.render("common/manageAssessment", {
         title: "Manage Assessments",
+        // After a new test: "Add questions now?" (the assessments flow).
+        assessmentFlow: assessmentApproval.flowUi(organizationId),
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -13329,6 +13430,10 @@ NUMBERING:
         if (scopedClassId && numericClassId !== scopedClassId) return false;
         return true;
       };
+      // A teacher sees the online tests of the subjects they teach, as on the class dashboard
+      // (utils/questionScope.js also guards every question-set action).
+      const teacherSubjects = await require("../utils/questionScope").teacherSubjectIds(db, req);
+      const isSubjectInScope = (subjectIdValue) => !teacherSubjects || teacherSubjects.has(Number(subjectIdValue));
 
       const termContextResult = await db.query(
         `SELECT
@@ -13424,7 +13529,7 @@ NUMBERING:
         [organizationId]
       );
 
-      const scopedTermClassSubjects = termClassSubjectsResult.rows.filter((row) => isClassInScope(row.class_id));
+      const scopedTermClassSubjects = termClassSubjectsResult.rows.filter((row) => isClassInScope(row.class_id) && (row.subject_id == null || isSubjectInScope(row.subject_id)));
 
       const assessmentsForOrgResult = await db.query(
         `SELECT
@@ -13479,7 +13584,7 @@ NUMBERING:
         [organizationId, termId] // only the selected term is shown
       );
 
-      const scopedAssessmentRows = assessmentsForOrgResult.rows.filter((row) => isClassInScope(row.class_id));
+      const scopedAssessmentRows = assessmentsForOrgResult.rows.filter((row) => isClassInScope(row.class_id) && isSubjectInScope(row.subject_id));
 
       const assessmentsForOrg = scopedAssessmentRows.map((row) => {
         const editability = computeAssessmentEditability(row);
@@ -13719,7 +13824,7 @@ NUMBERING:
         [organizationId, termId]
       );
 
-      const scopedQuestionSetRows = questionSetsResult.rows.filter((row) => isClassInScope(row.class_id));
+      const scopedQuestionSetRows = questionSetsResult.rows.filter((row) => isClassInScope(row.class_id) && isSubjectInScope(row.subject_id));
       const dedupedQuestionSetRows = [];
       const seenAssessmentQuestionSets = new Set();
       scopedQuestionSetRows.forEach((row) => {
@@ -13826,8 +13931,41 @@ NUMBERING:
         };
       });
 
+      // Opened from the assessments flow (a gradebook column, + Assessment, the Assessments
+      // page): straight to that assessment's questions, and the page that opened it is told
+      // when they're saved or closed.
+      await assessmentApproval.whenColumnsChecked();
+      const assessmentFlow = assessmentApproval.flowUi(organizationId);
+      // Pictures and sharing need the flow's columns.
+      const questionExtras = assessmentApproval.flowOn(organizationId);
+      const flowOpen = assessmentFlow && String(req.query.flow || "") === "1"
+        ? {
+            mode: String(req.query.open || "") === "edit" ? "edit" : "new",
+            assessmentId: Number.parseInt(req.query.assessmentId, 10) || null,
+            questionSetId: Number.parseInt(req.query.questionSetId, 10) || null,
+            classId: Number.parseInt(req.query.classId, 10) || null,
+            subjectId: Number.parseInt(req.query.subjectId, 10) || null,
+            termId: Number(termId) || null,
+            schoolYearId: Number(activeTermRow.school_year_id) || null,
+          }
+        : null;
+      const canCreateAssessments = assessmentFlow && await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_ASSESSMENTS
+      ).catch(() => false);
       return res.render("common/allClassAssessmentExams", {
         title: "All Class Assessment Questions",
+        assessmentFlow,
+        flowOpen,
+        canCreateAssessments,
+        questionExtras,
         organizationId,
         isEmbedded,
         termId,
@@ -13836,7 +13974,7 @@ NUMBERING:
         selectedClassId: scopedClassId || 0,
         schoolYears,
         classes: scopedClasses,
-        subjects: subjectsResult.rows,
+        subjects: subjectsResult.rows.filter((row) => isSubjectInScope(row.subject_id)),
         termClassSubjects: scopedTermClassSubjects,
         assessmentsForOrg: [],
         assessmentsForTerm: enrichedAssessmentsForTerm,
@@ -14131,9 +14269,24 @@ NUMBERING:
         );
       }
 
+      // With the assessments flow on, posting here is the same as ✓ on the gradebook: the
+      // waiting grades go to parents and the student.
+      let approvedCount = 0;
+      if (assessmentApproval.flowOn(organizationId)) {
+        const approved = await assessmentApproval.approve(db, {
+          organizationId,
+          assessmentIds: [assessmentId],
+          userId: req.session.userId || req.session.user?.user_id || null,
+        });
+        approvedCount = approved.length;
+        assessmentApproval.tellFamilies(db, organizationId, approved).catch((error) => console.error("[Post scores] bell:", error.message));
+        if (approvedCount && !postedCount) postedCount = approvedCount;
+      }
+
       return res.json({
         success: true,
         postedCount,
+        approvedCount,
         teacherPicksCount,
         message: [
           postedCount
@@ -14313,6 +14466,7 @@ NUMBERING:
       const questionsResult = await db.query(
         `SELECT q.question_id, q.question_type, q.question_text, q.options_json, q.answer_key,
                 q.marks, q.position_index,
+                ${assessmentApproval.columnsReady() ? "q.media_json," : "NULL::jsonb AS media_json,"}
                 r.response_text, r.response_json, r.is_correct, r.awarded_marks
          FROM assessment_questions q
          LEFT JOIN student_assessment_responses r
@@ -14363,6 +14517,7 @@ NUMBERING:
           isCorrect: q.is_correct,
           awardedMarks:
             q.awarded_marks !== null && q.awarded_marks !== undefined ? Number(q.awarded_marks) : null,
+          media: require("../utils/questionMedia").forDisplay(q.media_json, res.locals.publicImageUrl, { withAnswers: true }),
         })),
       });
     } catch (error) {
@@ -14470,9 +14625,23 @@ NUMBERING:
           if (picked) { postedScore = picked.points; postedChoice = picked.label; } else { canRepost = false; }
         }
 
+        // With the assessments flow on, a new mark waits for the teacher's approval on the
+        // gradebook when it changes what parents see.
+        const waitForApproval = canRepost && assessmentApproval.flowOn(organizationId);
+        const seenScoreSql = "CASE WHEN assessment_results.pending_since IS NULL THEN assessment_results.score ELSE assessment_results.posted_score END";
+        const seenChoiceSql = "CASE WHEN assessment_results.pending_since IS NULL THEN assessment_results.choice_label ELSE assessment_results.posted_choice END";
+        const changesSql = `(EXCLUDED.score IS DISTINCT FROM ${seenScoreSql} OR EXCLUDED.choice_label IS DISTINCT FROM ${seenChoiceSql})`;
         if (canRepost) {
           await client.query(
-            `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category, choice_label)
+            waitForApproval
+              ? `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category, choice_label, pending_since, pending_source)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'online')
+                 ON CONFLICT (student_id, assessment_id)
+                 DO UPDATE SET posted_score = ${seenScoreSql}, posted_choice = ${seenChoiceSql},
+                   pending_since = CASE WHEN ${changesSql} THEN COALESCE(assessment_results.pending_since, NOW()) END,
+                   pending_source = CASE WHEN ${changesSql} THEN COALESCE(assessment_results.pending_source, 'online') END,
+                   score = EXCLUDED.score, choice_label = EXCLUDED.choice_label`
+              : `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category, choice_label)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              ON CONFLICT (student_id, assessment_id)
              DO UPDATE SET score = EXCLUDED.score, choice_label = EXCLUDED.choice_label`,
@@ -16165,8 +16334,17 @@ NUMBERING:
         [organizationId, Number.parseInt(termId, 10) || null]
       ).then((r) => r.rows.sort((x, y) => Number(y.this_term) - Number(x.this_term))).catch(() => []);
 
+      // From the assessments flow (a gradebook's +, the questions page): this class and
+      // subject come ticked, and the page tells the page that opened it what was made.
+      const flow = assessmentApproval.flowUi(organizationId) && String(req.query.flow || "") === "1";
+      const prefillClassId = flow ? Number.parseInt(req.query.classId, 10) || null : null;
+      const prefillSubjectId = flow ? Number.parseInt(req.query.subjectId, 10) || null : null;
+
       // Render the createTest view with enrolled classes only
       res.render("common/createTest", {
+        flow,
+        prefillClassId,
+        prefillSubjectId,
         assessmentLibrary,
         title: "Add New Test",
         classes, // Only enrolled classes
@@ -16236,6 +16414,7 @@ NUMBERING:
 
       // Track the classes for which tests were added
       const addedClasses = new Set();
+      const createdAssessments = [];
       const pendingTeacherNotifications = [];
 
       for (const test of tests) {
@@ -16297,8 +16476,9 @@ NUMBERING:
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb
                         )
                         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
+                        RETURNING assessment_id, class_id, subject_id, title
                     `;
-            await client.query(insertAssessmentQuery, [
+            const insertedAssessment = await client.query(insertAssessmentQuery, [
               newGroupId,
               test.testName,
               test.testWeight,
@@ -16317,6 +16497,12 @@ NUMBERING:
               test.entryMode,
               test.choiceOptions ? JSON.stringify(test.choiceOptions) : null,
             ]);
+            insertedAssessment.rows.forEach((row) => createdAssessments.push({
+              assessmentId: Number(row.assessment_id),
+              classId: Number(row.class_id),
+              subjectId: Number(row.subject_id),
+              title: row.title,
+            }));
           }
         }
 
@@ -16350,6 +16536,27 @@ NUMBERING:
       const classNames = classResult.rows.map((row) => row.class_name);
 
       await client.query("COMMIT"); // Commit the transaction
+
+      // Names for "Add questions now?" when one test went to several classes or subjects.
+      if (createdAssessments.length) {
+        const named = await db.query(
+          `SELECT a.assessment_id, c.class_name, s.subject_name, t.school_year_id
+             FROM assessments a
+             LEFT JOIN classes c ON c.class_id = a.class_id
+             LEFT JOIN subjects s ON s.subject_id = a.subject_id
+             LEFT JOIN terms t ON t.term_id = a.term_id
+            WHERE a.organization_id = $1 AND a.assessment_id = ANY($2::int[])`,
+          [organizationId, createdAssessments.map((row) => row.assessmentId)]
+        ).catch(() => ({ rows: [] }));
+        const byId = new Map(named.rows.map((row) => [Number(row.assessment_id), row]));
+        createdAssessments.forEach((row) => {
+          const extra = byId.get(row.assessmentId) || {};
+          row.className = extra.class_name || "";
+          row.subjectName = extra.subject_name || "";
+          row.schoolYearId = extra.school_year_id ? Number(extra.school_year_id) : null;
+          row.termId = Number(formTermId) || null;
+        });
+      }
 
       for (const notification of pendingTeacherNotifications) {
         if (!notification.classIds.length) continue;
@@ -16401,11 +16608,12 @@ NUMBERING:
       } catch (_) {
       }
 
-      // Respond with the success message
+      // Respond with the success message (and what was made, for the assessments flow).
       res.status(200).json({
         message: `Tests added successfully to Term: ${termName} for Classes: ${classNames.join(
           ", "
         )}`,
+        created: createdAssessments,
       });
     } catch (error) {
       await client.query("ROLLBACK");
@@ -18501,8 +18709,8 @@ NUMBERING:
           }).catch((err) => console.error('[Broadcast] Event notification failed:', err.message));
         }
 
-        // G1 — broadcast in-app notification for new event
-        notifSvc.createNotification(db, {
+        // G1 — in-app notification for staff; an event only on the website isn't for them.
+        if (req.body.visibility !== 'public') notifSvc.createNotification(db, {
           orgId: Number(req.session.organizationId),
           recipientType: 'broadcast',
           recipientId: 0,
@@ -18536,8 +18744,8 @@ NUMBERING:
           }).catch((err) => console.error('[Broadcast] Announcement notification failed:', err.message));
         }
 
-        // G2 — broadcast in-app notification for new announcement
-        notifSvc.createNotification(db, {
+        // G2 — in-app notification for staff; an announcement only on the website isn't for them.
+        if (req.body.visibility !== 'public') notifSvc.createNotification(db, {
           orgId: Number(req.session.organizationId),
           recipientType: 'broadcast',
           recipientId: 0,
@@ -24779,6 +24987,7 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
 module.exports = {
   isAuthenticated,
   commonController,
+  recomputeSubjectTotalsForStudent,
   sendInviteEmail,
   sendPasswordSetSuccessEmail,
   sendGuardianWelcomeEmail,

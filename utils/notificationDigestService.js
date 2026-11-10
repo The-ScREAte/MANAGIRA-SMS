@@ -368,6 +368,12 @@ async function getCurrentTermId(database, organizationId) {
 
 async function getStudentTermAverages(database, organizationId, termId, studentIds) {
   if (!termId || !studentIds.length) return new Map();
+  // Families only hear about approved grades (the assessments flow): a subject with a grade
+  // waiting for the teacher is left out until it's posted.
+  const onlyPosted = require("./assessmentApproval").flowOn(organizationId)
+    ? `AND NOT EXISTS (SELECT 1 FROM assessment_results w WHERE w.student_id = ar.student_id AND w.subject_id = ar.subject_id
+                         AND w.term_id = ar.term_id AND w.pending_since IS NOT NULL)`
+    : "";
   const result = await database.query(
     `SELECT ar.student_id,
             ROUND(AVG(ar.total_percentage)::numeric, 1) AS avg_score
@@ -377,6 +383,7 @@ async function getStudentTermAverages(database, organizationId, termId, studentI
        AND a.term_id = $2
        AND ar.student_id = ANY($3::int[])
        AND ar.total_percentage IS NOT NULL
+       ${onlyPosted}
      GROUP BY ar.student_id`,
     [organizationId, termId, studentIds]
   );
@@ -448,6 +455,10 @@ async function getStudentClassStandingMap(database, organizationId, termId, stud
        WHERE s.organization_id = $1
          AND a.term_id = $2
          AND ar.total_percentage IS NOT NULL
+         ${require("./assessmentApproval").flowOn(organizationId)
+           ? `AND NOT EXISTS (SELECT 1 FROM assessment_results w WHERE w.student_id = ar.student_id AND w.subject_id = ar.subject_id
+                                AND w.term_id = ar.term_id AND w.pending_since IS NOT NULL)`
+           : ""}
        GROUP BY s.student_id, s.class_id
      ),
      ranked AS (

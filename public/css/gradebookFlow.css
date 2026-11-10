@@ -1,0 +1,117 @@
+/* The gradebook in the assessments flow (public/js/gradebookFlow.js). */
+
+/* + and Columns, at the start of the actions; the student filter at the far right. */
+.assessment-compact-actions .gb-add,
+.gb-toolbar .gb-add {
+  width: auto;
+  padding: 0 13px 0 10px;
+  border: 1px solid var(--primary, #01535b);
+  background: var(--primary, #01535b);
+  color: #fff;
+  border-radius: 9px;
+}
+.gb-add { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 34px; font-size: .84rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.assessment-compact-actions .gb-add:hover,
+.gb-toolbar .gb-add:hover { filter: brightness(.93); }
+
+.gb-menu-wrap { position: relative; }
+.assessment-compact-actions .gb-chip,
+.gb-toolbar .gb-chip {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: var(--text, #0f172a);
+}
+.gb-chip { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 9px; font-size: .84rem; font-weight: 600; cursor: pointer; }
+.gb-chip[aria-expanded="true"], .gb-chip.is-active { border-color: var(--primary, #01535b); color: var(--primary, #01535b); }
+.gb-chip.is-active { background: color-mix(in srgb, var(--primary, #01535b) 7%, white); }
+
+.gb-menu, .gb-sum-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 210px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .14);
+  text-align: left;
+}
+.gb-menu--right { left: auto; right: 0; min-width: 230px; }
+.gb-sum-pop { position: fixed; top: 0; left: 0; width: 230px; z-index: 13060; }
+.gb-menu[hidden], .gb-sum-pop[hidden] { display: none; }
+.gb-menu__title { margin: 2px 6px 6px; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+.gb-menu__title--gap { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eef2f6; }
+.gb-menu__note { margin: 6px 6px 2px; font-size: .72rem; color: #94a3b8; }
+.gb-menu button[data-gb-last], .gb-menu button[data-gb-students] {
+  display: flex; align-items: baseline; justify-content: flex-start; gap: 6px; width: 100%; height: auto; min-height: 34px; margin: 0; padding: 7px 10px;
+  border: 0; border-radius: 8px; background: transparent; color: #0f172a; font-size: .86rem; font-weight: 600; text-align: left; cursor: pointer;
+}
+.gb-menu button[data-gb-last] small { font-weight: 500; color: #94a3b8; font-size: .75rem; }
+.gb-menu button[data-gb-last]:hover, .gb-menu button[data-gb-students]:hover { background: #f1f5f9; }
+.gb-menu button.is-on { background: color-mix(in srgb, var(--primary, #01535b) 10%, white); color: var(--primary, #01535b); }
+.gb-menu button.is-on::after { content: "✓"; margin-left: auto; font-weight: 700; }
+
+.gb-filter {
+  height: 34px; margin: 0; padding: 0 28px 0 10px; border: 1px solid #cbd5e1; border-radius: 9px;
+  background-color: #fff; color: var(--text, #0f172a); font-size: .84rem; font-weight: 600; width: auto; cursor: pointer;
+}
+.gb-filter:focus { border-color: var(--primary, #01535b); outline: none; }
+
+.gb-toolbar { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; }
+.gb-toolbar__gap { flex: 1; }
+
+/* What the dots mean. */
+.gb-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px;
+  margin: 8px 2px 6px; font-size: .76rem; color: #64748b;
+}
+.gb-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.gb-legend .gb-dot { position: static; }
+.gb-legend__hint { margin-left: auto; }
+.gb-legend__hint b { color: #b45309; }
+
+/* A score's state: grey posted, amber waiting for approval, blue new from an online test. */
+td.gb-cell { position: relative; }
+.gb-dot {
+  position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block; flex: none; box-shadow: 0 0 0 2px #fff;
+}
+.gb-dot--posted { background: #a8b3c2; }
+.gb-dot--waiting { background: #f59e0b; }
+.gb-dot--new { background: #2563eb; }
+
+/* ✓ beside Open / Closed, only while new grades wait for approval. */
+.gb-approve {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  height: 22px; min-width: 22px; padding: 0 7px; margin: 0 0 0 4px; border-radius: 999px;
+  border: 1px solid #f59e0b; background: #f59e0b; color: #fff; box-shadow: 0 0 0 2px rgba(245, 158, 11, .22);
+  font-size: .7rem; font-weight: 700; line-height: 1; cursor: pointer; width: auto; vertical-align: middle;
+}
+.gb-approve:hover { background: #d97706; border-color: #d97706; }
+.gb-approve:disabled { opacity: .6; cursor: progress; }
+.gb-approve__count { font-variant-numeric: tabular-nums; }
+
+/* Columns the person chose not to see. */
+th.gb-off, td.gb-off { display: none; }
+
+/* ≡ in the top right of the last total shown: choose which totals show. */
+th[data-gb-sum] { position: relative; }
+th.gb-sum-host { padding-right: 30px !important; }
+.gb-sum-btn {
+  position: absolute; top: 4px; right: 4px; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin: 0; padding: 0;
+  border: 0; border-radius: 7px; background: transparent; color: inherit; opacity: .45; cursor: pointer; transition: opacity .15s ease, background-color .15s ease;
+}
+thead tr:hover .gb-sum-btn, .gb-sum-btn:focus-visible, .gb-sum-btn[aria-expanded="true"] { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
+.gb-check input:disabled + span { opacity: .55; }
+.gb-sum-btn.has-hidden { opacity: .8; }
+@media (hover: none) { .gb-sum-btn { opacity: .8; } }
+.gb-check { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 8px; font-size: .86rem; font-weight: 600; color: #0f172a; cursor: pointer; }
+.gb-check:hover { background: #f1f5f9; }
+.gb-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--primary, #01535b); }
+
+@media (max-width: 760px) {
+  .gb-legend__hint { margin-left: 0; }
+  .gb-chip span { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+}

@@ -24,6 +24,7 @@ module.exports = (db) => {
   router.get("/child/activities", isGuardianAuthenticated, (req, res) => parentHub.activities(req, res, db));
   router.get("/child/homework", isGuardianAuthenticated, (req, res) => parentHub.homework(req, res, db));
   router.get("/child/testing-room", isGuardianAuthenticated, (req, res) => parentHub.testingRoom(req, res, db));
+  router.get("/child/result/:attemptId(\\d+)", isGuardianAuthenticated, (req, res) => parentHub.result(req, res, db));
   router.get("/child/documents", isGuardianAuthenticated, (req, res) => parentHub.documents(req, res, db));
   router.get("/child/work/:setId", isGuardianAuthenticated, (req, res) => parentHub.work(req, res, db));
   router.get("/child/file/:fileId", isGuardianAuthenticated, (req, res) => parentHub.file(req, res, db));

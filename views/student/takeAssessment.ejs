@@ -374,6 +374,20 @@
     .ta-timer-chip { font-size: .5rem; padding: 2px 5px; }
     .ta-save-status { font-size: .58rem; }
   }
+  /* Pictures on questions, and "label the picture" (the assessments flow). */
+  .ta-pic { margin: 10px 0 12px; }
+  .ta-pic__canvas { position: relative; display: inline-block; max-width: min(100%, 600px); border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; line-height: 0; }
+  /* The picture fills its frame exactly, so the numbers sit where the teacher put them. */
+  .ta-pic__canvas img { display: block; width: 100%; height: auto; user-select: none; }
+  .ta-spot { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px; background: #0f172a; color: #fff; font-size: .78rem; font-weight: 800; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(15, 23, 42, .35); line-height: 1; }
+  .ta-spot--static { position: static; transform: none; flex: none; }
+  .ta-label-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
+  .ta-label-row { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0; }
+  .ta-label-row .ta-input { flex: 1; min-width: 0; margin: 0 !important; }
+  .ta-resources h3 { margin: 0 0 8px; font-size: .95rem; }
+  .ta-resources ul { margin: 0; padding-left: 18px; }
+  .ta-resources li { margin: 4px 0; }
+  .ta-hint { margin: 2px 0 8px; font-size: .8rem; color: #64748b; }
 </style>
 
 <div class="ta-shell">
@@ -401,7 +415,8 @@
     <h1 class="ta-page-title"><%= assessment.title %></h1>
     <div class="ta-summary-row">
       <span class="ta-summary-chip"><%= totalQuestions %> questions</span>
-      <span class="ta-summary-chip"><%= Number(assessment.max_score || 0) %> marks</span>
+      <% const _questionMarks = (questions || []).reduce(function (sum, q) { return sum + Number(q.marks || 0); }, 0); %>
+      <span class="ta-summary-chip"><%= Number((_questionMarks || Number(assessment.max_score || 0)).toFixed(2)) %> marks</span>
       <span class="ta-summary-chip"><%= _timeText %></span>
       <span class="ta-summary-chip"><%= assessment.open_book ? 'Open book' : 'Closed book' %></span>
     </div>
@@ -417,6 +432,16 @@
   <div class="ta-monitor-banner" id="ta-monitor-banner"></div>
   <p class="ta-save-status ta-prestart-hidden" id="ta-save-status"></p>
 
+  <% if (locals.resources && resources.length) { %>
+  <section class="ta-card ta-prestart-hidden ta-resources" aria-label="Resources you may use">
+    <h3>Open book: resources you may use</h3>
+    <ul>
+      <% resources.forEach(function (file) { %>
+        <li><a href="/student/testing-room/<%= assessment.assessment_id %>/resource/<%= file.id %>" target="_blank" rel="noopener"><%= file.name %></a></li>
+      <% }) %>
+    </ul>
+  </section>
+  <% } %>
   <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return window.taConfirmSubmit ? window.taConfirmSubmit() : true;" data-final="<%= Number(maxAttempts || 1) > 1 ? '' : '1' %>">
     <input type="hidden" name="attemptId" value="<%= attemptId %>" />
 
@@ -431,7 +456,19 @@
           </div>
           <span class="ta-mark"><%= Number(question.marks || 0) %> mark<%= Number(question.marks || 0) === 1 ? '' : 's' %></span>
         </div>
+        <% const _qType = String(question.question_type || '').toLowerCase(); %>
+        <% if (question.media && question.media.image && question.media.image.url) { %>
+          <figure class="ta-pic">
+            <div class="ta-pic__canvas">
+              <img src="<%= question.media.image.url %>" alt="<%= question.media.image.alt || ('Picture for question ' + (index + 1)) %>" loading="lazy" draggable="false" />
+              <% if (_qType === 'image_label') { (question.media.labels || []).forEach(function (label, spot) { %>
+                <span class="ta-spot" style="left:<%= Number(label.x) * 100 %>%;top:<%= Number(label.y) * 100 %>%"><%= spot + 1 %></span>
+              <% }) } %>
+            </div>
+          </figure>
+        <% } %>
 
+        <% if (_qType === 'multiple_choice') { %><p class="ta-hint">Choose all that apply.</p><% } else if (_qType === 'image_label') { %><p class="ta-hint">Type what each number on the picture shows.</p><% } %>
         <% if (['single_choice', 'true_false'].includes(String(question.question_type || '').toLowerCase())) { %>
           <div class="ta-options">
             <% (Array.isArray(question.options_json) ? question.options_json : []).forEach(option => { %>
@@ -448,6 +485,16 @@
               <label class="ta-option">
                 <input type="checkbox" name="<%= fieldName %>" value="<%= option %>" <%= selectedMultiple.includes(String(option)) ? 'checked' : '' %> />
                 <span><%= option %></span>
+              </label>
+            <% }) %>
+          </div>
+        <% } else if (_qType === 'image_label') { %>
+          <div class="ta-label-grid">
+            <% (question.media && question.media.labels || []).forEach(function (label, spot) { %>
+              <% const _given = Array.isArray(savedValue) ? savedValue[spot] : (spot === 0 ? savedValue : ''); %>
+              <label class="ta-label-row">
+                <span class="ta-spot ta-spot--static" aria-hidden="true"><%= spot + 1 %></span>
+                <input class="ta-input" type="text" name="<%= fieldName %>" value="<%= _given || '' %>" maxlength="200" placeholder="What is <%= spot + 1 %>?" aria-label="Answer for spot <%= spot + 1 %>" />
               </label>
             <% }) %>
           </div>
@@ -474,7 +521,7 @@
         · Attempts: <strong><%= Number(submittedAttemptCount || 0) %>/<%= Number(maxAttempts || 1) %> used</strong>
       </p>
       <ul>
-        <% if (!assessment.open_book) { %><li>Stay on this page until you submit. Leaving it is recorded.</li><% } else { %><li>This is open book.</li><% } %>
+        <% if (!assessment.open_book) { %><li>Stay on this page until you submit. Leaving it locks the test until your teacher unlocks it.</li><% } else { %><li>This is open book.</li><% } %>
         <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %>
           <li>You have <%= Number(assessment.time_limit_minutes) %> minutes. It submits itself when time runs out.</li>
         <% } %>
@@ -506,8 +553,9 @@
     var cards = Array.prototype.slice.call(form.querySelectorAll('[data-q]'));
     function answered(card) {
       if (card.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
-      var text = card.querySelector('input[type=text], textarea');
-      return !!(text && String(text.value || '').trim());
+      // A "label the picture" question counts once every spot has an answer.
+      var texts = Array.prototype.slice.call(card.querySelectorAll('input[type=text], textarea'));
+      return texts.length > 0 && texts.every(function (text) { return String(text.value || '').trim(); });
     }
     function update() {
       var n = cards.filter(answered).length;
@@ -823,7 +871,8 @@
     }
 
     function confirmExamExit(event) {
-      if (!hasStarted || isSubmitting || securityLockTriggered) return;
+      // An open-book test just leaves (answers are saved); only a secure one locks.
+      if (!isSecureMode || !hasStarted || isSubmitting || securityLockTriggered) return;
       event.preventDefault();
       lockSecureAttempt('manual_exit_click', true);
     }
@@ -866,9 +915,9 @@
         if (!hasStarted || isSubmitting || securityLockTriggered) return;
         var key = String(event.key || '').toLowerCase();
         var isTabSwitch = key === 'tab' && (event.altKey || event.ctrlKey || event.metaKey);
-        var isWindowShortcut = (event.metaKey || event.ctrlKey) && ['w', 'n', 't', 'r', 'l'].includes(key);
-        var isAppSwitch = (event.metaKey || event.altKey) && key !== '';
-        if (isTabSwitch || isWindowShortcut || isAppSwitch) {
+        var isWindowShortcut = (event.metaKey || event.ctrlKey) && !event.altKey && ['w', 'n', 't', 'r', 'l'].includes(key);
+        // Option / Alt alone types accents (é, ñ) and must not lock; leaving is caught by blur.
+        if (isTabSwitch || isWindowShortcut) {
           event.preventDefault();
           lockSecureAttempt('keyboard_shortcut', true);
         }

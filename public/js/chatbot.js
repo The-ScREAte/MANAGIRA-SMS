@@ -26,6 +26,59 @@ class ManagiraChatbot {
     this.bindEvents();
     this.loadPopularQuestions();
     this.showWelcomeMessage();
+    this.watchPanels();
+  }
+
+  // While a side panel or popup is open (in this page or in a workspace page inside it), the
+  // chat button steps aside so it never covers that panel's buttons. It's back when it closes.
+  watchPanels() {
+    const toggle = document.querySelector('.chatbot-toggle');
+    if (!toggle || typeof MutationObserver === 'undefined') return;
+    const OPEN = '.is-open[class*="modal"], .show[class*="modal"], .is-open[class*="overlay"], .show[class*="overlay"], .is-open[class*="drawer"], .ux-panel.is-open, .mr-open';
+    const panelOpen = (doc) => Boolean(doc && doc.body && (doc.body.style.overflow === 'hidden' || doc.querySelector(OPEN)));
+    let queued = false;
+    const check = () => {
+      queued = false;
+      let open = panelOpen(document);
+      if (!open) {
+        document.querySelectorAll('iframe').forEach((frame) => {
+          if (open) return;
+          let doc = null;
+          try { doc = frame.contentDocument; } catch (_) { doc = null; }
+          open = panelOpen(doc);
+        });
+      }
+      toggle.classList.toggle('chatbot-toggle--aside', open && !this.isOpen);
+    };
+    const queue = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(check);
+    };
+    const watched = new WeakSet();
+    const watchFrame = (frame) => {
+      if (watched.has(frame)) return;
+      watched.add(frame);
+      const attach = () => {
+        let doc = null;
+        try { doc = frame.contentDocument; } catch (_) { return; }
+        if (!doc || !doc.body) return;
+        new MutationObserver(queue).observe(doc.body, { attributes: true, attributeFilter: ['class', 'style'], subtree: true });
+        queue();
+      };
+      frame.addEventListener('load', attach);
+      attach();
+    };
+    document.querySelectorAll('iframe').forEach(watchFrame);
+    new MutationObserver((records) => {
+      records.forEach((record) => record.addedNodes.forEach((node) => {
+        if (node.nodeType !== 1) return;
+        if (node.tagName === 'IFRAME') watchFrame(node);
+        else node.querySelectorAll('iframe').forEach(watchFrame);
+      }));
+      queue();
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+    queue();
   }
 
   createChatbotHTML() {

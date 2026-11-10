@@ -63,6 +63,14 @@ module.exports = (db) => {
     studentController.takeAssessmentGet(req, res, db)
   );
 
+  router.get("/testing-room/result/:attemptId(\\d+)", isStudentAuthenticated, requireStudentTestingRoomFeature, (req, res) =>
+    studentController.testResultGet(req, res, db)
+  );
+
+  router.get("/testing-room/:assessmentId(\\d+)/resource/:fileId(\\d+)", isStudentAuthenticated, requireStudentTestingRoomFeature, (req, res) =>
+    studentController.testingRoomResourceGet(req, res, db)
+  );
+
   router.post("/testing-room/:assessmentId/autosave", isStudentAuthenticated, requireStudentTestingRoomFeature, express.json(), (req, res) =>
     studentController.saveAssessmentDraftPost(req, res, db)
   );

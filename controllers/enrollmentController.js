@@ -735,20 +735,31 @@ const enrollmentController = {
             const userEmail = req.session.user?.email || null;
             const userCtx = { userId, userRole, organizationId: orgId, accountType, userEmail };
 
-            const [canSeeStudents, canSeeEmployees] = await Promise.all([
+            const normalizedRole = String(userRole || accountType || '').trim().toLowerCase();
+            // A driver's app opens none of these pages.
+            if (normalizedRole === 'driver') return res.status(200).json({ results: [] });
+
+            const [canSeeStudents, canSeeEmployees, canSeeGuardians, canManageClasses, canSeeSchoolProfile] = await Promise.all([
               userHasPermission(db, userCtx, PERMISSIONS.MANAGE_STUDENTS),
               userHasPermission(db, userCtx, PERMISSIONS.MANAGE_EMPLOYEES),
+              userHasPermission(db, userCtx, PERMISSIONS.MANAGE_GUARDIANS),
+              userHasPermission(db, userCtx, PERMISSIONS.MANAGE_CLASSES_SUBJECTS),
+              userHasPermission(db, userCtx, PERMISSIONS.SETTINGS_PROFILE),
             ]);
 
-            // Teachers and supervisors are class-scoped: they only see students,
-            // guardians, and classes belonging to their assigned classes.
-            // Managers/admins (isManagerLikeRole) see everything.
-            const normalizedRole = String(userRole || accountType || '').trim().toLowerCase();
+            // Each kind of result shows only to people who can open its page, and only
+            // what concerns them. Teachers and supervisors are class-scoped: students,
+            // parents, classes and subjects of their own classes. Everyone else sees
+            // parents with Manage Guardians, and classes and subjects as a manager or
+            // with Manage Classes & Subjects.
             const isClassScoped = userId && (
               normalizedRole === 'teacher' ||
               normalizedRole === 'supervisor' ||
               normalizedRole === 'superviser'
             );
+            const isSchoolManager = ['organization', 'admin', 'mini admin', 'manager'].includes(normalizedRole);
+            const canSeeGuardianResults = isClassScoped || canSeeGuardians;
+            const canSeeClasses = isClassScoped || isSchoolManager || canManageClasses;
 
             // assignedClassIds: null = no restriction; [] = teacher has no classes (return empty for class-gated types)
             let assignedClassIds = null;
@@ -836,7 +847,7 @@ const enrollmentController = {
                 : empty,
 
               // Guardians — only show if their linked student is in the teacher's class
-              withClassScope((classIds) =>
+              !canSeeGuardianResults ? empty : withClassScope((classIds) =>
                 db.query(
                   classIds
                     ? `
@@ -896,7 +907,7 @@ const enrollmentController = {
               ),
 
               // Classes — teachers only see classes they are assigned to
-              withClassScope((classIds) =>
+              !canSeeClasses ? empty : withClassScope((classIds) =>
                 classIds
                   ? db.query(
                       `
@@ -923,7 +934,9 @@ const enrollmentController = {
                     )
               ),
 
-              db.query(
+              // Subjects open their class's page: the same people as classes, and
+              // teachers only their own classes' subjects.
+              !canSeeClasses ? empty : withClassScope((classIds) => db.query(
                 `
                   -- One row per subject per class, from the current term when there is one.
                   SELECT * FROM (
@@ -935,6 +948,7 @@ const enrollmentController = {
                     LEFT JOIN terms t ON t.term_id = s.term_id
                     WHERE s.organization_id = $2
                       AND s.subject_name ILIKE $1 ESCAPE '\\'
+                      AND ($3::int[] IS NULL OR s.class_id = ANY($3::int[]))
                       AND (s.term_id IS NULL OR t.current
                            OR NOT EXISTS (SELECT 1 FROM terms t2 WHERE t2.organization_id = $2 AND t2.current))
                     ORDER BY LOWER(s.subject_name), s.class_id, t.current DESC NULLS LAST, s.subject_id DESC
@@ -942,10 +956,11 @@ const enrollmentController = {
                   ORDER BY LOWER(subject_name), class_name NULLS LAST
                   LIMIT 20
                 `,
-                [likeQuery, orgId]
-              ),
+                [likeQuery, orgId, classIds]
+              )),
 
-              db.query(
+              // The school profile opens Settings > Profile.
+              !canSeeSchoolProfile ? empty : db.query(
                 `
                   SELECT 'organization_profile' AS type, o.organization_id AS id,
                      o.first_name, o.last_name,

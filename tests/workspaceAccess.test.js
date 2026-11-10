@@ -131,6 +131,22 @@ test("new staff presets leave out high-risk permissions and Transportation", () 
   assert.deepEqual(resolvePermissionSelection(teacher).error, null);
 });
 
+test("Set Assessment Questions sits under Manage Assessments; new teachers get it only in the assessments flow", () => {
+  // Saved: it counts only with Manage Assessments, which every question page and action also needs.
+  assert.deepEqual(effectivePermissionsForRole("Teacher", [PERMISSIONS_SAVED_KEY, "set_assessment_questions"]), []);
+  assert.deepEqual(effectivePermissionsForRole("Teacher", [PERMISSIONS_SAVED_KEY, "manage_assessments", "set_assessment_questions"]), ["manage_assessments", "set_assessment_questions"]);
+  // Never saved: exactly what they had before it was a follow-up.
+  assert.ok(!effectivePermissionsForRole("Teacher", ["manage_assessments"]).includes("set_assessment_questions"));
+  assert.ok(effectivePermissionsForRole("Supervisor", []).includes("set_assessment_questions"));
+  // The staff form's preset for a new teacher.
+  assert.ok(!rolePresetPermissions("Teacher").includes("set_assessment_questions"));
+  assert.ok(rolePresetPermissions("Teacher", { questions: true }).includes("set_assessment_questions"));
+  assert.deepEqual(resolvePermissionSelection(rolePresetPermissions("Teacher", { questions: true })).error, null);
+  // Outside a plan with online questions it is left off the form.
+  const options = permissionOptionsFor({ allowedFeatures: ["Assessment Tracking"] }).map((option) => option.key);
+  assert.ok(options.includes("manage_assessments") && !options.includes("set_assessment_questions"));
+});
+
 test("plan features decide the menus, whatever permissions someone holds", () => {
   const permissions = ["manage_students", "students_add", "students_enrollment", "manage_guardians", "manage_assessments", "reports_terminal", "reports_settings", "reports_builder", "generate_transcripts", "manage_records", "settings_website", "paygira_workspace", "paygira_show_in_management"];
   const none = workspaceAccess({ permissions, features: [], role: "Teacher" });

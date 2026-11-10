@@ -189,6 +189,7 @@
     '/common/createEmployee',    // File uploads
     '/common/modifyEmployee',    // File uploads
     '/common/createTest',        // Rich editor
+    '/student/testing-room/',    // Taking a test: its own screen, timer and leave/lock handling
     '/account/managePublicContent', // Quill editor + image uploads
     '/account/personalization',  // Theme switching with full reload
     '/common/reports',           // Dynamic filters + tables; safer to full-load

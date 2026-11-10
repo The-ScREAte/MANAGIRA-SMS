@@ -4,6 +4,21 @@
   const _day = (d) => new Date(d + 'T12:00:00Z');
   const _clock = (t) => t ? new Date('2000-01-01T' + t + ':00Z').toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) : '';
   const _when = (row) => row.endDate ? 'Until ' + _day(row.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : (row.startTime ? _clock(row.startTime) + (row.endTime ? ' – ' + _clock(row.endTime) : '') : 'All day');
+  const _grade = (row) => row.choice ? row.choice : (row.score === null ? '' : `${Number(row.score).toFixed(2).replace(/\.00$/, '')} / ${Number(row.maxScore).toFixed(2).replace(/\.00$/, '')}`);
+  const _results = (rows) => { %>
+    <div class="ph-list">
+      <% rows.forEach((row) => { %>
+        <% if (row.full) { %><a class="ph-row ph-row--link" href="/guardian/child/result/<%= row.attemptId %>?<%= _q %>"><% } else { %><div class="ph-row"><% } %>
+          <div class="ph-row__text">
+            <strong><%= row.title %></strong>
+            <small><%= [row.subject, row.submittedAt ? 'Finished ' + new Date(row.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''].filter(Boolean).join(' · ') %></small>
+          </div>
+          <span class="ph-grade"><%= _grade(row) %></span>
+          <% if (row.full) { %><span class="ph-chev" aria-hidden="true">›</span><% } %>
+        <% if (row.full) { %></a><% } else { %></div><% } %>
+      <% }) %>
+    </div>
+  <% };
   const _activity = (row) => { %>
     <article class="ph-row">
       <span class="ph-date"><small><%= _day(row.date).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><strong><%= _day(row.date).getUTCDate() %></strong></span>
@@ -67,9 +82,18 @@
     <% } else { %>
       <p class="ph-empty">Nothing open right now.</p>
     <% } %>
+    <% if (locals.results && results.length) { %>
+      <h2 class="ph-section">Finished</h2>
+      <% _results(results); %>
+    <% } %>
   <% } %>
 
   <% if (mode === 'documents') { %>
+    <% if (locals.results && results.length) { %>
+      <h2 class="ph-section">Test results</h2>
+      <% _results(results); %>
+      <h2 class="ph-section">Documents</h2>
+    <% } %>
     <% if (files.length) { %>
       <div class="ph-list">
         <% files.forEach((file) => { %>

@@ -1588,6 +1588,8 @@ const logStartupDbStatus = async () => {
     await ensurePermissionsSchema(db);
     // Rejected online applications are kept (with a status) for 60 days.
     await require("./utils/admissionRejections").ensureAdmissionStatusSchema(db);
+    // Whether the assessments flow's columns are here, known before the first page asks.
+    await require("./utils/assessmentApproval").whenColumnsChecked();
     // Product tour captures ready before the first visitor asks for one.
     setTimeout(() => require("./controllers/appDemoController").warmCaptures(), 5000).unref();
     // Idempotent: adds the 'Driver' user_role enum value if it isn't there yet.

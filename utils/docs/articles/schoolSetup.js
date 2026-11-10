@@ -134,18 +134,19 @@ module.exports = [
       {
         title: "Enroll classes",
         steps: [
-          ["Open <strong>Management</strong>, then <strong>Enrollment</strong>.", "enrollment.webp", "Management, Enrollment: the classes and students in each term."],
-          "Choose the school year and term, then select the classes to enroll. Each class shows its students.",
-          "Save. The classes now appear on the dashboard for that term.",
+          ["Open <strong>Management</strong>, then <strong>Enrollment</strong>. Each term shows its classes and students; select a term to see or edit it.", "enrollment.webp", "Management, Enrollment: the classes and students in each term."],
+          ["Select <strong>Enroll students</strong>. Choose the <strong>Term</strong>, then the <strong>Classes</strong> (or <strong>All classes</strong>).", "enrollment-enroll.webp", "Enroll students: the term, its classes, then their students."],
+          "Each class's students are ticked. Untick anyone who shouldn't be enrolled.",
+          "Select <strong>Enroll</strong>. The classes now appear on dashboards, attendance and grade books for that term.",
         ],
-        note: "From School years you can also choose <strong>Enroll Classes and Students</strong> and <strong>Enroll and Save</strong> to bring the current classes into a new term in one step.",
+        note: "A term has one enrollment. If it already has one, select <strong>Edit it instead</strong>. From School years, <strong>Enroll Classes and Students</strong> brings the current classes into a new term in one step.",
       },
       {
         title: "Move a student to another class",
         steps: [
-          "In the enrollment, open the class the student should join.",
-          "Search for the student and add them. They move from their old class and stay enrolled.",
-          "Save.",
+          "In <strong>Enrollment</strong>, select the term. Under the class the student should join, use <strong>Add a student from another class</strong>.",
+          "Managira shows who is in another class this term. Select <strong>Move them</strong>.",
+          "Select <strong>Save changes</strong>. The student moves and stays enrolled.",
         ],
         tip: "To move a student and match their subjects to the new class, see <a href=\"/legal/user-documentation/transfer-a-student-between-classes-and-subject-matching\">Transfer a student</a>.",
       },

@@ -288,7 +288,7 @@ body {
   top: 0;
   right: 0;
   width: 100%;
-  max-width: 1120px;
+  max-width: 760px;
   height: 100dvh;
   background: #f8fafc;
   display: flex;
@@ -1505,6 +1505,7 @@ input[type="number"].score-input-invalid {
   }
 } 
     </style>
+  <% if (assessmentFlow) { %><link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/gradebookFlow.css') %>" /><% } %>
   </head>
   <body>
     <main>
@@ -1532,6 +1533,7 @@ input[type="number"].score-input-invalid {
             <h1 class="assessment-compact-title" title="<%= subjectName %>"><%= subjectName %></h1>
             <p class="assessment-compact-subtitle"><%= className %> &middot; <%= currentTerm.term_name %> &middot; <%= students.length %> student<%= students.length === 1 ? '' : 's' %></p>
           </div>
+          <% if (!assessmentFlow) { %>
           <label class="assessment-gender-field">
             <span>Show</span>
             <select id="assessment-gender-filter" class="assessment-gender-filter" aria-label="Filter students by gender">
@@ -1540,8 +1542,10 @@ input[type="number"].score-input-invalid {
               <option value="female">Female</option>
             </select>
           </label>
+          <% } %>
         </div>
         <div class="assessment-compact-actions">
+          <% if (assessmentFlow) { %><%- include('../partials/gradebookTools', { gbPlace: 'start' }) %><% } %>
           <% if (employees.length > 0) { %>
           <div class="teachers-popover-wrap">
             <button type="button" class="teachers-btn" id="teachers-btn" aria-expanded="false" aria-controls="teachers-popover" aria-label="Assigned teachers (<%= employees.length %>)">
@@ -1575,8 +1579,10 @@ input[type="number"].score-input-invalid {
             <span>Save</span>
             <span class="unsaved-dot" aria-hidden="true"></span>
           </button>
+          <% if (assessmentFlow) { %><%- include('../partials/gradebookTools', { gbPlace: 'end' }) %><% } %>
         </div>
       </div>
+      <% if (assessmentFlow) { %><%- include('../partials/gradebookTools', { gbPlace: 'legend' }) %><% } %>
       <% } else { %>
       <div class="assessment-header" id="assessment-meta-card">
         <button class="meta-toggle" type="button" id="assessment-meta-toggle" aria-expanded="false" aria-controls="assessment-meta-content">
@@ -1604,6 +1610,11 @@ input[type="number"].score-input-invalid {
       </div>
       <% } %>
 
+      <% if (assessmentFlow && !isEmbedded) { %>
+      <div class="gb-toolbar"><%- include('../partials/gradebookTools', { gbPlace: 'start' }) %><span class="gb-toolbar__gap"></span><%- include('../partials/gradebookTools', { gbPlace: 'end' }) %></div>
+      <%- include('../partials/gradebookTools', { gbPlace: 'legend' }) %>
+      <% } %>
+
       <!-- Scores Section -->
       <form id="save-scores-form">
         <div class="table-container">
@@ -1619,9 +1630,10 @@ input[type="number"].score-input-invalid {
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
                   </button>
                 </th>
-                <% assessments.forEach(function(assessment) { %>
+                <% const _gbHideBefore = (assessmentFlow && gradebookPrefs.lastN && assessments.length > gradebookPrefs.lastN) ? assessments.length - gradebookPrefs.lastN : 0; %>
+                <% assessments.forEach(function(assessment, _gbIndex) { %>
                 <% const _isObsolete = assessment.access_reason === 'Obsolete'; %>
-                <th<% if (_isObsolete) { %> class="is-obsolete" title="Obsolete: kept on report cards, closed to new scores"<% } %>>
+                <th class="<%= _isObsolete ? 'is-obsolete' : '' %><%= assessmentFlow ? ' gb-col' : '' %><%= _gbIndex < _gbHideBefore ? ' gb-off' : '' %>"<% if (_isObsolete) { %> title="Obsolete: kept on report cards, closed to new scores"<% } %><% if (assessmentFlow) { %> data-gb-col="<%= _gbIndex %>" data-assessment-id="<%= assessment.assessment_id %>"<% } %>>
                   <span<%- _isObsolete ? ' style="text-decoration:line-through;opacity:.65"' : '' %>><%= assessment.title %><% if (!assessment.is_choice || assessment.choice_counts) { %> (<%= assessment.weight %>%)<% } %><br />
                   <%= assessment.category %></span><br />
                   <% if (assessment.is_choice) { %><small class="choice-kind" title="<%= assessment.choice_counts ? 'Each choice has points that count in the total' : 'Recorded as a choice; doesn’t change the total' %>"><%= assessment.choice_labels.join(' / ') %><%= assessment.choice_counts ? '' : ' · not in total' %></small><br /><% } %>
@@ -1649,6 +1661,14 @@ input[type="number"].score-input-invalid {
                     Closed<% if (_closedReason !== 'Closed') { %><span class="status-reason">· <%= _closedReason %></span><% } %>
                     <% } %>
                   </small>
+                  <% if (assessmentFlow && Number(assessment.waiting_count || 0) > 0) { %>
+                  <% const _waiting = Number(assessment.waiting_count || 0); %>
+                  <button type="button" class="gb-approve has-waiting" data-gb-approve="<%= assessment.assessment_id %>" data-title="<%= assessment.title %>"
+                    title="<%= `${_waiting} new grade${_waiting === 1 ? '' : 's'}: approve to post ${_waiting === 1 ? 'it' : 'them'} to parents` %>"
+                    aria-label="<%= `Approve ${_waiting} new grade${_waiting === 1 ? '' : 's'} for ${assessment.title}` %>">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="gb-approve__count"><%= _waiting %></span>
+                  </button>
+                  <% } %>
                   <% if (!assessment.can_edit_scores && _closedReason === 'Locked' && locals.canUnlockAssessments && assessment.group_id) { %>
                   <a class="assessment-unlock-link" href="<%= unlockAssessmentUrl(assessment.group_id) %>" target="_top"
                      title="Open &ldquo;<%= assessment.title %>&rdquo; in Assessments to unlock it" aria-label="Unlock <%= assessment.title %> in Assessments">
@@ -1659,11 +1679,18 @@ input[type="number"].score-input-invalid {
                   Score Out Of: <%= assessment.max_score %>
                 </th>
                 <% }); %>
-                <th style="white-space:normal;min-width:90px;">Total Subject Score<br><small style="font-weight:normal;opacity:.75;">Raw Score</small></th>
-                <th style="white-space:normal;min-width:90px;">Scaled Score<br><small style="font-weight:normal;opacity:.75;">/ <%= scaleBase %></small></th>
-                <th style="white-space:normal;min-width:90px;">Total Percentage</th>
-                <th>Grade</th>
-                <th>Position</th>
+                <%# Totals the person hid; at least one always shows, since its header holds the ≡ (top right of the last one shown). %>
+                <% const _gbSumKeys = ['raw', 'scaled', 'percent', 'grade', 'position']; %>
+                <% const _gbHiddenSaved = ((assessmentFlow && gradebookPrefs.hidden) || []).filter((key) => _gbSumKeys.includes(key)); %>
+                <% const _gbHidden = _gbHiddenSaved.length >= _gbSumKeys.length ? [] : _gbHiddenSaved; %>
+                <% const _gbSumHost = assessmentFlow ? _gbSumKeys.filter((key) => !_gbHidden.includes(key)).pop() : null; %>
+                <% const _gbSum = (key) => assessmentFlow ? ` data-gb-sum="${key}"${_gbHidden.includes(key) ? ' class="gb-off"' : (key === _gbSumHost ? ' class="gb-sum-host"' : '')}` : ''; %>
+                <% const _gbSumBtn = (key) => key === _gbSumHost ? '<button type="button" class="gb-sum-btn" id="gb-sum-btn" aria-haspopup="true" aria-expanded="false" title="Choose the totals you see" aria-label="Choose the totals you see"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>' : ''; %>
+                <th style="white-space:normal;min-width:90px;"<%- _gbSum('raw') %>>Total Subject Score<br><small style="font-weight:normal;opacity:.75;">Raw Score</small><%- _gbSumBtn('raw') %></th>
+                <th style="white-space:normal;min-width:90px;"<%- _gbSum('scaled') %>>Scaled Score<br><small style="font-weight:normal;opacity:.75;">/ <%= scaleBase %></small><%- _gbSumBtn('scaled') %></th>
+                <th style="white-space:normal;min-width:90px;"<%- _gbSum('percent') %>>Total Percentage<%- _gbSumBtn('percent') %></th>
+                <th<%- _gbSum('grade') %>>Grade<%- _gbSumBtn('grade') %></th>
+                <th<%- _gbSum('position') %>>Position<%- _gbSumBtn('position') %></th>
               </tr>
             </thead>
 
@@ -1683,8 +1710,10 @@ input[type="number"].score-input-invalid {
                 <td><%= index + 1 %></td>
                 <!-- Numbering each row -->
                 <td><%= assessmentStudentName %></td>
-                <% assessments.forEach(function(assessment) { %>
-                <td>
+                <% assessments.forEach(function(assessment, _gbIndex) { %>
+                <% const _gbState = assessmentFlow && student.states ? student.states[assessment.assessment_id] : null; %>
+                <td<% if (assessmentFlow) { %> class="gb-cell<%= _gbIndex < _gbHideBefore ? ' gb-off' : '' %>" data-gb-col="<%= _gbIndex %>"<% } %>>
+                  <% if (_gbState) { %><span class="gb-dot gb-dot--<%= _gbState %>" title="<%= _gbState === 'posted' ? 'Posted: parents and the student see it' : (_gbState === 'new' ? 'New from the online test: waiting for your approval' : 'Waiting for your approval: parents don’t see it yet') %>"></span><% } %>
                   <% if (assessment.is_choice) { %>
                   <% const _picked = student.choices ? student.choices[assessment.assessment_id] : ''; %>
                   <select class="choice-input" name="scores[<%= student.student_id %>][<%= assessment.assessment_id %>]"
@@ -1710,17 +1739,17 @@ input[type="number"].score-input-invalid {
 
                 <% const _hasScores = Number.isFinite(parseFloat(student.total_percentage)); %>
                 <% const _position = parseInt(student.position, 10); %>
-                <td>
+                <td<%- _gbSum('raw') %>>
                   <%= _hasScores && Number.isFinite(parseFloat(student.total_subject_score)) ? parseFloat(student.total_subject_score).toFixed(2) : '-' %>
                 </td>
-                <td>
+                <td<%- _gbSum('scaled') %>>
                   <%= _hasScores ? `${(parseFloat(student.total_percentage) / 100 * scaleBase).toFixed(2)} / ${scaleBase}` : '-' %>
                 </td>
-                <td>
+                <td<%- _gbSum('percent') %>>
                   <%= _hasScores ? `${parseFloat(student.total_percentage).toFixed(2)} %` : '-' %>
                 </td>
-                <td><%= _hasScores && student.grade && student.grade !== '-' ? student.grade : '-' %></td>
-                <td>
+                <td<%- _gbSum('grade') %>><%= _hasScores && student.grade && student.grade !== '-' ? student.grade : '-' %></td>
+                <td<%- _gbSum('position') %>>
                   <%= _hasScores && Number.isFinite(_position) ? _position + getOrdinalSuffix(_position) : '-' %>
                 </td>
               </tr>
@@ -3311,5 +3340,6 @@ input[type="number"].score-input-invalid {
       })();
     </script>
   <% if (locals.featureOn && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script><% } %>
+  <% if (assessmentFlow) { %><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/gradebookFlow.js') %>" defer></script><% } %>
 </body>
 </html>

@@ -29,6 +29,7 @@ module.exports = [
           "Each subject with its scores, total, percentage, grade, position and remark.",
           "Attendance for the term, and the dates the term began and ends, and when school reopens.",
           "Teacher and principal comments, conduct and interest remarks, and signatures.",
+          "The promotion decision: <strong>Promoted To</strong> or <strong>Repeated In</strong> a class. Save it with the report; promotion uses it. See <a href=\"/legal/user-documentation/promote-students-and-manage-graduation\">Promotion</a>.",
         ],
         tip: "Generate one class first and check a few students' report cards before generating the whole school.",
       },
@@ -36,9 +37,9 @@ module.exports = [
     faq: [
       ["A subject is missing from a report card.", "Check the student is enrolled in that subject this term, and that its assessments have scores."],
       ["The grades look wrong.", "Check the grading scale in Report Settings and the assessment weights for the term."],
-      ["Can parents download report cards?", "Yes. Parents see published report cards in the parent portal."],
+      ["Can parents download report cards?", "Yes. See <a href=\"/legal/user-documentation/parent-grades-and-report-cards\">Grades and report cards</a> in the parent portal guides."],
     ],
-    related: ["report-settings", "report-card-templates", "merit-sheet", "configure-dynamic-grading-and-remarks", "grading-or-marking-assessment"],
+    related: ["report-settings", "report-card-templates", "merit-sheet", "configure-dynamic-grading-and-remarks", "promote-students-and-manage-graduation", "grading-or-marking-assessment"],
   },
   {
     slug: "report-settings",

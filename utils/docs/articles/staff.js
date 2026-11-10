@@ -74,7 +74,7 @@ module.exports = [
         table: [
           ["Group", "Permissions"],
           ["People", "Users / Employees (with Add Staff, Edit Staff &amp; Access, Hold &amp; Remove Staff), Manage Students (with Add, Edit and Delete Students, Enrollment, Graduates &amp; Alumni), Manage Guardians, See Contacts, Edit Contact Template"],
-          ["Academics", "Manage Classes &amp; Subjects, Manage Assessments &amp; Scores, Set Assessment Questions, Assess Other School Years, Mark Attendance, Manage School Records, Manage School Years &amp; Terms"],
+          ["Academics", "Manage Classes &amp; Subjects, Manage Assessments &amp; Scores (with Set Assessment Questions), Assess Other School Years, Mark Attendance, Manage School Records, Manage School Years &amp; Terms"],
           ["Admissions &amp; Promotions", "Approve Admissions, Approve Promotions, Manage Promotions"],
           ["Reports", "Manage Reports/Printing (with Terminal Reports, Report Builder, Report Settings), Generate Transcripts"],
           ["Communication", "Publish Events &amp; Announcements (with Announcements, Events), Mailroom, Use Mira (AI Assistant)"],

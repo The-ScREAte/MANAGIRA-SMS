@@ -115,7 +115,8 @@ const PERMISSION_OPTIONS = [
 
   { key: PERMISSIONS.MANAGE_CLASSES_SUBJECTS, label: "Manage Classes & Subjects", group: "Academics", description: "Create and change classes, subjects and graduation years" },
   { key: PERMISSIONS.MANAGE_ASSESSMENTS, label: "Manage Assessments & Scores", group: "Academics", description: "Create assessments and enter scores" },
-  { key: PERMISSIONS.SET_ASSESSMENT_QUESTIONS, label: "Set Assessment Questions", group: "Academics", description: "Write questions for online assessments" },
+  // Every question page and action also needs Manage Assessments, so it is a follow-up of it.
+  { key: PERMISSIONS.SET_ASSESSMENT_QUESTIONS, label: "Set Assessment Questions", parent: PERMISSIONS.MANAGE_ASSESSMENTS, features: ["Set Assessment Questions", "Assessment Questions"], description: "Write online tests for their classes, grade them and post the grades" },
   { key: PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS, label: "Assess Other School Years", group: "Academics", description: "Enter scores in the classroom for years other than the current one" },
   { key: PERMISSIONS.MARK_ATTENDANCE, label: "Mark Attendance", group: "Academics", description: "Mark attendance and run attendance reports" },
   { key: PERMISSIONS.MANAGE_RECORDS, label: "Manage School Records", group: "Academics", description: "See school years, statistics and the activity log" },
@@ -159,7 +160,7 @@ const PERMISSION_OPTIONS = [
 
   { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira", group: "Finance", description: "Fees and payments. Choose where they can work below", childrenRequired: "Choose Classroom PayGira, Main PayGira or both" },
   { key: PERMISSIONS.PAYGIRA_CLASSROOM, label: "Classroom PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "Only in the class dashboard: collect fees for bills given to them and sign off" },
-  { key: PERMISSIONS.PAYGIRA_WORKSPACE, label: "Main PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "The school-wide PayGira pages. Choose which ones below", childrenRequired: "Choose at least one PayGira page" },
+  { key: PERMISSIONS.PAYGIRA_WORKSPACE, label: "Main PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "School-wide billing: creating bills, recording payments, fee recovery, payouts and settings. Pick each one below", childrenRequired: "Choose at least one PayGira page" },
   { key: PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT, label: "Show in Management Tools", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Lists PayGira in their Management Tools menu", notAPage: true },
   { key: PERMISSIONS.PAYGIRA_OVERVIEW, label: "Overview", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Collection totals and outstanding balances" },
   { key: PERMISSIONS.PAYGIRA_BILLS, label: "Bill Management", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Create and edit bills, and send reminders" },
@@ -182,7 +183,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.SETTINGS_MIRA, label: "Mira Settings", parent: PERMISSIONS.MANAGE_SETTINGS, description: "Turn Mira on and choose who can use her" },
   { key: PERMISSIONS.SETTINGS_SERVICE_ACCOUNTS, label: "Service Accounts", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "API keys that reach school data" },
   // Decides who can get into the whole school: it only ever works for a Manager (ssoController.managersOnly).
-  { key: PERMISSIONS.MANAGE_SSO, label: "Single Sign-On", group: "Administration", highRisk: true, sandboxFeature: "sso", description: "Set up signing in through the school's own provider (SAML or OpenID Connect)" },
+  { key: PERMISSIONS.MANAGE_SSO, label: "Single Sign-On", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, sandboxFeature: "sso", description: "Signing in through the school's own provider (SAML or OpenID Connect). Works for Managers only" },
 ];
 
 const PERMISSION_BY_KEY = new Map(PERMISSION_OPTIONS.map((option) => [option.key, option]));
@@ -202,7 +203,6 @@ const HIGH_RISK_PERMISSIONS = new Set(PERMISSION_OPTIONS.filter((option) => opti
 // Mira depends on its integration being switched on instead.
 const PERMISSION_FEATURES = {
   [PERMISSIONS.MANAGE_ASSESSMENTS]: ["Assessment Tracking"],
-  [PERMISSIONS.SET_ASSESSMENT_QUESTIONS]: ["Set Assessment Questions", "Assessment Questions"],
   [PERMISSIONS.MARK_ATTENDANCE]: ["Attendance Tracking"],
   [PERMISSIONS.MANAGE_REPORTS]: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet", "Official School Transcript"],
   [PERMISSIONS.DRIVER_REPORT_BUILDER]: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet", "Official School Transcript"],
@@ -432,6 +432,8 @@ function expandUnsavedPermissions(normalizedRole, held) {
     if (option.key === PERMISSIONS.PAYGIRA_PAYOUTS && !held.includes(PERMISSIONS.MANAGE_BILLING)) return;
     if (option.key === PERMISSIONS.TRANSPORT_SETTINGS && !held.includes(PERMISSIONS.MANAGE_SETTINGS)) return;
     if (option.key === PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT && normalizedRole === "Teacher") return;
+    // It was its own permission before it was a follow-up: only those who held it keep it.
+    if (option.key === PERMISSIONS.SET_ASSESSMENT_QUESTIONS) return;
     expanded.add(option.key);
   });
   return [...expanded];
@@ -459,9 +461,15 @@ function resolvePermissionSelection(requested = []) {
 
 // What the form pre-selects for new Teachers and Supervisors: their everyday
 // permissions, leaving high-risk ones and Transportation for a manager to add.
-function rolePresetPermissions(role) {
-  return effectivePermissionsForRole(role, [])
+// With `questions` (the assessments flow), a new teacher also gets Set Assessment Questions,
+// so they can write online tests for their classes from the start.
+function rolePresetPermissions(role, { questions = false } = {}) {
+  const preset = effectivePermissionsForRole(role, [])
     .filter((key) => !HIGH_RISK_PERMISSIONS.has(key) && rootPermission(key) !== PERMISSIONS.MANAGE_TRANSPORTATION);
+  if (questions && preset.includes(PERMISSIONS.MANAGE_ASSESSMENTS) && !preset.includes(PERMISSIONS.SET_ASSESSMENT_QUESTIONS)) {
+    preset.push(PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+  }
+  return preset;
 }
 
 function getSuggestedPermissionsForRole(role) {

@@ -478,6 +478,18 @@ async function deleteField(db, organizationId, fieldId) {
 
 // ---------- Contact cards ----------
 
+// Of the requested keys, the ones that are really this school's parents and guardians.
+async function keysInSchool(db, organizationId, keys) {
+  const profileIds = keys.filter((k) => k.source === "profile").map((k) => k.id);
+  const legacyIds = keys.filter((k) => k.source === "legacy").map((k) => k.id);
+  const [profiles, legacy] = await Promise.all([
+    profileIds.length ? db.query("SELECT guardian_id FROM guardian_profiles WHERE organization_id = $1 AND guardian_id = ANY($2::int[])", [organizationId, profileIds]) : { rows: [] },
+    legacyIds.length ? db.query("SELECT guardian_id FROM guardians WHERE organization_id = $1 AND guardian_id = ANY($2::int[])", [organizationId, legacyIds]) : { rows: [] },
+  ]);
+  const ours = new Set([...profiles.rows.map((r) => `profile:${r.guardian_id}`), ...legacy.rows.map((r) => `legacy:${r.guardian_id}`)]);
+  return keys.filter((k) => ours.has(k.key));
+}
+
 async function readContact(db, organizationId, keys) {
   await ensureContactsSchema(db);
   const profileIds = keys.filter((k) => k.source === "profile").map((k) => k.id);
@@ -730,6 +742,7 @@ async function saveContact(db, organizationId, keys, body, userId) {
 }
 
 module.exports = {
+  keysInSchool,
   AUDIENCES,
   hasSharing,
   setSectionSharing,

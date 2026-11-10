@@ -3,6 +3,7 @@ const { BoundedMap } = require("./boundedMap");
 
 const { renderCleanEmail, sendEmailInBackground, escapeHtml } = require('./emailHelper');
 const { timeZoneOf, dateKeyIn } = require('./localDate');
+const { broadcastAudience, broadcastCondition } = require('./notificationAudience');
 
 let schemaReady = false;
 let birthdaySchemaReady = false;
@@ -556,6 +557,7 @@ async function getUnreadCount(db, context) {
 
     let baseCount = 0;
     if (recipientType === 'staff') {
+      const seen = broadcastCondition(await broadcastAudience(db, context), 3);
       const result = await db.query(
         `SELECT COUNT(*)::int AS cnt
          FROM notifications n
@@ -563,7 +565,7 @@ async function getUnreadCount(db, context) {
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
            AND (
              (n.recipient_type = 'staff' AND n.recipient_id = $2)
-             OR n.recipient_type = 'broadcast'
+             OR ${seen.sql}
            )
            AND NOT EXISTS (
              SELECT 1 FROM notification_reads nr
@@ -573,7 +575,7 @@ async function getUnreadCount(db, context) {
              SELECT 1 FROM notification_dismissals nd
              WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
            )`,
-        [orgId, recipientId]
+        [orgId, recipientId, ...seen.params]
       );
       baseCount = result.rows[0]?.cnt ?? 0;
       const birthdayItems = await getDynamicBirthdayItems(db, context);
@@ -615,6 +617,7 @@ async function getFeed(db, context) {
     const safeLimit = Math.min(Number.parseInt(limit, 10) || 20, 50);
 
     if (recipientType === 'staff') {
+      const seen = broadcastCondition(await broadcastAudience(db, context), 4);
       const result = await db.query(
         `SELECT n.*, (nr.reader_id IS NOT NULL) AS is_read
          FROM notifications n
@@ -624,7 +627,7 @@ async function getFeed(db, context) {
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
            AND (
              (n.recipient_type = 'staff' AND n.recipient_id = $2)
-             OR n.recipient_type = 'broadcast'
+             OR ${seen.sql}
            )
            AND NOT EXISTS (
              SELECT 1 FROM notification_dismissals nd
@@ -632,7 +635,7 @@ async function getFeed(db, context) {
            )
          ORDER BY n.created_at DESC
          LIMIT $3`,
-        [orgId, recipientId, safeLimit]
+        [orgId, recipientId, safeLimit, ...seen.params]
       );
       const birthdayItems = await getDynamicBirthdayItems(db, context);
       return [...birthdayItems, ...result.rows]
@@ -691,6 +694,7 @@ async function dismissAll(db, context) {
   try {
     await ensureSchema(db);
     if (recipientType === 'staff') {
+      const seen = broadcastCondition(await broadcastAudience(db, context), 3);
       await db.query(
         `INSERT INTO notification_dismissals (notification_id, dismisser_id)
          SELECT n.id, $2
@@ -699,10 +703,10 @@ async function dismissAll(db, context) {
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
            AND (
              (n.recipient_type = 'staff' AND n.recipient_id = $2)
-             OR n.recipient_type = 'broadcast'
+             OR ${seen.sql}
            )
          ON CONFLICT (notification_id, dismisser_id) DO NOTHING`,
-        [orgId, recipientId]
+        [orgId, recipientId, ...seen.params]
       );
       const birthdayItems = await getDynamicBirthdayItems(db, context);
       await markBirthdayItems(db, context, birthdayItems.map((item) => item.id), { dismiss: true });
@@ -747,6 +751,7 @@ async function markAllRead(db, context) {
   try {
     await ensureSchema(db);
     if (recipientType === 'staff') {
+      const seen = broadcastCondition(await broadcastAudience(db, context), 3);
       await db.query(
         `INSERT INTO notification_reads (notification_id, reader_id)
          SELECT n.id, $2
@@ -755,10 +760,10 @@ async function markAllRead(db, context) {
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
            AND (
              (n.recipient_type = 'staff' AND n.recipient_id = $2)
-             OR n.recipient_type = 'broadcast'
+             OR ${seen.sql}
            )
          ON CONFLICT (notification_id, reader_id) DO NOTHING`,
-        [orgId, recipientId]
+        [orgId, recipientId, ...seen.params]
       );
       const birthdayItems = await getDynamicBirthdayItems(db, context);
       await markBirthdayItems(db, context, birthdayItems.map((item) => item.id));
@@ -842,31 +847,31 @@ async function notifyPerClassTeachers(db, { orgId, classIds, type, title, body, 
   }
 }
 
+// Everyone on the school's staff who holds a permission (the same check as the
+// pages, plan included). Accepts the key ("approve_admissions") or its constant
+// name ("APPROVE_ADMISSIONS").
 async function notifyByPermission(db, { orgId, permission, type, title, body, link, refId }) {
   try {
-    const result = await db.query(
-      `SELECT DISTINCT u.user_id
-       FROM users u
-       WHERE u.organization_id = $1
-         AND u.on_hold IS NOT TRUE
-         AND (
-           u.account_type::text = 'Manager'
-           OR EXISTS (
-             SELECT 1 FROM user_permissions up
-             WHERE up.user_id = u.user_id
-               AND up.permission = $2
-               AND up.granted = TRUE
-           )
-         )`,
-      [orgId, permission]
+    const { PERMISSIONS, userHasPermission } = require('../middleware/permissionMiddleware');
+    const key = PERMISSIONS[permission] || permission;
+    const staff = await db.query(
+      `SELECT user_id, account_type::text AS role, email
+       FROM users
+       WHERE organization_id = $1
+         AND COALESCE(on_hold, FALSE) = FALSE`,
+      [orgId]
     );
-    const list = result.rows.map((r) => ({
+    const holders = [];
+    for (const u of staff.rows) {
+      const who = { userId: u.user_id, userRole: u.role, accountType: u.role, organizationId: orgId, userEmail: u.email };
+      if (await userHasPermission(db, who, key)) holders.push(u.user_id);
+    }
+    await createNotifications(db, holders.map((userId) => ({
       orgId,
       recipientType: 'staff',
-      recipientId: r.user_id,
+      recipientId: userId,
       type, title, body, link, refId,
-    }));
-    await createNotifications(db, list);
+    })));
   } catch (err) {
     console.error('[NotificationService] notifyByPermission failed:', err.message);
   }

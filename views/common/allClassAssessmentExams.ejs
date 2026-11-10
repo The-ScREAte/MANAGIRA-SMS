@@ -1126,7 +1126,7 @@
 
     .grade-modal {
       width: 100%;
-      max-width: 640px;
+      max-width: 760px;
       height: 100%;
       background: #fff;
       display: flex;
@@ -1249,7 +1249,7 @@
     .question-modal {
       position: relative;
       width: 100%;
-      max-width: 1060px;
+      max-width: 760px;
       height: 100%;
       min-height: 100%;
       max-height: 100%;
@@ -2820,6 +2820,22 @@
       }
     }
   </style>
+<% if (locals.assessmentFlow) { %>
+  <style>
+    /* The assessments flow: each set is one slim row across the page. */
+    .exam-grid, .assessment-group-list { grid-template-columns: 1fr; gap: 6px; }
+    .exam-card { min-height: 0; border-radius: 10px; }
+    .exam-summary { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 9px 44px 9px 14px; }
+    .exam-title { flex: 1 1 280px; }
+    .exam-title span { display: none; } /* the class and subject headings already say it */
+    .exam-meta-row { flex-direction: row; flex-wrap: wrap; width: auto; gap: 6px; }
+    .exam-meta-line { display: contents; }
+    .exam-summary-actions { margin-left: auto; justify-content: flex-end; gap: 12px; }
+    .set-actions-menu { top: 50%; transform: translateY(-50%); }
+    .class-group-divider { margin-bottom: 8px; }
+    .subject-group { margin-bottom: 10px; }
+  </style>
+<% } %>
 </head>
 <body>
   <div class="page-wrap">
@@ -3085,7 +3101,7 @@
                   <% const attemptsAllowed = Math.max(Number(setItem.max_attempts || 1), 1); %>
                   <span class="exam-pill">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                    <%= attemptsAllowed %> attempt<%= attemptsAllowed === 1 ? '' : 's' %>
+                    <%= attemptsAllowed >= 1000 ? 'Unlimited attempts' : attemptsAllowed + (attemptsAllowed === 1 ? ' attempt' : ' attempts') %>
                   </span>
                   <span class="exam-pill status-chip review-<%= reviewStatusKey %>"><%
                     if (reviewStatusKey === 'approved') { %><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg> Approved<%
@@ -3204,7 +3220,7 @@
           <div class="qm-topbar-icon">📋</div>
           <div>
             <h2 class="qm-topbar-title" id="question-modal-title">Create Questions</h2>
-            <p class="qm-topbar-sub">Fill in the details below and add your questions</p>
+            <% if (!locals.assessmentFlow) { %><p class="qm-topbar-sub">Fill in the details below and add your questions</p><% } %>
           </div>
         </div>
         <div class="qm-topbar-right">
@@ -4038,8 +4054,39 @@
           return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().toLowerCase();
         }
 
+        // The question's picture, with its numbered spots.
+        function gradePicture(question) {
+          var media = question.media;
+          if (!media || !media.image || !media.image.url) return '';
+          var spots = (media.labels || []).map(function (label, i) {
+            return '<span class="qbf-spot" style="left:' + (Number(label.x) * 100) + '%;top:' + (Number(label.y) * 100) + '%">' + (i + 1) + '</span>';
+          }).join('');
+          return '<div class="qbf-preview-pic"><div class="qbf-media__canvas" style="max-width:min(100%,360px)"><img src="' + escapeHtml(media.image.url) + '" alt="" />' + spots + '</div></div>';
+        }
+
         function renderGradeQuestionBody(question) {
           var type = String(question.questionType || '').toLowerCase();
+          if (type === 'image_label') {
+            var labels = (question.media && question.media.labels) || [];
+            var given = question.responseJson && Array.isArray(question.responseJson.values)
+              ? question.responseJson.values
+              : (question.responseText ? [question.responseText] : []);
+            var labelRows = labels.map(function (label, i) {
+              var answer = String(given[i] == null ? '' : given[i]).trim();
+              var accepted = String(label.answer || '').split('/').map(normalizeForCompare).filter(Boolean);
+              var right = Boolean(answer) && accepted.indexOf(normalizeForCompare(answer)) !== -1;
+              return '<div class="grade-option' + (right ? ' is-correct-answer' : '') + (answer ? ' is-student-answer' : '') + '">' +
+                '<span><strong>' + (i + 1) + '.</strong> ' + (answer ? escapeHtml(answer) : '<span class="student-subtle">No answer</span>') + '</span>' +
+                (right ? '<span class="grade-option-tag correct">Right</span>' : '<span class="grade-option-tag student">Expected: ' + escapeHtml(String(label.answer || '')) + '</span>') +
+                '</div>';
+            }).join('');
+            return gradePicture(question) + '<div class="grade-options">' + (labelRows || '<div class="grade-response-box">No spots on this picture.</div>') + '</div>';
+          }
+          var picture = gradePicture(question);
+          if (picture) {
+            var rest = renderGradeQuestionBody(Object.assign({}, question, { media: null }));
+            return picture + rest;
+          }
           var options = Array.isArray(question.options) ? question.options : [];
           var studentAnswerSet = Array.isArray(question.responseJson)
             ? question.responseJson.map(normalizeForCompare)
@@ -4342,6 +4389,7 @@
         if (normalized === 'single_choice') return 'Choose one';
         if (normalized === 'true_false') return 'True / False';
         if (normalized === 'essay') return 'Essay';
+        if (normalized === 'image_label') return 'Label the picture';
         return 'Short answer';
       }
 
@@ -4408,6 +4456,7 @@
                 '<span>' + String(question.marks) + ' mark' + (Number(question.marks) === 1 ? '' : 's') + '</span>' +
               '</div>' +
               '<div class="qm-preview-qtext">' + safeQuestionHtml + '</div>' +
+              (window.QuestionBuilderFlow ? window.QuestionBuilderFlow.previewMedia(rawQuestion.media) : '') +
               optionsMarkup +
               answersMarkup +
             '</div>'
@@ -4876,6 +4925,7 @@
             optionLayout: card.querySelector('.qm-options-layout-select')
               ? card.querySelector('.qm-options-layout-select').value
               : 'stacked',
+            media: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.mediaOf(card) : null,
           });
         });
 
@@ -4960,6 +5010,7 @@
               answerKeys: Array.isArray(q.answers)
                 ? q.answers
                 : (q.answer ? [q.answer] : []),
+              media: q.media || null,
             });
             questionItems.appendChild(card);
           });
@@ -5260,7 +5311,10 @@
           ? 'Editable'
           : 'Locked for editing (' + (selectedAssessmentRule.accessReason || 'Not editable') + ')';
 
-        questionAssessmentRules.textContent = 'Rules: ' + selectedAssessmentRule.title +
+        questionAssessmentRules.textContent = window.QuestionBuilderFlow
+          ? selectedAssessmentRule.title + ' · up to ' + selectedAssessmentRule.maxScore + ' marks · ' + selectedAssessmentRule.weight + '% of the grade' +
+            (selectedAssessmentRule.canEditScores ? '' : ' · ' + statusLabel)
+          : 'Rules: ' + selectedAssessmentRule.title +
           ' | Category: ' + selectedAssessmentRule.category +
           ' | Weight: ' + selectedAssessmentRule.weight + '%' +
           ' | Max score: ' + selectedAssessmentRule.maxScore +
@@ -5329,6 +5383,7 @@
         if (!questionModalOverlay) return;
         questionModalOverlay.classList.remove('show');
         questionModalOverlay.setAttribute('aria-hidden', 'true');
+        if (window.QuestionBuilderFlow) window.QuestionBuilderFlow.closed();
       }
 
       function appendOptionInput(optionList, optionValue) {
@@ -6149,6 +6204,7 @@
           updateQuestionCount();
         }, 0);
 
+        if (window.QuestionBuilderFlow) window.QuestionBuilderFlow.decorate(wrapper, question || {});
         return wrapper;
       }
 
@@ -6171,9 +6227,11 @@
             answers = answers.slice(0, 1);
           }
 
+          var typedText = String(item.querySelector('.question-text') ? item.querySelector('.question-text').value : '').trim();
           return {
             questionType: questionType,
-            questionText: String(item.querySelector('.question-text') ? item.querySelector('.question-text').value : '').trim(),
+            questionText: typedText || (questionType === 'image_label' ? 'Label the picture.' : ''),
+            media: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.mediaOf(item) : null,
             options: options,
             optionLayout: item.querySelector('.qm-options-layout-select')
               ? String(item.querySelector('.qm-options-layout-select').value || 'stacked')
@@ -6316,6 +6374,7 @@
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
           if (window.ParentResources) window.ParentResources.load(null);
+          if (window.QuestionBuilderFlow) window.QuestionBuilderFlow.loadSet(null);
           questionItems.appendChild(buildQuestionItem());
           setQuestionStatus('Create a new question set for this assessment.', false);
           renumberQuestionCards();
@@ -6345,6 +6404,7 @@
         }) || sets[0];
 
         currentQuestionSetId = selectedSet.questionSetId || currentQuestionSetId || null;
+        if (window.QuestionBuilderFlow) window.QuestionBuilderFlow.loadSet(selectedSet);
         if (questionSetTitleInput) questionSetTitleInput.value = selectedSet.setTitle || '';
         if (questionSetDescriptionInput) questionSetDescriptionInput.value = selectedSet.setDescription || '';
         if (window.ParentResources) window.ParentResources.load(selectedSet.questionSetId);
@@ -7619,6 +7679,7 @@
             setTitle: String(questionSetTitleInput ? questionSetTitleInput.value : '').trim(),
             setDescription: String(questionSetDescriptionInput ? questionSetDescriptionInput.value : '').trim(),
             questions: questions,
+            parentShare: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.parentShare() : undefined,
           };
 
           setQuestionStatus('Saving question set...', false);
@@ -7642,6 +7703,7 @@
             if (window.ParentResources) await window.ParentResources.afterSave(currentQuestionSetId);
             setQuestionStatus(questionModalMode === 'edit' ? 'Question set updated and submitted for review successfully.' : 'Question set submitted for review successfully.', false);
             clearDraft();
+            if (window.QuestionBuilderFlow && window.QuestionBuilderFlow.afterSave(result)) return;
             window.location.reload();
           } catch (error) {
             setQuestionStatus(error.message || 'Failed to save question set.', true);
@@ -7895,8 +7957,56 @@
           }
         });
       }
+
+      <% if (locals.assessmentFlow) { %>
+      // The assessments flow (public/js/questionBuilderFlow.js) works through these.
+      window.QuestionBuilderHooks = {
+        buildQuestionItem: buildQuestionItem,
+        renumberQuestionCards: renumberQuestionCards,
+        updateQuestionCount: updateQuestionCount,
+        saveDraft: saveDraft,
+        setQuestionStatus: setQuestionStatus,
+        openEditQuestionSet: openEditQuestionSet,
+        renderQuestionModalAssessments: renderQuestionModalAssessments,
+        questionItems: questionItems,
+        assessmentSelect: questionAssessmentSelect,
+        classSelect: questionClassSelect,
+        subjectSelect: questionSubjectSelect,
+        termSelect: questionTermSelect,
+        schoolYearSelect: questionSchoolYearSelect,
+        mode: function () { return questionModalMode; },
+        refreshRules: function () {
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
+        },
+        // A new set for one assessment, its class, subject and term already chosen.
+        openNew: async function (target) {
+          setQuestionModalMode('create');
+          openQuestionModal();
+          applyQuestionCardsLayoutMode('stacked');
+          renderQuestionModalSchoolYears();
+          if (target.schoolYearId && questionSchoolYearSelect) questionSchoolYearSelect.value = String(target.schoolYearId);
+          renderQuestionModalTerms();
+          if (target.termId && questionTermSelect) questionTermSelect.value = String(target.termId);
+          renderQuestionModalClasses();
+          if (target.classId && questionClassSelect) questionClassSelect.value = String(target.classId);
+          renderQuestionModalSubjects();
+          if (target.subjectId && questionSubjectSelect) questionSubjectSelect.value = String(target.subjectId);
+          await renderQuestionModalAssessments();
+          if (target.assessmentId && questionAssessmentSelect) questionAssessmentSelect.value = String(target.assessmentId);
+          currentQuestionSetId = null;
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
+          await hydrateQuestionModalFromServer();
+          renumberQuestionCards();
+          updateQuestionCount();
+        },
+      };
+      window.QuestionBuilderFlowConfig = <%- JSON.stringify({ open: locals.flowOpen || null, embedded: Boolean(isEmbedded), organizationId: Number(organizationId), termId: Number(termId), canCreateAssessments: Boolean(locals.canCreateAssessments), extras: Boolean(locals.questionExtras) }).replace(/</g, '\\u003c') %>;
+      <% } %>
     })();
   </script>
 <% if (locals.featureOn && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script><% } %>
+<% if (locals.assessmentFlow) { %><link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script><% } %>
 </body>
 </html>

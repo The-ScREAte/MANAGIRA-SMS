@@ -1,0 +1,127 @@
+<%# The Testing Room in the assessments flow: tests to take, tests locked for this student,
+    and finished ones with the grade once the teacher posts and shares it. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/testingRoom.css') %>">
+<%
+  const _open = Array.isArray(openAssessments) ? openAssessments : [];
+  const _done = Array.isArray(completedAssessments) ? completedAssessments : [];
+  const _locked = Array.isArray(locals.lockedAssessments) ? lockedAssessments : [];
+  const _startedAt = locals.startedAtByAssessment || {};
+  const _shared = locals.sharedResultByAssessment || {};
+  const _posted = locals.postedByAssessment || {};
+  const _term = selectedTerm ? [selectedTerm.term_name, selectedTerm.year_label].filter(Boolean).join(' · ') : '';
+  const _num = (value) => Number(Number(value || 0).toFixed(2));
+  const _initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const _hue = (name) => { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+  const _date = (value, withTime) => {
+    const d = value ? new Date(value) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-US', withTime ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' });
+  };
+%>
+<div class="tr" data-ap-skip>
+  <%- include('../partials/flash') %>
+
+  <header class="tr-head">
+    <h1>Testing Room</h1>
+    <% if (_term) { %><p><%= _term %></p><% } %>
+  </header>
+
+  <section class="tr-section" aria-labelledby="tr-available">
+    <div class="tr-section__head">
+      <h2 id="tr-available">Available</h2>
+      <span class="tr-count"><%= _open.length %></span>
+    </div>
+    <% if (!_open.length) { %>
+      <div class="tr-empty">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <p>You're all caught up. New tests from your teachers show up here.</p>
+      </div>
+    <% } else { %>
+      <ul class="tr-list">
+        <% _open.forEach((item) => { %>
+          <% const _minutes = Number(item.time_limit_minutes || 0); %>
+          <% const _maxAttempts = Math.max(Number(item.max_attempts || 1), 1); %>
+          <% const _resume = Boolean(_startedAt[item.assessment_id]) && item.open_book; %>
+          <li class="tr-row">
+            <span class="tr-badge" style="--tr-hue: <%= _hue(item.subject_name) %>" aria-hidden="true"><%= _initials(item.subject_name) %></span>
+            <div class="tr-row__main">
+              <p class="tr-row__title"><%= item.title %></p>
+              <p class="tr-row__sub"><%= item.subject_name %><% if (item.category) { %> · <%= item.category %><% } %></p>
+            </div>
+            <ul class="tr-facts" aria-label="Test details">
+              <li><%= Number(item.question_count || 0) %> question<%= Number(item.question_count || 0) === 1 ? '' : 's' %></li>
+              <% if (Number(item.max_score || 0) > 0) { %><li><%= _num(item.max_score) %> pts</li><% } %>
+              <li><%= _minutes > 0 ? _minutes + ' min' : 'Untimed' %></li>
+              <% if (_maxAttempts > 1) { %><li><%= Math.max(_maxAttempts - Number(item.submitted_attempts || 0), 0) %> of <%= _maxAttempts %> attempts left</li><% } %>
+              <li class="tr-tag <%= item.open_book ? 'tr-tag--open' : '' %>"><%= item.open_book ? 'Open book' : 'Closed book' %></li>
+              <% if (item.edit_window_end) { %><li class="tr-due">Due <%= _date(item.edit_window_end, true) %></li><% } %>
+            </ul>
+            <a class="tr-btn" data-no-spa href="/student/testing-room/<%= item.assessment_id %>?questionSetId=<%= Number(item.question_set_id || 0) %>"><%= _resume ? 'Resume' : 'Start' %></a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <% if (_locked.length) { %>
+  <section class="tr-section" aria-labelledby="tr-locked">
+    <div class="tr-section__head">
+      <h2 id="tr-locked">Locked</h2>
+      <span class="tr-count"><%= _locked.length %></span>
+    </div>
+    <ul class="tr-list">
+      <% _locked.forEach((item) => { %>
+        <li class="tr-row tr-row--locked">
+          <span class="tr-badge" style="--tr-hue: <%= _hue(item.subject_name) %>" aria-hidden="true"><%= _initials(item.subject_name) %></span>
+          <div class="tr-row__main">
+            <p class="tr-row__title"><%= item.title %></p>
+            <p class="tr-row__sub"><%= item.subject_name %><% if (item.category) { %> · <%= item.category %><% } %></p>
+          </div>
+          <p class="tr-note">You left this test before submitting. Ask your teacher to unlock it.</p>
+          <span class="tr-state tr-state--locked">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Locked
+          </span>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+  <% } %>
+
+  <section class="tr-section" aria-labelledby="tr-completed">
+    <div class="tr-section__head">
+      <h2 id="tr-completed">Completed</h2>
+      <span class="tr-count"><%= _done.length %></span>
+    </div>
+    <% if (!_done.length) { %>
+      <div class="tr-empty tr-empty--quiet"><p>Tests you submit appear here with your grade once your teacher posts it.</p></div>
+    <% } else { %>
+      <ul class="tr-list">
+        <% _done.forEach((item) => { %>
+          <% const _result = _shared[item.assessment_id]; %>
+          <li class="tr-row">
+            <span class="tr-badge" style="--tr-hue: <%= _hue(item.subject_name) %>" aria-hidden="true"><%= _initials(item.subject_name) %></span>
+            <div class="tr-row__main">
+              <p class="tr-row__title"><%= item.title %></p>
+              <p class="tr-row__sub"><%= item.subject_name %><% if (item.submitted_at) { %> · Submitted <%= _date(item.submitted_at) %><% } %></p>
+            </div>
+            <div class="tr-result">
+              <% if (_result) { %>
+                <span class="tr-grade"><%= _result.choice || (_num(_result.score) + ' / ' + _num(_result.maxScore)) %></span>
+              <% } else if (_posted[item.assessment_id]) { %>
+                <span class="tr-state tr-state--done">Graded</span>
+              <% } else { %>
+                <span class="tr-state">Awaiting grade</span>
+              <% } %>
+            </div>
+            <% if (_result && _result.full) { %>
+              <a class="tr-btn tr-btn--ghost" href="/student/testing-room/result/<%= _result.attemptId %>">Review</a>
+            <% } else { %>
+              <span class="tr-btn-space" aria-hidden="true"></span>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>

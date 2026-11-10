@@ -167,7 +167,7 @@ window.initPhoneCountryCombos = function initPhoneCountryCombos(root) {
     // The school's own country first (set in views/partials/head.ejs), when the list has it.
     const schoolIso2 = String(window.MANAGIRA_SCHOOL_COUNTRY || "").toUpperCase();
     const hasSchoolIso2 = schoolIso2 && window.MANAGIRA_DIAL_CODES.some((c) => c.iso2 === schoolIso2);
-    const defaultIso2 = (hasSchoolIso2 ? schoolIso2 : (combo.dataset.defaultIso2 || "GH")).toUpperCase();
+    const defaultIso2 = (hasSchoolIso2 ? schoolIso2 : (combo.dataset.defaultIso2 || "US")).toUpperCase();
     select.innerHTML = window.MANAGIRA_DIAL_CODES
       .map((c) => `<option value="${c.dial}" data-iso2="${c.iso2}">${c.name} (+${c.dial})</option>`)
       .join("");

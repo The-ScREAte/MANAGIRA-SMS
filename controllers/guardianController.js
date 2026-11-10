@@ -11,6 +11,7 @@ const {
   notifyStaffOnGuardianReply,
 } = require("../utils/notificationDigestService");
 const notifSvc = require("../utils/notificationService");
+const assessmentApproval = require("../utils/assessmentApproval");
 
 // Staff open a parent message through one link that picks the right place:
 // Mail Room's inbox for Mail Room users, the class's Parent Messages for teachers.
@@ -475,13 +476,15 @@ module.exports = {
         existing.subjectIds.push(subject.subject_id);
       });
 
-      // Assessments + scores for that term
+      // Assessments + scores for that term (with the assessments flow, only approved grades).
+      const gradeFlow = assessmentApproval.flowOn(organizationId);
       const assessmentsResult = await db.query(
         `
         SELECT DISTINCT ON (a.assessment_id)
           a.assessment_id, a.title, a.weight, a.max_score, a.category, a.subject_id,
-          ar.score,
-          ar.choice_label,
+          ${assessmentApproval.visibleScore("ar", gradeFlow)} AS score,
+          ${assessmentApproval.visibleChoice("ar", gradeFlow)} AS choice_label,
+          ${assessmentApproval.waitingSql("ar", gradeFlow)} AS grade_waiting,
           ar.total_subject_score,
           ar.total_percentage,
           COALESCE(
@@ -527,6 +530,7 @@ module.exports = {
         [studentId, organizationId, termId]
       );
 
+      assessmentApproval.hideWaitingTotals(assessmentsResult.rows);
       assessmentsResult.rows.forEach((assessment) => {
         // Subjects are grouped by name (see above), so find the group by its subject id.
         const subjectKey = subjectKeyById.get(assessment.subject_id);
@@ -1179,6 +1183,8 @@ module.exports = {
         (effectiveClassId === classId ? student.class_name : 'Not enrolled');
 
       // Everything that needs the class: teachers, subjects, scores, positions and the timetable.
+      // With the assessments flow, parents see only approved grades.
+      const gradeFlow2 = assessmentApproval.flowOn(organizationId);
       const [
         mainTeacherResult,
         subjectsResult,
@@ -1226,7 +1232,10 @@ module.exports = {
         // Assessments and scores for the term
         db.query(
           `SELECT DISTINCT ON (a.assessment_id) 
-           a.assessment_id, a.title, a.weight, ar.score, ar.choice_label, a.subject_id, a.max_score, a.category,
+           a.assessment_id, a.title, a.weight, ${assessmentApproval.visibleScore("ar", gradeFlow2)} AS score,
+           ${assessmentApproval.visibleChoice("ar", gradeFlow2)} AS choice_label,
+           ${assessmentApproval.waitingSql("ar", gradeFlow2)} AS grade_waiting,
+           a.subject_id, a.max_score, a.category,
            ar.total_subject_score,
            ar.total_percentage,
            COALESCE(
@@ -1320,6 +1329,7 @@ module.exports = {
         existing.subjectIds.push(subject.subject_id);
       });
 
+      assessmentApproval.hideWaitingTotals(assessmentsResult.rows);
       assessmentsResult.rows.forEach((assessment) => {
         const subjectKey = subjectKeyById.get(assessment.subject_id);
         if (!subjectKey || !subjectsMap.has(subjectKey)) return;

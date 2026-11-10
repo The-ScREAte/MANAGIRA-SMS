@@ -1,0 +1,61 @@
+<%# The gradebook's tools in the assessments flow (public/js/gradebookFlow.js): + Assessment,
+    one Filter at the far right (students, and how many assessments show), and the legend for
+    the dots. gbPlace: start | end | legend. %>
+<% if (gbPlace === 'start') { %>
+  <button type="button" class="gb-add" id="gb-add-assessment" title="Add an assessment (questions optional)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    <span>Assessment</span>
+  </button>
+<% } else if (gbPlace === 'end') { %>
+  <div class="gb-menu-wrap">
+    <button type="button" class="gb-chip" id="gb-filter-btn" aria-haspopup="true" aria-expanded="false" aria-controls="gb-filter-menu" title="Filter students and assessments">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z"/></svg>
+      <span id="gb-filter-label">Filter</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="gb-menu gb-menu--right" id="gb-filter-menu" role="menu" hidden>
+      <p class="gb-menu__title">Students</p>
+      <button type="button" role="menuitemradio" data-gb-students="all">All students</button>
+      <button type="button" role="menuitemradio" data-gb-students="male">Male</button>
+      <button type="button" role="menuitemradio" data-gb-students="female">Female</button>
+      <p class="gb-menu__title gb-menu__title--gap">Assessments</p>
+      <button type="button" role="menuitemradio" data-gb-last="">All <small>scroll for older ones</small></button>
+      <% [5, 4, 3, 2, 1].forEach(function (n) { %>
+      <button type="button" role="menuitemradio" data-gb-last="<%= n %>">Last <%= n %></button>
+      <% }) %>
+      <p class="gb-menu__note">Your assessments choice is remembered on any device.</p>
+    </div>
+    <select id="assessment-gender-filter" hidden aria-hidden="true" tabindex="-1">
+      <option value="all">All students</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+  </div>
+<% } else if (gbPlace === 'legend') { %>
+  <div class="gb-legend" aria-label="What the dots mean">
+    <span><i class="gb-dot gb-dot--posted"></i>Posted</span>
+    <span><i class="gb-dot gb-dot--waiting"></i>Needs approval</span>
+    <span><i class="gb-dot gb-dot--new"></i>New online result</span>
+    <% if ((locals.assessments || []).some(function (a) { return Number(a.waiting_count || 0) > 0; })) { %>
+    <span class="gb-legend__hint">Press <b>✓</b> to post new grades.</span>
+    <% } %>
+  </div>
+  <div class="gb-sum-pop" id="gb-sum-pop" role="menu" hidden>
+    <p class="gb-menu__title">Totals to show</p>
+    <% [['raw', 'Total subject score'], ['scaled', 'Scaled score'], ['percent', 'Total percentage'], ['grade', 'Grade'], ['position', 'Position']].forEach(function (col) { %>
+    <label class="gb-check"><input type="checkbox" data-gb-sum-toggle="<%= col[0] %>" <%= (gradebookPrefs.hidden || []).includes(col[0]) ? '' : 'checked' %> /> <span><%= col[1] %></span></label>
+    <% }) %>
+    <p class="gb-menu__note">Just for you; saved to your account.</p>
+  </div>
+  <script type="application/json" id="gb-config"><%- JSON.stringify({
+    organizationId: Number(organizationId),
+    termId: Number(currentTerm.term_id),
+    schoolYearId: schoolYearIdForTerm ? Number(schoolYearIdForTerm) : null,
+    classId: Number(classId),
+    subjectId: Number(subjectId),
+    className: className,
+    subjectName: subjectName,
+    canAddQuestions: Boolean(canAddQuestions),
+    view: { lastN: gradebookPrefs.lastN || null, hidden: gradebookPrefs.hidden || [] },
+  }).replace(/</g, '\\u003c') %></script>
+<% } %>

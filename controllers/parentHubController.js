@@ -12,6 +12,8 @@ const { getOpenAssessments, resolveCurrentStudentTermContext } = require("./stud
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const { getTransportationIntegrationStatus } = require("../utils/transportation");
 const { getClassScheduleForTerm } = require("../utils/classScheduleService");
+const assessmentApproval = require("../utils/assessmentApproval");
+const testResults = require("../utils/testResults");
 
 const HOMEWORK = /home\s*work|assignment|take[-\s]?home/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,6 +23,10 @@ const toId = (value) => {
 };
 const hubOn = (req) => features.isOn("parent_student_hub", { organizationId: req.session.organizationId });
 const activitiesOn = (req) => features.isOn("class_activities", { organizationId: req.session.organizationId });
+// Finished tests the teacher shared and posted (the assessments flow).
+const resultsFor = (req, db, child) => (assessmentApproval.flowOn(req.session.organizationId)
+  ? testResults.sharedResults(db, req.session.organizationId, child.id, { classId: child.classId, termId: child.termId }).catch(() => [])
+  : Promise.resolve([]));
 const hasQuestions = (res) => (res.locals.allowedFeatures || []).some((name) => /set assessment questions|assessment questions/i.test(String(name)));
 
 function backToDashboard(req, res, message) {
@@ -127,7 +133,10 @@ module.exports = {
         activitiesOn(req) ? listActivities(db, organizationId, { classIds: child.classId ? [child.classId] : [], from: today }) : [],
         getStudentTransportationSnapshot(db, organizationId, child.id).catch(() => null),
       ]);
-      const files = await parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id)));
+      const [files, results] = await Promise.all([
+        parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id))),
+        hasQuestions(res) ? resultsFor(req, db, child) : [],
+      ]);
       return res.json({
         success: true,
         transport,
@@ -135,7 +144,7 @@ module.exports = {
           activities: upcoming.length,
           homework: work.filter((row) => row.homework).length,
           testing: work.filter((row) => !row.homework).length,
-          documents: files.length,
+          documents: files.length + results.length,
         },
       });
     } catch (error) {
@@ -174,8 +183,20 @@ module.exports = {
   })),
 
   testingRoom: guard(hubOn, withChild(async (req, res, db, child) => {
-    const work = await openWorkFor(db, req.session.organizationId, child);
-    res.render("guardian/childList", { title: "Testing Room", child, mode: "work", work: work.filter((row) => !row.homework) });
+    const [work, results] = await Promise.all([openWorkFor(db, req.session.organizationId, child), resultsFor(req, db, child)]);
+    res.render("guardian/childList", { title: "Testing Room", child, mode: "work", work: work.filter((row) => !row.homework), results });
+  })),
+
+  // A finished test the teacher shared in full: questions, the child's answers, the right ones.
+  result: guard(hubOn, withChild(async (req, res, db, child) => {
+    const result = assessmentApproval.flowOn(req.session.organizationId)
+      ? await testResults.review(db, req.session.organizationId, child.id, toId(req.params.attemptId), res.locals.publicImageUrl)
+      : null;
+    if (!result) {
+      req.flash("error", "That test isn't shared yet.");
+      return res.redirect(`/guardian/child/testing-room?studentId=${child.id}`);
+    }
+    return res.render("guardian/childResult", { title: result.title, child, result });
   })),
 
   documents: guard(hubOn, withChild(async (req, res, db, child) => {
@@ -183,10 +204,12 @@ module.exports = {
     const sets = await parentResources.termSetsForChild(db, organizationId, child.id, child.classId, child.termId);
     const files = await parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id)));
     const setById = new Map(sets.map((row) => [Number(row.question_set_id), row]));
+    const results = await resultsFor(req, db, child);
     res.render("guardian/childList", {
-      title: "Assessment documents",
+      title: results.length ? "Documents & results" : "Assessment documents",
       child,
       mode: "documents",
+      results,
       files: files.map((file) => ({ ...file, title: setById.get(file.setId)?.title || "", subject: setById.get(file.setId)?.subject_name || "" })),
     });
   })),

@@ -443,30 +443,13 @@ async function _recordAndFanOutEmailFailure(db, orgId, email, reason, notificati
   const link = '/common/failedEmails';
   const dedupeHours = 12;
 
-  // Collect recipient IDs: affected user + all managers + all supervisors
+  // Only the member of staff whose own address failed is told here. Managers and
+  // supervisors already get the failure itself, with what the email was for
+  // (utils/notificationAudience.js decides who else sees it).
   const recipientRows = [];
-
-  // The affected user themselves (staff only — guardians don't see the management panel)
   if (userType === 'staff') {
     recipientRows.push({ recipientType: 'staff', recipientId: userId });
   }
-
-  // All managers and supervisors in the org
-  try {
-    const mgrRes = await db.query(
-      `SELECT user_id FROM users
-       WHERE organization_id = $1
-         AND LOWER(account_type) IN ('organization','admin','mini admin','supervisor','superviser','manager')
-         AND (deleted = false OR deleted IS NULL)
-       LIMIT 30`,
-      [orgId]
-    );
-    for (const row of mgrRes.rows) {
-      if (row.user_id !== userId) { // don't double-notify the affected user
-        recipientRows.push({ recipientType: 'staff', recipientId: row.user_id });
-      }
-    }
-  } catch (_) { /* non-fatal */ }
 
   // Deduplicate by recipientId
   const seen = new Set();

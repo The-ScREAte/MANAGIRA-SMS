@@ -25,7 +25,7 @@ tr.ux-row:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); 
 .ux-panel-backdrop { position: fixed; inset: 0; z-index: 12990; background: rgba(15, 23, 42, .28); }
 .ux-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 13000; width: min(400px, 100vw); display: flex; flex-direction: column; background: var(--ws-surface, #fff); color: var(--ws-text, #0f172a); border-left: 1px solid var(--ws-line, #e2e8f0); box-shadow: -18px 0 40px rgba(15, 23, 42, .18); transform: translateX(105%); transition: transform .22s ease, width .22s ease; }
 .ux-panel.is-open { transform: none; }
-.ux-panel.is-editing { width: min(720px, 100vw); }
+.ux-panel.is-editing { width: min(760px, 100vw); }
 .ux-panel__bar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--ws-line, #e2e8f0); }
 .ux-panel__bar strong { flex: 1 1 auto; min-width: 0; white-space: nowrap; font-size: 16px; }
 .ux-link[hidden] { display: none; }

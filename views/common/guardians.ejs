@@ -1,5 +1,7 @@
 <link rel="stylesheet" href="/css/manage.css" />
 <link rel="stylesheet" href="/css/peoplePanel.css" />
+<link rel="stylesheet" href="<%= assetUrl('/css/contactCard.css') %>" />
+<script src="<%= assetUrl('/js/contactCard.js') %>"></script>
 <script src="/js/manage.js" defer></script>
 <%
   const _name = (g) => (typeof formatDisplayName === 'function' ? formatDisplayName(g) : [g.first_name, g.last_name].filter(Boolean).join(' ').trim());
@@ -122,6 +124,7 @@
   </div>
   <div class="ux-panel__body" id="uxPanelBody"></div>
   <div class="ux-panel__edit" id="uxPanelEdit" hidden>
+    <div class="gx-card" id="uxCardBox" hidden></div>
     <div class="ux-panel__loading" id="uxEditLoading"><span class="emp-modal-spinner" aria-hidden="true"></span> Loading…</div>
     <iframe id="uxEditFrame" title="Parent details"></iframe>
   </div>
@@ -130,6 +133,13 @@
 
 <style>
   .ws-guardians .ws-person img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+  /* The contact card fills the drawer while editing. */
+  .gx-card { flex: 1; min-width: 0; min-height: 0; }
+  .gx-card[hidden], #uxEditFrame[hidden] { display: none; }
+  .gx-card .cc-head { padding: 16px 16px 0; flex-wrap: wrap; }
+  .gx-card .cc-actions { width: 100%; justify-content: flex-end; }
+  .gx-card .cc-tabs { padding-left: 16px; padding-right: 16px; }
+  .gx-card .cc-body { padding: 14px 16px 18px; }
   .gx-kid { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 13.5px; border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); }
   .gx-kid:last-child { border-bottom: 0; }
   .gx-kid span { color: var(--ws-muted, #64748b); font-size: 12.5px; text-align: right; }
@@ -210,12 +220,14 @@
       '<section class="ux-sec"><h3>Parent portal</h3>' + kv('Status', p.status) + kv('Sign-in email', p.loginEmail) + kv('Sign-in phone', p.loginPhone) + kv('Last sign-in', p.lastLogin) + '</section>' +
       '<div class="ux-actions">' +
         (canInvite ? '<button type="button" class="ws-btn" id="uxInvite"><i class="fa-solid fa-key" aria-hidden="true"></i> ' + (p.status === 'Active' ? 'Send password reset' : 'Send password setup') + '</button>' : '') +
+        '<button type="button" class="ws-btn" id="uxProfile"><i class="fa-solid fa-image" aria-hidden="true"></i> Photo &amp; children</button>' +
         '<button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit details</button>' +
       '</div><div id="uxNotice"></div>';
     get('uxPanelBody').innerHTML = html;
     var photo = get('uxPanelBody').querySelector('img.ux-avatar');
     if (photo) photo.addEventListener('error', function () { var s = document.createElement('span'); s.className = 'ux-avatar'; s.textContent = photo.getAttribute('data-initials'); photo.replaceWith(s); });
     get('uxEdit').addEventListener('click', function () { showEdit(p); });
+    get('uxProfile').addEventListener('click', function () { showProfile(p); });
     var invite = get('uxInvite');
     if (invite) invite.addEventListener('click', function () { sendSetup(p, invite); });
   }
@@ -243,9 +255,34 @@
     get('uxBack').hidden = !editing;
     get('uxPanelTitle').textContent = editing ? 'Edit parent / guardian' : 'Parent / guardian';
   }
+  // Edit details: the parent's contact card, with the school's own parent fields and Save.
+  var card = window.ManagiraContactCard ? window.ManagiraContactCard.create(get('uxCardBox'), {
+    onClose: function () { leaveEdit(); },
+    onSaved: function () { dirty = true; }
+  }) : null;
   function showEdit(p) {
+    if (!card) { showProfile(p); return; }
+    setMode(true);
+    get('uxPanel').classList.add('is-card');
+    get('uxEditFrame').hidden = true;
+    get('uxEditLoading').style.display = 'none';
+    get('uxCardBox').hidden = false;
+    card.open({ keys: [p.key], guardianName: p.name });
+  }
+  function leaveEdit() {
+    setMode(false);
+    get('uxPanel').classList.remove('is-card');
+    get('uxCardBox').hidden = true;
+    get('uxEditFrame').removeAttribute('src');
+    if (dirty) { dirty = false; window.location.reload(); }
+  }
+  // Photo & children: the full details page, for the photo and linking children.
+  function showProfile(p) {
     var frame = get('uxEditFrame'), loading = get('uxEditLoading');
     setMode(true);
+    get('uxPanel').classList.remove('is-card');
+    get('uxCardBox').hidden = true;
+    frame.hidden = false;
     frame.style.visibility = 'hidden';
     loading.style.display = 'flex';
     frame.onload = function () {
@@ -275,7 +312,9 @@
     get('uxClose').focus();
   }
   function close() {
-    get('uxPanel').classList.remove('is-open', 'is-editing');
+    if (card && card.isOpen() && card.isDirty() && !window.confirm('Discard the changes to this contact?')) return;
+    get('uxPanel').classList.remove('is-open', 'is-editing', 'is-card');
+    get('uxCardBox').hidden = true;
     get('uxPanel').setAttribute('aria-hidden', 'true');
     get('uxBackdrop').hidden = true;
     get('uxEditFrame').removeAttribute('src');
@@ -287,7 +326,10 @@
   }
   get('uxClose').addEventListener('click', close);
   get('uxBackdrop').addEventListener('click', close);
-  get('uxBack').addEventListener('click', function () { setMode(false); get('uxEditFrame').removeAttribute('src'); if (dirty) { dirty = false; window.location.reload(); } });
+  get('uxBack').addEventListener('click', function () {
+    if (card && card.isOpen()) { card.requestClose(); return; }
+    leaveEdit();
+  });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && get('uxPanel').classList.contains('is-open')) close(); });
   window.addEventListener('message', function (event) {
     if (event.origin === window.location.origin && event.data && event.data.managiraDrawerSaved) dirty = true;

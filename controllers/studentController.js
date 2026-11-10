@@ -11,6 +11,8 @@ const {
 } = require("../utils/attendanceCalendar");
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const features = require("../utils/shards/features");
+const assessmentApproval = require("../utils/assessmentApproval");
+const questionMedia = require("../utils/questionMedia");
 const { listActivities } = require("../utils/classActivities");
 
 const STUDENT_TESTING_ROOM_FEATURE_NAMES = [
@@ -302,6 +304,12 @@ function resolveChoiceAnswerKey(question) {
 function evaluateResponse(question, rawResponse) {
   const questionType = String(question.question_type || "short_text").toLowerCase();
   const marks = Number(question.marks || 0);
+
+  // "Label the picture": a share of the marks for each spot answered right.
+  if (questionType === "image_label") {
+    const marked = questionMedia.markLabels(question, rawResponse);
+    return { isCorrect: marked.isCorrect, awardedMarks: marked.awardedMarks, normalizedResponse: marked.values };
+  }
 
   if (["essay", "matching"].includes(questionType)) {
     return { isCorrect: null, awardedMarks: 0, normalizedResponse: rawResponse };
@@ -650,6 +658,68 @@ async function getCompletedAssessments(db, organizationId, studentId, classId, t
   return completedResult.rows;
 }
 
+// The Testing Room (assessments flow): tests locked for this student that they haven't
+// submitted (left a secure test), when each unfinished attempt was started (Resume), and
+// which finished tests have a posted grade (the rest still wait for the teacher).
+async function getTestingRoomExtras(db, organizationId, studentId, classId, termId) {
+  if (!classId || !termId) return { locked: [], startedAt: {}, posted: {} };
+  const [locked, started, posted] = await Promise.all([
+    db.query(
+      `SELECT a.assessment_id, a.title, a.category, s.subject_name
+         FROM student_assessment_lock_overrides salo
+         JOIN assessments a ON a.assessment_id = salo.assessment_id AND a.organization_id = salo.organization_id
+         JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
+        WHERE salo.organization_id = $1 AND salo.student_id = $2 AND salo.is_locked = TRUE
+          AND a.class_id = $3 AND a.term_id = $4 AND COALESCE(a.is_active, TRUE) = TRUE
+          AND (a.edit_window_end IS NULL OR a.edit_window_end >= NOW())
+          AND NOT EXISTS (
+            SELECT 1 FROM student_assessment_attempts saa
+             WHERE saa.organization_id = $1 AND saa.student_id = $2
+               AND saa.assessment_id = a.assessment_id AND saa.status = 'submitted'
+          )
+        ORDER BY s.subject_name, a.title`,
+      [organizationId, studentId, classId, termId]
+    ),
+    db.query(
+      `SELECT assessment_id, MAX(started_at) AS started_at
+         FROM student_assessment_attempts
+        WHERE organization_id = $1 AND student_id = $2 AND class_id = $3 AND term_id = $4
+          AND status = 'in_progress' AND started_at IS NOT NULL
+        GROUP BY assessment_id`,
+      [organizationId, studentId, classId, termId]
+    ),
+    db.query(
+      `SELECT assessment_id FROM assessment_results
+        WHERE organization_id = $1 AND student_id = $2 AND class_id = $3 AND term_id = $4
+          AND pending_since IS NULL AND (score IS NOT NULL OR choice_label IS NOT NULL)`,
+      [organizationId, studentId, classId, termId]
+    ),
+  ]);
+  return {
+    locked: locked.rows,
+    startedAt: Object.fromEntries(started.rows.map((row) => [row.assessment_id, row.started_at])),
+    posted: Object.fromEntries(posted.rows.map((row) => [row.assessment_id, true])),
+  };
+}
+
+// A timed test still takes answers this long after time runs out (the last save on the
+// way, a slow connection). Later than that, only what was saved in time counts.
+const TIME_LIMIT_GRACE_MS = 2 * 60 * 1000;
+const pastTimeLimit = (startedAt, minutes, graceMs = 0) => {
+  const limit = Number(minutes || 0);
+  if (!startedAt || !Number.isFinite(limit) || limit <= 0) return false;
+  return Date.now() > new Date(startedAt).getTime() + limit * 60 * 1000 + graceMs;
+};
+
+// How an open-book resource shows beside the questions: a PDF in a frame, a picture as
+// itself, anything else as a link that opens it in a new tab.
+function resourceKind(name) {
+  const ext = String(name || "").toLowerCase().split(".").pop();
+  if (ext === "pdf") return "pdf";
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "image";
+  return "file";
+}
+
 module.exports = {
   dashboardGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
@@ -711,6 +781,8 @@ module.exports = {
       req.session.currentTermId = selectedTerm.term_id;
 
       const effectiveClassId = enrolledClassId || student.class_id;
+      // With the assessments flow, the student sees only approved grades.
+      const gradeFlow = assessmentApproval.flowOn(organizationId);
       const [mainTeacherResult, subjectTeachersResult, subjectsResult, gradeAssessmentHeadersResult, assessmentGradesResult, assessmentPositionsResult, attendanceResult, classSchedule, openAssessments] = await Promise.all([
         effectiveClassId
           ? db.query(
@@ -744,10 +816,10 @@ module.exports = {
           : { rows: [] },
         db.query(
           `SELECT subj.subject_id, subj.subject_name,
-                  COALESCE(SUM(ar.score), 0) AS total_score,
+                  COALESCE(SUM(${assessmentApproval.visibleScore("ar", gradeFlow)}), 0) AS total_score,
                   COALESCE(SUM(a.max_score), 0) AS total_max_score,
-                  MAX(ar.total_percentage) AS total_percentage,
-                  MAX(ar.grade) AS grade
+                  CASE WHEN BOOL_OR(${assessmentApproval.waitingSql("ar", gradeFlow)}) THEN NULL ELSE MAX(ar.total_percentage) END AS total_percentage,
+                  CASE WHEN BOOL_OR(${assessmentApproval.waitingSql("ar", gradeFlow)}) THEN NULL ELSE MAX(ar.grade) END AS grade
              FROM student_subjects_in_term($3::int) ss
              JOIN subjects subj ON subj.subject_id = ss.subject_id AND subj.organization_id = ss.organization_id
              LEFT JOIN assessments a
@@ -792,8 +864,8 @@ module.exports = {
                       a.category,
                       a.max_score,
                       COALESCE(a.scale_base, 100) AS scale_base,
-                      ar.score,
-                      ar.choice_label
+                      ${assessmentApproval.visibleScore("ar", gradeFlow)} AS score,
+                      ${assessmentApproval.visibleChoice("ar", gradeFlow)} AS choice_label
                  FROM student_subjects_in_term($3::int) ss
                  JOIN subjects subj
                    ON subj.subject_id = ss.subject_id
@@ -1099,24 +1171,55 @@ module.exports = {
 
       req.session.currentTermId = selectedTerm.term_id;
       const effectiveClassId = enrolledClassId || student.class_id;
-      const [openAssessments, completedAssessments] = await Promise.all([
+      // The assessments flow: a finished test shows its grade once the teacher posts it and
+      // chose to share it (and the questions with answers, when shared in full).
+      const resultsFlow = assessmentApproval.flowOn(organizationId);
+      const [openAssessments, completedAssessments, sharedResults, extras] = await Promise.all([
         getOpenAssessments(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id),
         getCompletedAssessments(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id),
+        resultsFlow
+          ? require("../utils/testResults").sharedResults(db, organizationId, Number(studentId), { classId: effectiveClassId, termId: selectedTerm.term_id }).catch(() => [])
+          : [],
+        resultsFlow ? getTestingRoomExtras(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id) : null,
       ]);
 
-      res.render("student/testingRoom", {
+      res.render(resultsFlow ? "student/testingRoomNext" : "student/testingRoom", {
+        lockedAssessments: extras ? extras.locked : [],
+        startedAtByAssessment: extras ? extras.startedAt : {},
+        postedByAssessment: extras ? extras.posted : {},
         title: "Testing Room",
         student,
         terms: [selectedTerm],
         selectedTerm,
         openAssessments,
         completedAssessments,
+        resultsFlow,
+        sharedResultByAssessment: Object.fromEntries(sharedResults.map((row) => [row.assessmentId, row])),
         messages: req.flash(),
       });
     } catch (error) {
       console.error("[TestingRoom]", error.message || error);
       req.flash("error", "Could not load testing room.");
       return res.redirect("/student/dashboard");
+    }
+  },
+
+  // A finished test the teacher shared in full: questions, the student's answers, the right ones.
+  testResultGet: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId);
+    try {
+      const result = assessmentApproval.flowOn(organizationId)
+        ? await require("../utils/testResults").review(db, organizationId, Number(req.session.studentId), Number.parseInt(req.params.attemptId, 10), res.locals.publicImageUrl)
+        : null;
+      if (!result) {
+        req.flash("error", "That test isn't shared yet.");
+        return res.redirect("/student/testing-room");
+      }
+      return res.render("student/testResult", { title: result.title, result });
+    } catch (error) {
+      console.error("[Test result]", error.message || error);
+      req.flash("error", "That test couldn't be opened.");
+      return res.redirect("/student/testing-room");
     }
   },
 
@@ -1236,13 +1339,8 @@ module.exports = {
            FROM assessment_question_sets
           WHERE organization_id = $1
             AND assessment_id = $2
-            AND (
-              ($3::int IS NOT NULL AND question_set_id = $3)
-              OR (
-                $3::int IS NULL
-                AND (retake_student_id IS NULL OR retake_student_id = $4)
-              )
-            )
+            AND ($3::int IS NULL OR question_set_id = $3)
+            AND (retake_student_id IS NULL OR retake_student_id = $4)
             AND LOWER(COALESCE(review_status, 'pending')) = 'approved' AND COALESCE(is_active, TRUE)
           ORDER BY
             CASE WHEN retake_student_id = $4 THEN 0 ELSE 1 END,
@@ -1305,7 +1403,8 @@ module.exports = {
       const questionSet = questionSetResult.rows[0];
 
       const questionsResult = await db.query(
-        `SELECT question_id, question_type, question_text, options_json, marks, position_index
+        `SELECT question_id, question_type, question_text, options_json, marks, position_index,
+                ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"}
            FROM assessment_questions
           WHERE question_set_id = $1
           ORDER BY position_index ASC, question_id ASC`,
@@ -1382,8 +1481,13 @@ module.exports = {
         return acc;
       }, {});
 
-      res.render("student/takeAssessment", {
-        title: "Take Assessment",
+      const examFlow = assessmentApproval.flowOn(organizationId);
+      const resources = assessment.open_book && examFlow
+        ? (await require("../utils/parentResources").filesForSets(db, organizationId, [Number(questionSet.question_set_id)]).catch(() => []))
+          .map((file) => ({ ...file, kind: resourceKind(file.name) }))
+        : [];
+      res.render(examFlow ? "student/takeAssessmentNext" : "student/takeAssessment", {
+        title: examFlow ? `${assessment.title} · ${assessment.subject_name}` : "Take Assessment",
         student,
         assessment,
         maxAttempts,
@@ -1397,18 +1501,49 @@ module.exports = {
             allowedTags: ["b", "strong", "i", "em", "u", "br", "sub", "sup", "p"],
             allowedAttributes: {},
           }),
+          // The picture (and its numbered spots, never their answers).
+          media: questionMedia.forDisplay(q.media_json, res.locals.publicImageUrl),
+          media_json: undefined,
         })),
+        // An open-book test shows the resources the teacher attached.
+        resources,
         attemptId,
         attemptStartedAt: attemptResult.rows[0]?.started_at || null,
         responsesByQuestionId,
         messages: req.flash(),
         hideGlobalFooter: true,
         hideGlobalChatbot: true,
+        // The new exam screen has its own bar, and its panes fill the window exactly.
+        hideGlobalHeader: examFlow,
+        disableMainZoom: examFlow,
       });
     } catch (error) {
       console.error("[TakeAssessment]", error.message || error);
       req.flash("error", "Could not open assessment.");
       return res.redirect("/student/testing-room");
+    }
+  },
+
+  // A resource the teacher attached, opened during an open-book test that is open to this
+  // student (the assessments flow).
+  testingRoomResourceGet: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId);
+    const studentId = Number(req.session.studentId);
+    const assessmentId = Number.parseInt(req.params.assessmentId, 10);
+    const fileId = Number.parseInt(req.params.fileId, 10);
+    const back = () => res.redirect(Number.isInteger(assessmentId) ? `/student/testing-room/${assessmentId}` : "/student/testing-room");
+    try {
+      if (!assessmentApproval.flowOn(organizationId) || !Number.isInteger(assessmentId) || !Number.isInteger(fileId)) return back();
+      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(db, organizationId, studentId);
+      const open = await getOpenAssessments(db, organizationId, studentId, enrolledClassId, selectedTerm && selectedTerm.term_id);
+      const test = open.find((row) => Number(row.assessment_id) === assessmentId);
+      if (!test || !test.open_book) return back();
+      const file = await require("../utils/parentResources").fileById(db, organizationId, fileId);
+      if (!file || Number(file.question_set_id) !== Number(test.question_set_id)) return back();
+      return res.redirect(file.file_url);
+    } catch (error) {
+      console.error("[Testing room] resource:", error.message);
+      return back();
     }
   },
 
@@ -1664,7 +1799,7 @@ module.exports = {
     const studentId = req.session.studentId;
     const assessmentId = Number(req.params.assessmentId);
     const attemptId = Number(req.body.attemptId);
-    const responses = req.body.responses || {};
+    let responses = req.body.responses && typeof req.body.responses === "object" ? req.body.responses : {};
 
     if (!Number.isInteger(assessmentId) || assessmentId <= 0 || !Number.isInteger(attemptId) || attemptId <= 0) {
       req.flash("error", "Invalid assessment submission.");
@@ -1738,8 +1873,12 @@ module.exports = {
             AND COALESCE(is_active, TRUE) = TRUE
             AND (edit_window_start IS NULL OR edit_window_start <= NOW())
             AND (edit_window_end IS NULL OR edit_window_end >= NOW())
+            AND EXISTS (
+              SELECT 1 FROM student_subjects ss
+               WHERE ss.organization_id = $2 AND ss.student_id = $5 AND ss.subject_id = assessments.subject_id
+            )
           LIMIT 1`,
-        [assessmentId, organizationId, effectiveClassId, selectedTerm.term_id]
+        [assessmentId, organizationId, effectiveClassId, selectedTerm.term_id, studentId]
       );
 
       if (!assessmentResult.rows.length) {
@@ -1803,7 +1942,8 @@ module.exports = {
       }
 
       const questionsResult = await client.query(
-        `SELECT question_id, question_type, answer_key, marks, options_json
+        `SELECT question_id, question_type, answer_key, marks, options_json,
+                ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"}
            FROM assessment_questions
           WHERE question_set_id = $1
           ORDER BY position_index ASC, question_id ASC`,
@@ -1814,6 +1954,18 @@ module.exports = {
         await client.query("ROLLBACK");
         req.flash("error", "No questions were found for this attempt.");
         return res.redirect("/student/testing-room");
+      }
+
+      // Sent well after the time limit: only the answers saved in time count.
+      if (pastTimeLimit(attempt.started_at, timeLimitMinutes, TIME_LIMIT_GRACE_MS)) {
+        const saved = await client.query(
+          `SELECT question_id, response_text, response_json FROM student_assessment_responses WHERE attempt_id = $1`,
+          [attemptId]
+        );
+        responses = Object.fromEntries(saved.rows.map((row) => [
+          String(row.question_id),
+          row.response_json && Array.isArray(row.response_json.values) ? row.response_json.values : (row.response_text || ""),
+        ]));
       }
 
       let autoScore = 0;
@@ -1898,7 +2050,17 @@ module.exports = {
 
       await client.query("COMMIT");
 
-      const completionMessage = remainingAttempts > 0
+      // The assessments flow: the result goes on the gradebook as new, and the teacher checks
+      // it and posts the grade. Until then the student isn't shown a score.
+      const approvalFlow = assessmentApproval.flowOn(organizationId);
+      if (approvalFlow) {
+        await assessmentApproval.placeOnlineResult(db, { organizationId: Number(organizationId), attemptId })
+          .catch((error) => console.error("[SubmitAssessment] gradebook:", error.message));
+      }
+
+      const completionMessage = approvalFlow
+        ? `Submitted. Your teacher will check it and post your grade.${remainingAttempts > 0 ? ` Attempts left: ${remainingAttempts}.` : ""}`
+        : remainingAttempts > 0
         ? `Assessment completed successfully. Score: ${autoScore.toFixed(2)} / ${maxScore.toFixed(2)}. Attempts left: ${remainingAttempts}.`
         : `Assessment completed successfully. Score: ${autoScore.toFixed(2)} / ${maxScore.toFixed(2)}. Attempt limit reached.`;
 
@@ -1942,7 +2104,7 @@ module.exports = {
       }
 
       const assessmentScopeResult = await client.query(
-        `SELECT assessment_id
+        `SELECT assessment_id, time_limit_minutes
            FROM assessments
           WHERE assessment_id = $1
             AND organization_id = $2
@@ -1968,7 +2130,7 @@ module.exports = {
       }
 
       const attemptResult = await client.query(
-        `SELECT attempt_id, question_set_id, status
+        `SELECT attempt_id, question_set_id, status, started_at
            FROM student_assessment_attempts
           WHERE attempt_id = $1
             AND organization_id = $2
@@ -1989,6 +2151,21 @@ module.exports = {
         return res.status(409).json({ success: false, error: "This attempt can no longer be edited." });
       }
 
+      if (pastTimeLimit(attempt.started_at, assessmentScopeResult.rows[0].time_limit_minutes, TIME_LIMIT_GRACE_MS)) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "Time is up. Your saved answers are kept." });
+      }
+
+      const lockResult = await client.query(
+        `SELECT 1 FROM student_assessment_lock_overrides
+          WHERE organization_id = $1 AND student_id = $2 AND assessment_id = $3 AND is_locked = TRUE`,
+        [organizationId, studentId, assessmentId]
+      );
+      if (lockResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ success: false, error: "This test is locked. Ask your teacher to unlock it." });
+      }
+
       const questionsResult = await client.query(
         `SELECT question_id
            FROM assessment_questions
@@ -2005,14 +2182,15 @@ module.exports = {
       for (const questionId of allowedQuestionIds) {
         const raw = responses[questionId] ?? "";
         const isArrayResponse = Array.isArray(raw);
+        // Kept in order, blanks included: a "label the picture" answer belongs to its numbered spot.
         const normalizedArray = isArrayResponse
-          ? raw.map((value) => String(value || "").trim()).filter(Boolean)
+          ? raw.slice(0, 50).map((value) => String(value || "").trim().slice(0, 2000))
           : [];
         const normalizedText = isArrayResponse
-          ? normalizedArray.join(",")
+          ? normalizedArray.filter(Boolean).join(",")
           : String(raw || "").trim();
 
-        if ((!isArrayResponse && !normalizedText) || (isArrayResponse && !normalizedArray.length)) {
+        if (!normalizedText) {
           continue;
         }
 

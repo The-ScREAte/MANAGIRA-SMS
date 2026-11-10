@@ -137,6 +137,9 @@
   }
 
   .mira-access-table { width: 100%; border-collapse: collapse; }
+  .mira-access-status { min-height: 1.2em; margin: 0 0 8px; font-size: 0.84rem; color: #64748b; }
+  .mira-access-status.is-ok { color: #047857; }
+  .mira-access-status.is-error { color: #b91c1c; }
   .mira-access-table th, .mira-access-table td { text-align: left; padding: 11px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
   .mira-access-table thead tr { background: color-mix(in srgb, var(--org-primary-color, #01535b) 6%, white); }
   .mira-access-table th { color: var(--org-primary-color, #475569); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -304,90 +307,42 @@
       </span>
       <h2>Who can open Mira</h2>
     </div>
-    <p>Checked means active. Use Edit next to a person to change what they can do, including turning access on or off.</p>
+    <p>Turn Mira on or off for each person. Mira only ever does what that person's own permissions allow; those are set on <a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Users / Employees</a>.</p>
+    <p class="mira-access-status" id="mira-access-status" role="status" aria-live="polite"></p>
 
     <table class="mira-access-table">
       <thead>
         <tr>
-          <th style="width:40px;"></th>
           <th>Name</th>
           <th>Role</th>
           <th>Email</th>
-          <th style="width:70px;"></th>
+          <th style="width:110px;">Can open Mira</th>
         </tr>
       </thead>
       <tbody id="mira-access-tbody">
         <% if (!employees || employees.length === 0) { %>
-          <tr><td colspan="5" class="mira-empty-state">No employees found for this school yet.</td></tr>
+          <tr><td colspan="4" class="mira-empty-state">No employees found for this school yet.</td></tr>
         <% } else { %>
           <% employees.forEach(function(employee) { %>
+            <% const _miraName = [employee.firstName, employee.lastName].filter(Boolean).join(' ') || 'Unnamed'; %>
             <tr data-user-row="<%= employee.userId %>">
               <td>
-                <input
-                  type="checkbox"
-                  disabled
-                  data-user-checkbox="<%= employee.userId %>"
-                  <%= employee.canUseMira ? 'checked' : '' %>
-                  title="<%= employee.canUseMira ? 'Can open Mira' : 'Cannot open Mira' %>"
-                />
-              </td>
-              <td>
-                <%= [employee.firstName, employee.lastName].filter(Boolean).join(' ') || 'Unnamed' %>
+                <%= _miraName %>
                 <% if (employee.isOwner) { %><span class="mira-owner-tag">Owner</span><% } %>
               </td>
               <td><%= employee.accountType || '' %></td>
               <td><%= employee.email || '' %></td>
               <td>
-                <button
-                  type="button"
-                  class="mira-edit-btn"
-                  data-mira-edit-user="<%= employee.userId %>"
-                  data-mira-edit-name="<%= [employee.firstName, employee.lastName].filter(Boolean).join(' ') || 'Unnamed' %>"
-                >Edit</button>
+                <label class="mira-switch" title="Can open Mira">
+                  <input type="checkbox" data-mira-access="<%= employee.userId %>" data-mira-name="<%= _miraName %>" aria-label="<%= _miraName %> can open Mira" <%= employee.canUseMira ? 'checked' : '' %> />
+                  <span class="mira-switch-slider"></span>
+                </label>
               </td>
             </tr>
           <% }); %>
         <% } %>
       </tbody>
     </table>
-  </div>
-</div>
-
-<div class="mira-modal-overlay" id="mira-edit-modal">
-  <div class="mira-modal-card">
-    <button type="button" class="mira-modal-close" id="mira-edit-modal-close" aria-label="Close">&times;</button>
-    <div class="mira-modal-head">
-      <span class="mira-modal-avatar" id="mira-edit-modal-avatar">?</span>
-      <h3 id="mira-edit-modal-title">Mira access</h3>
-    </div>
-    <p class="mira-modal-subtitle" id="mira-edit-modal-subtitle">What this person can do through Mira.</p>
-
-    <div class="mira-toggle-row">
-      <div>
-        <div class="label">Can open Mira</div>
-        <div class="sub">Turn off to hide Mira from their menu entirely.</div>
-      </div>
-      <label class="mira-switch">
-        <input type="checkbox" id="mira-edit-can-use" />
-        <span class="mira-switch-slider"></span>
-      </label>
-    </div>
-
-    <p class="mira-permissions-label">What Mira can do on their behalf</p>
-    <p class="mira-permissions-sub">
-      These are the same real permissions used everywhere else in the app - Mira only ever does what
-      the checked-off ones already allow (manage classes, manage students, manage reports, and so on).
-    </p>
-    <div class="mira-permission-grid" id="mira-edit-permission-grid">
-      <!-- populated by JS -->
-    </div>
-
-    <div class="mira-modal-status" id="mira-edit-modal-status"></div>
-
-    <div class="mira-modal-actions">
-      <button type="button" class="mira-modal-cancel" id="mira-edit-modal-cancel">Cancel</button>
-      <button type="button" class="mira-save-btn" id="mira-edit-modal-save">Save</button>
-    </div>
   </div>
 </div>
 
@@ -464,122 +419,33 @@
     });
   }
 
-  const modal = document.getElementById('mira-edit-modal');
-  const modalAvatar = document.getElementById('mira-edit-modal-avatar');
-  const modalTitle = document.getElementById('mira-edit-modal-title');
-  const modalSubtitle = document.getElementById('mira-edit-modal-subtitle');
-  const canUseInput = document.getElementById('mira-edit-can-use');
-  const permissionGrid = document.getElementById('mira-edit-permission-grid');
-  const statusEl = document.getElementById('mira-edit-modal-status');
-  const saveBtn = document.getElementById('mira-edit-modal-save');
-  const cancelBtn = document.getElementById('mira-edit-modal-cancel');
-  const closeBtn = document.getElementById('mira-edit-modal-close');
-  let currentUserId = null;
-
-  function openModal() { modal.classList.add('show'); }
-  function closeModal() { modal.classList.remove('show'); currentUserId = null; }
-
-  function setStatus(message, kind) {
-    statusEl.textContent = message || '';
-    statusEl.className = 'mira-modal-status' + (kind ? ' ' + kind : '');
-  }
-
-  async function loadUser(userId, name) {
-    currentUserId = userId;
-    modalAvatar.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
-    modalTitle.textContent = 'Mira access';
-    modalSubtitle.textContent = name ? ('What ' + name + ' can do through Mira.') : 'What this person can do through Mira.';
-    permissionGrid.innerHTML = '<div class="mira-empty-state">Loading…</div>';
-    canUseInput.checked = false;
-    canUseInput.disabled = false;
-    saveBtn.style.display = '';
-    setStatus('');
-    openModal();
-
-    try {
-      const response = await fetch('/account/mira/user/' + encodeURIComponent(userId), {
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Unable to load this employee.');
-
-      canUseInput.checked = !!data.canUseMira;
-      if (data.isOwner) {
-        setStatus('The owner is billed for Mira like anyone else - grant or revoke access the same way.', '');
+  // Each switch saves straight away; only "can open Mira" changes here.
+  const accessStatus = document.getElementById('mira-access-status');
+  document.querySelectorAll('[data-mira-access]').forEach(function (box) {
+    box.addEventListener('change', async function () {
+      const name = box.getAttribute('data-mira-name') || 'This person';
+      const turnedOn = box.checked;
+      box.disabled = true;
+      accessStatus.textContent = 'Saving…';
+      accessStatus.className = 'mira-access-status';
+      try {
+        const response = await fetch('/account/mira/user/' + encodeURIComponent(box.getAttribute('data-mira-access')), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ canUseMira: turnedOn ? '1' : '0' }),
+        });
+        const data = await response.json().catch(function () { return {}; });
+        if (!response.ok || !data.success) throw new Error(data.error || 'That could not be saved.');
+        accessStatus.textContent = name + (turnedOn ? ' can now open Mira.' : ' can no longer open Mira.');
+        accessStatus.className = 'mira-access-status is-ok';
+      } catch (error) {
+        box.checked = !turnedOn;
+        accessStatus.textContent = error.message || 'That could not be saved. Try again.';
+        accessStatus.className = 'mira-access-status is-error';
+      } finally {
+        box.disabled = false;
       }
-
-      const selected = new Set(data.permissions || []);
-      permissionGrid.innerHTML = (data.permissionOptions || []).map(function (option) {
-        const checked = selected.has(option.key) ? 'checked' : '';
-        const id = 'mira-perm-' + option.key;
-        return '<label class="mira-permission-item" for="' + id + '">' +
-          '<input type="checkbox" id="' + id + '" value="' + option.key + '" ' + checked + ' />' +
-          '<span>' + option.label + '</span>' +
-          '</label>';
-      }).join('');
-    } catch (error) {
-      permissionGrid.innerHTML = '';
-      setStatus(error.message || 'Unable to load this employee.', 'error');
-    }
-  }
-
-  document.querySelectorAll('[data-mira-edit-user]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      loadUser(
-        btn.getAttribute('data-mira-edit-user'),
-        btn.getAttribute('data-mira-edit-name')
-      );
     });
   });
-
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-  if (modal) {
-    modal.addEventListener('click', function (event) {
-      if (event.target === modal) closeModal();
-    });
-  }
-
-  if (saveBtn) {
-    saveBtn.addEventListener('click', async function () {
-      if (!currentUserId) return;
-      const permissions = Array.from(permissionGrid.querySelectorAll('input[type="checkbox"]:checked')).map(function (el) {
-        return el.value;
-      });
-
-      saveBtn.disabled = true;
-      const previousLabel = saveBtn.textContent;
-      saveBtn.textContent = 'Saving…';
-      setStatus('');
-
-      try {
-        const response = await fetch('/account/mira/user/' + encodeURIComponent(currentUserId), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: JSON.stringify({
-            canUseMira: canUseInput.checked ? '1' : '0',
-            permissions: permissions,
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || 'Unable to save.');
-
-        const rowCheckbox = document.querySelector('[data-user-checkbox="' + currentUserId + '"]');
-        if (rowCheckbox) rowCheckbox.checked = !!data.canUseMira;
-
-        setStatus('Saved.', 'success');
-        setTimeout(closeModal, 500);
-      } catch (error) {
-        setStatus(error.message || 'Unable to save right now.', 'error');
-      } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = previousLabel;
-      }
-    });
-  }
 })();
 </script>

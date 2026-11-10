@@ -1,0 +1,95 @@
+/* The questions builder in the assessments flow (public/js/questionBuilderFlow.js). */
+.qbf-hint { margin: 6px 0 0; font-size: .74rem; line-height: 1.45; color: #64748b; font-weight: 500; }
+.qbf-muted { margin: 10px 4px; font-size: .84rem; color: #64748b; }
+
+/* + Assessment beside the Assessment field */
+.qbf-select-row { display: flex; gap: 8px; align-items: stretch; }
+.qbf-select-row select { flex: 1; min-width: 0; }
+.qbf-plus {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; width: 38px; padding: 0; min-height: 38px;
+  border: 1px solid var(--primary, #01535b); border-radius: 10px; background: #fff; color: var(--primary, #01535b);
+  font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit;
+}
+.qbf-plus:hover { background: color-mix(in srgb, var(--primary, #01535b) 8%, white); }
+
+/* How to start a new set */
+.qbf-start { margin: 0 0 16px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 14px; background: linear-gradient(180deg, #f8fafc, #fff); }
+.qbf-start[hidden] { display: none; }
+.qbf-start__head h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a; }
+.qbf-start__head { margin-bottom: 10px; }
+.qbf-start__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.qbf-start__cards[hidden] { display: none; }
+.qbf-start__card {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 1px; align-items: center; padding: 12px 14px; min-height: 0;
+  border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #0f172a; text-align: left; cursor: pointer;
+  font-family: inherit; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.qbf-start__card:hover, .qbf-start__card:focus-visible { border-color: var(--primary, #01535b); box-shadow: 0 8px 22px rgba(15, 23, 42, .08); transform: translateY(-1px); outline: none; }
+.qbf-start__card strong { font-size: .92rem; }
+.qbf-start__card span:last-child { font-size: .8rem; line-height: 1.45; color: #64748b; }
+.qbf-start__icon { grid-row: 1 / span 2; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--primary, #01535b) 10%, white); color: var(--primary, #01535b); }
+.qbf-choosing .qbf-questions-section { display: none; }
+.qbf-choosing #add-question-item { visibility: hidden; }
+
+.qbf-library[hidden] { display: none; }
+.qbf-library__bar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.qbf-library__search { flex: 1; min-height: 38px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: .88rem; font-family: inherit; }
+.qbf-library__list { display: grid; gap: 8px; max-height: 340px; overflow: auto; }
+.qbf-library__item {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 10px;
+  background: #fff; text-align: left; cursor: pointer; font-family: inherit; color: #0f172a;
+}
+.qbf-library__item:hover { border-color: var(--primary, #01535b); background: #f8fafc; }
+.qbf-library__item strong { font-size: .88rem; }
+.qbf-library__item span { grid-column: 1; font-size: .76rem; color: #64748b; }
+.qbf-library__item em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: .76rem; font-weight: 700; color: var(--primary, #01535b); }
+.qbf-link { border: 0; background: none; padding: 4px 2px; color: var(--primary, #01535b); font-size: .8rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.qbf-link--danger { color: #b91c1c; }
+
+/* Pictures on a question, and "Label a picture" */
+.qm-question-card.is-image-label .qm-options-field,
+.qm-question-card.is-image-label .qm-answer-field { display: none !important; }
+.qbf-media { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; background: #fbfdff; }
+.qbf-media.is-drop { border-color: var(--primary, #01535b); background: color-mix(in srgb, var(--primary, #01535b) 5%, white); }
+.qbf-media__empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.qbf-media__empty[hidden], .qbf-media__stage[hidden], .qbf-labels[hidden] { display: none; }
+.qbf-media__hint { font-size: .76rem; color: #64748b; flex: 1; min-width: 200px; }
+.qbf-pic-btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px;
+  background: #fff; color: #0f172a; font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.qbf-pic-btn:hover { border-color: var(--primary, #01535b); color: var(--primary, #01535b); }
+.qbf-media__stage { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr); gap: 14px; align-items: start; }
+.qbf-media__canvas { position: relative; display: inline-block; max-width: min(100%, 520px); border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; line-height: 0; }
+/* The picture fills its frame exactly, so numbered spots land where they were placed. */
+.qbf-media__canvas img { display: block; width: 100%; height: auto; user-select: none; }
+.qbf-media__canvas.is-labeling img { cursor: crosshair; }
+.qbf-spot {
+  position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 5px; border-radius: 999px; background: var(--primary, #01535b); color: #fff;
+  font-size: .74rem; font-weight: 800; line-height: 1; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(15, 23, 42, .35); pointer-events: none;
+}
+.qbf-spot--static { position: static; transform: none; flex: none; }
+.qbf-labels { display: grid; gap: 8px; }
+.qbf-label-row { display: flex; align-items: center; gap: 8px; }
+.qbf-label-answer { flex: 1; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 9px; font-size: .86rem; font-family: inherit; }
+.qbf-x { width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #64748b; font-size: 1rem; cursor: pointer; }
+.qbf-x:hover { color: #b91c1c; border-color: #fecaca; }
+.qbf-media__actions { display: flex; gap: 12px; margin-top: 10px; }
+.qbf-media__status { margin: 6px 0 0; font-size: .78rem; color: #b45309; min-height: 0; }
+.qbf-media__status:empty { display: none; }
+
+.qbf-preview-pic { margin: 8px 0 10px; }
+
+@media (max-width: 820px) {
+  .qbf-start__cards { grid-template-columns: 1fr; }
+  .qbf-start__card { min-height: 0; }
+  .qbf-media__stage { grid-template-columns: 1fr; }
+}
+
+/* Opened in a panel from the gradebook or Assessments: the builder fills the panel, with no
+   second page behind it and no second title or close (the panel has them). */
+.qbf-in-panel .question-modal-overlay { background: #fff; backdrop-filter: none; animation: none; }
+.qbf-in-panel .question-modal { max-width: none; box-shadow: none; animation: none; }
+.qbf-in-panel .qm-topbar-left, .qbf-in-panel #question-modal-close { display: none; }
+.qbf-in-panel .qm-topbar { justify-content: flex-end; padding-top: 10px; padding-bottom: 10px; }

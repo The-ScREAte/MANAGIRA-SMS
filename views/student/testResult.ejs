@@ -1,0 +1,10 @@
+<%# A finished test the teacher shared in full, for the student (studentController.testResultGet). %>
+<style>
+  .str-review { max-width: 880px; margin: 0 auto; padding: 18px 16px 40px; }
+  .str-review__back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: .86rem; font-weight: 700; color: var(--primary, #01535b); text-decoration: none; }
+</style>
+<main class="str-review">
+  <%- include('../partials/flash') %>
+  <a class="str-review__back" href="/student/testing-room">← Testing Room</a>
+  <%- include('../partials/testReview', { result: result, reviewer: 'student' }) %>
+</main>

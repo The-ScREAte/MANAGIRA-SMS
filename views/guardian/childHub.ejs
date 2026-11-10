@@ -9,7 +9,7 @@
   if (showSchoolwork) {
     _tiles.push({ href: '/guardian/child/homework?' + _q, icon: 'homework', name: 'Homework', count: 'homework' });
     _tiles.push({ href: '/guardian/child/testing-room?' + _q, icon: 'questions', name: 'Testing Room', count: 'testing' });
-    _tiles.push({ href: '/guardian/child/documents?' + _q, icon: 'docs', name: 'Assessment documents', count: 'documents' });
+    _tiles.push({ href: '/guardian/child/documents?' + _q, icon: 'docs', name: (locals.featureOn && featureOn('assessment_flow')) ? 'Documents & results' : 'Assessment documents', count: 'documents' });
   }
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
