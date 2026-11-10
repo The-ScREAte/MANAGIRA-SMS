@@ -1593,10 +1593,6 @@ async function loadGuardianAssignmentForPayment(client, orgId, guardianId, assig
         AND COALESCE(b.status, 'active') <> 'cancelled'
         AND (
           EXISTS (
-            SELECT 1 FROM guardians g
-             WHERE g.student_id=a.student_id AND g.guardian_id=$3 AND g.organization_id=$2
-          )
-          OR EXISTS (
             SELECT 1 FROM guardian_students gs
              WHERE gs.student_id=a.student_id AND gs.guardian_id=$3
           )
@@ -6354,9 +6350,7 @@ module.exports = {
                  LEFT JOIN classes c ON c.class_id = s.class_id
                 WHERE s.organization_id = $1
                   AND (
-                    EXISTS (SELECT 1 FROM guardians g
-                             WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
-                    OR EXISTS (SELECT 1 FROM guardian_students gs
+                    EXISTS (SELECT 1 FROM guardian_students gs
                              WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
                   )
                 ORDER BY s.first_name`,
@@ -7190,9 +7184,7 @@ module.exports = {
             AND a.status <> 'cancelled'
             AND COALESCE(b.status, 'active') <> 'cancelled'
             AND (
-              EXISTS (SELECT 1 FROM guardians g
-                       WHERE g.student_id=a.student_id AND g.guardian_id=$3 AND g.organization_id=$2)
-              OR EXISTS (SELECT 1 FROM guardian_students gs
+              EXISTS (SELECT 1 FROM guardian_students gs
                        WHERE gs.student_id=a.student_id AND gs.guardian_id=$3)
             )
           LIMIT 1`,
@@ -7770,8 +7762,7 @@ module.exports = {
       if (!authorized && userId) authorized = await isFinanceAdmin(req);
       if (!authorized && guardianId) {
         const g = await database.query(
-          `SELECT 1 FROM guardians WHERE student_id=$1 AND guardian_id=$2 AND organization_id=$3
-            UNION SELECT 1 FROM guardian_students gs
+          `SELECT 1 FROM guardian_students gs
               JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
               WHERE gs.student_id=$1 AND gs.guardian_id=$2 AND gp.organization_id=$3
             LIMIT 1`,
@@ -7860,8 +7851,7 @@ module.exports = {
       if (!authorized && userId) authorized = await isFinanceAdmin(req);
       if (!authorized && guardianId && row.student_id) {
         const g = await database.query(
-          `SELECT 1 FROM guardians WHERE student_id=$1 AND guardian_id=$2 AND organization_id=$3
-            UNION SELECT 1 FROM guardian_students gs
+          `SELECT 1 FROM guardian_students gs
               JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
               WHERE gs.student_id=$1 AND gs.guardian_id=$2 AND gp.organization_id=$3
             LIMIT 1`,

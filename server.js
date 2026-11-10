@@ -996,6 +996,8 @@ app.use(appDemoCapture.captureLocals(db));
 
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
+// In templates, JSON.stringify writes JSON that can't end a <script> block or an attribute.
+app.locals.JSON = require("./utils/safeJson").TEMPLATE_JSON;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
 app.locals.brandColorChoices = require("./utils/themePalette").BRAND_COLOR_OPTIONS;
 app.locals.footerPaletteFor = require("./utils/themePalette").footerPaletteFor;
@@ -1464,7 +1466,7 @@ async function getHomePricing() {
          FROM plan_region_prices x
          JOIN plans p ON p.id = x.plan_id
          JOIN pricing_regions r ON r.id = x.region_id
-        WHERE x.is_active AND p.is_active AND r.is_active AND x.base_price_usd > 0`
+        WHERE x.is_active AND p.is_active AND r.is_active AND r.is_default AND x.base_price_usd > 0`
     );
     const row = rows[0];
     if (row && row.low && row.high) value = { lowPrice: String(row.low), highPrice: String(row.high), offerCount: row.plans };
@@ -1503,7 +1505,10 @@ app.get("/", async (req, res) => {
   // dashboard, so that case is left untouched.
   const isSchoolSubdomain = isProduction && !!req.schoolDetails;
   if (!isSchoolSubdomain && req.session && (req.session.organizationId || req.session.userId)) {
-    return res.redirect("/common/orgDashboard");
+    // Each kind of person goes to their own home: the staff dashboard turns students, parents
+    // and drivers away with a "no permission" message they did nothing to earn.
+    const home = { Student: "/student/dashboard", Guardian: "/guardian/dashboard", Driver: "/driver/dashboard" }[req.session.userRole];
+    return res.redirect(home || "/common/orgDashboard");
   }
 
   if (!req.schoolDetails) homeSeo.homePricing = await getHomePricing();

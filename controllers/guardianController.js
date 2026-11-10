@@ -188,12 +188,6 @@ async function getGuardianApprovedStudents(db, guardianId, organizationId, nameD
     WHERE s.organization_id = $2
       AND (
         EXISTS (
-          SELECT 1 FROM guardians g
-          WHERE g.student_id = s.student_id
-            AND g.guardian_id = $1
-            AND g.organization_id = $2
-        )
-        OR EXISTS (
           SELECT 1 FROM guardian_students gs
           WHERE gs.student_id = s.student_id
             AND gs.guardian_id = $1
@@ -238,12 +232,6 @@ async function guardianHasStudentAccess(db, guardianId, organizationId, studentI
       AND s.organization_id = $2
       AND (
         EXISTS (
-          SELECT 1 FROM guardians g
-          WHERE g.student_id = s.student_id
-            AND g.guardian_id = $3
-            AND g.organization_id = $2
-        )
-        OR EXISTS (
           SELECT 1 FROM guardian_students gs
           WHERE gs.student_id = s.student_id
             AND gs.guardian_id = $3
@@ -687,9 +675,7 @@ module.exports = {
              FROM students s
             WHERE s.organization_id = $1
               AND (
-                EXISTS (SELECT 1 FROM guardians g
-                         WHERE g.student_id=s.student_id AND g.guardian_id=$2 AND g.organization_id=$1)
-                OR EXISTS (SELECT 1 FROM guardian_students gs
+                EXISTS (SELECT 1 FROM guardian_students gs
                          WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
               )
             ORDER BY ${childNameSortExpression}`,
@@ -900,9 +886,9 @@ module.exports = {
       const reportChildSortExpression = buildNameSortExpression(orgNameDisplayFormat, "s");
       const children = await db.query(
         `SELECT s.student_id, s.first_name, s.last_name
-         FROM guardians g
-         JOIN students s ON g.student_id = s.student_id
-         WHERE g.guardian_id = $1 AND g.organization_id = $2
+         FROM guardian_students gs
+         JOIN students s ON s.student_id = gs.student_id
+         WHERE gs.guardian_id = $1 AND s.organization_id = $2
          ORDER BY ${reportChildSortExpression}`,
         [guardianId, organizationId]
       );

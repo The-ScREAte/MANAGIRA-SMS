@@ -228,7 +228,7 @@ function permissionOptionsFor({ allowedFeatures, miraActivated, transportActivat
     if ((option.key === PERMISSIONS.USE_MIRA || option.key === PERMISSIONS.SETTINGS_MIRA) && miraActivated === false) return false;
     if ((option.group === "Transportation" || rootPermission(option.key) === PERMISSIONS.MANAGE_TRANSPORTATION || option.group === "Driver") && transportActivated === false) return false;
     if (!features) return true;
-    return [PERMISSION_FEATURES[rootPermission(option.key)], option.features]
+    return planNeedsFor(option.key, organizationId)
       .every((needs) => !needs || needs.some((name) => have.has(name.toLowerCase())));
   });
 }
@@ -625,26 +625,33 @@ function invalidateUserPermissionCache(organizationId, userId) {
   cacheManager.invalidatePattern("organization", `perm:owner-email:${organizationId}:`);
 }
 
-// The plan features a permission needs, each list "any one is enough".
-function planNeedsFor(permissionKey) {
+// The plan features a permission needs, each list "any one is enough". Where the plan catalog
+// is released, its needs replace these (utils/planCatalog.js: Report Builder is its own feature).
+function planNeedsFor(permissionKey, organizationId = null) {
   const option = PERMISSION_BY_KEY.get(permissionKey);
   if (!option) return [];
-  return [PERMISSION_FEATURES[rootPermission(permissionKey)], option.features].filter(Boolean);
+  const root = rootPermission(permissionKey);
+  const catalog = require("../utils/planCatalog");
+  if (organizationId && catalog.catalogOn(organizationId)) {
+    return [catalog.ROOT_NEEDS[root] || PERMISSION_FEATURES[root], catalog.OPTION_NEEDS[permissionKey] || option.features].filter(Boolean);
+  }
+  return [PERMISSION_FEATURES[root], option.features].filter(Boolean);
 }
 
-function withinPlan(permissionKey, features) {
+function withinPlan(permissionKey, features, organizationId = null) {
   const have = new Set((features || []).map((name) => String(name || "").trim().toLowerCase()));
-  return planNeedsFor(permissionKey).every((names) => names.some((name) => have.has(name.toLowerCase())));
+  return planNeedsFor(permissionKey, organizationId).every((names) => names.some((name) => have.has(name.toLowerCase())));
 }
 
 // Uses the plan list every request already has cached, so it adds no query. If the
 // plan can't be read at all, access is left alone rather than blocked by an outage.
 async function planAllowsPermission(database, organizationId, permissionKey) {
-  if (!planNeedsFor(permissionKey).length) return true;
+  if (!planNeedsFor(permissionKey, organizationId).length) return true;
+  const { withCore } = require("../utils/planCatalog");
   try {
     const plan = await resolvePlanForOrganization(database, organizationId);
     if (!plan) return true;
-    if (!plan.planId) return false;
+    if (!plan.planId) return withinPlan(permissionKey, withCore([], organizationId), organizationId);
     const features = await cacheManager.getOrFetch(
       "organization",
       `access:allowed-features:${organizationId}:${plan.planId}`,
@@ -654,7 +661,7 @@ async function planAllowsPermission(database, organizationId, permissionKey) {
       )).rows.map((row) => row.feature_name),
       { ttl: 90 }
     );
-    return Array.isArray(features) ? withinPlan(permissionKey, features) : true;
+    return Array.isArray(features) ? withinPlan(permissionKey, withCore(features, organizationId), organizationId) : true;
   } catch (_error) {
     return true;
   }

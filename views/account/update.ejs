@@ -231,14 +231,15 @@
       }
     });
 
-    // Toggle show password
-    document
-      .getElementById("showPassword")
-      .addEventListener("change", function () {
+    // The older "show password" tick box, where a page still has it (the eye button replaced it).
+    const showPassword = document.getElementById("showPassword");
+    if (showPassword) {
+      showPassword.addEventListener("change", function () {
         const type = this.checked ? "text" : "password";
         updateForm.password.type = type;
         updateForm.confirmPassword.type = type;
       });
+    }
   });
 </script>
 

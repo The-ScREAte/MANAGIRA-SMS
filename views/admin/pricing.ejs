@@ -7,7 +7,6 @@
   const _rate = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   const _activePlans = plans.filter((p) => p.is_active);
   const _gridPlans = plans.filter((p) => p.is_active || regions.some((r) => r.prices.some((x) => Number(x.plan_id) === Number(p.id) && Number(x.base_price_usd) > 0)));
-  const _featureName = Object.fromEntries(features.map((f) => [Number(f.id), f.feature_name]));
   const _tabs = [['schools', 'Schools', 'fa-school'], ['hubs', 'Hubs', 'fa-network-wired'], ['payments', 'Payment settings', 'fa-credit-card']];
   // Per school, or per seat where people get access one by one (Mira, the student and parent portals).
   const _unitPick = (field, key, saved) => {
@@ -61,9 +60,7 @@
               <tr>
                 <td><strong><%= plan.plan_name %></strong><% if (plan.description) { %><span class="ah-sub"><%= plan.description %></span><% } %></td>
                 <td class="ap-includes">
-                  <% if (plan.feature_ids.length) { %>
-                    <%= plan.feature_ids.slice(0, 4).map((id) => _featureName[id]).filter(Boolean).join(', ') %><% if (plan.feature_ids.length > 4) { %> <span class="ap-more">+<%= plan.feature_ids.length - 4 %> more</span><% } %>
-                  <% } else { %><span class="ah-off">Nothing yet</span><% } %>
+                  <%= plan.includes.slice(0, 4).join(', ') %><% if (plan.includes.length > 4) { %> <span class="ap-more">+<%= plan.includes.length - 4 %> more</span><% } %>
                 </td>
                 <td class="ah-num"><%= plan.schools %></td>
                 <td><% if (plan.is_active) { %><span class="ah-bill ah-bill--green">Offered</span><% } else { %><span class="ah-bill ah-bill--muted">Hidden</span><% } %></td>
@@ -107,7 +104,7 @@
                     <td class="ap-price">
                       <% if (p) { %>
                         <strong><%= _money(p.base_price_usd) %></strong><span class="ap-per">/mo</span>
-                        <span class="ah-sub"><%= p.free_student_percent != null ? `${Number(p.free_student_percent)}% free` : `${Number(p.free_student_threshold)} free` %> · <%= _rate(p.per_student_rate_usd) %>/student</span>
+                        <span class="ah-sub"><%= p.free_student_percent != null ? `${Number(p.free_student_percent)}% included` : `${Number(p.free_student_threshold)} included` %> · <%= _rate(p.per_student_rate_usd) %>/student/<%= Number(region.term_months) === 1 ? 'mo' : 'term' %></span>
                       <% } else { %><span class="ah-off">Not set</span><% } %>
                     </td>
                   <% }) %>
@@ -161,7 +158,7 @@
             </tbody>
           </table>
         </div>
-        <div class="ap-card__foot"><span class="ap-note">The school website and parent portal come with plans.</span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save add-on prices</button></div>
+        <div class="ap-card__foot"><span class="ap-note">An add-on that a school's plan includes is free for that school.</span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save add-on prices</button></div>
       </form>
     </section>
 

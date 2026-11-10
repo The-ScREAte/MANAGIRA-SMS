@@ -2,6 +2,7 @@ const db = require('../config/db');
 const cacheManager = require('../utils/cacheManager');
 const { resolvePlanForOrganization } = require('../utils/accessCache');
 const { hydrateOrganizationSession } = require('../utils/sessionContext');
+const planCatalog = require('../utils/planCatalog');
 
 const FEATURE_ROUTE_CACHE_TTL_SEC = Number(process.env.FEATURE_ROUTE_CACHE_TTL_SEC || 300);
 const PLAN_FEATURE_CACHE_TTL_SEC = Number(process.env.PLAN_FEATURE_CACHE_TTL_SEC || 90);
@@ -149,7 +150,7 @@ const checkFeatureAccess = async (req, res, next) => {
       `access:route-feature:${routePath}`,
       async () => {
         const { rows: featureRows } = await db.query(
-          `SELECT f.id FROM feature_routes fr
+          `SELECT f.id, f.feature_name FROM feature_routes fr
            JOIN features f ON f.id = fr.feature_id
            WHERE fr.route_path = ANY($1::text[])
               OR (
@@ -165,25 +166,30 @@ const checkFeatureAccess = async (req, res, next) => {
         );
 
         let featureId = featureRows.length > 0 ? featureRows[0].id : null;
+        let featureName = featureRows.length > 0 ? featureRows[0].feature_name : null;
         if (!featureId) {
           const fallbackFeatureNames = getFallbackFeatureNames(routePath);
           if (fallbackFeatureNames.length > 0) {
             const { rows: fallbackFeatureRows } = await db.query(
-              `SELECT id FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
+              `SELECT id, feature_name FROM features WHERE feature_name = ANY($1::text[]) LIMIT 1`,
               [fallbackFeatureNames]
             );
             if (fallbackFeatureRows.length > 0) {
               featureId = fallbackFeatureRows[0].id;
+              featureName = fallbackFeatureRows[0].feature_name;
             }
           }
         }
 
-        return { featureId: featureId || null };
+        return { featureId: featureId || null, featureName: featureName || null };
       },
       { ttl: FEATURE_ROUTE_CACHE_TTL_SEC }
     );
 
-    const featureId = routeFeatureCache?.featureId || null;
+    const alwaysIncluded = routeFeatureCache?.featureName
+      && planCatalog.isCoreName(routeFeatureCache.featureName)
+      && planCatalog.catalogOn(organizationId);
+    const featureId = alwaysIncluded ? null : routeFeatureCache?.featureId || null;
 
     if (featureId) {
       const planFeatureAccess = await cacheManager.getOrFetch(

@@ -35,13 +35,15 @@ const METER_KEYS = Object.keys(METERS);
 // Mira page counts them), the student portal per student who can sign in, the parent portal per
 // parent who can sign in. A hub's plan can put a fee on each: "auto" bills every school that
 // uses it; "manual" means Managira adds the charge when needed (the hub approves it).
-// `columns` are the switches on organizations; the parent portal comes with the school's plan.
-const PARENT_PORTAL_ON_SQL = (o) => `EXISTS (SELECT 1 FROM plan_features ppf JOIN features ppx ON ppx.id = ppf.feature_id
+// `columns` are the switches on organizations. The parent portal is the school's own switch
+// (parent_portal_activated); a school that hasn't chosen follows its plan, as before. The switch is
+// read through to_jsonb so this still works on a database the migration hasn't reached.
+const PARENT_PORTAL_ON_SQL = (o) => `COALESCE((to_jsonb(${o}) ->> 'parent_portal_activated')::boolean, EXISTS (SELECT 1 FROM plan_features ppf JOIN features ppx ON ppx.id = ppf.feature_id
     WHERE ppf.plan_id = CASE WHEN COALESCE(${o}.is_hub_member, false)
                               AND COALESCE(${o}.hub_assigned_plan_id, (SELECT mh.plan_id FROM managira_hubs mh WHERE mh.hub_id = ${o}.hub_id)) IS NOT NULL
                              THEN COALESCE(${o}.hub_assigned_plan_id, (SELECT mh.plan_id FROM managira_hubs mh WHERE mh.hub_id = ${o}.hub_id))
                              ELSE ${o}.plan_id END
-      AND LOWER(TRIM(ppx.feature_name)) IN ('parent/guardian portal', 'guardian portal', 'parent portal', 'parent guardian portal'))`;
+      AND LOWER(TRIM(ppx.feature_name)) IN ('parent/guardian portal', 'guardian portal', 'parent portal', 'parent guardian portal')))`;
 const INTEGRATIONS = [
   { key: 'mira', label: 'Mira AI assistant', columns: ['mira_activated'], seat: 'staff', unit: 'seat' },
   { key: 'student_portal', label: 'Student portal', columns: ['student_portal_activated'], seat: 'student', unit: 'school' },

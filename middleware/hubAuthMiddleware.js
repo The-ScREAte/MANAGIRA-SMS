@@ -15,17 +15,13 @@ const isHubAuthenticated = async (req, res, next) => {
       [req.session.hubId]
     );
 
-    if (hub.rows.length === 0) {
-      req.session.destroy();
-      req.flash('error', 'Hub not found.');
+    // Signed out with a message: a fresh session carries it (flashing after destroy() throws).
+    const signOutWith = (message) => req.session.regenerate(() => {
+      if (req.session) req.flash('error', message);
       return res.redirect('/hub/login');
-    }
-
-    if (hub.rows[0].deleted || hub.rows[0].on_hold) {
-      req.session.destroy();
-      req.flash('error', 'Hub account is suspended. Please contact support.');
-      return res.redirect('/hub/login');
-    }
+    });
+    if (hub.rows.length === 0) return signOutWith('Hub not found.');
+    if (hub.rows[0].deleted || hub.rows[0].on_hold) return signOutWith('Hub account is suspended. Please contact support.');
 
     next();
   } catch (err) {

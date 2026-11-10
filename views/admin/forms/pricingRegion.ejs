@@ -13,7 +13,7 @@
           <input type="text" name="name" class="ahb-input" value="<%= _r.name %>" maxlength="120" placeholder="e.g. United States" required />
         </label>
         <label class="ahb-field">
-          <span class="ahb-label">Months in a term</span>
+          <span class="ahb-label">Months in a term <small style="font-weight:400;color:#64748b">(1 = students are priced per month)</small></span>
           <input type="number" name="termMonths" min="1" max="12" step="1" class="ahb-input" value="<%= _r.term_months %>" required />
         </label>
       </div>
@@ -35,9 +35,9 @@
 
     <section class="ahd-section">
       <h3 class="ahd-section__title">Prices</h3>
-      <p class="ahd-section__sub">A month's price, the students it includes (a number, or a share of the school's students), and the price for each student above that, per term.</p>
+      <p class="ahd-section__sub">A month's price, the students it includes (a number, or a share of the school's students), and the price for each student above that, per term (per month when a term is 1 month).</p>
       <table class="ap-plan-prices">
-        <thead><tr><th>Plan</th><th>A month</th><th>Free students</th><th>Per student, a term</th></tr></thead>
+        <thead><tr><th>Plan</th><th>A month</th><th>Free students</th><th>Per extra student, a <%= Number(_r.term_months) === 1 ? 'month' : 'term' %></th></tr></thead>
         <tbody>
           <% plans.forEach((plan) => { const p = _price(plan.id); %>
             <tr>

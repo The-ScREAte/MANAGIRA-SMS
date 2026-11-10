@@ -1945,7 +1945,7 @@ async function planHas(db, organizationId, names) {
     )).rows.map((row) => row.feature_name),
     { ttl: 90 }
   );
-  return (Array.isArray(features) ? features : []).some((name) => names.includes(name));
+  return (require("./planCatalog").withCore(Array.isArray(features) ? features : [], organizationId) || []).some((name) => names.includes(name));
 }
 
 const tableExists = (...tables) => async (db) => (await db.query(

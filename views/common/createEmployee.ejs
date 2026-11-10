@@ -461,10 +461,13 @@
           subjects.forEach(subject => {
             const div = document.createElement("div");
             div.className = "class-checkbox";
+            // A subject's name is text: it is never read as markup.
+            const subjectId = Number(subject.subject_id);
             div.innerHTML = `
-              <input type="checkbox" name="subjects" value="${subject.subject_id}" id="subject-${subject.subject_id}">
-              <label for="subject-${subject.subject_id}">${subject.subject_name}</label>
+              <input type="checkbox" name="subjects" value="${subjectId}" id="subject-${subjectId}">
+              <label for="subject-${subjectId}"></label>
             `;
+            div.querySelector("label").textContent = subject.subject_name;
             container.appendChild(div);
           });
         } else {

@@ -18,6 +18,13 @@
 (function (global) {
   "use strict";
 
+  // Titles and subtitles are text (a student's or a class's name), never markup.
+  function text(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
+    });
+  }
+
   function create(options) {
     const id = options.id;
     const width = options.width || 1160;
@@ -36,8 +43,8 @@
       '<div class="mgr-drawer-header-left">' +
       '<div class="mgr-drawer-header-icon">' + (options.icon || "📝") + "</div>" +
       "<div>" +
-      "<h2>" + (options.title || "") + "</h2>" +
-      "<p>" + (options.subtitle || "") + "</p>" +
+      "<h2>" + text(options.title) + "</h2>" +
+      "<p>" + text(options.subtitle) + "</p>" +
       "</div></div>" +
       '<button type="button" class="mgr-drawer-close" title="Close">' +
       '<svg width="18" height="18" viewBox="0 0 20 20" fill="none">' +
@@ -45,7 +52,7 @@
       "</button></div>" +
       '<div class="mgr-drawer-body">' +
       '<div class="mgr-drawer-loading"><span class="mgr-drawer-spinner" aria-hidden="true"></span>Loading&hellip;</div>' +
-      '<iframe class="mgr-drawer-iframe" title="' + (options.title || "Panel") + '" style="display:none;"></iframe>' +
+      '<iframe class="mgr-drawer-iframe" title="' + text(options.title || "Panel") + '" style="display:none;"></iframe>' +
       "</div></div>";
 
     document.body.appendChild(overlay);

@@ -21,6 +21,9 @@ module.exports = (db) => {
         throw new Error('printController is not properly initialized');
     }
 
+    // Report cards: a teacher opens and changes only their own classes' (utils/classScope.js).
+    router.use(require('../utils/classScope').requireClassScope(db));
+
     // Report Settings and what it saves.
     const canManageReports = requirePermission(PERMISSIONS.REPORTS_SETTINGS);
 

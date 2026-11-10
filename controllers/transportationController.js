@@ -186,8 +186,7 @@ async function guardianStudentIds(db, session) {
     `SELECT s.student_id FROM students s
       WHERE s.organization_id = $1
         AND (
-          EXISTS (SELECT 1 FROM guardians g WHERE g.student_id = s.student_id AND g.guardian_id = $2 AND g.organization_id = $1)
-          OR EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.student_id = s.student_id AND gs.guardian_id = $2)
+          EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.student_id = s.student_id AND gs.guardian_id = $2)
         )`,
     [session.organizationId, session.guardianId]
   );

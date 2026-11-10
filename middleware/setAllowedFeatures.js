@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const cacheManager = require('../utils/cacheManager');
 const { resolvePlanForOrganization } = require('../utils/accessCache');
+const { withCore } = require('../utils/planCatalog');
 
 const ALLOWED_FEATURES_CACHE_TTL_SEC = Number(process.env.ALLOWED_FEATURES_CACHE_TTL_SEC || 90);
 
@@ -30,7 +31,10 @@ const setAllowedFeatures = async (req, res, next) => {
         const planId = planContext.planId;
 
         if (!planId) {
-            return next(); // No plan assigned, continue
+            // No plan: only what every plan includes (where the plan catalog is released).
+            res.locals.allowedFeatures = withCore([], req.session.organizationId);
+            req.session.allowedFeatures = res.locals.allowedFeatures;
+            return next();
         }
 
         const features = await cacheManager.getOrFetch(
@@ -50,7 +54,7 @@ const setAllowedFeatures = async (req, res, next) => {
             { ttl: ALLOWED_FEATURES_CACHE_TTL_SEC }
         );
 
-        res.locals.allowedFeatures = Array.isArray(features) ? features : [];
+        res.locals.allowedFeatures = Array.isArray(features) ? withCore(features, req.session.organizationId) : [];
         res.locals.planFeaturesKnown = Array.isArray(features);
         req.session.allowedFeatures = res.locals.allowedFeatures; // ✅ Store in session to be consistent
 

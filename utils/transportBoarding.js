@@ -119,8 +119,6 @@ async function tellFamilies(db, organizationId, trip, changed) {
   const { rows } = await db.query(
     `SELECT DISTINCT x.guardian_id, x.student_id, s.first_name
        FROM (
-         SELECT g.guardian_id, g.student_id FROM guardians g WHERE g.organization_id = $1 AND g.student_id = ANY($2::int[])
-         UNION
          SELECT gs.guardian_id, gs.student_id FROM guardian_students gs WHERE gs.student_id = ANY($2::int[])
        ) x
        JOIN students s ON s.student_id = x.student_id AND s.organization_id = $1

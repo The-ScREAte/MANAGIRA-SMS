@@ -326,6 +326,9 @@ async function getDynamicRegionTermMonths(regionId, fallback = 1) {
   }
 }
 
+// A school's own cycle, whether or not new schools are still offered it ("active" in Admin ›
+// Pricing means offered): a school that pays every 6 months keeps doing so after that choice is
+// taken off the sign-up page.
 async function resolveBillingCycle(periodKey) {
   const key = String(periodKey || 'monthly').trim() || 'monthly';
 
@@ -333,7 +336,7 @@ async function resolveBillingCycle(periodKey) {
     const dynamic = await db.query(
       `SELECT cycle_key AS period_key, label, months, discount_percentage
        FROM dynamic_billing_cycles
-       WHERE cycle_key = $1 AND is_active = TRUE
+       WHERE cycle_key = $1
        LIMIT 1`,
       [key]
     );

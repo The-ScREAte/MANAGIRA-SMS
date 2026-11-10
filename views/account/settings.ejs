@@ -4239,6 +4239,8 @@
           <% const hasWhatsappMetaConfig = !!(wf.appId && wf.embeddedSignupConfigId); %>
           <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
           <% const spiActivated = !!spi.activated; %>
+          <% const ppi = (typeof parentPortalIntegration !== 'undefined' && parentPortalIntegration) ? parentPortalIntegration : {}; %>
+          <% const ppiActivated = !!ppi.activated; %>
           <% const mi = (typeof miraIntegration !== 'undefined' && miraIntegration) ? miraIntegration : {}; %>
           <% const miActivated = !!mi.activated; %>
           <% const ti = (typeof transportationIntegration !== 'undefined' && transportationIntegration) ? transportationIntegration : {}; %>
@@ -4269,6 +4271,7 @@
               africastalking: ['KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'NG', 'CI', 'ET', 'GH', 'ZA'],
               twilio: twilioAvailableForCountry ? [orgCountryCode] : [],
               'student-portal': null,
+              'parent-portal': null,
               transportation: null,
               'google-maps': null,
               'apple-maps': null,
@@ -4338,6 +4341,41 @@
               <input type="hidden" name="integrationPassword" id="student-portal-activation-password" />
             </form>
           </div>
+
+          <% if (ppi.shown) { %>
+          <div class="card">
+            <h4>
+              <span class="student-portal-title">
+                <img class="student-portal-logo" src="/images/icons/managira-256.png" alt="Managira logo" />
+                <span>Parent Portal</span>
+              </span>
+              <span
+                class="pill"
+                id="parent-portal-status-pill"
+                data-activated="<%= ppiActivated ? '1' : '0' %>"
+                style="background:<%= ppiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= ppiActivated ? '#166534' : '#92400e' %>">
+                <%= ppiActivated ? 'Active' : 'Inactive' %>
+              </span>
+              <%- integrationCoverageBadge('parent-portal') %>
+            </h4>
+            <small class="google-integration-description">
+              Parents and guardians sign in to see their children's grades, attendance, bills and messages from the school.
+              <%- integrationActivityLine('Parent Portal') %>
+            </small>
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
+                <a href="#" class="integration-readmore-link" data-integration="parent-portal">Read more</a>
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Parent Portal actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
+                  <div class="google-actions-menu-list">
+                    <a class="google-action-item" href="#" id="open-parent-portal-activate-modal" style="display:<%= ppiActivated ? 'none' : 'block' %>;">Activate</a>
+                    <a class="google-action-item" href="#" id="open-parent-portal-deactivate-modal" style="display:<%= ppiActivated ? 'block' : 'none' %>;">Deactivate</a>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+          <% } %>
 
           <div class="card">
             <h4>
@@ -5863,14 +5901,12 @@
                   <div class="plan-option-header"><%= plan.plan_name %></div>
                   <div class="plan-option-body">
                     <p><%= plan.description %></p>
+                    <%# Each plan lists only what it adds to the one before it (utils/planCatalog.js). %>
+                    <% if (plan.plusOf) { %><p class="plan-plus"><strong>Everything in <%= plan.plusOf %>, plus</strong></p><% } %>
                     <ul class="plan-features">
-                      <% if (Array.isArray(plan.features)) { %>
-                        <% plan.features.forEach((feature) => { %>
-                          <li>- <%= feature.feature_name %></li>
-                        <% }) %>
-                      <% } else { %>
-                        <li>No features available</li>
-                      <% } %>
+                      <% (plan.newFeatures || plan.features || []).forEach((feature) => { %>
+                        <li>- <%= feature.feature_name %></li>
+                      <% }) %>
                     </ul>
                   </div>
                   <div class="plan-option-footer" data-base-price="<%= plan.modalBaseUsdDisplay %>">
@@ -6751,13 +6787,17 @@
           });
         }
 
-        function openStudentPortalPasswordModal(mode) {
+        // The Student Portal's password dialog also switches the Parent Portal (portalTarget).
+        let portalTarget = "student";
+        const portalNames = { student: "Student Portal", parent: "Parent Portal" };
+        function openStudentPortalPasswordModal(mode, target) {
           if (!studentPortalActivationModal) return;
+          portalTarget = target === "parent" ? "parent" : "student";
           const isActivate = mode === "activate";
           if (studentPortalActivationCopy) {
             studentPortalActivationCopy.textContent = isActivate
-              ? "Please confirm your password to activate Student Portal."
-              : "Please confirm your password to deactivate Student Portal.";
+              ? `Please confirm your password to activate ${portalNames[portalTarget]}.`
+              : `Please confirm your password to deactivate ${portalNames[portalTarget]}.`;
           }
           if (studentPortalActivationValue) {
             studentPortalActivationValue.value = isActivate ? "1" : "0";
@@ -6770,6 +6810,29 @@
           }
           openModal(studentPortalActivationModal);
         }
+
+        function setParentPortalUiState(isActive) {
+          const pill = document.getElementById("parent-portal-status-pill");
+          if (pill) {
+            pill.textContent = isActive ? "Active" : "Inactive";
+            pill.style.background = isActive ? "#dcfce7" : "#fef3c7";
+            pill.style.color = isActive ? "#166534" : "#92400e";
+            pill.dataset.activated = isActive ? "1" : "0";
+          }
+          const on = document.getElementById("open-parent-portal-activate-modal");
+          const off = document.getElementById("open-parent-portal-deactivate-modal");
+          if (on) on.style.display = isActive ? "none" : "block";
+          if (off) off.style.display = isActive ? "block" : "none";
+        }
+
+        [["open-parent-portal-activate-modal", "activate"], ["open-parent-portal-deactivate-modal", "deactivate"]].forEach(([id, mode]) => {
+          const link = document.getElementById(id);
+          if (!link || !studentPortalActivationModal) return;
+          link.addEventListener("click", (event) => {
+            event.preventDefault();
+            openStudentPortalPasswordModal(mode, "parent");
+          });
+        });
 
         function setStudentPortalUiState(isActive) {
           if (studentPortalStatusPill) {
@@ -6837,7 +6900,7 @@
             studentPortalActivationSubmit.textContent = "Processing...";
 
             try {
-              const response = await fetch("/account/student-portal/activate", {
+              const response = await fetch(`/account/${portalTarget}-portal/activate`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -6853,12 +6916,13 @@
               const result = await response.json();
               if (!response.ok || !result || !result.success) {
                 if (studentPortalActivationError) {
-                  studentPortalActivationError.textContent = (result && result.message) || "Unable to update Student Portal integration.";
+                  studentPortalActivationError.textContent = (result && result.message) || `Unable to update ${portalNames[portalTarget]}.`;
                 }
                 return;
               }
 
-              setStudentPortalUiState(Boolean(result.activated));
+              if (portalTarget === "parent") setParentPortalUiState(Boolean(result.activated));
+              else setStudentPortalUiState(Boolean(result.activated));
               closeModal(studentPortalActivationModal);
             } catch (error) {
               if (studentPortalActivationError) {
@@ -9159,6 +9223,12 @@
             whatItDoes: "Gives students their own login to a dedicated portal — assessments, results, timetables, and announcements — separate from the parent/guardian and staff views.",
             goodFor: "Schools that want students to check their own grades, take online assessments, and see schedules without going through a parent's account.",
             goodForWho: ["Secondary and tertiary schools with independent student logins", "Schools running online tests or quizzes", "Schools that want to reduce front-desk requests for results"],
+          },
+          "parent-portal": {
+            title: "Parent Portal",
+            whatItDoes: "Gives parents and guardians their own sign-in to follow each of their children: grades the teacher has posted, attendance, activities, bills and payments, the bus, and messages from the school.",
+            goodFor: "Schools that want families to see progress and pay fees without calling the front desk.",
+            goodForWho: ["Schools sharing grades and attendance with families", "Schools collecting fees through PayGira", "Schools with buses whose parents follow the trip"],
           },
           transportation: {
             title: "Transportation",

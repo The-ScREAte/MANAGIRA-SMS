@@ -1,8 +1,13 @@
-<%# Admin › Pricing › a plan: what it includes, its description, and whether new schools can choose it. %>
+<%# Admin › Pricing › a plan: its name and description, whether new schools can choose it, and
+    one plain list of what it includes (utils/planCatalog.js), in the order of the plans. %>
 <div data-ahd-title="<%= plan.plan_name %>" data-ahd-sub="<%= plan.schools %> school<%= plan.schools === 1 ? '' : 's' %> on this plan. Changes reach them at once.">
   <form action="/admin/pricing/plans/<%= plan.id %>" method="POST" class="ahd-form">
     <section class="ahd-section">
       <div class="ahb-grid ahb-grid--1">
+        <label class="ahb-field">
+          <span class="ahb-label">Name</span>
+          <input type="text" name="name" class="ahb-input" value="<%= plan.plan_name %>" maxlength="60" required />
+        </label>
         <label class="ahb-field">
           <span class="ahb-label">Description</span>
           <input type="text" name="description" class="ahb-input" value="<%= plan.description || '' %>" maxlength="500" />
@@ -16,10 +21,14 @@
     </section>
     <section class="ahd-section">
       <h3 class="ahd-section__title">Included</h3>
-      <p class="ahd-section__sub">Schools on this plan can use these. Its price is set by country in Pricing.</p>
+      <p class="ahd-section__sub">Schools on this plan can use these.<% if (price) { %> In the United States it is <strong><%= price.base %> a month</strong> with <%= price.included %> students included, then <strong><%= price.extra %></strong> for each extra student a <%= price.per %>.<% } else { %> Its price is set by country in Pricing.<% } %></p>
       <div class="ap-features">
-        <% features.forEach((f) => { %>
-          <label class="ap-feature"><input type="checkbox" name="features" value="<%= f.id %>" <%= plan.feature_ids.includes(Number(f.id)) ? 'checked' : '' %> /> <span><%= f.feature_name %></span></label>
+        <%# In every plan: shown ticked, and not something a plan can drop. %>
+        <% catalog.core.filter((item) => item.headline).forEach((item) => { %>
+          <label class="ap-feature ap-feature--always" title="In every plan"><input type="checkbox" checked disabled /> <span><%= item.label %></span></label>
+        <% }) %>
+        <% catalog.choices.forEach((item) => { %>
+          <label class="ap-feature"><input type="checkbox" name="features" value="<%= item.key %>" <%= plan.included.includes(item.key) ? 'checked' : '' %> /> <span><%= item.label %></span></label>
         <% }) %>
       </div>
     </section>

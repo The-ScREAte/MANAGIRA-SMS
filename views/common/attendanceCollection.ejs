@@ -1287,28 +1287,24 @@
                             </td>
                             <% let presentCount = 0; %>
                             <% let totalCount = 0; %>
-                            <% displayDates.forEach(date => { %>
-                                <% const isTodayCell = date === todayKey; %>
-                                <% const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true, markerLabel: null }; %>
-                                <% const showPairedWatermark = (rowIndex % 2) === 0; %>
-                                <td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>">
-                                    <input type="checkbox" data-date="<%= date %>" data-student-id="<%= student.student_id %>" 
-                                        data-countable="<%= dateMeta.countable ? 'true' : 'false' %>"
-                                        class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>"
-                                        <%= attendanceMap[student.student_id] && attendanceMap[student.student_id][date] === 'Present' ? 'checked' : '' %> 
-                                        <%= (!dateMeta.countable || (attendanceMap[student.student_id] && attendanceMap[student.student_id][date])) ? 'disabled' : '' %> >
-                                    <% if (!dateMeta.countable && showPairedWatermark) { %>
-                                        <span class="inactive-watermark paired-watermark"><%= (dateMeta.markerLabel || 'Excluded').toUpperCase() %></span>
-                                    <% } %>
-                                    <% if (dateMeta.isOfficialTermEnd && showPairedWatermark) { %>
-                                        <span class="term-end-watermark paired-watermark">OFFICIAL TERM END DATE</span>
-                                    <% } %>
-                                    <% if (dateMeta.countable) { totalCount++; } %>
-                                    <% if (dateMeta.countable && attendanceMap[student.student_id] && attendanceMap[student.student_id][date] === 'Present') { %>
-                                        <% presentCount++; %>
-                                    <% } %>
-                                </td>
-                            <% }); %>
+                            <%# One cell per student per school day: thousands on a page, so each is written
+                                on one line with no indentation (this block was three quarters of the page's size). %>
+                            <%_ displayDates.forEach(date => { _%>
+                                <%_ const isTodayCell = date === todayKey; _%>
+                                <%_ const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true, markerLabel: null }; _%>
+                                <%_ const showPairedWatermark = (rowIndex % 2) === 0; _%>
+                                <%_ const mark = attendanceMap[student.student_id] && attendanceMap[student.student_id][date]; _%>
+<td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>"><input type="checkbox" data-date="<%= date %>" data-student-id="<%= student.student_id %>" data-countable="<%= dateMeta.countable ? 'true' : 'false' %>" class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>" <%= mark === 'Present' ? 'checked' : '' %> <%= (!dateMeta.countable || mark) ? 'disabled' : '' %>>
+                                <%_ if (!dateMeta.countable && showPairedWatermark) { _%>
+<span class="inactive-watermark paired-watermark"><%= (dateMeta.markerLabel || 'Excluded').toUpperCase() %></span>
+                                <%_ } _%>
+                                <%_ if (dateMeta.isOfficialTermEnd && showPairedWatermark) { _%>
+<span class="term-end-watermark paired-watermark">OFFICIAL TERM END DATE</span>
+                                <%_ } _%>
+                                <%_ if (dateMeta.countable) { totalCount++; } _%>
+                                <%_ if (dateMeta.countable && mark === 'Present') { presentCount++; } _%>
+</td>
+                            <%_ }); _%>
                             <td class="overall-attendance"><%= presentCount %>/<%= totalCount %></td>
                         </tr>
                     <% }); %>

@@ -413,7 +413,9 @@ module.exports = (db) => {
   router.post("/toggleHoldEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_REMOVE), (req, res) =>
     commonController.toggleHoldEmployee(req, res, db)
   );
-  router.get("/assessment", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
+  // A teacher's gradebook: only the classes and subjects they teach (utils/classScope.js).
+  const classScope = require("../utils/classScope").requireClassScope(db);
+  router.get("/assessment", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), classScope, (req, res) =>
     commonController.assessment(req, res, db)
   );
   router.get(
@@ -444,7 +446,7 @@ module.exports = (db) => {
   router.get("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
     commonController.modifyAssessmentGet(req, res, db)
   );
-  router.post("/saveAllScores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), upload.none(), (req, res) =>
+  router.post("/saveAllScores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), upload.none(), classScope, (req, res) =>
     commonController.saveAllScores(req, res, db)
   );
   // A teacher works only on the online tests of the subjects they teach (utils/questionScope.js).

@@ -106,8 +106,6 @@ async function tellFamilies(db, organizationId, approved) {
     db.query(
       `SELECT DISTINCT x.guardian_id, x.student_id, st.first_name
          FROM (
-           SELECT g.guardian_id, g.student_id FROM guardians g WHERE g.organization_id = $1 AND g.student_id = ANY($2::int[])
-           UNION
            SELECT gs.guardian_id, gs.student_id FROM guardian_students gs WHERE gs.student_id = ANY($2::int[])
          ) x
          JOIN students st ON st.student_id = x.student_id AND st.organization_id = $1

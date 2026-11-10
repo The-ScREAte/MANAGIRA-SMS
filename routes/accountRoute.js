@@ -377,6 +377,12 @@ router.post(
   accountController.studentPortalActivationPost
 );
 router.post(
+  "/parent-portal/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
+  accountController.parentPortalActivationPost
+);
+router.post(
   "/mira/activate",
   isAuthenticated,
   requirePermission(PERMISSIONS.SETTINGS_MIRA),

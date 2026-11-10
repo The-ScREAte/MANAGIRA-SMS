@@ -52,9 +52,11 @@
 .ap-plan-prices td { padding: 4px 6px 4px 0; vertical-align: middle; }
 .ap-plan-prices td:first-child { font-weight: 700; font-size: .88rem; }
 .ap-plan-prices .ahb-input { min-width: 0; }
+/* What a plan includes (views/admin/forms/pricingPlan.ejs): one plain grid of tick boxes. */
 .ap-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 12px; }
 .ap-feature { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: .88rem; cursor: pointer; }
 .ap-feature input { margin: 0; accent-color: #0f766e; }
+.ap-feature--always { cursor: default; color: #475569; }
 
 .ap-bill { display: grid; gap: 6px; padding: 14px; border-radius: 12px; background: #f0fdfa; border: 1px solid #ccfbf1; }
 .ap-bill__row { display: flex; justify-content: space-between; gap: 12px; font-size: .88rem; color: #134e4a; }

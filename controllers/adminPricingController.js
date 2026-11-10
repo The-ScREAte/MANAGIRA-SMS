@@ -17,6 +17,7 @@
 const db = require("../config/db");
 const hubBilling = require("../utils/hubBilling");
 const orgPricing = require("../utils/orgPricing");
+const planCatalog = require("../utils/planCatalog");
 const { COUNTRIES_BY_CONTINENT, COUNTRY_NAME_LOOKUP } = require("../utils/countries");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const { getPaymentProvider } = require("../utils/paymentProviderConfig");
@@ -69,9 +70,18 @@ async function loadPlans() {
         GROUP BY p.id
         ORDER BY p.id`
     ),
-    db.query("SELECT id, feature_name FROM features ORDER BY feature_name"),
+    db.query("SELECT id, feature_name, price_usd FROM features ORDER BY feature_name"),
   ]);
-  return { plans: plans.rows.map((p) => ({ ...p, feature_ids: (p.feature_ids || []).map(Number) })), features: features.rows };
+  // The plan features in catalog order (utils/planCatalog.js), and what each plan has of them.
+  const catalog = planCatalog.planForm(features.rows);
+  const everyPlan = catalog.core.filter((item) => item.headline).map((item) => item.label);
+  const withIncludes = (p) => {
+    const ids = new Set((p.feature_ids || []).map(Number));
+    const included = catalog.choices.filter((item) => item.ids.some((id) => ids.has(id)));
+    // `includes`: what the plan has, as schools read it (what every plan has, then its own).
+    return { ...p, feature_ids: [...ids], included: included.map((item) => item.key), includes: [...everyPlan, ...included.map((item) => item.label)] };
+  };
+  return { plans: plans.rows.map(withIncludes), features: features.rows, catalog };
 }
 
 // Countries priced together, each with its countries, months per term, plan prices and schools.
@@ -144,7 +154,7 @@ async function pricingGet(req, res) {
   try {
     await ensurePaymentProviderSchema(db);
     await hubBilling.ensureHubBillingSchema(db);
-    const [{ plans, features }, regions, cycles, schoolPrices, hubPrices, use, hubFees, addons, addonHubs, trialEnabled, trialDays,
+    const [{ plans, features, catalog }, regions, cycles, schoolPrices, hubPrices, use, hubFees, addons, addonHubs, trialEnabled, trialDays,
       paystack, stripe, provider, platformFee] = await Promise.all([
       loadPlans(),
       loadRegions(),
@@ -169,6 +179,7 @@ async function pricingGet(req, res) {
       tab: TABS.includes(req.query.tab) ? req.query.tab : "schools",
       plans,
       features,
+      catalog,
       regions,
       cycles,
       countriesByContinent: COUNTRIES_BY_CONTINENT,
@@ -227,21 +238,44 @@ async function addonsPost(req, res) {
 
 async function planFormGet(req, res) {
   if (!panelOnly(req, res, PRICING)) return;
-  const { plans, features } = await loadPlans();
+  const { plans, catalog } = await loadPlans();
   const plan = plans.find((p) => Number(p.id) === toId(req.params.planId));
   if (!plan) return panelMissing(res, "This plan no longer exists.");
-  res.render("admin/forms/pricingPlan", { plan, features });
+  // The plan's price on the default (United States) list, shown with what it includes.
+  const row = (await db.query(
+    `SELECT x.base_price_usd, x.free_student_threshold, x.free_student_percent, x.per_student_rate_usd,
+            (SELECT value FROM app_settings WHERE key = 'dynamic_region_term_months_' || r.id) AS months
+       FROM plan_region_prices x JOIN pricing_regions r ON r.id = x.region_id
+      WHERE r.is_default AND x.plan_id = $1 AND x.is_active LIMIT 1`,
+    [plan.id]
+  ).catch(() => ({ rows: [] }))).rows[0];
+  const usd = (n) => `$${Number(n || 0).toFixed(2)}`;
+  const price = row && Number(row.base_price_usd) > 0 ? {
+    base: usd(row.base_price_usd),
+    included: row.free_student_percent != null ? `${Number(row.free_student_percent)}% of` : Number(row.free_student_threshold),
+    extra: usd(row.per_student_rate_usd),
+    per: String(row.months) === "1" ? "month" : "term",
+  } : null;
+  res.render("admin/forms/pricingPlan", { plan, catalog, price });
 }
 
 async function planPost(req, res) {
   const planId = toId(req.params.planId);
   const client = await db.connect();
   try {
-    const wanted = new Set([].concat(req.body.features || []).map(toId).filter(Boolean));
+    // Chosen plan features (by catalog key), plus what every plan includes, plus the old rows
+    // the form no longer offers (the parent portal, Lesson Notes), which stay as they were.
+    const chosen = new Set([].concat(req.body.features || []).map(String));
     await client.query("BEGIN");
     const plan = (await client.query("SELECT id, plan_name FROM plans WHERE id = $1 FOR UPDATE", [planId])).rows[0];
     if (!plan) throw Object.assign(new Error("This plan no longer exists."), { shown: true });
-    const known = (await client.query("SELECT id FROM features WHERE id = ANY($1::int[])", [[...wanted]])).rows.map((r) => Number(r.id));
+    const catalog = planCatalog.planForm((await client.query("SELECT id, feature_name FROM features")).rows);
+    const had = new Set((await client.query("SELECT feature_id FROM plan_features WHERE plan_id = $1", [planId])).rows.map((r) => Number(r.feature_id)));
+    const known = [...new Set([
+      ...catalog.choices.filter((item) => chosen.has(item.key)).flatMap((item) => item.ids),
+      ...catalog.coreIds,
+      ...catalog.keptIds.filter((id) => had.has(id)),
+    ])];
     await client.query("DELETE FROM plan_features WHERE plan_id = $1 AND NOT (feature_id = ANY($2::int[]))", [planId, known]);
     await client.query(
       `INSERT INTO plan_features (plan_id, feature_id)
@@ -250,15 +284,19 @@ async function planPost(req, res) {
       [planId, known]
     );
     // The plan's fallback total (used only where it has no prices by country) follows its features.
+    // One short name per plan ("Starter", "Pro", "Premium"); an empty box keeps the name it has.
+    const name = String(req.body.name || "").trim().replace(/\s+/g, " ").slice(0, 60) || plan.plan_name;
+    const taken = (await client.query("SELECT 1 FROM plans WHERE LOWER(TRIM(plan_name)) = LOWER($1) AND id <> $2", [name, planId])).rowCount;
+    if (taken) throw Object.assign(new Error(`Another plan is already called ${name}.`), { shown: true });
     await client.query(
-      `UPDATE plans SET description = $2, is_active = $3,
+      `UPDATE plans SET plan_name = $4, description = $2, is_active = $3,
               total_cost = COALESCE((SELECT SUM(f.price_usd) FROM plan_features pf JOIN features f ON f.id = pf.feature_id WHERE pf.plan_id = $1), 0)
         WHERE id = $1`,
-      [planId, String(req.body.description || "").trim().slice(0, 500), on(req.body.isActive)]
+      [planId, String(req.body.description || "").trim().slice(0, 500), on(req.body.isActive), name]
     );
     await client.query("COMMIT");
     await invalidateAccessForPlan(db, planId).catch(() => {});
-    req.flash("success", `${plan.plan_name} saved.`);
+    req.flash("success", `${name} saved.`);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     if (!error.shown) console.error("[Admin pricing] plan:", error.message);

@@ -32,7 +32,7 @@ const setAllowedPermissions = async (req, res, next) => {
   // What the plan doesn't include is never in this list, for anyone.
   const grant = (keys) => {
     res.locals.userPermissions = res.locals.planFeaturesKnown
-      ? keys.filter((key) => withinPlan(key, res.locals.allowedFeatures))
+      ? keys.filter((key) => withinPlan(key, res.locals.allowedFeatures, req.session?.organizationId))
       : keys;
     // A short fingerprint of this person's access. When it changes, the browser
     // drops its saved copies of pages (public/service-worker.js).

@@ -175,6 +175,14 @@ async function getActiveDynamicCycleByKey(dbClient, cycleKey) {
   return result.rows[0] || null;
 }
 
+// The cycle a school is already paying on, whether or not it is still offered to new schools
+// ("active" means offered): its months and discount still apply to that school.
+async function getDynamicCycleByKey(dbClient, cycleKey) {
+  if (!cycleKey) return null;
+  const result = await dbClient.query("SELECT * FROM dynamic_billing_cycles WHERE cycle_key = $1 LIMIT 1", [cycleKey]);
+  return result.rows[0] || null;
+}
+
 async function getDynamicTermDivider(dbClient) {
   try {
     const result = await dbClient.query(
@@ -440,6 +448,36 @@ const {
 } = require("../middleware/permissionMiddleware");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
+// One address, with a name, an @ and a domain, and nothing that isn't part of an address.
+const looksLikeEmail = (value) => typeof value === "string" && value.length <= 254 && /^[^\s@<>"'(),;:\\]+@[^\s@<>"'(),;:\\]+\.[^\s@<>"'(),;:\\]{2,}$/.test(value.trim());
+
+// Plan lists as a ladder for the schools the `plan_page` release reaches; as they were elsewhere.
+const planLadderWhereReleased = (organizationId, plans) => (
+  require("../utils/shards/features").isOn("plan_page", { organizationId }) ? planLadder(plans) : plans
+);
+
+// A connection taken from the pool by hand whose release() is safe to call more than once, so a
+// `finally` can always give it back whatever the code before it already did. A connection that
+// is never given back is gone for good: 15 of them and every page answers "database unavailable".
+function releasedOnce(client) {
+  const release = client.release.bind(client);
+  let done = false;
+  client.release = (...args) => {
+    if (done) return undefined;
+    done = true;
+    return release(...args);
+  };
+  return client;
+}
+
+// The plans a school is offered, as a ladder: each lists only what it adds to the plan before it
+// (utils/planCatalog.js). Plans not offered keep their place but aren't part of the ladder.
+const planLadder = (plans) => {
+  const { ladder } = require("../utils/planCatalog");
+  const offered = ladder((plans || []).filter((plan) => plan.is_active !== false));
+  const byId = new Map(offered.map((plan) => [plan.plan_id ?? plan.id, plan]));
+  return (plans || []).map((plan) => byId.get(plan.plan_id ?? plan.id) || ladder([plan])[0]);
+};
 const {
   ensureStudentPortalSchema,
   normalizeStudentEmail,
@@ -2499,11 +2537,13 @@ const accountController = {
         };
       });
 
-      res.render("account/servicePlan", {
+      // The new plan page, where released; the page as it was for everyone else.
+      const newPlanPage = require("../utils/shards/features").isOn("plan_page", { organizationId: req.session?.organizationId });
+      res.render(newPlanPage ? "account/servicePlan" : "account/servicePlanClassic", {
         title: "Choose Your Plan",
         description: `Managira pricing: school management software priced per school, per month, in local currency by country and number of students.${freeTrialEnabled && freeTrialLengthLabel ? ` Free trial: ${freeTrialLengthLabel}.` : ""}`,
 
-        plans: plansWithDefaultDisplayPrice,
+        plans: newPlanPage ? planLadder(plansWithDefaultDisplayPrice) : plansWithDefaultDisplayPrice,
 
         url,
 
@@ -6181,7 +6221,8 @@ const accountController = {
 
     req.session.destroy(async (err) => {
       if (err) {
-                req.flash("error", "Failed to log out. Please try again.");
+        // The session may already be gone here; flashing without one throws and stops the server.
+        if (req.session) req.flash("error", "Failed to log out. Please try again.");
 
         return res.redirect("/account/login");
       }
@@ -6322,6 +6363,12 @@ const accountController = {
     if (password && password !== confirmPassword) {
       req.flash("error", "Passwords do not match.");
 
+      return res.redirect("/account/update");
+    }
+
+    // An account's email is how it signs in and gets its reset links: it must be an address.
+    if (!looksLikeEmail(email)) {
+      req.flash("error", "Enter a valid email address.");
       return res.redirect("/account/update");
     }
 
@@ -6808,8 +6855,8 @@ const accountController = {
     const userId = req.session.user.user_id;
     const isOrgAccount = req.session.accountType === "Organization";
 
-    if (!email) {
-      req.flash("error", "Email is required.");
+    if (!email || !looksLikeEmail(email)) {
+      req.flash("error", email ? "Enter a valid email address." : "Email is required.");
       return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
@@ -8751,7 +8798,7 @@ const accountController = {
       const organizationStudentCount = await studentCountPending;
       const billingPeriods = await billingPeriodsPending;
 
-      const plans = await Promise.all(
+      const plans = planLadderWhereReleased(orgId, await Promise.all(
         (plansResult.rows || []).map(async (plan) => {
           const fallbackMonthlyUsd = Number(plan.total_price || 0);
           const pricing = await computeOrganizationPlanMonthlyPrice(db, {
@@ -8771,7 +8818,9 @@ const accountController = {
           const statusDetail = pricing.pricingMode === 'dynamic'
             ? (withinFreeRange
                 ? `Your current student count is still covered by the ${pricing.threshold} free students on this plan.`
-                : `First ${pricing.threshold} students are free. ${pricing.extraStudents} extra student${pricing.extraStudents === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.termStudentCostUsd, 'USD')} per term (~${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')}/mo).`)
+                : (Number(pricing.monthsPerTerm) === 1
+                    ? `The first ${pricing.threshold} students are included. ${pricing.extraStudents} extra student${pricing.extraStudents === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')} a month (${formatCurrencyAmount(pricing.perStudentRateUsd, 'USD')} each).`
+                    : `First ${pricing.threshold} students are free. ${pricing.extraStudents} extra student${pricing.extraStudents === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.termStudentCostUsd, 'USD')} per term (~${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')}/mo).`))
             : 'Dynamic student pricing is not configured for your region yet, so this plan uses flat monthly pricing.';
 
           return {
@@ -8801,7 +8850,7 @@ const accountController = {
             pricingStatusDetail: statusDetail,
           };
         })
-      );
+      ));
 
       let user = null;
       if (userId && orgId) {
@@ -9276,6 +9325,9 @@ const accountController = {
         connected: false,
         shouldShowFeatures: false,
       };
+      // The parent portal add-on (plan catalog): shown where released; on follows the school's
+      // switch, or its plan until it chooses.
+      let parentPortalIntegration = { shown: false, activated: false };
       let transportationIntegration = {
         activated: false,
         mapProvider: "openstreetmap",
@@ -9337,6 +9389,7 @@ const accountController = {
           getMiraIntegrationStatus(db, orgId),
           getLatestIntegrationActivity(db, orgId, [
             "Student Portal",
+            "Parent Portal",
             "Transportation",
             "Google Maps",
             "Maps",
@@ -9351,6 +9404,9 @@ const accountController = {
         googleIntegration = resolvedGoogleIntegration;
         whatsappIntegration = initialWhatsappIntegration;
         studentPortalIntegration = resolvedStudentPortalIntegration;
+        if (require("../utils/planCatalog").catalogOn(orgId)) {
+          parentPortalIntegration = { shown: true, activated: await hasGuardianPortalFeature(db, orgId).catch(() => false) };
+        }
         transportationIntegration = resolvedTransportationIntegration;
         smsIntegration = resolvedSmsIntegration;
         miraIntegration = resolvedMiraIntegration;
@@ -9443,6 +9499,7 @@ const accountController = {
         whatsappFrontendConfig,
         whatsappServerTestConfig,
         studentPortalIntegration,
+        parentPortalIntegration,
         transportationIntegration,
         smsIntegration,
         settingsEncryptionKeyConfigured: isSettingsEncryptionKeyConfigured(),
@@ -9791,6 +9848,16 @@ const accountController = {
       const { trial_active_until, organization_name, email } =
         orgResult.rows[0];
 
+      // The form asks for the school's name and the person's password: both are checked here,
+      // so one stray or forged request can't put a school on hold.
+      const sameName = String(orgName || "").trim().toLowerCase() === String(organization_name || "").trim().toLowerCase();
+      if (!sameName || !(await verifySessionPassword(password, req))) {
+        req.flash("error", sameName
+          ? "Incorrect password. Your subscription was not cancelled."
+          : "The organization name doesn't match. Your subscription was not cancelled.");
+        return res.redirect("/account/cancel-subscription");
+      }
+
       // Step 2: Check for next_payment_end_date in latest payment
 
       const paymentResult = await db.query(
@@ -9905,14 +9972,15 @@ const accountController = {
       if (immediateHold) {
         // Log user out and show cancellation message
 
-        req.session.destroy((err) => {
-          res.clearCookie("connect.sid", { path: "/" });
-
-          req.flash(
-            "error",
-
-            "Your account has been cancelled and placed on hold. If you need further assistance, please contact support."
-          );
+        // A fresh, signed-out session carries the message: flashing after destroy() throws
+        // ("req.flash() requires sessions") outside any handler, which stopped the whole server.
+        req.session.regenerate(() => {
+          if (req.session) {
+            req.flash(
+              "error",
+              "Your account has been cancelled and placed on hold. If you need further assistance, please contact support."
+            );
+          }
 
           return res.redirect("/account/login");
         });
@@ -10083,7 +10151,7 @@ const accountController = {
 
         pendingPlan,
 
-        plans,
+        plans: planLadderWhereReleased(req.session?.organizationId, plans),
         currencyProfile,
 
         messages: req.flash(),
@@ -10445,7 +10513,7 @@ const accountController = {
       const periodKey = payment.billing_period_key || 'monthly';
       let periodMonths = 1;
       try {
-        const dynamicCycle = await getActiveDynamicCycleByKey(db, periodKey);
+        const dynamicCycle = await getDynamicCycleByKey(db, periodKey);
         if (dynamicCycle) {
           periodMonths = Number(dynamicCycle.months) || 1;
         }
@@ -12320,6 +12388,43 @@ const accountController = {
     }
   },
 
+  // The parent portal add-on (plan catalog): the school switches it on or off, with its password.
+  parentPortalActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+    const wantsJson = req.xhr
+      || String(req.get("accept") || "").toLowerCase().includes("application/json")
+      || String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+    const respond = (statusCode, payload) => {
+      if (wantsJson) return res.status(statusCode).json(payload);
+      req.flash(payload.success ? "success" : "error", payload.message);
+      return res.redirect("/account/settings?section=integrations");
+    };
+    try {
+      if (!require("../utils/planCatalog").catalogOn(orgId)) {
+        return respond(404, { success: false, message: "The parent portal comes with your plan." });
+      }
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+      const password = String(req.body.integrationPassword || "");
+      if (!password.trim()) {
+        return respond(400, { success: false, activated: !shouldActivate, message: `Enter your password to ${shouldActivate ? "turn on" : "turn off"} the parent portal.` });
+      }
+      if (!(await verifySessionPassword(password, req))) {
+        return respond(401, { success: false, activated: !shouldActivate, message: "Incorrect password. Nothing was changed." });
+      }
+      await require("../utils/guardianPortalAccess").setParentPortalActivation(db, orgId, shouldActivate);
+      logIntegrationActivation(req, "Parent Portal", shouldActivate);
+      return respond(200, {
+        success: true,
+        activated: shouldActivate,
+        message: shouldActivate ? "The parent portal is on. Parents can sign in." : "The parent portal is off. Parents can't sign in until you turn it on.",
+      });
+    } catch (error) {
+      console.error("[Integrations] parent portal:", error.message);
+      return respond(500, { success: false, message: "Couldn't change the parent portal right now." });
+    }
+  },
+
   miraActivationPost: async (req, res) => {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");
@@ -12925,7 +13030,7 @@ const accountController = {
 
   // POST - Process hub invitation acceptance
   hubInvitationAcceptPost: async (req, res) => {
-    const client = await db.connect();
+    const client = releasedOnce(await db.connect());
     try {
       await client.query('BEGIN');
       
@@ -13143,10 +13248,9 @@ const accountController = {
             req.flash('success', `Welcome! Your organization has been set up successfully. Please log in with your credentials.`);
       res.redirect('/account/login');
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       client.release();
-      
-                                                      
+
       // More specific error messages
       let errorMessage = 'An error occurred while processing your invitation.';
       if (error.code === '23505') { // PostgreSQL unique violation
@@ -13159,6 +13263,9 @@ const accountController = {
       
       req.flash('error', errorMessage);
       return res.redirect(`/account/accept-hub-invitation/${req.params.token}`);
+    } finally {
+      // Whatever way out was taken above, the connection goes back to the pool.
+      client.release();
     }
   },
 
@@ -13304,7 +13411,7 @@ const accountController = {
 
   // POST - Accept hub invitation for existing organization
   hubInvitationAcceptExistingPost: async (req, res) => {
-    const client = await db.connect();
+    const client = releasedOnce(await db.connect());
     
     try {
       const { token } = req.params;
@@ -13446,10 +13553,13 @@ const accountController = {
       req.flash('success', `Successfully joined ${invitation.hub_name}! You can now log in with your existing credentials.`);
       res.redirect('/account/login');
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       client.release();
-            req.flash('error', 'Error accepting invitation.');
+      req.flash('error', 'Error accepting invitation.');
       res.redirect('/account/login');
+    } finally {
+      // Whatever way out was taken above, the connection goes back to the pool.
+      client.release();
     }
   },
 };

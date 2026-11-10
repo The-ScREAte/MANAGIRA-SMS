@@ -212,6 +212,25 @@ async function standardPlanMonthly(db, org) {
 
 // ---------------------------------------------------------------- the bill
 
+// The add-on keys the school's plan (or its hub's) includes. If the plan can't be read, none:
+// the bill then shows the add-on at its price, never a wrong "included".
+async function planAddons(db, organizationId) {
+  try {
+    // With the plan catalog (sandbox schools first): elsewhere add-ons are priced as before.
+    if (!require("./planCatalog").catalogOn(organizationId)) return new Set();
+    const { resolvePlanForOrganization } = require("./accessCache");
+    const plan = await resolvePlanForOrganization(db, organizationId);
+    if (!plan || !plan.planId) return new Set();
+    const { rows } = await db.query(
+      "SELECT f.feature_name FROM features f JOIN plan_features pf ON pf.feature_id = f.id WHERE pf.plan_id = $1",
+      [plan.planId]
+    );
+    return require("./planCatalog").includedAddons(rows);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
 function planMonthly(standardMonthly, overrides) {
   const standard = round2(standardMonthly);
   const base = overrides.monthlyPrice != null ? overrides.monthlyPrice : standard;
@@ -232,9 +251,16 @@ async function schoolBill(db, organizationId, standardMonthly, { overrides, usag
     prices || standardAddonPrices(db),
   ]);
   const charging = features.isOn("addon_pricing", { organizationId });
+  // Add-ons the school's plan includes (the portals in every plan, Mira from Pro, transportation
+  // in Premium) are part of the plan's price: no charge for them.
+  const inPlan = await planAddons(db, organizationId);
   const addons = [];
   INTEGRATIONS.forEach(({ key, label }) => {
     if (!use.on.includes(key)) return;
+    if (inPlan.has(key)) {
+      addons.push({ key, label, unit: unitOf(key), unitPrice: 0, quantity: 0, amount: 0, own: false, free: true, included: true, note: "included in your plan" });
+      return;
+    }
     const isOwn = Object.prototype.hasOwnProperty.call(own.addonPrices, key);
     const std = standard[key] || { price: 0, unit: unitOf(key) };
     const unit = unitOf(key, std.unit);

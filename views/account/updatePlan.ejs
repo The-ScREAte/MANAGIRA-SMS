@@ -246,13 +246,11 @@
           <div class="plan-header"><%= plan.plan_name %></div>
           <div class="plan-body">
             <p><%= plan.description %></p>
+            <% if (plan.plusOf) { %><p><strong>Everything in <%= plan.plusOf %>, plus</strong></p><% } %>
             <ul>
-              <% if (Array.isArray(plan.features)) { %> <%
-              plan.features.forEach(feature => { %>
+              <% (plan.newFeatures || plan.features || []).forEach(feature => { %>
               <li>- <%= feature.feature_name %></li>
-              <% }) %> <% } else { %>
-              <li>No features available</li>
-              <% } %>
+              <% }) %>
             </ul>
           </div>
           <div class="plan-price">

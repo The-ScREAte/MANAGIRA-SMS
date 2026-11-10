@@ -308,15 +308,17 @@ const ID_FIELD_LOOKUP = {
 const LABEL_CACHE = new Map();
 const LABEL_CACHE_TTL_MS = 60_000;
 
-function getCachedLabel(table, id) {
-  const key = `${table}:${id}`;
+// Kept per school: the same id is another person in another school, and a name must never
+// reach a school it doesn't belong to.
+function getCachedLabel(table, id, organizationId) {
+  const key = `${organizationId}:${table}:${id}`;
   const entry = LABEL_CACHE.get(key);
   if (entry && entry.expiresAt > Date.now()) return entry.value;
   return undefined;
 }
 
-function setCachedLabel(table, id, value) {
-  const key = `${table}:${id}`;
+function setCachedLabel(table, id, value, organizationId) {
+  const key = `${organizationId}:${table}:${id}`;
   LABEL_CACHE.set(key, { value, expiresAt: Date.now() + LABEL_CACHE_TTL_MS });
   if (LABEL_CACHE.size > 500) {
     // Simple cap - drop oldest insertion
@@ -329,7 +331,9 @@ async function resolveIdToLabel(database, table, idColumn, nameExpr, rawId, orga
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) return null;
 
-  const cached = getCachedLabel(table, id);
+  // A school is only ever told its own name.
+  if (table === "organizations" && id !== Number(organizationId)) return null;
+  const cached = getCachedLabel(table, id, organizationId);
   if (cached !== undefined) return cached;
 
   try {
@@ -340,10 +344,10 @@ async function resolveIdToLabel(database, table, idColumn, nameExpr, rawId, orga
     const params = hasOrgScope ? [id, organizationId] : [id];
     const result = await database.query(sql, params);
     const label = result.rows[0]?.label ? String(result.rows[0].label).trim() : null;
-    setCachedLabel(table, id, label);
+    setCachedLabel(table, id, label, organizationId);
     return label;
   } catch (error) {
-    setCachedLabel(table, id, null);
+    setCachedLabel(table, id, null, organizationId);
     return null;
   }
 }

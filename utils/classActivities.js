@@ -194,8 +194,6 @@ async function deleteActivity(db, organizationId, id) {
 async function tellFamilies(db, organizationId, classId, activity, studentId = null) {
   const { rows } = await db.query(
     `SELECT DISTINCT x.guardian_id FROM (
-       SELECT g.guardian_id, g.student_id FROM guardians g WHERE g.organization_id = $1
-       UNION
        SELECT gs.guardian_id, gs.student_id FROM guardian_students gs
      ) x
      JOIN students s ON s.student_id = x.student_id AND s.organization_id = $1

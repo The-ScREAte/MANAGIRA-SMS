@@ -14575,9 +14575,9 @@ NUMBERING:
       );
 
       const client = await db.connect();
-      await client.query("BEGIN");
       let newScore = 0;
       try {
+        await client.query("BEGIN");
         for (const [questionIdStr, rawValue] of Object.entries(marksInput)) {
           const questionId = Number(questionIdStr);
           if (!marksByQuestion.has(questionId)) continue;
