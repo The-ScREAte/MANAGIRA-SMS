@@ -837,7 +837,7 @@
           data-base-local="<%= typeof plan.defaultDisplayLocal !== 'undefined' ? Number(plan.defaultDisplayLocal).toFixed(2) : ((currencyProfile && currencyProfile.usdToUserRate) ? (plan.total_price * currencyProfile.usdToUserRate).toFixed(2) : plan.total_price) %>"
           data-local-currency="<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : 'USD' %>"
           data-price-base-component="<%= dynamicMeta ? Number(dynamicMeta.basePriceUsd || 0) : '' %>"
-          data-price-free-threshold="<%= dynamicMeta ? Number(dynamicMeta.freeStudentThreshold || 0) : '' %>"
+          data-price-free-threshold="<%= dynamicMeta && dynamicMeta.freeStudentThreshold != null ? Number(dynamicMeta.freeStudentThreshold) : '' %>"
           data-price-per-student="<%= dynamicMeta ? Number(dynamicMeta.perStudentRateUsd || 0) : '' %>"
           data-price-months-per-term="<%= dynamicMeta ? Number(dynamicMeta.monthsPerTerm || 1) : '' %>"
         >
@@ -884,7 +884,7 @@
               <div class="price-after-trial">after trial ends</div>
             <% } %>
             <% if (dynamicMeta) { %>
-              <div class="free-students-badge">First <%= Number(dynamicMeta.freeStudentThreshold || 0) %> students are free</div>
+              <div class="free-students-badge"><%= dynamicMeta.freeStudentPercent != null ? `First ${Number(dynamicMeta.freeStudentPercent)}% of students are free` : `First ${Number(dynamicMeta.freeStudentThreshold || 0)} students are free` %></div>
             <% } %>
             <div class="price-local"></div>
           </div>

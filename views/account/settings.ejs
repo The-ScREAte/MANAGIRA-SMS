@@ -3163,12 +3163,19 @@
       const formatSelectedCurrency = (value) => new Intl.NumberFormat(selectedLocale, { style: 'currency', currency: selectedCurrency }).format(Number(value || 0));
       const formatCurrentPlanAmount = (usdAmount) => { const baseUsd = Number(usdAmount || 0); const usdDisplay = formatUsdCurrency(baseUsd); if (!showLocalizedCurrency) return usdDisplay; return `${formatSelectedCurrency(baseUsd * usdToUserRate)} (${usdDisplay})`; };
       const hasBillingInfo = (typeof billingInfo !== 'undefined' && billingInfo);
-      const currentMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0;
+      // The plan's price for this school: the one Managira set for it, or the standard one, less
+      // its discount (utils/orgPricing.js; the bill works it out the same way).
+      const _schoolPricing = (typeof schoolPricing !== 'undefined' && schoolPricing) ? schoolPricing : null;
+      const _ownPrice = _schoolPricing && _schoolPricing.overrides ? _schoolPricing.overrides : { monthlyPrice: null, discountPercent: 0 };
+      const standardMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0;
+      const currentMonthlyBase = (_ownPrice.monthlyPrice != null ? Number(_ownPrice.monthlyPrice) : standardMonthlyBase) * (1 - Number(_ownPrice.discountPercent || 0) / 100);
+      const schoolAddonsMonthly = _schoolPricing ? Number(_schoolPricing.addonsMonthly || 0) : 0;
+      const schoolAddonLines = _schoolPricing && _schoolPricing.charging ? (_schoolPricing.addons || []).filter((line) => line.amount > 0) : [];
       const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1;
       const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0;
       const apiAddonMonthly = (typeof apiAddonMonthlyUsd !== 'undefined' && Number(apiAddonMonthlyUsd) > 0) ? Number(apiAddonMonthlyUsd) : 0;
-      // Same as the bill: plan (with the period discount) plus the API add-on each month.
-      const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100)) + apiAddonMonthly * billingMonths;
+      // Same as the bill: plan (with the period discount) plus the add-ons and the API add-on each month.
+      const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100)) + (apiAddonMonthly + schoolAddonsMonthly) * billingMonths;
       const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly';
 
       let _onHoldAmountText = '';
@@ -4030,6 +4037,18 @@
                         <% } %>
                       </div>
                     </div>
+                    <% if (_ownPrice.monthlyPrice != null || Number(_ownPrice.discountPercent) > 0) { %>
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label">Your price</div>
+                      <div class="current-plan-price-value-sub"><%= _ownPrice.monthlyPrice != null ? `${formatCurrentPlanAmount(_ownPrice.monthlyPrice)} a month` : 'Standard plan price' %><%= Number(_ownPrice.discountPercent) > 0 ? ` · ${Number(_ownPrice.discountPercent)}% off` : '' %>, included above</div>
+                    </div>
+                    <% } %>
+                    <% schoolAddonLines.forEach((line) => { %>
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label"><%= line.label %></div>
+                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(line.amount) %> a month<%= line.note ? ` (${line.note})` : '' %>, included above</div>
+                    </div>
+                    <% }) %>
                     <% if (apiAddonMonthly > 0) { %>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label">API allowance</div>

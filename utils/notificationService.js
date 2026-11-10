@@ -333,6 +333,7 @@ async function getStaffBirthdayContext(db, { recipientId, orgId }) {
 
   const role = String(roleResult.rows[0]?.account_type || '').trim().toLowerCase();
   return {
+    isDriver: role === 'driver',
     isElevated: ['manager', 'supervisor', 'admin', 'mini admin', 'organization'].includes(role),
     assignedClassIds: classResult.rows.map((row) => Number(row.class_id || 0)).filter(Boolean),
   };
@@ -344,6 +345,7 @@ async function getDynamicBirthdayItems(db, context) {
   await ensureBirthdaySchema(db);
 
   const roleContext = await getStaffBirthdayContext(db, { recipientId, orgId });
+  if (roleContext.isDriver) return [];
   const marks = await loadBirthdayMarks(db, context);
   // "Today" where the school is, not in UTC (evenings would show tomorrow's birthdays).
   const today = new Date(`${dateKeyIn(context.timeZone || timeZoneOf(null))}T00:00:00Z`);
@@ -557,12 +559,14 @@ async function getUnreadCount(db, context) {
 
     let baseCount = 0;
     if (recipientType === 'staff') {
-      const seen = broadcastCondition(await broadcastAudience(db, context), 3);
+      const audience = await broadcastAudience(db, context);
+      const seen = broadcastCondition(audience, 4);
       const result = await db.query(
         `SELECT COUNT(*)::int AS cnt
          FROM notifications n
          WHERE n.organization_id = $1
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
+           AND NOT (n.type = ANY($3::text[]))
            AND (
              (n.recipient_type = 'staff' AND n.recipient_id = $2)
              OR ${seen.sql}
@@ -575,7 +579,7 @@ async function getUnreadCount(db, context) {
              SELECT 1 FROM notification_dismissals nd
              WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
            )`,
-        [orgId, recipientId, ...seen.params]
+        [orgId, recipientId, audience.hide || [], ...seen.params]
       );
       baseCount = result.rows[0]?.cnt ?? 0;
       const birthdayItems = await getDynamicBirthdayItems(db, context);
@@ -617,7 +621,8 @@ async function getFeed(db, context) {
     const safeLimit = Math.min(Number.parseInt(limit, 10) || 20, 50);
 
     if (recipientType === 'staff') {
-      const seen = broadcastCondition(await broadcastAudience(db, context), 4);
+      const audience = await broadcastAudience(db, context);
+      const seen = broadcastCondition(audience, 5);
       const result = await db.query(
         `SELECT n.*, (nr.reader_id IS NOT NULL) AS is_read
          FROM notifications n
@@ -625,6 +630,7 @@ async function getFeed(db, context) {
            ON nr.notification_id = n.id AND nr.reader_id = $2
          WHERE n.organization_id = $1
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
+           AND NOT (n.type = ANY($4::text[]))
            AND (
              (n.recipient_type = 'staff' AND n.recipient_id = $2)
              OR ${seen.sql}
@@ -635,7 +641,7 @@ async function getFeed(db, context) {
            )
          ORDER BY n.created_at DESC
          LIMIT $3`,
-        [orgId, recipientId, safeLimit, ...seen.params]
+        [orgId, recipientId, safeLimit, audience.hide || [], ...seen.params]
       );
       const birthdayItems = await getDynamicBirthdayItems(db, context);
       return [...birthdayItems, ...result.rows]
@@ -785,62 +791,60 @@ async function markAllRead(db, context) {
   }
 }
 
-async function notifyClassTeachers(db, { orgId, classId, type, title, body, link, refId }) {
-  try {
-    const result = await db.query(
-      `SELECT DISTINCT user_id FROM user_classes
-       WHERE class_id = $1`,
-      [classId]
-    );
-    const list = result.rows.map((r) => ({
-      orgId,
-      recipientType: 'staff',
-      recipientId: r.user_id,
-      type, title, body, link, refId,
-    }));
-    await createNotifications(db, list);
-  } catch (err) {
-    console.error('[NotificationService] notifyClassTeachers failed:', err.message);
+// The staff of a class who should hear about it: those assigned to the class, not drivers (their
+// app is the bus), not on hold or removed, and not Managira's own accounts. With `permission`,
+// only those who hold it (the same check as the pages); with `subjectIds`, teachers only when
+// they teach one of those subjects in the class (managers and supervisors still hear).
+async function classStaff(db, { orgId, classId, permission = null, subjectIds = null }) {
+  const subjects = Array.isArray(subjectIds) && subjectIds.length ? subjectIds.map(Number).filter(Boolean) : null;
+  const { rows } = await db.query(
+    `SELECT DISTINCT u.user_id, u.account_type::text AS role, u.email
+       FROM user_classes uc
+       JOIN users u ON u.user_id = uc.user_id
+      WHERE uc.class_id = $1 AND u.organization_id = $2
+        AND u.account_type IS DISTINCT FROM 'Driver'
+        AND COALESCE(u.on_hold, FALSE) = FALSE AND u.removed_at IS NULL
+        AND LOWER(COALESCE(u.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')
+        AND ($3::int[] IS NULL OR u.account_type::text <> 'Teacher' OR EXISTS (
+              SELECT 1 FROM user_subjects us JOIN subjects sub ON sub.subject_id = us.subject_id
+               WHERE us.user_id = u.user_id AND sub.class_id = $1 AND us.subject_id = ANY($3::int[])))`,
+    [classId, orgId, subjects]
+  );
+  if (!permission) return rows.map((r) => r.user_id);
+  const { PERMISSIONS, userHasPermission } = require('../middleware/permissionMiddleware');
+  const key = PERMISSIONS[permission] || permission;
+  const holders = [];
+  for (const u of rows) {
+    const who = { userId: u.user_id, userRole: u.role, accountType: u.role, organizationId: orgId, userEmail: u.email };
+    if (await userHasPermission(db, who, key)) holders.push(u.user_id);
   }
+  return holders;
 }
 
-async function notifyMultipleClassTeachers(db, { orgId, classIds, type, title, body, link, refId }) {
+async function notifyClassTeachers(db, { orgId, classId, type, title, body, link, refId, permission, subjectIds }) {
+  return notifyPerClassTeachers(db, { orgId, classIds: [classId], type, title, body, linkTemplate: link, refId, permission, subjectIds });
+}
+
+async function notifyMultipleClassTeachers(db, { orgId, classIds, type, title, body, link, refId, permission, subjectIds }) {
   try {
     if (!classIds || classIds.length === 0) return;
-    const result = await db.query(
-      `SELECT DISTINCT user_id FROM user_classes
-       WHERE class_id = ANY($1::int[])`,
-      [classIds]
-    );
-    const list = result.rows.map((r) => ({
-      orgId,
-      recipientType: 'staff',
-      recipientId: r.user_id,
-      type, title, body, link, refId,
-    }));
-    await createNotifications(db, list);
+    const ids = new Set();
+    for (const classId of classIds) (await classStaff(db, { orgId, classId, permission, subjectIds })).forEach((id) => ids.add(id));
+    await createNotifications(db, [...ids].map((recipientId) => ({ orgId, recipientType: 'staff', recipientId, type, title, body, link, refId })));
   } catch (err) {
     console.error('[NotificationService] notifyMultipleClassTeachers failed:', err.message);
   }
 }
 
-async function notifyPerClassTeachers(db, { orgId, classIds, type, title, body, linkTemplate, refId }) {
+// One notice per class, linking to that class (linkTemplate's {classId}).
+async function notifyPerClassTeachers(db, { orgId, classIds, type, title, body, linkTemplate, refId, permission = null, subjectIds = null }) {
   try {
     if (!classIds || classIds.length === 0) return;
     for (const classId of classIds) {
-      const result = await db.query(
-        `SELECT DISTINCT user_id FROM user_classes WHERE class_id = $1`,
-        [classId]
-      );
-      if (!result.rows.length) continue;
-      const link = linkTemplate ? linkTemplate.replace('{classId}', classId) : null;
-      const list = result.rows.map((r) => ({
-        orgId,
-        recipientType: 'staff',
-        recipientId: r.user_id,
-        type, title, body, link, refId,
-      }));
-      await createNotifications(db, list);
+      const staff = await classStaff(db, { orgId, classId, permission, subjectIds });
+      if (!staff.length) continue;
+      const link = linkTemplate ? String(linkTemplate).replace('{classId}', classId) : null;
+      await createNotifications(db, staff.map((recipientId) => ({ orgId, recipientType: 'staff', recipientId, type, title, body, link, refId })));
     }
   } catch (err) {
     console.error('[NotificationService] notifyPerClassTeachers failed:', err.message);

@@ -1,0 +1,200 @@
+<%# Admin › Organizations (controllers/adminPricingController.js): single schools and hubs. Each
+    row opens the school or hub; its ⋯ menu has its price or billing, details and hold. %>
+<%
+  const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const _m = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _logo = (h) => {
+    const value = h.logo_path && String(h.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(h.logo_path) ? h.logo_path : '';
+    return value && typeof publicImageUrl === 'function' ? publicImageUrl(value, { public: true }) : value;
+  };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminPricing.css') %>" />
+
+<div class="ah ap" data-ap-page="organizations">
+  <%- include('../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Organizations</span>
+  </nav>
+
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">Organizations</h1>
+      <p class="ah-head__sub">Single schools and hubs. Open one to see it as its people do.</p>
+    </div>
+  </header>
+
+  <% if (isAdmin) { %>
+    <div class="ap-tabs" role="tablist" aria-label="Organizations">
+      <button type="button" role="tab" class="ap-tab<%= tab === 'schools' ? ' is-on' : '' %>" aria-selected="<%= tab === 'schools' %>" data-ap-tab="schools"><i class="fa-solid fa-school" aria-hidden="true"></i> Single schools <span class="ap-tab__count"><%= schools.length %></span></button>
+      <button type="button" role="tab" class="ap-tab<%= tab === 'hubs' ? ' is-on' : '' %>" aria-selected="<%= tab === 'hubs' %>" data-ap-tab="hubs"><i class="fa-solid fa-network-wired" aria-hidden="true"></i> Hubs <span class="ap-tab__count"><%= hubs.length %></span></button>
+    </div>
+  <% } %>
+
+  <%# ----------------------------------------------------------------- Single schools %>
+  <div class="ap-panel" data-ap-panel="schools"<%= tab === 'schools' ? '' : ' hidden' %>>
+    <section class="ah-card" aria-label="Single schools">
+      <div class="ah-card__bar">
+        <h2 class="ah-card__title">Single schools</h2>
+        <% if (schools.length > 1) { %>
+          <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search schools…" aria-label="Search schools" data-ah-filter /></label>
+        <% } %>
+      </div>
+      <% if (schools.length) { %>
+        <div class="ah-scroll">
+          <table class="ah-table">
+            <thead><tr><th>School</th><th>Plan</th><th>Status</th><th class="ah-num"></th></tr></thead>
+            <tbody>
+              <% schools.forEach((org) => {
+                   const own = org.ownPricing;
+                   const ownParts = [own.monthlyPrice != null ? `${_m(own.monthlyPrice)} a month` : null, own.discountPercent > 0 ? `${own.discountPercent}% off` : null, Object.keys(own.addonPrices).length ? 'own add-on prices' : null].filter(Boolean);
+                   const owner = [org.first_name, org.last_name].filter(Boolean).join(' ');
+                   const openUrl = `/admin/org/${org.organization_id}?return=/admin/hubs`; %>
+                <tr data-ah-row="<%= [org.organization_name, org.nickname, owner, org.email, org.organization_country].join(' ').toLowerCase() %>">
+                  <td class="ah-col-school">
+                    <div class="ah-name">
+                      <span class="ah-avatar"><%= (org.organization_name || 'S').charAt(0).toUpperCase() %></span>
+                      <div style="min-width:0">
+                        <a class="ah-name__link" href="<%= openUrl %>" data-ah-open data-kind="school" data-name="<%= org.organization_name %>"><%= org.organization_name || '(No name)' %></a>
+                        <span class="ah-sub"><%= [owner || org.email, org.organization_country].filter(Boolean).join(' · ') %></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <%= org.plan_name || 'No plan' %>
+                    <span class="ah-sub"><% if (ownParts.length) { %><span class="ap-own">Own price</span> · <%= ownParts.join(' · ') %><% } else { %>Standard price<% } %><%= org.next_payment_end_date ? ` · next bill ${_date(org.next_payment_end_date)}` : '' %></span>
+                  </td>
+                  <td>
+                    <% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
+                  </td>
+                  <td class="ah-actions-cell">
+                    <div class="ah-row-actions">
+                      <a class="ah-btn ah-btn--soft ah-btn--sm" href="<%= openUrl %>" data-ah-open data-kind="school" data-name="<%= org.organization_name %>"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open</a>
+                      <details class="ah-menu">
+                        <summary class="ah-btn ah-btn--sm ah-btn--icon" aria-label="More for <%= org.organization_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+                        <div class="ah-menu__list">
+                          <% if (isAdmin) { %><a class="ah-menu__item" href="/admin/organizations/<%= org.organization_id %>/pricing" data-ah-drawer><i class="fa-solid fa-tag" aria-hidden="true"></i> Price</a><% } %>
+                          <a class="ah-menu__item" href="/admin/organizations/<%= org.organization_id %>" data-ah-drawer><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Details and licenses</a>
+                          <% if (isAdmin) { %>
+                            <div class="ah-menu__sep"></div>
+                            <% if (org.on_hold) { %>
+                              <form action="/admin/resume" method="POST" data-ah-ajax data-ah-ask="Resume <%= org.organization_name %>? Everyone can sign in again." data-ah-ask-ok="Resume">
+                                <input type="hidden" name="orgId" value="<%= org.organization_id %>">
+                                <button type="submit" class="ah-menu__item"><i class="fa-solid fa-play" aria-hidden="true"></i> Resume</button>
+                              </form>
+                            <% } else { %>
+                              <form action="/admin/hold" method="POST" data-ah-ajax data-ah-ask="Put <%= org.organization_name %> on hold? Nobody can sign in until you resume it." data-ah-ask-ok="Put on hold">
+                                <input type="hidden" name="orgId" value="<%= org.organization_id %>">
+                                <button type="submit" class="ah-menu__item"><i class="fa-solid fa-pause" aria-hidden="true"></i> Put on hold</button>
+                              </form>
+                            <% } %>
+                            <form action="/admin/delete" method="POST" data-ah-ajax data-ah-danger data-ah-ask-ok="Delete school" data-ah-ask="Delete <%= org.organization_name %>? It can be restored from the Super Admin dashboard.">
+                              <input type="hidden" name="orgId" value="<%= org.organization_id %>">
+                              <button type="submit" class="ah-menu__item ah-menu__item--danger"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete</button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </details>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="ah-empty" data-ah-noresults hidden><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>No schools match your search.</div>
+      <% } else { %>
+        <div class="ah-empty"><i class="fa-solid fa-school" aria-hidden="true"></i><h3>No single schools yet</h3><p>Schools that sign up on their own appear here.</p></div>
+      <% } %>
+    </section>
+  </div>
+
+  <%# ----------------------------------------------------------------- Hubs %>
+  <% if (isAdmin) { %>
+  <div class="ap-panel" data-ap-panel="hubs"<%= tab === 'hubs' ? '' : ' hidden' %>>
+    <section class="ah-card" aria-label="Hubs">
+      <div class="ah-card__bar">
+        <h2 class="ah-card__title">Hubs</h2>
+        <div class="ah-row-actions">
+          <% if (hubs.length > 1) { %>
+            <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search hubs…" aria-label="Search hubs" data-ah-filter /></label>
+          <% } %>
+          <a href="/admin/hubs/create" class="ah-btn ah-btn--primary ah-btn--sm" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
+        </div>
+      </div>
+      <% if (hubs.length) { %>
+        <div class="ah-scroll">
+          <table class="ah-table">
+            <thead><tr><th>Hub</th><th>Billing</th><th>Schools</th><th>Status</th><th class="ah-num"></th></tr></thead>
+            <tbody>
+              <% hubs.forEach((hub) => {
+                   const max = Number(hub.max_organizations) || 0;
+                   const count = Number(hub.org_count) || 0;
+                   const owner = [hub.first_name, hub.last_name].filter(Boolean).join(' ');
+                   const logo = _logo(hub);
+                   const bs = billingStatus[hub.billing_status || 'none'] || { label: 'Not set up', tone: 'muted' }; %>
+                <tr data-ah-row="<%= [hub.hub_name, hub.hub_nickname, owner, hub.hub_email].join(' ').toLowerCase() %>">
+                  <td class="ah-col-school">
+                    <div class="ah-name">
+                      <span class="ah-avatar"><% if (logo) { %><img src="<%= logo %>" alt="" onerror="this.remove()" /><% } else { %><%= (hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
+                      <div style="min-width:0">
+                        <a class="ah-name__link" href="/admin/hubs/<%= hub.hub_id %>/organizations"><%= hub.hub_name %></a>
+                        <span class="ah-sub"><%= owner || hub.hub_email %></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <a class="ah-bill ah-bill--<%= bs.tone %>" href="/admin/hubs/<%= hub.hub_id %>/billing"><%= hub.billing_status ? bs.label : 'Not set up' %></a>
+                    <span class="ah-sub">
+                      <% if (hub.next_charge_at && hub.next_charge_amount != null) { %>Next <%= money(hub.next_charge_amount, hub.billing_currency) %> on <%= _date(hub.next_charge_at) %><% } %>
+                      <% if (hub.pending_charges) { %><span class="ah-sub--warn"><%= hub.pending_charges %> charge<%= hub.pending_charges === 1 ? '' : 's' %> to approve</span><% } %>
+                    </span>
+                  </td>
+                  <td><a class="ah-cap__text" href="/admin/hubs/<%= hub.hub_id %>/organizations"><%= count %> of <%= max || '∞' %></a></td>
+                  <td><% if (hub.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %></td>
+                  <td class="ah-actions-cell">
+                    <div class="ah-row-actions">
+                      <% if (!hub.on_hold) { %><a class="ah-btn ah-btn--soft ah-btn--sm" href="/admin/hub/<%= hub.hub_id %>" data-ah-open data-name="<%= hub.hub_name %>" data-kind="hub"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open</a><% } %>
+                      <details class="ah-menu">
+                        <summary class="ah-btn ah-btn--sm ah-btn--icon" aria-label="More for <%= hub.hub_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+                        <div class="ah-menu__list">
+                          <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/organizations"><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
+                          <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/billing"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
+                          <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit hub</a>
+                          <div class="ah-menu__sep"></div>
+                          <% if (hub.on_hold) { %>
+                            <form action="/admin/hubs/resume" method="POST" data-ah-ajax data-ah-ask="Resume <%= hub.hub_name %>? People can sign in again and billing continues." data-ah-ask-ok="Resume">
+                              <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                              <button type="submit" class="ah-menu__item"><i class="fa-solid fa-play" aria-hidden="true"></i> Resume</button>
+                            </form>
+                          <% } else { %>
+                            <form action="/admin/hubs/hold" method="POST" data-ah-ajax data-ah-ask="Put <%= hub.hub_name %> on hold now? Nobody in the hub can sign in and no bills are charged until you resume it." data-ah-ask-ok="Put on hold">
+                              <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                              <button type="submit" class="ah-menu__item"><i class="fa-solid fa-pause" aria-hidden="true"></i> Put on hold</button>
+                            </form>
+                          <% } %>
+                          <form action="/admin/hubs/delete" method="POST" data-ah-ajax data-ah-danger data-ah-ask-ok="Delete hub" data-ah-ask="Delete <%= hub.hub_name %>? All of its schools are put on hold, billing pauses and the owner is emailed. You can restore it from the Super Admin dashboard.">
+                            <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                            <button type="submit" class="ah-menu__item ah-menu__item--danger"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete</button>
+                          </form>
+                        </div>
+                      </details>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="ah-empty" data-ah-noresults hidden><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>No hubs match your search.</div>
+      <% } else { %>
+        <div class="ah-empty"><i class="fa-solid fa-network-wired" aria-hidden="true"></i><h3>No hubs yet</h3><p>Create a hub to group schools under one owner.</p></div>
+      <% } %>
+    </section>
+  </div>
+  <% } %>
+
+  <%- include('partials/hubAdminDialogs') %>
+  <script src="<%= assetUrl('/js/adminPricing.js') %>"></script>
+</div>

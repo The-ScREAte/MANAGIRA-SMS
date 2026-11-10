@@ -1,0 +1,37 @@
+<%# Admin › Organizations › a single school: who runs it, its plan, user licenses, the documents
+    it sent when it signed up, and putting it on hold or deleting it. %>
+<% const _d = (v) => v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+   // The school's sign-up documents: a web address as it is, a stored file through its public link.
+   const _docHref = (url) => (/^https?:\/\//i.test(url) ? url : (typeof publicImageUrl === 'function' ? publicImageUrl(url) : url));
+   const _docs = [org.proof_of_existence_1, org.proof_of_existence_2].filter((url) => url && !/^\s*javascript:/i.test(url)); %>
+<div data-ahd-title="<%= org.organization_name || '(No name)' %>" data-ahd-sub="<%= org.nickname ? `${org.nickname}.managira.com` : '' %>">
+  <section class="ahd-section">
+    <dl class="ah-dl">
+      <dt>Owner</dt><dd><%= [org.first_name, org.last_name].filter(Boolean).join(' ') || '—' %></dd>
+      <dt>Email</dt><dd><%= org.email || '—' %></dd>
+      <dt>Phone</dt><dd><%= org.organization_phone || '—' %></dd>
+      <dt>Address</dt><dd><%= [org.organization_address, org.organization_province, org.organization_country].filter(Boolean).join(', ') || '—' %></dd>
+      <dt>Joined</dt><dd><%= _d(org.created_at) %></dd>
+      <dt>Plan</dt><dd><%= org.plan_name || 'No plan' %></dd>
+      <dt>Status</dt><dd><%= org.on_hold ? `On hold${org.hold_by ? ` (${org.hold_by})` : ''}` : 'Active' %></dd>
+    </dl>
+    <% if (_docs.length) { %>
+      <div class="ah-row-actions" style="justify-content:flex-start;margin-top:12px">
+        <% _docs.forEach((url, i) => { %><a class="ah-btn ah-btn--sm" href="<%= _docHref(url) %>" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file" aria-hidden="true"></i> Document <%= i + 1 %></a><% }) %>
+      </div>
+    <% } %>
+  </section>
+
+  <% if (isAdmin) { %>
+  <form action="/admin/organizations/<%= org.organization_id %>/licenses" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">User licenses</h3>
+      <p class="ahd-section__sub">Staff accounts it can have. It has <strong><%= license.used %></strong> now. Empty is no limit.</p>
+      <div class="ahb-grid">
+        <label class="ahb-field"><span class="ahb-label">Licenses</span><input type="number" name="maxUsers" min="1" step="1" class="ahb-input" value="<%= org.max_users || '' %>" placeholder="No limit" /></label>
+        <div class="ahb-field" style="justify-content:flex-end"><button type="submit" class="ah-btn">Save licenses</button></div>
+      </div>
+    </section>
+  </form>
+  <% } %>
+</div>

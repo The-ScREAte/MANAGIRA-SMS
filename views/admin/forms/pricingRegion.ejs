@@ -1,0 +1,89 @@
+<%# Admin › Pricing › a price list: the countries it prices, the length of a term, and each plan's
+    monthly price, free students and price per student. %>
+<% const _r = region || { name: '', term_months: defaultMonths, is_default: false, is_active: true, countries: [], prices: [] };
+   const _chosen = new Set(_r.countries.map((c) => c.country_code));
+   const _price = (planId) => _r.prices.find((p) => Number(p.plan_id) === Number(planId)) || null;
+   const _n = (v, d) => (v == null || v === '' ? '' : Number(v).toFixed(d)); %>
+<div data-ahd-title="<%= region ? region.name : 'New price list' %>" data-ahd-sub="<%= region ? `${region.schools} school${region.schools === 1 ? '' : 's'} pay these prices. Changes apply from each school's next bill.` : 'Prices for a group of countries.' %>">
+  <form action="/admin/pricing/regions<%= region ? `/${region.id}` : '' %>" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <div class="ahb-grid">
+        <label class="ahb-field">
+          <span class="ahb-label">Name</span>
+          <input type="text" name="name" class="ahb-input" value="<%= _r.name %>" maxlength="120" placeholder="e.g. United States" required />
+        </label>
+        <label class="ahb-field">
+          <span class="ahb-label">Months in a term</span>
+          <input type="number" name="termMonths" min="1" max="12" step="1" class="ahb-input" value="<%= _r.term_months %>" required />
+        </label>
+      </div>
+      <div class="ahb-grid ahb-grid--1" style="margin-top:10px">
+        <label class="ahb-check ahb-check--box">
+          <input type="hidden" name="isDefault" value="0" />
+          <input type="checkbox" name="isDefault" value="1" <%= _r.is_default ? 'checked' : '' %> />
+          <span>Default: countries in no list pay these prices</span>
+        </label>
+        <% if (region) { %>
+          <label class="ahb-check ahb-check--box">
+            <input type="hidden" name="isActive" value="0" />
+            <input type="checkbox" name="isActive" value="1" <%= _r.is_active ? 'checked' : '' %> />
+            <span>In use</span>
+          </label>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Prices</h3>
+      <p class="ahd-section__sub">A month's price, the students it includes (a number, or a share of the school's students), and the price for each student above that, per term.</p>
+      <table class="ap-plan-prices">
+        <thead><tr><th>Plan</th><th>A month</th><th>Free students</th><th>Per student, a term</th></tr></thead>
+        <tbody>
+          <% plans.forEach((plan) => { const p = _price(plan.id); %>
+            <tr>
+              <td><%= plan.plan_name.split('/')[0].trim() %></td>
+              <td><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="prices[plan_<%= plan.id %>][base]" class="ahb-input" value="<%= p ? _n(p.base_price_usd, 2) : '' %>" placeholder="0.00" aria-label="<%= plan.plan_name %>: a month" /></span></td>
+              <% const pct = p && p.free_student_percent != null; %>
+              <td>
+                <span class="ap-free">
+                  <input type="number" min="0" step="any" name="prices[plan_<%= plan.id %>][free]" class="ahb-input" value="<%= p ? (pct ? Number(p.free_student_percent) : Number(p.free_student_threshold)) : '' %>" placeholder="0" aria-label="<%= plan.plan_name %>: free students" />
+                  <select name="prices[plan_<%= plan.id %>][freeUnit]" class="ahb-input" aria-label="<%= plan.plan_name %>: free students as">
+                    <option value="count" <%= pct ? '' : 'selected' %>>students</option>
+                    <option value="percent" <%= pct ? 'selected' : '' %>>%</option>
+                  </select>
+                </span>
+              </td>
+              <td><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="prices[plan_<%= plan.id %>][rate]" class="ahb-input" value="<%= p ? Number(p.per_student_rate_usd) : '' %>" placeholder="0.00" aria-label="<%= plan.plan_name %>: per student a term" /></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Countries <span class="ap-tab__count" data-ap-country-count><%= _chosen.size %></span></h3>
+      <p class="ahd-section__sub">A country is priced by one list; choosing one priced elsewhere moves it here.</p>
+      <input type="search" class="ahb-input" placeholder="Search countries" aria-label="Search countries" data-ap-country-search style="margin-bottom:8px" />
+      <div class="ap-countries">
+        <% Object.entries(countriesByContinent).forEach(([continent, list]) => { %>
+          <div class="ap-continent" data-ap-continent>
+            <p class="ap-continent__title"><%= continent %></p>
+            <div class="ap-continent__list">
+              <% list.forEach((c) => { %>
+                <label class="ap-country" data-ap-country="<%= (c.name + ' ' + c.code).toLowerCase() %>">
+                  <input type="checkbox" name="countries" value="<%= c.code %>" <%= _chosen.has(c.code) ? 'checked' : '' %> />
+                  <span><%= c.name %><% if (takenBy[c.code]) { %> <small>in <%= takenBy[c.code] %></small><% } %></span>
+                </label>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><%= region ? 'Save prices' : 'Add price list' %></button>
+    </div>
+  </form>
+</div>

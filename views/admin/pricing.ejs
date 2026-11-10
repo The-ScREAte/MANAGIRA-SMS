@@ -1,0 +1,382 @@
+<%# Admin › Pricing (controllers/adminPricingController.js): every price in one place.
+    Schools: plans, prices by country, add-ons, billing cycles, free trial. Hubs: the add-on
+    prices a new hub starts with and the extra products hubs can add. Payment settings. %>
+<%
+  const _fmt = (n, d = 2) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const _money = (n) => '$' + _fmt(n);
+  const _rate = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const _activePlans = plans.filter((p) => p.is_active);
+  const _gridPlans = plans.filter((p) => p.is_active || regions.some((r) => r.prices.some((x) => Number(x.plan_id) === Number(p.id) && Number(x.base_price_usd) > 0)));
+  const _featureName = Object.fromEntries(features.map((f) => [Number(f.id), f.feature_name]));
+  const _tabs = [['schools', 'Schools', 'fa-school'], ['hubs', 'Hubs', 'fa-network-wired'], ['payments', 'Payment settings', 'fa-credit-card']];
+  // Per school, or per seat where people get access one by one (Mira, the student and parent portals).
+  const _unitPick = (field, key, saved) => {
+    const units = unitsFor(key);
+    const unit = unitOf(key, saved);
+    if (units.length < 2) return '<span class="ap-unit">per school</span>';
+    const label = integrations.find((i) => i.key === key).label;
+    return `<select name="${field}" class="ahb-input ap-unit-pick" aria-label="${label}: charged">`
+      + ['seat', 'school'].map((u) => `<option value="${u}"${u === unit ? ' selected' : ''}>${unitLabel(key, u)}</option>`).join('')
+      + '</select>';
+  };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminPricing.css') %>" />
+
+<div class="ah ap" data-ap-page="pricing">
+  <%- include('../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Pricing</span>
+  </nav>
+
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">Pricing</h1>
+      <p class="ah-head__sub">The standard prices. One school's or hub's own price is set from Organizations.</p>
+    </div>
+  </header>
+
+  <div class="ap-tabs" role="tablist" aria-label="Pricing">
+    <% _tabs.forEach(([key, label, icon]) => { %>
+      <button type="button" role="tab" class="ap-tab<%= tab === key ? ' is-on' : '' %>" aria-selected="<%= tab === key %>" data-ap-tab="<%= key %>"><i class="fa-solid <%= icon %>" aria-hidden="true"></i> <%= label %></button>
+    <% }) %>
+  </div>
+
+  <%# ----------------------------------------------------------------- Schools %>
+  <div class="ap-panel" data-ap-panel="schools"<%= tab === 'schools' ? '' : ' hidden' %>>
+
+    <section class="ah-card ap-card" aria-labelledby="apPlans">
+      <div class="ap-card__head">
+        <div>
+          <h2 class="ah-card__title" id="apPlans">Plans</h2>
+          <p class="ap-card__sub">What each plan includes.</p>
+        </div>
+      </div>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>Plan</th><th>Includes</th><th class="ah-num">Schools</th><th>Status</th><th class="ah-num"></th></tr></thead>
+          <tbody>
+            <% plans.forEach((plan) => { %>
+              <tr>
+                <td><strong><%= plan.plan_name %></strong><% if (plan.description) { %><span class="ah-sub"><%= plan.description %></span><% } %></td>
+                <td class="ap-includes">
+                  <% if (plan.feature_ids.length) { %>
+                    <%= plan.feature_ids.slice(0, 4).map((id) => _featureName[id]).filter(Boolean).join(', ') %><% if (plan.feature_ids.length > 4) { %> <span class="ap-more">+<%= plan.feature_ids.length - 4 %> more</span><% } %>
+                  <% } else { %><span class="ah-off">Nothing yet</span><% } %>
+                </td>
+                <td class="ah-num"><%= plan.schools %></td>
+                <td><% if (plan.is_active) { %><span class="ah-bill ah-bill--green">Offered</span><% } else { %><span class="ah-bill ah-bill--muted">Hidden</span><% } %></td>
+                <td class="ah-actions-cell"><a class="ah-btn ah-btn--sm" href="/admin/pricing/plans/<%= plan.id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="ah-card ap-card" aria-labelledby="apCountry">
+      <div class="ap-card__head">
+        <div>
+          <h2 class="ah-card__title" id="apCountry">Prices by country</h2>
+          <p class="ap-card__sub">A month's price, plus a price per student above the free ones. Countries in no list pay the default.</p>
+        </div>
+        <a class="ah-btn ah-btn--primary" href="/admin/pricing/regions/new" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New price list</a>
+      </div>
+      <% if (regions.length) { %>
+        <div class="ah-scroll">
+          <table class="ah-table ap-grid">
+            <thead>
+              <tr>
+                <th>Price list</th>
+                <% _gridPlans.forEach((plan) => { %><th><%= plan.plan_name.split('/')[0].trim() %></th><% }) %>
+                <th class="ah-num">Schools</th>
+                <th class="ah-num"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% regions.forEach((region) => { %>
+                <tr class="<%= region.is_active ? '' : 'ap-row-off' %>">
+                  <td>
+                    <strong><%= region.name %></strong>
+                    <% if (region.is_default) { %><span class="ah-pill ap-pill--default">Default</span><% } %>
+                    <% if (!region.is_active) { %><span class="ah-pill">Off</span><% } %>
+                    <span class="ah-sub"><%= region.countries.length ? region.countries.slice(0, 3).map((c) => c.country_name).join(', ') + (region.countries.length > 3 ? ` +${region.countries.length - 3}` : '') : 'No countries' %> · <%= region.term_months %>-month term</span>
+                  </td>
+                  <% _gridPlans.forEach((plan) => { const p = region.prices.find((x) => Number(x.plan_id) === Number(plan.id)); %>
+                    <td class="ap-price">
+                      <% if (p) { %>
+                        <strong><%= _money(p.base_price_usd) %></strong><span class="ap-per">/mo</span>
+                        <span class="ah-sub"><%= p.free_student_percent != null ? `${Number(p.free_student_percent)}% free` : `${Number(p.free_student_threshold)} free` %> · <%= _rate(p.per_student_rate_usd) %>/student</span>
+                      <% } else { %><span class="ah-off">Not set</span><% } %>
+                    </td>
+                  <% }) %>
+                  <td class="ah-num"><%= region.schools %></td>
+                  <td class="ah-actions-cell">
+                    <div class="ah-row-actions">
+                      <a class="ah-btn ah-btn--sm" href="/admin/pricing/regions/<%= region.id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+                      <% if (!region.is_default) { %>
+                        <form action="/admin/pricing/regions/<%= region.id %>/delete" method="POST" data-ah-ajax data-ah-danger data-ah-ask-ok="Remove" data-ah-ask="Remove <%= region.name %>? Its countries will use the default prices from their next bill.">
+                          <button type="submit" class="ah-btn ah-btn--sm ah-btn--icon" aria-label="Remove <%= region.name %>"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+                        </form>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="ah-empty ah-empty--sm"><i class="fa-solid fa-earth-americas" aria-hidden="true"></i><p>No prices yet. Add the first price list; it becomes the default.</p></div>
+      <% } %>
+    </section>
+
+    <section class="ah-card ap-card" aria-labelledby="apAddons">
+      <div class="ap-card__head">
+        <div>
+          <h2 class="ah-card__title" id="apAddons">Add-ons</h2>
+          <p class="ap-card__sub">Added each month when a school uses one. Empty is free. Price it per school, or per seat: staff given Mira, students or parents who can sign in.</p>
+        </div>
+        <span class="ah-bill <%= use.released ? 'ah-bill--blue' : 'ah-bill--muted' %>" title="Who is charged follows the addon_pricing release (Admin › Shards › Releases)"><%= !use.total ? 'No single schools yet' : use.released === use.total ? 'Charged to every school' : `Charged to ${use.released} of ${use.total} schools` %></span>
+      </div>
+      <form action="/admin/pricing/addons" method="POST" data-ah-ajax>
+        <input type="hidden" name="part" value="schools" />
+        <div class="ah-scroll">
+          <table class="ah-table">
+            <thead><tr><th>Add-on</th><th>Price a month</th><th class="ah-num">Schools using it</th></tr></thead>
+            <tbody>
+              <% integrations.forEach((i) => { const sp = schoolPrices[i.key]; const u = use[i.key] || {}; %>
+                <tr>
+                  <td><strong><%= i.label %></strong><% if (i.key === 'parent_portal') { %><span class="ah-sub">Schools whose plan includes it</span><% } %></td>
+                  <td>
+                    <span class="ap-money-unit">
+                      <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="school[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? _fmt(sp.price) : '' %>" placeholder="Free" aria-label="<%= i.label %>: price a month" /></span>
+                      <%- _unitPick(`school[${i.key}][unit]`, i.key, sp && sp.unit) %>
+                    </span>
+                  </td>
+                  <td class="ah-num"><%= u.schools || 0 %><% if (u.seats != null && u.schools) { %><span class="ah-sub"><%= seatCount(i.key, u.seats) %></span><% } %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="ap-card__foot"><span class="ap-note">The school website and parent portal come with plans.</span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save add-on prices</button></div>
+      </form>
+    </section>
+
+    <div class="ap-two">
+      <section class="ah-card ap-card" aria-labelledby="apCycles">
+        <div class="ap-card__head">
+          <div>
+            <h2 class="ah-card__title" id="apCycles">Billing cycles</h2>
+            <p class="ap-card__sub">Discounts for paying ahead.</p>
+          </div>
+        </div>
+        <form action="/admin/pricing/cycles" method="POST" data-ah-ajax>
+          <div class="ah-scroll">
+            <table class="ah-table">
+              <thead><tr><th>Cycle</th><th>Discount</th><th class="ah-num">Schools</th><th>On</th></tr></thead>
+              <tbody>
+                <% cycles.forEach((c) => { %>
+                  <tr>
+                    <td>
+                      <input type="text" name="cycles[cycle_<%= c.id %>][label]" class="ahb-input ap-input-name" value="<%= c.label %>" maxlength="60" aria-label="Name of the <%= c.months %>-month cycle" />
+                      <span class="ah-sub"><%= c.months %> month<%= c.months === 1 ? '' : 's' %></span>
+                    </td>
+                    <td><span class="ap-pct"><input type="number" min="0" max="50" step="1" name="cycles[cycle_<%= c.id %>][discount]" class="ahb-input" value="<%= Number(c.discount_percentage || 0) %>" aria-label="<%= c.label %> discount" /><span>%</span></span></td>
+                    <td class="ah-num"><%= c.schools || 0 %></td>
+                    <td>
+                      <input type="hidden" name="cycles[cycle_<%= c.id %>][active]" value="0" />
+                      <label class="ahb-switch ap-switch"><input type="checkbox" name="cycles[cycle_<%= c.id %>][active]" value="1" <%= c.is_active ? 'checked' : '' %> aria-label="Offer <%= c.label %>" /><span class="ahb-switch__track" aria-hidden="true"></span></label>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save cycles</button></div>
+        </form>
+      </section>
+
+      <section class="ah-card ap-card" aria-labelledby="apTrial">
+        <div class="ap-card__head">
+          <div>
+            <h2 class="ah-card__title" id="apTrial">Free trial</h2>
+            <p class="ap-card__sub">For new schools.</p>
+          </div>
+        </div>
+        <form action="/admin/updateFreeTrialSettings" method="POST" data-ah-ajax class="ap-stack">
+          <label class="ahb-field">
+            <span class="ahb-label">New schools get a free trial</span>
+            <select name="free_trial_enabled" class="ahb-input">
+              <option value="true" <%= freeTrialEnabled ? 'selected' : '' %>>Yes</option>
+              <option value="false" <%= freeTrialEnabled ? '' : 'selected' %>>No</option>
+            </select>
+          </label>
+          <label class="ahb-field">
+            <span class="ahb-label">How long</span>
+            <select name="free_trial_days" class="ahb-input">
+              <% [['1', '1 day'], ['7', '7 days'], ['14', '14 days'], ['30', '30 days'], ['60', '60 days'], ['90', '90 days'], ['120', '120 days'], ['5_minutes', '5 minutes (testing)']].forEach(([v, l]) => { %>
+                <option value="<%= v %>" <%= freeTrialDays === v ? 'selected' : '' %>><%= l %></option>
+              <% }) %>
+            </select>
+          </label>
+          <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save trial</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <%# ----------------------------------------------------------------- Hubs %>
+  <div class="ap-panel" data-ap-panel="hubs"<%= tab === 'hubs' ? '' : ' hidden' %>>
+    <section class="ah-card ap-card" aria-labelledby="apHubAddons">
+      <div class="ap-card__head">
+        <div>
+          <h2 class="ah-card__title" id="apHubAddons">Add-on prices for hubs</h2>
+          <p class="ap-card__sub">A new hub starts with these. <strong>Auto</strong> bills each school that uses it; <strong>Manual</strong> adds a charge the hub approves.</p>
+        </div>
+      </div>
+      <form action="/admin/pricing/addons" method="POST" data-ah-ajax>
+        <input type="hidden" name="part" value="hubs" />
+        <div class="ah-scroll">
+          <table class="ah-table">
+            <thead><tr><th>Add-on</th><th>Price each bill</th><th>Billed</th><th class="ah-num">Hubs with their own price</th></tr></thead>
+            <tbody>
+              <% integrations.forEach((i) => { const sp = hubPrices[i.key]; %>
+                <tr>
+                  <td><strong><%= i.label %></strong></td>
+                  <td>
+                    <span class="ap-money-unit">
+                      <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="hub[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? _fmt(sp.price) : '' %>" placeholder="Free" aria-label="<%= i.label %>: hub price" /></span>
+                      <%- _unitPick(`hub[${i.key}][unit]`, i.key, sp && sp.unit) %>
+                    </span>
+                  </td>
+                  <td>
+                    <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="<%= i.label %>: how it is billed">
+                      <label><input type="radio" name="hub[<%= i.key %>][mode]" value="auto" <%= !sp || sp.mode !== 'manual' ? 'checked' : '' %> /> <span>Auto</span></label>
+                      <label><input type="radio" name="hub[<%= i.key %>][mode]" value="manual" <%= sp && sp.mode === 'manual' ? 'checked' : '' %> /> <span>Manual</span></label>
+                    </div>
+                  </td>
+                  <td class="ah-num"><%= hubOwnPrices[i.key] || 0 %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save hub prices</button></div>
+      </form>
+    </section>
+
+    <section class="ah-card ap-card" aria-labelledby="apProducts">
+      <div class="ap-card__head">
+        <div>
+          <h2 class="ah-card__title" id="apProducts">Extra products</h2>
+          <p class="ap-card__sub">Paid extras a hub can add, such as training.</p>
+        </div>
+        <a href="/admin/hubs/add-ons/new" class="ah-btn ah-btn--primary" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New product</a>
+      </div>
+      <% if (hubAddons.length) { %>
+        <div class="ah-scroll">
+          <table class="ah-table">
+            <thead><tr><th>Product</th><th class="ah-num">Price</th><th>How often</th><th class="ah-num">Hubs using it</th><th>Status</th><th class="ah-num"></th></tr></thead>
+            <tbody>
+              <% hubAddons.forEach((a) => { %>
+                <tr>
+                  <td><strong><%= a.name %></strong><% if (a.description) { %><span class="ah-sub"><%= a.description %></span><% } %></td>
+                  <td class="ah-num"><%= money(a.unit_price) %></td>
+                  <td><%= a.frequency === 'once' ? 'One time' : 'Each bill' %></td>
+                  <td class="ah-num"><%= addonHubs[a.addon_id] || 0 %></td>
+                  <td><% if (a.is_active) { %><span class="ah-bill ah-bill--green">Available</span><% } else { %><span class="ah-bill ah-bill--muted">Hidden</span><% } %></td>
+                  <td class="ah-actions-cell">
+                    <div class="ah-row-actions">
+                      <a class="ah-btn ah-btn--sm" href="/admin/hubs/add-ons/<%= a.addon_id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+                      <form action="/admin/hubs/add-ons/<%= a.addon_id %>/toggle" method="POST" data-ah-ajax>
+                        <button type="submit" class="ah-btn ah-btn--sm"><%= a.is_active ? 'Hide' : 'Show' %></button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="ah-empty ah-empty--sm"><i class="fa-solid fa-box-open" aria-hidden="true"></i><p>No extra products yet.</p></div>
+      <% } %>
+    </section>
+  </div>
+
+  <%# ----------------------------------------------------------------- Payment settings %>
+  <div class="ap-panel" data-ap-panel="payments"<%= tab === 'payments' ? '' : ' hidden' %>>
+    <div class="ap-two">
+      <section class="ah-card ap-card" aria-labelledby="apGateway">
+        <div class="ap-card__head"><div><h2 class="ah-card__title" id="apGateway">Gateway</h2><p class="ap-card__sub">Which payment provider schools pay through.</p></div></div>
+        <form action="/admin/updatePaymentProviderSettings" method="POST" data-ah-ajax class="ap-stack">
+          <label class="ahb-field">
+            <span class="ahb-label">Provider</span>
+            <select name="payment_provider" class="ahb-input">
+              <option value="stripe" <%= paymentProvider === 'stripe' ? 'selected' : '' %>>Stripe</option>
+              <option value="paystack" <%= paymentProvider === 'paystack' ? 'selected' : '' %>>Paystack only</option>
+              <option value="smart" <%= paymentProvider === 'smart' ? 'selected' : '' %>>Both (smart)</option>
+            </select>
+          </label>
+          <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save</button></div>
+        </form>
+      </section>
+
+      <section class="ah-card ap-card" aria-labelledby="apFee">
+        <div class="ap-card__head"><div><h2 class="ah-card__title" id="apFee">Platform fee</h2><p class="ap-card__sub">Added to in-app card and wallet payments (PayGira receipts show it).</p></div></div>
+        <form action="/admin/updatePlatformFeeSettings" method="POST" data-ah-ajax class="ap-stack">
+          <label class="ahb-field">
+            <span class="ahb-label">Percent of each payment</span>
+            <span class="ap-pct"><input type="number" name="platform_fee_percentage" min="0" max="100" step="0.01" class="ahb-input" value="<%= String(Number(platformFeePercentage || 0)) %>" required /><span>%</span></span>
+          </label>
+          <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save</button></div>
+        </form>
+      </section>
+
+      <section class="ah-card ap-card" aria-labelledby="apStripe">
+        <div class="ap-card__head">
+          <div><h2 class="ah-card__title" id="apStripe">Stripe</h2><p class="ap-card__sub">Test or live. Keys come from the server's settings.</p></div>
+          <span class="ah-bill <%= stripeMode === 'live' ? 'ah-bill--green' : 'ah-bill--amber' %>"><%= stripeMode === 'live' ? 'Live' : 'Test' %></span>
+        </div>
+        <form action="/admin/updateStripeSettings" method="POST" data-ah-ajax class="ap-stack">
+          <label class="ahb-field">
+            <span class="ahb-label">Mode</span>
+            <select name="stripe_mode" class="ahb-input">
+              <option value="test" <%= stripeMode !== 'live' ? 'selected' : '' %>>Test</option>
+              <option value="live" <%= stripeMode === 'live' ? 'selected' : '' %>>Live</option>
+            </select>
+          </label>
+          <dl class="ah-dl ap-keys">
+            <dt>Live keys</dt><dd><%= stripeKeys.liveSecretKey && stripeKeys.livePublicKey ? 'Set' : 'Missing' %></dd>
+            <dt>Test keys</dt><dd><%= stripeKeys.testSecretKey && stripeKeys.testPublicKey ? 'Set' : 'Missing' %></dd>
+            <dt>Connect payments</dt><dd><%= stripeStatus && stripeStatus.issue ? stripeStatus.issue : 'Ready' %></dd>
+          </dl>
+          <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save</button></div>
+        </form>
+      </section>
+
+      <section class="ah-card ap-card" aria-labelledby="apPaystack">
+        <div class="ap-card__head">
+          <div><h2 class="ah-card__title" id="apPaystack">Paystack</h2><p class="ap-card__sub">Test or live.</p></div>
+          <span class="ah-bill <%= paystackMode === 'live' ? 'ah-bill--green' : 'ah-bill--amber' %>"><%= paystackMode === 'live' ? 'Live' : 'Test' %></span>
+        </div>
+        <form action="/admin/updatePaystackSettings" method="POST" data-ah-ajax class="ap-stack">
+          <label class="ahb-field">
+            <span class="ahb-label">Mode</span>
+            <select name="paystack_mode" class="ahb-input">
+              <option value="test" <%= paystackMode !== 'live' ? 'selected' : '' %>>Test</option>
+              <option value="live" <%= paystackMode === 'live' ? 'selected' : '' %>>Live</option>
+            </select>
+          </label>
+          <div class="ap-card__foot"><span></span><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <%- include('partials/hubAdminDialogs') %>
+  <script src="<%= assetUrl('/js/adminPricing.js') %>"></script>
+</div>

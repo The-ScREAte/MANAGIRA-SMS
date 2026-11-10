@@ -1,0 +1,104 @@
+/* Admin › Pricing and Organizations (views/admin/pricing.ejs, organizations.ejs and their side
+   panels), on top of public/css/adminHubs.css. */
+.ap-tabs { display: flex; gap: 4px; margin: 4px 0 18px; padding: 4px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; width: fit-content; max-width: 100%; overflow-x: auto; }
+.ap-tab { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; color: #475569; font: inherit; font-size: .9rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.ap-tab:hover { color: #0f172a; }
+.ap-tab.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .08), 0 1px 6px rgba(15, 23, 42, .06); }
+.ap-tab .fa-solid { font-size: .85rem; opacity: .75; }
+.ap-tab__count { min-width: 20px; padding: 1px 7px; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: .72rem; }
+.ap-panel[hidden] { display: none; }
+
+.ap-card { margin-bottom: 16px; padding: 0; overflow: hidden; }
+.ap-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px 12px; }
+.ap-card__sub { margin: 4px 0 0; color: #64748b; font-size: .86rem; line-height: 1.45; max-width: 72ch; }
+.ap-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid #eef2f7; background: #fbfcfe; }
+.ap-card .ah-scroll { border-top: 1px solid #eef2f7; }
+.ap-card .ah-empty { border-top: 1px solid #eef2f7; }
+.ap-note { color: #64748b; font-size: .82rem; }
+.ap-stack { display: grid; gap: 12px; padding: 0 18px 0; }
+.ap-stack .ap-card__foot { margin: 4px -18px 0; }
+.ap-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ap-two > .ap-card { margin-bottom: 0; }
+.ap-two + .ap-card, .ap-two { margin-bottom: 16px; }
+
+.ap-includes { color: #334155; font-size: .86rem; max-width: 420px; }
+.ap-more { color: #64748b; font-weight: 600; white-space: nowrap; }
+.ap-grid td.ap-price { white-space: nowrap; }
+.ap-price strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.ap-per { color: #64748b; font-size: .8rem; margin-left: 1px; }
+.ap-row-off td { opacity: .6; }
+.ap-pill--default { background: #ecfeff !important; color: #0e7490 !important; border-color: #a5f3fc !important; }
+
+.ap-money-unit { display: inline-flex; align-items: center; gap: 10px; }
+.ap-money-unit .ahb-money { width: 150px; }
+.ap-unit { color: #64748b; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.ap-pct { display: inline-flex; align-items: center; gap: 6px; }
+.ap-pct .ahb-input { width: 84px; }
+.ap-pct span { color: #64748b; font-weight: 600; }
+.ap-input-name { max-width: 180px; height: 34px; }
+.ap-switch { gap: 0; }
+.ap-keys { margin: 0; font-size: .86rem; }
+
+/* Side panels: price list, plan, a school's pricing and details. */
+.ap-countries { display: grid; gap: 10px; max-height: 300px; overflow: auto; padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fbfcfe; }
+.ap-countries[hidden], .ap-continent[hidden], [data-ap-country][hidden] { display: none !important; }
+.ap-continent__title { margin: 0 0 4px; color: #64748b; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.ap-continent__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 10px; }
+.ap-country { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: .85rem; color: #0f172a; cursor: pointer; }
+.ap-country input { margin: 0; accent-color: #0f766e; }
+.ap-country small { color: #b45309; font-size: .72rem; }
+.ap-plan-prices { width: 100%; border-collapse: collapse; }
+.ap-plan-prices th { padding: 0 6px 6px 0; color: #64748b; font-size: .74rem; font-weight: 700; text-align: left; }
+.ap-plan-prices td { padding: 4px 6px 4px 0; vertical-align: middle; }
+.ap-plan-prices td:first-child { font-weight: 700; font-size: .88rem; }
+.ap-plan-prices .ahb-input { min-width: 0; }
+.ap-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 12px; }
+.ap-feature { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: .88rem; cursor: pointer; }
+.ap-feature input { margin: 0; accent-color: #0f766e; }
+
+.ap-bill { display: grid; gap: 6px; padding: 14px; border-radius: 12px; background: #f0fdfa; border: 1px solid #ccfbf1; }
+.ap-bill__row { display: flex; justify-content: space-between; gap: 12px; font-size: .88rem; color: #134e4a; }
+.ap-bill__row strong { font-variant-numeric: tabular-nums; }
+.ap-bill__total { padding-top: 8px; margin-top: 2px; border-top: 1px solid #99f6e4; font-size: .98rem; font-weight: 800; }
+.ap-addon { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid #eef2f7; }
+.ap-addon:first-child { border-top: 0; }
+.ap-addon__name { font-weight: 700; font-size: .9rem; }
+.ap-addon__name small { display: block; color: #64748b; font-weight: 500; font-size: .78rem; }
+.ap-addon__amount { color: #334155; font-size: .82rem; font-weight: 600; text-align: right; }
+.ap-addon__pick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ap-addon__pick .ahb-money { width: 130px; }
+.ap-addon__pick [hidden] { display: none !important; }
+
+/* Organizations: the schools table. */
+.ap-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.ap-tag { padding: 2px 8px; border-radius: 6px; background: #f1f5f9; color: #334155; font-size: .74rem; font-weight: 600; white-space: nowrap; }
+.ap-own { color: #7c3aed; font-weight: 700; }
+
+@media (max-width: 900px) {
+  .ap-two { grid-template-columns: minmax(0, 1fr); }
+  .ap-card__head { flex-direction: column; }
+}
+.ap-addon__pick .ahb-seg { flex: none; }
+.ap-addon__pick .ahb-seg label span { white-space: nowrap; }
+
+/* A hub's pages: Schools and Billing tabs, and the billing page's bill card. */
+a.ap-tab { text-decoration: none; }
+.ap-bill-body { padding: 4px 18px 16px; }
+.ap-bill-body .ah-lines { margin: 0; }
+.ap-facts { margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed #e2e8f0; color: #64748b; font-size: .82rem; line-height: 1.5; }
+.ap-card .ah-card__title .ah-bill { margin-left: 6px; vertical-align: 2px; }
+.ap-card-line { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-weight: 600; font-size: .9rem; color: #0f172a; }
+.ap-card-line .fa-solid { color: #64748b; }
+.ah button.ap-linkbtn { all: unset; display: inline; color: #0f766e; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.ah button.ap-linkbtn:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.ap-history > summary { cursor: pointer; list-style: none; }
+.ap-history > summary::-webkit-details-marker { display: none; }
+.ap-history > summary::after { content: "Show"; float: right; color: #64748b; font-size: .8rem; font-weight: 600; }
+.ap-history[open] > summary::after { content: "Hide"; }
+.ap-history[open] > summary { margin-bottom: 10px; }
+.ap-unit-pick { width: auto; min-width: 0; height: 36px; padding: 0 30px 0 10px; font-size: .84rem; font-weight: 600; }
+.ap-free { display: flex; gap: 6px; align-items: center; }
+.ap-free input { min-width: 0; flex: 1 1 70px; }
+.ap-free select { flex: 0 0 auto; width: auto; padding-right: 26px; }
+/* A hub plan add-on: room for "per parent with access". */
+.ahb-mini select[data-ahb-unit] { min-width: 196px; }

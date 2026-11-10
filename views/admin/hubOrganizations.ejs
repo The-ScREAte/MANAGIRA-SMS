@@ -8,33 +8,12 @@
   const _return = encodeURIComponent(`/admin/hubs/${hub.hub_id}/organizations`);
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/adminPricing.css') %>" />
 
 <div class="ah">
   <%- include('../partials/flash') %>
 
-  <nav class="ah-crumbs" aria-label="Breadcrumb">
-    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
-    <a href="/admin/hubs">Hubs</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
-    <span><%= hub.hub_name %></span>
-  </nav>
-
-  <header class="ah-head">
-    <div>
-      <h1 class="ah-head__title">
-        <%= hub.hub_name %>
-        <% if (hub.deleted) { %><span class="ah-status ah-status--muted">Deleted</span><% } else if (hub.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
-      </h1>
-      <p class="ah-head__sub"><%= hub.hub_nickname %>.managira.com<% if (_owner) { %> · <%= _owner %><% } %> · <%= hub.hub_email %></p>
-    </div>
-    <div class="ah-head__actions">
-      <a href="/admin/hubs" class="ah-btn"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All hubs</a>
-      <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="ah-btn" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit hub</a>
-      <a href="/admin/hubs/<%= hub.hub_id %>/billing" class="ah-btn"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
-      <% if (!hub.on_hold && !hub.deleted) { %>
-        <a href="/admin/hub/<%= hub.hub_id %>" class="ah-btn ah-btn--primary" data-ah-open data-kind="hub" data-name="<%= hub.hub_name %>"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open hub</a>
-      <% } %>
-    </div>
-  </header>
+  <%- include('partials/hubHeader', { hub, active: 'schools' }) %>
 
   <div class="ah-kpis">
     <div class="ah-kpi ah-kpi--teal"><span class="ah-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Schools</div><div class="ah-kpi__value"><%= _orgs.length %><span style="font-size:.95rem;color:#64748b;font-weight:600"> / <%= _max || '∞' %></span></div></div></div>

@@ -1,0 +1,36 @@
+<%# A hub's pages in Admin: its name and status, Open hub, the hub's own actions, and tabs for
+    its Schools and Billing. active: 'schools' | 'billing'. %>
+<% const _hOwner = [hub.first_name, hub.last_name].filter(Boolean).join(' '); %>
+<nav class="ah-crumbs" aria-label="Breadcrumb">
+  <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+  <a href="/admin/hubs?tab=hubs">Organizations</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+  <span><%= hub.hub_name %></span>
+</nav>
+
+<header class="ah-head">
+  <div>
+    <h1 class="ah-head__title">
+      <%= hub.hub_name %>
+      <% if (hub.deleted) { %><span class="ah-status ah-status--muted">Deleted</span><% } else if (hub.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
+    </h1>
+    <p class="ah-head__sub"><%= hub.hub_nickname %>.managira.com<% if (_hOwner) { %> · <%= _hOwner %><% } %> · <%= hub.hub_email %></p>
+  </div>
+  <div class="ah-head__actions">
+    <% if (!hub.on_hold && !hub.deleted) { %>
+      <a href="/admin/hub/<%= hub.hub_id %>" class="ah-btn ah-btn--primary" data-ah-open data-kind="hub" data-name="<%= hub.hub_name %>"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open hub</a>
+    <% } %>
+    <details class="ah-menu">
+      <summary class="ah-btn ah-btn--icon" aria-label="Hub actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+      <div class="ah-menu__list">
+        <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit hub</a>
+        <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/password" data-ah-drawer><i class="fa-solid fa-key" aria-hidden="true"></i> Owner's password</a>
+        <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/people/new" data-ah-drawer><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add a person</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<nav class="ap-tabs" aria-label="<%= hub.hub_name %>">
+  <a class="ap-tab<%= active === 'schools' ? ' is-on' : '' %>" href="/admin/hubs/<%= hub.hub_id %>/organizations"<%- active === 'schools' ? ' aria-current="page"' : '' %>><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
+  <a class="ap-tab<%= active === 'billing' ? ' is-on' : '' %>" href="/admin/hubs/<%= hub.hub_id %>/billing"<%- active === 'billing' ? ' aria-current="page"' : '' %>><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
+</nav>

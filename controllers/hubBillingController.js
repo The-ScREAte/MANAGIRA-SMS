@@ -170,7 +170,7 @@ async function extraGate(req, res, kind, back) {
 // way, go to their page with the panel open.
 function panelOnly(req, res, page) {
   if (res.locals.drawer) return true;
-  res.redirect(`${page}?drawer=${encodeURIComponent(req.originalUrl.split('?')[0])}`);
+  res.redirect(`${page}${page.includes('?') ? '&' : '?'}drawer=${encodeURIComponent(req.originalUrl.split('?')[0])}`);
   return false;
 }
 const panelMissing = (res, text) => res.status(404).send(`<p class="ahd-missing">${text}</p>`);
@@ -291,10 +291,15 @@ const hubBillingController = {
     const fee = billing.integrationFeesOf(b)[req.query.integration];
     const orgId = parseInt(req.query.org, 10);
     if (fee && fee.on && Number.isInteger(orgId)) {
-      const org = (await db.query('SELECT organization_id, organization_name FROM organizations WHERE organization_id = $1 AND hub_id = $2', [orgId, hubId])).rows[0];
+      const key = req.query.integration;
+      const add = billing.INTEGRATION_BY_KEY[key];
+      const seatSql = add.seat ? billing.SEATS[add.seat].sql('o') : '1';
+      const org = (await db.query(`SELECT o.organization_id, o.organization_name, ${seatSql} AS seats FROM organizations o WHERE o.organization_id = $1 AND o.hub_id = $2`, [orgId, hubId])).rows[0];
       if (org) {
-        const label = billing.INTEGRATION_BY_KEY[req.query.integration].label;
-        preset = { integrationKey: req.query.integration, organizationId: org.organization_id, name: `${label}: ${org.organization_name}`.slice(0, 120), price: Number(fee.price), description: `${org.organization_name} uses ${label}.` };
+        // A fee per seat is filled in with the school's seats (staff, students or parents with access).
+        const bySeat = billing.perSeat(key, fee.unit);
+        const seats = bySeat ? Math.max(1, Number(org.seats) || 0) : 1;
+        preset = { integrationKey: key, organizationId: org.organization_id, name: `${add.label}: ${org.organization_name}`.slice(0, 120), price: Number(fee.price), quantity: seats, description: bySeat ? `${org.organization_name}: ${billing.seatCount(key, seats)}.` : `${org.organization_name} uses ${add.label}.` };
       }
     }
     res.render('admin/forms/hubCharge', { hub, preset, per: (billing.CYCLES[b.billing_cycle] || billing.CYCLES.month).per, addons: await billing.listAddons(db, { activeOnly: true }), b: billing });
@@ -325,7 +330,7 @@ const hubBillingController = {
   },
 
   adminAddonFormGet: async (req, res) => {
-    if (!panelOnly(req, res, '/admin/hubs/add-ons')) return;
+    if (!panelOnly(req, res, '/admin/servicePricing?tab=hubs')) return;
     await billing.ensureHubBillingSchema(db);
     let addon = null;
     if (req.params.addonId) {
@@ -598,33 +603,14 @@ const hubBillingController = {
     res.redirect(`/admin/hubs/${hubId}/billing#people`);
   },
 
-  // Add-on catalog (products and services hubs can add to their bill).
-  adminAddonsGet: async (req, res) => {
-    try {
-      const addons = await billing.listAddons(db);
-      const used = (await db.query(
-        `SELECT addon_id, COUNT(DISTINCT hub_id)::int AS hubs FROM hub_billing_charges WHERE addon_id IS NOT NULL AND status = 'approved' GROUP BY addon_id`
-      )).rows.reduce((m, r) => ({ ...m, [r.addon_id]: r.hubs }), {});
-      const [standardPrices, integrationUse] = await Promise.all([
-        billing.loadIntegrationPrices(db),
-        // How many hubs set their own price for each integration.
-        db.query('SELECT integration_fees FROM hub_billing').then((r) => r.rows.map((x) => x.integration_fees || {})),
-      ]);
-      res.render('admin/hubAddons', { title: 'Hub add-ons', addons, used, b: billing, standardPrices, hubFees: integrationUse, messages: req.flash(), showFooterTopSection: false });
-    } catch (err) {
-      console.error('[adminAddonsGet]', err.message);
-      req.flash('error', 'Could not load add-ons.');
-      res.redirect('/admin/hubs');
-    }
-  },
 
   adminAddonSavePost: async (req, res) => {
     try {
       await billing.ensureHubBillingSchema(db);
       const name = String(req.body.name || '').trim().slice(0, 120);
       const price = billing.parseMoney(req.body.unitPrice, { label: 'Price', allowBlank: false });
-      if (!name) { req.flash('error', 'Give the add-on a name.'); return res.redirect('/admin/hubs/add-ons'); }
-      if (price.error || !(price.value > 0)) { req.flash('error', price.error || 'Enter a price above 0.'); return res.redirect('/admin/hubs/add-ons'); }
+      if (!name) { req.flash('error', 'Give the add-on a name.'); return res.redirect('/admin/servicePricing?tab=hubs'); }
+      if (price.error || !(price.value > 0)) { req.flash('error', price.error || 'Enter a price above 0.'); return res.redirect('/admin/servicePricing?tab=hubs'); }
       const values = [name, String(req.body.description || '').trim().slice(0, 500) || null, billing.round2(price.value), req.body.frequency === 'once' ? 'once' : 'recurring'];
       const id = parseInt(req.params.addonId, 10);
       if (Number.isInteger(id)) {
@@ -638,20 +624,9 @@ const hubBillingController = {
       console.error('[adminAddonSavePost]', err.message);
       req.flash('error', 'Could not save the add-on.');
     }
-    res.redirect('/admin/hubs/add-ons');
+    res.redirect('/admin/servicePricing?tab=hubs');
   },
 
-  adminIntegrationPricesPost: async (req, res) => {
-    try {
-      const { errors } = await billing.saveIntegrationPrices(db, req.body);
-      if (errors.length) req.flash('error', errors.join(' '));
-      else req.flash('success', 'Standard integration prices saved. New hubs start with these; existing hubs keep their own prices.');
-    } catch (err) {
-      console.error('[adminIntegrationPricesPost]', err.message);
-      req.flash('error', 'Could not save the integration prices.');
-    }
-    res.redirect('/admin/hubs/add-ons#integration-prices');
-  },
 
   adminAddonTogglePost: async (req, res) => {
     try {
@@ -660,7 +635,7 @@ const hubBillingController = {
     } catch (err) {
       req.flash('error', 'Could not change the add-on.');
     }
-    res.redirect('/admin/hubs/add-ons');
+    res.redirect('/admin/servicePricing?tab=hubs');
   },
 
   // ------------------------------------------------------------ the hub's Billing page

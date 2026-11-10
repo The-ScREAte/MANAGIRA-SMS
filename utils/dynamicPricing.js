@@ -6,10 +6,22 @@
 // controller, the public service-plan renderer, or the recurring billing job.
 // Only the new "Dynamic Pricing (Beta)" admin methods import it.
 
+// A price list's free students: a number (free_student_threshold), or a share of the school's
+// students (free_student_percent, e.g. 10 = the first 10% are free).
+function freeStudentPercent(priceRow) {
+  const raw = priceRow ? priceRow.free_student_percent : null;
+  if (raw == null || raw === '') return null;
+  const percent = Number(raw);
+  return Number.isFinite(percent) && percent >= 0 ? Math.min(100, percent) : null;
+}
+
 function computeDynamicMonthlyPrice(priceRow, studentCount, options = {}) {
   if (!priceRow) return null;
   const base = Number(priceRow.base_price_usd) || 0;
-  const threshold = Number(priceRow.free_student_threshold) || 0;
+  const percent = freeStudentPercent(priceRow);
+  const threshold = percent != null
+    ? Math.floor((Number(studentCount) || 0) * percent / 100)
+    : Number(priceRow.free_student_threshold) || 0;
   const rate = Number(priceRow.per_student_rate_usd) || 0;
   const monthsPerTerm = Math.max(
     1,
@@ -21,6 +33,7 @@ function computeDynamicMonthlyPrice(priceRow, studentCount, options = {}) {
   return {
     basePrice: base,
     threshold,
+    freePercent: percent,
     perStudentRate: rate,
     termDivider: monthsPerTerm,
     monthsPerTerm,
@@ -144,6 +157,7 @@ async function getBestPlanRegionPrice(db, planId, preferredRegionId = null) {
 }
 
 module.exports = {
+  freeStudentPercent,
   computeDynamicMonthlyPrice,
   applyCycle,
   getRegionForCountry,

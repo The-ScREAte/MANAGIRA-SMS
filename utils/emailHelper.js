@@ -435,12 +435,17 @@ async function _recordAndFanOutEmailFailure(db, orgId, email, reason, notificati
   // Persist the failure record
   await recordEmailDeliveryFailure(db, orgId, email, reason, userId, userType);
 
-  // Build fan-out notification payload
+  // Build fan-out notification payload: it goes to the person whose own address failed, so it
+  // points them to their own profile (a driver's is on the driver app).
   const title = 'Incorrect Email Detected';
   const safeEmail = String(email || '').slice(0, 120);
   const reasonText = getFailureReasonText(reason);
-  const body = `The email address "${safeEmail}" could not be delivered. ${reasonText}`;
-  const link = '/common/failedEmails';
+  const body = `We couldn't deliver email to "${safeEmail}". ${reasonText} Check the address in your profile.`;
+  let link = '/account/settings';
+  if (userType === 'staff') {
+    const role = await db.query('SELECT account_type::text AS role FROM users WHERE user_id = $1', [userId]).then((r) => r.rows[0]?.role).catch(() => null);
+    if (role === 'Driver') link = '/driver/settings';
+  }
   const dedupeHours = 12;
 
   // Only the member of staff whose own address failed is told here. Managers and

@@ -1054,8 +1054,8 @@
           <h1>👋 Welcome<%= _displayName ? ', ' + _displayName : '' %></h1>
           <p>Your hub for announcements, referrals, and quick links.</p>
         <% } else { %>
-          <h1>📋 Single Organization Management</h1>
-          <p>Simple overview and control of all organizations</p>
+          <h1>Dashboard</h1>
+          <p>Schools, contacts and help. Organizations and Pricing are in the menu.</p>
         <% } %>
       </div>
       <div class="dashboard-actions">
@@ -1064,7 +1064,7 @@
         <a href="/admin/feedback" class="btn-primary">Feedback<%= feedbackSummary && feedbackSummary.newCount ? ` (${feedbackSummary.newCount})` : '' %></a>
         <% } %>
         <% if (!_isInternal) { %>
-          <a href="/admin/hubs" class="btn-secondary">Manage Hubs</a>
+          <a href="/admin/hubs" class="btn-secondary">Manage orgs</a>
           <a href="/admin/shards" class="btn-secondary" data-no-spa>Shards</a>
           <a href="/admin/api-requests" class="btn-secondary">API requests<span data-api-requests-count></span></a>
           <script>
@@ -1091,10 +1091,10 @@
 
     <% if (!_isInternal) { %>
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Total Organizations</div>
+      <a class="stat-card" href="/admin/hubs" style="text-decoration:none;color:inherit">
+        <div class="stat-label">Single Schools</div>
         <div class="stat-value"><%= applications ? applications.length : 0 %></div>
-      </div>
+      </a>
       <div class="stat-card">
         <div class="stat-label">Active</div>
         <div class="stat-value"><%= applications ? applications.filter(app => !app.on_hold).length : 0 %></div>
@@ -1145,217 +1145,7 @@
       grantedSchools: (session && Array.isArray(session.grantedSchools)) ? session.grantedSchools : []
     }) %>
 
-    <% if (!_isInternal) { %>
-
-    <div class="orgs-container">
-      <div class="orgs-header">
-        <h2>Organizations</h2>
-      </div>
-
-      <% if (applications && applications.length > 0) { %>
-      <div class="table-wrapper">
-        <table class="admin-table-clean">
-          <thead>
-            <tr>
-              <th>Organization</th>
-              <th>Owner</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% applications.forEach((application) => { %>
-            <% const orgDashboardUrl = `/admin/org/${application.organization_id}`; %>
-            <tr>
-              <td>
-                <a
-                  href="<%= orgDashboardUrl %>"
-                  class="org-link superadmin-org-link"
-                  data-orgname="<%= application.organization_name %>"
-                  data-orgurl="<%= orgDashboardUrl %>"
-                >
-                  <%= application.organization_name && application.organization_name.trim() !== '' ? application.organization_name : '(No Name)' %>
-                </a>
-              </td>
-              <td class="owner-meta"><%= application.first_name %> <%= application.last_name %></td>
-              <td class="email-meta"><%= application.email %></td>
-              <td>
-                <% if (application.on_hold) { %>
-                  <span class="badge badge-hold">On Hold<%= application.hold_by ? ` • ${application.hold_by}` : '' %></span>
-                <% } else { %>
-                  <span class="badge badge-active">Active</span>
-                <% } %>
-              </td>
-              <td>
-                <div class="table-actions">
-                  <button class="btn-action btn-view" onclick="toggleDetails('<%= application.organization_id %>')">Details</button>
-                </div>
-              </td>
-            </tr>
-
-            <tr id="details-<%= application.organization_id %>" class="details-row">
-              <td colspan="5">
-                <div class="details-panel">
-                  <div class="details-grid">
-                    <div><strong>First Name:</strong> <%= application.first_name %></div>
-                    <div><strong>Last Name:</strong> <%= application.last_name %></div>
-                    <div><strong>Email:</strong> <%= application.email %></div>
-                    <div><strong>Phone:</strong> <%= application.organization_phone %></div>
-                    <div><strong>Address:</strong> <%= application.organization_address %><% if (application.organization_country || application.organization_province) { %>, <%= [application.organization_province, application.organization_country].filter(Boolean).join(', ') %><% } %></div>
-                    <div><strong>Enrolled:</strong> <%= application.created_at ? new Date(application.created_at).toLocaleString() : 'N/A' %></div>
-                    <div><strong>Current Plan:</strong> <%= application.plan_name || 'No plan assigned' %></div>
-                    <div>
-                      <strong>User licenses:</strong> <%= application.user_count || 0 %> of <%= application.max_users || 'no limit' %>
-                      <form action="/admin/organizations/<%= application.organization_id %>/licenses" method="POST" class="license-form">
-                        <input type="number" name="maxUsers" min="1" value="<%= application.max_users || '' %>" placeholder="No limit" aria-label="User licenses for <%= application.organization_name %>">
-                        <button type="submit">Save</button>
-                      </form>
-                    </div>
-                  </div>
-
-                  <div class="proofs-grid">
-                    <div class="proof-card">
-                      <h4>Proof of Existence 1</h4>
-                      <% if (application.proof_of_existence_1 && application.proof_of_existence_1.toLowerCase().endsWith('.pdf')) { %>
-                        <a href="<%= application.proof_of_existence_1 %>" target="_blank" class="proof-link">Open PDF in new tab</a>
-                      <% } else if (application.proof_of_existence_1) { %>
-                        <img
-                          src="<%= publicImageUrl(application.proof_of_existence_1) %>"
-                          alt="Proof 1"
-                          class="thumbnail"
-                          onclick="openModal('<%= publicImageUrl(application.proof_of_existence_1) %>')"
-                        />
-                      <% } else { %>
-                        <span class="owner-meta">No document uploaded.</span>
-                      <% } %>
-                    </div>
-
-                    <div class="proof-card">
-                      <h4>Proof of Existence 2</h4>
-                      <% if (application.proof_of_existence_2 && application.proof_of_existence_2.toLowerCase().endsWith('.pdf')) { %>
-                        <a href="<%= application.proof_of_existence_2 %>" target="_blank" class="proof-link">Open PDF in new tab</a>
-                      <% } else if (application.proof_of_existence_2) { %>
-                        <img
-                          src="<%= publicImageUrl(application.proof_of_existence_2) %>"
-                          alt="Proof 2"
-                          class="thumbnail"
-                          onclick="openModal('<%= publicImageUrl(application.proof_of_existence_2) %>')"
-                        />
-                      <% } else { %>
-                        <span class="owner-meta">No document uploaded.</span>
-                      <% } %>
-                    </div>
-                  </div>
-
-                  <div class="details-actions">
-                    <% if (application.on_hold) { %>
-                    <form action="/admin/resume" method="post" onsubmit="return confirmAction('resume', '<%= application.organization_name %>');">
-                      <input type="hidden" name="orgId" value="<%= application.organization_id %>" />
-                      <button type="submit" class="btn-action btn-resume">▶ Resume</button>
-                    </form>
-                    <% } else { %>
-                    <form action="/admin/hold" method="post" onsubmit="return confirmAction('put on hold', '<%= application.organization_name %>');">
-                      <input type="hidden" name="orgId" value="<%= application.organization_id %>" />
-                      <button type="submit" class="btn-action btn-hold">⏸ Put on Hold</button>
-                    </form>
-                    <% } %>
-
-                    <form action="/admin/delete" method="post" onsubmit="return confirmAction('delete', '<%= application.organization_name %>');">
-                      <input type="hidden" name="orgId" value="<%= application.organization_id %>" />
-                      <button type="submit" class="btn-action btn-delete">🗑 Delete</button>
-                    </form>
-                  </div>
-                </div>
-              </td>
-            </tr>
-            <% }); %>
-          </tbody>
-        </table>
-      </div>
-      <% } else { %>
-      <div class="empty-state">No organizations found.</div>
-      <% } %>
-    </div>
-    <% } %>
   </div>
 
-  <div id="imageModal" class="modal" onclick="closeModal()">
-    <span class="close" onclick="closeModal()">&times;</span>
-    <img class="modal-content" id="modalImage" alt="Preview" />
-  </div>
-
-  <div id="superadmin-org-modal" class="superadmin-org-modal">
-    <div class="superadmin-org-modal-content">
-      <h2>Super Admin Org Access</h2>
-      <p>
-        You are about to enter <b id="superadmin-org-modal-orgname"></b> as a <b>Super Admin</b>.<br />
-        You will see everything the organization sees, and <b>all your actions will be logged</b>.<br />
-        Do you want to proceed?
-      </p>
-      <div class="superadmin-org-modal-actions">
-        <button id="superadmin-org-modal-confirm" class="confirm">Yes, Proceed</button>
-        <button id="superadmin-org-modal-cancel" class="cancel">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    function toggleDetails(id) {
-      const details = document.getElementById(`details-${id}`);
-      if (!details) return;
-      details.style.display = details.style.display === 'table-row' ? 'none' : 'table-row';
-    }
-
-    function openModal(imageUrl) {
-      const modal = document.getElementById('imageModal');
-      const image = document.getElementById('modalImage');
-      if (!modal || !image) return;
-      image.src = imageUrl;
-      modal.style.display = 'flex';
-    }
-
-    function closeModal() {
-      const modal = document.getElementById('imageModal');
-      if (!modal) return;
-      modal.style.display = 'none';
-    }
-
-    function confirmAction(action, organizationName) {
-      return confirm(`Are you sure you want to ${action} the organization "${organizationName}"?`);
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-      const orgLinks = document.querySelectorAll('.superadmin-org-link');
-      const modal = document.getElementById('superadmin-org-modal');
-      const orgNameNode = document.getElementById('superadmin-org-modal-orgname');
-      const confirmBtn = document.getElementById('superadmin-org-modal-confirm');
-      const cancelBtn = document.getElementById('superadmin-org-modal-cancel');
-
-      orgLinks.forEach(function (link) {
-        link.addEventListener('click', function (e) {
-          const orgUrl = link.getAttribute('href');
-          if (!orgUrl || !orgUrl.startsWith('/admin/org/')) return;
-          e.preventDefault();
-          const orgName = link.getAttribute('data-orgname') || 'this organization';
-          orgNameNode.textContent = orgName;
-          confirmBtn.onclick = function () {
-            window.location.href = orgUrl;
-          };
-          cancelBtn.onclick = function () {
-            modal.style.display = 'none';
-          };
-          modal.style.display = 'flex';
-        });
-      });
-
-      document.addEventListener('click', function (e) {
-        if (e.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
-    });
-
-  </script>
 </body>
 </html>

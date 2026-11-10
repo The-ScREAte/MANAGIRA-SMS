@@ -1522,7 +1522,7 @@ const adminController = {
   holdOrganization: async (req, res) => {
     if (req.session?.accountType !== 'Admin') {
       req.flash('error', 'You do not have permission to perform this action.');
-      return res.redirect('/admin');
+      return res.redirect('/admin/hubs');
     }
 
     const { orgId } = req.body;
@@ -1549,17 +1549,17 @@ const adminController = {
         `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization's activities have been temporarily put on hold. Please contact us at info@managira.com for further information.\n\nBest regards,\nAdmin Team`
       );
 
-      res.redirect("/admin");
+      res.redirect("/admin/hubs");
     } catch (error) {
             req.flash("error", "Failed to put organization on hold.");
-      res.redirect("/admin");
+      res.redirect("/admin/hubs");
     }
   },
 
   resumeOrganization: async (req, res) => {
     if (req.session?.accountType !== 'Admin') {
       req.flash('error', 'You do not have permission to perform this action.');
-      return res.redirect('/admin');
+      return res.redirect('/admin/hubs');
     }
 
     const { orgId } = req.body;
@@ -1584,10 +1584,10 @@ const adminController = {
         `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization's activities have been resumed. You can continue using the platform.\n\nBest regards,\nAdmin Team`
       );
 
-      res.redirect("/admin");
+      res.redirect("/admin/hubs");
     } catch (error) {
             req.flash("error", "Failed to resume organization.");
-      res.redirect("/admin");
+      res.redirect("/admin/hubs");
     }
   },
 
@@ -1597,7 +1597,7 @@ const adminController = {
     let txClient = null;
     if (req.session?.accountType !== 'Admin') {
       req.flash('error', 'You do not have permission to perform this action.');
-      return res.redirect('/admin');
+      return res.redirect('/admin/hubs');
     }
 
     const { orgId } = req.body;
@@ -1620,7 +1620,7 @@ const adminController = {
       if (!organization) {
         if (txClient) await txClient.query("ROLLBACK").catch(() => {});
         req.flash("error", "Organization not found.");
-        return res.redirect("/admin");
+        return res.redirect("/admin/hubs");
       }
 
       await txClient.query(
@@ -1641,11 +1641,11 @@ const adminController = {
         `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization has been deleted from our records. If you believe this is a mistake, please contact us at info@managira.com.\n\nBest regards,\nAdmin Team`
       );
 
-      res.redirect("/admin");
+      res.redirect("/admin/hubs");
     } catch (error) {
       if (txClient) await txClient.query("ROLLBACK").catch(() => {});
             req.flash("error", "Failed to delete organization.");
-      res.redirect("/admin");
+      res.redirect("/admin/hubs");
     } finally {
       if (txClient) txClient.release();
     }
@@ -3047,297 +3047,6 @@ const adminController = {
     }
   },
 
-  servicePricingGet: async (req, res) => {
-    try {
-      await ensurePaymentProviderSchema(db);
-      const currencyProfile = await getCurrencyProfileForRequest(req);
-      const paystackSettings = await getPaystackSettings(db);
-      const stripeSettings = await getStripeSettings(db);
-      const stripePlatformStatus = await getStripePlatformCredentials(db).catch(() => ({
-        mode: stripeSettings.mode,
-        issue: "Stripe platform key status could not be verified.",
-        secretKey: "",
-        publicKey: "",
-      }));
-      const paymentProvider = await getPaymentProvider(db);
-      const platformFeeSettings = await getPlatformFeeSettings(db);
-      const featuresResult = await db.query(
-        "SELECT * FROM features ORDER BY feature_name ASC"
-      );
-
-      const plansResult = await db.query(`
-                SELECT p.id AS plan_id, p.plan_name, p.description, p.is_active, p.total_cost,
-                    COALESCE(JSON_AGG(json_build_object(
-                        'id', f.id, 
-                        'feature_name', f.feature_name, 
-                        'price_usd', f.price_usd
-                    )) FILTER (WHERE f.id IS NOT NULL), '[]') AS features
-                FROM plans p
-                LEFT JOIN plan_features pf ON p.id = pf.plan_id
-                LEFT JOIN features f ON pf.feature_id = f.id
-                WHERE p.id IN (1, 2, 3, 4)
-                GROUP BY p.id
-                ORDER BY p.id;
-            `);
-
-
-      const localizedFeatures = (featuresResult.rows || []).map((feature) => {
-        const usdPrice = Number(feature.price_usd || 0);
-        const localized = localizeUsdAmount(usdPrice, currencyProfile);
-        return {
-          ...feature,
-          priceUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
-          localizedPriceDisplay: formatCurrencyAmount(
-            localized.localizedAmount,
-            localized.userCurrency,
-            currencyProfile.locale
-          ),
-        };
-      });
-
-      const localizedPlans = (plansResult.rows || []).map((plan) => {
-        const totalUsd = Number(plan.total_cost || 0);
-        const localized = localizeUsdAmount(totalUsd, currencyProfile);
-        const normalizedFeatures = Array.isArray(plan.features) ? plan.features : [];
-        return {
-          ...plan,
-          features: normalizedFeatures.map((feature) => {
-            const featureUsd = Number(feature.price_usd || 0);
-            const featureLocalized = localizeUsdAmount(featureUsd, currencyProfile);
-            return {
-              ...feature,
-              priceUsdDisplay: formatCurrencyAmount(featureLocalized.amountUsd, "USD"),
-              localizedPriceDisplay: formatCurrencyAmount(
-                featureLocalized.localizedAmount,
-                featureLocalized.userCurrency,
-                currencyProfile.locale
-              ),
-            };
-          }),
-          totalUsdDisplay: formatCurrencyAmount(localized.amountUsd, "USD"),
-          localizedTotalDisplay: formatCurrencyAmount(
-            localized.localizedAmount,
-            localized.userCurrency,
-            currencyProfile.locale
-          ),
-        };
-      });
-
-      // Get free trial and billing interval settings directly from DB
-      let freeTrialEnabled = 'false';
-      let freeTrialDays = 7;
-      let billingInterval = 'monthly';
-      let dynamicTermMonths = 3;
-      let dynamicTermDivider = 1;
-      try {
-        const enabledResult = await db.query("SELECT value FROM app_settings WHERE key = 'free_trial_enabled'");
-        if (enabledResult.rows.length > 0) freeTrialEnabled = enabledResult.rows[0].value;
-        const daysResult = await db.query("SELECT value FROM app_settings WHERE key = 'free_trial_days'");
-        if (daysResult.rows.length > 0) freeTrialDays = daysResult.rows[0].value;
-        const intervalResult = await db.query("SELECT value FROM app_settings WHERE key = 'billing_interval'");
-        if (intervalResult.rows.length > 0) billingInterval = intervalResult.rows[0].value;
-        const termMonthsResult = await db.query("SELECT value FROM app_settings WHERE key = 'dynamic_term_months'");
-        if (termMonthsResult.rows.length > 0) {
-          const parsedTermMonths = parseInt(termMonthsResult.rows[0].value, 10);
-          if (Number.isInteger(parsedTermMonths) && parsedTermMonths > 0) {
-            dynamicTermMonths = parsedTermMonths;
-          }
-        }
-        const termDividerResult = await db.query("SELECT value FROM app_settings WHERE key = 'dynamic_term_divider'");
-        if (termDividerResult.rows.length > 0) {
-          const parsedDivider = parseInt(termDividerResult.rows[0].value, 10);
-          if (Number.isInteger(parsedDivider) && parsedDivider > 0) {
-            dynamicTermDivider = parsedDivider;
-          }
-        }
-      } catch (err) {
-              }
-
-      // Fetch billing periods for discount management
-      let billingPeriods = [];
-      try {
-        const bpResult = await db.query('SELECT * FROM billing_periods ORDER BY sort_order');
-        billingPeriods = bpResult.rows || [];
-      } catch (err) {
-        // Table may not exist yet
-      }
-
-      // Fetch student count tiers grouped by plan
-      let studentTiersByPlan = {};
-      try {
-        const tiersResult = await db.query('SELECT * FROM plan_student_tiers ORDER BY plan_id, sort_order, min_students');
-        const planBasePriceById = new Map(localizedPlans.map((plan) => [String(plan.plan_id), Number(plan.total_cost || 0)]));
-        (tiersResult.rows || []).forEach(tier => {
-          if (!studentTiersByPlan[tier.plan_id]) studentTiersByPlan[tier.plan_id] = [];
-          const usd = computeTierMonthlyPrice(planBasePriceById.get(String(tier.plan_id)), tier);
-          const loc = localizeUsdAmount(usd, currencyProfile);
-          studentTiersByPlan[tier.plan_id].push({
-            ...tier,
-            adjustment_percentage: tier.adjustment_percentage != null ? Number(tier.adjustment_percentage) : null,
-            computedPriceUsd: usd,
-            priceUsdDisplay: formatCurrencyAmount(loc.amountUsd, "USD"),
-            localizedPriceDisplay: formatCurrencyAmount(loc.localizedAmount, loc.userCurrency, currencyProfile.locale),
-          });
-        });
-      } catch (err) {
-        // Table may not exist yet
-      }
-
-      // Dynamic pricing (beta) data for inline admin forms. Keep isolated from legacy pricing logic.
-      let dynamicRegions = [];
-      let dynamicRegionCountries = [];
-      let dynamicPlanRegionPrices = [];
-      let dynamicCycles = [];
-      let dynamicRegionStats = [];
-      let dynamicDefaultFallbackSchools = [];
-      try {
-        const [regionsRes, countriesRes, pricesRes, cyclesRes] = await Promise.all([
-          db.query('SELECT * FROM pricing_regions ORDER BY is_default DESC, sort_order ASC, name ASC'),
-          db.query('SELECT * FROM pricing_region_countries ORDER BY country_name ASC'),
-          db.query('SELECT * FROM plan_region_prices'),
-          db.query('SELECT * FROM dynamic_billing_cycles ORDER BY sort_order ASC, months ASC'),
-        ]);
-        dynamicRegions = regionsRes.rows || [];
-        dynamicRegionCountries = countriesRes.rows || [];
-        dynamicPlanRegionPrices = pricesRes.rows || [];
-        dynamicCycles = cyclesRes.rows || [];
-
-        if (dynamicRegions.length > 0) {
-          const activeRegions = dynamicRegions.filter((region) => Boolean(region.is_active));
-          const defaults = activeRegions.filter((region) => Boolean(region.is_default));
-          let fallbackRegionId = null;
-
-          if (defaults.length === 0) {
-            if (activeRegions.length > 0) {
-              fallbackRegionId = Number(activeRegions[0].id);
-            } else {
-              fallbackRegionId = Number(dynamicRegions[0].id);
-            }
-          } else if (defaults.length > 1) {
-            const sortedDefaults = defaults.slice().sort((a, b) => {
-              const sortDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
-              if (sortDiff !== 0) return sortDiff;
-              return Number(a.id || 0) - Number(b.id || 0);
-            });
-            fallbackRegionId = Number(sortedDefaults[0].id);
-          }
-
-          if (Number.isInteger(fallbackRegionId)) {
-            await db.query('UPDATE pricing_regions SET is_default = FALSE WHERE id <> $1', [fallbackRegionId]);
-            await db.query('UPDATE pricing_regions SET is_default = TRUE, is_active = TRUE WHERE id = $1', [fallbackRegionId]);
-            dynamicRegions = dynamicRegions.map((region) => ({
-              ...region,
-              is_default: Number(region.id) === fallbackRegionId,
-              is_active: Number(region.id) === fallbackRegionId ? true : Boolean(region.is_active),
-            }));
-          }
-        }
-
-        try {
-          const regionMonthsRes = await db.query(
-            "SELECT key, value FROM app_settings WHERE key LIKE 'dynamic_region_term_months_%'"
-          );
-          const regionMonthsById = new Map();
-          (regionMonthsRes.rows || []).forEach((row) => {
-            const key = String(row.key || '');
-            const match = key.match(/^dynamic_region_term_months_(\d+)$/);
-            if (!match) return;
-            const regionId = Number(match[1]);
-            const parsed = parseInt(row.value, 10);
-            if (Number.isInteger(regionId) && Number.isInteger(parsed) && parsed > 0) {
-              regionMonthsById.set(regionId, parsed);
-            }
-          });
-          dynamicRegions = dynamicRegions.map((region) => ({
-            ...region,
-            term_months: regionMonthsById.get(Number(region.id)) || dynamicTermMonths,
-          }));
-        } catch (_) {
-          dynamicRegions = dynamicRegions.map((region) => ({
-            ...region,
-            term_months: dynamicTermMonths,
-          }));
-        }
-
-        const statsResult = await db.query(
-          `SELECT
-             pr.id AS region_id,
-             COUNT(DISTINCT prc.country_code)::int AS country_count,
-             COUNT(DISTINCT o.organization_id)::int AS matched_school_count
-           FROM pricing_regions pr
-           LEFT JOIN pricing_region_countries prc
-             ON prc.region_id = pr.id
-           LEFT JOIN organizations o
-             ON o.deleted = false
-            AND o.organization_country IS NOT NULL
-            AND UPPER(TRIM(o.organization_country)) IN (
-              UPPER(prc.country_code),
-              UPPER(prc.country_name)
-            )
-           GROUP BY pr.id`
-        );
-        dynamicRegionStats = statsResult.rows || [];
-
-        const defaultRegion = dynamicRegions.find((region) => region.is_default);
-        if (defaultRegion) {
-          const fallbackResult = await db.query(
-            `SELECT o.organization_id, o.organization_name, o.organization_country
-             FROM organizations o
-             WHERE o.deleted = false
-               AND COALESCE(TRIM(o.organization_country), '') <> ''
-               AND NOT EXISTS (
-                 SELECT 1
-                 FROM pricing_region_countries prc
-                 WHERE UPPER(TRIM(o.organization_country)) IN (
-                   UPPER(prc.country_code),
-                   UPPER(prc.country_name)
-                 )
-               )
-             ORDER BY o.organization_name ASC
-             LIMIT 30`
-          );
-          dynamicDefaultFallbackSchools = fallbackResult.rows || [];
-        }
-      } catch (err) {
-        // Dynamic pricing tables may not exist in some environments.
-      }
-
-      res.render("admin/servicePricing", {
-        title: "Service Pricing Management",
-        features: localizedFeatures,
-        plans: localizedPlans,
-        currencyProfile,
-        messages: req.flash(),
-        freeTrialEnabled,
-        freeTrialDays,
-        billingInterval,
-        dynamicTermMonths,
-        dynamicTermDivider,
-        billingPeriods,
-        studentTiersByPlan,
-        paymentProvider,
-        platformFeePercentage: platformFeeSettings.percentage,
-        paystackMode: paystackSettings.mode,
-        stripeMode: stripeSettings.mode,
-        stripeKeysMasked: stripeSettings.masked,
-        stripePlatformStatus,
-        dynamicRegions,
-        dynamicRegionCountries,
-        dynamicPlanRegionPrices,
-        dynamicCycles,
-        dynamicRegionStats,
-        dynamicDefaultFallbackSchools,
-        dynamicDbSourceLabel: 'Primary DB',
-        dynamicDbIsolated: false,
-        countriesByContinent: COUNTRIES_BY_CONTINENT,
-        countryNameLookup: COUNTRY_NAME_LOOKUP,
-        showFooterTopSection: true
-      });
-    } catch (error) {
-            req.flash("error", "Failed to fetch service pricing.");
-      res.redirect("/admin");
-    }
-  },
 
   updateFreeTrialSettings: async (req, res) => {
     try {
@@ -3378,23 +3087,6 @@ const adminController = {
     return res.redirect('/admin/servicePricing');
   },
 
-  updateBillingPeriod: async (req, res) => {
-    try {
-      const { period_key, discount_percentage, is_active } = req.body;
-      if (!period_key) {
-        return res.status(400).json({ success: false, message: 'Missing period_key' });
-      }
-      const discount = Math.max(0, Math.min(50, parseInt(discount_percentage, 10) || 0));
-      const active = is_active === 'true' || is_active === true;
-      await db.query(
-        `UPDATE billing_periods SET discount_percentage = $1, is_active = $2, updated_at = NOW() WHERE period_key = $3`,
-        [discount, active, period_key]
-      );
-      return res.json({ success: true, discount, is_active: active });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: 'Failed to update billing period.' });
-    }
-  },
 
   
 
@@ -3532,123 +3224,10 @@ const adminController = {
     }
   },
 
-  togglePlanStatus: async (req, res) => {
-    const { planId } = req.body;
-    try {
-      await db.query(
-        "UPDATE plans SET is_active = NOT is_active WHERE id = $1",
-        [planId]
-      );
-      req.flash("success", "Plan activation status updated.");
-      res.redirect("/admin/servicePricing");
-    } catch (error) {
-            req.flash("error", "Failed to update plan status.");
-      res.redirect("/admin/servicePricing");
-    }
-  },
 
-  addFeatureToPlan: async (req, res) => {
-    const { planId, featureId } = req.body;
 
-    try {
-      // Get feature price
-      const featureResult = await db.query(
-        "SELECT price_usd FROM features WHERE id = $1",
-        [featureId]
-      );
 
-      if (featureResult.rows.length === 0) {
-        req.flash("error", "Feature not found.");
-        return res.redirect("/admin/servicePricing");
-      }
 
-      const featurePrice = featureResult.rows[0].price_usd;
-
-      // Add feature to plan
-      await db.query(
-        "INSERT INTO plan_features (plan_id, feature_id) VALUES ($1, $2)",
-        [planId, featureId]
-      );
-
-      // Update total cost
-      await db.query(
-        "UPDATE plans SET total_cost = total_cost + $1 WHERE id = $2",
-        [featurePrice, planId]
-      );
-
-      await invalidateAccessForPlan(db, planId);
-
-      req.flash("success", "Feature added and total cost updated.");
-      res.redirect("/admin/servicePricing");
-    } catch (error) {
-            req.flash("error", "Failed to add feature.");
-      res.redirect("/admin/servicePricing");
-    }
-  },
-
-  removeFeatureFromPlan: async (req, res) => {
-    const { planId, featureId } = req.body;
-
-    try {
-      // Get feature price
-      const featureResult = await db.query(
-        "SELECT price_usd FROM features WHERE id = $1",
-        [featureId]
-      );
-
-      if (featureResult.rows.length === 0) {
-        req.flash("error", "Feature not found.");
-        return res.redirect("/admin/servicePricing");
-      }
-
-      const featurePrice = featureResult.rows[0].price_usd;
-
-      // Remove feature from plan
-      await db.query(
-        "DELETE FROM plan_features WHERE plan_id = $1 AND feature_id = $2",
-        [planId, featureId]
-      );
-
-      // Update total cost
-      await db.query(
-        "UPDATE plans SET total_cost = total_cost - $1 WHERE id = $2",
-        [featurePrice, planId]
-      );
-
-      await invalidateAccessForPlan(db, planId);
-
-      req.flash("success", "Feature removed and total cost updated.");
-      res.redirect("/admin/servicePricing");
-    } catch (error) {
-            req.flash("error", "Failed to remove feature.");
-      res.redirect("/admin/servicePricing");
-    }
-  },
-
-  updatePlanDescription: async (req, res) => {
-    const { planId, description } = req.body;
-    try {
-      await db.query("UPDATE plans SET description = $1 WHERE id = $2", [
-        description,
-        planId,
-      ]);
-      req.flash("success", "Plan description updated.");
-      res.redirect("/admin/servicePricing");
-    } catch (error) {
-            req.flash("error", "Failed to update.");
-      res.redirect("/admin/servicePricing");
-    }
-  },
-
-  deleteFeature: async (req, res) => {
-    const { featureId } = req.body;
-    try {
-      await db.query("DELETE FROM features WHERE id = $1", [featureId]);
-      res.json({ success: true });
-    } catch (error) {
-            res.json({ success: false, error: "Failed to delete feature." });
-    }
-  },
 
   permanentlyDeleteOrganization: async (req, res) => {
     // Dedicated connection: BEGIN/COMMIT on the pool can run on different
@@ -4125,26 +3704,6 @@ const adminController = {
     return res.redirect("/admin/employment");
   },
 
-  recalculateAllPlanTotals: async (req, res) => {
-    try {
-      // Recalculate total_cost for all plans based on their current features
-      await db.query(`
-        UPDATE plans 
-        SET total_cost = COALESCE((
-          SELECT SUM(f.price_usd) 
-          FROM plan_features pf 
-          JOIN features f ON pf.feature_id = f.id 
-          WHERE pf.plan_id = plans.id
-        ), 0)
-      `);
-      
-      req.flash("success", "All plan total costs have been recalculated successfully.");
-      res.redirect("/admin/servicePricing");
-    } catch (error) {
-            req.flash("error", "Failed to recalculate plan totals.");
-      res.redirect("/admin/servicePricing");
-    }
-  },
 
   // ── Student Count Tier CRUD ──
 
@@ -4152,118 +3711,7 @@ const adminController = {
 
   
 
-  saveStudentTiers: async (req, res) => {
-    const {
-      plan_id,
-      tier_id,
-      min_students,
-      max_students,
-      adjustment_percentage,
-      new_min_students,
-      new_max_students,
-      new_adjustment_percentage,
-    } = req.body;
 
-    const asArray = (value) => {
-      if (Array.isArray(value)) return value;
-      if (value === undefined || value === null) return [];
-      return [value];
-    };
-
-    const tierIds = asArray(tier_id);
-    const minValues = asArray(min_students);
-    const maxValues = asArray(max_students);
-    const adjustmentValues = asArray(adjustment_percentage);
-    const newMinValues = asArray(new_min_students);
-    const newMaxValues = asArray(new_max_students);
-    const newAdjustmentValues = asArray(new_adjustment_percentage);
-
-    const client = await db.connect();
-    try {
-      await client.query('BEGIN');
-
-      for (let index = 0; index < tierIds.length; index += 1) {
-        const currentTierId = tierIds[index];
-        const minVal = parseInt(minValues[index], 10) || 0;
-        const rawMax = maxValues[index];
-        const maxVal = rawMax === '' || rawMax === undefined || rawMax === null ? null : parseInt(rawMax, 10);
-        const adjustment = Number.parseFloat(adjustmentValues[index]);
-        const label = maxVal != null ? `${minVal} – ${maxVal} students` : `${minVal}+ students`;
-
-        await client.query(
-          `UPDATE plan_student_tiers
-           SET label = $1, min_students = $2, max_students = $3, adjustment_percentage = $4
-           WHERE id = $5 AND plan_id = $6`,
-          [label, minVal, maxVal, Number.isFinite(adjustment) ? adjustment : 0, currentTierId, plan_id]
-        );
-      }
-
-      let nextSortOrder = null;
-      for (let index = 0; index < newMinValues.length; index += 1) {
-        const rawNewMin = newMinValues[index];
-        const rawNewMax = newMaxValues[index];
-        const rawNewAdjustment = newAdjustmentValues[index];
-        const newMin = rawNewMin === '' || rawNewMin === undefined || rawNewMin === null
-          ? null
-          : parseInt(rawNewMin, 10);
-        const newMax = rawNewMax === '' || rawNewMax === undefined || rawNewMax === null
-          ? null
-          : parseInt(rawNewMax, 10);
-        const newAdjustment = Number.parseFloat(rawNewAdjustment);
-
-        if (newMin === null && (rawNewAdjustment === '' || rawNewAdjustment === undefined || rawNewAdjustment === null)) {
-          continue;
-        }
-
-        if (newMin === null || !Number.isFinite(newAdjustment)) {
-          throw new Error('Invalid new student tier row');
-        }
-
-        if (nextSortOrder === null) {
-          const sortOrder = await client.query(
-            'SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM plan_student_tiers WHERE plan_id = $1',
-            [plan_id]
-          );
-          nextSortOrder = Number(sortOrder.rows[0].next || 1);
-        }
-
-        const label = newMax != null ? `${newMin} – ${newMax} students` : `${newMin}+ students`;
-        await client.query(
-          `INSERT INTO plan_student_tiers (plan_id, label, min_students, max_students, price_usd, adjustment_percentage, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [plan_id, label, newMin, newMax, 0, newAdjustment, nextSortOrder]
-        );
-        nextSortOrder += 1;
-      }
-
-      await client.query('COMMIT');
-      req.flash('success', 'Student tiers saved.');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      req.flash('error', 'Failed to save student tiers.');
-    } finally {
-      client.release();
-    }
-
-    res.redirect('/admin/servicePricing');
-  },
-
-  deleteStudentTier: async (req, res) => {
-    const { tier_id } = req.body;
-    try {
-      // Check if any org is using this tier
-      const usage = await db.query('SELECT COUNT(*) AS cnt FROM organizations WHERE selected_student_tier_id = $1', [tier_id]);
-      if (parseInt(usage.rows[0].cnt, 10) > 0) {
-        req.flash("error", `Cannot delete: ${usage.rows[0].cnt} organization(s) are using this tier. Reassign them first.`);
-        return res.redirect("/admin/servicePricing");
-      }
-      await db.query('DELETE FROM plan_student_tiers WHERE id = $1', [tier_id]);
-      req.flash("success", "Student tier deleted.");
-    } catch (error) {
-      req.flash("error", "Failed to delete student tier.");
-    }
-    res.redirect("/admin/servicePricing");
-  },
 
   
 
@@ -5522,643 +4970,25 @@ const adminController = {
   // plan_student_tiers / billing_periods / live pricing logic.
   // ============================================================
 
-  dynamicPricingGet: async (req, res) => {
-    try {
-      const [regionsRes, countriesRes, plansRes, pricesRes, cyclesRes] = await Promise.all([
-        db.query('SELECT * FROM pricing_regions ORDER BY is_default DESC, sort_order ASC, name ASC'),
-        db.query('SELECT * FROM pricing_region_countries ORDER BY country_name ASC'),
-        db.query('SELECT id, name, description, is_active FROM plans ORDER BY id ASC'),
-        db.query('SELECT * FROM plan_region_prices'),
-        db.query('SELECT * FROM dynamic_billing_cycles ORDER BY sort_order ASC, months ASC'),
-      ]);
-
-      res.render('admin/dynamicPricing', {
-        session: req.session,
-        regions: regionsRes.rows,
-        regionCountries: countriesRes.rows,
-        plans: plansRes.rows,
-        planRegionPrices: pricesRes.rows,
-        cycles: cyclesRes.rows,
-        countriesByContinent: COUNTRIES_BY_CONTINENT,
-        countryNameLookup: COUNTRY_NAME_LOOKUP,
-        dynamicDbSourceLabel: 'Primary DB',
-        dynamicDbIsolated: false,
-        messages: { error: req.flash('error'), success: req.flash('success') },
-      });
-    } catch (error) {
-      console.error('dynamicPricingGet error:', error.message);
-      req.flash('error', 'Failed to load dynamic pricing. Has the migration been run?');
-      res.redirect('/admin/servicePricing');
-    }
-  },
 
   // --- Regions ---------------------------------------------------------
 
-  createRegion: async (req, res) => {
-    const name = String(req.body.name || '').trim();
-    if (!name) {
-      return res.status(400).json({ ok: false, error: 'Region name is required.' });
-    }
-    const client = await db.connect();
-    try {
-      await client.query('BEGIN');
 
-      const sortOrder = Number(req.body.sort_order) || 0;
-      let isDefault = req.body.is_default === true || req.body.is_default === 'true';
-      let termMonths = parseInt(req.body.term_months, 10);
-      if (!Number.isInteger(termMonths) || termMonths < 1) {
-        try {
-          const termMonthsResult = await client.query(
-            "SELECT value FROM app_settings WHERE key = 'dynamic_term_months' LIMIT 1"
-          );
-          const parsed = parseInt(termMonthsResult.rows?.[0]?.value, 10);
-          termMonths = Number.isInteger(parsed) && parsed > 0 ? parsed : 3;
-        } catch (_) {
-          termMonths = 3;
-        }
-      }
-      if (!isDefault) {
-        const existingDefaultRes = await client.query(
-          'SELECT id FROM pricing_regions WHERE is_default = TRUE AND is_active = TRUE LIMIT 1'
-        );
-        if (!existingDefaultRes.rows[0]) {
-          isDefault = true;
-        }
-      }
 
-      // Ensure this request can safely become the single default region.
-      if (isDefault) {
-        await client.query(
-          'UPDATE pricing_regions SET is_default = FALSE, updated_at = NOW() WHERE is_default = TRUE'
-        );
-      }
-
-      const result = await client.query(
-        `INSERT INTO pricing_regions (name, sort_order, is_default, is_active)
-         VALUES ($1, $2, $3, TRUE) RETURNING *`,
-        [name, sortOrder, isDefault]
-      );
-      const createdRegion = result.rows[0];
-
-      await client.query(
-        `INSERT INTO app_settings(key, value)
-         VALUES ($1, $2)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-        [`dynamic_region_term_months_${createdRegion.id}`, String(termMonths)]
-      );
-
-      await client.query('COMMIT');
-      return res.json({ ok: true, region: { ...createdRegion, term_months: termMonths } });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      if (error.code === '23505') {
-        if (error.constraint === 'pricing_regions_name_key') {
-          return res.status(409).json({ ok: false, error: 'A region with that name already exists.' });
-        }
-        if (error.constraint === 'pricing_regions_single_default') {
-          return res.status(409).json({ ok: false, error: 'Only one default fallback region can exist. Try saving again.' });
-        }
-      }
-      console.error('createRegion error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to create region.' });
-    } finally {
-      client.release();
-    }
-  },
-
-  updateRegion: async (req, res) => {
-    const regionId = parseInt(req.params.id, 10);
-    if (!Number.isInteger(regionId)) {
-      return res.status(400).json({ ok: false, error: 'Invalid region id.' });
-    }
-    const client = await db.connect();
-    try {
-      await client.query('BEGIN');
-
-      const regionRes = await client.query(
-        'SELECT id, is_default, is_active FROM pricing_regions WHERE id = $1 FOR UPDATE',
-        [regionId]
-      );
-      if (!regionRes.rows[0]) {
-        const err = new Error('Region not found.');
-        err.statusCode = 404;
-        throw err;
-      }
-      const currentRegion = regionRes.rows[0];
-      const nextIsDefault = req.body.is_default !== undefined
-        ? (req.body.is_default === true || req.body.is_default === 'true')
-        : Boolean(currentRegion.is_default);
-      const nextIsActive = req.body.is_active !== undefined
-        ? (req.body.is_active === true || req.body.is_active === 'true')
-        : Boolean(currentRegion.is_active);
-
-      if (nextIsDefault && !nextIsActive) {
-        const err = new Error('The fallback default region must remain active.');
-        err.statusCode = 400;
-        throw err;
-      }
-
-      if (!nextIsDefault) {
-        const anotherActiveDefaultRes = await client.query(
-          'SELECT id FROM pricing_regions WHERE id <> $1 AND is_default = TRUE AND is_active = TRUE LIMIT 1',
-          [regionId]
-        );
-        if (!anotherActiveDefaultRes.rows[0]) {
-          const err = new Error('At least one active default fallback region is required.');
-          err.statusCode = 400;
-          throw err;
-        }
-      }
-
-      const fields = [];
-      const values = [];
-      let idx = 1;
-      if (req.body.name !== undefined) {
-        const nextName = String(req.body.name).trim();
-        if (!nextName) {
-          const err = new Error('Region name is required.');
-          err.statusCode = 400;
-          throw err;
-        }
-        fields.push(`name = $${idx++}`);
-        values.push(nextName);
-      }
-      if (req.body.sort_order !== undefined) {
-        fields.push(`sort_order = $${idx++}`);
-        values.push(Number(req.body.sort_order) || 0);
-      }
-      if (req.body.is_active !== undefined) {
-        fields.push(`is_active = $${idx++}`);
-        values.push(req.body.is_active === true || req.body.is_active === 'true');
-      }
-      if (fields.length) {
-        fields.push('updated_at = NOW()');
-        values.push(regionId);
-        await client.query(
-          `UPDATE pricing_regions SET ${fields.join(', ')} WHERE id = $${idx}`,
-          values
-        );
-      }
-
-      if (req.body.term_months !== undefined) {
-        const termMonths = Math.max(1, parseInt(req.body.term_months, 10) || 1);
-        await client.query(
-          `INSERT INTO app_settings(key, value)
-           VALUES ($1, $2)
-           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-          [`dynamic_region_term_months_${regionId}`, String(termMonths)]
-        );
-      }
-
-      if (req.body.is_default !== undefined) {
-        const wantsDefault = req.body.is_default === true || req.body.is_default === 'true';
-        if (wantsDefault) {
-          await client.query(
-            'UPDATE pricing_regions SET is_default = FALSE, updated_at = NOW() WHERE id <> $1',
-            [regionId]
-          );
-          await client.query(
-            'UPDATE pricing_regions SET is_default = TRUE, is_active = TRUE, updated_at = NOW() WHERE id = $1',
-            [regionId]
-          );
-        } else {
-          const anotherDefaultRes = await client.query(
-            'SELECT id FROM pricing_regions WHERE id <> $1 AND is_default = TRUE AND is_active = TRUE LIMIT 1',
-            [regionId]
-          );
-          if (!anotherDefaultRes.rows[0]) {
-            const err = new Error('At least one active default fallback region is required.');
-            err.statusCode = 400;
-            throw err;
-          }
-          await client.query(
-            'UPDATE pricing_regions SET is_default = FALSE, updated_at = NOW() WHERE id = $1',
-            [regionId]
-          );
-        }
-      }
-
-      // Atomically re-assign the chosen set of countries to this region.
-      if (Array.isArray(req.body.countryCodes)) {
-        const normalizedCodes = req.body.countryCodes
-          .map((c) => String(c || '').trim().toUpperCase())
-          .filter((c) => /^[A-Z]{2}$/.test(c));
-        const invalidCodes = Array.from(
-          new Set(normalizedCodes.filter((code) => !COUNTRY_NAME_LOOKUP[code]))
-        );
-        if (invalidCodes.length) {
-          const err = new Error(`Unsupported country code(s): ${invalidCodes.join(', ')}`);
-          err.statusCode = 400;
-          throw err;
-        }
-
-        const codes = Array.from(new Set(normalizedCodes));
-
-        // Remove any of these codes from other regions first (a country lives in one region only).
-        if (codes.length) {
-          await client.query(
-            'DELETE FROM pricing_region_countries WHERE country_code = ANY($1)',
-            [codes]
-          );
-        }
-        // Drop this region's current set, then insert the new set.
-        await client.query('DELETE FROM pricing_region_countries WHERE region_id = $1', [regionId]);
-        for (const code of codes) {
-          const name = COUNTRY_NAME_LOOKUP[code] || code;
-          await client.query(
-            `INSERT INTO pricing_region_countries (region_id, country_code, country_name)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (country_code) DO UPDATE SET region_id = EXCLUDED.region_id, country_name = EXCLUDED.country_name`,
-            [regionId, code, name]
-          );
-        }
-      }
-
-      await client.query('COMMIT');
-      return res.json({ ok: true });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({ ok: false, error: error.message || 'Failed to update region.' });
-      }
-      if (error.code === '23505') {
-        return res.status(409).json({ ok: false, error: 'A region with that name already exists.' });
-      }
-      console.error('updateRegion error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to update region.' });
-    } finally {
-      client.release();
-    }
-  },
-
-  deleteRegion: async (req, res) => {
-    const regionId = parseInt(req.params.id, 10);
-    if (!Number.isInteger(regionId)) {
-      return res.status(400).json({ ok: false, error: 'Invalid region id.' });
-    }
-    try {
-      const check = await db.query('SELECT is_default, is_active FROM pricing_regions WHERE id = $1', [regionId]);
-      if (!check.rows[0]) {
-        return res.status(404).json({ ok: false, error: 'Region not found.' });
-      }
-      if (check.rows[0].is_default) {
-        return res.status(400).json({ ok: false, error: 'The active fallback default region cannot be deleted.' });
-      }
-      // ON DELETE CASCADE removes its country mappings and plan_region_prices.
-      await db.query('DELETE FROM pricing_regions WHERE id = $1', [regionId]);
-      await db.query('DELETE FROM app_settings WHERE key = $1', [`dynamic_region_term_months_${regionId}`]);
-      return res.json({ ok: true });
-    } catch (error) {
-      console.error('deleteRegion error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to delete region.' });
-    }
-  },
 
   // --- Plan x Region prices -------------------------------------------
 
-  upsertPlanRegionPrice: async (req, res) => {
-    const planId = parseInt(req.body.plan_id, 10);
-    const regionId = parseInt(req.body.region_id, 10);
-    if (!Number.isInteger(planId) || !Number.isInteger(regionId)) {
-      return res.status(400).json({ ok: false, error: 'Invalid plan or region.' });
-    }
-    const parseMoney = (value) => {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : NaN;
-    };
-    try {
-      const base = parseMoney(req.body.base_price_usd);
-      const threshold = Number.parseInt(req.body.free_student_threshold, 10);
-      const rate = parseMoney(req.body.per_student_rate_usd);
-
-      if (!Number.isFinite(base) || base < 0 || base > 1000000) {
-        return res.status(400).json({ ok: false, error: 'Base price must be between 0 and 1,000,000.' });
-      }
-      if (!Number.isInteger(threshold) || threshold < 0 || threshold > 1000000) {
-        return res.status(400).json({ ok: false, error: 'Free-student threshold must be a whole number between 0 and 1,000,000.' });
-      }
-      if (!Number.isFinite(rate) || rate < 0 || rate > 100000) {
-        return res.status(400).json({ ok: false, error: 'Per-student monthly rate must be between 0 and 100,000.' });
-      }
-      const client = await db.connect();
-      try {
-        await client.query('BEGIN');
-
-        const [planCheck, regionCheck] = await Promise.all([
-          client.query('SELECT id FROM plans WHERE id = $1 LIMIT 1', [planId]),
-          client.query('SELECT id FROM pricing_regions WHERE id = $1 LIMIT 1', [regionId]),
-        ]);
-        if (!planCheck.rows[0]) {
-          const err = new Error('Plan not found.');
-          err.statusCode = 404;
-          throw err;
-        }
-        if (!regionCheck.rows[0]) {
-          const err = new Error('Region not found.');
-          err.statusCode = 404;
-          throw err;
-        }
-
-        const previousResult = await client.query(
-          `SELECT base_price_usd, free_student_threshold, per_student_rate_usd
-           FROM plan_region_prices
-           WHERE plan_id = $1 AND region_id = $2
-           FOR UPDATE`,
-          [planId, regionId]
-        );
-        const previous = previousResult.rows[0] || null;
-
-        const result = await client.query(
-          `INSERT INTO plan_region_prices
-             (plan_id, region_id, base_price_usd, free_student_threshold, per_student_rate_usd, is_active)
-           VALUES ($1, $2, $3, $4, $5, TRUE)
-           ON CONFLICT (plan_id, region_id) DO UPDATE SET
-             base_price_usd = EXCLUDED.base_price_usd,
-             free_student_threshold = EXCLUDED.free_student_threshold,
-             per_student_rate_usd = EXCLUDED.per_student_rate_usd,
-             updated_at = NOW()
-           RETURNING *`,
-          [planId, regionId, base, threshold, rate]
-        );
-
-        await client.query(
-          `INSERT INTO plan_region_prices_audit (
-             plan_id,
-             region_id,
-             old_base_price_usd,
-             new_base_price_usd,
-             old_free_student_threshold,
-             new_free_student_threshold,
-             old_per_student_rate_usd,
-             new_per_student_rate_usd,
-             changed_by_user_id
-           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [
-            planId,
-            regionId,
-            previous ? Number(previous.base_price_usd || 0) : null,
-            base,
-            previous ? Number(previous.free_student_threshold || 0) : null,
-            threshold,
-            previous ? Number(previous.per_student_rate_usd || 0) : null,
-            rate,
-            req.session?.userId || null,
-          ]
-        );
-
-        await client.query('COMMIT');
-        return res.json({ ok: true, price: result.rows[0] });
-      } catch (innerError) {
-        await client.query('ROLLBACK');
-        throw innerError;
-      } finally {
-        client.release();
-      }
-    } catch (error) {
-      if (error.statusCode) {
-        return res.status(error.statusCode).json({ ok: false, error: error.message || 'Failed to save price.' });
-      }
-      console.error('upsertPlanRegionPrice error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to save price.' });
-    }
-  },
 
   // --- Dynamic billing cycles -----------------------------------------
   // A cycle's key is what schools' payments store, so a standard key must keep
   // its length (on 2026-09-22 "monthly" was edited to 3 months by mistake).
 
-  createDynamicCycle: async (req, res) => {
-    const cycleKey = String(req.body.cycle_key || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    const label = String(req.body.label || '').trim();
-    const months = parseInt(req.body.months, 10);
-    if (!cycleKey || !label || !Number.isInteger(months) || months < 1) {
-      return res.status(400).json({ ok: false, error: 'Key, label and a months value (>= 1) are required.' });
-    }
-    if (STANDARD_CYCLE_MONTHS[cycleKey] && STANDARD_CYCLE_MONTHS[cycleKey] !== months) {
-      return res.status(400).json({ ok: false, error: `The "${cycleKey}" cycle must be ${STANDARD_CYCLE_MONTHS[cycleKey]} month(s).` });
-    }
-    try {
-      const discount = Math.min(50, Math.max(0, parseInt(req.body.discount_percentage, 10) || 0));
-      const hint = req.body.hint ? String(req.body.hint).trim() : null;
-      const sortOrder = Number(req.body.sort_order) || 0;
-      const result = await db.query(
-        `INSERT INTO dynamic_billing_cycles (cycle_key, label, months, discount_percentage, hint, sort_order, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING *`,
-        [cycleKey, label, months, discount, hint, sortOrder]
-      );
-      return res.json({ ok: true, cycle: result.rows[0] });
-    } catch (error) {
-      if (error.code === '23505') {
-        return res.status(409).json({ ok: false, error: 'A cycle with that key already exists.' });
-      }
-      console.error('createDynamicCycle error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to create cycle.' });
-    }
-  },
 
-  updateDynamicCycle: async (req, res) => {
-    const cycleId = parseInt(req.params.id, 10);
-    if (!Number.isInteger(cycleId)) {
-      return res.status(400).json({ ok: false, error: 'Invalid cycle id.' });
-    }
-    try {
-      const fields = [];
-      const values = [];
-      let idx = 1;
-      if (req.body.label !== undefined) {
-        fields.push(`label = $${idx++}`);
-        values.push(String(req.body.label).trim());
-      }
-      if (req.body.months !== undefined) {
-        const months = parseInt(req.body.months, 10);
-        if (!Number.isInteger(months) || months < 1) {
-          return res.status(400).json({ ok: false, error: 'Months must be >= 1.' });
-        }
-        const current = (await db.query('SELECT cycle_key, months FROM dynamic_billing_cycles WHERE id = $1', [cycleId])).rows[0];
-        if (current && Number(current.months) !== months) {
-          if (STANDARD_CYCLE_MONTHS[current.cycle_key] && STANDARD_CYCLE_MONTHS[current.cycle_key] !== months) {
-            return res.status(400).json({ ok: false, error: `This is the "${current.cycle_key}" cycle, so it must stay ${STANDARD_CYCLE_MONTHS[current.cycle_key]} month(s). Edit the cycle that matches the length you want.` });
-          }
-          const inUse = (await db.query(
-            `SELECT COUNT(*)::int AS n FROM payments p JOIN organizations o ON o.organization_id = p.organization_id
-              WHERE p.billing_period_key = $1 AND COALESCE(o.deleted, false) = false`,
-            [current.cycle_key]
-          )).rows[0].n;
-          if (inUse) {
-            return res.status(400).json({ ok: false, error: `${inUse} school(s) pay on this cycle, so its length can't change. Add a new cycle instead.` });
-          }
-        }
-        fields.push(`months = $${idx++}`);
-        values.push(months);
-      }
-      if (req.body.discount_percentage !== undefined) {
-        fields.push(`discount_percentage = $${idx++}`);
-        values.push(Math.min(50, Math.max(0, parseInt(req.body.discount_percentage, 10) || 0)));
-      }
-      if (req.body.hint !== undefined) {
-        fields.push(`hint = $${idx++}`);
-        values.push(req.body.hint ? String(req.body.hint).trim() : null);
-      }
-      if (req.body.sort_order !== undefined) {
-        fields.push(`sort_order = $${idx++}`);
-        values.push(Number(req.body.sort_order) || 0);
-      }
-      if (req.body.is_active !== undefined) {
-        fields.push(`is_active = $${idx++}`);
-        values.push(req.body.is_active === true || req.body.is_active === 'true');
-      }
-      if (!fields.length) {
-        return res.json({ ok: true });
-      }
-      fields.push('updated_at = NOW()');
-      values.push(cycleId);
-      await db.query(`UPDATE dynamic_billing_cycles SET ${fields.join(', ')} WHERE id = $${idx}`, values);
-      return res.json({ ok: true });
-    } catch (error) {
-      console.error('updateDynamicCycle error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to update cycle.' });
-    }
-  },
 
-  deleteDynamicCycle: async (req, res) => {
-    const cycleId = parseInt(req.params.id, 10);
-    if (!Number.isInteger(cycleId)) {
-      return res.status(400).json({ ok: false, error: 'Invalid cycle id.' });
-    }
-    try {
-      await db.query('DELETE FROM dynamic_billing_cycles WHERE id = $1', [cycleId]);
-      return res.json({ ok: true });
-    } catch (error) {
-      console.error('deleteDynamicCycle error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to delete cycle.' });
-    }
-  },
 
-  updateDynamicTermMonths: async (req, res) => {
-    try {
-      const months = Math.max(1, parseInt(req.body.months, 10) || 3);
-      const divider = months;
-      await db.query(
-        `INSERT INTO app_settings(key, value)
-         VALUES ('dynamic_term_months', $1)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-        [String(months)]
-      );
-      await db.query(
-        `INSERT INTO app_settings(key, value)
-         VALUES ('dynamic_term_divider', $1)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-        [String(divider)]
-      );
-      await db.query(
-        `INSERT INTO dynamic_billing_cycles (cycle_key, label, months, discount_percentage, hint, is_active, sort_order)
-         VALUES ('term', 'Per Term', $1, 0, 'Paid monthly', TRUE, 2)
-         ON CONFLICT (cycle_key) DO UPDATE SET
-           label = EXCLUDED.label,
-           months = EXCLUDED.months,
-           discount_percentage = EXCLUDED.discount_percentage,
-           hint = EXCLUDED.hint,
-           is_active = TRUE,
-           updated_at = NOW()`,
-        [months]
-      );
-      return res.json({ ok: true, months, divider });
-    } catch (error) {
-      console.error('updateDynamicTermMonths error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to save term months.' });
-    }
-  },
 
   // --- Customer preview simulator -------------------------------------
 
-  previewDynamicPrice: async (req, res) => {
-    try {
-      const planId = parseInt(req.body.plan_id, 10);
-      const studentCount = Math.max(0, parseInt(req.body.student_count, 10) || 0);
-      const countryCode = req.body.country_code ? String(req.body.country_code).trim().toUpperCase() : null;
-      const cycleKey = req.body.cycle_key ? String(req.body.cycle_key).trim() : null;
-      let monthsPerTerm = 1;
-
-      try {
-        const termMonthsResult = await db.query(
-          "SELECT value FROM app_settings WHERE key = 'dynamic_term_months' LIMIT 1"
-        );
-        const parsedTermMonths = parseInt(termMonthsResult.rows?.[0]?.value, 10);
-        if (Number.isInteger(parsedTermMonths) && parsedTermMonths > 0) {
-          monthsPerTerm = parsedTermMonths;
-        } else {
-          const dividerResult = await db.query(
-            "SELECT value FROM app_settings WHERE key = 'dynamic_term_divider' LIMIT 1"
-          );
-          const parsedDivider = parseInt(dividerResult.rows?.[0]?.value, 10);
-          if (Number.isInteger(parsedDivider) && parsedDivider > 0) {
-            monthsPerTerm = parsedDivider;
-          }
-        }
-      } catch (_) {
-      }
-
-      if (!Number.isInteger(planId)) {
-        return res.status(400).json({ ok: false, error: 'A plan must be selected.' });
-      }
-
-      const region = await getRegionForCountry(db, countryCode);
-      if (!region) {
-        return res.status(400).json({ ok: false, error: 'No region available. Create a default region first.' });
-      }
-
-      try {
-        const regionTermResult = await db.query(
-          'SELECT value FROM app_settings WHERE key = $1 LIMIT 1',
-          [`dynamic_region_term_months_${region.id}`]
-        );
-        const parsedRegionTermMonths = parseInt(regionTermResult.rows?.[0]?.value, 10);
-        if (Number.isInteger(parsedRegionTermMonths) && parsedRegionTermMonths > 0) {
-          monthsPerTerm = parsedRegionTermMonths;
-        }
-      } catch (_) {
-      }
-
-      const priceRow = await getPlanRegionPrice(db, planId, region.id);
-      if (!priceRow) {
-        return res.json({
-          ok: true,
-          region,
-          hasPrice: false,
-          message: `No price configured for this plan in "${region.name}".`,
-        });
-      }
-
-      const monthly = computeDynamicMonthlyPrice(priceRow, studentCount, { monthsPerTerm });
-
-      let cycle = null;
-      let cycleBreakdown = null;
-      if (cycleKey) {
-        const cyclesRes = await db.query(
-          'SELECT * FROM dynamic_billing_cycles WHERE cycle_key = $1 AND is_active = TRUE',
-          [cycleKey]
-        );
-        cycle = cyclesRes.rows[0] || null;
-        if (cycle) {
-          cycleBreakdown = applyCycle(monthly.monthlyTotal, cycle);
-        }
-      }
-
-      return res.json({
-        ok: true,
-        hasPrice: true,
-        region: { id: region.id, name: region.name, is_default: region.is_default },
-        studentCount,
-        monthly,
-        cycle,
-        cycleBreakdown,
-      });
-    } catch (error) {
-      console.error('previewDynamicPrice error:', error.message);
-      return res.status(500).json({ ok: false, error: 'Failed to compute preview.' });
-    }
-  },
 };
 
 async function sendEmailNotification(to, subject, text) {
@@ -6273,38 +5103,6 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
 // HUB MANAGEMENT FUNCTIONS
 // =====================================================
 
-// List all hubs
-adminController.hubsListGet = async (req, res) => {
-  try {
-    await require("../utils/hubAccess").ensureHubAccessSchema(db);
-    await require("../utils/hubBilling").ensureHubBillingSchema(db);
-    const hubsResult = await db.query(`
-      SELECT h.*, (h.hub_password IS NOT NULL) AS has_password, p.plan_name, p.total_cost,
-             hb.status AS billing_status, hb.next_charge_at, hb.next_charge_amount, hb.currency AS billing_currency,
-             hb.hold_starts_at, hb.ended_at AS billing_ended_at,
-             (SELECT COUNT(*)::int FROM hub_billing_charges c WHERE c.hub_id = h.hub_id AND c.status = 'pending') AS pending_charges,
-             (SELECT COUNT(*)::int FROM hub_users hu WHERE hu.hub_id = h.hub_id) + 1 AS user_count,
-             (SELECT COUNT(*)::int FROM organizations WHERE hub_id = h.hub_id AND deleted = false AND is_hub_member = true) as org_count
-      FROM managira_hubs h
-      LEFT JOIN plans p ON h.plan_id = p.id
-      LEFT JOIN hub_billing hb ON hb.hub_id = h.hub_id
-      WHERE h.deleted = false
-      ORDER BY h.created_at DESC
-    `);
-
-    res.render('admin/hubs', {
-      title: 'Manage Hubs',
-      billingStatus: require("../utils/hubBilling").STATUS,
-      money: require("../utils/hubBilling").money,
-      hubs: hubsResult.rows.map(({ hub_password, reset_password_token, ...hub }) => hub),
-      messages: req.flash(),
-      showFooterTopSection: false
-    });
-  } catch (error) {
-        req.flash('error', 'Error loading hubs.');
-    res.redirect('/admin');
-  }
-};
 
 
 // Create hub (with its billing terms, the people who get access, and the card link)

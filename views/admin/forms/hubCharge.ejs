@@ -37,7 +37,7 @@
         </div>
         <label class="ahb-field">
           <span class="ahb-label">Quantity</span>
-          <input type="number" name="quantity" min="1" max="100000" value="1" class="ahb-input" />
+          <input type="number" name="quantity" min="1" max="100000" value="<%= (typeof preset !== 'undefined' && preset && preset.quantity) || 1 %>" class="ahb-input" />
         </label>
         <label class="ahb-field" data-ah-custom>
           <span class="ahb-label">Note for the hub <em>optional</em></span>

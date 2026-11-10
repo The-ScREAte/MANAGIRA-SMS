@@ -2230,4 +2230,5 @@ module.exports = {
 };
 
 module.exports.getOpenAssessments = getOpenAssessments;
+module.exports.canUseStudentTestingRoom = canUseStudentTestingRoom;
 module.exports.resolveCurrentStudentTermContext = resolveCurrentStudentTermContext;

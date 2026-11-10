@@ -357,6 +357,24 @@ async function resolveBillingCycle(periodKey) {
   };
 }
 
+// What one bill comes to for a school (utils/orgPricing.js): its plan's price for its country
+// and students, or the price Managira set for it, less its discount; the billing cycle's
+// discount on that; then the add-ons it uses and the API allowance for each month of the cycle.
+// Null when there's no price to charge.
+async function schoolChargeUsd(org) {
+  const orgPricing = require('../utils/orgPricing');
+  const standard = await orgPricing.standardPlanMonthly(db, org);
+  const bill = await orgPricing.schoolBill(db, org.organization_id, standard.monthly);
+  const monthlyPrice = bill.plan.monthly;
+  if (!(monthlyPrice > 0)) return null;
+  const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
+  const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
+  const periodMonths = Number(cycleBreakdown.months) || 1;
+  const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
+    + ((await monthlyAddonUsd(org.organization_id)) + bill.addonsMonthly) * periodMonths;
+  return { monthlyPrice, periodConfig, cycleBreakdown, periodMonths, chargeAmountUsd, bill };
+}
+
 async function getPaymentsFailureColumns() {
   const result = await db.query(
     `SELECT column_name
@@ -505,40 +523,12 @@ async function chargeOrganizationNow(organizationId) {
       }
     }
 
-    const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
-    const dynamicTermDivider = await getDynamicTermDivider();
-    const region = await getRegionForCountry(db, org.organization_country || null);
-    const pricingMatch = await getBestPlanRegionPrice(
-      db,
-      Number(org.plan_id),
-      Number(region?.id || 0) || null
-    );
-
-    let monthlyPrice = 0;
-    if (pricingMatch?.priceRow) {
-      const resolvedRegion = pricingMatch.region || region;
-      const monthsPerTerm = await getDynamicRegionTermMonths(
-        Number(resolvedRegion?.id || region?.id || 0),
-        dynamicTermDivider
-      );
-      const monthly = computeDynamicMonthlyPrice(pricingMatch.priceRow, actualStudentCount, {
-        termDivider: monthsPerTerm,
-      });
-      monthlyPrice = Number(monthly?.monthlyTotal || 0);
-    } else {
-      monthlyPrice = await getFallbackPlanMonthlyUsd(org.plan_id);
-    }
-
-    if (!(monthlyPrice > 0)) {
+    // The school's price, its add-ons and the cycle (utils/orgPricing.js).
+    const priced = await schoolChargeUsd(org);
+    if (!priced) {
       return { success: false, message: 'Unable to determine your plan price. Please contact support.' };
     }
-
-    const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
-    const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
-    const periodMonths = Number(cycleBreakdown.months) || 1;
-    // Plus the school's API allowance add-on, each month of the period (no cycle discount).
-    const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
-      + (await monthlyAddonUsd(org.organization_id)) * (Number(cycleBreakdown.months) || 1);
+    const { periodConfig, cycleBreakdown, periodMonths, chargeAmountUsd } = priced;
     const stripeChargeCurrency = String(
       resolveStripeChargeCurrencyForOrganization(org.organization_country, org.organization_currency || null)
     ).toLowerCase();
@@ -762,36 +752,10 @@ async function createAndSendPrechargeInvoices() {
 
   for (const org of upcomingOrgs.rows) {
     try {
-      const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
-      const dynamicTermDivider = await getDynamicTermDivider();
-      const region = await getRegionForCountry(db, org.organization_country || null);
-      const pricingMatch = await getBestPlanRegionPrice(
-        db,
-        Number(org.plan_id),
-        Number(region?.id || 0) || null
-      );
-
-      let monthlyPrice = 0;
-      if (pricingMatch?.priceRow) {
-        const resolvedRegion = pricingMatch.region || region;
-        const monthsPerTerm = await getDynamicRegionTermMonths(
-          Number(resolvedRegion?.id || region?.id || 0),
-          dynamicTermDivider
-        );
-        const monthly = computeDynamicMonthlyPrice(pricingMatch.priceRow, actualStudentCount, {
-          termDivider: monthsPerTerm,
-        });
-        monthlyPrice = Number(monthly?.monthlyTotal || 0);
-      } else {
-        monthlyPrice = await getFallbackPlanMonthlyUsd(org.plan_id);
-      }
-      if (!(monthlyPrice > 0)) continue;
-
-      const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
-      const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
-      // Plus the school's API allowance add-on, each month of the period (no cycle discount).
-      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
-        + (await monthlyAddonUsd(org.organization_id)) * (Number(cycleBreakdown.months) || 1);
+      // The school's price, its add-ons and the cycle (utils/orgPricing.js).
+      const priced = await schoolChargeUsd(org);
+      if (!priced) continue;
+      const { periodConfig, cycleBreakdown, periodMonths, chargeAmountUsd } = priced;
       const chargeCurrency = resolveStripeChargeCurrencyForOrganization(
         org.organization_country,
         org.organization_currency || null
@@ -970,41 +934,12 @@ async function runRecurringBilling() {
         }
       }
     
-      // 2. Compute dynamic real-time monthly price from region+plan row and current student count.
-      const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
-      const dynamicTermDivider = await getDynamicTermDivider();
-      const region = await getRegionForCountry(db, org.organization_country || null);
-      const pricingMatch = await getBestPlanRegionPrice(
-        db,
-        Number(org.plan_id),
-        Number(region?.id || 0) || null
-      );
-
-      let monthlyPrice = 0;
-      if (pricingMatch?.priceRow) {
-        const resolvedRegion = pricingMatch.region || region;
-        const monthsPerTerm = await getDynamicRegionTermMonths(
-          Number(resolvedRegion?.id || region?.id || 0),
-          dynamicTermDivider
-        );
-        const monthly = computeDynamicMonthlyPrice(pricingMatch.priceRow, actualStudentCount, {
-          termDivider: monthsPerTerm,
-        });
-        monthlyPrice = Number(monthly?.monthlyTotal || 0);
-      } else {
-        monthlyPrice = await getFallbackPlanMonthlyUsd(org.plan_id);
-      }
-
-      if (!(monthlyPrice > 0)) {
+      // The school's price, its add-ons and the cycle (utils/orgPricing.js).
+      const priced = await schoolChargeUsd(org);
+      if (!priced) {
         continue;
       }
-
-      const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
-      const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
-      const periodMonths = Number(cycleBreakdown.months) || 1;
-      // Plus the school's API allowance add-on, each month of the period (no cycle discount).
-      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)
-        + (await monthlyAddonUsd(org.organization_id)) * (Number(cycleBreakdown.months) || 1);
+      const { periodConfig, cycleBreakdown, periodMonths, chargeAmountUsd } = priced;
       const stripeChargeCurrency = String(
         resolveStripeChargeCurrencyForOrganization(
           org.organization_country,

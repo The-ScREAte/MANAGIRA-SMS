@@ -116,6 +116,14 @@ function createHarness(options = {}) {
         return { rows: [] };
       }
 
+      // The school's own prices and add-ons (utils/orgPricing.js): none here.
+      if (sql.includes('custom_monthly_price')) {
+        return { rows: [{}] };
+      }
+      if (sql.includes('AS seats_staff')) {
+        return { rows: [{ seats_staff: 0, seats_student: 0, seats_parent: 0 }] };
+      }
+
       if (sql.includes('FROM organizations o')
         && sql.includes('JOIN payments p')
         && sql.includes("p.next_payment_end_date > NOW()")

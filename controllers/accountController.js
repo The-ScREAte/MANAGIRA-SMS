@@ -406,6 +406,7 @@ const {
 } = require("../utils/platformFee");
 const {
   computeDynamicMonthlyPrice,
+  freeStudentPercent,
   applyCycle,
   getRegionForCountry,
   getBestPlanRegionPrice,
@@ -2439,7 +2440,10 @@ const accountController = {
             const row = pricingMatch?.priceRow || null;
             const planRegion = pricingMatch?.region || dynamicRegion;
             if (!row) return;
-            const threshold = Math.max(0, Number(row.free_student_threshold) || 0);
+            // Free students: a number, or a share of the school's students (the sizes priced
+            // below then start from 50 students).
+            const freePercent = freeStudentPercent(row);
+            const threshold = freePercent != null ? 50 : Math.max(0, Number(row.free_student_threshold) || 0);
             const planRegionTermMonths = await getDynamicRegionTermMonths(
               db,
               Number(planRegion?.id || dynamicRegion.id),
@@ -2447,7 +2451,8 @@ const accountController = {
             );
             dynamicPriceMetaByPlan[plan.plan_id] = {
               basePriceUsd: Number(row.base_price_usd || 0),
-              freeStudentThreshold: threshold,
+              freeStudentThreshold: freePercent != null ? null : threshold,
+              freeStudentPercent: freePercent,
               perStudentRateUsd: Number(row.per_student_rate_usd || 0),
               monthsPerTerm: planRegionTermMonths,
             };
@@ -9431,6 +9436,8 @@ const accountController = {
         canAccessSecuritySettings,
         // Monthly price for a bigger API allowance (utils/apiAllowance.js), shown with the bill.
         apiAddonMonthlyUsd: orgId ? await require("../utils/apiAllowance").monthlyAddonUsd(orgId) : 0,
+        // The school's own price, discount and add-ons (utils/orgPricing.js), shown with the bill.
+        schoolPricing: orgId ? await require("../utils/orgPricing").schoolBill(db, orgId, 0).catch(() => null) : null,
         googleIntegration,
         whatsappIntegration,
         whatsappFrontendConfig,

@@ -1,0 +1,31 @@
+<%# Admin › Pricing › a plan: what it includes, its description, and whether new schools can choose it. %>
+<div data-ahd-title="<%= plan.plan_name %>" data-ahd-sub="<%= plan.schools %> school<%= plan.schools === 1 ? '' : 's' %> on this plan. Changes reach them at once.">
+  <form action="/admin/pricing/plans/<%= plan.id %>" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <div class="ahb-grid ahb-grid--1">
+        <label class="ahb-field">
+          <span class="ahb-label">Description</span>
+          <input type="text" name="description" class="ahb-input" value="<%= plan.description || '' %>" maxlength="500" />
+        </label>
+        <label class="ahb-check ahb-check--box">
+          <input type="hidden" name="isActive" value="0" />
+          <input type="checkbox" name="isActive" value="1" <%= plan.is_active ? 'checked' : '' %> />
+          <span>New schools can choose this plan</span>
+        </label>
+      </div>
+    </section>
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Included</h3>
+      <p class="ahd-section__sub">Schools on this plan can use these. Its price is set by country in Pricing.</p>
+      <div class="ap-features">
+        <% features.forEach((f) => { %>
+          <label class="ap-feature"><input type="checkbox" name="features" value="<%= f.id %>" <%= plan.feature_ids.includes(Number(f.id)) ? 'checked' : '' %> /> <span><%= f.feature_name %></span></label>
+        <% }) %>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Save plan</button>
+    </div>
+  </form>
+</div>

@@ -83,9 +83,10 @@
             ] });
             if (_ahIsFullAdmin) {
               _ahGroups.push({ label: 'Schools & billing', items: [
+                { href: '/admin/hubs', icon: 'fa-building', text: 'Organizations' },
+                { href: '/admin/servicePricing', icon: 'fa-money-bill-wave', text: 'Pricing' },
                 { href: '/admin/scheduled-holds', icon: 'fa-calendar-xmark', text: 'Subscription Cancellation' },
                 { href: '/admin/create-promo', icon: 'fa-tags', text: 'Discounts' },
-                { href: '/admin/servicePricing', icon: 'fa-money-bill-wave', text: 'Service Pricing' },
                 { href: '/admin/data-export', icon: 'fa-file-export', text: 'Data Export' },
               ] });
               _ahGroups.push({ label: 'Communication', items: [

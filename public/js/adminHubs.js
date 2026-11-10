@@ -359,8 +359,11 @@
       if (!toggle.checked) return;
       const row = toggle.closest('[data-ahb-row]');
       const auto = row.querySelector('input[value="auto"]').checked;
-      const schools = Number(root.getAttribute(`data-int-${toggle.dataset.ahbInt}`)) || 0;
-      if (auto && schools) subtotal += num(row.querySelector('input[name$="[price]"]')) * schools;
+      // Per school, or per seat (staff with Mira, students or parents with access).
+      const unit = row.querySelector('[data-ahb-unit]');
+      const bySeat = unit && unit.value === 'seat';
+      const count = Number(root.getAttribute(`data-${bySeat ? 'seats' : 'int'}-${toggle.dataset.ahbInt}`)) || 0;
+      if (auto && count) subtotal += num(row.querySelector('input[name$="[price]"]')) * count;
     });
     const extras = Number(root.getAttribute('data-extras')) || 0;
     subtotal += extras;
@@ -433,17 +436,19 @@
     if (!p) return;
     labelTables(p);
     waitForStripe(p);
-    const filter = p.querySelector('[data-ah-filter]');
-    if (filter && !filter.dataset.ready) {
+    // Each search box filters the rows of its own card (a page can have one per tab).
+    p.querySelectorAll('[data-ah-filter]').forEach((filter) => {
+      if (filter.dataset.ready) return;
       filter.dataset.ready = '1';
+      const scope = filter.closest('.ah-card') || p;
       filter.addEventListener('input', () => {
         const qv = filter.value.trim().toLowerCase();
         let shown = 0;
-        p.querySelectorAll('[data-ah-row]').forEach((r) => { const hit = !qv || r.dataset.ahRow.includes(qv); r.hidden = !hit; if (hit) shown += 1; });
-        const none = p.querySelector('[data-ah-noresults]');
+        scope.querySelectorAll('[data-ah-row]').forEach((r) => { const hit = !qv || r.dataset.ahRow.includes(qv); r.hidden = !hit; if (hit) shown += 1; });
+        const none = scope.querySelector('[data-ah-noresults]');
         if (none) none.hidden = shown > 0;
       });
-    }
+    });
     initForms(p);
   }
 

@@ -8,6 +8,9 @@
 //   Manage Employees); managers and supervisors, who run Email Issues, also see
 //   the ones not listed here;
 // - anything else: managers only.
+// Notices sent to one person are theirs, except class work they can't act on, which is hidden
+// (`hide`): a driver never sees a class's assessments, new students or documents, and nobody
+// sees assessment notices without Manage Assessments.
 const { BoundedMap } = require('./boundedMap');
 
 const SCHOOL_TYPES = ['event_created', 'announcement_created'];
@@ -43,7 +46,10 @@ function emailFailureRules(P) {
   };
 }
 
-const NOTHING = Object.freeze({ school: false, managers: false, generic: false, titles: [] });
+const ASSESSMENT_TYPES = ['assessment_created', 'assessment_modified', 'assessment_locked', 'assessment_unlocked'];
+const CLASS_WORK_TYPES = [...ASSESSMENT_TYPES, 'enrollment_added', 'document_shared_class'];
+const NOTHING = Object.freeze({ school: false, managers: false, generic: false, titles: [], hide: [] });
+const DRIVER = Object.freeze({ ...NOTHING, hide: CLASS_WORK_TYPES });
 const EVERYTHING_TITLES = () => Object.keys(emailFailureRules(require('../middleware/permissionMiddleware').PERMISSIONS));
 
 // One answer per person for a minute: the bell asks on every page.
@@ -65,7 +71,7 @@ async function broadcastAudience(db, context) {
   const orgId = Number(context.orgId || 0);
   if (!orgId) return NOTHING;
   // The school's own account (signed in from the organization record) sees everything.
-  if (recipientId === 0) return { school: true, managers: true, generic: true, titles: EVERYTHING_TITLES() };
+  if (recipientId === 0) return { school: true, managers: true, generic: true, titles: EVERYTHING_TITLES(), hide: [] };
 
   const key = `${orgId}:${recipientId}`;
   const hit = cache.get(key);
@@ -76,10 +82,11 @@ async function broadcastAudience(db, context) {
   const who = given || await lookUpStaff(db, { recipientId, orgId });
   if (!who) return NOTHING;
   const role = String(who.userRole || who.accountType || '').trim().toLowerCase();
-  if (role === 'driver' || role === 'guardian' || role === 'student') return NOTHING;
+  if (role === 'driver') return DRIVER;
+  if (role === 'guardian' || role === 'student') return NOTHING;
 
   const rules = emailFailureRules(PERMISSIONS);
-  const keys = [...new Set(Object.values(rules).flat())];
+  const keys = [...new Set([...Object.values(rules).flat(), PERMISSIONS.MANAGE_ASSESSMENTS])];
   const held = new Set();
   await Promise.all(keys.map(async (permission) => {
     if (await userHasPermission(db, who, permission)) held.add(permission);
@@ -89,6 +96,7 @@ async function broadcastAudience(db, context) {
     managers: MANAGER_ROLES.has(role),
     generic: EMAIL_ISSUES_ROLES.has(role),
     titles: Object.keys(rules).filter((title) => rules[title].some((permission) => held.has(permission))),
+    hide: held.has(PERMISSIONS.MANAGE_ASSESSMENTS) ? [] : ASSESSMENT_TYPES,
   };
   cache.set(key, { audience, until: Date.now() + CACHE_MS });
   return audience;
@@ -122,4 +130,4 @@ function forgetAudience(orgId, recipientId) {
   cache.delete(`${Number(orgId)}:${Number(recipientId)}`);
 }
 
-module.exports = { broadcastAudience, broadcastCondition, forgetAudience, staffWho, emailFailureRules };
+module.exports = { broadcastAudience, broadcastCondition, forgetAudience, staffWho, emailFailureRules, ASSESSMENT_TYPES, CLASS_WORK_TYPES };

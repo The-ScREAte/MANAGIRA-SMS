@@ -4,13 +4,14 @@
   const _b = (typeof billingRow !== 'undefined' && billingRow) || {};
   const _h = (typeof hubRow !== 'undefined' && hubRow) || {};
   const _u = (typeof usageRow !== 'undefined' && usageRow) || {};
-  const _ints = _u.integrations || {};
+  const _ints = _u.integrationSchools || _u.integrations || {};
+  const _seats = _u.integrationSeats || {};
   const _v = (k, d = '') => (_b[k] == null ? d : _b[k]);
   const _num = (n) => (n == null || n === '' ? '' : String(Number(n)));
   const _meters = b.metersOf(_b);
   const _fees = b.integrationFeesOf(_b);
   const _std = (typeof standardPrices !== 'undefined' && standardPrices) || {};
-  const _stdLabel = (key) => (_std[key] ? '$' + Number(_std[key].price).toFixed(2) + (_std[key].mode === 'manual' ? ' manual' : '') : 'free');
+  const _stdLabel = (key) => (_std[key] ? `$${Number(_std[key].price).toFixed(2)} ${b.unitLabel(key, _std[key].unit)}${_std[key].mode === 'manual' ? ', manual' : ''}` : 'free');
   const _isNew = !(typeof billingRow !== 'undefined' && billingRow);
   const _now = { student: _u.students, employee: _u.employees, user: _u.users };
   const _trial = !!_b.trial_end_date;
@@ -19,7 +20,7 @@
 <div class="ahb" data-ahb
      data-students="<%= _u.students || 0 %>" data-employees="<%= _u.employees || 0 %>" data-users="<%= _u.users || 0 %>"
      data-extras="<%= typeof extrasTotal !== 'undefined' ? Number(extrasTotal) || 0 : 0 %>"
-     <% b.INTEGRATIONS.forEach((i) => { %> data-int-<%= i.key %>="<%= _ints[i.key] || 0 %>"<% }) %>>
+     <% b.INTEGRATIONS.forEach((i) => { %> data-int-<%= i.key %>="<%= _ints[i.key] || 0 %>" data-seats-<%= i.key %>="<%= _seats[i.key] || 0 %>"<% }) %>>
 
   <fieldset class="ahb-set">
     <legend class="ahb-legend">Billed</legend>
@@ -75,25 +76,36 @@
   </fieldset>
 
   <fieldset class="ahb-set">
-    <legend class="ahb-legend">Integrations</legend>
-    <p class="ahb-hint ahb-hint--top">Free unless switched on. <%= _isNew ? 'Filled in from the standard prices' : 'Standard prices are shown under each one' %> (Hubs › Add-ons). A price here is for this hub only. <strong>Auto</strong> bills every school that uses it; <strong>Manual</strong> is added as a charge the hub approves.</p>
+    <legend class="ahb-legend">Add-ons</legend>
+    <p class="ahb-hint ahb-hint--top">Free unless switched on. <%= _isNew ? 'Filled in from the standard prices' : 'Standard prices are under each one' %> (Pricing › Hubs). A price here is for this hub only. <strong>Auto</strong> bills every school that uses it; <strong>Manual</strong> is added as a charge the hub approves.</p>
     <div class="ahb-rows">
       <% b.INTEGRATIONS.forEach((i) => {
            const sp = _std[i.key];
-           const f = _isNew ? (sp ? { on: true, price: sp.price, mode: sp.mode } : {}) : (_fees[i.key] || {});
+           const f = _isNew ? (sp ? { on: true, price: sp.price, mode: sp.mode, unit: sp.unit } : {}) : (_fees[i.key] || {});
            const on = !!f.on; const mode = f.mode === 'manual' ? 'manual' : 'auto';
-           const custom = !_isNew && on && (!sp || Number(f.price) !== Number(sp.price)); %>
+           const unit = b.unitOf(i.key, f.unit);
+           const custom = !_isNew && on && (!sp || Number(f.price) !== Number(sp.price) || unit !== sp.unit); %>
         <div class="ahb-row<%= on ? '' : ' is-off' %>" data-ahb-row>
           <label class="ahb-switch">
             <input type="checkbox" name="integrations[<%= i.key %>][on]" value="1" <%= on ? 'checked' : '' %> data-ahb-toggle data-ahb-int="<%= i.key %>" />
             <span class="ahb-switch__track" aria-hidden="true"></span>
-            <span class="ahb-row__title"><%= i.label %><small>Standard: <%= _stdLabel(i.key) %><%= custom ? ' · this hub’s own price' : '' %><% if (!_isNew) { %> · <%= _ints[i.key] ? (_ints[i.key] === 1 ? '1 school uses it' : `${_ints[i.key]} schools use it`) : 'no school uses it yet' %><% } %></small></span>
+            <span class="ahb-row__title"><%= i.label %><small>Standard: <%= _stdLabel(i.key) %><%= custom ? ' · this hub’s own price' : '' %><% if (!_isNew) { %> · <% const _sc = _ints[i.key] || 0; %><%= _sc ? (_sc === 1 ? '1 school uses it' : `${_sc} schools use it`) : 'no school uses it yet' %><%= i.seat && _sc ? ` (${b.seatCount(i.key, _seats[i.key] || 0)})` : '' %><% } %></small></span>
           </label>
           <div class="ahb-row__fields" data-ahb-fields>
             <label class="ahb-mini">
-              <span>Per school</span>
+              <span>Price</span>
               <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="integrations[<%= i.key %>][price]" class="ahb-input" value="<%= _num(f.price) %>" placeholder="0.00" /></span>
             </label>
+            <% if (b.unitsFor(i.key).length > 1) { %>
+              <label class="ahb-mini">
+                <span>Charged</span>
+                <select name="integrations[<%= i.key %>][unit]" class="ahb-input" data-ahb-unit>
+                  <% ['seat', 'school'].forEach((u) => { %><option value="<%= u %>" <%= u === unit ? 'selected' : '' %>><%= b.unitLabel(i.key, u) %></option><% }) %>
+                </select>
+              </label>
+            <% } else { %>
+              <input type="hidden" name="integrations[<%= i.key %>][unit]" value="school" />
+            <% } %>
             <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="<%= i.label %>: how the fee is applied">
               <label><input type="radio" name="integrations[<%= i.key %>][mode]" value="auto" <%= mode === 'auto' ? 'checked' : '' %> /> <span>Auto</span></label>
               <label><input type="radio" name="integrations[<%= i.key %>][mode]" value="manual" <%= mode === 'manual' ? 'checked' : '' %> /> <span>Manual</span></label>

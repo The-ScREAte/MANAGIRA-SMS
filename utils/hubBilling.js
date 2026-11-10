@@ -29,20 +29,67 @@ const METERS = {
 };
 const METER_KEYS = Object.keys(METERS);
 
-// Integrations a school can switch on (Settings › Integrations). A hub's plan
-// can put a fee on each: "auto" bills every school that uses it; "manual"
-// means Managira adds the charge when needed (the hub approves it).
-// `sql` reads the switch from organizations (alias o).
+// Integrations a school can switch on, also called add-ons. The same list is priced for single
+// schools (utils/orgPricing.js) and hubs. Each is priced per school, or, where people get access
+// one by one, per seat: Mira per staff seat (each person given Use Mira, owner included, as the
+// Mira page counts them), the student portal per student who can sign in, the parent portal per
+// parent who can sign in. A hub's plan can put a fee on each: "auto" bills every school that
+// uses it; "manual" means Managira adds the charge when needed (the hub approves it).
+// `columns` are the switches on organizations; the parent portal comes with the school's plan.
+const PARENT_PORTAL_ON_SQL = (o) => `EXISTS (SELECT 1 FROM plan_features ppf JOIN features ppx ON ppx.id = ppf.feature_id
+    WHERE ppf.plan_id = CASE WHEN COALESCE(${o}.is_hub_member, false)
+                              AND COALESCE(${o}.hub_assigned_plan_id, (SELECT mh.plan_id FROM managira_hubs mh WHERE mh.hub_id = ${o}.hub_id)) IS NOT NULL
+                             THEN COALESCE(${o}.hub_assigned_plan_id, (SELECT mh.plan_id FROM managira_hubs mh WHERE mh.hub_id = ${o}.hub_id))
+                             ELSE ${o}.plan_id END
+      AND LOWER(TRIM(ppx.feature_name)) IN ('parent/guardian portal', 'guardian portal', 'parent portal', 'parent guardian portal'))`;
 const INTEGRATIONS = [
-  { key: 'mira', label: 'Mira AI assistant', columns: ['mira_activated'] },
+  { key: 'mira', label: 'Mira AI assistant', columns: ['mira_activated'], seat: 'staff', unit: 'seat' },
+  { key: 'student_portal', label: 'Student portal', columns: ['student_portal_activated'], seat: 'student', unit: 'school' },
+  { key: 'parent_portal', label: 'Parent portal', sql: PARENT_PORTAL_ON_SQL, seat: 'parent', unit: 'seat' },
   { key: 'whatsapp', label: 'WhatsApp messages', columns: ['whatsapp_activated'] },
   { key: 'sms', label: 'Text messages (SMS)', columns: ['sms_twilio_activated', 'sms_africastalking_activated', 'sms_arkesel_activated'] },
-  { key: 'student_portal', label: 'Student portal', columns: ['student_portal_activated'] },
   { key: 'transportation', label: 'Transportation', columns: ['transportation_activated'] },
   { key: 'maps', label: 'Maps navigation', columns: ['transportation_google_maps_nav_activated', 'transportation_apple_maps_nav_activated'] },
   { key: 'google_classroom', label: 'Google Classroom', columns: ['google_classroom_activated'] },
 ];
 const INTEGRATION_BY_KEY = Object.fromEntries(INTEGRATIONS.map((i) => [i.key, i]));
+
+// The people an add-on can be priced by, counted in a school (alias o). Drivers and Managira's
+// own accounts are never Mira seats; only accounts that can sign in count for the portals.
+const SEATS = {
+  staff: {
+    unit: 'per staff seat', one: 'staff seat', many: 'staff seats',
+    sql: (o) => `(SELECT COUNT(*)::int FROM users mu
+        JOIN user_permissions mp ON mp.user_id = mu.user_id AND mp.organization_id = mu.organization_id AND mp.permission_key = 'use_mira'
+       WHERE mu.organization_id = ${o}.organization_id AND mu.account_type IS DISTINCT FROM 'Driver'
+         AND LOWER(COALESCE(mu.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin'))`,
+  },
+  student: {
+    unit: 'per student with access', one: 'student', many: 'students',
+    sql: (o) => `(SELECT COUNT(*)::int FROM student_accounts sa JOIN students st ON st.student_id = sa.student_id AND st.organization_id = sa.organization_id
+       WHERE sa.organization_id = ${o}.organization_id AND sa.password_hash IS NOT NULL AND COALESCE(st.graduated, false) = false)`,
+  },
+  parent: {
+    unit: 'per parent with access', one: 'parent', many: 'parents',
+    sql: (o) => `(SELECT COUNT(*)::int FROM guardian_accounts ga WHERE ga.organization_id = ${o}.organization_id AND ga.password_hash IS NOT NULL)`,
+  },
+};
+const SEAT_KEYS = Object.keys(SEATS);
+const MIRA_SEATS_SQL = SEATS.staff.sql;
+// Every seat count for a school, as seats_staff, seats_student, seats_parent.
+const SEATS_SQL = (o) => SEAT_KEYS.map((k) => `${SEATS[k].sql(o)} AS seats_${k}`).join(',\n            ');
+
+// The units an add-on can be priced by, and which applies to a saved price ("school" | "seat").
+const unitsFor = (key) => ((INTEGRATION_BY_KEY[key] || {}).seat ? ['school', 'seat'] : ['school']);
+const unitOf = (key, saved) => (unitsFor(key).includes(saved) ? saved : ((INTEGRATION_BY_KEY[key] || {}).unit || 'school'));
+const perSeat = (key, saved) => unitOf(key, saved) === 'seat';
+// "per school" / "per staff seat" / "per student with access" / "per parent with access".
+const unitLabel = (key, saved) => (perSeat(key, saved) ? SEATS[INTEGRATION_BY_KEY[key].seat].unit : 'per school');
+// "3 staff seats", "120 students".
+const seatCount = (key, n) => {
+  const seat = SEATS[(INTEGRATION_BY_KEY[key] || {}).seat];
+  return seat ? plural(n, seat.one, seat.many) : plural(n, 'school', 'schools');
+};
 
 const STATUS = {
   none: { label: 'Not set up', tone: 'muted' },
@@ -306,7 +353,7 @@ function parseContractForm(body = {}, { today = new Date() } = {}) {
     if (!isOn(f.on)) return;
     const price = take(parseMoney(f.price, { label: `${label} fee`, allowBlank: false }));
     if (!(price > 0)) { errors.push(`Enter the fee for ${label}, or switch it off.`); return; }
-    integrationFees[key] = { on: true, price: round2(price), mode: f.mode === 'manual' ? 'manual' : 'auto' };
+    integrationFees[key] = { on: true, price: round2(price), mode: f.mode === 'manual' ? 'manual' : 'auto', unit: unitOf(key, f.unit) };
   });
 
   const baseFee = isOn(body.baseFeeOn) ? round2(take(parseMoney(body.baseFee, { label: 'Plan fee' })) || 0) : 0;
@@ -411,13 +458,14 @@ function computeBill(billing, usage = {}, charges = []) {
     }
   });
 
-  // Integrations billed automatically for each school that uses them.
-  const integrationUse = usage.integrations || {};
+  // Add-ons billed automatically: for each school that uses one, or each seat in them.
   INTEGRATIONS.forEach(({ key, label }) => {
     const f = integrationFeesOf(b)[key];
     if (!f || !f.on || f.mode !== 'auto' || !(Number(f.price) > 0)) return;
-    const schools = Number(integrationUse[key]) || 0;
-    if (schools > 0) add({ key: `integration:${key}`, label, quantity: schools, unitPrice: Number(f.price), note: `${plural(schools, 'school uses', 'schools use')} it` });
+    const bySeat = perSeat(key, f.unit);
+    const quantity = Number(((bySeat ? usage.integrationSeats : usage.integrationSchools) || usage.integrations || {})[key]) || 0;
+    const note = bySeat ? seatCount(key, quantity) : `${plural(quantity, 'school uses', 'schools use')} it`;
+    if (quantity > 0) add({ key: `integration:${key}`, label, quantity, unitPrice: Number(f.price), note });
   });
 
   // Schools and hub sign-ins beyond the plan, from today's numbers (if the plan prices them).
@@ -540,7 +588,7 @@ const STAFF_SQL = (a) => `LOWER(COALESCE(${a}.account_type::text, '')) NOT IN ('
 let integrationColumns = null;
 async function integrationSql(db) {
   if (!integrationColumns) {
-    const all = INTEGRATIONS.flatMap((i) => i.columns);
+    const all = INTEGRATIONS.flatMap((i) => i.columns || []);
     const found = (await db.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'organizations' AND column_name = ANY($1::text[])`,
       [all]
@@ -548,6 +596,7 @@ async function integrationSql(db) {
     integrationColumns = new Set(found);
   }
   return INTEGRATIONS.map((i) => {
+    if (i.sql) return `(${i.sql('o')}) AS "int_${i.key}"`;
     const cols = i.columns.filter((c) => integrationColumns.has(c));
     const expr = cols.length ? cols.map((c) => `COALESCE(o.${c}, false)`).join(' OR ') : 'false';
     return `(${expr}) AS "int_${i.key}"`;
@@ -569,6 +618,7 @@ async function loadUsage(db, hubId) {
             (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_SQL('u')} AND COALESCE(u.on_hold, false)) AS employees_on_hold,
             (SELECT COUNT(*)::int FROM guardian_accounts g WHERE g.organization_id = o.organization_id) AS parent_logins,
             (SELECT COUNT(*)::int FROM student_accounts sa WHERE sa.organization_id = o.organization_id) AS student_logins,
+            ${SEATS_SQL('o')},
             ${ints}
        FROM organizations o
       WHERE o.hub_id = $1 AND o.deleted = false AND COALESCE(o.is_hub_member, false) = true
@@ -595,6 +645,7 @@ async function loadUsage(db, hubId) {
       employees_on_hold: r.employees_on_hold,
       parent_logins: r.parent_logins,
       student_logins: r.student_logins,
+      seats: Object.fromEntries(SEAT_KEYS.map((k) => [k, Number(r[`seats_${k}`]) || 0])),
       integrations,
       billedStudents: counted ? r.students : 0,
       billedEmployees: counted ? employees : 0,
@@ -603,8 +654,15 @@ async function loadUsage(db, hubId) {
   });
   const counted = schools.filter((x) => x.counted);
   const sum = (k) => counted.reduce((n, x) => n + x[k], 0);
-  const integrations = {};
-  INTEGRATIONS.forEach((i) => { integrations[i.key] = counted.filter((x) => x.integrations.includes(i.key)).length; });
+  // What each add-on can be billed on: the schools using it, and the seats in them.
+  const integrationSchools = {};
+  const integrationSeats = {};
+  INTEGRATIONS.forEach((i) => {
+    const using = counted.filter((x) => x.integrations.includes(i.key));
+    integrationSchools[i.key] = using.length;
+    integrationSeats[i.key] = i.seat ? using.reduce((n, x) => n + (x.seats[i.seat] || 0), 0) : using.length;
+  });
+  const integrations = integrationSchools;
   const [people, pending] = await Promise.all([
     db.query('SELECT COUNT(*)::int AS n FROM hub_users WHERE hub_id = $1', [hubId]).catch(() => ({ rows: [{ n: 0 }] })),
     db.query(
@@ -623,6 +681,8 @@ async function loadUsage(db, hubId) {
     employees: sum('billedEmployees'),
     users: sum('billedUsers'),
     integrations,
+    integrationSchools,
+    integrationSeats,
     hubPeople: people.rows[0].n + 1,
     schoolsIncluded: hub ? Number(hub.max_organizations) || 0 : 0,
     seatsIncluded: hub && hub.max_users != null ? Number(hub.max_users) : null,
@@ -804,30 +864,53 @@ function ensureIntegrationPrices(db) {
   }
   return integrationPricesReady;
 }
-async function loadIntegrationPrices(db) {
-  await ensureIntegrationPrices(db);
-  const rows = (await db.query('SELECT integration_key, price, mode FROM hub_integration_prices')).rows;
-  return Object.fromEntries(rows.filter((r) => INTEGRATION_BY_KEY[r.integration_key]).map((r) => [r.integration_key, { price: Number(r.price), mode: r.mode === 'manual' ? 'manual' : 'auto' }]));
+// The standard add-on prices: one app setting for schools and hubs, { schools: { key: { price,
+// unit } }, hubs: { key: { price, unit, mode } } }. Free add-ons are left out.
+const ADDON_PRICES_KEY = 'addon_prices';
+async function loadAddonPrices(db) {
+  try {
+    const row = (await db.query('SELECT value FROM app_settings WHERE key = $1', [ADDON_PRICES_KEY])).rows[0];
+    const saved = row ? JSON.parse(row.value) : null;
+    return saved && typeof saved === 'object' ? saved : null;
+  } catch (_e) {
+    return null;
+  }
 }
-// body.integrations[key] = { price, mode }. Blank or 0 makes it free.
+async function saveAddonPrices(db, part, prices) {
+  const all = (await loadAddonPrices(db)) || {};
+  all[part] = prices;
+  await db.query(
+    `INSERT INTO app_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [ADDON_PRICES_KEY, JSON.stringify(all)]
+  );
+}
+async function loadIntegrationPrices(db) {
+  const all = await loadAddonPrices(db);
+  let saved = all && all.hubs;
+  if (!saved) {
+    await ensureIntegrationPrices(db);
+    saved = Object.fromEntries((await db.query('SELECT integration_key, price, mode FROM hub_integration_prices')).rows.map((r) => [r.integration_key, r]));
+  }
+  const out = {};
+  INTEGRATIONS.forEach(({ key }) => {
+    const p = saved[key];
+    if (p && Number(p.price) > 0) out[key] = { price: round2(p.price), mode: p.mode === 'manual' ? 'manual' : 'auto', unit: unitOf(key, p.unit) };
+  });
+  return out;
+}
+// body.integrations[key] = { price, mode, unit }. Blank or 0 makes it free.
 async function saveIntegrationPrices(db, body) {
-  await ensureIntegrationPrices(db);
   const input = (body && body.integrations) || {};
   const errors = [];
+  const prices = {};
   for (const { key, label } of INTEGRATIONS) {
     const row = input[key] || {};
     const parsed = parseMoney(row.price, { label: `${label} price`, allowBlank: true });
     if (parsed.error) { errors.push(parsed.error); continue; }
     const price = parsed.value == null ? 0 : round2(parsed.value);
-    if (!(price > 0)) await db.query('DELETE FROM hub_integration_prices WHERE integration_key = $1', [key]);
-    else {
-      await db.query(
-        `INSERT INTO hub_integration_prices (integration_key, price, mode) VALUES ($1, $2, $3)
-         ON CONFLICT (integration_key) DO UPDATE SET price = EXCLUDED.price, mode = EXCLUDED.mode, updated_at = NOW()`,
-        [key, price, row.mode === 'manual' ? 'manual' : 'auto']
-      );
-    }
+    if (price > 0) prices[key] = { price, mode: row.mode === 'manual' ? 'manual' : 'auto', unit: unitOf(key, row.unit) };
   }
+  if (!errors.length) await saveAddonPrices(db, 'hubs', prices);
   return { errors };
 }
 
@@ -1364,7 +1447,7 @@ async function planDetails(db, hubId) {
     Number(billing.base_fee) > 0 ? `Plan fee: ${money(billing.base_fee, billing.currency)} each ${bill.cycle.per}` : null,
     ...INTEGRATIONS.filter((i) => integrationFeesOf(billing)[i.key] && integrationFeesOf(billing)[i.key].on).map((i) => {
       const f = integrationFeesOf(billing)[i.key];
-      return `${i.label}: ${money(f.price, billing.currency)} per school each ${bill.cycle.per}${f.mode === 'manual' ? ' (added when needed)' : ' (for each school that uses it)'}`;
+      return `${i.label}: ${money(f.price, billing.currency)} ${unitLabel(i.key, f.unit)} each ${bill.cycle.per}${f.mode === 'manual' ? ' (added when needed)' : ''}`;
     }),
     discountLabel(billing) ? `Discount: ${discountLabel(billing)}` : null,
     `Each bill: about ${money(bill.total, billing.currency)} with today’s numbers`,
@@ -1725,7 +1808,8 @@ async function overview(db, hubId, { fresh = false } = {}) {
       const f = fees[key];
       if (!f || !f.on || f.mode !== 'manual') return;
       if (open.some((c) => c.integration_key === key && Number(c.organization_id) === Number(school.organization_id))) return;
-      manualToAdd.push({ key, label: INTEGRATION_BY_KEY[key].label, price: Number(f.price), organization_id: school.organization_id, organization_name: school.organization_name });
+      const quantity = perSeat(key, f.unit) ? Math.max(1, school.seats[INTEGRATION_BY_KEY[key].seat] || 0) : 1;
+      manualToAdd.push({ key, label: INTEGRATION_BY_KEY[key].label, price: Number(f.price), quantity, organization_id: school.organization_id, organization_name: school.organization_name });
     });
   });
   const unused = new Set(open.filter((c) => {
@@ -1825,6 +1909,18 @@ module.exports = {
   METER_KEYS,
   INTEGRATIONS,
   INTEGRATION_BY_KEY,
+  perSeat,
+  unitLabel,
+  unitsFor,
+  unitOf,
+  seatCount,
+  SEATS,
+  SEAT_KEYS,
+  SEATS_SQL,
+  MIRA_SEATS_SQL,
+  integrationSql,
+  loadAddonPrices,
+  saveAddonPrices,
   metersOf,
   integrationFeesOf,
   loadIntegrationPrices,

@@ -135,7 +135,8 @@ test("contract form: switches, prices and checks", () => {
   }, { today });
   assert.deepStrictEqual(ok.errors, []);
   assert.deepStrictEqual(ok.values.meters, { student: { on: true, price: 1200.5, included: 40 }, user: { on: true, price: 2, included: 0 } });
-  assert.deepStrictEqual(ok.values.integration_fees, { mira: { on: true, price: 20, mode: "manual" }, sms: { on: true, price: 5, mode: "auto" } });
+  // Each fee keeps its unit: Mira per staff seat unless the plan says per school; SMS per school only.
+  assert.deepStrictEqual(ok.values.integration_fees, { mira: { on: true, price: 20, mode: "manual", unit: "seat" }, sms: { on: true, price: 5, mode: "auto", unit: "school" } });
   assert.strictEqual(ok.values.base_fee, 99);
   assert.strictEqual(ok.values.count_on_hold, false);
   assert.strictEqual(ok.values.extra_user_price, null);

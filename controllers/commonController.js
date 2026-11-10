@@ -16073,16 +16073,19 @@ NUMBERING:
           }
 
           if (normalizedClassIds.length) {
-            notifSvc.notifyPerClassTeachers(db, {
-              orgId: Number(organizationId),
-              classIds: normalizedClassIds,
-              type: "assessment_modified",
-              title: `✏️ ${testName}`,
-              body: `Updated · ${termName}`,
-              linkTemplate: "/common/classDashboard/{classId}/subject",
-            }).catch((err) =>
-              console.error("[Notif] assessment_modified failed:", err.message)
-            );
+            // Staff with Manage Assessments; teachers only for the subjects they teach.
+            db.query("SELECT DISTINCT subject_id FROM assessments WHERE group_id = $1 AND organization_id = $2", [groupId, organizationId])
+              .then(({ rows }) => notifSvc.notifyPerClassTeachers(db, {
+                orgId: Number(organizationId),
+                classIds: normalizedClassIds,
+                type: "assessment_modified",
+                title: `✏️ ${testName}`,
+                body: `Updated · ${termName}`,
+                linkTemplate: "/common/classDashboard/{classId}/subject",
+                permission: "manage_assessments",
+                subjectIds: rows.map((r) => Number(r.subject_id)),
+              }))
+              .catch((err) => console.error("[Notif] assessment_modified failed:", err.message));
           }
 
           if (googleIntegration.shouldShowFeatures) {
@@ -16172,9 +16175,15 @@ NUMBERING:
               [groupId]
             );
             const testName = nameRow.rows[0]?.test_name || 'Assessment';
+            const subjectRows = await db.query(
+              `SELECT DISTINCT subject_id FROM assessments WHERE group_id = $1 AND organization_id = $2`,
+              [groupId, organizationId]
+            );
             notifSvc.notifyPerClassTeachers(db, {
               orgId: Number(organizationId),
               classIds: affectedClassIds,
+              permission: 'manage_assessments',
+              subjectIds: subjectRows.rows.map((r) => Number(r.subject_id)),
               type: action === 'lock' ? 'assessment_locked' : 'assessment_unlocked',
               title: action === 'lock'
                 ? `🔒 ${testName}`
@@ -16583,6 +16592,8 @@ NUMBERING:
         notifSvc.notifyPerClassTeachers(db, {
           orgId: Number(organizationId),
           classIds: classIdsArr,
+          permission: 'manage_assessments',
+          subjectIds: [...new Set(createdAssessments.map((row) => row.subjectId))],
           type: 'assessment_created',
           title: titleText,
           body: `Added · ${termName}`,

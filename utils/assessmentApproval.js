@@ -139,7 +139,19 @@ async function tellFamilies(db, organizationId, approved) {
       });
     });
   });
-  if (notices.length) await createNotifications(db, notices);
+  if (!notices.length) return;
+  // A grade approved again (after a change) isn't announced twice while the first is unread.
+  const unread = await db.query(
+    `SELECT n.recipient_id, n.ref_id, n.link
+       FROM notifications n
+      WHERE n.organization_id = $1 AND n.recipient_type = 'guardian' AND n.type = 'grade_posted'
+        AND n.ref_id = ANY($2::int[]) AND n.recipient_id = ANY($3::int[])
+        AND NOT EXISTS (SELECT 1 FROM notification_reads nr WHERE nr.notification_id = n.id AND nr.reader_id = n.recipient_id)
+        AND NOT EXISTS (SELECT 1 FROM notification_dismissals nd WHERE nd.notification_id = n.id)`,
+    [organizationId, [...new Set(notices.map((n) => n.refId))], [...new Set(notices.map((n) => n.recipientId))]]
+  ).then((r) => new Set(r.rows.map((row) => `${row.recipient_id}:${row.ref_id}:${row.link}`))).catch(() => new Set());
+  const fresh = notices.filter((n) => !unread.has(`${n.recipientId}:${n.refId}:${n.link}`));
+  if (fresh.length) await createNotifications(db, fresh);
 }
 
 // A finished online test goes on the gradebook as new, waiting for the teacher (who can

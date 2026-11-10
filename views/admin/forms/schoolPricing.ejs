@@ -1,0 +1,77 @@
+<%# Admin › Organizations › a school's own prices (utils/orgPricing.js): its monthly price in
+    place of the standard one, a discount, and its own price for each add-on. The bill below
+    updates as you type (public/js/adminPricing.js). %>
+<%
+  const _o = (bill && bill.overrides) || { monthlyPrice: null, discountPercent: 0, addonPrices: {}, notes: '' };
+  const _m = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _lines = Object.fromEntries(((bill && bill.addons) || []).map((l) => [l.key, l]));
+  const _cycleMonths = cycle ? Number(cycle.months) || 1 : 1;
+  const _cycleOff = cycle ? Number(cycle.discount_percentage) || 0 : 0;
+%>
+<div data-ahd-title="Pricing" data-ahd-sub="<%= org.organization_name %> · <%= org.plan_name || 'No plan' %>">
+  <form action="/admin/organizations/<%= org.organization_id %>/pricing" method="POST" class="ahd-form" data-ap-school-pricing
+        data-standard="<%= standard.monthly %>" data-months="<%= _cycleMonths %>" data-cycle-discount="<%= _cycleOff %>"
+        data-released="<%= released ? '1' : '0' %>" data-max-discount="<%= maxDiscount %>">
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Plan price</h3>
+      <p class="ahd-section__sub">Standard: <strong><%= _m(standard.monthly) %> a month</strong> (<%= standard.region ? `${standard.region} prices, ` : '' %><%= Number(standard.students || 0).toLocaleString('en-US') %> students). Leave the price empty to keep the standard one.</p>
+      <div class="ahb-grid">
+        <label class="ahb-field">
+          <span class="ahb-label">This school's price a month <em>optional</em></span>
+          <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="monthlyPrice" class="ahb-input" value="<%= _o.monthlyPrice != null ? Number(_o.monthlyPrice).toFixed(2) : '' %>" placeholder="<%= Number(standard.monthly).toFixed(2) %>" /></span>
+        </label>
+        <label class="ahb-field">
+          <span class="ahb-label">Discount</span>
+          <span class="ap-pct"><input type="number" name="discountPercent" min="0" max="<%= maxDiscount %>" step="0.5" class="ahb-input" value="<%= Number(_o.discountPercent || 0) %>" /><span>%</span></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Add-ons</h3>
+      <p class="ahd-section__sub">For the add-ons this school switches on.<%= released ? '' : ' Add-ons are not charged to this school yet: release addon_pricing in Admin › Shards › Releases.' %></p>
+      <div>
+        <% integrations.forEach((i) => {
+             const line = _lines[i.key];
+             const stdEntry = schoolPrices[i.key] || null;
+             const unitText = unitLabel(i.key, stdEntry && stdEntry.unit);
+             const own = Object.prototype.hasOwnProperty.call(_o.addonPrices, i.key);
+             const mode = !own ? 'standard' : Number(_o.addonPrices[i.key]) > 0 ? 'own' : 'free';
+             const std = stdEntry ? Number(stdEntry.price) : 0; %>
+          <div class="ap-addon" data-ap-addon data-standard="<%= std %>" data-qty="<%= line ? line.quantity : 0 %>" data-note="<%= line ? (line.note || '') : 'Not used' %>">
+            <div class="ap-addon__name"><%= i.label %><small>Standard <%= std > 0 ? `${_m(std)} ${unitText}` : 'free' %><%= line && line.note ? ` · ${line.note}` : (line ? '' : ' · not used') %></small></div>
+            <div class="ap-addon__amount" data-ap-addon-amount><%= line && line.quantity ? `${_m(line.amount)} a month` : (line ? line.note : 'Not used') %></div>
+            <div class="ap-addon__pick">
+              <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="<%= i.label %> price">
+                <label><input type="radio" name="addons[<%= i.key %>][mode]" value="standard" <%= mode === 'standard' ? 'checked' : '' %> /> <span>Standard</span></label>
+                <label><input type="radio" name="addons[<%= i.key %>][mode]" value="own" <%= mode === 'own' ? 'checked' : '' %> /> <span>Own price</span></label>
+                <label><input type="radio" name="addons[<%= i.key %>][mode]" value="free" <%= mode === 'free' ? 'checked' : '' %> /> <span>Free</span></label>
+              </div>
+              <span class="ahb-money" data-ap-addon-price<%= mode === 'own' ? '' : ' hidden' %>><span>$</span><input type="text" inputmode="decimal" name="addons[<%= i.key %>][price]" class="ahb-input" value="<%= mode === 'own' ? Number(_o.addonPrices[i.key]).toFixed(2) : '' %>" placeholder="0.00" aria-label="<%= i.label %>: this school's price <%= unitText %>" /></span>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+
+    <section class="ahd-section">
+      <div class="ap-bill" aria-live="polite">
+        <div class="ap-bill__row"><span>Plan</span><strong data-ap-plan-monthly><%= _m(bill ? bill.plan.monthly : standard.monthly) %> a month</strong></div>
+        <div class="ap-bill__row"><span>Add-ons</span><strong data-ap-addons-monthly>—</strong></div>
+        <div class="ap-bill__row ap-bill__total"><span>Each bill<%= cycle ? ` (${cycle.label}${_cycleOff ? `, ${_cycleOff}% off the plan` : ''})` : '' %></span><strong data-ap-bill>—</strong></div>
+      </div>
+    </section>
+
+    <section class="ahd-section">
+      <label class="ahb-field">
+        <span class="ahb-label">Note <em>optional, only Managira sees it</em></span>
+        <input type="text" name="notes" class="ahb-input" value="<%= _o.notes || '' %>" maxlength="1000" placeholder="e.g. Agreed price until June 2027" />
+      </label>
+    </section>
+
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Save prices</button>
+    </div>
+  </form>
+</div>

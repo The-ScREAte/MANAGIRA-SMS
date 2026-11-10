@@ -410,7 +410,9 @@ a.ah-bill:hover { text-decoration: underline;}
 .ahd__body > div:only-child { flex: 1 0 auto; display: flex; flex-direction: column; }
 .ahd__body .ahd-form { flex: 1 0 auto; min-height: 0; }
 .ah .ahd__foot-left { margin-right: auto; }
+/* A confirm box sits in the middle of the screen (.ah--float would otherwise pin it top-left). */
 dialog.ah-dialog { z-index: 100002; }
+dialog.ah-dialog.ah--float { margin: auto; max-height: calc(100vh - 32px); }
 .ah table.ah-table td.ah-col-ints, .ah table.ah-table th.ah-col-ints { min-width: 260px; }
 .ah td.ah-col-ints { white-space: normal; }
 .ah-col-ints .ah-pill { white-space: normal; }

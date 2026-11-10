@@ -50,7 +50,7 @@ function resolveReaderContext(req) {
   if (session.userRole === 'Student' || session.accountType === 'Student') {
     const studentId = session.studentId || session.userId || null;
     if (!studentId || !orgId) return null;
-    return { recipientType: 'student', recipientId: Number(studentId), orgId: Number(orgId) };
+    return { recipientType: 'student', recipientId: Number(studentId), orgId: Number(orgId), testingRoom: require('../controllers/studentController').canUseStudentTestingRoom(req) };
   }
   // Guardian portal
   if (session.userRole === 'Guardian' || session.accountType === 'Guardian') {
@@ -157,8 +157,13 @@ function isManagerOrSupervisorSession(req) {
     || (accountType === 'organization' && userRole === 'manager');
 }
 
-async function buildStudentNotifications(db, { orgId, studentId }) {
+// A student's bell, built when asked: their birthday, the term starting or ending soon, online
+// tests they can take now or that open within two weeks (when their school has the Testing Room),
+// and grades their teacher posted and shared with them. Gradebook-only assessments, closed tests
+// and anything for staff never show.
+async function buildStudentNotifications(db, { orgId, studentId, testingRoom = false }) {
   const now = new Date();
+  const DAY = 24 * 60 * 60 * 1000;
   const items = [];
 
   const [studentResult, termResult] = await Promise.all([
@@ -184,46 +189,45 @@ async function buildStudentNotifications(db, { orgId, studentId }) {
   const term = termResult.rows[0];
   if (!student) return [];
 
+  // The term: two weeks before it starts, its last week, and the week after it ends.
   if (term) {
     const start = new Date(term.start_date);
     const end = new Date(term.end_date);
     const startIn = diffDays(now, start);
     const endIn = diffDays(now, end);
-
-    if (startIn > 0) {
+    if (startIn > 0 && startIn <= 14) {
       items.push({
         id: `student-term-start-${term.term_id}`,
         type: 'term_changed',
         title: `${term.term_name} starts soon`,
         body: `${startIn} day${startIn === 1 ? '' : 's'} to go (${formatDateLabel(term.start_date)}).`,
         link: '/student/dashboard',
-        created_at: term.start_date,
+        created_at: new Date(start.getTime() - 14 * DAY).toISOString(),
       });
-    } else if (endIn >= 0) {
+    } else if (startIn <= 0 && endIn >= 0 && endIn <= 7) {
       items.push({
         id: `student-term-end-${term.term_id}`,
         type: 'term_changed',
-        title: `${term.term_name} is ongoing`,
-        body: `Ends in ${endIn} day${endIn === 1 ? '' : 's'} (${formatDateLabel(term.end_date)}).`,
+        title: `${term.term_name} ends soon`,
+        body: `Last day ${formatDateLabel(term.end_date)}.`,
         link: '/student/dashboard',
-        created_at: term.end_date,
+        created_at: new Date(end.getTime() - 7 * DAY).toISOString(),
       });
-    } else {
+    } else if (endIn < 0 && endIn >= -7) {
       items.push({
         id: `student-term-ended-${term.term_id}`,
         type: 'term_changed',
         title: `${term.term_name} has ended`,
-        body: `Ended ${Math.abs(endIn)} day${Math.abs(endIn) === 1 ? '' : 's'} ago.`,
+        body: `It ended ${formatDateLabel(term.end_date)}.`,
         link: '/student/dashboard',
-        created_at: term.end_date,
+        created_at: end.toISOString(),
       });
     }
   }
 
   if (student.date_of_birth) {
     const dob = new Date(student.date_of_birth);
-    const isBirthdayToday = dob.getMonth() === now.getMonth() && dob.getDate() === now.getDate();
-    if (isBirthdayToday) {
+    if (dob.getMonth() === now.getMonth() && dob.getDate() === now.getDate()) {
       const studentName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || 'Student';
       items.push({
         id: `student-birthday-${student.student_id}-${now.getFullYear()}`,
@@ -236,84 +240,70 @@ async function buildStudentNotifications(db, { orgId, studentId }) {
     }
   }
 
-  if (term) {
-    const classResult = await db.query(
-      `SELECT es.class_id
-       FROM enrollments e
-       JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
-       WHERE e.organization_id = $1
-         AND e.term_id = $2
-         AND es.student_id = $3
-       ORDER BY e.created_at DESC
-       LIMIT 1`,
-      [orgId, term.term_id, studentId]
-    );
+  if (!term) return items;
+  const { resolveCurrentStudentTermContext, getOpenAssessments } = require('../controllers/studentController');
+  const context = await resolveCurrentStudentTermContext(db, orgId, studentId).catch(() => ({}));
+  const classId = context.enrolledClassId || student.class_id;
 
-    const effectiveClassId = classResult.rows[0]?.class_id || student.class_id;
-    if (effectiveClassId) {
-      const assessmentResult = await db.query(
-        `SELECT a.assessment_id, a.title, a.created_at, a.edit_window_start, a.edit_window_end, s.subject_name
+  if (testingRoom && classId) {
+    // Tests ready to take now: approved questions, open, attempts left, not locked.
+    const open = await getOpenAssessments(db, orgId, studentId, classId, term.term_id).catch(() => []);
+    open.forEach((row) => {
+      const closes = row.edit_window_end ? new Date(row.edit_window_end) : null;
+      items.push({
+        id: `student-test-ready-${row.assessment_id}`,
+        type: 'assessment_unlocked',
+        title: `Ready to take: ${row.title}`,
+        body: `${row.subject_name || 'Online test'}${closes ? ` · closes ${formatDateLabel(closes)}` : ''}`,
+        link: '/student/testing-room',
+        created_at: new Date(row.latest_question_update || now).toISOString(),
+      });
+    });
+    // Tests opening within two weeks.
+    const soon = await db.query(
+      `SELECT a.assessment_id, a.title, a.edit_window_start, s.subject_name
          FROM assessments a
          JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
-         WHERE a.organization_id = $1
-           AND a.class_id = $2
-           AND a.term_id = $3
-           AND COALESCE(a.is_active, TRUE) = TRUE
-           AND EXISTS (
-             SELECT 1
-             FROM student_subjects ss
-             WHERE ss.organization_id = $1
-               AND ss.student_id = $4
-               AND ss.subject_id = a.subject_id
-           )
-         ORDER BY COALESCE(a.edit_window_start, a.created_at) DESC, a.assessment_id DESC
-         LIMIT 40`,
-        [orgId, effectiveClassId, term.term_id, studentId]
-      );
-
-      assessmentResult.rows.forEach((row) => {
-        const opensAt = row.edit_window_start ? new Date(row.edit_window_start) : null;
-        const closesAt = row.edit_window_end ? new Date(row.edit_window_end) : null;
-        const subjectName = row.subject_name || 'Subject';
-
-        if (opensAt && opensAt > now) {
-          const days = Math.max(1, diffDays(now, opensAt));
-          items.push({
-            id: `student-assessment-open-${row.assessment_id}`,
-            type: 'assessment_created',
-            title: `${row.title} opens soon`,
-            body: `${subjectName} • Opens in ${days} day${days === 1 ? '' : 's'} (${formatDateLabel(opensAt)}).`,
-            link: '/student/testing-room',
-            created_at: opensAt.toISOString(),
-          });
-          return;
-        }
-
-        if (!closesAt || closesAt >= now) {
-          const closePart = closesAt
-            ? ` • Closes in ${Math.max(0, diffDays(now, closesAt))} day${Math.max(0, diffDays(now, closesAt)) === 1 ? '' : 's'} (${formatDateLabel(closesAt)}).`
-            : '';
-          items.push({
-            id: `student-assessment-live-${row.assessment_id}`,
-            type: 'assessment_unlocked',
-            title: `${row.title} is ready`,
-            body: `${subjectName}${closePart}`,
-            link: '/student/testing-room',
-            created_at: (opensAt || row.created_at || now).toISOString ? (opensAt || row.created_at || now).toISOString() : now.toISOString(),
-          });
-          return;
-        }
-
-        items.push({
-          id: `student-assessment-closed-${row.assessment_id}`,
-          type: 'assessment_locked',
-          title: `${row.title} is closed`,
-          body: `${subjectName} • Closed on ${formatDateLabel(closesAt)}.`,
-          link: '/student/testing-room',
-          created_at: closesAt.toISOString(),
-        });
+        WHERE a.organization_id = $1 AND a.class_id = $2 AND a.term_id = $3
+          AND COALESCE(a.is_active, TRUE) = TRUE
+          AND a.edit_window_start > NOW() AND a.edit_window_start <= NOW() + INTERVAL '14 days'
+          AND EXISTS (SELECT 1 FROM student_subjects ss WHERE ss.organization_id = $1 AND ss.student_id = $4 AND ss.subject_id = a.subject_id)
+          AND EXISTS (SELECT 1 FROM assessment_question_sets qs
+                       WHERE qs.organization_id = $1 AND qs.assessment_id = a.assessment_id
+                         AND LOWER(COALESCE(qs.review_status, 'pending')) = 'approved' AND COALESCE(qs.is_active, TRUE)
+                         AND (qs.retake_student_id IS NULL OR qs.retake_student_id = $4))
+        ORDER BY a.edit_window_start
+        LIMIT 10`,
+      [orgId, classId, term.term_id, studentId]
+    ).catch(() => ({ rows: [] }));
+    soon.rows.forEach((row) => {
+      const opens = new Date(row.edit_window_start);
+      const days = Math.max(1, diffDays(now, opens));
+      items.push({
+        id: `student-test-soon-${row.assessment_id}`,
+        type: 'assessment_created',
+        title: `Opens soon: ${row.title}`,
+        body: `${row.subject_name || 'Online test'} · in ${days} day${days === 1 ? '' : 's'} (${formatDateLabel(opens)})`,
+        link: '/student/testing-room',
+        created_at: new Date(opens.getTime() - 14 * DAY).toISOString(),
       });
-    }
+    });
+  }
+
+  // Grades the teacher posted and shared (the assessments flow).
+  if (require('../utils/assessmentApproval').flowOn(orgId)) {
+    const shared = await require('../utils/testResults').sharedResults(db, orgId, Number(studentId), { classId, termId: term.term_id }).catch(() => []);
+    shared.slice(0, 10).forEach((row) => {
+      const grade = row.choice || (row.score != null ? `${Number(row.score.toFixed(2))} / ${row.maxScore}` : '');
+      items.push({
+        id: `student-grade-${row.attemptId}`,
+        type: 'grade_posted',
+        title: `Grade posted: ${row.title}`,
+        body: [row.subject, grade].filter(Boolean).join(' · '),
+        link: row.full ? `/student/testing-room/result/${row.attemptId}` : '/student/testing-room',
+        created_at: new Date(row.submittedAt || now).toISOString(),
+      });
+    });
   }
 
   return items
@@ -326,7 +316,7 @@ router.get('/count', requireAuth, async (req, res) => {
   try {
     if (req._notifCtx.recipientType === 'student') {
       const { readIds, dismissedIds } = getStudentNotifState(req);
-      const items = await buildStudentNotifications(db, req._notifCtx);
+      const items = await buildStudentNotifications(db, { ...req._notifCtx, studentId: req._notifCtx.recipientId });
       const count = items.filter((item) => !readIds.has(item.id) && !dismissedIds.has(item.id)).length;
       return res.json({ success: true, count });
     }
@@ -342,7 +332,7 @@ router.get('/feed', requireAuth, async (req, res) => {
   try {
     if (req._notifCtx.recipientType === 'student') {
       const { readIds, dismissedIds } = getStudentNotifState(req);
-      const items = await buildStudentNotifications(db, req._notifCtx);
+      const items = await buildStudentNotifications(db, { ...req._notifCtx, studentId: req._notifCtx.recipientId });
       const notifications = items
         .filter((item) => !dismissedIds.has(item.id))
         .map((item) => ({ ...item, is_read: readIds.has(item.id) }));
@@ -404,7 +394,7 @@ router.post('/mark-all-read', requireAuth, async (req, res) => {
   try {
     if (req._notifCtx.recipientType === 'student') {
       const { state, readIds, dismissedIds } = getStudentNotifState(req);
-      const items = await buildStudentNotifications(db, req._notifCtx);
+      const items = await buildStudentNotifications(db, { ...req._notifCtx, studentId: req._notifCtx.recipientId });
       items.forEach((item) => {
         if (!dismissedIds.has(item.id)) readIds.add(item.id);
       });
@@ -468,7 +458,7 @@ router.post('/dismiss-all', requireAuth, async (req, res) => {
   try {
     if (req._notifCtx.recipientType === 'student') {
       const { state, readIds, dismissedIds } = getStudentNotifState(req);
-      const items = await buildStudentNotifications(db, req._notifCtx);
+      const items = await buildStudentNotifications(db, { ...req._notifCtx, studentId: req._notifCtx.recipientId });
       items.forEach((item) => dismissedIds.add(item.id));
       persistStudentNotifState(req, readIds, dismissedIds, state.birthdayPopupShownAt);
       return res.json({ success: true });

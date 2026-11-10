@@ -494,39 +494,6 @@ module.exports = (db) => {
         }
     });
 
-    router.post('/setFeaturePrice', ensureAdmin, async (req, res) => {
-        const { featureId, priceUsd } = req.body;
-      
-        try {
-          // Get the old price before updating
-          const oldPriceResult = await db.query('SELECT price_usd FROM features WHERE id = $1', [featureId]);
-          const oldPrice = oldPriceResult.rows[0]?.price_usd || 0;
-          
-          // Update the feature price
-          await db.query('UPDATE features SET price_usd = $1 WHERE id = $2', [priceUsd, featureId]);
-          
-          // Calculate the price difference
-          const priceDifference = parseFloat(priceUsd) - parseFloat(oldPrice);
-          
-          // Update total_cost for all plans that include this feature
-          await db.query(`
-            UPDATE plans 
-            SET total_cost = total_cost + $1 
-            WHERE id IN (
-              SELECT DISTINCT plan_id 
-              FROM plan_features 
-              WHERE feature_id = $2
-            )
-          `, [priceDifference, featureId]);
-          
-          req.flash('success', 'Feature price updated and plan total costs recalculated.');
-          res.redirect('/admin/servicePricing');
-        } catch (err) {
-          // ...removed error log for clean background operation...
-          req.flash('error', 'Failed to update feature price.');
-          res.redirect('/admin/servicePricing');
-        }
-      });
       
 
     router.post('/reopenThread', ensureAdminOrMiniAdmin, adminController.reopenThread);
@@ -551,45 +518,37 @@ module.exports = (db) => {
     router.post('/restoreMessage', ensureAdmin, adminController.restoreMessage);
     router.post('/permanentDeleteMessage', ensureAdmin, adminController.permanentDeleteMessage); 
 
-    router.get('/servicePricing', ensureAdmin, adminController.servicePricingGet);
+    // Pricing, one page (controllers/adminPricingController.js): plans, prices by country,
+    // add-ons, billing cycles and the free trial for schools; add-on prices and extra products
+    // for hubs; payment settings.
+    const adminPricing = require('../controllers/adminPricingController');
+    router.get('/servicePricing', ensureAdmin, adminPricing.pricingGet);
+    router.get('/dynamicPricing', ensureAdmin, (req, res) => res.redirect('/admin/servicePricing'));
+    router.post('/pricing/addons', ensureAdmin, adminPricing.addonsPost);
+    router.post('/pricing/cycles', ensureAdmin, adminPricing.cyclesPost);
+    router.get('/pricing/plans/:planId(\\d+)/edit', ensureAdmin, adminPricing.planFormGet);
+    router.post('/pricing/plans/:planId(\\d+)', ensureAdmin, adminPricing.planPost);
+    router.get('/pricing/regions/new', ensureAdmin, adminPricing.regionFormGet);
+    router.get('/pricing/regions/:regionId(\\d+)/edit', ensureAdmin, adminPricing.regionFormGet);
+    router.post('/pricing/regions', ensureAdmin, adminPricing.regionPost);
+    router.post('/pricing/regions/:regionId(\\d+)', ensureAdmin, adminPricing.regionPost);
+    router.post('/pricing/regions/:regionId(\\d+)/delete', ensureAdmin, adminPricing.regionDeletePost);
 
-    router.post('/togglePlanStatus', ensureAdmin, adminController.togglePlanStatus); 
-    router.post('/addFeatureToPlan', ensureAdmin, adminController.addFeatureToPlan);  
-    router.post('/removeFeatureFromPlan', ensureAdmin, adminController.removeFeatureFromPlan);  
-    router.post('/updatePlanDescription', ensureAdmin, adminController.updatePlanDescription);  
-    router.post('/recalculateAllPlanTotals', ensureAdmin, adminController.recalculateAllPlanTotals);  
-
-    // Add missing routes for admin settings
     router.post('/updateFreeTrialSettings', ensureAdmin, adminController.updateFreeTrialSettings);
     router.post('/updatePlatformFeeSettings', ensureAdmin, adminController.updatePlatformFeeSettings);
     router.post('/updatePaymentProviderSettings', ensureAdmin, adminController.updatePaymentProviderSettings);
     router.post('/updatePaystackSettings', ensureAdmin, adminController.updatePaystackSettings);
     router.post('/updateStripeSettings', ensureAdmin, adminController.updateStripeSettings);
 
-    router.post('/saveStudentTiers', ensureAdmin, adminController.saveStudentTiers);
-    router.post('/deleteStudentTier', ensureAdmin, adminController.deleteStudentTier);
-
-    // ============================================================
-    // Dynamic Pricing v2 (Beta) — parallel routes, isolated from the live system
-    // ============================================================
-    router.get('/dynamicPricing', ensureAdmin, adminController.dynamicPricingGet);
-    router.post('/dynamicPricing/regions', ensureAdmin, adminController.createRegion);
-    router.post('/dynamicPricing/regions/:id', ensureAdmin, adminController.updateRegion);
-    router.post('/dynamicPricing/regions/:id/delete', ensureAdmin, adminController.deleteRegion);
-    router.post('/dynamicPricing/planRegionPrices', ensureAdmin, adminController.upsertPlanRegionPrice);
-    router.post('/dynamicPricing/cycles', ensureAdmin, adminController.createDynamicCycle);
-    router.post('/dynamicPricing/cycles/:id', ensureAdmin, adminController.updateDynamicCycle);
-    router.post('/dynamicPricing/cycles/:id/delete', ensureAdmin, adminController.deleteDynamicCycle);
-    router.post('/dynamicPricing/termMonths', ensureAdmin, adminController.updateDynamicTermMonths);
-    router.post('/dynamicPricing/preview', ensureAdmin, adminController.previewDynamicPrice);
-
-    router.post("/deleteFeature", ensureAdmin, adminController.deleteFeature);
-
     router.get('/data-export', ensureAdmin, adminController.dataExportPage);
     router.post('/generate-organization-csv', ensureAdmin, adminController.generateOrganizationCSV);
 
-    // Hub Management Routes
-    router.get('/hubs', ensureAdmin, adminController.hubsListGet);
+    // Organizations, one page: single schools (their own pricing, details and licenses) and hubs.
+    // Mini Admins see the schools; everything else is for Admins.
+    router.get('/hubs', ensureAdminOrMiniAdmin, adminPricing.organizationsGet);
+    router.get('/organizations/:organizationId(\\d+)', ensureAdminOrMiniAdmin, adminPricing.schoolDetailsGet);
+    router.get('/organizations/:organizationId(\\d+)/pricing', ensureAdmin, adminPricing.schoolPricingGet);
+    router.post('/organizations/:organizationId(\\d+)/pricing', ensureAdmin, adminPricing.schoolPricingPost);
     // API allowance requests from schools (Managira API).
     const apiRequests = require('../controllers/apiAllowanceAdminController');
     router.get('/api-requests', ensureAdmin, apiRequests.page);
@@ -620,11 +579,10 @@ module.exports = (db) => {
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
     // Hub billing (contract, Stripe payment link, charges, holds) and the add-on catalog.
     const hubBilling = require('../controllers/hubBillingController');
-    router.get('/hubs/add-ons', ensureAdmin, hubBilling.adminAddonsGet);
+    router.get('/hubs/add-ons', ensureAdmin, (req, res) => res.redirect('/admin/servicePricing?tab=hubs'));
     router.get('/hubs/add-ons/new', ensureAdmin, hubBilling.adminAddonFormGet);
     router.get('/hubs/add-ons/:addonId(\\d+)/edit', ensureAdmin, hubBilling.adminAddonFormGet);
     router.post('/hubs/add-ons', ensureAdmin, hubBilling.adminAddonSavePost);
-    router.post('/hubs/integration-prices', ensureAdmin, hubBilling.adminIntegrationPricesPost);
     router.post('/hubs/add-ons/:addonId(\\d+)', ensureAdmin, hubBilling.adminAddonSavePost);
     router.post('/hubs/add-ons/:addonId(\\d+)/toggle', ensureAdmin, hubBilling.adminAddonTogglePost);
     router.get('/hubs/:hubId(\\d+)/billing', ensureAdmin, hubBilling.adminBillingGet);
