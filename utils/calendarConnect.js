@@ -244,7 +244,10 @@ async function ensureManagiraCalendar(db, conn, orgName) {
 
 function remoteBody(provider, it, tz) {
   const timed = !it.allDay && it.startTime;
-  const endTime = it.endTime || (timed ? plusHour(it.startTime) : null);
+  // An end at or before the start (a one-day event saved with its times the wrong way round)
+  // would be refused: it gets an hour instead.
+  const sameDay = !it.endDate || it.endDate === it.date;
+  const endTime = timed && (!it.endTime || (sameDay && it.endTime <= it.startTime)) ? plusHour(it.startTime) : (it.endTime || null);
   const description = [it.details, it.url ? `Open in Managira: ${it.url}` : ""].filter(Boolean).join("\n\n");
   if (provider === "google") {
     return {
@@ -293,8 +296,15 @@ async function pushItems(db, conn, items, orgName) {
       remoteId = null;
     }
     if (!remoteId) {
-      if (g) remoteId = (await g.events.insert({ calendarId: calId, requestBody: body })).data.id;
-      else remoteId = (await graph(db, conn, "post", `/me/calendars/${encodeURIComponent(calId)}/events`, body)).id;
+      try {
+        if (g) remoteId = (await g.events.insert({ calendarId: calId, requestBody: body })).data.id;
+        else remoteId = (await graph(db, conn, "post", `/me/calendars/${encodeURIComponent(calId)}/events`, body)).id;
+      } catch (err) {
+        const status = Number(err?.code || err?.response?.status || 0);
+        if (status !== 400 || friendlyError(err) === "reconnect") throw err;
+        console.error(`[Calendar] skipped one item the calendar refused (${it.uid}):`, String(err.message).slice(0, 160));
+        continue;
+      }
     }
     await db.query(
       `INSERT INTO calendar_push_map (connection_id, item_uid, remote_id, hash) VALUES ($1,$2,$3,$4)
@@ -381,8 +391,12 @@ async function disconnect(db, conn) {
 //   other:…   – anything else (retried automatically)
 function friendlyError(err) {
   const status = Number(err?.code || err?.response?.status || 0);
-  const msg = err?.response?.data?.error?.message || err?.response?.data?.error_description || err?.message || "Unknown error";
-  if (status === 401 || /invalid_grant|unauthorized_client/i.test(msg)) return "reconnect";
+  const data = err?.response?.data || {};
+  // Google's sign-in errors come as { error: "invalid_grant", error_description: "Bad Request" }:
+  // the code is what says the access has ended, so it is read along with the words.
+  const code = typeof data.error === "string" ? data.error : "";
+  const msg = data.error?.message || data.error_description || err?.message || "Unknown error";
+  if (status === 401 || /invalid_grant|unauthorized_client|invalid_client/i.test(`${code} ${msg} ${err?.message || ""}`)) return "reconnect";
   if (status === 403 && /insufficient|scope/i.test(msg)) return "reconnect";
   if (status === 403 && /has not been used|disabled|accessNotConfigured/i.test(msg)) {
     console.error("[Calendar] Platform setup needed:", msg.slice(0, 300));

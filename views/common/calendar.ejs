@@ -27,6 +27,7 @@
 </script>
 
 <div class="cal-page" data-cal
+  data-viewer="<%= [(typeof session !== 'undefined' && session) ? (session.userId || (session.user && session.user.user_id) || '') : '', (typeof session !== 'undefined' && session) ? (session.organizationId || '') : ''].join('-') %>"
   data-can-publish="<%= _canPublish ? '1' : '0' %>"
   data-has-website="<%= _hasWebsite ? '1' : '0' %>"
   data-initial-date="<%= typeof initialDate !== 'undefined' ? initialDate : '' %>"
@@ -161,15 +162,57 @@
       return ev.end ? `${s} – ${ev.end.toLocaleTimeString(undefined, t)}` : s;
     };
 
-    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    // The calendar's height: from its top to the bottom of the window, in the page's own
+    // pixels (the app zooms pages, so a screen pixel is measured first).
+    const calendarEl = document.getElementById('calendar');
+    function fitHeight() {
+      if (window.matchMedia('(max-width: 640px)').matches) return 'auto';
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:100px;visibility:hidden';
+      document.body.appendChild(probe);
+      const scale = (probe.getBoundingClientRect().height / 100) || 1;
+      probe.remove();
+      const top = calendarEl.getBoundingClientRect().top + window.scrollY;
+      return Math.max(480, Math.floor((window.innerHeight - top - 18) / scale));
+    }
+    // A copy of what each range showed, kept for this tab only, per person.
+    const KEPT_PREFIX = `cal:feed:${root.dataset.viewer || ''}:`;
+    function readKept(key) {
+      try {
+        const kept = JSON.parse(sessionStorage.getItem(KEPT_PREFIX + key) || 'null');
+        return kept && Date.now() - kept.at < 30 * 60 * 1000 ? kept.items : null;
+      } catch (_e) { return null; }
+    }
+    function keep(key, items) {
+      try { sessionStorage.setItem(KEPT_PREFIX + key, JSON.stringify({ at: Date.now(), items })); } catch (_e) { /* full or blocked: it just loads */ }
+    }
+    // After drawing, measure where the calendar really ends and size it to end at the bottom of
+    // the window (the page zoom makes a first guess land a little off).
+    function fitToWindow() {
+      if (!document.body.contains(calendarEl)) return;
+      if (window.matchMedia('(max-width: 640px)').matches) { calendar.setOption('height', 'auto'); return; }
+      const current = calendar.getOption('height');
+      const box = calendarEl.getBoundingClientRect();
+      if (typeof current !== 'number' || !box.height) { calendar.setOption('height', fitHeight()); return; }
+      const wanted = window.innerHeight - (box.top + window.scrollY) - 14;
+      const next = Math.max(480, Math.round(wanted * (current / box.height)));
+      if (Math.abs(next - current) > 2) calendar.setOption('height', next);
+    }
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(fitToWindow, 150);
+    });
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: window.matchMedia('(max-width: 640px)').matches ? 'listMonth' : 'dayGridMonth',
       initialDate: root.dataset.initialDate || undefined,
       headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth' },
       buttonText: { today: 'Today', month: 'Month', week: 'Week', day: 'Day', list: 'Agenda' },
-      height: 'auto',
+      height: fitHeight(),
       firstDay: 1,
       nowIndicator: true,
-      dayMaxEvents: 4,
+      dayMaxEvents: true,
       eventDisplay: 'block',
       navLinks: true,
       selectable: !!document.querySelector('[data-cal-create]'),
@@ -189,6 +232,9 @@
         };
         if (useCache && feedCache.key === key) { useCache = false; deliver(feedCache.items); return; }
         useCache = false;
+        // The last copy of this range seen in this tab shows at once; the latest replaces it
+        // when it arrives (only if anything changed), so opening the calendar never starts blank.
+        const kept = readKept(key);
         // First load: use the request the page started early, when it covers this range.
         const early = window.__calPrefetch;
         window.__calPrefetch = null;
@@ -198,8 +244,19 @@
           ? early.items
           : fetch(`/common/calendar/feed?start=${from}&end=${to}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
             .then((r) => { if (!r.ok) throw new Error('feed'); return r.json(); });
+        if (kept) {
+          deliver(kept);
+          request.then((fresh) => {
+            keep(key, fresh);
+            if (JSON.stringify(fresh) === JSON.stringify(kept)) return;
+            feedCache = { key, items: fresh };
+            useCache = true;
+            calendar.refetchEvents();
+          }).catch(() => {});
+          return;
+        }
         request
-          .then(deliver)
+          .then((items) => { keep(key, items); deliver(items); })
           .catch((err) => { failure(err); W.toast('The calendar could not load. Try again.'); });
       },
       eventSources: [{
@@ -237,6 +294,7 @@
       eventResize: (info) => moveEvent(info),
     });
     calendar.render();
+    requestAnimationFrame(fitToWindow);
 
     function refresh() { calendar.refetchEvents(); }
 

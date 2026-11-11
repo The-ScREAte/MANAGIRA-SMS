@@ -568,12 +568,23 @@
     .ux-nolead select { flex: 1 1 200px; max-width: 320px; min-height: 34px; margin: 0; padding: 4px 8px; border: 1px solid #e5c877; border-radius: 6px; background: #fff; font-size: .84rem; }
     .ux-nolead .ws-btn { flex: 0 0 auto; }
     .ux-nolead__done { color: #166534; font-weight: 600; }
+    .ux-nolead__list li.is-wanted { background: #fef3c7; border-radius: 8px; padding-left: 8px; padding-right: 8px; }
   </style>
   <script>
     // Puts the chosen person in charge of a class, then takes the class off the list.
     (function () {
       var box = document.getElementById('uxNoLead');
       if (!box) return;
+      // Opened from the dashboard's warning on a class (?lead=<class id>): open the list on it.
+      var wanted = new URLSearchParams(window.location.search).get('lead');
+      if (wanted && /^\d+$/.test(wanted)) {
+        box.open = true;
+        var row = box.querySelector('[data-no-lead-class="' + wanted + '"]');
+        if (row) {
+          row.classList.add('is-wanted');
+          setTimeout(function () { row.scrollIntoView({ block: 'center' }); var pick = row.querySelector('select'); if (pick) pick.focus(); }, 60);
+        }
+      }
       box.addEventListener('change', function (event) {
         if (event.target.tagName !== 'SELECT') return;
         var button = event.target.closest('li').querySelector('[data-no-lead-save]');

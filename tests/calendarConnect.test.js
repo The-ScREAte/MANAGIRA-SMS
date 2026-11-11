@@ -149,6 +149,8 @@ test("Outlook push creates a calendar and sends events through Microsoft Graph",
 test("errors are turned into plain codes for the screen", () => {
   assert.strictEqual(calConnect.friendlyError({ code: 401, message: "Invalid Credentials" }), "reconnect");
   assert.strictEqual(calConnect.friendlyError({ response: { status: 400, data: { error_description: "invalid_grant" } }, message: "x" }), "reconnect");
+  // Google's own shape when a sign-in has ended: the code, with "Bad Request" as the words.
+  assert.strictEqual(calConnect.friendlyError({ code: 400, message: "invalid_grant", response: { status: 400, data: { error: "invalid_grant", error_description: "Bad Request" } } }), "reconnect");
   const orig = console.error;
   console.error = () => {};
   assert.strictEqual(calConnect.friendlyError({ code: 403, message: "Google Calendar API has not been used in project 1 before or it is disabled." }), "setup");

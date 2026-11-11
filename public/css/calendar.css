@@ -8,7 +8,7 @@
   gap: 20px;
   align-items: start;
   width: 100%;
-  padding: 20px 24px 40px;
+  padding: 16px 24px 12px;
   color: var(--ws-text, #1f2937);
   text-align: left;
 }
@@ -85,12 +85,13 @@
   background: #fff;
   border: 1px solid var(--ws-line, #e2e8f0);
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px 14px;
 }
 
 /* Calendar grid (FullCalendar) */
-#calendar { --fc-border-color: var(--ws-line, #e2e8f0); --fc-today-bg-color: var(--ws-brand-soft); font-size: .95rem; }
-#calendar .fc-toolbar { flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+#calendar { --fc-border-color: var(--ws-line, #e2e8f0); --fc-today-bg-color: var(--ws-brand-soft); font-size: .88rem; }
+#calendar .fc-toolbar { flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+#calendar .fc-toolbar.fc-header-toolbar { margin-bottom: 10px; }
 #calendar .fc-toolbar-title { font-size: 1.25rem; font-weight: 700; color: var(--ws-ink, #0f172a); }
 #calendar .fc-button {
   background: #fff; color: var(--ws-ink, #0f172a);
@@ -104,7 +105,9 @@
 }
 #calendar .fc-col-header-cell-cushion { color: var(--ws-ink, #0f172a); font-weight: 700; text-decoration: none; padding: 8px 4px; }
 #calendar .fc-daygrid-day-number { color: var(--ws-ink, #0f172a); text-decoration: none; font-weight: 600; }
-#calendar .fc-event { border: 0; border-radius: 6px; padding: 1px 4px; background: var(--c, var(--ws-brand)); color: #fff; }
+#calendar .fc-event { border: 0; border-radius: 5px; padding: 0 4px; background: var(--c, var(--ws-brand)); color: #fff; line-height: 1.35; }
+#calendar .fc-daygrid-event-harness { margin-top: 1px; }
+#calendar .fc-daygrid-day-events { margin-bottom: 2px; }
 #calendar .fc-daygrid-dot-event { background: transparent; color: var(--ws-ink, #0f172a); }
 
 @media (max-width: 900px) {
@@ -142,11 +145,11 @@ body.org-themed #calendar .fc-button-primary.fc-button-active { background: var(
 #calendar .fc-button:focus { box-shadow: none; }
 #calendar .fc-col-header-cell { background: var(--ws-soft, #f8fafc); }
 #calendar .fc-col-header-cell-cushion { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ws-muted, #64748b); }
-#calendar .fc-daygrid-day-number { font-size: .85rem; padding: 6px 8px; }
+#calendar .fc-daygrid-day-number { font-size: .78rem; padding: 4px 6px; }
 #calendar .fc-day-today .fc-daygrid-day-number { background: var(--ws-brand); color: #fff; border-radius: 999px; min-width: 26px; text-align: center; margin: 4px; padding: 3px 6px; }
-#calendar .fc-event { font-size: .8rem; font-weight: 600; }
+#calendar .fc-event { font-size: .72rem; font-weight: 600; }
 #calendar .fc-event-title, #calendar .fc-event-time { overflow: hidden; text-overflow: ellipsis; }
-#calendar .fc-daygrid-more-link { font-size: .78rem; font-weight: 600; color: var(--ws-brand); }
+#calendar .fc-daygrid-more-link { font-size: .72rem; font-weight: 600; color: var(--ws-brand); }
 #calendar .fc-list-event-title, #calendar .fc-list-day-text, #calendar .fc-list-day-side-text { color: var(--ws-ink, #0f172a); text-decoration: none; }
 
 @media (max-width: 640px) {

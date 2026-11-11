@@ -683,16 +683,9 @@ function applyArrearsFilters(rawRows, rawFilters) {
     if (filters.paymentMethodFilter === "no_saved_card" && student.has_saved_card) return false;
     if (filters.emailStatusFilter === "has_email" && !student.guardian_email) return false;
     if (filters.emailStatusFilter === "no_email" && student.guardian_email) return false;
-    if (statusSet.size) {
-      const matchesStatus = Array.from(statusSet).some((status) => {
-        if (status === "defaulted") return student.flags.defaulted;
-        if (status === "partial") return student.flags.partial || (student.total_paid > 0 && student.outstanding > 0);
-        if (status === "never_paid") return student.flags.never_paid || (student.total_paid === 0 && student.outstanding > 0);
-        if (status === "overdue") return student.flags.overdue || (student.max_days_overdue > 0 && !student.flags.defaulted && !student.flags.partial && !student.flags.never_paid);
-        return true;
-      });
-      if (!matchesStatus) return false;
-    }
+    // The statuses ticked are the ones the list shows: a student is listed under the status
+    // their row says ("30+ days late", "Nothing paid", "Part paid", "Overdue").
+    if (statusSet.size && !statusSet.has(student.primary_status)) return false;
     if (filters.search && !student.searchable.includes(filters.search.toLowerCase())) return false;
     return true;
   });

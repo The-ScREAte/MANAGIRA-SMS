@@ -395,6 +395,26 @@
         <img src="/images/icons/miralogo-256.png" alt="" aria-hidden="true" />
       </a>
       <% } %>
+      <%# ── Help: the guides, and feedback for staff ──────────── %>
+      <% const _helpIsStaff = !(session && (session.guardianId || session.studentId)); %>
+      <div class="help-menu-wrapper" id="help-menu-wrapper">
+        <button class="notif-bell-btn help-menu-btn" id="help-menu-btn" type="button" aria-label="Help" aria-haspopup="true" aria-expanded="false" aria-controls="help-menu-panel" title="Help">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </button>
+        <div class="notif-panel help-menu-panel" id="help-menu-panel" role="menu" aria-label="Help">
+          <div class="notif-panel-header"><span class="notif-panel-title">Help</span></div>
+          <a class="help-menu-item" role="menuitem" href="/legal/user-documentation" target="_blank" rel="noopener">
+            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+            <span class="help-menu-text"><strong>Guides</strong><small>Step-by-step help for every part of Managira</small></span>
+          </a>
+          <% if (_helpIsStaff) { %>
+          <a class="help-menu-item" role="menuitem" href="/account/settings?section=feedback" data-no-spa>
+            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="help-menu-text"><strong>Send feedback</strong><small>Tell us what to fix or what you need</small></span>
+          </a>
+          <% } %>
+        </div>
+      </div>
       <%# ── Notification Bell ──────────────────────────────── %>
       <div class="notif-bell-wrapper" id="notif-bell-wrapper">
         <button class="notif-bell-btn" id="notif-bell-btn" aria-label="Notifications" type="button">
@@ -882,6 +902,17 @@
 
 <%# ── Notification Bell CSS ──────────────────────────────────────────────── %>
 <style>
+/* Help menu: the same look as the notifications panel. */
+.help-menu-wrapper { position: relative; display: inline-flex; align-items: center; flex-shrink: 0; }
+.help-menu-panel { width: 300px; }
+.help-menu-panel.notif-panel--open { display: flex; flex-direction: column; padding-bottom: 6px; }
+.help-menu-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; color: #0f172a; text-decoration: none; }
+.help-menu-item:hover, .help-menu-item:focus-visible { background: color-mix(in srgb, var(--org-primary-color, #01535b) 7%, #fff); outline: none; }
+.help-menu-icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); }
+.help-menu-text { display: grid; gap: 2px; min-width: 0; }
+.help-menu-text strong { font-size: 0.9rem; font-weight: 700; }
+.help-menu-text small { font-size: 0.78rem; color: #64748b; line-height: 1.35; }
+@media (max-width: 600px) { .help-menu-panel { width: calc(100vw - 16px); right: -90px; } }
 /* Bell button */
 .notif-bell-wrapper {
   position: relative;
@@ -1170,3 +1201,30 @@
 <%# ── Notification Bell JS ──────────────────────────────────────────────── %>
 <script>window.__mgHeader = <%- JSON.stringify({ role: String((typeof session !== "undefined" && session && (session.userRole || session.accountType)) || ""), staffRole: String((typeof session !== "undefined" && session && ((session.accountType || (session.user && session.user.account_type) || session.userRole || (session.user && session.user.role)) || "")) || "") }).replace(/</g, '\\u003c') %>;</script>
 <script src="<%= assetUrl('/js/headerBell.js') %>"></script>
+<script>
+  // Help menu: opens beside the bell; one panel open at a time; Escape or a click elsewhere closes it.
+  (function () {
+    if (window.__managiraHelpMenu) return;
+    window.__managiraHelpMenu = true;
+    const setOpen = (open) => {
+      const panel = document.getElementById('help-menu-panel');
+      const button = document.getElementById('help-menu-btn');
+      if (!panel || !button) return;
+      panel.classList.toggle('notif-panel--open', open);
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        const bell = document.getElementById('notif-panel');
+        if (bell) bell.classList.remove('notif-panel--open');
+        const first = panel.querySelector('.help-menu-item');
+        if (first) first.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest && event.target.closest('#help-menu-btn');
+      if (button) { setOpen(!document.getElementById('help-menu-panel').classList.contains('notif-panel--open')); return; }
+      if (event.target.closest && event.target.closest('#notif-bell-btn')) { setOpen(false); return; }
+      if (!(event.target.closest && event.target.closest('#help-menu-panel'))) setOpen(false);
+    });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
+  })();
+</script>

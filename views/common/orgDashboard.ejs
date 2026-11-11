@@ -180,6 +180,9 @@
   .od-teachers__caret { font-size: 0.62rem; transition: transform .15s ease; }
   .od-teachers[open] .od-teachers__caret { transform: rotate(180deg); }
   .od-noteacher { color: #b45309; }
+  /* Nobody in charge of the class: an icon that opens the place to choose a main teacher. */
+  .od-nolead { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: 0 0 auto; border-radius: 999px; color: #b45309; text-decoration: none; font-size: 0.95rem; }
+  .od-nolead:hover, .od-nolead:focus-visible { background: #fef3c7; color: #92400e; }
   .od-teachers ul {
     position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: max-content; min-width: 220px; max-width: 300px;
     display: grid; gap: 7px; padding: 10px 12px; max-height: 260px; overflow-y: auto;
@@ -751,7 +754,7 @@
                             <span class="od-noteacher"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> No teacher yet</span>
                           <% } %>
                           <%# Teachers but nobody in charge: said to whoever manages staff, who chooses one. %>
-                          <% if (_canEditStaff && teachers.length && !teachers.some((emp) => emp.main)) { %><span class="od-noteacher" title="Nobody is in charge of this class yet. Choose a main teacher in Users / Employees."><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> No main teacher</span><% } %>
+                          <% if (_canEditStaff && teachers.length && !teachers.some((emp) => emp.main)) { %><a class="od-nolead" href="/common/management?panel=employees&page=<%= encodeURIComponent('/common/manageEmployees?lead=' + cls.class_id) %>&label=<%= encodeURIComponent('Users / Employees') %>" data-no-spa title="No main teacher yet. Choose who is in charge of <%= cls.class_name %>" aria-label="No main teacher for <%= cls.class_name %>. Choose one"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></a><% } %>
                           <% if (_canEditStaff) { %>
                             <a class="od-crow__edit" href="/common/createEmployee?classId=<%= cls.class_id %>" title="<%= teachers.length ? 'Add another teacher to ' : 'Add a teacher to ' %><%= cls.class_name %>" aria-label="Add a teacher to <%= cls.class_name %>"><i class="fa-solid fa-pencil" aria-hidden="true"></i></a>
                           <% } %>
