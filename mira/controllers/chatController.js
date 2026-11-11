@@ -1,6 +1,10 @@
 const { runTurn } = require("../services/orchestrator");
 const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
+const { enhanceDraft } = require("../services/planner");
+const { loadAccess } = require("../services/access");
+const { checkBudget, recordUsage } = require("../services/usageLedger");
+const { loadHistory } = require("../services/orchestrator");
 
 // POST /api/chat - streams the turn over Server-Sent Events. Chosen over
 // raw fetch-stream parsing because it cleanly interleaves distinct event
@@ -39,9 +43,14 @@ async function postChat(req, res) {
     "X-Accel-Buffering": "no",
   });
 
+  // Nothing is written once the person has gone (stopped, closed the tab).
   const sse = {
     send(event, data) {
+      if (res.writableEnded || res.destroyed) return;
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    },
+    closed() {
+      return res.writableEnded || res.destroyed;
     },
   };
 
@@ -54,6 +63,49 @@ async function postChat(req, res) {
     sse.send("error", { message: "Something went wrong generating a response." });
   } finally {
     res.end();
+  }
+}
+
+// POST /api/chat/enhance { message, chatId?, className? } -> { text, changed }
+// The Enhance button: the draft made into a clear request for Mira (feature mira_steps). It
+// reads only the person's own recent messages in their own chat, and never answers the draft.
+async function enhanceMessage(req, res) {
+  try {
+    const draft = String(req.body?.message || "").trim().slice(0, 4000);
+    if (!draft) return res.status(400).json({ error: "Write something to enhance first." });
+    const access = await loadAccess(req.tenant);
+    if (!access.features?.mira_steps) return res.status(404).json({ error: "Not found." });
+    const budget = await checkBudget(req.tenant.organizationId);
+    if (!budget.allowed) return res.status(429).json({ error: budget.reason });
+
+    let history = [];
+    const chatId = parseInt(req.body?.chatId, 10);
+    if (Number.isInteger(chatId)) {
+      await ensureMiraSchema(db);
+      const own = await db.query(
+        `SELECT id FROM mira_chats WHERE id = $1 AND tenant_id = $2 AND viewer_type = $3 AND user_id = $4`,
+        [chatId, req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId]
+      );
+      if (own.rows[0]) history = (await loadHistory(chatId)).summary;
+    }
+    const className = req.body?.className ? String(req.body.className).slice(0, 120) : null;
+    const result = await enhanceDraft({
+      draft,
+      history,
+      classScope: className ? { className } : null,
+      onUsage: (pass) => recordUsage({
+        tenantId: req.tenant.organizationId,
+        userId: req.tenant.userId,
+        provider: pass.provider,
+        model: pass.model,
+        promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || pass.usage?.input_tokens || 0,
+        completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || pass.usage?.output_tokens || 0,
+      }),
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error("[mira/chatController/enhanceMessage]", error);
+    return res.status(500).json({ error: "Couldn't enhance that just now." });
   }
 }
 
@@ -217,4 +269,4 @@ async function setMessageFeedback(req, res) {
   }
 }
 
-module.exports = { postChat, getHistory, getChat, updateChat, deleteChat, bulkDeleteChats, setMessageFeedback };
+module.exports = { enhanceMessage, postChat, getHistory, getChat, updateChat, deleteChat, bulkDeleteChats, setMessageFeedback };

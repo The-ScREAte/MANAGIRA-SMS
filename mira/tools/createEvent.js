@@ -12,7 +12,7 @@ module.exports = {
     properties: {
       eventName: { type: "string" },
       eventDate: { type: "string", description: "YYYY-MM-DD" },
-      eventDetails: { type: "string" },
+      eventDetails: { type: "string", description: "What the person said the event is about, in their words. If they gave nothing beyond the name and time, say just that (e.g. \"Staff meeting at 10:00\"). Never invent a place, agenda or purpose." },
       visibility: { type: "string", enum: ["org", "public", "both"], description: "Defaults to org (internal-only)." },
       notifyByEmail: { type: "boolean", description: "Sends a real email to guardians immediately. Defaults to false." },
       confirm: { type: "boolean", description: "Only needed (and only checked) when notifyByEmail is true - set true ONLY after the user has explicitly confirmed." },

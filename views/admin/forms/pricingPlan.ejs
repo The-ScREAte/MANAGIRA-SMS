@@ -21,7 +21,7 @@
     </section>
     <section class="ahd-section">
       <h3 class="ahd-section__title">Included</h3>
-      <p class="ahd-section__sub">Schools on this plan can use these.<% if (price) { %> In the United States it is <strong><%= price.base %> a month</strong> with <%= price.included %> students included, then <strong><%= price.extra %></strong> for each extra student a <%= price.per %>.<% } else { %> Its price is set by country in Pricing.<% } %></p>
+      <p class="ahd-section__sub">Schools on this plan can use these.<% if (price) { %> In the United States it is <strong><%= price.base %> a month</strong> with <%= price.included %> students included<%= price.includedFor || '' %>, then <strong><%= price.extra %></strong> for each extra student a <%= price.per %>.<% } else { %> Its price is set by country in Pricing.<% } %></p>
       <div class="ap-features">
         <%# In every plan: shown ticked, and not something a plan can drop. %>
         <% catalog.core.filter((item) => item.headline).forEach((item) => { %>

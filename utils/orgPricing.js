@@ -72,7 +72,34 @@ async function saveStandardAddonPrices(db, input = {}) {
 
 // ---------------------------------------------------------------- a school's own prices
 
-const NO_OVERRIDES = Object.freeze({ monthlyPrice: null, discountPercent: 0, addonPrices: {}, notes: "", updatedAt: null });
+const NO_OVERRIDES = Object.freeze({ monthlyPrice: null, discountPercent: 0, addonPrices: {}, freeStudents: null, notes: "", updatedAt: null });
+
+// A school's own free students, in place of its price list's: { count, percent, months }
+// (percent null for a number; months null for always). Null: as the price list.
+function normalizeFreeStudents(raw) {
+  let value = raw;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch (_error) { return null; }
+  }
+  if (!value || typeof value !== "object") return null;
+  const percent = value.percent != null && value.percent !== "" ? Number(value.percent) : null;
+  const count = value.count != null && value.count !== "" ? Number(value.count) : 0;
+  const months = value.months != null && value.months !== "" ? Number(value.months) : null;
+  if (percent != null && !(percent >= 0 && percent <= 100)) return null;
+  if (percent == null && !(Number.isInteger(count) && count >= 0)) return null;
+  return { count: percent != null ? 0 : count, percent: percent != null ? round2(percent) : null, months: Number.isInteger(months) && months > 0 ? months : null };
+}
+
+// A price list row with the school's own free students in place of the list's.
+function withSchoolFree(priceRow, freeStudents) {
+  if (!priceRow || !freeStudents) return priceRow;
+  return {
+    ...priceRow,
+    free_student_threshold: freeStudents.count,
+    free_student_percent: freeStudents.percent,
+    free_student_months: freeStudents.months,
+  };
+}
 
 function normalizeOverrides(row) {
   if (!row) return { ...NO_OVERRIDES, addonPrices: {} };
@@ -88,6 +115,7 @@ function normalizeOverrides(row) {
     monthlyPrice: monthly != null && monthly > 0 ? monthly : null,
     discountPercent: Math.min(MAX_DISCOUNT, Math.max(0, round2(row.custom_discount_percent))),
     addonPrices,
+    freeStudents: normalizeFreeStudents(row.custom_free_students),
     notes: String(row.pricing_notes || ""),
     updatedAt: row.pricing_updated_at || null,
   };
@@ -97,8 +125,9 @@ function normalizeOverrides(row) {
 async function schoolOverrides(db, organizationId) {
   try {
     const row = (await db.query(
-      `SELECT custom_monthly_price, custom_discount_percent, custom_addon_prices, pricing_notes, pricing_updated_at
-         FROM organizations WHERE organization_id = $1`,
+      `SELECT o.custom_monthly_price, o.custom_discount_percent, o.custom_addon_prices, o.pricing_notes, o.pricing_updated_at,
+              (to_jsonb(o) -> 'custom_free_students') AS custom_free_students
+         FROM organizations o WHERE o.organization_id = $1`,
       [organizationId]
     )).rows[0];
     return normalizeOverrides(row);
@@ -127,12 +156,28 @@ function parseOverrides(body = {}) {
       else addonPrices[key] = price;
     }
   });
+  // Free students: as the price list, or this school's own number or share, for a time or always.
+  const free = body.freeStudents && typeof body.freeStudents === "object" ? body.freeStudents : null;
+  let freeStudents = null;
+  if (free && free.mode === "own") {
+    const asPercent = free.unit === "percent";
+    const value = Number(String(free.value == null ? "" : free.value).replace(/[%\s,]/g, "") || "0");
+    const monthsText = String(free.months == null ? "" : free.months).trim();
+    const months = monthsText ? Number(monthsText) : null;
+    if (asPercent && !(Number.isFinite(value) && value >= 0 && value <= 100)) errors.push("This school's free students as a share must be between 0 and 100%.");
+    else if (!asPercent && !(Number.isInteger(value) && value >= 0 && value <= 1000000)) errors.push("This school's free students must be a whole number.");
+    else if (months != null && !(Number.isInteger(months) && months >= 1 && months <= 36)) errors.push("This school's free students can be for its first 1 to 36 months, or always.");
+    else freeStudents = { count: asPercent ? 0 : value, percent: asPercent ? round2(value) : null, months };
+  }
   return {
     errors,
     overrides: {
       monthlyPrice: monthly != null && monthly > 0 ? monthly : null,
       discountPercent: errors.length ? 0 : round2(discount),
       addonPrices,
+      freeStudents,
+      // Only a form that showed the free students choice changes it.
+      freeStudentsShown: Boolean(free && free.mode),
       notes: String(body.notes || "").trim().slice(0, 1000),
     },
   };
@@ -155,6 +200,19 @@ async function saveOverrides(db, organizationId, overrides, updatedBy = null) {
       updatedBy,
     ]
   );
+  // The school's own free students need the 2026-11-20 database update; until then only an
+  // attempt to set them is refused, and everything else saves as before.
+  if (result.rows[0] && overrides.freeStudentsShown) {
+    try {
+      await db.query("UPDATE organizations SET custom_free_students = $2::jsonb WHERE organization_id = $1", [
+        organizationId,
+        overrides.freeStudents ? JSON.stringify(overrides.freeStudents) : null,
+      ]);
+    } catch (error) {
+      if (error.code !== "42703") throw error;
+      if (overrides.freeStudents) throw Object.assign(new Error("needs update"), { code: "FREE_STUDENTS_COLUMN" });
+    }
+  }
   return result.rows[0] || null;
 }
 
@@ -176,10 +234,34 @@ async function schoolUsage(db, organizationId) {
   };
 }
 
+// The day a school started paying: the end of its free trial, or the day it signed up and paid.
+// Null when it hasn't started (a new school, or one still on its trial).
+async function paidSince(db, organizationId) {
+  try {
+    const row = (await db.query(
+      `SELECT CASE WHEN p.is_trial AND p.trial_ends_at IS NOT NULL THEN p.trial_ends_at ELSE p.created_at END AS since
+         FROM payments p WHERE p.organization_id = $1 ORDER BY p.created_at ASC LIMIT 1`,
+      [organizationId]
+    )).rows[0];
+    return row && row.since ? new Date(row.since) : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+// Which month of its paid time a school is in on `at` (0 = its first, and before it pays).
+async function paidMonthIndex(db, organizationId, at = new Date()) {
+  const since = await paidSince(db, organizationId);
+  return require("./dynamicPricing").monthsSince(since, at);
+}
+
 // The plan's standard monthly price for this school: its country's price for its plan and
 // billable students, or, for a plan without country prices, the sum of its features.
-async function standardPlanMonthly(db, org) {
-  const { getRegionForCountry, getBestPlanRegionPrice, computeDynamicMonthlyPrice } = require("./dynamicPricing");
+// `periodStart` and `periodMonths` price a bill: free students given for a school's first
+// months count only for the months of the bill inside that time (the result is the bill's
+// average month). Without them, it's this month's price.
+async function standardPlanMonthly(db, org, { periodStart = null, periodMonths = 1 } = {}) {
+  const { getRegionForCountry, getBestPlanRegionPrice, computeDynamicMonthlyPrice, averageMonthlyOverPeriod } = require("./dynamicPricing");
   const setting = async (key) => {
     try {
       const value = parseInt((await db.query("SELECT value FROM app_settings WHERE key = $1 LIMIT 1", [key])).rows[0]?.value, 10);
@@ -192,11 +274,38 @@ async function standardPlanMonthly(db, org) {
   const region = await getRegionForCountry(db, org.organization_country || null);
   const match = await getBestPlanRegionPrice(db, Number(org.plan_id), Number(region?.id || 0) || null);
   if (match?.priceRow) {
+    const own = (await schoolOverrides(db, org.organization_id).catch(() => null))?.freeStudents || null;
+    const listRow = match.priceRow;
+    match.priceRow = withSchoolFree(listRow, own);
     const divider = (await setting("dynamic_term_divider")) || 1;
     const regionId = Number(match.region?.id || region?.id || 0);
     const months = (Number.isInteger(regionId) && regionId > 0 && (await setting(`dynamic_region_term_months_${regionId}`))) || divider;
-    const monthly = computeDynamicMonthlyPrice(match.priceRow, students, { termDivider: months });
-    return { monthly: round2(monthly?.monthlyTotal), students, region: match.region?.name || region?.name || null };
+    const since = await paidSince(db, org.organization_id);
+    const monthIndex = require("./dynamicPricing").monthsSince(since, periodStart || new Date());
+    const monthly = computeDynamicMonthlyPrice(match.priceRow, students, { termDivider: months, monthIndex });
+    const average = averageMonthlyOverPeriod(match.priceRow, students, { termDivider: months, monthIndex, periodMonths });
+    // When a school's free students end: its first paid day plus the free months.
+    let freeUntil = null;
+    if (monthly.freeMonths != null && !monthly.freeEnded) {
+      const start = since || new Date();
+      freeUntil = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + monthly.freeMonths, start.getUTCDate()));
+    }
+    return {
+      monthly: round2(average),
+      students,
+      region: match.region?.name || region?.name || null,
+      free: { students: monthly.planThreshold, percent: monthly.freePercent, months: monthly.freeMonths, ended: monthly.freeEnded, until: freeUntil, own: Boolean(own) },
+      // The price list's own figures, for previews of a school's own free students.
+      priceList: {
+        base: Number(listRow.base_price_usd) || 0,
+        rate: Number(listRow.per_student_rate_usd) || 0,
+        monthsPerTerm: months,
+        freeStudents: Number(listRow.free_student_threshold) || 0,
+        freePercent: require("./dynamicPricing").freeStudentPercent(listRow),
+        freeMonths: require("./dynamicPricing").freeStudentMonths(listRow),
+      },
+      monthIndex,
+    };
   }
   const plan = (await db.query(
     `SELECT p.total_cost, COALESCE(SUM(f.price_usd), 0) AS feature_sum
@@ -281,6 +390,10 @@ async function schoolBill(db, organizationId, standardMonthly, { overrides, usag
 }
 
 module.exports = {
+  normalizeFreeStudents,
+  withSchoolFree,
+  paidSince,
+  paidMonthIndex,
   MAX_DISCOUNT,
   parsePrice,
   standardAddonPrices,

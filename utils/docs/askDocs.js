@@ -112,7 +112,8 @@ const keyWords = (text) => words(text).filter((w) => w.length > 1 && !STOP.has(w
 // ---------- the guides, cut into pieces ----------
 const decode = (s) => String(s || "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
   .replace(/&quot;/g, '"').replace(/&#39;|&rsquo;|&lsquo;/g, "'").replace(/&ldquo;|&rdquo;/g, '"').replace(/&mdash;/g, "—").replace(/&ndash;/g, "–");
-const textOf = (html) => decode(plain(String(html || "").replace(/<figure[\s\S]*?<\/figure>/g, " ")));
+// A bold word in a sentence ("Open <strong>PayGira</strong>, then") leaves no space before the comma.
+const textOf = (html) => decode(plain(String(html || "").replace(/<figure[\s\S]*?<\/figure>/g, " "))).replace(/\s+([,.;:!?)])/g, "$1").replace(/\(\s+/g, "(");
 const anchorOf = (text) => textOf(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "section";
 
 // The pieces of one guide, in order, each with its heading and the anchor of its section.
@@ -179,6 +180,7 @@ function piecesOf(article) {
 }
 
 // ---------- the index ----------
+const plainWords = (text) => String(text || "").toLowerCase().replace(/&amp;/g, "&").replace(/[^a-z0-9]+/g, " ").trim();
 // Two levels: which guide answers the question (its title, tags, summary, headings and text),
 // then which part of that guide answers it (each piece's own words).
 const K1 = 1.2;
@@ -210,8 +212,10 @@ function buildIndex(articles) {
     add(keyWords([article.topic, article.subtopic].filter(Boolean).join(" ")), GUIDE_FIELDS.tags * 0.5);
     add(keyWords(article.seoDescription), GUIDE_FIELDS.summary);
     const headings = new Set();
+    const sectionTitles = new Set();
     own.forEach((piece) => {
       if (piece.kind === "summary") return;
+      if (piece.heading && piece.kind !== "faq") sectionTitles.add(piece.heading);
       if (piece.heading && !headings.has(piece.heading)) { headings.add(piece.heading); add(keyWords(piece.heading), GUIDE_FIELDS.heading); }
       const body = keyWords(piece.text);
       length += body.length;
@@ -221,6 +225,11 @@ function buildIndex(articles) {
       article, tf, length: Math.max(length, 20), titleWords: [...new Set(keyWords(article.title))], pieces: [],
       // Section titles and FAQ questions: a question that is one of them finds its guide.
       headingWords: [...headings].map((heading) => [...new Set(keyWords(heading))]).filter((list) => list.length),
+      // Its keywords, each as said: a question that is one of them finds its guide.
+      tagWords: [...(article.tags || []), ...(article.keywords || [])].map((tag) => [...new Set(keyWords(tag))]).filter((list) => list.length),
+      // Its title, keywords and section titles as said, for a question that is exactly one of them.
+      names: new Set([article.title, ...(article.tags || []), ...(article.keywords || []), ...sectionTitles].map((name) => plainWords(String(name).replace(/^\d+\.\s*/, ""))).filter(Boolean)),
+      subjects: new Set([article.title, ...(article.tags || []), ...(article.keywords || [])].map(plainWords).filter(Boolean)),
     };
     own.forEach((piece) => {
       const ptf = new Map();
@@ -242,7 +251,56 @@ function buildIndex(articles) {
     };
   };
   const avg = (docs) => docs.reduce((sum, doc) => sum + doc.length, 0) / Math.max(1, docs.length);
-  return { guides, pieces, guideIdf: idfOf(guides), pieceIdf: idfOf(pieces), guideAvg: avg(guides), pieceAvg: avg(pieces) };
+  // Every word the guides use, with how many guides use it: a misspelt word is read as the
+  // nearest of these.
+  const vocab = new Map();
+  guides.forEach((guide) => guide.tf.forEach((_v, w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
+  return { guides, pieces, vocab, guideIdf: idfOf(guides), pieceIdf: idfOf(pieces), guideAvg: avg(guides), pieceAvg: avg(pieces) };
+}
+
+// Letters changed, added, dropped or swapped between two words, up to a limit.
+function editDistance(a, b, limit) {
+  if (Math.abs(a.length - b.length) > limit) return limit + 1;
+  let prev2 = null;
+  let prev = Array.from({ length: b.length + 1 }, (_v, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      let d = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, prev2[j - 2] + 1);
+      row.push(d);
+      best = Math.min(best, d);
+    }
+    if (best > limit) return limit + 1;
+    prev2 = prev;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+// The word the guides use that a misspelt word most likely means ("attendence"), or null.
+function corrected(index, word) {
+  if (word.length < 4 || /\d/.test(word)) return null;
+  const limit = word.length >= 7 ? 2 : 1;
+  let best = null;
+  index.vocab.forEach((count, known) => {
+    if (known.length < 3 || known[0] !== word[0] && known[1] !== word[1]) return;
+    const d = editDistance(word, known, limit);
+    if (d <= limit && (!best || d < best.d || (d === best.d && count > best.count))) best = { known, d, count };
+  });
+  return best ? best.known : null;
+}
+
+// The question with each misspelt word read as the nearest word the guides use, before
+// phrases like "google classroom" are joined.
+function correctText(index, text) {
+  return String(text || "").replace(/[A-Za-z][A-Za-z’']*/g, (raw) => {
+    const lower = raw.toLowerCase().replace(/[’']/g, "");
+    const known = stem(IRREGULAR[lower] || lower);
+    if (lower.length < 4 || STOP.has(lower) || STOP.has(known) || index.vocab.has(known) || index.vocab.has(lower) || ALTS.has(known) || ALTS.has(lower)) return raw;
+    return corrected(index, known) || raw;
+  });
 }
 
 let cached = { source: null, index: null };
@@ -294,7 +352,7 @@ function match(doc, groups, idf, avgLength, b = B) {
 
 // Questions whose answer is a page of the site, not a guide.
 const PAGES = [
-  { test: /\b(how much|price|prices|pricing|cost|costs|fee for managira|plans?)\b/i, unless: /\b(text|sms|whatsapp|bill|fee|tuition|parent|student|paygira|invoice|late fee|bus)\b/i,
+  { test: /\b(how much|price|prices|pricing|cost|costs|fee for managira|plans|(which|what|our|my|a|the|starter|pro|premium) plan)\b/i, unless: /\b(text|sms|whatsapp|bill|fee|tuition|parent|student|paygira|invoice|late fee|bus)\b/i,
     answer: { mode: "text", title: "Plans and prices", lines: ["Managira has three plans, Starter, Pro and Premium, each with a free trial. The Pricing page shows what each one includes and what it costs for your number of students."] },
     source: { title: "Pricing", url: "/account/service-plan" } },
   { test: /\b(demo|talk to (sales|someone|a person)|contact (you|sales|support|managira)|support team|speak to)\b/i,
@@ -306,13 +364,17 @@ function ask(question, articles) {
   const q = String(question || "").trim().slice(0, 300);
   if (!q) return { type: "empty" };
   if (SMALL_TALK.test(q)) return { type: "small_talk" };
-  const page = PAGES.find((entry) => entry.test.test(q) && !(entry.unless && entry.unless.test(q)));
-  if (page) return { type: "answer", confidence: "sure", answer: page.answer, source: { ...page.source, section: "", excerpt: "" }, related: [] };
   const index = indexFor(articles);
+  const asked = correctText(index, q);
+  // The question is exactly one guide's title, keyword or section title: that guide answers it.
+  const said = plainWords(asked.replace(/^\d+\.\s*/, ""));
+  const ownerGuides = index.guides.filter((guide) => guide.names.has(said));
+  const page = !ownerGuides.length && PAGES.find((entry) => entry.test.test(asked) && !(entry.unless && entry.unless.test(asked)));
+  if (page) return { type: "answer", confidence: "sure", answer: page.answer, source: { ...page.source, section: "", excerpt: "" }, related: [] };
   // One group per word asked: the word and the words that mean the same.
   const seen = new Set();
   const groups = [];
-  keyWords(q).forEach((w) => {
+  keyWords(asked).forEach((w) => {
     if (seen.has(w)) return;
     seen.add(w);
     const alts = [...(ALTS.get(w) || [])].filter((a) => !seen.has(a));
@@ -346,14 +408,20 @@ function ask(question, articles) {
     const titleIsAsked = guide.titleWords.length
       ? guide.titleWords.reduce((sum, w) => sum + (askedWords.has(w) ? 1 : askedAlts.has(w) ? 0.4 : 0), 0) / guide.titleWords.length
       : 0;
-    const titleHit = Math.max(0.6 * saidByTitle + 0.4 * titleIsAsked, 0.5 * bestHeadingHit(guide.headingWords, asked, askedTotal, askedWords, askedAlts));
+    const titleHit = Math.max(
+      0.6 * saidByTitle + 0.4 * titleIsAsked,
+      0.5 * bestHeadingHit(guide.headingWords, asked, askedTotal, askedWords, askedAlts),
+      0.7 * bestHeadingHit(guide.tagWords, asked, askedTotal, askedWords, askedAlts)
+    );
     return { guide, score: m.score * (1 + 0.5 * titleHit) + 4.5 * titleHit, coverage: m.coverage };
   }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
   const closest = guides.slice(0, 3).map((entry) => ({ title: entry.guide.article.title, url: docUrl(entry.guide.article, "") }));
   if (!guides.length) return { type: "no_results", closest };
 
   // 2. The part of each of the top guides that answers it; the guide's place counts most.
+  const owner = ownerGuides.length === 1 ? guides.find((entry) => entry.guide === ownerGuides[0]) || null : null;
   const top = guides.slice(0, 4);
+  if (owner && !top.includes(owner)) top.push(owner);
   const topScore = top[0].score;
   const kindBoost = { faq: 1.1, step: howTo ? 1.35 : 1.05, item: 1.05, row: 1.03, para: 1, summary: whatIs ? 1.6 : 0.85, code: 0.8 };
   const candidates = [];
@@ -370,16 +438,20 @@ function ask(question, articles) {
   // Within the guide that answers it, a part under a section title that says what was asked
   // counts a little more (it picks the section, not the guide).
   const askedList = groups.map((g) => ({ w: g.word, alts: g.alts, n: g.scale < 1 ? 0.5 : 1 }));
+  // A bare keyword or two ("paygira", "report cards"): the guide that owns the subject decides,
+  // not one paragraph of another guide that mentions it.
+  const guideWeight = groups.filter((g) => g.scale === 1).length <= 2 && !howTo ? 0.85 : 0.7;
   const askedSum = askedList.reduce((sum, a) => sum + a.n, 0) || 1;
   candidates.forEach((c) => {
     const leading = c.entry.score >= topScore * 0.95;
     const heading = leading && c.piece.piece.heading && c.piece.piece.heading !== c.piece.article.title ? [...new Set(keyWords(c.piece.piece.heading))] : [];
     const headingHit = heading.length ? bestHeadingHit([heading], askedList, askedSum, askedWords, askedAlts) : 0;
-    c.total = 0.7 * (c.entry.score / topScore) + 0.3 * (c.pieceScore / bestPiece) + 0.12 * headingHit;
+    c.total = guideWeight * (c.entry.score / topScore) + (1 - guideWeight) * (c.pieceScore / bestPiece) + 0.12 * headingHit + (c.entry === owner ? 0.5 : 0);
   });
   candidates.sort((a, b) => b.total - a.total);
   let win = candidates[0];
-  if (whatIs) {
+  // "What is X", or just the name of a guide's subject ("paygira"): the guide's overview.
+  if (whatIs || (owner && win.entry === owner && owner.guide.subjects.has(said) && !howTo)) {
     const summary = candidates.find((c) => c.entry === win.entry && c.piece.piece.kind === "summary" && c.pieceCoverage >= 0.5);
     if (summary) win = summary;
   }

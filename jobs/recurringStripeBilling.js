@@ -364,13 +364,18 @@ async function resolveBillingCycle(periodKey) {
 // and students, or the price Managira set for it, less its discount; the billing cycle's
 // discount on that; then the add-ons it uses and the API allowance for each month of the cycle.
 // Null when there's no price to charge.
+// Free students given for a school's first months count only for the months of this bill
+// inside that time: the plan is priced over the period the bill covers.
 async function schoolChargeUsd(org) {
   const orgPricing = require('../utils/orgPricing');
-  const standard = await orgPricing.standardPlanMonthly(db, org);
+  const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
+  const standard = await orgPricing.standardPlanMonthly(db, org, {
+    periodStart: org.next_payment_end_date || new Date(),
+    periodMonths: Number(periodConfig?.months) || 1,
+  });
   const bill = await orgPricing.schoolBill(db, org.organization_id, standard.monthly);
   const monthlyPrice = bill.plan.monthly;
   if (!(monthlyPrice > 0)) return null;
-  const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
   const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
   const periodMonths = Number(cycleBreakdown.months) || 1;
   const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0)

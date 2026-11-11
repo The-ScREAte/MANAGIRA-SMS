@@ -92,7 +92,12 @@
     });
     // Only http(s) URLs - rejects javascript:/data: hrefs that could
     // otherwise turn a rendered link into a click-to-execute XSS vector.
-    escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    // A link to a Managira page ("/common/calendar") opens it on Managira itself, not on Mira.
+    // Quotes can't end the attribute early.
+    escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?!\/)[^\s)]*)\)/g, function (match, label, url) {
+      var href = url.charAt(0) === "/" ? String(window.MIRA_MAIN_URL || "").replace(/\/$/, "") + url : url;
+      return '<a href="' + href.replace(/"/g, "%22") + '" target="_blank" rel="noopener noreferrer">' + label + "</a>";
+    });
     escaped = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     escaped = escaped.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
     return escaped;
@@ -580,6 +585,136 @@
     return "Looking it up\u2026";
   }
 
+  // ---- Steps (feature mira_steps): what Mira understood, its plan, each lookup and the
+  // check of its answer, shown above the reply as it works, then folded into one line.
+  var STEPS_ON = window.MIRA_STEPS === true;
+  var CHEVRON = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function createStepsPanel(messageEl, bubble, options) {
+    options = options || {};
+    var startedAt = Date.now();
+    var root = document.createElement("div");
+    root.className = "mira-steps" + (options.done ? " is-done" : " is-working");
+    var head = document.createElement("button");
+    head.type = "button";
+    head.className = "mira-steps-head";
+    head.setAttribute("aria-expanded", options.done ? "false" : "true");
+    var spinner = document.createElement("span");
+    spinner.className = "mira-steps-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    var title = document.createElement("span");
+    title.className = "mira-steps-title";
+    title.setAttribute("aria-live", "polite");
+    title.textContent = "Working on it\u2026";
+    var chevron = document.createElement("span");
+    chevron.className = "mira-steps-chevron";
+    chevron.innerHTML = CHEVRON;
+    head.appendChild(spinner);
+    head.appendChild(title);
+    head.appendChild(chevron);
+    var list = document.createElement("ol");
+    list.className = "mira-steps-list";
+    root.appendChild(head);
+    root.appendChild(list);
+    messageEl.insertBefore(root, bubble);
+    head.addEventListener("click", function () {
+      var open = head.getAttribute("aria-expanded") !== "true";
+      head.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+
+    var byId = {};
+    var count = 0;
+    var pendingTools = [];
+    var finished = false;
+
+    function setRow(row, label, status, detail) {
+      row.className = "mira-step is-" + (status || "done");
+      row.querySelector(".mira-step-label").textContent = label || "";
+      var detailEl = row.querySelector(".mira-step-detail");
+      detailEl.textContent = detail || "";
+      detailEl.hidden = !detail;
+      if (status === "active" && !finished) title.textContent = (label || "Working on it").replace(/\u2026$/, "") + "\u2026";
+    }
+    function addRow(id, label, status, detail) {
+      var row = document.createElement("li");
+      row.innerHTML = '<span class="mira-step-icon" aria-hidden="true"></span><div class="mira-step-body"><div class="mira-step-label"></div><div class="mira-step-detail" hidden></div></div>';
+      list.appendChild(row);
+      if (id) byId[id] = row;
+      count += 1;
+      setRow(row, label, status, detail);
+      scrollToBottom();
+      return row;
+    }
+
+    return {
+      step: function (data) {
+        if (!data || finished) return;
+        var row = data.id && byId[data.id];
+        if (row) setRow(row, data.label, data.status, data.detail);
+        else addRow(data.id, data.label, data.status, data.detail);
+      },
+      plan: function (steps) {
+        if (finished || !steps || !steps.length) return;
+        var row = document.createElement("li");
+        row.className = "mira-step mira-step-plan";
+        row.innerHTML = '<span class="mira-step-icon" aria-hidden="true"></span><div class="mira-step-body"><div class="mira-step-label">Plan</div><ol class="mira-plan"></ol></div>';
+        var planList = row.querySelector(".mira-plan");
+        steps.forEach(function (text) {
+          var item = document.createElement("li");
+          item.textContent = text;
+          planList.appendChild(item);
+        });
+        list.appendChild(row);
+        scrollToBottom();
+      },
+      toolStarted: function (label) {
+        if (finished) return;
+        var row = addRow(null, label, "active");
+        row.setAttribute("data-tool", "1");
+        pendingTools.push(row);
+      },
+      toolFinished: function (status) {
+        var row = pendingTools.shift();
+        if (!row) return;
+        var label = row.querySelector(".mira-step-label").textContent;
+        if (status === "ok") setRow(row, label, "done");
+        else setRow(row, label, "failed", status === "denied" ? "Not available with your permissions" : "This lookup didn't work");
+        row.setAttribute("data-tool", "1");
+      },
+      finish: function (how) {
+        if (finished) return;
+        finished = true;
+        Array.prototype.forEach.call(list.querySelectorAll(".mira-step.is-active"), function (row) {
+          row.className = "mira-step is-" + (how === "done" ? "done" : "stopped");
+        });
+        // A quick reply with nothing understood or looked up needs no steps.
+        if (how === "done" && !options.keep && !byId.understand && !list.querySelector("[data-tool]")) {
+          root.remove();
+          return;
+        }
+        root.className = "mira-steps is-done";
+        head.setAttribute("aria-expanded", "false");
+        var seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        var steps = list.querySelectorAll(".mira-step:not(.mira-step-plan)").length;
+        title.textContent = how === "done"
+          ? "Worked through " + steps + " step" + (steps === 1 ? "" : "s") + (options.done ? "" : " \u00b7 " + seconds + "s")
+          : "Stopped";
+      },
+    };
+  }
+
+  // A saved reply shows what was looked up, folded.
+  function appendStoredSteps(messageEl, bubble, toolCalls) {
+    var calls = (Array.isArray(toolCalls) ? toolCalls : []).filter(function (call) { return call && call.name; });
+    if (!STEPS_ON || !calls.length) return;
+    var panel = createStepsPanel(messageEl, bubble, { done: true, keep: true });
+    calls.forEach(function (call) {
+      panel.toolStarted(call.label || describeTool(call.name).replace(/\u2026$/, ""));
+      panel.toolFinished(call.status || "ok");
+    });
+    panel.finish("done");
+  }
+
   function appendAssistantMessage() {
     var el = document.createElement("div");
     el.className = "mira-message mira-message-assistant";
@@ -668,6 +803,8 @@
           if (eventName === "chat") handlers.onChat?.(data);
           else if (eventName === "token") handlers.onToken?.(data);
           else if (eventName === "revise") handlers.onRevise?.(data);
+          else if (eventName === "step") handlers.onStep?.(data);
+          else if (eventName === "plan") handlers.onPlan?.(data);
           else if (eventName === "tool_call") handlers.onToolCall?.(data);
           else if (eventName === "tool_result") handlers.onToolResult?.(data);
           else if (eventName === "error") handlers.onError?.(data.message);
@@ -729,6 +866,11 @@
     var rawText = ""; // markdown source, kept separate from the rendered HTML so copy/download get real markdown back
     var receivedFirstToken = false;
     var messageIdRef = { id: null, feedback: null };
+    var steps = null;
+    function stepsPanel() {
+      if (!steps) steps = createStepsPanel(assistant.el, bubble);
+      return steps;
+    }
     setThreadLogoWorking(true);
 
     function finishSending() {
@@ -747,6 +889,8 @@
         if (!receivedFirstToken) {
           receivedFirstToken = true;
           setThreadLogoWorking(false);
+          // The answer comes only after every step: the steps fold into one line above it.
+          if (STEPS_ON && steps) steps.finish("done");
         }
         rawText += data.text;
         setThinkingLabel("");
@@ -761,14 +905,21 @@
         receivedFirstToken = false;
         setThreadLogoWorking(true);
       },
-      onToolCall: function (data) { setThinkingLabel(describeTool(data && data.name)); },
-      onToolResult: function () {},
+      onStep: function (data) { if (STEPS_ON) stepsPanel().step(data); },
+      onPlan: function (data) { if (STEPS_ON) stepsPanel().plan(data && data.steps); },
+      onToolCall: function (data) {
+        if (STEPS_ON) stepsPanel().toolStarted((data && data.label) || describeTool(data && data.name).replace(/\u2026$/, ""));
+        else setThinkingLabel(describeTool(data && data.name));
+      },
+      onToolResult: function (data) { if (steps) steps.toolFinished(data && data.status); },
       onError: function (message) {
+        if (steps) steps.finish("stopped");
         bubble.textContent = message || "Something went wrong.";
         setThreadLogoWorking(false);
         finishSending();
       },
       onAbort: function () {
+        if (steps) steps.finish("stopped");
         setThreadLogoWorking(false);
         if (rawText.trim()) {
           rawText += " [stopped]";
@@ -785,6 +936,7 @@
         refreshHistory();
       },
       onDone: function (data) {
+        if (steps) steps.finish("done");
         setThreadLogoWorking(false);
         messageIdRef.id = data.messageId || null;
         var actions = buildMessageActions(function () { return rawText; }, messageIdRef);
@@ -1346,6 +1498,7 @@
     bubble.className = "mira-message-bubble";
     bubble.innerHTML = renderMarkdown(message.content);
     el.appendChild(bubble);
+    appendStoredSteps(el, bubble, message.tool_calls);
 
     var messageIdRef = { id: message.id, feedback: message.feedback || null };
     var actions = buildMessageActions(function () { return message.content; }, messageIdRef);
@@ -1412,6 +1565,106 @@
     updateChatTopbar("New chat", false);
     closeChatTopbarMenu();
   };
+
+  // ---- Enhance: the draft made into a clear request before it's sent; Undo puts the
+  // person's own words back until they edit or send it.
+  var SPARK_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 2.2l1.05 2.95L10.5 6.2 7.55 7.25 6.5 10.2 5.45 7.25 2.5 6.2l2.95-1.05L6.5 2.2z" fill="currentColor"/><path d="M12 8.6l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6z" fill="currentColor"/><path d="M11.6 1.8l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4.4-1z" fill="currentColor"/></svg>';
+  var UNDO_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5.5 4L2.5 7l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 7h6.5a4 4 0 010 8H7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+  function wireEnhance(buttonId) {
+    var btn = document.getElementById(buttonId);
+    if (!btn) return;
+    var input = document.getElementById(btn.getAttribute("data-input"));
+    if (!input) return;
+    var original = null; // the person's own words while Undo is offered
+    var enhanced = null;
+    var busy = false;
+    var noteTimer = null;
+
+    function show(icon, label, state) {
+      btn.innerHTML = icon + '<span class="mira-enhance-label"></span>';
+      btn.querySelector(".mira-enhance-label").textContent = label;
+      btn.classList.toggle("is-busy", state === "busy");
+      btn.classList.toggle("is-undo", state === "undo");
+      btn.setAttribute("aria-label", state === "undo" ? "Undo enhance" : label);
+    }
+    function reset() {
+      original = null;
+      enhanced = null;
+      show(SPARK_ICON, "Enhance");
+      sync();
+    }
+    function sync() {
+      if (busy) return;
+      btn.disabled = original === null && input.value.trim().length < 3;
+    }
+    function note(text) {
+      show(SPARK_ICON, text);
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(function () { if (!busy && original === null) show(SPARK_ICON, "Enhance"); }, 1800);
+    }
+    function setValue(text) {
+      input.value = text;
+      input.dispatchEvent(new Event("input"));
+      input.focus();
+      input.setSelectionRange(text.length, text.length);
+    }
+
+    input.addEventListener("input", function () {
+      if (original !== null && input.value !== enhanced) reset();
+      else sync();
+    });
+    var form = input.closest("form");
+    if (form) form.addEventListener("submit", function () { setTimeout(reset, 0); });
+
+    btn.addEventListener("click", function () {
+      if (busy) return;
+      if (original !== null) {
+        var back = original;
+        reset();
+        setValue(back);
+        return;
+      }
+      var draft = input.value.trim();
+      if (draft.length < 3) return;
+      busy = true;
+      btn.disabled = true;
+      input.readOnly = true;
+      show(SPARK_ICON, "Enhancing…", "busy");
+      var selectedClass = window.MIRA_SELECTED_CLASS;
+      miraFetch("/api/chat/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: draft,
+          chatId: currentChatId,
+          className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
+        }),
+      })
+        .then(function (r) { return r.json().then(function (data) { if (!r.ok) throw new Error(data.error || "failed"); return data; }); })
+        .then(function (data) {
+          busy = false;
+          input.readOnly = false;
+          // Sent or changed meanwhile: leave the person's text alone.
+          if (input.value.trim() !== draft) { reset(); return; }
+          if (!data.changed || !data.text) { sync(); note("Already clear"); return; }
+          original = input.value;
+          enhanced = data.text;
+          setValue(data.text);
+          show(UNDO_ICON, "Undo", "undo");
+          btn.disabled = false;
+        })
+        .catch(function () {
+          busy = false;
+          input.readOnly = false;
+          sync();
+          note("Try again");
+        });
+    });
+    sync();
+  }
+  wireEnhance("miraEnhanceBtn");
+  wireEnhance("miraEnhanceBtnDocked");
 
   refreshHistory();
 

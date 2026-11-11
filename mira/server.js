@@ -52,11 +52,13 @@ app.use(require("./routes/authRoute"));
 app.get("/", pageAuth, tenantScope, requireMiraActivated, async (req, res) => {
   // Settings shows what Mira can do for this person, from their own permissions.
   const { loadAccess, accessSummary } = require("./services/access");
-  const access = accessSummary(req.tenant, await loadAccess(req.tenant));
+  const fullAccess = await loadAccess(req.tenant);
+  const access = accessSummary(req.tenant, fullAccess);
   res.render("index", {
     title: "Mira",
     tenant: req.tenant,
     access,
+    miraSteps: Boolean(fullAccess.features && fullAccess.features.mira_steps),
     mainAppUrl: MAIN_APP_PUBLIC_URL,
   });
 });

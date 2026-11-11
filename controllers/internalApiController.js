@@ -440,7 +440,7 @@ async function getMiraActivationStatusApi(req, res) {
 // Mira offers only the tools they can use and tells them plainly what they
 // can't do, and why: not given to them, or not in the school's plan.
 // Parents and students hold no staff permission.
-const MIRA_FEATURES = ["mira_outreach"];
+const MIRA_FEATURES = ["mira_outreach", "mira_steps"];
 async function getMiraAccessApi(req, res) {
   try {
     const organizationId = parseInt(req.query.organizationId, 10);

@@ -46,6 +46,7 @@
             <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M11 5.5l-5 5a2 2 0 102.8 2.8l5-5a3.5 3.5 0 10-5-5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </button>
           <textarea id="miraInput" rows="1" placeholder="Ask Mira anything"></textarea>
+          <% if (miraSteps) { %><button type="button" class="mira-enhance-btn" id="miraEnhanceBtn" data-input="miraInput" title="Make your request clearer before you send it" disabled><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 2.2l1.05 2.95L10.5 6.2 7.55 7.25 6.5 10.2 5.45 7.25 2.5 6.2l2.95-1.05L6.5 2.2z" fill="currentColor"/><path d="M12 8.6l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6z" fill="currentColor"/><path d="M11.6 1.8l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4.4-1z" fill="currentColor"/></svg><span class="mira-enhance-label">Enhance</span></button><% } %>
           <button type="button" class="mira-icon-btn" id="miraMicBtn" aria-label="Voice input" title="Voice input">
             <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><rect x="6" y="2" width="4" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M4 8a4 4 0 008 0M8 12v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </button>
@@ -128,7 +129,8 @@
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M11 5.5l-5 5a2 2 0 102.8 2.8l5-5a3.5 3.5 0 10-5-5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
             </button>
             <textarea id="miraInputDocked" rows="1" placeholder="Ask Mira anything"></textarea>
-            <button type="button" class="mira-icon-btn" id="miraMicBtnDocked" aria-label="Voice input" title="Voice input">
+            <% if (miraSteps) { %><button type="button" class="mira-enhance-btn" id="miraEnhanceBtnDocked" data-input="miraInputDocked" title="Make your request clearer before you send it" disabled><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.5 2.2l1.05 2.95L10.5 6.2 7.55 7.25 6.5 10.2 5.45 7.25 2.5 6.2l2.95-1.05L6.5 2.2z" fill="currentColor"/><path d="M12 8.6l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6z" fill="currentColor"/><path d="M11.6 1.8l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4.4-1z" fill="currentColor"/></svg><span class="mira-enhance-label">Enhance</span></button><% } %>
+          <button type="button" class="mira-icon-btn" id="miraMicBtnDocked" aria-label="Voice input" title="Voice input">
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><rect x="6" y="2" width="4" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M4 8a4 4 0 008 0M8 12v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
             </button>
             <button type="submit" class="mira-icon-btn mira-send-btn" id="miraSendBtnDocked" aria-label="Send" disabled>
@@ -146,6 +148,8 @@
 
 <script>
   window.MIRA_TENANT = <%- JSON.stringify(tenant) %>;
+  window.MIRA_STEPS = <%- JSON.stringify(Boolean(miraSteps)) %>;
+  window.MIRA_MAIN_URL = <%- JSON.stringify(mainAppUrl || "") %>;
 </script>
 <script src="/js/mira-logo.js" defer></script>
 <script src="/js/mira-app.js" defer></script>

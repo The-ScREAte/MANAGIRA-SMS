@@ -8,7 +8,7 @@ module.exports = [
     topic: "Billing & subscriptions",
     order: 1,
     summary: "Understand why renewal can change based on student count and billing cycle choices.",
-    tags: ['renewal', 'student count', 'billing cycles', 'subscription amount'],
+    tags: ['renewal', 'student count', 'billing cycles', 'subscription amount', 'free students'],
     rawHtml: `
       <h2>Overview</h2>
       <p>Renewal is not always a permanently fixed number. It can change as your active student count changes.</p>
@@ -17,6 +17,7 @@ module.exports = [
         <li><strong>Student count:</strong> Higher active student counts can move the school into a different pricing tier.</li>
         <li><strong>Billing cycle:</strong> Monthly, term, yearly, or other cycle options can change total amount and discount behavior.</li>
         <li><strong>Plan and region pricing:</strong> The selected plan and location pricing rules are applied at checkout and renewal.</li>
+        <li><strong>Free students for your first months:</strong> Some plans include free students only for your first months. After them, every student is charged, and a bill that covers several months counts the free students only for the months still inside that time. <strong>Settings</strong>, <strong>Billing &amp; Plan</strong> shows until when yours are free.</li>
       </ul>
       <h2>What schools should do</h2>
       <ol>

@@ -102,7 +102,7 @@
                     <td class="ap-price">
                       <% if (p) { %>
                         <strong><%= _money(p.base_price_usd) %></strong><span class="ap-per">/mo</span>
-                        <span class="ah-sub"><%= p.free_student_percent != null ? `${Number(p.free_student_percent)}% included` : `${Number(p.free_student_threshold)} included` %> · <%= _rate(p.per_student_rate_usd) %>/student/<%= Number(region.term_months) === 1 ? 'mo' : 'term' %></span>
+                        <span class="ah-sub"><%= p.free_student_percent != null ? `${Number(p.free_student_percent)}% included` : `${Number(p.free_student_threshold)} included` %><%= p.free_student_months ? ` for ${Number(p.free_student_months) === 1 ? '1 month' : `${Number(p.free_student_months)} months`}` : '' %> · <%= _rate(p.per_student_rate_usd) %>/student/<%= Number(region.term_months) === 1 ? 'mo' : 'term' %></span>
                       <% } else { %><span class="ah-off">Not set</span><% } %>
                     </td>
                   <% }) %>

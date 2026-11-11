@@ -103,7 +103,7 @@ module.exports = [
         ],
       },
       {
-        title: "Set it up",
+        title: "Set up and turn on single sign-on",
         steps: [
           ["Open <strong>Settings</strong>, then <strong>Tenant configuration</strong>, and scroll to <strong>Single sign-on</strong>. Under <strong>1. Your provider</strong>, choose yours (Google Workspace, Microsoft Entra ID, Okta, OneLogin and more) and the protocol (SAML or OpenID Connect).", "sso-settings.webp", "Settings, Tenant configuration, Single sign-on: choose your provider, then give your IT team the addresses shown."],
           "Select <strong>Copy all for our IT team</strong>. It copies the addresses your provider needs: for SAML the <strong>ACS URL (Reply URL)</strong> and <strong>Entity ID (Audience)</strong>; for OpenID Connect the redirect address and the scopes <code>openid email profile</code>.",

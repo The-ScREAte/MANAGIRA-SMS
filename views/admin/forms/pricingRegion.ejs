@@ -35,29 +35,39 @@
 
     <section class="ahd-section">
       <h3 class="ahd-section__title">Prices</h3>
-      <p class="ahd-section__sub">A month's price, the students it includes (a number, or a share of the school's students), and the price for each student above that, per term (per month when a term is 1 month).</p>
+      <p class="ahd-section__sub">A month's price, the students it includes (a number, or a share of the school's students), and the price for each student above that, per term (per month when a term is 1 month). Under each plan's free students, choose how long they last: always, or a school's first months (counted from its first paid day); after them, every student is charged. To give one school something different, open it in Organizations, then Pricing.</p>
       <table class="ap-plan-prices">
         <thead><tr><th>Plan</th><th>A month</th><th>Free students</th><th>Per extra student, a <%= Number(_r.term_months) === 1 ? 'month' : 'term' %></th></tr></thead>
         <tbody>
           <% plans.forEach((plan) => { const p = _price(plan.id); %>
             <tr>
               <td><%= plan.plan_name.split('/')[0].trim() %></td>
-              <td><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="prices[plan_<%= plan.id %>][base]" class="ahb-input" value="<%= p ? _n(p.base_price_usd, 2) : '' %>" placeholder="0.00" aria-label="<%= plan.plan_name %>: a month" /></span></td>
+              <td data-label="A month"><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="prices[plan_<%= plan.id %>][base]" class="ahb-input" value="<%= p ? _n(p.base_price_usd, 2) : '' %>" placeholder="0.00" aria-label="<%= plan.plan_name %>: a month" /></span></td>
               <% const pct = p && p.free_student_percent != null; %>
-              <td>
+              <td data-label="Free students">
                 <span class="ap-free">
                   <input type="number" min="0" step="any" name="prices[plan_<%= plan.id %>][free]" class="ahb-input" value="<%= p ? (pct ? Number(p.free_student_percent) : Number(p.free_student_threshold)) : '' %>" placeholder="0" aria-label="<%= plan.plan_name %>: free students" />
                   <select name="prices[plan_<%= plan.id %>][freeUnit]" class="ahb-input" aria-label="<%= plan.plan_name %>: free students as">
                     <option value="count" <%= pct ? '' : 'selected' %>>students</option>
                     <option value="percent" <%= pct ? 'selected' : '' %>>%</option>
                   </select>
+                  <% { %>
+                    <% const _months = p && p.free_student_months ? Number(p.free_student_months) : null; %>
+                    <select name="prices[plan_<%= plan.id %>][freeMonths]" class="ahb-input ap-free-for" aria-label="<%= plan.plan_name %>: free students for how long"<% if (!freeMonthsReady) { %> disabled title="Needs the 2026-11-20 database update"<% } %>>
+                      <option value="" <%= _months ? '' : 'selected' %>>Always</option>
+                      <% freeMonthsChoices.concat(_months && !freeMonthsChoices.includes(_months) ? [_months] : []).sort((a, b) => a - b).forEach((n) => { %>
+                        <option value="<%= n %>" <%= _months === n ? 'selected' : '' %>>For the first <%= n === 1 ? 'month' : `${n} months` %></option>
+                      <% }) %>
+                    </select>
+                  <% } %>
                 </span>
               </td>
-              <td><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="prices[plan_<%= plan.id %>][rate]" class="ahb-input" value="<%= p ? Number(p.per_student_rate_usd) : '' %>" placeholder="0.00" aria-label="<%= plan.plan_name %>: per student a term" /></span></td>
+              <td data-label="Per extra student, a <%= Number(_r.term_months) === 1 ? 'month' : 'term' %>"><span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="prices[plan_<%= plan.id %>][rate]" class="ahb-input" value="<%= p ? Number(p.per_student_rate_usd) : '' %>" placeholder="0.00" aria-label="<%= plan.plan_name %>: per student a term" /></span></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
+      <% if (!freeMonthsReady) { %><p class="ahd-section__sub" style="margin-top:8px;color:#b45309">Choosing how long free students last needs the 2026-11-20 database update first.</p><% } %>
     </section>
 
     <section class="ahd-section">

@@ -24,6 +24,7 @@ const FEATURES = {
   plan_page: { label: "Plan page and plan lists: each plan lists only what it adds (\"Everything in Starter, plus\"), Most popular on Pro, whole-dollar prices and an example (release to everyone to show it to visitors)", access: "everyone" },
   teacher_class_scope: { label: "Teachers open the gradebook and report cards of their own classes and subjects only", access: "everyone" },
   plan_catalog: { label: "Plans & add-ons: every plan includes the core of Managira, Report Builder is its own plan feature, and schools switch the parent portal on in Integrations", access: "everyone" },
+  mira_steps: { label: "Mira: an Enhance button that makes a request clear before it's sent, and the steps Mira takes (what it understood, its plan, each lookup, checking the answer) shown as it works", access: "everyone" },
   assessment_flow: { label: "Assessments: grades wait for the teacher's approval before parents see them; gradebook columns, + to add an assessment and its questions, picture questions, and sharing finished tests with parents", access: "everyone" },
 };
 

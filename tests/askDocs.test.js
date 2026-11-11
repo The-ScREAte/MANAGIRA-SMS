@@ -38,6 +38,19 @@ const QUESTIONS = [
   ["how do I sync my calendar with google", "calendar-sync-google-outlook-apple"],
   ["how do students take a test", "student-testing-room"],
   ["what can mira do", "mira-ai-capabilities"],
+  // Misspelt words are read as the guides' words.
+  ["how do i take attendence", "mark-attendance-for-a-class"],
+  ["how do i reset my pasword", "reset-a-password-or-recover-account-access"],
+  ["googel classroom", "integrations"],
+  ["paygria", "set-up-paygira-bills-collections-and-guardian-payments"],
+  // A guide's exact keyword, title or section title is that guide.
+  ["paygira", "set-up-paygira-bills-collections-and-guardian-payments"],
+  ["Understand localized pricing, currency detection, and USD fallback", "understand-localized-pricing-currency-and-usd-fallback"],
+  ["2. Plan the promotion", "promote-students-and-manage-graduation"],
+  ["how do i turn on single sign on", "single-sign-on"],
+  ["how do I print report cards for the whole class", "report-card"],
+  ["how do i delete a student", "edit-student-information"],
+  ["how do parents pay fees online", "set-up-paygira-bills-collections-and-guardian-payments"],
 ];
 
 test("real questions find the guide that answers them", () => {

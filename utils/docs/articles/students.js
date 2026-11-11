@@ -82,7 +82,7 @@ module.exports = [
     topic: "Students & admissions",
     order: 3,
     summary: "Open a student from search or their class to update their details, photo, class, parents and the extra fields your school collects.",
-    tags: ["edit student", "student profile", "student details", "update student"],
+    tags: ["edit student", "student profile", "student details", "update student", "delete student", "remove student", "archive student"],
     who: "Managers and staff given the <strong>Edit students</strong> permission. Teachers can view their own students.",
     sections: [
       {
@@ -105,6 +105,7 @@ module.exports = [
     faq: [
       ["Who sees what I change?", "Staff with access to the student, and the student's parents for the parts they can see in the parent portal."],
       ["Can parents correct details themselves?", "Parents can update the emergency and pickup sections your school shares with them. See <a href=\"/legal/user-documentation/emergency-and-pickup-details\">Emergency &amp; pickup details</a>."],
+      ["How do I remove or delete a student who left?", "Open <strong>Admissions</strong>, then <strong>Graduate &amp; Withdraw</strong>, choose the students and archive them as graduated or as having left. They come off the register and their records are kept; find them again in <strong>Graduates &amp; Alumni</strong>. <strong>Delete student</strong>, on the student's page, is only for a student added by mistake who has no scores, attendance, report cards or payments."],
     ],
     related: ["find-students", "transfer-a-student-between-classes-and-subject-matching", "create-manage-parent"],
   },

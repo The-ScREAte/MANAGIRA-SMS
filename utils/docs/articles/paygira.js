@@ -33,13 +33,17 @@ module.exports = [
       },
       {
         title: "3. How parents pay",
-        text: "Parents open PayGira in the parent portal, where each child's bills due are listed, and select <strong>Pay</strong>. They pay by card or any other way your school offers online, or see how to pay at the office. The payment updates their balance and they get a receipt by email, at once.",
+        steps: [
+          "Parents open <strong>PayGira</strong> in the parent portal, where each child's bills and fees due are listed.",
+          "They select <strong>Pay</strong> and pay online by card or any other way your school offers (such as Apple Pay, Google Pay, Link or Cash App Pay), or see how to pay at the office.",
+          "The payment updates their balance at once, and they get a receipt by email.",
+        ],
       },
       {
-        title: "Choose how parents can pay online",
+        title: "Turn on Apple Pay, Google Pay and other ways to pay",
         steps: [
           "Open <strong>PayGira</strong>, then <strong>Settings</strong>.",
-          "Under <strong>Ways parents can pay online</strong>, tick the ones to offer. Card is always offered; the others are those Managira's payment processor has switched on, such as Apple Pay, Google Pay, Link and Cash App Pay.",
+          "Under <strong>Ways parents can pay online</strong>, tick the ones to turn on for your school. Card is always offered; the others are those Managira's payment processor has switched on, such as Apple Pay, Google Pay, Link and Cash App Pay.",
           "Select <strong>Save</strong>. Parents see the ways ticked the next time they pay. Apple Pay and Google Pay show only on devices that support them.",
         ],
       },

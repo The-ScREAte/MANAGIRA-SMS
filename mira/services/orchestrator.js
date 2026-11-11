@@ -10,7 +10,8 @@ const { retrieveContext } = require("./ragService");
 const { checkBudget, recordUsage } = require("./usageLedger");
 const { callInternalApi } = require("../internalApiClient");
 const { loadAccess, checkTool, describeAccess } = require("./access");
-const { unsupportedFigures } = require("./grounding");
+const { unsupportedFigures, wrongWeekdays, unsupportedDates } = require("./grounding");
+const { needsPlan, planTurn, planForModel, toolStepLabel } = require("./planner");
 const {
   LOAD_TOOLS_NAME,
   selectAreas,
@@ -39,6 +40,7 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 
 ## Actions
 - Never guess a required value. Creating/renaming/adding is not destructive: once every value is known, do it.
+- Never fill in details the person didn't give (a location, a description, a time, an amount): leave them out, or ask when they matter. Dates like "next Friday" come from the dates listed under "Coming days".
 - Deletes, emails to parents and similar actions follow the tool's warn-then-confirm flow: show the warning, wait for an explicit yes in a later message, then call again with confirm=true.
 - After any action, say exactly what happened (or why it didn't). If a tool is denied, explain plainly; never claim to have done something you didn't.
 - For questions about the current state, call the tool fresh rather than trusting an older result.
@@ -94,7 +96,7 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: y
 ## Answers
 - Lead with the direct answer; bold the key fact. Use short headings and markdown tables for lists and comparisons. Keep it concise and professional - no emojis.
 - Ground every number and name in tool output. When a tool returns a PDF link, a page link or download links, give them as markdown links. Embed chart image URLs with markdown image syntax.
-- When "Relevant indexed context" from Managira's documentation is provided, answer from it confidently; without it, say you don't have that detail rather than guessing.`;
+- When "Relevant indexed context" from Managira's documentation or a help guide is provided, answer from it confidently, in your own words, and give the guide's link as a markdown link; without it, say you don't have that detail rather than guessing. Never describe menus, buttons or steps that aren't in a guide or a tool result.`;
 
 // A new chat's title is derived from the user's first question rather
 // than left as "New chat" - no model call needed (works the same in mock
@@ -143,6 +145,35 @@ async function loadSchoolCalendar(organizationId) {
   if (schoolContextCache.size >= 1000) schoolContextCache.delete(schoolContextCache.keys().next().value);
   schoolContextCache.set(organizationId, { value, expiresAt: Date.now() + SCHOOL_CONTEXT_TTL_MS });
   return value;
+}
+
+// The next two weeks, each with its weekday, so "next Friday" is never worked out by hand.
+function comingDays(from = new Date()) {
+  const days = [];
+  for (let offset = 1; offset <= 14; offset++) {
+    const day = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() + offset));
+    days.push(`${day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })} = ${day.toISOString().slice(0, 10)}`);
+  }
+  return days.join("; ");
+}
+
+// Managira's help guides, the same ones the help center and its chat answer from (read from
+// code, once). A how-to question gets the part of the guide that answers it.
+const HOW_TO = /^\s*(how|where|what (is|are|does)|what's|whats|why (can't|cant|doesn't|does|is|isn't)|can (i|we|you|parents|teachers|students|staff)|is (it|there) (possible|a way)|explain|steps to|help me (to )?(set|add|find|change|turn|connect|use))\b|\bhow (do|can|to|does)\b/i;
+let helpGuides = null;
+function helpGuideFor(userText) {
+  const question = stripAttachmentBlocks(userText).trim();
+  if (!question || question.length > 300 || !HOW_TO.test(question)) return null;
+  try {
+    if (!helpGuides) helpGuides = require("../../utils/docs/catalog").syncRows();
+    const result = require("../../utils/docs/askDocs").ask(question, helpGuides);
+    if (result.type !== "answer" || !["sure", "likely"].includes(result.confidence)) return null;
+    if (!String(result.source.url || "").startsWith("/legal/user-documentation/")) return null;
+    return result;
+  } catch (error) {
+    console.error("[mira/orchestrator] help guides unavailable, continuing without them:", error.message);
+    return null;
+  }
 }
 
 function formatDay(value) {
@@ -331,12 +362,22 @@ async function buildContextMessages({ tenant, userText, history, classScope, acc
   const messages = [
     {
       role: "system",
-      content: `Today is ${today}. ${calendarLine} The user is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask who they are.\n\nTheir access: ${describeAccess(tenant, access)}`,
+      content: `Today is ${today}. Coming days: ${comingDays()}. ${calendarLine} The user is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask who they are.\n\nTheir access: ${describeAccess(tenant, access)}`,
     },
   ];
 
   if (digest) {
     messages.push({ role: "system", content: `Earlier in this conversation (older messages, shortened - they still count):\n${digest}` });
+  }
+
+  const guide = helpGuideFor(userText);
+  if (guide) {
+    const where = guide.source.section ? `${guide.source.title} › ${guide.source.section}` : guide.source.title;
+    const steps = guide.answer.mode === "steps" ? guide.answer.lines.map((line, index) => `${index + 1}. ${line}`).join(" ") : guide.answer.lines.join(" ");
+    messages.push({
+      role: "system",
+      content: `Relevant indexed context from Managira's help guide "${where}": ${guide.answer.title && guide.answer.title !== guide.source.section ? `${guide.answer.title}: ` : ""}${steps} If it answers the question, answer from it and end with this link on its own line: [Read the guide: ${guide.source.title}](${guide.source.url})`,
+    });
   }
 
   if (matches.length) {
@@ -386,6 +427,32 @@ function imagesForTools(chatId, images) {
   return [];
 }
 
+function usageOf(tenant, pass) {
+  if (!pass) return Promise.resolve();
+  return recordUsage({
+    tenantId: tenant.organizationId,
+    userId: tenant.userId,
+    provider: pass.provider,
+    model: pass.model,
+    promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || pass.usage?.input_tokens || 0,
+    completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || pass.usage?.output_tokens || 0,
+  }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
+}
+
+// At most about a second, in up to 40 pieces cut at spaces.
+const RELEASE_PIECES = 40;
+const RELEASE_GAP_MS = 22;
+async function releaseAnswer(sse, text) {
+  const words = String(text || "").split(/(?<=\s)/);
+  if (!words.length || !text) return;
+  const per = Math.max(1, Math.ceil(words.length / RELEASE_PIECES));
+  for (let index = 0; index < words.length; index += per) {
+    if (sse.closed && sse.closed()) return;
+    sse.send("token", { text: words.slice(index, index + per).join("") });
+    if (index + per < words.length) await new Promise((resolve) => setTimeout(resolve, RELEASE_GAP_MS));
+  }
+}
+
 // sse: { send(event, data) } - a thin wrapper the route layer provides so
 // this module has no direct knowledge of Express's response object.
 async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
@@ -406,7 +473,27 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned, userMessageCreatedAt: userMessage.createdAt });
 
   const access = await accessPromise;
-  const contextMessages = await buildContextMessages({ tenant, userText, history: history.summary, classScope, access, digest: history.digest });
+  // Steps (feature mira_steps): Mira understands and plans the message first, shows each step
+  // as it works, and the answer appears only once it has been checked.
+  const showSteps = Boolean(access.features && access.features.mira_steps);
+  const step = (id, label, status, detail) => {
+    if (showSteps) sse.send("step", detail ? { id, label, status, detail } : { id, label, status });
+  };
+  const planning = showSteps && needsPlan(userText);
+  if (planning) step("understand", "Understanding your request", "active");
+  const [contextMessages, plan] = await Promise.all([
+    buildContextMessages({ tenant, userText, history: history.summary, classScope, access, digest: history.digest }),
+    planning ? planTurn({ userText, history: history.summary, tenant, classScope, onUsage: (pass) => usageOf(tenant, pass) }) : null,
+  ]);
+  if (planning) {
+    if (plan) {
+      step("understand", "Understood your request", "done", plan.understanding);
+      if (plan.steps.length) sse.send("plan", { steps: plan.steps });
+      contextMessages.push({ role: "system", content: planForModel(plan) });
+    } else {
+      step("understand", "Understood your request", "done");
+    }
+  }
   // A tool is offered when the person may use it, and - for one that
   // deletes, removes or undoes - only when they asked for that.
   const mayDestroy = destructiveAllowed(userText, history.summary);
@@ -452,6 +539,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
     const toolCallsInfo = [];
     assistantText = "";
     const roundTools = round < MAX_TOOL_ROUNDS ? selectToolSchemas(allSchemas, areas, allowed) : [];
+    let writing = false;
 
     let pass;
     try {
@@ -461,7 +549,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
         tools: roundTools,
         onToken: (text) => {
           assistantText += text;
-          sse.send("token", { text });
+          if (!showSteps) sse.send("token", { text });
+          else if (!writing) {
+            writing = true;
+            step(`write-${round}`, "Writing the answer", "active");
+          }
         },
         onToolCall: (name, args, id) => {
           // Ids are kept to letters, digits, _ and - (some providers use
@@ -479,32 +571,43 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       break;
     }
 
-    await recordUsage({
-      tenantId: tenant.organizationId,
-      userId: tenant.userId,
-      provider: pass.provider,
-      model: pass.model,
-      promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || pass.usage?.input_tokens || 0,
-      completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || pass.usage?.output_tokens || 0,
-    }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
+    await usageOf(tenant, pass);
 
     if (!toolCallsInfo.length) {
       // Grounding check: a figure that appears in no tool result and no
       // message is sent back once for correction before the reply stands.
-      const unsupported = !revised && round < MAX_TOOL_ROUNDS ? unsupportedFigures(assistantText, evidence) : [];
-      if (!unsupported.length) break;
+      const checking = !revised && round < MAX_TOOL_ROUNDS;
+      const unsupported = checking ? unsupportedFigures(assistantText, evidence) : [];
+      const wrongDays = checking ? wrongWeekdays(assistantText) : [];
+      const unsupportedDays = checking ? unsupportedDates(assistantText, evidence) : [];
+      if (writing) step(`write-${round}`, revised ? "Rewrote the answer using only your school's records" : "Wrote the answer", "done");
+      if (!unsupported.length && !wrongDays.length && !unsupportedDays.length) {
+        if (checking) step("check", "Checked the answer against your school's records", "done");
+        break;
+      }
       revised = true;
-      console.warn(`[mira/orchestrator] reply had figures not found in any tool result (${unsupported.join(", ")}); asking for a correction`);
-      sse.send("revise", {});
+      console.warn(`[mira/orchestrator] reply needs a correction: ${[...unsupported, ...unsupportedDays, ...wrongDays].join(", ")}`);
+      if (showSteps) step("check", unsupported.length ? "Found a figure that isn't in your school's records" : unsupportedDays.length ? "Found a date that isn't in your school's records" : "Found a date with the wrong weekday", "failed");
+      else sse.send("revise", {});
+      const problems = [
+        unsupported.length ? `these figures in your reply don't appear in any tool result or message in this conversation: ${unsupported.join(", ")}. Either call the tool that gives them, or leave them out and say plainly what you couldn't find in Managira.` : "",
+        unsupportedDays.length ? `these dates in your reply don't appear in any tool result or message: ${unsupportedDays.join(", ")}. Read each date again from the tool results (a date of birth like 2011-05-09 is May 9), or leave it out.` : "",
+        wrongDays.length ? `these weekdays don't match their dates: ${wrongDays.join("; ")}. Use the right weekday (see "Coming days") or leave the weekday out.` : "",
+      ].filter(Boolean).join(" Also, ");
       workingMessages = [
         ...workingMessages,
         { role: "assistant", content: assistantText },
         {
           role: "system",
-          content: `Check before this reaches the person: these figures in your reply don't appear in any tool result or message in this conversation: ${unsupported.join(", ")}. Write the reply again. Either call the tool that gives them, or leave them out and say plainly what you couldn't find in Managira. Keep everything that is correct. Give only the corrected reply - don't mention this check.`,
+          content: `Check before this reaches the person: ${problems} Write the reply again. Keep everything that is correct. Give only the corrected reply - don't mention this check.`,
         },
       ];
       continue;
+    }
+
+    if (writing) {
+      const thought = assistantText.replace(/\s+/g, " ").trim();
+      step(`write-${round}`, "Thought it through", "done", thought.length > 240 ? `${thought.slice(0, 240)}...` : thought);
     }
 
     const results = [];
@@ -540,7 +643,8 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
         continue;
       }
 
-      sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
+      const label = toolStepLabel(toolCallInfo.name, toolCallInfo.args);
+      sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args, label });
       // Images attached to this turn reach tools through `context`, never
       // as model-typed arguments (see tools/index.js runTool).
       const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images: toolImages, classScope, access });
@@ -552,7 +656,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       const budgetLeft = TOOL_RESULTS_PER_TURN_MAX_CHARS - toolResultChars;
       const stored = compactToolResult(result, Math.max(400, Math.min(TOOL_RESULT_MAX_CHARS, budgetLeft)));
       toolResultChars += stored.length;
-      toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status, result: stored });
+      toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status, result: stored, label });
       const content = compactToolResult(result, 24000);
       evidence.push(content);
       results.push({ toolCallId: toolCallInfo.id, content });
@@ -573,9 +677,12 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
     return;
   }
 
+  // The checked answer is given in quick pieces, so it still reads as it arrives.
+  if (showSteps) await releaseAnswer(sse, assistantText);
+
   const assistantMessage = await saveMessage(chat.id, "assistant", assistantText, toolCallsThisTurn.length ? toolCallsThisTurn : undefined, classScope);
 
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
-module.exports = { runTurn, loadHistory, deriveTitle, buildDigest };
+module.exports = { runTurn, loadHistory, deriveTitle, buildDigest, helpGuideFor, comingDays };

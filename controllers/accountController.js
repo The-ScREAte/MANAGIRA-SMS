@@ -101,11 +101,15 @@ async function getActivePlanBillingPeriods(dbClient) {
   return [{ period_key: 'monthly', label: 'Monthly', months: 1, discount_percentage: 0 }];
 }
 
+// monthIndex: which month of the school's paid time to price (0 = its first, and for a school
+// that hasn't paid yet); free students given for a time end after their months.
 async function computeOrganizationPlanMonthlyPrice(dbClient, {
   planId,
   fallbackMonthlyUsd,
   studentCount,
   countryCode,
+  monthIndex = 0,
+  schoolFree = null,
 }) {
   const fallbackPrice = Number(fallbackMonthlyUsd || 0);
   const normalizedCount = Math.max(0, Number(studentCount || 0));
@@ -127,7 +131,8 @@ async function computeOrganizationPlanMonthlyPrice(dbClient, {
       };
     }
 
-    const priceRow = pricingMatch.priceRow;
+    // A school's own free students (Admin › Organizations › Pricing) in place of the list's.
+    const priceRow = require("../utils/orgPricing").withSchoolFree(pricingMatch.priceRow, schoolFree);
     const resolvedRegion = pricingMatch.region || region || null;
 
     const dynamicTermDivider = await getDynamicTermDivider(dbClient);
@@ -138,6 +143,7 @@ async function computeOrganizationPlanMonthlyPrice(dbClient, {
     );
     const monthly = computeDynamicMonthlyPrice(priceRow, normalizedCount, {
       termDivider: monthsPerTerm,
+      monthIndex,
     });
 
     return {
@@ -145,6 +151,10 @@ async function computeOrganizationPlanMonthlyPrice(dbClient, {
       pricingMode: 'dynamic',
       region: resolvedRegion,
       threshold: Number(monthly?.threshold || 0),
+      planThreshold: Number(monthly?.planThreshold || 0),
+      freeMonths: monthly?.freeMonths ?? null,
+      freeEnded: Boolean(monthly?.freeEnded),
+      freeMonthsLeft: monthly?.freeMonthsLeft ?? null,
       extraStudents: Number(monthly?.extraStudents || 0),
       perStudentRateUsd: Number(monthly?.perStudentRate || 0),
       termStudentCostUsd: Number(monthly?.termStudentCost || 0),
@@ -415,6 +425,7 @@ const {
 const {
   computeDynamicMonthlyPrice,
   freeStudentPercent,
+  freeStudentMonths,
   applyCycle,
   getRegionForCountry,
   getBestPlanRegionPrice,
@@ -2492,6 +2503,8 @@ const accountController = {
               basePriceUsd: Number(row.base_price_usd || 0),
               freeStudentThreshold: freePercent != null ? null : threshold,
               freeStudentPercent: freePercent,
+              // Free students for a new school's first months only (null: always).
+              freeStudentMonths: freeStudentMonths(row),
               perStudentRateUsd: Number(row.per_student_rate_usd || 0),
               monthsPerTerm: planRegionTermMonths,
             };
@@ -8798,6 +8811,14 @@ const accountController = {
       const organizationStudentCount = await studentCountPending;
       const billingPeriods = await billingPeriodsPending;
 
+      // Free students given for a school's first months: which month it's in, and when they end.
+      const orgPaidSince = orgId ? await require("../utils/orgPricing").paidSince(db, orgId) : null;
+      const orgMonthIndex = require("../utils/dynamicPricing").monthsSince(orgPaidSince);
+      const orgSchoolFree = orgId ? (await require("../utils/orgPricing").schoolOverrides(db, orgId).catch(() => null))?.freeStudents || null : null;
+      const freeUntilFor = (months) => {
+        const start = orgPaidSince || new Date();
+        return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + months, start.getUTCDate()));
+      };
       const plans = planLadderWhereReleased(orgId, await Promise.all(
         (plansResult.rows || []).map(async (plan) => {
           const fallbackMonthlyUsd = Number(plan.total_price || 0);
@@ -8806,17 +8827,25 @@ const accountController = {
             fallbackMonthlyUsd,
             studentCount: organizationStudentCount,
             countryCode: currencyProfile?.countryCode || null,
+            monthIndex: orgMonthIndex,
+            schoolFree: orgSchoolFree,
           });
 
           const localized = localizeUsdAmount(pricing.monthlyPriceUsd, currencyProfile);
           const withinFreeRange = pricing.pricingMode === 'dynamic' ? pricing.extraStudents <= 0 : null;
-          const statusTitle = pricing.pricingMode === 'dynamic'
+          const freeUntil = pricing.freeMonths != null && !pricing.freeEnded ? freeUntilFor(pricing.freeMonths) : null;
+          const freeUntilText = freeUntil ? freeUntil.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : '';
+          const statusTitle = pricing.pricingMode === 'dynamic' && pricing.freeEnded
+            ? `Free students ended after ${pricing.freeMonths} month${pricing.freeMonths === 1 ? '' : 's'}`
+            : pricing.pricingMode === 'dynamic'
             ? (withinFreeRange
                 ? `Within free range (${organizationStudentCount}/${pricing.threshold} students)`
                 : `Exceeded by ${pricing.extraStudents} student${pricing.extraStudents === 1 ? '' : 's'}`)
             : 'Flat plan pricing';
-          const statusDetail = pricing.pricingMode === 'dynamic'
-            ? (withinFreeRange
+          const statusDetail = pricing.pricingMode === 'dynamic' && pricing.freeEnded
+            ? `The ${pricing.planThreshold} free students on this plan were for your first ${pricing.freeMonths} month${pricing.freeMonths === 1 ? '' : 's'}. Every student is now charged: ${organizationStudentCount} student${organizationStudentCount === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')} a month.`
+            : pricing.pricingMode === 'dynamic'
+            ? (freeUntil ? `Free until ${freeUntilText}. ` : '') + (withinFreeRange
                 ? `Your current student count is still covered by the ${pricing.threshold} free students on this plan.`
                 : (Number(pricing.monthsPerTerm) === 1
                     ? `The first ${pricing.threshold} students are included. ${pricing.extraStudents} extra student${pricing.extraStudents === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')} a month (${formatCurrencyAmount(pricing.perStudentRateUsd, 'USD')} each).`
@@ -8836,6 +8865,10 @@ const accountController = {
             pricingMode: pricing.pricingMode,
             pricingRegionName: pricing.region?.name || 'Default Region',
             freeStudentThreshold: pricing.threshold,
+            planFreeStudents: pricing.planThreshold,
+            freeStudentMonths: pricing.freeMonths,
+            freeStudentsEnded: pricing.freeEnded,
+            freeStudentsUntil: freeUntil ? freeUntil.toISOString() : null,
             organizationStudentCount,
             extraStudents: pricing.extraStudents,
             withinFreeRange,
@@ -9563,6 +9596,9 @@ const accountController = {
           fallbackMonthlyUsd: Number(invoice.amount_due || 0),
           studentCount: organizationStudentCount,
           countryCode: invoice.organization_country || null,
+          // The month the invoice is for, so free students given for a time show as they were.
+          monthIndex: await require("../utils/orgPricing").paidMonthIndex(dbClient, organizationId, invoice.scheduled_charge_at || invoice.created_at || new Date()),
+          schoolFree: (await require("../utils/orgPricing").schoolOverrides(dbClient, organizationId).catch(() => null))?.freeStudents || null,
         });
 
         studentPricingSummary = buildStudentPricingBasisSummary({
@@ -10269,6 +10305,8 @@ const accountController = {
             fallbackMonthlyUsd: parseFloat(row.total_price),
             studentCount: organizationStudentCount,
             countryCode: currencyProfile?.countryCode || null,
+            monthIndex: await require("../utils/orgPricing").paidMonthIndex(db, orgId),
+            schoolFree: (await require("../utils/orgPricing").schoolOverrides(db, orgId).catch(() => null))?.freeStudents || null,
           });
           currentPrice = Number(pricing.monthlyPriceUsd || 0);
         }
@@ -10278,6 +10316,8 @@ const accountController = {
             fallbackMonthlyUsd: parseFloat(row.total_price),
             studentCount: organizationStudentCount,
             countryCode: currencyProfile?.countryCode || null,
+            monthIndex: await require("../utils/orgPricing").paidMonthIndex(db, orgId),
+            schoolFree: (await require("../utils/orgPricing").schoolOverrides(db, orgId).catch(() => null))?.freeStudents || null,
           });
           newPrice = Number(pricing.monthlyPriceUsd || 0);
           newPlanName = row.plan_name;

@@ -799,15 +799,21 @@
           // once here and not on each card.
           const _metaOf = (p) => (typeof dynamicPriceMetaByPlan !== 'undefined' && dynamicPriceMetaByPlan ? dynamicPriceMetaByPlan[p.plan_id] : null);
           const _includedEach = plans.filter((p) => p.is_active).map((p) => { const m = _metaOf(p); return m && m.freeStudentPercent == null && m.freeStudentThreshold != null ? Number(m.freeStudentThreshold) : null; });
-          const _sharedIncluded = _includedEach.length && _includedEach[0] > 0 && _includedEach.every((n) => n === _includedEach[0]) ? _includedEach[0] : null;
+          // Free students may be for a school's first months only: said with them, and shared only
+          // when every plan gives them for the same time.
+          const _monthsEach = plans.filter((p) => p.is_active).map((p) => { const m = _metaOf(p); return m && m.freeStudentMonths ? Number(m.freeStudentMonths) : null; });
+          const _sameMonths = _monthsEach.every((n) => n === _monthsEach[0]);
+          const _sharedIncluded = _sameMonths && _includedEach.length && _includedEach[0] > 0 && _includedEach.every((n) => n === _includedEach[0]) ? _includedEach[0] : null;
+          const _sharedMonths = _sharedIncluded ? _monthsEach[0] : null;
+          const _forMonths = (n) => n ? ` for your first ${n === 1 ? 'month' : `${n} months`}` : '';
           const _trial = freeTrialEnabled && freeTrialLengthLabel;
         %>
         <% if (_trial && _sharedIncluded) { %>
-          <p>Every plan starts with <strong><%= freeTrialLengthLabel %></strong> free and includes your first <strong><%= _sharedIncluded %> students</strong>. Pick a plan, then choose how often to pay.</p>
+          <p>Every plan starts with <strong><%= freeTrialLengthLabel %></strong> free and includes your first <strong><%= _sharedIncluded %> students</strong><% if (_sharedMonths) { %> for your first <strong><%= _sharedMonths === 1 ? 'month' : `${_sharedMonths} months` %></strong><% } %>. Pick a plan, then choose how often to pay.</p>
         <% } else if (_trial) { %>
           <p>Every plan starts with <strong><%= freeTrialLengthLabel %></strong> free. Pick a plan, then choose how often to pay.</p>
         <% } else if (_sharedIncluded) { %>
-          <p>Every plan includes your first <strong><%= _sharedIncluded %> students</strong>. Pick the plan that fits your school, then choose how often to pay.</p>
+          <p>Every plan includes your first <strong><%= _sharedIncluded %> students</strong><% if (_sharedMonths) { %> for your first <strong><%= _sharedMonths === 1 ? 'month' : `${_sharedMonths} months` %></strong><% } %>. Pick the plan that fits your school, then choose how often to pay.</p>
         <% } else { %>
           <p>Pick the plan that fits your school, then choose how often to pay.</p>
         <% } %>
@@ -832,6 +838,7 @@
           data-local-currency="<%= (currencyProfile && currencyProfile.userCurrency) ? currencyProfile.userCurrency : 'USD' %>"
           data-price-base-component="<%= dynamicMeta ? Number(dynamicMeta.basePriceUsd || 0) : '' %>"
           data-price-free-threshold="<%= dynamicMeta && dynamicMeta.freeStudentThreshold != null ? Number(dynamicMeta.freeStudentThreshold) : '' %>"
+          data-price-free-months="<%= dynamicMeta && dynamicMeta.freeStudentMonths ? Number(dynamicMeta.freeStudentMonths) : '' %>"
           data-price-per-student="<%= dynamicMeta ? Number(dynamicMeta.perStudentRateUsd || 0) : '' %>"
           data-price-months-per-term="<%= dynamicMeta ? Number(dynamicMeta.monthsPerTerm || 1) : '' %>"
         >
@@ -864,7 +871,7 @@
             <strong><%= String(plan.defaultLocalizedPriceDisplay || plan.localizedPriceDisplay || plan.defaultPriceUsdDisplay || plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2))).replace(/[.,]00(?=\D*$)/, '') %></strong>
             <div class="price-caption">per month</div>
             <% if (dynamicMeta) { %>
-              <% if (!_sharedIncluded) { %><div class="free-students-badge"><%= dynamicMeta.freeStudentPercent != null ? `First ${Number(dynamicMeta.freeStudentPercent)}% of students are free` : `First ${Number(dynamicMeta.freeStudentThreshold || 0)} students included` %></div><% } %>
+              <% if (!_sharedIncluded) { %><div class="free-students-badge"><%= dynamicMeta.freeStudentPercent != null ? `First ${Number(dynamicMeta.freeStudentPercent)}% of students are free` : `First ${Number(dynamicMeta.freeStudentThreshold || 0)} students included` %><%= _forMonths(dynamicMeta.freeStudentMonths) %></div><% } %>
               <% if (Number(dynamicMeta.perStudentRateUsd) > 0) { %>
                 <div class="extra-student-price" data-rate="<%= Number(dynamicMeta.perStudentRateUsd) %>">+ $<%= Number(dynamicMeta.perStudentRateUsd).toFixed(2) %> per extra student a <%= Number(dynamicMeta.monthsPerTerm || 1) === 1 ? 'month' : 'term' %></div>
               <% } %>
@@ -1167,7 +1174,10 @@
           var chargesExtra = planCard && (parseFloat(planCard.getAttribute('data-price-per-student')) || 0) > 0 && Number.isInteger(included);
 
           var periodNote = document.getElementById('periodNote');
-          if (periodNote) periodNote.textContent = chargesExtra ? 'Prices here are for the plan. Students above ' + included + ' are added to each bill.' : '';
+          var freeMonths = planCard ? parseInt(planCard.getAttribute('data-price-free-months'), 10) : NaN;
+          if (periodNote) periodNote.textContent = chargesExtra
+            ? 'Prices here are for the plan. Students above ' + included + ' are added to each bill' + (freeMonths > 0 ? ', and every student after your first ' + (freeMonths === 1 ? 'month' : freeMonths + ' months') : '') + '.'
+            : '';
 
           periodBtns.forEach(function(card) {
             var months = parseInt(card.getAttribute('data-months')) || 1;
@@ -1281,7 +1291,8 @@
             var threshold = parseInt(card.getAttribute('data-price-free-threshold'), 10);
             var badgeEl = card.querySelector('.free-students-badge');
             if (badgeEl && Number.isInteger(threshold)) {
-              badgeEl.textContent = 'First ' + threshold + ' students included';
+              var months = parseInt(card.getAttribute('data-price-free-months'), 10);
+              badgeEl.textContent = 'First ' + threshold + ' students included' + (months > 0 ? ' for your first ' + (months === 1 ? 'month' : months + ' months') : '');
             }
             // The price for each extra student, in the visitor's currency like the price above it.
             var extraEl = card.querySelector('.extra-student-price');

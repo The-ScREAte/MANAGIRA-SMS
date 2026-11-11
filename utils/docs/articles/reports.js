@@ -14,7 +14,7 @@ module.exports = [
     intro: "A report card gathers a student's term: each subject's scores, grade and remark, attendance, comments and signatures. You decide what it shows in <a href=\"/legal/user-documentation/report-settings\">Report Settings</a>.",
     sections: [
       {
-        title: "Generate report cards",
+        title: "Generate and print report cards for a class",
         steps: [
           ["Open <strong>Reports</strong>, then <strong>Term Reports</strong>, then <strong>Terminal reports</strong>, and choose the school year and term.", "term-reports.webp", "Reports, Terminal reports: choose the term, then the class."],
           "Choose the class and generate. Each student's report card opens, ready to check.",

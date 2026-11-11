@@ -27,6 +27,44 @@
       </div>
     </section>
 
+    <% if (standard.priceList) {
+         const _list = standard.priceList;
+         const _own = _o.freeStudents || null;
+         const _forMonths = (n) => n ? `for a school's first ${n === 1 ? 'month' : `${n} months`}` : 'always';
+         const _listSays = `${_list.freePercent != null ? `${_list.freePercent}% of students` : `${_list.freeStudents} student${_list.freeStudents === 1 ? '' : 's'}`} free, ${_forMonths(_list.freeMonths)}`;
+         const _until = standard.free && standard.free.until ? new Date(standard.free.until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : '';
+         const _ownMonths = _own && _own.months ? Number(_own.months) : null; %>
+      <section class="ahd-section" data-ap-free
+               data-base="<%= _list.base %>" data-rate="<%= _list.rate %>" data-term="<%= _list.monthsPerTerm || 1 %>"
+               data-students="<%= Number(standard.students || 0) %>" data-month-index="<%= Number(standard.monthIndex || 0) %>"
+               data-list-count="<%= _list.freeStudents %>" data-list-percent="<%= _list.freePercent != null ? _list.freePercent : '' %>" data-list-months="<%= _list.freeMonths || '' %>">
+        <h3 class="ahd-section__title">Free students</h3>
+        <p class="ahd-section__sub">
+          The price list gives <strong><%= _listSays %></strong>.
+          <% if (standard.free && standard.free.ended) { %>This school's free months have ended: every student is charged.<% } else if (_until) { %>This school's are free until <strong><%= _until %></strong>.<% } %>
+          Set this school's own to make an exception.
+        </p>
+        <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="Free students for this school">
+          <label><input type="radio" name="freeStudents[mode]" value="standard" <%= _own ? '' : 'checked' %> /> <span>As the price list</span></label>
+          <label><input type="radio" name="freeStudents[mode]" value="own" <%= _own ? 'checked' : '' %> /> <span>This school's own</span></label>
+        </div>
+        <div class="ap-free ap-free--school" data-ap-free-own<%= _own ? '' : ' hidden' %>>
+          <input type="number" min="0" step="any" name="freeStudents[value]" class="ahb-input" value="<%= _own ? (_own.percent != null ? Number(_own.percent) : Number(_own.count)) : '' %>" placeholder="0" aria-label="This school's free students" />
+          <select name="freeStudents[unit]" class="ahb-input" aria-label="This school's free students as">
+            <option value="count" <%= _own && _own.percent != null ? '' : 'selected' %>>students</option>
+            <option value="percent" <%= _own && _own.percent != null ? 'selected' : '' %>>%</option>
+          </select>
+          <select name="freeStudents[months]" class="ahb-input ap-free-for" aria-label="This school's free students for how long">
+            <option value="" <%= _ownMonths ? '' : 'selected' %>>Always</option>
+            <% freeMonthsChoices.concat(_ownMonths && !freeMonthsChoices.includes(_ownMonths) ? [_ownMonths] : []).sort((a, b) => a - b).forEach((n) => { %>
+              <option value="<%= n %>" <%= _ownMonths === n ? 'selected' : '' %>>For its first <%= n === 1 ? 'month' : `${n} months` %></option>
+            <% }) %>
+          </select>
+        </div>
+        <% if (!freeOwnReady) { %><p class="ahd-section__sub" style="margin-top:8px;color:#b45309">A school's own free students need the 2026-11-20 database update before they can be saved.</p><% } %>
+      </section>
+    <% } %>
+
     <section class="ahd-section">
       <h3 class="ahd-section__title">Add-ons</h3>
       <p class="ahd-section__sub">For the add-ons this school switches on.<%= released ? '' : ' Add-ons are not charged to this school yet: release addon_pricing in Admin › Shards › Releases.' %></p>

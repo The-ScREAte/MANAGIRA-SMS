@@ -4,6 +4,7 @@ const chatController = require("../controllers/chatController");
 const { rateLimiter } = require("../middleware/rateLimiter");
 
 router.post("/", rateLimiter({ perUserPerMinute: 20, perTenantPerMinute: 100 }), chatController.postChat);
+router.post("/enhance", rateLimiter({ perUserPerMinute: 20, perTenantPerMinute: 100 }), chatController.enhanceMessage);
 router.get("/history", chatController.getHistory);
 router.post("/bulk-delete", chatController.bulkDeleteChats);
 router.post("/messages/:messageId/feedback", chatController.setMessageFeedback);

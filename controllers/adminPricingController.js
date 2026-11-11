@@ -246,6 +246,7 @@ async function planFormGet(req, res) {
   // The plan's price on the default (United States) list, shown with what it includes.
   const row = (await db.query(
     `SELECT x.base_price_usd, x.free_student_threshold, x.free_student_percent, x.per_student_rate_usd,
+            (to_jsonb(x) ->> 'free_student_months') AS free_months,
             (SELECT value FROM app_settings WHERE key = 'dynamic_region_term_months_' || r.id) AS months
        FROM plan_region_prices x JOIN pricing_regions r ON r.id = x.region_id
       WHERE r.is_default AND x.plan_id = $1 AND x.is_active LIMIT 1`,
@@ -255,6 +256,7 @@ async function planFormGet(req, res) {
   const price = row && Number(row.base_price_usd) > 0 ? {
     base: usd(row.base_price_usd),
     included: row.free_student_percent != null ? `${Number(row.free_student_percent)}% of` : Number(row.free_student_threshold),
+    includedFor: Number(row.free_months) > 0 ? ` for a school's first ${Number(row.free_months) === 1 ? "month" : `${Number(row.free_months)} months`}` : "",
     extra: usd(row.per_student_rate_usd),
     per: String(row.months) === "1" ? "month" : "term",
   } : null;
@@ -311,6 +313,22 @@ async function planPost(req, res) {
 
 // ---------- prices by country
 
+// Free students for a time, and a school's own free students, need the 2026-11-20 database
+// update; until it has run here, the forms say so (checked once a minute).
+const columnChecks = new Map();
+async function columnReady(table, column) {
+  const key = `${table}.${column}`;
+  const seen = columnChecks.get(key);
+  if (seen && Date.now() - seen.at < 60000) return seen.ready;
+  const ready = (await db.query(
+    "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2", [table, column]
+  ).catch(() => ({ rows: [] }))).rows.length > 0;
+  columnChecks.set(key, { at: Date.now(), ready });
+  return ready;
+}
+const freeMonthsReady = () => columnReady("plan_region_prices", "free_student_months");
+const FREE_MONTHS_CHOICES = [1, 2, 3, 4, 5, 6, 9, 12];
+
 async function regionFormGet(req, res) {
   if (!panelOnly(req, res, PRICING)) return;
   const [{ plans }, regions] = await Promise.all([loadPlans(), loadRegions()]);
@@ -326,6 +344,8 @@ async function regionFormGet(req, res) {
     countriesByContinent: COUNTRIES_BY_CONTINENT,
     takenBy,
     defaultMonths: parseInt(await setting("dynamic_term_months", "3"), 10) || 3,
+    freeMonthsReady: await freeMonthsReady(),
+    freeMonthsChoices: FREE_MONTHS_CHOICES,
   });
 }
 
@@ -345,11 +365,15 @@ function parseRegionPrices(body, planIds) {
     const free = Number(freeText);
     const rateText = String(p.rate == null ? "" : p.rate).replace(/[$,\s]/g, "");
     const rate = rateText ? Number(rateText) : 0;
+    // How long the free students last: blank for always, or a school's first N months.
+    const monthsText = String(p.freeMonths == null ? "" : p.freeMonths).trim();
+    const freeMonths = monthsText ? Number(monthsText) : null;
     if (base == null || Number.isNaN(base)) errors.push("Enter each plan's monthly price.");
     else if (asPercent && (!Number.isFinite(free) || free < 0 || free > 100)) errors.push("A share of free students must be between 0 and 100%.");
     else if (!asPercent && (!Number.isInteger(free) || free < 0 || free > 1000000)) errors.push("Free students must be a whole number.");
     else if (!Number.isFinite(rate) || rate < 0 || rate > 100000) errors.push("Enter the price per student, or 0.");
-    else prices.push({ planId, base, free: asPercent ? 0 : free, freePercent: asPercent ? Math.round(free * 100) / 100 : null, rate: Math.round(rate * 10000) / 10000 });
+    else if (freeMonths != null && (!Number.isInteger(freeMonths) || freeMonths < 1 || freeMonths > 36)) errors.push("Free students can be for a school's first 1 to 36 months, or always.");
+    else prices.push({ planId, base, free: asPercent ? 0 : free, freePercent: asPercent ? Math.round(free * 100) / 100 : null, rate: Math.round(rate * 10000) / 10000, freeMonths });
   });
   return { errors: [...new Set(errors)], prices };
 }
@@ -373,6 +397,11 @@ async function regionPost(req, res) {
   )).rows.length > 0;
   if (!percentReady && prices.some((p) => p.freePercent != null)) {
     req.flash("error", "Free students as a percentage need the 2026-11-13 database update first.");
+    return res.redirect(back);
+  }
+  const monthsReady = await freeMonthsReady();
+  if (!monthsReady && prices.some((p) => p.freeMonths != null)) {
+    req.flash("error", "Free students for a school's first months need the 2026-11-20 database update first.");
     return res.redirect(back);
   }
 
@@ -415,13 +444,19 @@ async function regionPost(req, res) {
     // Plan prices; each change is kept in the audit trail.
     for (const p of prices) {
       const previous = (await client.query(
-        `SELECT base_price_usd, free_student_threshold, per_student_rate_usd${percentReady ? ", free_student_percent" : ", NULL AS free_student_percent"}
+        `SELECT base_price_usd, free_student_threshold, per_student_rate_usd${percentReady ? ", free_student_percent" : ", NULL AS free_student_percent"}${monthsReady ? ", free_student_months" : ", NULL AS free_student_months"}
            FROM plan_region_prices WHERE plan_id = $1 AND region_id = $2`,
         [p.planId, id]
       )).rows[0];
       const samePercent = (previous && previous.free_student_percent != null ? Number(previous.free_student_percent) : null) === p.freePercent;
-      const same = previous && samePercent && Number(previous.base_price_usd) === p.base && Number(previous.free_student_threshold) === p.free && Number(previous.per_student_rate_usd) === p.rate;
-      if (same) continue;
+      const sameMonths = (previous && previous.free_student_months != null ? Number(previous.free_student_months) : null) === p.freeMonths;
+      const samePrices = previous && samePercent && Number(previous.base_price_usd) === p.base && Number(previous.free_student_threshold) === p.free && Number(previous.per_student_rate_usd) === p.rate;
+      if (samePrices && sameMonths) continue;
+      // How long the free students last, once the row exists.
+      const saveMonths = () => (monthsReady && !sameMonths
+        ? client.query("UPDATE plan_region_prices SET free_student_months = $3, updated_at = NOW() WHERE plan_id = $1 AND region_id = $2", [p.planId, id, p.freeMonths])
+        : null);
+      if (samePrices) { await saveMonths(); continue; }
       await client.query(
         percentReady
           ? `INSERT INTO plan_region_prices (plan_id, region_id, base_price_usd, free_student_threshold, per_student_rate_usd, free_student_percent, is_active)
@@ -442,6 +477,7 @@ async function regionPost(req, res) {
         [p.planId, id, previous ? Number(previous.base_price_usd) : null, p.base, previous ? Number(previous.free_student_threshold) : null, p.free,
           previous ? Number(previous.per_student_rate_usd) : null, p.rate, req.session.userId || null]
       ).catch((error) => { if (error.code !== "42P01") throw error; });
+      await saveMonths();
     }
     await client.query("COMMIT");
     req.flash("success", `${name} saved.`);
@@ -631,6 +667,8 @@ async function schoolPricingGet(req, res) {
     unitLabel: hubBilling.unitLabel,
     maxDiscount: orgPricing.MAX_DISCOUNT,
     released: require("../utils/shards/features").isOn("addon_pricing", { organizationId: org.organization_id }),
+    freeOwnReady: await columnReady("organizations", "custom_free_students"),
+    freeMonthsChoices: FREE_MONTHS_CHOICES,
   });
 }
 
@@ -646,7 +684,8 @@ async function schoolPricingPost(req, res) {
     if (!saved) req.flash("error", "This school no longer exists.");
     else req.flash("success", `${saved.organization_name}: prices saved. They apply from its next bill.`);
   } catch (error) {
-    if (error.code === "42703") req.flash("error", "School prices need the 2026-11-13 database update first.");
+    if (error.code === "FREE_STUDENTS_COLUMN") req.flash("error", "A school's own free students need the 2026-11-20 database update first. Its other prices were saved.");
+    else if (error.code === "42703") req.flash("error", "School prices need the 2026-11-13 database update first.");
     else {
       console.error("[Admin organizations] pricing:", error.message);
       req.flash("error", "Could not save the school's prices.");

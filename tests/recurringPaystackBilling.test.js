@@ -250,6 +250,12 @@ function createHarness(options = {}) {
     computeDynamicMonthlyPrice() {
       return { monthlyTotal: planTotalCost };
     },
+    averageMonthlyOverPeriod() {
+      return planTotalCost;
+    },
+    monthsSince: require('../utils/dynamicPricing').monthsSince,
+    freeStudentPercent: require('../utils/dynamicPricing').freeStudentPercent,
+    freeStudentMonths: require('../utils/dynamicPricing').freeStudentMonths,
     applyCycle(monthlyPrice, periodConfig = {}) {
       const months = Number(periodConfig.months) || 1;
       const discount = Number(periodConfig.discount_percentage) || 0;

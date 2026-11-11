@@ -59,8 +59,34 @@
   });
 
   // ---------- a school's pricing: what each bill comes to with the values in the form
+  // The plan's price this month with the free students chosen in the form: the price list's,
+  // or this school's own (a number or a share, for its first months or always).
+  function standardFor(form) {
+    const saved = Number(form.getAttribute('data-standard')) || 0;
+    const box = form.querySelector('[data-ap-free]');
+    if (!box) return saved;
+    const mode = (box.querySelector('input[name="freeStudents[mode]"]:checked') || {}).value || 'standard';
+    const own = box.querySelector('[data-ap-free-own]');
+    if (own) own.hidden = mode !== 'own';
+    const d = (name) => Number(box.getAttribute('data-' + name)) || 0;
+    const students = d('students');
+    let value; let percent; let months;
+    if (mode === 'own') {
+      value = num(box.querySelector('[name="freeStudents[value]"]'));
+      percent = (box.querySelector('[name="freeStudents[unit]"]') || {}).value === 'percent';
+      months = Number((box.querySelector('[name="freeStudents[months]"]') || {}).value) || 0;
+    } else {
+      percent = box.getAttribute('data-list-percent') !== '';
+      value = percent ? d('list-percent') : d('list-count');
+      months = d('list-months');
+    }
+    const free = months && d('month-index') >= months ? 0 : percent ? Math.floor(students * Math.min(100, value) / 100) : value;
+    const monthly = d('base') + Math.max(0, students - free) * d('rate') / Math.max(1, d('term'));
+    return Math.round(monthly * 100) / 100;
+  }
+
   function preview(form) {
-    const standard = Number(form.getAttribute('data-standard')) || 0;
+    const standard = standardFor(form);
     const months = Number(form.getAttribute('data-months')) || 1;
     const cycleOff = Number(form.getAttribute('data-cycle-discount')) || 0;
     const released = form.getAttribute('data-released') === '1';

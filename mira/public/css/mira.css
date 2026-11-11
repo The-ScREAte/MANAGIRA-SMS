@@ -1631,3 +1631,125 @@ button { font-family: inherit; }
 @media (max-width: 860px) {
   .mira-modal { max-height: calc(100dvh - 20px); }
 }
+
+/* ---- Enhance (feature mira_steps): sparkle and a word, like the other composer controls ---- */
+:root { --mira-step-done: #0f766e; --mira-step-failed: #b45309; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --mira-step-done: #5fd4c8; --mira-step-failed: #f5b45f; } }
+:root[data-theme="dark"] { --mira-step-done: #5fd4c8; --mira-step-failed: #f5b45f; }
+
+.mira-enhance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mira-text-secondary);
+  font-family: var(--mira-font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.mira-enhance-btn:hover:not(:disabled) { background: var(--mira-primary-soft); color: var(--mira-text-primary); }
+.mira-enhance-btn:focus-visible { outline: 2px solid var(--mira-primary-border); outline-offset: 2px; }
+.mira-enhance-btn:disabled { opacity: 0.45; cursor: default; }
+.mira-enhance-btn.is-undo { color: var(--mira-text-primary); background: var(--mira-primary-soft); }
+.mira-enhance-btn.is-busy { opacity: 1; color: var(--mira-text-primary); }
+.mira-enhance-btn svg { flex-shrink: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .mira-enhance-btn.is-busy svg { animation: miraEnhanceTwinkle 1s ease-in-out infinite; }
+}
+@keyframes miraEnhanceTwinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.85); } }
+@media (max-width: 520px) {
+  .mira-enhance-btn { padding: 0; width: 34px; justify-content: center; }
+  .mira-enhance-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+/* ---- Steps: what Mira understood, its plan and each lookup, above the reply ---- */
+.mira-steps {
+  margin: 0 0 10px;
+  border: 1px solid var(--mira-border);
+  border-radius: 12px;
+  background: var(--mira-bg-elevated);
+  font-family: var(--mira-font);
+  max-width: 100%;
+}
+.mira-steps-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  color: var(--mira-text-secondary);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 12px;
+}
+.mira-steps-head:hover { color: var(--mira-text-primary); }
+.mira-steps-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mira-steps-chevron { display: inline-flex; transition: transform 0.15s ease; }
+.mira-steps-head[aria-expanded="true"] .mira-steps-chevron { transform: rotate(180deg); }
+.mira-steps-head[aria-expanded="false"] + .mira-steps-list { display: none; }
+.mira-steps-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--mira-primary-border);
+  border-top-color: var(--mira-step-done);
+  flex-shrink: 0;
+}
+.mira-steps.is-done .mira-steps-spinner { border-color: var(--mira-step-done); background: var(--mira-step-done); box-shadow: inset 0 0 0 2px var(--mira-bg-elevated); }
+@media (prefers-reduced-motion: no-preference) {
+  .mira-steps.is-working .mira-steps-spinner { animation: miraStepSpin 0.8s linear infinite; }
+}
+@keyframes miraStepSpin { to { transform: rotate(360deg); } }
+
+.mira-steps-list { list-style: none; margin: 0; padding: 2px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+.mira-step { display: flex; align-items: flex-start; gap: 9px; font-size: 0.84rem; line-height: 1.4; color: var(--mira-text-primary); }
+.mira-step-body { min-width: 0; flex: 1; }
+.mira-step-label { overflow-wrap: anywhere; }
+.mira-step-detail { margin-top: 2px; color: var(--mira-text-secondary); font-size: 0.8rem; overflow-wrap: anywhere; }
+.mira-step-detail[hidden] { display: none; }
+.mira-step-icon {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--mira-border);
+}
+.mira-step.is-done .mira-step-icon { border-color: var(--mira-step-done); background: var(--mira-step-done); }
+.mira-step.is-done .mira-step-icon::after {
+  content: "";
+  width: 7px;
+  height: 4px;
+  border-left: 1.6px solid var(--mira-bg-elevated);
+  border-bottom: 1.6px solid var(--mira-bg-elevated);
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.mira-step.is-active .mira-step-icon { border-color: var(--mira-primary-border); border-top-color: var(--mira-step-done); }
+@media (prefers-reduced-motion: no-preference) {
+  .mira-step.is-active .mira-step-icon { animation: miraStepSpin 0.8s linear infinite; }
+}
+.mira-step.is-active .mira-step-label { color: var(--mira-text-primary); font-weight: 600; }
+.mira-step.is-failed .mira-step-icon { border-color: var(--mira-step-failed); }
+.mira-step.is-failed .mira-step-icon::after { content: "!"; font-size: 10px; font-weight: 700; line-height: 1; color: var(--mira-step-failed); }
+.mira-step.is-stopped { color: var(--mira-text-secondary); }
+.mira-step-plan .mira-step-icon { border: none; }
+.mira-step-plan .mira-step-icon::after { content: ""; width: 10px; height: 2px; border-radius: 1px; background: var(--mira-text-tertiary); box-shadow: 0 -4px 0 var(--mira-text-tertiary), 0 4px 0 var(--mira-text-tertiary); }
+.mira-step-plan .mira-step-label { color: var(--mira-text-secondary); font-weight: 600; }
+.mira-plan { margin: 4px 0 0; padding-left: 18px; color: var(--mira-text-secondary); font-size: 0.82rem; }
+.mira-plan li { margin: 2px 0; }

@@ -4075,7 +4075,7 @@
                     <% } %>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label"><%= planName || 'Plan' %></div>
-                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(currentMonthlyBase) %> a month<%= Number(currentPlanPricing.extraStudents || 0) > 0 ? ` (${Number(currentPlanPricing.freeStudentThreshold || 0)} students included + ${Number(currentPlanPricing.extraStudents)} more at ${formatCurrentPlanAmount(currentPlanPricing.perStudentRateUsd)} each)` : ` (up to ${Number(currentPlanPricing.freeStudentThreshold || 0)} students)` %></div>
+                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(currentMonthlyBase) %> a month<%= Number(currentPlanPricing.extraStudents || 0) > 0 ? (Number(currentPlanPricing.freeStudentThreshold || 0) > 0 ? ` (${Number(currentPlanPricing.freeStudentThreshold || 0)} students included + ${Number(currentPlanPricing.extraStudents)} more at ${formatCurrentPlanAmount(currentPlanPricing.perStudentRateUsd)} each)` : ` (${Number(currentPlanPricing.extraStudents)} students at ${formatCurrentPlanAmount(currentPlanPricing.perStudentRateUsd)} each)`) : ` (up to ${Number(currentPlanPricing.freeStudentThreshold || 0)} students)` %></div>
                     </div>
                     <% schoolAddonLines.forEach((line) => { %>
                     <div class="current-plan-price-row">
@@ -4101,9 +4101,15 @@
                       <div class="current-plan-price-value-sub"><%= billingMonths > 1 ? `Every ${billingChargeLabel}` : billingChargeLabel %><%= billingDiscount > 0 ? ` · ${billingDiscount}% discount` : '' %></div>
                     </div>
                   </div>
-                  <% if (planPricingFreeThreshold !== null) { %>
+                  <% const _freeEnded = !!(currentPlanPricing && currentPlanPricing.freeStudentsEnded); %>
+                  <% const _freeUntil = currentPlanPricing && currentPlanPricing.freeStudentsUntil ? new Date(currentPlanPricing.freeStudentsUntil).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : ''; %>
+                  <% if (_freeEnded) { %>
                     <div class="current-plan-note">
-                      First <%= planPricingFreeThreshold %> student<%= planPricingFreeThreshold === 1 ? '' : 's' %> are free.<%= planPricingHasExtraCharge ? ' Additional student charges apply.' : ' You’re within the free threshold — no additional charges.' %>
+                      Your <%= Number(currentPlanPricing.planFreeStudents || 0) %> free students were for your first <%= currentPlanPricing.freeStudentMonths %> month<%= Number(currentPlanPricing.freeStudentMonths) === 1 ? '' : 's' %>. Every student is now charged.
+                    </div>
+                  <% } else if (planPricingFreeThreshold !== null) { %>
+                    <div class="current-plan-note">
+                      First <%= planPricingFreeThreshold %> student<%= planPricingFreeThreshold === 1 ? '' : 's' %> are free<%= _freeUntil ? ` until ${_freeUntil}` : '' %>.<%= planPricingHasExtraCharge ? ' Additional student charges apply.' : ' You’re within the free threshold — no additional charges.' %>
                     </div>
                   <% } %>
                 <% } %>
