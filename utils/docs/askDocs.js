@@ -451,7 +451,11 @@ function ask(question, articles) {
   candidates.sort((a, b) => b.total - a.total);
   let win = candidates[0];
   // "What is X", or just the name of a guide's subject ("paygira"): the guide's overview.
-  if (whatIs || (owner && win.entry === owner && owner.guide.subjects.has(said) && !howTo)) {
+  // (Not when one of the guide's own section titles says it: "google classroom" in a guide of
+  // many integrations is its "Connect Google Classroom" section.)
+  const saidWords = said.split(" ").filter(Boolean);
+  const sectionSaysIt = owner && [...owner.guide.names].some((name) => !owner.guide.subjects.has(name) && saidWords.every((w) => name.split(" ").includes(w)));
+  if (whatIs || (owner && win.entry === owner && owner.guide.subjects.has(said) && !sectionSaysIt && !howTo)) {
     const summary = candidates.find((c) => c.entry === win.entry && c.piece.piece.kind === "summary" && c.pieceCoverage >= 0.5);
     if (summary) win = summary;
   }

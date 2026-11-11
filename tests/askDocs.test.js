@@ -97,3 +97,9 @@ test("every guide is cut into pieces that keep their section's link", () => {
     pieces.filter((p) => p.kind !== "summary").forEach((p) => assert.ok(p.text.trim(), article.slug));
   });
 });
+
+test("a guide's subject gets its overview, unless one of its sections is about exactly that", () => {
+  assert.equal(ask("paygira", articles).source.section, "");
+  assert.equal(ask("googel classroom", articles).source.section, "Connect Google Classroom");
+  assert.equal(ask("single sign on", articles).source.section, "Set up and turn on single sign-on");
+});
