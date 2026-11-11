@@ -307,7 +307,7 @@
       </span>
       <h2>Who can open Mira</h2>
     </div>
-    <p>Turn Mira on or off for each person. Mira only ever does what that person's own permissions allow; those are set on <a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Users / Employees</a>.</p>
+    <p>Turn Mira on or off for each person. Mira only ever does what that person's own permissions allow; those are set on <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.employees) { %><a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Users / Employees</a><% } else { %>Users / Employees<% } %>.</p>
     <p class="mira-access-status" id="mira-access-status" role="status" aria-live="polite"></p>
 
     <table class="mira-access-table">

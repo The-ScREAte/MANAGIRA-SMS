@@ -2,6 +2,10 @@
   const _embedQs = (typeof isEmbedded !== 'undefined' && isEmbedded) ? '?embed=workspace' : '';
   const _current = typeof currentSchoolYear !== 'undefined' ? currentSchoolYear : null;
   const _others = Array.isArray(typeof otherSchoolYears !== 'undefined' ? otherSchoolYears : null) ? otherSchoolYears : [];
+  // Merit sheets are a report in the Report Builder: pointed to only for someone who can open it.
+  const _feats = Array.isArray(typeof allowedFeatures !== 'undefined' ? allowedFeatures : null) ? allowedFeatures : [];
+  const _meritInBuilder = (_feats.includes('Class Base Merit Sheet') || _feats.includes('Class Base Merrit sheet'))
+    && typeof workspaceAccess === 'function' && workspaceAccess().reports.builder;
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 
@@ -9,7 +13,7 @@
   <header class="gp-head">
     <div>
       <h1 class="gp-title">Terminal reports</h1>
-      <p class="gp-sub">Open a term to print, share and post report cards. Merit sheets are in <a href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dmerit_ranking&label=Report%20Builder" target="_top" data-no-spa>Report Builder</a>.</p>
+      <p class="gp-sub">Open a term to print, share and post report cards.<% if (_meritInBuilder) { %> Merit sheets are in <a href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dmerit_ranking&label=Report%20Builder" target="_top" data-no-spa>Report Builder</a>.<% } %></p>
     </div>
   </header>
 

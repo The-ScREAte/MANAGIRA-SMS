@@ -522,6 +522,97 @@
     </div>
   </header>
 
+  <%
+    // Classes with nobody in charge. The main teacher is chosen here, with staff, and nowhere else.
+    const _noLead = Array.isArray(locals.classesWithoutLead) ? classesWithoutLead : [];
+    const _canLead = workspaceAccess().employees.canEdit;
+  %>
+  <% if (_noLead.length) { %>
+  <details class="ux-nolead" id="uxNoLead" data-no-lead-count="<%= _noLead.length %>">
+    <summary>
+      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+      <span><b><span data-no-lead-number><%= _noLead.length %></span> <span data-no-lead-word><%= _noLead.length === 1 ? 'class has' : 'classes have' %></span> no main teacher.</b> The main teacher marks attendance and looks after the class.</span>
+      <span class="ux-nolead__open"><%= _canLead ? 'Choose' : 'Show' %></span>
+    </summary>
+    <ul class="ux-nolead__list">
+      <% _noLead.forEach((cls) => { %>
+        <li data-no-lead-class="<%= cls.class_id %>">
+          <span class="ux-nolead__name"><%= cls.class_name %></span>
+          <% if (!cls.staff.length) { %>
+            <span class="ux-nolead__hint">Nobody is assigned to this class yet.</span>
+            <% if (workspaceAccess().employees.canAdd) { %><a class="ux-link" href="/common/createEmployee?classId=<%= cls.class_id %><%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '&embed=workspace' : '' %>">Add a teacher</a><% } %>
+          <% } else if (_canLead) { %>
+            <select aria-label="Main teacher for <%= cls.class_name %>">
+              <option value="">Choose who is in charge</option>
+              <% cls.staff.forEach((person) => { %><option value="<%= person.user_id %>"><%= person.name %></option><% }) %>
+            </select>
+            <button type="button" class="ws-btn" data-no-lead-save disabled>Put in charge</button>
+          <% } else { %>
+            <span class="ux-nolead__hint"><%= cls.staff.map((person) => person.name).join(', ') %></span>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+  </details>
+  <style>
+    .ux-nolead { margin: 0 0 12px; border: 1px solid #fcd34d; border-radius: 10px; background: #fffbeb; color: #78350f; font-size: .86rem; }
+    .ux-nolead > summary { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; }
+    .ux-nolead > summary::-webkit-details-marker { display: none; }
+    .ux-nolead > summary > span:first-of-type { flex: 1 1 auto; min-width: 0; }
+    .ux-nolead__open { flex: 0 0 auto; font-weight: 700; text-decoration: underline; }
+    .ux-nolead[open] .ux-nolead__open { display: none; }
+    .ux-nolead__list { margin: 0; padding: 0 14px 10px; list-style: none; display: grid; gap: 6px; max-height: 320px; overflow: auto; }
+    .ux-nolead__list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid #fde68a; }
+    .ux-nolead__name { flex: 0 0 200px; max-width: 100%; font-weight: 600; color: #451a03; }
+    .ux-nolead__hint { color: #92400e; }
+    .ux-nolead select { flex: 1 1 200px; max-width: 320px; min-height: 34px; margin: 0; padding: 4px 8px; border: 1px solid #e5c877; border-radius: 6px; background: #fff; font-size: .84rem; }
+    .ux-nolead .ws-btn { flex: 0 0 auto; }
+    .ux-nolead__done { color: #166534; font-weight: 600; }
+  </style>
+  <script>
+    // Puts the chosen person in charge of a class, then takes the class off the list.
+    (function () {
+      var box = document.getElementById('uxNoLead');
+      if (!box) return;
+      box.addEventListener('change', function (event) {
+        if (event.target.tagName !== 'SELECT') return;
+        var button = event.target.closest('li').querySelector('[data-no-lead-save]');
+        if (button) button.disabled = !event.target.value;
+      });
+      box.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-no-lead-save]');
+        if (!button) return;
+        var row = button.closest('li');
+        var select = row.querySelector('select');
+        if (!select.value) return;
+        button.disabled = true;
+        fetch('/common/setMainEmployee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ class_id: row.getAttribute('data-no-lead-class'), main_employee: select.value })
+        }).then(function (response) { return response.json(); }).then(function (data) {
+          if (!data || !data.success) throw new Error((data && data.message) || 'Could not save.');
+          var name = select.options[select.selectedIndex].textContent;
+          select.remove(); button.remove();
+          var done = document.createElement('span');
+          done.className = 'ux-nolead__done';
+          done.textContent = name + ' is now in charge.';
+          row.appendChild(done);
+          var left = box.querySelectorAll('[data-no-lead-save]').length + box.querySelectorAll('li .ux-nolead__hint').length;
+          var total = Number(box.getAttribute('data-no-lead-count')) - 1;
+          box.setAttribute('data-no-lead-count', String(total));
+          box.querySelector('[data-no-lead-number]').textContent = String(total);
+          box.querySelector('[data-no-lead-word]').textContent = total === 1 ? 'class has' : 'classes have';
+          if (total <= 0 && !left) box.remove();
+        }).catch(function (error) {
+          button.disabled = false;
+          alert(error.message || 'Could not save. Please try again.');
+        });
+      });
+    })();
+  </script>
+  <% } %>
+
   <div class="ux-layout">
   <aside class="ux-filters" id="uxFilters" aria-label="Filter users">
     <div class="ux-filters__head">

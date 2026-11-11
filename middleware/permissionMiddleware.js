@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const cacheManager = require("../utils/cacheManager");
 const { resolvePlanForOrganization } = require("../utils/accessCache");
+const integrationSwitches = require("../utils/integrationSwitches");
 
 const PERMISSION_CACHE_TTL_SEC = Number(process.env.PERMISSION_CACHE_TTL_SEC || 90);
 const PERMISSIONS_DDL_LOGS_ENABLED = String(process.env.LOG_PERMISSION_DDL || "").trim().toLowerCase() === "true";
@@ -160,19 +161,19 @@ const PERMISSION_OPTIONS = [
 
   { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira", group: "Finance", description: "Fees and payments. Choose where they can work below", childrenRequired: "Choose Classroom PayGira, Main PayGira or both" },
   { key: PERMISSIONS.PAYGIRA_CLASSROOM, label: "Classroom PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "Only in the class dashboard: collect fees for bills given to them and sign off" },
-  { key: PERMISSIONS.PAYGIRA_WORKSPACE, label: "Main PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "School-wide billing: creating bills, recording payments, fee recovery, payouts and settings. Pick each one below", childrenRequired: "Choose at least one PayGira page" },
+  { key: PERMISSIONS.PAYGIRA_WORKSPACE, label: "Main PayGira", parent: PERMISSIONS.MANAGE_PAYGIRA, description: "School-wide billing: bills, the student ledger, payments, payouts and settings. Pick each one below", childrenRequired: "Choose at least one PayGira page" },
   { key: PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT, label: "Show in Management Tools", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Lists PayGira in their Management Tools menu", notAPage: true },
-  { key: PERMISSIONS.PAYGIRA_OVERVIEW, label: "Overview", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Collection totals and outstanding balances" },
-  { key: PERMISSIONS.PAYGIRA_BILLS, label: "Bill Management", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Create and edit bills, and send reminders" },
-  { key: PERMISSIONS.PAYGIRA_DELETE_BILLS, label: "Cancel & Delete Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, notAPage: true, description: "Remove bills and everything assigned under them. Needs Bill Management" },
-  { key: PERMISSIONS.PAYGIRA_ORG_BILLS, label: "Org-Wide Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Every student's bills and balances" },
-  { key: PERMISSIONS.PAYGIRA_SUBSCRIPTIONS, label: "Subscriptions", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "See recurring bills" },
-  { key: PERMISSIONS.PAYGIRA_PAYMENTS, label: "Payment Tracking", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Payment history and sign-offs, and export to CSV" },
-  { key: PERMISSIONS.PAYGIRA_RECORD_PAYMENTS, label: "Record Payments", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Enter cash, cheque and bank payments" },
+  { key: PERMISSIONS.PAYGIRA_OVERVIEW, label: "Overview", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "What was billed, paid and is still owed" },
+  { key: PERMISSIONS.PAYGIRA_BILLS, label: "Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Create, send and edit bills, and send reminders" },
+  { key: PERMISSIONS.PAYGIRA_DELETE_BILLS, label: "Cancel & Delete Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, notAPage: true, description: "Remove bills and everything assigned under them. Needs Bills" },
+  { key: PERMISSIONS.PAYGIRA_ORG_BILLS, label: "Student Ledger", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "What each student was billed, paid and owes" },
+  { key: PERMISSIONS.PAYGIRA_SUBSCRIPTIONS, label: "Repeating Bills", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "See the bills that repeat (a tab of Bills)" },
+  { key: PERMISSIONS.PAYGIRA_PAYMENTS, label: "Payments", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Every payment received, with receipts and sign-offs" },
+  { key: PERMISSIONS.PAYGIRA_RECORD_PAYMENTS, label: "Record Payments", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Enter cash, check and bank payments" },
   { key: PERMISSIONS.PAYGIRA_DELETE_PAYMENTS, label: "Correct Payments & Reopen Sign-Offs", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Undo recorded payments and reopen signed-off collections" },
-  { key: PERMISSIONS.PAYGIRA_RECOVERY, label: "Fee Recovery", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Arrears lists, notes, reports and reminder emails" },
+  { key: PERMISSIONS.PAYGIRA_RECOVERY, label: "Overdue Balances", parent: PERMISSIONS.PAYGIRA_WORKSPACE, description: "Who is overdue, with notes, reports and reminder emails (a tab of the Student Ledger)" },
   { key: PERMISSIONS.PAYGIRA_PAYOUTS, label: "Payouts", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Send school money to staff and vendors" },
-  { key: PERMISSIONS.PAYGIRA_SETTINGS, label: "Payment Settings", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Payment providers and where school money is paid" },
+  { key: PERMISSIONS.PAYGIRA_SETTINGS, label: "PayGira Settings", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Payment providers and where school money is paid" },
   { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing", group: "Finance", highRisk: true, description: "The school's Managira plan, cards and subscription" },
 
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings", group: "Administration", highRisk: true, description: "School-wide settings. Choose which ones below", childrenRequired: "Choose at least one settings area" },
@@ -192,6 +193,16 @@ const rootPermission = (key) => {
   let option = PERMISSION_BY_KEY.get(key);
   while (option && option.parent) option = PERMISSION_BY_KEY.get(option.parent);
   return option ? option.key : key;
+};
+// The integration a permission belongs to, if any: everything of Transportation, the drivers'
+// own permissions included. It exists only while the school has that integration switched on
+// (utils/integrationSwitches.js), for everyone, the owner included; saved rows are kept, so
+// switching it back on returns what each person had.
+const INTEGRATION_GROUPS = { Transportation: "transportation", Driver: "transportation" };
+const integrationOf = (key) => {
+  const option = PERMISSION_BY_KEY.get(key);
+  const root = PERMISSION_BY_KEY.get(rootPermission(key));
+  return (option && INTEGRATION_GROUPS[option.group]) || (root && INTEGRATION_GROUPS[root.group]) || null;
 };
 // How a follow-up reads away from its main permission, e.g. in the staff list.
 const permissionFullLabel = (option) => (option.parent ? `${PERMISSION_BY_KEY.get(rootPermission(option.key)).label}: ${option.label}` : option.label);
@@ -623,6 +634,7 @@ function invalidateUserPermissionCache(organizationId, userId) {
   }
 
   cacheManager.invalidatePattern("organization", `perm:owner-email:${organizationId}:`);
+  cacheManager.invalidatePattern("organization", `perm:owner-user:${organizationId}:`);
 }
 
 // The plan features a permission needs, each list "any one is enough". Where the plan catalog
@@ -689,6 +701,51 @@ async function isOrganizationOwnerEmail(database, organizationId, userEmail) {
   );
 }
 
+// The same question for a check that was handed no email: is this member of staff the Manager
+// whose email is the school's? Looked up by id, so a caller that forgets the email still
+// recognises the owner.
+async function isOrganizationOwnerUser(database, organizationId, userId) {
+  const id = Number(userId);
+  if (!Number.isInteger(id) || id <= 0) return false;
+  return safePermissionCacheFetch(
+    () => cacheManager.getOrFetch(
+      "organization",
+      `perm:owner-user:${organizationId}:${id}`,
+      async () => {
+        const found = await database.query(
+          `SELECT 1
+             FROM users u
+             JOIN organizations o ON o.organization_id = u.organization_id
+            WHERE u.user_id = $1
+              AND u.organization_id = $2
+              AND LOWER(u.account_type::text) = 'manager'
+              AND LOWER(u.email) = LOWER(o.email)
+            LIMIT 1`,
+          [id, organizationId]
+        );
+        return found.rows.length > 0;
+      },
+      { ttl: PERMISSION_CACHE_TTL_SEC }
+    ),
+    false
+  );
+}
+
+// Who is asking, as every permission check needs it. Build it here, never by hand: a check
+// without the account type refuses a school signed in as itself, and one without the email
+// used to refuse the owner. Pass `overrides` for a school id that came from somewhere else.
+function sessionActor(req, overrides = {}) {
+  const session = (req && req.session) || {};
+  return {
+    userId: session.user?.user_id || session.userId || null,
+    userRole: session.userRole || session.user?.account_type || null,
+    organizationId: session.organizationId || null,
+    accountType: session.accountType || session.user?.account_type || null,
+    userEmail: session.user?.email || null,
+    ...overrides,
+  };
+}
+
 async function userHasPermission(database, { userId, userRole, organizationId, accountType, userEmail }, permissionKey) {
   if (!permissionKey) return true;
   if (!organizationId) return false;
@@ -700,6 +757,11 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   // Outside the school's plan nobody has it, the owner included. This one check
   // covers pages, actions, Mira and reports.
   if (!(await planAllowsPermission(database, organizationId, permissionKey))) return false;
+
+  // The same for an integration the school has switched off. A driver is there for
+  // transportation alone, so with it off a driver holds nothing.
+  const integration = integrationOf(permissionKey) || (normalizeRoleLower(userRole) === "driver" ? "transportation" : null);
+  if (integration && !(await integrationSwitches.isOn(database, organizationId, integration))) return false;
 
   const normalizedUserRole = normalizeRole(userRole);
   const normalizedAccountType = normalizeRole(accountType);
@@ -713,8 +775,11 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
 
   // The manager whose email is the school's signup email is its owner, with full access.
   // Only a manager: an email alone, which people can edit, never gives anyone this.
-  if (userEmail && isManagerRole(normalizedUserRole) && await isOrganizationOwnerEmail(database, organizationId, userEmail)) {
-    return true;
+  if (isManagerRole(normalizedUserRole)) {
+    const isOwner = userEmail
+      ? await isOrganizationOwnerEmail(database, organizationId, userEmail)
+      : await isOrganizationOwnerUser(database, organizationId, userId);
+    if (isOwner) return true;
   }
 
   if (isManagerLikeRole(userRole)) return true;
@@ -731,15 +796,11 @@ function requirePermission(permissionKey) {
   return async (req, res, next) => {
     try {
       const database = req.app.get("db") || db;
-      const organizationId = req.session.organizationId;
-      const userRole = req.session.userRole || req.session.user?.account_type || null;
-      const accountType = req.session.accountType || req.session.user?.account_type || null;
-      const userId = req.session.user?.user_id || req.session.userId || null;
-      const userEmail = req.session.user?.email || null;
+      const who = sessionActor(req);
 
       const check = async () => {
         for (const key of permissionKeys) {
-          if (await userHasPermission(database, { userId, userRole, organizationId, accountType, userEmail }, key)) return true;
+          if (await userHasPermission(database, who, key)) return true;
         }
         return false;
       };
@@ -754,7 +815,10 @@ function requirePermission(permissionKey) {
       }
 
       if (!allowed) {
-        req.flash("error", "You do not have permission to access this page.");
+        // Switched off is not the same as "not allowed": say which it is.
+        const integration = permissionKeys.map(integrationOf).find(Boolean);
+        const switchedOff = integration && !(await integrationSwitches.isOn(database, who.organizationId, integration));
+        req.flash("error", switchedOff ? integrationSwitches.offMessage(integration) : "You do not have permission to access this page.");
         return res.redirect("/common/orgDashboard");
       }
 
@@ -801,6 +865,9 @@ module.exports = {
   getPrimaryManagerUserId,
   getUserPermissions,
   userHasPermission,
+  integrationOf,
+  sessionActor,
+  isOrganizationOwnerUser,
   isDriverPermission,
   driverPermissions,
   invalidateUserPermissionCache,

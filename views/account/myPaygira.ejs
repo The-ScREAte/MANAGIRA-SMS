@@ -693,7 +693,14 @@
       if (bill && bill.bill_type === 'recurring' && state.selectedOccDate && occurrenceItem) {
         return occurrenceItem.status || student.status;
       }
+      // A repeating bill is "paid" only when nothing more is owed on it: the saved status
+      // says paid as soon as one date is covered.
+      if (bill && bill.bill_type === 'recurring' && student.status === 'paid' && bal(student) > 0) return 'partial';
       return student.status;
+    }
+    // The same states, in the words used everywhere else in PayGira.
+    function statusWords(status) {
+      return ({ paid: 'Paid', partial: 'Part paid', overdue: 'Overdue', pending: 'Owes' })[status || 'pending'] || status;
     }
 
     function invalidateOccurrenceCache(billId, occurrenceDate) {
@@ -1164,7 +1171,7 @@
             '</div>' +
             '<div class="acts">' +
               bulkControl +
-              '<span class="mp-status ' + statusClass(status) + '">' + escapeHtml(status) + '</span>' +
+              '<span class="mp-status ' + statusClass(status) + '">' + escapeHtml(statusWords(status)) + '</span>' +
               collectButton +
               invoiceButton +
             '</div>' +
@@ -1172,7 +1179,7 @@
           '<div class="amts">' +
             '<div>' + (dateScopedRecurring ? 'Due ' : 'Billed ') + (occurrenceReady ? money(billedAmount) : 'Loading…') + '</div>' +
             '<div class="pd">Paid ' + (occurrenceReady ? money(paidAmount) : 'Loading…') + '</div>' +
-            '<div class="out">' + (dateScopedRecurring ? 'Owing ' : 'Bal ') + (occurrenceReady ? money(balance) : 'Loading…') + '</div>' +
+            '<div class="out">' + (dateScopedRecurring ? 'Owes ' : 'Owes ') + (occurrenceReady ? money(balance) : 'Loading…') + '</div>' +
           '</div>' +
         '</div>';
     }
@@ -1237,6 +1244,20 @@
         state.occFilter = 'all';
         state.bulkMode = false;
         state.bulkSelection = {};
+        // A repeating bill opens on the date most likely being collected (today's, else the
+        // latest one gone by, else the first to come), so nobody has to pick a date before
+        // they can collect. Past / All / Future changes it in one tap.
+        if (bill.bill_type === 'recurring') {
+          var openOn = (function (list) {
+            return list.filter(function (item) { return item.kind === 'due'; })[0]
+              || list.filter(function (item) { return item.kind === 'past'; }).slice(-1)[0]
+              || list[0] || null;
+          })(buildOccurrences(bill));
+          if (openOn) {
+            state.selectedOccDate = isoDate(openOn.date);
+            state.selectedOccLabel = openOn.label;
+          }
+        }
       }
       sanitizeBulkSelection(bill);
       var sortedStudents = getSortedBillStudents(bill);
@@ -1298,7 +1319,7 @@
           '<div id="mpDaySummary" style="display:none;"></div>' +
           '<div class="mp-collect-notice" style="' + (bill.bill_type === 'recurring' ? '' : 'display:none') + '">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><circle cx="12" cy="16" r=".5" fill="currentColor"></circle></svg>' +
-            'Select a date above before collecting' +
+            'Choose the date you are collecting for (Past, All or Future above)' +
           '</div>' +
           buildStudentToolbarHTML(bill) +
           '<div class="mp-section-title"><span>Students</span><button type="button" class="mp-sort-toggle" id="mpStudentSortToggle" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button><span class="ln"></span><span>' + (bill.students || []).length + '</span></div>' +

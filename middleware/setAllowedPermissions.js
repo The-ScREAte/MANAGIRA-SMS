@@ -6,12 +6,14 @@ const {
   effectivePermissionsForRole,
   isOrganizationOwnerEmail,
   withinPlan,
+  integrationOf,
   PERMISSION_OPTIONS,
   isPortalRole,
   isManagerRole,
 } = require('./permissionMiddleware');
 const { workspaceAccess } = require('../utils/workspaceAccess');
 const features = require("../utils/shards/features");
+const integrationSwitches = require("../utils/integrationSwitches");
 
 /**
  * Global middleware: sets res.locals.userPermissions to an array of permission
@@ -29,11 +31,19 @@ const ALL_PERMISSION_KEYS = PERMISSION_OPTIONS.map((o) => o.key);
 
 const setAllowedPermissions = async (req, res, next) => {
   res.locals.userPermissions = [];
-  // What the plan doesn't include is never in this list, for anyone.
-  const grant = (keys) => {
-    res.locals.userPermissions = res.locals.planFeaturesKnown
+  res.locals.integrationSwitches = {};
+  // What the plan doesn't include is never in this list, for anyone; nor is anything of an
+  // integration the school has switched off (a driver, there for transportation alone, then
+  // holds nothing). Menus and pages read this list, so they show a school as it is.
+  const grant = async (keys) => {
+    const inPlan = res.locals.planFeaturesKnown
       ? keys.filter((key) => withinPlan(key, res.locals.allowedFeatures, req.session?.organizationId))
       : keys;
+    const switches = await integrationSwitches.switchesFor(db, req.session?.organizationId);
+    res.locals.integrationSwitches = switches || {};
+    const isDriver = String(req.session?.userRole || req.session?.user?.account_type || "").trim().toLowerCase() === "driver";
+    const off = (integration) => Boolean(integration && switches && switches[integration] === false);
+    res.locals.userPermissions = isDriver && off("transportation") ? [] : inPlan.filter((key) => !off(integrationOf(key)));
     // A short fingerprint of this person's access. When it changes, the browser
     // drops its saved copies of pages (public/service-worker.js).
     const stamp = crypto.createHash('md5')
@@ -62,7 +72,7 @@ const setAllowedPermissions = async (req, res, next) => {
 
     // Platform admins (org-switch) and manager-like roles get all permissions.
     if (isManagerLikeRole(userRole) || isManagerLikeRole(accountType)) {
-      grant(ALL_PERMISSION_KEYS);
+      await grant(ALL_PERMISSION_KEYS);
       return next();
     }
 
@@ -71,7 +81,7 @@ const setAllowedPermissions = async (req, res, next) => {
       String(userRole || '').trim().toLowerCase() === 'manager' &&
       String(accountType || '').trim().toLowerCase() === 'organization'
     ) {
-      grant(ALL_PERMISSION_KEYS);
+      await grant(ALL_PERMISSION_KEYS);
       return next();
     }
 
@@ -84,12 +94,12 @@ const setAllowedPermissions = async (req, res, next) => {
     // The manager with the school's signup email is its owner.
     const userEmail = req.session?.user?.email || null;
     if (userEmail && isManagerRole(userRole) && await isOrganizationOwnerEmail(db, organizationId, userEmail)) {
-      grant(ALL_PERMISSION_KEYS);
+      await grant(ALL_PERMISSION_KEYS);
       return next();
     }
 
     const permissions = await getUserPermissions(db, userId, organizationId);
-    grant(effectivePermissionsForRole(userRole, Array.isArray(permissions) ? permissions : []));
+    await grant(effectivePermissionsForRole(userRole, Array.isArray(permissions) ? permissions : []));
   } catch (err) {
     // Non-fatal — templates fall back to empty array.
   }

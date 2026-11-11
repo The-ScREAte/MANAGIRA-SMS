@@ -5,6 +5,7 @@
   var navApps = [{ key: 'google', label: 'Google Maps' }, { key: 'apple', label: 'Apple Maps' }];
   if (navIntegration.wazeNavActivated || navIntegration.googleMapsNavActivated) navApps.push({ key: 'waze', label: 'Waze' });
   var routeList = assignedRoutes || [];
+  var _transportOff = typeof transportationOff !== 'undefined' && !!transportationOff;
   var activeRouteId = activeTrip && activeTrip.route_id ? String(activeTrip.route_id) : '';
   function safeJson(v) { return JSON.stringify(v === undefined ? null : v).replace(/</g, '\\u003c'); }
 %>
@@ -15,11 +16,13 @@
       <h1>Today’s trip</h1>
       <p><%= [session.firstName, driverBus ? 'Bus ' + driverBus.bus_number : 'No bus assigned yet', driverBus && driverBus.license_plate, driverBus && driverBus.capacity ? driverBus.capacity + ' seats' : ''].filter(Boolean).join(' · ') %></p>
     </div>
-    <button type="button" class="drv-reportbtn" data-drv-report>Report</button>
+    <% if (!_transportOff) { %><button type="button" class="drv-reportbtn" data-drv-report>Report</button><% } %>
   </header>
 
   <section class="drv-card drv-trip" aria-label="Trip">
-    <% if (!driverBus) { %>
+    <% if (_transportOff) { %>
+      <p class="drv-empty">Transportation is turned off at your school, so there are no trips. They will show here once your school turns it back on.</p>
+    <% } else if (!driverBus) { %>
       <p class="drv-empty">Your school hasn’t assigned you a bus yet. It will show here once they do.</p>
     <% } else if (!routeList.length) { %>
       <p class="drv-empty">Your school hasn’t assigned you a route yet. It will show here once they do.</p>

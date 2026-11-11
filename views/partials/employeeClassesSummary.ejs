@@ -1,13 +1,25 @@
 <%#
   The collapsed heading for an employee's classes, shared by the Add and Edit forms,
   with a reminder when a teacher or supervisor has none. Expects the class list in
-  #collapse-all-classes and its checkboxes named classCheckboxName.
+  #collapse-all-classes and its checkboxes named classCheckboxName. Each class row carries
+  its "Main teacher" choice (partials/employeeMainTeacher); this file styles and runs it.
 %>
+<%
+  const _mainOf = (typeof classMainTeachers !== 'undefined' && classMainTeachers) || {};
+  const _noLead = (Array.isArray(typeof classes !== 'undefined' ? classes : null) ? classes : []).filter((cls) => !_mainOf[cls.class_id]);
+%>
+<input type="hidden" name="mainClassesShown" value="1">
 <button type="button" class="emp-class-toggle" id="empClassToggle" aria-expanded="false" aria-controls="collapse-all-classes">
   <span class="emp-class-title">Classes &amp; Subjects</span>
   <span class="emp-class-count" id="empClassCount">None selected</span>
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
+<% if (_noLead.length) { %>
+<p class="emp-class-warn emp-class-warn--lead" id="empNoLead">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm0 7v5m0 3v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span><%= _noLead.length === 1 ? '1 class has' : _noLead.length + ' classes have' %> no main teacher: <%= _noLead.slice(0, 6).map((cls) => cls.class_name).join(', ') %><%= _noLead.length > 6 ? ' and ' + (_noLead.length - 6) + ' more' : '' %>. Tick <b>Main teacher</b> beside a class to put this person in charge of it.</span>
+</p>
+<% } %>
 <p class="emp-class-warn" id="empClassWarn" hidden>
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm0 7v5m0 3v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
   No classes assigned. This person won't see any class until you choose at least one.
@@ -22,6 +34,20 @@
   .emp-class-warn { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 6px 8px; border: 1px solid #fcd34d; border-radius: 6px; background: #fffbeb; color: #92400e; font-size: 0.76rem; line-height: 1.35; }
   .emp-class-warn[hidden] { display: none; }
   .emp-class-warn svg { flex: 0 0 auto; width: 13px; height: 13px; }
+  .emp-class-warn--lead { align-items: flex-start; }
+  .emp-class-warn--lead svg { margin-top: 2px; }
+  /* The main teacher choice beside each class. */
+  .emp-main { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 10px; font-size: 0.74rem; white-space: nowrap; }
+  .emp-main__pick, #createEmployeeForm .emp-main label.emp-main__pick { display: inline-flex; align-items: center; gap: 5px; margin: 0 !important; padding: 2px 8px !important; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #334155; font-size: 0.74rem; font-weight: 600; line-height: 1.4; cursor: pointer; }
+  .emp-main__pick input, #createEmployeeForm .emp-main__pick input[type="checkbox"] { width: 13px; height: 13px; min-height: 0; margin: 0 !important; }
+  /* On the Edit form each class is a card: the choice sits on its own line under the name. */
+  .class-card > .emp-main { display: flex; flex-wrap: wrap; white-space: normal; margin: 0 0 8px; padding-left: 0; }
+  .emp-main__pick:has(input:checked) { border-color: var(--org-primary-color, #01535b); background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); }
+  .emp-main__pick:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+  .emp-main__now { color: #64748b; }
+  .emp-main__none { color: #92400e; font-weight: 600; }
+  .emp-main[hidden] { display: none; }
+  @media (max-width: 640px) { .emp-main { flex-wrap: wrap; white-space: normal; margin-left: 0; padding-left: 0; } }
 </style>
 <script>
   (function () {
@@ -44,9 +70,26 @@
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     };
     toggle.addEventListener('click', function () { setOpen(toggle.getAttribute('aria-expanded') !== 'true'); });
+    // Main teacher: only for a class that is ticked, never for a driver. Leaving a class
+    // gives up being in charge of it.
+    var syncMain = function () {
+      var driver = !!role && role.value === 'Driver';
+      Array.prototype.forEach.call(boxes(), function (box) {
+        var wrap = form.querySelector('[data-emp-main="' + box.value + '"]');
+        if (!wrap) return;
+        var pick = wrap.querySelector('input[name="mainClasses"]');
+        var note = wrap.querySelector('[data-emp-main-note]');
+        wrap.hidden = driver;
+        pick.disabled = driver || !box.checked;
+        if (pick.disabled) pick.checked = false;
+        if (note && note.hasAttribute('data-now')) note.textContent = pick.checked ? note.getAttribute('data-replace') : note.getAttribute('data-now');
+      });
+    };
     form.addEventListener('change', function (event) {
       if (event.target === role || event.target.name === name) refresh();
+      if (event.target === role || event.target.name === name || event.target.name === 'mainClasses') syncMain();
     });
+    document.addEventListener('DOMContentLoaded', syncMain);
     window.ManagiraEmployeeClasses = { refresh: refresh, setOpen: setOpen };
     document.addEventListener('DOMContentLoaded', refresh);
   })();

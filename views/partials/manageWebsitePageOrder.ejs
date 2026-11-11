@@ -80,7 +80,7 @@
           <% if (b.builtin) { %>
             <label class="mpo-switch"><input type="checkbox" data-mpo-show <%= (mpoPage.hidden || []).includes(b.key) ? '' : 'checked' %>> Show</label>
           <% } %>
-          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } else if (b.key === 'events' || b.key === 'announcements') { %><a class="mpo-edit" href="/common/management?panel=announcements-events&page=%2Fcommon%2FmanageEventsAnnouncements&label=Events%2C%20announcements%20%26%20activities" target="_top">Manage</a><% } %>
+          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } else if ((b.key === 'events' || b.key === 'announcements') && typeof workspaceAccess === 'function' && workspaceAccess().management.events) { %><a class="mpo-edit" href="/common/management?panel=announcements-events&page=%2Fcommon%2FmanageEventsAnnouncements&label=Events%2C%20announcements%20%26%20activities" target="_top">Manage</a><% } %>
           <button type="button" class="mpo-move" data-mpo-up aria-label="Move <%= b.label %> up">▲</button>
           <button type="button" class="mpo-move" data-mpo-down aria-label="Move <%= b.label %> down">▼</button>
         </div>

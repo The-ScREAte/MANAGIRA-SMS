@@ -1325,6 +1325,45 @@ async function loadOverviewStats(orgId, filters = {}) {
   };
 }
 
+// The Payments page's history: every payment the school has taken, newest first, 50 at a
+// time, found by student, bill or reference. (It used to show only the latest dozen.)
+async function loadPayments(orgId, filters = {}) {
+  const page = parsePositiveInt(filters.page, 1, 1, 100000);
+  const pageSize = 50;
+  const q = String(filters.q || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const where = ["p.organization_id = $1"];
+  const params = [orgId];
+  if (q) {
+    params.push(`%${q.toLowerCase().replace(/[\\%_]/g, (ch) => "\\" + ch)}%`);
+    where.push(`(LOWER(COALESCE(s.first_name, '') || ' ' || COALESCE(s.last_name, '')) LIKE $2
+                 OR LOWER(COALESCE(b.title, '')) LIKE $2 OR LOWER(COALESCE(p.reference, '')) LIKE $2)`);
+  }
+  const from = `FROM finance_payments p
+       LEFT JOIN students s ON s.student_id = p.student_id AND s.organization_id = p.organization_id
+       LEFT JOIN finance_bills b ON b.bill_id = p.bill_id AND b.organization_id = p.organization_id
+      WHERE ${where.join(" AND ")}`;
+  const [list, total] = await Promise.all([
+    db.query(
+      `SELECT p.payment_id, p.amount, p.method, p.received_at, p.is_refund, p.reference,
+              s.first_name, s.last_name, b.title AS bill_title
+         ${from}
+        ORDER BY p.received_at DESC, p.payment_id DESC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize + 1, (page - 1) * pageSize]
+    ),
+    db.query(`SELECT COUNT(*)::int AS n, COALESCE(SUM(p.amount), 0)::float AS amount ${from}`, params),
+  ]);
+  return {
+    rows: list.rows.slice(0, pageSize),
+    page,
+    pageSize,
+    hasMore: list.rows.length > pageSize,
+    total: total.rows[0].n,
+    amount: total.rows[0].amount,
+    q,
+  };
+}
+
 async function loadOverviewBillsSnapshot(orgId, filters = {}) {
   return loadBills(orgId, {
     ...filters,
@@ -3311,7 +3350,7 @@ async function collectStaffPaygiraPayment({
     (requested === "stripe" && row.accepts_card && allowedMethods.stripeOn) ||
     requested === "other";
   if (!isMethodAllowed) {
-    throw new PaygiraRequestError(`Method "${requested}" is not enabled on this bill / school. Update Payment Settings.`, 400);
+    throw new PaygiraRequestError(`Method "${requested}" is not enabled on this bill / school. Update PayGira's Settings.`, 400);
   }
 
   const occDateVal = normalizeOccurrenceDate(occurrenceDate);
@@ -4032,7 +4071,7 @@ module.exports = {
           paragraphs: bodyText.split(/\n\n+/).filter(Boolean).map((paragraph) => paragraph.replace(/\n/g, '<br>')),
           details,
           cta: req.body.include_payment_link ? { url: paymentLink, text: "Pay Now" } : null,
-          note: "This message was sent from the Managira Fee Recovery workspace.",
+          note: "This message was sent from PayGira.",
         });
         const ok = await sendEmailSafely({
           sender: "reminders",
@@ -4105,7 +4144,7 @@ module.exports = {
          ON CONFLICT (organization_id) DO UPDATE SET data = $2::jsonb, updated_at = now()`,
         [orgId, JSON.stringify(next)]
       );
-      req.flash && req.flash("success", `${provider.toUpperCase()} settings saved.`);
+      req.flash && req.flash("success", provider === "general" ? "Settings saved." : `${provider.toUpperCase()} settings saved.`);
       await logPaygira(req, {
         actionType: "Saved",
         moduleName: "PayGira Settings",
@@ -4177,7 +4216,9 @@ module.exports = {
       const needsSignoffHistory = section === "payments";
       const needsPaystackSubaccounts = section === "settings";
       const needsChargeCards = section === "settings";
-      const needsOverview = section === "payments";
+      const needsOverview = false; // the Payments page has its own list (loadPayments)
+      const needsPayments = section === "payments";
+      const paymentFilters = needsPayments ? { page: req.query.payPage, q: req.query.payQ } : {};
       const needsTemplates = section === "templates";
       const needsHeavyRefs = new Set(["bills", "students"]).has(section);
       const refsMode = needsHeavyRefs ? "heavy" : "lite";
@@ -4258,6 +4299,9 @@ module.exports = {
             ))
           : Promise.resolve({ rows: [] }),
       ]);
+      const payments = needsPayments
+        ? await cachedLoad(orgId, "payments", paymentFilters, () => loadPayments(orgId, paymentFilters))
+        : { rows: [], page: 1, pageSize: 50, hasMore: false, total: 0, amount: 0, q: "" };
       const bills = Array.isArray(billsResult?.rows) ? billsResult.rows : [];
       const studentBilling = Array.isArray(studentBillingResult?.rows) ? studentBillingResult.rows : [];
       const signoffHistory = Array.isArray(signoffHistoryResult?.rows) ? signoffHistoryResult.rows : [];
@@ -4335,6 +4379,7 @@ module.exports = {
         section,
         lazyOverview: section === "overview",
         overview,
+        payments,
         bills,
         studentBilling,
         templates,
@@ -5641,13 +5686,20 @@ module.exports = {
         ),
       ]);
       if (!student.rows.length) return res.status(404).json({ error: "Student not found." });
+      const shownDate = (value) => (typeof res.locals.formatDisplayDate === "function"
+        ? res.locals.formatDisplayDate(value)
+        : new Date(value).toISOString().slice(0, 10));
       res.json({
         student: {
           ...student.rows[0],
           image_url: res.locals.publicImageUrl(student.rows[0].image_url),
         },
-        bills: bills.rows,
-        payments: payments.rows,
+        // `bills` is already the list (it is built above, not a query result): sending
+        // bills.rows sent nothing, and every student's ledger read "No bills assigned".
+        // Dates go out as the school shows them: the browser's own time zone would put a
+        // due date a day early for anyone west of Greenwich.
+        bills: bills.map((bill) => ({ ...bill, due_display: bill.due_date ? shownDate(bill.due_date) : "" })),
+        payments: payments.rows.map((payment) => ({ ...payment, received_display: payment.received_at ? shownDate(payment.received_at) : "" })),
         credit: Number(credit.rows[0]?.credit || 0),
       });
     } catch (e) { console.error(e); res.status(500).json({ error: "Could not load student detail." }); }
@@ -7789,10 +7841,14 @@ module.exports = {
         [assignmentId, orgId]
       );
 
+      // The school's own note for the bottom of its invoices (PayGira, Settings).
+      const invoiceNote = String((await loadPspSettings(orgId).catch(() => null))?.invoice_footer || "").trim().slice(0, 300);
+
       res.render("finance/invoice", {
         layout: false,
         assignment: row,
         payments: pays.rows,
+        invoiceNote,
         financeCurrency: display.financeCurrency,
         formatMoney: display.formatMoney,
         formatUsdEquivalent: display.formatUsdEquivalent,

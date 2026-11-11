@@ -121,21 +121,24 @@ const driverController = {
   dashboardGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const userId = req.session.userId || (req.session.user && req.session.user.user_id);
-    const driverBus = req.driverBus || null;
     const driverProfile = req.driverProfile || null;
 
     try {
       await ensureTransportationSchema(db);
+      // With transportation switched off there are no trips: the page says so and shows no bus,
+      // route or riders, instead of a trip the school would never see.
+      const transportationOff = !(await getTransportationIntegrationStatus(db, organizationId)).activated;
+      const driverBus = transportationOff ? null : (req.driverBus || null);
 
       const held = res.locals.userPermissions || [];
-      const assignedRoutes = await resolveAssignedRoutes(db, organizationId, driverProfile, held.includes("driver_any_route"));
+      const assignedRoutes = transportationOff ? [] : await resolveAssignedRoutes(db, organizationId, driverProfile, held.includes("driver_any_route"));
       const [schoolResult, students, integration] = await Promise.all([
         db.query(
           `SELECT organization_address, geo_lat, geo_lng, transportation_distance_unit
              FROM organizations WHERE organization_id = $1 LIMIT 1`,
           [organizationId]
         ),
-        resolveMyStudents(db, organizationId, userId, driverBus, assignedRoutes.map((route) => route.route_id), held.includes("driver_student_details")),
+        transportationOff ? [] : resolveMyStudents(db, organizationId, userId, driverBus, assignedRoutes.map((route) => route.route_id), held.includes("driver_student_details")),
         getTransportationIntegrationStatus(db, organizationId),
       ]);
 
@@ -197,6 +200,7 @@ const driverController = {
         schoolLongitude: toFloat(schoolResult.rows[0]?.geo_lng),
         distanceUnit: schoolResult.rows[0]?.transportation_distance_unit === "mi" ? "mi" : "km",
         integration,
+        transportationOff,
         messages: req.flash(),
       });
     } catch (error) {

@@ -2078,6 +2078,9 @@ main {
 .teachers-mobile-toggle[aria-expanded="true"] .teachers-mobile-chevron { transform: rotate(90deg); color: var(--primary); }
 .teachers-head { display: none; }
 .teachers-chip-row { margin-top: 6px; }
+.count-nolead { padding: 1px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+.teachers-nolead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 6px 0 0; padding: 6px 9px; border: 1px solid #fcd34d; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: 12px; }
+.teachers-nolead a { color: inherit; font-weight: 700; text-decoration: underline; }
 .teacher-section[data-collapsed="true"] .teachers-chip-row { display: none; }
 @media (max-width: 768px) {
   .teacher-section { padding: 8px 10px; }
@@ -3951,6 +3954,9 @@ main {
 <body>
   <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets')); %>
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
+  <% const _canMarkAttendance = Array.isArray(typeof userPermissions !== 'undefined' ? userPermissions : null) && userPermissions.includes('mark_attendance'); %>
+  <%# Offered to someone who may mark it: saving needs Mark Attendance, and a teacher marks only the class they lead. %>
+  <% const _offerAttendance = hasAttendanceFeature && _canMarkAttendance && (userRole !== "Teacher" || isMainTeacher); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <% const _canOpenPaygiraWorkspace = typeof canOpenPaygiraWorkspace === 'boolean' ? canOpenPaygiraWorkspace : true; %>
   <div class="workspace-shell">
@@ -4030,7 +4036,7 @@ main {
             </li>
             <% } %>
 
-            <% if (hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher)) { %>
+            <% if (_offerAttendance) { %>
               <li>
                 <button class="nav-link" type="button" data-nav-key="attendance" onclick="openWorkspaceTabByKey('attendance')">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('attendance') %></span>
@@ -4196,6 +4202,8 @@ main {
                       <span class="count-label">Teachers</span>
                       <span class="count-num"><%= employees.length %></span>
                     </span>
+                    <%# Nobody in charge of this class: said on the chip, so it's seen without opening it. %>
+                    <% if (!employees.some(function (employee) { return employee.main; })) { %><span class="count-nolead" title="This class has no main teacher yet">No main teacher</span><% } %>
                     <span class="count-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
                   </button>
                   <div class="overview-count-chip">
@@ -4224,8 +4232,20 @@ main {
                 <div class="section-card teacher-section teachers-dropdown" id="teachers-section" data-collapsed="false" hidden>
                   <div class="teachers-head">
                     <h2 class="section-title">Teachers</h2>
-                    <span class="section-subtext">Main teacher can mark attendance and maintain the class workspace.</span>
+                    <span class="section-subtext">The main teacher marks attendance and looks after the class.</span>
                   </div>
+                  <%
+                    // Chosen on the staff form, with each person's classes and permissions.
+                    const _hasLead = employees.some(function (employee) { return employee.main; });
+                    const _canPickLead = typeof workspaceAccess === 'function' && workspaceAccess().employees.canEdit && workspaceAccess().management.employees;
+                  %>
+                  <% if (!_hasLead) { %>
+                    <p class="teachers-nolead">
+                      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                      This class has no main teacher yet.
+                      <% if (_canPickLead) { %><a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Choose one in Users / Employees</a><% } else { %>A manager can put someone in charge.<% } %>
+                    </p>
+                  <% } %>
                   <div class="teachers-chip-row" id="teachers-chip-row">
                     <% employees.forEach(function(employee) { %>
                       <% var initials = (employee.name || '?').trim().split(/\s+/).slice(0,2).map(function(p){return p[0];}).join('').toUpperCase(); %>
@@ -4235,9 +4255,6 @@ main {
                           <span class="teacher-name"><%= employee.name %></span>
                           <% if (employee.main) { %><span class="teacher-role">Main Teacher</span><% } else { %><span class="teacher-role">Teacher</span><% } %>
                         </span>
-                        <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-                          <input class="teacher-radio" type="radio" name="main_employee" value="<%= employee.user_id %>" <% if (employee.main) { %> checked <% } %> onchange="setMainEmployee('<%= classId %>', '<%= employee.user_id %>')" title="Set as main teacher">
-                        <% } %>
                       </div>
                     <% }); %>
                     <% if (!employees.length) { %><span class="section-subtext">No teachers assigned yet.</span><% } %>
@@ -4793,7 +4810,7 @@ main {
         paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace&classId=${classId}`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
-        canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
+        canOpenAttendance: <%= _offerAttendance ? 'true' : 'false' %>,
         canOpenAssessmentQuestions: <%= canAccessAssessmentQuestions ? 'true' : 'false' %>,
         canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
         canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
@@ -6485,29 +6502,6 @@ main {
       });
       });
       <% } %>
-
-      window.setMainEmployee = function (classId, userId) {
-        const confirmationMessage = "Are you sure you want to set this teacher as the main teacher for this class? The main teacher will have full access and is the only teacher who can mark attendance.";
-        if (!confirm(confirmationMessage)) return;
-
-        fetch('/common/setMainEmployee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ class_id: classId, main_employee: userId })
-        })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              alert('Main class teacher set successfully');
-            } else {
-              alert('Failed to set main class teacher');
-            }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            alert('Error setting main employee');
-          });
-      };
 
       function initClassDashboard() {
         const navToggle = document.querySelector('.nav-toggle');

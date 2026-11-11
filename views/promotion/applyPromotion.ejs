@@ -825,7 +825,11 @@
     <summary>Before you start</summary>
     <div class="ws-info__body">
       <p>Promotions move students from one class to another. First save any promotion or repeat decisions on the report card.</p>
+      <% if (typeof workspaceAccess === 'function' && workspaceAccess().reports.settings) { %>
       <p>To do that, open <a href="/print/reportSettings" target="_blank">Report and promotion settings</a>, pick the school year and term, then update the report card or settings.</p>
+      <% } else { %>
+      <p>Those are saved in Report and promotion settings, by someone with the Report Settings permission.</p>
+      <% } %>
     </div>
   </details>
 

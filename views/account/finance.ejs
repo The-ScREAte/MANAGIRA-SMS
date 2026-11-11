@@ -156,6 +156,42 @@
   .fin-page-head { margin-bottom:24px; }
   .fin-page-head-main-title { text-align:left; flex:1; }
   .fin-page-head-main-title h1 { margin:0; font-size:1.35rem; font-weight:700; text-align:left; }
+  /* A link at the end of a card's heading, and a folded block that is a card of its own. */
+  .fin-head-link { margin-left:auto; color:var(--fin-teal); font-size:.8rem; font-weight:600; text-decoration:none; }
+  .fin-head-link:hover { text-decoration:underline; }
+  .fin-more--card { background:var(--fin-card); border-radius:var(--fin-r); }
+  .fin-more--card > summary { padding:14px 18px; }
+  .fin-settings-line { margin:0 0 10px; color:var(--fin-text); font-size:.9rem; line-height:1.5; }
+  .fin-settings-line a { color:var(--fin-teal); font-weight:600; }
+  /* Finding a payment. */
+  .fin-pay-find { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 14px; }
+  .fin-pay-find input[type="search"] { flex:1 1 240px; max-width:420px; min-height:34px; margin:0; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:.86rem; }
+  a.fin-page-btn { text-decoration:none; display:inline-flex; align-items:center; }
+  /* The ledger. */
+  .fin-ledger-filters { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap:12px; }
+  @media (max-width:700px) { .fin-ledger-filters { grid-template-columns:1fr; } }
+  .fin-ledger-sort { all:unset; cursor:pointer; font:inherit; color:inherit; letter-spacing:inherit; text-transform:inherit; }
+  .fin-ledger-sort::after { content:' ↕'; opacity:.35; }
+  .fin-ledger-sort[data-on="down"]::after { content:' ↓'; opacity:1; }
+  .fin-ledger-sort[data-on="up"]::after { content:' ↑'; opacity:1; }
+  .fin-ledger-credit { color:var(--fin-success); font-size:.72rem; font-weight:600; }
+  .fin-ledger-empty { margin:0; padding:26px 12px; text-align:center; color:var(--fin-muted); }
+  .fin-ledger-hint { margin:10px 2px 0; color:var(--fin-muted); font-size:.8rem; }
+  /* The less-used half of a form, folded away until it's wanted. */
+  .fin-more { margin:4px 0 12px; border:1px solid var(--fin-border, #e2e8f0); border-radius:10px; background:#fafbfc; }
+  .fin-more > summary { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding:10px 14px; cursor:pointer; list-style:none; }
+  .fin-more > summary::-webkit-details-marker { display:none; }
+  .fin-more > summary::before { content:'▸'; color:var(--fin-muted, #64748b); font-size:.8rem; }
+  .fin-more[open] > summary::before { content:'▾'; }
+  .fin-more__title { font-weight:700; font-size:.88rem; }
+  .fin-more__hint { color:var(--fin-muted, #64748b); font-size:.78rem; }
+  .fin-more__body { padding:4px 14px 12px; border-top:1px solid var(--fin-border, #e2e8f0); }
+  /* Two pages of one place (All bills / Repeating, Balances / Overdue). */
+  .fin-tabs { display:flex; gap:4px; margin-top:8px; }
+  .fin-more[open] { background:#fff; }
+  .fin-tab { padding:5px 12px; border:1px solid var(--fin-border, #e2e8f0); border-radius:999px; background:#fff; color:var(--fin-muted, #64748b); font-size:.82rem; font-weight:600; text-decoration:none; }
+  .fin-tab:hover { color:var(--fin-ink, #0f172a); }
+  .fin-tab.is-on { border-color:var(--org-primary-color, #01535b); background:var(--org-primary-color, #01535b); color:#fff; }
   /* Right side of a heading: filter, then the Secure badge at the far right. */
   .fin-head-tools { display:flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:nowrap; min-width:0; }
   .fin-filter-fold { position:relative; min-width:0; }
@@ -226,7 +262,7 @@
   }
 
   /* ── Stat cards ───────────────────────────────────────────────── */
-  .fin-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+  .fin-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:20px; }
   .stat {
     position:relative; overflow:hidden;
     background:linear-gradient(155deg,var(--fin-card) 0%,var(--fin-card-2) 100%);
@@ -283,6 +319,9 @@
   
   .fin-btn.sm { min-height:34px; padding:0 10px; font-size:.78rem; border-radius:4px; font-weight:600; }
   .fin-btn.tiny { min-height:30px; padding:0 8px; font-size:.74rem; border-radius:4px; font-weight:600; }
+  /* A second choice beside the main one: outlined, so the main action is the one that stands out. */
+  .fin-btn.quiet { background:#fff; border-color:#cbd5e1; color:var(--fin-text); }
+  .fin-btn.quiet:hover { background:#f8fafc; border-color:#94a3b8; }
 
   /* ── Two-col layout ───────────────────────────────────────────── */
   .fin-two { display:grid; grid-template-columns:1.6fr 1fr; gap:18px; }
@@ -822,7 +861,7 @@
     font-weight:600; text-decoration:none;
   }
   .fin-stats.fin-student-summary-grid {
-    grid-template-columns:repeat(3, minmax(0, 1fr));
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
   }
   .fin-stats.fin-student-summary-grid .stat .sub strong {
     color:var(--fin-text);
@@ -1245,8 +1284,9 @@
       flex:1; text-align:center;
     }
     .fin-mobile-header h2 .accent { color:var(--fin-teal); }
-    /* Hide the duplicate h1 in fin-page-head on mobile */
-    .fin-page-head-main-title { display:none; }
+    /* Hide the duplicate h1 in fin-page-head on mobile; a place's tabs stay. */
+    .fin-page-head-main-title h1 { display:none; }
+    .fin-tabs { margin-top:0; }
     /* Hamburger button */
     .fin-hamburger {
       display:flex; flex-direction:column; justify-content:center; align-items:center; gap:5px;
@@ -1620,23 +1660,37 @@
       </div>
       <div class="fin-side-title">Navigate</div>
       <nav class="fin-nav">
-        <% if (paygiraAccess.overview) { %><a href="/account/settings/finance?section=overview"      class="<%= sec==='overview' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg></span><span>Overview</span></a><% } %>
-        <% if (paygiraAccess.bills) { %><a href="/account/settings/finance?section=bills"         class="<%= sec==='bills' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span><span>Bill Management</span></a><% } %>
-        <% if (paygiraAccess.students) { %><a href="/account/settings/finance?section=students"      class="<%= sec==='students' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M3 21h18M8 7h4M8 11h4M8 15h4"/></svg></span><span>Org-Wide Bills</span></a><% } %>
-        <% if (paygiraAccess.subscriptions) { %><a href="/account/settings/finance?section=subscriptions" class="<%= sec==='subscriptions' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg></span><span>Subscriptions</span></a><% } %>
-        <% if (paygiraAccess.payments) { %><a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><span>Payment Tracking</span></a><% } %>
-        <% /* Fee Templates hidden for now */ %>
-        <% if (paygiraAccess.arrears) { %><a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><span>Fee Recovery</span></a><% } %>
-        <% if (paygiraAccess.payouts) { %><a href="/account/settings/finance?section=payouts"       class="<%= sec==='payouts' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><span>Payouts</span></a><% } %>
-        <% if (paygiraAccess.settings) { %><a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></span><span>Payment Settings</span></a><% } %>
+        <%
+          // The same six places as the PayGira hub's rail (utils/workspaceAccess.js).
+          const _finIcons = {
+            overview: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg>',
+            bills: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>',
+            students: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M3 21h18M8 7h4M8 11h4M8 15h4"/></svg>',
+            payments: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>',
+            payouts: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>',
+            settings: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>',
+          };
+          const _finPlace = paygiraAccess.placeOf(sec) || 'overview';
+        %>
+        <% paygiraAccess.menu.forEach((place) => { %>
+          <a href="<%= place.url %>" class="<%= place.id === _finPlace ? 'active' : '' %>"><span class="ico"><%- _finIcons[place.id] || '' %></span><span><%= place.label %></span></a>
+        <% }) %>
       </nav>
     </aside>
 
     <div class="fin-main">
       <div class="fin-page-head" style="display:flex;justify-content:space-between;align-items:center;gap:16px;position:relative;flex-wrap:wrap;">
-        <% const _secTitles = { overview: 'Overview', bills: 'Bill Management', students: 'Org-Wide Bills', subscriptions: 'Subscriptions', payments: 'Payment Tracking', arrears: 'Fee Recovery', payouts: 'Payouts', settings: 'Payment Settings' }; %>
+        <%
+          // The title is the place's name; a place with two pages shows them as tabs under it.
+          const _finHere = paygiraAccess.menu.find((place) => place.id === (paygiraAccess.placeOf(sec) || 'overview')) || { label: 'PayGira', tabs: [] };
+        %>
         <div class="fin-page-head-main-title">
-          <h1><%= _secTitles[sec] || 'Overview' %></h1>
+          <h1><%= _finHere.label %></h1>
+          <% if (_finHere.tabs.length > 1) { %>
+            <nav class="fin-tabs" aria-label="<%= _finHere.label %>">
+              <% _finHere.tabs.forEach((tab) => { %><a href="<%= tab.url %>" class="fin-tab<%= tab.id === sec ? ' is-on' : '' %>"<%- tab.id === sec ? ' aria-current="page"' : '' %>><%= tab.label %></a><% }) %>
+            </nav>
+          <% } %>
         </div>
         <div class="fin-head-tools">
         <% if (sec === 'overview') { %>
@@ -1698,68 +1752,106 @@
         <% const billPageSize = (billPagination && billPagination.pageSize) || bills.length || 20; %>
         <div class="fin-card fin-accordion" id="acc-create-bill" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-bill')">
-            <span><strong>Create New Bill</strong></span>
-            <span class="fin-acc-hint">Assign to entire school, classes, or specific students</span>
+            <span><strong>New bill</strong></span>
+            <span class="fin-acc-hint">Charge every student, some classes or chosen students. Each parent gets an invoice.</span>
             <span class="fin-acc-chev">▾</span>
           </button>
           <div class="fin-acc-body">
+          <%
+            // [id, name, class id, class name, school years, terms, photo]
+            const _finStudentRows = (refs.students || []).map((s) => [
+              s.student_id,
+              s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim()),
+              s.class_id || 0,
+              s.class_name || '',
+              (s.school_year_ids || []).join(','),
+              (s.term_ids || []).join(','),
+              (s.image_url && String(s.image_url).trim() && String(s.image_url).trim() !== 'profilePlaceholder.png') ? resolveAvatar(s.image_url) : '',
+            ]);
+          %>
+          <script>
+            // Students for the "Chosen students" pickers (this form and the edit window), drawn on first use.
+            (function () {
+              var rows = <%- JSON.stringify(_finStudentRows) %>;
+              var placeholder = <%- JSON.stringify(profilePlaceholder) %>;
+              var chipsDone = false, optionsDone = false;
+              window.finBuildStudentChips = function () {
+                var grid = document.getElementById('studentChips');
+                if (chipsDone || !grid || !rows.length) return;
+                chipsDone = true;
+                var parts = document.createDocumentFragment();
+                rows.forEach(function (row) {
+                  var chip = document.createElement('label');
+                  chip.className = 'fin-chip student';
+                  chip.setAttribute('data-student-id', row[0]);
+                  chip.setAttribute('data-class-id', row[2] || '');
+                  chip.setAttribute('data-school-year-ids', row[4]);
+                  chip.setAttribute('data-term-ids', row[5]);
+                  chip.setAttribute('data-search', (row[1] + ' ' + row[3]).toLowerCase());
+                  var box = document.createElement('input');
+                  box.type = 'checkbox'; box.name = 'target_student_ids'; box.value = row[0];
+                  box.addEventListener('change', function () { finChipChanged(box, 'studentCount'); });
+                  var avatar = document.createElement('span'); avatar.className = 'fin-chip-avatar';
+                  var img = document.createElement('img');
+                  img.loading = 'lazy'; img.decoding = 'async'; img.alt = row[1]; img.src = row[6] || placeholder;
+                  img.onerror = function () { img.onerror = null; img.src = placeholder; };
+                  avatar.appendChild(img);
+                  var text = document.createElement('span'); text.className = 'fin-chip-text';
+                  var name = document.createElement('strong'); name.textContent = row[1];
+                  var klass = document.createElement('small'); klass.textContent = row[3] || '—';
+                  text.appendChild(name); text.appendChild(klass);
+                  chip.appendChild(box); chip.appendChild(avatar); chip.appendChild(text);
+                  parts.appendChild(chip);
+                });
+                grid.appendChild(parts);
+                if (typeof window.syncBillTargetStudents === 'function') window.syncBillTargetStudents();
+              };
+              window.finBuildStudentOptions = function () {
+                var select = document.getElementById('ebl-target_student_ids');
+                if (optionsDone || !select) return;
+                optionsDone = true;
+                var parts = document.createDocumentFragment();
+                rows.forEach(function (row) {
+                  var option = document.createElement('option');
+                  option.value = row[0];
+                  option.setAttribute('data-school-year-ids', row[4]);
+                  option.setAttribute('data-term-ids', row[5]);
+                  option.textContent = row[1] + (row[3] ? ' · ' + row[3] : '');
+                  parts.appendChild(option);
+                });
+                select.appendChild(parts);
+              };
+            })();
+          </script>
           <form class="fin-form" method="POST" action="/account/settings/finance/bills">
+            <%# What it is, how much, who pays and when: enough for most bills. %>
             <div class="fin-row">
               <div class="fin-field">
-                <label>Bill Title *</label>
-                <input name="title" required placeholder="e.g. Tuition Fee — Term 1 2025">
+                <label>What is it for? *</label>
+                <input name="title" required placeholder="e.g. Tuition, fall semester">
               </div>
               <div class="fin-field">
-                <label>Amount (<%= currentCurrency %>) *</label>
+                <label>Amount for each student (<%= currentCurrency %>) *</label>
                 <input name="amount" type="number" step="0.01" min="0" required placeholder="500.00">
                 <% if (currentCurrency !== 'USD' && fmtUsdEquivalent(500)) { %>
                   <small style="color:var(--fin-muted);font-size:.72rem;">≈ USD shown for reference.</small>
                 <% } %>
               </div>
             </div>
-            <div class="fin-field">
-              <label>Description</label>
-              <textarea name="description" placeholder="Optional details…"></textarea>
-            </div>
             <div class="fin-row">
               <div class="fin-field">
-                <label>Bill Type *</label>
-                <select name="bill_type" id="billTypeSel">
-                  <option value="one_time">One-Time Payment</option>
-                  <option value="recurring">Recurring</option>
-                  <option value="installment">Installment Plan</option>
+                <label>Who pays? *</label>
+                <select name="applies_to" id="appliesTo">
+                  <option value="school">Every student</option>
+                  <option value="classes">Some classes</option>
+                  <option value="students">Chosen students</option>
                 </select>
               </div>
               <div class="fin-field">
-                <label>Recurrence (if recurring)</label>
-                <select name="recurrence" id="billCreateRecurrence">
-                  <option value="">—</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="term">Per Term</option>
-                  <option value="year">Per Year</option>
-                </select>
+                <label>Due date *</label>
+                <input name="due_date" id="billCreateStartDate" type="date" required>
+                <small style="color:var(--fin-muted);font-size:.72rem;">For a repeating bill, the first date.</small>
               </div>
-            </div>
-            <div class="fin-row">
-              <div class="fin-field">
-                <label>Late Fee Amount</label>
-                <input name="late_fee_amount" type="number" step="0.01" min="0" placeholder="0.00">
-              </div>
-              <div class="fin-field">
-                <label>After (days overdue)</label>
-                <input name="late_fee_after_days" type="number" min="0" value="7">
-              </div>
-            </div>
-
-            <div class="fin-field">
-              <label>Applicable To *</label>
-              <select name="applies_to" id="appliesTo">
-                <option value="school">Entire School</option>
-                <option value="classes">Specific Classes</option>
-                <option value="students">Individual Students</option>
-              </select>
             </div>
 
             <!-- Classes — clickable multi-select chips -->
@@ -1785,7 +1877,7 @@
               </div>
             </div>
 
-            <!-- Students — searchable multi-select chips -->
+            <!-- Students: built in the browser when "Chosen students" is picked (finBuildStudentChips) -->
             <div class="fin-field" id="studentPicker" style="display:none;">
               <label>
                 Students <span style="color:var(--fin-muted);font-weight:500;font-size:.78rem;">(search by name or class, then click to add)</span>
@@ -1801,79 +1893,94 @@
                 <span class="fin-picker-count" id="studentCount">0 selected</span>
               </div>
               <div class="fin-chip-grid scroll" id="studentChips">
-                <% refs.students.forEach(s => { %>
-                  <% const financeStudentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim()); %>
-                  <label class="fin-chip student"
-                         data-student-id="<%= s.student_id %>"
-                         data-class-id="<%= s.class_id || '' %>"
-                         data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>"
-                         data-term-ids="<%= (s.term_ids || []).join(',') %>"
-                         data-search="<%= ((financeStudentDisplayName||'') + ' ' + (s.class_name||'')).toLowerCase() %>">
-                    <input type="checkbox" name="target_student_ids" value="<%= s.student_id %>" onchange="finChipChanged(this,'studentCount')">
-                    <span class="fin-chip-avatar">
-                      <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= financeStudentDisplayName %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
-                    </span>
-                    <span class="fin-chip-text">
-                      <strong><%= financeStudentDisplayName %></strong>
-                      <small><%= s.class_name || '—' %></small>
-                    </span>
-                  </label>
-                <% }) %>
                 <% if (!refs.students.length) { %>
                   <div style="color:var(--fin-muted);font-size:.85rem;padding:14px;">No students enrolled yet.</div>
                 <% } %>
               </div>
             </div>
 
-            <div class="fin-row">
-              <div class="fin-field">
-                <label>School Year *</label>
-                <select name="school_year_id" id="billCreateYearSelect" required>
-                  <option value="">— Select school year —</option>
+            <details class="fin-more" id="billMoreOptions">
+              <summary><span class="fin-more__title">More options</span><span class="fin-more__hint">Repeating, late fee, who collects it and how parents pay</span></summary>
+              <div class="fin-more__body">
+                <div class="fin-field">
+                  <label>Note for parents</label>
+                  <textarea name="description" placeholder="Optional. Shown on the invoice."></textarea>
+                </div>
+                <div class="fin-row">
+                  <div class="fin-field">
+                    <label>How often</label>
+                    <select name="bill_type" id="billTypeSel">
+                      <option value="one_time">Once</option>
+                      <option value="recurring">Repeating</option>
+                      <option value="installment">In installments</option>
+                    </select>
+                  </div>
+                  <div class="fin-field">
+                    <label>Repeats (for a repeating bill)</label>
+                    <select name="recurrence" id="billCreateRecurrence">
+                      <option value="">—</option>
+                      <option value="daily">Every day</option>
+                      <option value="weekly">Every week</option>
+                      <option value="monthly">Every month</option>
+                      <option value="term">Every term</option>
+                      <option value="year">Every year</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="fin-row">
+                  <div class="fin-field">
+                    <label>Last date (for a repeating bill)</label>
+                    <input name="recurrence_end_date" id="billCreateEndDate" type="date">
+                    <small style="color:var(--fin-muted);font-size:.72rem;">Left empty, it stops when the term ends.</small>
+                  </div>
+                  <div class="fin-field">
+                    <label>School days only</label>
+                    <div class="fin-checks">
+                      <label class="fin-check"><input type="checkbox" name="exclude_non_school_days" id="billCreateExcludeNonSchoolDays"> Skip weekends and holidays</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="fin-row">
+                  <div class="fin-field">
+                    <label>Late fee</label>
+                    <input name="late_fee_amount" type="number" step="0.01" min="0" placeholder="0.00">
+                  </div>
+                  <div class="fin-field">
+                    <label>Added after (days late)</label>
+                    <input name="late_fee_after_days" type="number" min="0" value="7">
+                  </div>
+                </div>
+                <div class="fin-row">
+                  <div class="fin-field">
+                    <label>School year *</label>
+                    <select name="school_year_id" id="billCreateYearSelect" required>
+                      <option value="">— Select school year —</option>
                   <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>" <%= y.current ? 'selected' : '' %>><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
-                </select>
-                <% if (!refs.years || !refs.years.length) { %>
-                  <small style="color:var(--fin-warn);font-size:.72rem;">No school years configured. Add one under Academic Settings.</small>
-                <% } %>
-              </div>
-              <div class="fin-field">
-                <label>Term *</label>
-                <select name="term_id" id="billCreateTermSelect" data-year-required-label="Select year first" required>
-                  <option value="">— Select term —</option>
+                    </select>
+                    <% if (!refs.years || !refs.years.length) { %>
+                      <small style="color:var(--fin-warn);font-size:.72rem;">No school years yet. Add one in Management, School years &amp; terms.</small>
+                    <% } %>
+                  </div>
+                  <div class="fin-field">
+                    <label>Term *</label>
+                    <select name="term_id" id="billCreateTermSelect" data-year-required-label="Select year first" required>
+                      <option value="">— Select term —</option>
                   <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" data-start-date="<%= t.start_date ? new Date(t.start_date).toISOString().slice(0,10) : '' %>" data-end-date="<%= t.end_date ? new Date(t.end_date).toISOString().slice(0,10) : '' %>" <%= t.current ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
-                </select>
-                <small style="color:var(--fin-muted);font-size:.74rem;">Only students enrolled in this year &amp; term are billed.</small>
-              </div>
-            </div>
-            <div class="fin-row">
-              <div class="fin-field">
-                <label>Start / First Date *</label>
-                <input name="due_date" id="billCreateStartDate" type="date" required>
-              </div>
-              <div class="fin-field">
-                <label>End Date</label>
-                <input name="recurrence_end_date" id="billCreateEndDate" type="date">
-                <small style="color:var(--fin-muted);font-size:.72rem;">Last recurring bill date. Blank = term end.</small>
-              </div>
-            </div>
-            <div class="fin-field">
-              <label>Schedule Rules</label>
-              <div class="fin-checks">
-                <label class="fin-check"><input type="checkbox" name="exclude_non_school_days" id="billCreateExcludeNonSchoolDays"> Do not include weekends and holidays</label>
-              </div>
-              <small style="color:var(--fin-muted);font-size:.72rem;">Skips weekends &amp; holidays from the term calendar.</small>
-            </div>
-            <div class="fin-field">
-              <label>Collectors / Overseers <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick multiple · drag the corner to resize)</span></label>
-              <select name="assignee_ids[]" class="fin-multi-select" multiple size="4" style="min-height:90px;">
+                    </select>
+                    <small style="color:var(--fin-muted);font-size:.74rem;">Only students enrolled in this year and term are billed.</small>
+                  </div>
+                </div>
+                <div class="fin-field">
+                  <label>Staff who collect it <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick more than one)</span></label>
+                  <select name="assignee_ids[]" class="fin-multi-select" multiple size="4" style="min-height:90px;">
                 <% (refs.employees || []).forEach(function(e) { %>
                   <option value="<%= e.user_id %>"><%= formatCollectorOptionLabel(e) %></option>
                 <% }) %>
-              </select>
-              <small style="color:var(--fin-muted);font-size:.72rem;">Leave empty for no specific collector.</small>
-            </div>
-            <div class="fin-field">
-              <label>Collection Destination</label>
+                  </select>
+                  <small style="color:var(--fin-muted);font-size:.72rem;">They collect it from the class page (My PayGira). Leave empty when the office collects.</small>
+                </div>
+                <div class="fin-field">
+                  <label>Where the money goes</label>
               <% const selectedCreateDestination = collectionDestinationOptionsSafe.some(function(option) { return String(option.value) === String((createBillDraftState && createBillDraftState.payment_destination) || ''); })
                 ? String((createBillDraftState && createBillDraftState.payment_destination) || '')
                 : String(defaultCollectionDestinationSafe || ''); %>
@@ -1886,10 +1993,10 @@
                   <option value="cash">Cash (collect manually)</option>
                 <% } %>
               </select>
-              <small style="color:var(--fin-muted);font-size:.74rem;">Optional — only activated payout accounts are listed. Choose Cash to collect manually.</small>
-            </div>
-            <div class="fin-field">
-              <label>Payment Methods Accepted (visible to parent)</label>
+                  <small style="color:var(--fin-muted);font-size:.74rem;">Only payout accounts that are switched on are listed. Choose Cash to collect by hand.</small>
+                </div>
+                <div class="fin-field">
+                  <label>How parents can pay</label>
               <% const createIsStripe = paymentProviderSafe === 'stripe';
                  const createIsPaystack = paymentProviderSafe === 'paystack';
                  const createCardOn = createIsPaystack ? true : !!(allowedMethods && allowedMethods.stripeOn);
@@ -1909,24 +2016,45 @@
               <% if (!createCardOn && !createTransferOn) { %>
                 <small style="color:var(--fin-muted);font-size:.72rem;">Activate Stripe, bank, or mobile money under Payment Settings to offer online methods.</small>
               <% } %>
-            </div>
-            <div class="fin-field">
-              <label>Notify Parents</label>
-              <div class="fin-checks">
-                <label class="fin-check"><input type="checkbox" name="notify_email" checked> Email</label>
+                </div>
+                <div class="fin-field">
+                  <label>Tell parents</label>
+                  <div class="fin-checks">
+                    <label class="fin-check"><input type="checkbox" name="notify_email" checked> Email each parent their invoice</label>
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
-              <button type="submit" name="status" value="active" class="fin-btn primary">Create &amp; Send</button>
-              <button type="submit" name="status" value="draft" class="fin-btn">Save as Draft</button>
+              <button type="submit" name="status" value="active" class="fin-btn primary">Create and send</button>
+              <button type="submit" name="status" value="draft" class="fin-btn quiet">Save as draft</button>
             </div>
+            <script>
+              // "More options" opens itself when something inside it still needs an answer (no
+              // current term to bill for, or a repeating bill being filled in), so nothing that
+              // stops the bill is ever hidden.
+              (function () {
+                var more = document.getElementById('billMoreOptions');
+                var form = more && more.closest('form');
+                if (!form) return;
+                form.addEventListener('invalid', function (event) { if (more.contains(event.target)) more.open = true; }, true);
+                var check = function () {
+                  var year = document.getElementById('billCreateYearSelect');
+                  var term = document.getElementById('billCreateTermSelect');
+                  var type = document.getElementById('billTypeSel');
+                  if ((year && !year.value) || (term && !term.value) || (type && type.value !== 'one_time')) more.open = true;
+                };
+                window.addEventListener('load', check);
+                form.addEventListener('change', function (event) { if (event.target && event.target.id === 'billTypeSel') check(); });
+              })();
+            </script>
           </form>
           </div>
         </div>
 
         <div class="fin-card">
           <div class="section-head">
-            <h2>All Bills</h2>
+            <h2>Bills sent this term</h2>
             <div class="fin-head-tools">
               <span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %></span>
               <details class="fin-filter-fold" data-fin-filter>
@@ -1954,56 +2082,54 @@
             </div>
           </div>
           <% if (!bills.length) { %>
-            <div class="empty-state"><h3>No bills created yet</h3><p>Use the form above to create your first bill.</p></div>
+            <div class="empty-state"><h3>No bills yet</h3><p>Open <b>New bill</b> above to send the first one.</p></div>
           <% } else { %>
             <div class="fin-table-wrap">
               <table class="fin-table fin-bills-table">
                 <thead><tr>
                   <th>Bill <button type="button" class="fin-sort-btn" data-fin-sort-index="0" data-fin-default="true" aria-label="Sort bills Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
-                  <th class="fin-col-lg">Type</th>
-                  <th class="fin-col-md">Assigned</th>
-                  <th class="fin-col-md">Assignee <button type="button" class="fin-sort-btn" data-fin-sort-index="3" aria-label="Sort assignees Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+                  <th class="num fin-col-md">Students</th>
                   <th class="fin-col-md">Due</th>
-                  <th>Status</th>
-                  <th class="num">Amount</th>
+                  <th class="num">Billed</th>
                   <th class="num fin-col-lg">Paid</th>
+                  <th>Status</th>
                   <th></th>
                 </tr></thead>
                 <tbody>
                   <% bills.forEach(b => { const _bpayload = {id:b.bill_id,title:b.title,description:b.description||"",amount:b.amount,due_date:b.due_date?new Date(b.due_date).toISOString().slice(0,10):"",recurrence_end_date:b.recurrence_end_date?new Date(b.recurrence_end_date).toISOString().slice(0,10):"",bill_type:b.bill_type||'one_time',recurrence:b.recurrence||"",late_fee_amount:b.late_fee_amount||0,late_fee_after_days:b.late_fee_after_days||7,exclude_non_school_days:!!b.exclude_non_school_days,assignee_id:b.assignee_id||"",assignee_ids:b.assignee_ids||[],applies_to:b.applies_to||'school',school_year_id:b.school_year_id||"",term_id:b.term_id||"",target_class_ids:b.target_class_ids||[],target_student_ids:b.target_student_ids||[],payment_destination:b.payment_destination||'stripe',accepts_card:!!b.accepts_card,accepts_cash:!!b.accepts_cash,accepts_transfer:!!b.accepts_transfer,notify_email:!!b.notify_email,status:b.status||'active'}; %>
-                    <tr class="fin-click-row" onclick='openEditBill(<%- JSON.stringify(_bpayload) %>)' title="Open bill and edit">
+                    <%
+                      // What sets this bill apart, said in a few words under its name.
+                      const _repeats = { daily: 'every day', weekly: 'every week', monthly: 'every month', term: 'every term', year: 'every year' }[b.recurrence] || '';
+                      const _billNotes = [];
+                      if (b.bill_type === 'recurring') _billNotes.push('Repeats' + (_repeats ? ' ' + _repeats : ''));
+                      if (b.bill_type === 'installment') _billNotes.push('In installments');
+                      if (b.assignee_first_name) _billNotes.push('Collected by ' + (typeof formatDisplayName === 'function' ? formatDisplayName({ first_name: b.assignee_first_name, last_name: b.assignee_last_name }) : [b.assignee_first_name, b.assignee_last_name].filter(Boolean).join(' ').trim()));
+                      const _billStatusWords = { active: 'Sent', draft: 'Draft', cancelled: 'Cancelled', paid: 'Paid' };
+                    %>
+                    <tr class="fin-click-row" onclick='openEditBill(<%- JSON.stringify(_bpayload) %>)' title="Open this bill">
                       <td>
                         <div class="fin-bill-copy">
                           <strong class="fin-bill-title"><%= b.title %></strong>
-                          <% if (b.description) { %><div class="fin-bill-meta"><%= b.description %></div><% } else { %><div class="fin-bill-meta">Tap anywhere on this row to edit the bill.</div><% } %>
+                          <% if (b.description) { %><div class="fin-bill-meta"><%= b.description %></div><% } %>
+                          <% if (_billNotes.length) { %><div class="fin-bill-meta"><%= _billNotes.join(' · ') %></div><% } %>
                         </div>
                       </td>
-                      <td class="fin-col-lg"><span class="fin-type-chip"><%= (b.bill_type||'').replace('_',' ') %></span></td>
                       <td class="num fin-col-md fin-money-neutral"><%= b.assigned_count %></td>
-                      <td class="fin-col-md">
-                        <% if (b.assignee_first_name) { %>
-                          <% const assigneeDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName({ first_name: b.assignee_first_name, last_name: b.assignee_last_name }) : [b.assignee_first_name, b.assignee_last_name].filter(Boolean).join(' ').trim()); %>
-                          <div class="assignee-chip">
-                            <div class="avatar-xs"><%= ((b.assignee_first_name||'?').charAt(0)+(b.assignee_last_name||'').charAt(0)).toUpperCase() %></div>
-                            <%= assigneeDisplayName %>
-                          </div>
-                        <% } else { %><span style="color:var(--fin-muted);font-size:.8rem;">—</span><% } %>
-                      </td>
                       <td class="fin-col-md fin-date-muted"><%= b.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(b.due_date) : new Date(b.due_date).toLocaleDateString()) : '—' %></td>
-                      <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
                       <td class="num fin-money-neutral"><%= fmt(b.total_amount) %></td>
                       <td class="num fin-col-lg fin-money-positive"><%= fmt(b.total_paid) %></td>
+                      <td><span class="badge <%= b.status %>"><%= _billStatusWords[b.status] || b.status %></span></td>
                       <td class="fin-actions-cell">
+                        <% if (b.status === 'active') { %>
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;" onclick="event.stopPropagation();" onsubmit="return confirm('Email a reminder to the parents of every student who still owes this bill?');">
+                          <button class="fin-btn sm quiet" title="Email the parents who still owe this bill">Send reminder</button>
+                        </form>
+                        <% } %>
                         <button type="button" class="fin-btn fin-icon-btn" title="Edit bill" aria-label="Edit bill" onclick='event.stopPropagation(); openEditBill(<%- JSON.stringify(_bpayload) %>)'>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
                         </button>
-                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;" onclick="event.stopPropagation();">
-                          <button class="fin-btn fin-icon-btn" title="Send reminder" aria-label="Send reminder">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12a10 10 0 1 1-10-10"></path><path d="M22 4 12 14l-3-3"></path></svg>
-                          </button>
-                        </form>
                         <% if (paygiraAccess.canDeleteBills) { %>
-                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" onsubmit="return confirm('Delete this bill and all assignments?');" style="display:inline;" onclick="event.stopPropagation();">
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" onsubmit="return confirm('Delete this bill for every student it was sent to?');" style="display:inline;" onclick="event.stopPropagation();">
                           <button class="fin-btn fin-icon-btn danger" title="Delete bill" aria-label="Delete bill">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
                           </button>
@@ -2021,18 +2147,36 @@
       <% } %>
 
       <% if (sec === 'students') { %>
-        <% const studentPage = (studentBillingPagination && studentBillingPagination.page) || 1; %>
-        <% const studentPageSize = (studentBillingPagination && studentBillingPagination.pageSize) || studentBilling.length || 25; %>
-        <% const studentNetOutstanding = (student) => Number(student.net_outstanding || Math.max(Number(student.outstanding || 0) - Number(student.student_credit || 0), 0)); %>
-        <% const studentsWithDebt = (studentBilling || []).filter(s => studentNetOutstanding(s) > 0); %>
-        <% const totalNetOutstanding = studentsWithDebt.reduce((sum, s) => sum + studentNetOutstanding(s), 0); %>
-        <% const studentsWithCredit = (studentBilling || []).filter(s => Number(s.student_credit || 0) > 0); %>
-        <% const totalStudentCredit = studentsWithCredit.reduce((sum, s) => sum + Number(s.student_credit || 0), 0); %>
+        <%
+          // The ledger: who was billed, what they paid and what they still owe. Sent as compact
+          // rows and drawn in the browser (a page of ready-made rows for every student was 4 MB).
+          // [id, name, shown id, class id, class name, billed, paid, credit, owed, photo]
+          const _ledgerRows = (studentBilling || []).map((st) => {
+            const owedGross = Number(st.outstanding || 0);
+            const credit = Number(st.student_credit || 0);
+            return [
+              st.student_id,
+              st.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(st) : [st.first_name, st.last_name].filter(Boolean).join(' ').trim()),
+              st.display_student_id_text || ('#' + st.student_id),
+              st.class_id || 0,
+              st.class_name || '',
+              Number(st.total_billed || 0),
+              Number(st.total_paid || 0),
+              credit,
+              Number(st.net_outstanding || Math.max(owedGross - credit, 0)),
+              (st.image_url && String(st.image_url).trim() && String(st.image_url).trim() !== 'profilePlaceholder.png') ? resolveAvatar(st.image_url) : '',
+            ];
+          });
+          const _ledgerSum = (index) => _ledgerRows.reduce((sum, row) => sum + row[index], 0);
+          const _ledgerOwing = _ledgerRows.filter((row) => row[8] > 0).length;
+          const _ledgerBilled = _ledgerRows.filter((row) => row[5] > 0).length;
+          const _ledgerCredit = _ledgerRows.filter((row) => row[7] > 0).length;
+          const _ledgerClasses = [...new Map(_ledgerRows.filter((row) => row[3]).map((row) => [row[3], row[4]])).entries()].sort((x, y) => String(x[1]).localeCompare(String(y[1]), undefined, { numeric: true }));
+        %>
         <div class="fin-card">
           <div class="section-head">
-            <h2>Student balances</h2>
+            <h2>What each student owes</h2>
             <div class="fin-head-tools">
-              <span class="fin-section-count"><%= studentBilling.length %> student<%= studentBilling.length === 1 ? '' : 's' %></span>
               <details class="fin-filter-fold" data-fin-filter>
                 <summary title="Choose the billing period"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span>Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(studentYearFilter, studentTermFilter) %></span></summary>
                 <form method="GET" action="/account/settings/finance" class="fin-filter-pop" aria-label="Filter students' bills">
@@ -2058,131 +2202,185 @@
               </details>
             </div>
           </div>
-          <% if (!studentBilling.length) { %>
+          <% if (!_ledgerRows.length) { %>
             <div class="empty-state"><h3>No students yet</h3></div>
           <% } else { %>
             <div class="fin-stats fin-student-summary-grid" style="margin-bottom:16px;">
-              <div class="stat red">
-                <div class="label">Students Owed Balance</div>
-                <div class="value"><%= studentsWithDebt.length %></div>
-                <div class="sub"><strong><%= fmt(totalNetOutstanding) %></strong> still due in this context</div>
-              </div>
-              <div class="stat gold">
-                <div class="label">Net Amount Due</div>
-                <div class="value"><%= fmt(totalNetOutstanding) %></div>
-                <div class="sub"><%= studentsWithDebt.length ? (studentsWithDebt.length + ' student' + (studentsWithDebt.length === 1 ? '' : 's') + ' still owe balances') : 'No outstanding balances in this context' %></div>
+              <div class="stat">
+                <div class="label">Billed</div>
+                <div class="value"><%= fmt(_ledgerSum(5)) %></div>
+                <div class="sub"><%= _ledgerBilled %> student<%= _ledgerBilled === 1 ? '' : 's' %> billed</div>
               </div>
               <div class="stat green">
-                <div class="label">Student Credit Held</div>
-                <div class="value"><%= fmt(totalStudentCredit) %></div>
-                <div class="sub"><%= studentsWithCredit.length ? (studentsWithCredit.length + ' student' + (studentsWithCredit.length === 1 ? '' : 's') + ' still have school-held credit') : 'No student credit is currently held' %></div>
+                <div class="label">Paid</div>
+                <div class="value"><%= fmt(_ledgerSum(6)) %></div>
+                <div class="sub">Received so far</div>
               </div>
+              <div class="stat red">
+                <div class="label">Still owed</div>
+                <div class="value"><%= fmt(_ledgerSum(8)) %></div>
+                <div class="sub"><%= _ledgerOwing ? (_ledgerOwing + ' student' + (_ledgerOwing === 1 ? ' owes' : 's owe')) : 'Nobody owes anything' %></div>
+              </div>
+              <% if (_ledgerCredit) { %>
+              <div class="stat gold">
+                <div class="label">Credit held</div>
+                <div class="value"><%= fmt(_ledgerSum(7)) %></div>
+                <div class="sub">Paid ahead by <%= _ledgerCredit %> student<%= _ledgerCredit === 1 ? '' : 's' %></div>
+              </div>
+              <% } %>
             </div>
-            <div class="fin-report-filters fin-student-filter-grid" style="margin-bottom:16px;">
+            <div class="fin-report-filters fin-ledger-filters" style="margin-bottom:16px;">
               <div class="fin-field">
-                <label>Search</label>
-                <input type="text" id="orgStudentSearch" oninput="finRunOrgWideFilter()" placeholder="Student...">
+                <label for="ledgerSearch">Find a student</label>
+                <input type="search" id="ledgerSearch" placeholder="Name or student ID" autocomplete="off">
               </div>
               <div class="fin-field">
-                <label>Class</label>
-                <select id="orgClassFilter" onchange="finRunOrgWideFilter()">
+                <label for="ledgerClass">Class</label>
+                <select id="ledgerClass">
                   <option value="">All classes</option>
-                  <% (refs.classes||[]).forEach(c => { %><option value="<%= c.class_id %>"><%= c.class_name %></option><% }) %>
+                  <% _ledgerClasses.forEach(([classId, className]) => { %><option value="<%= classId %>"><%= className %></option><% }) %>
                 </select>
               </div>
               <div class="fin-field">
-                <label>Status</label>
-                <select id="orgStatusFilter" onchange="finRunOrgWideFilter()">
-                  <option value="">All</option>
-                  <option value="paid">Paid</option>
-                  <option value="partial">Partial</option>
-                  <option value="pending">Pending</option>
-                  <option value="draft">Draft</option>
+                <label for="ledgerShow">Show</label>
+                <select id="ledgerShow">
+                  <option value="owes"<%= _ledgerOwing ? ' selected' : '' %>>Students who owe (<%= _ledgerOwing %>)</option>
+                  <option value="billed"<%= !_ledgerOwing && _ledgerBilled ? ' selected' : '' %>>Everyone billed (<%= _ledgerBilled %>)</option>
+                  <option value="paid">Paid in full</option>
+                  <% if (_ledgerCredit) { %><option value="credit">With credit (<%= _ledgerCredit %>)</option><% } %>
+                  <option value="all"<%= !_ledgerOwing && !_ledgerBilled ? ' selected' : '' %>>All students (<%= _ledgerRows.length %>)</option>
                 </select>
-              </div>
-              <div class="fin-field">
-                <label>Debt</label>
-                <select id="orgDebtFilter" onchange="finRunOrgWideFilter()">
-                  <option value="">All</option>
-                  <option value="has-debt">With debt</option>
-                  <option value="clear">No debt</option>
-                </select>
-              </div>
-              <div class="fin-field">
-                <label>Balance Owed By School</label>
-                <select id="orgCreditFilter" onchange="finRunOrgWideFilter()">
-                  <option value="">All</option>
-                  <option value="has-credit">With student credit</option>
-                  <option value="no-credit">No student credit</option>
-                </select>
-              </div>
-              <div class="fin-field fin-filter-action">
-                <button type="button" class="fin-btn" onclick="finResetOrgWideFilter()">Reset</button>
               </div>
             </div>
             <div class="fin-table-wrap fin-scroll" id="finStudentsWrap">
-              <table class="fin-table fin-student-table">
-                <thead><tr><th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="0" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Class <button type="button" class="fin-sort-btn" data-fin-sort-index="1" aria-label="Sort classes Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Credit</th><th class="num">Outstanding</th><th class="num">Net Due</th><th>Status</th></tr></thead>
-                <tbody>
-                  <% studentBilling.forEach(s => {
-                    const out = Number(s.outstanding||0);
-                    const credit = Number(s.student_credit||0);
-                    const netOut = Number(s.net_outstanding||Math.max(out - credit, 0));
-                    const billed = Number(s.total_billed||0);
-                    let st = 'pending';
-                    if (billed === 0) st = 'draft';
-                    else if (netOut === 0) st = 'paid';
-                    else if (Number(s.total_paid||0) > 0 || credit > 0) st = 'partial';
-                  %>
-                    <% const financeStudentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim()); %>
-                    <tr class="fin-click-row" onclick="openStudentDrawer(<%= s.student_id %>)" title="Open student billing detail" data-text="<%= ((financeStudentDisplayName||'') + ' ' + (s.class_name||'') + ' ' + (s.display_student_id||'')).toLowerCase() %>" data-class="<%= s.class_id || '' %>" data-status="<%= st %>" data-debt="<%= netOut > 0 ? 'has-debt' : 'clear' %>" data-credit="<%= credit > 0 ? 'has-credit' : 'no-credit' %>">
-                      <td>
-                        <div class="fin-student-main">
-                          <div class="fin-student-avatar">
-                            <img src="<%= resolveAvatar(s.image_url) %>" alt="<%= financeStudentDisplayName %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
-                          </div>
-                          <div class="fin-student-copy">
-                            <strong class="fin-student-name"><%= financeStudentDisplayName %></strong>
-                            <div class="fin-student-meta">ID <%= s.display_student_id_text || ('#' + s.student_id) %></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td><span class="fin-class-chip"><%= s.class_name || 'No class' %></span></td>
-                      <td class="num fin-money-neutral"><%= fmt(s.total_billed) %></td>
-                      <td class="num fin-money-positive"><%= fmt(s.total_paid) %></td>
-                      <td class="num <%= credit > 0 ? 'fin-money-positive' : 'fin-money-neutral' %>"><%= fmt(credit) %></td>
-                      <td class="num <%= out > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(out) %></td>
-                      <td class="num <%= netOut > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(netOut) %></td>
-                      <td><span class="badge <%= st %>"><%= st %></span></td>
-                    </tr>
-                  <% }) %>
-                </tbody>
+              <table class="fin-table fin-student-table no-global-sort">
+                <thead><tr>
+                  <th><button type="button" class="fin-ledger-sort" data-ledger-sort="name">Student</button></th>
+                  <th class="fin-col-md">Class</th>
+                  <th class="num fin-col-lg">Billed</th>
+                  <th class="num fin-col-lg">Paid</th>
+                  <th class="num"><button type="button" class="fin-ledger-sort" data-ledger-sort="owed">Balance</button></th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="ledgerBody"></tbody>
               </table>
+              <p class="fin-ledger-empty" id="ledgerEmpty" hidden>Nobody matches. Change the filters above.</p>
             </div>
-            <div class="fin-pagebar" id="finStudentsPagebar" hidden>
+            <div class="fin-pagebar" id="finStudentsPagebar">
               <div class="fin-pagebar-left">
-                <span class="fin-pagebar-label">Show per page</span>
-                <select class="fin-pagebar-select" data-fin-pagesize>
-                  <option value="20">20</option><option value="50">50</option><option value="70">70</option><option value="100">100</option><option value="200">200</option>
-                </select>
+                <span class="fin-pagebar-label" id="ledgerCount"></span>
               </div>
               <div class="fin-pagebar-right">
-                <button type="button" class="fin-page-btn" data-fin-prev>Prev</button>
-                <span class="fin-page-info" data-fin-info>1/1</span>
-                <button type="button" class="fin-page-btn" data-fin-next>Next</button>
+                <button type="button" class="fin-page-btn" id="ledgerPrev">Prev</button>
+                <span class="fin-page-info" id="ledgerInfo">1/1</span>
+                <button type="button" class="fin-page-btn" id="ledgerNext">Next</button>
               </div>
             </div>
-            
+            <p class="fin-ledger-hint">Select a student to see their bills and payments, print an invoice or record a payment.</p>
+            <script>
+              // Draws the ledger from the rows above: 25 at a time, the biggest balances first.
+              (function () {
+                var rows = <%- JSON.stringify(_ledgerRows) %>;
+                var placeholder = <%- JSON.stringify(profilePlaceholder) %>;
+                var currency = <%- JSON.stringify((financeCurrency && financeCurrency.code) || 'USD') %>;
+                var money;
+                try { var nf = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }); money = function (v) { return nf.format(v); }; }
+                catch (_e) { money = function (v) { return currency + ' ' + Number(v).toFixed(2); }; }
+                var PAGE = 25, page = 1, sort = { by: 'owed', down: true };
+                var body = document.getElementById('ledgerBody');
+                var search = document.getElementById('ledgerSearch'), klass = document.getElementById('ledgerClass'), show = document.getElementById('ledgerShow');
+                var statusOf = function (row) {
+                  if (row[5] <= 0 && row[7] <= 0) return ['draft', 'No bills'];
+                  if (row[8] <= 0) return ['paid', row[7] > 0 ? 'In credit' : 'Paid'];
+                  return row[6] > 0 || row[7] > 0 ? ['partial', 'Part paid'] : ['pending', 'Owes'];
+                };
+                var matching = function () {
+                  var q = search.value.trim().toLowerCase(), c = klass.value, mode = show.value;
+                  var list = rows.filter(function (row) {
+                    if (q && (row[1] + ' ' + row[2] + ' ' + row[4]).toLowerCase().indexOf(q) === -1) return false;
+                    if (c && String(row[3]) !== c) return false;
+                    // Searching for someone by name finds them whatever they owe.
+                    if (q) return true;
+                    if (mode === 'owes') return row[8] > 0;
+                    if (mode === 'billed') return row[5] > 0;
+                    if (mode === 'paid') return row[5] > 0 && row[8] <= 0;
+                    if (mode === 'credit') return row[7] > 0;
+                    return true;
+                  });
+                  list.sort(function (x, y) {
+                    var d = sort.by === 'owed' ? x[8] - y[8] : String(x[1]).localeCompare(String(y[1]), undefined, { sensitivity: 'base' });
+                    if (d === 0) d = String(x[1]).localeCompare(String(y[1]), undefined, { sensitivity: 'base' });
+                    return sort.down ? -d : d;
+                  });
+                  return list;
+                };
+                var cell = function (className, text) { var td = document.createElement('td'); if (className) td.className = className; if (text != null) td.textContent = text; return td; };
+                var draw = function () {
+                  var list = matching();
+                  var pages = Math.max(1, Math.ceil(list.length / PAGE));
+                  page = Math.min(Math.max(page, 1), pages);
+                  body.textContent = '';
+                  list.slice((page - 1) * PAGE, page * PAGE).forEach(function (row) {
+                    var tr = document.createElement('tr');
+                    tr.className = 'fin-click-row';
+                    tr.title = 'See bills and payments';
+                    tr.addEventListener('click', function () { if (window.openStudentDrawer) window.openStudentDrawer(row[0]); });
+                    var who = cell('');
+                    var main = document.createElement('div'); main.className = 'fin-student-main';
+                    var avatar = document.createElement('div'); avatar.className = 'fin-student-avatar';
+                    var img = document.createElement('img'); img.loading = 'lazy'; img.decoding = 'async'; img.alt = ''; img.src = row[9] || placeholder;
+                    img.onerror = function () { img.onerror = null; img.src = placeholder; };
+                    avatar.appendChild(img);
+                    var copy = document.createElement('div'); copy.className = 'fin-student-copy';
+                    var name = document.createElement('strong'); name.className = 'fin-student-name'; name.textContent = row[1];
+                    var meta = document.createElement('div'); meta.className = 'fin-student-meta'; meta.textContent = 'ID ' + row[2];
+                    copy.appendChild(name); copy.appendChild(meta); main.appendChild(avatar); main.appendChild(copy); who.appendChild(main);
+                    tr.appendChild(who);
+                    var klassCell = cell('fin-col-md'); var chip = document.createElement('span'); chip.className = 'fin-class-chip'; chip.textContent = row[4] || 'No class'; klassCell.appendChild(chip); tr.appendChild(klassCell);
+                    tr.appendChild(cell('num fin-col-lg fin-money-neutral', money(row[5])));
+                    tr.appendChild(cell('num fin-col-lg fin-money-positive', money(row[6])));
+                    var owed = cell('num ' + (row[8] > 0 ? 'fin-money-negative' : 'fin-money-neutral'), money(row[8]));
+                    if (row[7] > 0) { var credit = document.createElement('div'); credit.className = 'fin-ledger-credit'; credit.textContent = money(row[7]) + ' credit'; owed.appendChild(credit); }
+                    tr.appendChild(owed);
+                    var status = statusOf(row); var badgeCell = cell(''); var badge = document.createElement('span'); badge.className = 'badge ' + status[0]; badge.textContent = status[1]; badgeCell.appendChild(badge); tr.appendChild(badgeCell);
+                    body.appendChild(tr);
+                  });
+                  document.getElementById('ledgerEmpty').hidden = list.length > 0;
+                  document.getElementById('ledgerCount').textContent = list.length + (list.length === 1 ? ' student' : ' students');
+                  document.getElementById('ledgerInfo').textContent = page + '/' + pages;
+                  document.getElementById('ledgerPrev').disabled = page <= 1;
+                  document.getElementById('ledgerNext').disabled = page >= pages;
+                  document.querySelectorAll('[data-ledger-sort]').forEach(function (button) {
+                    var on = button.getAttribute('data-ledger-sort') === sort.by;
+                    button.setAttribute('data-on', on ? (sort.down ? 'down' : 'up') : '');
+                  });
+                };
+                var again = function () { page = 1; draw(); };
+                search.addEventListener('input', again); klass.addEventListener('change', again); show.addEventListener('change', again);
+                document.getElementById('ledgerPrev').addEventListener('click', function () { page -= 1; draw(); });
+                document.getElementById('ledgerNext').addEventListener('click', function () { page += 1; draw(); });
+                document.querySelectorAll('[data-ledger-sort]').forEach(function (button) {
+                  button.addEventListener('click', function () {
+                    var by = button.getAttribute('data-ledger-sort');
+                    sort = { by: by, down: sort.by === by ? !sort.down : by === 'owed' };
+                    again();
+                  });
+                });
+                draw();
+              })();
+            </script>
           <% } %>
         </div>
       <% } %>
 
       <% if (sec === 'subscriptions') { %>
         <div class="fin-card">
-          <div class="section-head"><h2>Subscriptions &amp; Recurring</h2></div>
+          <div class="section-head"><h2>Bills that repeat</h2></div>
           <% const recurring = bills.filter(b => b.bill_type === 'recurring'); %>
+          <% const _everyWords = { daily: 'every day', weekly: 'every week', monthly: 'every month', term: 'every term', year: 'every year' }; %>
+          <% const _repeatStatus = { active: 'Running', draft: 'Draft', cancelled: 'Stopped', paid: 'Paid' }; %>
           <% if (!recurring.length) { %>
-            <div class="empty-state"><h3>No recurring plans yet</h3><p>Create a bill with type "Recurring" to start a subscription.</p></div>
+            <div class="empty-state"><h3>No repeating bills yet</h3><p>In <a href="/account/settings/finance?section=bills" style="color:var(--fin-teal);">All bills</a>, open <b>New bill</b>, then <b>More options</b>, and set <b>How often</b> to Repeating.</p></div>
           <% } else { %>
             <div style="display:grid; gap:14px;">
               <% recurring.forEach(b => { %>
@@ -2190,13 +2388,14 @@
                   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
                     <div>
                       <div style="font-family:inherit; font-size:1.05rem; font-weight:700;"><%= b.title %></div>
-                      <div style="color:var(--fin-muted); font-size:.85rem; margin-top:4px;"><span class="fin-mono"><%= fmt(b.amount) %></span> · <%= b.recurrence || 'recurring' %> · <%= b.assigned_count %> enrolled</div>
+                      <div style="color:var(--fin-muted); font-size:.85rem; margin-top:4px;"><span class="fin-mono"><%= fmt(b.amount) %></span> <%= _everyWords[b.recurrence] || 'each time' %> · <%= b.assigned_count %> student<%= Number(b.assigned_count) === 1 ? '' : 's' %> · paid so far <%= fmt(b.total_paid) %> of <%= fmt(b.total_amount) %></div>
                     </div>
-                    <span class="badge <%= b.status %>"><%= b.status %></span>
+                    <span class="badge <%= b.status %>"><%= _repeatStatus[b.status] || b.status %></span>
                   </div>
                 </div>
               <% }) %>
             </div>
+            <p class="fin-ledger-hint">To change or stop one, open it from <a href="/account/settings/finance?section=bills" style="color:var(--fin-teal);">All bills</a>.</p>
           <% } %>
         </div>
       <% } %>
@@ -2205,8 +2404,8 @@
         <% if (paygiraAccess.canRecordPayments) { %>
         <div class="fin-card fin-accordion" id="acc-record-payment" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-record-payment', this)" aria-expanded="false">
-            <span><strong>Record Manual Payment</strong></span>
-            <span class="fin-acc-hint">Cash, cheque, bank transfer, or other offline payment</span>
+            <span><strong>Record a payment</strong></span>
+            <span class="fin-acc-hint">Cash, a check, a bank transfer or anything else paid outside PayGira</span>
             <span class="fin-acc-chev">▾</span>
           </button>
           <div class="fin-acc-body">
@@ -2215,9 +2414,9 @@
           %>
           <form class="fin-form" method="POST" action="/account/settings/finance/payments">
             <div class="fin-field">
-              <label>Bill Assignment *</label>
+              <label>Who paid, and for what? *</label>
               <select name="assignment_id" required id="assignSel">
-                <option value="">Select bill -> student</option>
+                <option value="">Choose the bill and student</option>
                 <% bills.forEach(b => { %>
                   <% /* Render assignment per bill in subquery - simple: list bill+balance */ %>
                 <% }) %>
@@ -2226,33 +2425,33 @@
             </div>
             <div class="fin-row">
               <div class="fin-field">
-                <label>Amount Received (<%= currentCurrency %>) *</label>
+                <label>Amount received (<%= currentCurrency %>) *</label>
                 <input name="amount" type="number" step="0.01" min="0" required>
               </div>
               <div class="fin-field">
-                <label>Payment Method *</label>
+                <label>How it was paid *</label>
                 <select name="method">
                   <option value="cash">Cash</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cheque">Check</option>
+                  <option value="bank_transfer">Bank transfer</option>
                   <option value="other">Other</option>
                 </select>
               </div>
             </div>
             <div class="fin-row">
               <div class="fin-field">
-                <label>Reference No.</label>
-                <input name="reference" placeholder="CHQ-20045 etc.">
+                <label>Reference</label>
+                <input name="reference" placeholder="Optional. A check or transfer number">
               </div>
               <div class="fin-field">
-                <label>Notes</label>
-                <input name="notes">
+                <label>Note</label>
+                <input name="notes" placeholder="Optional">
               </div>
             </div>
-            <button type="submit" class="fin-btn primary">Confirm &amp; Mark Paid</button>
+            <button type="submit" class="fin-btn primary">Record payment</button>
           </form>
           <div style="margin-top:12px; padding:12px 14px; background:color-mix(in srgb, var(--org-primary-color, #01535b) 5%, transparent); border:1px dashed var(--fin-border); border-radius:10px; font-size:.82rem; color:var(--fin-muted);">
-            To record an online Stripe payment, connect Stripe in <a href="?section=settings" style="color:var(--fin-teal);">Payment Settings</a> - payments will appear here automatically.
+            Payments parents make online are recorded here by themselves. Turn online payments on in <a href="?section=settings" style="color:var(--fin-teal);">Settings</a>.
           </div>
           </div>
         </div>
@@ -2261,25 +2460,44 @@
 
         <% if (paygiraAccess.canSeePayments || paygiraAccess.canCorrectPayments) { %>
         <div class="fin-card">
-          <div class="section-head"><h2>Payment History</h2></div>
-          <% if (!overview.recent.length) { %>
-            <div class="empty-state"><h3>No payments recorded yet</h3></div>
+          <%
+            const _pay = (typeof payments !== 'undefined' && payments) || { rows: [], page: 1, hasMore: false, total: 0, amount: 0, q: '' };
+            const _payLink = (page) => '/account/settings/finance?section=payments&payPage=' + page + (_pay.q ? '&payQ=' + encodeURIComponent(_pay.q) : '');
+            const _payMethods = { cash: 'Cash', cheque: 'Check', bank_transfer: 'Bank transfer', transfer: 'Bank transfer', card: 'Card', stripe: 'Card', momo: 'Mobile money', mobile_money: 'Mobile money', credit: 'Credit', other: 'Other' };
+          %>
+          <div class="section-head">
+            <h2>Payments received</h2>
+            <div class="fin-head-tools">
+              <span class="fin-section-count"><%= _pay.total %> payment<%= _pay.total === 1 ? '' : 's' %> · <%= fmt(_pay.amount) %></span>
+            </div>
+          </div>
+          <form method="GET" action="/account/settings/finance" class="fin-pay-find">
+            <input type="hidden" name="section" value="payments">
+            <input type="search" name="payQ" value="<%= _pay.q %>" placeholder="Find by student, bill or reference" aria-label="Find a payment">
+            <button class="fin-btn sm quiet">Find</button>
+            <% if (_pay.q) { %><a class="fin-btn sm quiet" href="/account/settings/finance?section=payments">Show all</a><% } %>
+          </form>
+          <% if (!_pay.rows.length) { %>
+            <div class="empty-state"><h3><%= _pay.q ? 'No payment matches' : 'No payments yet' %></h3><% if (!_pay.q) { %><p>Payments show here as parents pay online or you record them above.</p><% } %></div>
           <% } else { %>
-            <div class="fin-table-wrap fin-scroll" id="finPaymentsWrap">
-              <table class="fin-table">
-                <thead><tr><th>Date</th><th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Bill <button type="button" class="fin-sort-btn" data-fin-sort-index="2" aria-label="Sort bills Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th><th>Method</th><th class="num">Amount</th><th>Actions</th></tr></thead>
+            <div class="fin-table-wrap" id="finPaymentsWrap">
+              <table class="fin-table no-global-sort">
+                <thead><tr><th>Date</th><th>Student</th><th class="fin-col-md">Bill</th><th class="fin-col-md">Paid by</th><th class="num">Amount</th><th></th></tr></thead>
                 <tbody>
-                  <% overview.recent.forEach(r => { %>
+                  <% _pay.rows.forEach(r => { %>
                     <tr>
-                      <td><%= new Date(r.received_at).toLocaleString() %></td>
-                      <td><%= (r.first_name||'') + ' ' + (r.last_name||'') %></td>
-                      <td><%= r.bill_title || '—' %></td>
-                      <td><span class="badge active"><%= r.method %></span></td>
-                      <td class="num" style="color:var(--fin-success);"><%= fmt(r.amount) %></td>
+                      <td class="fin-date-muted"><%= typeof formatDisplayDate === 'function' ? formatDisplayDate(r.received_at) : new Date(r.received_at).toLocaleDateString() %></td>
+                      <td><strong><%= [r.first_name, r.last_name].filter(Boolean).join(' ') || '—' %></strong><% if (r.reference) { %><div class="fin-bill-meta">Ref <%= r.reference %></div><% } %></td>
+                      <td class="fin-col-md"><%= r.bill_title || '—' %></td>
+                      <td class="fin-col-md"><%= _payMethods[String(r.method || '').toLowerCase()] || r.method || '—' %><%= r.is_refund ? ' (refund)' : '' %></td>
+                      <td class="num" style="color:var(--fin-success);font-weight:600;"><%= fmt(r.amount) %></td>
                       <td>
-                        <div class="fin-actions-cell" style="justify-content:flex-start;">
-                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Delete this payment? Audit logs will be saved, balances will be recalculated, and the affected student or bill may return to unpaid or partial status.');">
-                            <button type="submit" class="fin-btn danger sm" style="min-width:130px;">Correct / Delete</button>
+                        <div class="fin-actions-cell">
+                          <a class="fin-btn sm quiet" href="/account/settings/my-paygira/receipt/<%= r.payment_id %>" target="_blank" rel="noopener">Receipt</a>
+                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Remove this payment? The student\'s balance goes back up, and the change is kept in the activity log.');">
+                            <button class="fin-btn fin-icon-btn danger" title="Remove this payment (recorded by mistake)" aria-label="Remove this payment">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+                            </button>
                           </form><% } %>
                         </div>
                       </td>
@@ -2288,28 +2506,24 @@
                 </tbody>
               </table>
             </div>
-            <div class="fin-pagebar" id="finPaymentsPagebar" hidden>
-              <div class="fin-pagebar-left">
-                <span class="fin-pagebar-label">Show per page</span>
-                <select class="fin-pagebar-select" data-fin-pagesize>
-                  <option value="20">20</option><option value="50">50</option><option value="70">70</option><option value="100">100</option><option value="200">200</option>
-                </select>
-              </div>
+            <% if (_pay.page > 1 || _pay.hasMore) { %>
+            <div class="fin-pagebar">
+              <div class="fin-pagebar-left"><span class="fin-pagebar-label">Page <%= _pay.page %> of <%= Math.max(1, Math.ceil(_pay.total / _pay.pageSize)) %></span></div>
               <div class="fin-pagebar-right">
-                <button type="button" class="fin-page-btn" data-fin-prev>Prev</button>
-                <span class="fin-page-info" data-fin-info>1/1</span>
-                <button type="button" class="fin-page-btn" data-fin-next>Next</button>
+                <% if (_pay.page > 1) { %><a class="fin-page-btn" href="<%= _payLink(_pay.page - 1) %>">Prev</a><% } %>
+                <% if (_pay.hasMore) { %><a class="fin-page-btn" href="<%= _payLink(_pay.page + 1) %>">Next</a><% } %>
               </div>
             </div>
+            <% } %>
           <% } %>
         </div>
 
         <div class="fin-card" style="margin-top:20px;">
           <% const signoffPage = (signoffHistoryPagination && signoffHistoryPagination.page) || 1; %>
           <% const signoffPageSize = (signoffHistoryPagination && signoffHistoryPagination.pageSize) || (signoffHistory || []).length || 20; %>
-          <div class="section-head"><h2>Collection Sign-Off History</h2><span class="fin-section-count"><%= (signoffHistory || []).length %> record<%= (signoffHistory || []).length === 1 ? '' : 's' %><% if (signoffHistoryPagination && signoffHistoryPagination.hasMore) { %> · page <%= signoffPage %><% } %></span></div>
+          <div class="section-head"><h2>Collections signed off</h2><span class="fin-section-count"><%= (signoffHistory || []).length %> record<%= (signoffHistory || []).length === 1 ? '' : 's' %><% if (signoffHistoryPagination && signoffHistoryPagination.hasMore) { %> · page <%= signoffPage %><% } %></span></div>
           <% if (!(signoffHistory || []).length) { %>
-            <div class="empty-state"><h3>No sign-offs yet</h3><p>Teacher and manager sign-offs will appear here after collections are fully settled.</p></div>
+            <p class="fin-ledger-hint" style="margin:0 2px 4px;">Nothing signed off yet. When a member of staff who collects a bill hands in everything, their sign-off shows here.</p>
           <% } else { %>
             <div class="fin-report-filters" style="margin-bottom:16px;">
               <div class="fin-field">
@@ -2429,8 +2643,8 @@
       <% if (sec === 'payouts') { %>
         <div class="fin-card fin-accordion" id="acc-create-payout" style="margin-bottom:20px;">
           <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-payout')">
-            <span><strong>Create Payout</strong></span>
-            <span class="fin-acc-hint">Pay a teacher, staff member, or vendor — one time or on a schedule</span>
+            <span><strong>New payout</strong></span>
+            <span class="fin-acc-hint">Pay a member of staff or a supplier, once or on a schedule</span>
             <span class="fin-acc-chev">▾</span>
           </button>
           <div class="fin-acc-body">
@@ -2839,56 +3053,25 @@
       <% if (sec === 'settings') { %>
         <div class="fin-card">
           <div class="section-head">
-            <h2>Payment Settings</h2>
-            <span style="color:var(--fin-muted);font-size:.8rem;">Configure currency and invoice defaults. Manage payout accounts under <strong>Account Settings → Billing &amp; Plan</strong>.</span>
+            <h2>How PayGira works for your school</h2>
           </div>
-          <div style="background:#f2fbf9;border:1px solid #374151;border-left:4px solid var(--org-primary-color, #01535b);border-radius:10px;padding:10px 12px;margin:8px 0 14px;">
-            <small style="color:var(--org-primary-color, #01535b);display:block;line-height:1.45;">
-              <strong>Active Billing Context:</strong>
-              Country <strong><%= financeCountry || 'Not set' %></strong>,
-              Effective Currency <strong><%= currentCurrency %></strong>
-              (<%= financeCurrency && financeCurrency.sourceLabel ? financeCurrency.sourceLabel : 'auto-derived from organization settings' %>)
-            </small>
-          </div>
-
-          <!-- General -->
-          <div class="fin-psp-card fin-accordion" id="acc-psp-general">
-            <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-psp-general', this)" aria-expanded="false">
-              <span style="display:flex;align-items:center;gap:14px;min-width:0;">
-                <span class="fin-psp-ico" style="background:color-mix(in srgb, var(--org-primary-color, #01535b) 15%, transparent);color:var(--org-primary-color, #01535b);">⚙</span>
-                <span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0;">
-                  <strong class="fin-psp-title">General</strong>
-                  <span class="fin-psp-desc">Currency, receipt branding, late-fee defaults.</span>
-                </span>
-              </span>
-              <span style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
-                <span class="fin-psp-status"><%= currentCurrency %></span>
-                <span class="fin-acc-chev">▾</span>
-              </span>
-            </button>
-            <div class="fin-acc-body">
-            <form class="fin-form" method="POST" action="/account/settings/finance/psp/general">
-              <div class="fin-row">
-                <div class="fin-field"><label>Country Source</label>
-                  <input type="text" value="<%= financeCountry || 'Not set' %>" readonly>
-                  <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:6px;">Set this once under <a href="/account/settings?section=customize" style="color:var(--fin-teal);">Account Settings → Customize School</a>. PayGira uses that saved country everywhere.</small>
-                </div>
-                <div class="fin-field"><label>Currency (Auto)</label>
-                  <input type="text" value="<%= currentCurrency %>" readonly>
-                  <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:6px;">
-                    <%= financeCurrency && financeCurrency.sourceLabel ? financeCurrency.sourceLabel : 'Currency is automatically derived from your school country.' %>
-                  </small>
-                  <% if (financeCurrency && financeCurrency.code !== 'USD' && financeCurrency.usdToCurrencyRate) { %>
-                    <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:4px;">Reference FX: 1 USD ≈ <%= Number(financeCurrency.usdToCurrencyRate).toFixed(4) %> <%= financeCurrency.code %>. USD equivalents are informational only.</small>
-                  <% } %>
-                </div>
-              </div>
-              <div class="fin-field"><label>Default Late Fee (%)</label><input name="default_late_pct" type="number" min="0" step="0.1" value="<%= (pspSettings && pspSettings.default_late_pct) || '' %>" placeholder="e.g. 5"></div>
-              <div class="fin-field"><label>Invoice Footer Note</label><textarea name="invoice_footer" rows="2" placeholder="Thank you for trusting us with your child's education."><%= (pspSettings && pspSettings.invoice_footer) || '' %></textarea></div>
-              <button type="submit" class="fin-btn primary">Save General Settings</button>
-            </form>
+          <p class="fin-settings-line">
+            Bills are in <strong><%= currentCurrency %></strong><% if (financeCountry) { %> (<%= financeCountry %>)<% } %>. The currency follows your school's country, set in
+            <a href="/account/settings?section=customize" target="_top">Settings, Customize School</a>.
+            <% if (financeCurrency && financeCurrency.code !== 'USD' && financeCurrency.usdToCurrencyRate) { %>For reference, 1 USD is about <%= Number(financeCurrency.usdToCurrencyRate).toFixed(4) %> <%= financeCurrency.code %>.<% } %>
+          </p>
+          <p class="fin-settings-line">
+            Where the money goes: your school's payout accounts are in
+            <a href="/account/settings?section=billing" target="_top">Settings, Billing &amp; Plan</a>. A bill can only be paid online once one is switched on.
+          </p>
+          <form class="fin-form" method="POST" action="/account/settings/finance/psp/general" style="margin-top:14px;">
+            <div class="fin-field">
+              <label for="finInvoiceNote">Note at the bottom of every invoice</label>
+              <textarea name="invoice_footer" id="finInvoiceNote" rows="2" maxlength="300" placeholder="e.g. Thank you for trusting us with your child's education."><%= (pspSettings && pspSettings.invoice_footer) || '' %></textarea>
+              <small style="color:var(--fin-muted);font-size:.72rem;">Optional. Parents see it on each invoice.</small>
             </div>
-          </div>
+            <button class="fin-btn primary">Save</button>
+          </form>
         </div>
       <% } %>
 
@@ -2897,17 +3080,25 @@
           const arrears = arrearsData || { filters: { schoolYearIds: [], termIds: [], classIds: [], billIds: [], statuses: ['overdue','partial','defaulted','never_paid'], dueFrom: '', dueTo: '', minOutstanding: 0, paymentMethodFilter: 'all', emailStatusFilter: 'all', search: '' }, summary: {}, students: [], recipientReview: { recipients: [], missingGuardian: 0, missingEmail: 0 } };
           const arrearsFilters = arrears.filters || {};
           const recipientReview = arrears.recipientReview || { recipients: [], missingGuardian: 0, missingEmail: 0 };
+          // How an unpaid bill is described, in everyday words.
+          const _owedWords = { overdue: 'Overdue', partial: 'Part paid', defaulted: '30+ days late', never_paid: 'Nothing paid' };
         %>
         <div class="arrears-shell">
+          <div class="fin-stats">
+            <div class="stat red"><div class="label">Overdue in total</div><div class="value"><%= fmt(arrears.summary.totalOutstanding || 0) %></div><div class="sub"><%= arrears.summary.count || 0 %> student<%= Number(arrears.summary.count || 0) === 1 ? '' : 's' %></div></div>
+            <div class="stat gold"><div class="label">Paid towards them</div><div class="value"><%= fmt(arrears.summary.partialPayments || 0) %></div><div class="sub">Part payments so far</div></div>
+            <div class="stat"><div class="label">Nothing paid yet</div><div class="value"><%= fmt(arrears.summary.neverPaidOutstanding || 0) %></div><div class="sub"><%= arrears.summary.overdueThirtyPlus || 0 %> student(s) 30 or more days late</div></div>
+            <div class="stat green"><div class="label">Parents with an email</div><div class="value"><%= arrears.summary.hasEmail || 0 %></div><div class="sub"><%= arrears.summary.noEmail || 0 %> without email, <%= arrears.summary.withSavedCard || 0 %> with saved card</div></div>
+          </div>
+
           <div class="arrears-top">
             <div class="fin-card arrears-filter-card">
               <div class="section-head">
-                <h2>Arrears &amp; Defaulters Management</h2>
-                <span class="fin-section-count">Exact route, org-only recovery workspace</span>
+                <h2>Narrow the list</h2>
               </div>
               <div class="arrears-collapse" data-arrears-collapse>
                 <button type="button" class="arrears-collapse-toggle" data-arrears-collapse-toggle aria-expanded="false">
-                  <span class="label">Filters <span class="badge">Tap to open</span></span>
+                  <span class="label">Filters</span>
                   <span class="chev">▾</span>
                 </button>
                 <div class="arrears-collapse-body">
@@ -2998,15 +3189,15 @@
                     </div>
                   </div>
                   <div class="fin-field">
-                    <label>Bill Type</label>
+                    <label>Bill</label>
                     <div class="arrears-multiselect" data-arrears-multiselect>
                       <button type="button" class="arrears-multiselect-trigger" data-arrears-trigger>
-                        <span class="arrears-multiselect-label" data-arrears-summary>Bill type</span>
+                        <span class="arrears-multiselect-label" data-arrears-summary>Bill</span>
                         <span class="arrears-multiselect-meta" data-arrears-meta>Optional</span>
                       </button>
                       <div class="arrears-multiselect-menu">
                         <div class="arrears-multiselect-head">
-                          <strong>Bill Type</strong>
+                          <strong>Bill</strong>
                           <div class="arrears-multiselect-actions">
                             <button type="button" class="arrears-multiselect-link" data-arrears-select-all>Select all</button>
                             <button type="button" class="arrears-multiselect-link" data-arrears-clear>Clear</button>
@@ -3040,13 +3231,13 @@
                 <div class="arrears-filter-grid">
                   <div class="fin-field"><label>Due Date From</label><input type="date" name="dueFrom" value="<%= arrearsFilters.dueFrom || '' %>"></div>
                   <div class="fin-field"><label>Due Date To</label><input type="date" name="dueTo" value="<%= arrearsFilters.dueTo || '' %>"></div>
-                  <div class="fin-field"><label>Minimum Outstanding</label><input type="number" min="0" step="0.01" name="minOutstanding" value="<%= arrearsFilters.minOutstanding || '' %>" placeholder="0.00"></div>
-                  <div class="fin-field"><label>Search</label><input type="search" name="search" value="<%= arrearsFilters.search || '' %>" placeholder="Student, guardian, bill"></div>
+                  <div class="fin-field"><label>Owes at least</label><input type="number" min="0" step="0.01" name="minOutstanding" value="<%= arrearsFilters.minOutstanding || '' %>" placeholder="0.00"></div>
+                  <div class="fin-field"><label>Search</label><input type="search" name="search" value="<%= arrearsFilters.search || '' %>" placeholder="Student, parent or bill"></div>
                 </div>
 
                 <div class="arrears-filter-grid">
                   <div class="fin-field">
-                    <label>Payment Method on File</label>
+                    <label>Saved card</label>
                     <select name="paymentMethodFilter">
                       <option value="all" <%= (arrearsFilters.paymentMethodFilter || 'all') === 'all' ? 'selected' : '' %>>All</option>
                       <option value="saved_card" <%= arrearsFilters.paymentMethodFilter === 'saved_card' ? 'selected' : '' %>>Saved card on file</option>
@@ -3054,7 +3245,7 @@
                     </select>
                   </div>
                   <div class="fin-field">
-                    <label>Guardian Email Status</label>
+                    <label>Parent's email</label>
                     <select name="emailStatusFilter">
                       <option value="all" <%= (arrearsFilters.emailStatusFilter || 'all') === 'all' ? 'selected' : '' %>>All</option>
                       <option value="has_email" <%= arrearsFilters.emailStatusFilter === 'has_email' ? 'selected' : '' %>>Has email</option>
@@ -3073,22 +3264,22 @@
 
             <div class="fin-card arrears-filter-card">
               <div class="section-head">
-                <h2>Saved Filter Presets</h2>
+                <h2>Saved filters</h2>
                 <span class="fin-section-count"><%= (arrearsPresets || []).length %> saved</span>
               </div>
               <div class="arrears-collapse" data-arrears-collapse>
                 <button type="button" class="arrears-collapse-toggle" data-arrears-collapse-toggle aria-expanded="false">
-                  <span class="label">Presets &amp; Readiness <span class="badge">Tap to open</span></span>
+                  <span class="label">Save these filters, and who can be emailed</span>
                   <span class="chev">▾</span>
                 </button>
                 <div class="arrears-collapse-body">
               <form method="POST" action="/account/settings/finance/arrears/presets" class="fin-form" id="arrearsPresetForm">
                 <div class="fin-field">
-                  <label>Preset Name</label>
-                  <input type="text" name="preset_name" placeholder="e.g. Term 2 defaulters" required>
+                  <label>Name these filters</label>
+                  <input type="text" name="preset_name" placeholder="e.g. Fall tuition, 30 days late" required>
                 </div>
                 <input type="hidden" name="schoolYearIds" value="">
-                <button type="submit" class="fin-btn primary">Save Current Filters</button>
+                <button type="submit" class="fin-btn primary">Save these filters</button>
               </form>
               <% if ((arrearsPresets || []).length) { %>
                 <div class="arrears-pill-list">
@@ -3097,17 +3288,17 @@
                   <% }) %>
                 </div>
               <% } else { %>
-                <p class="arrears-note">Save common filter combinations for repeat collections work.</p>
+                <p class="arrears-note">Save a set of filters you use often, to open it again with one click.</p>
               <% } %>
               <div class="fin-card" style="padding:16px;background:rgba(15,23,42,.02);">
                 <div class="section-head" style="margin-bottom:10px;">
-                  <h2>Recipient Readiness</h2>
-                  <span class="fin-section-count"><%= recipientReview.recipients.length %> rows</span>
+                  <h2>Who can be emailed</h2>
+                  <span class="fin-section-count"><%= recipientReview.recipients.length %> families</span>
                 </div>
                 <div class="arrears-detail-summary" style="grid-template-columns:repeat(3,minmax(0,1fr));">
                   <div class="arrears-detail-stat"><div class="label">Ready</div><div class="value"><%= recipientReview.recipients.filter(r => r.status === 'ready').length %></div></div>
-                  <div class="arrears-detail-stat"><div class="label">Missing Guardian</div><div class="value"><%= recipientReview.missingGuardian %></div></div>
-                  <div class="arrears-detail-stat"><div class="label">Missing Email</div><div class="value"><%= recipientReview.missingEmail %></div></div>
+                  <div class="arrears-detail-stat"><div class="label">No parent on file</div><div class="value"><%= recipientReview.missingGuardian %></div></div>
+                  <div class="arrears-detail-stat"><div class="label">No email on file</div><div class="value"><%= recipientReview.missingEmail %></div></div>
                 </div>
               </div>
                 </div>
@@ -3115,24 +3306,17 @@
             </div>
           </div>
 
-          <div class="fin-stats">
-            <div class="stat red"><div class="label">Total Outstanding</div><div class="value"><%= fmt(arrears.summary.totalOutstanding || 0) %></div><div class="sub"><%= arrears.summary.count || 0 %> student record(s)</div></div>
-            <div class="stat gold"><div class="label">Partial Payments</div><div class="value"><%= fmt(arrears.summary.partialPayments || 0) %></div><div class="sub">Collected against active balances</div></div>
-            <div class="stat"><div class="label">Never Paid</div><div class="value"><%= fmt(arrears.summary.neverPaidOutstanding || 0) %></div><div class="sub"><%= arrears.summary.overdueThirtyPlus || 0 %> defaulted 30+ days</div></div>
-            <div class="stat green"><div class="label">Guardian Reachability</div><div class="value"><%= arrears.summary.hasEmail || 0 %></div><div class="sub"><%= arrears.summary.noEmail || 0 %> without email, <%= arrears.summary.withSavedCard || 0 %> with saved card</div></div>
-          </div>
-
           <div class="fin-card">
             <div class="arrears-toolbar" style="margin-bottom:16px;">
               <div class="arrears-toolbar-left">
                 <div class="section-head" style="margin:0;">
-                  <h2>Defaulters &amp; Arrears Results</h2>
-                  <span class="fin-section-count"><%= arrears.students.length %> records</span>
+                  <h2>Students with overdue balances</h2>
+                  <span class="fin-section-count"><%= arrears.students.length %> student<%= arrears.students.length === 1 ? '' : 's' %></span>
                 </div>
               </div>
               <div class="arrears-toolbar-right">
-                <button type="button" class="fin-btn" onclick="openArrearsReportModal()">Generate Report</button>
-                <button type="button" class="fin-btn" onclick="openArrearsEmailAll()">Email All</button>
+                <button type="button" class="fin-btn quiet" onclick="openArrearsReportModal()">Save a report</button>
+                <button type="button" class="fin-btn" onclick="openArrearsEmailAll()">Email all parents</button>
               </div>
             </div>
 
@@ -3143,12 +3327,11 @@
                     <tr>
                       <th style="width:44px;"><input type="checkbox" id="arrearsSelectAll" onclick="toggleAllArrears(this)"></th>
                       <th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
-                      <th>Guardian <button type="button" class="fin-sort-btn" data-fin-sort-index="2" aria-label="Sort guardians Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
-                      <th>Outstanding</th>
-                      <th>Days Overdue</th>
+                      <th>Parent <button type="button" class="fin-sort-btn" data-fin-sort-index="2" aria-label="Sort parents Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+                      <th>Owes</th>
+                      <th>Days late</th>
                       <th>Status</th>
-                      <th>Saved Card</th>
-                      <th>Actions</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3162,63 +3345,62 @@
                             </div>
                             <div class="arrears-meta">
                               <strong><%= student.student_name %></strong>
-                              <span><%= student.class_name || 'No class' %> · <%= student.bills.length %> bill(s)</span>
+                              <span><%= student.class_name || 'No class' %> · <%= student.bills.length %> bill<%= student.bills.length === 1 ? '' : 's' %></span>
                             </div>
                           </div>
                         </td>
                         <td>
                           <div class="arrears-contact">
-                            <strong><%= student.guardian_name || 'No guardian on file' %></strong>
+                            <strong><%= student.guardian_name || 'No parent on file' %></strong>
                             <span><%= student.guardian_email || student.guardian_phone || 'No email or phone yet' %></span>
                           </div>
                         </td>
                         <td>
                           <strong><%= student.outstanding_display %></strong>
-                          <div class="arrears-note">Billed <%= student.total_billed_display %> · Paid <%= student.total_paid_display %> · Credit <%= student.credit_display %></div>
+                          <div class="arrears-note">Billed <%= student.total_billed_display %> · Paid <%= student.total_paid_display %><% if (Number(student.student_credit || 0) > 0) { %> · Credit <%= student.credit_display %><% } %></div>
                         </td>
-                        <td><%= student.max_days_overdue || 0 %> day(s)</td>
-                        <td><span class="arrears-status <%= student.primary_status %>"><%= student.primary_status === 'never_paid' ? 'Never Paid' : student.primary_status %></span></td>
-                        <td><%= student.has_saved_card ? 'Yes' : 'No' %></td>
+                        <td><%= student.max_days_overdue || 0 %></td>
+                        <td><span class="arrears-status <%= student.primary_status %>"><%= _owedWords[student.primary_status] || student.primary_status %></span><% if (student.has_saved_card) { %><div class="arrears-note">Card on file</div><% } %></td>
                         <td>
                           <div class="arrears-toolbar-right">
-                            <button type="button" class="fin-btn sm" onclick="toggleArrearsDetails('<%= student.student_id %>')">Breakdown</button>
-                            <button type="button" class="fin-btn sm" onclick="openArrearsEmailDrawer('<%= student.student_id %>', true)">Email ✎</button>
-                            <button type="button" class="fin-btn sm" onclick="openArrearsNoteModal('<%= student.student_id %>', <%- JSON.stringify(student.student_name) %>)">Add Note</button>
+                            <button type="button" class="fin-btn sm quiet" onclick="toggleArrearsDetails('<%= student.student_id %>')">Bills</button>
+                            <button type="button" class="fin-btn sm quiet" onclick="openArrearsEmailDrawer('<%= student.student_id %>', true)">Email</button>
+                            <button type="button" class="fin-btn sm quiet" onclick="openArrearsNoteModal('<%= student.student_id %>', <%- JSON.stringify(student.student_name) %>)">Note</button>
                           </div>
                         </td>
                       </tr>
                       <tr id="arrears-detail-<%= student.student_id %>" style="display:none;">
-                        <td colspan="8">
+                        <td colspan="7">
                           <div class="arrears-detail-card">
                             <div class="arrears-detail-summary">
-                              <div class="arrears-detail-stat"><div class="label">Outstanding</div><div class="value"><%= student.outstanding_display %></div></div>
-                              <div class="arrears-detail-stat"><div class="label">Collected</div><div class="value"><%= student.total_paid_display %></div></div>
+                              <div class="arrears-detail-stat"><div class="label">Owes</div><div class="value"><%= student.outstanding_display %></div></div>
+                              <div class="arrears-detail-stat"><div class="label">Paid</div><div class="value"><%= student.total_paid_display %></div></div>
                               <div class="arrears-detail-stat"><div class="label">Credit</div><div class="value"><%= student.credit_display %></div></div>
-                              <div class="arrears-detail-stat"><div class="label">Default Risk</div><div class="value"><%= student.max_days_overdue %> day(s)</div></div>
+                              <div class="arrears-detail-stat"><div class="label">Latest</div><div class="value"><%= student.max_days_overdue %> day<%= Number(student.max_days_overdue) === 1 ? '' : 's' %> late</div></div>
                             </div>
                             <div class="fin-table-wrap">
                               <table class="fin-table">
                                 <thead>
                                   <tr>
                                     <th>Bill</th>
-                                    <th>Year / Term</th>
-                                    <th>Due Date</th>
+                                    <th>Term</th>
+                                    <th>Due</th>
                                     <th>Billed</th>
                                     <th>Paid</th>
-                                    <th>Outstanding</th>
+                                    <th>Owes</th>
                                     <th>Status</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   <% student.bills.forEach(bill => { %>
                                     <tr>
-                                      <td><strong><%= bill.bill_title %></strong><div class="arrears-note"><%= bill.bill_type %></div></td>
+                                      <td><strong><%= bill.bill_title %></strong></td>
                                       <td><%= bill.year_label %> · <%= bill.term_name %></td>
                                       <td><%= bill.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(bill.due_date) : new Date(bill.due_date).toLocaleDateString()) : '—' %></td>
                                       <td><%= bill.total_billed_display %></td>
                                       <td><%= bill.paid_display %></td>
                                       <td><%= bill.outstanding_display %></td>
-                                      <td><span class="arrears-status <%= bill.status %>"><%= bill.status === 'never_paid' ? 'Never Paid' : bill.status %></span></td>
+                                      <td><span class="arrears-status <%= bill.status %>"><%= _owedWords[bill.status] || bill.status %></span></td>
                                     </tr>
                                   <% }) %>
                                 </tbody>
@@ -3247,36 +3429,36 @@
             <% } else { %>
               <div class="empty-state">
                 
-                <h3>No matching arrears</h3>
-                <p>This organization currently has no overdue students under the selected filters.</p>
+                <h3>Nothing overdue</h3>
+                <p>No student has an overdue balance with these filters.</p>
               </div>
             <% } %>
 
             <div class="fin-actions arrears-sticky-bar" id="arrearsBulkBar">
-              <div class="arrears-toolbar-left"><strong id="arrearsSelectedCount">0 selected</strong><span class="arrears-note">Select students to generate a report, review recipients, or save recovery notes.</span></div>
+              <div class="arrears-toolbar-left"><strong id="arrearsSelectedCount">0 selected</strong><span class="arrears-note">Tick students to email their parents or save a report of them.</span></div>
               <div class="arrears-toolbar-right">
-                <button type="button" class="fin-btn primary" onclick="openArrearsReportModal()">Generate Report</button>
-                <button type="button" class="fin-btn" onclick="openArrearsEmailDrawer()">Email Selected / All</button>
-                <button type="button" class="fin-btn" onclick="clearArrearsSelection()">Clear</button>
+                <button type="button" class="fin-btn primary" onclick="openArrearsEmailDrawer()">Email their parents</button>
+                <button type="button" class="fin-btn quiet" onclick="openArrearsReportModal()">Save a report</button>
+                <button type="button" class="fin-btn quiet" onclick="clearArrearsSelection()">Clear</button>
               </div>
             </div>
           </div>
 
           <div class="fin-card">
             <div class="section-head">
-              <h2>Saved Reports Library</h2>
-              <span class="fin-section-count"><%= (arrearsReports || []).length %> saved report(s)</span>
+              <h2>Saved reports</h2>
+              <span class="fin-section-count"><%= (arrearsReports || []).length %> saved</span>
             </div>
             <% if ((arrearsReports || []).length) { %>
               <div class="fin-table-wrap">
                 <table class="fin-table arrears-report-table">
                   <thead>
-                    <tr><th>Report</th><th>Created</th><th>Records</th><th>Outstanding</th><th>Format</th><th>Actions</th></tr>
+                    <tr><th>Report</th><th>Saved</th><th>Students</th><th>Owed</th><th>File</th><th></th></tr>
                   </thead>
                   <tbody>
                     <% arrearsReports.forEach(report => { %>
                       <tr>
-                        <td><strong><%= report.title %></strong><div class="arrears-note">By <%= report.generated_by_name || 'Finance User' %></div></td>
+                        <td><strong><%= report.title %></strong><div class="arrears-note">By <%= report.generated_by_name || 'a member of staff' %></div></td>
                         <td><%= new Date(report.created_at).toLocaleString() %></td>
                         <td><%= report.record_count %></td>
                         <td><%= fmt(report.total_outstanding || 0) %></td>
@@ -3285,7 +3467,7 @@
                           <div class="arrears-toolbar-right" style="justify-content:flex-end;">
                             <a href="/account/settings/finance/arrears/reports/<%= report.report_id %>/view" target="_blank" rel="noopener" class="fin-btn sm">View</a>
                             <a href="/account/settings/finance/arrears/reports/<%= report.report_id %>/download?format=<%= (report.format || 'pdf').toLowerCase() === 'csv' ? 'csv' : 'pdf' %>" class="fin-btn sm">Download</a>
-                            <form method="POST" action="/account/settings/finance/arrears/reports/<%= report.report_id %>/delete" onsubmit="return confirm('Delete this saved arrears report?');">
+                            <form method="POST" action="/account/settings/finance/arrears/reports/<%= report.report_id %>/delete" onsubmit="return confirm('Delete this saved report?');">
                               <button type="submit" class="fin-btn sm danger">Delete</button>
                             </form>
                           </div>
@@ -3299,7 +3481,7 @@
               <div class="empty-state" style="padding:34px 20px;">
                 
                 <h3>No saved reports yet</h3>
-                <p>Generate a filtered arrears report to build the recovery archive for this organization.</p>
+                <p>Use <b>Save a report</b> above to keep a PDF or spreadsheet of who owes what today.</p>
               </div>
             <% } %>
           </div>
@@ -3307,33 +3489,31 @@
 
         <div class="fin-modal" id="arrearsReportModal">
           <div class="fin-modal-content" style="max-width:720px;">
-            <div class="fin-modal-head"><h3>Generate Arrears Report</h3><button class="fin-modal-close" type="button" onclick="closeArrearsReportModal()">&times;</button></div>
+            <div class="fin-modal-head"><h3>Save a report of overdue balances</h3><button class="fin-modal-close" type="button" onclick="closeArrearsReportModal()">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/reports" class="fin-form" id="arrearsReportForm">
               <div class="fin-row">
-                <div class="fin-field"><label>Report Title</label><input type="text" name="report_title" value="Arrears Report" required></div>
+                <div class="fin-field"><label>Report name</label><input type="text" name="report_title" value="Overdue balances" required></div>
                 <div class="fin-field"><label>Period</label><input type="text" name="report_period" placeholder="e.g. Term 2 2026"></div>
               </div>
               <div class="fin-row">
                 <div class="fin-field"><label>Format</label><select name="report_format"><option value="pdf">PDF</option><option value="csv">CSV</option></select></div>
                 <div class="fin-field"><label>Include</label><select name="include_sections" multiple size="4"><option value="summary" selected>Summary</option><option value="rows" selected>Student rows</option><option value="bill_breakdown" selected>Bill breakdown</option><option value="email_readiness">Email readiness</option></select></div>
               </div>
-              <div class="fin-field"><label>Notes</label><textarea name="report_notes" rows="3" placeholder="Recovery observations, context, approval notes."></textarea></div>
+              <div class="fin-field"><label>Notes</label><textarea name="report_notes" rows="3" placeholder="Anything to remember about this list."></textarea></div>
               <div class="arrears-checkbox-row">
-                <label class="arrears-checkbox"><input type="checkbox" name="save_to_library" checked> Save to library</label>
-                <label class="arrears-checkbox"><input type="checkbox" name="attach_to_finance_records"> Attach metadata to finance records</label>
-                <label class="arrears-checkbox"><input type="checkbox" name="download_immediately"> Download after save</label>
-                <label class="arrears-checkbox"><input type="checkbox" name="email_finance_head"> Email finance head later</label>
+                <label class="arrears-checkbox"><input type="checkbox" name="save_to_library" checked> Keep it under Saved reports</label>
+                <label class="arrears-checkbox"><input type="checkbox" name="download_immediately"> Download it now</label>
               </div>
               <input type="hidden" name="selected_student_ids" id="arrearsReportSelectedIds">
               <div class="arrears-filter-payload"></div>
-              <button type="submit" class="fin-btn primary">Generate &amp; Save</button>
+              <button type="submit" class="fin-btn primary">Save report</button>
             </form>
           </div>
         </div>
 
         <div class="fin-modal" id="arrearsEmailModal">
           <div class="fin-modal-content" style="max-width:820px;">
-            <div class="fin-modal-head"><h3>Email Guardians</h3><button class="fin-modal-close" type="button" onclick="closeArrearsEmailDrawer()">&times;</button></div>
+            <div class="fin-modal-head"><h3>Email parents</h3><button class="fin-modal-close" type="button" onclick="closeArrearsEmailDrawer()">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/email" class="fin-form" id="arrearsEmailForm">
               <div class="fin-row">
                 <div class="fin-field"><label>Subject</label><input type="text" name="subject" value="Outstanding Balance Notice — {Student Name}" required></div>
@@ -3351,7 +3531,7 @@ Regards,
                 <label class="arrears-checkbox"><input type="checkbox" name="include_payment_link" checked> Include payment link</label>
               </div>
               <div class="fin-card" style="padding:16px;background:rgba(15,23,42,.02);">
-                <div class="section-head" style="margin-bottom:10px;"><h2>Recipient Review</h2><span class="fin-section-count" id="arrearsRecipientCount">0 recipients</span></div>
+                <div class="section-head" style="margin-bottom:10px;"><h2>Who gets it</h2><span class="fin-section-count" id="arrearsRecipientCount">0 recipients</span></div>
                 <div class="arrears-recipient-list" id="arrearsRecipientList"></div>
                 <p class="arrears-note">Use the pencil editor here to add or override the recipient name, email, phone, or relationship for this send only. It does not save to the student profile.</p>
               </div>
@@ -3455,15 +3635,24 @@ Regards,
         if (!tbody) return;
         var index = parseInt(button.getAttribute('data-fin-sort-index'), 10);
         if (!Number.isInteger(index)) return;
-        Array.from(tbody.querySelectorAll('tr'))
+        // The table's own rows only (a breakdown row holds a table of its own), and each
+        // breakdown row stays under the row it belongs to. Sorting every <tr> pulled the
+        // breakdowns' rows out into the main table.
+        var groups = [];
+        Array.prototype.forEach.call(tbody.children, function (row) {
+          if (row.tagName !== 'TR') return;
+          if (row.id && row.id.indexOf('arrears-detail-') === 0 && groups.length) groups[groups.length - 1].push(row);
+          else groups.push([row]);
+        });
+        groups
           .sort(function(a, b) {
-            var valueA = extractCellText(a, index);
-            var valueB = extractCellText(b, index);
+            var valueA = extractCellText(a[0], index);
+            var valueB = extractCellText(b[0], index);
             return direction === 'desc'
               ? valueB.localeCompare(valueA, undefined, { sensitivity: 'base', numeric: true })
               : valueA.localeCompare(valueB, undefined, { sensitivity: 'base', numeric: true });
           })
-          .forEach(function(row) { tbody.appendChild(row); });
+          .forEach(function(group) { group.forEach(function (row) { tbody.appendChild(row); }); });
       }
 
       Array.from(document.querySelectorAll('.fin-sort-btn')).forEach(function(button) {
@@ -3648,10 +3837,11 @@ Regards,
         else if (selectedYear) matchesAcademic = matchesDataIds(chip.getAttribute('data-school-year-ids'), [selectedYear]);
         var hay = chip.getAttribute('data-search') || '';
         var matchesQuery = !query || hay.indexOf(query) !== -1;
-        var visible = matchesAcademic && matchesQuery;
+        var checkbox = chip.querySelector('input[type="checkbox"]');
+        // A student already chosen stays chosen, and in view, while searching for the next one.
+        var visible = matchesAcademic && (matchesQuery || (checkbox && checkbox.checked));
         chip.classList.toggle('hidden', !visible);
-        if (!visible) {
-          var checkbox = chip.querySelector('input[type="checkbox"]');
+        if (!matchesAcademic) {
           if (checkbox) checkbox.checked = false;
           chip.classList.remove('checked');
         }
@@ -3667,6 +3857,7 @@ Regards,
       var v = sel.value;
       if (cp) cp.style.display = v === 'classes'  ? '' : 'none';
       if (sp) sp.style.display = v === 'students' ? '' : 'none';
+      if (v === 'students' && window.finBuildStudentChips) window.finBuildStudentChips();
     }
     if (sel) { sel.addEventListener('change', refreshPicker); refreshPicker(); }
 
@@ -3869,6 +4060,7 @@ Regards,
       setVal('ebl-school_year_id', bill.school_year_id || '');
       window.syncSingleTermSelect(document.getElementById('ebl-school_year_id'), document.getElementById('ebl-term_id'), { preferredTermId: bill.term_id || '', keepBlankWhenYearChanges: false });
       setMultiSelectValues('ebl-target_class_ids', bill.target_class_ids || []);
+      if (window.finBuildStudentOptions) window.finBuildStudentOptions();
       setMultiSelectValues('ebl-target_student_ids', bill.target_student_ids || []);
       syncEditBillTargets();
       window.syncBillScheduleControls(document.getElementById('ebl-bill_type'), document.getElementById('ebl-recurrence'), document.getElementById('ebl-exclude_non_school_days'));
@@ -3925,7 +4117,7 @@ Regards,
       fetch('/account/settings/finance/students/' + studentId + '/detail.json')
         .then(r => r.ok ? r.json() : Promise.reject(r))
         .then(data => { body.innerHTML = buildDrawerHtml(data); })
-        .catch(() => { body.innerHTML = '<div style="color:var(--fin-red);padding:20px;">Could not load student detail.</div>'; });
+        .catch(() => { body.innerHTML = '<div style="color:var(--fin-red);padding:20px;">Could not load this student\'s ledger. Please try again.</div>'; });
     };
 
     function fmt(n) {
@@ -3941,52 +4133,61 @@ Regards,
       }
     }
 
+    // Everything a person typed (names, bill titles, references) goes in escaped.
+    function ledgerText(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      });
+    }
+    var ledgerStatusWords = { paid: 'Paid', partial: 'Part paid', pending: 'Owes', overdue: 'Overdue', draft: 'Draft', cancelled: 'Cancelled' };
+    var ledgerMethodWords = { cash: 'Cash', cheque: 'Check', bank_transfer: 'Bank transfer', transfer: 'Bank transfer', card: 'Card', stripe: 'Card', momo: 'Mobile money', mobile_money: 'Mobile money', credit: 'Credit', other: 'Other' };
+
     function buildDrawerHtml(d) {
       var s = d.student;
       var bills = d.bills || [];
       var payments = d.payments || [];
-      var credit = d.credit || 0;
+      var credit = Number(d.credit || 0);
       var totalBilled  = bills.reduce((a,b) => a + Number(b.amount||0), 0);
       var totalPaid    = bills.reduce((a,b) => a + Number(b.amount_paid||0), 0);
       var outstanding  = bills.reduce((a,b) => a + Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0)), 0);
-      var netDue       = Math.max(outstanding - Number(credit || 0), 0);
-      var initials     = ((s.first_name||'?')[0] + (s.last_name||'')[0]).toUpperCase();
+      var netDue       = Math.max(outstanding - credit, 0);
       var avatarSrc = (s.image_url && String(s.image_url).trim() && String(s.image_url).trim() !== 'profilePlaceholder.png') ? s.image_url : profilePlaceholderSrc;
-      var avatarHtml = '<img src="' + avatarSrc + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
+      var avatarHtml = '<img src="' + ledgerText(avatarSrc) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
 
       var billRows = bills.map(function(b) {
         var bal = Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0));
-        var due = b.due_date ? new Date(b.due_date).toLocaleDateString() : '—';
-        return '<tr><td>' + (b.title||'') + '</td><td class="fin-date-muted">' + due + '</td>'
+        var status = String(b.status || '').toLowerCase();
+        return '<tr><td>' + ledgerText(b.title) + '</td><td class="fin-date-muted">' + ledgerText(b.due_display || '—') + '</td>'
           + '<td class="num fin-money-neutral">' + fmt(b.amount) + '</td>'
           + '<td class="num fin-money-positive">' + fmt(b.amount_paid) + '</td>'
           + '<td class="num ' + (bal>0?'fin-money-negative':'fin-money-neutral') + '">' + fmt(bal) + '</td>'
-          + '<td><span class="badge ' + b.status + '">' + b.status + '</span></td></tr>';
-      }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--fin-muted);padding:20px;">No bills assigned.</td></tr>';
+          + '<td><span class="badge ' + ledgerText(status) + '">' + ledgerText(ledgerStatusWords[status] || status) + '</span></td>'
+          + '<td><a class="fin-btn sm quiet" target="_blank" rel="noopener" href="/account/settings/my-paygira/invoice/' + encodeURIComponent(b.assignment_id) + '">Invoice</a></td></tr>';
+      }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--fin-muted);padding:20px;">No bills for this student.</td></tr>';
 
       var payRows = payments.map(function(p) {
-        return '<tr><td class="fin-date-muted">' + new Date(p.received_at).toLocaleString() + '</td>'
-          + '<td>' + (p.bill_title||'—') + '</td>'
-          + '<td><span class="fin-method-pill ' + String(p.method||'').toLowerCase() + '">' + (p.method||'') + '</span></td>'
+        var method = String(p.method || '').toLowerCase();
+        return '<tr><td class="fin-date-muted">' + ledgerText(p.received_display || '—') + '</td>'
+          + '<td>' + ledgerText(p.bill_title || '—') + (p.reference ? '<div class="fin-bill-meta">Ref ' + ledgerText(p.reference) + '</div>' : '') + '</td>'
+          + '<td>' + ledgerText(ledgerMethodWords[method] || p.method || '') + '</td>'
           + '<td class="num fin-money-positive">' + fmt(p.amount) + '</td>'
-          + '<td style="color:var(--fin-muted);font-size:.78rem;">' + (p.reference||'') + '</td></tr>';
-      }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--fin-muted);padding:20px;">No payments recorded.</td></tr>';
+          + '<td><a class="fin-btn sm quiet" target="_blank" rel="noopener" href="/account/settings/my-paygira/receipt/' + encodeURIComponent(p.payment_id) + '">Receipt</a></td></tr>';
+      }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--fin-muted);padding:20px;">No payments yet.</td></tr>';
 
       return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">'
         + '<div class="avatar" style="width:54px;height:54px;font-size:1.1rem;">' + avatarHtml + '</div>'
-        + '<div><div style="font-family:inherit;font-size:1.3rem;font-weight:700;">' + s.first_name + ' ' + s.last_name + '</div>'
-        + '<div style="color:var(--fin-muted);font-size:.88rem;">' + (s.class_name||'No class') + '</div></div></div>'
+        + '<div><div style="font-family:inherit;font-size:1.3rem;font-weight:700;">' + ledgerText([s.first_name, s.last_name].filter(Boolean).join(' ')) + '</div>'
+        + '<div style="color:var(--fin-muted);font-size:.88rem;">' + ledgerText(s.class_name || 'No class') + '</div></div></div>'
         + '<div class="fin-stats" style="margin-bottom:20px;">'
-        + '<div class="stat"><div class="label">Total Billed</div><div class="value fin-mono">' + fmt(totalBilled) + '</div></div>'
-        + '<div class="stat green"><div class="label">Total Paid</div><div class="value fin-mono">' + fmt(totalPaid) + '</div></div>'
-        + '<div class="stat red"><div class="label">Outstanding</div><div class="value fin-mono">' + fmt(outstanding) + '</div></div>'
-        + '<div class="stat gold"><div class="label">Credits</div><div class="value fin-mono">' + fmt(credit) + '</div></div>'
-        + '<div class="stat"><div class="label">Net Due</div><div class="value fin-mono">' + fmt(netDue) + '</div></div>'
+        + '<div class="stat"><div class="label">Billed</div><div class="value fin-mono">' + fmt(totalBilled) + '</div></div>'
+        + '<div class="stat green"><div class="label">Paid</div><div class="value fin-mono">' + fmt(totalPaid) + '</div></div>'
+        + '<div class="stat red"><div class="label">Still owed</div><div class="value fin-mono">' + fmt(netDue) + '</div></div>'
+        + (credit > 0 ? '<div class="stat gold"><div class="label">Credit held</div><div class="value fin-mono">' + fmt(credit) + '</div></div>' : '')
         + '</div>'
         + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
-        + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table"><thead><tr><th>Bill</th><th>Due</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
-        + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Payment History</div>'
-        + '<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Date</th><th>Bill</th><th>Method</th><th class="num">Amount</th><th>Ref</th></tr></thead><tbody>' + payRows + '</tbody></table></div>';
+        + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table no-global-sort"><thead><tr><th>Bill</th><th>Due</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
+        + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Payments</div>'
+        + '<div class="fin-table-wrap"><table class="fin-table no-global-sort"><thead><tr><th>Date</th><th>Bill</th><th>Paid by</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + payRows + '</tbody></table></div>';
     }
 
     var drawerClose = document.getElementById('studentDrawerClose');
@@ -4126,6 +4327,7 @@ Regards,
     });
 
     var studentIds = normalizeCreateDraftArray(draft.target_student_ids);
+    if (studentIds.length && window.finBuildStudentChips) window.finBuildStudentChips();
     createForm.querySelectorAll('input[name="target_student_ids"]').forEach(function(input) {
       var checked = studentIds.indexOf(String(input.value || '')) !== -1;
       input.checked = checked;
@@ -4221,42 +4423,6 @@ Regards,
     });
     var empty = document.getElementById('signoffHistoryEmpty');
     if (empty) empty.style.display = shown === 0 ? '' : 'none';
-  }
-
-  // ===== Org-wide bills filter =====
-  function finRunOrgWideFilter() {
-    var tbody = document.querySelector('.fin-student-table tbody');
-    if (!tbody) return;
-    var q = (document.getElementById('orgStudentSearch') || {}).value || '';
-    var cls = (document.getElementById('orgClassFilter') || {}).value || '';
-    var st = (document.getElementById('orgStatusFilter') || {}).value || '';
-    var debt = (document.getElementById('orgDebtFilter') || {}).value || '';
-    var credit = (document.getElementById('orgCreditFilter') || {}).value || '';
-    q = q.trim().toLowerCase();
-    var rows = tbody.querySelectorAll('tr');
-    rows.forEach(function(r) {
-      var text = (r.getAttribute('data-text') || '').toLowerCase();
-      var klass = r.getAttribute('data-class') || '';
-      var status = r.getAttribute('data-status') || '';
-      var debtState = r.getAttribute('data-debt') || '';
-      var creditState = r.getAttribute('data-credit') || '';
-      var ok = true;
-      if (q && text.indexOf(q) === -1) ok = false;
-      if (cls && klass !== cls) ok = false;
-      if (st && status !== st) ok = false;
-      if (debt && debtState !== debt) ok = false;
-      if (credit && creditState !== credit) ok = false;
-      r.dataset.finFiltered = ok ? '' : '1';
-      if (!window.finStudentsPager) r.style.display = ok ? '' : 'none';
-    });
-    if (window.finStudentsPager) window.finStudentsPager.reset();
-  }
-  function finResetOrgWideFilter() {
-    ['orgStudentSearch','orgClassFilter','orgStatusFilter','orgDebtFilter','orgCreditFilter'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    finRunOrgWideFilter();
   }
 
   // ===== Fee recovery =====
@@ -4839,23 +5005,6 @@ Regards,
   }
 
   (function initFinPagers() {
-    // Org-Wide Bills (students)
-    var studentsTable = document.querySelector('.fin-student-table');
-    var studentsBar = document.getElementById('finStudentsPagebar');
-    if (studentsTable && studentsBar) {
-      var sBody = studentsTable.querySelector('tbody');
-      window.finStudentsPager = finBuildPager({
-        bar: studentsBar,
-        wrap: document.getElementById('finStudentsWrap'),
-        getItems: function() {
-          return Array.prototype.map.call(sBody.querySelectorAll(':scope > tr'), function(tr) {
-            return { main: tr, extras: [] };
-          });
-        },
-        isVisible: function(tr) { return tr.dataset.finFiltered !== '1'; }
-      });
-    }
-
     // Payment History
     var paymentsWrap = document.getElementById('finPaymentsWrap');
     var paymentsBar = document.getElementById('finPaymentsPagebar');
@@ -5065,10 +5214,8 @@ Regards,
           <button type="button" class="fin-btn ghost" id="ebl-target_student_clear">Clear</button>
         </div>
         <input type="hidden" name="target_student_ids" value="">
+        <%# Its options are drawn when the window opens (finBuildStudentOptions). %>
         <select id="ebl-target_student_ids" name="target_student_ids" class="fin-multi-select" multiple size="8">
-          <% (refs.students || []).forEach(function(s) { %>
-            <option value="<%= s.student_id %>" data-school-year-ids="<%= (s.school_year_ids || []).join(',') %>" data-term-ids="<%= (s.term_ids || []).join(',') %>"><%= (s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim())) %><%= s.class_name ? (' · ' + s.class_name) : '' %></option>
-          <% }) %>
         </select>
         <small style="color:var(--fin-muted);font-size:.72rem;">Click students to add or remove them.</small>
       </div>
@@ -5136,12 +5283,13 @@ Regards,
 </div>
 
 <!-- Student Detail Drawer -->
-<div id="studentDrawer" style="position:fixed;inset:0;z-index:9998;display:none;align-items:stretch;">
+<%# Closed and open are set in the stylesheet (#studentDrawer / #studentDrawer.open): an inline display:none here kept it shut for good. %>
+<div id="studentDrawer" style="position:fixed;inset:0;z-index:9998;align-items:stretch;">
   <div style="flex:1;background:rgba(255,255,255,0.7);backdrop-filter:blur(6px);" id="studentDrawerOverlay"></div>
   <div id="studentDrawerPanel" style="width:min(720px,100%);background:var(--fin-card);border-left:1px solid var(--fin-border);overflow-y:auto;padding:28px;box-shadow:-30px 0 60px -20px #000;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div style="font-family:inherit;font-size:1.1rem;font-weight:700;color:var(--fin-teal);">Student Billing Detail</div>
-      <button id="studentDrawerClose" style="background:transparent;border:0;color:var(--fin-muted);font-size:1.6rem;cursor:pointer;line-height:1;">&times;</button>
+      <div style="font-family:inherit;font-size:1.1rem;font-weight:700;color:var(--fin-teal);white-space:nowrap;">Student's ledger</div>
+      <button type="button" id="studentDrawerClose" aria-label="Close" style="flex:0 0 auto;width:auto;min-width:0;margin:0;padding:0 6px;background:transparent;border:0;box-shadow:none;color:var(--fin-muted);font-size:1.6rem;cursor:pointer;line-height:1;">&times;</button>
     </div>
     <div id="studentDrawerBody"></div>
   </div>
@@ -5607,7 +5755,9 @@ Regards,
         };
         Object.keys(map).forEach(function(k){
           var el = box.querySelector('[data-stat="'+k+'"]');
-          if (el && map[k] != null) el.textContent = fmt(map[k]);
+          // Keep the currency the page was drawn with ("$", "GH₵ "): only the figure changes.
+          var before = el ? (String(el.textContent || '').match(/^[^0-9-]*/) || [''])[0] : '';
+          if (el && map[k] != null) el.textContent = before + fmt(map[k]);
         });
         var oc = box.querySelector('[data-stat="overdueCount"]');
         if (oc && d.overdueCount != null) oc.textContent = d.overdueCount;

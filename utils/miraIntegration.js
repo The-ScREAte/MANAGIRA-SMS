@@ -96,6 +96,7 @@ async function setMiraIntegrationActivation(dbClient, organizationId, activated,
        WHERE organization_id = $1`,
       [organizationId, String(trialDays)]
     );
+    require("./integrationSwitches").forget(organizationId);
     return;
   }
 
@@ -105,6 +106,7 @@ async function setMiraIntegrationActivation(dbClient, organizationId, activated,
      WHERE organization_id = $1`,
     [organizationId]
   );
+  require("./integrationSwitches").forget(organizationId);
 }
 
 // Where Mira is: MIRA_PUBLIC_URL, else mira.managira.com in production and

@@ -2593,7 +2593,11 @@ const printController = (db) => ({
           ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId],
       );
-      const organizationClasses = organizationClassesResult.rows;
+      // A teacher sets up reports for the classes they teach.
+      const teacherClasses = await require("../utils/classScope").listScope(db, req);
+      const organizationClasses = teacherClasses
+        ? organizationClassesResult.rows.filter((cls) => teacherClasses.has(Number(cls.class_id)))
+        : organizationClassesResult.rows;
 
       const currentTermResult = await db.query(
         `SELECT term_id FROM terms WHERE organization_id = $1 AND current = TRUE ORDER BY start_date DESC LIMIT 1`,
@@ -2631,7 +2635,9 @@ const printController = (db) => ({
           classId: null,
           termId: fallbackTermId || null,
           setupRequired: true,
-          setupMessage: "This is for classes. Kindly start by adding classes and setting up your school first to be able to access it.",
+          setupMessage: teacherClasses
+            ? "You are not assigned to any classes yet. A manager can add you to your classes."
+            : "This is for classes. Kindly start by adding classes and setting up your school first to be able to access it.",
           customRemarkTypes: [],
           allSubjectsByClassMap: {},
           messages: req.flash(),

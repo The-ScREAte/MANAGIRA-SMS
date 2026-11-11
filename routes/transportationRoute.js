@@ -8,6 +8,9 @@ const { BoundedMap } = require("../utils/boundedMap");
 const { upload } = require("../middleware/s3Upload");
 
 module.exports = (db) => {
+  // Nothing of transportation answers while the school has it switched off.
+  router.use(require("../utils/integrationSwitches").guard(db, "transportation"));
+
   // The map asks every few seconds, so a parent's link to their child is remembered briefly.
   const ownChildChecks = new BoundedMap(5000);
   const OWN_CHILD_TTL_MS = 60000;

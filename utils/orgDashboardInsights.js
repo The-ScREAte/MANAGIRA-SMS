@@ -59,11 +59,18 @@ async function loadOrgDashboardInsights(db, opts) {
   const can = (key) => permissions.includes(key);
   const hasFeature = (...names) => names.some((name) => features.includes(name));
   const classIds = classes.map((cls) => Number(cls.class_id)).filter(Number.isInteger);
+  // A teacher marks attendance only where they are the class's main teacher (the attendance
+  // page's own rule), so only those classes count for them and are offered.
+  const attendanceClasses = roleKey === "teacher"
+    ? classes.filter((cls) => (Array.isArray(cls.employees) ? cls.employees : [])
+        .some((person) => Number(person.user_id) === Number(actorId) && person.main))
+    : classes;
+  const attendanceClassIds = attendanceClasses.map((cls) => Number(cls.class_id)).filter(Number.isInteger);
 
   const show = {
     staff: can("manage_employees"),
     admissions: can("approve_admissions") && hasFeature("Student and Guardian Profile", "Student and Guadian Profile"),
-    attendance: can("mark_attendance") && hasFeature("Attendance Tracking", "Attendance tracking feature") && termActive && classIds.length > 0,
+    attendance: can("mark_attendance") && hasFeature("Attendance Tracking", "Attendance tracking feature") && termActive && attendanceClassIds.length > 0,
     fees: can("paygira_overview") && hasFeature("PayGira"),
     activity: activityScope !== "mine" || Number(actorId) > 0,
     // School-wide transport is for managers and supervisors, not teachers/drivers.
@@ -90,7 +97,7 @@ async function loadOrgDashboardInsights(db, opts) {
       ? safe(db.query(
           `SELECT DISTINCT class_id FROM attendance_records
             WHERE organization_id = $1 AND date = $2::date AND class_id = ANY($3::int[])`,
-          [organizationId, todayKey, classIds]
+          [organizationId, todayKey, attendanceClassIds]
         ).then((r) => r.rows))
       : null,
     show.fees
@@ -185,6 +192,22 @@ async function loadOrgDashboardInsights(db, opts) {
   const kpis = [];
   const attention = [];
 
+  // Classes with nobody in charge, for whoever manages staff (the main teacher is chosen there).
+  if (show.staff) {
+    const noLead = classes.filter((cls) => !(Array.isArray(cls.employees) ? cls.employees : []).some((person) => person && person.main));
+    if (noLead.length) {
+      attention.push({
+        tone: "amber",
+        icon: "fa-chalkboard-user",
+        text: `${noLead.length} class${noLead.length === 1 ? " has" : "es have"} no main teacher`,
+        note: `${noLead.slice(0, 4).map((cls) => cls.class_name).join(", ")}${noLead.length > 4 ? ` and ${noLead.length - 4} more` : ""}. The main teacher marks attendance and looks after the class.`,
+        href: "/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees",
+        action: "Choose",
+        noSpa: true,
+      });
+    }
+  }
+
   if (staff) {
     if (staff.pending) attention.push({ tone: "amber", icon: "fa-envelope-open-text", text: `${staff.pending} staff member${staff.pending === 1 ? " hasn't" : "s haven't"} set a password yet`, href: "/common/management", action: "View staff" });
     if (staff.on_hold) attention.push({ tone: "red", icon: "fa-user-lock", text: `${staff.on_hold} staff account${staff.on_hold === 1 ? " is" : "s are"} on hold`, href: "/common/management", action: "Review" });
@@ -200,8 +223,8 @@ async function loadOrgDashboardInsights(db, opts) {
       kpis.push({ key: "attendance", icon: "fa-clipboard-check", value: "—", label: "Attendance today", note: `${todayLabel || "No school"} · nothing to mark` });
     } else if (Array.isArray(attendanceRows)) {
       const marked = new Set(attendanceRows.map((row) => Number(row.class_id)));
-      const missing = classes.filter((cls) => !marked.has(Number(cls.class_id)));
-      kpis.push({ key: "attendance", icon: "fa-clipboard-check", value: `${marked.size}/${classIds.length}`, label: "Attendance today", note: missing.length ? `${missing.length} class${missing.length === 1 ? "" : "es"} not marked` : "Every class is marked" });
+      const missing = attendanceClasses.filter((cls) => !marked.has(Number(cls.class_id)));
+      kpis.push({ key: "attendance", icon: "fa-clipboard-check", value: `${marked.size}/${attendanceClassIds.length}`, label: "Attendance today", note: missing.length ? `${missing.length} class${missing.length === 1 ? "" : "es"} not marked` : "Every class is marked" });
       if (missing.length) {
         attention.push({
           tone: "amber",

@@ -4,8 +4,10 @@
   const _embedAmp = _embedded ? '&embed=workspace' : '';
   const _classes = Array.isArray(typeof classes !== 'undefined' ? classes : null) ? classes : [];
   const _fmt = (d) => d ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(d) : new Date(d).toLocaleDateString()) : '—';
+  // Merit sheets are a report in the Report Builder: pointed to only for someone who can open it.
   const _hasMerit = Array.isArray(typeof allowedFeatures !== 'undefined' ? allowedFeatures : null)
-    && (allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet'));
+    && (allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet'))
+    && typeof workspaceAccess === 'function' && workspaceAccess().reports.builder;
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 <style>.gp-layout { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; font-size: .72rem; font-weight: 700; text-decoration: none; vertical-align: middle; } .gp-layout:hover { text-decoration: underline; }</style>

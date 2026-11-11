@@ -2,6 +2,32 @@
 // person gets. Each item mirrors the guard on the page it opens, so a menu
 // never offers a page that would send them away, and a menu with no items for
 // this person stays out of the hamburger.
+// PayGira's menu: six places, two of them holding a second page as a tab (repeating bills sit
+// with the bills, overdue balances with the students' ledger). The PayGira hub's rail and the
+// pages' own menu and titles read this one list, so they always agree. Each page keeps its own
+// permission; a place shows when the person holds any of its pages.
+const PAYGIRA_MENU = [
+  { id: "overview", label: "Overview", icon: "overview", pages: [{ id: "overview", label: "Overview", url: "/account/settings/finance?section=overview" }] },
+  { id: "bills", label: "Bills", icon: "bills", pages: [
+    { id: "bills", label: "All bills", url: "/account/settings/finance?section=bills" },
+    { id: "subscriptions", label: "Repeating", url: "/account/settings/finance?section=subscriptions" },
+  ] },
+  { id: "students", label: "Student ledger", icon: "orgBills", pages: [
+    { id: "students", label: "Balances", url: "/account/settings/finance?section=students" },
+    { id: "arrears", label: "Overdue", url: "/account/settings/finance/arrears" },
+  ] },
+  { id: "payments", label: "Payments", icon: "payments", pages: [{ id: "payments", label: "Payments", url: "/account/settings/finance?section=payments" }] },
+  { id: "payouts", label: "Payouts", icon: "payouts", pages: [{ id: "payouts", label: "Payouts", url: "/account/settings/finance?section=payouts" }] },
+  { id: "settings", label: "Settings", icon: "sliders", pages: [{ id: "settings", label: "Settings", url: "/account/settings/finance?section=settings" }] },
+];
+// The places a person gets, each with the pages they hold; `url` is the first of them.
+const paygiraMenuFor = (pages) => PAYGIRA_MENU
+  .map((place) => ({ id: place.id, label: place.label, icon: place.icon, tabs: place.pages.filter((page) => pages[page.id]) }))
+  .filter((place) => place.tabs.length)
+  .map((place) => ({ ...place, url: place.tabs[0].url }));
+// The place a page sits in ("subscriptions" is in "bills").
+const paygiraPlaceOf = (pageId) => (PAYGIRA_MENU.find((place) => place.pages.some((page) => page.id === pageId)) || {}).id || null;
+
 const FULL_MENU_ROLES = new Set(["organization", "admin", "mini admin", "manager", "supervisor", "superviser"]);
 const MANAGER_ROLES = new Set(["organization", "admin", "mini admin", "manager"]);
 
@@ -94,6 +120,8 @@ function workspaceAccess({ permissions, features, role } = {}) {
     paygira: {
       ...paygira,
       any: anyOf(paygira),
+      menu: paygiraMenuFor(paygira),
+      placeOf: paygiraPlaceOf,
             canDeleteBills: inMain("paygira_bills") && inMain("paygira_delete_bills"),
       canSeePayments: inMain("paygira_payments"),
       canRecordPayments: inMain("paygira_record_payments"),
@@ -109,4 +137,4 @@ const WORKSPACE_PERMISSIONS = {
   admissions: ["manage_students", "approve_admissions", "manage_school_year_terms", "settings_admissions", "edit_contact_template"],
 };
 
-module.exports = { workspaceAccess, WORKSPACE_PERMISSIONS };
+module.exports = { workspaceAccess, WORKSPACE_PERMISSIONS, PAYGIRA_MENU, paygiraPlaceOf };

@@ -1,7 +1,7 @@
 const bcrypt = require("../utils/passwordHashing");
 const { sendEmailInBackground } = require("../utils/emailHelper");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
-const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
+const { PERMISSIONS, userHasPermission, sessionActor } = require("../middleware/permissionMiddleware");
 const notifSvc = require("../utils/notificationService");
 const documentData = require("../utils/documentData");
 const reportTemplate = require("../utils/reportTemplate");
@@ -322,7 +322,7 @@ const documentController = {
     const classId = req.query.classId ? Number(req.query.classId) : null;
     const canManageRecords = await userHasPermission(
       db,
-      { userId, userRole, organizationId: orgId, accountType },
+      sessionActor(req, { organizationId: orgId }),
       PERMISSIONS.MANAGE_RECORDS
     );
     const canCreate = canManageRecords;
@@ -562,7 +562,7 @@ const documentController = {
 
       const canManageRecords = await userHasPermission(
         db,
-        { userId, userRole, organizationId: orgId },
+        sessionActor(req, { organizationId: orgId }),
         PERMISSIONS.MANAGE_RECORDS
       );
 
@@ -621,7 +621,7 @@ const documentController = {
       const userRole = req.session.userRole;
       const canManageRecords = await userHasPermission(
         db,
-        { userId, userRole, organizationId: orgId },
+        sessionActor(req, { organizationId: orgId }),
         PERMISSIONS.MANAGE_RECORDS
       );
 
@@ -781,9 +781,7 @@ const documentController = {
       const hasEdit = await documentController._hasEditPermission(
         db,
         docId,
-        userId,
-        req.session.userRole,
-        orgId,
+        sessionActor(req, { organizationId: orgId }),
         doc.rows[0].created_by
       );
       if (!hasEdit) return res.status(403).json({ success: false, message: "No edit permission." });
@@ -826,7 +824,7 @@ const documentController = {
       // Verify user has access
       const canManageRecords = await userHasPermission(
         db,
-        { userId, userRole, organizationId: orgId },
+        sessionActor(req, { organizationId: orgId }),
         PERMISSIONS.MANAGE_RECORDS
       );
 
@@ -865,7 +863,7 @@ const documentController = {
 
       const canManageRecords = await userHasPermission(
         db,
-        { userId, userRole, organizationId: orgId },
+        sessionActor(req, { organizationId: orgId }),
         PERMISSIONS.MANAGE_RECORDS
       );
 
@@ -920,7 +918,7 @@ const documentController = {
 
       const canManageRecords = await userHasPermission(
         db,
-        { userId, userRole, organizationId: orgId },
+        sessionActor(req, { organizationId: orgId }),
         PERMISSIONS.MANAGE_RECORDS
       );
 
@@ -1083,7 +1081,7 @@ const documentController = {
       const docId = Number(req.params.id);
       const orgId = req.session.organizationId;
       const userId = req.session.userId || req.session.user?.user_id || null;
-      const canManageRecords = await userHasPermission(db, { userId, userRole: req.session.userRole, organizationId: orgId }, PERMISSIONS.MANAGE_RECORDS);
+      const canManageRecords = await userHasPermission(db, sessionActor(req, { organizationId: orgId }), PERMISSIONS.MANAGE_RECORDS);
       if (!canManageRecords) return res.status(403).json({ success: false, message: "You do not have permission to change report cards." });
       await reportTemplate.ensureReportTemplateSchema(db);
       const doc = await db.query("SELECT id FROM documents WHERE id = $1 AND organization_id = $2 AND is_deleted = FALSE", [docId, orgId]);
@@ -1140,7 +1138,7 @@ const documentController = {
 
       const canManageRecords = await userHasPermission(
         db,
-        { userId, userRole, organizationId: orgId },
+        sessionActor(req, { organizationId: orgId }),
         PERMISSIONS.MANAGE_RECORDS
       );
 
@@ -1201,12 +1199,9 @@ const documentController = {
   },
 
   // Helper: check if user has edit permission
-  async _hasEditPermission(db, docId, userId, userRole, orgId, createdBy) {
-    const canManageRecords = await userHasPermission(
-      db,
-      { userId, userRole, organizationId: orgId },
-      PERMISSIONS.MANAGE_RECORDS
-    );
+  async _hasEditPermission(db, docId, who, createdBy) {
+    const userId = who.userId;
+    const canManageRecords = await userHasPermission(db, who, PERMISSIONS.MANAGE_RECORDS);
 
     if (createdBy === userId || canManageRecords) return true;
     

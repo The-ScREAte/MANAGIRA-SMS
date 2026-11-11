@@ -6666,6 +6666,7 @@ function docIdentity(req) {
     userId: Number(req.body?.userId ?? req.query?.userId) || null,
     userRole: req.body?.userRole ?? req.query?.userRole,
     accountType: req.body?.accountType ?? req.query?.accountType,
+    userEmail: req.body?.userEmail ?? req.query?.userEmail,
   };
 }
 
@@ -6706,8 +6707,9 @@ async function resolveDocument(organizationId, { documentId, title }) {
   return rows.rows[0];
 }
 
-async function getDocumentPermissionLevel(organizationId, userId, userRole, doc) {
-  const canManageRecords = await userHasPermission(db, { userId, userRole, organizationId }, PERMISSIONS.MANAGE_RECORDS);
+async function getDocumentPermissionLevel(who, doc) {
+  const { organizationId, userId } = who;
+  const canManageRecords = await userHasPermission(db, who, PERMISSIONS.MANAGE_RECORDS);
   if (doc.created_by === userId || canManageRecords) return { level: "edit", canManageRecords };
   const permResult = await db.query(`SELECT permission_level FROM document_permissions WHERE document_id = $1 AND user_id = $2`, [doc.id, userId]);
   if (permResult.rows.length) return { level: permResult.rows[0].permission_level, canManageRecords };
@@ -6722,8 +6724,8 @@ async function getDocumentPermissionLevel(organizationId, userId, userRole, doc)
   return { level: null, canManageRecords };
 }
 
-async function assertDocumentAccess(organizationId, userId, userRole, doc, { requireEdit = false } = {}) {
-  const { level, canManageRecords } = await getDocumentPermissionLevel(organizationId, userId, userRole, doc);
+async function assertDocumentAccess(who, doc, { requireEdit = false } = {}) {
+  const { level, canManageRecords } = await getDocumentPermissionLevel(who, doc);
   if (!level) {
     const error = new Error(`You don't have access to "${doc.title}".`);
     error.status = 403;
@@ -6833,7 +6835,7 @@ async function listDocumentsApi(req, res) {
       const cls = await resolveClassByName(organizationId, req.query.className);
       classId = cls.class_id;
     }
-    const canManageRecords = await userHasPermission(db, { userId, userRole, organizationId, accountType }, PERMISSIONS.MANAGE_RECORDS);
+    const canManageRecords = await userHasPermission(db, docIdentity(req), PERMISSIONS.MANAGE_RECORDS);
 
     let rows;
     if (canManageRecords) {
@@ -6883,9 +6885,10 @@ async function listDocumentsApi(req, res) {
 // GET /internal/api/documents/get?documentId= | title=
 async function getDocumentApi(req, res) {
   try {
-    const { organizationId, userId, userRole } = docIdentity(req);
+    const identity = docIdentity(req);
+    const { organizationId, userId } = identity;
     const doc = await resolveDocument(organizationId, { documentId: req.query.documentId, title: req.query.title });
-    const { level } = await assertDocumentAccess(organizationId, userId, userRole, doc);
+    const { level } = await assertDocumentAccess(identity, doc);
 
     const permsRows = await db.query(
       `SELECT dp.user_id, dp.permission_level, u.first_name || ' ' || u.last_name AS user_name
@@ -6960,7 +6963,7 @@ async function setDocumentTitleApi(req, res) {
   try {
     const identity = docIdentity(req);
     const doc = await resolveDocument(identity.organizationId, { documentId: req.body?.documentId, title: req.body?.currentTitle });
-    await assertDocumentAccess(identity.organizationId, identity.userId, identity.userRole, doc, { requireEdit: true });
+    await assertDocumentAccess(identity, doc, { requireEdit: true });
     const newTitle = String(req.body?.newTitle || "").trim();
     if (!newTitle) return res.status(400).json({ error: "newTitle is required." });
     await delegateToDocumentController(documentController.saveDocument, identity, { title: newTitle }, { id: doc.id });
@@ -6982,7 +6985,7 @@ async function setDocumentTextApi(req, res) {
       error.status = 400;
       throw error;
     }
-    await assertDocumentAccess(identity.organizationId, identity.userId, identity.userRole, doc, { requireEdit: true });
+    await assertDocumentAccess(identity, doc, { requireEdit: true });
     const text = String(req.body?.text ?? "");
     const mode = req.body?.mode === "append" ? "append" : "replace";
     let finalText = text;
@@ -7009,7 +7012,7 @@ async function setSheetCellsApi(req, res) {
       error.status = 400;
       throw error;
     }
-    await assertDocumentAccess(identity.organizationId, identity.userId, identity.userRole, doc, { requireEdit: true });
+    await assertDocumentAccess(identity, doc, { requireEdit: true });
 
     const sheet = parseSheetContent(doc.content);
     const cellsToSet = req.body?.cells && typeof req.body.cells === "object" ? req.body.cells : {};
@@ -7072,7 +7075,7 @@ async function resizeSheetApi(req, res) {
       error.status = 400;
       throw error;
     }
-    await assertDocumentAccess(identity.organizationId, identity.userId, identity.userRole, doc, { requireEdit: true });
+    await assertDocumentAccess(identity, doc, { requireEdit: true });
     const sheet = parseSheetContent(doc.content);
     const addRows = Number.isFinite(req.body?.addRows) ? Math.max(0, Math.trunc(req.body.addRows)) : 0;
     const addCols = Number.isFinite(req.body?.addCols) ? Math.max(0, Math.trunc(req.body.addCols)) : 0;
@@ -7101,7 +7104,7 @@ async function insertClassDataIntoSheetApi(req, res) {
       error.status = 400;
       throw error;
     }
-    await assertDocumentAccess(identity.organizationId, identity.userId, identity.userRole, doc, { requireEdit: true });
+    await assertDocumentAccess(identity, doc, { requireEdit: true });
     const cls = await resolveClassByName(identity.organizationId, req.body?.className);
     const dataType = req.body?.dataType === "subjects" ? "subjects" : "students";
 

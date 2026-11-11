@@ -161,6 +161,8 @@ const checkFeatureAccess = async (req, res, next) => {
                   WHERE c.path LIKE fr.route_path || '/%'
                 )
               )
+           -- The most specific address wins: "/documents" is Docs and sheets, not whatever "/" is tied to.
+           ORDER BY (fr.route_path = '/'), LENGTH(fr.route_path) DESC, f.id
            LIMIT 1`,
           [normalizedRouteCandidates]
         );
@@ -354,16 +356,12 @@ const checkFeatureAccess = async (req, res, next) => {
         );
 
         if (mainTeacherCheck.length === 0) {
-          // ...removed warn for clean background operation...
-          req.flash('error', 'No main teacher assigned.');
+          req.flash('error', 'This class has no main teacher yet. A manager can put someone in charge of it.');
           return res.redirect('/common/orgDashboard');
         }
 
-        const mainTeacherId = mainTeacherCheck[0].user_id;
-
-        if (userId !== mainTeacherId) {
-          // ...removed warn for clean background operation...
-          req.flash('error', 'You do not have permission to access attendance records.');
+        if (!mainTeacherCheck.some((row) => Number(row.user_id) === Number(userId))) {
+          req.flash('error', "Attendance is marked by the class's main teacher.");
           return res.redirect('/common/orgDashboard');
         }
       }

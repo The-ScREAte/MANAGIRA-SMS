@@ -10,46 +10,55 @@
   const overpaymentsTotal = Number((overview && overview.overpayments) || 0);
 %>
 
+<%
+  const collectedShare = billedTotal > 0 ? Math.round((collectedTotal / billedTotal) * 100) : 0;
+  const overdueCount = Number(t.overdue_count || 0);
+  // How a bill's state reads to a person.
+  const billWords = { active: 'Sent', draft: 'Draft', cancelled: 'Cancelled', paid: 'Paid', pending: 'Sent', partial: 'Part paid', overdue: 'Overdue' };
+  const payWords = { cash: 'cash', cheque: 'check', bank_transfer: 'bank transfer', transfer: 'bank transfer', card: 'card', stripe: 'card', momo: 'mobile money', mobile_money: 'mobile money', credit: 'credit', other: 'other' };
+%>
 <div class="fin-stats" id="finStatsLive">
   <div class="stat">
-    <div class="label">Total Billed</div>
+    <div class="label">Billed</div>
     <div class="value" data-stat="billed"><%= fmt(billedTotal) %></div>
-    <div class="sub">All assignments to date</div>
+    <div class="sub">Every bill sent this period</div>
   </div>
   <div class="stat green">
-    <div class="label">Total Collected</div>
+    <div class="label">Paid</div>
     <div class="value" data-stat="collected"><%= fmt(collectedTotal) %></div>
-    <div class="sub">Paid in full or partial</div>
+    <div class="sub"><%= collectedShare %>% of what was billed</div>
   </div>
   <div class="stat red">
-    <div class="label">Outstanding</div>
+    <div class="label">Still owed</div>
     <div class="value" data-stat="outstanding"><%= fmt(outstandingTotal) %></div>
-    <div class="sub"><span data-stat="overdueCount"><%= t.overdue_count || 0 %></span> overdue</div>
+    <div class="sub"><span data-stat="overdueCount"><%= overdueCount %></span> overdue</div>
   </div>
+  <% if (overpaymentsTotal > 0) { %>
   <div class="stat gold">
-    <div class="label">Overpayments</div>
+    <div class="label">Credit held</div>
     <div class="value" data-stat="overpayments"><%= fmt(overpaymentsTotal) %></div>
-    <div class="sub">Available credits</div>
+    <div class="sub">Paid ahead by parents</div>
   </div>
+  <% } %>
 </div>
 
 <div class="fin-two">
   <div class="fin-card">
-    <div class="section-head"><h2>Quick Snapshot</h2></div>
+    <div class="section-head"><h2>Bills</h2><a class="fin-head-link" href="/account/settings/finance?section=bills">All bills</a></div>
     <div class="fin-table-wrap">
       <table class="fin-table">
-        <thead><tr><th>Bill</th><th>Status</th><th class="num">Amount</th><th class="num">Paid</th></tr></thead>
+        <thead><tr><th>Bill</th><th>Status</th><th class="num">Billed</th><th class="num">Paid</th></tr></thead>
         <tbody>
           <% (bills.slice(0,8)).forEach(b => { %>
             <tr>
               <td><%= b.title %></td>
-              <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
+              <td><span class="badge <%= b.status %>"><%= billWords[b.status] || b.status %></span></td>
               <td class="num"><%= fmt(b.total_amount) %></td>
               <td class="num"><%= fmt(b.total_paid) %></td>
             </tr>
           <% }) %>
           <% if (!bills.length) { %>
-            <tr><td colspan="4" style="text-align:center; color:var(--fin-muted); padding:30px;">No bills yet - create your first bill.</td></tr>
+            <tr><td colspan="4" style="text-align:center; color:var(--fin-muted); padding:30px;">No bills yet. Open Bills to send the first one.</td></tr>
           <% } %>
         </tbody>
       </table>
@@ -57,7 +66,7 @@
   </div>
 
   <div class="fin-card">
-    <div class="section-head"><h2>Recent Activity</h2></div>
+    <div class="section-head"><h2>Latest payments</h2><a class="fin-head-link" href="/account/settings/finance?section=payments">All payments</a></div>
     <div class="activity">
       <% if (overview.recent && overview.recent.length) { overview.recent.forEach(r => { %>
         <% const recentStudentDisplayName = r.display_student_name || (typeof formatDisplayName === 'function' ? formatDisplayName(r) : [r.first_name, r.last_name].filter(Boolean).join(' ').trim()); %>
@@ -65,24 +74,21 @@
           <div class="avatar"><%= ((r.first_name||'?').charAt(0) + (r.last_name||'').charAt(0)).toUpperCase() %></div>
           <div style="min-width:0;flex:1;">
             <div class="who"><%= recentStudentDisplayName %></div>
-            <div class="meta"><%= r.bill_title || 'Payment' %> · <%= r.method %> · <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(r.received_at) : new Date(r.received_at).toLocaleString()) %></div>
+            <div class="meta"><%= r.bill_title || 'Payment' %> · <%= payWords[String(r.method || '').toLowerCase()] || r.method %> · <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(r.received_at) : new Date(r.received_at).toLocaleString()) %></div>
           </div>
           <div class="amt">+<%= fmt(r.amount) %></div>
         </div>
       <% }) } else { %>
-        <div class="activity-empty">No payments recorded yet.<br><br>Record one to see live activity here.</div>
+        <div class="activity-empty">No payments yet.</div>
       <% } %>
     </div>
   </div>
 </div>
 
-<div class="fin-card" style="margin-top:20px;">
-  <div class="section-head">
-    <h2>Overview Analytics</h2>
-    <% const overviewBillCount = Number((overview && overview.billCount) || bills.length || 0); %>
-    <span class="fin-section-count"><%= overviewBillCount %> bill<%= overviewBillCount === 1 ? '' : 's' %></span>
-  </div>
-
+<details class="fin-more fin-more--card" style="margin-top:20px;">
+  <% const overviewBillCount = Number((overview && overview.billCount) || bills.length || 0); %>
+  <summary><span class="fin-more__title">Charts and bill-by-bill breakdown</span><span class="fin-more__hint"><%= overviewBillCount %> bill<%= overviewBillCount === 1 ? '' : 's' %></span></summary>
+  <div class="fin-more__body" style="padding-top:14px;">
   <div class="fin-report-filters">
     <div class="fin-field">
       <label>Search</label>
@@ -107,8 +113,8 @@
       <select id="rptStatus" onchange="finRunReportFilter()">
         <option value="">All</option>
         <option value="paid">Paid</option>
-        <option value="partial">Partial</option>
-        <option value="pending">Pending</option>
+        <option value="partial">Part paid</option>
+        <option value="pending">Sent</option>
         <option value="overdue">Overdue</option>
         <option value="draft">Draft</option>
       </select>
@@ -126,19 +132,19 @@
         const dashPaid = chartPaid;
         const dashOut  = 100 - dashPaid;
       %>
-      <div style="font-family:inherit;font-weight:700;margin-bottom:14px;">Collection vs Outstanding</div>
+      <div style="font-family:inherit;font-weight:700;margin-bottom:14px;">Paid and still owed</div>
       <svg viewBox="0 0 36 36" style="width:160px;height:160px;transform:rotate(-90deg);">
         <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-border)" stroke-width="3"/>
         <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-success)" stroke-width="3" stroke-dasharray="<%= dashPaid %> <%= dashOut %>" stroke-linecap="round"/>
         <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--fin-red)" stroke-width="3" stroke-dasharray="<%= dashOut %> <%= dashPaid %>" stroke-dashoffset="<%= -dashPaid %>" stroke-linecap="round"/>
       </svg>
       <div style="display:flex;justify-content:center;gap:18px;margin-top:10px;font-size:.82rem;">
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-success);display:inline-block;"></span>Collected <%= chartPaid %>%</span>
-        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-red);display:inline-block;"></span>Outstanding <%= chartOut %>%</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-success);display:inline-block;"></span>Paid <%= chartPaid %>%</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--fin-red);display:inline-block;"></span>Still owed <%= chartOut %>%</span>
       </div>
     </div>
     <div style="background:var(--fin-card-2);border:1px solid var(--fin-border);border-radius:14px;padding:20px;">
-      <div style="font-family:inherit;font-weight:700;margin-bottom:14px;">Bill Status Breakdown</div>
+      <div style="font-family:inherit;font-weight:700;margin-bottom:14px;">Bills by status</div>
       <%
         const stMap = Object.assign({paid:0,pending:0,overdue:0,partial:0,draft:0,cancelled:0}, (overview && overview.billStatusBreakdown) || {});
         const totalBills = overviewBillCount || 1;
@@ -146,7 +152,7 @@
       <% [['paid','var(--fin-success)'],['pending','var(--fin-red)'],['overdue','var(--fin-red)'],['partial','var(--fin-success)'],['draft','var(--fin-muted)']].forEach(([s,col]) => { const n = stMap[s]||0; const pct = Math.round((n/totalBills)*100); %>
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
-          <span style="text-transform:capitalize;color:var(--fin-text);"><%= s %></span>
+          <span style="color:var(--fin-text);"><%= billWords[s] || s %></span>
           <span style="font-variant-numeric:tabular-nums;color:<%= col %>;"><%= n %> (<%= pct %>%)</span>
         </div>
         <div style="height:6px;background:var(--fin-border);border-radius:99px;overflow:hidden;">
@@ -164,9 +170,9 @@
         <th class="fin-col-md">Year</th>
         <th class="fin-col-md">Term</th>
         <th>Status</th>
-        <th class="num">Amount</th>
+        <th class="num">Billed</th>
         <th class="num fin-col-lg">Paid</th>
-        <th class="num">Outstanding</th>
+        <th class="num">Still owed</th>
         <th class="fin-col-md">Due</th>
       </tr></thead>
       <tbody>
@@ -177,7 +183,7 @@
             <td><strong class="fin-bill-title" style="font-size:.88rem;"><%= b.title %></strong></td>
             <td class="fin-col-md fin-date-muted"><%= b.year_label || '—' %></td>
             <td class="fin-col-md fin-date-muted"><%= b.term_name || '—' %></td>
-            <td><span class="badge <%= b.status %>"><%= b.status %></span></td>
+            <td><span class="badge <%= b.status %>"><%= billWords[b.status] || b.status %></span></td>
             <td class="num fin-money-neutral"><%= fmt(b.total_amount) %></td>
             <td class="num fin-col-lg fin-money-positive"><%= fmt(b.total_paid) %></td>
             <td class="num <%= out > 0 ? 'fin-money-negative' : 'fin-money-neutral' %>"><%= fmt(out) %></td>
@@ -185,10 +191,11 @@
           </tr>
         <% }) %>
         <% if (!bills.length) { %>
-          <tr><td colspan="8" style="text-align:center;color:var(--fin-muted);padding:30px;">No bills to report on.</td></tr>
+          <tr><td colspan="8" style="text-align:center;color:var(--fin-muted);padding:30px;">No bills yet.</td></tr>
         <% } %>
       </tbody>
     </table>
     <div id="reportEmpty" style="display:none;text-align:center;color:var(--fin-muted);padding:24px;">No bills match your filters.</div>
   </div>
-</div>
+  </div>
+</details>

@@ -35,6 +35,7 @@
   .btn { padding:9px 16px; border-radius:8px; font-size:.82rem; font-weight:700; cursor:pointer; text-decoration:none; border:none; }
   .btn.primary { background:#00D4AA; color:#062018; }
   .btn.ghost { background:transparent; color:#1a1f2e; border:1px solid #d4d9e3; }
+  .note { margin:22px 0 0; color:#1a1f2e; font-size:.86rem; text-align:center; white-space:pre-line; }
   .foot { margin-top:30px; padding-top:14px; border-top:1px solid #e6e9f0; font-size:.74rem; color:#5a6378; text-align:center; }
   .badge { display:inline-flex; align-items:center; gap:5px; background:rgba(0,212,170,.12); color:#00845f; padding:4px 10px; border-radius:999px; font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-top:6px; }
   @media print {
@@ -62,6 +63,10 @@
     ? formatMoney
     : function(v){ return Number(v||0).toFixed(2); };
   const usdEq = typeof formatUsdEquivalent === 'function' ? formatUsdEquivalent : function(){ return null; };
+  // Everyday words for what the bill is and where it stands, and dates as the school shows them.
+  const _every = { daily: 'every day', weekly: 'every week', monthly: 'every month', term: 'every term', year: 'every year' };
+  const _statusWords = { paid: 'Paid', partial: 'Part paid', pending: 'Due', overdue: 'Overdue', draft: 'Draft', cancelled: 'Cancelled' };
+  const _when = (value) => (typeof formatDisplayDate === 'function' ? formatDisplayDate(value) : new Date(value).toLocaleDateString());
 %>
 <div class="doc">
   <div class="head">
@@ -74,7 +79,7 @@
       <h1><%= assignment.organization_name || 'School' %></h1>
       <div class="meta">
         <%= assignment.org_address || '' %><br>
-        <%= assignment.org_phone || '' %> · <%= assignment.org_email || '' %>
+        <%= [assignment.org_phone, assignment.org_email].filter(Boolean).join(' · ') %>
       </div>
       <span class="badge">🔒 PayGira Secure</span>
     </div>
@@ -86,7 +91,7 @@
       <% } %>
       <div class="num">#INV-<%= String(assignment.assignment_id).padStart(6,'0') %></div>
       <div style="margin-top:6px;">
-        <span class="status <%= assignment.status || 'pending' %>"><%= assignment.status || 'pending' %></span>
+        <span class="status <%= assignment.status || 'pending' %>"><%= _statusWords[assignment.status || 'pending'] || assignment.status %></span>
       </div>
     </div>
   </div>
@@ -101,7 +106,7 @@
       <div class="label">Bill</div>
       <div class="val"><%= assignment.bill_title %></div>
       <div style="font-size:.78rem;color:#5a6378;margin-top:3px;">
-        <% if (assignment.bill_type === 'recurring') { %>Recurring · <%= assignment.recurrence || '' %><% } else { %><%= assignment.bill_type || 'One-time' %><% } %>
+        <% if (assignment.bill_type === 'recurring') { %>Repeats <%= _every[assignment.recurrence] || '' %><% } else if (assignment.bill_type === 'installment') { %>In installments<% } else { %>One payment<% } %>
         · Due <%= assignment.due_date ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(assignment.due_date) : new Date(assignment.due_date).toLocaleDateString()) : '—' %>
       </div>
     </div>
@@ -138,7 +143,7 @@
           <% const paymentCharges = _pPayerFee + Number(p.tax_amount || 0); %>
           <% const paymentTotal = Number(p.amount || 0) + paymentCharges; %>
           <tr>
-            <td><%= new Date(p.received_at).toLocaleString() %></td>
+            <td><%= _when(p.received_at) %></td>
             <% const _ipm = fmtPayMethod(p.method); const _ipmBg = _ipm.provider === 'Paystack' ? 'rgba(80,140,233,.12)' : 'rgba(99,91,255,.1)'; const _ipmColor = _ipm.provider === 'Paystack' ? '#1d4ed8' : '#4338ca'; %>
             <td><%= _ipm.label %><% if (_ipm.provider) { %> <span style="padding:1px 6px;border-radius:5px;font-size:.62rem;font-weight:700;vertical-align:middle;background:<%= _ipmBg %>;color:<%= _ipmColor %>"><%= _ipm.provider %></span><% } %></td>
             <td style="color:#5a6378;font-size:.8rem;"><%= p.reference || '—' %></td>
@@ -177,7 +182,8 @@
     <button class="btn primary" onclick="window.close()">Close</button>
   </div>
 
-  <div class="foot">Generated <%= new Date().toLocaleString() %> · Powered by PayGira</div>
+  <% if (typeof invoiceNote !== 'undefined' && invoiceNote) { %><p class="note"><%= invoiceNote %></p><% } %>
+  <div class="foot">Made <%= _when(new Date()) %> · Powered by PayGira</div>
 </div>
 </body>
 </html>

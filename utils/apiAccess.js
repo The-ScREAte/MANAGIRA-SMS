@@ -398,8 +398,12 @@ async function createToken(req, organizationId, body) {
   const wanted = [...new Set([].concat(body.scopeGroups || []).map(String))].slice(0, ALL_PERMISSION_KEYS.length);
   if (!wanted.length) throw Object.assign(new Error("Choose at least one scope."), { status: 400 });
   const availability = groupAvailability(permissionsOf(account), await schoolFeatures(organizationId));
-  const blocked = wanted.filter((key) => !availability.some((group) => group.key === key && group.available));
-  if (blocked.length) throw Object.assign(new Error("The service account's permissions don't allow one of the chosen scopes."), { status: 403 });
+  const blocked = wanted.map((key) => availability.find((group) => group.key === key) || { key }).filter((group) => !group.available);
+  if (blocked.length) {
+    // Say which it is: something the school has switched off, or something the account wasn't given.
+    const switchedOff = blocked.find((group) => group.featureOff);
+    throw Object.assign(new Error(switchedOff ? switchedOff.reason : "The service account's permissions don't allow one of the chosen scopes."), { status: 403 });
+  }
   const days = TOKEN_EXPIRY_DAYS.includes(Number(body.expiresInDays)) ? Number(body.expiresInDays) : 365;
   const token = newCredential("mgr_pat");
   const { rows } = await db.query(

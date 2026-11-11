@@ -64,7 +64,7 @@
   <div class="head">
     <div class="org">
       <h1><%= payment.organization_name || 'School' %></h1>
-      <div class="meta"><%= payment.org_address || '' %> · <%= payment.org_phone || '' %></div>
+      <div class="meta"><%= [payment.org_address, payment.org_phone].filter(Boolean).join(' · ') %></div>
       <span class="badge" style="margin-top:8px;">🔒 PayGira Secure</span>
     </div>
     <div class="label">PayGira Receipt</div>
@@ -104,7 +104,7 @@
     <% } %>
     <div class="row"><div>Total billed</div><div class="v"><%= moneyFmt(total) %></div></div>
     <div class="row"><div>Paid to date</div><div class="v" style="color:#00845f;"><%= moneyFmt(paid) %></div></div>
-    <div class="row" style="font-weight:800;"><div>Outstanding</div><div class="v"><%= moneyFmt(bal) %></div></div>
+    <div class="row" style="font-weight:800;"><div>Still owed</div><div class="v"><%= moneyFmt(bal) %></div></div>
   <% } %>
 
   <% if (payment.notes) { %>
@@ -118,7 +118,7 @@
     <button class="btn primary" onclick="window.close()">Done</button>
   </div>
 
-  <div class="foot">Thank you. Keep this receipt for your records · <%= new Date().toLocaleString() %></div>
+  <div class="foot">Thank you. Keep this receipt for your records · <%= typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString() %></div>
 </div>
 </body>
 </html>

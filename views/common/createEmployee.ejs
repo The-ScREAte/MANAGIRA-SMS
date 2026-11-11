@@ -672,7 +672,8 @@
             <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager">Manager</option><% } %>
             <option value="Supervisor">Supervisor</option>
             <option value="Teacher">Teacher</option>
-            <option value="Driver">Driver</option>
+            <%# A driver is there for transportation alone: offered while the school has it switched on. %>
+            <% if (!(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver">Driver</option><% } %>
           </select>
         </div>
 
@@ -688,6 +689,7 @@
                 id="class_<%= cls.class_id %>"
                 onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')">
               <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+              <%- include('../partials/employeeMainTeacher', { cls, personId: null }) %>
             </div>
             <div id="subjects-container-<%= cls.class_id %>" class="subject-container" style="display: none"></div>
             <% }); %>

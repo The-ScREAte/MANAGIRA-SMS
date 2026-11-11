@@ -1,0 +1,23 @@
+<%#
+  The "Main teacher" choice for one class on the Add and Edit staff forms, beside the class's
+  tick box. It says who is in charge of the class today, or that nobody is, so a class is never
+  left without someone. Expects: cls, classMainTeachers ({ classId: { userId, name } }) and
+  personId (the member of staff being edited, or null on the Add form).
+%>
+<%
+  const _lead = (typeof classMainTeachers !== 'undefined' && classMainTeachers && classMainTeachers[cls.class_id]) || null;
+  const _mine = !!(_lead && personId && Number(_lead.userId) === Number(personId));
+%>
+<span class="emp-main<%= _lead ? '' : ' emp-main--none' %>" data-emp-main="<%= cls.class_id %>">
+  <label class="emp-main__pick" title="In charge of this class: marks attendance, keeps the schedule and works on every subject and report card.">
+    <input type="checkbox" name="mainClasses" value="<%= cls.class_id %>"<%= _mine ? ' checked' : '' %>>
+    <span>Main teacher</span>
+  </label>
+  <% if (_mine) { %>
+    <span class="emp-main__now" data-emp-main-note>In charge of this class</span>
+  <% } else if (_lead) { %>
+    <span class="emp-main__now" data-emp-main-note data-now="Now: <%= _lead.name %>" data-replace="Replaces <%= _lead.name %> when you save">Now: <%= _lead.name %></span>
+  <% } else { %>
+    <span class="emp-main__none" data-emp-main-note data-now="No main teacher yet" data-replace="Will be in charge when you save">No main teacher yet</span>
+  <% } %>
+</span>

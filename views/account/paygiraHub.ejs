@@ -5,17 +5,17 @@
   const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const paygiraAccess = workspaceAccess().paygira;
-  const finSections = [
-    { id: 'overview', label: 'Overview', url: '/account/settings/finance?section=overview', icon: navIcon('overview') },
-    { id: 'bills', label: 'Bill Management', url: '/account/settings/finance?section=bills', icon: navIcon('bills') },
-    { id: 'students', label: 'Org-Wide Bills', url: '/account/settings/finance?section=students', icon: navIcon('orgBills') },
-    { id: 'subscriptions', label: 'Subscriptions', url: '/account/settings/finance?section=subscriptions', icon: navIcon('subscriptions') },
-    { id: 'payments', label: 'Payment Tracking', url: '/account/settings/finance?section=payments', icon: navIcon('payments') },
-    { id: 'arrears', label: 'Fee Recovery', url: '/account/settings/finance/arrears', icon: navIcon('feeRecovery') },
-    { id: 'payouts', label: 'Payouts', url: '/account/settings/finance?section=payouts', icon: navIcon('payouts') },
-    { id: 'settings', label: 'Payment Settings', url: '/account/settings/finance?section=settings', icon: navIcon('sliders') },
-  ].filter((s) => paygiraAccess[s.id]);
-  const _initial = finSections.some((s) => s.id === initialSection) ? initialSection : finSections[0].id;
+  // Six places (utils/workspaceAccess.js): a page that is a tab of another place opens that
+  // place, on its own tab.
+  const _wantedPlace = paygiraAccess.placeOf(initialSection);
+  const finSections = paygiraAccess.menu.map((place) => {
+    const wantedTab = place.id === _wantedPlace ? place.tabs.find((tab) => tab.id === initialSection) : null;
+    return { id: place.id, label: place.label, url: (wantedTab || place.tabs[0]).url, icon: navIcon(place.icon) };
+  });
+  const _initial = finSections.some((s) => s.id === _wantedPlace) ? _wantedPlace : finSections[0].id;
+  // For the script below: which place each page is in.
+  const _placeOfPage = {};
+  paygiraAccess.menu.forEach((place) => place.tabs.forEach((tab) => { _placeOfPage[tab.id] = place.id; }));
 %>
 
 <style>
@@ -634,7 +634,9 @@
   // address names, whatever was marked active when the page was drawn.
   (function pickPaygiraSection() {
     const params = new URLSearchParams(window.location.search);
-    const wanted = !params.get('panel') && params.get('section');
+    const asked = !params.get('panel') && params.get('section');
+    // A page that is a tab of another place (repeating bills, overdue balances) opens that place.
+    const wanted = asked && (<%- JSON.stringify(_placeOfPage) %>[asked] || asked);
     if (!wanted || !document.getElementById(wanted)) return;
     document.querySelectorAll('.nav-link[data-section]').forEach((l) => l.classList.toggle('active', l.dataset.section === wanted));
     document.querySelectorAll('.hub-section').forEach((s) => s.classList.toggle('active', s.id === wanted));

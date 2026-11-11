@@ -57,6 +57,15 @@ async function withinScope(db, organizationId, scope, { classId, subjectId }) {
   return true;
 }
 
+// The classes a list may offer this person: a set for a teacher (where the scope is released),
+// null for everyone else. A page listing classes filters by it, so it never offers a class
+// whose pages would refuse the teacher.
+async function listScope(db, req) {
+  if (!require("./shards/features").isOn("teacher_class_scope", { organizationId: req.session?.organizationId })) return null;
+  const scope = await teacherScope(db, req);
+  return scope ? scope.classes : null;
+}
+
 function requireClassScope(db) {
   return async (req, res, next) => {
     try {
@@ -78,4 +87,4 @@ function requireClassScope(db) {
   };
 }
 
-module.exports = { teacherScope, withinScope, requireClassScope };
+module.exports = { teacherScope, withinScope, listScope, requireClassScope };

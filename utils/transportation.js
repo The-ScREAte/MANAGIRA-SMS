@@ -329,6 +329,7 @@ async function setTransportationIntegrationActivation(dbClient, organizationId, 
      WHERE organization_id = $1`,
     [organizationId, Boolean(activated)]
   );
+  require("./integrationSwitches").forget(organizationId);
 }
 
 async function setTransportationMapProvider(dbClient, organizationId, provider) {

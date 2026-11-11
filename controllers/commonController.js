@@ -35,6 +35,7 @@ const {
   getPrimaryManagerUserId,
   getUserPermissions,
   userHasPermission,
+  sessionActor,
   isManagerLikeRole,
   invalidateUserPermissionCache,
   permissionOptionsFor,
@@ -9233,12 +9234,13 @@ const commonController = {
       const className = classResult.rows[0].class_name;
 
       // Fetch term name and school year
+      // The term must be this school's: a number typed in the address names nothing else.
       const termResult = await db.query(
         `SELECT t.term_name, sy.year_label 
                  FROM terms t 
                  JOIN school_years sy ON t.school_year_id = sy.id 
-                 WHERE t.term_id = $1`,
-        [termId]
+                 WHERE t.term_id = $1 AND t.organization_id = $2`,
+        [termId, organizationId]
       );
 
       if (termResult.rows.length === 0) {
@@ -9631,7 +9633,11 @@ const commonController = {
       const stripUnavailablePermissions = (permissions = []) =>
         permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
 
+      // Who is in charge of each class today, so the form can show it and say which have nobody.
+      const classMainTeachers = Object.fromEntries(await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map()));
+
       res.render("common/createEmployee", {
+        classMainTeachers,
         canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Create Employee",
         classes: classesResult.rows,
@@ -9814,13 +9820,15 @@ const commonController = {
         : { rows: [] };
       const safeSubjectIds = ownedSubjectsCE.rows.map(r => Number(r.subject_id));
 
-      if (safeClassIds.length > 0) {
-        await client.query(
-          `INSERT INTO user_classes (user_id, class_id, main)
-           SELECT $1, unnest($2::int[]), FALSE`,
-          [userId, safeClassIds]
-        );
-      }
+      // Their classes, and the ones they are put in charge of (the main teacher).
+      await require("../utils/mainTeacher").saveClasses(client, {
+        organizationId: req.session.organizationId,
+        userId,
+        classIds: safeClassIds,
+        mainClassIds: req.body.mainClasses,
+        shown: true,
+        canLead: account_type !== "Driver",
+      });
 
       if (safeSubjectIds.length > 0) {
         await client.query(
@@ -10178,7 +10186,7 @@ const commonController = {
 
       const canManageEmployees = await userHasPermission(
         db,
-        { userId: requesterId, userRole: requesterRole, organizationId },
+        sessionActor(req, { organizationId }),
         PERMISSIONS.MANAGE_EMPLOYEES
       );
 
@@ -10514,8 +10522,12 @@ const commonController = {
         });
       }
 
+      // Classes with nobody in charge: listed at the top so someone is chosen.
+      const classesWithoutLead = await require("../utils/mainTeacher").classesWithoutMainTeacher(db, req.session.organizationId).catch(() => []);
+
       res.render("common/manageEmployees", {
         title: "Users / Employees",
+        classesWithoutLead,
         permissionOptions: PERMISSION_OPTIONS,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -10685,7 +10697,10 @@ const commonController = {
       const selectedPermissions = stripUnavailablePermissions(rawSelectedPermissions);
       const hiddenHeldPermissions = rawSelectedPermissions.filter((permissionKey) => !availablePermissionKeys.has(permissionKey));
 
+      const mainTeachers = await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map());
+
       res.render("common/modifyEmployee", {
+        classMainTeachers: Object.fromEntries(mainTeachers),
         canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Modify Employee",
         user,
@@ -10866,7 +10881,6 @@ const commonController = {
         [firstName, lastName, email, accountType, dateOfBirth || null, userId, organizationId]
       );
 
-      await client.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
       // Tenant boundary: only reassign classes that belong to this org.
       const ownedClassesME = normalizedClassIds.length
         ? await client.query(
@@ -10875,13 +10889,16 @@ const commonController = {
           )
         : { rows: [] };
       const safeClassIdsMod = ownedClassesME.rows.map(r => Number(r.class_id));
-      if (safeClassIdsMod.length > 0) {
-        await client.query(
-          `INSERT INTO user_classes (user_id, class_id, main)
-           SELECT $1, unnest($2::int[]), FALSE`,
-          [userId, safeClassIdsMod]
-        );
-      }
+      // Their classes, and the ones they lead. Saving used to clear "main teacher" every time
+      // someone's record was edited; now it changes only when the form says so.
+      await require("../utils/mainTeacher").saveClasses(client, {
+        organizationId,
+        userId,
+        classIds: safeClassIdsMod,
+        mainClassIds: req.body.mainClasses,
+        shown: req.body.mainClassesShown === "1",
+        canLead: accountType !== "Driver",
+      });
 
       await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
       const ownedSubjectsME = normalizedSubjectIds.length
@@ -20833,6 +20850,10 @@ NUMBERING:
         classes = fallbackClassesResult.rows;
       }
 
+      // A teacher sees the classes they teach: the report cards of the others would refuse them.
+      const teacherClasses = await require("../utils/classScope").listScope(db, req).catch(() => null);
+      if (teacherClasses) classes = classes.filter((row) => teacherClasses.has(Number(row.class_id)));
+
       // Which classes print with their own report card layout.
       let reportLayouts = {};
       try {
@@ -21758,7 +21779,7 @@ NUMBERING:
       const canEdit = userRole !== 'Teacher' && (
         isManagerLikeRole(userRole) || await userHasPermission(
           db,
-          { userId, userRole, organizationId },
+          sessionActor(req, { organizationId }),
           PERMISSIONS.MANAGE_GUARDIANS
         )
       );
@@ -24368,6 +24389,8 @@ NUMBERING:
       // paying for that extra redirect round trip inside the iframe.
       let defaultReportSettingsUrl = "/print/reportSettings";
       try {
+        // A teacher's first class is their own: the page works it out from the bare address.
+        if (await require("../utils/classScope").listScope(db, req)) throw new Error("teacher scope");
         const [defaultClassResult, defaultTermResult] = await Promise.all([
           db.query(
             "SELECT class_id FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC LIMIT 1",

@@ -25,11 +25,12 @@
   if (_wsMember) _addAction('new-task', '/common/calendar?new=task', 'fa-square-check', 'New task', 'task');
   _addAction('calendar', '/common/calendar', 'fa-calendar-days', 'Calendar');
   if (_perm('manage_students')) { _addAction('add-student', '/common/addStudent', 'fa-user-plus', 'Add student'); _addAction('students', '/common/allStudents', 'fa-user-graduate', 'All students'); }
-  if (_perm('manage_students') && !['teacher', 'driver', 'student_teacher'].includes(_roleKey)) _addAction('transport', '/transportation/manage', 'fa-bus', 'Transport');
+  // Held only while the school has transportation switched on.
+  if (_perm('manage_transportation')) _addAction('transport', '/transportation/manage', 'fa-bus', 'Transport');
   if (_perm('approve_admissions') && _feat('Student and Guardian Profile', 'Student and Guadian Profile')) _addAction('admissions', '/common/admissions', 'fa-inbox', 'Admissions');
   if (_perm('manage_employees')) { _addAction('add-staff', '/common/createEmployee', 'fa-id-badge', 'Add staff'); _addAction('management', '/common/management', 'fa-users-gear', 'Management'); }
   if (_perm('publish_events_announcements')) _addAction('events', _eventsPanel(), 'fa-calendar-plus', 'Events & announcements');
-  if (_perm('paygira_workspace') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); if (_perm('paygira_recovery')) _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Arrears'); }
+  if (_perm('paygira_workspace') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); if (_perm('paygira_recovery')) _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Overdue fees'); }
   if (_perm('mailroom')) _addAction('mailroom', '/common/mailroom', 'fa-paper-plane', 'Send a message');
   if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) _addAction('reports', '/common/reports', 'fa-chart-column', 'Reports');
   if (_perm('manage_records')) _addAction('records', '/common/manageRecords', 'fa-calendar-days', 'School years & terms');
@@ -657,7 +658,8 @@
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
 <script src="<%= assetUrl('/js/workspace.js') %>"></script>
-<% if (req.session && !req.session.guardianId && !req.session.studentId) { %>
+<%# Only for people who manage service accounts: anyone else would be sent back to this page, drawing it twice. %>
+<% if (_perm('settings_service_accounts')) { %>
 <div id="apiUsageDashBanner" hidden></div>
 <script>
   // Managers: warn when the school's integrations are near today's API allowance.
@@ -748,6 +750,8 @@
                           <% } else { %>
                             <span class="od-noteacher"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> No teacher yet</span>
                           <% } %>
+                          <%# Teachers but nobody in charge: said to whoever manages staff, who chooses one. %>
+                          <% if (_canEditStaff && teachers.length && !teachers.some((emp) => emp.main)) { %><span class="od-noteacher" title="Nobody is in charge of this class yet. Choose a main teacher in Users / Employees."><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> No main teacher</span><% } %>
                           <% if (_canEditStaff) { %>
                             <a class="od-crow__edit" href="/common/createEmployee?classId=<%= cls.class_id %>" title="<%= teachers.length ? 'Add another teacher to ' : 'Add a teacher to ' %><%= cls.class_name %>" aria-label="Add a teacher to <%= cls.class_name %>"><i class="fa-solid fa-pencil" aria-hidden="true"></i></a>
                           <% } %>
@@ -759,12 +763,15 @@
               <% }) %>
               <% if (sectionIndex < classSections.length - 1) { %><hr class="od-divider" /><% } %>
             <% }) %>
-          <% } else if (_roleKey === 'teacher') { %>
-            <p class="od-empty">You are not assigned to any classes yet.</p>
+          <% } else if (['teacher', 'supervisor', 'superviser'].includes(_roleKey)) { %>
+            <%# Teachers and supervisors see the classes they are assigned to. %>
+            <p class="od-empty">You are not assigned to any classes yet. A manager can add you to your classes.</p>
           <% } else { %>
+            <%# Each link shows only to someone who can open it. %>
             <p class="od-empty">
-              No classes have been set up for this term yet. <a href="/enrollment/manageEnrollment">Enroll classes for this term</a>,
-              or <a href="/common/manageClassSubjectAndGradYr">create classes for your organization</a> if you haven't done so already.
+              No classes have been set up for this term yet.
+              <% if (_perm('students_enrollment')) { %><a href="/enrollment/manageEnrollment">Enroll classes for this term</a><%= _perm('manage_classes_subjects') ? ', or' : '.' %><% } %>
+              <% if (_perm('manage_classes_subjects')) { %><a href="/common/manageClassSubjectAndGradYr"><%= _perm('students_enrollment') ? 'create classes' : 'Create classes' %> for your school</a><%= _perm('students_enrollment') ? " if you haven't done so already." : '.' %><% } %>
             </p>
           <% } %>
         </section>
@@ -1169,7 +1176,7 @@
                       </span>
                     <% } %>
                   </span>
-                  <% if (item.href && String(item.href).startsWith('/common/orgDashboard#')) { %><button type="button" class="od-link od-alert__action" data-od-goto="<%= String(item.href).split('#')[1] %>"><%= item.action || 'Open' %></button><% } else if (item.href) { %><a class="od-link od-alert__action" href="<%= item.href %>"><%= item.action || 'Open' %></a><% } %>
+                  <% if (item.href && String(item.href).startsWith('/common/orgDashboard#')) { %><button type="button" class="od-link od-alert__action" data-od-goto="<%= String(item.href).split('#')[1] %>"><%= item.action || 'Open' %></button><% } else if (item.href) { %><a class="od-link od-alert__action" href="<%= item.href %>"<%= item.noSpa ? ' data-no-spa' : '' %>><%= item.action || 'Open' %></a><% } %>
                 </li>
               <% }) %>
             </ul>
@@ -1184,7 +1191,8 @@
           <div class="od-card__head">
             <h2 class="od-card__title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent activity
               <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
-            <% if (_perm('manage_reports') && _perm('manage_records') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) { %>
+            <%# The activity log is a Report Builder report: Report Builder to open it, Organization Records to see it. %>
+            <% if (_perm('reports_builder') && _perm('manage_records')) { %>
               <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder" data-no-spa>View all</a>
             <% } %>
           </div>

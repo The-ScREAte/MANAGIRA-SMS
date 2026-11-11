@@ -145,7 +145,11 @@
     var body = table.querySelector('tbody');
     if (!headRow || !body) return;
 
-    var rows = Array.from(body.querySelectorAll('tr'));
+    // The table's own rows only: a cell may hold a table of its own, and its rows stay in it.
+    var ownRows = function () {
+      return Array.prototype.filter.call(body.children, function (row) { return row.tagName === 'TR'; });
+    };
+    var rows = ownRows();
     if (rows.length < 2) return;
 
     if (table.querySelector('.as-sort-btn, .pending-sort-btn, .fin-sort-btn, .table-sort-btn, .sort-toggle-btn, .section-sort-btn')) {
@@ -181,7 +185,7 @@
         button.dataset.sortDirection = nextDirection;
         button.setAttribute('aria-label', 'Sort ' + normalizeValue(header.textContent) + ' ' + (nextDirection === 'asc' ? 'descending' : 'ascending'));
 
-        var sortedRows = Array.from(body.querySelectorAll('tr')).sort(function (left, right) {
+        var sortedRows = ownRows().sort(function (left, right) {
           var primary = compareValues(getCellText(left, index), getCellText(right, index), nextDirection);
           if (primary !== 0) return primary;
           return compareValues(getCellText(left, 0), getCellText(right, 0), 'asc');
