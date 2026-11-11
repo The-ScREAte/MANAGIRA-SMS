@@ -459,27 +459,42 @@ class ManagiraChatbot {
     bubbleDiv.className = 'message-bubble chatbot-response-shell';
 
     if (answer && Array.isArray(answer.lines) && answer.lines.length > 0) {
+      // The answer in the guide's own words: steps numbered, a list as bullets, text as text.
       const answerBlock = document.createElement('div');
       answerBlock.className = 'chatbot-procedure';
 
-      const answerHeading = document.createElement('div');
-      answerHeading.className = 'chatbot-procedure__heading';
-      answerHeading.textContent = answer.title || 'Answer';
-      answerBlock.appendChild(answerHeading);
+      if (answer.lead) {
+        const answerLead = document.createElement('p');
+        answerLead.className = 'chatbot-procedure__lead';
+        answerLead.textContent = answer.lead;
+        answerBlock.appendChild(answerLead);
+      }
 
-      const answerLead = document.createElement('p');
-      answerLead.className = 'chatbot-procedure__lead';
-      answerLead.textContent = answer.lead || summary;
-      answerBlock.appendChild(answerLead);
+      if (answer.title) {
+        const answerHeading = document.createElement('div');
+        answerHeading.className = 'chatbot-procedure__heading';
+        answerHeading.textContent = answer.title;
+        answerBlock.appendChild(answerHeading);
+      }
 
-      const list = document.createElement('ol');
-      list.className = 'chatbot-procedure__list';
-      answer.lines.forEach((step) => {
-        const li = document.createElement('li');
-        li.textContent = String(step || '').trim();
-        list.appendChild(li);
-      });
-      answerBlock.appendChild(list);
+      const mode = answer.mode || 'text';
+      if (mode === 'steps' || mode === 'bullets') {
+        const list = document.createElement(mode === 'steps' ? 'ol' : 'ul');
+        list.className = 'chatbot-procedure__list';
+        answer.lines.forEach((line) => {
+          const li = document.createElement('li');
+          li.textContent = String(line || '').trim();
+          list.appendChild(li);
+        });
+        answerBlock.appendChild(list);
+      } else {
+        answer.lines.forEach((line) => {
+          const p = document.createElement('p');
+          p.className = 'chatbot-procedure__text';
+          p.textContent = String(line || '').trim();
+          answerBlock.appendChild(p);
+        });
+      }
       bubbleDiv.appendChild(answerBlock);
     } else {
       const summaryLine = document.createElement('div');
@@ -495,7 +510,7 @@ class ManagiraChatbot {
       section.className = 'chatbot-results-section';
       const heading = document.createElement('div');
       heading.className = 'chatbot-results-heading';
-      heading.textContent = 'Primary Documentation';
+      heading.textContent = 'From the guide';
       section.appendChild(heading);
 
       if (primaryDoc) {
@@ -505,7 +520,7 @@ class ManagiraChatbot {
       if (relatedDocs.length > 0) {
         const relatedHeading = document.createElement('div');
         relatedHeading.className = 'chatbot-results-heading';
-        relatedHeading.textContent = 'Related Documentation';
+        relatedHeading.textContent = 'Related guides';
         section.appendChild(relatedHeading);
       }
 

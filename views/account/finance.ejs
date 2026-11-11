@@ -177,6 +177,10 @@
   .fin-ledger-credit { color:var(--fin-success); font-size:.72rem; font-weight:600; }
   .fin-ledger-empty { margin:0; padding:26px 12px; text-align:center; color:var(--fin-muted); }
   .fin-ledger-hint { margin:10px 2px 0; color:var(--fin-muted); font-size:.8rem; }
+  .fin-ledger-ask { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:0 0 14px; padding:10px 12px; border:1px solid var(--fin-border); border-radius:10px; background:#fafbfc; color:var(--fin-muted); font-size:.82rem; }
+  .fin-ledger-said { margin:0 0 14px; padding:8px 12px; border-radius:8px; font-size:.84rem; font-weight:600; }
+  .fin-ledger-said.is-ok { background:#ecfdf5; color:#166534; }
+  .fin-ledger-said.is-bad { background:#fef2f2; color:#991b1b; }
   /* The less-used half of a form, folded away until it's wanted. */
   .fin-more { margin:4px 0 12px; border:1px solid var(--fin-border, #e2e8f0); border-radius:10px; background:#fafbfc; }
   .fin-more > summary { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding:10px 14px; cursor:pointer; list-style:none; }
@@ -320,8 +324,8 @@
   .fin-btn.sm { min-height:34px; padding:0 10px; font-size:.78rem; border-radius:4px; font-weight:600; }
   .fin-btn.tiny { min-height:30px; padding:0 8px; font-size:.74rem; border-radius:4px; font-weight:600; }
   /* A second choice beside the main one: outlined, so the main action is the one that stands out. */
-  .fin-btn.quiet { background:#fff; border-color:#cbd5e1; color:var(--fin-text); }
-  .fin-btn.quiet:hover { background:#f8fafc; border-color:#94a3b8; }
+  .fin-btn.quiet, button.fin-btn.quiet[type="submit"] { background:#fff !important; border-color:#cbd5e1 !important; color:var(--fin-text) !important; box-shadow:none !important; }
+  .fin-btn.quiet:hover, button.fin-btn.quiet[type="submit"]:hover { background:#f8fafc !important; border-color:#94a3b8 !important; }
 
   /* ── Two-col layout ───────────────────────────────────────────── */
   .fin-two { display:grid; grid-template-columns:1.6fr 1fr; gap:18px; }
@@ -723,6 +727,44 @@
     font-size:.72rem;
     line-height:1.4;
   }
+
+  /* ── A form that slides in from the right (New bill, Record a payment, New payout) ── */
+  .fin-sheet {
+    position:fixed; top:0; right:0; bottom:0; width:min(580px, 100%); z-index:9990;
+    margin:0 !important; padding:0; border:0; border-left:1px solid var(--fin-border); border-radius:0;
+    background:var(--fin-card); box-shadow:-24px 0 60px -30px rgba(15,23,42,.45);
+    display:flex; flex-direction:column; overflow:hidden;
+    transform:translateX(104%); visibility:hidden;
+    transition:transform .22s ease, visibility 0s linear .22s;
+  }
+  .fin-sheet.open { transform:none; visibility:visible; transition:transform .22s ease; }
+  .fin-sheet .fin-sheet__head {
+    flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+    padding:16px 20px; border-bottom:1px solid var(--fin-border); background:#fff;
+  }
+  .fin-sheet__title { margin:0; font-size:1.05rem; font-weight:700; color:var(--fin-text); }
+  .fin-sheet__hint { margin:3px 0 0; color:var(--fin-muted); font-size:.8rem; line-height:1.4; }
+  .fin-sheet__close {
+    flex:0 0 auto; width:32px; height:32px; min-width:0; margin:0; padding:0; border:1px solid var(--fin-border); border-radius:8px;
+    background:#fff; color:var(--fin-muted); font-size:1.25rem; line-height:1; cursor:pointer; box-shadow:none;
+  }
+  .fin-sheet__close:hover { background:#f8fafc; color:var(--fin-text); }
+  .fin-sheet .fin-acc-body { display:block; flex:1 1 auto; overflow-y:auto; padding:18px 20px 0; border-top:0; }
+  .fin-sheet .fin-row { grid-template-columns:1fr 1fr; }
+  @media (max-width:520px) { .fin-sheet .fin-row { grid-template-columns:1fr; } }
+  .fin-sheet-backdrop { position:fixed; inset:0; z-index:9989; background:rgba(15,23,42,.36); opacity:0; pointer-events:none; transition:opacity .2s ease; }
+  .fin-sheet-backdrop.show { opacity:1; pointer-events:auto; }
+  html.fin-sheet-open { overflow:hidden; }
+  /* A form's buttons: small, at the right. */
+  .fin-form-actions { display:flex; flex-direction:row-reverse; justify-content:flex-start; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  /* A lone button at the end of a form: small, at the right. */
+  .fin-form > .fin-btn, .fin-acc-body .fin-form > .fin-btn.primary { justify-self:end; align-self:flex-end; min-width:0 !important; height:34px; min-height:34px; max-height:34px; padding:0 14px; font-size:.78rem; }
+  .fin-form-actions .fin-btn { min-width:0 !important; }
+  /* The panel's buttons stay in view at its foot while the form scrolls above them. */
+  .fin-sheet .fin-form-actions { position:sticky; bottom:0; z-index:2; margin:16px -20px 0; padding:12px 20px; background:#fff; border-top:1px solid var(--fin-border); }
+  .fin-sheet .fin-flash { margin:0 0 14px; }
+  /* The page's own action, at the right of its heading. */
+  .fin-head-action { order:5; }
 
   /* ── Collapsible accordion forms ─────────────────────────────── */
   .fin-accordion { padding:0; overflow:hidden; }
@@ -1410,28 +1452,8 @@
     gap: 6px;
   }
 
-  /* Payment submit button sizing */
-  .fin-acc-body .fin-btn.primary[type="submit"] {
-    min-height: 38px;
-    width: auto;
-    padding: 0 20px;
-    align-self: flex-start;
-  }
-  #assignSel ~ * .fin-btn.primary,
-  form[action*="finance/payments"] .fin-btn.primary {
-    max-width: 220px;
-  }
 
 
-  /* Save General Settings compact size */
-  .fin-acc-body .fin-btn.primary[type="submit"],
-  .fin-acc-body button.fin-btn.primary {
-    width: auto;
-    min-width: 180px;
-    padding: 0 20px;
-    min-height: 38px;
-    align-self: flex-start;
-  }
 
   /* Subscription rows visual structure */
   [style*="border-radius:14px"][style*="background:var(--fin-card-2)"] {
@@ -1725,6 +1747,10 @@
           </svg>
           <span class="paygira-secure-text">Secure</span>
         </span>
+        <%# This page's own action: a small button that opens its form from the right. %>
+        <% if (sec === 'bills') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-bill')">+ New bill</button><% } %>
+        <% if (sec === 'payments' && paygiraAccess.canRecordPayments) { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-record-payment')">+ Record a payment</button><% } %>
+        <% if (sec === 'payouts') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-payout')">+ New payout</button><% } %>
         </div>
       </div>
 
@@ -1750,12 +1776,14 @@
       <% if (sec === 'bills') { %>
         <% const billPage = (billPagination && billPagination.page) || 1; %>
         <% const billPageSize = (billPagination && billPagination.pageSize) || bills.length || 20; %>
-        <div class="fin-card fin-accordion" id="acc-create-bill" style="margin-bottom:20px;">
-          <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-bill')">
-            <span><strong>New bill</strong></span>
-            <span class="fin-acc-hint">Charge every student, some classes or chosen students. Each parent gets an invoice.</span>
-            <span class="fin-acc-chev">▾</span>
-          </button>
+        <div class="fin-card fin-accordion fin-sheet" id="acc-create-bill" role="dialog" aria-modal="true" aria-labelledby="acc-create-bill-title" aria-hidden="true">
+          <div class="fin-sheet__head">
+            <div>
+              <h2 class="fin-sheet__title" id="acc-create-bill-title">New bill</h2>
+              <p class="fin-sheet__hint">Charge every student, some classes or chosen students. Each parent gets an invoice.</p>
+            </div>
+            <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-create-bill')">&times;</button>
+          </div>
           <div class="fin-acc-body">
           <%
             // [id, name, class id, class name, school years, terms, photo]
@@ -1823,6 +1851,9 @@
               };
             })();
           </script>
+          <% if (openCreateBillForm && messages && messages.error && messages.error.length) { %>
+            <div class="fin-flash error"><%= messages.error[0] %></div>
+          <% } %>
           <form class="fin-form" method="POST" action="/account/settings/finance/bills">
             <%# What it is, how much, who pays and when: enough for most bills. %>
             <div class="fin-row">
@@ -2025,9 +2056,9 @@
                 </div>
               </div>
             </details>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
-              <button type="submit" name="status" value="active" class="fin-btn primary">Create and send</button>
-              <button type="submit" name="status" value="draft" class="fin-btn quiet">Save as draft</button>
+            <div class="fin-form-actions">
+              <button type="submit" name="status" value="active" class="fin-btn sm primary">Create and send</button>
+              <button type="submit" name="status" value="draft" class="fin-btn sm quiet">Save as draft</button>
             </div>
             <script>
               // "More options" opens itself when something inside it still needs an answer (no
@@ -2121,8 +2152,8 @@
                       <td><span class="badge <%= b.status %>"><%= _billStatusWords[b.status] || b.status %></span></td>
                       <td class="fin-actions-cell">
                         <% if (b.status === 'active') { %>
-                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;" onclick="event.stopPropagation();" onsubmit="return confirm('Email a reminder to the parents of every student who still owes this bill?');">
-                          <button class="fin-btn sm quiet" title="Email the parents who still owe this bill">Send reminder</button>
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;" onclick="event.stopPropagation();" onsubmit="return confirm('Email every parent who still owes this bill, with what they owe and a link to pay?');">
+                          <button class="fin-btn sm quiet" title="Email every parent who still owes this bill a link to pay">Request payment</button>
                         </form>
                         <% } %>
                         <button type="button" class="fin-btn fin-icon-btn" title="Edit bill" aria-label="Edit bill" onclick='event.stopPropagation(); openEditBill(<%- JSON.stringify(_bpayload) %>)'>
@@ -2402,12 +2433,14 @@
 
       <% if (sec === 'payments') { %>
         <% if (paygiraAccess.canRecordPayments) { %>
-        <div class="fin-card fin-accordion" id="acc-record-payment" style="margin-bottom:20px;">
-          <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-record-payment', this)" aria-expanded="false">
-            <span><strong>Record a payment</strong></span>
-            <span class="fin-acc-hint">Cash, a check, a bank transfer or anything else paid outside PayGira</span>
-            <span class="fin-acc-chev">▾</span>
-          </button>
+        <div class="fin-card fin-accordion fin-sheet" id="acc-record-payment" role="dialog" aria-modal="true" aria-labelledby="acc-record-payment-title" aria-hidden="true">
+          <div class="fin-sheet__head">
+            <div>
+              <h2 class="fin-sheet__title" id="acc-record-payment-title">Record a payment</h2>
+              <p class="fin-sheet__hint">Cash, a check, a bank transfer or anything else paid outside PayGira.</p>
+            </div>
+            <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-record-payment')">&times;</button>
+          </div>
           <div class="fin-acc-body">
           <%
             const allAssignments = [];
@@ -2448,7 +2481,10 @@
                 <input name="notes" placeholder="Optional">
               </div>
             </div>
-            <button type="submit" class="fin-btn primary">Record payment</button>
+            <div class="fin-form-actions">
+              <button type="submit" class="fin-btn sm primary">Record payment</button>
+              <button type="button" class="fin-btn sm quiet" onclick="finToggleAcc('acc-record-payment')">Cancel</button>
+            </div>
           </form>
           <div style="margin-top:12px; padding:12px 14px; background:color-mix(in srgb, var(--org-primary-color, #01535b) 5%, transparent); border:1px dashed var(--fin-border); border-radius:10px; font-size:.82rem; color:var(--fin-muted);">
             Payments parents make online are recorded here by themselves. Turn online payments on in <a href="?section=settings" style="color:var(--fin-teal);">Settings</a>.
@@ -2641,12 +2677,14 @@
       <% } %>
 
       <% if (sec === 'payouts') { %>
-        <div class="fin-card fin-accordion" id="acc-create-payout" style="margin-bottom:20px;">
-          <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-payout')">
-            <span><strong>New payout</strong></span>
-            <span class="fin-acc-hint">Pay a member of staff or a supplier, once or on a schedule</span>
-            <span class="fin-acc-chev">▾</span>
-          </button>
+        <div class="fin-card fin-accordion fin-sheet" id="acc-create-payout" role="dialog" aria-modal="true" aria-labelledby="acc-create-payout-title" aria-hidden="true">
+          <div class="fin-sheet__head">
+            <div>
+              <h2 class="fin-sheet__title" id="acc-create-payout-title">New payout</h2>
+              <p class="fin-sheet__hint">Pay a member of staff or a supplier, once or on a schedule.</p>
+            </div>
+            <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-create-payout')">&times;</button>
+          </div>
           <div class="fin-acc-body">
             <form class="fin-form" id="finPayoutForm">
               <input type="hidden" id="finPayoutFormId" value="">
@@ -2717,7 +2755,10 @@
               </div>
 
               <p class="error-text" id="finPayoutError" style="color:var(--fin-red); font-size:.82rem;"></p>
-              <button type="submit" class="fin-btn primary" id="finPayoutSubmit">Save Payout</button>
+              <div class="fin-form-actions">
+                <button type="submit" class="fin-btn sm primary" id="finPayoutSubmit">Save payout</button>
+                <button type="button" class="fin-btn sm quiet" onclick="finToggleAcc('acc-create-payout')">Cancel</button>
+              </div>
             </form>
           </div>
         </div>
@@ -3070,7 +3111,7 @@
               <textarea name="invoice_footer" id="finInvoiceNote" rows="2" maxlength="300" placeholder="e.g. Thank you for trusting us with your child's education."><%= (pspSettings && pspSettings.invoice_footer) || '' %></textarea>
               <small style="color:var(--fin-muted);font-size:.72rem;">Optional. Parents see it on each invoice.</small>
             </div>
-            <button class="fin-btn primary">Save</button>
+            <button class="fin-btn sm primary">Save</button>
           </form>
         </div>
       <% } %>
@@ -3253,8 +3294,8 @@
                     </select>
                   </div>
                   <div class="fin-field arrears-filter-actions" style="grid-column:span 2;justify-content:flex-end;">
-                    <button type="submit" class="fin-btn primary">Apply</button>
-                    <a href="/account/settings/finance/arrears" class="fin-btn">Reset</a>
+                    <button type="submit" class="fin-btn sm primary">Apply</button>
+                    <a href="/account/settings/finance/arrears" class="fin-btn sm quiet">Reset</a>
                   </div>
                 </div>
               </form>
@@ -3279,7 +3320,7 @@
                   <input type="text" name="preset_name" placeholder="e.g. Fall tuition, 30 days late" required>
                 </div>
                 <input type="hidden" name="schoolYearIds" value="">
-                <button type="submit" class="fin-btn primary">Save these filters</button>
+                <button type="submit" class="fin-btn sm primary">Save these filters</button>
               </form>
               <% if ((arrearsPresets || []).length) { %>
                 <div class="arrears-pill-list">
@@ -3315,8 +3356,8 @@
                 </div>
               </div>
               <div class="arrears-toolbar-right">
-                <button type="button" class="fin-btn quiet" onclick="openArrearsReportModal()">Save a report</button>
-                <button type="button" class="fin-btn" onclick="openArrearsEmailAll()">Email all parents</button>
+                <button type="button" class="fin-btn sm quiet" onclick="openArrearsReportModal()">Save a report</button>
+                <button type="button" class="fin-btn sm" onclick="openArrearsEmailAll()">Email all parents</button>
               </div>
             </div>
 
@@ -3437,9 +3478,9 @@
             <div class="fin-actions arrears-sticky-bar" id="arrearsBulkBar">
               <div class="arrears-toolbar-left"><strong id="arrearsSelectedCount">0 selected</strong><span class="arrears-note">Tick students to email their parents or save a report of them.</span></div>
               <div class="arrears-toolbar-right">
-                <button type="button" class="fin-btn primary" onclick="openArrearsEmailDrawer()">Email their parents</button>
-                <button type="button" class="fin-btn quiet" onclick="openArrearsReportModal()">Save a report</button>
-                <button type="button" class="fin-btn quiet" onclick="clearArrearsSelection()">Clear</button>
+                <button type="button" class="fin-btn sm primary" onclick="openArrearsEmailDrawer()">Email their parents</button>
+                <button type="button" class="fin-btn sm quiet" onclick="openArrearsReportModal()">Save a report</button>
+                <button type="button" class="fin-btn sm quiet" onclick="clearArrearsSelection()">Clear</button>
               </div>
             </div>
           </div>
@@ -3506,7 +3547,7 @@
               </div>
               <input type="hidden" name="selected_student_ids" id="arrearsReportSelectedIds">
               <div class="arrears-filter-payload"></div>
-              <button type="submit" class="fin-btn primary">Save report</button>
+              <button type="submit" class="fin-btn sm primary">Save report</button>
             </form>
           </div>
         </div>
@@ -3538,7 +3579,7 @@ Regards,
               <input type="hidden" name="selected_student_ids" id="arrearsEmailSelectedIds">
               <input type="hidden" name="manual_guardians_json" id="arrearsManualGuardiansJson" value="{}">
               <div class="arrears-filter-payload"></div>
-              <button type="submit" class="fin-btn primary">Send Emails</button>
+              <button type="submit" class="fin-btn sm primary">Send emails</button>
             </form>
           </div>
         </div>
@@ -3550,7 +3591,7 @@ Regards,
               <input type="hidden" name="student_id" id="arrearsNoteStudentId">
               <div class="fin-field"><label>Student</label><input type="text" id="arrearsNoteStudentName" readonly></div>
               <div class="fin-field"><label>Note</label><textarea name="note" rows="5" placeholder="Call notes, repayment promise, escalation, follow-up owner." required></textarea></div>
-              <button type="submit" class="fin-btn primary">Save Note</button>
+              <button type="submit" class="fin-btn sm primary">Save note</button>
             </form>
           </div>
         </div>
@@ -4162,7 +4203,10 @@ Regards,
           + '<td class="num fin-money-positive">' + fmt(b.amount_paid) + '</td>'
           + '<td class="num ' + (bal>0?'fin-money-negative':'fin-money-neutral') + '">' + fmt(bal) + '</td>'
           + '<td><span class="badge ' + ledgerText(status) + '">' + ledgerText(ledgerStatusWords[status] || status) + '</span></td>'
-          + '<td><a class="fin-btn sm quiet" target="_blank" rel="noopener" href="/account/settings/my-paygira/invoice/' + encodeURIComponent(b.assignment_id) + '">Invoice</a></td></tr>';
+          + '<td><div class="fin-actions-cell">'
+          + (bal > 0 ? '<button type="button" class="fin-btn sm" data-ledger-request="' + encodeURIComponent(b.assignment_id) + '" title="Email this student\'s parents what is owed and a link to pay">Request payment</button>' : '')
+          + '<a class="fin-btn sm quiet" target="_blank" rel="noopener" href="/account/settings/my-paygira/invoice/' + encodeURIComponent(b.assignment_id) + '">Invoice</a>'
+          + '</div></td></tr>';
       }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--fin-muted);padding:20px;">No bills for this student.</td></tr>';
 
       var payRows = payments.map(function(p) {
@@ -4184,11 +4228,48 @@ Regards,
         + '<div class="stat red"><div class="label">Still owed</div><div class="value fin-mono">' + fmt(netDue) + '</div></div>'
         + (credit > 0 ? '<div class="stat gold"><div class="label">Credit held</div><div class="value fin-mono">' + fmt(credit) + '</div></div>' : '')
         + '</div>'
+        + (netDue > 0 && d.payUrl
+            ? '<div class="fin-ledger-ask"><span>Parents pay in their parent portal. Ask from a bill below, or send them the link yourself.</span>'
+              + '<button type="button" class="fin-btn sm quiet" data-ledger-copy="' + ledgerText(d.payUrl) + '">Copy pay link</button></div>'
+            : '')
+        + '<p class="fin-ledger-said" id="ledgerSaid" role="status" hidden></p>'
         + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
         + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table no-global-sort"><thead><tr><th>Bill</th><th>Due</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
         + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Payments</div>'
         + '<div class="fin-table-wrap"><table class="fin-table no-global-sort"><thead><tr><th>Date</th><th>Bill</th><th>Paid by</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + payRows + '</tbody></table></div>';
     }
+
+    // Asking for payment, and copying the link, from a student's ledger.
+    (function () {
+      var say = function (text, ok) {
+        var line = document.getElementById('ledgerSaid');
+        if (!line) return;
+        line.textContent = text;
+        line.className = 'fin-ledger-said ' + (ok ? 'is-ok' : 'is-bad');
+        line.hidden = false;
+      };
+      document.addEventListener('click', function (event) {
+        if (!event.target.closest || !event.target.closest('#studentDrawerBody')) return;
+        var copy = event.target.closest('[data-ledger-copy]');
+        if (copy) {
+          var link = copy.getAttribute('data-ledger-copy');
+          var done = function () { say('Link copied. Paste it into a text or message to the parent.', true); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { window.prompt('Copy this link:', link); });
+          else window.prompt('Copy this link:', link);
+          return;
+        }
+        var ask = event.target.closest('[data-ledger-request]');
+        if (!ask) return;
+        ask.disabled = true;
+        fetch('/account/settings/finance/assignments/' + ask.getAttribute('data-ledger-request') + '/request', {
+          method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' },
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          say((data && data.message) || 'Could not send the payment request.', Boolean(data && data.success));
+          if (data && data.success) ask.textContent = 'Sent';
+          else ask.disabled = false;
+        }).catch(function () { say('Could not send the payment request. Please try again.', false); ask.disabled = false; });
+      });
+    })();
 
     var drawerClose = document.getElementById('studentDrawerClose');
     if (drawerClose) drawerClose.addEventListener('click', function () {
@@ -4208,6 +4289,36 @@ Regards,
     var head = trigger || el.querySelector('.fin-acc-head');
     if (head) head.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   }
+
+  // ===== Panels from the right =====
+  // A panel is open when it carries "open" (finToggleAcc, or a script closing it after a save).
+  // Whatever changes that, the backdrop, the page behind and the keyboard follow from here.
+  (function () {
+    var sheets = Array.prototype.slice.call(document.querySelectorAll('.fin-sheet'));
+    if (!sheets.length) return;
+    var backdrop = document.createElement('div');
+    backdrop.className = 'fin-sheet-backdrop';
+    sheets[0].parentNode.insertBefore(backdrop, sheets[0]);
+    var opened = function () { return sheets.filter(function (sheet) { return sheet.classList.contains('open'); }); };
+    var closeAll = function () { opened().forEach(function (sheet) { sheet.classList.remove('open'); }); };
+    var wasOpen = false;
+    var sync = function () {
+      var open = opened();
+      backdrop.classList.toggle('show', open.length > 0);
+      document.documentElement.classList.toggle('fin-sheet-open', open.length > 0);
+      sheets.forEach(function (sheet) { sheet.setAttribute('aria-hidden', sheet.classList.contains('open') ? 'false' : 'true'); });
+      if (open.length && !wasOpen) {
+        // Start typing straight away.
+        var first = open[0].querySelector('.fin-acc-body input:not([type="hidden"]):not([disabled]), .fin-acc-body select, .fin-acc-body textarea');
+        if (first) setTimeout(function () { try { first.focus({ preventScroll: true }); } catch (_e) { first.focus(); } }, 230);
+      }
+      wasOpen = open.length > 0;
+    };
+    sheets.forEach(function (sheet) { new MutationObserver(sync).observe(sheet, { attributes: true, attributeFilter: ['class'] }); });
+    backdrop.addEventListener('click', closeAll);
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && opened().length) closeAll(); });
+    sync();
+  })();
 
   // ===== Chip multi-select helpers =====
   function finChipChanged(input, counterId) {

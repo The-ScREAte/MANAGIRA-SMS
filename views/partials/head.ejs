@@ -134,6 +134,23 @@
       pointer-events: none;
     }
     #spa-progress.active { opacity: 1; }
+    /* The spinner shown when the next page takes more than a moment (public/js/pageLoading.js). */
+    #page-loading {
+      position: fixed; left: 50%; top: 84px; z-index: 10001;
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 9px 16px 9px 12px; border-radius: 999px;
+      background: #fff; color: #0f172a; font-size: 13px; font-weight: 600;
+      box-shadow: 0 10px 30px -12px rgba(15, 23, 42, .35), 0 0 0 1px rgba(15, 23, 42, .06);
+      opacity: 0; transform: translate(-50%, -8px); pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    #page-loading.show { opacity: 1; transform: translate(-50%, 0); }
+    #page-loading .page-loading__ring {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid #e2e8f0; border-top-color: var(--org-primary-color, #01535b);
+      animation: spin .7s linear infinite;
+    }
+    @media (prefers-reduced-motion: reduce) { #page-loading .page-loading__ring { animation-duration: 1.6s; } }
 
     .spinner {
       width: 44px;
@@ -262,6 +279,7 @@
   </script>
   
   <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>
+  <script src="<%= assetUrl('/js/pageLoading.js') %>" defer></script>
   <script src="<%= assetUrl('/js/spa-router.js') %>" defer></script>
   <script src="<%= assetUrl('/js/spa-user-info.js') %>" defer></script>
   <script src="<%= assetUrl('/js/phoneField.js') %>" defer></script>

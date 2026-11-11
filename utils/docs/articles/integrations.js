@@ -55,7 +55,7 @@ module.exports = [
     ],
     faq: [
       ["Why can't I see Integrations in Management?", "It is only listed for managers and staff given the Integrations permission. Ask a manager to add the permission to your account in Users / Employees."],
-      ["Does turning an integration off delete anything?", "No. Turning an integration off hides it from people and stops it working, but the school's records stay as they are. Turn it back on to carry on."],
+      ["Does turning an integration off delete anything?", "No. Turning an integration off hides it from people and stops it working, but the school's records stay as they are. Turn it back on to carry on. While it is off, nobody is offered its pages, the permissions that belong to it are set aside, and drivers see that transportation is turned off; turning it back on gives everyone the access they had."],
       ["Who pays for text messages and WhatsApp?", "Your school's own Twilio and WhatsApp Business accounts pay their providers directly. Managira adds no charge per message."],
     ],
     related: ["sms-integrations", "connect-whatsapp-business-to-message-parents", "service-accounts-and-access-tokens", "set-up-transportation"],

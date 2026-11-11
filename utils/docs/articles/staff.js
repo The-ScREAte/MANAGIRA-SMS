@@ -19,10 +19,20 @@ module.exports = [
           ["Open <strong>Management</strong>, then <strong>Users / Employees</strong>, and choose to add an employee.", "employees.webp", "Management, Users / Employees: everyone on your staff, with their role and status."],
           ["Enter their <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Email Address</strong> and <strong>Role</strong>: <em>Manager</em>, <em>Supervisor</em>, <em>Teacher</em> or <em>Driver</em>.", "add-employee.webp", "Adding a staff member: their details, role and permissions."],
           "Tick their <strong>Permissions</strong>. The role fills in sensible defaults; add or remove from there.",
-          "For a teacher, choose the classes and subjects they teach.",
+          "For a teacher, choose the classes and subjects they teach. Tick <strong>Main teacher</strong> beside a class to put them in charge of it.",
           "Save. They receive an email to set their password and sign in.",
         ],
         tip: "High-risk permissions, such as deleting students or managing billing, are marked and left out of the defaults. Give them only to the few people who need them.",
+      },
+      {
+        title: "Put a main teacher in charge of each class",
+        text: "Each class has one main teacher. They mark its attendance, keep its schedule, and work on every subject and report card of the class; other teachers of the class work on the subjects they teach.",
+        steps: [
+          "Open the teacher from <strong>Users / Employees</strong>, and open <strong>Classes &amp; Subjects</strong>.",
+          "Beside the class, tick <strong>Main teacher</strong>. If someone else led the class, it shows their name; saving puts this teacher in charge instead.",
+          "Save.",
+        ],
+        tip: "Classes with nobody in charge are listed at the top of <strong>Users / Employees</strong>, where you can choose a main teacher for each in one step. The dashboard and the class page say so too.",
       },
       {
         title: "Change someone's access",
@@ -44,6 +54,7 @@ module.exports = [
     ],
     faq: [
       ["A teacher can't see their class.", "Check the class is assigned to them in Users / Employees, and that the class is enrolled in the current term."],
+      ["A teacher can't mark attendance.", "Attendance is marked by the class's main teacher. Tick Main teacher beside the class on their record in Users / Employees, and check they have the Mark Attendance permission."],
       ["Can someone have two roles?", "Each person has one role. Add the permissions of the other job to their account instead."],
       ["The invitation email didn't arrive.", "Check their email address for typos, ask them to look in spam, and send it again from their page."],
     ],

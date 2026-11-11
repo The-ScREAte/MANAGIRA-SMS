@@ -1270,6 +1270,8 @@
     // ── Progress Indicator ────────────────────────────────────────────
 
     _showProgress() {
+      // One loading signal for the whole app (public/js/pageLoading.js).
+      if (window.ManagiraLoading) { window.ManagiraLoading.start(); return; }
       // Both the top bar AND the center spinner are delay-gated, so fast
       // responses (including preloaded ones that arrive between mousedown and
       // click) don't flash any UI at all.
@@ -1290,6 +1292,7 @@
     }
 
     _hideProgress() {
+      if (window.ManagiraLoading) window.ManagiraLoading.stop();
       if (this._topbarTimer) { clearTimeout(this._topbarTimer); this._topbarTimer = null; }
 
       const bar = document.getElementById('spa-progress');

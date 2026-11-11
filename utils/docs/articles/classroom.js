@@ -94,7 +94,7 @@ module.exports = [
     summary: "Mark each student present or absent in a few taps, mark the whole class at once, and fix a past day. Weekends and holidays are skipped for you.",
     tags: ["attendance", "take attendance", "absent", "present", "daily attendance"],
     featured: true,
-    who: "Teachers for their own classes, and staff given <strong>Mark Attendance</strong>.",
+    who: "A class's <strong>main teacher</strong>, and managers and supervisors given <strong>Mark Attendance</strong>.",
     sections: [
       {
         title: "Mark today's attendance",
