@@ -86,8 +86,10 @@ const setAllowedPermissions = async (req, res, next) => {
     }
 
     const userId = req.session?.user?.user_id || req.session?.userId || null;
-    // A parent or student holds no staff permission: their ids come from other tables.
+    // A parent or student holds no staff permission: their ids come from other tables. Their
+    // pages still need to know which integrations the school has on (the bus, for one).
     if (!userId || isPortalRole(userRole)) {
+      res.locals.integrationSwitches = (await integrationSwitches.switchesFor(db, organizationId)) || {};
       return next();
     }
 

@@ -396,7 +396,8 @@
       </a>
       <% } %>
       <%# ── Help: the guides, and feedback for staff ──────────── %>
-      <% const _helpIsStaff = !(session && (session.guardianId || session.studentId)); %>
+      <%# Send feedback opens Settings: staff who can reach it (never parents, students or drivers). %>
+      <% const _helpIsStaff = !(session && (session.guardianId || session.studentId)) && String((session && (session.userRole || (session.user && session.user.account_type))) || '').toLowerCase() !== 'driver'; %>
       <div class="help-menu-wrapper" id="help-menu-wrapper">
         <button class="notif-bell-btn help-menu-btn" id="help-menu-btn" type="button" aria-label="Help" aria-haspopup="true" aria-expanded="false" aria-controls="help-menu-panel" title="Help">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>

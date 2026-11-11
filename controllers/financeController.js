@@ -910,6 +910,14 @@ function normalizeStripeMethodList(rawValue) {
   return [...new Set(normalized.length ? normalized : ['card'])];
 }
 
+// The parent's checkout: the methods Managira's Stripe account has on, narrowed to the
+// school's choice (utils/stripeMethods.js). The PaymentIntent uses the same types.
+async function guardianCheckoutFor(stripeRuntime, pspSettings) {
+  const stripeMethods = require("../utils/stripeMethods");
+  const available = await stripeMethods.platformMethods(stripeRuntime && stripeRuntime.secretKey);
+  return stripeMethods.checkoutFor(available, stripeMethods.chosenBy(pspSettings));
+}
+
 function buildGuardianStripeCheckoutConfig(stripeMethods) {
   const selectedIds = normalizeStripeMethodList(stripeMethods);
   const selected = new Set(selectedIds);
@@ -4180,6 +4188,11 @@ module.exports = {
       await ensurePspSettingsTable();
       const existing = await loadPspSettings(orgId);
       const next = { ...existing };
+      // The ways parents can pay online (PayGira › Settings): the boxes ticked, card always.
+      if (req.body && req.body.online_methods_shown === '1') {
+        next.online_methods = require("../utils/stripeMethods").normalizeChoice(req.body.online_methods);
+      }
+      if (req.body) { delete req.body.online_methods; delete req.body.online_methods_shown; }
       // Stripe payment methods come as a multi-checkbox group → normalize to an array
       if (Object.prototype.hasOwnProperty.call(req.body || {}, 'stripe_methods')) {
         const raw = req.body.stripe_methods;
@@ -4435,7 +4448,18 @@ module.exports = {
         safePsp.stripe_publishable_key = stripeRuntime.publishableKey;
       }
 
+      // PayGira › Settings: the ways parents can pay online (only what Stripe has on).
+      let onlineMethodChoices = [];
+      if (section === 'settings') {
+        try {
+          const stripeMethods = require("../utils/stripeMethods");
+          const platformKey = (await resolvePlatformStripeCredentials()).secretKey;
+          onlineMethodChoices = stripeMethods.choicesFor(await stripeMethods.platformMethods(platformKey), stripeMethods.chosenBy(pspSettings));
+        } catch (_) { onlineMethodChoices = []; }
+      }
+
       res.render("account/finance", {
+        onlineMethodChoices,
         title: "Finance & Billing",
         section,
         lazyOverview: section === "overview",
@@ -6582,7 +6606,7 @@ module.exports = {
       const { pspSettings, orgProfile, stripeRuntime, display } = await orgContextPromise;
       const maskedPsp = maskPspSecrets(pspSettings);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
-      const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
+      const stripeCheckoutConfig = await guardianCheckoutFor(stripeRuntime, pspSettings);
       allowedMethods.currency = display.financeCurrency.code;
       maskedPsp.currency = display.financeCurrency.code;
       if (!maskedPsp.stripe_publishable_key && stripeRuntime.publishableKey) {
@@ -6636,7 +6660,7 @@ module.exports = {
         totals: guardianData.totals,
         pspSettings: maskedPsp,
         allowedMethods,
-        stripeCatalog: STRIPE_METHOD_CATALOG,
+        stripeCatalog: require("../utils/stripeMethods").CATALOG,
         stripeCheckoutConfig,
         stripeAccountReady,
         financeCurrency: display.financeCurrency,
@@ -6776,7 +6800,7 @@ module.exports = {
       });
       const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country, orgProfile.organization_currency);
       const currencyCode = String(display.financeCurrency.code || 'USD').toLowerCase();
-      const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
+      const stripeCheckoutConfig = await guardianCheckoutFor(stripeRuntime, pspSettings);
 
       const gpRow = await client.query(
         `SELECT first_name, last_name, email, stripe_customer_id
@@ -6941,11 +6965,14 @@ module.exports = {
         amount: Math.round(chargeBreakdown.totalChargedAmount * 100),
         currency: currencyCode,
         ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
-        automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
+        // Exactly the ways the school offers (the form shows the same list), so nothing else
+        // can be paid with. Only a card is kept for next time: Link, Cash App Pay and the
+        // others can't be saved that way, and asking for it would hide them.
+        payment_method_types: savedPaymentMethodId ? ['card'] : stripeCheckoutConfig.types,
         transfer_data: { destination: stripeRuntime.connectedAccountId },
         ...(savedPaymentMethodId
           ? { payment_method: savedPaymentMethodId }
-          : { setup_future_usage: 'on_session' }
+          : { payment_method_options: { card: { setup_future_usage: 'on_session' } } }
         ),
         metadata: {
           flow: 'guardian_paygira',
@@ -7000,6 +7027,7 @@ module.exports = {
         currency: String(display.financeCurrency.code || 'USD').toUpperCase(),
         returnUrl: `${req.protocol}://${req.get('host')}/guardian/paygira/stripe-return`,
         paymentMethodOrder: stripeCheckoutConfig.paymentMethodOrder,
+        paymentMethodTypes: stripeCheckoutConfig.types,
         expressWallets: stripeCheckoutConfig.expressWallets,
         isSavedCard: Boolean(savedPaymentMethodId),
       };
@@ -7686,10 +7714,20 @@ module.exports = {
 
       const stripeRuntime = await resolveFinanceStripeRuntime(orgId, null, null);
       const stripe = getFinanceStripeClient(stripeRuntime);
+      // A card is saved only if it was set up for this parent's own Stripe customer.
+      const ownCustomer = (await database.query(
+        "SELECT stripe_customer_id FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2",
+        [guardianId, orgId]
+      )).rows[0]?.stripe_customer_id || null;
+      const customerOf = (value) => (value && typeof value === "object" ? value.id : value) || null;
 
       let paymentMethodId = rawPaymentMethodId;
       if (setupIntentId) {
         const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+        if (!ownCustomer || customerOf(setupIntent.customer) !== ownCustomer) {
+          req.flash && req.flash("error", "Card setup did not complete. Please try again.");
+          return res.redirect("/guardian/settings#cards");
+        }
         if (setupIntent.status !== "succeeded" || !setupIntent.payment_method) {
           req.flash && req.flash("error", "Card could not be verified. Please try again.");
           return res.redirect("/guardian/settings#cards");
@@ -7700,7 +7738,11 @@ module.exports = {
       }
 
       const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
-      if (!pm || pm.type !== "card" || !pm.card?.last4) {
+      if (!pm || !ownCustomer || customerOf(pm.customer) !== ownCustomer) {
+        req.flash && req.flash("error", "Card setup did not complete. Please try again.");
+        return res.redirect("/guardian/settings#cards");
+      }
+      if (pm.type !== "card" || !pm.card?.last4) {
         req.flash && req.flash("error", "Only card payment methods can be saved.");
         return res.redirect("/guardian/settings#cards");
       }

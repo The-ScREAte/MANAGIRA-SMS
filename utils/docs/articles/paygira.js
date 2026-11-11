@@ -8,7 +8,7 @@ module.exports = [
     topic: "PayGira & payments",
     order: 1,
     summary: "Set up payouts, create bills for classes or students, let parents pay online by card, record payments taken at school, and send receipts automatically.",
-    tags: ["paygira", "school fees", "tuition", "bills", "online payments", "receipts", "collect payments"],
+    tags: ["paygira", "school fees", "tuition", "bills", "online payments", "receipts", "apple pay", "service fee"],
     featured: true,
     who: "Managers, and staff given <strong>PayGira</strong> with the pages they need: bills, the student ledger, payments, payouts or settings.",
     intro: "PayGira is how your school bills families and gets paid. Parents pay online by card in the parent portal, staff can record payments taken at school, and every payment updates balances and sends a receipt.",
@@ -17,8 +17,8 @@ module.exports = [
         title: "1. Set up payouts",
         steps: [
           ["Open <strong>PayGira</strong> from the menu, then its <strong>Settings</strong>.", "paygira-overview.webp", "PayGira: what was billed, paid and is still owed."],
-          "Connect your school's payout account, where online payments are paid out to.",
-          "Check your payment options and save. Online payments open once payouts are set up.",
+          "Its Settings link to <strong>Settings, Billing &amp; Plan</strong>. There, <strong>Where parent payments go</strong> shows whether your payout account is connected: select <strong>Set up payouts</strong>, confirm your password and choose <strong>Connect with Stripe</strong>. Schools in a hub set up their own payouts the same way.",
+          "Online payments open once the payout account is connected. Until then parents see the other ways your school takes payment, such as paying at the office.",
         ],
       },
       {
@@ -33,7 +33,19 @@ module.exports = [
       },
       {
         title: "3. How parents pay",
-        text: "Parents open the bill in the parent portal and pay by card. The payment updates their balance and they get a receipt by email, at once.",
+        text: "Parents open PayGira in the parent portal, where each child's bills due are listed, and select <strong>Pay</strong>. They pay by card or any other way your school offers online, or see how to pay at the office. The payment updates their balance and they get a receipt by email, at once.",
+      },
+      {
+        title: "Choose how parents can pay online",
+        steps: [
+          "Open <strong>PayGira</strong>, then <strong>Settings</strong>.",
+          "Under <strong>Ways parents can pay online</strong>, tick the ones to offer. Card is always offered; the others are those Managira's payment processor has switched on, such as Apple Pay, Google Pay, Link and Cash App Pay.",
+          "Select <strong>Save</strong>. Parents see the ways ticked the next time they pay. Apple Pay and Google Pay show only on devices that support them.",
+        ],
+      },
+      {
+        title: "Ask a parent to pay",
+        text: "Select <strong>Request payment</strong> beside a bill, or open a student in the <strong>Student ledger</strong>, to email the student's parents a link that opens the bill ready to pay. <strong>Copy pay link</strong> gives you the same link to send another way.",
       },
       {
         title: "4. Record payments taken at school",
@@ -49,7 +61,9 @@ module.exports = [
       },
     ],
     faq: [
-      ["Which cards can parents use?", "Visa, Mastercard, American Express and Discover, plus Apple Pay and Google Pay where the browser supports them, processed securely by Stripe."],
+      ["Which cards can parents use?", "Visa, Mastercard, American Express and Discover, processed securely by Stripe, plus the other ways your school ticked in PayGira Settings, such as Apple Pay, Google Pay, Link and Cash App Pay."],
+      ["Who pays the service fee?", "A service fee applies to each payment made online. In Settings, Billing &amp; Plan, choose who covers it: the parent (it is added to the bill and shown before they pay, and the school receives the full amount) or the school (the parent pays the bill amount and the fee comes out of what the school receives). Payments recorded at school have no fee."],
+      ["Can parents use Venmo or PayPal?", "Not at the moment. Parents can pay by card, Apple Pay, Google Pay, Link or Cash App Pay where your school offers them, or pay at the school office."],
       ["Can a parent pay part of a bill?", "Yes. They choose how much to pay; the rest stays as their balance."],
       ["Does Managira store card numbers?", "No. Cards are handled by Stripe; Managira keeps only the card brand and last four digits."],
     ],
@@ -75,7 +89,7 @@ module.exports = [
           ["<strong>Student ledger</strong>", "What each student was billed, paid and owes, biggest balances first. Select a student for their bills, payments and invoices. Its <strong>Overdue</strong> tab lists overdue balances to follow up."],
           ["<strong>Payments</strong>", "Every payment, online or recorded at school, each with its receipt. Staff with the right permission can record a payment or remove one entered by mistake."],
           ["<strong>Payouts</strong>", "Pay a member of staff or a supplier, once or on a schedule."],
-          ["<strong>Settings</strong>", "Your payout account and payment options."],
+          ["<strong>Settings</strong>", "The note on every invoice, and a link to where parent payments go."],
         ],
       },
       {

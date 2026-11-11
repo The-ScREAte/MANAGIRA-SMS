@@ -7944,13 +7944,14 @@
               headers: { Accept: 'application/json' },
             });
 
-            if (!response.ok) {
-              throw new Error('Could not queue Google Classroom sync.');
+            var answer = await response.json().catch(function () { return {}; });
+            if (!response.ok || !answer.success) {
+              throw new Error(answer.message || answer.error || 'Google Classroom could not start syncing.');
             }
 
-            alert('Google Classroom sync queued.');
-          } catch (_) {
-            alert('Could not queue Google Classroom sync.');
+            alert(answer.message || 'Google Classroom is syncing in the background.');
+          } catch (err) {
+            alert((err && err.message) || 'Google Classroom could not start syncing.');
           } finally {
             syncGoogleButton.disabled = false;
             syncGoogleButton.textContent = originalLabel;

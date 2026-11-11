@@ -28,6 +28,13 @@ const QUESTIONS = [
   ["how do I make a transcript", "transcript"],
   ["how do I connect whatsapp", "connect-whatsapp-business-to-message-parents"],
   ["how do I get an api token", "service-accounts-and-access-tokens"],
+  // Section titles and keywords find their guide too.
+  ["connect google classroom", "integrations"],
+  ["choose how your school uses google classroom", "integrations"],
+  ["who pays the service fee", "set-up-paygira-bills-collections-and-guardian-payments"],
+  ["request payment", "set-up-paygira-bills-collections-and-guardian-payments"],
+  ["apple pay", "set-up-paygira-bills-collections-and-guardian-payments"],
+  ["main teacher", "create-and-manage-employee-accounts-and-permissions"],
   ["how do I sync my calendar with google", "calendar-sync-google-outlook-apple"],
   ["how do students take a test", "student-testing-room"],
   ["what can mira do", "mira-ai-capabilities"],

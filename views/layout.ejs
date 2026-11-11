@@ -179,7 +179,7 @@
                 <div class="ss-root" id="ssRoot" hidden></div>
                 <script src="<%= assetUrl('/js/setupSteps.js') %>" defer></script>
             <% } %>
-            <% if (session && session.organizationId && session.userRole === 'Guardian' && session.guardianId && locals.featureOn && featureOn('bus_boarding')) { %>
+            <% if (session && session.organizationId && session.userRole === 'Guardian' && session.guardianId && locals.featureOn && featureOn('bus_boarding') && !(locals.integrationSwitches && locals.integrationSwitches.transportation === false)) { %>
                 <link rel="stylesheet" href="<%= assetUrl('/css/busBoarding.css') %>">
                 <script src="<%= assetUrl('/js/busBoarding.js') %>" data-boarding-parent defer></script>
             <% } %>

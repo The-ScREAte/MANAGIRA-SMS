@@ -227,11 +227,16 @@ async function storeGoogleOauthTokens(dbClient, organizationId, tokenPayload = {
 async function markGoogleSync(dbClient, organizationId, status, note) {
   await ensureGoogleIntegrationSchema(dbClient);
   await dbClient.query(
+    // A run in progress keeps its "running" mark (utils/googleClassroomSync.js claimRun) when
+    // something asks for another: the run already covers it, and a second one never starts.
     `UPDATE organizations
      SET google_classroom_last_sync_at = NOW(),
          google_classroom_last_sync_status = $2,
          google_classroom_last_sync_note = $3
-     WHERE organization_id = $1`,
+     WHERE organization_id = $1
+       AND NOT ($2 = 'queued'
+                AND google_classroom_last_sync_status = 'running'
+                AND google_classroom_last_sync_at > NOW() - INTERVAL '30 minutes')`,
     [organizationId, String(status || "idle"), String(note || "")]
   );
 }

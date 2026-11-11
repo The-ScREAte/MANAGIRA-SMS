@@ -1003,6 +1003,7 @@
 
   .pg-modal-bg {
     display:none;
+    z-index:14000; /* above the app header */
     align-items:stretch;
     justify-content:flex-end;
     padding:0;
@@ -1020,12 +1021,11 @@
     border-radius:0;
     padding:0 24px;
     max-width:560px;
-    width:min(560px, 100vw);
-    height:100vh;
-    height:100dvh;
-    min-height:100vh;
-    max-height:100vh;
-    max-height:100dvh;
+    width:min(560px, 100%);
+    /* The page is zoomed, so 100vh falls short of the screen: the backdrop stretches it instead. */
+    height:auto;
+    min-height:0;
+    max-height:none;
     display:flex;
     flex-direction:column;
     overflow:hidden;
@@ -1406,7 +1406,7 @@
            const childOutstanding = kidAssignments.reduce((sum, item) => sum + balance(item), 0);
          const childDisplayName = child.display_name || _guardianNameFormat(child);
       %>
-        <details class="pg-child-card pg-child-collapsible">
+        <details class="pg-child-card pg-child-collapsible"<%= childOutstanding > 0 ? ' open' : '' %>>
           <summary class="pg-child-head pg-child-head-toggle">
             <img class="pg-child-avatar"
                  src="<%= publicImageUrl(child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png') %>"
@@ -1914,8 +1914,10 @@
       return Math.max(Number(record.balance || 0), 0);
     }
 
+    // What the parent is charged: the amount, plus the service fee when parents cover it. The
+    // wallet sheets (Apple Pay, Google Pay) show this, so it's the real total.
     function currentChargeMinor() {
-      return Math.round(Math.max(Number(amountInput.value || 0), 0) * 100);
+      return Math.round(Math.max(Number(computeLocalBreakdown().totalChargedAmount || 0), 0) * 100);
     }
 
     function isStripeFlowSelected() {
@@ -1979,21 +1981,21 @@
       if (stripeElements && stripeMountedAmount === amountMinor) return;
       destroyStripeElements();
 
-      stripeElements = stripe.elements({
-        mode: 'payment',
-        amount: amountMinor,
-        currency: stripeCurrency,
-        // Must match the setup_future_usage the server sets on the PaymentIntent
-        // for this (no-saved-card) flow, or stripe.confirmPayment() rejects with
-        // a setup_future_usage mismatch error.
-        setupFutureUsage: 'on_session',
-      });
+      // The same ways to pay as the PaymentIntent the server makes (the school's choice).
+      // Only a card is kept for next time, which the server asks for on the card alone.
+      var elementsOptions = { mode: 'payment', amount: amountMinor, currency: stripeCurrency };
+      if (Array.isArray(stripeCheckoutConfig.types) && stripeCheckoutConfig.types.length) {
+        elementsOptions.paymentMethodTypes = stripeCheckoutConfig.types;
+      }
+      stripeElements = stripe.elements(elementsOptions);
       stripeMountedAmount = amountMinor;
+      var walletChoice = stripeCheckoutConfig.expressWallets || {};
       stripePaymentElement = stripeElements.create('payment', {
         layout: { type: 'tabs' },
         paymentMethodOrder: Array.isArray(stripeCheckoutConfig.paymentMethodOrder) && stripeCheckoutConfig.paymentMethodOrder.length
           ? stripeCheckoutConfig.paymentMethodOrder
           : ['card'],
+        wallets: { applePay: walletChoice.applePay || 'auto', googlePay: walletChoice.googlePay || 'auto' },
       });
       stripePaymentElement.mount('#pgStripePaymentElement');
       stripePaymentElement.on('change', function(event) {
@@ -2002,8 +2004,11 @@
 
       expressCheckoutElement = stripeElements.create('expressCheckout', {
         paymentMethods: {
-          applePay: stripeCheckoutConfig.expressWallets && stripeCheckoutConfig.expressWallets.applePay ? stripeCheckoutConfig.expressWallets.applePay : 'auto',
-          googlePay: stripeCheckoutConfig.expressWallets && stripeCheckoutConfig.expressWallets.googlePay ? stripeCheckoutConfig.expressWallets.googlePay : 'auto',
+          applePay: walletChoice.applePay || 'auto',
+          googlePay: walletChoice.googlePay || 'auto',
+          link: (stripeCheckoutConfig.expressMethods && stripeCheckoutConfig.expressMethods.link) || 'never',
+          amazonPay: (stripeCheckoutConfig.expressMethods && stripeCheckoutConfig.expressMethods.amazonPay) || 'never',
+          paypal: 'never',
         },
         layout: { maxColumns: 2, maxRows: 2, overflowMenu: 'auto' },
         buttonHeight: 44,
@@ -2478,6 +2483,19 @@
       updateSubmitButton();
       try {
         setStripeError('');
+        // Stripe's order: check the form (and open the Apple Pay or Google Pay sheet) while the
+        // parent's tap is still fresh, then make the payment on the server, then confirm it.
+        var payoutRoute = getSelectedPayoutAccountId();
+        var viaPaystack = paystackPayoutReady && (payoutRoute ? payoutRoute !== 'stripe' : !(stripeEnabled && stripeAccountReady));
+        var submittedFirst = false;
+        if (!viaPaystack && !selectedSavedCardId && stripeEnabled && stripe) {
+          ensureStripeElements();
+          if (stripeElements) {
+            var earlySubmit = await stripeElements.submit();
+            if (earlySubmit && earlySubmit.error) throw earlySubmit.error;
+            submittedFirst = true;
+          }
+        }
         var intentData = await createStripeIntent();
         if (intentData && intentData.charge_breakdown) {
           renderFeeBreakdown(intentData.charge_breakdown);
@@ -2503,10 +2521,12 @@
             return;
           }
         } else {
-          ensureStripeElements();
-          if (!stripeElements) throw new Error('Stripe checkout is not available right now.');
-          var submitResult = await stripeElements.submit();
-          if (submitResult && submitResult.error) throw submitResult.error;
+          if (!submittedFirst) {
+            ensureStripeElements();
+            if (!stripeElements) throw new Error('Stripe checkout is not available right now.');
+            var submitResult = await stripeElements.submit();
+            if (submitResult && submitResult.error) throw submitResult.error;
+          }
 
           var confirmation = await stripe.confirmPayment({
             elements: stripeElements,

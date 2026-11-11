@@ -574,12 +574,8 @@ const {
 const { checkRateLimit } = require("../utils/rateLimiter");
 const { countActiveStudents } = require("../utils/activeStudents");
 const { isSettingsEncryptionKeyConfigured } = require("../utils/encryption");
-const {
-  syncGoogleClassroomForOrganization,
-  pushPendingAssessmentsForOrganization,
-  createGoogleOauthClient,
-  hasGoogleOauthConfig,
-} = require("../utils/googleClassroomSync");
+const googleClassroomSync = require("../utils/googleClassroomSync");
+const { createGoogleOauthClient, hasGoogleOauthConfig } = googleClassroomSync;
 
 const GOOGLE_CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses",
@@ -9405,7 +9401,11 @@ const accountController = {
             "Mira",
           ]).catch(() => ({})),
         ]);
-        googleIntegration = resolvedGoogleIntegration;
+        googleIntegration = {
+          ...resolvedGoogleIntegration,
+          choices: await googleClassroomSync.optionsFor(db, orgId).catch(() => ({ ...googleClassroomSync.DEFAULT_OPTIONS })),
+          choicesSavable: await googleClassroomSync.columnsReady(db).catch(() => false),
+        };
         whatsappIntegration = initialWhatsappIntegration;
         studentPortalIntegration = resolvedStudentPortalIntegration;
         if (require("../utils/planCatalog").catalogOn(orgId)) {
@@ -12920,62 +12920,57 @@ const accountController = {
     }
   },
 
+  // Sync runs in the background (courses, people, assessments, grades); the page says when
+  // it's done in the line under Google Classroom. One run at a time per school.
   googleClassroomResyncPost: async (req, res) => {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");
     const wantsJson = String(req.get("accept") || "").includes("application/json");
-
+    const answer = (ok, message, status = ok ? 200 : 400) => {
+      if (wantsJson) return res.status(status).json({ success: ok, message, error: ok ? undefined : message });
+      req.flash(ok ? "success" : "error", message);
+      return res.redirect("/account/settings?section=integrations");
+    };
     try {
       const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
-      if (!integrationStatus.shouldShowFeatures) {
-        if (wantsJson) {
-          return res.status(400).json({ success: false, error: "Google Classroom is not fully activated and connected yet." });
-        }
-        req.flash("error", "Google Classroom is not fully activated and connected yet.");
-        return res.redirect("/account/settings?section=integrations");
-      }
-
-      await markGoogleSync(
-        db,
-        orgId,
-        "queued",
-        "Manual sync queued. Course and roster reconciliation will run in the background."
-      );
-
-      let syncError = null;
-      try {
-        await syncGoogleClassroomForOrganization(orgId, { dbClient: db });
-        await pushPendingAssessmentsForOrganization(orgId, { dbClient: db, limit: 500, includeExisting: true });
-      } catch (err) {
-        syncError = err;
-        console.error("[googleClassroomResyncPost] Sync failed:", err?.message || err);
-      }
-
-      if (syncError) {
-        const errorMessage = syncError?.message || "Sync failed. See server logs for details.";
-        await markGoogleSync(db, orgId, "error", errorMessage).catch(() => {});
-
-        if (wantsJson) {
-          return res.status(500).json({ success: false, error: errorMessage });
-        }
-        req.flash("error", `Google Classroom sync failed: ${errorMessage}`);
-        return res.redirect("/account/settings?section=integrations");
-      }
-
-      await markGoogleSync(db, orgId, "synced", "Manual sync completed successfully.").catch(() => {});
-
-      if (wantsJson) {
-        return res.json({ success: true, message: "Google Classroom sync completed successfully." });
-      }
-      req.flash("success", "Google Classroom sync completed successfully.");
-      return res.redirect("/account/settings?section=integrations");
+      if (!integrationStatus.shouldShowFeatures) return answer(false, "Google Classroom isn't turned on and connected yet.");
+      const claimed = await googleClassroomSync.claimRun(db, orgId, "Sync running: courses, students, assessments and grades.");
+      if (!claimed) return answer(true, "Google Classroom is already syncing. Settings shows when it's done.");
+      googleClassroomSync.runForOrganization(orgId, { dbClient: db, claimed: true })
+        .catch((err) => console.error("[googleClassroomResyncPost] Sync failed:", err?.message || err));
+      return answer(true, "Google Classroom is syncing in the background. Settings shows when it's done.");
     } catch (error) {
-      if (wantsJson) {
-        return res.status(500).json({ success: false, error: "Unable to queue Google Classroom sync right now." });
-      }
-      req.flash("error", "Unable to queue Google Classroom sync right now.");
-      return res.redirect("/account/settings?section=integrations");
+      return answer(false, "Google Classroom couldn't start syncing right now. Try again in a minute.", 500);
     }
+  },
+
+  // What the school chose: how courses are made, which assessments go to Google, which way
+  // grades travel, parent invitations.
+  googleClassroomOptionsPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+    try {
+      const before = await googleClassroomSync.optionsFor(db, orgId);
+      const saved = await googleClassroomSync.saveOptions(db, orgId, {
+        courses: req.body.courses,
+        coursework: req.body.coursework,
+        gradesFromGoogle: req.body.gradesFromGoogle === "1",
+        gradesToGoogle: req.body.gradesToGoogle === "1",
+        parents: req.body.parents === "1",
+      });
+      if (!saved) {
+        req.flash("error", "These choices can be saved once this server's database is updated. Google Classroom keeps working as before.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+      const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
+      if (integrationStatus.shouldShowFeatures && JSON.stringify(before) !== JSON.stringify(saved)) {
+        await markGoogleSync(db, orgId, "queued", "Choices saved. Google Classroom syncs with them in a few minutes.").catch(() => {});
+      }
+      req.flash("success", "Google Classroom choices saved.");
+    } catch (error) {
+      req.flash("error", "Those choices couldn't be saved right now. Try again in a minute.");
+    }
+    return res.redirect("/account/settings?section=integrations");
   },
 
   googleClassroomDisconnectPost: async (req, res) => {

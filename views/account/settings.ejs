@@ -1547,7 +1547,7 @@
       }
 
       .card-modal-header {
-        padding: 24px 24px 0;
+        padding: 20px 24px 14px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -1560,7 +1560,9 @@
         color: #1f2937;
         font-size: 20px;
         font-weight: 600;
+        flex: 1 1 auto;
       }
+      .card-modal-header .close-modal { flex: 0 0 auto; width: auto !important; min-width: 0 !important; margin: 0 !important; }
 
       .close-modal {
         background: none;
@@ -3892,10 +3894,35 @@
           </div>
           <% } %>
 
+          <%# Where parents' payments go: every school sets its own, hub members included. %>
+          <%
+            const _po = typeof payoutContext !== 'undefined' && payoutContext ? payoutContext : null;
+            const _poStripe = Boolean(_po && _po.stripe && _po.stripe.available);
+            const _poPaystack = Boolean(_po && _po.paystack && _po.paystack.available);
+            const _poPref = _po && _po.preference ? String(_po.preference).toLowerCase() : '';
+            const _poWords = _poStripe && (_poPref === 'stripe' || !_poPaystack) ? 'Stripe account connected'
+              : _poPaystack ? 'Paystack account set up'
+              : 'Not set up yet: parents can pay online once an account is connected';
+          %>
+          <div class="card security-card" id="payout-accounts-card">
+            <h4>Where parent payments go</h4>
+            <small>The account that receives what parents pay through PayGira and online admission.</small>
+            <div class="content-row">
+              <div class="text-muted-sm"><span class="payout-dot <%= (_poStripe || _poPaystack) ? 'is-on' : '' %>" aria-hidden="true"></span><%= _poWords %></div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn-primary btn-link btn-inline" id="open-payout-modal" type="button"><%= (_poStripe || _poPaystack) ? 'Manage payout account' : 'Set up payouts' %></button>
+              </div>
+            </div>
+            <style>
+              .payout-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b; margin-right:8px; vertical-align:middle; }
+              .payout-dot.is-on { background:#16a34a; }
+            </style>
+          </div>
+
           <% if (!isHubMember) { %>
           <div class="card security-card">
             <h4>Payment Methods</h4>
-            <small>Manage subscription billing cards and payout accounts.</small>
+            <small>The card Managira charges for your plan.</small>
             <div class="content-row">
               <div class="text-muted-sm">
                 <% if (defaultPaymentMethod) { %>
@@ -3919,7 +3946,7 @@
                   style="background:#0f766e;"
                 >Make Payment Now</button>
                 <% } %>
-                <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage Payment Methods</button>
+                <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage cards</button>
               </div>
             </div>
             <% if (_isOnHoldRestricted) { %>
@@ -3929,15 +3956,16 @@
             </div>
             <% } %>
           </div>
+          <% } %>
 
           <% if (!_isOnHoldRestricted) { %>
           <section class="card" id="platform-fee-bearer-card">
             <h4>Platform Service Fee</h4>
             <small>
-              A <strong><%= Number(platformFeePercentage || 0).toFixed(2) %>%</strong> platform service fee applies to all digital wallet transactions.
-              Select how this fee should be handled &mdash; who to bill.
+              A <strong><%= Number(platformFeePercentage || 0).toFixed(2) %>%</strong> service fee applies to every payment parents make online (card, Apple Pay, Cash App Pay and the others).
+              Choose who covers it.
             </small>
-            <form action="/account/settings/platform-fee-bearer" method="POST" style="margin-top:14px; display:flex; flex-direction:column; gap:12px;" onsubmit="return confirm('Confirm: update who is billed the platform service fee? This applies to all future digital wallet transactions.');">
+            <form action="/account/settings/platform-fee-bearer" method="POST" style="margin-top:14px; display:flex; flex-direction:column; gap:12px;" onsubmit="return confirm('Change who covers the service fee? This applies to every online payment from now on.');">
               <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
                 <input
                   type="radio"
@@ -3947,8 +3975,8 @@
                   style="margin-top:2px;"
                 />
                 <span style="display:flex; flex-direction:column; gap:3px;">
-                  <strong style="font-size:0.95rem;">Individual making payment</strong>
-                  <small class="text-muted-sm">The service fee is added on top of the bill. The person making the payment covers it, and the school receives the full amount.</small>
+                  <strong style="font-size:0.95rem;">The parent paying</strong>
+                  <small class="text-muted-sm">The fee is added on top of the bill and shown to the parent before they pay. The school receives the full amount.</small>
                 </span>
               </label>
 
@@ -3961,8 +3989,8 @@
                   style="margin-top:2px;"
                 />
                 <span style="display:flex; flex-direction:column; gap:3px;">
-                  <strong style="font-size:0.95rem;">School Payment</strong>
-                  <small class="text-muted-sm">The school covers the service fee. The payer is charged the quoted amount only, and the fee is deducted from the school's portion.</small>
+                  <strong style="font-size:0.95rem;">The school</strong>
+                  <small class="text-muted-sm">The parent pays the bill amount only, and the fee comes out of what the school receives.</small>
                 </span>
               </label>
 
@@ -3972,7 +4000,7 @@
             </form>
           </section>
           <% } %>
-          <% } %>
+          <%# (the fee card is shown to schools in a hub too: their parents pay online as well) %>
 
           <% if (!isHubMember) { %>
           <div class="card">
@@ -4604,9 +4632,10 @@
               <%- integrationCoverageBadge('google-classroom') %>
             </h4>
             <small class="google-integration-description">
-              Activate and connect Google Classroom to let students access assessments and tests online individually, while teachers can sync classwork directly from Managira.
+              Keeps Google Classroom in step with Managira: a course for each class of the current term, its teachers and students, assessments as assignments, and grades the same in both places.
+              <% const giStatusWords = { synced: 'Up to date', running: 'Syncing now', queued: 'Syncs in a few minutes', error: 'Needs attention', connected: 'Not synced yet', idle: 'Not synced yet', disabled: 'Turned off' }; %>
               <% if (gi.clientEmail) { %><br>Connected account: <strong><%= gi.clientEmail %></strong><% } %>
-              <% if (gi.lastSyncStatus) { %><br>Last sync status: <strong><%= gi.lastSyncStatus %></strong><% } %>
+              <% if (giReady && gi.lastSyncStatus) { %><br>Sync: <strong><%= giStatusWords[gi.lastSyncStatus] || gi.lastSyncStatus %></strong><% } %>
               <%- integrationActivityLine('Google Classroom') %>
             </small>
 
@@ -4644,11 +4673,60 @@
               <input type="hidden" name="integrationPassword" id="google-activation-password" />
             </form>
 
-            <% if (gi.lastSyncAt) { %>
-            <small style="display:block;margin-top:10px;">Last sync run: <%= new Date(gi.lastSyncAt).toLocaleString() %></small>
+            <% if (giReady && gi.lastSyncAt) { %>
+            <small style="display:block;margin-top:10px;">Last sync: <time class="gc-when" datetime="<%= new Date(gi.lastSyncAt).toISOString() %>"><%= new Date(gi.lastSyncAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }) %> UTC</time></small>
+            <script>(function () { document.querySelectorAll('time.gc-when').forEach(function (t) { var d = new Date(t.getAttribute('datetime')); if (!isNaN(d)) t.textContent = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }); })();</script>
             <% } %>
-            <% if (gi.lastSyncNote) { %>
+            <% if (giReady && gi.lastSyncNote) { %>
             <small style="display:block;margin-top:4px;"><%= gi.lastSyncNote %></small>
+            <% } %>
+
+            <% if (giActivated) { const gc = gi.choices || {}; %>
+            <details class="gc-choices">
+              <summary>How your school uses Google Classroom</summary>
+              <form action="/account/google-classroom/options" method="POST" class="gc-choices-form">
+                <label class="gc-field">Courses
+                  <select name="courses">
+                    <option value="class" <%= gc.courses !== 'subject' ? 'selected' : '' %>>One per class, its subjects as topics</option>
+                    <option value="subject" <%= gc.courses === 'subject' ? 'selected' : '' %>>One per subject in each class</option>
+                  </select>
+                  <span class="gc-hint">Each course is named for its class, term and school year. Changing this makes new courses at the next sync; courses already in Google stay there.</span>
+                </label>
+                <label class="gc-field">Assessments posted as Google assignments
+                  <select name="coursework">
+                    <option value="offline" <%= !['all','none'].includes(gc.coursework) ? 'selected' : '' %>>Those without an online test in Managira (recommended)</option>
+                    <option value="all" <%= gc.coursework === 'all' ? 'selected' : '' %>>All of them (online tests link to the Testing Room)</option>
+                    <option value="none" <%= gc.coursework === 'none' ? 'selected' : '' %>>None: only classes, teachers and students</option>
+                  </select>
+                  <span class="gc-hint">Online tests are taken in Managira's Testing Room; their questions are never copied into Google.</span>
+                </label>
+                <div class="gc-field" role="group" aria-labelledby="gc-grades-label">
+                  <span id="gc-grades-label">Grades</span>
+                  <label class="gc-check"><input type="checkbox" name="gradesFromGoogle" value="1" <%= gc.gradesFromGoogle !== false ? 'checked' : '' %>> Bring grades given in Google Classroom into Managira</label>
+                  <label class="gc-check"><input type="checkbox" name="gradesToGoogle" value="1" <%= gc.gradesToGoogle !== false ? 'checked' : '' %>> Send Managira's grades to Google Classroom</label>
+                  <span class="gc-hint">A grade changed in one place reaches the other. If it was changed in both, Managira's is kept. Grades from Google wait for the teacher's ✓ like any other grade, and a grade is sent to Google once families can see it.</span>
+                </div>
+                <label class="gc-check"><input type="checkbox" name="parents" value="1" <%= gc.parents !== false ? 'checked' : '' %>> Invite parents to Google Classroom's guardian summaries</label>
+                <div class="gc-actions"><button type="submit" class="gc-save">Save choices</button></div>
+                <% if (!gi.choicesSavable) { %><span class="gc-hint">These choices can be saved once this server's database is updated; until then the recommended ones apply.</span><% } %>
+              </form>
+            </details>
+            <style>
+              .gc-choices { margin-top: 12px; border-top: 1px solid var(--ws-line, #e2e8f0); padding-top: 10px; }
+              .gc-choices > summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--ws-brand, #0f766e); list-style: none; }
+              .gc-choices > summary::-webkit-details-marker { display: none; }
+              .gc-choices > summary::after { content: " ▾"; font-size: .8em; }
+              .gc-choices[open] > summary::after { content: " ▴"; }
+              .gc-choices-form { display: grid; gap: 12px; margin-top: 10px; }
+              .gc-field { display: grid; gap: 4px; font-size: .86rem; font-weight: 600; border: 0; padding: 0; margin: 0; box-shadow: none; background: none; }
+              .gc-choices-form .gc-field select { font: inherit; font-weight: 400; padding: 7px 10px; border: 1px solid var(--ws-line, #cbd5e1); border-radius: 8px; background: #fff; max-width: 460px; margin: 0 !important; height: auto; }
+              .gc-check { margin: 0; }
+              .gc-check { display: flex; gap: 8px; align-items: flex-start; font-size: .86rem; font-weight: 400; }
+              .gc-check input { margin-top: 3px; }
+              .gc-hint { display: block; font-size: .78rem; font-weight: 400; color: var(--ws-muted, #64748b); }
+              .gc-actions { display: flex; justify-content: flex-end; }
+              .gc-choices-form button.gc-save { padding: 7px 14px !important; border-radius: 8px !important; font-size: .84rem !important; width: auto !important; }
+            </style>
             <% } %>
           </div>
 
@@ -5537,16 +5615,17 @@
     <div class="modal-overlay" id="payment-method-modal">
       <div class="modal-card wide">
         <button class="modal-close" type="button" id="payment-method-close">x</button>
-        <h2>Payment Methods</h2>
+        <h2><%= (typeof isHubMember !== 'undefined' && isHubMember) ? 'Where parent payments go' : 'Payment Methods' %></h2>
 
         <!-- Tab bar -->
         <div class="pm-tab-bar" role="tablist">
-          <button class="pm-tab active" id="pm-tab-subscription" data-pm-tab="subscription" role="tab" aria-selected="true" aria-controls="pm-subscription-panel">Subscription Cards</button>
-          <button class="pm-tab" id="pm-tab-payout" data-pm-tab="payout" role="tab" aria-selected="false" aria-controls="pm-payout-panel">Payout Accounts</button>
+          <% const _pmHub = typeof isHubMember !== 'undefined' && isHubMember; %>
+          <button class="pm-tab <%= _pmHub ? '' : 'active' %>" id="pm-tab-subscription" data-pm-tab="subscription" role="tab" aria-selected="<%= _pmHub ? 'false' : 'true' %>" aria-controls="pm-subscription-panel" <%= _pmHub ? 'hidden' : '' %>>Subscription Cards</button>
+          <button class="pm-tab <%= _pmHub ? 'active' : '' %>" id="pm-tab-payout" data-pm-tab="payout" role="tab" aria-selected="<%= _pmHub ? 'true' : 'false' %>" aria-controls="pm-payout-panel">Payout Accounts</button>
         </div>
 
         <!-- ── Subscription Cards panel ─────────────────────────── -->
-        <div class="pm-panel active" id="pm-subscription-panel" role="tabpanel" aria-labelledby="pm-tab-subscription">
+        <div class="pm-panel <%= _pmHub ? '' : 'active' %>" id="pm-subscription-panel" role="tabpanel" aria-labelledby="pm-tab-subscription">
           <p class="modal-helper">Choose which saved card should be used for subscription billing.</p>
           <% const activeCardId = defaultPaymentMethod ? defaultPaymentMethod.id : null; %>
           <% if (paymentMethods && paymentMethods.length) { %>
@@ -5579,7 +5658,7 @@
         </div>
 
         <!-- ── Payout Accounts panel ────────────────────────────── -->
-        <div class="pm-panel" id="pm-payout-panel" role="tabpanel" aria-labelledby="pm-tab-payout">
+        <div class="pm-panel <%= _pmHub ? 'active' : '' %>" id="pm-payout-panel" role="tabpanel" aria-labelledby="pm-tab-payout">
           <p class="modal-helper">Bank accounts and cards where parents send payments to your school.</p>
 
           <%# ── Unified Payout Provider Selector ──────────────────────── %>
@@ -5597,7 +5676,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
               <div>
                 <div style="font-weight:700;font-size:.95rem;color:#0f172a;">Where should parent payments go?</div>
-                <div style="font-size:.78rem;color:var(--muted,#64748b);margin-top:2px;">Used by Paygira <strong>and</strong> Public Registration. One setting, everywhere.</div>
+                <div style="font-size:.78rem;color:var(--muted,#64748b);margin-top:2px;">Used by PayGira <strong>and</strong> online admission. One setting, everywhere.</div>
               </div>
               <span id="payout-pref-status" style="font-size:.75rem;padding:3px 9px;border-radius:999px;<%= (_stripeReady || _paystackReady) ? 'background:#dcfce7;color:#15803d;' : 'background:#fef3c7;color:#92400e;' %>">
                 <% if (_pref) { %>
@@ -5629,7 +5708,8 @@
                 </div>
               </label>
 
-              <%# ── Paystack card ── %>
+              <%# ── Paystack card: only where Paystack works, or already set up ── %>
+              <% if (_paystackCountrySupported || _paystackReady || !_country) { %>
               <label style="display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid <%= (_pref==='paystack') ? '#86efac' : 'var(--border)' %>;border-radius:10px;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>;background:<%= (_pref==='paystack') ? '#f0fdf4' : '#fff' %>;<%= !_paystackReady ? 'opacity:.6;' : '' %>">
                 <input type="radio" name="payout_pref_provider" class="payout-pref-toggle" data-provider="paystack" <%= (_pref==='paystack') ? 'checked' : '' %> <%= !_paystackReady ? 'disabled' : '' %> style="margin-top:3px;flex-shrink:0;cursor:<%= _paystackReady ? 'pointer' : 'not-allowed' %>">
                 <div style="flex:1;min-width:0;">
@@ -5652,6 +5732,7 @@
                   </button>
                 </div>
               </label>
+              <% } %>
 
             </div>
             <p id="payout-pref-feedback" style="margin:10px 0 0;font-size:.75rem;color:var(--muted,#64748b);min-height:1em;"></p>
@@ -6652,6 +6733,14 @@
         document.querySelectorAll(".pm-tab").forEach((tab) => {
           tab.addEventListener("click", () => switchPmTab(tab.dataset.pmTab));
         });
+        if (paymentModalOpen) paymentModalOpen.addEventListener("click", () => switchPmTab("subscription"), true);
+        const payoutModalOpen = document.getElementById("open-payout-modal");
+        if (payoutModalOpen) {
+          payoutModalOpen.addEventListener("click", () => {
+            switchPmTab("payout");
+            requestPassword(paymentModal);
+          });
+        }
 
         // ── Payout form show / hide helpers ──────────────────────────────
         function showPayoutForm() {
@@ -8441,7 +8530,7 @@
           // Builds the card field once Stripe.js has loaded (see loadStripeJs).
           const mountCard = () => {
           if (!stripePublishableKey || typeof Stripe !== "function") {
-            setStatus("Stripe is not available right now. Check your Stripe public key and try again.", "error");
+            setStatus("Adding a card isn't available right now. Try again in a few minutes, or contact Managira support.", "error");
             submitBtn.disabled = true;
           } else {
             const stripe = Stripe(stripePublishableKey);
@@ -9263,7 +9352,7 @@
           },
           "google-classroom": {
             title: "Google Classroom",
-            whatItDoes: "Syncs classwork and lets students access assessments and tests online individually, while teachers push classwork directly from Managira into Google Classroom.",
+            whatItDoes: "Makes a Google Classroom course for each class (or each subject) of the current term, named for its term and school year, adds the teachers and students, posts assessments as assignments and keeps grades the same in both places. Online tests stay in Managira's Testing Room.",
             goodFor: "Schools already using Google Workspace for Education that want Managira's assessments to show up where students already do their classwork.",
             goodForWho: ["Schools on Google Workspace for Education", "Teachers who assign homework through Google Classroom", "Schools blending in-person and online classwork"],
           },

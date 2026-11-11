@@ -88,6 +88,11 @@ function isPlatformFeeMethod(method) {
     "klarna",
     "afterpay_clearpay",
     "ideal",
+    "affirm",
+    "amazon_pay",
+    "samsung_pay",
+    "revolut_pay",
+    "paypal",
   ].includes(normalized);
 }
 

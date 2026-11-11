@@ -3103,8 +3103,7 @@
             <% if (financeCurrency && financeCurrency.code !== 'USD' && financeCurrency.usdToCurrencyRate) { %>For reference, 1 USD is about <%= Number(financeCurrency.usdToCurrencyRate).toFixed(4) %> <%= financeCurrency.code %>.<% } %>
           </p>
           <p class="fin-settings-line">
-            Where the money goes: your school's payout accounts are in
-            <a href="/account/settings?section=billing" target="_top">Settings, Billing &amp; Plan</a>. A bill can only be paid online once one is switched on.
+            Where the money goes is set in <a href="/account/settings?section=billing" target="_top">Settings, Billing &amp; Plan</a>, under <strong>Where parent payments go</strong>. Bills can be paid online once that account is connected.
           </p>
           <form class="fin-form" method="POST" action="/account/settings/finance/psp/general" style="margin-top:14px;">
             <div class="fin-field">
@@ -3112,7 +3111,32 @@
               <textarea name="invoice_footer" id="finInvoiceNote" rows="2" maxlength="300" placeholder="e.g. Thank you for trusting us with your child's education."><%= (pspSettings && pspSettings.invoice_footer) || '' %></textarea>
               <small style="color:var(--fin-muted);font-size:.72rem;">Optional. Parents see it on each invoice.</small>
             </div>
-            <button class="fin-btn sm primary">Save</button>
+            <% const _methodChoices = (typeof onlineMethodChoices !== 'undefined' && Array.isArray(onlineMethodChoices)) ? onlineMethodChoices : []; %>
+            <% if (_methodChoices.length) { %>
+            <div class="fin-field">
+              <label>Ways parents can pay online</label>
+              <input type="hidden" name="online_methods_shown" value="1">
+              <div class="fin-methods">
+                <% _methodChoices.forEach(function (m) { %>
+                <label class="fin-method<%= m.fixed ? ' is-fixed' : '' %>">
+                  <input type="checkbox" name="online_methods" value="<%= m.id %>" <%= m.on ? 'checked' : '' %> <%= m.fixed ? 'disabled' : '' %>>
+                  <span><strong><%= m.label %></strong><small><%= m.fixed ? 'Always offered. ' : '' %><%= m.detail %></small></span>
+                </label>
+                <% }); %>
+              </div>
+              <small style="color:var(--fin-muted);font-size:.72rem;">Parents see the ones ticked when they pay a bill online, once your payout account is connected. Apple Pay and Google Pay show only on devices that support them. The platform fee applies the same way to each.</small>
+            </div>
+            <style>
+              .fin-methods { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; margin-top:4px; }
+              .fin-field label.fin-method { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--fin-line, #e2e8f0); border-radius:10px; cursor:pointer; font-weight:400; text-transform:none; letter-spacing:0; font-size:inherit; color:var(--fin-text, #0f172a); margin:0; }
+              .fin-method input { margin-top:3px; }
+              .fin-method span { display:grid; gap:2px; }
+              .fin-method strong { font-size:.86rem; text-transform:none; letter-spacing:0; }
+              .fin-method small { font-size:.74rem; color:var(--fin-muted, #64748b); text-transform:none; letter-spacing:0; font-weight:400; }
+              .fin-method.is-fixed { cursor:default; background:var(--fin-soft, #f8fafc); }
+            </style>
+            <% } %>
+            <div class="fin-form-actions" style="justify-content:flex-start;"><button class="fin-btn sm primary">Save</button></div>
           </form>
         </div>
       <% } %>

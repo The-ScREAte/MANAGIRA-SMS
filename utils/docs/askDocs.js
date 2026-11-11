@@ -183,7 +183,8 @@ function piecesOf(article) {
 // then which part of that guide answers it (each piece's own words).
 const K1 = 1.2;
 const B = 0.6;
-const GUIDE_FIELDS = { title: 3, tags: 2.5, summary: 2, heading: 1.5, text: 1 };
+// Titles first, then keywords (a guide's tags and topic) and its section titles, then the rest.
+const GUIDE_FIELDS = { title: 3, tags: 2.5, summary: 2, heading: 2.2, text: 1 };
 const PIECE_HEADING = 1.5;
 
 function bm25(idf, f, length, avg, b = B) {
@@ -205,7 +206,8 @@ function buildIndex(articles) {
     const own = piecesOf(article);
     let length = 0;
     add(keyWords(article.title), GUIDE_FIELDS.title);
-    add(keyWords((article.tags || []).join(" ")), GUIDE_FIELDS.tags);
+    add(keyWords([...(article.tags || []), ...(article.keywords || [])].join(" ")), GUIDE_FIELDS.tags);
+    add(keyWords([article.topic, article.subtopic].filter(Boolean).join(" ")), GUIDE_FIELDS.tags * 0.5);
     add(keyWords(article.seoDescription), GUIDE_FIELDS.summary);
     const headings = new Set();
     own.forEach((piece) => {
@@ -215,7 +217,11 @@ function buildIndex(articles) {
       length += body.length;
       add(body, GUIDE_FIELDS.text);
     });
-    const guide = { article, tf, length: Math.max(length, 20), titleWords: [...new Set(keyWords(article.title))], pieces: [] };
+    const guide = {
+      article, tf, length: Math.max(length, 20), titleWords: [...new Set(keyWords(article.title))], pieces: [],
+      // Section titles and FAQ questions: a question that is one of them finds its guide.
+      headingWords: [...headings].map((heading) => [...new Set(keyWords(heading))]).filter((list) => list.length),
+    };
     own.forEach((piece) => {
       const ptf = new Map();
       const body = keyWords(piece.text);
@@ -243,6 +249,19 @@ let cached = { source: null, index: null };
 function indexFor(articles) {
   if (cached.source !== articles || !cached.index) cached = { source: articles, index: buildIndex(articles) };
   return cached.index;
+}
+
+// How closely a question is one of these titles: how much of the question the title says and
+// how much of the title is the question (a word that means the same counts in part).
+function bestHeadingHit(headingWords, asked, askedTotal, askedWords, askedAlts) {
+  let best = 0;
+  for (const list of headingWords || []) {
+    const words = new Set(list);
+    const said = asked.reduce((sum, a) => sum + (words.has(a.w) ? a.n : a.alts.some((x) => words.has(x)) ? a.n * 0.5 : 0), 0) / (askedTotal || 1);
+    const isAsked = list.reduce((sum, w) => sum + (askedWords.has(w) ? 1 : askedAlts.has(w) ? 0.4 : 0), 0) / list.length;
+    best = Math.max(best, 0.6 * said + 0.4 * isAsked);
+  }
+  return best;
 }
 
 // ---------- asking ----------
@@ -327,7 +346,7 @@ function ask(question, articles) {
     const titleIsAsked = guide.titleWords.length
       ? guide.titleWords.reduce((sum, w) => sum + (askedWords.has(w) ? 1 : askedAlts.has(w) ? 0.4 : 0), 0) / guide.titleWords.length
       : 0;
-    const titleHit = 0.6 * saidByTitle + 0.4 * titleIsAsked;
+    const titleHit = Math.max(0.6 * saidByTitle + 0.4 * titleIsAsked, 0.5 * bestHeadingHit(guide.headingWords, asked, askedTotal, askedWords, askedAlts));
     return { guide, score: m.score * (1 + 0.5 * titleHit) + 4.5 * titleHit, coverage: m.coverage };
   }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
   const closest = guides.slice(0, 3).map((entry) => ({ title: entry.guide.article.title, url: docUrl(entry.guide.article, "") }));
@@ -348,7 +367,16 @@ function ask(question, articles) {
   });
   if (!candidates.length) return { type: "no_results", closest };
   const bestPiece = Math.max(...candidates.map((c) => c.pieceScore)) || 1;
-  candidates.forEach((c) => { c.total = 0.7 * (c.entry.score / topScore) + 0.3 * (c.pieceScore / bestPiece); });
+  // Within the guide that answers it, a part under a section title that says what was asked
+  // counts a little more (it picks the section, not the guide).
+  const askedList = groups.map((g) => ({ w: g.word, alts: g.alts, n: g.scale < 1 ? 0.5 : 1 }));
+  const askedSum = askedList.reduce((sum, a) => sum + a.n, 0) || 1;
+  candidates.forEach((c) => {
+    const leading = c.entry.score >= topScore * 0.95;
+    const heading = leading && c.piece.piece.heading && c.piece.piece.heading !== c.piece.article.title ? [...new Set(keyWords(c.piece.piece.heading))] : [];
+    const headingHit = heading.length ? bestHeadingHit([heading], askedList, askedSum, askedWords, askedAlts) : 0;
+    c.total = 0.7 * (c.entry.score / topScore) + 0.3 * (c.pieceScore / bestPiece) + 0.12 * headingHit;
+  });
   candidates.sort((a, b) => b.total - a.total);
   let win = candidates[0];
   if (whatIs) {

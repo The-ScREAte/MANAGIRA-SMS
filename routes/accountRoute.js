@@ -562,11 +562,18 @@ router.get(
   requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
   accountController.googleClassroomCallbackGet
 );
+// Sync is also on the assessments' question sets page, for whoever manages assessments.
 router.post(
   "/google-classroom/resync",
   isAuthenticated,
-  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
+  requirePermission([PERMISSIONS.SETTINGS_INTEGRATIONS, PERMISSIONS.MANAGE_ASSESSMENTS]),
   accountController.googleClassroomResyncPost
+);
+router.post(
+  "/google-classroom/options",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.SETTINGS_INTEGRATIONS),
+  accountController.googleClassroomOptionsPost
 );
 router.post(
   "/google-classroom/disconnect",

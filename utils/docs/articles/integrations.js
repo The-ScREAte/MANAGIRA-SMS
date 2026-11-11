@@ -29,7 +29,7 @@ module.exports = [
           ["<strong>Mira (AI Assistant)</strong>", "Turns on Mira for staff. Each person can only ask Mira to do what their own permissions allow.", "The Mira button in the header"],
           ["<strong>Transportation</strong>", "Buses, drivers, routes and stops, rider lists, the driver app and live bus tracking.", "Transportation menu, driver app, parent and student portals"],
           ["<strong>Google Maps</strong> or <strong>Maps</strong>", "The map shown for routes, stops and the live bus.", "Route editor, bus tracker"],
-          ["<strong>Google Classroom</strong>", "Creates a Google Classroom course for each class in the current term, with a topic per subject, invites the teachers, adds the students and invites their guardians, and posts assessments as classwork.", "Google Classroom"],
+          ["<strong>Google Classroom</strong>", "Makes a Google Classroom course for each class (or each subject) of the current term, named for its term and school year, adds the teachers and students, invites parents if you choose, posts assessments as assignments and keeps grades the same in both places.", "Google Classroom"],
           ["<strong>Twilio SMS</strong>", "Text messages to parents and staff from your school's own Twilio number.", "Mail Room and notifications"],
           ["<strong>WhatsApp Business</strong>", "WhatsApp messages to parents from your school's own WhatsApp Business number.", "Mail Room"],
         ],
@@ -40,13 +40,25 @@ module.exports = [
         steps: [
           "In <strong>Integrations</strong>, expand <strong>Google Classroom</strong> and select <strong>Connect</strong>.",
           "Sign in with the Google Workspace for Education account that should own the courses, and allow access.",
-          "Back in Managira, the card shows the <strong>Connected account</strong>, the <strong>Last sync status</strong> and the <strong>Last sync run</strong>. Run a sync whenever classes, teachers or students change.",
+          "Back in Managira, the card shows the <strong>Connected account</strong>, whether it is up to date and what the last sync did. It syncs by itself every few hours; select <strong>Sync</strong> from its ⋯ menu to sync now.",
         ],
         tip: "Use a school administrator's Google account, not a teacher's personal one, so the courses stay with the school when staff change.",
       },
       {
+        title: "Choose how your school uses Google Classroom",
+        text: "Open <strong>How your school uses Google Classroom</strong> on its card, make your choices and select <strong>Save choices</strong>. The next sync uses them.",
+        table: [
+          ["Choice", "What it does"],
+          ["<strong>Courses</strong>", "One course per class, with its subjects as topics, or one course per subject in each class. Each course is named for its class, term and school year, for example <em>Algebra - 7A - Fall Semester (2026-2027)</em>. Courses already in Google stay there when you change this."],
+          ["<strong>Assessments posted as Google assignments</strong>", "Those without an online test in Managira (recommended), all of them, or none. Online tests are taken in Managira's Testing Room; their questions are never copied into Google, and when all assessments are posted the assignment links to the test."],
+          ["<strong>Grades</strong>", "Bring grades given in Google Classroom into Managira, send Managira's grades to Google, or both."],
+          ["<strong>Invite parents</strong>", "Invites each student's parents to Google Classroom's guardian summaries."],
+        ],
+        note: "Students need an email address in Managira to be added to Google Classroom. The card says how many don't have one.",
+      },
+      {
         title: "Give other systems read access",
-        text: "To let another system read your school's data (for example a district data warehouse, a library system or a state reporting tool), create a service account and an access token. Everything is read-only and limited to your school.",
+        text: "To let another system read your school's data (for example a district data warehouse, a library system or a state reporting tool), create a service account and an access token. It reads only the areas you choose, sends information in only where you allow it, and never reaches another school.",
         list: [
           "<a href=\"/legal/user-documentation/service-accounts-and-access-tokens\">Service accounts and access tokens</a>",
           "<a href=\"/legal/user-documentation/managira-api\">Use the Managira API</a>",
@@ -56,6 +68,8 @@ module.exports = [
     faq: [
       ["Why can't I see Integrations in Management?", "It is only listed for managers and staff given the Integrations permission. Ask a manager to add the permission to your account in Users / Employees."],
       ["Does turning an integration off delete anything?", "No. Turning an integration off hides it from people and stops it working, but the school's records stay as they are. Turn it back on to carry on. While it is off, nobody is offered its pages, the permissions that belong to it are set aside, and drivers see that transportation is turned off; turning it back on gives everyone the access they had."],
+      ["How do grades stay the same in Managira and Google Classroom?", "A grade changed in one place reaches the other within half an hour. If the same grade was changed in both places, Managira's is kept and sent to Google. A grade from Google waits for the teacher's ✓ like any other grade, a grade is sent to Google once families can see it, and a locked assessment takes nothing from Google."],
+      ["Can we use Google Classroom and Managira's Testing Room together?", "Yes. With the recommended choice, assessments with an online test stay in the Testing Room and everything else is posted to Google Classroom. Grades from both end up on the same gradebook. You can also post every assessment, or none and use Google Classroom only for classes and students."],
       ["Who pays for text messages and WhatsApp?", "Your school's own Twilio and WhatsApp Business accounts pay their providers directly. Managira adds no charge per message."],
     ],
     related: ["sms-integrations", "connect-whatsapp-business-to-message-parents", "service-accounts-and-access-tokens", "set-up-transportation"],
