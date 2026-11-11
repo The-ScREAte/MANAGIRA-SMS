@@ -35,10 +35,17 @@ const API_AREAS = [
   { key: "calendar", label: "Events & announcements", scope: "calendar.read", description: "School events and announcements." },
   { key: "paygira", label: "PayGira", scope: "paygira.read", description: "Bills, balances owed and payments received.", feature: "paygira" },
   { key: "transport", label: "Transportation", scope: "transport.read", description: "Buses, routes, stops and which stop each student uses.", feature: "transport" },
+  // Sending information in: each is its own area, never part of an account's reading areas.
+  { key: "students_write", label: "Students: add and update", scope: "students.write", description: "Add students to a class and change their names, birthdays, emails and student numbers.", write: true },
+  { key: "guardians_write", label: "Parents & guardians: add and update", scope: "guardians.write", description: "Add parents, link them to their children and change their contact details.", write: true },
+  { key: "attendance_write", label: "Attendance: mark", scope: "attendance.write", description: "Mark students present or absent for a day.", write: true },
+  { key: "grades_write", label: "Grades: enter scores", scope: "grades.write", description: "Enter scores for assessments. Where teachers approve grades, families see them once the teacher posts them.", write: true },
+  { key: "paygira_write", label: "PayGira: record payments", scope: "paygira.write", description: "Record payments taken outside Managira against a student's bill.", feature: "paygira", write: true },
 ];
 const FEATURE_LABELS = { paygira: "PayGira", transport: "Transportation" };
 const BASE_SCOPES = ["managira.api.access", "tenant.read"];
 const ALL_PERMISSION_KEYS = API_AREAS.map((area) => area.key);
+const READ_AREA_KEYS = API_AREAS.filter((area) => !area.write).map((area) => area.key);
 // Kept for older callers and the guide.
 const API_PERMISSIONS = API_AREAS;
 const SCOPE_GROUPS = API_AREAS.map((area) => ({ key: area.key, label: area.label, scopes: [...BASE_SCOPES, area.scope] }));
@@ -85,6 +92,7 @@ function groupAvailability(permissions, features = {}) {
       key: area.key,
       label: area.label,
       description: area.description,
+      write: Boolean(area.write),
       scopes: [...BASE_SCOPES, area.scope],
       available: allowed && featureOn,
       featureOff: !featureOn,
@@ -259,7 +267,9 @@ function readPermissionInput(body) {
   const all = String(body.permissionMode || "all") === "all";
   const valid = new Set(ALL_PERMISSION_KEYS);
   const picked = [].concat(body.permissions || []).map(String).filter((key) => valid.has(key));
-  return { all, permissions: all ? [...ALL_PERMISSION_KEYS] : [...new Set(picked)] };
+  // "Every area" is every area to read; sending information in is always ticked one by one.
+  const writes = [...new Set(picked)].filter((key) => (API_AREAS.find((area) => area.key === key) || {}).write);
+  return { all, permissions: all ? [...READ_AREA_KEYS, ...writes] : [...new Set(picked)] };
 }
 
 // Every save needs the school's acceptance of the data-sharing agreement.

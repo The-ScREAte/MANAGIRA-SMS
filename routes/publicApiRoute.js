@@ -337,6 +337,47 @@ router.get("/transportation/assignments", ...listRoute("transport.read",
     WHERE a.organization_id = $1 AND COALESCE(a.active, TRUE) AND ($2::int IS NULL OR a.student_id = $2)
     ORDER BY a.student_id, a.assignment_id`, (req) => [id(req.query.student_id)]));
 
+// ---------- assessments (to send scores to) ----------
+router.get("/assessments", ...listRoute("grades.read",
+  `SELECT a.assessment_id AS id, a.title, a.category, a.max_score, a.class_id, a.subject_id, sub.subject_name, a.term_id,
+          COALESCE(a.is_locked, FALSE) AS locked
+     FROM assessments a
+     LEFT JOIN subjects sub ON sub.subject_id = a.subject_id AND sub.organization_id = a.organization_id
+    WHERE a.organization_id = $1 AND COALESCE(a.is_active, TRUE) AND a.obsolete_at IS NULL
+      AND ($2::int IS NULL OR a.term_id = $2) AND ($3::int IS NULL OR a.class_id = $3) AND ($4::int IS NULL OR a.subject_id = $4)
+    ORDER BY a.term_id DESC NULLS LAST, a.class_id, a.subject_id, a.assessment_id`,
+  (req) => [id(req.query.term_id), id(req.query.class_id), id(req.query.subject_id)]));
+
+// ---------- sending information in ----------
+// Each needs its own write scope (Management, Service accounts: "Information it may send in").
+// A request that changes something answers with what was saved, or a clear reason it wasn't.
+const writes = require("../utils/apiWrites");
+const sendIn = (scope, run, created = false) => [needs(scope), (req, res) => {
+  if (!req.is("application/json")) return fail(res, 415, "unsupported_media_type", "Send the body as JSON (Content-Type: application/json).");
+  return new Promise((resolve) => resolve(run(req)))
+    .then((out) => res.status(created && !(out && out.data && out.data.already_recorded) ? 201 : 200).json(out))
+    .catch((error) => {
+      if (error instanceof writes.ApiInputError) return fail(res, error.status, error.error, error.message);
+      console.error("[api/v1 write]", req.path, error && error.message);
+      return fail(res, 500, "server_error", "Something went wrong. Nothing was saved.");
+    });
+}];
+router.post("/students", ...sendIn("students.write", (req) => writes.createStudent(req.api, req.body || {}), true));
+router.patch("/students/:id", ...sendIn("students.write", (req) => {
+  const studentId = id(req.params.id);
+  if (!studentId) throw new writes.ApiInputError(404, "not_found", "No such student.");
+  return writes.updateStudent(req.api, studentId, req.body || {});
+}));
+router.post("/guardians", ...sendIn("guardians.write", (req) => writes.createGuardian(req.api, req.body || {}), true));
+router.patch("/guardians/:id", ...sendIn("guardians.write", (req) => {
+  const guardianId = id(req.params.id);
+  if (!guardianId) throw new writes.ApiInputError(404, "not_found", "No such parent or guardian.");
+  return writes.updateGuardian(req.api, guardianId, req.body || {});
+}));
+router.post("/attendance", ...sendIn("attendance.write", (req) => writes.markAttendance(req.api, req.body || {})));
+router.post("/grades", ...sendIn("grades.write", (req) => writes.enterScores(req.api, req.body || {})));
+router.post("/paygira/payments", ...sendIn("paygira.write", (req) => writes.recordPayment(req.api, req.body || {}), true));
+
 // ---------- deletions ----------
 // Students, guardians and attendance marks deleted since a time, for the areas
 // this token can read. Pair with updated_since on the lists.

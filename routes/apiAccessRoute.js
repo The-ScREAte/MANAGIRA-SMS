@@ -25,6 +25,12 @@ const API_ENDPOINTS = [
   { path: "/paygira/bills · /paygira/balances?student_id=&bill_id= · /paygira/payments?from=&to=", returns: "Bills, balances owed, payments", needs: "PayGira" },
   { path: "/transportation/routes · /transportation/stops?route_id= · /transportation/buses · /transportation/assignments?student_id=", returns: "Routes with their stops, all stops, buses, each student's stop", needs: "Transportation" },
   { path: "/deleted?updated_since=", returns: "Students, guardians and attendance marks deleted since then", needs: "Students, Parents & guardians or Attendance" },
+  { path: "/assessments?term_id=&class_id=&subject_id=", returns: "Assessments, to send scores to", needs: "Grades" },
+  { path: "POST /students · PATCH /students/{id}", returns: "Add a student to a class, or change their details", needs: "Students: add and update" },
+  { path: "POST /guardians · PATCH /guardians/{id}", returns: "Add a parent linked to their children, or change their details", needs: "Parents & guardians: add and update" },
+  { path: "POST /attendance", returns: "Mark a class present or absent for a day", needs: "Attendance: mark" },
+  { path: "POST /grades", returns: "Enter scores for an assessment", needs: "Grades: enter scores" },
+  { path: "POST /paygira/payments", returns: "Record a payment taken outside Managira (one per reference)", needs: "PayGira: record payments" },
 ];
 
 const schoolNameOf = async (organizationId) => {
