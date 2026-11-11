@@ -296,10 +296,10 @@ function match(doc, groups, idf, avgLength, b = B) {
 const PAGES = [
   { test: /\b(how much|price|prices|pricing|cost|costs|fee for managira|plans?)\b/i, unless: /\b(text|sms|whatsapp|bill|fee|tuition|parent|student|paygira|invoice|late fee|bus)\b/i,
     answer: { mode: "text", title: "Plans and prices", lines: ["Managira has three plans, Starter, Pro and Premium, each with a free trial. The Pricing page shows what each one includes and what it costs for your number of students."] },
-    source: { title: "Pricing", url: "/pricing" } },
+    source: { title: "Pricing", url: "/account/service-plan" } },
   { test: /\b(demo|talk to (sales|someone|a person)|contact (you|sales|support|managira)|support team|speak to)\b/i,
     answer: { mode: "text", title: "Talk to us", lines: ["Book a demo and we'll show you Managira with your own school's needs in mind, or write to info@managira.com."] },
-    source: { title: "Request a demo", url: "/request-demo" } },
+    source: { title: "Request a demo", url: "/legal/request-demo" } },
 ];
 
 function ask(question, articles) {
