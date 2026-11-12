@@ -4399,6 +4399,7 @@ async function myCalendarApi(req, res) {
       start, end,
       canPublish: false,
       seesAllClasses: ["manager", "organization", "supervisor", "superviser"].includes(String(known.rows[0].account_type || "").trim().toLowerCase()),
+      role: known.rows[0].account_type,
     });
     const list = items
       .filter((item) => (item.extendedProps.date || String(item.start).slice(0, 10)) <= last)
@@ -4411,6 +4412,8 @@ async function myCalendarApi(req, res) {
         endTime: item.extendedProps.endTime || null,
         location: item.extendedProps.location || null,
         owner: item.extendedProps.owner || null,
+        // A birthday says whose (student and class, or staff) and the age they turn.
+        ...(item.extendedProps.kind === "birthday" ? { about: item.extendedProps.details || null } : {}),
       }))
       .sort((a, b) => `${a.date}${a.startTime || ""}`.localeCompare(`${b.date}${b.startTime || ""}`));
     // Everything that happens once comes first; a full timetable mustn't crowd it out.
@@ -4420,6 +4423,64 @@ async function myCalendarApi(req, res) {
   } catch (error) {
     console.error("[internalApi/myCalendarApi]", error.message);
     return res.status(500).json({ error: "Unable to load the calendar." });
+  }
+}
+
+// The person signing in through Mira, as the calendar knows them: a member of staff of this school.
+async function calendarPerson(req) {
+  const source = req.method === "GET" ? req.query : (req.body || {});
+  const organizationId = Number(source.organizationId);
+  const userId = Number(source.userId);
+  if (!organizationId || !userId) { const err = new Error("This needs a staff account."); err.status = 403; throw err; }
+  const known = (await db.query(
+    "SELECT first_name, last_name, account_type::text AS account_type FROM users WHERE user_id = $1 AND organization_id = $2 AND removed_at IS NULL",
+    [userId, organizationId]
+  )).rows[0];
+  if (!known) { const err = new Error("This needs a staff account of this school."); err.status = 403; throw err; }
+  const role = known.account_type;
+  return {
+    organizationId,
+    actor: { id: userId, name: [known.first_name, known.last_name].filter(Boolean).join(" ") || "Staff" },
+    role,
+    seesAllClasses: ["manager", "organization", "supervisor", "superviser"].includes(String(role || "").trim().toLowerCase()),
+  };
+}
+
+// POST /internal/api/calendar/add { title, date, endDate?, startTime?, endTime?, location?, details? }
+// Puts something on the signed-in person's own calendar (a personal event).
+async function myCalendarAddApi(req, res) {
+  try {
+    const person = await calendarPerson(req);
+    const body = req.body || {};
+    const added = await require("./workspaceController").addPersonalEvent(db, {
+      organizationId: person.organizationId,
+      actor: person.actor,
+      body: { title: body.title, date: body.date, endDate: body.endDate, startTime: body.startTime, endTime: body.endTime, allDay: !body.startTime, location: body.location, details: body.details },
+    });
+    return res.json({ added, calendarLink: `/common/calendar?date=${added.date}` });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/myCalendarAddApi]", error.message);
+    return res.status(500).json({ error: "Unable to add it to the calendar." });
+  }
+}
+
+// GET /internal/api/calendar/free?start&days&dayStart&dayEnd&minutes
+// The free times on the signed-in person's own calendar.
+async function myFreeTimeApi(req, res) {
+  try {
+    const person = await calendarPerson(req);
+    const today = new Date().toISOString().slice(0, 10);
+    const start = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.start || "")) ? String(req.query.start) : today;
+    const result = await require("./workspaceController").freeTime(db, {
+      organizationId: person.organizationId, actor: person.actor, role: person.role, seesAllClasses: person.seesAllClasses,
+      start, days: req.query.days, dayStart: req.query.dayStart || "08:00", dayEnd: req.query.dayEnd || "17:00", minutes: req.query.minutes,
+    });
+    return res.json(result);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/myFreeTimeApi]", error.message);
+    return res.status(500).json({ error: "Unable to read the calendar." });
   }
 }
 
@@ -4435,11 +4496,12 @@ async function calendarSyncStatusApi(req, res) {
       `SELECT provider, last_synced_at, last_error FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 ORDER BY provider`,
       [organizationId, userId]
     );
-    const needs = (error) => (error === "reconnect" ? "Needs connecting again" : error ? "Will retry by itself" : "Working");
+    const needs = (error) => (error === "reconnect" ? "Stopped: needs connecting again" : error === "setup" ? "Waiting for the provider to allow Managira; starts on its own" : error ? "Will retry by itself" : "Up to date");
     return res.json({
       connections: rows.map((row) => ({ provider: row.provider === "google" ? "Google Calendar" : "Outlook", lastSynced: row.last_synced_at, status: needs(row.last_error) })),
       available: calConnect.providersConfigured(),
-      howToConnect: "They sign in themselves on the Sync & share page.",
+      howItWorks: "One way: Managira keeps a calendar named Managira in their Google Calendar or Outlook up to date. It never reads their other events.",
+      howToConnect: "In Calendar, they select Sync, then Connect, and sign in themselves.",
       syncPage: "/common/calendar?sync=1",
     });
   } catch (error) {
@@ -10060,6 +10122,8 @@ module.exports = {
   calendarSyncStatusApi,
   listSchoolAnnouncementsApi,
   createEventApi,
+  myCalendarAddApi,
+  myFreeTimeApi,
   updateEventApi,
   deleteEventApi,
   createSchoolAnnouncementApi,

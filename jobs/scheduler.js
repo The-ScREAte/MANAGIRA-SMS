@@ -255,6 +255,16 @@ if (shouldRunScheduler) {
     }
   });
 
+  // Every 10 minutes: connected Google and Outlook calendars get what changed in Managira.
+  cron.schedule('*/10 * * * *', 'calendar-sync', async () => {
+    try {
+      const synced = await require('../controllers/workspaceController').runCalendarSyncSweep(require('../config/db'));
+      if (synced > 0) console.log(`[Calendar] Sync sweep complete. calendars=${synced}`);
+    } catch (error) {
+      console.error('[Calendar] Sync sweep failed:', error.message);
+    }
+  });
+
   // Every 30 minutes: pull Google Classroom grades back into assessment_results.
   cron.schedule('*/30 * * * *', 'google-classroom-grades', async () => {
     try {

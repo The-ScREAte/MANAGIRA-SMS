@@ -25,6 +25,9 @@ const PROVIDERS = {
   other: { name: "Our own provider", protocols: ["saml", "oidc"] },
 };
 
+// How each kind of connection is named to the people signing in.
+const PROTOCOL_NAMES = { saml: "SAML", oidc: "OpenID Connect" };
+
 class SsoSetupError extends Error {}
 
 const isOn = (organizationId) => features.isOn("sso", { organizationId });
@@ -220,16 +223,132 @@ async function isMainManager(db, organizationId, person) {
   return Number(await getPrimaryManagerUserId(db, organizationId)) === Number(person.user_id);
 }
 
-// Whether a person with a right password must use SSO instead. A school's main manager never
-// has to: if the provider fails, somebody must still be able to get in and turn it off.
-async function passwordRefused(db, organizationId, { isMainManager: isMain = false, isStudent = false } = {}) {
-  if (!organizationId || isMain || !isOn(organizationId)) return false;
+// ---------- each person's own way in ----------
+// Every member of staff signs in one way: their school's provider ("sso") or a Managira password
+// ("password", also what an empty value means). users.sign_in_method holds it once
+// 2026-11-21_sign_in_method.sql has run; until then the school's connection decides for everyone,
+// as it did before (methodReady). A school's main manager can always use a password, so nobody is
+// locked out if the provider is down, and gets single sign-on too once they turned it on.
+let methodCheck = { at: 0, ready: false };
+async function methodReady(db) {
+  if (Date.now() - methodCheck.at < 60000) return methodCheck.ready;
+  const { rows } = await db.query(
+    "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'users' AND column_name = 'sign_in_method'"
+  ).catch(() => ({ rows: [] }));
+  methodCheck = { at: Date.now(), ready: rows.length > 0 };
+  return methodCheck.ready;
+}
+
+// For tests, and right after the update runs: look again on the next call.
+methodReady.forget = () => { methodCheck = { at: 0, ready: false }; };
+
+// A users row read with SELECT * carries the column once it exists.
+const hasMethod = (user) => Boolean(user) && Object.prototype.hasOwnProperty.call(user, "sign_in_method");
+const usesSso = (user) => String((user && user.sign_in_method) || "") === "sso";
+
+// What one person may use: { sso: true/false, password: true/false }. row is the school's
+// connection, already known to be on. kind: "staff" | "manager" (the school's own account) | "student".
+function waysFor(row, { kind = "staff", user = null, isMain = false } = {}) {
+  if (isMain || kind === "manager") return { sso: Boolean(row.turned_on_by_main), password: true };
+  if (kind === "student") return { sso: Boolean(row.allow_students), password: true };
+  if (hasMethod(user)) return usesSso(user) ? { sso: true, password: false } : { sso: false, password: true };
+  return { sso: true, password: !row.require_sso };
+}
+
+const activeRow = async (db, organizationId) => {
+  if (!organizationId || !isOn(organizationId)) return null;
   const row = await connectionFor(db, organizationId);
-  if (!row || row.status !== "active" || !row.require_sso) return false;
-  return isStudent ? row.allow_students : true;
+  return row && row.status === "active" ? row : null;
+};
+
+// Whether a right password must be refused: this person signs in with their school's provider.
+async function passwordRefused(db, organizationId, { isMainManager: isMain = false, isStudent = false, user = null } = {}) {
+  if (isMain || isStudent) return false;
+  const row = await activeRow(db, organizationId);
+  if (!row) return false;
+  return !waysFor(row, { kind: "staff", user }).password;
+}
+
+// How each member of staff signs in, for the staff list. The same rules as the login page:
+// "sso" (the school's provider), "both" (the provider or a password: the main manager) or "password".
+async function staffSignIn(db, organizationId) {
+  const row = isOn(organizationId) ? await connectionFor(db, organizationId) : null;
+  const active = Boolean(row && row.status === "active");
+  const { getPrimaryManagerUserId } = require("../../middleware/permissionMiddleware");
+  const mainId = active ? Number(await getPrimaryManagerUserId(db, organizationId)) : null;
+  const ready = await methodReady(db);
+  const methods = new Map();
+  if (ready) {
+    const { rows } = await db.query("SELECT user_id, sign_in_method FROM users WHERE organization_id = $1", [organizationId]).catch(() => ({ rows: [] }));
+    rows.forEach((person) => methods.set(Number(person.user_id), person.sign_in_method));
+  }
+  // The last time each email signed in through the provider.
+  const lastSso = new Map();
+  if (row) {
+    const { rows } = await db.query(
+      `SELECT LOWER(email) AS email, MAX(created_at) AS at FROM sso_events
+        WHERE organization_id = $1 AND kind = 'login' AND outcome = 'ok' AND email IS NOT NULL
+        GROUP BY LOWER(email)`,
+      [organizationId]
+    ).catch(() => ({ rows: [] }));
+    rows.forEach((event) => lastSso.set(event.email, event.at));
+  }
+  return {
+    provider: active ? { name: row.display_name, protocol: PROTOCOL_NAMES[row.protocol] || "" } : null,
+    methodsReady: ready,
+    // What was chosen for them (shown on their form), whether or not single sign-on is on now.
+    chosenFor: (user) => (methods.get(Number(user.user_id)) === "sso" ? "sso" : "password"),
+    wayFor(user, { isOwner = false } = {}) {
+      if (!active) return "password";
+      const person = ready ? { sign_in_method: methods.get(Number(user.user_id)) || null } : null;
+      const ways = waysFor(row, { user: person, isMain: isOwner || Number(user.user_id) === mainId });
+      return ways.sso && ways.password ? "both" : ways.sso ? "sso" : "password";
+    },
+    lastSsoFor: (email) => lastSso.get(String(email || "").trim().toLowerCase()) || null,
+  };
+}
+
+// The school's provider, for the staff form and invitations: { name, protocol } while single
+// sign-on is on and each person's choice can be saved; otherwise null and nothing is offered.
+async function providerForStaff(db, organizationId) {
+  const row = await activeRow(db, organizationId).catch(() => null);
+  if (!row || !(await methodReady(db))) return null;
+  return { name: row.display_name, protocol: PROTOCOL_NAMES[row.protocol] || "" };
+}
+
+// For an invitation: { name, only } when this person signs in with the school's provider
+// (only: no password to set), or null when they use a Managira password.
+async function inviteSignIn(db, organizationId, { method = null } = {}) {
+  const row = await activeRow(db, organizationId).catch(() => null);
+  if (!row) return null;
+  if (await methodReady(db)) return method === "sso" ? { name: row.display_name, only: true } : null;
+  return { name: row.display_name, only: Boolean(row.require_sso) };
+}
+
+// How many of the school's staff sign in with its provider, and how many there are.
+async function methodCounts(db, organizationId) {
+  if (!(await methodReady(db))) return null;
+  const { rows } = await db.query(
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE sign_in_method = 'sso')::int AS sso
+       FROM users WHERE organization_id = $1 AND removed_at IS NULL AND account_type::text NOT IN ('Admin', 'Mini Admin', 'Internal Worker')`,
+    [organizationId]
+  );
+  return rows[0];
+}
+
+// Everyone at the school signs in with its provider from now on (the main manager keeps a password).
+async function everyoneUsesSso(db, organizationId) {
+  const { rowCount } = await db.query(
+    `UPDATE users SET sign_in_method = 'sso', updated_at = NOW()
+      WHERE organization_id = $1 AND removed_at IS NULL AND account_type::text NOT IN ('Admin', 'Mini Admin', 'Internal Worker')
+        AND sign_in_method IS DISTINCT FROM 'sso'`,
+    [organizationId]
+  );
+  return rowCount;
 }
 
 module.exports = {
-  PROVIDERS, SsoSetupError, isOn, isComplete, readCertificate, connectionFor, connectionByPublicId, connectionForEmail,
-  saveSettings, setStatus, removeConnection, clientSecretOf, record, passwordRefused, isMainManager,
+  PROVIDERS, PROTOCOL_NAMES, SsoSetupError, isOn, isComplete, readCertificate, connectionFor, connectionByPublicId, connectionForEmail,
+  saveSettings, setStatus, removeConnection, clientSecretOf, record, passwordRefused, isMainManager, staffSignIn, inviteSignIn,
+  methodReady, waysFor, providerForStaff, methodCounts, everyoneUsesSso,
 };

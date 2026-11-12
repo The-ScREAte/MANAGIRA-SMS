@@ -451,6 +451,7 @@
         </select>
       </div>
     </div>
+    <%- include('../partials/employeeSignIn', { signInIsExisting: true }) %>
     <div class="employee-section employee-section-classes">
       <p style="color:#64748b; font-size:12px; margin: 4px 0 0; display:none;" id="driverSubjectsNote">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
       <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classIds[]' }) %>

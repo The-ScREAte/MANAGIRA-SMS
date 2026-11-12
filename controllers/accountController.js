@@ -588,14 +588,14 @@ const { isSettingsEncryptionKeyConfigured } = require("../utils/encryption");
 const googleClassroomSync = require("../utils/googleClassroomSync");
 const { createGoogleOauthClient, hasGoogleOauthConfig } = googleClassroomSync;
 
+// Only what the Classroom link uses (each must also be listed in Google Cloud › Data Access):
+// courses, their rosters (matched by email), assignments and grades, and guardian invitations.
 const GOOGLE_CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses",
   "https://www.googleapis.com/auth/classroom.rosters",
   "https://www.googleapis.com/auth/classroom.coursework.students",
-  "https://www.googleapis.com/auth/classroom.coursework.me",
   "https://www.googleapis.com/auth/classroom.guardianlinks.students",
   "https://www.googleapis.com/auth/classroom.profile.emails",
-  "https://www.googleapis.com/auth/classroom.profile.photos",
 ];
 
 async function verifySessionPassword(rawPassword, req) {
@@ -5372,8 +5372,9 @@ const accountController = {
     }
   },
 
-  // step: "email" first; "password" once the email is known not to use single sign-on.
-  loginGet: async (req, res, db, { step = "email", email = "", next = "", ssoAlso = "", codeError = "", codeNote = "" } = {}) => {
+  // step: "email" first; then "password", or "sso" when the email's school signs in through its
+  // own provider (sso: its name and start address; passwordToo: a password works as well).
+  loginGet: async (req, res, db, { step = "email", email = "", next = "", sso = null, passwordToo = true, codeError = "", codeNote = "" } = {}) => {
     const school = req.schoolDetails;
     const loginCode = require("../utils/loginCode");
     const pending = step === "code" ? loginCode.pendingOf(req) : null;
@@ -5384,13 +5385,14 @@ const accountController = {
       title: "Login",
       url: req.url,
       messages: req.flash(),
-      step: ["password", "code"].includes(step) ? step : "email",
+      step: ["password", "code"].includes(step) || (step === "sso" && sso) ? step : "email",
       codeTo: pending && !pending.expired ? pending.email : "",
       codeError,
       codeNote,
       email,
       next: next === "mira" || req.query.next === "mira" ? "mira" : "",
-      ssoAlso,
+      sso: step === "sso" ? sso : null,
+      passwordToo: step !== "sso" || passwordToo !== false,
       schoolName: school ? (school.nickname_display && String(school.nickname_display).trim()) || school.organization_name : "",
       schoolLogo,
     });
@@ -5503,9 +5505,10 @@ const accountController = {
         const match = await bcrypt.compare(password, user.password);
 
         // The school signs in through its own provider. Its main manager can always use a password.
-        if (match && !user.removed_at && await require("../utils/sso/connections").passwordRefused(db, user.organization_id, { isMainManager: await require("../utils/sso/connections").isMainManager(db, user.organization_id, user) })) {
-          req.flash("error", "Your school signs in with its own sign-in. Enter your email and choose Continue.");
-          return res.redirect("/account/login?sso=1");
+        // The school signs in through its own provider: show its sign-in for this email. Its
+        // main manager can always use a password.
+        if (match && !user.removed_at && await require("../utils/sso/connections").passwordRefused(db, user.organization_id, { isMainManager: await require("../utils/sso/connections").isMainManager(db, user.organization_id, user), user })) {
+          return require("./ssoController").continueWithEmail(req, res, db, { quiet: true });
         }
 
         // Removed by the school: the account is kept (and can be enabled again).
@@ -6112,8 +6115,8 @@ const accountController = {
 
       if (studentAccount && await require("../utils/sso/connections").passwordRefused(db, studentAccount.organization_id, { isStudent: true })) {
         clearStudentAuthSession();
-        req.flash("error", "Your school signs in with its own sign-in. Enter your email and choose Continue.");
-        return res.redirect("/account/login?sso=1");
+        req.flash("info", "Your school signs in with its own sign-in. Enter your email and choose Continue.");
+        return res.redirect("/account/login");
       }
 
       if (!studentAccount && matchedSuspended) {
@@ -8292,6 +8295,13 @@ const accountController = {
             ? "/account/guardian-login"
             : "/account/student-login"
         );
+      }
+
+      // Someone who signs in with their school's provider has no Managira password to reset.
+      const ssoChoice = await require("./ssoController").signInChoice(req, db, email.toLowerCase()).catch(() => null);
+      if (ssoChoice && ssoChoice.sso && !ssoChoice.password) {
+        req.flash("info", `You sign in with ${ssoChoice.sso.display_name}, so there's no Managira password to reset. Enter your email and choose Continue with ${ssoChoice.sso.display_name}.`);
+        return res.redirect("/account/login");
       }
 
       // Search staff/admin/hub login tables for this email

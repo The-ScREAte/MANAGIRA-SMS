@@ -27,6 +27,31 @@ function backToPage(req, res, message, next) {
 
 const isActive = (connection) => connection && connection.status === "active" && connections.isOn(connection.organization_id);
 const nextOf = (value) => (value === "mira" ? "mira" : "");
+
+// How this email signs in, for the login page: { sso: connection or null, password: true/false }.
+// Each member of staff has one way in, chosen on their staff form (connections.waysFor). A school's
+// main manager always keeps a password, in case the provider is down, and is offered single
+// sign-on only once they turned it on themselves (until then it wouldn't let them in).
+async function signInChoice(req, db, email) {
+  const school = req.schoolDetails || null;
+  const row = await connections.connectionForEmail(db, email, { onlyOrganizationId: school ? school.organization_id : null });
+  if (!isActive(row)) return { sso: null, password: true };
+  const account = await findAccount(db, row, email);
+  if (!account) return { sso: null, password: true };
+  const ways = connections.waysFor(row, { kind: account.kind, user: account.user, isMain: await isMainAccount(db, row, account) });
+  return { sso: ways.sso ? row : null, password: ways.password };
+}
+
+const isMainAccount = (db, row, account) => (account.kind === "student"
+  ? false
+  : connections.isMainManager(db, row.organization_id, account.kind === "manager" ? { owner: true } : account.user));
+
+// What the login page shows about a school's provider: never its addresses or keys.
+const ssoOffer = (row) => ({
+  name: row.display_name || (connections.PROVIDERS[row.provider] || connections.PROVIDERS.other).name,
+  protocol: connections.PROTOCOL_NAMES[row.protocol] || "",
+  start: `/account/sso/start/${row.public_id}`,
+});
 const miraAddress = () => `${require("../utils/miraIntegration").miraPublicUrl()}/continue`;
 
 // The provider's address for this sign-in. The request it starts is tied to this browser.
@@ -57,13 +82,17 @@ async function finishSignIn(req, res, db, connection, row, email) {
     return backToPage(req, res, "Your school's sign-in didn't send an email address. Ask your school's IT team.", next);
   }
   const account = await findAccount(db, connection, email);
-  if (account && !connection.turned_on_by_main && await connections.isMainManager(db, connection.organization_id, account.kind === "manager" ? { owner: true } : account.user)) {
-    await connections.record(db, { organizationId: connection.organization_id, kind: "login", email, outcome: "refused", detail: "The main manager didn't turn this on", ip });
-    return backToPage(req, res, "Your school's main manager signs in with a password until they turn on single sign-on themselves.", next);
-  }
   if (!account) {
     await connections.record(db, { organizationId: connection.organization_id, kind: "login", email, outcome: "refused", detail: "No account at this school with this email", ip });
     return backToPage(req, res, "There's no account at your school for that email. Ask your school to add you.", next);
+  }
+  const isMain = await isMainAccount(db, connection, account);
+  if (!connections.waysFor(connection, { kind: account.kind, user: account.user, isMain }).sso) {
+    const detail = isMain ? "The main manager didn't turn this on" : "This account signs in with a Managira password";
+    await connections.record(db, { organizationId: connection.organization_id, kind: "login", email, outcome: "refused", detail, ip });
+    return backToPage(req, res, isMain
+      ? "Your school's main manager signs in with a password until they turn on single sign-on themselves."
+      : "Your account signs in with a Managira password, not your school's sign-in. Enter your email and use your password.", next);
   }
   try {
     const landing = await signIn(db, req, connection, { ...account, email });
@@ -230,45 +259,35 @@ const answer = (res, work) => work().catch((error) => {
 });
 
 module.exports = {
+  signInChoice,
   // ---------- signing in ----------
   // The old address of the SSO page: everyone starts from the login page now.
   page: (req, res) => res.redirect(`/account/login${nextOf(req.query.next) ? "?next=mira" : ""}`),
 
-  // The login page's first step: an email. A school that signs in through its own provider
-  // gets sent there; everyone else is asked for a password, on the same page. An email nobody
-  // has gets the same password step, so this tells a stranger nothing about password accounts.
-  // A school's main manager keeps a password (and may also choose single sign-on), so they can
-  // always get in if the provider is down.
-  continueWithEmail: async (req, res, db) => {
+  // The login page's first step: an email. The page then says how this person signs in: their
+  // school's provider (named, with its own button), a password, or either when the school
+  // allows both. An email nobody has gets the same password step, so this tells a stranger
+  // nothing about password accounts.
+  continueWithEmail: async (req, res, db, { quiet = false } = {}) => {
     const next = nextOf(req.body?.next || req.query.next);
     const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 320);
-    const wantsJson = /json/i.test(req.get("accept") || "");
-    const passwordStep = (extra = {}) => (wantsJson
-      ? res.json({ step: "password", ...extra })
-      : require("./accountController").loginGet(req, res, db, { step: "password", email, next, ssoAlso: extra.sso || "" }));
+    const wantsJson = !quiet && /json/i.test(req.get("accept") || "");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       if (wantsJson) return res.status(400).json({ step: "email", message: "Enter a valid email address." });
       req.flash("error", "Enter a valid email address.");
       return res.redirect(`/account/login${next ? "?next=mira" : ""}`);
     }
+    let choice = { sso: null, password: true };
     try {
-      const school = req.schoolDetails || null;
-      const row = await connections.connectionForEmail(db, email, { onlyOrganizationId: school ? school.organization_id : null });
-      if (row && isActive(row)) {
-        const account = await findAccount(db, row, email);
-        const main = account && await connections.isMainManager(db, row.organization_id, account.kind === "manager" ? { owner: true } : account.user);
-        if (!main) {
-          const url = await startUrlFor(req, res, db, row, "login", { loginHint: email, next });
-          return wantsJson ? res.json({ step: "sso", go: url }) : res.redirect(url);
-        }
-        return passwordStep({ sso: `/account/sso/start/${row.public_id}` });
-      }
-      return passwordStep();
+      choice = await signInChoice(req, db, email);
     } catch (error) {
-      console.error("[Login] continue:", error.message);
       // Whatever went wrong with single sign-on, a password still works.
-      return passwordStep();
+      console.error("[Login] continue:", error.message);
     }
+    const sso = choice.sso ? ssoOffer(choice.sso) : null;
+    const step = sso ? "sso" : "password";
+    if (wantsJson) return res.json({ step, sso, password: choice.password });
+    return require("./accountController").loginGet(req, res, db, { step, email, next, sso, passwordToo: choice.password });
   },
 
   go: (req, res, db) => module.exports.continueWithEmail(req, res, db),
@@ -298,10 +317,13 @@ module.exports = {
 
   startConfirmed: async (req, res, db) => {
     const next = nextOf(req.body?.next);
+    // From the login page: the email typed there fills in the provider's own sign-in box.
+    const typed = String(req.body?.email || "").trim().toLowerCase().slice(0, 320);
+    const loginHint = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed) ? typed : null;
     try {
       const row = await connections.connectionByPublicId(db, req.params.publicId);
       if (!isActive(row)) return backToPage(req, res, "Single sign-on isn't turned on for this school.", next);
-      return await beginSignIn(req, res, db, row, "login", { next });
+      return await beginSignIn(req, res, db, row, "login", { next, loginHint });
     } catch (error) {
       console.error("[SSO] start:", error.message);
       return backToPage(req, res, NOT_WORKING, next);
@@ -354,8 +376,23 @@ module.exports = {
       success: true,
       providers: Object.entries(connections.PROVIDERS).map(([key, value]) => ({ key, name: value.name, protocols: value.protocols })),
       events: events.rows,
+      // Who signs in with the provider: { sso, total } staff, once each person's choice can be saved.
+      staff: row && row.status === "active" ? await connections.methodCounts(db, organizationId).catch(() => null) : null,
       ...presented(req, row),
     });
+  }),
+
+  // Everyone at the school signs in with its provider from now on (asked with the password).
+  everyone: (req, res, db) => answer(res, async () => {
+    const organizationId = req.session.organizationId;
+    if (!(await passwordIsRight(req, db, req.body?.password))) return res.status(403).json({ success: false, message: "Enter your password to change how everyone signs in." });
+    const row = await connections.connectionFor(db, organizationId);
+    if (!row || row.status !== "active") return res.status(400).json({ success: false, message: "Turn on single sign-on first." });
+    if (!(await connections.methodReady(db))) return res.status(400).json({ success: false, message: "This is getting ready. Try again in a few minutes." });
+    const changed = await connections.everyoneUsesSso(db, organizationId);
+    await connections.record(db, { organizationId, kind: "setup", email: req.session.user?.email, outcome: "ok", detail: `Everyone signs in with ${row.display_name}`, ip: req.ip });
+    logChange(req, `${actorName(req)} set everyone to sign in with ${row.display_name} (${changed} changed).`);
+    return res.json({ success: true, changed, staff: await connections.methodCounts(db, organizationId) });
   }),
 
   save: (req, res, db) => answer(res, async () => {

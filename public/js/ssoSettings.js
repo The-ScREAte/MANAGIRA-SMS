@@ -66,9 +66,18 @@
     function render() {
       var c = state.connection;
       var html = '<div class="sso-card"><div class="sso-head"><h2>Status</h2>' + pill(c) + '</div>'
-        + (c && c.status === 'active' ? '<p style="margin:6px 0 0">People at your school can sign in with ' + esc(c.displayName) + '. Your main manager can always use a password.</p>' : '')
+        + (c && c.status === 'active' ? '<p style="margin:6px 0 0">' + (state.staff
+          ? esc(state.staff.sso) + ' of ' + esc(state.staff.total) + ' staff sign in with ' + esc(c.displayName) + '. Everyone else uses a Managira password. You choose for each person on their staff form, in Users / Employees.'
+          : 'People at your school sign in with ' + esc(c.displayName) + '.') + ' Your main manager can always use a password.</p>'
+          + (state.staff && state.staff.sso < state.staff.total
+            ? '<div class="sso-row" style="margin-top:12px"><label class="sso-field sso-grow" hidden data-everyone-box><span>Your password, to move everyone to ' + esc(c.displayName) + '</span><input name="everyonePassword" type="password" autocomplete="current-password" /></label><button type="button" class="sso-btn sso-btn--go" data-everyone>Use ' + esc(c.displayName) + ' for everyone</button><a class="sso-btn" href="/common/manageEmployees" data-no-spa>Choose people</a></div><p class="sso-msg" data-msg="everyone"></p>'
+            : '')
+          : '')
         + '</div>';
 
+      // Once it's on, the setup steps fold away: the status and who uses it stay on top.
+      var folded = c && c.status === 'active';
+      if (folded) html += '<details class="sso-setup"><summary>Connection settings: ' + esc(c.displayName) + ' (' + esc(PROTOCOL[c.protocol] || '') + ')</summary>';
       html += '<div class="sso-card"><h2>1. Your provider</h2><div class="sso-providers">'
         + state.providers.map(function (p) {
           return '<button type="button" class="sso-provider' + (c && c.provider === p.key ? ' is-on' : '') + '" data-provider="' + esc(p.key) + '">' + esc(p.name) + '</button>';
@@ -78,7 +87,7 @@
         if (meta && meta.protocols.length > 1) {
           html += '<div class="sso-tabs" role="group" aria-label="Sign-in type">' + meta.protocols.map(function (key) {
             return '<button type="button" class="' + (c.protocol === key ? 'is-on' : '') + '" data-protocol="' + key + '" aria-pressed="' + (c.protocol === key) + '">' + PROTOCOL[key] + '</button>';
-          }).join('') + '</div>';
+          }).join('') + '</div><p class="sso-hint">Not sure which? Choose SAML 2.0: every provider here supports it.</p>';
         }
       }
       html += '<p class="sso-msg" data-msg="provider"></p></div>';
@@ -112,12 +121,12 @@
         }
         html += '<details class="sso-more"><summary>Advanced</summary><label class="sso-field"><span>Attribute that holds the email, if it isn’t the usual one</span><input name="emailAttribute" autocomplete="off" value="' + esc(c.emailAttribute) + '" /></label></details>'
           + '<div class="sso-row"><button type="button" class="sso-btn sso-btn--go" data-save>Save</button></div><p class="sso-msg" data-msg="save"></p></div>';
+        if (folded) html += '</details>';
 
-        html += '<div class="sso-card"><h2>4. Test it, then turn it on</h2>'
+        html += '<div class="sso-card"><h2>' + (c.status === 'active' ? 'Test or turn off' : '4. Test it, then turn it on') + '</h2>'
           + (c.testedAt ? '<p>Last test worked for ' + esc(c.testedEmail || '') + '.</p>' : '<p>Testing signs in with your provider in a new tab and shows what it sent. It doesn’t change anything.</p>')
           + '<div class="sso-row"><button type="button" class="sso-btn" data-test' + (c.complete ? '' : ' disabled') + '>Test the connection</button></div><p class="sso-msg" data-msg="test"></p>'
           + '<label class="sso-check"><input type="checkbox" data-option="allowStudents"' + (c.allowStudents ? ' checked' : '') + ' /><span>Students sign in this way too<small>For students whose portal email is an account at your provider.</small></span></label>'
-          + '<label class="sso-check"><input type="checkbox" data-option="requireSso"' + (c.requireSso ? ' checked' : '') + ' /><span>Single sign-on only<small>Staff can’t use a password. Your main manager still can, in case your provider is down.</small></span></label>'
           + (c.status === 'active'
             ? '<div class="sso-row"><label class="sso-field sso-grow"><span>Your password, to change or turn off</span><input name="confirmPassword" type="password" autocomplete="current-password" /></label><button type="button" class="sso-btn" data-turn-off>Turn off</button></div>'
             : '<div class="sso-row"><label class="sso-field sso-grow"><span>Your password, to confirm</span><input name="confirmPassword" type="password" autocomplete="current-password" /></label><button type="button" class="sso-btn sso-btn--go" data-turn-on' + (c.status === 'tested' ? '' : ' disabled') + '>Turn on</button></div>')
@@ -218,8 +227,17 @@
         call('/turn-on', { password: value('confirmPassword') }).then(function () { return load(); }).then(function () { say('switch', 'Single sign-on is on.', true); }).catch(function (error) { say('switch', error.message); });
         return;
       }
+      if (button.hasAttribute('data-everyone')) {
+        var everyoneBox = root.querySelector('[data-everyone-box]');
+        if (everyoneBox.hidden) { everyoneBox.hidden = false; everyoneBox.querySelector('input').focus(); return; }
+        button.disabled = true;
+        call('/everyone', { password: value('everyonePassword') }).then(function (result) {
+          return load().then(function () { say('switch', result.changed === 1 ? '1 person now signs in with ' + state.connection.displayName + '.' : result.changed + ' people now sign in with ' + state.connection.displayName + '.', true); });
+        }).catch(function (error) { button.disabled = false; say('everyone', error.message); });
+        return;
+      }
       if (button.hasAttribute('data-turn-off')) {
-        if (!window.confirm('Turn off single sign-on? People will sign in with their passwords.')) return;
+        if (!window.confirm('Turn off single sign-on? Everyone signs in with a Managira password; anyone who doesn’t have one sets it with Forgot password.')) return;
         call('/turn-off', { password: value('confirmPassword') }).then(function () { return load(); }).catch(function (error) { say('switch', error.message); });
         return;
       }

@@ -1374,11 +1374,14 @@ const transportationController = {
 
         const baseUrl = `${req.protocol}://${req.get("host")}`;
         const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
-        const organizationName = req.session.organizationName;
+        const organizationName = req.session.organizationName
+          || ((await db.query("SELECT organization_name FROM organizations WHERE organization_id = $1", [organizationId]).catch(() => ({ rows: [] }))).rows[0] || {}).organization_name
+          || "Your school";
         setImmediate(async () => {
           try {
             const { sendInviteEmail } = require("./commonController");
-            await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, [], []);
+            const sso = await require("../utils/sso/connections").inviteSignIn(db, organizationId);
+            await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, [], [], { sso });
           } catch (_) {
             // Best-effort — the driver account still exists even if the email fails.
           }

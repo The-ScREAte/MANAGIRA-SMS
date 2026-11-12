@@ -199,6 +199,8 @@ async function setGoogleIntegrationActivation(dbClient, organizationId, activate
 async function storeGoogleOauthTokens(dbClient, organizationId, tokenPayload = {}) {
   await ensureGoogleIntegrationSchema(dbClient);
   const scopes = Array.isArray(tokenPayload.scopes) ? tokenPayload.scopes : [];
+  // Stored locked, like the calendar's; tokens saved before this still open (openSecret).
+  const { lockSecret } = require("./calendarSync");
 
   await dbClient.query(
     `UPDATE organizations
@@ -217,8 +219,8 @@ async function storeGoogleOauthTokens(dbClient, organizationId, tokenPayload = {
       organizationId,
       tokenPayload.clientEmail || null,
       scopes,
-      tokenPayload.accessToken || null,
-      tokenPayload.refreshToken || null,
+      lockSecret(tokenPayload.accessToken || null),
+      lockSecret(tokenPayload.refreshToken || null),
       tokenPayload.expiryDate || null,
     ]
   );

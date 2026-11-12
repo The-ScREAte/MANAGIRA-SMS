@@ -221,9 +221,10 @@ test("a job lock held elsewhere skips the run", async () => {
 test("job locks are named after the job, not its position", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../jobs/scheduler.js"), "utf8");
   const names = [...source.matchAll(/cron\.schedule\('[^']+', '([a-z-]+)', async/g)].map((m) => m[1]);
-  assert.equal(names.length, 17);
-  assert.equal(new Set(names).size, 17, "each name is unique");
+  assert.equal(names.length, 18);
+  assert.equal(new Set(names).size, 18, "each name is unique");
   assert.ok(names.includes("scheduled-promotions"));
+  assert.ok(names.includes("calendar-sync"), "connected calendars are kept up to date by a job, not by whoever opens the page");
   assert.ok(names.includes("activity-reminders"));
   assert.ok(!/scheduledJobCount/.test(source));
 });

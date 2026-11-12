@@ -65,3 +65,4 @@ tr.ux-row.is-removed > td { color: var(--ws-muted, #64748b); }
 .ux-struck { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ws-muted, #64748b); }
 .ux-struck strong { color: inherit; }
 tr.ux-row.is-removed td[data-label="Name"] strong { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ws-muted, #64748b); }
+.ux-via { display: block; color: var(--ws-muted, #64748b); font-size: 11.5px; }

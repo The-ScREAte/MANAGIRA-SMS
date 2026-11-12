@@ -36,16 +36,20 @@
   <aside class="cal-side">
     <div class="cal-side__head">
       <h1>Calendar</h1>
-      <p>School events, your plans and tasks in one place.</p>
     </div>
     <% if (_isMember) { %>
     <div class="cal-side__actions">
       <button type="button" class="ws-btn ws-btn--primary cal-create" data-cal-create>
         <i class="fa-solid fa-plus" aria-hidden="true"></i> Create
       </button>
-      <button type="button" class="ws-btn cal-sync" data-cal-sync title="Sync with Google Calendar or Outlook, and share your calendar">
-        <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Sync &amp; share
-      </button>
+      <div class="cal-side__pair">
+        <button type="button" class="ws-btn cal-sync" data-cal-sync title="Send your Managira calendar to Google Calendar or Outlook">
+          <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Sync
+        </button>
+        <button type="button" class="ws-btn cal-sync" data-cal-share title="Share your calendar with colleagues">
+          <i class="fa-solid fa-user-group" aria-hidden="true"></i> Share
+        </button>
+      </div>
     </div>
     <% } else { %>
     <p class="cal-empty">You're viewing this school's calendar. Creating tasks, tagging and sharing are for the school's staff.</p>
@@ -59,7 +63,7 @@
       <label class="cal-layer" style="--dot:#0369a1"><input type="checkbox" data-cal-layer="task" checked><span class="cal-layer__box"></span>My tasks<small data-cal-count="task"></small></label>
       <% if (typeof req !== 'undefined' && req.session && req.session.accountType === 'Driver') { %><label class="cal-layer" style="--dot:#0369a1"><input type="checkbox" data-cal-layer="trip" checked><span class="cal-layer__box"></span>My bus runs<small data-cal-count="trip"></small></label>
       <% } else { %><label class="cal-layer" style="--dot:#b45309"><input type="checkbox" data-cal-layer="lesson" checked><span class="cal-layer__box"></span>My classes<small data-cal-count="lesson"></small></label><% } %>
-      <label class="cal-layer" style="--dot:#9333ea"><input type="checkbox" data-cal-layer="announcement" checked><span class="cal-layer__box"></span>Announcements<small data-cal-count="announcement"></small></label>
+      <label class="cal-layer" style="--dot:#db2777"><input type="checkbox" data-cal-layer="birthday" checked><span class="cal-layer__box"></span>Birthdays<small data-cal-count="birthday"></small></label>
       <div data-cal-dynamic="ext"></div>
     </div>
 
@@ -81,32 +85,40 @@
 
 <div class="ws-peek" data-cal-peek hidden role="dialog" aria-modal="false"></div>
 
-<!-- Sync & share -->
-<dialog class="ws-dialog ws-dialog--wide" data-sync-dialog aria-labelledby="sync-title">
+<!-- Calendar sync: Managira's calendar, sent to Google Calendar or Outlook. -->
+<dialog class="ws-dialog sync-dialog" data-sync-dialog aria-labelledby="sync-title">
   <form method="dialog" novalidate>
     <div class="ws-dialog__head">
       <div>
-        <h2 class="ws-dialog__title" id="sync-title">Sync &amp; share</h2>
-        <p class="sync-sub">Your Managira events appear in your own calendar and stay up to date.</p>
+        <h2 class="ws-dialog__title" id="sync-title">Calendar sync</h2>
       </div>
       <button type="button" class="ws-close" data-sync-close aria-label="Close">×</button>
     </div>
     <div class="ws-dialog__body">
-
-      <div class="sync-connect" data-sync-connect></div>
-
-      <section class="sync-share">
-        <div class="sync-share__head">
-          <span class="sync-sec__icon"><i class="fa-solid fa-user-group" aria-hidden="true"></i></span>
-          <div><strong>Share with colleagues</strong><p>They see your personal events and tasks in their calendar, and get an email.</p></div>
-        </div>
-        <div class="ws-people" data-share-people></div>
-        <div class="sync-share-foot">
-          <span class="ws-hint" data-share-status></span>
-          <button type="button" class="ws-btn ws-btn--primary" data-share-save>Save</button>
-        </div>
-      </section>
+      <div class="sync-rows" data-sync-connect><p class="ws-hint">Loading…</p></div>
+      <p class="sync-promise"><i class="fa-solid fa-lock" aria-hidden="true"></i> Adds a calendar named Managira. Your other events stay private.</p>
       <p class="ws-error" data-sync-error role="alert"></p>
+    </div>
+  </form>
+</dialog>
+
+<!-- Share with colleagues -->
+<dialog class="ws-dialog" data-share-dialog aria-labelledby="share-title">
+  <form method="dialog" novalidate>
+    <div class="ws-dialog__head">
+      <div>
+        <h2 class="ws-dialog__title" id="share-title">Share your calendar</h2>
+        <p class="sync-sub">Colleagues you add see your personal events and tasks in their Managira calendar, and get an email.</p>
+      </div>
+      <button type="button" class="ws-close" data-share-close aria-label="Close">×</button>
+    </div>
+    <div class="ws-dialog__body">
+      <div class="ws-people" data-share-people></div>
+      <div class="sync-share-foot">
+        <span class="ws-hint" data-share-status></span>
+        <button type="button" class="ws-btn ws-btn--primary" data-share-save>Save</button>
+      </div>
+      <p class="ws-error" data-share-error role="alert"></p>
     </div>
   </form>
 </dialog>
@@ -135,7 +147,7 @@
     let outsideFromCache = false;
     const COLOR = { teal: '#0f766e', blue: '#2563eb', violet: '#7c3aed', amber: '#d97706', rose: '#e11d48', green: '#16a34a', slate: '#475569' };
     const PALETTE = ['#0ea5e9', '#f97316', '#84cc16', '#ec4899', '#14b8a6', '#a855f7'];
-    const KIND_LABEL = { activity: 'Activity', event: 'School event', personal: 'Personal event', announcement: 'Announcement', task: 'Task', lesson: 'Class', trip: 'Bus run', external: 'Connected calendar' };
+    const KIND_LABEL = { activity: 'Activity', event: 'School event', personal: 'Personal event', announcement: 'Announcement', task: 'Task', lesson: 'Class', trip: 'Bus run', birthday: 'Birthday', external: 'Connected calendar' };
     const VIS_LABEL = { org: 'Staff only', both: hasWebsite ? 'Staff, parents & website' : 'Staff & parents', public: 'Website only', personal: 'Only you and people you tag' };
     const layerColor = {};
     const colorOf = (ev) => {
@@ -391,7 +403,7 @@
     function renderSide() {
       const all = feedCache.items.concat(outsideCache.items); // counts include calendars that are switched off
       const visible = calendar.getEvents();
-      ['event', 'personal', 'announcement', 'task', 'lesson', 'trip'].forEach((k) => {
+      ['event', 'personal', 'task', 'lesson', 'trip', 'birthday'].forEach((k) => {
         const el = root.querySelector(`[data-cal-count="${k}"]`);
         if (el) el.textContent = all.filter((e) => e.extendedProps.layer === k).length || '';
       });
@@ -411,9 +423,8 @@
       const notice = root.querySelector('[data-cal-conn-notice]');
       if (notice) {
         notice.hidden = !bad.length;
-        notice.innerHTML = bad.map((c) => `<i class="fa-solid fa-link-slash" aria-hidden="true"></i><span><strong>${W.esc(c.account_email)}</strong> needs to be connected again.</span><a class="ws-btn" data-no-spa href="/common/calendar/connect/${c.provider}?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '')}">Connect</a>`).join('');
+        notice.innerHTML = bad.map((c) => `<i class="fa-solid fa-link-slash" aria-hidden="true"></i><span><strong>${c.provider === 'outlook' ? 'Outlook' : 'Google Calendar'}</strong> sync stopped.</span><a class="ws-btn" data-no-spa href="/common/calendar/connect/${c.provider}?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '')}">Connect again</a>`).join('');
       }
-      (syncState.connections || []).forEach((c) => { const k = `conn-${c.connection_id}`; if (!groups.ext.has(k)) groups.ext.set(k, { label: c.account_email || 'Connected calendar', n: 0 }); else groups.ext.get(k).label = c.account_email || groups.ext.get(k).label; connProvider[k] = c.provider; });
       (syncState.sharedWithMe || []).forEach((o) => { const k = `share-${o.id}`; if (!groups.share.has(k)) groups.share.set(k, { label: o.name, n: 0 }); });
       let i = 0;
       ['ext', 'share'].forEach((g) => {
@@ -429,7 +440,7 @@
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const soon = visible
-        .filter((e) => e.extendedProps.kind !== 'announcement' && e.extendedProps.kind !== 'lesson' && e.extendedProps.kind !== 'trip' && (e.end || e.start) >= today)
+        .filter((e) => !['announcement', 'lesson', 'trip', 'birthday'].includes(e.extendedProps.kind) && (e.end || e.start) >= today)
         .sort((a, b) => a.start - b.start)
         .slice(0, 6);
       const list = root.querySelector('[data-cal-upcoming]');
@@ -461,157 +472,120 @@
       W.open({ type: root.dataset.initialCompose, canPublish, hasWebsite, onSaved: refresh });
     }
 
-    // ---------- Sync & share ----------
+    // ---------- Calendar sync (Google Calendar and Outlook) ----------
+    // One way: Managira's own calendar is sent to the person's Google or Outlook account.
     const syncDialog = document.querySelector('[data-sync-dialog]');
     const syncError = syncDialog.querySelector('[data-sync-error]');
-    let sharePicker = null;
     const PROVIDERS = [
-      { key: 'google', name: 'Google Calendar', logo: '<img src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="" width="26" height="26">' },
-      { key: 'outlook', name: 'Outlook', logo: '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="13" height="16" rx="2" fill="#0078d4"/><rect x="9" y="6" width="13" height="12" rx="2" fill="#28a8ea"/><circle cx="8.5" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.8"/></svg>' },
+      { key: 'google', name: 'Google Calendar', open: 'https://calendar.google.com/calendar/r', logo: '<img src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="" width="28" height="28">' },
+      { key: 'outlook', name: 'Outlook', open: 'https://outlook.office.com/calendar/view/month', logo: '<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="13" height="16" rx="2" fill="#0078d4"/><rect x="9" y="6" width="13" height="12" rx="2" fill="#28a8ea"/><circle cx="8.5" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.8"/></svg>' },
     ];
     const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-    const ago = (iso) => {
-      if (!iso) return 'Syncing…';
-      const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-      return m < 1 ? 'Synced just now' : m < 60 ? `Synced ${m} min ago` : `Synced ${new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
-    };
+    const providerOf = (key) => PROVIDERS.find((p) => p.key === key) || PROVIDERS[0];
+    const connectUrl = (key) => `/common/calendar/connect/${key}?tz=${encodeURIComponent(tz)}`;
 
     async function loadSync() {
       const r = await fetch('/common/calendar/sync', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
       const d = await r.json();
-      if (!r.ok || !d.success) throw new Error(d.error || 'Could not load sync settings.');
+      if (!r.ok || !d.success) throw new Error(d.error || 'Could not load calendar sync.');
       syncState = d;
       renderSync();
       renderSide();
       return d;
     }
+    // What a connected calendar is doing, in plain words.
+    function statusOf(c) {
+      const name = providerOf(c.provider).name;
+      // Syncing happens in the background as things change: the row only says whether it's connected.
+      if (c.last_error === 'reconnect') return { text: 'Reconnect needed', state: 'reconnect' };
+      if (c.last_error === 'setup') return { text: `Waiting for ${name} to allow Managira`, state: 'waiting' };
+      return { text: 'Connected', state: 'ok' };
+    }
+    // One row per calendar app: connected (with how it's doing) or ready to connect.
     function renderSync() {
-      const enc = encodeURIComponent;
       const conns = syncState.connections || [];
       const configured = syncState.providers || {};
-      const logoOf = (key) => (PROVIDERS.find((p) => p.key === key) || PROVIDERS[0]).logo;
-      const plainStatus = (c) => {
-        if (c.last_error === 'reconnect') return { text: 'Access ended — connect again', cls: 'is-bad' };
-        if (c.last_error === 'setup') return { text: 'Getting ready — it will start syncing automatically', cls: 'is-wait' };
-        if (c.last_error) return { text: 'Will retry shortly', cls: 'is-wait' };
-        return { text: c.last_synced_at ? ago(c.last_synced_at) : 'Syncing…', cls: '' };
-      };
-      const connected = conns.map((c) => {
-        const name = c.provider === 'google' ? 'Google' : 'Outlook';
-        const st = plainStatus(c);
-        return `<div class="sync-conn" data-conn="${c.connection_id}">
-          <div class="sync-conn__top">
-            <span class="sync-btn__logo">${logoOf(c.provider)}</span>
-            <span class="sync-btn__text"><strong>${W.esc(c.account_email || name)}</strong><small class="${st.cls}">${W.esc(st.text)}</small></span>
-            ${c.last_error === 'reconnect'
-              ? `<a class="ws-btn ws-btn--primary" data-no-spa href="/common/calendar/connect/${c.provider}?tz=${enc(tz)}">Connect again</a>`
-              : `<button type="button" class="ws-btn ws-btn--ghost" data-conn-remove="${c.connection_id}">Disconnect</button>`}
-          </div>
-          <div class="sync-conn__ways">
-            <label class="sync-way"><input type="checkbox" data-conn-setting="show" ${c.show_in_managira !== false ? 'checked' : ''}><span><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> Show my ${name} events in Managira</span></label>
-            <label class="sync-way"><input type="checkbox" data-conn-setting="push" ${c.push_enabled !== false ? 'checked' : ''}><span><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> Send Managira events to ${name}</span></label>
-          </div>
+      const rows = PROVIDERS.filter((p) => configured[p.key] || conns.some((c) => c.provider === p.key)).map((p) => {
+        const c = conns.find((x) => x.provider === p.key);
+        if (!c) {
+          return `<div class="sync-row">
+            <span class="sync-row__logo">${p.logo}</span>
+            <span class="sync-row__text"><strong>${W.esc(p.name)}</strong><small>Not connected</small></span>
+            <a class="ws-btn ws-btn--primary sync-row__go" data-no-spa href="${connectUrl(p.key)}">Connect</a>
+          </div>`;
+        }
+        const st = statusOf(c);
+        const action = st.state === 'reconnect'
+          ? `<a class="ws-btn ws-btn--primary sync-row__go" data-no-spa href="${connectUrl(p.key)}">Connect again</a>`
+          : `<button type="button" class="ws-btn sync-row__go" data-conn-remove="${c.connection_id}">Disconnect</button>`;
+        return `<div class="sync-row sync-row--${st.state}" data-conn="${c.connection_id}">
+          <span class="sync-row__logo">${p.logo}</span>
+          <span class="sync-row__text">
+            <strong>${W.esc(p.name)}</strong>
+            <small class="sync-row__state">${W.esc(st.text)}${c.account_email ? ` · <span class="sync-row__who">${W.esc(c.account_email)}</span>` : ''}</small>
+          </span>
+          ${action}
         </div>`;
       }).join('');
-      // Where sign-in isn't set up, a private link does the job: nothing to authorize, read only.
-      const subscribe = (key) => (key === 'outlook'
-        ? `https://outlook.office.com/calendar/0/addfromweb?url=${enc(syncState.feedUrl)}&name=${enc('Managira')}`
-        : `https://calendar.google.com/calendar/u/0/r?cid=${enc(syncState.webcalUrl)}`);
-      const buttons = PROVIDERS.filter((p) => !conns.some((x) => x.provider === p.key)).map((p) => {
-        if (!configured[p.key]) {
-          return `<a class="sync-pick" data-no-spa target="_blank" rel="noopener noreferrer" href="${W.esc(subscribe(p.key))}"><span class="sync-btn__logo">${p.logo}</span><span>Add to ${p.name}</span></a>`;
-        }
-        return `<a class="sync-pick" data-no-spa href="/common/calendar/connect/${p.key}?tz=${enc(tz)}"><span class="sync-btn__logo">${p.logo}</span><span>Connect ${p.name}</span></a>`;
-      }).join('');
-      const everyPick = PROVIDERS.every((p) => configured[p.key]);
-      const pickHint = everyPick ? 'Sign in and you\'re done. Your calendars share both ways automatically.' : 'Your Managira calendar appears in your own calendar and stays up to date.';
-      const linkRow = `<div class="sync-link"><a class="ws-btn" data-no-spa href="${W.esc(syncState.webcalUrl)}">Apple Calendar</a><button type="button" class="ws-btn" data-feed-copy>Copy private link</button><button type="button" class="ws-btn" data-feed-reset>New link</button></div><p class="ws-hint">Anyone with this link can see your calendar. Make a new one if it's ever shared by mistake.</p>`;
-      syncDialog.querySelector('[data-sync-connect]').innerHTML =
-        (conns.length ? `<div class="sync-connected"><h3 class="sync-h">Connected</h3>${connected}</div>` : '') +
-        (buttons ? `<div class="sync-picks">${buttons}</div><p class="ws-hint sync-pick-hint">${pickHint}</p>` : '') + linkRow;
-      if (!sharePicker) sharePicker = W.peoplePicker(syncDialog.querySelector('[data-share-people]'), { placeholder: 'Add colleagues…' });
-      sharePicker.set(syncState.sharedWith || []);
-      const n = (syncState.sharedWith || []).length;
-      syncDialog.querySelector('[data-share-status]').textContent = n ? `Shared with ${n} ${n === 1 ? 'person' : 'people'}` : 'Not shared yet';
+      syncDialog.querySelector('[data-sync-connect]').innerHTML = rows || '<p class="sync-none">Calendar sync isn\'t available yet.</p>';
     }
     async function openSync() {
       syncError.textContent = '';
       if (!syncDialog.open) syncDialog.showModal();
       try { await loadSync(); } catch (err) { syncError.textContent = err.message; }
     }
-    root.addEventListener('click', async (e) => {
-      const retry = e.target.closest('[data-conn-retry]');
-      if (!retry) return;
-      retry.disabled = true;
-      retry.textContent = 'Retrying…';
-      try { await W.post(`/common/calendar/connections/${retry.dataset.connRetry}/sync`); W.toast('Synced'); }
-      catch (err) { W.toast(err.message); }
-      await loadSync().catch(() => {});
-      refresh();
-    });
     const syncBtn = root.querySelector('[data-cal-sync]');
     if (syncBtn) syncBtn.addEventListener('click', openSync);
     syncDialog.querySelector('[data-sync-close]').addEventListener('click', () => syncDialog.close());
-    syncDialog.addEventListener('change', async (e) => {
-      const box = e.target.closest('[data-conn-setting]');
-      if (!box) return;
-      const id = box.closest('[data-conn]').dataset.conn;
-      try {
-        await W.post(`/common/calendar/connections/${id}/settings`, { [box.dataset.connSetting]: box.checked });
-        await loadSync();
-        refresh();
-        W.toast('Saved');
-      } catch (err) { box.checked = !box.checked; syncError.textContent = err.message; }
-    });
     syncDialog.addEventListener('click', async (e) => {
       if (e.target === syncDialog) { syncDialog.close(); return; }
-      const syncNow = e.target.closest('[data-conn-sync]');
-      if (syncNow) {
-        syncNow.disabled = true;
-        syncNow.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></i> Syncing…';
-        syncError.textContent = '';
-        try { await W.post(`/common/calendar/connections/${syncNow.dataset.connSync}/sync`); W.toast('Synced'); }
-        catch (err) { syncError.textContent = err.message; }
-        await loadSync().catch(() => {});
-        refresh();
-        return;
-      }
-      if (e.target.closest('[data-feed-copy]')) {
-        try { await navigator.clipboard.writeText(syncState.feedUrl); W.toast('Link copied'); }
-        catch (_err) { syncError.textContent = syncState.feedUrl; }
-        return;
-      }
-      if (e.target.closest('[data-feed-reset]')) {
-        if (!confirm('Make a new link? Calendars using the old link stop updating until you add the new one.')) return;
-        try {
-          const made = await W.post('/common/calendar/sync/reset');
-          syncState.feedUrl = made.feedUrl;
-          syncState.webcalUrl = made.webcalUrl;
-          renderSync();
-          W.toast('New link made');
-        } catch (err) { syncError.textContent = err.message; }
-        return;
-      }
       const remove = e.target.closest('[data-conn-remove]');
       if (remove) {
-        if (!confirm('Disconnect this calendar? The Managira calendar is removed from your account too.')) return;
-        try { await W.post(`/common/calendar/connections/${remove.dataset.connRemove}/disconnect`); await loadSync(); refresh(); W.toast('Disconnected'); }
+        if (!confirm('Disconnect? The Managira calendar is removed from your account. Nothing in Managira changes.')) return;
+        try { await W.post(`/common/calendar/connections/${remove.dataset.connRemove}/disconnect`); await loadSync(); W.toast('Disconnected'); }
         catch (err) { syncError.textContent = err.message; }
       }
     });
-    syncDialog.querySelector('[data-share-save]').addEventListener('click', async (e) => {
+
+    // ---------- Share with colleagues ----------
+    const shareDialog = document.querySelector('[data-share-dialog]');
+    const shareError = shareDialog.querySelector('[data-share-error]');
+    let sharePicker = null;
+    function renderShare() {
+      if (!sharePicker) sharePicker = W.peoplePicker(shareDialog.querySelector('[data-share-people]'), { placeholder: 'Add colleagues…' });
+      sharePicker.set(syncState.sharedWith || []);
+      const n = (syncState.sharedWith || []).length;
+      shareDialog.querySelector('[data-share-status]').textContent = n ? `Shared with ${n} ${n === 1 ? 'person' : 'people'}` : 'Not shared yet';
+    }
+    const shareBtn = root.querySelector('[data-cal-share]');
+    if (shareBtn) shareBtn.addEventListener('click', async () => {
+      shareError.textContent = '';
+      if (!shareDialog.open) shareDialog.showModal();
+      try { await loadSync(); renderShare(); } catch (err) { shareError.textContent = err.message; }
+    });
+    shareDialog.querySelector('[data-share-close]').addEventListener('click', () => shareDialog.close());
+    shareDialog.addEventListener('click', (e) => { if (e.target === shareDialog) shareDialog.close(); });
+    shareDialog.querySelector('[data-share-save]').addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
         await W.post('/common/calendar/shares', { viewerIds: sharePicker.get() });
         await loadSync();
+        renderShare();
         W.toast('Sharing saved');
-      } catch (err) { syncError.textContent = err.message; }
+      } catch (err) { shareError.textContent = err.message; }
       btn.disabled = false;
     });
     if (syncBtn) {
       loadSync().catch(() => {});
-      if (root.dataset.openSync === '1') openSync();
+      if (root.dataset.openSync === '1') {
+        openSync();
+        try {
+          const url = new URL(location.href);
+          url.searchParams.delete('sync');
+          history.replaceState(history.state, '', url.pathname + (url.search || '') + url.hash);
+        } catch (_e) { /* the window still opened */ }
+      }
     }
   })();
 </script>

@@ -13,6 +13,8 @@ const { checkTool } = require("../services/access");
 const findStudent = require("./findStudent");
 const getMyCalendar = require("./getMyCalendar");
 const getCalendarSyncStatus = require("./getCalendarSyncStatus");
+const addToMyCalendar = require("./addToMyCalendar");
+const findFreeTime = require("./findFreeTime");
 const whatsNew = require("./whatsNew");
 const listActivities = require("./listActivities");
 const createActivity = require("./createActivity");
@@ -192,6 +194,8 @@ const ALL_TOOLS = [
   findStudent,
   getMyCalendar,
   getCalendarSyncStatus,
+  addToMyCalendar,
+  findFreeTime,
   whatsNew,
   listActivities,
   createActivity,

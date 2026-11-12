@@ -4,7 +4,7 @@ const { assertIsStaff } = require("./_writeAuth");
 module.exports = {
   name: "get_my_calendar",
   description:
-    "What's on the signed-in person's own Managira calendar between two dates: school events, class activities, their classes or bus runs, their tasks and personal events. " +
+    "What's on the signed-in person's own Managira calendar between two dates: school events, class activities, their classes or bus runs, their tasks and personal events, and birthdays (students in their classes, and staff). " +
     "Only ever shows what this person can already see. Defaults to the next 14 days. Read-only.",
   parameters: {
     type: "object",

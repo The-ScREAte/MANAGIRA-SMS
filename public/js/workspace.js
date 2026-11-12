@@ -211,40 +211,38 @@
         <div class="ws-dialog__body">
           <div class="ws-pane" data-ws-pane="event">
             <input class="ws-input ws-input--title" name="ev_title" placeholder="Add a title" maxlength="200" aria-label="Event title">
-            <div class="ws-inline">
-              <label class="ws-check"><input type="checkbox" name="ev_allday" checked> All day</label>
-            </div>
             <div class="ws-row">
               <div class="ws-field"><label class="ws-label" for="ws-ev-date">Starts</label><input class="ws-input" type="date" id="ws-ev-date" name="ev_date"></div>
-              <div class="ws-field" data-ws-time><label class="ws-label" for="ws-ev-start">Start time</label><input class="ws-input" type="time" id="ws-ev-start" name="ev_start" step="300"></div>
-            </div>
-            <div class="ws-row">
               <div class="ws-field"><label class="ws-label" for="ws-ev-enddate">Ends</label><input class="ws-input" type="date" id="ws-ev-enddate" name="ev_enddate"></div>
-              <div class="ws-field" data-ws-time><label class="ws-label" for="ws-ev-end">End time</label><input class="ws-input" type="time" id="ws-ev-end" name="ev_end" step="300"></div>
             </div>
-            <div class="ws-field"><label class="ws-label" for="ws-ev-loc">Location</label><input class="ws-input" id="ws-ev-loc" name="ev_location" placeholder="e.g. School hall" maxlength="200"></div>
-            <div class="ws-field"><label class="ws-label" for="ws-ev-details">Details</label><textarea class="ws-textarea" id="ws-ev-details" name="ev_details" placeholder="What should people know?"></textarea></div>
-            <div class="ws-field"><span class="ws-label">Tag people</span><div class="ws-people" data-ws-people="event"></div><span class="ws-hint">Tagged staff get a notification and an email, and it shows on their dashboard and calendar.</span></div>
+            <div class="ws-row" data-ws-time>
+              <div class="ws-field"><label class="ws-label" for="ws-ev-start">From</label><input class="ws-input" type="time" id="ws-ev-start" name="ev_start" step="300"></div>
+              <div class="ws-field"><label class="ws-label" for="ws-ev-end">To</label><input class="ws-input" type="time" id="ws-ev-end" name="ev_end" step="300"></div>
+            </div>
+            <label class="ws-check"><input type="checkbox" name="ev_allday" checked> All day</label>
+            <div class="ws-field"><label class="ws-label" for="ws-ev-loc">Location</label><input class="ws-input" id="ws-ev-loc" name="ev_location" placeholder="Optional" maxlength="200"></div>
+            <div class="ws-field"><label class="ws-label" for="ws-ev-details">Details</label><textarea class="ws-textarea" id="ws-ev-details" name="ev_details" rows="3" placeholder="Optional"></textarea></div>
+            <div class="ws-field"><span class="ws-label">Tag staff</span><div class="ws-people" data-ws-people="event"></div></div>
             <div class="ws-row">
-              <div class="ws-field"><label class="ws-label" for="ws-ev-vis">Who can see it</label>
+              <div class="ws-field"><label class="ws-label" for="ws-ev-vis">Visible to</label>
                 <select class="ws-select" id="ws-ev-vis" name="ev_visibility" data-ws-visibility></select></div>
               <div class="ws-field"><span class="ws-label">Colour</span>
                 <div class="ws-colors">${COLORS.map((c) => `<label class="ws-color" title="${c}"><input type="radio" name="ev_color" value="${c}"><span class="ws-swatch--${c}"></span></label>`).join('')}</div></div>
             </div>
-            <label class="ws-check" data-ws-notify-row><input type="checkbox" name="ev_notify"> Also email parents and staff about this event</label>
+            <label class="ws-check" data-ws-notify-row><input type="checkbox" name="ev_notify"> Email parents and staff</label>
           </div>
 
           <div class="ws-pane" data-ws-pane="announcement" hidden>
-            <div class="ws-field"><label class="ws-label" for="ws-an-msg">Announcement</label><textarea class="ws-textarea" id="ws-an-msg" name="an_message" rows="6" placeholder="Write the announcement…"></textarea><span class="ws-hint">It's posted right away and shows on everyone's dashboard.</span></div>
-            <div class="ws-field"><label class="ws-label" for="ws-an-vis">Who can see it</label><select class="ws-select" id="ws-an-vis" name="an_visibility" data-ws-visibility></select></div>
-            <label class="ws-check"><input type="checkbox" name="an_notify"> Also email parents and staff</label>
+            <div class="ws-field"><label class="ws-label" for="ws-an-msg">Announcement</label><textarea class="ws-textarea" id="ws-an-msg" name="an_message" rows="5" placeholder="Write the announcement…"></textarea></div>
+            <div class="ws-field"><label class="ws-label" for="ws-an-vis">Visible to</label><select class="ws-select" id="ws-an-vis" name="an_visibility" data-ws-visibility></select></div>
+            <label class="ws-check"><input type="checkbox" name="an_notify"> Email parents and staff</label>
           </div>
 
           <div class="ws-pane" data-ws-pane="task" hidden>
-            <div class="ws-field"><label class="ws-label" for="ws-tk-title">Task</label><input class="ws-input" id="ws-tk-title" name="tk_title" maxlength="200" placeholder="e.g. Send JSS 2 results"></div>
+            <input class="ws-input ws-input--title" id="ws-tk-title" name="tk_title" maxlength="200" placeholder="Add a task" aria-label="Task">
             <div class="ws-field"><label class="ws-label" for="ws-tk-details">Details</label>
-              <div><textarea class="ws-textarea" id="ws-tk-details" name="tk_details" placeholder="Add details. Type @ and a colleague's name to mention them."></textarea></div></div>
-            <div class="ws-field"><span class="ws-label">Assign to</span><div class="ws-people" data-ws-people="task"></div><span class="ws-hint">Everyone you @mention is added here. They get a notification and an email.</span></div>
+              <div><textarea class="ws-textarea" id="ws-tk-details" name="tk_details" rows="3" placeholder="Optional. Type @ to mention a colleague."></textarea></div></div>
+            <div class="ws-field"><span class="ws-label">Assign to</span><div class="ws-people" data-ws-people="task"></div></div>
             <div class="ws-row ws-row--3">
               <div class="ws-field"><label class="ws-label" for="ws-tk-date">Due date</label><input class="ws-input" type="date" id="ws-tk-date" name="tk_date"></div>
               <div class="ws-field"><label class="ws-label" for="ws-tk-time">Time</label><input class="ws-input" type="time" id="ws-tk-time" name="tk_time" step="300"></div>
@@ -285,8 +283,8 @@
       </form>`;
     document.body.appendChild(dialog);
 
-    pickers.event = peoplePicker(dialog.querySelector('[data-ws-people="event"]'), { placeholder: 'Search staff to tag…' });
-    pickers.task = peoplePicker(dialog.querySelector('[data-ws-people="task"]'), { placeholder: 'Search staff…' });
+    pickers.event = peoplePicker(dialog.querySelector('[data-ws-people="event"]'), { placeholder: 'Optional' });
+    pickers.task = peoplePicker(dialog.querySelector('[data-ws-people="task"]'), { placeholder: 'Search staff' });
     mentionInput(dialog.querySelector('[name="tk_details"]'), { onMention: (p) => pickers.task.add(p) });
 
     const form = dialog.querySelector('form');

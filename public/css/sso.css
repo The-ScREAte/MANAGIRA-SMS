@@ -70,3 +70,11 @@
   .sso-set .tc-select { width: 120px; font-size: 16px; }
   .tc-save .sso-btn { width: 100% !important; }
 }
+.sso-card .sso-hint { margin: 8px 0 0; color: var(--muted, #64748b); font-size: 12.5px; }
+.sso-setup { margin: 0 0 14px; }
+.sso-setup > summary { cursor: pointer; padding: 12px 16px; border: 1px solid var(--border, #e5e9ef); border-radius: 12px; background: var(--card-bg, #fff); font-size: 14px; font-weight: 600; color: inherit; list-style: none; }
+.sso-setup > summary::-webkit-details-marker { display: none; }
+.sso-setup > summary::after { content: "Show"; float: right; color: var(--brand, #01535b); font-weight: 600; }
+.sso-setup[open] > summary { margin-bottom: 12px; }
+.sso-setup[open] > summary::after { content: "Hide"; }
+.sso-set a.sso-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }

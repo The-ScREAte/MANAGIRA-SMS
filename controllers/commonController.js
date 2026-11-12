@@ -9638,6 +9638,8 @@ const commonController = {
 
       res.render("common/createEmployee", {
         classMainTeachers,
+        // How the new person signs in: asked only while the school's single sign-on is on.
+        ssoSignIn: await require("../utils/sso/connections").providerForStaff(db, req.session.organizationId).catch(() => null),
         canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Create Employee",
         classes: classesResult.rows,
@@ -9740,6 +9742,10 @@ const commonController = {
     const savedPermissionRows = [...effectivePermissions, PERMISSIONS_SAVED_KEY];
     if (!Array.isArray(mailroomClassIds)) mailroomClassIds = [mailroomClassIds];
 
+    // How they sign in: asked on the form only while the school's single sign-on is on.
+    const staffSsoProvider = await require("../utils/sso/connections").providerForStaff(db, organizationId).catch(() => null);
+    const signInMethod = staffSsoProvider && ["sso", "password"].includes(req.body.sign_in_method) ? req.body.sign_in_method : null;
+
     // ─── Step 1: Ensure schema using the POOL (not a transaction client) to
     //             avoid locking issues that cause the request to hang. ────────
     try {
@@ -9796,6 +9802,7 @@ const commonController = {
         [firstName, lastName, email, account_type, dateOfBirth || null, req.session.organizationId, hashedToken, tokenExpiration]
       );
       const userId = result.rows[0].user_id;
+      if (signInMethod) await client.query("UPDATE users SET sign_in_method = $2 WHERE user_id = $1", [userId, signInMethod]);
 
       // ─── Step 6: Assign classes ───────────────────────────────────────────
       const normalizedClassIds = [...new Set(
@@ -9876,7 +9883,7 @@ const commonController = {
       // ─── Step 8: Commit ───────────────────────────────────────────────────
       const baseUrl = req.protocol + "://" + req.get("host");
       const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
-      const organizationName = req.session.organizationName;
+      const organizationName = await schoolNameOf(db, req);
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
@@ -9888,13 +9895,17 @@ const commonController = {
       setImmediate(async () => {
         try {
           const { classNames, subjectNames } = await resolveAssignmentNames(db, normalizedClassIds, normalizedSubjectIds);
-          await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, classNames, subjectNames);
-        } catch (_) {
-          // Best-effort email send should never block creation flow.
+          const sso = await require("../utils/sso/connections").inviteSignIn(db, organizationId, { method: signInMethod });
+          await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, classNames, subjectNames, { sso });
+        } catch (error) {
+          // Best-effort: the account is made either way; the reason is kept for whoever looks.
+          console.error("[createEmployee] invitation email:", error.message);
         }
       });
 
-      req.flash("success", "Employee created successfully. Password invite is being sent now.");
+      req.flash("success", signInMethod === "sso"
+        ? `Employee created. They log in with ${staffSsoProvider.name}; an invitation is on its way.`
+        : "Employee created successfully. Password invite is being sent now.");
       res.redirect(createEmployeeRedirectUrl);
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (_) {}
@@ -10444,10 +10455,11 @@ const commonController = {
         employee.permissions = employee.is_owner
           ? PERMISSION_OPTIONS.map((option) => option.key)
           : effectivePermissionsForRole(employee.account_type, grantedPermissions).filter((key) => permissionLabelMap[key]);
+        employee.last_login = lastLoginByUser.get(Number(employee.user_id)) || null;
+        // Someone who signs in with the school's provider has no password: once they've signed in, they're active.
         employee.status = employee.on_hold
           ? "On hold"
-          : employee.reset_password_token && !employee.password ? "Invite sent" : "Active";
-        employee.last_login = lastLoginByUser.get(Number(employee.user_id)) || null;
+          : employee.reset_password_token && !employee.password && !employee.last_login ? "Invite sent" : "Active";
 
         // Group subjects by class_id, keeping the dashboard class order.
         const classMap = new Map();
@@ -10522,12 +10534,26 @@ const commonController = {
         });
       }
 
+      // How each person signs in: the school's own provider, a password, or either one.
+      const signIn = await require("../utils/sso/connections").staffSignIn(db, req.session.organizationId).catch((error) => {
+        console.error("[manageEmployees] sign-in ways", error.message);
+        return null;
+      });
+      employees.forEach((employee) => {
+        employee.sign_in = signIn ? signIn.wayFor(employee, { isOwner: employee.is_owner }) : "password";
+        const lastSso = signIn ? signIn.lastSsoFor(employee.email) : null;
+        employee.last_sso = lastSso;
+        // The last sign-in was through the provider when that's the latest one recorded.
+        employee.last_login_sso = Boolean(lastSso && (!employee.last_login || new Date(lastSso).getTime() >= new Date(employee.last_login).getTime() - 5000));
+      });
+
       // Classes with nobody in charge: listed at the top so someone is chosen.
       const classesWithoutLead = await require("../utils/mainTeacher").classesWithoutMainTeacher(db, req.session.organizationId).catch(() => []);
 
       res.render("common/manageEmployees", {
         title: "Users / Employees",
         classesWithoutLead,
+        ssoProvider: signIn ? signIn.provider : null,
         permissionOptions: PERMISSION_OPTIONS,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -10699,8 +10725,15 @@ const commonController = {
 
       const mainTeachers = await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map());
 
+      const ssoConnections = require("../utils/sso/connections");
+      const ssoSignIn = await ssoConnections.providerForStaff(db, req.session.organizationId).catch(() => null);
+      const signInIsMain = ssoSignIn ? await ssoConnections.isMainManager(db, req.session.organizationId, user).catch(() => false) : false;
       res.render("common/modifyEmployee", {
         classMainTeachers: Object.fromEntries(mainTeachers),
+        ssoSignIn,
+        signInMethod: user.sign_in_method === "sso" ? "sso" : "password",
+        signInIsMain,
+        signInMainSso: signInIsMain ? Boolean((await ssoConnections.connectionFor(db, req.session.organizationId).catch(() => null) || {}).turned_on_by_main) : false,
         canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Modify Employee",
         user,
@@ -10846,7 +10879,8 @@ const commonController = {
       await client.query("BEGIN");
 
       const currentUserResult = await client.query(
-        `SELECT email
+        `SELECT user_id, email, account_type, password IS NOT NULL AS has_password,
+                to_jsonb(users) ->> 'sign_in_method' AS sign_in_method
          FROM users
          WHERE user_id = $1 AND organization_id = $2`,
         [userId, organizationId]
@@ -10880,6 +10914,18 @@ const commonController = {
          WHERE user_id = $6 AND organization_id = $7`,
         [firstName, lastName, email, accountType, dateOfBirth || null, userId, organizationId]
       );
+
+      // How they sign in, when the form asked (single sign-on on, and not the main manager).
+      const ssoConnections = require("../utils/sso/connections");
+      const wantedSignIn = ["sso", "password"].includes(req.body.sign_in_method) ? req.body.sign_in_method : null;
+      const savedSignIn = currentUserResult.rows[0].sign_in_method === "sso" ? "sso" : "password";
+      let signInChange = null;
+      if (wantedSignIn && wantedSignIn !== savedSignIn
+        && await ssoConnections.providerForStaff(db, organizationId).catch(() => null)
+        && !(await ssoConnections.isMainManager(db, organizationId, currentUserResult.rows[0]).catch(() => true))) {
+        await client.query("UPDATE users SET sign_in_method = $2 WHERE user_id = $1", [userId, wantedSignIn]);
+        signInChange = wantedSignIn;
+      }
 
       // Tenant boundary: only reassign classes that belong to this org.
       const ownedClassesME = normalizedClassIds.length
@@ -10957,6 +11003,16 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+      // Moved to a Managira password they don't have yet: email them the link to set one.
+      if (signInChange === "password" && !currentUserResult.rows[0].has_password) {
+        const token = crypto.randomBytes(32).toString("hex");
+        await db.query(
+          "UPDATE users SET reset_password_token = $2, reset_password_expires = $3 WHERE user_id = $1",
+          [userId, crypto.createHash("sha256").update(token).digest("hex"), new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)]
+        );
+        sendInviteEmail(email, firstName, lastName, `${req.protocol}://${req.get("host")}/common/set-password?token=${token}`, await schoolNameOf(db, req), organizationId)
+          .catch((error) => console.error("[modifyEmployee] invitation email:", error.message));
+      }
       await require("../utils/employeeAcknowledgement").record(req, {
         organizationId, employeeUserId: Number(userId), action: "update", accountType,
         permissions: effectivePermissions, employeeName: `${firstName || ""} ${lastName || ""}`.trim(),
@@ -18723,6 +18779,7 @@ NUMBERING:
             term_id,
           ]
         );
+        pushToConnectedCalendars(db, req);
 
         if (notifyByEmail) {
           const contentId = insertResult.rows[0]?.id;
@@ -18759,6 +18816,7 @@ NUMBERING:
             term_id,
           ]
         );
+        pushToConnectedCalendars(db, req);
 
         if (notifyByEmail) {
           const contentId = insertResult.rows[0]?.announcement_id;
@@ -18874,6 +18932,7 @@ NUMBERING:
         "UPDATE school_events SET name = $1, event_date = $2, details = $3, visibility = $4 WHERE id = $5 AND organization_id = $6",
         [eventName, eventDate, eventDetails, visibility, id, organizationId]
       );
+      if (updateResult.rowCount) pushToConnectedCalendars(db, req);
       if (updateResult.rowCount === 0) {
         req.flash("error", "Event not found.");
       } else if (notifyByEmail) {
@@ -18907,6 +18966,7 @@ NUMBERING:
         "UPDATE announcements SET message = $1, visibility = $2 WHERE announcement_id = $3 AND organization_id = $4",
         [announcementMessage, visibility, id, req.session.organizationId]
       );
+      pushToConnectedCalendars(db, req);
       if (notifyByEmail) {
         broadcastEventAnnouncement(db, {
           organizationId: req.session.organizationId,
@@ -21196,6 +21256,7 @@ NUMBERING:
         "DELETE FROM school_events WHERE id = $1 AND organization_id = $2",
         [id, req.session.organizationId]
       );
+      pushToConnectedCalendars(db, req);
       req.flash("success", "Event deleted successfully.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
@@ -21212,6 +21273,7 @@ NUMBERING:
         "DELETE FROM announcements WHERE announcement_id = $1 AND organization_id = $2",
         [id, req.session.organizationId]
       );
+      pushToConnectedCalendars(db, req);
       req.flash("success", "Announcement deleted successfully.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
@@ -24821,6 +24883,21 @@ NUMBERING:
 
 
 // Helper function to send invitation email
+// The school's name for an email, from the session or, when it isn't there, the school's record.
+async function schoolNameOf(db, req) {
+  if (req.session.organizationName) return req.session.organizationName;
+  const { rows } = await db.query("SELECT organization_name FROM organizations WHERE organization_id = $1", [req.session.organizationId]).catch(() => ({ rows: [] }));
+  return (rows[0] && rows[0].organization_name) || "Your school";
+}
+
+// A school event changed here: connected Google and Outlook calendars get it within seconds.
+function pushToConnectedCalendars(db, req) {
+  try {
+    const site = typeof req.get === "function" && req.get("host") ? `${req.protocol}://${req.get("host")}` : null;
+    require("./workspaceController").scheduleOrgSync(db, Number(req.session.organizationId), site);
+  } catch (_error) { /* the 10-minute sweep picks it up anyway */ }
+}
+
 async function sendInviteEmail(
   email,
   firstName,
@@ -24829,7 +24906,8 @@ async function sendInviteEmail(
   organizationName,
   organizationId,
   classNames = [],
-  subjectNames = []
+  subjectNames = [],
+  { sso = null } = {}
 ) {
   const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
   const assignmentDetails = [];
@@ -24843,15 +24921,17 @@ async function sendInviteEmail(
   const html = renderCleanEmail({
     title: `You're Invited to Join ${he.encode(organizationName)}`,
     greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    // A school that signs in only through its own provider has no password to set.
     paragraphs: [
-      `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.`,
+      sso && sso.only
+        ? `${he.encode(organizationName)} is inviting you to join their institution. You log in with ${he.encode(sso.name)}: enter this email on the login page and continue with ${he.encode(sso.name)}. There's no password to set.`
+        : `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.${sso ? ` You can also log in with ${he.encode(sso.name)}.` : ""}`,
       ...(assignmentDetails.length ? ["Here are your initial assignments:"] : []),
     ],
     details: assignmentDetails.length ? assignmentDetails : undefined,
-    cta: {
-      text: "Accept Invite & Set Password",
-      url: he.encode(link),
-    },
+    cta: sso && sso.only
+      ? { text: `Log in with ${he.encode(sso.name)}`, url: he.encode(`${new URL(link).origin}/account/login`) }
+      : { text: "Accept Invite & Set Password", url: he.encode(link) },
     followManagira: true,
     linkedinUrl,
     note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
@@ -24859,7 +24939,7 @@ async function sendInviteEmail(
   const mailOptions = {
     from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: email,
-    subject: "Set Your Password - Managira",
+    subject: sso && sso.only ? `You're invited to ${organizationName} - Managira` : "Set Your Password - Managira",
     html,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Employee invite email failed',

@@ -1,23 +1,23 @@
-const { BoundedMap } = require("./boundedMap");
-// One-click Google Calendar / Outlook connections (OAuth).
-// - Push: a "Managira" calendar is created in the person's account and kept in
-//   step with their Managira events, personal events and tasks.
-// - Pull: events from their main Google/Outlook calendar show inside Managira.
+// One-click Google Calendar / Outlook connections (OAuth), one way: a "Managira" calendar is
+// made in the person's account and kept in step with their Managira events, personal events
+// and tasks. Nothing is read from their other calendars, so Google is asked only for the
+// calendar Managira makes (calendar.app.created).
 const crypto = require("crypto");
 const axios = require("axios");
 // Loaded on first use: this library alone is over 100 MB of memory.
 const googleLib = () => require("googleapis").google;
 const { createGoogleOauthClient, hasGoogleOauthConfig } = require("./googleClassroomSync");
-const { lockSecret, openSecret, zoned } = require("./calendarSync");
+const { lockSecret, openSecret } = require("./calendarSync");
 
 const GOOGLE_SCOPES = [
   "openid",
   "email",
   "https://www.googleapis.com/auth/calendar.app.created",
-  "https://www.googleapis.com/auth/calendar.events",
 ];
 const MS_SCOPES = ["openid", "email", "offline_access", "User.Read", "Calendars.ReadWrite"];
-const MS_AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0";
+// Microsoft's own addresses; the local test copy points them at a stand-in service.
+const MS_AUTH = String(process.env.MICROSOFT_LOGIN_URL || "https://login.microsoftonline.com/common/oauth2/v2.0").replace(/\/$/, "");
+const GRAPH = String(process.env.MICROSOFT_GRAPH_URL || "https://graph.microsoft.com/v1.0").replace(/\/$/, "");
 
 let schemaPromise = null;
 function ensureConnectSchema(db) {
@@ -101,10 +101,10 @@ function startUrl(req, provider) {
     timeZone: validTimeZone(String(req.query.tz || "")) || Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
   if (provider === "google") {
+    // Only what the calendar needs: never merged with what Google Classroom was given.
     return createGoogleOauthClient().generateAuthUrl({
       access_type: "offline",
       prompt: "select_account consent",
-      include_granted_scopes: true,
       scope: GOOGLE_SCOPES,
       state,
     });
@@ -155,7 +155,7 @@ async function finishOauth(db, req, provider) {
     }), { timeout: 10000 });
     tokens = { access: r.data.access_token, refresh: r.data.refresh_token, expires: new Date(Date.now() + (r.data.expires_in || 3600) * 1000) };
     try {
-      const me = await axios.get("https://graph.microsoft.com/v1.0/me", { headers: { Authorization: `Bearer ${tokens.access}` }, timeout: 8000 });
+      const me = await axios.get(`${GRAPH}/me`, { headers: { Authorization: `Bearer ${tokens.access}` }, timeout: 8000 });
       email = me.data.mail || me.data.userPrincipalName || "";
     } catch (_e) { email = ""; }
   }
@@ -173,7 +173,7 @@ async function finishOauth(db, req, provider) {
      ON CONFLICT (user_id, provider, account_email) DO UPDATE SET
        organization_id = EXCLUDED.organization_id,
        access_token = EXCLUDED.access_token, refresh_token = COALESCE(EXCLUDED.refresh_token, calendar_connections.refresh_token),
-       expires_at = EXCLUDED.expires_at, time_zone = EXCLUDED.time_zone, last_error = NULL
+       expires_at = EXCLUDED.expires_at, time_zone = EXCLUDED.time_zone, last_error = NULL, push_enabled = TRUE
      RETURNING connection_id`,
     [Number(req.session.organizationId), userId, provider, normalizedEmail, lockSecret(tokens.access), lockSecret(tokens.refresh), tokens.expires, pending.timeZone]
   );
@@ -212,7 +212,7 @@ async function msToken(db, conn) {
 }
 async function realGraph(db, conn, method, path, data, headers = {}) {
   const token = await msToken(db, conn);
-  const r = await axios({ method, url: `https://graph.microsoft.com/v1.0${path}`, data, timeout: 12000, headers: { Authorization: `Bearer ${token}`, ...headers } });
+  const r = await axios({ method, url: `${GRAPH}${path}`, data, timeout: 12000, headers: { Authorization: `Bearer ${token}`, ...headers } });
   return r.data;
 }
 
@@ -274,6 +274,20 @@ const goneStatus = (err) => [404, 410].includes(Number(err?.code || err?.respons
 
 /** items: [{ uid, title, details, location, date, endDate, startTime, endTime, allDay, url }] */
 async function pushItems(db, conn, items, orgName) {
+  try {
+    return await pushOnce(db, conn, items, orgName);
+  } catch (err) {
+    if (!goneStatus(err) || !conn.managira_calendar_id) throw err;
+    // The Managira calendar was deleted in Google or Outlook: while connected, it's made again
+    // with everything in it. Disconnecting in Managira is how to stop.
+    await db.query(`UPDATE calendar_connections SET managira_calendar_id = NULL WHERE connection_id = $1`, [conn.connection_id]);
+    await db.query(`DELETE FROM calendar_push_map WHERE connection_id = $1`, [conn.connection_id]);
+    conn.managira_calendar_id = null;
+    return pushOnce(db, conn, items, orgName);
+  }
+}
+
+async function pushOnce(db, conn, items, orgName) {
   const tz = conn.time_zone || "UTC";
   const calId = await ensureManagiraCalendar(db, conn, orgName);
   const map = new Map((await db.query(`SELECT item_uid, remote_id, hash FROM calendar_push_map WHERE connection_id = $1`, [conn.connection_id])).rows.map((r) => [r.item_uid, r]));
@@ -322,55 +336,6 @@ async function pushItems(db, conn, items, orgName) {
   }
 }
 
-// ---------- pull (Google/Outlook -> Managira) ----------
-const pullCache = new BoundedMap(500);
-
-async function pullEvents(db, conn, start, end) {
-  const key = `${conn.connection_id}:${start}:${end}`;
-  const hit = pullCache.get(key);
-  if (hit && Date.now() - hit.at < 2 * 60 * 1000) return hit.items;
-  const label = conn.account_email || (conn.provider === "google" ? "Google Calendar" : "Outlook");
-  const layer = `conn-${conn.connection_id}`;
-  const out = [];
-  if (conn.provider === "google") {
-    const r = await googleApi(db, conn).events.list({
-      calendarId: "primary", timeMin: new Date(Date.parse(`${start}T00:00:00Z`) - 864e5).toISOString(), timeMax: new Date(Date.parse(`${end}T23:59:59Z`) + 864e5).toISOString(),
-      singleEvents: true, orderBy: "startTime", maxResults: 500, timeZone: conn.time_zone || "UTC",
-    });
-    (r.data.items || []).forEach((e) => {
-      if (e.status === "cancelled" || (e.extendedProperties && e.extendedProperties.private && e.extendedProperties.private.managiraUid)) return;
-      const allDay = !!(e.start && e.start.date);
-      const s = allDay ? e.start.date : (e.start && e.start.dateTime ? new Date(e.start.dateTime) : null);
-      if (!s) return;
-      const en = allDay ? e.end && e.end.date : (e.end && e.end.dateTime ? new Date(e.end.dateTime) : null);
-      const at = allDay ? null : zoned(s, conn.time_zone);
-      const until = allDay || !en ? null : zoned(en, conn.time_zone);
-      out.push({
-        id: `${layer}-${e.id}`, title: e.summary || "(No title)",
-        start: allDay ? s : `${at.day}T${at.time}`, end: en ? (allDay ? en : `${until.day}T${until.time}`) : null,
-        allDay, editable: false, classNames: ["cal-ev", "cal-ev--external"],
-        extendedProps: { kind: "external", layer, provider: "google", source: label, details: e.description || "", location: e.location || "", link: e.htmlLink || "" },
-      });
-    });
-  } else {
-    const p = new URLSearchParams({ startDateTime: `${start}T00:00:00`, endDateTime: `${end}T23:59:59`, $top: "250", $orderby: "start/dateTime" });
-    const r = await graph(db, conn, "get", `/me/calendarView?${p}`, null, { Prefer: `outlook.timezone="${conn.time_zone || "UTC"}"` });
-    (r.value || []).forEach((e) => {
-      if (e.isCancelled) return;
-      const s = String(e.start && e.start.dateTime || "").slice(0, 16);
-      const en = String(e.end && e.end.dateTime || "").slice(0, 16);
-      out.push({
-        id: `${layer}-${e.id}`, title: e.subject || "(No title)",
-        start: e.isAllDay ? s.slice(0, 10) : s, end: e.isAllDay ? en.slice(0, 10) : en, allDay: !!e.isAllDay, editable: false,
-        classNames: ["cal-ev", "cal-ev--external"],
-        extendedProps: { kind: "external", layer, provider: "outlook", source: label, details: e.bodyPreview || "", location: (e.location && e.location.displayName) || "", link: e.webLink || "" },
-      });
-    });
-  }
-  pullCache.set(key, { at: Date.now(), items: out });
-  return out;
-}
-
 async function disconnect(db, conn) {
   try {
     if (conn.managira_calendar_id) {
@@ -382,7 +347,6 @@ async function disconnect(db, conn) {
     axios.post(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(openSecret(conn.refresh_token))}`).catch(() => {});
   }
   await db.query(`DELETE FROM calendar_connections WHERE connection_id = $1`, [conn.connection_id]);
-  for (const k of pullCache.keys()) if (k.startsWith(`${conn.connection_id}:`)) pullCache.delete(k);
 }
 
 // Error codes stored on the connection; the UI turns them into plain words.
@@ -406,7 +370,7 @@ function friendlyError(err) {
 }
 
 module.exports = {
-  ensureConnectSchema, providersConfigured, startUrl, isCalendarCallback, finishOauth,
-  pushItems, pullEvents, disconnect, friendlyError,
+  GOOGLE_SCOPES, ensureConnectSchema, providersConfigured, startUrl, isCalendarCallback, finishOauth,
+  pushItems, disconnect, friendlyError,
   __setDeps: (next) => Object.assign(deps, next),
 };

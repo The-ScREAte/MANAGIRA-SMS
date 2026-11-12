@@ -205,7 +205,7 @@ function eventItem(row, { kind, tags, editable, layer, owner }) {
 }
 
 // All calendar items one person can see in a date range.
-async function collectItems(db, { organizationId, actor, start, end, canPublish, seesAllClasses = canPublish }) {
+async function collectItems(db, { organizationId, actor, start, end, canPublish, seesAllClasses = canPublish, role = null }) {
   // Each query is a round trip to the database, so they all run at once. Only
   // personal events and tasks wait for the calendars shared with this person.
   const ownersP = sharedOwners(db, organizationId, actor.id);
@@ -216,11 +216,14 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
       return [];
     })
     : [];
+  // Bus runs only while the school has transportation switched on.
   const tripsP = actor.id
-    ? tripItems(db, { organizationId, userId: actor.id, start, end }).catch((err) => {
-      console.error("[Calendar] trips failed:", err.message);
-      return [];
-    })
+    ? require("../utils/integrationSwitches").isOn(db, organizationId, "transportation")
+      .then((on) => (on ? tripItems(db, { organizationId, userId: actor.id, start, end }) : []))
+      .catch((err) => {
+        console.error("[Calendar] trips failed:", err.message);
+        return [];
+      })
     : [];
   const eventsP = db.query(
     `SELECT id, name, event_date, end_date, start_time, end_time, all_day, location, color, details, visibility
@@ -254,15 +257,18 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
       return listActivities(db, organizationId, { classIds: mine.rows.map((row) => Number(row.class_id)), from: start, to: end });
     })()
     : [];
-  const [owners, events, personal, announcements, tasks, lessons, trips, eventTags, personalTags, activities] = await Promise.all([
+  // Birthdays: students in the person's classes (every class for those who run the school), and staff.
+  const birthdaysP = actor.id
+    ? require("../utils/birthdayCalendar").birthdayItems(db, { organizationId, userId: actor.id, role: role || (seesAllClasses ? "manager" : null), start, end }).catch((err) => {
+      console.error("[Calendar] birthdays failed:", err.message);
+      return [];
+    })
+    : [];
+  // Announcements live on dashboards, not on the calendar.
+  const [owners, events, personal, tasks, lessons, trips, eventTags, personalTags, activities, birthdays] = await Promise.all([
     ownersP,
     eventsP,
     personalP,
-    db.query(
-      `SELECT announcement_id, message, visibility, created_at FROM announcements
-        WHERE organization_id = $1 AND created_at >= $2::date AND created_at < $3::date ORDER BY created_at`,
-      [organizationId, start, end]
-    ),
     afterOwners((ownerIds) => db.query(
       `SELECT t.task_id, t.title, t.details, t.due_date, t.due_time, t.priority, t.created_by, t.created_by_name, t.updated_at,
               me.status AS my_status,
@@ -282,6 +288,7 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
     eventsP.then((r) => tagsFor(db, "school_event_tags", r.rows.map((e) => e.id))),
     personalP.then((r) => tagsFor(db, "personal_event_tags", r.rows.map((e) => e.id))),
     activitiesP,
+    birthdaysP,
   ]);
   const ownerName = new Map(owners.map((o) => [o.id, o.name]));
 
@@ -300,16 +307,6 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
       tags: personalTags.get(e.id),
       editable: !!e.mine,
     }));
-  });
-  announcements.rows.forEach((a) => {
-    const message = String(a.message || "");
-    items.push({
-      id: `announcement-${a.announcement_id}`,
-      title: message.split("\n")[0].slice(0, 80) || "Announcement",
-      start: dateKey(a.created_at), allDay: true, editable: false,
-      classNames: ["cal-ev", "cal-ev--announcement"],
-      extendedProps: { kind: "announcement", layer: "announcement", recordId: a.announcement_id, details: message, visibility: a.visibility || "org" },
-    });
   });
   tasks.rows.forEach((t) => {
     const day = dateKey(t.due_date);
@@ -333,7 +330,7 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
   });
 
   // The viewer's lessons from the class timetables, and a driver's weekly bus runs.
-  items.push(...lessons, ...trips);
+  items.push(...lessons, ...trips, ...birthdays);
   return { items, owners };
 }
 
@@ -342,23 +339,10 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
 async function collectOutsideItems(db, { organizationId, actor, start, end, timeZone }) {
   if (!actor.id) return { items: [], errors: [] };
   await calConnect.ensureConnectSchema(db);
-  const [conns, imports] = await Promise.all([
-    db.query(`SELECT * FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 AND show_in_managira`, [organizationId, actor.id]),
-    db.query(`SELECT import_id, label, provider, url FROM calendar_imports WHERE organization_id = $1 AND user_id = $2`, [organizationId, actor.id]),
-  ]);
+  // Connected Google and Outlook calendars only receive Managira's calendar: nothing is read
+  // from them. Calendars subscribed by link earlier still show here.
+  const imports = await db.query(`SELECT import_id, label, provider, url FROM calendar_imports WHERE organization_id = $1 AND user_id = $2`, [organizationId, actor.id]);
   const errors = [];
-  const connected = conns.rows.map(async (conn) => {
-    try {
-      const pulled = await calConnect.pullEvents(db, conn, start, end);
-      if (conn.last_error && conn.last_synced_at) db.query(`UPDATE calendar_connections SET last_error = NULL WHERE connection_id = $1`, [conn.connection_id]).catch(() => {});
-      return pulled;
-    } catch (err) {
-      const msg = calConnect.friendlyError(err);
-      errors.push({ provider: conn.provider, error: msg });
-      db.query(`UPDATE calendar_connections SET last_error = $2 WHERE connection_id = $1`, [conn.connection_id, msg]).catch(() => {});
-      return [];
-    }
-  });
   const subscribed = imports.rows.map(async (imp) => {
     try {
       const ext = await importedEvents(imp, start, end, timeZone);
@@ -371,7 +355,7 @@ async function collectOutsideItems(db, { organizationId, actor, start, end, time
       return [];
     }
   });
-  const lists = await Promise.all([...connected, ...subscribed]);
+  const lists = await Promise.all(subscribed);
   return { items: lists.flat(), errors };
 }
 
@@ -384,28 +368,59 @@ async function canEditPersonal(db, organizationId, id, actorId) {
 // ---------- Google / Outlook push ----------
 const PROVIDER_LABEL = { google: "Google Calendar", outlook: "Outlook" };
 
-// Push one person's Managira items (school events, their personal events, their tasks) to a connected calendar.
-async function syncConnection(db, conn, siteUrl) {
-  if (conn.push_enabled === false) {
-    await db.query(`UPDATE calendar_connections SET last_synced_at = NOW() WHERE connection_id = $1`, [conn.connection_id]).catch(() => {});
-    return;
-  }
-  const who = await db.query(
-    `SELECT u.first_name, u.last_name, o.organization_name FROM users u JOIN organizations o ON o.organization_id = u.organization_id
-      WHERE u.user_id = $1 AND u.organization_id = $2`,
+// Who a connection belongs to, and what their own calendar page shows them: a member of staff,
+// or the school signed in as itself (its connection's person is the school's own id).
+async function syncActor(db, conn) {
+  const staffRow = (await db.query(
+    `SELECT u.first_name, u.last_name, u.email, u.account_type::text AS account_type, o.organization_name
+       FROM users u JOIN organizations o ON o.organization_id = u.organization_id
+      WHERE u.user_id = $1 AND u.organization_id = $2 AND u.removed_at IS NULL AND NOT COALESCE(u.on_hold, FALSE)`,
     [conn.user_id, conn.organization_id]
-  );
-  if (!who.rowCount) return;
-  const actor = { id: conn.user_id, name: fullName(who.rows[0]) };
-  const start = dateKey(new Date(Date.now() - 30 * 864e5));
-  const end = dateKey(new Date(Date.now() + 240 * 864e5));
-  const { items } = await collectItems(db, { organizationId: conn.organization_id, actor, start, end, canPublish: false });
-  const site = siteUrl || process.env.BASE_URL_PRODUCTION || "https://managira.com";
-  const push = items
-    .filter((it) => ["event", "personal", "task", "activity"].includes(it.extendedProps.kind) && !String(it.extendedProps.layer || "").startsWith("share-"))
+  )).rows[0];
+  const { userHasPermission, isManagerRole } = require("../middleware/permissionMiddleware");
+  if (staffRow) {
+    const who = { userId: conn.user_id, userRole: staffRow.account_type, accountType: staffRow.account_type, organizationId: conn.organization_id, userEmail: staffRow.email };
+    const canPublish = await userHasPermission(db, who, "publish_events_announcements").catch(() => false);
+    return {
+      actor: { id: conn.user_id, name: fullName(staffRow) },
+      orgName: staffRow.organization_name,
+      canPublish,
+      seesAllClasses: canPublish || isManagerRole(staffRow.account_type),
+      role: staffRow.account_type,
+    };
+  }
+  if (Number(conn.user_id) !== Number(conn.organization_id)) return null;
+  const school = (await db.query("SELECT organization_name, first_name, last_name FROM organizations WHERE organization_id = $1", [conn.organization_id])).rows[0];
+  if (!school) return null;
+  return { actor: { id: conn.user_id, name: fullName(school) || school.organization_name }, orgName: school.organization_name, canPublish: true, seesAllClasses: true, role: "Organization" };
+}
+
+// Everything on the person's Managira calendar goes to their Managira calendar over there:
+// school events and activities, their personal events and tasks, and their
+// classes and bus runs for the coming weeks. Calendars shared with them stay in Managira, and
+// so do birthdays: they come from student and staff records.
+const SYNC_BACK_DAYS = 120;
+const SYNC_AHEAD_DAYS = 365;
+const ROUTINE_BACK_DAYS = 7; // classes and bus runs repeat every week: just the weeks around now
+const ROUTINE_AHEAD_DAYS = 56;
+function itemsToSend(items, site) {
+  const today = Date.now();
+  const routineFrom = dateKey(new Date(today - ROUTINE_BACK_DAYS * 864e5));
+  const routineTo = dateKey(new Date(today + ROUTINE_AHEAD_DAYS * 864e5));
+  return items
+    .filter((it) => !String((it.extendedProps || {}).layer || "").startsWith("share-"))
     .map((it) => {
-      const p = it.extendedProps;
+      const p = it.extendedProps || {};
       const timed = !it.allDay;
+      if (p.kind === "lesson" || p.kind === "trip") {
+        if (p.date < routineFrom || p.date > routineTo) return null;
+        return {
+          uid: `${p.kind}-${p.recordId}`, title: it.title, details: p.details, location: p.location,
+          date: p.date, endDate: p.date, startTime: p.startTime, endTime: p.endTime, allDay: !p.startTime,
+          url: p.kind === "lesson" ? `${site}/common/classDashboard/${p.classId}` : `${site}/driver/dashboard`,
+        };
+      }
+      if (!["event", "activity", "personal", "task"].includes(p.kind)) return null;
       return {
         uid: `${p.kind}-${p.recordId}`,
         title: p.kind === "task" ? `Task: ${it.title}` : it.title,
@@ -414,15 +429,94 @@ async function syncConnection(db, conn, siteUrl) {
         startTime: timed ? p.startTime : null, endTime: timed ? p.endTime : null, allDay: !timed,
         url: p.kind === "task" ? `${site}/common/orgDashboard#task-${p.recordId}` : `${site}/common/calendar?date=${p.date}`,
       };
-    });
+    })
+    .filter((item) => item && /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || "")));
+}
+
+async function syncConnection(db, conn, siteUrl) {
+  const who = await syncActor(db, conn);
+  if (!who) return;
+  const start = dateKey(new Date(Date.now() - SYNC_BACK_DAYS * 864e5));
+  const end = dateKey(new Date(Date.now() + SYNC_AHEAD_DAYS * 864e5));
+  const { items } = await collectItems(db, { organizationId: conn.organization_id, actor: who.actor, start, end, canPublish: who.canPublish, seesAllClasses: who.seesAllClasses });
+  const site = siteUrl || process.env.BASE_URL_PRODUCTION || "https://managira.com";
+  const push = itemsToSend(items, site);
   try {
-    await calConnect.pushItems(db, conn, push, who.rows[0].organization_name);
+    await calConnect.pushItems(db, conn, push, who.orgName);
     await db.query(`UPDATE calendar_connections SET last_synced_at = NOW(), last_error = NULL WHERE connection_id = $1`, [conn.connection_id]);
   } catch (err) {
     const msg = calConnect.friendlyError(err);
     console.error(`[Calendar] ${conn.provider} sync failed for user ${conn.user_id}:`, msg);
     await db.query(`UPDATE calendar_connections SET last_error = $2 WHERE connection_id = $1`, [conn.connection_id, msg]).catch(() => {});
   }
+}
+
+// Mira: something on the person's own calendar (a meeting, an appointment, a reminder). It's a
+// personal event, the same as one made on the calendar page, and it goes to their Google
+// Calendar or Outlook too.
+async function addPersonalEvent(db, { organizationId, actor, body, siteUrl = null }) {
+  await ensureWorkspaceSchema(db);
+  const e = readEventBody({ ...(body || {}), visibility: PERSONAL });
+  if (!e.title) { const err = new Error("Say what to put on the calendar."); err.status = 400; throw err; }
+  if (!e.date) { const err = new Error("Give the date as YYYY-MM-DD."); err.status = 400; throw err; }
+  const r = await db.query(
+    `INSERT INTO personal_events (organization_id, owner_id, owner_name, title, details, event_date, end_date, start_time, end_time, all_day, location, color)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+    [organizationId, actor.id, actor.name, e.title, e.details, e.date, e.endDate, e.startTime, e.endTime, e.allDay, e.location || null, e.color]
+  );
+  scheduleOrgSync(db, organizationId, siteUrl);
+  return { id: r.rows[0].id, title: e.title, date: e.date, endDate: e.endDate !== e.date ? e.endDate : null, startTime: e.startTime, endTime: e.endTime, allDay: e.allDay, location: e.location || null };
+}
+
+// Mira: the free times on the person's own calendar, day by day, within working hours. Anything
+// with a time blocks it (events, classes, bus runs, their personal events and timed tasks);
+// all-day items are listed for the day so nobody books over a holiday without seeing it.
+const toMinutes = (hhmmText) => { const [h, m] = String(hhmmText || "").split(":").map(Number); return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null; };
+const toClock = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+// The free times in a list of calendar items, day by day within working hours.
+function freeSlots(items, { start, days = 5, dayStart = "08:00", dayEnd = "17:00", minutes = 30 }) {
+  const from = toMinutes(dayStart);
+  const to = toMinutes(dayEnd);
+  if (from === null || to === null || to <= from) { const err = new Error("Give working hours like 08:00 to 17:00."); err.status = 400; throw err; }
+  const span = Math.min(Math.max(Number(days) || 1, 1), 14);
+  const need = Math.min(Math.max(Number(minutes) || 30, 5), 600);
+  const out = [];
+  for (let i = 0; i < span; i += 1) {
+    const day = addDays(start, i);
+    const busy = [];
+    const allDay = [];
+    items.forEach((it) => {
+      const p = it.extendedProps || {};
+      const first = p.date || String(it.start || "").slice(0, 10);
+      const last = p.endDate || first;
+      if (day < first || day > last || String(p.layer || "").startsWith("share-")) return;
+      if (it.allDay || !p.startTime) {
+        if (p.kind !== "birthday") allDay.push(it.title);
+        return;
+      }
+      const begins = first === day ? toMinutes(p.startTime) : 0;
+      if (begins === null) return;
+      const finishes = last === day ? (toMinutes(p.endTime) ?? begins + (p.kind === "task" ? 30 : 60)) : 24 * 60;
+      busy.push([begins, Math.max(finishes, begins + 15), it.title]);
+    });
+    busy.sort((a, b) => a[0] - b[0]);
+    const free = [];
+    let cursor = from;
+    busy.forEach(([b, f]) => {
+      if (b > cursor && Math.min(b, to) - cursor >= need) free.push({ from: toClock(cursor), to: toClock(Math.min(b, to)) });
+      cursor = Math.max(cursor, f);
+    });
+    if (to - cursor >= need) free.push({ from: toClock(cursor), to: toClock(to) });
+    const weekday = new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+    out.push({ date: day, weekday, free, busy: busy.map(([b, f, title]) => ({ from: toClock(b), to: toClock(Math.min(f, 24 * 60 - 1)), title })), allDay });
+  }
+  return { from: start, to: addDays(start, span - 1), workingHours: `${toClock(from)}-${toClock(to)}`, minutesNeeded: need, days: out };
+}
+
+async function freeTime(db, { organizationId, actor, role, seesAllClasses, start, days = 5, dayStart = "08:00", dayEnd = "17:00", minutes = 30 }) {
+  const span = Math.min(Math.max(Number(days) || 1, 1), 14);
+  const { items } = await collectItems(db, { organizationId, actor, start, end: addDays(start, span), canPublish: false, seesAllClasses, role });
+  return freeSlots(items, { start, days: span, dayStart, dayEnd, minutes });
 }
 
 // Re-sync everyone connected in an organization a few seconds after a change.
@@ -441,20 +535,22 @@ function scheduleOrgSync(db, organizationId, siteUrl) {
   }, 4000));
 }
 
-// Keep connected calendars fresh even without edits (every 20 minutes).
-let loopStarted = false;
-function startSyncLoop(db) {
-  if (loopStarted) return;
-  loopStarted = true;
-  const run = async () => {
-    try {
-      await calConnect.ensureConnectSchema(db);
-      const orgs = await db.query(`SELECT DISTINCT organization_id FROM calendar_connections`);
-      orgs.rows.forEach((o) => scheduleOrgSync(db, o.organization_id));
-    } catch (_e) { /* ignore */ }
-  };
-  setInterval(run, 20 * 60 * 1000).unref();
+// Every 10 minutes (jobs/scheduler.js, one server at a time): each connected calendar gets what
+// changed, wherever the change was made, including after a restart. Unchanged items cost nothing;
+// an account whose access ended waits until its owner connects it again.
+async function runCalendarSyncSweep(db, { limit = 300 } = {}) {
+  await calConnect.ensureConnectSchema(db);
+  const { rows } = await db.query(
+    `SELECT * FROM calendar_connections
+      WHERE last_error IS DISTINCT FROM 'reconnect'
+      ORDER BY last_synced_at ASC NULLS FIRST
+      LIMIT $1`,
+    [limit]
+  );
+  for (const conn of rows) await syncConnection(db, conn).catch(() => {});
+  return rows.length;
 }
+
 
 module.exports = {
   // GET /common/calendar
@@ -464,6 +560,8 @@ module.exports = {
       const features = Array.isArray(res.locals.allowedFeatures) ? res.locals.allowedFeatures : [];
       res.render("common/calendar", {
         title: "Calendar",
+        // "Connected" (or what went wrong) after coming back from Google or Microsoft.
+        messages: req.flash(),
         canPublish: can(res, "publish_events_announcements") && await isOrgMember(db, req),
         hasWebsite: features.includes("School Website") || features.includes("SchoolWebsite"),
         initialDate: parseDate(req.query.date) || "",
@@ -491,6 +589,7 @@ module.exports = {
         start, end,
         canPublish: can(res, "publish_events_announcements"),
         seesAllClasses: can(res, "publish_events_announcements") || isManagerRole(req.session.userRole || req.session.accountType),
+        role: req.session.accountType === "Organization" ? "Organization" : (req.session.userRole || req.session.accountType),
       });
       res.json(items);
     } catch (err) {
@@ -705,17 +804,14 @@ module.exports = {
       ]);
       await calConnect.ensureConnectSchema(db);
       const connections = await db.query(
-        `SELECT connection_id, provider, account_email, last_synced_at, last_error, show_in_managira, push_enabled FROM calendar_connections WHERE organization_id = $1 AND user_id = $2 ORDER BY provider, created_at`,
+        `SELECT c.connection_id, c.provider, c.account_email, c.last_synced_at, c.last_error,
+                (SELECT COUNT(*)::int FROM calendar_push_map m WHERE m.connection_id = c.connection_id) AS items
+           FROM calendar_connections c
+          WHERE c.organization_id = $1 AND c.user_id = $2
+          ORDER BY c.provider, c.created_at`,
         [organizationId, actor.id]
       );
-      startSyncLoop(db);
-      // Catch up anything that hasn't synced recently (e.g. right after connecting or fixing access).
-      const stale = (await db.query(
-        `SELECT * FROM calendar_connections WHERE organization_id = $1 AND user_id = $2
-            AND (last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '10 minutes' OR last_error IS NOT NULL)`,
-        [organizationId, actor.id]
-      )).rows;
-      stale.forEach((conn) => syncConnection(db, conn, baseUrl(req)).catch(() => {}));
+      // Nothing syncs because this page opened: changes go out in the background as they happen.
       const feedUrl = `${baseUrl(req)}/calendar/ics/${token}.ics`;
       res.json({
         success: true,
@@ -1085,14 +1181,16 @@ module.exports = {
       await calConnect.ensureConnectSchema(db);
       const { email, connectionId } = await calConnect.finishOauth(db, req, provider);
       const conn = (await db.query(`SELECT * FROM calendar_connections WHERE connection_id = $1`, [connectionId])).rows[0];
+      // The Managira calendar is made and filled in the background; nobody waits for it.
       if (conn) syncConnection(db, conn, baseUrl(req)).catch(() => {});
-      startSyncLoop(db);
-      req.flash("success", `${PROVIDER_LABEL[provider]} connected${email ? ` (${email})` : ""}. Your calendars are now shared both ways.`);
+      req.flash("success", `${PROVIDER_LABEL[provider]} connected${email ? ` (${email})` : ""}.`);
     } catch (err) {
       console.error("[Calendar] connect callback failed:", err.message);
-      req.flash("error", `${PROVIDER_LABEL[provider]} didn't connect. Please try again.`);
+      // Our own words say what happened (cancelled, access not allowed, took too long); anything else stays general.
+      const ours = /^(The sign-in expired|Google sign-in was cancelled|Microsoft sign-in was cancelled|Calendar access wasn't granted|No authorization code)/.test(String(err.message || ""));
+      req.flash("error", ours ? err.message : `${PROVIDER_LABEL[provider]} didn't connect. Please try again.`);
     }
-    return res.redirect("/common/calendar");
+    return res.redirect("/common/calendar?sync=1");
   },
 
   // POST /common/calendar/connect/:provider/disconnect
@@ -1116,7 +1214,10 @@ module.exports = {
       await syncConnection(db, conn, baseUrl(req));
       const fresh = (await db.query(`SELECT last_synced_at, last_error FROM calendar_connections WHERE connection_id = $1`, [conn.connection_id])).rows[0];
       if (fresh.last_error) {
-        const plain = fresh.last_error === "setup" ? "Sync is getting ready and will start automatically." : (fresh.last_error === "reconnect" ? "Please connect this calendar again." : "Couldn't sync just now. We'll keep trying.");
+        const name = PROVIDER_LABEL[conn.provider] || "This calendar";
+        const plain = fresh.last_error === "setup"
+          ? `${name} isn't available for Managira yet. Your events will appear on their own as soon as it is.`
+          : (fresh.last_error === "reconnect" ? `${name} stopped letting Managira in. Connect again to keep syncing.` : "Couldn't sync just now. It tries again in a few minutes.");
         return fail(res, 502, plain);
       }
       res.json({ success: true, lastSyncedAt: fresh.last_synced_at });
@@ -1169,4 +1270,8 @@ module.exports = {
 };
 module.exports.collectItems = collectItems;
 module.exports.scheduleOrgSync = scheduleOrgSync;
-module.exports.startSyncLoop = startSyncLoop;
+module.exports.runCalendarSyncSweep = runCalendarSyncSweep;
+module.exports.itemsToSend = itemsToSend;
+module.exports.addPersonalEvent = addPersonalEvent;
+module.exports.freeTime = freeTime;
+module.exports.freeSlots = freeSlots;

@@ -155,3 +155,143 @@ test("sign-in forms never refuse: wrong guesses only wait their turn, and a righ
     console.warn = warn;
   }
 });
+
+// Swaps the feature check and a few lookups for the length of one test.
+async function withStubs(stubs, work) {
+  const saved = stubs.map(([object, key]) => [object, key, object[key]]);
+  stubs.forEach(([object, key, value]) => { object[key] = value; });
+  try { return await work(); } finally { saved.forEach(([object, key, value]) => { object[key] = value; }); }
+}
+
+test("after the email, the login page says how that person signs in", async () => {
+  const features = require("../utils/shards/features");
+  const sso = require("../controllers/ssoController");
+  const row = (extra = {}) => ({ organization_id: 9, connection_id: 1, status: "active", provider: "okta", protocol: "saml", display_name: "Okta", public_id: "a".repeat(24), require_sso: false, turned_on_by_main: false, saml_sso_url: "https://idp.example.com/sso", oidc_client_id: "x", ...extra });
+  let current = null;
+  let main = false;
+  const db = { query: async () => ({ rows: [{ user_id: 5, account_type: "Teacher", email: "t@school.org" }] }) };
+  const ask = () => new Promise((resolve) => {
+    const req = { body: { email: "T@School.org" }, query: {}, get: () => "application/json" };
+    sso.continueWithEmail(req, { json: resolve, status() { return this; } }, db);
+  });
+  await withStubs([[features, "isOn", () => true], [connections, "connectionForEmail", async () => current], [connections, "isMainManager", async () => main]], async () => {
+    assert.deepEqual(await ask(), { step: "password", sso: null, password: true }, "no single sign-on: a password");
+    current = row();
+    assert.deepEqual(await ask(), { step: "sso", sso: { name: "Okta", protocol: "SAML", start: `/account/sso/start/${"a".repeat(24)}` }, password: true }, "both: the provider, named, and a password");
+    current = row({ require_sso: true, protocol: "oidc" });
+    let answer = await ask();
+    assert.deepEqual([answer.step, answer.sso.protocol, answer.password], ["sso", "OpenID Connect", false], "single sign-on only");
+    main = true;
+    answer = await ask();
+    assert.deepEqual([answer.step, answer.password], ["password", true], "the main manager keeps a password, and isn't offered SSO they didn't turn on");
+    current = row({ require_sso: true, turned_on_by_main: true });
+    answer = await ask();
+    assert.deepEqual([answer.step, answer.password], ["sso", true], "a main manager who turned it on gets both");
+    main = false;
+    current = row({ status: "tested" });
+    assert.equal((await ask()).step, "password", "tested but not on: a password");
+  });
+});
+
+test("the login page shows the school's sign-in without scripts too", async () => {
+  const ejs = require("ejs");
+  const file = path.join(__dirname, "../views/account/login.ejs");
+  const render = (locals) => ejs.renderFile(file, { messages: {}, email: "t@school.org", ...locals });
+  const sso = { name: "Okta <IT>", protocol: "SAML", start: `/account/sso/start/${"b".repeat(24)}` };
+  const only = await render({ step: "sso", sso, passwordToo: false });
+  assert.match(only, new RegExp(`<form id="ssoForm" method="post" action="${sso.start}"`));
+  assert.match(only, /Continue with <span data-sso-name>Okta &lt;IT&gt;<\/span>/, "the name is escaped");
+  assert.match(only, /id="passwordStep" hidden/);
+  assert.match(only, /data-submit hidden/);
+  const both = await render({ step: "sso", sso, passwordToo: true });
+  assert.doesNotMatch(both, /id="passwordStep" hidden/);
+  assert.doesNotMatch(both, /data-or hidden/);
+  assert.match(both, /<form id="loginForm" action="\/account\/login"/);
+  const email = await render({ step: "email" });
+  assert.match(email, /data-sso-step hidden/);
+  assert.match(email, /<form id="loginForm" action="\/account\/login\/continue"/);
+});
+
+test("the staff list says how each person signs in, as the login page does", async () => {
+  // Before the update: no column, so the school's connection decides for everyone.
+  connections.methodReady.forget();
+  const features = require("../utils/shards/features");
+  const permissions = require("../middleware/permissionMiddleware");
+  let row = { organization_id: 9, status: "active", display_name: "Okta", protocol: "saml", require_sso: false, turned_on_by_main: false };
+  const db = { query: async (sql) => ({ rows: /FROM sso_connections/.test(sql) ? [row] : /FROM sso_events/.test(sql) ? [{ email: "t@school.org", at: new Date("2026-11-10T09:00:00Z") }] : [] }) };
+  await withStubs([[features, "isOn", () => true], [permissions, "getPrimaryManagerUserId", async () => 1]], async () => {
+    let ways = await connections.staffSignIn(db, 9);
+    assert.deepEqual(ways.provider, { name: "Okta", protocol: "SAML" });
+    assert.equal(ways.wayFor({ user_id: 5 }), "both");
+    assert.equal(ways.wayFor({ user_id: 1 }), "password", "the main manager, until they turn it on themselves");
+    assert.equal(ways.lastSsoFor("T@School.org").toISOString(), "2026-11-10T09:00:00.000Z");
+    row = { ...row, require_sso: true, turned_on_by_main: true };
+    ways = await connections.staffSignIn(db, 9);
+    assert.equal(ways.wayFor({ user_id: 5 }), "sso");
+    assert.equal(ways.wayFor({ user_id: 77 }, { isOwner: true }), "both");
+    row = { ...row, status: "tested" };
+    ways = await connections.staffSignIn(db, 9);
+    assert.equal(ways.provider, null);
+    assert.equal(ways.wayFor({ user_id: 5 }), "password");
+  });
+});
+
+test("each member of staff has one way in: their school's provider or a Managira password", () => {
+  const row = { require_sso: false, turned_on_by_main: false, allow_students: true };
+  const ways = (user, extra = {}) => connections.waysFor({ ...row, ...extra.row }, { kind: extra.kind || "staff", user, isMain: Boolean(extra.isMain) });
+  assert.deepEqual(ways({ sign_in_method: "sso" }), { sso: true, password: false }, "set to the provider: the provider only");
+  assert.deepEqual(ways({ sign_in_method: "password" }), { sso: false, password: true }, "set to a password: a password only");
+  assert.deepEqual(ways({ sign_in_method: null }), { sso: false, password: true }, "never chosen: a Managira password");
+  assert.deepEqual(ways({ sign_in_method: "sso" }, { isMain: true }), { sso: false, password: true }, "the main manager keeps a password, and gets SSO only once they turned it on");
+  assert.deepEqual(ways({ sign_in_method: "sso" }, { isMain: true, row: { turned_on_by_main: true } }), { sso: true, password: true });
+  assert.deepEqual(ways(null, { kind: "manager", row: { turned_on_by_main: true } }), { sso: true, password: true }, "the school's own account is the main manager");
+  assert.deepEqual(ways(null, { kind: "student" }), { sso: true, password: true }, "students the school lets in this way: either");
+  assert.deepEqual(ways({}, {}), { sso: true, password: true }, "before the update (no column): the school's connection decides, as before");
+  assert.deepEqual(ways({}, { row: { require_sso: true } }), { sso: true, password: false });
+});
+
+test("the login page and the password check follow each person's own way in", async () => {
+  const features = require("../utils/shards/features");
+  const sso = require("../controllers/ssoController");
+  const row = { organization_id: 9, connection_id: 1, status: "active", provider: "okta", protocol: "saml", display_name: "Okta", public_id: "c".repeat(24), require_sso: false, turned_on_by_main: true };
+  let person = { user_id: 5, account_type: "Teacher", email: "t@school.org", sign_in_method: "sso" };
+  let main = false;
+  const db = { query: async (sql) => ({ rows: /FROM sso_connections/.test(sql) ? [row] : /FROM users/.test(sql) ? [person] : [] }) };
+  const ask = () => new Promise((resolve) => {
+    sso.continueWithEmail({ body: { email: "t@school.org" }, query: {}, get: () => "application/json" }, { json: resolve, status() { return this; } }, db);
+  });
+  await withStubs([[features, "isOn", () => true], [connections, "connectionForEmail", async () => row], [connections, "isMainManager", async () => main]], async () => {
+    let answer = await ask();
+    assert.deepEqual([answer.step, answer.password], ["sso", false], "set to Okta: the Okta button only");
+    assert.equal(await connections.passwordRefused(db, 9, { user: person }), true, "and a right password is refused");
+    person = { ...person, sign_in_method: "password" };
+    answer = await ask();
+    assert.deepEqual([answer.step, answer.sso, answer.password], ["password", null, true], "set to a password: the password box only");
+    assert.equal(await connections.passwordRefused(db, 9, { user: person }), false);
+    person = { ...person, sign_in_method: null };
+    assert.equal((await ask()).step, "password", "never chosen: a password");
+    main = true;
+    person = { ...person, sign_in_method: "sso" };
+    answer = await ask();
+    assert.deepEqual([answer.step, answer.password], ["sso", true], "the main manager who turned it on: both");
+    assert.equal(await connections.passwordRefused(db, 9, { isMainManager: true, user: person }), false, "and their password always works");
+  });
+});
+
+test("Users / Employees shows each person's own way in once the update has run", async () => {
+  const features = require("../utils/shards/features");
+  const permissions = require("../middleware/permissionMiddleware");
+  const row = { organization_id: 9, status: "active", display_name: "Okta", protocol: "oidc", require_sso: false, turned_on_by_main: false };
+  const db = { query: async (sql) => ({ rows: /information_schema/.test(sql) ? [{ "?column?": 1 }]
+    : /FROM sso_connections/.test(sql) ? [row]
+      : /SELECT user_id, sign_in_method FROM users/.test(sql) ? [{ user_id: 5, sign_in_method: "sso" }, { user_id: 6, sign_in_method: "password" }, { user_id: 7, sign_in_method: null }]
+        : [] }) };
+  connections.methodReady.forget();
+  await withStubs([[features, "isOn", () => true], [permissions, "getPrimaryManagerUserId", async () => 1]], async () => {
+    const ways = await connections.staffSignIn(db, 9);
+    assert.deepEqual(ways.provider, { name: "Okta", protocol: "OpenID Connect" });
+    assert.deepEqual([5, 6, 7, 1].map((id) => ways.wayFor({ user_id: id })), ["sso", "password", "password", "password"]);
+    assert.deepEqual([5, 6].map((id) => ways.chosenFor({ user_id: id })), ["sso", "password"]);
+  });
+  connections.methodReady.forget();
+});

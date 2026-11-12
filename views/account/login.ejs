@@ -112,11 +112,20 @@
     .field-top button { padding: 0; border: 0; background: none; color: var(--brand); font: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
     .field-top button:hover { text-decoration: underline; }
     input[readonly] { background: #f9fafb; color: var(--muted); }
-    .password-step[hidden], .sso-also[hidden] { display: none; }
-    .password-step { animation: reveal 0.18s ease-out; }
+    .password-step[hidden], .sso-step[hidden], .or-line[hidden], .btn-primary[hidden], .keep[hidden] { display: none; }
+    .password-step, .sso-step { animation: reveal 0.18s ease-out; }
     @keyframes reveal { from { opacity: 0; transform: translateY(-4px); } }
-    .sso-also { display: block; margin-top: 12px; text-align: center; font-size: 0.9rem; font-weight: 500; color: var(--brand); text-decoration: none; }
-    .sso-also:hover { text-decoration: underline; }
+    /* The school's own sign-in: what it is, then its button. */
+    .sso-says { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #cfe3e5; border-radius: 12px; background: #f2f8f8; }
+    .sso-says svg { flex: none; width: 22px; height: 22px; color: var(--brand); }
+    .sso-says p { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.4; }
+    .sso-says strong { color: var(--text); font-weight: 650; }
+    .sso-says small { display: block; color: var(--soft); font-size: 0.8rem; }
+    .sso-step .btn-primary { margin-top: 14px; }
+    .or-line { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; color: var(--soft); font-size: 0.85rem; }
+    .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: #e5e7eb; }
+    .btn-primary.is-quiet { margin-top: 18px; border: 1px solid var(--line); background: #fff; color: var(--brand); }
+    .btn-primary.is-quiet:hover { background: #f3f7f7; }
     .btn-primary[disabled] { opacity: 0.75; cursor: wait; }
     .field-error { margin: 8px 0 0; font-size: 0.875rem; color: var(--error-text); }
     .field-error[hidden] { display: none; }
@@ -177,18 +186,30 @@
         <a href="/account/login">Use a different account</a>
       </div>
       <% } else { %>
-      <% const _passwordStep = locals.step === 'password'; %>
-      <form id="loginForm" action="<%= _passwordStep ? '/account/login' : '/account/login/continue' %>" method="post" novalidate data-step="<%= _passwordStep ? 'password' : 'email' %>">
+      <%
+        const _step = ['password', 'sso'].includes(locals.step) ? step : 'email';
+        const _sso = _step === 'sso' && locals.sso ? sso : null;
+        const _password = _step === 'password' || Boolean(_sso && locals.passwordToo);
+      %>
+      <form id="loginForm" action="<%= _step === 'email' ? '/account/login/continue' : '/account/login' %>" method="post" novalidate data-step="<%= _step %>">
         <% if (locals.next) { %><input type="hidden" name="next" value="<%= next %>" /><% } %>
         <div class="field">
-          <div class="field-top"><label for="email">Email address</label><button type="button" data-change-email<%= _passwordStep ? '' : ' hidden' %>>Change</button></div>
-          <input type="email" id="email" name="email" value="<%= locals.email || '' %>" placeholder="Enter email" required autocomplete="username" autocapitalize="none" spellcheck="false"<%= _passwordStep ? ' readonly' : ' autofocus' %> />
+          <div class="field-top"><label for="email">Email address</label><button type="button" data-change-email<%= _step === 'email' ? ' hidden' : '' %>>Change</button></div>
+          <input type="email" id="email" name="email" value="<%= locals.email || '' %>" placeholder="Enter email" required autocomplete="username" autocapitalize="none" spellcheck="false"<%= _step === 'email' ? ' autofocus' : ' readonly' %> />
           <p class="field-error" data-email-error hidden></p>
         </div>
-        <div class="field password-step" id="passwordStep"<%= _passwordStep ? '' : ' hidden' %>>
+        <div class="field sso-step" data-sso-step<%= _sso ? '' : ' hidden' %>>
+          <div class="sso-says">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <p>Your school signs in with <strong data-sso-name><%= _sso ? _sso.name : '' %></strong><small data-sso-kind>Single sign-on<%= _sso && _sso.protocol ? ` · ${_sso.protocol}` : '' %></small></p>
+          </div>
+          <button type="submit" form="ssoForm" class="btn-primary" data-sso-go<%= _sso ? ' autofocus' : '' %>>Continue with <span data-sso-name><%= _sso ? _sso.name : '' %></span></button>
+          <div class="or-line" data-or<%= _sso && _password ? '' : ' hidden' %>>or use your password</div>
+        </div>
+        <div class="field password-step" id="passwordStep"<%= _password ? '' : ' hidden' %>>
           <div class="field-top"><label for="password">Password</label><a href="/account/forget-password">Forgot password?</a></div>
           <div class="password-box">
-            <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password"<%= _passwordStep ? ' required autofocus' : '' %> />
+            <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password"<%= _password ? ' required' : '' %><%= _step === 'password' ? ' autofocus' : '' %> />
             <button type="button" class="show-password" aria-label="Show password" aria-pressed="false" data-show-password>
               <svg class="when-hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="when-shown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-6.5 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.6 18.6 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="m2 2 20 20"/></svg>
@@ -196,10 +217,9 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-primary" data-submit><%= _passwordStep ? 'Log in' : 'Continue' %></button>
-        <a class="sso-also" href="<%= locals.ssoAlso || '#' %>" data-sso-also<%= locals.ssoAlso ? '' : ' hidden' %>>Use your school's sign-in instead</a>
+        <button type="submit" class="btn-primary<%= _sso ? ' is-quiet' : '' %>" data-submit<%= _sso && !_password ? ' hidden' : '' %>><%= _step === 'email' ? 'Continue' : 'Log in' %></button>
 
-        <div class="keep">
+        <div class="keep"<%= _sso && !_password ? ' hidden' : '' %>>
           <label><input type="checkbox" name="remember" value="on" id="remember" /><span>Keep me logged in</span></label>
           <button type="button" class="help-dot" aria-label="About keeping you logged in" aria-describedby="keepHelp" aria-expanded="false" data-help>?</button>
           <div class="help-tip" id="keepHelp" role="tooltip">
@@ -207,6 +227,11 @@
             <span>You'll stay signed in even if you close all browser windows, for as long as your school allows (30 days unless it chose otherwise), unless you log out or clear your browser's cookies. Don't use it on a public or shared computer.</span>
           </div>
         </div>
+      </form>
+      <%# The school's sign-in is its own form, so its button works without scripts too. %>
+      <form id="ssoForm" method="post" action="<%= _sso ? _sso.start : '/account/login' %>" data-loader-text="Taking you to your school's sign-in">
+        <input type="hidden" name="email" value="<%= locals.email || '' %>" data-sso-email />
+        <% if (locals.next) { %><input type="hidden" name="next" value="<%= next %>" /><% } %>
       </form>
       <% } %>
 
@@ -268,51 +293,52 @@
       });
       help.addEventListener('mouseleave', function () { keep.classList.remove('is-dismissed'); });
       help.addEventListener('focus', function () { keep.classList.remove('is-dismissed'); });
-      // Two steps on one page. First the email: the server says whether this person signs in
-      // through their school's own provider (they go straight there) or with a password (the
-      // password box opens here). Without scripts the same happens with full page loads.
+      // One page, in steps. First the email; the server then says how this person signs in:
+      // a password, their school's own sign-in (named, with its button), or either one when the
+      // school allows both. Without scripts the same happens with full page loads.
       var form = document.getElementById('loginForm');
       var email = document.getElementById('email');
       var step = document.getElementById('passwordStep');
       var submit = form.querySelector('[data-submit]');
       var change = form.querySelector('[data-change-email]');
-      var ssoAlso = form.querySelector('[data-sso-also]');
+      var keepBox = form.querySelector('.keep');
+      var ssoStep = form.querySelector('[data-sso-step]');
+      var ssoGo = form.querySelector('[data-sso-go]');
+      var orLine = form.querySelector('[data-or]');
+      var ssoForm = document.getElementById('ssoForm');
       var emailError = form.querySelector('[data-email-error]');
       var KEY = 'managira:login-email';
-      function passwordStep(ssoLink) {
-        form.setAttribute('data-step', 'password');
-        form.action = '/account/login';
-        step.hidden = false;
-        password.required = true;
-        email.readOnly = true;
-        change.hidden = false;
-        submit.textContent = 'Log in';
-        if (ssoLink) { ssoAlso.href = ssoLink; ssoAlso.hidden = false; }
-        password.focus();
-      }
-      function emailStep() {
-        form.setAttribute('data-step', 'email');
-        form.action = '/account/login/continue';
-        step.hidden = true;
-        password.required = false;
-        password.value = '';
-        email.readOnly = false;
-        change.hidden = true;
-        ssoAlso.hidden = true;
-        submit.textContent = 'Continue';
-        email.focus();
-        email.select();
-      }
-      change.addEventListener('click', emailStep);
-      form.addEventListener('submit', function (event) {
-        emailError.hidden = true;
-        if (form.getAttribute('data-step') === 'password') {
-          if (!password.value) { event.preventDefault(); password.reportValidity(); return; }
-          try { sessionStorage.setItem(KEY, email.value.trim()); } catch (_) {}
-          return; // a normal sign-in; the loading screen shows
+      function remember() { try { sessionStorage.setItem(KEY, email.value.trim()); } catch (_) {} }
+      // name: 'email', 'password' or 'sso'. sso: { name, protocol, start }; passwordToo: a password works as well.
+      function show(name, sso, passwordToo) {
+        var usesSso = name === 'sso' && sso;
+        var usesPassword = name === 'password' || Boolean(usesSso && passwordToo);
+        form.setAttribute('data-step', usesSso ? 'sso' : name);
+        form.action = name === 'email' ? '/account/login/continue' : '/account/login';
+        email.readOnly = name !== 'email';
+        change.hidden = name === 'email';
+        ssoStep.hidden = !usesSso;
+        if (usesSso) {
+          form.querySelectorAll('[data-sso-name]').forEach(function (el) { el.textContent = sso.name; });
+          form.querySelector('[data-sso-kind]').textContent = 'Single sign-on' + (sso.protocol ? ' · ' + sso.protocol : '');
+          ssoForm.action = sso.start;
+          ssoForm.querySelector('[data-sso-email]').value = email.value.trim();
         }
-        event.preventDefault();
-        if (!email.checkValidity() || !email.value.trim()) { email.reportValidity(); return; }
+        orLine.hidden = !(usesSso && usesPassword);
+        step.hidden = !usesPassword;
+        password.required = usesPassword;
+        if (!usesPassword) password.value = '';
+        submit.hidden = Boolean(usesSso && !usesPassword);
+        submit.classList.toggle('is-quiet', Boolean(usesSso));
+        submit.textContent = name === 'email' ? 'Continue' : 'Log in';
+        keepBox.hidden = Boolean(usesSso && !usesPassword);
+        if (name === 'email') { email.focus(); email.select(); }
+        else if (usesSso) ssoGo.focus();
+        else password.focus();
+      }
+      change.addEventListener('click', function () { show('email'); });
+      ssoForm.addEventListener('submit', remember);
+      function ask() {
         submit.disabled = true;
         var body = new URLSearchParams({ email: email.value.trim() });
         var nextField = form.querySelector('input[name="next"]');
@@ -320,26 +346,41 @@
         fetch('/account/login/continue', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: body })
           .then(function (answer) { return answer.json(); })
           .then(function (data) {
-            if (data.step === 'sso' && data.go) {
-              if (window.showAuthLoader) window.showAuthLoader("Taking you to your school's sign-in");
-              location.assign(data.go);
-              return;
-            }
             submit.disabled = false;
-            if (data.step === 'password') { passwordStep(data.sso); return; }
+            if (data.step === 'sso' && data.sso) { show('sso', data.sso, data.password); return; }
+            if (data.step === 'password') { show('password'); return; }
             emailError.textContent = data.message || 'Enter a valid email address.';
             emailError.hidden = false;
             email.focus();
           })
           .catch(function () { submit.disabled = false; form.submit(); });
+      }
+      form.addEventListener('submit', function (event) {
+        emailError.hidden = true;
+        var current = form.getAttribute('data-step');
+        // Enter on the school's sign-in step goes to the school's sign-in, unless the person is typing a password.
+        if (current === 'sso' && (step.hidden || (event.submitter !== submit && document.activeElement !== password))) {
+          event.preventDefault();
+          if (ssoForm.requestSubmit) ssoForm.requestSubmit(); else { remember(); ssoForm.submit(); }
+          return;
+        }
+        if (current === 'password' || current === 'sso') {
+          if (!password.value) { event.preventDefault(); password.reportValidity(); return; }
+          remember();
+          return; // a normal sign-in; the loading screen shows
+        }
+        event.preventDefault();
+        if (!email.checkValidity() || !email.value.trim()) { email.reportValidity(); return; }
+        ask();
       });
-      // Back after a wrong password: the same email, straight to the password box.
+      // Back after a wrong password or a sign-in that didn't work: the same email, and the same
+      // choice of how to sign in.
       var hasError = document.querySelector('.flash-message.error');
       var remembered = '';
       try { remembered = sessionStorage.getItem(KEY) || ''; } catch (_) {}
-      if (form.getAttribute('data-step') === 'email' && hasError && remembered && !/single sign-on|own sign-in/i.test(hasError.textContent)) {
+      if (form.getAttribute('data-step') === 'email' && hasError && remembered) {
         email.value = remembered;
-        passwordStep();
+        ask();
       }
       document.querySelectorAll('.flash-close').forEach(function (x) { x.addEventListener('click', function () { x.parentElement.remove(); }); });
     })();

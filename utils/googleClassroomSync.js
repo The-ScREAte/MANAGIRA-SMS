@@ -159,10 +159,20 @@ async function getGoogleClient(organizationId, dbClient = db) {
     throw new Error("No Google OAuth token found for this organization.");
   }
 
+  const { lockSecret, openSecret } = require("./calendarSync");
+  // Tokens saved before they were stored locked: locked now, the first time they're used.
+  const access = integration.google_classroom_access_token;
+  const refresh = integration.google_classroom_refresh_token;
+  if ((access && lockSecret(access) !== access) || (refresh && lockSecret(refresh) !== refresh)) {
+    dbClient.query(
+      "UPDATE organizations SET google_classroom_access_token = $2, google_classroom_refresh_token = $3 WHERE organization_id = $1",
+      [organizationId, lockSecret(access), lockSecret(refresh)]
+    ).catch(() => {});
+  }
   const oauthClient = createGoogleOauthClient();
   oauthClient.setCredentials({
-    access_token: integration.google_classroom_access_token || undefined,
-    refresh_token: integration.google_classroom_refresh_token || undefined,
+    access_token: openSecret(integration.google_classroom_access_token) || undefined,
+    refresh_token: openSecret(integration.google_classroom_refresh_token) || undefined,
     expiry_date: integration.google_classroom_token_expiry
       ? new Date(integration.google_classroom_token_expiry).getTime()
       : undefined,
@@ -182,8 +192,8 @@ async function getGoogleClient(organizationId, dbClient = db) {
           WHERE organization_id = $1`,
         [
           organizationId,
-          tokens.access_token || null,
-          tokens.refresh_token || null,
+          lockSecret(tokens.access_token || null),
+          lockSecret(tokens.refresh_token || null),
           Number.isFinite(Number(tokens.expiry_date)) ? Number(tokens.expiry_date) : null,
         ]
       );

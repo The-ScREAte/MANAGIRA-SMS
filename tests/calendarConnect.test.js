@@ -17,6 +17,10 @@ function fakeDb() {
         map.set(`${params[0]}:${params[1]}`, { item_uid: params[1], remote_id: params[2], hash: params[3] });
         return { rows: [] };
       }
+      if (/DELETE FROM calendar_push_map WHERE connection_id = \$1$/.test(sql.trim())) {
+        for (const key of [...map.keys()]) if (key.startsWith(`${params[0]}:`)) map.delete(key);
+        return { rows: [] };
+      }
       if (/DELETE FROM calendar_push_map WHERE connection_id = \$1 AND item_uid = \$2/.test(sql)) {
         map.delete(`${params[0]}:${params[1]}`);
         return { rows: [] };
@@ -115,17 +119,34 @@ test("Google push only sends changes, removes deleted items and re-adds events d
   assert.deepStrictEqual(g.calls.map((c) => c[0]), ["insert"]);
 });
 
-test("Google pull shows the person's own events but not the ones Managira put there", async () => {
+test("Google is asked only for the calendar Managira makes, never for the person's other calendars", () => {
+  assert.ok(calConnect.GOOGLE_SCOPES.includes("https://www.googleapis.com/auth/calendar.app.created"));
+  assert.ok(!calConnect.GOOGLE_SCOPES.some((scope) => /calendar\.events|calendar\.readonly|\/calendar$/.test(scope)), calConnect.GOOGLE_SCOPES.join(" "));
+});
+
+test("a Managira calendar deleted in Google is made again, with everything in it", async () => {
+  const db = fakeDb();
   const g = fakeGoogle();
+  let calendars = 0;
+  const deleted = new Set();
+  g.api.calendars.insert = async () => { calendars += 1; return { data: { id: `cal-${calendars}` } }; };
+  const realInsert = g.api.events.insert;
+  g.api.events.insert = async (args) => {
+    if (deleted.has(args.calendarId)) { const err = new Error("Not Found"); err.code = 404; throw err; }
+    return realInsert(args);
+  };
   calConnect.__setDeps({ googleApi: () => g.api });
-  const conn = { connection_id: 9, user_id: 1, provider: "google", account_email: "me@gmail.com" };
-  const out = await calConnect.pullEvents({}, conn, "2026-10-01", "2026-10-31");
-  assert.deepStrictEqual(out.map((e) => e.title), ["Work", "Holiday"]);
-  assert.strictEqual(out[0].allDay, false);
-  assert.strictEqual(out[1].allDay, true);
-  assert.strictEqual(out[1].start, "2026-10-13");
-  assert.strictEqual(out[0].extendedProps.layer, "conn-9");
-  assert.strictEqual(out[0].extendedProps.source, "me@gmail.com");
+  const conn = { connection_id: 11, user_id: 1, provider: "google", time_zone: "UTC", managira_calendar_id: null };
+  await calConnect.pushItems(db, conn, items(), "School");
+  assert.strictEqual(conn.managira_calendar_id, "cal-1");
+  // Someone deleted the whole Managira calendar in Google, then a new event is added in Managira.
+  deleted.add("cal-1");
+  g.remote.clear();
+  const more = items().concat([{ uid: "event-3", title: "Open Day", details: "", location: "", date: "2026-10-30", endDate: "2026-10-30", startTime: null, endTime: null, allDay: true, url: "https://x/cal" }]);
+  await calConnect.pushItems(db, conn, more, "School");
+  assert.strictEqual(conn.managira_calendar_id, "cal-2", "a new Managira calendar was made");
+  assert.strictEqual(g.remote.size, 3, "and everything was sent to it again");
+  assert.strictEqual(db.map.size, 3);
 });
 
 test("Outlook push creates a calendar and sends events through Microsoft Graph", async () => {
@@ -155,4 +176,42 @@ test("errors are turned into plain codes for the screen", () => {
   console.error = () => {};
   assert.strictEqual(calConnect.friendlyError({ code: 403, message: "Google Calendar API has not been used in project 1 before or it is disabled." }), "setup");
   console.error = orig;
+});
+
+test("everything on the person's Managira calendar is sent: events, activities, classes and bus runs (not announcements or birthdays)", () => {
+  const { itemsToSend } = require("../controllers/workspaceController");
+  const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const items = [
+    { title: "Science Fair", allDay: false, extendedProps: { kind: "event", layer: "event", recordId: 1, date: day(3), endDate: day(3), startTime: "10:00", endTime: "12:00" } },
+    { title: "Projects due (6th)", allDay: true, extendedProps: { kind: "activity", layer: "event", recordId: 2, date: day(4), endDate: day(4) } },
+    { title: "Checking the sync", start: day(1), allDay: true, extendedProps: { kind: "announcement", layer: "announcement", recordId: 3, details: "Checking the sync\nmore" } },
+    { title: "Math (6th)", allDay: false, extendedProps: { kind: "lesson", layer: "lesson", recordId: `4-${day(2)}`, date: day(2), startTime: "08:00", endTime: "08:45", classId: 9 } },
+    { title: "Math (6th)", allDay: false, extendedProps: { kind: "lesson", layer: "lesson", recordId: `4-${day(90)}`, date: day(90), startTime: "08:00", endTime: "08:45", classId: 9 } },
+    { title: "Morning run", allDay: false, extendedProps: { kind: "trip", layer: "trip", recordId: `5-${day(1)}`, date: day(1), startTime: "07:00", endTime: "08:00" } },
+    { title: "Plan lessons", allDay: true, extendedProps: { kind: "task", layer: "task", recordId: 6, date: day(5) } },
+    { title: "A colleague's dentist", allDay: true, extendedProps: { kind: "personal", layer: "share-12", recordId: 7, date: day(5), endDate: day(5) } },
+  ];
+  const sent = itemsToSend(items, "https://managira.com");
+  assert.deepStrictEqual(sent.map((item) => item.uid), ["event-1", "activity-2", `lesson-4-${day(2)}`, `trip-5-${day(1)}`, "task-6"]);
+  assert.strictEqual(sent.find((item) => item.uid.startsWith("lesson")).url, "https://managira.com/common/classDashboard/9");
+});
+
+test("Mira finds free time around what's already on the person's calendar", () => {
+  const { freeSlots } = require("../controllers/workspaceController");
+  const items = [
+    { title: "Math (6th)", allDay: false, extendedProps: { kind: "lesson", layer: "lesson", date: "2026-11-16", startTime: "08:00", endTime: "09:30" } },
+    { title: "Staff meeting", allDay: false, extendedProps: { kind: "event", layer: "event", date: "2026-11-16", startTime: "12:00", endTime: "13:00" } },
+    { title: "Call parent", allDay: false, extendedProps: { kind: "task", layer: "task", date: "2026-11-16", startTime: "15:45" } },
+    { title: "A colleague's dentist", allDay: false, extendedProps: { kind: "personal", layer: "share-9", date: "2026-11-16", startTime: "10:00", endTime: "11:00" } },
+    { title: "🎂 Ama Mensah", allDay: true, extendedProps: { kind: "birthday", layer: "birthday", date: "2026-11-16" } },
+    { title: "Thanksgiving Break · No School", allDay: true, extendedProps: { kind: "event", layer: "event", date: "2026-11-17", endDate: "2026-11-17" } },
+  ];
+  const result = freeSlots(items, { start: "2026-11-16", days: 2, dayStart: "08:00", dayEnd: "17:00", minutes: 30 });
+  const [monday, tuesday] = result.days;
+  assert.strictEqual(monday.weekday, "Monday");
+  assert.deepStrictEqual(monday.free, [{ from: "09:30", to: "12:00" }, { from: "13:00", to: "15:45" }, { from: "16:15", to: "17:00" }], "a colleague's shared event doesn't block the person");
+  assert.deepStrictEqual(monday.allDay, [], "birthdays don't count as busy");
+  assert.deepStrictEqual(tuesday.free, [{ from: "08:00", to: "17:00" }]);
+  assert.deepStrictEqual(tuesday.allDay, ["Thanksgiving Break · No School"], "an all-day holiday is listed so nobody books over it unawares");
+  assert.throws(() => freeSlots(items, { start: "2026-11-16", dayStart: "17:00", dayEnd: "08:00" }), /working hours/);
 });

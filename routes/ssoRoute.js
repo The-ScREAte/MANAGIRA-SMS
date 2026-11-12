@@ -24,6 +24,7 @@ module.exports = (db) => {
   settings.post("/turn-on", ...manager, authRateLimit("sso-confirm", { field: "email", perIp: 30 }), (req, res) => sso.turnOn(req, res, db));
   settings.post("/turn-off", ...manager, authRateLimit("sso-confirm", { field: "email", perIp: 30 }), (req, res) => sso.turnOff(req, res, db));
   settings.post("/remove", ...manager, authRateLimit("sso-confirm", { field: "email", perIp: 30 }), (req, res) => sso.remove(req, res, db));
+  settings.post("/everyone", ...manager, authRateLimit("sso-confirm", { field: "email", perIp: 30 }), (req, res) => sso.everyone(req, res, db));
 
   return { signIn, settings };
 };

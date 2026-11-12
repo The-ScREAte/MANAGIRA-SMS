@@ -292,13 +292,16 @@ function corrected(index, word) {
   return best ? best.known : null;
 }
 
+// A word a phrase already reads as another ("saml" is single sign-on) is never respelt.
+const isPhrase = (word) => PHRASES.some(([pattern]) => { pattern.lastIndex = 0; const hit = pattern.test(word); pattern.lastIndex = 0; return hit; });
+
 // The question with each misspelt word read as the nearest word the guides use, before
 // phrases like "google classroom" are joined.
 function correctText(index, text) {
   return String(text || "").replace(/[A-Za-z][A-Za-z’']*/g, (raw) => {
     const lower = raw.toLowerCase().replace(/[’']/g, "");
     const known = stem(IRREGULAR[lower] || lower);
-    if (lower.length < 4 || STOP.has(lower) || STOP.has(known) || index.vocab.has(known) || index.vocab.has(lower) || ALTS.has(known) || ALTS.has(lower)) return raw;
+    if (lower.length < 4 || STOP.has(lower) || STOP.has(known) || index.vocab.has(known) || index.vocab.has(lower) || ALTS.has(known) || ALTS.has(lower) || isPhrase(lower)) return raw;
     return corrected(index, known) || raw;
   });
 }

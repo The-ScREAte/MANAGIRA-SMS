@@ -82,6 +82,8 @@ router.post("/transportation/students/remove", internalApiController.removeStude
 router.get("/events", internalApiController.listEventsApi);
 router.get("/calendar/items", internalApiController.myCalendarApi);
 router.get("/calendar/sync-status", internalApiController.calendarSyncStatusApi);
+router.post("/calendar/add", internalApiController.myCalendarAddApi);
+router.get("/calendar/free", internalApiController.myFreeTimeApi);
 const discover = require("../controllers/internalDiscoverController");
 router.get("/whats-new", discover.whatsNew);
 router.get("/activities", discover.listActivities);

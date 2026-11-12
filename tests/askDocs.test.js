@@ -103,3 +103,14 @@ test("a guide's subject gets its overview, unless one of its sections is about e
   assert.equal(ask("googel classroom", articles).source.section, "Connect Google Classroom");
   assert.equal(ask("single sign on", articles).source.section, "Set up and turn on single sign-on");
 });
+
+test("a word the chat already reads as a phrase is never respelt (saml is single sign-on, not same)", () => {
+  for (const question of ["saml", "oidc", "openid", "SAML login"]) {
+    assert.match(ask(question, articles).source.url, /\/single-sign-on(#|$)/, question);
+  }
+  assert.equal(ask("move everyone to sso", articles).source.section, "Move everyone, or one person, to your provider");
+  for (const question of ["who signs in with sso", "how do i add a user who signs in with okta"]) {
+    assert.match(ask(question, articles).source.url, /\/single-sign-on(#|$)/, question);
+  }
+  assert.match(ask("google calendar not updating", articles).source.url, /\/calendar-sync-google-outlook-apple(#|$)/);
+});

@@ -137,7 +137,19 @@ async function findActivity(db, organizationId, id) {
   return rows[0] || null;
 }
 
+// Connected Google and Outlook calendars get the change within seconds; the 10-minute sweep
+// catches anything else.
+function pushCalendars(db, organizationId) {
+  try { require("../controllers/workspaceController").scheduleOrgSync(db, Number(organizationId)); } catch (_error) { /* the sweep has it */ }
+}
+
 async function saveActivity(db, organizationId, actor, id, classId, activity, studentId = null) {
+  const saved = await saveActivityRow(db, organizationId, actor, id, classId, activity, studentId);
+  pushCalendars(db, organizationId);
+  return saved;
+}
+
+async function saveActivityRow(db, organizationId, actor, id, classId, activity, studentId = null) {
   if (await hasExtras(db)) {
     // A new date means a new reminder for the new day.
     if (id) {
@@ -187,6 +199,7 @@ async function saveActivity(db, organizationId, actor, id, classId, activity, st
 
 async function deleteActivity(db, organizationId, id) {
   await db.query("DELETE FROM class_activities WHERE organization_id = $1 AND activity_id = $2", [organizationId, id]);
+  pushCalendars(db, organizationId);
 }
 
 // A bell for each family concerned (one student's, a class's or the whole school's).

@@ -1,0 +1,43 @@
+<%#
+  How this person signs in: the school's single sign-on provider or a Managira password.
+  Asked only while the school's single sign-on is tested and turned on (ssoSignIn: { name, protocol }).
+  signInMethod: what's saved for them ('sso' | 'password'); a new person starts on the provider.
+  signInIsMain: the school's main manager, who can always use a password.
+%>
+<% const _signInSso = locals.ssoSignIn || null; %>
+<% if (_signInSso) { %>
+<% const _signInNow = locals.signInMethod === 'password' ? 'password' : (locals.signInMethod === 'sso' || !locals.signInIsExisting ? 'sso' : 'password'); %>
+<div class="ce-section signin-choice" data-signin-choice>
+  <h3 class="ce-section-title">How they sign in</h3>
+  <% if (locals.signInIsMain) { %>
+    <p class="signin-note">This is your school's main manager. They can always use their Managira password, so someone can still get in if <%= _signInSso.name %> is down<%= locals.signInMainSso ? `, and can also continue with ${_signInSso.name}` : '' %>.</p>
+  <% } else { %>
+  <div class="signin-options" role="radiogroup" aria-label="How they sign in">
+    <label class="signin-option">
+      <input type="radio" name="sign_in_method" value="sso"<%= _signInNow === 'sso' ? ' checked' : '' %> />
+      <span class="signin-option__text">
+        <strong><%= _signInSso.name %></strong>
+        <small>Single sign-on<%= _signInSso.protocol ? ` (${_signInSso.protocol})` : '' %>. They log in with their school account. No password to set.</small>
+      </span>
+    </label>
+    <label class="signin-option">
+      <input type="radio" name="sign_in_method" value="password"<%= _signInNow === 'password' ? ' checked' : '' %> />
+      <span class="signin-option__text">
+        <strong>Managira password</strong>
+        <small><%= locals.signInIsExisting ? 'They log in with a password. If they don’t have one yet, we email them a link to set it.' : 'We email them a link to set a password.' %></small>
+      </span>
+    </label>
+  </div>
+  <% } %>
+</div>
+<style>
+  .signin-choice .signin-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .signin-choice .signin-option { position: relative; display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #fff; cursor: pointer; }
+  .signin-choice .signin-option:has(input:checked) { border-color: var(--org-primary-color, #01535b); box-shadow: 0 0 0 1px var(--org-primary-color, #01535b); background: color-mix(in srgb, var(--org-primary-color, #01535b) 5%, #fff); }
+  .signin-choice .signin-option input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--org-primary-color, #01535b); }
+  .signin-choice .signin-option__text { display: grid; gap: 2px; min-width: 0; }
+  .signin-choice .signin-option__text strong { font-size: .92rem; color: #111827; }
+  .signin-choice .signin-option__text small { font-size: .8rem; line-height: 1.4; color: #6b7280; }
+  .signin-choice .signin-note { margin: 0; font-size: .86rem; line-height: 1.45; color: #4b5563; }
+</style>
+<% } %>

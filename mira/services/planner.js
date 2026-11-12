@@ -183,6 +183,8 @@ async function enhanceDraft({ draft, history, classScope, onUsage }) {
 
 const TOOL_STEPS = {
   whats_new: "Checking what's available to your school",
+  find_free_time: "Finding free time on your calendar",
+  add_to_my_calendar: "Adding it to your calendar",
   find_student: "Finding the student",
   list_students: "Listing students",
   get_class: "Looking up classes",

@@ -128,6 +128,7 @@ async function signIn(db, req, connection, account) {
 
   const { user } = account;
   if (user.removed_at) throw new SignInRefused("Your school removed this account. Ask your school to enable it again.");
+  if (user.on_hold) throw new SignInRefused("Your account is on hold. Ask your school to take it off hold.");
   const isManager = String(user.account_type || "").trim().toLowerCase() === "manager";
   if (school.on_hold && !isManager) throw new SignInRefused("Your organization account is currently on hold. Please contact support.");
   const onHold = Boolean(school.on_hold && isManager);

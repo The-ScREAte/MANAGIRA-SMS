@@ -189,8 +189,8 @@ body .cal-main .fc .fc-list-day > * { background: #f8fafc; }
 
 .cal-main .fc .fc-list-day-cushion { background: #f8fafc; }
 
-.fc .cal-ev { --c: #0f766e; border: 0 !important; border-radius: 7px !important; padding: 2px 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
-.fc .fc-daygrid-block-event.cal-ev, .fc .fc-timegrid-event.cal-ev { background: color-mix(in srgb, var(--c) 14%, #ffffff) !important; color: color-mix(in srgb, var(--c) 82%, #0f172a) !important; border-left: 3px solid var(--c) !important; }
+/* Calendar items are drawn in calendar.css (one place); here only each kind's color. */
+.fc .cal-ev { --c: #0f766e; cursor: pointer; }
 .fc .fc-daygrid-block-event.cal-ev .fc-event-main, .fc .fc-timegrid-event.cal-ev .fc-event-main { color: inherit; }
 .fc .fc-daygrid-dot-event.cal-ev .fc-daygrid-event-dot { border-color: var(--c); }
 
@@ -210,7 +210,6 @@ body .cal-main .fc .fc-list-day > * { background: #f8fafc; }
 .cal-layer__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fc .cal-ev.cal-ev--external, .ws-peek .cal-ev--external { --c: #0ea5e9; }
 .fc .fc .cal-ev.cal-ev--external, .ws-peek .cal-ev--external { font-style: italic; }
-.fc .fc-daygrid-block-event.cal-ev--personal, .fc .fc-timegrid-event.cal-ev--personal { border-left-style: dashed !important; }
 
 /* Sync & share dialog */
 .sync-sub { margin: 4px 0 0; font-size: 0.88rem; color: var(--ws-muted); }
@@ -385,3 +384,126 @@ a.sync-pick:hover { box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08); transform: tr
 .sync-way input { width: 16px; height: 16px; margin: 0; accent-color: #059669; }
 .sync-way i { color: #059669; margin-right: 2px; }
 @media (max-width: 640px) { .sync-conn__ways { grid-template-columns: minmax(0, 1fr); } }
+
+/* Sync & share: connected calendars, then the apps Managira can go to (one list). */
+.sync-picks--list { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 4px; }
+.sync-picks--list .sync-pick { font-weight: 600; }
+.sync-pick .sync-btn__text strong { font-size: 0.95rem; }
+.sync-pick .sync-btn__text small { font-weight: 500; white-space: normal; }
+.sync-pick__go { flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; background: var(--ws-soft); color: var(--ws-primary); font-size: 0.82rem; font-weight: 700; }
+.sync-conn__actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.sync-conn__top .sync-btn__text small { white-space: normal; }
+.sync-link-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sync-connect > .sync-h { margin-top: 2px; }
+@media (max-width: 640px) { .sync-conn__top { flex-wrap: wrap; } .sync-conn__actions { width: 100%; justify-content: flex-start; } }
+
+/* Calendar sync (one way: Managira's calendar to Google Calendar or Outlook). */
+.cal-side__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sync-dialog .sync-sub strong { color: var(--ws-text); }
+.sync-dialog .sync-connect { gap: 10px; }
+.sync-dialog .sync-conn { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; }
+.sync-dialog .sync-conn .sync-btn__text { display: grid; gap: 2px; min-width: 0; }
+.sync-dialog .sync-conn .sync-btn__text strong { font-size: 1rem; color: var(--ws-text); }
+.sync-dialog .sync-conn__who { color: var(--ws-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-dialog .sync-conn__state { font-size: 0.84rem; font-weight: 600; white-space: normal; }
+.sync-dialog .sync-conn__state.is-ok { color: #047857; }
+.sync-dialog .sync-conn__state.is-wait { color: #b45309; }
+.sync-dialog .sync-conn__state.is-bad { color: #b91c1c; }
+.sync-dialog .sync-conn__actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.sync-dialog .sync-conn__actions .ws-btn { white-space: nowrap; }
+.sync-dialog .sync-pick { padding: 14px 16px; }
+.sync-promise { display: flex; gap: 8px; align-items: baseline; margin: 14px 2px 0; color: var(--ws-muted); font-size: 0.82rem; line-height: 1.45; }
+.sync-promise i { color: var(--ws-primary); }
+.sync-none { margin: 0; padding: 14px 16px; border: 1px dashed var(--ws-border); border-radius: 12px; color: var(--ws-muted); font-size: 0.9rem; }
+@media (max-width: 640px) {
+  .sync-dialog .sync-conn { flex-wrap: wrap; }
+  .sync-dialog .sync-conn__actions { width: 100%; margin-left: 0; justify-content: flex-start; }
+}
+.sync-dialog .sync-conn--syncing, .sync-dialog .sync-conn--waiting, .sync-dialog .sync-conn--retry { background: #fff; border-color: #fde68a; }
+.sync-dialog .sync-conn--reconnect { background: #fff; border-color: #fecaca; }
+
+/* Calendar sync, compact: one row per calendar app. */
+.ws-dialog.sync-dialog { width: min(460px, calc(100vw - 32px)); }
+.sync-dialog .ws-dialog__title { font-size: 1.05rem; }
+.sync-dialog .sync-sub { margin-top: 2px; font-size: 0.84rem; }
+.sync-rows { display: grid; border: 1px solid var(--ws-line); border-radius: 12px; overflow: hidden; }
+.sync-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; }
+.sync-row + .sync-row { border-top: 1px solid var(--ws-line); }
+.sync-row__logo { flex: 0 0 32px; height: 32px; display: grid; place-items: center; }
+.sync-row__logo img, .sync-row__logo svg { width: 26px; height: 26px; display: block; }
+.sync-row__text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.sync-row__text strong { font-size: 0.92rem; color: var(--ws-text); }
+.sync-row__text small { font-size: 0.78rem; color: var(--ws-muted); }
+.sync-row__who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-row__state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; flex: 0 0 auto; }
+.sync-row--ok .sync-row__state { color: #047857; }
+.sync-row--ok .sync-dot { background: #10b981; }
+.sync-row--syncing .sync-row__state, .sync-row--waiting .sync-row__state, .sync-row--retry .sync-row__state { color: #b45309; }
+.sync-row--waiting .sync-dot, .sync-row--retry .sync-dot { background: #f59e0b; }
+.sync-row--reconnect .sync-row__state { color: #b91c1c; }
+.sync-row--reconnect .sync-dot { background: #ef4444; }
+.sync-row__links { display: inline-flex; align-items: center; gap: 8px; margin-top: 3px; color: #cbd5e1; font-size: 0.78rem; line-height: 1.2; }
+.sync-row__links .sync-link { font-size: 0.78rem; font-weight: 600; text-decoration: none; }
+.sync-row__links .sync-link:hover { text-decoration: underline; }
+.sync-row__links .sync-link[disabled] { opacity: .5; cursor: default; text-decoration: none; }
+.sync-row__go { flex: 0 0 auto; padding: 7px 12px !important; font-size: 0.82rem !important; white-space: nowrap; }
+.sync-dialog .sync-promise { margin-top: 12px; font-size: 0.78rem; }
+.sync-dialog .sync-none { margin: 0; border: 0; }
+
+/* Calendar page, tighter: smaller type and buttons, fewer words. */
+.cal-page { gap: 20px; margin-top: 18px; }
+.cal-side { gap: 14px; }
+.cal-side__head h1 { font-size: 1.2rem; }
+.cal-create { padding: 9px 14px !important; font-size: 0.88rem; border-radius: 10px !important; }
+.cal-side .cal-sync { padding: 7px 10px !important; font-size: 0.82rem; border-radius: 10px !important; }
+.cal-card { padding: 12px; border-radius: 12px; box-shadow: none; }
+.cal-card__title { margin-bottom: 6px; font-size: 0.7rem; }
+.cal-layer { padding: 5px 4px; font-size: 0.86rem; gap: 9px; }
+.cal-layer__box { width: 16px; height: 16px; border-radius: 4px; }
+.cal-up button { padding: 6px; }
+.cal-up__title { font-size: 0.84rem; }
+.cal-up__when { font-size: 0.75rem; }
+.cal-main { padding: 12px; border-radius: 14px; box-shadow: none; }
+.cal-main .fc .fc-toolbar-title { font-size: 1.1rem; }
+.cal-main .fc .fc-button { padding: 5px 11px !important; font-size: 0.8rem; border-radius: 8px !important; }
+.cal-main .fc .fc-button-group > .fc-button { border-radius: 8px !important; }
+.cal-main .fc .fc-col-header-cell-cushion { padding: 8px 4px; font-size: 0.7rem; }
+.sync-row__links { gap: 12px; }
+.sync-row__go { padding: 5px 10px !important; font-size: 0.78rem !important; }
+.sync-dialog .ws-dialog__head { align-items: center; }
+
+/* Windows over the calendar: the calendar stays visible behind them, no blur. */
+.ws-dialog::backdrop { background: rgba(15, 23, 42, 0.28); backdrop-filter: none; }
+
+/* Windows (create, edit, sync, share): smaller and tighter. */
+.ws-dialog { width: min(540px, calc(100vw - 24px)); border-radius: 14px; }
+.ws-dialog__head { padding: 14px 18px 0; }
+.ws-dialog__title { font-size: 1rem; font-weight: 600; }
+.ws-close { width: 30px; height: 30px; font-size: 1.15rem; }
+.ws-tabs { padding: 8px 18px 0; gap: 2px; }
+.ws-tab { padding: 7px 10px; font-size: 0.84rem; font-weight: 500; gap: 6px; }
+.ws-dialog__body { padding: 14px 18px; gap: 12px; }
+.ws-pane { gap: 12px; }
+.ws-field { gap: 4px; }
+.ws-label { font-size: 0.76rem; font-weight: 600; color: #475569; }
+.ws-input, .ws-textarea, .ws-select { padding: 7px 10px; font-size: 0.86rem; border-radius: 8px; }
+.ws-input--title { font-size: 1rem; font-weight: 500; padding: 6px 2px; border-radius: 0; }
+.ws-textarea { min-height: 64px; }
+.ws-check { font-size: 0.84rem; }
+.ws-check input { width: 15px; height: 15px; }
+.ws-color span { width: 20px; height: 20px; }
+.ws-people { min-height: 36px; padding: 4px 6px; border-radius: 8px; }
+.ws-people input { font-size: 0.86rem; padding: 4px; }
+.ws-dialog__foot { padding: 10px 18px; border-radius: 0 0 14px 14px; }
+.ws-dialog .ws-btn { padding: 6px 13px !important; font-size: 0.84rem; border-radius: 8px !important; font-weight: 500; }
+.ws-dialog .ws-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) auto; }
+.ws-dialog .ws-seg span { padding: 6px 9px; font-size: 0.8rem; }
+/* Sync rows: the name, one status (Connected in green) and the account, one button. */
+.sync-row__state { display: block; font-weight: 500; color: var(--ws-muted); }
+.sync-row--ok .sync-row__state { color: #047857; }
+.sync-row--waiting .sync-row__state { color: #b45309; }
+.sync-row--reconnect .sync-row__state { color: #b91c1c; }
+.sync-row__who { color: var(--ws-muted); font-weight: 400; }
+.sync-row__go { padding: 5px 11px !important; font-size: 0.78rem !important; font-weight: 500 !important; }
+

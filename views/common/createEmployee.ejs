@@ -677,6 +677,8 @@
           </select>
         </div>
 
+        <%- include('../partials/employeeSignIn', { signInIsExisting: false }) %>
+
         <div class="ce-section">
           <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classes' }) %>
           <p class="permissions-note" id="driverSubjectsNote" style="display:none;">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
