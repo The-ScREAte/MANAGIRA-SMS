@@ -1,0 +1,14 @@
+<%# Custom forms is switched on for this school but its database tables don't exist yet. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
+<div class="cf">
+  <div class="cf-head"><div><h1><%= builder ? 'Custom editor' : 'Forms' %></h1></div></div>
+  <div class="cf-card cf-welcome" style="max-width:720px">
+    <h2><%= builder ? 'One database update before you can start' : 'Forms aren’t ready yet' %></h2>
+    <% if (builder) { %>
+      <p>The Custom editor is switched on for this school, but the tables that hold its sections and answers haven’t been added to this database yet.</p>
+      <div class="cf-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg><span>Run the Custom editor migrations in <strong>database/migrations</strong> (2026-11-22 to 2026-11-24) on this database. The page opens by itself within a minute after it has run.</span></div>
+    <% } else { %>
+      <p>Your school is setting up forms. Check back soon.</p>
+    <% } %>
+  </div>
+</div>

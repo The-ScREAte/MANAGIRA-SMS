@@ -17,7 +17,8 @@ const PAYGIRA_MENU = [
     { id: "arrears", label: "Overdue", url: "/account/settings/finance/arrears" },
   ] },
   { id: "payments", label: "Payments", icon: "payments", pages: [{ id: "payments", label: "Payments", url: "/account/settings/finance?section=payments" }] },
-  { id: "payouts", label: "Payouts", icon: "payouts", pages: [{ id: "payouts", label: "Payouts", url: "/account/settings/finance?section=payouts" }] },
+  // Money the school sends out. (Where parents' payments land is not here: Settings, Billing & Plan.)
+  { id: "payouts", label: "Pay staff & vendors", icon: "payouts", pages: [{ id: "payouts", label: "Pay staff & vendors", url: "/account/settings/finance?section=payouts" }] },
   { id: "settings", label: "Settings", icon: "sliders", pages: [{ id: "settings", label: "Settings", url: "/account/settings/finance?section=settings" }] },
 ];
 // The places a person gets, each with the pages they hold; `url` is the first of them.
@@ -62,6 +63,8 @@ function workspaceAccess({ permissions, features, role } = {}) {
     integrations: can("settings_integrations"),
     serviceAccounts: can("settings_service_accounts"),
     emailIssues: fullMenuRole,
+    // The page itself also needs the custom_forms feature (customFormsController).
+    customForms: can("custom_forms"),
   };
   const reports = {
     stats: can("manage_records") && hasFeature("Organization Analytics & Insights"),

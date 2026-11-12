@@ -7,7 +7,7 @@ module.exports = [
     title: "Your class page: every tab explained",
     topic: "Classroom & attendance",
     order: 1,
-    summary: "A tour of every class page tab: attendance, grading, assessment questions, schedule, activities, pickup, parent messages, transportation, documents and PayGira.",
+    summary: "A tour of every class page tab: attendance, grading, assessment questions, schedule, activities, pickup, forms, messages, transportation, documents and PayGira.",
     tags: ["class page", "classroom", "class dashboard", "teachers", "class tools", "pickup list", "my paygira"],
     featured: true,
     who: "Teachers for their own classes; managers and supervisors for every class.",
@@ -56,6 +56,12 @@ module.exports = [
         caption: "Pickup list: who may collect each student.",
       },
       {
+        title: "Forms",
+        text: "The forms your school built for this class: fill them in for each student, and read what parents and students sent. A form your school gave its own place, such as a seating chart, has its own item in Class Tools. See <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>.",
+        image: "class-forms.webp",
+        caption: "Forms: each student and whether the form is done.",
+      },
+      {
         title: "Parent Messages",
         text: "Messages from the class's parents, and your replies, in one place.",
         image: "class-messages.webp",
@@ -84,7 +90,7 @@ module.exports = [
       ["Why don't I see all of these tabs?", "Some need a permission or a feature your school turns on, such as Transportation or PayGira. Ask a manager."],
       ["Can I change the order of the tools?", "Yes. Select the arrows icon at the top of Class Tools and drag them into your order."],
     ],
-    related: ["mark-attendance-for-a-class", "grading-or-marking-assessment", "activities", "emergency-and-pickup-details"],
+    related: ["mark-attendance-for-a-class", "grading-or-marking-assessment", "activities", "emergency-and-pickup-details", "custom-editor"],
   },
   {
     slug: "mark-attendance-for-a-class",
@@ -105,6 +111,7 @@ module.exports = [
           "Select <strong>Save</strong>.",
         ],
         tip: "Mark everyone present first, then tap the two or three who are absent. On a normal day it takes seconds.",
+        note: "A column such as <strong>Lunch</strong> beside the names is one your school added: choose each student's answer for today and it saves by itself. See <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>.",
       },
       {
         title: "Change a past day",

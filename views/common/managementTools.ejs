@@ -616,6 +616,14 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.customForms && locals.featureOn && featureOn('custom_forms')) { %>
+        <li>
+          <a class="nav-link" href="/common/custom-forms" data-no-spa data-section="custom-forms" data-embed-url="/common/custom-forms" data-embed-label="Custom editor">
+            <span class="nav-link-icon"><%- navIcon('forms') %></span>
+            <span>Custom editor</span>
+          </a>
+        </li>
+        <% } %>
         <% if (hasFilesFeature && menuAccess.docs) { %>
         <li>
           <a class="nav-link" href="/documents" data-no-spa data-section="documents" data-embed-url="/documents" data-embed-label="Docs/Sheets">
@@ -808,6 +816,17 @@
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
             <p>Loading Docs/Sheets…</p>
+          </div>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (menuAccess.customForms && locals.featureOn && featureOn('custom_forms')) { %>
+      <section class="management-section" id="custom-forms">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="m9 13 2 2 4-4"/></svg>
+            <p>Loading Custom editor…</p>
           </div>
         </div>
       </section>
@@ -1447,7 +1466,8 @@
       const conn = navigator.connection;
       if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
       const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4;
-      let budget = lowMemory ? 3 : Infinity;
+      // Only the next couple of panels: warming every page made each visit render ~20 pages.
+      let budget = lowMemory ? 1 : 2;
       const links = Array.from(document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
       const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
       const loaded = (sectionId) => new Promise((resolve) => {

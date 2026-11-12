@@ -3910,7 +3910,7 @@
             <div class="content-row">
               <div class="text-muted-sm"><span class="payout-dot <%= (_poStripe || _poPaystack) ? 'is-on' : '' %>" aria-hidden="true"></span><%= _poWords %></div>
               <div style="display:flex; gap:8px; align-items:center;">
-                <button class="btn-primary btn-link btn-inline" id="open-payout-modal" type="button"><%= (_poStripe || _poPaystack) ? 'Manage payout account' : 'Set up payouts' %></button>
+                <button class="btn-primary btn-link btn-inline" id="open-payout-modal" type="button"><%= (_poStripe || _poPaystack) ? 'Manage account' : 'Set up an account' %></button>
               </div>
             </div>
             <style>
@@ -5627,7 +5627,7 @@
         <div class="pm-tab-bar" role="tablist">
           <% const _pmHub = typeof isHubMember !== 'undefined' && isHubMember; %>
           <button class="pm-tab <%= _pmHub ? '' : 'active' %>" id="pm-tab-subscription" data-pm-tab="subscription" role="tab" aria-selected="<%= _pmHub ? 'false' : 'true' %>" aria-controls="pm-subscription-panel" <%= _pmHub ? 'hidden' : '' %>>Subscription Cards</button>
-          <button class="pm-tab <%= _pmHub ? 'active' : '' %>" id="pm-tab-payout" data-pm-tab="payout" role="tab" aria-selected="<%= _pmHub ? 'true' : 'false' %>" aria-controls="pm-payout-panel">Payout Accounts</button>
+          <button class="pm-tab <%= _pmHub ? 'active' : '' %>" id="pm-tab-payout" data-pm-tab="payout" role="tab" aria-selected="<%= _pmHub ? 'true' : 'false' %>" aria-controls="pm-payout-panel">Where parent payments go</button>
         </div>
 
         <!-- ── Subscription Cards panel ─────────────────────────── -->
@@ -5734,7 +5734,7 @@
                   <% } %>
                   <button type="button" id="paystack-configure-btn" style="display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-size:.78rem;font-weight:600;color:#0d9488;padding:6px 11px;border:1px solid #99f6e4;border-radius:7px;background:#f0fdfa;cursor:pointer;white-space:nowrap;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-                    <%= _paystackReady ? 'Edit Accounts' : 'Add Payout Account' %>
+                    <%= _paystackReady ? 'Edit accounts' : 'Add an account' %>
                   </button>
                 </div>
               </label>
@@ -5830,7 +5830,7 @@
                 <li style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#f9fafb);">
                   <div>
                     <strong style="font-size:.9rem;">
-                      <% if (account.account_type === 'stripe_card') { %>💳 Card<% } else { %>🏦 Paystack Payout Account<% if (account.account_type === 'mobile_money') { %> <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:.7rem;font-weight:700;">MoMo</span><% } %><% } %>
+                      <% if (account.account_type === 'stripe_card') { %>💳 Card<% } else { %>🏦 Paystack account<% if (account.account_type === 'mobile_money') { %> <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:.7rem;font-weight:700;">MoMo</span><% } %><% } %>
                       <% if (account.is_primary) { %><span style="margin-left:6px;background:#e7faf1;color:#0f5132;padding:1px 7px;border-radius:5px;font-size:.72rem;font-weight:600;">Primary</span><% } %>
                     </strong>
                     <div style="color:var(--muted);font-size:.82rem;margin-top:3px;">
@@ -5863,7 +5863,7 @@
 
           <!-- Payout account form (hidden by default, shown when Add / Edit clicked) -->
           <div id="payout-form-wrap" style="display:none;border-top:1px solid var(--border);padding-top:16px;margin-top:8px;">
-            <h4 style="margin:0 0 12px;font-size:.95rem;" id="payout-form-heading">Add Payout Account</h4>
+            <h4 style="margin:0 0 12px;font-size:.95rem;" id="payout-form-heading">Add an account for parent payments</h4>
             <form id="school-account-form" autocomplete="off" novalidate>
               <input type="hidden" id="sa-id" name="id" />
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -5948,7 +5948,7 @@
           </div>
 
           <div class="content-row" id="payout-add-row" style="display:none;margin-top:12px;">
-            <button class="btn-primary btn-link" id="add-payout-account-btn" type="button">Add Payout Account</button>
+            <button class="btn-primary btn-link" id="add-payout-account-btn" type="button">Add an account</button>
           </div>
         </div>
 
@@ -8414,7 +8414,7 @@
                 const authorizationCode = button.dataset.id;
                 const currentName = button.dataset.currentName || "";
                 const nextName = window.prompt(
-                  "Set the payout name parents should see for this card. Leave blank to use the school default.",
+                  "The name parents should see for this card. Leave blank to use the school's name.",
                   currentName
                 );
 
@@ -8435,10 +8435,10 @@
                   if (data.success) {
                     window.location.reload();
                   } else {
-                    alert(data.message || "Failed to update the card payout name.");
+                    alert(data.message || "The card's name could not be changed.");
                   }
                 } catch (error) {
-                  alert("Unable to update the card payout name. Try again.");
+                  alert("The card's name could not be changed. Try again.");
                 }
               });
             });

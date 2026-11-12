@@ -132,6 +132,17 @@ if (shouldRunNotifications) {
     }
   });
 
+  // Hourly: custom form reminders (N days before a date in a form, or before a form's deadline
+  // to those who haven't filled it in). Each reminder goes once (utils/customForms.js).
+  cron.schedule('25 * * * *', 'custom-form-reminders', async () => {
+    try {
+      const summary = await require('../utils/customForms').runReminders(require('../config/db'));
+      if (summary.runs) console.log(`[Custom forms] ${summary.runs} reminders`);
+    } catch (error) {
+      console.error('[Custom forms] Reminders failed:', error.message);
+    }
+  });
+
   // Hourly digest window sweep; each organization policy controls weekday/hour send.
   cron.schedule('0 * * * *', 'weekly-digest', async () => {
     try {

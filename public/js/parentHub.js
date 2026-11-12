@@ -21,6 +21,11 @@
           badge.textContent = count > 99 ? '99+' : String(count);
           badge.hidden = count === 0;
         });
+        // A form with its own tile that was sent and locked has nothing left to open.
+        (result.formsGone || []).forEach(function (id) {
+          var tile = root.querySelector('[data-form-tile="' + id + '"]');
+          if (tile) tile.hidden = true;
+        });
         if (bus && result.transport) {
           bus.setAttribute('data-transport-snapshot', JSON.stringify(result.transport));
           bus.setAttribute('data-bus-tracker', studentId);

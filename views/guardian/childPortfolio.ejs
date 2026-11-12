@@ -1,0 +1,9 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/portfolio.css') %>" />
+<div class="ph pf">
+  <%- include('../partials/flash') %>
+  <a class="ph-back" href="/guardian/child?studentId=<%= child.id %>"><%= child.name %></a>
+  <h1 class="ph-title">Portfolio</h1>
+  <p style="margin:-6px 0 14px;color:var(--pf-muted);font-size:13.5px"><%= child.firstName %>’s work, term by term: marked tests, assignments and the report card.</p>
+  <%- include('../partials/portfolioFolder') %>
+</div>

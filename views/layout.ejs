@@ -172,7 +172,9 @@
               // Setup steps bar: school account, managers, Managira admins and hub
               // users only (not on the public website or registration pages).
               const _showSetupSteps = typeof canSeeSetupSteps === 'function' && canSeeSetupSteps(session)
-                && typeof locals.publicSiteAppearance !== 'string' && !locals.isPrintRender;
+                && typeof locals.publicSiteAppearance !== 'string' && !locals.isPrintRender
+                // A page inside a hub panel: the hub around it already shows the bar.
+                && !locals.isEmbedded;
             %>
             <% if (_showSetupSteps) { %>
                 <link rel="stylesheet" href="<%= assetUrl('/css/setupSteps.css') %>">

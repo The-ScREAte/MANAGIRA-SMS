@@ -1,24 +1,24 @@
 "use strict";
 
-// PayGira & payments: bills, online payments, collections, arrears and payouts.
+// PayGira & payments: bills, online payments, collections, overdue balances and paying staff.
 module.exports = [
   {
     slug: "set-up-paygira-bills-collections-and-guardian-payments",
     title: "PayGira: bills, online payments and collections",
     topic: "PayGira & payments",
     order: 1,
-    summary: "Set up payouts, create bills for classes or students, let parents pay online by card, record payments taken at school, and send receipts automatically.",
+    summary: "Choose where parent payments go, bill classes or students, let parents pay online by card, record payments taken at school, and send receipts.",
     tags: ["paygira", "school fees", "tuition", "bills", "online payments", "receipts", "apple pay", "service fee"],
     featured: true,
-    who: "Managers, and staff given <strong>PayGira</strong> with the pages they need: bills, the student ledger, payments, payouts or settings.",
+    who: "Managers, and staff given <strong>PayGira</strong> with the pages they need: bills, the student ledger, payments, pay staff &amp; vendors or settings.",
     intro: "PayGira is how your school bills families and gets paid. Parents pay online by card in the parent portal, staff can record payments taken at school, and every payment updates balances and sends a receipt.",
     sections: [
       {
-        title: "1. Set up payouts",
+        title: "1. Choose where parent payments go",
         steps: [
           ["Open <strong>PayGira</strong> from the menu, then its <strong>Settings</strong>.", "paygira-overview.webp", "PayGira: what was billed, paid and is still owed."],
-          "Its Settings link to <strong>Settings, Billing &amp; Plan</strong>. There, <strong>Where parent payments go</strong> shows whether your payout account is connected: select <strong>Set up payouts</strong>, confirm your password and choose <strong>Connect with Stripe</strong>. Schools in a hub set up their own payouts the same way.",
-          "Online payments open once the payout account is connected. Until then parents see the other ways your school takes payment, such as paying at the office.",
+          "Its Settings link to <strong>Settings, Billing &amp; Plan</strong>. There, <strong>Where parent payments go</strong> shows whether the account that receives them is connected: select <strong>Set up an account</strong>, confirm your password and choose <strong>Connect with Stripe</strong>. Schools in a hub set up their own account the same way.",
+          "Online payments open once that account is connected. Until then parents see the other ways your school takes payment, such as paying at the office.",
         ],
       },
       {
@@ -75,12 +75,12 @@ module.exports = [
   },
   {
     slug: "paygira-payments-arrears-and-payouts",
-    title: "The student ledger, payments, overdue balances and payouts",
+    title: "The student ledger, payments, overdue balances and paying staff",
     topic: "PayGira & payments",
     order: 2,
-    summary: "See what each student owes, find any payment and its receipt, follow up on overdue balances, and pay staff or suppliers.",
-    tags: ["payments", "ledger", "invoices", "arrears", "overdue fees", "payouts", "balances", "finance"],
-    who: "Staff given the matching PayGira pages: Student Ledger, Overdue Balances, Payments, Payouts.",
+    summary: "See what each student owes, find any payment and its receipt, follow up on overdue balances, and pay staff or vendors.",
+    tags: ["payments", "ledger", "invoices", "arrears", "overdue fees", "pay staff", "vendors", "payouts", "balances", "finance"],
+    who: "Staff given the matching PayGira pages: Student Ledger, Overdue Balances, Payments, Pay Staff &amp; Vendors.",
     sections: [
       {
         title: "The PayGira pages",
@@ -90,9 +90,9 @@ module.exports = [
           ["Page", "What it's for"],
           ["<strong>Overview</strong>", "What was billed, paid and is still owed, with the latest payments."],
           ["<strong>Bills</strong>", "Create a bill, send it and remind parents. Its <strong>Repeating</strong> tab lists the bills that repeat."],
-          ["<strong>Student ledger</strong>", "What each student was billed, paid and owes, biggest balances first. Select a student for their bills, payments and invoices. Its <strong>Overdue</strong> tab lists overdue balances to follow up."],
+          ["<strong>Student ledger</strong>", "What each student was billed, paid and owes, biggest balances first. Select a student for their bills, payments and invoices, and to email their parents everything they owe in one message. Its <strong>Overdue</strong> tab lists overdue balances to follow up."],
           ["<strong>Payments</strong>", "Every payment, online or recorded at school, each with its receipt. Staff with the right permission can record a payment or remove one entered by mistake."],
-          ["<strong>Payouts</strong>", "Pay a member of staff or a supplier, once or on a schedule."],
+          ["<strong>Pay staff &amp; vendors</strong>", "Money your school sends out: pay a member of staff or a vendor from the school's card, once or on a schedule. Where parents' payments land is a different setting: Settings, Billing &amp; Plan, <strong>Where parent payments go</strong>."],
           ["<strong>Settings</strong>", "The note on every invoice, and a link to where parent payments go."],
         ],
       },

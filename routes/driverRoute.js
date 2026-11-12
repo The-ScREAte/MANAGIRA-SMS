@@ -17,5 +17,14 @@ module.exports = (db) => {
     driverController.settingsPost(req, res, db)
   );
 
+  // Forms the school asks drivers to fill in about their riders (feature custom_forms).
+  const customForms = require("../controllers/customFormsController");
+  router.get("/forms/data", isDriverAuthenticated, (req, res) => customForms.data(req, res, db));
+  router.get("/forms/:id(\\d+)/students", isDriverAuthenticated, (req, res) => customForms.students(req, res, db));
+  router.get("/forms/:id(\\d+)/student/:studentId(\\d+)", isDriverAuthenticated, (req, res) => customForms.entries(req, res, db));
+  router.post("/forms/:id(\\d+)/student/:studentId(\\d+)", isDriverAuthenticated, express.json({ limit: "512kb" }), (req, res) => customForms.saveEntry(req, res, db));
+  router.post("/forms/:id(\\d+)/upload", isDriverAuthenticated, upload.single("file"), (req, res) => customForms.staffUpload(req, res, db));
+  router.post("/forms/:id(\\d+)/entry/:entryId(\\d+)/delete", isDriverAuthenticated, (req, res) => customForms.deleteEntry(req, res, db));
+
   return router;
 };

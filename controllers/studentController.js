@@ -12,6 +12,7 @@ const {
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const features = require("../utils/shards/features");
 const assessmentApproval = require("../utils/assessmentApproval");
+const questionHelp = require("../utils/questionHelp");
 const questionMedia = require("../utils/questionMedia");
 const { listActivities } = require("../utils/classActivities");
 
@@ -1113,7 +1114,12 @@ module.exports = {
       const studentActivities = features.isOn("class_activities", { organizationId })
         ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], studentIds: [Number(studentId)].filter(Boolean), from: new Date().toISOString().slice(0, 10) })
         : [];
+      // Forms the school asks this student to fill in (feature custom_forms): a badge on the
+      // Forms tile, and a tile for each form the school gave one of its own.
+      const studentForms = await require("../utils/customForms").studentDashboard(db, organizationId, Number(studentId), { day: require("../utils/localDate").todayKeyFor(req) }).catch(() => ({ toDo: 0, tiles: [] }));
       res.render("student/dashboard", {
+        formsToDo: studentForms.toDo,
+        formTiles: studentForms.tiles,
         studentActivities,
         title: "Student Portal",
         student,
@@ -1404,7 +1410,8 @@ module.exports = {
 
       const questionsResult = await db.query(
         `SELECT question_id, question_type, question_text, options_json, marks, position_index,
-                ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"}
+                ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"},
+                ${(await questionHelp.whenChecked()) ? "help_json" : "NULL::jsonb AS help_json"}
            FROM assessment_questions
           WHERE question_set_id = $1
           ORDER BY position_index ASC, question_id ASC`,
@@ -1482,9 +1489,14 @@ module.exports = {
       }, {});
 
       const examFlow = assessmentApproval.flowOn(organizationId);
-      const resources = assessment.open_book && examFlow
+      // Resources show beside an open-book test, and (feature learning_resources) whenever the
+      // teacher chose "Students see these with the test", with the teacher's recommendations.
+      const helpOn = questionHelp.featureOn(organizationId);
+      const setExtras = helpOn ? await require("../utils/parentResources").studentExtras(db, organizationId, Number(questionSet.question_set_id)) : { students: false, notes: "" };
+      const showResources = examFlow && (assessment.open_book || setExtras.students);
+      const resources = showResources
         ? (await require("../utils/parentResources").filesForSets(db, organizationId, [Number(questionSet.question_set_id)]).catch(() => []))
-          .map((file) => ({ ...file, kind: resourceKind(file.name) }))
+          .map((file) => ({ ...file, kind: file.link ? "link" : resourceKind(file.name) }))
         : [];
       res.render(examFlow ? "student/takeAssessmentNext" : "student/takeAssessment", {
         title: examFlow ? `${assessment.title} · ${assessment.subject_name}` : "Take Assessment",
@@ -1504,9 +1516,13 @@ module.exports = {
           // The picture (and its numbered spots, never their answers).
           media: questionMedia.forDisplay(q.media_json, res.locals.publicImageUrl),
           media_json: undefined,
+          help: helpOn ? questionHelp.forDisplay(q.help_json) : null,
+          help_json: undefined,
         })),
         // An open-book test shows the resources the teacher attached.
         resources,
+        resourcesShown: showResources && resources.length > 0,
+        teacherNotes: setExtras.students ? setExtras.notes : "",
         attemptId,
         attemptStartedAt: attemptResult.rows[0]?.started_at || null,
         responsesByQuestionId,
@@ -1537,7 +1553,8 @@ module.exports = {
       const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(db, organizationId, studentId);
       const open = await getOpenAssessments(db, organizationId, studentId, enrolledClassId, selectedTerm && selectedTerm.term_id);
       const test = open.find((row) => Number(row.assessment_id) === assessmentId);
-      if (!test || !test.open_book) return back();
+      const extras = questionHelp.featureOn(organizationId) && test ? await require("../utils/parentResources").studentExtras(db, organizationId, Number(test.question_set_id)) : { students: false };
+      if (!test || !(test.open_book || extras.students)) return back();
       const file = await require("../utils/parentResources").fileById(db, organizationId, fileId);
       if (!file || Number(file.question_set_id) !== Number(test.question_set_id)) return back();
       return res.redirect(file.file_url);

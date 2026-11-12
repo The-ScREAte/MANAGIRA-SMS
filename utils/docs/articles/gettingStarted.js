@@ -90,7 +90,7 @@ module.exports = [
           ["<strong>Management</strong>", "School years, classes and subjects, assessments, enrollment, promotion, staff, guardians, transportation, events and activities, the school website, PayGira, integrations and service accounts."],
           ["<strong>Admissions</strong>", "All students, adding students, online applications, graduates and alumni, and Admission Settings."],
           ["<strong>Reports</strong>", "Organization statistics, term report cards, transcripts, report settings and Report Builder."],
-          ["<strong>PayGira</strong>", "Bills, payments, arrears, payouts and PayGira settings."],
+          ["<strong>PayGira</strong>", "Bills, payments, overdue balances, paying staff and PayGira settings."],
           ["<strong>Settings</strong>", "Your school's details, your profile and appearance, billing and plan, security, sign-in rules, single sign-on, access tokens and notifications."],
         ],
         tip: "Select the arrows icon at the top of a workspace's list to arrange its items in the order you use them. Your order is remembered on every device.",

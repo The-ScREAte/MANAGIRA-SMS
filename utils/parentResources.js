@@ -15,27 +15,69 @@ const orEmpty = (error, fallback) => {
 
 async function readSettings(db, organizationId, questionSetId) {
   try {
-    const [set, files] = await Promise.all([
+    const [set, files, extras] = await Promise.all([
       db.query("SELECT show_on_parent_portal, parent_notes FROM assessment_question_sets WHERE organization_id = $1 AND question_set_id = $2", [organizationId, questionSetId]),
-      db.query("SELECT resource_id, file_name FROM assessment_set_resources WHERE organization_id = $1 AND question_set_id = $2 ORDER BY resource_id", [organizationId, questionSetId]),
+      db.query("SELECT resource_id, file_name, file_url, file_key FROM assessment_set_resources WHERE organization_id = $1 AND question_set_id = $2 ORDER BY resource_id", [organizationId, questionSetId]),
+      studentExtras(db, organizationId, questionSetId),
     ]);
     if (!set.rows[0]) return null;
     return {
       show: set.rows[0].show_on_parent_portal,
+      students: extras.students,
       notes: set.rows[0].parent_notes || "",
-      files: files.rows.map((row) => ({ id: Number(row.resource_id), name: row.file_name })),
+      // A link has no stored file: it opens the address the teacher gave.
+      files: files.rows.map((row) => ({ id: Number(row.resource_id), name: row.file_name, link: !row.file_key, url: row.file_key ? null : row.file_url })),
     };
   } catch (error) {
-    return orEmpty(error, { show: false, notes: "", files: [] });
+    return orEmpty(error, { show: false, students: false, notes: "", files: [] });
   }
 }
 
-async function saveSettings(db, organizationId, questionSetId, { show, notes }) {
+// Whether students see the set's resources with the test (feature learning_resources), and the
+// teacher's recommendations. Before the column exists: no.
+async function studentExtras(db, organizationId, questionSetId) {
+  try {
+    const { rows } = await db.query(
+      "SELECT students_see_resources, parent_notes FROM assessment_question_sets WHERE organization_id = $1 AND question_set_id = $2",
+      [organizationId, questionSetId]
+    );
+    return { students: Boolean(rows[0] && rows[0].students_see_resources), notes: (rows[0] && rows[0].parent_notes) || "" };
+  } catch (error) {
+    return orEmpty(error, { students: false, notes: "" });
+  }
+}
+
+async function saveSettings(db, organizationId, questionSetId, { show, notes, students }) {
+  const values = [organizationId, questionSetId, show === true, String(notes || "").trim().slice(0, MAX_NOTES) || null];
+  if (students !== undefined) {
+    try {
+      const { rowCount } = await db.query(
+        "UPDATE assessment_question_sets SET show_on_parent_portal = $3, parent_notes = $4, students_see_resources = $5 WHERE organization_id = $1 AND question_set_id = $2",
+        [...values, students === true]
+      );
+      return rowCount > 0;
+    } catch (error) {
+      if (error.code !== "42703") throw error; // before the migration: save the rest
+    }
+  }
   const { rowCount } = await db.query(
     "UPDATE assessment_question_sets SET show_on_parent_portal = $3, parent_notes = $4 WHERE organization_id = $1 AND question_set_id = $2",
-    [organizationId, questionSetId, show === true, String(notes || "").trim().slice(0, MAX_NOTES) || null]
+    values
   );
   return rowCount > 0;
+}
+
+// A web link as a resource (a video, an article). Only http(s) addresses.
+async function addLink(db, organizationId, questionSetId, { url, label }, uploadedBy) {
+  const address = String(url || "").trim().slice(0, 1000);
+  if (!/^https?:\/\/[^\s]+$/i.test(address)) return null;
+  const name = String(label || "").trim().slice(0, 200) || address.replace(/^https?:\/\//i, "").slice(0, 120);
+  const { rows } = await db.query(
+    `INSERT INTO assessment_set_resources (organization_id, question_set_id, file_name, file_url, file_key, uploaded_by)
+     VALUES ($1, $2, $3, $4, NULL, $5) RETURNING resource_id, file_name, file_url`,
+    [organizationId, questionSetId, name, address, uploadedBy]
+  );
+  return { id: Number(rows[0].resource_id), name: rows[0].file_name, link: true, url: rows[0].file_url };
 }
 
 async function addFiles(db, organizationId, questionSetId, files, uploadedBy) {
@@ -80,10 +122,10 @@ async function filesForSets(db, organizationId, questionSetIds) {
   if (!questionSetIds.length) return [];
   try {
     const { rows } = await db.query(
-      "SELECT resource_id, question_set_id, file_name, created_at FROM assessment_set_resources WHERE organization_id = $1 AND question_set_id = ANY($2::int[]) ORDER BY created_at DESC, resource_id DESC",
+      "SELECT resource_id, question_set_id, file_name, created_at, file_key IS NULL AS is_link FROM assessment_set_resources WHERE organization_id = $1 AND question_set_id = ANY($2::int[]) ORDER BY created_at DESC, resource_id DESC",
       [organizationId, questionSetIds]
     );
-    return rows.map((row) => ({ id: Number(row.resource_id), setId: Number(row.question_set_id), name: row.file_name, at: row.created_at }));
+    return rows.map((row) => ({ id: Number(row.resource_id), setId: Number(row.question_set_id), name: row.file_name, at: row.created_at, link: row.is_link }));
   } catch (error) {
     return orEmpty(error, []);
   }
@@ -136,4 +178,4 @@ async function questionsForParents(db, organizationId, questionSetId) {
   return rows;
 }
 
-module.exports = { readSettings, saveSettings, addFiles, removeFile, shownSets, filesForSets, termSetsForChild, fileById, questionsForParents };
+module.exports = { readSettings, saveSettings, studentExtras, addLink, addFiles, removeFile, shownSets, filesForSets, termSetsForChild, fileById, questionsForParents };

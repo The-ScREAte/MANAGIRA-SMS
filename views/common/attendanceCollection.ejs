@@ -1234,11 +1234,99 @@
     <% if (students.length === 0) { %>
         <p class="att-summary" style="text-align: center; color: #64748b;">No students in this class yet.</p>
     <% } else { %>
+        <% if ((locals.attendanceForms || []).length) { %>
+        <style>
+          .attendance-sheet .att-form-col { min-width: 132px; padding: 4px 8px; text-align: left; white-space: nowrap; }
+          .attendance-sheet th.att-form-col small { display: block; font-size: .68em; font-weight: 500; opacity: .7; }
+          .attendance-sheet .att-form-sel { width: 100%; min-width: 116px; height: 32px; margin: 0; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: inherit; font: inherit; font-size: .86em; }
+          .attendance-sheet .att-form-sel.is-saved { border-color: #16a34a; }
+          .attendance-sheet .att-form-sel.is-bad, .attendance-sheet .att-taps.is-bad button[aria-pressed="true"] { border-color: #dc2626; }
+          /* Tap answers: the chosen one is lit, the others stay quiet. */
+          .attendance-sheet .att-taps { display: inline-flex; gap: 4px; }
+          .attendance-sheet .att-taps button { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 34px; margin: 0; padding: 0 9px; border: 1px solid #d0d5dd; border-radius: 9px; background: #fff; box-shadow: none; color: #475467; font: inherit; font-size: .84em; font-weight: 600; cursor: pointer; transition: background .12s ease, color .12s ease, opacity .12s ease, border-color .12s ease; }
+          .attendance-sheet .att-taps--icons button { width: 40px; padding: 0; }
+          .attendance-sheet .att-taps button:hover { border-color: var(--org-primary-color, #01535b); }
+          .attendance-sheet .att-taps button[aria-pressed="true"] { border-color: var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; }
+          .attendance-sheet .att-taps--icons:has(button[aria-pressed="true"]) button:not([aria-pressed="true"]) { opacity: .4; }
+          .attendance-sheet .att-taps svg { display: block; }
+          .attendance-sheet th .att-key { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: .72em; font-weight: 600; letter-spacing: 0; text-transform: none; opacity: .85; }
+          .attendance-sheet th .att-key > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+          .attendance-sheet th .att-key b { font-variant-numeric: tabular-nums; }
+          .attendance-sheet .att-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+          @media print { .attendance-sheet .att-form-col { display: none; } }
+        </style>
+        <script>
+          // Today's answers to the forms collected with attendance: saved as each one is chosen,
+          // one student at a time (Custom editor, "Add it to the attendance page").
+          (function () {
+            var day = <%- JSON.stringify(attendanceTodayKey) %>;
+            var queue = {};
+            // The row's answers to one form: dropdowns by their value, taps by the one that is lit.
+            function valuesOf(row, form) {
+              var values = {};
+              Array.prototype.forEach.call(row.querySelectorAll('[data-att-form="' + form + '"]'), function (box) {
+                var v = box.tagName === 'SELECT' ? box.value : box.getAttribute('data-value') || '';
+                var type = box.getAttribute('data-att-type');
+                values[box.getAttribute('data-att-field')] = v === '' ? null : type === 'rating' ? Number(v) : type === 'yesno' ? v === 'yes' : v;
+              });
+              return values;
+            }
+            function save(box) {
+              var form = box.getAttribute('data-att-form');
+              var student = box.getAttribute('data-att-student');
+              var values = valuesOf(box.closest('tr'), form);
+              var key = form + ':' + student;
+              var send = function () {
+                return fetch('/common/forms/' + form + '/student/' + student + '?day=' + encodeURIComponent(day), {
+                  method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                  body: JSON.stringify({ values: values, quick: true, day: day }),
+                }).then(function (res) { return res.json().catch(function () { return {}; }).then(function (json) { if (!res.ok || !json.success) throw new Error(json.error || 'It could not be saved.'); }); })
+                  .then(function () { box.classList.remove('is-bad'); box.classList.add('is-saved'); box.title = 'Saved'; })
+                  .catch(function (error) { box.classList.remove('is-saved'); box.classList.add('is-bad'); box.title = error.message; });
+              };
+              queue[key] = (queue[key] || Promise.resolve()).then(send);
+            }
+            // The key in the column heading: how many have each answer today.
+            function recount() {
+              Array.prototype.forEach.call(document.querySelectorAll('.att-key'), function (key) {
+                var parts = key.getAttribute('data-att-key').split(':');
+                var counts = {};
+                Array.prototype.forEach.call(document.querySelectorAll('.att-taps[data-att-form="' + parts[0] + '"][data-att-field="' + parts[1] + '"]'), function (box) {
+                  var v = box.getAttribute('data-value');
+                  if (v) counts[v] = (counts[v] || 0) + 1;
+                });
+                Array.prototype.forEach.call(key.querySelectorAll('[data-k]'), function (item) { item.querySelector('b').textContent = counts[item.getAttribute('data-k')] || 0; });
+              });
+            }
+            // This script sits above the table: count once the rows are there.
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', recount); else setTimeout(recount, 0);
+            document.addEventListener('change', function (event) {
+              var sel = event.target.closest ? event.target.closest('.att-form-sel') : null;
+              if (sel) save(sel);
+            });
+            // A tap lights that answer (and dims the others); tapping the lit one clears it.
+            document.addEventListener('click', function (event) {
+              var tap = event.target.closest ? event.target.closest('.att-taps button') : null;
+              if (!tap) return;
+              var box = tap.closest('.att-taps');
+              var v = box.getAttribute('data-value') === tap.getAttribute('data-v') ? '' : tap.getAttribute('data-v');
+              box.setAttribute('data-value', v);
+              Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === v)); });
+              recount();
+              save(box);
+            });
+          })();
+        </script>
+        <% } %>
         <div class="attendance-sheet-container">
             <table class="attendance-sheet">
                 <thead>
                     <tr>
                         <th class="student-name">Student Name <button type="button" class="sort-toggle-btn" id="attendanceHeaderSortToggle" data-sort-direction="asc" aria-label="Sort names Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+                        <%# Custom editor sections collected every day with attendance (a lunch count): today's answer, beside the name. %>
+                        <% (locals.attendanceForms || []).forEach((form) => form.fields.forEach((field) => { %>
+                        <th class="att-form-col" title="<%= form.name %>"><%= field.label %><small>Today</small><% if (field.type === 'yesno' || field.display === 'icons' || field.display === 'buttons') { const _keyChoices = field.type === 'yesno' ? [['yes', 'Yes', field.display === 'icons' ? 'check' : ''], ['no', 'No', field.display === 'icons' ? 'close' : '']] : (field.options || []).map((o) => [o, o, field.display === 'icons' ? ((field.icons || {})[o] || '') : '']); %><span class="att-key" data-att-key="<%= form.id %>:<%= field.id %>"><% _keyChoices.forEach((choice) => { %><span data-k="<%= choice[0] %>"><% if (choice[2]) { %><%- formIcon(choice[2], 14) %><% } %><%= choice[1] %> <b>0</b></span><% }) %></span><% } %></th>
+                        <% })) %>
                         <% displayDates.forEach(date => { %>
                             <% const isToday = date === todayKey; %>
                             <% const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true }; %>
@@ -1285,6 +1373,9 @@
                                 <td class="student-name" data-student-id="<%= student.student_id %>">
                                 <%= attendanceStudentName %>
                             </td>
+                            <% (locals.attendanceForms || []).forEach((form) => { const _answers = (form.values || {})[student.student_id] || {}; form.fields.forEach((field) => { const _v = _answers[field.id]; const _now = field.type === 'yesno' ? (_v === true ? 'yes' : _v === false ? 'no' : '') : (_v == null ? '' : String(_v)); const _choices = field.type === 'yesno' ? [['yes', 'Yes', field.display === 'icons' ? 'check' : ''], ['no', 'No', field.display === 'icons' ? 'close' : '']] : field.type === 'rating' ? [1, 2, 3, 4, 5].map((n) => [String(n), String(n), '']) : (field.options || []).map((o) => [o, o, field.display === 'icons' ? ((field.icons || {})[o] || '') : '']); const _taps = field.type === 'yesno' || field.display === 'icons' || field.display === 'buttons'; %>
+                            <td class="att-form-col"><% if (_taps) { %><span class="att-taps<%= field.display === 'icons' ? ' att-taps--icons' : '' %>" role="group" aria-label="<%= field.label %> for <%= attendanceStudentName %>" data-att-form="<%= form.id %>" data-att-field="<%= field.id %>" data-att-type="<%= field.type %>" data-att-student="<%= student.student_id %>" data-value="<%= _now %>"><% _choices.forEach((choice) => { %><button type="button" data-v="<%= choice[0] %>" aria-pressed="<%= _now === choice[0] ? 'true' : 'false' %>" title="<%= choice[1] %>"><% if (choice[2]) { %><%- formIcon(choice[2], 20) %><span class="att-sr"><%= choice[1] %></span><% } else { %><%= choice[1] %><% } %></button><% }) %></span><% } else { %><select class="att-form-sel" data-att-form="<%= form.id %>" data-att-field="<%= field.id %>" data-att-type="<%= field.type %>" data-att-student="<%= student.student_id %>" aria-label="<%= field.label %> for <%= attendanceStudentName %>"><option value="">—</option><% _choices.forEach((choice) => { %><option value="<%= choice[0] %>"<%= _now === choice[0] ? ' selected' : '' %>><%= choice[1] %></option><% }) %></select><% } %></td>
+                            <% }) }) %>
                             <% let presentCount = 0; %>
                             <% let totalCount = 0; %>
                             <%# One cell per student per school day: thousands on a page, so each is written

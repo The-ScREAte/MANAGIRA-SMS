@@ -2833,6 +2833,24 @@
                     </div>
                     <% } %>
 
+                    <% if (displaySettings.sections.customSections !== false && Array.isArray(student.customSections) && student.customSections.length) { %>
+                    <%# Custom editor sections marked "Show on report cards": this student's answers for the term. %>
+                    <% student.customSections.forEach(function (section) { %>
+                    <div class="subjects choice-results custom-sections">
+                        <table>
+                            <thead>
+                                <tr><th colspan="2"><%= section.name %></th></tr>
+                            </thead>
+                            <tbody>
+                                <% section.rows.forEach(function (r) { %>
+                                    <tr><td><%= r.label %></td><td><strong><%= r.value %></strong></td></tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                    <% }); %>
+                    <% } %>
+
                     <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
                     <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
 

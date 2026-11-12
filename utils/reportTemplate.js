@@ -51,6 +51,7 @@ const FIELD_GROUPS = [
     ['subject.choice:Practical', 'In the subject row: the choice for “Practical”'],
     ['subject[Mathematics].choice:Practical', 'Mathematics: the choice for “Practical”'],
     ['choices.all', 'Every choice result (e.g. Science – Practical: Yes · …)'],
+    ['forms.all', 'Custom editor sections shown on report cards (e.g. Effort: Good · …)'],
   ] },
   { group: 'One subject', note: 'Use the subject’s name in brackets, e.g. a fixed row for Mathematics.', fields: [
     ['subject[Mathematics].total', 'Mathematics total'], ['subject[Mathematics].grade', 'Mathematics grade'], ['subject[Mathematics].mark:Very Good', '✓ when Mathematics is Very Good'],
@@ -182,6 +183,8 @@ function resolveField(token, ctx, student, subject, subjectNo) {
       const list = (r.scoreRemarks || []).slice().sort((a, b) => Number(b.toPercentage || b.to_percentage || 0) - Number(a.toPercentage || a.to_percentage || 0));
       return list.map((x) => (x.gradeLabel || '-') + ' (' + (x.fromPercentage ?? x.from_percentage) + ' to ' + (x.toPercentage ?? x.to_percentage) + ') = ' + (x.remark || '-')).join('  ·  ');
     }
+    case 'forms.all':
+      return (student.customSections || []).map((x) => x.name + ' – ' + x.rows.map((row) => row.label + ': ' + row.value).join(', ')).join('  ·  ');
     case 'choices.all':
       return (student.choiceResults || []).map((x) => x.subject + ' – ' + x.title + ': ' + x.choice).join('  ·  ');
     case 'signature.name': return r.signatureName;

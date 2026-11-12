@@ -85,7 +85,10 @@ module.exports = [
           ["<strong>Documents &amp; results</strong>", "Shared test results and the files teachers attached."],
           ["<strong>Transportation</strong>", "The bus and its stops. See " + link("live-bus-tracking", "Live bus tracking") + "."],
           ["<strong>Messages</strong>", "Your conversations about this child. See " + link("parent-messages", "Messages") + "."],
+          ["<strong>Forms</strong>", "Forms the school asks you to fill in, such as permission slips. See " + link("parent-forms-and-portfolio", "Forms and your child's portfolio") + "."],
+          ["<strong>Portfolio</strong>", "A folder for each term: marked tests, grades and the report card."],
         ],
+        note: "<strong>Forms</strong> and <strong>Portfolio</strong> show when your school uses them.",
       },
       {
         title: "Homework help",
@@ -219,6 +222,48 @@ module.exports = [
     ],
     related: ["parent-portal", "emergency-and-pickup-details"],
   },
+  {
+    slug: "parent-forms-and-portfolio",
+    title: "Forms and your child's portfolio",
+    topic: "Parent portal",
+    order: 7,
+    summary: "Fill in the forms your school sends, such as permission slips and health details, and open your child's portfolio of marked work for each term.",
+    tags: ["forms", "permission slip", "consent", "portfolio", "marked tests", "parent portal"],
+    who: "Parents and guardians. Students have the same two tiles on their dashboard.",
+    sections: [
+      {
+        title: "Fill in a form",
+        steps: [
+          ["On your child's page, select <strong>Forms</strong>. A number on the tile means a form is waiting.", "parent-forms.webp", "Forms: what to fill in, what you've sent, and what the school shared."],
+          "Open a form under <strong>To fill in</strong>. A due date shows if there is one.",
+          "Answer the questions. Fields marked * are required.",
+          "Select <strong>Send</strong>.",
+        ],
+        list: [
+          "<strong>Sent</strong> lists what you've sent. Open one to change it and select <strong>Save changes</strong>.",
+          "A form that says <em>This can be sent only once</em> can't be changed afterwards, so check your answers first.",
+          "<strong>Shared by the school</strong> lists records the school lets you read, such as a reading log.",
+        ],
+        note: "You get a notification when a new form arrives, and a reminder before a required form is due.",
+      },
+      {
+        title: "The portfolio",
+        steps: [
+          ["On your child's page, select <strong>Portfolio</strong>.", "parent-portfolio.webp", "The portfolio: one folder for each term."],
+          "Choose a term at the top.",
+          "<strong>Documents</strong> holds the term's report card and each marked online test. Select <strong>Open</strong> to read one, or <strong>Download PDF</strong> to keep it.",
+          "<strong>Assessments &amp; assignments</strong> lists each subject's work with its mark.",
+        ],
+        note: "You see marks once the teacher has posted them, the same as on " + link("parent-grades-and-report-cards", "Grades and report cards") + ".",
+      },
+    ],
+    faq: [
+      ["I sent the wrong answer.", "Open the form under Sent and change it. If the form could be sent only once, message the teacher or the school office."],
+      ["A test isn't in the portfolio.", "It appears once the teacher has marked and posted it."],
+      ["I handed the form in on paper.", "That's fine. The teacher enters it for you, and it leaves your list."],
+    ],
+    related: ["parent-tiles-and-homework-help", "parent-tests-and-results", "parent-grades-and-report-cards"],
+  },
 
   // ------------------------------------------------------------------ Student portal
   {
@@ -253,6 +298,8 @@ module.exports = [
           ["<strong>Subject Teachers</strong>", "Who teaches each subject.", ""],
           ["<strong>Transportation</strong>", "Your bus and stop, if your school uses it.", link("live-bus-tracking", "Live bus tracking")],
           ["<strong>Testing Room</strong>", "Tests to take, and finished ones with the grade.", link("student-testing-room", "Take a test") + ", " + link("student-results", "Your results")],
+          ["<strong>Forms</strong>", "Forms your school asks you to fill in. Answer the questions and select <strong>Send</strong>.", ""],
+          ["<strong>Portfolio</strong>", "A folder for each term: your marked tests, grades and report card.", ""],
         ],
         note: "<strong>Settings</strong> (in the menu) sets Light, Classic or Dark.",
       },

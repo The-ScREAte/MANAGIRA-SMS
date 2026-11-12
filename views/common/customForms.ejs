@@ -1,0 +1,16 @@
+<%# The Custom editor (feature custom_forms), in Management Tools: public/js/customFormsEditor.js draws it. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
+<div class="cf cf-ed" id="cf-app">
+  <div class="cf-ed__top">
+    <div>
+      <h1>Custom editor</h1>
+      <p>Build your own forms. Choose where each one lives, then add its fields.</p>
+    </div>
+    <button type="button" class="cf-btn cf-btn--primary" id="cf-new">Create New Section</button>
+  </div>
+  <div class="cf-sections" id="cf-sections"></div>
+</div>
+<script type="application/json" id="cf-boot"><%- JSON.stringify(boot) %></script>
+<script src="<%= assetUrl('/js/customFormRender.js') %>"></script>
+<script src="<%= assetUrl('/js/customFormsFill.js') %>"></script>
+<script src="<%= assetUrl('/js/customFormsEditor.js') %>"></script>

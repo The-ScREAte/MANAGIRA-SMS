@@ -268,6 +268,23 @@ function attendanceRollup(groupBy, bind, criteria) {
 const sqlText = (value) => `'${String(value ?? "").replace(/\u0000/g, "").replace(/'/g, "''")}'`;
 const shortHash = (value) => require("crypto").createHash("md5").update(String(value)).digest("hex").slice(0, 10);
 
+// One Custom editor field's answer as people read it (answers are stored as JSON by field id).
+function customAnswerSql(field) {
+  const value = `e.data -> ${sqlText(field.id)}`;
+  const text = `e.data ->> ${sqlText(field.id)}`;
+  const items = `jsonb_array_elements(CASE WHEN jsonb_typeof(${value}) = 'array' THEN ${value} ELSE '[]'::jsonb END) AS x(item)`;
+  switch (field.type) {
+    case "number": case "rating": return { sql: `CASE WHEN jsonb_typeof(${value}) = 'number' THEN (${text})::numeric END`, type: "number" };
+    case "date": return { sql: `CASE WHEN (${text}) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN (${text})::date END`, type: "date" };
+    case "yesno": return { sql: `CASE ${text} WHEN 'true' THEN 'Yes' WHEN 'false' THEN 'No' END` };
+    case "checklist": return { sql: `(SELECT STRING_AGG(x.item #>> '{}', ', ') FROM ${items})` };
+    case "file": return { sql: `(SELECT STRING_AGG(x.item ->> 'name', ', ') FROM ${items})` };
+    case "signature": return { sql: `${value} ->> 'name'` };
+    case "seat": return { sql: `CASE WHEN jsonb_typeof(${value}) = 'object' THEN 'Row ' || (${value} ->> 'r') || ', seat ' || (${value} ->> 'c') END` };
+    default: return { sql: text };
+  }
+}
+
 function customRemarkTypes(db, organizationId) {
   return db.query(
     `SELECT id, type_key, label FROM organization_custom_remark_types
@@ -1260,6 +1277,68 @@ const REPORTS = {
     ],
   },
 
+  // Custom editor: one row per answer. Each section's fields are added as columns, grouped
+  // under the section's name (extend), so a school reports on the forms it built itself.
+  custom_answers: {
+    title: "Students",
+    variant: "Custom forms",
+    permission: "custom_forms",
+    requires: "customForms",
+    releaseFeature: "custom_forms",
+    organizationExpression: "e.organization_id",
+    classExpression: "s.class_id",
+    stableOrderExpressions: ["e.entry_id"],
+    from: `FROM custom_section_entries e
+      JOIN custom_sections cs ON cs.section_id = e.section_id AND cs.organization_id = e.organization_id
+      JOIN students s ON s.student_id = e.student_id AND s.organization_id = e.organization_id
+      LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+      LEFT JOIN terms t ON t.term_id = e.term_id AND t.organization_id = e.organization_id
+      LEFT JOIN school_years sy ON sy.id = e.school_year_id`,
+    joins: STUDENT_JOINS,
+    defaultColumns: ["form", "student_name", "class_name", "saved_at", "saved_by"],
+    defaultSort: { key: "saved_at", dir: "desc" },
+    columns: {
+      form: { label: "Form", expression: "cs.name" },
+      ...STUDENT_COLUMNS,
+      class_name: { label: "Class", expression: "c.class_name" },
+      filled_by: { label: "Filled in by", expression: "CASE cs.filled_by WHEN 'staff' THEN 'Staff' WHEN 'parent' THEN 'Parent' WHEN 'student' THEN 'Student' ELSE 'Driver' END" },
+      term_name: { label: "Term", expression: "t.term_name" },
+      school_year: { label: "School year", expression: "sy.year_label" },
+      entry_day: { label: "Day", expression: "e.entry_date", type: "date" },
+      saved_at: { label: "Saved", expression: "e.updated_at", type: "datetime" },
+      saved_by: { label: "Saved by", expression: "e.saved_by_name" },
+      ...PARENT_COLUMNS,
+    },
+    criteria: [
+      selectCriterion("form", "Form", "e.section_id",
+        "SELECT section_id::text AS value, name AS label FROM custom_sections WHERE organization_id = $1 AND status <> 'archived' ORDER BY position, name LIMIT 200"),
+      ...studentCriteria(),
+      classCriterion("s.class_id"),
+      termCriterion("e.term_id"),
+      dateCriterion("Day between", "e.entry_date", "day"),
+      dateCriterion("Saved between", "e.updated_at"),
+    ],
+    async extend(db, organizationId) {
+      const { rows } = await db.query(
+        "SELECT section_id, name, fields FROM custom_sections WHERE organization_id = $1 AND status <> 'archived' ORDER BY position, name LIMIT 200",
+        [organizationId]
+      );
+      const columns = {};
+      rows.forEach((row) => (Array.isArray(row.fields) ? row.fields : []).forEach((field) => {
+        // Field ids are made by the server (f_ and letters or digits), so they are safe to name in SQL.
+        if (!field || field.type === "instructions" || !/^f_[a-z0-9]{4,16}$/.test(String(field.id))) return;
+        const answer = customAnswerSql(field);
+        columns[`answer_${row.section_id}_${field.id}`] = {
+          label: String(field.label || "Answer").slice(0, 120),
+          expression: `CASE WHEN e.section_id = ${Number(row.section_id)} THEN ${answer.sql} END`,
+          group: row.name,
+          ...(answer.type ? { type: answer.type } : {}),
+        };
+      }));
+      return { columns, criteria: [] };
+    },
+  },
+
   // Fees & payments
   fee_balances: {
     title: "Fees & payments",
@@ -1905,8 +1984,9 @@ Object.assign(REPORTS, {
 
 TRANSPORT_REPORT_NAMES.forEach((name) => { REPORTS[name].releaseFeature = "transport_report_builder"; });
 
+// `also` adds to a description only for people who can open that view.
 const FAMILIES = [
-  { key: "students", group: "Students", title: "Students", description: "Profiles, class, parents, bus and status, current and former", views: ["students"] },
+  { key: "students", group: "Students", title: "Students", description: "Profiles, class, parents, bus and status, current and former", also: { custom_answers: ", and answers to your custom forms" }, views: ["students", "custom_answers"] },
   { key: "admissions", group: "Students", title: "Admissions & enrollment", description: "Online applications and enrollment by term", views: ["admissions", "enrollments"] },
   { key: "assessments", group: "Students", title: "Assessments", description: "Recorded scores and online tests", views: ["assessment_results", "online_tests"] },
   { key: "merit", group: "Students", title: "Merit sheet", description: "Class rankings by term: totals, averages, grades, positions and remarks", views: ["merit_ranking", "merit_subjects"] },
@@ -1958,6 +2038,8 @@ const FEATURES = {
   // Newer tables: their reports appear once the school's database has them.
   transportChecks: tableExists("transport_trip_arrivals", "transport_driver_reports"),
   transportRequests: tableExists("transport_student_requests"),
+  // The Custom editor's tables (kept in memory once they exist).
+  customForms: (db) => require("./customForms").ready(db),
   // Fee reports need PayGira in the plan, and the school using it.
   fees: async (db, organizationId) => (await planHas(db, organizationId, ["PayGira", "Pay Gira", "PayGira & Payments", "PayGira and Payments"]))
     && (await db.query("SELECT EXISTS (SELECT 1 FROM finance_bills WHERE organization_id = $1) AS available", [organizationId])).rows[0]?.available,

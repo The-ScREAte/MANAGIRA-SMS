@@ -1,0 +1,8 @@
+<%# Forms on the parent and student portals (feature custom_forms): public/js/portalForms.js draws them. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
+<div class="cfp" id="cfp-app">
+  <% if (!forms.length) { %><div class="cfp-empty"><%= locals.single ? 'Nothing to fill in here right now. If you already sent it, thank you.' : 'No forms right now. When the school asks you to fill something in, it shows here.' %></div><% } %>
+</div>
+<script type="application/json" id="cfp-boot"><%- JSON.stringify({ forms: forms, base: base, query: query, audience: audience, single: Boolean(locals.single) }) %></script>
+<script src="<%= assetUrl('/js/customFormRender.js') %>"></script>
+<script src="<%= assetUrl('/js/portalForms.js') %>"></script>

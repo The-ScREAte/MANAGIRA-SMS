@@ -1003,6 +1003,8 @@ app.locals.brandColorChoices = require("./utils/themePalette").BRAND_COLOR_OPTIO
 app.locals.footerPaletteFor = require("./utils/themePalette").footerPaletteFor;
 app.locals.canSeeSetupSteps = require("./utils/setupChecklist").canSeeSetupSteps;
 app.locals.navIcon = require("./utils/navIcons").navIcon;
+// A Custom editor section's own icon, for its tile or menu item (the browser's icons, one set).
+app.locals.formIcon = (name, size) => require("./public/js/customFormRender.js").icon(name, size || 24);
 // Stamped on changing scripts/styles (?v=) so browsers and the offline cache load new versions at once.
 app.locals.assetVersion = String(process.env.RENDER_GIT_COMMIT || Date.now()).slice(0, 12);
 app.locals.cssBundleUrl = cssBundleUrl;

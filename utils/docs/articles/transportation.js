@@ -85,6 +85,7 @@ module.exports = [
         list: [
           "Their own runs, routes, stops and riders.",
           "Riders' pickup and emergency details, if the school gives them <strong>Pickup &amp; Emergency</strong>.",
+          "A <strong>Forms</strong> card, when the school built a form for drivers in the <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>. It lists only their own riders.",
           "Only the map zooms, so the screen stays steady while driving.",
         ],
         warning: "Drive safely: set up the run before you move, and let the app count boarding for you.",

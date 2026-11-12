@@ -215,10 +215,19 @@ async function currentTermId(db, organizationId) {
  * The school's setup steps with done/skipped state.
  * features: the school's plan features (res.locals.allowedFeatures).
  */
+// Requests for the same school at the same moment (a hub opening several panels) share one load.
+const loading = new Map();
 async function getSetupChecklist(db, organizationId, features = []) {
   const key = String(organizationId);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+  if (loading.has(key)) return loading.get(key);
+  const work = loadSetupChecklist(db, organizationId, features, key).finally(() => loading.delete(key));
+  loading.set(key, work);
+  return work;
+}
+
+async function loadSetupChecklist(db, organizationId, features, key) {
 
   await ensureSetupSchema(db);
   const [termId, skips] = await Promise.all([

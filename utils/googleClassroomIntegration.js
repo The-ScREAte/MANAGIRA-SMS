@@ -289,6 +289,8 @@ function normalizeQuestionPayload(rawQuestions = []) {
           : index,
         // A picture and its spots; checked where it's saved (utils/questionMedia.js).
         media: question.media && typeof question.media === "object" ? question.media : null,
+        // Help for this one question; checked where it's saved (utils/questionHelp.js).
+        help: question.help && typeof question.help === "object" ? question.help : null,
       };
     })
     .filter(Boolean);

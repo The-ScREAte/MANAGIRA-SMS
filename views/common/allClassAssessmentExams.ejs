@@ -4926,6 +4926,7 @@
               ? card.querySelector('.qm-options-layout-select').value
               : 'stacked',
             media: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.mediaOf(card) : null,
+            help: window.QuestionHelp ? window.QuestionHelp.helpOf(card) : null,
           });
         });
 
@@ -5011,6 +5012,7 @@
                 ? q.answers
                 : (q.answer ? [q.answer] : []),
               media: q.media || null,
+              help: q.help || null,
             });
             questionItems.appendChild(card);
           });
@@ -6205,6 +6207,7 @@
         }, 0);
 
         if (window.QuestionBuilderFlow) window.QuestionBuilderFlow.decorate(wrapper, question || {});
+        if (window.QuestionHelp) window.QuestionHelp.decorate(wrapper, question || {});
         return wrapper;
       }
 
@@ -6232,6 +6235,7 @@
             questionType: questionType,
             questionText: typedText || (questionType === 'image_label' ? 'Label the picture.' : ''),
             media: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.mediaOf(item) : null,
+            help: window.QuestionHelp ? window.QuestionHelp.helpOf(item) : null,
             options: options,
             optionLayout: item.querySelector('.qm-options-layout-select')
               ? String(item.querySelector('.qm-options-layout-select').value || 'stacked')
@@ -8007,6 +8011,8 @@
       <% } %>
     })();
   </script>
+<%# Resources & recommendations and help on each question (feature learning_resources): setResources.js takes the place of the older parent-only box. %>
+<% if (locals.featureOn && featureOn('learning_resources') && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script><% } %>
 <% if (locals.featureOn && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script><% } %>
 <% if (locals.assessmentFlow) { %><link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script><% } %>
 </body>

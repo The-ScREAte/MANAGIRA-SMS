@@ -271,6 +271,25 @@ function remoteBody(provider, it, tz) {
 }
 
 const goneStatus = (err) => [404, 410].includes(Number(err?.code || err?.response?.status));
+const statusOf = (err) => Number(err?.code || err?.response?.status || 0);
+const pause = (ms) => (deps.pause ? deps.pause(ms) : new Promise((resolve) => setTimeout(resolve, ms)));
+// Google or Microsoft saying "slow down" (403/429 rate limits) or having a moment (5xx): wait and
+// try again, a little longer each time, so a sync never stops halfway over it.
+function busyAnswer(err) {
+  const status = statusOf(err);
+  const reason = JSON.stringify(err?.response?.data || err?.errors || "") + " " + String(err?.message || "");
+  return status === 429 || status >= 500 || (status === 403 && /rate ?limit|userRateLimitExceeded|rateLimitExceeded|quotaExceeded|usage limits/i.test(reason));
+}
+async function patiently(call, { tries = 4, waitMs = 1000 } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await call();
+    } catch (err) {
+      if (attempt >= tries || !busyAnswer(err)) throw err;
+      await pause(waitMs * attempt);
+    }
+  }
+}
 
 /** items: [{ uid, title, details, location, date, endDate, startTime, endTime, allDay, url }] */
 async function pushItems(db, conn, items, orgName) {
@@ -289,7 +308,12 @@ async function pushItems(db, conn, items, orgName) {
 
 async function pushOnce(db, conn, items, orgName) {
   const tz = conn.time_zone || "UTC";
-  const calId = await ensureManagiraCalendar(db, conn, orgName);
+  const isNew = !conn.managira_calendar_id;
+  const calId = await patiently(() => ensureManagiraCalendar(db, conn, orgName));
+  // A calendar made a moment ago can take a few seconds to accept events.
+  const intoNew = isNew ? (call) => patiently(async () => {
+    try { return await call(); } catch (err) { if (goneStatus(err)) { const e = new Error("not ready yet"); e.code = 503; throw e; } throw err; }
+  }, { tries: 5, waitMs: 1500 }) : (call) => patiently(call);
   const map = new Map((await db.query(`SELECT item_uid, remote_id, hash FROM calendar_push_map WHERE connection_id = $1`, [conn.connection_id])).rows.map((r) => [r.item_uid, r]));
   const g = conn.provider === "google" ? googleApi(db, conn) : null;
   const seen = new Set();
@@ -302,8 +326,8 @@ async function pushOnce(db, conn, items, orgName) {
     let remoteId = prev ? prev.remote_id : null;
     try {
       if (remoteId) {
-        if (g) await g.events.patch({ calendarId: calId, eventId: remoteId, requestBody: body });
-        else await graph(db, conn, "patch", `/me/events/${encodeURIComponent(remoteId)}`, body);
+        if (g) await patiently(() => g.events.patch({ calendarId: calId, eventId: remoteId, requestBody: body }));
+        else await patiently(() => graph(db, conn, "patch", `/me/events/${encodeURIComponent(remoteId)}`, body));
       }
     } catch (err) {
       if (!goneStatus(err)) throw err;
@@ -311,8 +335,8 @@ async function pushOnce(db, conn, items, orgName) {
     }
     if (!remoteId) {
       try {
-        if (g) remoteId = (await g.events.insert({ calendarId: calId, requestBody: body })).data.id;
-        else remoteId = (await graph(db, conn, "post", `/me/calendars/${encodeURIComponent(calId)}/events`, body)).id;
+        if (g) remoteId = (await intoNew(() => g.events.insert({ calendarId: calId, requestBody: body }))).data.id;
+        else remoteId = (await intoNew(() => graph(db, conn, "post", `/me/calendars/${encodeURIComponent(calId)}/events`, body))).id;
       } catch (err) {
         const status = Number(err?.code || err?.response?.status || 0);
         if (status !== 400 || friendlyError(err) === "reconnect") throw err;
@@ -329,8 +353,8 @@ async function pushOnce(db, conn, items, orgName) {
   for (const [uid, row] of map) {
     if (seen.has(uid)) continue;
     try {
-      if (g) await g.events.delete({ calendarId: calId, eventId: row.remote_id });
-      else await graph(db, conn, "delete", `/me/events/${encodeURIComponent(row.remote_id)}`);
+      if (g) await patiently(() => g.events.delete({ calendarId: calId, eventId: row.remote_id }));
+      else await patiently(() => graph(db, conn, "delete", `/me/events/${encodeURIComponent(row.remote_id)}`));
     } catch (err) { if (!goneStatus(err)) throw err; }
     await db.query(`DELETE FROM calendar_push_map WHERE connection_id = $1 AND item_uid = $2`, [conn.connection_id, uid]);
   }
@@ -371,6 +395,6 @@ function friendlyError(err) {
 
 module.exports = {
   GOOGLE_SCOPES, ensureConnectSchema, providersConfigured, startUrl, isCalendarCallback, finishOauth,
-  pushItems, disconnect, friendlyError,
+  pushItems, disconnect, friendlyError, busyAnswer,
   __setDeps: (next) => Object.assign(deps, next),
 };

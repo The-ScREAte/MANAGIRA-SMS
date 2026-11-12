@@ -551,15 +551,26 @@ function reportBuilderController(db, options = {}) {
           .map(([key, report]) => describeReport(key, report, context.granted));
         // Entries in the list, each with the views this person can open.
         const families = FAMILIES
-          .map((family) => ({ ...family, views: family.views.filter((key) => context.accessibleReports.has(key)) }))
+          .map((family) => {
+            const views = family.views.filter((key) => context.accessibleReports.has(key));
+            const also = Object.entries(family.also || {}).filter(([key]) => views.includes(key)).map(([, text]) => text).join("");
+            return { ...family, views, description: family.description + also };
+          })
           .filter((family) => family.views.length);
         const requestedType = String(req.query.type || "");
         // Links such as the term page's "Merit sheet" open a report already filtered.
         const initialCriteria = {};
-        ["class", "term"].forEach((key) => {
+        ["class", "term", "form"].forEach((key) => {
           const id = positiveInt(req.query[key]);
           if (id) initialCriteria[key] = id;
         });
+        // A report on one custom form (the Custom editor's Report button): the form's own fields
+        // are the columns, ready to run.
+        let initialColumns = null;
+        if (requestedType === "custom_answers" && initialCriteria.form && context.accessibleReports.has(requestedType)) {
+          const answers = Object.keys(context.accessibleReports.get(requestedType).columns).filter((key) => key.startsWith(`answer_${initialCriteria.form}_`));
+          if (answers.length) initialColumns = ["student_name", "class_name", "entry_day", ...answers, "saved_by"];
+        }
         return res.render("common/reportBuilder", {
           title: "Report Builder",
           reportTypes,
@@ -570,6 +581,7 @@ function reportBuilderController(db, options = {}) {
           savedReports: savedResult.rows.filter((saved) => context.accessibleReports.has(saved.report_type)),
           initialType: context.accessibleReports.has(requestedType) ? requestedType : "",
           initialCriteria,
+          initialColumns,
           userEmail: userResult.rows[0]?.email || context.identity.userEmail || "",
           school: {
             name: org.organization_name || "",

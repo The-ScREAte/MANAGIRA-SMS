@@ -92,7 +92,7 @@ module.exports = [
           ["Transportation", "Transportation (with Buses, Manage Drivers, Routes &amp; Stops, Schedules, Rider List, Student Stops &amp; Routes, Driver Reports), Class Bus Reports"],
           ["Driver", "Lead Driver, Student Details, Pickup &amp; Emergency, Reports, School Website, Any Route"],
           ["Finance", "PayGira (with its pages), Manage Billing"],
-          ["Administration", "Manage Organization Settings, Single Sign-On"],
+          ["Administration", "Manage Organization Settings, Single Sign-On, Custom Editor"],
         ],
         image: "add-employee.webp",
         caption: "Permissions are ticked on each person, grouped by area.",

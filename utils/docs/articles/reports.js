@@ -29,6 +29,7 @@ module.exports = [
           "Each subject with its scores, total, percentage, grade, position and remark.",
           "Attendance for the term, and the dates the term began and ends, and when school reopens.",
           "Teacher and principal comments, conduct and interest remarks, and signatures.",
+          "Your school's own sections, such as skills and effort, filled in by teachers each term. Build them in the <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>.",
           "The promotion decision: <strong>Promoted To</strong> or <strong>Repeated In</strong> a class. Save it with the report; promotion uses it. See <a href=\"/legal/user-documentation/promote-students-and-manage-graduation\">Promotion</a>.",
         ],
         tip: "Generate one class first and check a few students' report cards before generating the whole school.",
@@ -58,6 +59,7 @@ module.exports = [
           "Open <strong>Advanced</strong> to choose the score columns and which sections appear.",
           "Add your <strong>Grade Mapping</strong> (for example A = 90–100) and <strong>Score Remarks</strong> (for example Excellent = 90–100).",
           "Add <strong>Global Remarks</strong> for teacher comments, conduct, interest and attitude.",
+          "For anything else you grade each term (effort, work habits, skills), build a section in the <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a> and tick <strong>Show on report cards</strong>. Under <strong>Advanced</strong>, <strong>Custom editor sections</strong> turns them on or off.",
           "Add a <strong>Report Signature</strong>, and a transcript signature, and assign them to classes.",
           "Save, then preview one student's report card before rolling out.",
         ],
@@ -160,6 +162,7 @@ module.exports = [
             table: [
               ["Field", "Prints"],
               ["<code>{{remarks.teacher}}</code>", "The teacher's remark. Also <code>conduct</code>, <code>attitude</code> and <code>interest</code>."],
+              ["<code>{{forms.all}}</code>", "The student's answers to Custom editor sections set to show on report cards, e.g. <em>Skills &amp; effort – Effort: Good, Homework: Excellent</em>."],
               ["<code>{{fees.outstanding}}</code>", "Balance due. Also <code>total_billed</code> and <code>total_paid</code>. Filled from PayGira when bills are set to show in Report Settings."],
               ["<code>{{signature.image}}</code>", "The signature from Report Settings."],
               ["<code>{{signature.name}}</code>, <code>{{signature.title}}</code>", "Who signed, and their title."],
@@ -325,7 +328,7 @@ module.exports = [
         title: "Reports you can build",
         table: [
           ["Area", "Reports"],
-          ["Students", "Students; admissions and enrollment"],
+          ["Students", "Students; answers to your custom forms; admissions and enrollment"],
           ["Academics", "Assessment results, online tests, merit sheets"],
           ["Attendance", "Daily attendance, attendance summary, attendance by class"],
           ["Families", "Parents and guardians, parent messages"],

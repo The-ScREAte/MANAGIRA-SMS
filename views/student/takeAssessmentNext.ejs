@@ -6,7 +6,10 @@
 <%
   const _questions = Array.isArray(questions) ? questions : [];
   const _resources = Array.isArray(locals.resources) ? resources : [];
-  const _split = Boolean(assessment.open_book) && _resources.length > 0;
+  // Open-book tests show their resources; so does any test whose teacher chose
+  // "Students see these with the test" (feature learning_resources).
+  const _split = (Boolean(assessment.open_book) || Boolean(locals.resourcesShown)) && _resources.length > 0;
+  const _notes = String(locals.teacherNotes || '').trim();
   const _minutes = Number(assessment.time_limit_minutes || 0);
   const _points = Number((_questions.reduce((sum, q) => sum + Number(q.marks || 0), 0) || Number(assessment.max_score || 0)).toFixed(2));
   const _attempt = Math.min(Number(submittedAttemptCount || 0) + 1, Number(maxAttempts || 1));
@@ -51,6 +54,8 @@
           <span>Closed book. Stay on this page until you submit. Leaving it locks the test.</span>
         <% } %>
       </p>
+      <% if (_split && !assessment.open_book) { %><p class="ex-closes">Your teacher’s resources open beside the questions.</p><% } %>
+      <% if (_notes) { %><div class="ex-notes"><strong>From your teacher</strong><p><%= _notes %></p></div><% } %>
       <% if (assessment.edit_window_end) { %><p class="ex-closes">Closes <%= new Date(assessment.edit_window_end).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></p><% } %>
       <div class="ex-card__actions">
         <a class="ex-btn ex-btn--ghost" href="<%= _back %>">Cancel</a>
@@ -102,6 +107,14 @@
                 <span class="ex-q__pts"><%= pts %> pt<%= pts === 1 ? '' : 's' %></span>
               </div>
               <div class="ex-q__text"><%- question.question_html || '' %></div>
+              <% if (question.help) { %>
+                <details class="ex-help">
+                  <summary>Help for this question</summary>
+                  <% if (question.help.text) { %><p><%= question.help.text %></p><% } %>
+                  <% if (question.help.link) { %><a href="<%= question.help.link.url %>" target="_blank" rel="noopener noreferrer"><%= question.help.link.label || question.help.link.url %></a><% } %>
+                  <% (question.help.files || []).forEach((file) => { %><a href="<%= file.url %>" target="_blank" rel="noopener noreferrer"><%= file.name %></a><% }) %>
+                </details>
+              <% } %>
 
               <% if (question.media && question.media.image && question.media.image.url) { %>
                 <figure class="ex-pic">

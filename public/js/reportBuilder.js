@@ -1304,6 +1304,11 @@
       if (!state.criteriaOrder.includes(key)) state.criteriaOrder.push(key);
       state.criteria[key] = [String(value)];
     });
+    // Columns chosen for this link (a custom form's own fields), kept to the ones this person has.
+    if (Array.isArray(data.initialColumns)) {
+      const have = data.initialColumns.filter((key) => report().columns.some((column) => column.key === key));
+      if (have.length) state.columns = have;
+    }
     goTo(4);
   }
 })();

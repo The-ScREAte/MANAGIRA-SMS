@@ -1820,6 +1820,8 @@ const printController = (db) => ({
           promotion:       secVis.promotion       !== false,
           // Results recorded as a choice (Yes / No ...), listed under the subjects.
           choiceResults:   secVis.choiceResults   !== false,
+          // Custom editor sections marked "Show on report cards".
+          customSections:  secVis.customSections  !== false,
         },
       };
 
@@ -1966,8 +1968,16 @@ const printController = (db) => ({
         };
       };
 
+      // Custom editor sections marked "Show on report cards": each student's answers for this
+      // term (one read for the class; schools without such a section cost nothing).
+      const customSectionsByStudent = displaySettings.sections.customSections === false ? new Map()
+        : await require("../utils/customForms").reportCardSections(db, organizationId, {
+          classId: parsedClassId, termId: parsedTermId, studentIds: students.map((student) => Number(student.student_id)),
+        }).catch(() => new Map());
+
       students.forEach((student) => {
         const savedReport = savedReportsMap[student.student_id] || {};
+        student.customSections = customSectionsByStudent.get(Number(student.student_id)) || [];
 
         student.conductRemarks = savedReport.conduct_remarks || "";
         student.attitudeRemarks = savedReport.attitude_remarks || "";
@@ -2939,6 +2949,7 @@ const printController = (db) => ({
             },
             promotion:       sec.promotion       !== false,
             choiceResults:   sec.choiceResults   !== false,
+            customSections:  sec.customSections  !== false,
           },
         };
       });
@@ -3131,6 +3142,7 @@ const printController = (db) => ({
           },
           promotion:       secVis2.promotion       !== false,
           choiceResults:   secVis2.choiceResults   !== false,
+          customSections:  secVis2.customSections  !== false,
         },
       };
 

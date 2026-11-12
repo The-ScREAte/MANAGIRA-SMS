@@ -8064,7 +8064,17 @@ const commonController = {
   // Controller for rendering studentDetails page
   studentDetails: async (req, res, db) => {
     const studentId = req.query.studentId;
-    const termId = req.query.termId;
+    // A link without a term (a parent's list of children) opens the school's current term.
+    let termId = req.query.termId;
+    if (studentId && !termId && req.session.organizationId) {
+      const { rows } = await db.query(
+        `SELECT t.term_id FROM terms t JOIN school_years sy ON sy.id = t.school_year_id
+          WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE
+          ORDER BY t.start_date DESC NULLS LAST LIMIT 1`,
+        [req.session.organizationId]
+      ).catch(() => ({ rows: [] }));
+      termId = rows[0] ? String(rows[0].term_id) : termId;
+    }
     const requestedClassId = Number.parseInt(req.query.classId, 10);
     const organizationId = req.session.organizationId;
     const userRole = req.session.userRole;
@@ -9443,7 +9453,12 @@ const commonController = {
       });
 
       // Render the attendance collection page
+      // Classroom sections collected every day that asked for a column here (a lunch count).
+      const attendanceForms = await require("../utils/customForms").attendanceColumns(db, req.session.organizationId, {
+        classId: Number(classId), day: attendanceTodayKey, builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
+      }).catch(() => []);
       res.render("common/attendanceCollection", {
+        attendanceForms,
         attendanceTodayKey,
         title: "Attendance Records",
         classId,
@@ -12235,6 +12250,8 @@ const commonController = {
       );
 
       const setIds = setsResult.rows.map((row) => Number(row.question_set_id)).filter(Boolean);
+      // Wait for the help column check, so a set never loads without its help and saves it away.
+      const helpReady = await require("../utils/questionHelp").whenChecked();
       const questionsResult = setIds.length
         ? await db.query(
             `SELECT
@@ -12247,7 +12264,8 @@ const commonController = {
                answer_key,
                marks,
                position_index,
-               ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"}
+               ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"},
+               ${helpReady ? "help_json" : "NULL::jsonb AS help_json"}
              FROM assessment_questions
              WHERE question_set_id = ANY($1::int[])
              ORDER BY question_set_id ASC, position_index ASC, question_id ASC`,
@@ -12270,6 +12288,7 @@ const commonController = {
           marks: Number(row.marks || 0),
           positionIndex: Number(row.position_index || 0),
           media: questionMedia.forDisplay(row.media_json, res.locals.publicImageUrl, { withAnswers: true }),
+          help: row.help_json || null,
         });
       });
 
@@ -12363,6 +12382,10 @@ const commonController = {
         if (questions[i].questionType === "image_label") questions[i].answerKey = checked.answerKey;
       }
     }
+    // Help on each question (feature learning_resources): only files uploaded for this school.
+    const questionHelp = require("../utils/questionHelp");
+    const helpColumn = questionHelp.featureOn(organizationId) && (await questionHelp.whenChecked());
+    questions.forEach((question) => { question.help = helpColumn ? questionHelp.check(question.help, organizationId) : null; });
     const parentShareGiven = Object.prototype.hasOwnProperty.call(req.body || {}, "parentShare");
     const parentShare = ["grade", "full"].includes(String(req.body.parentShare || "")) ? String(req.body.parentShare) : null;
 
@@ -12626,7 +12649,7 @@ const commonController = {
 
       const mediaColumn = assessmentApproval.columnsReady();
       for (const question of questions) {
-        await client.query(
+        const result = await client.query(
           `INSERT INTO assessment_questions (
              question_set_id,
              organization_id,
@@ -12638,7 +12661,8 @@ const commonController = {
              marks,
              position_index${mediaColumn ? ",\n             media_json" : ""}
            )
-           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9${mediaColumn ? ", $10::jsonb" : ""})`,
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9${mediaColumn ? ", $10::jsonb" : ""})
+           RETURNING question_id`,
           [
             resolvedQuestionSetId,
             organizationId,
@@ -12652,6 +12676,9 @@ const commonController = {
             ...(mediaColumn ? [question.media ? JSON.stringify(question.media) : null] : []),
           ]
         );
+        if (helpColumn && question.help) {
+          await client.query("UPDATE assessment_questions SET help_json = $1::jsonb WHERE question_id = $2", [JSON.stringify(question.help), result.rows[0].question_id]);
+        }
       }
 
       // What parents and the student see of the finished test once its grade is posted.
@@ -17283,13 +17310,23 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'docs', itemId: '' };
       } else if (routePanel === 'pickup') {
         initialWorkspaceRoute = { panel: 'pickup', itemId: '' };
+      } else if (routePanel === 'forms') {
+        // The class's Custom editor sections (feature custom_forms); /forms/12 is one with a
+        // menu item of its own.
+        initialWorkspaceRoute = { panel: 'forms', itemId: /^\d+$/.test(routeItemId) ? routeItemId : '' };
       }
+      // Forms the school gave a Class Tools item of their own (the school's cached list).
+      const classFormTiles = await require("../utils/customForms").tilesFor(db, req.session.organizationId, "staff", {
+        classId,
+        builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
+      }).catch(() => []);
 
       // This person's own order of the Class Tools menu, if they've set one.
       const classToolsOrder = await require("../utils/uiPreferences").getPreference(req.session, "menu-order:classroom").catch(() => null);
 
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
+        classFormTiles,
         classToolsOrder: Array.isArray(classToolsOrder) ? classToolsOrder : [],
         title: `Class Dashboard - ${className}`,
         className: className,

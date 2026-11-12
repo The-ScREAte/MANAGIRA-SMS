@@ -27,6 +27,12 @@
 
   var CLOSE_ICON = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
+  // Panels and questions open under the app header (where the page has one), never over it.
+  function underHeader(el) {
+    var header = document.getElementById('top-header');
+    if (header) el.style.top = header.offsetHeight + 'px';
+  }
+
   // A panel from the right holding a page (src) or content (html).
   function drawer(options) {
     var opts = options || {};
@@ -42,6 +48,7 @@
       '  </header>' +
       '  <div class="af-drawer__body"><div class="af-drawer__loading"><span class="af-spinner"></span>Loading…</div></div>' +
       '</aside>';
+    underHeader(root);
     document.body.appendChild(root);
     var body = root.querySelector('.af-drawer__body');
     var closed = false;
@@ -108,6 +115,7 @@
         (opts.html || '') +
         '  <div class="af-dialog__actions">' + buttons + '</div>' +
         '</div>';
+      underHeader(root);
       document.body.appendChild(root);
       requestAnimationFrame(function () { root.classList.add('is-open'); });
       function done(value) {

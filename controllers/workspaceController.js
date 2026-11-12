@@ -396,9 +396,8 @@ async function syncActor(db, conn) {
 }
 
 // Everything on the person's Managira calendar goes to their Managira calendar over there:
-// school events and activities, their personal events and tasks, and their
-// classes and bus runs for the coming weeks. Calendars shared with them stay in Managira, and
-// so do birthdays: they come from student and staff records.
+// school events and activities, their personal events and tasks, and their classes, bus runs
+// and birthdays for the coming weeks. Calendars shared with them stay in Managira.
 const SYNC_BACK_DAYS = 120;
 const SYNC_AHEAD_DAYS = 365;
 const ROUTINE_BACK_DAYS = 7; // classes and bus runs repeat every week: just the weeks around now
@@ -412,6 +411,13 @@ function itemsToSend(items, site) {
     .map((it) => {
       const p = it.extendedProps || {};
       const timed = !it.allDay;
+      // Birthdays the person sees (students in their classes, and staff), for the coming weeks:
+      // the name and class or role, never the age.
+      if (p.kind === "birthday") {
+        if (p.date < routineFrom || p.date > routineTo) return null;
+        const about = String(p.details || "").replace(/\s*·\s*Turns \d+\s*$/, "");
+        return { uid: `birthday-${p.recordId}-${String(p.date).slice(0, 4)}`, title: it.title, details: about, location: "", date: p.date, endDate: p.date, startTime: null, endTime: null, allDay: true, url: `${site}/common/calendar?date=${p.date}` };
+      }
       if (p.kind === "lesson" || p.kind === "trip") {
         if (p.date < routineFrom || p.date > routineTo) return null;
         return {
@@ -433,12 +439,26 @@ function itemsToSend(items, site) {
     .filter((item) => item && /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || "")));
 }
 
+// One sync per calendar at a time (on every server): two at once would both add the same items.
+// The second waits its turn and starts from what the first saved, so it never makes a second
+// Managira calendar or a duplicate event.
 async function syncConnection(db, conn, siteUrl) {
+  const { waitForAdvisoryLock } = require("../utils/dbLock");
+  try {
+    await waitForAdvisoryLock(`calendar-sync:${conn.connection_id}`, () => syncConnectionNow(db, conn.connection_id, siteUrl), { database: db, timeoutMs: 180000, pollMs: 750 });
+  } catch (err) {
+    console.error(`[Calendar] sync for connection ${conn.connection_id} didn't run:`, err.message);
+  }
+}
+
+async function syncConnectionNow(db, connectionId, siteUrl) {
+  const conn = (await db.query(`SELECT * FROM calendar_connections WHERE connection_id = $1`, [connectionId])).rows[0];
+  if (!conn) return;
   const who = await syncActor(db, conn);
   if (!who) return;
   const start = dateKey(new Date(Date.now() - SYNC_BACK_DAYS * 864e5));
   const end = dateKey(new Date(Date.now() + SYNC_AHEAD_DAYS * 864e5));
-  const { items } = await collectItems(db, { organizationId: conn.organization_id, actor: who.actor, start, end, canPublish: who.canPublish, seesAllClasses: who.seesAllClasses });
+  const { items } = await collectItems(db, { organizationId: conn.organization_id, actor: who.actor, start, end, canPublish: who.canPublish, seesAllClasses: who.seesAllClasses, role: who.role });
   const site = siteUrl || process.env.BASE_URL_PRODUCTION || "https://managira.com";
   const push = itemsToSend(items, site);
   try {

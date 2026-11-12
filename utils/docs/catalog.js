@@ -32,6 +32,7 @@ const ARTICLES = [
   ...require("./articles/gettingStarted"),
   ...require("./articles/account"),
   ...require("./articles/schoolSetup"),
+  ...require("./articles/customEditor"),
   ...require("./articles/students"),
   ...require("./articles/families"),
   ...require("./articles/portals"),

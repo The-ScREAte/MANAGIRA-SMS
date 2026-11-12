@@ -4027,6 +4027,23 @@ main {
               </button>
             </li>
             <% } %>
+            <% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="forms" onclick="openWorkspaceTabByKey('forms')">
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('forms') %></span>
+                <span class="nav-link-label">Forms</span>
+              </button>
+            </li>
+            <%# Forms the school gave a menu item of their own (Custom editor, "Its own tile"). %>
+            <% (locals.classFormTiles || []).forEach((form) => { %>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="form-<%= form.id %>" onclick="openWorkspaceFormTab(<%= form.id %>)">
+                <span class="nav-icon" aria-hidden="true"><%- formIcon(form.icon) %></span>
+                <span class="nav-link-label"><%= form.name %></span>
+              </button>
+            </li>
+            <% }) %>
+            <% } %>
             <% if (_canOpenPaygiraWorkspace) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
@@ -4499,6 +4516,18 @@ main {
                   });
                 })();
               </script>
+            </section>
+            <% } %>
+
+            <% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+            <section class="workspace-panel" id="panel-forms" data-panel-key="forms">
+              <link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
+              <div class="workspace-panel-head"><div><h2 class="card-title" id="panel-forms-title">Forms</h2></div></div>
+              <%# Classroom sections the school built in the Custom editor, filled in here for this class.
+                  One with a menu item of its own opens here by itself (openWorkspaceFormTab). %>
+              <div id="panel-forms-fill" data-cf-fill data-skip-tiles data-base="/common/forms" data-class-id="<%= classId %>" data-term-id="<%= currentTerm.term_id %>" data-empty="Forms your school builds in Management › Custom editor show here."></div>
+              <script src="<%= assetUrl('/js/customFormRender.js') %>" defer></script>
+              <script src="<%= assetUrl('/js/customFormsFill.js') %>" defer></script>
             </section>
             <% } %>
 
@@ -5200,6 +5229,42 @@ main {
         };
       }
 
+      // "Forms" and each form with a menu item of its own share one panel: opening a tab tells
+      // the panel which to show (everything under Forms, or that one form).
+      var workspaceFormTiles = <%- JSON.stringify(locals.classFormTiles || []) %>;
+      function showWorkspaceForms(form) {
+        var title = document.getElementById('panel-forms-title');
+        var fill = document.getElementById('panel-forms-fill');
+        if (title) title.textContent = form ? form.name : 'Forms';
+        if (fill && window.CustomFormsFill && window.CustomFormsFill.show) window.CustomFormsFill.show(fill, form ? form.id : 0);
+        else if (fill) { if (form) fill.setAttribute('data-only', form.id); else fill.removeAttribute('data-only'); }
+      }
+      function getWorkspaceFormsTab() {
+        return {
+          id: 'forms',
+          title: 'Forms',
+          panelId: 'panel-forms',
+          routePath: workspaceContext.basePath + '/forms',
+          sidebarKey: 'forms',
+          onActivate: function () { showWorkspaceForms(null); },
+        };
+      }
+      function getWorkspaceFormTab(formId) {
+        var form = workspaceFormTiles.filter(function (item) { return Number(item.id) === Number(formId); })[0];
+        if (!form || !document.getElementById('panel-forms')) return null;
+        return {
+          id: 'form-' + form.id,
+          title: form.name,
+          panelId: 'panel-forms',
+          routePath: workspaceContext.basePath + '/forms/' + form.id,
+          sidebarKey: 'form-' + form.id,
+          onActivate: function () { showWorkspaceForms(form); },
+        };
+      }
+      function openWorkspaceFormTab(formId, options) {
+        return openWorkspaceTab(getWorkspaceFormTab(formId) || getWorkspaceFormsTab(), options || {});
+      }
+
       function getWorkspacePickupTab() {
         return {
           id: 'pickup',
@@ -5342,6 +5407,7 @@ main {
         if (tabKey === 'transportation') return openWorkspaceTab(getWorkspaceTransportationTab(), options || {});
         if (tabKey === 'pickup') return openWorkspaceTab(getWorkspacePickupTab(), options || {});
         if (tabKey === 'activities') return openWorkspaceTab(getWorkspaceActivitiesTab(), options || {});
+        if (tabKey === 'forms' && document.getElementById('panel-forms')) return openWorkspaceTab(getWorkspaceFormsTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
         if (tabKey === 'assessment-questions') return openWorkspaceTab(getWorkspaceAssessmentQuestionsTab(), options || {});
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
@@ -6098,6 +6164,7 @@ main {
         if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
         if (safeRoute.panel === 'transportation') return openWorkspaceTabByKey('transportation', safeOptions);
         if (safeRoute.panel === 'activities') return openWorkspaceTabByKey('activities', safeOptions);
+        if (safeRoute.panel === 'forms') return safeRoute.itemId ? openWorkspaceFormTab(safeRoute.itemId, safeOptions) : openWorkspaceTabByKey('forms', safeOptions);
         if (safeRoute.panel === 'pickup') return openWorkspaceTabByKey('pickup', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
@@ -6116,6 +6183,7 @@ main {
       }
 
       window.openWorkspaceTabByKey = openWorkspaceTabByKey;
+      window.openWorkspaceFormTab = openWorkspaceFormTab;
       window.openStudentWorkspaceTab = openStudentWorkspaceTab;
       window.openStudentTransportModal = openStudentTransportModal;
       window.closeStudentTransportModal = closeStudentTransportModal;

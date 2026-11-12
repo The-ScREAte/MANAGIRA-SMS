@@ -50,6 +50,16 @@ module.exports = (db) => {
   router.get("/activities", isStudentAuthenticated, require("../controllers/familyActivitiesController").studentPage);
   // A student's own settings (appearance; it isn't in the menu any more).
   router.get("/settings", isStudentAuthenticated, (req, res) => res.render("student/settings", { title: "Settings" }));
+  // Forms the school asks the student to fill in, and ones it shares (feature custom_forms).
+  const customForms = require("../controllers/customFormsController");
+  const { upload } = require("../middleware/s3Upload");
+  router.get("/forms", isStudentAuthenticated, (req, res) => customForms.studentPage(req, res, db));
+  router.post("/forms/:sectionId(\\d+)", isStudentAuthenticated, express.json({ limit: "512kb" }), (req, res) => customForms.studentSave(req, res, db));
+  router.post("/forms/:sectionId(\\d+)/upload", isStudentAuthenticated, upload.single("file"), (req, res) => customForms.studentUpload(req, res, db));
+  // The student's own portfolio, a folder per term (feature student_portfolio).
+  const portfolioController = require("../controllers/portfolioController");
+  router.get("/portfolio", isStudentAuthenticated, (req, res) => portfolioController.studentPage(req, res, db));
+  router.get("/portfolio/test/:attemptId(\\d+)", isStudentAuthenticated, (req, res) => portfolioController.studentTest(req, res, db));
   router.get("/calendar", isStudentAuthenticated, (req, res) => familyCalendar.studentPage(req, res, db));
   router.get("/calendar/feed", isStudentAuthenticated, (req, res) => familyCalendar.studentFeed(req, res, db));
   router.get("/calendar/sync", isStudentAuthenticated, (req, res) => familyCalendar.studentSync(req, res, db));

@@ -178,7 +178,7 @@ test("errors are turned into plain codes for the screen", () => {
   console.error = orig;
 });
 
-test("everything on the person's Managira calendar is sent: events, activities, classes and bus runs (not announcements or birthdays)", () => {
+test("everything on the person's Managira calendar is sent: events, activities, classes, bus runs and upcoming birthdays (not announcements)", () => {
   const { itemsToSend } = require("../controllers/workspaceController");
   const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
   const items = [
@@ -190,9 +190,13 @@ test("everything on the person's Managira calendar is sent: events, activities, 
     { title: "Morning run", allDay: false, extendedProps: { kind: "trip", layer: "trip", recordId: `5-${day(1)}`, date: day(1), startTime: "07:00", endTime: "08:00" } },
     { title: "Plan lessons", allDay: true, extendedProps: { kind: "task", layer: "task", recordId: 6, date: day(5) } },
     { title: "A colleague's dentist", allDay: true, extendedProps: { kind: "personal", layer: "share-12", recordId: 7, date: day(5), endDate: day(5) } },
+    { title: "🎂 Ama Mensah", allDay: true, extendedProps: { kind: "birthday", layer: "birthday", recordId: "student-8", date: day(3), details: "Student · Grade 6 · Turns 12" } },
+    { title: "🎂 Kofi Boateng", allDay: true, extendedProps: { kind: "birthday", layer: "birthday", recordId: "student-9", date: day(120), details: "Student · Grade 5 · Turns 11" } },
   ];
   const sent = itemsToSend(items, "https://managira.com");
-  assert.deepStrictEqual(sent.map((item) => item.uid), ["event-1", "activity-2", `lesson-4-${day(2)}`, `trip-5-${day(1)}`, "task-6"]);
+  assert.deepStrictEqual(sent.map((item) => item.uid), ["event-1", "activity-2", `lesson-4-${day(2)}`, `trip-5-${day(1)}`, "task-6", `birthday-student-8-${day(3).slice(0, 4)}`]);
+  const birthday = sent.find((item) => item.uid.startsWith("birthday"));
+  assert.deepStrictEqual([birthday.title, birthday.details, birthday.allDay], ["🎂 Ama Mensah", "Student · Grade 6", true], "a birthday goes as the name and class, never the age; only the coming weeks");
   assert.strictEqual(sent.find((item) => item.uid.startsWith("lesson")).url, "https://managira.com/common/classDashboard/9");
 });
 
@@ -215,3 +219,29 @@ test("Mira finds free time around what's already on the person's calendar", () =
   assert.deepStrictEqual(tuesday.allDay, ["Thanksgiving Break · No School"], "an all-day holiday is listed so nobody books over it unawares");
   assert.throws(() => freeSlots(items, { start: "2026-11-16", dayStart: "17:00", dayEnd: "08:00" }), /working hours/);
 });
+
+test("a sync never stops halfway when Google says slow down, or a new calendar isn't ready yet", async () => {
+  const db = fakeDb();
+  const g = fakeGoogle();
+  const waits = [];
+  let calendarsMade = 0;
+  let refusals = 0;
+  g.api.calendars.insert = async () => { calendarsMade += 1; return { data: { id: "cal-new" } }; };
+  const realInsert = g.api.events.insert;
+  g.api.events.insert = async (args) => {
+    refusals += 1;
+    if (refusals === 1) { const err = new Error("Not Found"); err.code = 404; throw err; } // the new calendar isn't ready
+    if (refusals === 2) { const err = new Error("Rate Limit Exceeded"); err.code = 403; err.errors = [{ reason: "rateLimitExceeded" }]; throw err; }
+    return realInsert(args);
+  };
+  calConnect.__setDeps({ googleApi: () => g.api, pause: async (ms) => { waits.push(ms); } });
+  const conn = { connection_id: 12, user_id: 1, provider: "google", time_zone: "UTC", managira_calendar_id: null };
+  await calConnect.pushItems(db, conn, items(), "School");
+  assert.strictEqual(calendarsMade, 1, "one Managira calendar, never a second");
+  assert.strictEqual(g.remote.size, 2, "every item arrived");
+  assert.ok(waits.length >= 2, "it waited and tried again");
+  assert.strictEqual(calConnect.busyAnswer({ code: 429 }), true);
+  assert.strictEqual(calConnect.busyAnswer({ code: 403, message: "The caller does not have permission" }), false, "a real refusal isn't retried");
+  calConnect.__setDeps({ pause: null });
+});
+

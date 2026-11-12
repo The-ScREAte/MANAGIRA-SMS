@@ -266,6 +266,9 @@
     transition: all 0.2s ease;
   }
 
+  a.gd-student-top { color: inherit; text-decoration: none; border-radius: 10px; }
+  a.gd-student-top:hover .gd-student-name { color: var(--org-primary-color, #01535b); text-decoration: underline; }
+  a.gd-student-top:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 3px; }
   .gd-student-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.06);}
 
@@ -1080,19 +1083,20 @@
       <div class="gd-students-grid" id="guardianLinkedStudentsGrid">
         <% students.forEach(student => { %>
           <% const linkedStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
+          <% const _studentLink = '/common/studentDetails?studentId=' + student.student_id + (currentTermId ? '&termId=' + currentTermId : '') + (student.class_id ? '&classId=' + student.class_id : '') + (typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader ? '&embed=workspace' : ''); %>
           <div class="gd-student-card" data-student-name="<%= linkedStudentDisplayName.toLowerCase() %>">
-            <div class="gd-student-top">
+            <%# The photo and name open the child, the same as View Student. %>
+            <a class="gd-student-top" href="<%= _studentLink %>" title="Open <%= linkedStudentDisplayName %>">
               <img src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png') %>"
-                   alt="Student" class="gd-student-avatar">
+                   alt="" class="gd-student-avatar">
               <div>
                 <div class="gd-student-name"><%= linkedStudentDisplayName %></div>
                 <div class="gd-student-class"><%= student.class_name || 'No class' %></div>
                 <div class="gd-student-rel"><%= student.relationship || 'Guardian' %></div>
               </div>
-            </div>
+            </a>
             <div class="gd-student-actions">
-              <a href="/common/studentDetails?studentId=<%= student.student_id %><%= currentTermId ? '&termId=' + currentTermId : '' %><%= student.class_id ? '&classId=' + student.class_id : '' %>" 
-                 class="gd-view-btn">View Student</a>
+              <a href="<%= _studentLink %>" class="gd-view-btn">View Student</a>
               <div class="gd-dots-menu-wrapper">
                 <button type="button" class="gd-dots-btn" onclick="toggleDotsMenu(this)" title="More options">⋮</button>
                 <div class="gd-dots-dropdown">

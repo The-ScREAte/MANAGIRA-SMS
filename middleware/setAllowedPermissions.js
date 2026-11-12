@@ -46,8 +46,10 @@ const setAllowedPermissions = async (req, res, next) => {
     res.locals.userPermissions = isDriver && off("transportation") ? [] : inPlan.filter((key) => !off(integrationOf(key)));
     // A short fingerprint of this person's access. When it changes, the browser
     // drops its saved copies of pages (public/service-worker.js).
+    // Custom editor items join it once they can show, so a page saved before then is not kept.
     const stamp = crypto.createHash('md5')
-      .update(JSON.stringify([req.session?.user?.user_id || req.session?.userId, res.locals.userPermissions, res.locals.allowedFeatures]))
+      .update(JSON.stringify([req.session?.user?.user_id || req.session?.userId, res.locals.userPermissions, res.locals.allowedFeatures]
+        .concat(res.locals.customFormsReady() && features.isOn('custom_forms', { organizationId: req.session?.organizationId }) ? ['custom_forms'] : [])))
       .digest('base64url')
       .slice(0, 12);
     res.locals.accessStamp = stamp;
@@ -55,6 +57,9 @@ const setAllowedPermissions = async (req, res, next) => {
   };
   // Called from views and controllers so it reads the final permissions and features.
   res.locals.featureOn = (key) => features.isOn(key, { organizationId: req.session?.organizationId });
+  // Custom forms also need their tables (database/migrations, 2026-11-22 to 2026-11-24): until
+  // they exist no menu or tile offers a form page.
+  res.locals.customFormsReady = () => require('../utils/customForms').readySync();
   res.locals.workspaceAccess = () => workspaceAccess({
     permissions: res.locals.userPermissions,
     features: res.locals.allowedFeatures,
@@ -69,6 +74,9 @@ const setAllowedPermissions = async (req, res, next) => {
     if (!organizationId) {
       return next();
     }
+    // Known before the page is drawn, so Forms is in the menu from the very first page after a
+    // restart (one small check per process, then remembered; it never throws).
+    if (features.isOn('custom_forms', { organizationId })) await require('../utils/customForms').ready(db);
 
     // Platform admins (org-switch) and manager-like roles get all permissions.
     if (isManagerLikeRole(userRole) || isManagerLikeRole(accountType)) {

@@ -1,0 +1,12 @@
+<style>
+  .st-forms { max-width: 860px; margin: 0 auto; padding: 18px 16px 48px; }
+  .st-forms__back { display: inline-block; margin-bottom: 6px; color: var(--org-primary-color, #2563eb); font-size: .9rem; font-weight: 600; text-decoration: none; }
+  .st-forms h1 { margin: 0 0 4px; font-size: 1.35rem; font-weight: 800; text-align: left; }
+  .st-forms > p { margin: 0 0 6px; color: #64748b; font-size: .9rem; }
+</style>
+<div class="st-forms">
+  <a class="st-forms__back" href="/student/dashboard">‹ Dashboard</a>
+  <h1><%= title %></h1>
+  <% if (!locals.single) { %><p>Forms your school asks you to fill in, and ones it shares with you.</p><% } %>
+  <%- include('../partials/portalForms', { forms: forms, base: base, query: query, audience: 'student', single: locals.single }) %>
+</div>

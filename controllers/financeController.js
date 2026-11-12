@@ -1332,12 +1332,12 @@ function parentPayUrl(req, nickname) {
   return nickname && process.env.NODE_ENV === "production" ? `https://${nickname}.managira.com/guardian/paygira` : `${base}/guardian/paygira`;
 }
 
-// Emails each family that still owes on a bill (or on one student's bill): what, for whom,
-// how much, by when, and the link to pay. From reminders@managira.com. Returns how many
-// families were emailed and how many assignments still owe.
-async function emailPaymentRequests(req, orgId, { billId = null, assignmentId = null } = {}) {
+// Emails each family that still owes on a bill, or one student's parents everything they still
+// owe in a single message: what, for whom, how much, by when, and the link to pay. From
+// reminders@managira.com. Returns how many families were emailed and how many bills still owe.
+async function emailPaymentRequests(req, orgId, { billId = null, studentId = null } = {}) {
   const { rows } = await db.query(
-    `SELECT a.assignment_id, a.amount, COALESCE(a.amount_paid, 0) AS amount_paid, COALESCE(a.late_fee_applied, 0) AS late_fee,
+    `SELECT a.assignment_id, a.student_id, a.amount, COALESCE(a.amount_paid, 0) AS amount_paid, COALESCE(a.late_fee_applied, 0) AS late_fee,
             b.title, b.due_date, s.first_name, s.last_name, o.organization_name, o.nickname, o.organization_currency,
             ARRAY(
               SELECT DISTINCT LOWER(TRIM(c.email)) FROM (
@@ -1353,45 +1353,70 @@ async function emailPaymentRequests(req, orgId, { billId = null, assignmentId = 
        JOIN organizations o ON o.organization_id = a.organization_id
       WHERE a.organization_id = $1
         AND ($2::int IS NULL OR a.bill_id = $2)
-        AND ($3::int IS NULL OR a.assignment_id = $3)
+        AND ($3::int IS NULL OR a.student_id = $3)
         AND a.status IN ('pending', 'overdue', 'partial')
-        AND COALESCE(b.status, 'active') NOT IN ('cancelled', 'draft')`,
-    [orgId, billId ? Number(billId) : null, assignmentId ? Number(assignmentId) : null]
+        AND COALESCE(b.status, 'active') NOT IN ('cancelled', 'draft')
+      ORDER BY b.due_date NULLS LAST, a.assignment_id`,
+    [orgId, billId ? Number(billId) : null, studentId ? Number(studentId) : null]
   );
   const { sendEmailInBackground } = require("../utils/emailHelper");
-  let families = 0;
-  let owing = 0;
-  for (const row of rows) {
-    const owed = Number(row.amount) + Number(row.late_fee) - Number(row.amount_paid);
-    if (!(owed > 0)) continue;
-    owing += 1;
-    if (!row.emails.length) continue;
-    let amount;
-    try { amount = new Intl.NumberFormat("en-US", { style: "currency", currency: row.organization_currency || "USD" }).format(owed); } catch (_) { amount = owed.toFixed(2); }
-    const studentName = [row.first_name, row.last_name].filter(Boolean).join(" ");
-    const due = row.due_date ? new Date(row.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : "";
-    const subject = `Payment request: ${row.title} for ${studentName}`;
+  const money = (value, currency) => {
+    try { return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(value); } catch (_) { return Number(value).toFixed(2); }
+  };
+  const dueOf = (row) => (row.due_date ? new Date(row.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }) : "");
+  const owing = rows.map((row) => ({ ...row, owed: Number(row.amount) + Number(row.late_fee) - Number(row.amount_paid) })).filter((row) => row.owed > 0);
+  const first = owing[0] || rows[0] || {};
+  const studentName = [first.first_name, first.last_name].filter(Boolean).join(" ");
+  const send = (emails, subject, paragraphs, details) => {
     const html = renderCleanEmail({
       title: "Payment request",
       greeting: "Hello,",
-      paragraphs: [
-        `${row.organization_name} is asking for payment: ${amount} is due for ${row.title} for ${studentName}.`,
-        "If you've already paid, thank you, and please ignore this message.",
-      ],
-      details: [
-        { label: "Student", value: studentName },
-        { label: "For", value: row.title },
-        { label: "Amount due", value: amount },
-        ...(due ? [{ label: "Due date", value: due }] : []),
-      ],
-      cta: { url: parentPayUrl(req, row.nickname), text: "View and pay" },
+      paragraphs: [...paragraphs, "If you've already paid, thank you, and please ignore this message."],
+      details,
+      cta: { url: parentPayUrl(req, first.nickname), text: "View and pay" },
       noReply: true,
     });
-    row.emails.forEach((to) => sendEmailInBackground({ to, subject, html, sender: "reminders" }, "PayGira payment request").catch(() => {}));
-    families += 1;
+    emails.forEach((to) => sendEmailInBackground({ to, subject, html, sender: "reminders" }, "PayGira payment request").catch(() => {}));
+  };
+  let families = 0;
+  if (studentId) {
+    // One student: a single email listing every bill with money still owed.
+    const emails = [...new Set(owing.flatMap((row) => row.emails))];
+    if (owing.length && emails.length) {
+      const total = money(owing.reduce((sum, row) => sum + row.owed, 0), first.organization_currency);
+      send(
+        emails,
+        `Payment request for ${studentName}`,
+        [`${first.organization_name} is asking for payment: ${total} is due for ${studentName}.`],
+        [
+          { label: "Student", value: studentName },
+          ...owing.map((row) => ({ label: row.title + (dueOf(row) ? ` (due ${dueOf(row)})` : ""), value: money(row.owed, row.organization_currency) })),
+          ...(owing.length > 1 ? [{ label: "Total due", value: total }] : []),
+        ]
+      );
+      families = 1;
+    }
+  } else {
+    for (const row of owing) {
+      if (!row.emails.length) continue;
+      const amount = money(row.owed, row.organization_currency);
+      const name = [row.first_name, row.last_name].filter(Boolean).join(" ");
+      const due = dueOf(row);
+      send(
+        row.emails,
+        `Payment request: ${row.title} for ${name}`,
+        [`${row.organization_name} is asking for payment: ${amount} is due for ${row.title} for ${name}.`],
+        [
+          { label: "Student", value: name },
+          { label: "For", value: row.title },
+          { label: "Amount due", value: amount },
+          ...(due ? [{ label: "Due date", value: due }] : []),
+        ]
+      );
+      families += 1;
+    }
   }
-  const first = rows[0] || {};
-  return { families, owing, title: first.title || "", studentName: [first.first_name, first.last_name].filter(Boolean).join(" ") };
+  return { families, owing: owing.length, title: first.title || "", studentName };
 }
 
 // The Payments page's history: every payment the school has taken, newest first, 50 at a
@@ -5823,28 +5848,28 @@ module.exports = {
     res.redirect("/account/settings/finance?section=bills");
   },
 
-  // One student's bill: email their parents what is owed and the link to pay. Answers JSON for
-  // the student's ledger. At most three an hour for the same bill and student, so a slip of
-  // the finger never floods a family.
-  assignmentRequestPost: async (req, res) => {
+  // One student: email their parents everything still owed, in one message, with the link to
+  // pay. Answers JSON for the student's ledger. At most three an hour for the same student, so
+  // a slip of the finger never floods a family.
+  studentRequestPost: async (req, res) => {
     if (!(await isFinanceAdmin(req))) return res.status(403).json({ success: false, message: "Access denied." });
     const orgId = req.session.organizationId;
-    const assignmentId = parseInt(req.params.id, 10);
-    if (!assignmentId) return res.status(400).json({ success: false, message: "Choose a bill." });
+    const studentId = parseInt(req.params.id, 10);
+    if (!studentId) return res.status(400).json({ success: false, message: "Choose a student." });
     try {
       const { checkRateLimit } = require("../utils/rateLimiter");
-      if (!checkRateLimit(`paygira-request:${orgId}:${assignmentId}`, { max: 3, windowMs: 60 * 60 * 1000 }).allowed) {
+      if (!checkRateLimit(`paygira-request:${orgId}:student:${studentId}`, { max: 3, windowMs: 60 * 60 * 1000 }).allowed) {
         return res.status(429).json({ success: false, message: "This family was already asked a few times in the last hour. Try again later." });
       }
-      const { families, owing, title, studentName } = await emailPaymentRequests(req, orgId, { assignmentId });
-      if (!owing) return res.json({ success: false, message: "Nothing is owed on this bill." });
+      const { families, owing, studentName } = await emailPaymentRequests(req, orgId, { studentId });
+      if (!owing) return res.json({ success: false, message: "Nothing is owed." });
       if (!families) return res.json({ success: false, message: "This student's parents have no email address on file. Copy the link and send it another way." });
       await logPaygira(req, {
         actionType: "Sent Reminder",
-        recordType: "Bill",
-        recordId: String(assignmentId),
-        recordLabel: title || `Bill assignment #${assignmentId}`,
-        description: `Sent a payment request for "${title}" to the parents of ${studentName}.`,
+        recordType: "Student",
+        recordId: String(studentId),
+        recordLabel: studentName || `Student #${studentId}`,
+        description: `Sent a payment request for ${owing} ${owing === 1 ? "bill" : "bills"} to the parents of ${studentName}.`,
         changedFields: [],
       });
       return res.json({ success: true, message: `Payment request sent to ${studentName}'s parents.` });

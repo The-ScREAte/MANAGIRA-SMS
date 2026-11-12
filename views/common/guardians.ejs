@@ -140,8 +140,10 @@
   .gx-card .cc-actions { width: 100%; justify-content: flex-end; }
   .gx-card .cc-tabs { padding-left: 16px; padding-right: 16px; }
   .gx-card .cc-body { padding: 14px 16px 18px; }
-  .gx-kid { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 13.5px; border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); }
-  .gx-kid:last-child { border-bottom: 0; }
+  .ux-panel .gx-kid { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; height: auto; margin: 0; padding: 8px 6px; border: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+  .ux-panel .gx-kid:hover strong { color: var(--org-primary-color, #01535b); text-decoration: underline; }
+  .ux-panel .gx-kid:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: -2px; border-radius: 6px; }
+  .ux-panel .gx-kid:last-child { border-bottom: 0; }
   .gx-kid span { color: var(--ws-muted, #64748b); font-size: 12.5px; text-align: right; }
   .gx-kid .gx-archived { color: #b45309; }
   .ux-actions { gap: 8px; flex-wrap: wrap; }
@@ -214,8 +216,8 @@
         (!p.email && !p.phone && !p.address ? '<p class="ux-muted">No contact details.</p>' : '') + '</section>' +
       '<section class="ux-sec"><h3>Children <span class="ux-count">' + p.children.length + '</span></h3>' +
         (p.children.length ? p.children.map(function (c) {
-          return '<div class="gx-kid"><strong>' + esc(c.name) + '</strong><span>' + esc(c.className || 'No class') +
-            (c.relationship ? ' · ' + esc(c.relationship) : '') + (c.archived ? ' · <b class="gx-archived">Graduated or left</b>' : '') + '</span></div>';
+          return '<button type="button" class="gx-kid" data-child="' + esc(c.id) + '" title="Open ' + esc(c.name) + '"><strong>' + esc(c.name) + '</strong><span>' + esc(c.className || 'No class') +
+            (c.relationship ? ' · ' + esc(c.relationship) : '') + (c.archived ? ' · <b class="gx-archived">Graduated or left</b>' : '') + '</span></button>';
         }).join('') : '<p class="ux-muted">No children linked.</p>') + '</section>' +
       '<section class="ux-sec"><h3>Parent portal</h3>' + kv('Status', p.status) + kv('Sign-in email', p.loginEmail) + kv('Sign-in phone', p.loginPhone) + kv('Last sign-in', p.lastLogin) + '</section>' +
       '<div class="ux-actions">' +
@@ -227,6 +229,9 @@
     var photo = get('uxPanelBody').querySelector('img.ux-avatar');
     if (photo) photo.addEventListener('error', function () { var s = document.createElement('span'); s.className = 'ux-avatar'; s.textContent = photo.getAttribute('data-initials'); photo.replaceWith(s); });
     get('uxEdit').addEventListener('click', function () { showEdit(p); });
+    Array.prototype.forEach.call(get('uxPanelBody').querySelectorAll('[data-child]'), function (kid) {
+      kid.addEventListener('click', function () { showPage(p, '/common/studentDetails?studentId=' + encodeURIComponent(kid.getAttribute('data-child')) + '&embed=workspace'); });
+    });
     get('uxProfile').addEventListener('click', function () { showProfile(p); });
     var invite = get('uxInvite');
     if (invite) invite.addEventListener('click', function () { sendSetup(p, invite); });
@@ -276,8 +281,14 @@
     get('uxEditFrame').removeAttribute('src');
     if (dirty) { dirty = false; window.location.reload(); }
   }
-  // Photo & children: the full details page, for the photo and linking children.
+  // Photo & children: the full details page, for the photo and linking children. A child
+  // opened from it (or from the list of children) shows in the same panel; Back returns to the
+  // parent. Any other page opens on its own, so the panel never shows something half-working.
+  var PAGES = { '/common/guardianDetails': 'Photo & children', '/common/studentDetails': 'Student' };
   function showProfile(p) {
+    showPage(p, '/common/guardianDetails?guardianId=' + encodeURIComponent(p.id) + '&source=' + encodeURIComponent(p.source) + '&embed=workspace');
+  }
+  function showPage(p, url) {
     var frame = get('uxEditFrame'), loading = get('uxEditLoading');
     setMode(true);
     get('uxPanel').classList.remove('is-card');
@@ -286,18 +297,22 @@
     frame.style.visibility = 'hidden';
     loading.style.display = 'flex';
     frame.onload = function () {
-      var path = null;
-      try { path = frame.contentWindow.location.pathname; } catch (err) { /* ignore */ }
-      if (path && path !== '/common/guardianDetails' && path !== 'blank') {
-        frame.removeAttribute('src');
-        setMode(false);
-        notice('The parent details couldn\'t open. Please try again.', true);
+      var path = null, href = '';
+      try { path = frame.contentWindow.location.pathname; href = frame.contentWindow.location.href; } catch (err) { /* ignore */ }
+      if (!path || path === 'blank') return;
+      if (!PAGES[path]) {
+        // Somewhere the panel doesn't hold: open it in the page itself and go back to the parent.
+        showProfile(p);
+        try { window.top.location.href = href.replace(/([?&])embed=workspace(&|$)/, '$1').replace(/[?&]$/, ''); } catch (err) { window.open(href, '_blank'); }
         return;
       }
+      get('uxPanelTitle').textContent = PAGES[path];
+      // From a child, Back returns to the parent's details; from the parent, to the summary.
+      frame.dataset.child = path === '/common/studentDetails' ? '1' : '';
       loading.style.display = 'none';
       frame.style.visibility = 'visible';
     };
-    frame.src = '/common/guardianDetails?guardianId=' + encodeURIComponent(p.id) + '&source=' + encodeURIComponent(p.source) + '&embed=workspace';
+    frame.src = url;
   }
   function open(key) {
     var p = people.find(function (x) { return x.key === key; });
@@ -328,6 +343,8 @@
   get('uxBackdrop').addEventListener('click', close);
   get('uxBack').addEventListener('click', function () {
     if (card && card.isOpen()) { card.requestClose(); return; }
+    var frame = get('uxEditFrame');
+    if (frame.dataset.child && current) { frame.dataset.child = ''; showProfile(current); return; }
     leaveEdit();
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && get('uxPanel').classList.contains('is-open')) close(); });

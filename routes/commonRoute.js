@@ -472,6 +472,7 @@ module.exports = (db) => {
   router.get("/assessment/questions/parent-portal", ...parentPortalGuards, questionScope, (req, res) => parentResourcesController.read(req, res, db));
   router.post("/assessment/questions/parent-portal", ...parentPortalGuards, express.json(), questionScope, (req, res) => parentResourcesController.save(req, res, db));
   router.post("/assessment/questions/parent-portal/files", ...parentPortalGuards, upload.array("files", 10), questionScope, (req, res) => parentResourcesController.addFiles(req, res, db));
+  router.post("/assessment/questions/parent-portal/link", ...parentPortalGuards, express.json(), questionScope, (req, res) => parentResourcesController.addLink(req, res, db));
   router.post("/assessment/questions/parent-portal/files/:id(\\d+)/delete", ...parentPortalGuards, requireQuestionScope(db, { resourceParam: "id" }), (req, res) => parentResourcesController.removeFile(req, res, db));
 
   router.post("/assessment/questions/upsert", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
@@ -518,6 +519,7 @@ module.exports = (db) => {
   router.post("/assessment/approve", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), express.json(), questionScope, (req, res) => assessmentFlow.approve(req, res, db));
   router.post("/gradebook/view", isAuthenticated, blockGuardians, express.json(), (req, res) => assessmentFlow.saveGradebookView(req, res));
   router.post("/assessment/questions/image", ...questionGuards, upload.single("image"), (req, res) => assessmentFlow.uploadQuestionImage(req, res));
+  router.post("/assessment/questions/help-file", ...questionGuards, upload.single("file"), (req, res) => parentResourcesController.questionHelpFile(req, res));
   router.get("/assessment/questions/library", ...questionGuards, (req, res) => assessmentFlow.library(req, res, db));
   router.get("/assessment/questions/library/:setId(\\d+)", ...questionGuards, (req, res) => assessmentFlow.librarySet(req, res, db));
 
@@ -1204,6 +1206,25 @@ module.exports = (db) => {
   router.get("/tasks/:id(\\d+)/comments", isAuthenticated, staffOnly, orgMemberOnly, ws("taskComments"));
   router.post("/tasks/:id(\\d+)/comments", isAuthenticated, staffOnly, orgMemberOnly, ws("addTaskComment"));
   router.post("/tasks/:id(\\d+)/react", isAuthenticated, staffOnly, orgMemberOnly, ws("reactTask"));
+
+  // Custom forms (feature custom_forms): builders design sections; staff fill them in.
+  const customForms = require("../controllers/customFormsController");
+  const formBuilders = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.CUSTOM_FORMS)];
+  router.get("/custom-forms", ...formBuilders, (req, res) => customForms.editorPage(req, res, db));
+  router.post("/custom-forms/save", ...formBuilders, express.json({ limit: "1mb" }), (req, res) => customForms.saveSection(req, res, db));
+  router.post("/custom-forms/:id(\\d+)/delete", ...formBuilders, (req, res) => customForms.deleteSection(req, res, db));
+  router.post("/custom-forms/order", ...formBuilders, express.json(), (req, res) => customForms.order(req, res, db));
+  // A notification's link: to the classroom's Forms tab or the Custom editor, whichever is theirs.
+  router.get("/custom-forms/go", isAuthenticated, blockGuardians, (req, res) => customForms.go(req, res, db));
+  router.get("/forms", isAuthenticated, blockGuardians, (req, res) => customForms.staffPage(req, res, db));
+  router.get("/forms/data", isAuthenticated, blockGuardians, (req, res) => customForms.data(req, res, db));
+  router.get("/forms/:id(\\d+)/export.csv", isAuthenticated, blockGuardians, (req, res) => customForms.exportCsv(req, res, db));
+  router.post("/forms/:id(\\d+)/remind", isAuthenticated, blockGuardians, express.json(), (req, res) => customForms.remind(req, res, db));
+  router.get("/forms/:id(\\d+)/students", isAuthenticated, blockGuardians, (req, res) => customForms.students(req, res, db));
+  router.get("/forms/:id(\\d+)/student/:studentId(\\d+)", isAuthenticated, blockGuardians, (req, res) => customForms.entries(req, res, db));
+  router.post("/forms/:id(\\d+)/student/:studentId(\\d+)", isAuthenticated, blockGuardians, express.json({ limit: "512kb" }), (req, res) => customForms.saveEntry(req, res, db));
+  router.post("/forms/:id(\\d+)/entry/:entryId(\\d+)/delete", isAuthenticated, blockGuardians, (req, res) => customForms.deleteEntry(req, res, db));
+  router.post("/forms/:id(\\d+)/upload", isAuthenticated, blockGuardians, upload.single("file"), (req, res) => customForms.staffUpload(req, res, db));
 
   return router;
 };

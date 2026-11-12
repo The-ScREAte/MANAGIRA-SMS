@@ -290,6 +290,19 @@ async function buildStudentNotifications(db, { orgId, studentId, testingRoom = f
     });
   }
 
+  // Forms the school asks the student to fill in (feature custom_forms).
+  const formsToDo = await require('../utils/customForms').studentToDo(db, orgId, Number(studentId)).catch(() => []);
+  formsToDo.slice(0, 10).forEach((form) => {
+    items.push({
+      id: `student-form-${form.id}`,
+      type: 'custom_form',
+      title: `Please fill in: ${form.name}`,
+      body: form.dueDate ? `Due ${formatDateLabel(form.dueDate)}` : 'From your school',
+      link: `/student/forms?form=${form.id}`,
+      created_at: new Date().toISOString(),
+    });
+  });
+
   // Grades the teacher posted and shared (the assessments flow).
   if (require('../utils/assessmentApproval').flowOn(orgId)) {
     const shared = await require('../utils/testResults').sharedResults(db, orgId, Number(studentId), { classId, termId: term.term_id }).catch(() => []);

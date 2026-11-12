@@ -1,0 +1,8 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/portfolio.css') %>" />
+<div class="pf" style="max-width:960px;margin:0 auto;padding:18px 16px 48px">
+  <%- include('../partials/flash') %>
+  <a href="/student/dashboard" style="display:inline-block;margin-bottom:6px;color:var(--pf-accent);font-size:.9rem;font-weight:600;text-decoration:none">‹ Dashboard</a>
+  <h1 style="margin:0 0 4px;font-size:1.35rem;font-weight:800;text-align:left">My portfolio</h1>
+  <p style="margin:0 0 14px;color:var(--pf-muted);font-size:.9rem">Your work, term by term: marked tests, assignments and your report card.</p>
+  <%- include('../partials/portfolioFolder') %>
+</div>

@@ -26,6 +26,9 @@ const FEATURES = {
   plan_catalog: { label: "Plans & add-ons: every plan includes the core of Managira, Report Builder is its own plan feature, and schools switch the parent portal on in Integrations", access: "everyone" },
   mira_steps: { label: "Mira: an Enhance button that makes a request clear before it's sent, and the steps Mira takes (what it understood, its plan, each lookup, checking the answer) shown as it works", access: "everyone" },
   assessment_flow: { label: "Assessments: grades wait for the teacher's approval before parents see them; gradebook columns, + to add an assessment and its questions, picture questions, and sharing finished tests with parents", access: "everyone" },
+  custom_forms: { label: "Custom editor: the school's own forms for the classroom, parents, students and drivers, collected once or every day, week, term or year, with icons, seating charts, groups, an attendance column, report cards and Report Builder", access: "everyone" },
+  student_portfolio: { label: "Student portfolio: each term's marked tests (as PDFs), assignments and report card, for parents and the student", access: "everyone" },
+  learning_resources: { label: "Assessment resources: files, links and recommendations for each test and each question, for students and parents", access: "everyone" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

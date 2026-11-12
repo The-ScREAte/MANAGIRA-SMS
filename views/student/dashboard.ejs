@@ -914,6 +914,15 @@
           <% if (testingRoomEnabled) { %>
           <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span></a>
           <% } %>
+          <% if (featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+          <a class="sp-action-tile app-tile" href="/student/forms"><span class="app-tile__icon"><%- navIcon('forms') %></span><span class="app-tile__name">Forms</span><% if (locals.formsToDo) { %><span class="app-tile__badge"><%= formsToDo > 99 ? '99+' : formsToDo %></span><% } %></a>
+          <% (locals.formTiles || []).forEach((form) => { %>
+          <a class="sp-action-tile app-tile" href="/student/forms?form=<%= form.id %>"><span class="app-tile__icon"><%- formIcon(form.icon) %></span><span class="app-tile__name"><%= form.name %></span><% if (form.todo) { %><span class="app-tile__badge">1</span><% } %></a>
+          <% }) %>
+          <% } %>
+          <% if (featureOn('student_portfolio')) { %>
+          <a class="sp-action-tile app-tile" href="/student/portfolio"><span class="app-tile__icon"><%- navIcon('portfolio') %></span><span class="app-tile__name">Portfolio</span></a>
+          <% } %>
         </div>
         <% } else { %>
         <div class="sp-action-tiles <%= testingRoomEnabled ? '' : 'sp-action-tiles-no-testing' %>">

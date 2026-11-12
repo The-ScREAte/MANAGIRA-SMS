@@ -212,3 +212,11 @@ body:has(.ex) { background: #f6f7f9; }
 @media (prefers-reduced-motion: reduce) {
   .ex-opt, .ex-btn { transition: none; }
 }
+/* The teacher's recommendations and help on a question (feature learning_resources). */
+.ex-notes { margin: 12px 0 0; padding: 12px 14px; border-left: 3px solid var(--org-primary-color, #2563eb); border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--org-primary-color, #2563eb) 7%, transparent); text-align: left; }
+.ex-notes strong { display: block; font-size: 13px; }
+.ex-notes p { margin: 3px 0 0; font-size: 13.5px; white-space: pre-wrap; }
+.ex-help { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #2563eb) 30%, transparent); border-radius: 10px; font-size: 13.5px; }
+.ex-help summary { color: var(--org-primary-color, #2563eb); font-weight: 700; cursor: pointer; }
+.ex-help p { margin: 8px 0 0; white-space: pre-wrap; }
+.ex-help a { display: block; margin-top: 6px; color: var(--org-primary-color, #2563eb); font-weight: 600; overflow-wrap: anywhere; }

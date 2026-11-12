@@ -151,7 +151,7 @@ const paygiraFor = (...keys) => workspaceAccess({ permissions: ["paygira_workspa
 
 test("PayGira has six places; repeating bills and overdue balances are tabs of two of them", () => {
   const all = paygiraFor("paygira_overview", "paygira_bills", "paygira_org_bills", "paygira_subscriptions", "paygira_payments", "paygira_recovery", "paygira_payouts", "paygira_settings");
-  assert.deepEqual(all.menu.map((place) => place.label), ["Overview", "Bills", "Student ledger", "Payments", "Payouts", "Settings"]);
+  assert.deepEqual(all.menu.map((place) => place.label), ["Overview", "Bills", "Student ledger", "Payments", "Pay staff & vendors", "Settings"]);
   assert.deepEqual(all.menu.find((place) => place.id === "bills").tabs.map((tab) => tab.label), ["All bills", "Repeating"]);
   assert.deepEqual(all.menu.find((place) => place.id === "students").tabs.map((tab) => tab.label), ["Balances", "Overdue"]);
   assert.equal(paygiraPlaceOf("subscriptions"), "bills");

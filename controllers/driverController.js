@@ -201,6 +201,8 @@ const driverController = {
         distanceUnit: schoolResult.rows[0]?.transportation_distance_unit === "mi" ? "mi" : "km",
         integration,
         transportationOff,
+        // Forms the school gave a card of their own on this page (the school's cached list).
+        formTiles: await require("../utils/customForms").tilesFor(db, organizationId, "driver").catch(() => []),
         messages: req.flash(),
       });
     } catch (error) {
@@ -298,4 +300,15 @@ const driverController = {
   },
 };
 
-module.exports = { driverController };
+// The students who ride with this driver (their bus or routes), for the driver's forms.
+async function ridersFor(db, req, res) {
+  const organizationId = Number(req.session.organizationId);
+  if (!(await getTransportationIntegrationStatus(db, organizationId)).activated) return [];
+  const held = (res && res.locals && res.locals.userPermissions) || [];
+  const routes = await resolveAssignedRoutes(db, organizationId, req.driverProfile || null, held.includes("driver_any_route"));
+  const userId = req.session.userId || (req.session.user && req.session.user.user_id);
+  const students = await resolveMyStudents(db, organizationId, userId, req.driverBus || null, routes.map((route) => route.route_id), false);
+  return students.filter((student) => student.hasAccess).map((student) => student.id);
+}
+
+module.exports = { driverController, ridersFor };

@@ -192,7 +192,7 @@ router.post("/finance/bills/:id/cancel", isAuthenticated, paygiraPage(PERMISSION
 router.post("/finance/bills/:id/delete", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_DELETE_BILLS), c.billDeletePost);
 router.post("/finance/bills/:id/reminder", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS), c.sendReminderPost);
 // One student's bill, from their ledger or the overdue list.
-router.post("/finance/assignments/:id/request", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS, PERMISSIONS.PAYGIRA_ORG_BILLS, PERMISSIONS.PAYGIRA_RECOVERY), c.assignmentRequestPost);
+router.post("/finance/students/:id/request", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_BILLS, PERMISSIONS.PAYGIRA_ORG_BILLS, PERMISSIONS.PAYGIRA_RECOVERY), c.studentRequestPost);
 
 // Payments
 router.post("/finance/payments", isAuthenticated, paygiraPage(PERMISSIONS.PAYGIRA_RECORD_PAYMENTS), c.paymentRecordPost);

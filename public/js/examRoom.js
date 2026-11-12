@@ -354,13 +354,13 @@
       name.textContent = file.name;
       var note = document.createElement('p');
       note.className = 'ex-res__note';
-      note.textContent = 'This file opens in a new tab.';
+      note.textContent = file.kind === 'link' ? 'This link opens in a new tab.' : 'This file opens in a new tab.';
       var link = document.createElement('a');
       link.className = 'ex-btn ex-btn--ghost';
       link.href = file.url;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.textContent = 'Open file';
+      link.textContent = file.kind === 'link' ? 'Open link' : 'Open file';
       box.appendChild(name);
       box.appendChild(note);
       box.appendChild(link);

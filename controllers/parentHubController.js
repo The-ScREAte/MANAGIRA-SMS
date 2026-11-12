@@ -116,6 +116,8 @@ module.exports = {
       showSchoolwork: hasQuestions(res),
       showActivities: activitiesOn(req),
       showTransport: Boolean(integration && integration.activated),
+      // Forms the school gave a tile of their own (read from the school's cached list).
+      formTiles: await require("../utils/customForms").tilesFor(db, req.session.organizationId, "parent", { classId: child.classId }).catch(() => []),
     });
   })),
 
@@ -132,9 +134,11 @@ module.exports = {
         activitiesOn(req) ? listActivities(db, organizationId, { classIds: child.classId ? [child.classId] : [], from: today }) : [],
         getStudentTransportationSnapshot(db, organizationId, child.id).catch(() => null),
       ]);
-      const [files, results] = await Promise.all([
+      const [files, results, forms] = await Promise.all([
         parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id))),
         hasQuestions(res) ? resultsFor(req, db, child) : [],
+        // Forms the school asks this family to fill in (feature custom_forms).
+        require("./customFormsController").guardianToDo(db, req, child).catch(() => ({ forms: 0, tiles: {}, gone: [] })),
       ]);
       return res.json({
         success: true,
@@ -144,7 +148,10 @@ module.exports = {
           homework: work.filter((row) => row.homework).length,
           testing: work.filter((row) => !row.homework).length,
           documents: files.length + results.length,
+          forms: forms.forms,
+          ...forms.tiles,
         },
+        formsGone: forms.gone,
       });
     } catch (error) {
       console.error("[Parent hub] counts:", error.message);

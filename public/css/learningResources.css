@@ -1,0 +1,44 @@
+/* Resources & recommendations on a question set, and help on each question (feature learning_resources). */
+.pr-box--v2 { padding: 14px; }
+.pr-box--v2 .pr-head strong { display: block; font-size: 14.5px; }
+.pr-box--v2 .pr-head span { display: block; margin-top: 2px; color: var(--muted, #64748b); font-size: 12.5px; }
+.pr-box--v2 .pr-field { margin-top: 12px; }
+.pr-box--v2 .pr-list li { justify-content: flex-start; }
+.pr-box--v2 .pr-ico { flex: none; display: inline-grid; color: var(--org-primary-color, #2563eb); }
+.pr-box--v2 .pr-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pr-box--v2 .pr-name a { color: var(--org-primary-color, #2563eb); font-weight: 600; text-decoration: none; }
+.pr-box--v2 .pr-name em { color: var(--muted, #64748b); font-style: normal; font-size: 12px; }
+.pr-box--v2 .pr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pr-box--v2 .pr-btn { display: inline-flex !important; align-items: center; gap: 6px; width: auto !important; height: 32px; margin: 0 !important; padding: 0 12px !important; border: 1px solid var(--border, #e5e9ef) !important; border-radius: 8px !important; background: var(--card-bg, #fff) !important; color: inherit !important; box-shadow: none !important; font-size: 13px !important; font-weight: 600; cursor: pointer; }
+.pr-box--v2 .pr-btn--primary { border-color: var(--org-primary-color, #2563eb) !important; background: var(--org-primary-color, #2563eb) !important; color: #fff !important; }
+.pr-box--v2 .pr-linkrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
+.pr-box--v2 .pr-linkrow input { margin: 0; padding: 7px 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; font: inherit; font-size: 13.5px; }
+.pr-box--v2 .pr-hint { margin: 6px 0 0; color: var(--muted, #64748b); font-size: 12px; }
+.pr-box--v2 .pr-who { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #e5e9ef); }
+.pr-box--v2 .pr-who > span { color: var(--muted, #64748b); font-size: 12.5px; font-weight: 600; }
+.pr-box--v2 .pr-switch { align-items: flex-start; font-weight: 600; }
+.pr-box--v2 .pr-switch small { display: block; color: var(--muted, #64748b); font-size: 12px; font-weight: 400; }
+@media (max-width: 560px) { .pr-box--v2 .pr-linkrow { grid-template-columns: minmax(0, 1fr); } }
+
+.qh { margin-top: 8px; }
+.qh .qh-toggle { display: inline-flex !important; align-items: center; gap: 6px; width: auto !important; height: auto !important; margin: 0 !important; padding: 4px 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--org-primary-color, #2563eb) !important; font-size: 13px !important; font-weight: 600; cursor: pointer; }
+.qh.has-help .qh-toggle { color: #15803d !important; }
+.qh-body { margin-top: 6px; padding: 12px; border: 1px solid var(--border, #e5e9ef); border-radius: 10px; background: var(--card-bg, #fff); }
+.qh-label { display: block; margin: 0 0 10px; font-size: 12.5px; font-weight: 600; color: var(--muted, #64748b); }
+.qh-label textarea, .qh-label input { display: block; box-sizing: border-box; width: 100%; margin: 4px 0 0; padding: 7px 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background: var(--card-bg, #fff); color: inherit; font: inherit; font-size: 13.5px; font-weight: 400; }
+.qh-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; }
+.qh-files { margin: 4px 0 6px; padding: 0; list-style: none; }
+.qh-files li { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; font-weight: 400; }
+.qh-files a { flex: 1; min-width: 0; overflow: hidden; color: var(--org-primary-color, #2563eb); text-overflow: ellipsis; white-space: nowrap; font-weight: 600; text-decoration: none; }
+.qh-files button { width: auto !important; height: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; color: #c2410c !important; font-size: 12.5px !important; font-weight: 600; cursor: pointer; }
+.qh-upload { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: 1px dashed var(--org-primary-color, #2563eb); border-radius: 8px; color: var(--org-primary-color, #2563eb); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.qh-status { margin-left: 8px; font-size: 12.5px; font-weight: 500; }
+.qh-note { margin: 2px 0 0; color: var(--muted, #64748b); font-size: 12px; }
+@media (max-width: 560px) { .qh-row { grid-template-columns: minmax(0, 1fr); } }
+/* The question page styles every label and input; these keep the two boxes as designed. */
+.pr-box--v2 [hidden], .qh [hidden] { display: none !important; }
+.pr-box--v2 input[type="file"], .qh input[type="file"] { display: none !important; }
+.pr-box--v2 .pr-switch, .pr-box--v2 .pr-switch span, .pr-box--v2 .pr-switch small, .pr-box--v2 .pr-btn, .pr-box--v2 .pr-head, .qh .qh-upload, .qh .qh-note { text-transform: none !important; letter-spacing: normal !important; }
+.pr-box--v2 .pr-btn, .qh .qh-upload { white-space: nowrap; }
+.pr-box--v2 .pr-switch { display: flex !important; gap: 9px; margin: 0 !important; }
+.pr-box--v2 .pr-switch input { flex: none; width: 17px; height: 17px; margin: 1px 0 0 !important; }

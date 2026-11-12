@@ -336,10 +336,25 @@
     // ---------- inline styles ----------
     const changed = new Map(); // element -> { prop: [value, priority] } for undoing while printing
     window.__apChanged = changed; // a demo capture saves the page's own colors (public/js/demoCapture.js)
+    // An inline shorthand written with var() ("background: var(--card)") reads empty through its
+    // own colors, and taking one of them away afterwards drops the color for good (a panel that
+    // opened by a class change turned see-through). So the shorthand is remembered as well, and
+    // putting the colors back puts the shorthand back.
+    const SHORT_OF = {
+      'background-color': ['background'], 'background-image': ['background'],
+      'border-top-color': ['border-top', 'border-color', 'border'], 'border-right-color': ['border-right', 'border-color', 'border'],
+      'border-bottom-color': ['border-bottom', 'border-color', 'border'], 'border-left-color': ['border-left', 'border-color', 'border'],
+      'outline-color': ['outline'],
+    };
     function remember(el, prop) {
       let saved = changed.get(el);
       if (!saved) { saved = {}; changed.set(el, saved); }
-      if (!(prop in saved)) saved[prop] = [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)];
+      if (prop in saved) return;
+      const value = el.style.getPropertyValue(prop);
+      saved[prop] = [value, el.style.getPropertyPriority(prop)];
+      if (value) return;
+      const short = (SHORT_OF[prop] || []).find((name) => /var\(/i.test(el.style.getPropertyValue(name)));
+      if (short) saved[prop].push(short, el.style.getPropertyValue(short), el.style.getPropertyPriority(short));
     }
     function setStyle(el, prop, value, priority) {
       if (el.style.getPropertyValue(prop) === value && el.style.getPropertyPriority(prop) === (priority || '')) return;
@@ -350,10 +365,13 @@
     function restore(el) {
       const saved = changed.get(el);
       if (!saved) return;
+      const shorts = [];
       Object.keys(saved).forEach((prop) => {
-        const [v, p] = saved[prop];
-        if (v) el.style.setProperty(prop, v, p); else el.style.removeProperty(prop);
+        const [v, p, short, shortValue, shortPriority] = saved[prop];
+        if (short) shorts.push([short, shortValue, shortPriority]);
+        else if (v) el.style.setProperty(prop, v, p); else el.style.removeProperty(prop);
       });
+      shorts.forEach(([short, value, priority]) => el.style.setProperty(short, value, priority));
       changed.delete(el);
     }
     function fixInline(el) {

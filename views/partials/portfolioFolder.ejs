@@ -1,0 +1,72 @@
+<%# One term of a student's portfolio (feature student_portfolio). Locals: terms, term, data, links { term, test, report }. %>
+<%
+  const _fmt = (d, year) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: year ? 'numeric' : undefined }) : '';
+  const _num = (n) => Number(n).toFixed(2).replace(/\.?0+$/, '');
+%>
+<% if (!term) { %>
+  <div class="pf-empty">Nothing here yet. Each term’s marked work and report card collect here.</div>
+<% } else { %>
+  <% if (terms.length > 1) { %>
+  <nav class="pf-terms" aria-label="Terms">
+    <% terms.forEach((t) => { %>
+      <a class="pf-term" href="<%= links.term + t.id %>"<% if (t.id === term.id) { %> aria-current="true"<% } %>><strong><%= t.name %><%= t.current ? ' · Now' : '' %></strong><small><%= t.year %></small></a>
+    <% }) %>
+  </nav>
+  <% } %>
+  <div class="pf-stats">
+    <div class="pf-stat"><span>Marked work</span><strong><%= data.summary.marked %><small> / <%= data.summary.total %></small></strong></div>
+    <div class="pf-stat"><span>Average</span><strong><%= data.summary.average === null ? '—' : data.summary.average + '%' %></strong></div>
+    <div class="pf-stat"><span>Documents</span><strong><%= data.summary.documents %></strong></div>
+    <div class="pf-stat"><span>Report card</span><strong><% if (data.reportCard && links.report) { %><a href="<%= links.report %>" target="_blank" rel="noopener">Open PDF</a><% } else if (data.reportCard) { %>Posted<% } else { %><small>Not yet</small><% } %></strong></div>
+  </div>
+
+  <section class="pf-section" aria-labelledby="pf-docs">
+    <h2 id="pf-docs">Documents <small><%= term.name %>, <%= term.year %></small></h2>
+    <% if (!data.documents.length && !data.reportCard) { %>
+      <div class="pf-empty">Marked tests and the report card show here as PDFs.</div>
+    <% } else { %>
+    <div class="pf-docs">
+      <% if (data.reportCard) { %>
+      <article class="pf-doc">
+        <span class="pf-doc__icon pf-doc__icon--report">PDF</span>
+        <div><strong>Report card</strong><small><%= term.name %> · posted <%= _fmt(data.reportCard.postedAt) %></small>
+          <% if (links.report) { %><div class="pf-doc__actions"><a href="<%= links.report %>" target="_blank" rel="noopener">Open</a></div><% } %></div>
+      </article>
+      <% } %>
+      <% data.documents.forEach((doc) => { %>
+      <article class="pf-doc">
+        <span class="pf-doc__icon">PDF</span>
+        <div><strong><%= doc.title %></strong><small><%= [doc.subject, doc.submittedAt ? 'Finished ' + _fmt(doc.submittedAt) : ''].filter(Boolean).join(' · ') %></small>
+          <% if (doc.grade) { %><span class="pf-grade"><%= doc.grade %></span><% } %>
+          <div class="pf-doc__actions"><a href="<%= links.test.replace('{id}', doc.attemptId) %>"><%= doc.full ? 'Open with answers' : 'Open' %></a><a href="<%= links.test.replace('{id}', doc.attemptId) + (links.test.includes('?') ? '&' : '?') %>download=1">Download PDF</a></div></div>
+      </article>
+      <% }) %>
+    </div>
+    <% } %>
+  </section>
+
+  <section class="pf-section" aria-labelledby="pf-work">
+    <h2 id="pf-work">Assessments &amp; assignments</h2>
+    <% if (!data.subjects.length) { %>
+      <div class="pf-empty">No assessments or assignments this term yet.</div>
+    <% } %>
+    <% data.subjects.forEach((subject) => { const _done = subject.items.filter((i) => i.score !== null || i.choice).length; %>
+    <div class="pf-subject">
+      <h3><%= subject.name %> <small><%= _done %> of <%= subject.items.length %> marked</small></h3>
+      <% subject.items.forEach((item) => { %>
+      <div class="pf-row">
+        <span class="pf-row__icon pf-row__icon--<%= item.kind %>"><%- navIcon(item.kind === 'test' ? 'questions' : item.kind === 'assignment' ? 'homework' : 'grading') %></span>
+        <div style="min-width:0"><strong><%= item.title %></strong><small><%= [item.category, item.due ? 'Due ' + _fmt(item.due) : ''].filter(Boolean).join(' · ') %><% if (item.attemptId) { %> · <a href="<%= links.test.replace('{id}', item.attemptId) %>">Marked test</a><% } %></small></div>
+        <% if (item.choice) { %>
+          <span class="pf-score"><strong><%= item.choice %></strong></span>
+        <% } else if (item.score !== null) { %>
+          <span class="pf-score"><strong><%= _num(item.score) %></strong><small> / <%= _num(item.maxScore) %><%= item.percent !== null ? ' · ' + item.percent + '%' : '' %></small></span>
+        <% } else { %>
+          <span class="pf-score pf-score--none">Not marked yet</span>
+        <% } %>
+      </div>
+      <% }) %>
+    </div>
+    <% }) %>
+  </section>
+<% } %>

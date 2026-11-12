@@ -140,10 +140,10 @@ module.exports = [
         steps: [
           ["In <strong>Calendar</strong>, select <strong>Sync</strong>.", "calendar-sync.webp", "Sync: connect Google Calendar or Outlook."],
           "Select <strong>Connect Google Calendar</strong> or <strong>Connect Outlook</strong>, sign in with Google or Microsoft, and allow Managira to add its calendar.",
-          "You come back to Managira and it says <strong>Connected</strong>. In Google Calendar or Outlook there's now a calendar named <strong>Managira</strong> with your school events, activities, personal events, tasks, and your classes or bus runs for the coming weeks.",
+          "You come back to Managira and it says <strong>Connected</strong>. In Google Calendar or Outlook there's now a calendar named <strong>Managira</strong> with your school events, activities, personal events, tasks, and your classes, bus runs and birthdays for the coming weeks.",
           "That's all. Whatever is added or changed in Managira reaches it on its own, in the background. Select <strong>Disconnect</strong> to remove the Managira calendar from your account.",
         ],
-        note: "It's one way: Managira only adds to its own Managira calendar. It never reads or changes your other events. Birthdays stay in Managira (the <strong>Birthdays</strong> calendar shows students in your classes, and staff). To share your calendar with colleagues inside Managira, select <strong>Share</strong>. Mira can also find a free time and put a meeting on your calendar for you.",
+        note: "It's one way: Managira only adds to its own Managira calendar. It never reads or changes your other events. The <strong>Birthdays</strong> calendar shows students in your classes, and staff; the coming weeks' birthdays go to Google or Outlook too, as names only. To share your calendar with colleagues inside Managira, select <strong>Share</strong>. Mira can also find a free time and put a meeting on your calendar for you.",
       },
       {
         title: "For parents and students",

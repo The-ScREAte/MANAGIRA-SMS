@@ -1,0 +1,7 @@
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<div class="ph">
+  <%- include('../partials/flash') %>
+  <a class="ph-back" href="/guardian/child?studentId=<%= child.id %>"><%= child.name %></a>
+  <h1 class="ph-title"><%= title %></h1>
+  <%- include('../partials/portalForms', { forms: forms, base: base, query: query, audience: 'parent', single: locals.single }) %>
+</div>

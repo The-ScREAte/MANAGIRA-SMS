@@ -8,7 +8,8 @@
   color: var(--af-text);
 }
 
-.af-drawer { position: fixed; inset: 0; z-index: 14000; pointer-events: none; }
+/* Opens under the app header (assessmentFlow.js sets where it starts); its shadow stays off the header. */
+.af-drawer { position: fixed; inset: 0; z-index: 14000; overflow: hidden; pointer-events: none; }
 .af-drawer__scrim { position: absolute; inset: 0; background: rgba(15, 23, 42, .32); opacity: 0; transition: opacity .2s ease; }
 .af-drawer__panel {
   position: absolute; top: 0; right: 0; bottom: 0; width: min(760px, 100vw);

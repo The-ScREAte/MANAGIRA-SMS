@@ -38,13 +38,13 @@
   const defaultCollectionDestinationSafe = (typeof defaultCollectionDestination !== 'undefined' && defaultCollectionDestination) ? defaultCollectionDestination : '';
   const paymentProviderSafe = (typeof paymentProvider !== 'undefined' && paymentProvider) ? String(paymentProvider).toLowerCase() : '';
   const openCreateBillForm = sec === 'bills' && (Boolean(createBillDraftState) || (typeof messages !== 'undefined' && messages && messages.error && messages.error.length));
-  const formatCollectorOptionLabel = (employee) => {
+  // A member of staff as a tick box: their name, then their role and classes.
+  const collectorChip = (employee, name, cls) => {
+    const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const fullName = [employee && employee.first_name, employee && employee.last_name].filter(Boolean).join(' ').trim() || 'Unnamed staff';
-    const role = (employee && employee.account_type) ? employee.account_type : 'Staff';
-    const assignedClasses = String((employee && employee.assigned_classes_label) || '').trim();
-    return assignedClasses
-      ? `${fullName} · ${role} · Classes: ${assignedClasses}`
-      : `${fullName} · ${role} · No assigned class`;
+    const classes = String((employee && employee.assigned_classes_label) || '').trim();
+    const role = (employee && employee.account_type) || 'Staff';
+    return `<label class="fin-chip"><input type="checkbox"${cls ? ` class="${cls}"` : ''} name="${name}" value="${esc(employee.user_id)}"><span class="fin-chip-text"><strong>${esc(fullName)}</strong><small>${esc(classes ? `${role} · ${classes}` : role)}</small></span></label>`;
   };
 %>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -177,7 +177,8 @@
   .fin-ledger-credit { color:var(--fin-success); font-size:.72rem; font-weight:600; }
   .fin-ledger-empty { margin:0; padding:26px 12px; text-align:center; color:var(--fin-muted); }
   .fin-ledger-hint { margin:10px 2px 0; color:var(--fin-muted); font-size:.8rem; }
-  .fin-ledger-ask { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:0 0 14px; padding:10px 12px; border:1px solid var(--fin-border); border-radius:10px; background:#fafbfc; color:var(--fin-muted); font-size:.82rem; }
+  .fin-ledger-ask { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+  .fin-ledger-ask small { flex:1 1 180px; color:var(--fin-muted); font-size:.78rem; }
   .fin-ledger-said { margin:0 0 14px; padding:8px 12px; border-radius:8px; font-size:.84rem; font-weight:600; }
   .fin-ledger-said.is-ok { background:#ecfdf5; color:#166534; }
   .fin-ledger-said.is-bad { background:#fef2f2; color:#991b1b; }
@@ -569,8 +570,6 @@
   .fin-check  { display:inline-flex; align-items:center; gap:8px; color:var(--fin-text); font-size:.88rem; cursor:pointer; }
   .fin-check input[type=checkbox] { width:16px; height:16px; border-radius:4px; accent-color:var(--fin-teal); cursor:pointer; }
   .fin-check input { width:auto; }
-  .fin-check-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px 16px; max-height:180px; overflow-y:auto; padding:10px 12px; border:1px solid var(--fin-border); border-radius:10px; background:var(--fin-surface, #fff); }
-  .fin-check-list .fin-check { font-size:.84rem; }
   .fin-check-all {
     padding:6px 12px; border-radius:8px;
     background:color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent); border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 25%, transparent);
@@ -688,22 +687,6 @@
     flex:1;
     min-width:180px;
     margin:0;
-  }
-  .fin-multi-select {
-    min-height:140px;
-    padding:6px;
-    background-image:none !important;
-    resize:vertical;
-    overflow:auto;
-  }
-  /* Allow every native multi-select to be dragged taller by the user */
-  .fin-field select[multiple] {
-    resize:vertical;
-    overflow:auto;
-  }
-  .fin-multi-select option {
-    padding:9px 10px;
-    border-radius:8px;
   }
   .fin-check-card {
     display:flex;
@@ -845,6 +828,19 @@
   }
   .fin-chip-avatar img { width:100%; height:100%; object-fit:cover; }
   .fin-chip.hidden { display:none; }
+  /* Pick several: every choice is a tick box you can see (never a Ctrl-click list). */
+  .fin-field label.fin-chip, .fin-field label.fin-check { margin:0; color:var(--fin-text); font-weight:400; letter-spacing:0; text-transform:none; }
+  .fin-field label.fin-chip { display:flex; font-size:.85rem; }
+  .fin-field label.fin-chip.hidden { display:none; }
+  .fin-field label.fin-check { display:inline-flex; font-size:.88rem; }
+  .fin-chip input[type=checkbox] { position:static; opacity:1; pointer-events:auto; flex:none; width:16px; height:16px; margin:0; accent-color:var(--fin-teal); cursor:pointer; }
+  .fin-chip.checked::after, .fin-chip:has(input:checked)::after { content:none; }
+  .fin-chip-grid.scroll { max-height:260px; padding:6px; background:var(--fin-card-2); }
+  .fin-chip-grid .fin-chip-none { grid-column:1 / -1; margin:0; padding:10px; color:var(--fin-muted); font-size:.84rem; }
+  .fin-picker-actions .fin-search-input { flex:1 1 160px; min-width:120px; margin:0; }
+  .fin-modal-content .fin-form-actions { position:sticky; bottom:0; z-index:2; margin:16px -20px 0; padding:12px 20px; background:#fff; border-top:1px solid var(--fin-border); }
+  .fin-modal-content:has(> form > .fin-form-actions) { padding-bottom:0; }
+  .fin-chip-grid .fin-chip-text small { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
 
   /* ── Search input ───────────────────────────────────────────── */
   .fin-search-wrap { margin-bottom:6px; }
@@ -1208,9 +1204,27 @@
   }
 
   /* ── Student drawer ───────────────────────────────────────────── */
-  #studentDrawer { display:none; }
-  #studentDrawer.open { display:flex; }
-  #studentDrawerPanel { transition:transform .3s cubic-bezier(.16,1,.3,1); }
+  /* A student's ledger: who, three totals, one way to ask for payment, then bills and payments. */
+  #studentDrawer { z-index:9998; }
+  .fin-ledger-panel { max-width:min(640px, 100%) !important; }
+  .fin-ledger-who { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .fin-ledger-who .avatar { width:46px; height:46px; }
+  .fin-ledger-who strong { display:block; font-size:1.08rem; line-height:1.25; }
+  .fin-ledger-who small { display:block; color:var(--fin-muted); font-size:.84rem; }
+  .fin-ledger-totals { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:14px; }
+  .fin-ledger-total { padding:11px 13px; border:1px solid var(--fin-border); border-radius:12px; background:var(--fin-card); min-width:0; }
+  .fin-ledger-total span { display:block; color:var(--fin-muted); font-size:.66rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
+  .fin-ledger-total strong { display:block; margin-top:4px; font-size:1.12rem; font-variant-numeric:tabular-nums; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; }
+  .fin-ledger-total.is-paid strong { color:var(--fin-success); }
+  .fin-ledger-total.is-owed strong { color:var(--fin-red); }
+  .fin-ledger-total.is-credit strong { color:var(--fin-gold); }
+  .fin-ledger-h { margin:18px 0 8px; font-size:.95rem; font-weight:700; }
+  .fin-ledger-panel .fin-table-wrap { margin:0; }
+  .fin-ledger-panel .fin-table th, .fin-ledger-panel .fin-table td { padding-left:10px; padding-right:10px; }
+  .fin-ledger-panel .fin-table td.fin-ledger-what { white-space:normal; min-width:130px; }
+  .fin-ledger-what small { display:block; margin-top:2px; color:var(--fin-muted); font-size:.74rem; font-weight:400; }
+  .fin-ledger-link { color:var(--fin-teal); font-size:.8rem; font-weight:600; text-decoration:none; white-space:nowrap; }
+  .fin-ledger-link:hover { text-decoration:underline; }
 
   /* ── Subscription card ────────────────────────────────────────── */
   .sub-card { padding:18px; background:linear-gradient(135deg,rgba(255,255,255,0.9),var(--fin-card-2)); border:1px solid var(--fin-border); border-radius:14px; transition:border-color .2s,box-shadow .2s; }
@@ -1294,7 +1308,6 @@
     .fin-col-md  { display:none !important; }
     .fin-modal   { padding:0; align-items:flex-end; }
     .fin-modal-content { max-height:96vh; border-radius:18px 18px 0 0; padding:16px 12px; animation:none; }
-    #studentDrawerPanel { width:100% !important; }
     .section-head { flex-direction:column; align-items:flex-start; }
     .fin-card    { padding:12px; border-radius:14px; }
     .fin-table th { padding:9px 8px; font-size:.56rem; letter-spacing:.1em; }
@@ -1751,7 +1764,7 @@
         <%# This page's own action: a small button that opens its form from the right. %>
         <% if (sec === 'bills') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-bill')">+ New bill</button><% } %>
         <% if (sec === 'payments' && paygiraAccess.canRecordPayments) { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-record-payment')">+ Record a payment</button><% } %>
-        <% if (sec === 'payouts') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-payout')">+ New payout</button><% } %>
+        <% if (sec === 'payouts') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-payout')">+ Pay someone</button><% } %>
         </div>
       </div>
 
@@ -1886,17 +1899,16 @@
               </div>
             </div>
 
-            <!-- Classes — clickable multi-select chips -->
+            <%# Classes and students: tick boxes, with a search and "Tick all shown". %>
             <div class="fin-field" id="classPicker" style="display:none;">
-              <label>
-                Classes <span style="color:var(--fin-muted);font-weight:500;font-size:.78rem;">(click to select — pick as many as you need)</span>
-              </label>
+              <label for="classSearchBox">Classes</label>
               <div class="fin-picker-actions">
-                <button type="button" class="fin-btn sm" onclick="finSelectAllChips('classChips', true, true)">Select visible</button>
-                <button type="button" class="fin-btn sm" onclick="finSelectAllChips('classChips', false)">Clear</button>
-                <span class="fin-picker-count" id="classCount">0 selected</span>
+                <input type="text" id="classSearchBox" class="fin-search-input" placeholder="Find a class…" oninput="window.syncBillTargetClasses && window.syncBillTargetClasses()">
+                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('classChips', true, true)">Tick all shown</button>
+                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('classChips', false)">Clear</button>
+                <span class="fin-picker-count" id="classCount">0 chosen</span>
               </div>
-              <div class="fin-chip-grid" id="classChips">
+              <div class="fin-chip-grid scroll" id="classChips">
                 <% refs.classes.forEach(c => { %>
                   <label class="fin-chip" data-class-id="<%= c.class_id %>" data-school-year-ids="<%= (c.school_year_ids || []).join(',') %>" data-term-ids="<%= (c.term_ids || []).join(',') %>">
                     <input type="checkbox" name="target_class_ids" value="<%= c.class_id %>" onchange="finChipChanged(this,'classCount')">
@@ -1909,20 +1921,14 @@
               </div>
             </div>
 
-            <!-- Students: built in the browser when "Chosen students" is picked (finBuildStudentChips) -->
+            <%# Students are drawn in the browser when "Chosen students" is picked (finBuildStudentChips). %>
             <div class="fin-field" id="studentPicker" style="display:none;">
-              <label>
-                Students <span style="color:var(--fin-muted);font-weight:500;font-size:.78rem;">(search by name or class, then click to add)</span>
-              </label>
-              <div class="fin-search-wrap">
-                <input type="text" id="studentSearchBox" class="fin-search-input"
-                       placeholder="Search by student name or class…"
-                       oninput="finFilterStudents(this.value)">
-              </div>
+              <label for="studentSearchBox">Students</label>
               <div class="fin-picker-actions">
-                <button type="button" class="fin-btn sm" onclick="finSelectAllChips('studentChips', true, true)">Select all visible</button>
-                <button type="button" class="fin-btn sm" onclick="finSelectAllChips('studentChips', false)">Clear</button>
-                <span class="fin-picker-count" id="studentCount">0 selected</span>
+                <input type="text" id="studentSearchBox" class="fin-search-input" placeholder="Find a student or class…" oninput="finFilterStudents(this.value)">
+                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('studentChips', true, true)">Tick all shown</button>
+                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('studentChips', false)">Clear</button>
+                <span class="fin-picker-count" id="studentCount">0 chosen</span>
               </div>
               <div class="fin-chip-grid scroll" id="studentChips">
                 <% if (!refs.students.length) { %>
@@ -2003,12 +2009,11 @@
                   </div>
                 </div>
                 <div class="fin-field">
-                  <label>Staff who collect it <span style="color:var(--fin-muted);font-weight:400;font-size:.75em;">(hold Ctrl / ⌘ to pick more than one)</span></label>
-                  <select name="assignee_ids[]" class="fin-multi-select" multiple size="4" style="min-height:90px;">
-                <% (refs.employees || []).forEach(function(e) { %>
-                  <option value="<%= e.user_id %>"><%= formatCollectorOptionLabel(e) %></option>
-                <% }) %>
-                  </select>
+                  <label>Staff who collect it</label>
+                  <div class="fin-chip-grid scroll">
+                    <% (refs.employees || []).forEach(function(e) { %><%- collectorChip(e, 'assignee_ids[]', '') %><% }) %>
+                    <% if (!(refs.employees || []).length) { %><p class="fin-chip-none">No staff yet.</p><% } %>
+                  </div>
                   <small style="color:var(--fin-muted);font-size:.72rem;">They collect it from the class page (My PayGira). Leave empty when the office collects.</small>
                 </div>
                 <div class="fin-field">
@@ -2025,7 +2030,7 @@
                   <option value="cash">Cash (collect manually)</option>
                 <% } %>
               </select>
-                  <small style="color:var(--fin-muted);font-size:.74rem;">Only payout accounts that are switched on are listed. Choose Cash to collect by hand.</small>
+                  <small style="color:var(--fin-muted);font-size:.74rem;">Only accounts that are switched on are listed. Choose Cash to collect by hand.</small>
                 </div>
                 <div class="fin-field">
                   <label>How parents can pay</label>
@@ -2681,8 +2686,8 @@
         <div class="fin-card fin-accordion fin-sheet" id="acc-create-payout" role="dialog" aria-modal="true" aria-labelledby="acc-create-payout-title" aria-hidden="true">
           <div class="fin-sheet__head">
             <div>
-              <h2 class="fin-sheet__title" id="acc-create-payout-title">New payout</h2>
-              <p class="fin-sheet__hint">Pay a member of staff or a supplier, once or on a schedule.</p>
+              <h2 class="fin-sheet__title" id="acc-create-payout-title">Pay someone</h2>
+              <p class="fin-sheet__hint">Send money from the school's card to a member of staff or a vendor, once or on a schedule.</p>
             </div>
             <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-create-payout')">&times;</button>
           </div>
@@ -2690,15 +2695,15 @@
             <form class="fin-form" id="finPayoutForm">
               <input type="hidden" id="finPayoutFormId" value="">
               <div class="fin-field">
-                <label>Name *</label>
-                <input id="finPayoutName" required placeholder="e.g. Teacher Salary — John Doe">
+                <label for="finPayoutName">What is it for? *</label>
+                <input id="finPayoutName" required placeholder="e.g. Salary, Jordan Lee">
               </div>
 
               <div class="fin-field">
-                <label>Recipient *</label>
+                <label>Who gets it? *</label>
                 <div class="fin-payout-tabs">
-                  <button type="button" class="fin-payout-tab active" id="finRecipientTabExisting" data-mode="existing">Existing Managira user</button>
-                  <button type="button" class="fin-payout-tab" id="finRecipientTabNew" data-mode="new">New person</button>
+                  <button type="button" class="fin-payout-tab active" id="finRecipientTabExisting" data-mode="existing">Someone at the school</button>
+                  <button type="button" class="fin-payout-tab" id="finRecipientTabNew" data-mode="new">Someone else</button>
                 </div>
                 <div id="finRecipientExistingPanel">
                   <input type="text" id="finRecipientSearch" placeholder="Search by name or email…" autocomplete="off">
@@ -2707,8 +2712,8 @@
                 </div>
                 <div id="finRecipientNewPanel" style="display:none;">
                   <div class="fin-row">
-                    <div class="fin-field"><label>Full name</label><input type="text" id="finRecipientNameNew" placeholder="e.g. John Doe"></div>
-                    <div class="fin-field"><label>Email address</label><input type="email" id="finRecipientEmailNew" placeholder="john@example.com"></div>
+                    <div class="fin-field"><label>Full name</label><input type="text" id="finRecipientNameNew" placeholder="e.g. Jordan Lee"></div>
+                    <div class="fin-field"><label>Email address</label><input type="email" id="finRecipientEmailNew" placeholder="jordan@example.com"></div>
                   </div>
                 </div>
               </div>
@@ -2729,17 +2734,17 @@
 
               <div class="fin-row">
                 <div class="fin-field">
-                  <label>Charge this card *</label>
+                  <label for="finPayoutCard">Pay from this card *</label>
                   <select id="finPayoutCard" required></select>
-                  <small id="finPayoutNoCardHint" style="display:none; color:var(--fin-muted);font-size:.72rem;">No saved card yet — add one under <a href="/account/settings?section=billing" style="color:var(--fin-teal);">Account Settings → Billing &amp; Plan</a>.</small>
+                  <small id="finPayoutNoCardHint" style="display:none; color:var(--fin-muted);font-size:.72rem;">No saved card yet. Add one in <a href="/account/settings?section=billing" style="color:var(--fin-teal);">Settings, Billing &amp; Plan</a>.</small>
                 </div>
                 <div class="fin-field">
-                  <label>Frequency</label>
+                  <label for="finPayoutFrequency">How often</label>
                   <select id="finPayoutFrequency">
-                    <option value="once">One time</option>
-                    <option value="weekly">Weekly</option>
+                    <option value="once">Once</option>
+                    <option value="weekly">Every week</option>
                     <option value="biweekly">Every 2 weeks</option>
-                    <option value="monthly">Monthly</option>
+                    <option value="monthly">Every month</option>
                   </select>
                 </div>
               </div>
@@ -2750,14 +2755,14 @@
                   <input id="finPayoutStartDate" type="date" required>
                 </div>
                 <div class="fin-field" id="finPayoutEndDateField" style="display:none;">
-                  <label>Ends on (optional)</label>
+                  <label for="finPayoutEndDate">Last date</label>
                   <input id="finPayoutEndDate" type="date">
                 </div>
               </div>
 
               <p class="error-text" id="finPayoutError" style="color:var(--fin-red); font-size:.82rem;"></p>
               <div class="fin-form-actions">
-                <button type="submit" class="fin-btn sm primary" id="finPayoutSubmit">Save payout</button>
+                <button type="submit" class="fin-btn sm primary" id="finPayoutSubmit">Save</button>
                 <button type="button" class="fin-btn sm quiet" onclick="finToggleAcc('acc-create-payout')">Cancel</button>
               </div>
             </form>
@@ -2766,14 +2771,14 @@
 
         <div class="fin-card">
           <div class="section-head">
-            <h2>Scheduled Payouts</h2>
-            <span class="fin-section-count" id="finPayoutsCount">0 payouts</span>
+            <h2>Money you send out</h2>
+            <span class="fin-section-count" id="finPayoutsCount">0 payments</span>
           </div>
-          <div class="empty-state" id="finPayoutsEmpty"><h3>No payouts yet</h3><p style="color:var(--fin-muted);">Create one above to pay a teacher, staff member, or vendor on a schedule.</p></div>
+          <div class="empty-state" id="finPayoutsEmpty"><h3>Nobody to pay yet</h3><p style="color:var(--fin-muted);">Use Pay someone to pay a member of staff or a vendor, once or on a schedule.</p></div>
           <div class="fin-table-wrap" id="finPayoutsTableWrap" style="display:none;">
             <table class="fin-table">
               <thead><tr>
-                <th>Name</th><th>Recipient</th><th class="num">Amount</th><th>Frequency</th>
+                <th>For</th><th>Who gets it</th><th class="num">Amount</th><th>How often</th>
                 <th>Card</th><th>Next</th><th>Status</th><th></th>
               </tr></thead>
               <tbody id="finPayoutsBody"></tbody>
@@ -2783,7 +2788,7 @@
 
         <div class="fin-card" id="finPayoutHistoryCard" style="display:none;">
           <div class="section-head">
-            <h2 id="finPayoutHistoryTitle">Payment History</h2>
+            <h2 id="finPayoutHistoryTitle">What was sent</h2>
             <button type="button" class="fin-btn ghost sm" onclick="document.getElementById('finPayoutHistoryCard').style.display='none';">Close</button>
           </div>
           <div class="fin-table-wrap">
@@ -2935,7 +2940,7 @@
             }
 
             function renderPayouts(payouts) {
-              countEl.textContent = payouts.length + ' payout' + (payouts.length === 1 ? '' : 's');
+              countEl.textContent = payouts.length + ' payment' + (payouts.length === 1 ? '' : 's');
               if (!payouts.length) {
                 listEmpty.style.display = '';
                 listWrap.style.display = 'none';
@@ -2945,11 +2950,11 @@
               listWrap.style.display = '';
               listBody.innerHTML = payouts.map(function (p) {
                 var actions = '<div class="fin-actions-cell" style="justify-content:flex-start;">' +
-                  '<button type="button" class="fin-btn sm finPayoutPayNow" data-id="' + p.payout_id + '"' + (p.status === 'cancelled' ? ' disabled' : '') + '>Pay Now</button>' +
+                  '<button type="button" class="fin-btn sm finPayoutPayNow" data-id="' + p.payout_id + '"' + (p.status === 'cancelled' ? ' disabled' : '') + '>Pay now</button>' +
                   (p.status === 'active' ? '<button type="button" class="fin-btn ghost sm finPayoutPause" data-id="' + p.payout_id + '">Pause</button>' : '') +
                   (p.status === 'paused' ? '<button type="button" class="fin-btn ghost sm finPayoutResume" data-id="' + p.payout_id + '">Resume</button>' : '') +
                   '<button type="button" class="fin-btn ghost sm finPayoutHistory" data-id="' + p.payout_id + '" data-name="' + esc(p.name) + '">History</button>' +
-                  '<button type="button" class="fin-btn danger sm finPayoutDelete" data-id="' + p.payout_id + '">Delete</button>' +
+                  '<button type="button" class="fin-btn danger sm finPayoutDelete" data-id="' + p.payout_id + '">Remove</button>' +
                   '</div>';
                 return '<tr>' +
                   '<td><strong>' + esc(p.name) + '</strong>' + (p.last_error ? '<div style="color:var(--fin-red);font-size:.72rem;margin-top:3px;">' + esc(p.last_error) + '</div>' : '') + '</td>' +
@@ -2968,7 +2973,7 @@
               fetch('/account/settings/payouts.json')
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                  if (!data.success) throw new Error(data.message || 'Failed to load payouts.');
+                  if (!data.success) throw new Error(data.message || 'This list could not load.');
                   renderCardOptions(data.cards || []);
                   renderPayouts(data.payouts || []);
                 })
@@ -2982,11 +2987,11 @@
               evt.preventDefault();
               errorEl.textContent = '';
               if (recipientMode === 'existing' && !selectedRecipientUserId) {
-                errorEl.textContent = "Search for and select an existing user, or switch to 'New person'.";
+                errorEl.textContent = 'Find someone at the school, or choose Someone else.';
                 return;
               }
               if (!cardSelect.value) {
-                errorEl.textContent = 'Add a saved card before creating a payout.';
+                errorEl.textContent = 'Add a saved card first.';
                 return;
               }
               var payload = {
@@ -3016,7 +3021,7 @@
               })
                 .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
                 .then(function (res) {
-                  if (!res.ok || !res.data.success) throw new Error(res.data.message || 'Unable to save payout.');
+                  if (!res.ok || !res.data.success) throw new Error(res.data.message || 'It could not be saved.');
                   resetForm();
                   document.getElementById('acc-create-payout').classList.remove('open');
                   loadPayouts();
@@ -3034,7 +3039,7 @@
               var payoutId = btn.dataset.id;
 
               if (btn.classList.contains('finPayoutPayNow')) {
-                if (!confirm('Charge the saved card for this payout right now?')) return;
+                if (!confirm('Pay this now from the saved card?')) return;
                 btn.disabled = true;
                 btn.textContent = 'Processing…';
                 fetch('/account/settings/payouts/' + payoutId + '/pay-now', { method: 'POST' })
@@ -3059,7 +3064,7 @@
               }
 
               if (btn.classList.contains('finPayoutDelete')) {
-                if (!confirm('Delete this payout? This cannot be undone.')) return;
+                if (!confirm('Remove this? It can\'t be undone.')) return;
                 fetch('/account/settings/payouts/' + payoutId + '/delete', { method: 'POST' })
                   .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
                   .then(function (res) { if (!res.ok || !res.data.success) throw new Error(res.data.message); loadPayouts(); })
@@ -3072,7 +3077,7 @@
                   .then(function (r) { return r.json(); })
                   .then(function (data) {
                     var rows = data.transactions || [];
-                    document.getElementById('finPayoutHistoryTitle').textContent = 'Payment History — ' + btn.dataset.name;
+                    document.getElementById('finPayoutHistoryTitle').textContent = 'What was sent: ' + btn.dataset.name;
                     document.getElementById('finPayoutHistoryBody').innerHTML = rows.length
                       ? rows.map(function (t) {
                           return '<tr><td>' + fmtDate(t.created_at) + '</td><td class="num">' + esc(t.currency) + ' ' + Number(t.amount).toFixed(2) + '</td><td>' + esc(t.provider) + '</td><td>' + (t.status === 'succeeded' ? '<span class="badge paid">Succeeded</span>' : '<span class="badge overdue">Failed</span>') + '</td><td style="color:var(--fin-red);">' + esc(t.failure_reason || '') + '</td></tr>';
@@ -3124,7 +3129,7 @@
                 </label>
                 <% }); %>
               </div>
-              <small style="color:var(--fin-muted);font-size:.72rem;">Parents see the ones ticked when they pay a bill online, once your payout account is connected. Apple Pay and Google Pay show only on devices that support them. The platform fee applies the same way to each.</small>
+              <small style="color:var(--fin-muted);font-size:.72rem;">Parents see the ones ticked when they pay a bill online, once the account that receives their payments is connected. Apple Pay and Google Pay show only on devices that support them. The platform fee applies the same way to each.</small>
             </div>
             <style>
               .fin-methods { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; margin-top:4px; }
@@ -3559,11 +3564,11 @@
             <form method="POST" action="/account/settings/finance/arrears/reports" class="fin-form" id="arrearsReportForm">
               <div class="fin-row">
                 <div class="fin-field"><label>Report name</label><input type="text" name="report_title" value="Overdue balances" required></div>
-                <div class="fin-field"><label>Period</label><input type="text" name="report_period" placeholder="e.g. Term 2 2026"></div>
+                <div class="fin-field"><label>Period</label><input type="text" name="report_period" placeholder="e.g. Fall semester 2026"></div>
               </div>
               <div class="fin-row">
-                <div class="fin-field"><label>Format</label><select name="report_format"><option value="pdf">PDF</option><option value="csv">CSV</option></select></div>
-                <div class="fin-field"><label>Include</label><select name="include_sections" multiple size="4"><option value="summary" selected>Summary</option><option value="rows" selected>Student rows</option><option value="bill_breakdown" selected>Bill breakdown</option><option value="email_readiness">Email readiness</option></select></div>
+                <div class="fin-field"><label>Format</label><div class="fin-checks"><label class="fin-check"><input type="radio" name="report_format" value="pdf" checked> PDF</label><label class="fin-check"><input type="radio" name="report_format" value="csv"> Spreadsheet (CSV)</label></div></div>
+                <div class="fin-field"><label>Include</label><div class="fin-checks"><label class="fin-check"><input type="checkbox" name="include_sections" value="summary" checked> Summary</label><label class="fin-check"><input type="checkbox" name="include_sections" value="rows" checked> Student rows</label><label class="fin-check"><input type="checkbox" name="include_sections" value="bill_breakdown" checked> Bill breakdown</label><label class="fin-check"><input type="checkbox" name="include_sections" value="email_readiness"> Email readiness</label></div></div>
               </div>
               <div class="fin-field"><label>Notes</label><textarea name="report_notes" rows="3" placeholder="Anything to remember about this list."></textarea></div>
               <div class="arrears-checkbox-row">
@@ -3583,7 +3588,7 @@
             <form method="POST" action="/account/settings/finance/arrears/email" class="fin-form" id="arrearsEmailForm">
               <div class="fin-row">
                 <div class="fin-field"><label>Subject</label><input type="text" name="subject" value="Outstanding Balance Notice — {Student Name}" required></div>
-                <div class="fin-field"><label>Variables</label><div class="arrears-note">{Guardian Name}, {Student Name}, {Outstanding Amount}, {Bill Name}, {Due Date}, {Days Overdue}, {School Name}, {Class}, {Term Name}</div></div>
+                <div class="fin-field"><label>Words that fill themselves in</label><div class="arrears-note">{Guardian Name}, {Student Name}, {Outstanding Amount}, {Bill Name}, {Due Date}, {Days Overdue}, {School Name}, {Class}, {Term Name}</div></div>
               </div>
               <div class="fin-field"><label>Message</label><textarea name="body" rows="7">Dear {Guardian Name},
 
@@ -3594,12 +3599,12 @@ Please review the account and arrange payment as soon as possible.
 Regards,
 {School Name} Finance Office</textarea></div>
               <div class="arrears-checkbox-row">
-                <label class="arrears-checkbox"><input type="checkbox" name="include_payment_link" checked> Include payment link</label>
+                <label class="arrears-checkbox"><input type="checkbox" name="include_payment_link" checked> Include a link to pay</label>
               </div>
               <div class="fin-card" style="padding:16px;background:rgba(15,23,42,.02);">
                 <div class="section-head" style="margin-bottom:10px;"><h2>Who gets it</h2><span class="fin-section-count" id="arrearsRecipientCount">0 recipients</span></div>
                 <div class="arrears-recipient-list" id="arrearsRecipientList"></div>
-                <p class="arrears-note">Use the pencil editor here to add or override the recipient name, email, phone, or relationship for this send only. It does not save to the student profile.</p>
+                <p class="arrears-note">Select the pencil to change a name, email or phone for this email only. The student's record stays as it is.</p>
               </div>
               <input type="hidden" name="selected_student_ids" id="arrearsEmailSelectedIds">
               <input type="hidden" name="manual_guardians_json" id="arrearsManualGuardiansJson" value="{}">
@@ -3611,11 +3616,11 @@ Regards,
 
         <div class="fin-modal" id="arrearsNoteModal">
           <div class="fin-modal-content" style="max-width:560px;">
-            <div class="fin-modal-head"><h3>Add Recovery Note</h3><button class="fin-modal-close" type="button" onclick="closeArrearsNoteModal()">&times;</button></div>
+            <div class="fin-modal-head"><h3>Add a note</h3><button class="fin-modal-close" type="button" onclick="closeArrearsNoteModal()">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/notes" class="fin-form">
               <input type="hidden" name="student_id" id="arrearsNoteStudentId">
               <div class="fin-field"><label>Student</label><input type="text" id="arrearsNoteStudentName" readonly></div>
-              <div class="fin-field"><label>Note</label><textarea name="note" rows="5" placeholder="Call notes, repayment promise, escalation, follow-up owner." required></textarea></div>
+              <div class="fin-field"><label>Note</label><textarea name="note" rows="5" placeholder="What was said, what was promised, and who follows up." required></textarea></div>
               <button type="submit" class="fin-btn sm primary">Save note</button>
             </form>
           </div>
@@ -3878,13 +3883,16 @@ Regards,
       if (!grid) return;
       var selectedYear = String((document.getElementById('billCreateYearSelect') || {}).value || '');
       var selectedTerm = String((document.getElementById('billCreateTermSelect') || {}).value || '');
+      var query = String((document.getElementById('classSearchBox') || {}).value || '').trim().toLowerCase();
       grid.querySelectorAll('.fin-chip').forEach(function (chip) {
         var matches = true;
         if (selectedTerm) matches = matchesDataIds(chip.getAttribute('data-term-ids'), [selectedTerm]);
         else if (selectedYear) matches = matchesDataIds(chip.getAttribute('data-school-year-ids'), [selectedYear]);
-        chip.classList.toggle('hidden', !matches);
+        var checkbox = chip.querySelector('input[type="checkbox"]');
+        // A class already ticked stays in view while searching for the next one.
+        var found = !query || chip.textContent.toLowerCase().indexOf(query) !== -1 || (checkbox && checkbox.checked);
+        chip.classList.toggle('hidden', !matches || !found);
         if (!matches) {
-          var checkbox = chip.querySelector('input[type="checkbox"]');
           if (checkbox) checkbox.checked = false;
           chip.classList.remove('checked');
         }
@@ -3968,8 +3976,8 @@ Regards,
       if (!group || !summary) return;
       var selectedCount = group.querySelectorAll('.ebl-assignee-check:checked').length;
       summary.textContent = selectedCount
-        ? (selectedCount + ' collector' + (selectedCount === 1 ? '' : 's') + ' selected.')
-        : 'Leave empty if unassigned.';
+        ? (selectedCount + ' chosen.')
+        : 'Leave empty when the office collects.';
     }
 
     function setEditBillAssignees(values) {
@@ -4027,14 +4035,14 @@ Regards,
         }).length : 0;
         if (appliesTo === 'classes') {
           appliesSummary.textContent = classCount
-            ? ('Currently set to ' + classCount + ' class' + (classCount === 1 ? '' : 'es') + ' in this academic context.')
-            : 'Choose one or more classes for this bill.';
+            ? (classCount + ' class' + (classCount === 1 ? '' : 'es') + ' chosen.')
+            : 'Tick the classes that pay.';
         } else if (appliesTo === 'students') {
           appliesSummary.textContent = studentCount
-            ? ('Currently set to ' + studentCount + ' individual student' + (studentCount === 1 ? '' : 's') + ' in this academic context.')
-            : 'Choose one or more students for this bill.';
+            ? (studentCount + ' student' + (studentCount === 1 ? '' : 's') + ' chosen.')
+            : 'Tick the students who pay.';
         } else {
-          appliesSummary.textContent = 'This bill will apply to the entire school for the selected year and term.';
+          appliesSummary.textContent = 'Every student enrolled in this year and term.';
         }
       }
     }
@@ -4179,6 +4187,7 @@ Regards,
       var body   = document.getElementById('studentDrawerBody');
       if (!drawer || !body) return;
       body.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--fin-muted);">Loading…</div>';
+      drawer.setAttribute('data-student', studentId);
       drawer.classList.add('open');
       fetch('/account/settings/finance/students/' + studentId + '/detail.json')
         .then(r => r.ok ? r.json() : Promise.reject(r))
@@ -4220,47 +4229,44 @@ Regards,
       var avatarSrc = (s.image_url && String(s.image_url).trim() && String(s.image_url).trim() !== 'profilePlaceholder.png') ? s.image_url : profilePlaceholderSrc;
       var avatarHtml = '<img src="' + ledgerText(avatarSrc) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
 
+      // One line per bill: what it is and when it's due, the three amounts, where it stands,
+      // and its invoice. Asking for payment is one button above, for everything owed.
       var billRows = bills.map(function(b) {
         var bal = Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0));
         var status = String(b.status || '').toLowerCase();
-        return '<tr><td>' + ledgerText(b.title) + '</td><td class="fin-date-muted">' + ledgerText(b.due_display || '—') + '</td>'
+        return '<tr><td class="fin-ledger-what">' + ledgerText(b.title) + (b.due_display ? '<small>Due ' + ledgerText(b.due_display) + '</small>' : '') + '</td>'
           + '<td class="num fin-money-neutral">' + fmt(b.amount) + '</td>'
           + '<td class="num fin-money-positive">' + fmt(b.amount_paid) + '</td>'
           + '<td class="num ' + (bal>0?'fin-money-negative':'fin-money-neutral') + '">' + fmt(bal) + '</td>'
           + '<td><span class="badge ' + ledgerText(status) + '">' + ledgerText(ledgerStatusWords[status] || status) + '</span></td>'
-          + '<td><div class="fin-actions-cell">'
-          + (bal > 0 ? '<button type="button" class="fin-btn sm" data-ledger-request="' + encodeURIComponent(b.assignment_id) + '" title="Email this student\'s parents what is owed and a link to pay">Request payment</button>' : '')
-          + '<a class="fin-btn sm quiet" target="_blank" rel="noopener" href="/account/settings/my-paygira/invoice/' + encodeURIComponent(b.assignment_id) + '">Invoice</a>'
-          + '</div></td></tr>';
-      }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--fin-muted);padding:20px;">No bills for this student.</td></tr>';
+          + '<td class="num"><a class="fin-ledger-link" target="_blank" rel="noopener" href="/account/settings/my-paygira/invoice/' + encodeURIComponent(b.assignment_id) + '">Invoice</a></td></tr>';
+      }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--fin-muted);padding:20px;">No bills for this student.</td></tr>';
 
       var payRows = payments.map(function(p) {
         var method = String(p.method || '').toLowerCase();
         return '<tr><td class="fin-date-muted">' + ledgerText(p.received_display || '—') + '</td>'
-          + '<td>' + ledgerText(p.bill_title || '—') + (p.reference ? '<div class="fin-bill-meta">Ref ' + ledgerText(p.reference) + '</div>' : '') + '</td>'
+          + '<td class="fin-ledger-what">' + ledgerText(p.bill_title || '—') + (p.reference ? '<small>Ref ' + ledgerText(p.reference) + '</small>' : '') + '</td>'
           + '<td>' + ledgerText(ledgerMethodWords[method] || p.method || '') + '</td>'
           + '<td class="num fin-money-positive">' + fmt(p.amount) + '</td>'
-          + '<td><a class="fin-btn sm quiet" target="_blank" rel="noopener" href="/account/settings/my-paygira/receipt/' + encodeURIComponent(p.payment_id) + '">Receipt</a></td></tr>';
+          + '<td class="num"><a class="fin-ledger-link" target="_blank" rel="noopener" href="/account/settings/my-paygira/receipt/' + encodeURIComponent(p.payment_id) + '">Receipt</a></td></tr>';
       }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--fin-muted);padding:20px;">No payments yet.</td></tr>';
 
-      return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">'
-        + '<div class="avatar" style="width:54px;height:54px;font-size:1.1rem;">' + avatarHtml + '</div>'
-        + '<div><div style="font-family:inherit;font-size:1.3rem;font-weight:700;">' + ledgerText([s.first_name, s.last_name].filter(Boolean).join(' ')) + '</div>'
-        + '<div style="color:var(--fin-muted);font-size:.88rem;">' + ledgerText(s.class_name || 'No class') + '</div></div></div>'
-        + '<div class="fin-stats" style="margin-bottom:20px;">'
-        + '<div class="stat"><div class="label">Billed</div><div class="value fin-mono">' + fmt(totalBilled) + '</div></div>'
-        + '<div class="stat green"><div class="label">Paid</div><div class="value fin-mono">' + fmt(totalPaid) + '</div></div>'
-        + '<div class="stat red"><div class="label">Still owed</div><div class="value fin-mono">' + fmt(netDue) + '</div></div>'
-        + (credit > 0 ? '<div class="stat gold"><div class="label">Credit held</div><div class="value fin-mono">' + fmt(credit) + '</div></div>' : '')
-        + '</div>'
-        + (netDue > 0 && d.payUrl
-            ? '<div class="fin-ledger-ask"><span>Parents pay in their parent portal. Ask from a bill below, or send them the link yourself.</span>'
-              + '<button type="button" class="fin-btn sm quiet" data-ledger-copy="' + ledgerText(d.payUrl) + '">Copy pay link</button></div>'
+      var total = function (cls, label, amount) { return '<div class="fin-ledger-total ' + cls + '"><span>' + label + '</span><strong>' + fmt(amount) + '</strong></div>'; };
+      return '<div class="fin-ledger-who">'
+        + '<div class="avatar">' + avatarHtml + '</div>'
+        + '<div><strong>' + ledgerText([s.first_name, s.last_name].filter(Boolean).join(' ')) + '</strong>'
+        + '<small>' + ledgerText(s.class_name || 'No class') + '</small></div></div>'
+        + '<div class="fin-ledger-totals">' + total('', 'Billed', totalBilled) + total('is-paid', 'Paid', totalPaid) + total('is-owed', 'Still owed', netDue)
+        + (credit > 0 ? total('is-credit', 'Credit held', credit) : '') + '</div>'
+        + (netDue > 0
+            ? '<div class="fin-ledger-ask"><button type="button" class="fin-btn sm primary" data-ledger-request>Request payment</button>'
+              + (d.payUrl ? '<button type="button" class="fin-btn sm quiet" data-ledger-copy="' + ledgerText(d.payUrl) + '">Copy pay link</button>' : '')
+              + '<small>Emails the parents what is owed, with a link to pay.</small></div>'
             : '')
         + '<p class="fin-ledger-said" id="ledgerSaid" role="status" hidden></p>'
-        + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Bills</div>'
-        + '<div class="fin-table-wrap" style="margin-bottom:22px;"><table class="fin-table no-global-sort"><thead><tr><th>Bill</th><th>Due</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
-        + '<div style="font-family:inherit;font-weight:700;font-size:1rem;margin-bottom:10px;">Payments</div>'
+        + '<h4 class="fin-ledger-h">Bills</h4>'
+        + '<div class="fin-table-wrap"><table class="fin-table no-global-sort"><thead><tr><th>Bill</th><th class="num">Billed</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead><tbody>' + billRows + '</tbody></table></div>'
+        + '<h4 class="fin-ledger-h">Payments</h4>'
         + '<div class="fin-table-wrap"><table class="fin-table no-global-sort"><thead><tr><th>Date</th><th>Bill</th><th>Paid by</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + payRows + '</tbody></table></div>';
     }
 
@@ -4286,7 +4292,7 @@ Regards,
         var ask = event.target.closest('[data-ledger-request]');
         if (!ask) return;
         ask.disabled = true;
-        fetch('/account/settings/finance/assignments/' + ask.getAttribute('data-ledger-request') + '/request', {
+        fetch('/account/settings/finance/students/' + encodeURIComponent(document.getElementById('studentDrawer').getAttribute('data-student')) + '/request', {
           method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' },
         }).then(function (r) { return r.json(); }).then(function (data) {
           say((data && data.message) || 'Could not send the payment request.', Boolean(data && data.success));
@@ -4356,7 +4362,7 @@ Regards,
     var c = document.getElementById(counterId);
     if (!grid || !c) return;
     var n = grid.querySelectorAll('input[type=checkbox]:checked').length;
-    c.textContent = n + ' selected';
+    c.textContent = n + ' chosen';
   }
   function finSelectAllChips(gridId, on, onlyVisible) {
     var grid = document.getElementById(gridId);
@@ -4711,9 +4717,9 @@ Regards,
     if (!host) return;
     var ids = Array.isArray(selectedIds) ? selectedIds : getSelectedArrearsIds();
     var wanted = ids.length ? arrearsRecipients.filter(function(item) { return ids.indexOf(String(item.student_id)) !== -1; }) : arrearsRecipients;
-    count.textContent = wanted.length + ' recipient(s)';
+    count.textContent = wanted.length + (wanted.length === 1 ? ' parent' : ' parents');
     if (!wanted.length) {
-      host.innerHTML = '<div class="empty-state" style="padding:26px 10px;"><h3>No recipients selected</h3><p>Select one or more students from the arrears table first.</p></div>';
+      host.innerHTML = '<div class="empty-state" style="padding:26px 10px;"><h3>Nobody chosen yet</h3><p>Tick one or more students in the list first.</p></div>';
       return;
     }
     host.innerHTML = wanted.map(function(item) {
@@ -5233,149 +5239,143 @@ Regards,
 
 <!-- Edit Bill Modal -->
 <div class="fin-modal" id="editBillModal">
-  <div class="fin-modal-content" style="max-width:720px;">
+  <div class="fin-modal-content" role="dialog" aria-modal="true" aria-labelledby="editBillTitle">
     <div class="fin-modal-head">
-      <h3>Edit Bill</h3>
-      <button class="fin-modal-close" id="editBillClose">&times;</button>
+      <h3 id="editBillTitle">Edit bill</h3>
+      <button class="fin-modal-close" type="button" id="editBillClose" aria-label="Close">&times;</button>
     </div>
+    <%# The same questions, in the same order and words, as New bill. %>
     <form class="fin-form" method="POST" id="editBillForm" action="#">
       <input type="hidden" id="ebl-id" name="_bill_id">
       <input type="hidden" id="ebl-status_action" name="status_action" value="">
 
       <div class="fin-row">
-        <div class="fin-field"><label>Bill Title *</label><input id="ebl-title" name="title" required></div>
-        <div class="fin-field"><label>Amount (<%= currentCurrency %>) *</label><input id="ebl-amount" name="amount" type="number" step="0.01" min="0" required></div>
+        <div class="fin-field"><label for="ebl-title">What is it for? *</label><input id="ebl-title" name="title" required></div>
+        <div class="fin-field"><label for="ebl-amount">Amount for each student (<%= currentCurrency %>) *</label><input id="ebl-amount" name="amount" type="number" step="0.01" min="0" required></div>
       </div>
-
-      <div class="fin-field"><label>Description</label><textarea id="ebl-description" name="description"></textarea></div>
-
       <div class="fin-row">
         <div class="fin-field">
-          <label>Bill Type *</label>
-          <select id="ebl-bill_type" name="bill_type">
-            <option value="one_time">One-Time Payment</option>
-            <option value="recurring">Recurring</option>
-            <option value="installment">Installment Plan</option>
+          <label for="ebl-applies_to">Who pays? *</label>
+          <select id="ebl-applies_to" name="applies_to">
+            <option value="school">Every student</option>
+            <option value="classes">Some classes</option>
+            <option value="students">Chosen students</option>
           </select>
+          <small id="ebl-applies_to_summary" style="display:block;color:var(--fin-muted);font-size:.74rem;margin-top:6px;"></small>
         </div>
         <div class="fin-field">
-          <label>Recurrence (if recurring)</label>
-          <select id="ebl-recurrence" name="recurrence">
-            <option value="">—</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="term">Per Term</option>
-            <option value="year">Per Year</option>
-          </select>
+          <label for="ebl-due_date">Due date *</label>
+          <input id="ebl-due_date" name="due_date" type="date">
+          <small style="color:var(--fin-muted);font-size:.72rem;">For a repeating bill, the first date.</small>
         </div>
       </div>
 
-      <div class="fin-row">
-        <div class="fin-field"><label>Start / First Date</label><input id="ebl-due_date" name="due_date" type="date"></div>
-        <div class="fin-field"><label>End Date</label><input id="ebl-recurrence_end_date" name="recurrence_end_date" type="date"></div>
-      </div>
-
-      <div class="fin-field">
-        <label>Schedule Rules</label>
-        <div class="fin-checks">
-          <label class="fin-check"><input type="checkbox" id="ebl-exclude_non_school_days" name="exclude_non_school_days"> Do not include weekends and holidays</label>
-        </div>
-        <small style="color:var(--fin-muted);font-size:.74rem;">Skips weekends &amp; holidays from the term calendar.</small>
-      </div>
-
-      <div class="fin-row">
-        <div class="fin-field">
-          <label>Status</label>
-          <select id="ebl-status" name="status">
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="fin-row">
-        <div class="fin-field"><label>Late Fee Amount</label><input id="ebl-late_fee" name="late_fee_amount" type="number" step="0.01" min="0"></div>
-        <div class="fin-field"><label>Late Fee After (days)</label><input id="ebl-late_days" name="late_fee_after_days" type="number" min="0"></div>
-      </div>
-
-      <div class="fin-row">
-        <div class="fin-field">
-          <label>School Year *</label>
-          <select id="ebl-school_year_id" name="school_year_id" required>
-            <option value="">— Select school year —</option>
-            <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>"><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
-          </select>
-        </div>
-        <div class="fin-field">
-          <label>Term *</label>
-          <select id="ebl-term_id" name="term_id" data-year-required-label="Select year first" required>
-            <option value="">— Select term —</option>
-            <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" data-start-date="<%= t.start_date ? new Date(t.start_date).toISOString().slice(0,10) : '' %>" data-end-date="<%= t.end_date ? new Date(t.end_date).toISOString().slice(0,10) : '' %>"><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
-          </select>
-        </div>
-      </div>
-
-      <div class="fin-field">
-        <label>Applicable To</label>
-        <select id="ebl-applies_to" name="applies_to">
-          <option value="school">Entire School</option>
-          <option value="classes">Specific Classes</option>
-          <option value="students">Individual Students</option>
-        </select>
-        <small id="ebl-applies_to_summary" style="display:block;color:var(--fin-muted);font-size:.74rem;margin-top:6px;"></small>
-      </div>
-
+      <%# Each list below is kept as the form's value; the tick boxes people see are drawn from it (finTickPicker). %>
       <div class="fin-field" id="ebl-target-classes-wrap" style="display:none;">
-        <label>Classes</label>
-        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:8px;">
-          <div class="fin-field" style="flex:1;min-width:180px;margin:0;">
-            <input type="text" id="ebl-target_class_search" placeholder="Filter classes...">
-          </div>
-          <button type="button" class="fin-btn ghost" id="ebl-target_class_select_all">Select visible</button>
-          <button type="button" class="fin-btn ghost" id="ebl-target_class_clear">Clear</button>
+        <label for="ebl-target_class_search">Classes</label>
+        <div class="fin-picker-actions">
+          <input type="text" id="ebl-target_class_search" class="fin-search-input" placeholder="Find a class…">
+          <button type="button" class="fin-btn sm quiet" id="ebl-target_class_select_all">Tick all shown</button>
+          <button type="button" class="fin-btn sm quiet" id="ebl-target_class_clear">Clear</button>
         </div>
         <input type="hidden" name="target_class_ids" value="">
-        <select id="ebl-target_class_ids" name="target_class_ids" class="fin-multi-select" multiple size="6">
+        <select id="ebl-target_class_ids" name="target_class_ids" multiple hidden data-fin-ticks>
           <% (refs.classes || []).forEach(function(c) { %>
             <option value="<%= c.class_id %>" data-school-year-ids="<%= (c.school_year_ids || []).join(',') %>" data-term-ids="<%= (c.term_ids || []).join(',') %>"><%= c.class_name %></option>
           <% }) %>
         </select>
-        <small style="color:var(--fin-muted);font-size:.72rem;">Click classes to add or remove them.</small>
       </div>
 
       <div class="fin-field" id="ebl-target-students-wrap" style="display:none;">
-        <label>Students</label>
-        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:8px;">
-          <div class="fin-field" style="flex:1;min-width:180px;margin:0;">
-            <input type="text" id="ebl-target_student_search" placeholder="Filter students...">
-          </div>
-          <button type="button" class="fin-btn ghost" id="ebl-target_student_select_all">Select visible</button>
-          <button type="button" class="fin-btn ghost" id="ebl-target_student_clear">Clear</button>
+        <label for="ebl-target_student_search">Students</label>
+        <div class="fin-picker-actions">
+          <input type="text" id="ebl-target_student_search" class="fin-search-input" placeholder="Find a student or class…">
+          <button type="button" class="fin-btn sm quiet" id="ebl-target_student_select_all">Tick all shown</button>
+          <button type="button" class="fin-btn sm quiet" id="ebl-target_student_clear">Clear</button>
         </div>
         <input type="hidden" name="target_student_ids" value="">
         <%# Its options are drawn when the window opens (finBuildStudentOptions). %>
-        <select id="ebl-target_student_ids" name="target_student_ids" class="fin-multi-select" multiple size="8">
-        </select>
-        <small style="color:var(--fin-muted);font-size:.72rem;">Click students to add or remove them.</small>
+        <select id="ebl-target_student_ids" name="target_student_ids" multiple hidden data-fin-ticks></select>
       </div>
 
-      <div class="fin-field">
-        <label>Collectors / Overseers</label>
-        <div id="ebl-assignee" class="fin-check-list">
-          <% (refs.employees || []).forEach(function(e) { %>
-            <label class="fin-check"><input type="checkbox" class="ebl-assignee-check" name="assignee_ids[]" value="<%= e.user_id %>"> <%= formatCollectorOptionLabel(e) %></label>
-          <% }) %>
-        </div>
-        <small id="ebl-assignee_summary" style="display:block;color:var(--fin-muted);font-size:.72rem;margin-top:6px;">Leave empty if nobody should be assigned.</small>
-      </div>
-
-      <div class="fin-row">
-        <div class="fin-field">
-          <label>Collection Destination</label>
-          <select id="ebl-payment_destination" name="payment_destination">
+      <details class="fin-more" id="eblMoreOptions">
+        <summary><span class="fin-more__title">More options</span><span class="fin-more__hint">Repeating, late fee, status, who collects it and how parents pay</span></summary>
+        <div class="fin-more__body">
+          <div class="fin-field"><label for="ebl-description">Note for parents</label><textarea id="ebl-description" name="description" placeholder="Optional. Shown on the invoice."></textarea></div>
+          <div class="fin-row">
+            <div class="fin-field">
+              <label for="ebl-bill_type">How often</label>
+              <select id="ebl-bill_type" name="bill_type">
+                <option value="one_time">Once</option>
+                <option value="recurring">Repeating</option>
+                <option value="installment">In installments</option>
+              </select>
+            </div>
+            <div class="fin-field">
+              <label for="ebl-recurrence">Repeats (for a repeating bill)</label>
+              <select id="ebl-recurrence" name="recurrence">
+                <option value="">—</option>
+                <option value="daily">Every day</option>
+                <option value="weekly">Every week</option>
+                <option value="monthly">Every month</option>
+                <option value="term">Every term</option>
+                <option value="year">Every year</option>
+              </select>
+            </div>
+          </div>
+          <div class="fin-row">
+            <div class="fin-field">
+              <label for="ebl-recurrence_end_date">Last date (for a repeating bill)</label>
+              <input id="ebl-recurrence_end_date" name="recurrence_end_date" type="date">
+              <small style="color:var(--fin-muted);font-size:.72rem;">Left empty, it stops when the term ends.</small>
+            </div>
+            <div class="fin-field">
+              <label>School days only</label>
+              <div class="fin-checks">
+                <label class="fin-check"><input type="checkbox" id="ebl-exclude_non_school_days" name="exclude_non_school_days"> Skip weekends and holidays</label>
+              </div>
+            </div>
+          </div>
+          <div class="fin-row">
+            <div class="fin-field"><label for="ebl-late_fee">Late fee</label><input id="ebl-late_fee" name="late_fee_amount" type="number" step="0.01" min="0" placeholder="0.00"></div>
+            <div class="fin-field"><label for="ebl-late_days">Added after (days late)</label><input id="ebl-late_days" name="late_fee_after_days" type="number" min="0"></div>
+          </div>
+          <div class="fin-row">
+            <div class="fin-field">
+              <label for="ebl-school_year_id">School year *</label>
+              <select id="ebl-school_year_id" name="school_year_id" required>
+                <option value="">— Select school year —</option>
+                <% (refs.years || []).forEach(y => { %><option value="<%= y.school_year_id %>"><%= y.name %><%= y.current ? ' (current)' : '' %></option><% }) %>
+              </select>
+            </div>
+            <div class="fin-field">
+              <label for="ebl-term_id">Term *</label>
+              <select id="ebl-term_id" name="term_id" data-year-required-label="Select year first" required>
+                <option value="">— Select term —</option>
+                <% (refs.terms || []).forEach(t => { %><option value="<%= t.term_id %>" data-school-year-id="<%= t.school_year_id || '' %>" data-current="<%= t.current ? 'true' : 'false' %>" data-start-date="<%= t.start_date ? new Date(t.start_date).toISOString().slice(0,10) : '' %>" data-end-date="<%= t.end_date ? new Date(t.end_date).toISOString().slice(0,10) : '' %>"><%= t.name %><%= t.current ? ' (current)' : '' %></option><% }) %>
+              </select>
+            </div>
+          </div>
+          <div class="fin-field">
+            <label for="ebl-status">Status</label>
+            <select id="ebl-status" name="status">
+              <option value="active">Sent</option>
+              <option value="draft">Draft</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="fin-field">
+            <label>Staff who collect it</label>
+            <div id="ebl-assignee" class="fin-chip-grid scroll">
+              <% (refs.employees || []).forEach(function(e) { %><%- collectorChip(e, 'assignee_ids[]', 'ebl-assignee-check') %><% }) %>
+              <% if (!(refs.employees || []).length) { %><p class="fin-chip-none">No staff yet.</p><% } %>
+            </div>
+            <small id="ebl-assignee_summary" style="display:block;color:var(--fin-muted);font-size:.72rem;margin-top:6px;">Leave empty when the office collects.</small>
+          </div>
+          <div class="fin-field">
+            <label for="ebl-payment_destination">Where the money goes</label>
+            <select id="ebl-payment_destination" name="payment_destination">
             <% if (collectionDestinationOptionsSafe.length) { %>
               <% collectionDestinationOptionsSafe.forEach(function(option) { %>
                 <option value="<%= option.value %>" <%= String(defaultCollectionDestinationSafe || '') === String(option.value) ? 'selected' : '' %>><%= option.label %></option>
@@ -5384,12 +5384,11 @@ Regards,
               <option value="cash">Cash (collect manually)</option>
             <% } %>
           </select>
-          <small style="color:var(--fin-muted);font-size:.72rem;">Optional — only activated payout accounts are listed.</small>
-        </div>
-
-        <div class="fin-field">
-          <label>Payment Methods Accepted</label>
-          <% const editIsStripe = paymentProviderSafe === 'stripe';
+            <small style="color:var(--fin-muted);font-size:.72rem;">Only accounts that are switched on are listed. Choose Cash to collect by hand.</small>
+          </div>
+          <div class="fin-field">
+            <label>How parents can pay</label>
+            <% const editIsStripe = paymentProviderSafe === 'stripe';
              const editIsPaystack = paymentProviderSafe === 'paystack';
              const editCardOn = editIsPaystack ? true : !!(allowedMethods && allowedMethods.stripeOn);
              const editTransferOn = editIsStripe ? false : !!(allowedMethods && (allowedMethods.bankOn || allowedMethods.momoOn) || editIsPaystack);
@@ -5405,37 +5404,35 @@ Regards,
             <label class="fin-check"><input type="checkbox" class="ebl-pay-method" id="ebl-accepts_transfer" name="accepts_transfer"> <%= editTransferLabel %></label>
             <% } %>
           </div>
+          </div>
+          <div class="fin-field">
+            <label>Tell parents</label>
+            <div class="fin-checks">
+              <label class="fin-check"><input type="checkbox" id="ebl-notify_email" name="notify_email"> Email each parent their invoice</label>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
 
-      <div class="fin-field">
-        <label>Notify Parents</label>
-        <div class="fin-checks">
-          <label class="fin-check"><input type="checkbox" id="ebl-notify_email" name="notify_email"> Email</label>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
-        <button type="button" class="fin-btn primary" onclick="submitEditBillForm()">Save Changes</button>
-        <button type="button" class="fin-btn" onclick="submitEditBillForm('draft')">Save as Draft</button>
-        <button type="button" class="fin-btn" id="editBillClose2" onclick="document.getElementById('editBillModal').classList.remove('open')">Cancel</button>
+      <div class="fin-form-actions">
+        <button type="button" class="fin-btn sm primary" onclick="submitEditBillForm()">Save changes</button>
+        <button type="button" class="fin-btn sm quiet" onclick="submitEditBillForm('draft')">Save as draft</button>
+        <button type="button" class="fin-btn sm quiet" id="editBillClose2">Cancel</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Student Detail Drawer -->
-<%# Closed and open are set in the stylesheet (#studentDrawer / #studentDrawer.open): an inline display:none here kept it shut for good. %>
-<div id="studentDrawer" style="position:fixed;inset:0;z-index:9998;align-items:stretch;">
-  <div style="flex:1;background:rgba(255,255,255,0.7);backdrop-filter:blur(6px);" id="studentDrawerOverlay"></div>
-  <div id="studentDrawerPanel" style="width:min(720px,100%);background:var(--fin-card);border-left:1px solid var(--fin-border);overflow-y:auto;padding:28px;box-shadow:-30px 0 60px -20px #000;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div style="font-family:inherit;font-size:1.1rem;font-weight:700;color:var(--fin-teal);white-space:nowrap;">Student's ledger</div>
-      <button type="button" id="studentDrawerClose" aria-label="Close" style="flex:0 0 auto;width:auto;min-width:0;margin:0;padding:0 6px;background:transparent;border:0;box-shadow:none;color:var(--fin-muted);font-size:1.6rem;cursor:pointer;line-height:1;">&times;</button>
+<!-- A student's ledger: a panel from the right, like every other window here. -->
+<div class="fin-modal" id="studentDrawer">
+  <div class="fin-modal-content fin-ledger-panel" id="studentDrawerPanel" role="dialog" aria-modal="true" aria-labelledby="studentDrawerTitle">
+    <div class="fin-modal-head">
+      <h3 id="studentDrawerTitle">Student's ledger</h3>
+      <button class="fin-modal-close" type="button" id="studentDrawerClose" aria-label="Close">&times;</button>
     </div>
     <div id="studentDrawerBody"></div>
   </div>
-</div> 
+</div>
 
 <script>
   (function() {
@@ -5520,8 +5517,8 @@ Regards,
           return option.selected && !option.disabled;
         }).length : 0;
         summary.textContent = classCount
-          ? ('Currently set to ' + classCount + ' class' + (classCount === 1 ? '' : 'es') + ' in this academic context.')
-          : 'Choose one or more classes for this bill.';
+          ? (classCount + ' class' + (classCount === 1 ? '' : 'es') + ' chosen.')
+          : 'Tick the classes that pay.';
         return;
       }
       if (appliesTo === 'students') {
@@ -5529,11 +5526,11 @@ Regards,
           return option.selected && !option.disabled;
         }).length : 0;
         summary.textContent = studentCount
-          ? ('Currently set to ' + studentCount + ' individual student' + (studentCount === 1 ? '' : 's') + ' in this academic context.')
-          : 'Choose one or more students for this bill.';
+          ? (studentCount + ' student' + (studentCount === 1 ? '' : 's') + ' chosen.')
+          : 'Tick the students who pay.';
         return;
       }
-      summary.textContent = 'This bill will apply to the entire school for the selected year and term.';
+      summary.textContent = 'Every student enrolled in this year and term.';
     }
 
     window.filterEditBillTargetOptions = function(selectId, query) {
@@ -5735,6 +5732,74 @@ Regards,
     }
 
     window.setPatchMultiSelectValues = setPatchMultiSelectValues;
+  })();
+</script>
+
+<script>
+  // Edit bill's pick-several lists are tick boxes. Each <select multiple data-fin-ticks> stays
+  // the form's value (the page's own code keeps reading and setting its options); the boxes are
+  // drawn from it, write back to it, and are brought up to date after anything changes here.
+  (function () {
+    var modal = document.getElementById('editBillModal');
+    if (!modal) return;
+    var selects = Array.prototype.slice.call(modal.querySelectorAll('select[data-fin-ticks]'));
+    var grids = selects.map(function (select) {
+      var grid = document.createElement('div');
+      grid.className = 'fin-chip-grid scroll';
+      select.parentNode.insertBefore(grid, select.nextSibling);
+      grid.addEventListener('change', function (event) {
+        var box = event.target;
+        var option = box && box.type === 'checkbox' ? select.options[Number(box.getAttribute('data-at'))] : null;
+        if (!option) return;
+        option.selected = box.checked;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      return grid;
+    });
+    function draw(select, grid) {
+      var options = select.options;
+      if (grid.__count !== options.length) {
+        // Built once for a list (students arrive when the window first opens).
+        var html = '';
+        for (var i = 0; i < options.length; i += 1) html += '<label class="fin-chip"><input type="checkbox" data-at="' + i + '"><span class="fin-chip-text"></span></label>';
+        grid.innerHTML = html + '<p class="fin-chip-none" hidden>Nothing matches.</p>';
+        var labels = grid.querySelectorAll('.fin-chip-text');
+        for (var j = 0; j < options.length; j += 1) labels[j].textContent = options[j].textContent;
+        grid.__count = options.length;
+        grid.__boxes = grid.querySelectorAll('input[type=checkbox]');
+      }
+      var shown = 0;
+      for (var k = 0; k < options.length; k += 1) {
+        var hide = options[k].hidden || options[k].disabled;
+        grid.__boxes[k].checked = options[k].selected && !options[k].disabled;
+        grid.__boxes[k].parentNode.classList.toggle('hidden', hide);
+        if (!hide) shown += 1;
+      }
+      grid.lastChild.hidden = shown > 0;
+    }
+    function refresh() { selects.forEach(function (select, i) { draw(select, grids[i]); }); }
+    var queued = false;
+    function later() {
+      if (queued) return;
+      queued = true;
+      setTimeout(function () { queued = false; refresh(); }, 0);
+    }
+    ['input', 'change', 'click'].forEach(function (type) { modal.addEventListener(type, later); });
+    var open = window.openEditBill;
+    if (typeof open === 'function') {
+      window.openEditBill = function (bill) {
+        open.call(this, bill);
+        refresh();
+        // "More options" opens itself when this bill uses any of them, so nothing set is hidden.
+        var more = document.getElementById('eblMoreOptions');
+        var b = bill || {};
+        if (more) {
+          more.open = Boolean((b.bill_type && b.bill_type !== 'one_time') || Number(b.late_fee_amount) > 0 || b.description
+            || (b.status && b.status !== 'active') || (b.assignee_ids && b.assignee_ids.length) || b.assignee_id || !b.school_year_id || !b.term_id);
+        }
+        modal.querySelector('.fin-modal-content').scrollTop = 0;
+      };
+    }
   })();
 </script>
 
