@@ -104,6 +104,8 @@ const PLATFORM = new Set([
   ...Object.keys(HUB_TABLES), "hub_billing_stripe_refs",
   // This system's own tables.
   "schema_migrations", "shards", "shard_schools", "shard_moves", "shard_releases", "shard_deployments", "shard_audit", "shard_hubs", "shard_feature_access",
+  // The database's own nightly backups (utils/backups.js).
+  "backup_runs",
 ]);
 
 // Rows shared by every shard inside otherwise school-owned tables: announcements to all

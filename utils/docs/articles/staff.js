@@ -113,4 +113,69 @@ module.exports = [
     ],
     related: ["create-and-manage-employee-accounts-and-permissions", "mira-ai-assistant", "single-sign-on"],
   },
+  {
+    slug: "your-access",
+    title: "Your access: your role, classes and what you can do",
+    topic: "Staff & permissions",
+    order: 20,
+    summary: "See your role, your classes and what you can and can't do in Managira. Managers can see anyone's, with their history.",
+    tags: ["your access", "my access", "my role", "what can i do", "what can i do in managira", "what i have access to", "see my access", "role history", "access history", "first sign in", "what can they do"],
+    who: "Every member of staff sees their own. Managers can open anyone's.",
+    intro: "<strong>Your access</strong> shows, in plain words, what your account lets you do: your role, your school, your classes (and whether you're the main or an assistant teacher), and what's included and not. If your school moved to Managira from another system, it also shows your roles there.",
+    sections: [
+      {
+        title: "Open your access",
+        steps: [
+          "Select <strong>?</strong> at the top of Managira, then <strong>Your access</strong>.",
+          "Read your role and classes, then <strong>What you can do</strong> and <strong>Not included</strong>.",
+        ],
+        note: "Staff whose accounts came from your school's old system see this page the first time they open Managira.",
+      },
+      {
+        title: "See someone else's (managers)",
+        text: "Managers can open any member of staff's access page, with their roles in your old system (read-only, with dates) and every change made to their role, permissions or classes since: who made it, when, and what it was before and after.",
+      },
+      {
+        title: "Something isn't right",
+        text: "Ask a manager at your school: they change roles, permissions and classes on the staff page. See <a href=\"/legal/user-documentation/create-and-manage-employee-accounts-and-permissions\">Add and manage staff</a>.",
+      },
+    ],
+    related: ["create-and-manage-employee-accounts-and-permissions", "assistant-teachers", "moving-to-managira"],
+  },
+  {
+    slug: "assistant-teachers",
+    title: "Assistant teachers",
+    topic: "Staff & permissions",
+    order: 21,
+    summary: "Give a class assistant teachers beside its main teacher: they see and work on the whole class without being in charge of it.",
+    tags: ["assistant teacher", "co-teacher", "teaching assistant", "second teacher", "class assistant", "assistant"],
+    who: "Managers, and staff given <strong>Edit Staff &amp; Access</strong>.",
+    intro: "A class has one <strong>main teacher</strong>, who is in charge of it. Beside them it can have any number of <strong>assistant teachers</strong>, who help run the whole class.",
+    sections: [
+      {
+        title: "Make someone an assistant teacher",
+        steps: [
+          "Open <strong>Users / Employees</strong> and edit the teacher (or add a new one).",
+          "Under <strong>Classes &amp; Subjects</strong>, tick the class.",
+          "Beside it, tick <strong>Assistant</strong>.",
+          "Select <strong>Save Changes</strong>.",
+        ],
+        note: "A person is either the main teacher or an assistant of a class, never both. Drivers can't be either.",
+      },
+      {
+        title: "What an assistant teacher can do",
+        table: [
+          ["", "Main teacher", "Assistant teacher", "Subject teacher"],
+          ["Every subject of the class", "Yes", "Yes", "Only theirs"],
+          ["Take the class's attendance", "Yes", "Yes", "No"],
+          ["Students' pages", "Every subject", "Every subject", "Their subjects"],
+          ["The class's lessons on their calendar", "Yes", "Yes", "Their subjects"],
+          ["Edit the class schedule", "Yes", "No", "No"],
+          ["In charge of the class", "Yes", "No", "No"],
+        ],
+        tip: "What anyone can do still depends on their permissions too: an assistant takes attendance only if they hold Mark Attendance.",
+      },
+    ],
+    related: ["create-and-manage-employee-accounts-and-permissions", "your-access", "mark-attendance-for-a-class"],
+  },
 ];

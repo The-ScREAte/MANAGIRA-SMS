@@ -616,6 +616,14 @@
           </a>
         </li>
         <% } %>
+        <% if (locals.migrationState && migrationState.isAdmin) { %>
+        <li>
+          <a class="nav-link" href="/common/migration" data-no-spa data-section="migration" data-embed-url="/common/migration" data-embed-label="Data migration">
+            <span class="nav-link-icon"><%- navIcon('enrollment') %></span>
+            <span>Data migration</span>
+          </a>
+        </li>
+        <% } %>
         <% if (menuAccess.customForms && locals.featureOn && featureOn('custom_forms')) { %>
         <li>
           <a class="nav-link" href="/common/custom-forms" data-no-spa data-section="custom-forms" data-embed-url="/common/custom-forms" data-embed-label="Custom editor">
@@ -821,6 +829,11 @@
       </section>
       <% } %>
 
+      <% if (locals.migrationState && migrationState.isAdmin) { %>
+      <section class="management-section" id="migration">
+        <div class="embed-panel-body"><div class="embed-placeholder"><p>Loading Data migration…</p></div></div>
+      </section>
+      <% } %>
       <% if (menuAccess.customForms && locals.featureOn && featureOn('custom_forms')) { %>
       <section class="management-section" id="custom-forms">
         <div class="embed-panel-body">

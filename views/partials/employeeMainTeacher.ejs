@@ -1,18 +1,30 @@
 <%#
   The "Main teacher" choice for one class on the Add and Edit staff forms, beside the class's
   tick box. It says who is in charge of the class today, or that nobody is, so a class is never
-  left without someone. Expects: cls, classMainTeachers ({ classId: { userId, name } }) and
-  personId (the member of staff being edited, or null on the Add form).
+  left without someone. With assistant teachers on (classAssistants given), an "Assistant"
+  choice beside it: helps run the whole class without being in charge. Expects: cls,
+  classMainTeachers ({ classId: { userId, name } }), classAssistants ({ classId: [{ userId,
+  name }] }, optional) and personId (the member of staff being edited, or null on the Add form).
 %>
 <%
   const _lead = (typeof classMainTeachers !== 'undefined' && classMainTeachers && classMainTeachers[cls.class_id]) || null;
   const _mine = !!(_lead && personId && Number(_lead.userId) === Number(personId));
+  const _assistantsOn = typeof classAssistants !== 'undefined' && classAssistants !== null;
+  const _assistants = (_assistantsOn && classAssistants[cls.class_id]) || [];
+  const _assisting = !!(personId && _assistants.some((a) => Number(a.userId) === Number(personId)));
+  const _others = _assistants.filter((a) => !personId || Number(a.userId) !== Number(personId)).map((a) => a.name);
 %>
 <span class="emp-main<%= _lead ? '' : ' emp-main--none' %>" data-emp-main="<%= cls.class_id %>">
   <label class="emp-main__pick" title="In charge of this class: marks attendance, keeps the schedule and works on every subject and report card.">
     <input type="checkbox" name="mainClasses" value="<%= cls.class_id %>"<%= _mine ? ' checked' : '' %>>
     <span>Main teacher</span>
   </label>
+  <% if (_assistantsOn) { %>
+  <label class="emp-main__pick" title="Helps run this class: sees and works on every subject, marks attendance and opens the students' pages, without being in charge.">
+    <input type="checkbox" name="assistantClasses" value="<%= cls.class_id %>"<%= _assisting ? ' checked' : '' %>>
+    <span>Assistant</span>
+  </label>
+  <% } %>
   <% if (_mine) { %>
     <span class="emp-main__now" data-emp-main-note>In charge of this class</span>
   <% } else if (_lead) { %>
@@ -20,4 +32,5 @@
   <% } else { %>
     <span class="emp-main__none" data-emp-main-note data-now="No main teacher yet" data-replace="Will be in charge when you save">No main teacher yet</span>
   <% } %>
+  <% if (_others.length) { %><span class="emp-main__now">Assistants: <%= _others.join(', ') %></span><% } %>
 </span>

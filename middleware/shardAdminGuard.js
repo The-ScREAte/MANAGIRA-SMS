@@ -34,7 +34,7 @@ async function requireSuperAdmin(req, res, next) {
   }
 }
 
-const safeNext = (value) => (/^\/admin\/shards(\/[\w/-]*)?(\?[\w=&-]*)?$/.test(String(value || "")) ? value : "/admin/shards");
+const safeNext = (value) => (/^\/admin\/(shards|migrations|backups)(\/[\w/-]*)?(\?[\w=&%-]*)?$/.test(String(value || "")) ? value : "/admin/shards");
 
 function requireFreshPassword(req, res, next) {
   if (Date.now() - Number(req.session.shardConfirmedAt || 0) < FRESH_MS) return next();

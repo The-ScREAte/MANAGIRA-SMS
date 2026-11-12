@@ -328,6 +328,15 @@
         </ul>
       </nav>
     <% } %>
+    <% if (locals.migrationState && migrationState.isAdmin) { %>
+      <%# A school moving its data in: the way to its migration screen, for its admins only. Its right margin clears #tools, which is drawn 45px left of its place (header.css). %>
+      <a class="mg-headbtn" href="/common/management?panel=migration&page=%2Fcommon%2Fmigration&label=Data%20migration" data-no-spa title="Data migration in progress">Sandbox</a>
+      <style>
+        .mg-headbtn { position: relative; margin: 0 69px 0 auto; display: inline-flex; flex: none; align-items: center; gap: 6px; height: 34px; padding: 0 16px; border-radius: 999px; background: #5b21b6; color: #fff !important; font-size: 13.5px; font-weight: 700; text-decoration: none; z-index: 2; box-shadow: 0 2px 8px rgba(91, 33, 182, .3); }
+        .mg-headbtn::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #c4b5fd; }
+        @media (max-width: 900px) { .mg-headbtn { margin-right: 53px; height: 30px; padding: 0 12px; font-size: 12.5px; } }
+      </style>
+    <% } %>
     <div id="tools">
       <% if (session.firstName) { %>
       <% if ((req.session.userRole && req.session.userRole !== 'Guardian') || req.session.accountType === 'Hub') { %>
@@ -413,6 +422,12 @@
             <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
             <span class="help-menu-text"><strong>Send feedback</strong><small>Tell us what to fix or what you need</small></span>
           </a>
+          <% if (locals.featureOn && featureOn('data_migration') && String(req.session.accountType || '').toLowerCase() !== 'organization') { %>
+          <a class="help-menu-item" role="menuitem" href="/common/my-access">
+            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+            <span class="help-menu-text"><strong>Your access</strong><small>Your role, classes and what you can do</small></span>
+          </a>
+          <% } %>
           <% } %>
         </div>
       </div>

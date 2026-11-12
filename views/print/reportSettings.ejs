@@ -3494,6 +3494,29 @@
     // ---- Display Settings data (must be defined before loadClassSettings is called) ----
     const allDisplaySettingsMap = <%- JSON.stringify(allDisplaySettingsMap) %>;
     const allSubjectsByClassMap = <%- JSON.stringify(allSubjectsByClassMap || {}) %>;
+    // GPA weights (feature gpa): what Honors and AP add, and each subject's level. null: not offered.
+    const gpaWeights = <%- JSON.stringify(locals.gpaWeights || null) %>;
+    function gpaWeightsHtml(classId) {
+      if (!gpaWeights) return '';
+      const subjects = getAvailableClassSubjects(classId);
+      const opt = (value, label, current) => `<option value="${value}" ${current === value ? 'selected' : ''}>${label}</option>`;
+      const rows = subjects.map((subject) => {
+        const current = (gpaWeights.levels || {})[subject.subject_id] || '';
+        return `<label class="ds-adv-flat-lbl" style="justify-content:space-between;"><span>${dsEsc(subject.subject_name)}</span>
+          <select class="ds-gpa-level" data-subject-id="${subject.subject_id}" aria-label="Level of ${dsEsc(subject.subject_name)}">${opt('', 'Regular', current)}${opt('honors', 'Honors', current)}${opt('ap', 'AP / IB', current)}</select></label>`;
+      }).join('');
+      return `<div id="dsGpaWeights" style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;">
+        <p class="ds-adv-section-label">GPA weights</p>
+        <p style="margin:0 0 8px;color:var(--muted);font-size:12.5px;">A passing grade in an Honors or AP / IB subject adds these points to the weighted GPA, shown beside the unweighted one on report cards and transcripts. The weights are the school's; the levels below are this class's subjects.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <label class="ds-adv-flat-lbl">Honors adds <input type="number" id="dsGpaHonors" min="0" max="2" step="0.05" value="${Number(gpaWeights.honors)}" style="width:72px;" ${gpaWeights.canSetBonuses ? '' : 'disabled'}></label>
+          <label class="ds-adv-flat-lbl">AP / IB adds <input type="number" id="dsGpaAp" min="0" max="2" step="0.05" value="${Number(gpaWeights.ap)}" style="width:72px;" ${gpaWeights.canSetBonuses ? '' : 'disabled'}></label>
+          ${gpaWeights.canSetBonuses ? '' : '<span style="align-self:center;color:var(--muted);font-size:12px;">Set by the school\'s managers.</span>'}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px;">${rows || '<span style="color:var(--muted);font-size:12.5px;">No subjects in this class yet.</span>'}</div>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:10px;"><button type="button" id="dsGpaSave" class="btn" style="padding:7px 18px;font-size:0.85rem;">Save GPA weights</button><span id="dsGpaMsg" style="font-size:12px;font-weight:600;display:none;"></span></div>
+      </div>`;
+    }
     const allAssessmentsByCategoryMap = <%- JSON.stringify(allAssessmentsByCategoryMap) %>;
     const defaultsSuppressedMap = <%- JSON.stringify(defaultsSuppressedMap || {}) %>;
     const initialRuleLocksMap = <%- JSON.stringify(ruleLocksMap || { grade: {}, remark: {} }) %>;
@@ -7174,6 +7197,8 @@
         </label>`).join('');
 
       const secRows = [['teacherRemarks','💬','Teacher Remarks'],['conductRemarks','📋','Conduct Remarks'],['attitudeRemarks','🌟','Attitude Remarks'],['interestRemarks','🎯','Interest Remarks'],['gradeKey','🔑','Grade Key'],['attendance','📅','Attendance'],['promotion','🎓','Promotion'],['choiceResults','✅','Choice results (Yes / No …)'],['customSections','📝','Custom editor sections']];
+      // GPA (feature gpa): the term's GPA on the 4.0 scale, from the subjects' grade letters; transcripts show it too.
+      if (<%- JSON.stringify(Boolean(locals.featureOn && featureOn('gpa'))) %>) secRows.push(['gpa','📊','GPA (4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0)']);
       const customRows = customRemarkTypesState.map((customType) => {
         const typeKey = String(customType.type_key || '').trim();
         const label = String(customType.label || '').trim();
@@ -7405,7 +7430,27 @@
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
           <button type="button" id="advDsSaveBtn" class="btn" style="padding:7px 18px;font-size:0.85rem;">Save Advanced</button>
           <span id="advDsSaveMsg" style="font-size:12px;color:#16a34a;font-weight:600;display:none;animation:dsFadeIn 0.3s ease;">✓ Saved</span>
-        </div>`;
+        </div>${gpaWeightsHtml(classId)}`;
+
+      // GPA weights save on their own (the school's bonuses, this class's subject levels).
+      panel.querySelector('#dsGpaSave')?.addEventListener('click', async () => {
+        const levels = {};
+        panel.querySelectorAll('.ds-gpa-level').forEach((select) => { levels[select.dataset.subjectId] = select.value; });
+        const msg = panel.querySelector('#dsGpaMsg');
+        try {
+          const response = await fetch('/print/gpaSettings', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ ...(gpaWeights.canSetBonuses ? { honors: panel.querySelector('#dsGpaHonors').value, ap: panel.querySelector('#dsGpaAp').value } : {}), levels }) });
+          const result = await response.json();
+          if (!result.success) throw new Error(result.error || 'Not saved.');
+          gpaWeights.honors = result.honors; gpaWeights.ap = result.ap;
+          gpaWeights.levels = gpaWeights.levels || {};
+          Object.entries(levels).forEach(([id, level]) => { if (level) gpaWeights.levels[id] = level; else delete gpaWeights.levels[id]; });
+          msg.textContent = '✓ Saved'; msg.style.color = '#16a34a';
+        } catch (error) {
+          msg.textContent = error.message || 'Not saved.'; msg.style.color = '#b91c1c';
+        }
+        msg.style.display = 'inline';
+      });
 
       // Wire master toggles
       panel.querySelectorAll('.ds-adv-master').forEach(masterCb => {

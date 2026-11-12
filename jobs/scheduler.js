@@ -143,6 +143,28 @@ if (shouldRunNotifications) {
     }
   });
 
+  // Nightly: the whole database, encrypted, to Managira's own private storage, kept 30 days
+  // (utils/backups.js; Super Admin › Backups). Without its key or bucket it logs why and stops.
+  cron.schedule('20 3 * * *', 'database-backup', async () => {
+    try {
+      const result = await require('../utils/backups').runBackup(require('../config/db'), { triggeredBy: 'schedule' });
+      if (result.ok) console.log(`[Backup] ${result.tables} tables, ${result.rows} rows, ${(result.bytes / 1048576).toFixed(1)} MB`);
+    } catch (error) {
+      console.error('[Backup] failed:', error.message);
+    }
+  });
+
+  // Daily: 30 days after a school's data migration went live, its uploaded files, snapshot and
+  // sandbox are deleted (utils/dataMigration.js). The loaded records stay.
+  cron.schedule('40 3 * * *', 'migration-purge', async () => {
+    try {
+      const summary = await require('../utils/dataMigration').purgeDue(require('../config/db'));
+      if (summary.purged) console.log(`[Migration] cleaned up ${summary.purged} finished migrations`);
+    } catch (error) {
+      console.error('[Migration] Clean-up failed:', error.message);
+    }
+  });
+
   // Hourly digest window sweep; each organization policy controls weekday/hour send.
   cron.schedule('0 * * * *', 'weekly-digest', async () => {
     try {

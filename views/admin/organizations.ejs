@@ -67,6 +67,7 @@
                   </td>
                   <td>
                     <% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
+                    <% const _mg = (locals.migrationByOrg || {})[org.organization_id]; if (_mg) { %><a class="ah-status" href="/admin/migrations/<%= org.organization_id %>" data-no-spa style="background:#ede9fe;color:#5b21b6">Sandbox<%= _mg === 'live' ? ' (live)' : '' %></a><% } %>
                   </td>
                   <td class="ah-actions-cell">
                     <div class="ah-row-actions">
@@ -76,6 +77,7 @@
                         <div class="ah-menu__list">
                           <% if (isAdmin) { %><a class="ah-menu__item" href="/admin/organizations/<%= org.organization_id %>/pricing" data-ah-drawer><i class="fa-solid fa-tag" aria-hidden="true"></i> Price</a><% } %>
                           <a class="ah-menu__item" href="/admin/organizations/<%= org.organization_id %>" data-ah-drawer><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Details and licenses</a>
+                          <% if (isAdmin) { %><%- include('partials/sandboxMenu', { org, status: (locals.migrationByOrg || {})[org.organization_id] || null }) %><% } %>
                           <% if (isAdmin) { %>
                             <div class="ah-menu__sep"></div>
                             <% if (org.on_hold) { %>

@@ -1,0 +1,49 @@
+<%# Super Admin › Backups (routes/backupAdminRoute.js, utils/backups.js). %>
+<%
+  const _when = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _mb = (b) => b === null || b === undefined ? '—' : (Number(b) / 1048576).toFixed(1) + ' MB';
+  const _took = (r) => r.finished_at ? Math.max(0, Math.round((new Date(r.finished_at) - new Date(r.started_at)) / 1000)) + 's' : '';
+  const _last = runs.find((r) => r.status === 'ok');
+  const _ready = keySet && !storeError;
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
+<div class="mg">
+  <%- include('../partials/flash') %>
+  <header class="mg-head">
+    <h1>Backups</h1>
+    <p>The whole database, every night: encrypted on the server before it leaves, kept <%= keepDays %> days in Managira's own private storage (not Render). Restore with <code>scripts/restoreBackup.js</code> (docs/BACKUPS.md).</p>
+  </header>
+
+  <section class="mg-card" style="margin-top:16px">
+    <h2>Setup</h2>
+    <table class="mg-table"><tbody>
+      <tr><td>Encryption key (BACKUP_ENCRYPTION_KEY)</td><td><%= keySet ? 'Set, key ' + keyId : 'Not set' %></td><td><span class="mg-pill mg-pill--<%= keySet ? 'live' : 'sensitive' %>"><%= keySet ? 'Ready' : 'Needed' %></span></td></tr>
+      <tr><td>Storage</td><td><%= storeError || where %></td><td><span class="mg-pill mg-pill--<%= storeError ? 'sensitive' : 'live' %>"><%= storeError ? 'Needed' : 'Ready' %></span></td></tr>
+      <tr><td>Last good backup</td><td><%= _last ? _when(_last.finished_at) + ' · ' + _mb(_last.bytes) : 'None yet' %></td><td><span class="mg-pill mg-pill--<%= _last && Date.now() - new Date(_last.finished_at) < 36 * 3600000 ? 'live' : 'review' %>"><%= _last && Date.now() - new Date(_last.finished_at) < 36 * 3600000 ? 'Up to date' : 'Not in the last day' %></span></td></tr>
+    </tbody></table>
+    <% if (!keySet) { %><p class="mg-hint" style="margin-top:10px">Make a key with <code>node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"</code>, set it as BACKUP_ENCRYPTION_KEY on the server, and keep a copy somewhere safe away from Managira (a password manager). Without it no backup can be read.</p><% } %>
+    <div class="mg-actions" style="margin-top:12px">
+      <form method="POST" action="/admin/backups/run" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Backing up…';"><button class="mg-btn mg-btn--primary" type="submit"<%= _ready ? '' : ' disabled' %>>Back up now</button></form>
+    </div>
+  </section>
+
+  <section class="mg-card" style="margin-top:16px">
+    <h2>Runs</h2>
+    <% if (!runs.length) { %><p class="mg-empty">No backup has run yet. The first runs tonight at 3:20, or now with Back up now.</p><% } else { %>
+    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Started</th><th>Status</th><th class="num">Size</th><th class="num">Tables</th><th class="num">Rows</th><th class="num">Took</th><th>By</th><th>Detail</th></tr></thead><tbody>
+      <% runs.forEach((r) => { %><tr class="<%= r.status === 'failed' ? 'mg-row--bad' : '' %>"><td><%= _when(r.started_at) %></td><td><span class="mg-pill mg-pill--<%= r.status === 'ok' ? 'live' : r.status === 'failed' ? 'sensitive' : 'review' %>"><%= r.status %></span></td>
+        <td class="num"><%= _mb(r.bytes) %></td><td class="num"><%= r.tables || '' %></td><td class="num"><%= r.row_count ? Number(r.row_count).toLocaleString('en-US') : '' %></td><td class="num"><%= _took(r) %></td><td><%= r.triggered_by %></td>
+        <td><%= r.status === 'failed' ? r.error : r.removed_old ? r.removed_old + ' old removed' : '' %></td></tr><% }) %>
+    </tbody></table></div>
+    <% } %>
+  </section>
+
+  <section class="mg-card" style="margin-top:16px">
+    <h2>In storage</h2>
+    <% if (storeError) { %><p class="mg-hint"><%= storeError %></p><% } else if (!stored.length) { %><p class="mg-empty">Nothing yet.</p><% } else { %>
+    <table class="mg-table"><thead><tr><th>Backup</th><th class="num">Size</th><th>Made</th></tr></thead><tbody>
+      <% stored.forEach((b) => { %><tr><td><code><%= b.name %></code></td><td class="num"><%= _mb(b.size) %></td><td><%= _when(b.at) %></td></tr><% }) %>
+    </tbody></table>
+    <% } %>
+  </section>
+</div>

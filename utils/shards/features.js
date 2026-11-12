@@ -28,7 +28,10 @@ const FEATURES = {
   assessment_flow: { label: "Assessments: grades wait for the teacher's approval before parents see them; gradebook columns, + to add an assessment and its questions, picture questions, and sharing finished tests with parents", access: "everyone" },
   custom_forms: { label: "Custom editor: the school's own forms for the classroom, parents, students and drivers, collected once or every day, week, term or year, with icons, seating charts, groups, an attendance column, report cards and Report Builder", access: "everyone" },
   student_portfolio: { label: "Student portfolio: each term's marked tests (as PDFs), assignments and report card, for parents and the student", access: "everyone" },
+  data_migration: { label: "Data migration: a sandbox where a school moving from PowerSchool uploads its exports, maps and checks them, signs off and goes live", access: "selected" },
   learning_resources: { label: "Assessment resources: files, links and recommendations for each test and each question, for students and parents", access: "everyone" },
+  assistant_teacher: { label: "Assistant teachers: beside a class's main teacher, assistants who see and work on the whole class (chosen on the staff form)", access: "selected" },
+  gpa: { label: "GPA: a Report Settings switch that prints each student's GPA (4.0 scale) on report cards and transcripts", access: "selected" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

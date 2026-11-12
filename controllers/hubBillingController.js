@@ -378,6 +378,7 @@ const hubBillingController = {
       ]);
       const link = data.live ? await billing.setupLink(db, hubId, appBase(res)) : '';
       res.render('admin/hubBilling', {
+        isSuperAdmin: req.session.accountType === "Admin",
         title: `Billing · ${hub.hub_name}`,
         ...data,
         hub: { ...hub, has_password: !!hub_password },

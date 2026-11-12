@@ -637,6 +637,12 @@
       </div>
       <% } %>
 
+        <% if (locals.oldSystem && oldSystem.alerts.length) { %>
+        <%# Custody and pickup restrictions from the school's old system: always shown first. %>
+        <div role="alert" style="margin:0 0 12px;padding:12px 14px;border:1px solid #fecaca;border-radius:12px;background:#fef2f2;color:#991b1b;">
+          <% oldSystem.alerts.forEach(function (a) { %><p style="margin:2px 0"><strong><%= a.label %>:</strong> <%= a.text %></p><% }) %>
+        </div>
+        <% } %>
       <section class="sd-card sd-profile">
       <div class="student-info-container">
         <!-- Student Image -->
@@ -652,6 +658,7 @@
           <img src="/images/profilePlaceholder.png" alt="Placeholder Image" />
           <% } %>
         </div>
+
 
         <!-- Student Details -->
         <div class="student-details">
@@ -714,10 +721,51 @@
           <% (locals.customAnswers || []).forEach(function (f) { %>
           <p><strong><%= f.label %></strong> <span style="white-space: pre-wrap"><%= f.display %></span></p>
           <% }) %>
+          <% if (locals.oldSystem) { %>
+            <% oldSystem.extras.forEach(function (x) { %><p><strong><%= x.label %></strong> <span style="white-space: pre-wrap"><%= x.value %></span><% if (x.sensitive) { %> <small style="color:#b91c1c">(restricted)</small><% } %></p><% }) %>
+            <% oldSystem.archives.forEach(function (a) { %><p><strong><%= a.module %></strong> <a href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa>Open (<%= a.n %> <%= a.n === 1 ? 'row' : 'rows' %>, read-only)</a></p><% }) %>
+            <% if (oldSystem.canUnlock) { %><p><strong>Restricted</strong> <%= oldSystem.hidden %> <%= oldSystem.hidden === 1 ? 'item' : 'items' %> from the old system. <a href="/common/migration/verify?next=<%= encodeURIComponent('/common/studentDetails?studentId=' + student.student_id) %>" data-no-spa>Show (asks for your authenticator code)</a></p><% } %>
+          <% } %>
           </div>
         </div>
       </div>
       </section>
+      <% if (locals.oldSystem && (oldSystem.history.length || oldSystem.attendance.length || oldSystem.sourceGpa)) { %>
+      <%# Final grades and attendance totals from the school's old system (data migration). %>
+      <section class="sd-card">
+        <h3 class="sd-card__title">Academic record before Managira</h3>
+        <% const _sg = oldSystem.sourceGpa; %>
+        <% if (oldSystem.history.length || _sg) { %>
+        <p style="margin:0 0 8px;color:#475467;font-size:13px"><% if (oldSystem.history.length) { %>Credits earned <strong><%= Math.round(oldSystem.credits * 100) / 100 %></strong><% } %><% if (_sg) { %><%= oldSystem.history.length ? ' · ' : '' %>GPA from <%= _sg.source === 'powerschool' ? 'PowerSchool' : _sg.source %>: <% if (_sg.weighted !== null) { %>weighted <strong><%= _sg.weighted %></strong><% } %><% if (_sg.weighted !== null && _sg.unweighted !== null) { %> · <% } %><% if (_sg.unweighted !== null) { %>unweighted <strong><%= _sg.unweighted %></strong><% } %><% if (_sg.weighted === null && _sg.unweighted === null) { %><strong><%= _sg.gpa %></strong><% } %><% } %></p>
+        <% } %>
+        <% if (oldSystem.history.length) { %>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Year</th><th>Term</th><th>Course</th><th>Grade</th><th>Percent</th><th>Credits</th><th>GPA points</th></tr></thead>
+            <tbody>
+              <% oldSystem.history.forEach(function (h) { %>
+              <tr><td><%= h.school_year || '—' %></td><td><%= h.term || '—' %></td><td><%= h.course_name %><% if (h.course_number) { %> <small>(<%= h.course_number %>)</small><% } %></td><td><%= h.grade || '—' %></td>
+                <td><%= h.percent === null ? '—' : Number(h.percent) %></td><td><%= h.credits_earned === null ? '—' : Number(h.credits_earned) %></td><td><%= h.gpa_points === null ? '—' : Number(h.gpa_points) %></td></tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+        <% if (oldSystem.attendance.length) { %>
+        <h4 style="margin:14px 0 6px;font-size:14px">Attendance</h4>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>Year</th><th>Term</th><th>Present</th><th>Absent</th><th>Excused</th><th>Tardy</th></tr></thead>
+            <tbody>
+              <% oldSystem.attendance.forEach(function (a) { %>
+              <tr><td><%= a.school_year || '—' %></td><td><%= a.term || 'Whole year' %></td><td><%= Number(a.days_present) %></td><td><%= Number(a.days_absent) %></td><td><%= Number(a.days_excused) %></td><td><%= Number(a.days_tardy) %></td></tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </section>
+      <% } %>
       <% if (locals.transportationSnapshot) { %>
       <section class="sd-card">
       <h3 class="sd-card__title">Transportation</h3>

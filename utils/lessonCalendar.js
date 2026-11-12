@@ -51,10 +51,11 @@ async function loadClosedDays(db, organizationId, termId, from, to) {
 }
 
 // Lessons a person teaches: subjects assigned to them, every lesson of a class
-// they are main teacher of, and every lesson of a class they teach without
-// specific subject assignments there.
+// they are main teacher or an assistant teacher of, and every lesson of a class they
+// teach without specific subject assignments there.
 async function lessonItems(db, { organizationId, userId, start, end }) {
   if (!organizationId || !userId || !start || !end) return [];
+  const whole = await require("./mainTeacher").wholeClassSql(db, "uc");
   const { rows } = await db.query(
     `SELECT e.entry_id, e.day_of_week, to_char(e.start_time, 'HH24:MI') AS start_time, to_char(e.end_time, 'HH24:MI') AS end_time,
             e.custom_label, s.subject_name, c.class_id, c.class_name, t.term_id, t.term_name,
@@ -71,7 +72,7 @@ async function lessonItems(db, { organizationId, userId, start, end }) {
         AND NOT EXISTS (SELECT 1 FROM users d WHERE d.user_id = $4 AND d.account_type = 'Driver')
         AND (
           EXISTS (SELECT 1 FROM user_subjects us WHERE us.user_id = $4 AND us.subject_id = e.subject_id)
-          OR EXISTS (SELECT 1 FROM user_classes uc WHERE uc.user_id = $4 AND uc.class_id = cs.class_id AND uc.main)
+          OR EXISTS (SELECT 1 FROM user_classes uc WHERE uc.user_id = $4 AND uc.class_id = cs.class_id AND ${whole})
           OR (EXISTS (SELECT 1 FROM user_classes uc WHERE uc.user_id = $4 AND uc.class_id = cs.class_id)
               AND NOT EXISTS (SELECT 1 FROM user_subjects us JOIN subjects x ON x.subject_id = us.subject_id
                                WHERE us.user_id = $4 AND x.class_id = cs.class_id))

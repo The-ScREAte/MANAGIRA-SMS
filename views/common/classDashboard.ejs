@@ -3956,7 +3956,7 @@ main {
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
   <% const _canMarkAttendance = Array.isArray(typeof userPermissions !== 'undefined' ? userPermissions : null) && userPermissions.includes('mark_attendance'); %>
   <%# Offered to someone who may mark it: saving needs Mark Attendance, and a teacher marks only the class they lead. %>
-  <% const _offerAttendance = hasAttendanceFeature && _canMarkAttendance && (userRole !== "Teacher" || isMainTeacher); %>
+  <% const _offerAttendance = hasAttendanceFeature && _canMarkAttendance && (userRole !== "Teacher" || isMainTeacher || (typeof isAssistantTeacher !== 'undefined' && isAssistantTeacher)); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <% const _canOpenPaygiraWorkspace = typeof canOpenPaygiraWorkspace === 'boolean' ? canOpenPaygiraWorkspace : true; %>
   <div class="workspace-shell">
@@ -4249,7 +4249,7 @@ main {
                 <div class="section-card teacher-section teachers-dropdown" id="teachers-section" data-collapsed="false" hidden>
                   <div class="teachers-head">
                     <h2 class="section-title">Teachers</h2>
-                    <span class="section-subtext">The main teacher marks attendance and looks after the class.</span>
+                    <span class="section-subtext">The main teacher marks attendance and looks after the class<%= employees.some(function (e) { return e.assistant; }) ? ', with the assistant teachers' : '' %>.</span>
                   </div>
                   <%
                     // Chosen on the staff form, with each person's classes and permissions.
@@ -4270,7 +4270,7 @@ main {
                         <span class="teacher-avatar"><%= initials %></span>
                         <span class="teacher-info">
                           <span class="teacher-name"><%= employee.name %></span>
-                          <% if (employee.main) { %><span class="teacher-role">Main Teacher</span><% } else { %><span class="teacher-role">Teacher</span><% } %>
+                          <% if (employee.main) { %><span class="teacher-role">Main Teacher</span><% } else if (employee.assistant) { %><span class="teacher-role">Assistant Teacher</span><% } else { %><span class="teacher-role">Teacher</span><% } %>
                         </span>
                       </div>
                     <% }); %>

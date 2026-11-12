@@ -44,7 +44,7 @@ const tableExists = async (db, table) =>
 // What the person was set up with at this school, saved before removal.
 async function snapshotAssignments(client, organizationId, userId) {
   const [classes, subjects, permissions, reports] = await Promise.all([
-    client.query("SELECT class_id, COALESCE(main, FALSE) AS main FROM user_classes WHERE user_id = $1", [userId]),
+    client.query(`SELECT class_id, COALESCE(main, FALSE) AS main${(await require("./mainTeacher").assistantReady(client)) ? ", COALESCE(assistant, FALSE) AS assistant" : ""} FROM user_classes WHERE user_id = $1`, [userId]),
     client.query("SELECT subject_id FROM user_subjects WHERE user_id = $1", [userId]),
     client.query("SELECT permission_key FROM user_permissions WHERE user_id = $1 AND organization_id = $2", [userId, organizationId]),
     client.query("SELECT user_id FROM users WHERE supervisor_user_id = $1 AND organization_id = $2", [userId, organizationId]),
@@ -151,6 +151,10 @@ async function restoreUser(client, { organizationId, userId }) {
        SELECT $1, $2, $3 WHERE NOT EXISTS (SELECT 1 FROM user_classes WHERE user_id = $1 AND class_id = $2)`,
       [userId, cls.class_id, Boolean(cls.main)]
     );
+    // An assistant teacher comes back as one (utils/mainTeacher.js).
+    if (cls.assistant && !cls.main && await require("./mainTeacher").assistantReady(client)) {
+      await client.query("UPDATE user_classes SET assistant = TRUE WHERE user_id = $1 AND class_id = $2", [userId, cls.class_id]);
+    }
   }
   if ((snap.subjects || []).length) {
     await client.query(

@@ -9,6 +9,7 @@
   const _noLead = (Array.isArray(typeof classes !== 'undefined' ? classes : null) ? classes : []).filter((cls) => !_mainOf[cls.class_id]);
 %>
 <input type="hidden" name="mainClassesShown" value="1">
+<% if (typeof classAssistants !== 'undefined' && classAssistants !== null) { %><input type="hidden" name="assistantClassesShown" value="1"><% } %>
 <button type="button" class="emp-class-toggle" id="empClassToggle" aria-expanded="false" aria-controls="collapse-all-classes">
   <span class="emp-class-title">Classes &amp; Subjects</span>
   <span class="emp-class-count" id="empClassCount">None selected</span>
@@ -70,26 +71,32 @@
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     };
     toggle.addEventListener('click', function () { setOpen(toggle.getAttribute('aria-expanded') !== 'true'); });
-    // Main teacher: only for a class that is ticked, never for a driver. Leaving a class
-    // gives up being in charge of it.
-    var syncMain = function () {
+    // Main teacher and Assistant: only for a class that is ticked, never for a driver, and
+    // one or the other. Leaving a class gives up both.
+    var syncMain = function (changed) {
       var driver = !!role && role.value === 'Driver';
       Array.prototype.forEach.call(boxes(), function (box) {
         var wrap = form.querySelector('[data-emp-main="' + box.value + '"]');
         if (!wrap) return;
         var pick = wrap.querySelector('input[name="mainClasses"]');
+        var help = wrap.querySelector('input[name="assistantClasses"]');
         var note = wrap.querySelector('[data-emp-main-note]');
         wrap.hidden = driver;
-        pick.disabled = driver || !box.checked;
-        if (pick.disabled) pick.checked = false;
+        if (help && changed === help && help.checked) pick.checked = false;
+        if (help && changed === pick && pick.checked) help.checked = false;
+        [pick, help].forEach(function (input) {
+          if (!input) return;
+          input.disabled = driver || !box.checked;
+          if (input.disabled) input.checked = false;
+        });
         if (note && note.hasAttribute('data-now')) note.textContent = pick.checked ? note.getAttribute('data-replace') : note.getAttribute('data-now');
       });
     };
     form.addEventListener('change', function (event) {
       if (event.target === role || event.target.name === name) refresh();
-      if (event.target === role || event.target.name === name || event.target.name === 'mainClasses') syncMain();
+      if (event.target === role || event.target.name === name || event.target.name === 'mainClasses' || event.target.name === 'assistantClasses') syncMain(event.target);
     });
-    document.addEventListener('DOMContentLoaded', syncMain);
+    document.addEventListener('DOMContentLoaded', function () { syncMain(null); });
     window.ManagiraEmployeeClasses = { refresh: refresh, setOpen: setOpen };
     document.addEventListener('DOMContentLoaded', refresh);
   })();

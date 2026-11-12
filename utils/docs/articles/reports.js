@@ -436,4 +436,41 @@ module.exports = [
     ],
     related: ["report-builder", "report-card"],
   },
+  {
+    slug: "gpa-on-report-cards-and-transcripts",
+    title: "GPA on report cards and transcripts",
+    topic: "Reports & analytics",
+    order: 30,
+    summary: "Turn on GPA in Report Settings, set Honors and AP weights, and see GPA on report cards and transcripts. GPA from your old system is kept as it was.",
+    tags: ["gpa", "grade point average", "weighted gpa", "unweighted gpa", "honors", "ap", "ib", "cumulative gpa", "transcript gpa", "report card gpa"],
+    who: "Managers, and staff given <strong>Report Settings</strong>. Only managers and supervisors change the Honors and AP weights.",
+    intro: "Managira works out GPA on the 4.0 scale from your grade letters: A 4.0, B 3.0, C 2.0, D 1.0, F 0; a + adds 0.3 and a − takes 0.3 away (A+ stays 4.0). A grade that isn't a letter doesn't count.",
+    sections: [
+      {
+        title: "Turn GPA on",
+        steps: [
+          "Open <strong>Report Settings</strong> and choose the class and term.",
+          "Open <strong>Advanced</strong>, tick <strong>GPA</strong> under Report Sections, and select <strong>Save Advanced</strong>.",
+          "Report cards for that class and term now show the term's GPA. Layouts can print it with <code>{{grades.gpa}}</code> and <code>{{grades.gpa_weighted}}</code>.",
+        ],
+      },
+      {
+        title: "Honors and AP weights",
+        steps: [
+          "In <strong>Advanced</strong>, under <strong>GPA weights</strong>, set what <strong>Honors</strong> and <strong>AP / IB</strong> add to a passing grade (0.5 and 1.0 unless you change them).",
+          "Set each of the class's subjects to <strong>Regular</strong>, <strong>Honors</strong> or <strong>AP / IB</strong>.",
+          "Select <strong>Save GPA weights</strong>.",
+        ],
+        note: "Report cards and transcripts then show the weighted GPA beside the unweighted one. A failing grade never gets a bonus.",
+      },
+      {
+        title: "On transcripts",
+        list: [
+          "Each of Managira's terms shows its GPA, and the transcript shows the GPA across all your Managira terms.",
+          "If your school moved from another system, each student's GPA from it is printed exactly as it was (weighted and unweighted), never worked out again.",
+        ],
+      },
+    ],
+    related: ["report-card", "transcript", "moving-to-managira"],
+  },
 ];

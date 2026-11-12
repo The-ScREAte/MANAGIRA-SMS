@@ -1,0 +1,96 @@
+<%# "Your access" (controllers/staffAccessController.js, utils/staffRoles.js). %>
+<%
+  const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const _when = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _kind = { role: 'Role', school: 'School', class: 'Class role' };
+  const _show = (v) => Array.isArray(v) ? (v.length ? v.join(', ') : 'None') : (v === null || v === undefined ? '—' : String(v));
+  const _name = [user.first_name, user.last_name].filter(Boolean).join(' ');
+%>
+<style>
+  .ma { max-width: 980px; margin: 0 auto; padding: 22px 20px 60px; color: #101828; font-size: 14px; line-height: 1.5; }
+  .ma * { box-sizing: border-box; }
+  .ma-card { margin-top: 14px; padding: 18px 20px; border: 1px solid #e4e7ec; border-radius: 14px; background: #fff; }
+  .ma h1 { margin: 0; font-size: 22px; font-weight: 750; text-align: left; }
+  .ma h2 { margin: 0 0 10px; font-size: 16px; font-weight: 750; text-align: left; }
+  .ma-hint { margin: 0 0 10px; color: #667085; font-size: 13px; }
+  .ma-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .ma-avatar { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #fff); color: var(--org-primary-color, #01535b); font-size: 18px; font-weight: 800; }
+  .ma-pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); font-size: 12px; font-weight: 700; }
+  .ma-pill--muted { background: #f2f4f7; color: #344054; }
+  .ma-welcome { margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: #ecfdf3; color: #14532d; }
+  .ma-welcome a { display: inline-flex; margin-top: 8px; padding: 8px 14px; border-radius: 9px; background: var(--org-primary-color, #01535b); color: #fff; font-weight: 700; text-decoration: none; }
+  .ma-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .ma-list li { padding: 10px 12px; border: 1px solid #f2f4f7; border-radius: 10px; }
+  .ma-list small { display: block; color: #667085; font-size: 12.5px; }
+  .ma-can strong::before { content: "✓"; margin-right: 6px; color: #15803d; }
+  .ma-cannot { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .ma-cannot li { padding: 3px 10px; border-radius: 999px; background: #f2f4f7; color: #475467; font-size: 12.5px; }
+  .ma-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ma-table th { padding: 7px 8px; border-bottom: 1px solid #e4e7ec; color: #667085; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
+  .ma-table td { padding: 7px 8px; border-bottom: 1px solid #f2f4f7; vertical-align: top; }
+  .ma-scroll { overflow-x: auto; }
+  @media (max-width: 640px) { .ma { padding: 14px 16px 48px; } }
+</style>
+<div class="ma">
+  <%- include('../partials/flash') %>
+  <div class="ma-top">
+    <span class="ma-avatar" aria-hidden="true"><%= (user.first_name || '?').charAt(0).toUpperCase() %></span>
+    <div>
+      <h1><%= own ? 'Your access' : _name %></h1>
+      <div class="ma-hint" style="margin:2px 0 0"><%= own ? _name + ' · ' : '' %><%= user.email %></div>
+    </div>
+  </div>
+  <% if (first) { %>
+    <div class="ma-welcome"><strong>Welcome to Managira.</strong> This is your role at <%= user.organization_name %> and what you can do here. You can open this page any time from the ? menu.<br /><a href="/common/orgDashboard">Go to your dashboard</a></div>
+  <% } %>
+
+  <section class="ma-card">
+    <h2>Role</h2>
+    <p style="margin:0"><span class="ma-pill"><%= role %></span> <span class="ma-pill ma-pill--muted"><%= user.organization_name %></span><% if (user.on_hold) { %> <span class="ma-pill ma-pill--muted">On hold</span><% } %></p>
+    <p class="ma-hint" style="margin:10px 0 0"><%= allClasses ? 'Sees every class of the school.' : 'Sees only the classes below.' %></p>
+  </section>
+
+  <% if (classes.length || !allClasses) { %>
+  <section class="ma-card">
+    <h2>Classes</h2>
+    <% if (!classes.length) { %><p class="ma-hint">No classes yet. A school admin adds them on the staff form.</p><% } else { %>
+    <ul class="ma-list">
+      <% classes.forEach((c) => { %><li><strong><%= c.name %></strong><% if (c.as) { %> <span class="ma-pill"><%= c.as %></span><% } %><small><%= c.subjects.length ? c.subjects.join(', ') : 'No subjects yet' %></small></li><% }) %>
+    </ul>
+    <% } %>
+  </section>
+  <% } %>
+
+  <section class="ma-card">
+    <h2>What <%= own ? 'you' : 'they' %> can do</h2>
+    <% if (!can.length) { %><p class="ma-hint">Nothing yet: a school admin gives permissions on the staff form.</p><% } else { %>
+    <ul class="ma-list ma-can">
+      <% can.forEach((c) => { %><li><strong><%= c.label %></strong><% if (c.includes.length) { %><small><%= c.includes.join(' · ') %></small><% } else if (c.description) { %><small><%= c.description %></small><% } %></li><% }) %>
+    </ul>
+    <% } %>
+    <% if (cannot.length) { %>
+      <h2 style="margin-top:16px">Not included</h2>
+      <ul class="ma-cannot"><% cannot.forEach((label) => { %><li><%= label %></li><% }) %></ul>
+    <% } %>
+  </section>
+
+  <% if (history.length) { %>
+  <section class="ma-card">
+    <h2>Before Managira</h2>
+    <p class="ma-hint">As it was in the school's old system<%= mapped ? ' (' + (mapped.source_system === 'powerschool' ? 'PowerSchool' : mapped.source_system) + ')' : '' %>. Read-only.</p>
+    <div class="ma-scroll"><table class="ma-table"><thead><tr><th>What</th><th>Value</th><th>From</th><th>To</th><th>Status</th></tr></thead><tbody>
+      <% history.forEach((h) => { %><tr><td><%= _kind[h.kind] || h.kind %></td><td><%= h.value || '—' %><% if (h.kind === 'class' && h.detail && h.detail._classRole) { %> <small>(<%= h.detail._classRole %>)</small><% } %></td><td><%= _date(h.start_date) %></td><td><%= _date(h.end_date) %></td><td><%= h.active === false ? 'Inactive' : h.active ? 'Active' : '' %></td></tr><% }) %>
+    </tbody></table></div>
+    <% if (mapped) { %><p class="ma-hint" style="margin-top:10px">Moved to Managira as <strong><%= mapped.value %></strong><%= mapped.detail && mapped.detail.from ? ' (from "' + mapped.detail.from + '")' : '' %> on <%= _date(mapped.recorded_at) %>.</p><% } %>
+  </section>
+  <% } %>
+
+  <% if (admin && changes.length) { %>
+  <section class="ma-card">
+    <h2>Changes</h2>
+    <div class="ma-scroll"><table class="ma-table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Before</th><th>After</th></tr></thead><tbody>
+      <% changes.forEach((c) => { %><tr><td><%= _when(c.at) %></td><td><%= c.changed_by %></td><td><%= c.what %></td><td><%= _show(c.old_value) %></td><td><%= _show(c.new_value) %></td></tr><% }) %>
+    </tbody></table></div>
+  </section>
+  <% } %>
+</div>

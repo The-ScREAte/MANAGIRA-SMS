@@ -124,7 +124,7 @@ const steppedDown = (client) => client.writes.find((w) => /^UPDATE user_classes 
 test("saving a person's classes sets the ones they lead, one main teacher per class", async () => {
   const client = classClient([]);
   const result = await mainTeacher.saveClasses(client, { organizationId: 63, userId: 9, classIds: [146, 147, "148"], mainClassIds: ["146", 999], shown: true });
-  assert.deepEqual(result, { classes: [146, 147, 148], leads: [146] });
+  assert.deepEqual(result, { classes: [146, 147, 148], leads: [146], assists: [] });
   assert.deepEqual(inserted(client).params, [9, [146, 147, 148], [146]], "only a class they are in can be led");
   assert.deepEqual(steppedDown(client).params, [[146], 9, 63], "whoever led it before steps down, within this school");
 });
@@ -142,8 +142,32 @@ test("unticking gives a class up, and a driver never leads one", async () => {
   const driver = classClient([146]);
   assert.deepEqual((await mainTeacher.saveClasses(driver, { organizationId: 63, userId: 9, classIds: [146], mainClassIds: [146], shown: true, canLead: false })).leads, []);
   const none = classClient([146]);
-  assert.deepEqual(await mainTeacher.saveClasses(none, { organizationId: 63, userId: 9, classIds: [], mainClassIds: [146], shown: true }), { classes: [], leads: [] });
+  assert.deepEqual(await mainTeacher.saveClasses(none, { organizationId: 63, userId: 9, classIds: [], mainClassIds: [146], shown: true }), { classes: [], leads: [], assists: [] });
   assert.equal(inserted(none), undefined);
+});
+
+test("assistant teachers: only for a class they're in and don't lead; a save that didn't show them keeps them", async () => {
+  mainTeacher.forgetAssistantCheck();
+  const withColumn = (assistedBefore = []) => ({
+    writes: [],
+    async query(text, params) {
+      const sql = String(text).replace(/\s+/g, " ").trim();
+      if (/information_schema\.columns/.test(sql)) return { rows: [{ "?column?": 1 }] };
+      if (/AND main = TRUE$/.test(sql)) return { rows: [] };
+      if (/AND assistant = TRUE$/.test(sql)) return { rows: assistedBefore.map((class_id) => ({ class_id })) };
+      this.writes.push({ sql, params });
+      return { rows: [] };
+    },
+  });
+  const client = withColumn();
+  const result = await mainTeacher.saveClasses(client, { organizationId: 63, userId: 9, classIds: [146, 147], mainClassIds: [146], shown: true, assistantClassIds: ["146", "147", 999], assistantShown: true });
+  assert.deepEqual(result, { classes: [146, 147], leads: [146], assists: [147] }, "a class they lead isn't also assisted; one they aren't in can't be");
+  assert.deepEqual(inserted(client).params, [9, [146, 147], [146], [147]]);
+  const kept = await mainTeacher.saveClasses(withColumn([147, 150]), { organizationId: 63, userId: 9, classIds: [146, 147], mainClassIds: [], shown: true });
+  assert.deepEqual(kept.assists, [147], "an older form keeps the classes they still hold");
+  const driver = await mainTeacher.saveClasses(withColumn(), { organizationId: 63, userId: 9, classIds: [146], assistantClassIds: [146], assistantShown: true, shown: true, canLead: false });
+  assert.deepEqual(driver.assists, [], "a driver never assists a class");
+  mainTeacher.forgetAssistantCheck();
 });
 
 // ---------- PayGira's menu ----------

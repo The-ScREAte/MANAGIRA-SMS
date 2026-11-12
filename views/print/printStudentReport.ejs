@@ -2953,6 +2953,19 @@
                     </div>
                     <% } %>
 
+                    <% if (displaySettings.sections.gpa && student.gpa !== undefined) { %>
+                    <%# GPA (Report Settings › Advanced, utils/gpa.js): the term's subjects on the 4.0 scale. %>
+                    <div class="attendance-info report-gpa">
+                        <table class="promotion-table">
+                            <tr>
+                                <td>GPA (4.0 scale):</td>
+                                <td><strong><%= student.gpa === null ? '—' : Number(student.gpa).toFixed(2) %></strong><% if (student.gpaWeighted !== null && student.gpaWeighted !== undefined) { %> · weighted <strong><%= Number(student.gpaWeighted).toFixed(2) %></strong><% } %></td>
+                                <td colspan="6" style="color:#64748b;font-size:0.85em;"><%= student.gpa === null ? 'No letter grades this term.' : student.gpaWeighted !== null && student.gpaWeighted !== undefined ? 'From this term\'s subject grades; weighted adds the Honors and AP bonus.' : 'From this term\'s subject grades.' %></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <% } %>
+
                                         <% const enabledCustomRemarkTypes = (customRemarkTypes || []).filter((entry) => {
                                                  const typeKey = String(entry.type_key || '');
                                                  return typeKey && ((displaySettings.sections.customRemarksVisibility || {})[typeKey] !== false);

@@ -76,9 +76,21 @@
                   </a>
                 </td>
                 <td class="ah-nowrap"><%= _date(org.joined_hub_at || org.created_at) %></td>
-                <td><% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %></td>
+                <% const _mg = (locals.migrationByOrg || {})[org.organization_id] || null; %>
+                <td>
+                  <% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
+                  <% if (_mg) { %><a class="ah-status" href="/admin/migrations/<%= org.organization_id %>" data-no-spa style="background:#ede9fe;color:#5b21b6">Sandbox<%= _mg === 'live' ? ' (live)' : '' %></a><% } %>
+                </td>
                 <td class="ah-actions-cell">
-                  <a class="ah-btn ah-btn--soft ah-btn--sm" href="<%= openUrl %>" data-ah-open data-kind="school" data-name="<%= org.organization_name %>"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open school</a>
+                  <div class="ah-row-actions">
+                    <a class="ah-btn ah-btn--soft ah-btn--sm" href="<%= openUrl %>" data-ah-open data-kind="school" data-name="<%= org.organization_name %>"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open school</a>
+                    <% if (locals.isSuperAdmin) { %>
+                      <details class="ah-menu">
+                        <summary class="ah-btn ah-btn--sm ah-btn--icon" aria-label="More for <%= org.organization_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+                        <div class="ah-menu__list"><%- include('partials/sandboxMenu', { org, status: _mg }) %></div>
+                      </details>
+                    <% } %>
+                  </div>
                 </td>
               </tr>
             <% }) %>

@@ -163,7 +163,7 @@ const transcriptController = (db) => ({
 
                         // Fetch total percentage and grade for each subject for ended semesters
                         const scoresQuery = `
-                                                                SELECT sub.subject_name,
+                                                                SELECT sub.subject_name, sub.subject_id,
                                                                                          MAX(ar.total_percentage) AS total_percentage,
                                                                                          MAX(
                                                                                              COALESCE(
@@ -214,11 +214,44 @@ const transcriptController = (db) => ({
                                                                                 t.current = FALSE
                                                                                 OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
                                                                         )
-                                                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
+                                                                GROUP BY sub.subject_id, sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
                                                                 ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name;
                         `;
             const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
             const scores = scoresResult.rows;
+
+            // Final grades from the school's old system (data migration, student_course_history):
+            // printed before Managira's own terms, with credits and GPA.
+            const history = await db.query(
+                `SELECT school_year, term, course_name, course_number, grade, percent, gpa_points, credits_attempted, credits_earned, school_name
+                   FROM student_course_history WHERE organization_id = $1 AND student_id = $2
+                  ORDER BY school_year, term, course_name`,
+                [organizationId, studentId]
+            ).then((r) => r.rows).catch(() => []);
+            const historyTotals = history.length ? {
+                credits: Math.round(history.reduce((sum, r) => sum + Number(r.credits_earned || 0), 0) * 100) / 100,
+            } : null;
+            // GPA from the old system: as it was exported, never worked out again.
+            const gpa = require('../utils/gpa');
+            const sourceGpa = await gpa.sourceGpaOf(db, organizationId, studentId).catch(() => null);
+            // GPA in Managira (feature gpa, Report Settings): each of Managira's terms, and all of
+            // them together, unweighted and (with honors/AP subjects) weighted. Never blended with
+            // the old system's GPA, whose credits and method Managira doesn't have.
+            let gpaSummary = null;
+            if (await gpa.schoolShowsGpa(db, organizationId)) {
+                const [settings, levels] = await Promise.all([
+                    gpa.settingsFor(db, organizationId),
+                    gpa.levelsFor(db, organizationId, { subjectIds: [...new Set(scores.map((r) => Number(r.subject_id)).filter(Boolean))] }),
+                ]);
+                const termKey = (r) => `${r.year_label}__${r.term_name}__${r.start_date || ''}__${r.end_date || ''}`;
+                const item = (r) => ({ grade: r.grade, level: levels.get(Number(r.subject_id)) || null });
+                const byTerm = new Map();
+                scores.forEach((r) => { if (!byTerm.has(termKey(r))) byTerm.set(termKey(r), []); byTerm.get(termKey(r)).push(item(r)); });
+                gpaSummary = {
+                    terms: Object.fromEntries([...byTerm].map(([key, items]) => [key, gpa.gpaOf(items, settings)])),
+                    all: gpa.gpaOf(scores.map(item), settings),
+                };
+            }
 
 
             // Fetch first class for this org (fallback) and resolve transcript signature for the student's class
@@ -268,6 +301,10 @@ const transcriptController = (db) => ({
                 organization,
                 student,
                 scores,
+                history,
+                historyTotals,
+                sourceGpa,
+                gpaSummary,
                 signatureImageUrl,
                 signatureName,
                 signatureTitle,

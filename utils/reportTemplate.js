@@ -60,7 +60,7 @@ const FIELD_GROUPS = [
     ['fees.total_billed', 'Total billed'], ['fees.total_paid', 'Total paid'], ['fees.outstanding', 'Outstanding / arrears'], ['fees.credit_balance', 'Credit balance'], ['fees.last_payment_date', 'Last payment date'],
   ] },
   { group: 'Signature', fields: [['signature.image', 'Signature (picture)'], ['signature.name', 'Signed by'], ['signature.title', 'Title'], ['signature.image:80', 'Signature, 80px tall']] },
-  { group: 'Grades', fields: [['grades.key', 'Interpretation of grades (e.g. A (90 to 100) = Excellent · …)']] },
+  { group: 'Grades', fields: [['grades.key', 'Interpretation of grades (e.g. A (90 to 100) = Excellent · …)'], ['grades.gpa', 'GPA for the term (4.0 scale; turn GPA on in Advanced)'], ['grades.gpa_weighted', 'Weighted GPA for the term (Honors and AP bonus)']] },
   { group: 'Footer', note: 'Every printed card already ends with the school website (if any) and a Managira line.', fields: [['school.copyright', 'School name @year all rights reserved']] },
 ];
 
@@ -183,6 +183,8 @@ function resolveField(token, ctx, student, subject, subjectNo) {
       const list = (r.scoreRemarks || []).slice().sort((a, b) => Number(b.toPercentage || b.to_percentage || 0) - Number(a.toPercentage || a.to_percentage || 0));
       return list.map((x) => (x.gradeLabel || '-') + ' (' + (x.fromPercentage ?? x.from_percentage) + ' to ' + (x.toPercentage ?? x.to_percentage) + ') = ' + (x.remark || '-')).join('  ·  ');
     }
+    case 'grades.gpa': return student.gpa === undefined || student.gpa === null ? '' : Number(student.gpa).toFixed(2);
+    case 'grades.gpa_weighted': return student.gpaWeighted === undefined || student.gpaWeighted === null ? '' : Number(student.gpaWeighted).toFixed(2);
     case 'forms.all':
       return (student.customSections || []).map((x) => x.name + ' – ' + x.rows.map((row) => row.label + ': ' + row.value).join(', ')).join('  ·  ');
     case 'choices.all':

@@ -1,0 +1,43 @@
+<%# Confirm it's you: an authenticator code (with the password, on the school's side) before the
+    data migration, restricted data from the old system, or the Migration queue.
+    controllers/dataMigrationController.js, utils/mfa.js %>
+<link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
+<div class="mg mg-verify">
+  <%- include('../partials/flash') %>
+  <section class="mg-card mg-verify__card">
+  <% if (recovery) { %>
+    <h1>Save your recovery codes</h1>
+    <p class="mg-hint">Your authenticator is set up. If you lose your phone, each of these codes works once in its place. Keep them somewhere safe: they won't be shown again.</p>
+    <ol class="mg-codes"><% recovery.forEach((code) => { %><li><code><%= code %></code></li><% }) %></ol>
+    <div class="mg-actions">
+      <button class="mg-btn" type="button" onclick="window.print()">Print them</button>
+      <a class="mg-btn mg-btn--primary" href="<%= next %>" data-no-spa>I've saved them, continue</a>
+    </div>
+  <% } else { %>
+    <h1><%= setup ? 'Set up your authenticator' : "Confirm it's you" %></h1>
+    <% if (setup) { %>
+      <p class="mg-hint"><%= side === 'admin' ? 'The Migration queue holds schools’ student data, so it asks for a code from an authenticator app as well as your password.' : 'Your school’s data migration holds student records, so it asks for a code from an authenticator app as well as your password. You set it up once.' %></p>
+      <ol class="mg-list">
+        <li>Open an authenticator app on your phone: Google Authenticator, Microsoft Authenticator, 1Password or Authy.</li>
+        <li>Scan this code, or type the key.</li>
+        <li>Type the 6-digit code the app shows.</li>
+      </ol>
+      <div class="mg-qr">
+        <img src="<%= setup.qr %>" width="200" height="200" alt="QR code for your authenticator app" />
+        <div><small>Or type this key</small><code><%= setup.secret %></code></div>
+      </div>
+    <% } else { %>
+      <p class="mg-hint"><%= needsPassword ? 'Your password and the 6-digit code from your authenticator app.' : 'The 6-digit code from your authenticator app.' %> It's asked for again after 30 minutes.</p>
+    <% } %>
+    <form class="mg-verify__form" method="POST" action="<%= action %>" data-no-spa>
+      <input type="hidden" name="next" value="<%= next %>" />
+      <% if (needsPassword) { %>
+        <label class="mg-field">Password<input type="password" name="password" autocomplete="current-password" required <%= setup ? '' : 'autofocus' %> /></label>
+      <% } %>
+      <label class="mg-field">Code<input name="code" inputmode="<%= setup ? 'numeric' : 'text' %>" autocomplete="one-time-code" required maxlength="11" pattern="<%= setup ? '[0-9 ]{6,7}' : '[0-9 ]{6,7}|[A-Za-z0-9]{5}-?[A-Za-z0-9]{5}' %>" placeholder="123456" <%= setup || !needsPassword ? 'autofocus' : '' %> /></label>
+      <button class="mg-btn mg-btn--primary" type="submit"><%= setup ? 'Turn it on' : 'Continue' %></button>
+    </form>
+    <% if (!setup) { %><p class="mg-hint mg-verify__help">Lost your phone? Type one of your recovery codes instead<%= side === 'admin' ? '' : ', or ask Managira to reset your authenticator' %>.</p><% } %>
+  <% } %>
+  </section>
+</div>

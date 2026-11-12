@@ -771,7 +771,43 @@
             };
           %>
 
-          <% if (!termSections.length) { %>
+          <%
+            // Final grades from before Managira (data migration), grouped by year and term.
+            const _history = (typeof history !== 'undefined' && Array.isArray(history)) ? history : [];
+            const _historySections = [];
+            _history.forEach((row) => {
+              const key = `${row.school_year || ''}__${row.term || ''}`;
+              let section = _historySections.find((entry) => entry.key === key);
+              if (!section) { section = { key, year: row.school_year, term: row.term, school: row.school_name, rows: [] }; _historySections.push(section); }
+              section.rows.push(row);
+            });
+            const _num = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
+          %>
+          <% if (_historySections.length) { %>
+            <% _historySections.forEach(section => { %>
+              <div class="t-year-section">
+                <h3><%= section.term || 'Final grades' %></h3>
+                <p style="margin:0 0 10px;color:#64748b;font-size:13px;line-height:1.5;">
+                  <strong style="color:#0f172a;"><%= section.year || 'Earlier records' %></strong><% if (section.school) { %>&nbsp;|&nbsp;<%= section.school %><% } %>
+                </p>
+                <div class="t-term-section">
+                  <table class="t-table">
+                    <thead><tr><th>Course</th><th>Percentage (%)</th><th>Grade</th><th>Credits</th></tr></thead>
+                    <tbody>
+                      <% section.rows.forEach(row => { %>
+                        <tr><td><%= row.course_name %></td><td><%= _num(row.percent) %></td><td><%= row.grade || '' %></td><td><%= _num(row.credits_earned) %></td></tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            <% }); %>
+            <% if (typeof historyTotals !== 'undefined' && historyTotals) { %>
+              <p style="margin:0 0 18px;color:#0f172a;font-size:13px;">Credits earned: <strong><%= historyTotals.credits %></strong></p>
+            <% } %>
+          <% } %>
+
+          <% if (!termSections.length && !_historySections.length) { %>
             <p style="margin:0;color:#64748b;line-height:1.6;">No ended semester records are available yet for this student. Transcript records appear after a semester has ended or is marked closed.</p>
           <% } %>
 
@@ -805,9 +841,23 @@
                     <% }); %>
                   </tbody>
                 </table>
+                <% if (typeof gpaSummary !== 'undefined' && gpaSummary && gpaSummary.terms[section.key]) { const _tg = gpaSummary.terms[section.key]; %>
+                  <p style="margin:6px 0 0;color:#0f172a;font-size:13px;">Term GPA: <strong><%= _tg.unweighted === null ? '—' : Number(_tg.unweighted).toFixed(2) %></strong><% if (_tg.weighted !== null) { %>&nbsp;|&nbsp;weighted <strong><%= Number(_tg.weighted).toFixed(2) %></strong><% } %></p>
+                <% } %>
               </div>
             </div>
           <% }); %>
+          <% if (typeof gpaSummary !== 'undefined' && gpaSummary && gpaSummary.all.unweighted !== null) { %>
+            <p style="margin:4px 0 6px;color:#0f172a;font-size:14px;">GPA at <%= organization && organization.organization_name ? organization.organization_name : 'this school' %> (4.0 scale): <strong><%= Number(gpaSummary.all.unweighted).toFixed(2) %></strong><% if (gpaSummary.all.weighted !== null) { %>&nbsp;|&nbsp;weighted <strong><%= Number(gpaSummary.all.weighted).toFixed(2) %></strong><% } %></p>
+          <% } %>
+          <% if (typeof sourceGpa !== 'undefined' && sourceGpa) { %>
+            <p style="margin:4px 0 18px;color:#0f172a;font-size:14px;">Cumulative GPA from <%= sourceGpa.source === 'powerschool' ? 'PowerSchool' : sourceGpa.source %><%= sourceGpa.asOf ? ' (' + sourceGpa.asOf + ')' : '' %>:
+              <% if (sourceGpa.weighted !== null) { %>weighted <strong><%= sourceGpa.weighted %></strong><% } %>
+              <% if (sourceGpa.weighted !== null && sourceGpa.unweighted !== null) { %>&nbsp;|&nbsp;<% } %>
+              <% if (sourceGpa.unweighted !== null) { %>unweighted <strong><%= sourceGpa.unweighted %></strong><% } %>
+              <% if (sourceGpa.weighted === null && sourceGpa.unweighted === null && sourceGpa.gpa !== null) { %><strong><%= sourceGpa.gpa %></strong><% } %>
+            </p>
+          <% } %>
         </div>
 
         <!-- Signature -->

@@ -1,0 +1,364 @@
+<%# Data migration, the school's side (controllers/dataMigrationController.js), inside Management. %>
+<%
+  const _stepLabels = { upload: 'Upload', map: 'Match columns', check: 'Check & import', roles: 'Staff roles', notes: 'Columns to explain', review: 'Review & sign', live: 'Go live' };
+  const _when = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _report = (job.totals && job.totals.report) || null;
+  const _status = { sandbox: 'Sandbox', review: 'Signed, ready to go live', live: 'Live', closed: 'Closed' }[job.status] || job.status;
+  const _byEntity = {};
+  columns.forEach((c) => { (_byEntity[c.entity] = _byEntity[c.entity] || []).push(c); });
+  const _needNotes = columns.filter((c) => !c.action && (c.confidence === 'none' || (c.confirmed && !c.target)));
+  const _approvalsLeft = columns.filter((c) => c.action === 'exclude' && !c.exclude_approved_at);
+  const _issueLabel = { missing: 'Missing', duplicate: 'Duplicate', date: 'Bad date', orphan: 'No match', no_parent: 'No parent', unplaced: "Can't place", code: 'Unknown code', email: 'Email in use', no_email: 'No email', gpa: 'Not a GPA' };
+  const _g = (v) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(2));
+  const _actionWords = { map: 'Mapped', custom: 'Custom field', extra: 'Extra field', archive: 'Archived', exclude: 'Left out', alert: 'Alert on the student' };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
+<div class="mg">
+  <%- include('../partials/flash') %>
+  <header class="mg-head">
+    <div>
+      <h1>Data migration <span class="mg-pill mg-pill--<%= job.status %>"><%= _status %></span></h1>
+      <p>Move your data from PowerSchool. Nothing reaches your live account until you sign off and go live.</p>
+    </div>
+  </header>
+
+  <% if (job.rolled_back_at && job.status === 'sandbox') { %>
+    <p class="mg-notice">Managira rolled back your go-live on <%= _when(job.rolled_back_at) %>: everything it loaded was removed and the sandbox is open again. Check, sign and go live again when you're ready.</p>
+  <% } %>
+  <nav class="mg-steps" aria-label="Steps">
+    <% steps.forEach((s, i) => { %>
+      <a class="mg-step<%= s === step ? ' is-on' : '' %>" href="/common/migration?step=<%= s %>&embed=workspace"<%- s === step ? ' aria-current="step"' : '' %>><span><%= i + 1 %></span><%= _stepLabels[s] %></a>
+    <% }) %>
+  </nav>
+
+  <% if (step === 'upload') { %>
+  <section class="mg-card">
+    <h2>Upload your export files</h2>
+    <p class="mg-hint">Export each list from PowerSchool as CSV: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Files are kept exactly as you upload them, so the import can always run again. Uploading a file again replaces it.</p>
+    <form class="mg-upload" method="POST" action="/common/migration/upload" enctype="multipart/form-data">
+      <label class="mg-drop"><input type="file" name="files" accept=".csv,text/csv" multiple required /><strong>Choose CSV files</strong><small>Up to 12 at a time, 30 MB each</small></label>
+      <label class="mg-field">What's in them?
+        <select name="entity"><option value="">Work it out from the columns</option><% Object.entries(entities).forEach(([key, e]) => { %><option value="<%= key %>"><%= e.label %></option><% }) %></select>
+      </label>
+      <button class="mg-btn mg-btn--primary" type="submit">Upload</button>
+    </form>
+    <% if (files.length) { %>
+    <table class="mg-table"><thead><tr><th>File</th><th>Holds</th><th class="num">Rows</th><th>Uploaded</th></tr></thead><tbody>
+      <% files.forEach((f) => { %><tr><td><strong><%= f.file_name %></strong></td><td><%= entities[f.entity].label %></td><td class="num"><%= f.row_count %></td><td><%= _when(f.uploaded_at) %> · <%= f.uploaded_by %></td></tr><% }) %>
+    </tbody></table>
+    <p class="mg-next"><a class="mg-btn" href="/common/migration?step=map&embed=workspace">Next: match columns</a></p>
+    <% } %>
+  </section>
+  <% } %>
+
+  <% if (step === 'map') { %>
+  <section class="mg-card">
+    <h2>Match columns</h2>
+    <p class="mg-hint">Each column was matched to a Managira field. <b class="mg-ok">Confident</b> matches are ready. Confirm or correct the <b class="mg-warn">unsure</b> ones. Columns we can't match go to step 4.</p>
+    <% if (!columns.length) { %><p class="mg-empty">Upload your files first.</p><% } %>
+    <% Object.entries(_byEntity).forEach(([entity, list]) => { const fields = entities[entity].fields; %>
+      <h3><%= entities[entity].label %></h3>
+      <table class="mg-table mg-map"><thead><tr><th>Their column</th><th>Sample values</th><th>Match</th><th>Goes to</th></tr></thead><tbody>
+      <% list.forEach((c) => { const state = c.sensitive === 'custody' ? 'alert' : c.action === 'map' && c.target ? (c.confirmed && c.confidence !== 'confident' ? 'confirmed' : 'confident') : c.confidence === 'unsure' && !c.confirmed ? 'unsure' : 'none'; %>
+        <tr class="mg-row--<%= state %>">
+          <td><strong><%= c.source_column %></strong><% if (c.sensitive) { %><span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] %></span><% } %></td>
+          <td class="mg-samples"><%= (c.samples || []).slice(0, 3).join(' · ') || '—' %></td>
+          <td><%= { confident: 'Confident', confirmed: 'Confirmed', unsure: 'Unsure', none: "Can't map", alert: 'Alert' }[state] %></td>
+          <td>
+            <% if (c.sensitive === 'custody') { %>An alert on the student record
+            <% } else if (c.action && c.action !== 'map') { %><%= _actionWords[c.action] %><%= c.label ? ': ' + c.label : '' %>
+            <% } else { %>
+            <form class="mg-inline" method="POST" action="/common/migration/columns/<%= c.column_id %>/confirm">
+              <select name="target" aria-label="Where <%= c.source_column %> goes">
+                <option value="none"<%= !c.target ? ' selected' : '' %>>Can't map</option>
+                <% Object.entries(fields).forEach(([key, f]) => { %><option value="<%= key %>"<%= c.target === key ? ' selected' : '' %>><%= f[0].replace(' *', '') %></option><% }) %>
+                <% if (entity === 'students') custom.forEach((f) => { %><option value="custom:<%= f.field_id %>"<%= c.target === 'custom:' + f.field_id ? ' selected' : '' %>><%= f.label %> (your field)</option><% }) %>
+              </select>
+              <button class="mg-btn mg-btn--sm<%= state === 'unsure' ? ' mg-btn--primary' : '' %>" type="submit"><%= state === 'unsure' ? 'Confirm' : 'Save' %></button>
+            </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody></table>
+    <% }) %>
+    <% if (columns.length) { %><p class="mg-next"><a class="mg-btn" href="/common/migration?step=check&embed=workspace">Next: check & import</a></p><% } %>
+  </section>
+  <% } %>
+
+  <% if (step === 'check') { %>
+  <section class="mg-card">
+    <h2>Check & import into the sandbox</h2>
+    <p class="mg-hint">Imports everything that's matched now, and checks it. Run it again any time: records update, never duplicate.</p>
+    <form method="POST" action="/common/migration/import"><button class="mg-btn mg-btn--primary" type="submit"<%= files.length ? '' : ' disabled' %>>Import into the sandbox</button></form>
+    <% if (_report) { %>
+      <h3>Records</h3>
+      <table class="mg-table"><thead><tr><th>Area</th><th class="num">In your files</th><th class="num">In the sandbox</th><th class="num">With something to check</th></tr></thead><tbody>
+      <% Object.entries(_report.entities).filter(([, v]) => v.source || v.staged).forEach(([entity, v]) => { const s = sandbox.counts[entity] || {}; %>
+        <tr><td><%= entities[entity].label %></td><td class="num"><%= v.source %></td><td class="num"><%= s.count || 0 %></td><td class="num"><%= s.withIssues || 0 %></td></tr>
+      <% }) %>
+      </tbody></table>
+      <h3>Check report</h3>
+      <% if (!_report.examples.length) { %><p class="mg-good">No problems found.</p><% } else { %>
+      <p class="mg-hint"><b class="mg-bad">Red</b> must be fixed in your export before going live; upload it again and import. <b class="mg-warn">Amber</b> is worth a look.</p>
+      <table class="mg-table"><thead><tr><th>Area</th><th>Problem</th><th>Line</th><th>ID</th><th>Detail</th></tr></thead><tbody>
+        <% _report.examples.forEach((e) => { %><tr class="<%= e.blocking ? 'mg-row--bad' : 'mg-row--unsure' %>"><td><%= entities[e.entity].label %></td><td><%= _issueLabel[e.key.split(':')[1]] || e.key %> (<%= _report.issues[e.key] %>)</td><td><%= e.line %></td><td><%= e.sourceId %></td><td><%= e.text %></td></tr><% }) %>
+      </tbody></table>
+      <% } %>
+      <% if (sandbox.sample.length) { %>
+      <details class="mg-more"><summary>See what's in the sandbox</summary>
+        <% Object.keys(sandbox.counts).forEach((entity) => { const rows = sandbox.sample.filter((r) => r.entity === entity); if (!rows.length) return; const keys = [...new Set(rows.flatMap((r) => Object.keys(r.data).filter((k) => typeof r.data[k] !== 'object')))].slice(0, 7); %>
+          <h3><%= entities[entity].label %> <small>first <%= rows.length %> of <%= sandbox.counts[entity].count %></small></h3>
+          <div class="mg-scroll"><table class="mg-table"><thead><tr><% keys.forEach((k) => { %><th><%= targetLabel(entity, k) %></th><% }) %></tr></thead><tbody>
+            <% rows.forEach((r) => { %><tr><% keys.forEach((k) => { %><td><%= r.data[k] || '' %></td><% }) %></tr><% }) %>
+          </tbody></table></div>
+        <% }) %>
+      </details>
+      <% } %>
+    <% } %>
+  </section>
+  <% } %>
+
+  <% if (step === 'roles') { const _R = roleReport; %>
+  <section class="mg-card">
+    <h2>Staff roles</h2>
+    <p class="mg-hint">Each role or access group in your staff file, matched to a Managira role. A match never gives more access than the old role did: when unsure, it's the more limited one, and you can always choose a more limited role. Admin-level access needs your approval, person by person.</p>
+    <% if (!_R.roles.length && !_R.people.length) { %><p class="mg-empty">Upload your staff file and run the import (step 3) to see your roles here.</p><% } %>
+    <% if (_R.roles.length) { %>
+    <div class="mg-scroll"><table class="mg-table mg-map"><thead><tr><th>Old role</th><th class="num">Staff</th><th>Match</th><th>Managira role</th><th>Access</th></tr></thead><tbody>
+      <% _R.roles.forEach((r) => { %>
+        <tr class="mg-row--<%= r.state === 'waiting' ? 'none' : r.state === 'unsure' ? 'unsure' : 'confident' %>">
+          <td><strong><%= r.old_role %></strong><% if (r.level) { %><small class="mg-samples" style="display:block"><%= roleLevels[r.level].label %></small><% } %></td>
+          <td class="num"><%= r.staff_count %></td>
+          <td><%= r.state === 'waiting' ? "Can't map" : r.state === 'unsure' ? 'Unsure' : r.resolved_by ? 'Matched by Managira' : r.confirmed ? 'Confirmed' : 'Confident' %></td>
+          <td>
+            <% if (r.state === 'waiting') { %><%= r.notes ? 'With the Managira team' : 'Explain it below' %>
+            <% } else { %>
+              <form class="mg-inline" method="POST" action="/common/migration/roles/<%= r.role_id %>/confirm">
+                <select name="target" aria-label="Managira role for <%= r.old_role %>">
+                  <% if (r.target === 'custom') { %><option value="custom" selected><%= r.label %> (custom)</option><% } %>
+                  <% Object.entries(roleChoices).forEach(([key, c]) => { %><option value="<%= key %>"<%= r.target === key ? ' selected' : '' %>><%= c.label %></option><% }) %>
+                </select>
+                <button class="mg-btn mg-btn--sm<%= r.state === 'unsure' ? ' mg-btn--primary' : '' %>" type="submit"><%= r.state === 'unsure' ? 'Confirm' : 'Save' %></button>
+              </form>
+              <small class="mg-samples"><%= r.choice ? r.choice.about : '' %></small>
+            <% } %>
+          </td>
+          <td><% if (r.state === 'waiting') { %>—<% } else if (r.up.length) { %><span class="mg-warn">More than before: <%= r.up.join(', ') %></span><% } else { %><span class="mg-ok">Not more than before</span><% } %><% if (r.adminLevel) { %> <span class="mg-pill mg-pill--sensitive">Admin-level</span><% } %></td>
+        </tr>
+      <% }) %>
+    </tbody></table></div>
+    <% } %>
+    <% _R.roles.filter((r) => r.state === 'waiting').forEach((r) => { const n = r.notes || {}; %>
+      <article class="mg-col">
+        <header><strong><%= r.old_role %></strong> <small><%= r.staff_count %> <%= r.staff_count === 1 ? 'person' : 'people' %></small><span class="mg-pill"><%= r.notes ? 'With Managira' : 'Needs your notes' %></span></header>
+        <form class="mg-notes" method="POST" action="/common/migration/roles/<%= r.role_id %>/notes">
+          <label>What does it let people do? *<input name="what" required maxlength="1000" value="<%= n.what || '' %>" /></label>
+          <label>Who has it?<input name="who" maxlength="1000" value="<%= n.who || '' %>" /></label>
+          <button class="mg-btn mg-btn--primary mg-btn--sm" type="submit"><%= r.notes ? 'Update notes' : 'Send notes' %></button>
+        </form>
+      </article>
+    <% }) %>
+
+    <% if (_R.people.length) { %>
+      <h3>Role report</h3>
+      <p class="mg-hint">Everyone in your staff file: old role, Managira role, schools, classes and what they can do. Approve each person flagged in amber, then approve the role report in Review & sign.</p>
+      <div class="mg-actions" style="margin-bottom:8px">
+        <a class="mg-btn mg-btn--sm" href="/common/migration/roles/report?format=csv" data-no-spa>Download CSV</a>
+        <a class="mg-btn mg-btn--sm" href="/common/migration/roles/report?format=pdf" data-no-spa>Download PDF</a>
+      </div>
+      <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Name</th><th>Old role</th><th>Managira role</th><th>Schools</th><th>Classes</th><th>Can do</th><th></th></tr></thead><tbody>
+        <% _R.people.forEach((p) => { %>
+          <tr class="<%= p.noRole ? 'mg-row--bad' : p.needsApproval && !p.approved ? 'mg-row--unsure' : '' %>">
+            <td><strong><%= p.name %></strong><small class="mg-samples" style="display:block"><%= p.email || 'No email' %><%= p.active ? '' : ' · inactive' %></small></td>
+            <td><%= p.oldRole || '—' %></td>
+            <td><%= !p.active ? 'History only (inactive)' : p.existing ? 'Already in Managira' : p.noAccount ? 'No account: ' + p.noAccount : p.newRole || 'No role' %><% if (p.adminLevel) { %> <span class="mg-pill mg-pill--sensitive">Admin-level</span><% } %></td>
+            <td><%= p.schools.join(', ') || '—' %></td>
+            <td><%= p.classes.map((c) => c.name + ' (' + c.as.toLowerCase() + (c.now ? '' : ', past') + ')').join('; ') || '—' %></td>
+            <td><%= p.can %><% if (p.up.length) { %><br><span class="mg-warn">More than before: <%= p.up.join(', ') %></span><% } %></td>
+            <td class="num">
+              <% if (p.needsApproval) { %>
+                <form method="POST" action="/common/migration/roles/approve"><input type="hidden" name="sourceId" value="<%= p.sourceId %>" /><input type="hidden" name="on" value="<%= p.approved ? '0' : '1' %>" />
+                  <button class="mg-btn mg-btn--sm<%= p.approved ? '' : ' mg-btn--primary' %>" type="submit"><%= p.approved ? 'Approved ✓' : 'Approve' %></button></form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody></table></div>
+    <% } %>
+  </section>
+  <% } %>
+
+  <% if (step === 'notes') { %>
+  <section class="mg-card">
+    <h2>Columns to explain</h2>
+    <p class="mg-hint">These columns have no place in Managira yet. Tell us about each one. The Managira team then makes it a field of its own, keeps it on the record, or archives it. Nothing is left out without your approval.</p>
+    <% if (!_needNotes.length && !_approvalsLeft.length) { %><p class="mg-good">Nothing to explain.</p><% } %>
+    <% _needNotes.forEach((c) => { const n = c.notes || {}; %>
+      <article class="mg-col" id="col-<%= c.column_id %>">
+        <header><strong><%= c.source_column %></strong> <small><%= entities[c.entity].label %></small><% if (c.sensitive) { %><span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] %></span><% } %><span class="mg-pill"><%= c.notes ? 'With Managira' : 'Needs your notes' %></span></header>
+        <p class="mg-samples">Sample values: <%= (c.samples || []).join(' · ') || '(empty)' %></p>
+        <form class="mg-notes" method="POST" action="/common/migration/columns/<%= c.column_id %>/notes">
+          <label>What is it? *<input name="what" required maxlength="1000" value="<%= n.what || '' %>" /></label>
+          <label>Who uses it?<input name="who" maxlength="1000" value="<%= n.who || '' %>" /></label>
+          <label>How often?<input name="often" maxlength="1000" value="<%= n.often || '' %>" /></label>
+          <label>Is it required?<select name="required"><option value="">Choose…</option><% ['Yes', 'No', 'Sometimes'].forEach((o) => { %><option<%= n.required === o ? ' selected' : '' %>><%= o %></option><% }) %></select></label>
+          <label class="mg-wide">Rules at your school<textarea name="rules" maxlength="1000" rows="2"><%= n.rules || '' %></textarea></label>
+          <button class="mg-btn mg-btn--primary mg-btn--sm" type="submit"><%= c.notes ? 'Update notes' : 'Send notes' %></button>
+        </form>
+      </article>
+    <% }) %>
+    <% _approvalsLeft.forEach((c) => { %>
+      <article class="mg-col mg-col--approve">
+        <header><strong><%= c.source_column %></strong> <small><%= entities[c.entity].label %></small><% if (c.sensitive) { %><span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] %></span><% } %></header>
+        <p><%= c.sensitive === 'ssn' ? 'Social Security numbers are left out unless you have a legal need to keep them.' : 'The Managira team suggests leaving this column out.' %> Sample: <%= (c.samples || []).slice(0, 2).map((v) => c.sensitive === 'ssn' ? '•••-••-' + String(v).slice(-4) : v).join(' · ') %></p>
+        <div class="mg-actions">
+          <form method="POST" action="/common/migration/columns/<%= c.column_id %>/exclude"><button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Approve leaving it out</button></form>
+          <% if (c.sensitive === 'ssn') { %><form method="POST" action="/common/migration/columns/<%= c.column_id %>/legal-need"><button class="mg-btn mg-btn--sm" type="submit">We have a legal need to keep it</button></form><% } %>
+        </div>
+      </article>
+    <% }) %>
+    <% const _resolved = columns.filter((c) => c.action && c.action !== 'map' || (c.action === 'map' && c.resolved_by && c.target && c.target.startsWith('custom:'))); %>
+    <% if (_resolved.length) { %>
+      <h3>Already decided</h3>
+      <table class="mg-table"><tbody><% _resolved.forEach((c) => { %><tr><td><strong><%= c.source_column %></strong></td><td><%= c.action === 'map' ? 'Custom field: ' + (c.label || '') : _actionWords[c.action] + (c.label ? ': ' + c.label : '') %><%= c.action === 'exclude' ? (c.exclude_approved_at ? ' (you approved)' : ' (waiting for your approval)') : '' %></td></tr><% }) %></tbody></table>
+    <% } %>
+  </section>
+  <% } %>
+
+  <% if (step === 'review') { %>
+  <section class="mg-card">
+    <h2>Review & sign</h2>
+    <h3>Your files beside the sandbox</h3>
+    <table class="mg-table"><thead><tr><th>Area</th><th class="num">In your files</th><th class="num">In the sandbox</th></tr></thead><tbody>
+      <% if (_report) Object.entries(_report.entities).filter(([, v]) => v.source).forEach(([entity, v]) => { %><tr><td><%= entities[entity].label %><% if (entity === 'guardians') { %> <small class="mg-hint">(the sandbox also has the parents named in the students file)</small><% } %></td><td class="num"><%= v.source %></td><td class="num"><%= (sandbox.counts[entity] || {}).count || 0 %></td></tr><% }) %>
+      <% if (sandbox.counts.grades) { %>
+        <tr><td>Credits earned (total)</td><td class="num"><%= (job.totals.source || {}).credits %></td><td class="num"><%= sandbox.counts.grades.credits %></td></tr>
+      <% } %>
+    </tbody></table>
+    <% if (gpaCheck && gpaCheck.checked) { %>
+      <h3>GPA check</h3>
+      <p class="mg-hint"><strong><%= gpaCheck.matching %></strong> of <%= gpaCheck.checked %> students' GPA from PowerSchool matches the one worked out from their final grades. Their PowerSchool GPA is kept on their transcript either way. A difference usually means grades left out of the export, or a weighting the export doesn't carry.</p>
+      <% if (gpaCheck.differ.length) { %>
+      <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Student</th><th class="num">PowerSchool weighted</th><th class="num">From grades, weighted</th><th class="num">PowerSchool unweighted</th><th class="num">From grades, unweighted</th><th class="num">Courses</th></tr></thead><tbody>
+        <% gpaCheck.differ.slice(0, 100).forEach((g) => { %><tr class="mg-row--unsure"><td><strong><%= g.name %></strong> <small class="mg-samples"><%= g.sourceId %></small></td>
+          <td class="num"><%= _g(g.source.weighted !== undefined ? g.source.weighted : g.source.gpa) %></td><td class="num<%= g.differs.includes('weighted') || g.differs.includes('GPA') ? ' mg-bad' : '' %>"><%= _g(g.managira.weighted) %></td>
+          <td class="num"><%= _g(g.source.unweighted) %></td><td class="num<%= g.differs.includes('unweighted') ? ' mg-bad' : '' %>"><%= _g(g.managira.unweighted) %></td><td class="num"><%= g.courses %></td></tr><% }) %>
+      </tbody></table></div>
+      <% if (gpaCheck.differ.length > 100) { %><p class="mg-hint">And <%= gpaCheck.differ.length - 100 %> more.</p><% } %>
+      <% } %>
+    <% } %>
+    <h3>Approve each area</h3>
+    <div class="mg-approvals">
+      <% needed.forEach((s) => { const on = (job.approvals || {})[s]; %>
+        <form method="POST" action="/common/migration/approve"><input type="hidden" name="section" value="<%= s %>" /><input type="hidden" name="on" value="<%= on ? '0' : '1' %>" />
+          <button class="mg-approval<%= on ? ' is-on' : '' %>" type="submit" aria-pressed="<%= Boolean(on) %>"><span class="mg-tick" aria-hidden="true"></span><strong><%= sectionLabels[s] %></strong><small><%= on ? 'Approved by ' + on.by : 'Not approved yet' %></small></button>
+        </form>
+      <% }) %>
+    </div>
+    <h3>Migration summary</h3>
+    <div class="mg-summary" id="mgSummary">
+      <% [['mapped', 'Mapped to Managira fields'], ['custom', 'Made into custom fields'], ['extra', 'Kept as extra fields'], ['alerts', 'Alerts on the student'], ['archived', 'Archived (read-only)'], ['excluded', 'Left out']].forEach(([key, label]) => { %>
+        <div><h4><%= label %> <small><%= summary[key].length %></small></h4><% if (summary[key].length) { %><ul><% summary[key].forEach((line) => { %><li><%= line %></li><% }) %></ul><% } else { %><p class="mg-hint">None.</p><% } %></div>
+      <% }) %>
+    </div>
+    <p><button class="mg-btn mg-btn--sm" type="button" onclick="window.print()">Print the summary</button></p>
+    <% if (job.signed_at) { %>
+      <p class="mg-good">Signed by <strong><%= job.signed_name %></strong> on <%= _when(job.signed_at) %>.</p>
+      <p class="mg-next"><a class="mg-btn mg-btn--primary" href="/common/migration?step=live&embed=workspace">Next: go live</a></p>
+    <% } else if (blockers.length) { %>
+      <div class="mg-blockers"><strong>Before you can sign</strong><ul><% blockers.forEach((b) => { %><li><%= b %></li><% }) %></ul></div>
+    <% } else { %>
+      <form class="mg-sign" method="POST" action="/common/migration/sign">
+        <label>Type your full name to sign<input name="name" required minlength="3" maxlength="120" autocomplete="name" /></label>
+        <label class="mg-check"><input type="checkbox" required /> I've checked this summary and approve moving this data to our live account.</label>
+        <button class="mg-btn mg-btn--primary" type="submit">Sign</button>
+      </form>
+    <% } %>
+  </section>
+  <% } %>
+
+  <% if (step === 'live') { %>
+  <section class="mg-card">
+    <% if (job.status === 'live') {
+         const loaded = (job.totals && job.totals.loaded) || {};
+         const src = (job.totals && job.totals.source) || {};
+         const rep = (_report && _report.entities) || {};
+         const att = loaded.attendance || {};
+         const srcAtt = src.attendance || {};
+         const _rows = [
+           ['Students', (rep.students || {}).source, loaded.students],
+           ['Students enrolled in the current term', (rep.students || {}).source, loaded.enrolled],
+           ['Staff with an account', (rep.staff || {}).source, loaded.staff],
+           ['Sections placed in a class', (rep.classes || {}).source, (rep.classes || {}).source === undefined ? undefined : (rep.classes || {}).source - (loaded.sectionsUnplaced || 0)],
+           ['Final grades (courses)', (rep.grades || {}).source, loaded.courses],
+           ['Credits earned', src.credits, loaded.credits],
+           ...(gpaCheck && gpaCheck.checked ? [['Students whose GPA matches PowerSchool', gpaCheck.checked, gpaCheck.matching]] : []),
+           ['Days present', srcAtt.present, att.present],
+           ['Days absent', srcAtt.absent, att.absent],
+         ].filter((r) => r[1] !== undefined && r[1] !== null && (r[1] !== 0 || r[2]));
+    %>
+      <h2>You're live</h2>
+      <p class="mg-hint">Loaded on <%= _when(job.live_at) %><%= job.catch_up_at ? ', caught up on ' + _when(job.catch_up_at) : '' %>: students, parents, staff accounts, sections and their teachers, final grades and attendance totals. <strong><%= loaded.subjects || 0 %></strong> subjects and <strong><%= loaded.classes || 0 %></strong> classes were made, <strong><%= loaded.teacherLinks || 0 %></strong> teacher links and <strong><%= loaded.mainTeachers || 0 %></strong> teachers in charge of a class.</p>
+      <h3>Your files beside Managira</h3>
+      <table class="mg-table mg-compare"><thead><tr><th>What</th><th class="num">In your files</th><th class="num">In Managira</th></tr></thead><tbody>
+        <% _rows.forEach(([label, a, b]) => { %><tr><td><%= label %></td><td class="num"><%= a %></td><td class="num<%= Number(a) !== Number(b) ? ' is-off' : '' %>"><%= b === null || b === undefined ? '—' : b %></td></tr><% }) %>
+      </tbody></table>
+      <% if (_rows.some(([, a, b]) => Number(a) !== Number(b))) { %><p class="mg-hint">Amber figures differ from your files: duplicates, rows the check report flagged, staff without an email (left out), or GPAs that don't match their grades (see Review; each student's PowerSchool GPA is kept on their transcript).</p><% } %>
+      <% if (loaded.sectionsUnplaced) { %><p class="mg-notice"><%= loaded.sectionsUnplaced %> <%= loaded.sectionsUnplaced === 1 ? 'section' : 'sections' %> couldn't be placed in a class (no grade level and no class enrollments). Add them to the classes on the Classes & subjects page.</p><% } %>
+
+      <% if (staff.length) { const _waiting = staff.filter((p) => p.waiting); %>
+        <h3>Staff accounts</h3>
+        <p class="mg-hint">New accounts are on hold: they can't sign in until you invite them. The invitation is a link to set a password, valid for 3 days. Check each person's role and classes on the Users page first; nobody was made a manager.</p>
+        <form method="POST" action="/common/migration/invite">
+          <div class="mg-scroll"><table class="mg-table"><thead><tr><th></th><th>Name</th><th>Email</th><th>Role</th><th>Classes</th><th>Status</th></tr></thead><tbody>
+            <% staff.forEach((p) => { %>
+              <tr>
+                <td><% if (p.waiting) { %><input type="checkbox" name="userIds" value="<%= p.user_id %>" aria-label="Invite <%= p.first_name %> <%= p.last_name %>" /><% } %></td>
+                <td><strong><%= p.first_name %> <%= p.last_name %></strong></td><td><%= p.email %></td><td><%= p.role %></td><td><%= p.classes || '—' %></td>
+                <td><%= p.waiting ? 'Waiting for an invitation' : p.invited_at ? (p.has_password ? 'Signed up' : 'Invited ' + _when(p.invited_at)) : 'Already had an account' %></td>
+              </tr>
+            <% }) %>
+          </tbody></table></div>
+          <% if (_waiting.length) { %>
+            <div class="mg-actions">
+              <button class="mg-btn" type="submit">Invite the ones ticked</button>
+              <button class="mg-btn mg-btn--primary" type="submit" name="all" value="1">Invite all <%= _waiting.length %> waiting</button>
+            </div>
+          <% } %>
+        </form>
+      <% } %>
+      <% if ((loaded.staffSkipped || []).length) { %>
+        <h3>Staff without an account</h3>
+        <ul class="mg-list"><% loaded.staffSkipped.forEach((p) => { %><li><strong><%= p.name %></strong><%= p.email ? ' (' + p.email + ')' : '' %>: <%= ({ 'No email': 'no email in the staff file', 'No role': 'no role', "Waiting for the school admin's approval": 'new in the catch-up with access that goes up or is admin-level, which needs your approval: add them on the Users page' })[p.why] || 'that email is already used by another Managira account' %></li><% }) %></ul>
+        <p class="mg-hint">Add them on the Users page, or fix the export and load the catch-up.</p>
+      <% } %>
+
+      <h3>Catch-up</h3>
+      <% if (job.catch_up_at) { %><p class="mg-hint">The catch-up import was used on <%= _when(job.catch_up_at) %>.</p><% } else { %>
+        <p class="mg-hint">One last import for changes made in PowerSchool since (final grades, attendance). Upload the new files, then load them. Records are updated, never duplicated.</p>
+        <form class="mg-upload" method="POST" action="/common/migration/upload" enctype="multipart/form-data">
+          <label class="mg-drop"><input type="file" name="files" accept=".csv,text/csv" multiple required /><strong>Choose the new CSV files</strong></label>
+          <button class="mg-btn" type="submit">Upload</button>
+        </form>
+        <form method="POST" action="/common/migration/catch-up" onsubmit="return confirm('Load the latest files into your live account? This can be done once.')"><button class="mg-btn mg-btn--primary" type="submit">Load the catch-up</button></form>
+      <% } %>
+      <p class="mg-hint">On <%= job.purge_after ? new Date(job.purge_after).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '' %> the uploaded files, the snapshot and the sandbox are deleted. Your live records stay. Until then, Managira can roll the go-live back if something is wrong.</p>
+    <% } else if (job.signed_at) { %>
+      <h2>Go live</h2>
+      <ol class="mg-list">
+        <li>Upload your latest export files first (step 1), so nothing entered in PowerSchool since is missed.</li>
+        <li>Go live imports those files again, keeps a snapshot, and loads your live account: students (enrolled in the current term), parents, staff accounts (on hold until you invite them), sections as subjects of their classes with their teachers, final grades with credits and GPA on each student's transcript, and attendance totals per term. Daily attendance and archived columns stay read-only on each student.</li>
+        <li>Your account opens for new data again. For 30 days Managira can roll the go-live back.</li>
+      </ol>
+      <form method="POST" action="/common/migration/go-live" onsubmit="return confirm('Go live now? Your data moves into your live account.')"><button class="mg-btn mg-btn--primary" type="submit">Go live</button></form>
+    <% } else { %>
+      <h2>Go live</h2><p class="mg-hint">Sign the migration summary first (step 5).</p>
+    <% } %>
+  </section>
+  <% } %>
+
+  <details class="mg-more mg-log"><summary>Activity</summary>
+    <ul><% events.forEach((e) => { %><li><span><%= _when(e.at) %></span> <%= e.actor %>: <%= e.action.replace(/_/g, ' ') %></li><% }) %></ul>
+  </details>
+</div>

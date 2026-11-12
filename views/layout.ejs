@@ -145,6 +145,12 @@
             <% } else { %>
                 <%- include('partials/header') %>
             <% } %>
+            <% if (locals.migrationState && migrationState.locked && !locals.isEmbedded) { %>
+                <%# A school moving its data in: nothing new is saved until it's finished (middleware/migrationLock.js). %>
+                <div role="status" style="margin:0 16px 12px;padding:10px 14px;border-radius:12px;background:#f5f3ff;border:1px solid #ddd6fe;color:#4c1d95;font-size:14px;">
+                    <strong>Your data is moving to Managira.</strong> Nothing new can be saved until the move is finished.<% if (migrationState.isAdmin) { %> <a href="/common/management?panel=migration&page=%2Fcommon%2Fmigration&label=Data%20migration" data-no-spa style="color:#5b21b6;font-weight:700">Open the migration</a><% } %>
+                </div>
+            <% } %>
 
             <% if (_showBackToAdmin) { %>
                 <a href="/admin/exit-org" class="back-to-admin-chip" aria-label="Back to Admin" data-no-spa>

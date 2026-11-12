@@ -779,6 +779,10 @@ if (process.env.NODE_ENV === "production") {
   );
 }
 
+// A response that changed the session waits for its save, so the next request never reads it
+// from before (utils/sessionSave.js).
+app.use(require("./utils/sessionSave").saveBeforeResponse);
+
 // Fair-use request limit (after sessions so signed-in users count per session).
 app.use(require("./middleware/securityMiddleware").requestRateLimit);
 
@@ -969,6 +973,8 @@ app.use(require("./utils/hubBrand").hubBrandMiddleware(db));
 app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
 app.use(setAllowedPermissions);
+// A school moving its data in (data migration sandbox): banner, and no new data until it's done.
+app.use(require("./middleware/migrationLock"));
 app.use(setThemeColor);
 app.use(setMiraStatus);
 
@@ -1253,6 +1259,8 @@ app.use("/account/sso", ssoRoutes.signIn);
 app.use("/account/settings/sso", ssoRoutes.settings);
 app.use("/account", accountRoute);
 app.use("/admin/shards", require("./routes/shardAdminRoute"));
+app.use("/admin/migrations", require("./routes/migrationAdminRoute"));
+app.use("/admin/backups", require("./routes/backupAdminRoute"));
 app.use("/admin", adminRoute);
 // Private calendar subscription feed (Google Calendar / Outlook / Apple fetch it without a login).
 app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>

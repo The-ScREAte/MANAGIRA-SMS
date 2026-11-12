@@ -89,10 +89,14 @@ function requireSetAssessmentQuestionsFeature(req, res, next) {
 
 module.exports = (db) => {
   const reportBuilder = reportBuilderController(db);
-  router.get("/orgDashboard", isAuthenticated, blockGuardians, (req, res) => {
-  // ...removed log for clean background operation...
+  router.get("/orgDashboard", isAuthenticated, blockGuardians, async (req, res) => {
+    // Imported staff see their access first, once (controllers/staffAccessController.js).
+    if (await require("../controllers/staffAccessController").firstVisit(req, res, db)) return;
     return commonController.orgDashboard(req, res, db);
   });
+  // "Your access": a member of staff's role, classes and what they can do; admins open anyone's.
+  router.get("/my-access", isAuthenticated, blockGuardians, (req, res) => require("../controllers/staffAccessController").page(req, res, db));
+  router.get("/my-access/:userId(\\d+)", isAuthenticated, blockGuardians, (req, res) => require("../controllers/staffAccessController").page(req, res, db));
   router.get("/feedback", isAuthenticated, blockGuardians, (req, res) =>
     commonController.feedbackGet(req, res, db)
   );
@@ -1211,6 +1215,29 @@ module.exports = (db) => {
   const customForms = require("../controllers/customFormsController");
   const formBuilders = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.CUSTOM_FORMS)];
   router.get("/custom-forms", ...formBuilders, (req, res) => customForms.editorPage(req, res, db));
+  // Data migration (feature data_migration): the school's admins move their old system's data in,
+  // confirming with an authenticator code every 30 minutes (codeGate).
+  const migration = require("../controllers/dataMigrationController");
+  const migrationGate = [isAuthenticated, migration.codeGate];
+  router.get("/migration/verify", isAuthenticated, (req, res) => migration.verifyPage(req, res, db));
+  router.post("/migration/verify", isAuthenticated, (req, res) => migration.verifyPost(req, res, db));
+  router.get("/migration", ...migrationGate, (req, res) => migration.page(req, res, db));
+  router.post("/migration/upload", ...migrationGate, migration.uploadHandler, (req, res) => migration.uploadPost(req, res, db));
+  router.post("/migration/import", ...migrationGate, (req, res) => migration.importPost(req, res, db));
+  router.post("/migration/columns/:columnId(\\d+)/confirm", ...migrationGate, (req, res) => migration.confirmPost(req, res, db));
+  router.post("/migration/columns/:columnId(\\d+)/notes", ...migrationGate, (req, res) => migration.notesPost(req, res, db));
+  router.post("/migration/columns/:columnId(\\d+)/exclude", ...migrationGate, (req, res) => migration.excludePost(req, res, db));
+  router.post("/migration/columns/:columnId(\\d+)/legal-need", ...migrationGate, (req, res) => migration.legalPost(req, res, db));
+  router.post("/migration/approve", ...migrationGate, (req, res) => migration.approvePost(req, res, db));
+  router.post("/migration/sign", ...migrationGate, (req, res) => migration.signPost(req, res, db));
+  router.post("/migration/go-live", ...migrationGate, (req, res) => migration.goLivePost(req, res, db));
+  router.post("/migration/catch-up", ...migrationGate, (req, res) => migration.catchUpPost(req, res, db));
+  router.post("/migration/invite", ...migrationGate, (req, res) => migration.invitePost(req, res, db));
+  router.post("/migration/roles/:roleId(\\d+)/confirm", ...migrationGate, (req, res) => migration.roleConfirmPost(req, res, db));
+  router.post("/migration/roles/:roleId(\\d+)/notes", ...migrationGate, (req, res) => migration.roleNotesPost(req, res, db));
+  router.post("/migration/roles/approve", ...migrationGate, (req, res) => migration.roleApprovePost(req, res, db));
+  router.get("/migration/roles/report", ...migrationGate, (req, res) => migration.roleReportFile(req, res, db));
+  router.get("/migration/archive/:archiveId(\\d+)", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) => migration.archivePage(req, res, db));
   router.post("/custom-forms/save", ...formBuilders, express.json({ limit: "1mb" }), (req, res) => customForms.saveSection(req, res, db));
   router.post("/custom-forms/:id(\\d+)/delete", ...formBuilders, (req, res) => customForms.deleteSection(req, res, db));
   router.post("/custom-forms/order", ...formBuilders, express.json(), (req, res) => customForms.order(req, res, db));

@@ -1822,6 +1822,8 @@ const printController = (db) => ({
           choiceResults:   secVis.choiceResults   !== false,
           // Custom editor sections marked "Show on report cards".
           customSections:  secVis.customSections  !== false,
+          // GPA (feature gpa): off until the school turns it on.
+          gpa:             secVis.gpa === true,
         },
       };
 
@@ -1909,6 +1911,16 @@ const printController = (db) => ({
           record.present_days || 0,
         ])
       );
+      // Days present before the school moved to Managira this term (data migration,
+      // student_attendance_totals) count with the days marked here.
+      const importedPresent = await db.query(
+        `SELECT student_id, SUM(days_present) AS days FROM student_attendance_totals
+          WHERE organization_id = $1 AND term_id = $2 GROUP BY student_id`,
+        [organizationId, parsedTermId]
+      ).then((r) => r.rows).catch(() => []);
+      for (const row of importedPresent) {
+        attendanceMap[row.student_id] = Number(attendanceMap[row.student_id] || 0) + Number(row.days || 0);
+      }
 
       await ensureReportPaygiraManualOverridesTable(db);
       const studentIds = students.map((student) => Number(student.student_id)).filter((id) => Number.isFinite(id) && id > 0);
@@ -1975,6 +1987,11 @@ const printController = (db) => ({
           classId: parsedClassId, termId: parsedTermId, studentIds: students.map((student) => Number(student.student_id)),
         }).catch(() => new Map());
 
+      // GPA, where the school shows it: each subject's level (Honors, AP) and what a level adds.
+      const gpaUtil = require("../utils/gpa");
+      const gpaContext = displaySettings.sections.gpa && gpaUtil.featureOn(organizationId)
+        ? { settings: await gpaUtil.settingsFor(db, organizationId), levels: await gpaUtil.levelsFor(db, organizationId, { classId: parsedClassId }) }
+        : null;
       students.forEach((student) => {
         const savedReport = savedReportsMap[student.student_id] || {};
         student.customSections = customSectionsByStudent.get(Number(student.student_id)) || [];
@@ -2145,6 +2162,13 @@ const printController = (db) => ({
           presentDays: attendanceMap[student.student_id] || 0,
           totalDays,
         };
+        // The term's GPA from the subjects' grade letters (utils/gpa.js): unweighted, and weighted
+        // when an Honors or AP subject adds to a pass.
+        if (gpaContext) {
+          const termGpa = gpaUtil.gpaOf(student.subjects.map((sub) => ({ grade: sub.gradeRaw, level: gpaContext.levels.get(Number(sub.subject_id)) || null })), gpaContext.settings);
+          student.gpa = termGpa.unweighted;
+          student.gpaWeighted = termGpa.weighted;
+        }
 
         const promotionMetric = promotionBasis === PROMOTION_BASIS_TOTAL_SCORE
           ? Number(student.totalScoreSum || 0)
@@ -2950,6 +2974,7 @@ const printController = (db) => ({
             promotion:       sec.promotion       !== false,
             choiceResults:   sec.choiceResults   !== false,
             customSections:  sec.customSections  !== false,
+            gpa:             sec.gpa === true,
           },
         };
       });
@@ -3143,6 +3168,7 @@ const printController = (db) => ({
           promotion:       secVis2.promotion       !== false,
           choiceResults:   secVis2.choiceResults   !== false,
           customSections:  secVis2.customSections  !== false,
+          gpa:             secVis2.gpa === true,
         },
       };
 
@@ -3153,7 +3179,19 @@ const printController = (db) => ({
         db.query(`SELECT class_id, document_id FROM report_template_classes WHERE organization_id = $1`, [organizationId]),
       ]);
 
+      // GPA weights (feature gpa): what Honors and AP add, and each subject's level.
+      const gpaUtil = require("../utils/gpa");
+      const gpaWeights = gpaUtil.featureOn(organizationId) && await gpaUtil.weightsReady(db)
+        ? {
+            ...(await gpaUtil.settingsFor(db, organizationId)),
+            levels: Object.fromEntries(await gpaUtil.levelsFor(db, organizationId)),
+            // The bonuses are the school's: its managers and supervisors set them.
+            canSetBonuses: String(req.session.accountType || "").toLowerCase() === "organization" || ["manager", "supervisor"].includes(String(req.session.userRole || req.session.user?.account_type || "").toLowerCase()),
+          }
+        : null;
+
       res.render("print/reportSettings", {
+        gpaWeights,
         title: "Report Settings",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -8909,5 +8947,33 @@ const printController = (db) => ({
   }),
 
 });
+
+// GPA weights from Report Settings › Advanced (utils/gpa.js): JSON { honors, ap, levels }.
+printController.saveGpaSettings = async (req, res) => {
+  try {
+    const organizationId = Number(req.session.organizationId);
+    const gpaUtil = require("../utils/gpa");
+    if (!organizationId || !gpaUtil.featureOn(organizationId)) return res.status(404).json({ success: false, error: "Not found." });
+    const actor = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userEmail || "Someone";
+    const body = { ...(req.body || {}) };
+    // The bonuses are the whole school's: its managers and supervisors set them.
+    const role = String(req.session.userRole || req.session.user?.account_type || "").toLowerCase();
+    if (!(String(req.session.accountType || "").toLowerCase() === "organization" || ["manager", "supervisor"].includes(role))) { delete body.honors; delete body.ap; }
+    // A teacher sets the level of the subjects they work on (the gradebook's own rule).
+    const scope = await require("../utils/classScope").teacherScope(db, req);
+    if (scope && body.levels && typeof body.levels === "object") {
+      const ids = Object.keys(body.levels).map((id) => Number.parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0);
+      const { rows } = ids.length ? await db.query("SELECT subject_id, class_id FROM subjects WHERE organization_id = $1 AND subject_id = ANY($2::int[])", [organizationId, ids]) : { rows: [] };
+      const allowed = new Set(rows.filter((r) => scope.subjects.has(Number(r.subject_id)) || scope.mainClasses.has(Number(r.class_id))).map((r) => String(r.subject_id)));
+      body.levels = Object.fromEntries(Object.entries(body.levels).filter(([id]) => allowed.has(String(Number.parseInt(id, 10)))));
+    }
+    const result = await gpaUtil.saveSettings(db, organizationId, body, actor);
+    if (result.error) return res.status(400).json({ success: false, error: result.error });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[gpa] save:", error.message);
+    return res.status(500).json({ success: false, error: "The GPA weights couldn't be saved. Try again." });
+  }
+};
 
 module.exports = printController;

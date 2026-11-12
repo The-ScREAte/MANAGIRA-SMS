@@ -605,8 +605,11 @@ async function loadHubs() {
 async function organizationsGet(req, res) {
   const isAdmin = req.session.accountType === "Admin";
   try {
-    const [schools, hubs] = await Promise.all([loadSchools(), isAdmin ? loadHubs() : []]);
+    const [schools, hubs, migrations] = await Promise.all([loadSchools(), isAdmin ? loadHubs() : [],
+      db.query("SELECT organization_id, status FROM migration_jobs WHERE status IN ('sandbox', 'review', 'live')").then((r) => r.rows).catch(() => [])]);
     res.render("admin/organizations", {
+      // Each school's data migration sandbox, if one is open.
+      migrationByOrg: Object.fromEntries(migrations.map((row) => [row.organization_id, row.status])),
       title: "Organizations",
       tab: isAdmin && req.query.tab === "hubs" ? "hubs" : "schools",
       isAdmin,

@@ -218,4 +218,40 @@ module.exports = [
     ],
     related: ["sign-in-to-managira", "email-notifications-reference"],
   },
+  {
+    slug: "authenticator-codes",
+    title: "Authenticator codes for sensitive pages",
+    topic: "Account & sign-in",
+    order: 30,
+    summary: "Your data migration and restricted student information ask for a code from an authenticator app. Set it up once, and what to do if you lose your phone.",
+    tags: ["authenticator", "authenticator app", "2fa", "two-factor", "mfa", "verification code", "6-digit code", "recovery codes", "lost phone", "google authenticator", "microsoft authenticator"],
+    who: "School managers who open a data migration or restricted information from an old system.",
+    intro: "Some pages hold especially sensitive information, such as your school's data migration and restricted details brought from an old system. To open them, Managira asks for your password and a 6-digit code from an authenticator app on your phone.",
+    sections: [
+      {
+        title: "Set it up (once)",
+        steps: [
+          "Install an authenticator app on your phone: Google Authenticator, Microsoft Authenticator, 1Password or Authy.",
+          "Open the page. Managira shows a QR code: scan it with the app (or type the key under it).",
+          "Type your password and the 6-digit code the app shows, then select <strong>Turn it on</strong>.",
+          "Save your 10 <strong>recovery codes</strong> somewhere safe. They're shown once.",
+        ],
+      },
+      {
+        title: "Each time",
+        list: [
+          "Type your password and the newest code from the app.",
+          "The app shows a new code every 30 seconds. Each code works once.",
+          "Once you're in, you aren't asked again for 30 minutes.",
+          "After 5 wrong codes, wait 10 minutes before trying again.",
+        ],
+        tip: "If a right code is refused, check your phone's time is set automatically.",
+      },
+      {
+        title: "Lost your phone?",
+        text: "Type one of your recovery codes in place of the 6-digit code. Each works once. If you have none left, contact Managira support: <a href=\"mailto:support@managira.com\">support@managira.com</a>. Once we've checked it's you, we reset your authenticator and you set it up again.",
+      },
+    ],
+    related: ["work-through-your-data-migration", "moving-to-managira"],
+  },
 ];

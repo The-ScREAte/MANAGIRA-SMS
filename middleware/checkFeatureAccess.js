@@ -354,14 +354,18 @@ const checkFeatureAccess = async (req, res, next) => {
           `SELECT user_id FROM user_classes WHERE class_id = $1 AND main = TRUE`,
           [classId]
         );
+        // An assistant teacher of the class marks it too (utils/mainTeacher.js).
+        const assistants = await require('../utils/mainTeacher').assistantReady(db)
+          ? (await db.query(`SELECT user_id FROM user_classes WHERE class_id = $1 AND assistant = TRUE AND user_id = $2`, [classId, userId])).rows
+          : [];
 
-        if (mainTeacherCheck.length === 0) {
+        if (mainTeacherCheck.length === 0 && !assistants.length) {
           req.flash('error', 'This class has no main teacher yet. A manager can put someone in charge of it.');
           return res.redirect('/common/orgDashboard');
         }
 
-        if (!mainTeacherCheck.some((row) => Number(row.user_id) === Number(userId))) {
-          req.flash('error', "Attendance is marked by the class's main teacher.");
+        if (!assistants.length && !mainTeacherCheck.some((row) => Number(row.user_id) === Number(userId))) {
+          req.flash('error', "Attendance is marked by the class's main teacher or an assistant teacher.");
           return res.redirect('/common/orgDashboard');
         }
       }

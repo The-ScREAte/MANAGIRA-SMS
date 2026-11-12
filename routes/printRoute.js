@@ -32,6 +32,7 @@ module.exports = (db) => {
     router.get('/reportSettings', checkFeatureAccess, isAuthenticated, canManageReports, printController.reportSettingsPage); // Render report settings page
     router.post('/savePromotionSettings', isAuthenticated, canManageReports, printController.savePromotionSettings); // Save promotion settings
     router.post('/saveReportTemplates', isAuthenticated, canManageReports, express.json(), printController.saveReportTemplates); // Which report card layout each class uses
+    router.post('/gpaSettings', isAuthenticated, canManageReports, express.json(), require('../controllers/printController').saveGpaSettings); // GPA weights: Honors, AP and each subject's level
     router.post('/saveScoreRemarks', isAuthenticated, canManageReports, printController.saveScoreRemarks); // Save score remarks
     router.post('/saveScoreRemarksAjax', isAuthenticated, canManageReports, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
 // Lock/unlock a specific score remark rule range for selected classes

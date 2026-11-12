@@ -2062,8 +2062,10 @@ function extractGuardians(body) {
 
 // Ensure this function is defined to fetch class names
 async function getClassEmployeesWithMain(db, classId) {
+  // With each person's class role: main teacher, assistant teacher (utils/mainTeacher.js), or teacher.
+  const assistant = await require("../utils/mainTeacher").assistantReady(db);
   const employeesQuery = `
-        SELECT u.user_id, u.first_name || ' ' || u.last_name as name, uc.main
+        SELECT u.user_id, u.first_name || ' ' || u.last_name as name, uc.main${assistant ? ", COALESCE(uc.assistant, FALSE) AS assistant" : ""}
         FROM users u
         JOIN user_classes uc ON u.user_id = uc.user_id
         WHERE uc.class_id = $1;
@@ -8174,6 +8176,10 @@ const commonController = {
             ? mainTeacherCheck.rows[0].user_id
             : null;
         isMainTeacher = userId === mainTeacherId;
+        // An assistant teacher of the class sees every subject too.
+        if (!isMainTeacher && await require("../utils/mainTeacher").assistantReady(db)) {
+          isMainTeacher = (await db.query(`SELECT 1 FROM user_classes WHERE class_id = $1 AND user_id = $2 AND assistant = TRUE`, [classId, userId])).rowCount > 0;
+        }
       }
 
       // **Fetch subjects for the student's class**
@@ -8423,6 +8429,8 @@ const commonController = {
 
       res.render("common/studentDetails", {
         isEmbedded,
+        // From a data migration: alerts (custody), extra fields and read-only archives.
+        oldSystem: await require("./dataMigrationController").studentOldSystem(db, req, student.student_id).catch(() => null),
         archiveStatus: await getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
         // The school's own fields that have an answer for this student.
         customAnswers: (await studentFormFields.answersFor(db, req.session.organizationId, { studentId: student.student_id }, "student").catch(() => []))
@@ -9650,8 +9658,13 @@ const commonController = {
 
       // Who is in charge of each class today, so the form can show it and say which have nobody.
       const classMainTeachers = Object.fromEntries(await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map()));
+      // Each class's assistant teachers, where the school can choose them (null: no Assistant choice).
+      const classAssistants = await require("../utils/mainTeacher").assistantsOn(db, req.session.organizationId)
+        ? Object.fromEntries(await require("../utils/mainTeacher").assistantsByClass(db, req.session.organizationId).catch(() => new Map()))
+        : null;
 
       res.render("common/createEmployee", {
+        classAssistants,
         classMainTeachers,
         // How the new person signs in: asked only while the school's single sign-on is on.
         ssoSignIn: await require("../utils/sso/connections").providerForStaff(db, req.session.organizationId).catch(() => null),
@@ -9850,6 +9863,8 @@ const commonController = {
         mainClassIds: req.body.mainClasses,
         shown: true,
         canLead: account_type !== "Driver",
+        assistantClassIds: req.body.assistantClasses,
+        assistantShown: req.body.assistantClassesShown === "1" && await require("../utils/mainTeacher").assistantsOn(db, organizationId),
       });
 
       if (safeSubjectIds.length > 0) {
@@ -9902,6 +9917,11 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+      {
+        const staffRoles = require("../utils/staffRoles");
+        const roleAfter = await staffRoles.snapshot(db, organizationId, userId).catch(() => null);
+        await staffRoles.logChanges(db, { organizationId, userId, before: null, after: roleAfter, by: [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userEmail, byId: req.session.userId || null }).catch(() => {});
+      }
       await require("../utils/employeeAcknowledgement").record(req, {
         organizationId, employeeUserId: userId, action: "create", accountType: account_type,
         permissions: effectivePermissions, employeeName: `${firstName} ${lastName}`.trim(),
@@ -10739,12 +10759,16 @@ const commonController = {
       const hiddenHeldPermissions = rawSelectedPermissions.filter((permissionKey) => !availablePermissionKeys.has(permissionKey));
 
       const mainTeachers = await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map());
+      const classAssistants = await require("../utils/mainTeacher").assistantsOn(db, req.session.organizationId)
+        ? Object.fromEntries(await require("../utils/mainTeacher").assistantsByClass(db, req.session.organizationId).catch(() => new Map()))
+        : null;
 
       const ssoConnections = require("../utils/sso/connections");
       const ssoSignIn = await ssoConnections.providerForStaff(db, req.session.organizationId).catch(() => null);
       const signInIsMain = ssoSignIn ? await ssoConnections.isMainManager(db, req.session.organizationId, user).catch(() => false) : false;
       res.render("common/modifyEmployee", {
         classMainTeachers: Object.fromEntries(mainTeachers),
+        classAssistants,
         ssoSignIn,
         signInMethod: user.sign_in_method === "sso" ? "sso" : "password",
         signInIsMain,
@@ -10900,6 +10924,8 @@ const commonController = {
          WHERE user_id = $1 AND organization_id = $2`,
         [userId, organizationId]
       );
+      // Their role, permissions and class roles as they were, for the change log (utils/staffRoles.js).
+      const roleBefore = await require("../utils/staffRoles").snapshot(client, organizationId, userId).catch(() => null);
       if (currentUserResult.rows.length === 0) {
         await client.query("ROLLBACK");
         return respondModifyEmployeeError(404, "Employee not found.", "/common/manageEmployees");
@@ -10959,6 +10985,8 @@ const commonController = {
         mainClassIds: req.body.mainClasses,
         shown: req.body.mainClassesShown === "1",
         canLead: accountType !== "Driver",
+        assistantClassIds: req.body.assistantClasses,
+        assistantShown: req.body.assistantClassesShown === "1" && await require("../utils/mainTeacher").assistantsOn(db, req.session.organizationId),
       });
 
       await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
@@ -11018,6 +11046,11 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+      {
+        const staffRoles = require("../utils/staffRoles");
+        const roleAfter = await staffRoles.snapshot(db, organizationId, userId).catch(() => null);
+        await staffRoles.logChanges(db, { organizationId, userId, before: roleBefore, after: roleAfter, by: [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userEmail, byId: req.session.userId || null }).catch(() => {});
+      }
       // Moved to a Managira password they don't have yet: email them the link to set one.
       if (signInChange === "password" && !currentUserResult.rows[0].has_password) {
         const token = crypto.randomBytes(32).toString("hex");
@@ -17207,6 +17240,9 @@ NUMBERING:
           ? mainTeacherResult.rows[0].user_id
           : null;
       const isMainTeacher = currentUserId === mainTeacherId;
+      // An assistant teacher takes attendance with the main teacher; the schedule stays the main teacher's.
+      const isAssistantTeacher = !isMainTeacher && Boolean(currentUserId) && await require("../utils/mainTeacher").assistantReady(db)
+        && (await db.query("SELECT 1 FROM user_classes WHERE class_id = $1 AND user_id = $2 AND assistant = TRUE", [classId, currentUserId])).rowCount > 0;
       const canEditClassSchedule = buildClassSchedulePermissions(req, isMainTeacher);
       const scheduleSubjects = await getClassScheduleSubjects(db, {
         organizationId,
@@ -17341,6 +17377,7 @@ NUMBERING:
         messages: req.flash(),
         csrfToken: csrfToken,
         isMainTeacher: isMainTeacher,
+        isAssistantTeacher,
         canEditClassSchedule,
         classScheduleWeekdays: CLASS_SCHEDULE_WEEKDAYS,
         scheduleSubjects,

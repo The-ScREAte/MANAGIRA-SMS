@@ -7,6 +7,7 @@ const { renderArticle, imagesOf } = require("./render");
 
 const TOPICS = [
   { name: "Getting started", icon: "rocket", blurb: "Set up your school and find your way around." },
+  { name: "Moving to Managira", icon: "doc", blurb: "Bring your records from your current system: what to expect and how it works." },
   { name: "Account & sign-in", icon: "key", blurb: "Signing in, passwords, single sign-on and sign-in rules." },
   { name: "School setup", icon: "building", blurb: "School years, terms, classes, subjects and enrollment." },
   { name: "Students & admissions", icon: "graduation", blurb: "Adding students, online admission, transfers and promotion." },
@@ -30,6 +31,7 @@ const TOPICS = [
 
 const ARTICLES = [
   ...require("./articles/gettingStarted"),
+  ...require("./articles/migration"),
   ...require("./articles/account"),
   ...require("./articles/schoolSetup"),
   ...require("./articles/customEditor"),

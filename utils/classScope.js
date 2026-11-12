@@ -2,7 +2,7 @@
 
 // A teacher opens only what the class dashboard offers them: the classes they're assigned to
 // (user_classes) and, in a class, the subjects they teach (user_subjects) — or every subject of
-// a class they are the main teacher of. Managers, supervisors and other staff aren't limited
+// a class they are the main teacher or an assistant teacher of. Managers, supervisors and other staff aren't limited
 // here: their permissions decide. Route middleware for the gradebook and report cards, so a
 // teacher can't read or change another class's scores by typing its number in the address.
 
@@ -21,9 +21,10 @@ async function teacherScope(db, req) {
   const organizationId = Number(req.session.organizationId);
   const scope = { classes: new Set(), mainClasses: new Set(), subjects: new Set() };
   if (!userId || !organizationId) return scope;
+  const whole = await require("./mainTeacher").wholeClassSql(db, "uc");
   const [classes, subjects] = await Promise.all([
     db.query(
-      `SELECT uc.class_id, COALESCE(uc.main, FALSE) AS main
+      `SELECT uc.class_id, ${whole} AS main
          FROM user_classes uc JOIN classes c ON c.class_id = uc.class_id
         WHERE uc.user_id = $1 AND c.organization_id = $2`,
       [userId, organizationId]

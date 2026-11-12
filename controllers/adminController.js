@@ -5657,10 +5657,17 @@ adminController.hubOrganizationsGet = async (req, res) => {
     );
 
     const { hub_password, reset_password_token, ...hub } = hubResult.rows[0];
+    // Each school's data migration sandbox (Super Admin only).
+    const isSuperAdmin = req.session.accountType === "Admin";
+    const migrationByOrg = isSuperAdmin
+      ? await require("../utils/dataMigration").statusesFor(db, orgsResult.rows.map((o) => o.organization_id)).catch(() => ({}))
+      : {};
     res.render('admin/hubOrganizations', {
       title: 'Hub Organizations',
       hub,
       organizations: orgsResult.rows,
+      isSuperAdmin,
+      migrationByOrg,
       messages: req.flash(),
       showFooterTopSection: false
     });

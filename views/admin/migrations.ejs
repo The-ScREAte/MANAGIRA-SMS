@@ -1,0 +1,129 @@
+<%# Super Admin › Migration queue (controllers/dataMigrationController.js). %>
+<%
+  const _when = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _actionWords = { map: 'Mapped', extra: 'Extra field', archive: 'Archived', exclude: 'Exclude', alert: 'Alert on the student' };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
+<div class="mg">
+  <%- include('../partials/flash') %>
+  <% if (!job) { %>
+    <header class="mg-head"><h1>Migration queue</h1><p>Schools moving their data in. Turn a school's sandbox on from Organizations (its ⋯ menu).</p></header>
+    <section class="mg-card" style="margin-top:16px">
+      <% if (!queue.length) { %><p class="mg-empty">No school is migrating right now.</p><% } else { %>
+      <table class="mg-table"><thead><tr><th>School</th><th>Stage</th><th class="num">Need an action</th><th class="num">Roles waiting</th><th class="num">With notes</th><th class="num">Sensitive</th><th></th></tr></thead><tbody>
+        <% queue.forEach((q) => { %><tr><td><strong><%= q.organization_name %></strong><% if (q.hub_name) { %><span class="mg-samples" style="display:block">in <%= q.hub_name %></span><% } %></td><td><span class="mg-pill mg-pill--<%= q.status %>"><%= q.status %></span></td><td class="num"><%= q.need_action %></td><td class="num"><%= q.roles_waiting || 0 %></td><td class="num"><%= q.with_notes %></td><td class="num"><%= q.sensitive %></td><td class="num"><a class="mg-btn mg-btn--sm" href="/admin/migrations/<%= q.organization_id %>">Open</a></td></tr><% }) %>
+      </tbody></table>
+      <% } %>
+    </section>
+    <section class="mg-card" style="margin-top:16px">
+      <h2>What schools need</h2>
+      <p class="mg-hint">Custom fields, extra fields and archives made across schools: the most asked for first.</p>
+      <% if (!needs.length) { %><p class="mg-empty">Nothing yet.</p><% } else { %>
+      <table class="mg-table"><thead><tr><th>Made as</th><th>Name</th><th class="num">Schools</th></tr></thead><tbody>
+        <% needs.forEach((n) => { %><tr><td><%= n.kind %></td><td><%= n.name %></td><td class="num"><%= n.schools %></td></tr><% }) %>
+      </tbody></table>
+      <% } %>
+    </section>
+  <% } else { const waiting = columns.filter((c) => !c.action && (c.confidence === 'none' || (c.confirmed && !c.target))); %>
+    <p><a href="/admin/migrations">← Migration queue</a></p>
+    <header class="mg-head"><h1><%= org.organization_name %> <span class="mg-pill mg-pill--<%= job.status %>"><%= job.status %></span></h1>
+      <p><%= waiting.length %> <%= waiting.length === 1 ? 'column needs' : 'columns need' %> an action. Once each has one, run the import again so the new fields are filled in.</p></header>
+    <div class="mg-actions" style="margin:14px 0">
+      <% if (['sandbox', 'review'].includes(job.status)) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/import"><button class="mg-btn mg-btn--primary" type="submit">Run the import again</button></form>
+      <form method="POST" action="/admin/migrations/<%= job.organization_id %>/cancel" onsubmit="return confirm('Cancel this migration? Its sandbox and files are deleted.')"><button class="mg-btn" type="submit">Cancel migration</button></form><% } %>
+      <% if (job.status === 'live') { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/stop"><button class="mg-btn" type="submit">Turn the sandbox off</button></form><% } %>
+    </div>
+    <% if (job.rolled_back_at && job.status === 'sandbox') { %><p class="mg-notice">Go-live rolled back on <%= _when(job.rolled_back_at) %> by <%= job.rolled_back_by %>. The sandbox is open again and locked.</p><% } %>
+    <% if (locals.preview) { const _s = preview.since;
+         const _tables = { students: 'Students', guardian_profiles: 'Parents', guardian_students: 'Parent links', guardians: 'Parent rows (older pages)', users: 'Staff accounts', user_classes: "Teachers' classes", user_subjects: "Teachers' subjects",
+           classes: 'Classes', subjects: 'Subjects', enrollments: 'Term enrollment', enrolled_classes: 'Classes in the term', enrolled_students: 'Students in the term', student_field_values: 'Custom field values' };
+         const _since = [['attendance marks', _s.attendance], ['scores', _s.scores], ['bills', _s.bills], ['form answers', _s.forms], ['student logins', _s.studentLogins], ['parent logins', _s.parentLogins], ['staff who set a password', _s.staffSignedUp]].filter(([, n]) => n); %>
+      <section class="mg-card mg-danger" id="rollback" style="margin-bottom:16px">
+        <h2>Roll back go-live</h2>
+        <p class="mg-hint">Removes everything this migration loaded into the school's live account (and its catch-up), puts back anything it changed, and opens the sandbox again, locked, with its records as they were. Possible until <%= job.purge_after ? new Date(job.purge_after).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the clean-up' %>, when the 30-day clean-up runs.</p>
+        <table class="mg-table"><thead><tr><th>What it loaded</th><th class="num">Made</th><th class="num">Changed</th></tr></thead><tbody>
+          <% preview.tables.forEach((t) => { %><tr><td><%= _tables[t.table_name] || t.table_name %></td><td class="num"><%= t.made %></td><td class="num"><%= t.changed %></td></tr><% }) %>
+          <tr><td>Final grades, attendance totals, extra fields, alerts and archives</td><td class="num" colspan="2">all of this migration's</td></tr>
+        </tbody></table>
+        <% if (_since.length) { %><p class="mg-notice">Since go-live the school has added, on imported records: <%= _since.map(([words, n]) => n + ' ' + words).join(', ') %>. These go too.</p><% } %>
+        <% if (preview.blocked) { %><p class="mg-notice"><%= preview.blocked %></p><% } else { %>
+          <form method="POST" action="/admin/migrations/<%= job.organization_id %>/rollback" onsubmit="return confirm('Roll back this go-live? What it loaded is removed from the school\'s live account.')">
+            <div class="mg-actions" style="align-items:flex-end">
+              <label class="mg-field">Type the school's name to confirm<input name="confirm" required autocomplete="off" placeholder="<%= org.organization_name %>" /></label>
+              <button class="mg-btn mg-btn--danger" type="submit">Roll back go-live</button>
+            </div>
+          </form>
+        <% } %>
+      </section>
+    <% } %>
+    <% if (locals.roleReport && roleReport.roles.length) { const _rw = roleReport.roles.filter((r) => r.state === 'waiting'); %>
+      <section class="mg-card" id="roles" style="margin-bottom:16px">
+        <h2>Staff roles</h2>
+        <p class="mg-hint">Each old role and its Managira role. A role nobody could match needs one: what it gave in the old system, then a Managira role with no more access than that, or a custom role with only the permissions it needs. The school approves anyone whose access still goes up.</p>
+        <table class="mg-table"><thead><tr><th>Old role</th><th class="num">Staff</th><th>Gave</th><th>Managira role</th><th>Access</th></tr></thead><tbody>
+          <% roleReport.roles.forEach((r) => { %><tr class="<%= r.state === 'waiting' ? 'mg-row--bad' : r.state === 'unsure' ? 'mg-row--unsure' : '' %>"><td><strong><%= r.old_role %></strong></td><td class="num"><%= r.staff_count %></td><td><%= r.level ? roleLevels[r.level].label : '—' %></td>
+            <td><%= r.choice ? r.choice.label + (r.choice.custom ? ' (custom: ' + r.choice.accountType + ')' : '') : 'Waiting' %><%= r.state === 'unsure' ? ' (the school confirms)' : '' %></td>
+            <td><%= r.state === 'waiting' ? '—' : r.up.length ? 'More than before: ' + r.up.join(', ') : 'Not more than before' %><%= r.adminLevel ? ' · admin-level' : '' %></td></tr><% }) %>
+        </tbody></table>
+        <% _rw.forEach((r) => { const n = r.notes || {}; %>
+          <article class="mg-col" id="role-<%= r.role_id %>">
+            <header><strong><%= r.old_role %></strong> <small><%= r.staff_count %> <%= r.staff_count === 1 ? 'person' : 'people' %></small><span class="mg-pill"><%= r.notes ? 'Notes in' : 'No notes yet' %></span></header>
+            <% if (r.notes) { %><dl class="mg-hint" style="display:grid;grid-template-columns:140px 1fr;gap:2px 10px;margin:6px 0"><dt>What it does</dt><dd><%= n.what %></dd><dt>Who has it</dt><dd><%= n.who || '—' %></dd></dl><% } %>
+            <form class="mg-notes" method="POST" action="/admin/migrations/<%= job.organization_id %>/roles/<%= r.role_id %>/resolve">
+              <label>What it gave<select name="level" required><option value="">Choose…</option><% Object.entries(roleLevels).forEach(([key, l]) => { %><option value="<%= key %>"><%= l.label %></option><% }) %></select></label>
+              <label>Managira role<select name="target" required><% Object.entries(roleChoices).forEach(([key, c]) => { %><option value="<%= key %>"><%= c.label %></option><% }) %><option value="custom">A custom role (below)</option></select></label>
+              <fieldset class="mg-wide mg-custom"><legend>Custom role (only when chosen above)</legend>
+                <div class="mg-custom__row">
+                  <label>Name<input name="label" maxlength="60" placeholder="e.g. Attendance clerk" /></label>
+                  <label>Account type<select name="accountType"><% accountTypes.forEach((t) => { %><option value="<%= t %>"><%= t === 'Supervisor' ? 'Supervisor: every class' : t === 'Teacher' ? 'Teacher: their own classes' : 'Driver: their routes' %></option><% }) %></select></label>
+                </div>
+                <div class="mg-perms"><% pickable.forEach((o) => { %><label><input type="checkbox" name="permissions" value="<%= o.key %>" /> <%= o.label %><% if (o.highRisk) { %> <small class="mg-bad">admin-level</small><% } %></label><% }) %></div>
+              </fieldset>
+              <button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Save</button>
+            </form>
+          </article>
+        <% }) %>
+      </section>
+    <% } %>
+    <section class="mg-card">
+      <h2>Columns that need an action</h2>
+      <p class="mg-hint">In this order: a custom field, an extra field (label and value on the record), an archive (read-only) for a module Managira doesn't run yet, or exclude (only with the school's approval). Custody and pickup restrictions always become an alert.</p>
+      <% if (!waiting.length) { %><p class="mg-good">Every column has an action.</p><% } %>
+      <% waiting.forEach((c) => { const n = c.notes || {}; %>
+        <article class="mg-col" id="col-<%= c.column_id %>">
+          <header><strong><%= c.source_column %></strong> <small><%= entities[c.entity].label %></small><% if (c.sensitive) { %><span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] %></span><% } %><span class="mg-pill"><%= c.notes ? 'Notes in' : 'No notes yet' %></span></header>
+          <p class="mg-samples">Samples: <%= (c.samples || []).map((v) => c.sensitive === 'ssn' ? '•••-••-' + String(v).slice(-4) : v).join(' · ') || '(empty)' %></p>
+          <% if (c.notes) { %><dl class="mg-hint" style="display:grid;grid-template-columns:140px 1fr;gap:2px 10px;margin:6px 0"><dt>What it is</dt><dd><%= n.what %></dd><dt>Who uses it</dt><dd><%= n.who || '—' %></dd><dt>How often</dt><dd><%= n.often || '—' %></dd><dt>Required</dt><dd><%= n.required || '—' %></dd><dt>Rules</dt><dd><%= n.rules || '—' %></dd></dl><% } %>
+          <form class="mg-notes" method="POST" action="/admin/migrations/<%= job.organization_id %>/columns/<%= c.column_id %>/resolve">
+            <label>Action<select name="action">
+              <% if (c.sensitive === 'custody') { %><option value="alert">Alert on the student</option><% } else { %>
+              <% if (c.entity === 'students') { %><option value="custom">Custom field</option><% } %><option value="extra">Extra field</option><option value="archive">Archive</option><option value="exclude">Exclude (the school approves)</option><% } %>
+            </select></label>
+            <label>Name<input name="label" maxlength="80" value="<%= c.source_column.replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^./, (x) => x.toUpperCase()) %>" /></label>
+            <label>Custom field type<select name="fieldType"><option value="text">Short text</option><option value="long_text">Paragraph</option><option value="number">Number</option><option value="date">Date</option><option value="yes_no">Yes / No</option></select></label>
+            <label>Archive module<select name="module"><% archiveModules.forEach((mod) => { %><option><%= mod %></option><% }) %></select></label>
+            <button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Save</button>
+          </form>
+        </article>
+      <% }) %>
+    </section>
+    <section class="mg-card" style="margin-top:16px">
+      <h2>Every column</h2>
+      <table class="mg-table"><thead><tr><th>File</th><th>Column</th><th>Match</th><th>Action</th><th>Decided by</th></tr></thead><tbody>
+        <% columns.forEach((c) => { %><tr><td><%= entities[c.entity].label %></td><td><%= c.source_column %><% if (c.sensitive) { %> <span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] %></span><% } %></td><td><%= c.confidence %><%= c.confirmed ? ', confirmed' : '' %></td>
+          <td><%= c.action === 'map' ? targetLabel(c.entity, c.target, custom) : (_actionWords[c.action] || '—') + (c.label && c.action !== 'map' ? ': ' + c.label : '') %><%= c.action === 'exclude' ? (c.exclude_approved_at ? ' (approved)' : ' (waiting for the school)') : '' %></td><td><%= c.resolved_by || '' %></td></tr><% }) %>
+      </tbody></table>
+    </section>
+    <section class="mg-card" id="codes" style="margin-top:16px">
+      <h2>Authenticator codes</h2>
+      <p class="mg-hint">The school's admins who have set one up. Reset one only once you're sure who is asking (a lost phone): they set it up again the next time they open the migration.</p>
+      <% if (!(locals.codes || []).length) { %><p class="mg-empty">Nobody yet.</p><% } else { %>
+      <table class="mg-table"><thead><tr><th>Who</th><th>Set up</th><th class="num">Recovery codes left</th><th></th></tr></thead><tbody>
+        <% codes.forEach((c) => { %><tr><td><%= c.name %></td><td><%= _when(c.confirmed_at) %></td><td class="num"><%= c.recovery_left %></td>
+          <td class="num"><form method="POST" action="/admin/migrations/<%= job.organization_id %>/codes/<%= c.account_kind %>/<%= c.account_id %>/reset" onsubmit="return confirm('Reset this authenticator?')"><button class="mg-btn mg-btn--sm" type="submit">Reset</button></form></td></tr><% }) %>
+      </tbody></table>
+      <% } %>
+    </section>
+    <details class="mg-more mg-log"><summary>Activity</summary><ul><% events.forEach((e) => { %><li><span><%= _when(e.at) %></span> <%= e.actor %> (<%= e.actor_kind %>): <%= e.action.replace(/_/g, ' ') %></li><% }) %></ul></details>
+  <% } %>
+</div>
