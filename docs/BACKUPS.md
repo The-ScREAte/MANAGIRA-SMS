@@ -1,7 +1,10 @@
 # Database backups
 
-Every night at 3:20 (server time) the `database-backup` job (`utils/backups.js`) backs up the
-whole database. Super Admin › Backups shows each run and has **Back up now**.
+**Off for now.** Backups do nothing until `BACKUPS_ENABLED=true` is set on the server: no job
+runs, nothing is stored, nothing is logged. Turn them on once the private bucket below is ready.
+
+Once on, every night at 3:20 (server time) the `database-backup` job (`utils/backups.js`) backs up
+the whole database. Super Admin › Backups shows each run and has **Back up now**.
 
 ## What a backup is
 
@@ -25,7 +28,8 @@ whole database. Super Admin › Backups shows each run and has **Back up now**.
 4. Set on the server: `BACKUP_ENCRYPTION_KEY`, `BACKUP_S3_BUCKET`, and, if they differ from the
    app's, `BACKUP_AWS_ACCESS_KEY_ID`, `BACKUP_AWS_SECRET_ACCESS_KEY`, `BACKUP_AWS_REGION`.
    Optional: `BACKUP_S3_PREFIX` (default `database/`), `BACKUP_KEEP_DAYS` (default 30).
-5. Super Admin › Backups › **Back up now**, and check it says Ready and lists the backup.
+5. Set `BACKUPS_ENABLED=true`.
+6. Super Admin › Backups › **Back up now**, and check it says Ready and lists the backup.
 
 Without the key no backup can be read: losing it loses every backup.
 

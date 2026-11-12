@@ -144,8 +144,9 @@ if (shouldRunNotifications) {
   });
 
   // Nightly: the whole database, encrypted, to Managira's own private storage, kept 30 days
-  // (utils/backups.js; Super Admin › Backups). Without its key or bucket it logs why and stops.
+  // (utils/backups.js; Super Admin › Backups). Off until BACKUPS_ENABLED=true is set.
   cron.schedule('20 3 * * *', 'database-backup', async () => {
+    if (!require('../utils/backups').enabled()) return; // off until BACKUPS_ENABLED=true
     try {
       const result = await require('../utils/backups').runBackup(require('../config/db'), { triggeredBy: 'schedule' });
       if (result.ok) console.log(`[Backup] ${result.tables} tables, ${result.rows} rows, ${(result.bytes / 1048576).toFixed(1)} MB`);

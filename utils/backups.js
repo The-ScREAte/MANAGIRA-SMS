@@ -8,6 +8,7 @@
 //  - kept in Managira's own private S3 bucket (BACKUP_S3_BUCKET; never the uploads bucket, whose
 //    files are public), for 30 days (BACKUP_KEEP_DAYS), the newest always kept;
 //  - each run logged in backup_runs.
+// Off until BACKUPS_ENABLED=true is set on the server: then nothing runs, is stored or logged.
 // Restored with scripts/restoreBackup.js into an empty database (docs/BACKUPS.md). Anything the
 // format can't carry (another schema, row security, a domain...) stops the backup with an error
 // rather than being left out.
@@ -22,6 +23,9 @@ const { pipeline } = require("stream/promises");
 const { to: copyTo, from: copyFrom } = require("pg-copy-streams");
 
 const MAGIC = Buffer.from("MGBK1\n");
+// Off unless the server says otherwise (BACKUPS_ENABLED=true): while off, nothing runs, nothing is
+// stored and nothing is logged.
+const enabled = () => String(process.env.BACKUPS_ENABLED || "").trim().toLowerCase() === "true";
 const KEEP_DAYS = () => Math.max(1, Number(process.env.BACKUP_KEEP_DAYS || 30));
 // Rows that aren't worth keeping (and shouldn't be): sign-in sessions. Their tables are kept.
 const NO_DATA = new Set(["user_sessions", "hub_sessions"]);
@@ -275,6 +279,7 @@ async function writeDump(client, out) {
 
 // ── A night's backup ────────────────────────────────────────────────────────────────────
 async function runBackup(db, { triggeredBy = "schedule" } = {}) {
+  if (!enabled()) return { ok: false, off: true, error: "Backups are turned off (BACKUPS_ENABLED isn't true)." };
   const key = keyFrom();
   const store = storage();
   const { rows: [run] } = await db.query("INSERT INTO backup_runs (status, triggered_by) VALUES ('running', $1) RETURNING run_id, started_at", [triggeredBy]);
@@ -401,10 +406,12 @@ async function restoreFile(client, file) {
 // The last runs, and the backups in storage (Super Admin › Backups).
 async function overview(db) {
   const { rows: runs } = await db.query("SELECT * FROM backup_runs ORDER BY started_at DESC LIMIT 40").catch(() => ({ rows: [] }));
-  const store = storage();
+  const on = enabled();
+  const store = on ? storage() : { error: null };
   let stored = [];
   let storeError = store.error || null;
-  if (!storeError) stored = await store.list().catch((error) => { storeError = error.message; return []; });
+  // While off, storage isn't even asked.
+  if (on && !storeError) stored = await store.list().catch((error) => { storeError = error.message; return []; });
   return {
     runs,
     stored: stored.sort((a, b) => new Date(b.at) - new Date(a.at)),
@@ -413,9 +420,10 @@ async function overview(db) {
     keySet: Boolean(keyFrom()),
     keyId: keyFrom() ? keyIdOf(keyFrom()) : null,
     keepDays: KEEP_DAYS(),
+    enabled: on,
   };
 }
 
 const tempFile = (name) => path.join(os.tmpdir(), `managira-${process.pid}-${Date.now()}-${name}`);
 
-module.exports = { keyFrom, keyIdOf, encryptStream, decryptFile, storage, expired, writeDump, runBackup, restoreFile, overview, lines, tempFile, NO_DATA, MAGIC };
+module.exports = { enabled, keyFrom, keyIdOf, encryptStream, decryptFile, storage, expired, writeDump, runBackup, restoreFile, overview, lines, tempFile, NO_DATA, MAGIC };

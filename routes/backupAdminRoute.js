@@ -17,6 +17,7 @@ router.get("/", async (req, res) => {
   }
 });
 router.post("/run", async (req, res) => {
+  if (!backups.enabled()) { req.flash("error", "Backups are turned off. Set BACKUPS_ENABLED=true on the server to turn them on."); return res.redirect("/admin/backups"); }
   const result = await backups.runBackup(db, { triggeredBy: req.shardActor || "Super Admin" }).catch((error) => ({ ok: false, error: error.message }));
   require("../utils/shards/registry").audit(req, "backup_run", result.name || null, { ok: result.ok, bytes: result.bytes || null });
   if (result.ok) req.flash("success", `Backed up: ${result.tables} tables, ${result.rows.toLocaleString("en-US")} rows, ${(result.bytes / 1048576).toFixed(1)} MB encrypted${result.removed ? `; ${result.removed} older than the days kept removed` : ""}.`);

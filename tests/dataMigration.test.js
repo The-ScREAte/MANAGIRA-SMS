@@ -157,3 +157,18 @@ test("weighted GPA: an Honors or AP subject adds its bonus to a pass, never to a
   assert.deepEqual(gpa.gpaOf([{ grade: "A" }, { grade: "B" }]), { unweighted: 3.5, weighted: null }, "no weighted GPA without a weighted subject");
   assert.deepEqual(gpa.gpaOf([{ grade: "Excellent", level: "ap" }]), { unweighted: null, weighted: null });
 });
+
+test("backups are off unless the server turns them on: nothing runs, nothing is logged", async () => {
+  const backups = require("../utils/backups");
+  const saved = process.env.BACKUPS_ENABLED;
+  delete process.env.BACKUPS_ENABLED;
+  let touched = false;
+  const db = { query: async () => { touched = true; return { rows: [{}] }; }, connect: async () => { touched = true; } };
+  const result = await backups.runBackup(db);
+  assert.equal(backups.enabled(), false);
+  assert.equal(result.off, true);
+  assert.equal(touched, false, "the database isn't even asked");
+  process.env.BACKUPS_ENABLED = "TRUE ";
+  assert.equal(backups.enabled(), true, "only an explicit true turns them on");
+  if (saved === undefined) delete process.env.BACKUPS_ENABLED; else process.env.BACKUPS_ENABLED = saved;
+});
