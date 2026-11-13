@@ -5417,15 +5417,11 @@ const accountController = {
 
       // ✅ Step 1: Check if it's an Admin or Mini Admin
       // ...removed log for clean background operation...
-      const adminResult = await db.query(
-        `SELECT * FROM users WHERE LOWER(email) = LOWER($1) 
-
-         AND (account_type = 'Admin' OR account_type = 'Mini Admin' OR account_type = 'Internal Worker') 
-
-         AND organization_id IS NULL`,
-
-        [email]
-      );
+      // One read for both kinds of account with this email (a Managira admin, or a school's
+      // staff): each step below takes its own from it, as its own query used to.
+      const ADMIN_TYPES = ["Admin", "Mini Admin", "Internal Worker"];
+      const { rows: everyAccount } = await db.query("SELECT * FROM users WHERE LOWER(email) = LOWER($1)", [email]);
+      const adminResult = { rows: everyAccount.filter((u) => ADMIN_TYPES.includes(u.account_type) && u.organization_id === null) };
       // ...removed log for clean background operation...
 
       if (adminResult.rows.length > 0) {
@@ -5483,15 +5479,7 @@ const accountController = {
 
       // ✅ Step 2: Check if it's a Regular User login (Teachers, Supervisors, etc.)
 
-      const userResult = await db.query(
-        `SELECT * FROM users WHERE LOWER(email) = LOWER($1) 
-
-           AND account_type NOT IN ('Admin', 'Mini Admin', 'Internal Worker') 
-
-           AND (organization_id IS NOT NULL OR removed_from_organization_id IS NOT NULL)`,
-
-        [email]
-      );
+      const userResult = { rows: everyAccount.filter((u) => u.account_type != null && !ADMIN_TYPES.includes(u.account_type) && (u.organization_id !== null || u.removed_from_organization_id !== null)) };
 
             if (userResult.rows.length > 0) {
         const user = userResult.rows[0];

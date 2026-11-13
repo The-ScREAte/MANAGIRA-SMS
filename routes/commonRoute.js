@@ -817,8 +817,10 @@ module.exports = (db) => {
            SELECT s.student_id, TRIM(CONCAT_WS(' ', s.first_name, s.last_name)) AS student_name,
                   COALESCE(NULLIF(TRIM(s.custom_student_id), ''), s.student_id::text) AS display_id,
                   c.class_name, s.class_id,
-                  CASE WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id) THEN 'Left'
-                       WHEN COALESCE(s.graduated, FALSE) THEN 'Graduated' ELSE 'Current' END AS status
+                  CASE WHEN COALESCE(s.graduated, FALSE) THEN 'Graduated'
+                       WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id AND a.archive_kind = 'left') THEN 'Left'
+                       WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id) THEN 'Graduated'
+                       ELSE 'Current' END AS status
              FROM students s
              LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
             WHERE s.organization_id = $1

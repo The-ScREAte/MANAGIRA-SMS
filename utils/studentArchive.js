@@ -229,7 +229,7 @@ async function getStudentArchiveStatus(db, organizationId, studentId) {
       const row = rows[0];
       return {
         kind: row.kind,
-        label: row.kind === "left" ? "Left school" : "Graduated",
+        label: row.kind === "left" ? "Transferred or withdrawn" : "Graduated",
         reason: row.reason || null,
         note: row.reason_note || null,
         archivedAt: row.archived_at,

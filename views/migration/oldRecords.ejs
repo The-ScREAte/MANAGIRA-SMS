@@ -25,9 +25,8 @@
   <section class="mg-card" style="margin-top:16px">
     <h2>Lists your staff keep using</h2>
     <p class="mg-hint">Forms in the Custom editor, under "From your old system": every old row is on its student, and your staff add new ones on the student's page and in the classroom.</p>
-    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Students</th><th class="num">Entries</th><th></th></tr></thead><tbody>
-      <% forms.forEach((f) => { %><tr><td><strong><%= f.name %></strong><% if (f.protected) { %> <span class="mg-pill mg-pill--sensitive">Protected</span><% } %></td><td class="num"><%= Number(f.students).toLocaleString('en-US') %></td><td class="num"><%= Number(f.entries).toLocaleString('en-US') %></td>
-        <td class="num"><a class="mg-btn mg-btn--sm" href="/common/custom-forms/go?section=<%= f.section_id %>" data-no-spa>Open</a></td></tr><% }) %>
+    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Students</th><th class="num">Entries</th></tr></thead><tbody>
+      <% forms.forEach((f) => { %><tr><td><a class="mg-link" href="/common/custom-forms/go?section=<%= f.section_id %>" data-no-spa><%= f.name %></a><% if (f.protected) { %> <span class="mg-pill mg-pill--sensitive">Protected</span><% } %></td><td class="num"><%= Number(f.students).toLocaleString('en-US') %></td><td class="num"><%= Number(f.entries).toLocaleString('en-US') %></td></tr><% }) %>
     </tbody></table></div>
   </section>
   <% } %>
@@ -35,10 +34,10 @@
   <section class="mg-card" style="margin-top:16px">
     <h2>Kept for the school</h2>
     <% if (!schoolLists.length) { %><p class="mg-empty">Nothing yet: lists appear here once your migration goes live.</p><% } else { %>
-    <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th></th></tr></thead><tbody>
+    <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th class="num">Copy</th></tr></thead><tbody>
       <% _byTopic(schoolLists).forEach(([topic, group]) => { %><tr class="mg-group"><th colspan="3"><%= topic %></th></tr>
-      <% group.forEach((a) => { %><tr><td><strong><%= a.module %></strong><% if (a.sensitive) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td><td class="num"><%= Number(a.n).toLocaleString('en-US') %></td>
-        <td class="num"><a class="mg-btn mg-btn--sm" href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa>Open</a> <a class="mg-btn mg-btn--sm" href="/common/migration/archive/<%= a.archive_id %>?format=csv" data-no-spa>CSV</a></td></tr><% }) %><% }) %>
+      <% group.forEach((a) => { %><tr><td><a class="mg-link" href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa><%= a.module %></a><% if (a.sensitive) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td><td class="num"><%= Number(a.n).toLocaleString('en-US') %></td>
+        <td class="num"><a class="mg-link" href="/common/migration/archive/<%= a.archive_id %>?format=csv" data-no-spa>CSV</a></td></tr><% }) %><% }) %>
     </tbody></table></div>
     <% } %>
   </section>
@@ -47,9 +46,9 @@
   <section class="mg-card" style="margin-top:16px">
     <h2>Documents not on a current student</h2>
     <p class="mg-hint">Graduates' and former students' documents, and files that weren't about one student.</p>
-    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Student number</th><th>Document</th><th>File</th><th></th></tr></thead><tbody>
-      <% looseDocs.forEach((d) => { %><tr><td><%= d.student_source_id || '—' %></td><td><strong><%= d.kind || d.file_name %></strong><% if (d.restricted) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td>
-        <td class="mg-samples"><%= d.file_name %> · <%= _kb(d.size_bytes) %></td><td class="num"><a class="mg-btn mg-btn--sm" href="/common/migration/documents/<%= d.document_id %>" target="_blank" rel="noopener" data-no-spa>Open</a></td></tr><% }) %>
+    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Document</th><th>Student number</th><th>File</th></tr></thead><tbody>
+      <% looseDocs.forEach((d) => { %><tr><td><a class="mg-link" href="/common/migration/documents/<%= d.document_id %>" target="_blank" rel="noopener" data-no-spa><%= d.kind || d.file_name %></a><% if (d.restricted) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td>
+        <td><%= d.student_source_id || '—' %></td><td class="mg-samples"><%= d.file_name %> · <%= _kb(d.size_bytes) %></td></tr><% }) %>
     </tbody></table></div>
   </section>
   <% } %>

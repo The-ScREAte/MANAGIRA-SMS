@@ -34,10 +34,10 @@
   #asRoot .as-tab.is-on { color: var(--as-primary); border-bottom-color: var(--as-primary); }
   #asRoot .as-tab:focus { outline: none; }
   .as-tab svg { width: 16px; height: 16px; }
+  /* On a phone the tabs share the width, icon above label: every tab in sight, none hidden off the edge. */
   @media (max-width: 560px) {
-    #asRoot .as-tabs { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
-    #asRoot .as-tabs::-webkit-scrollbar { display: none; }
-    #asRoot .as-tab { flex: none; white-space: nowrap; padding: 0 10px; }
+    #asRoot .as-tabs { gap: 0; }
+    #asRoot .as-tab { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 4px; height: auto; min-height: 56px; padding: 8px 4px; font-size: 12.5px; line-height: 1.2; text-align: center; white-space: normal; }
   }
   /* Calm and simple: "Always asked" opens on demand; empty parts are one slim line. */
   #asRoot .as-always { margin: 0 0 14px; border: 1px solid var(--as-line); border-radius: 14px; background: #fff; }

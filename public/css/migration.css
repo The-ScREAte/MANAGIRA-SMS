@@ -288,3 +288,7 @@
 /* A district's export: the school ticks its own schools. */
 .mg-schools { margin-top: 14px; }
 .mg-schools label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; }
+
+/* A list's name opens it: no separate button, nothing cut off on a phone. */
+.mg-link { color: var(--mg-accent); font-weight: 600; text-decoration: none; }
+.mg-link:hover, .mg-link:focus-visible { text-decoration: underline; }

@@ -15,7 +15,7 @@
   <header class="gp-head">
     <div>
       <h1 class="gp-title">Graduates &amp; Alumni</h1>
-      <p class="gp-sub">Students who graduated or left the school. Their full records are kept.</p>
+      <p class="gp-sub">Students who graduated, transferred or withdrew. Their full records are kept.</p>
     </div>
   </header>
 
@@ -26,7 +26,7 @@
     <div class="gp-empty">
       <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
       <h2>No graduates or alumni yet</h2>
-      <p>When you graduate students or record that they left (Admissions → Graduate &amp; Former Students → Graduate &amp; Withdraw), they appear here.</p>
+      <p>When you graduate students or record that they transferred or withdrew (Admissions → Former Students → Graduate &amp; Withdraw), they appear here.</p>
     </div>
   <% } else { %>
     <div class="ar-tabs" role="tablist" aria-label="Graduates and former students">
@@ -143,6 +143,11 @@
   .ar-tabs .ar-tab { flex: 0 0 auto; width: auto; min-width: 0; box-shadow: none !important; background: none !important; border: 0 !important; border-bottom: 2px solid transparent !important; border-radius: 0 !important; color: inherit !important; outline: none; }
   .ar-tabs .ar-tab.is-active { border-bottom-color: var(--org-primary-color, #01535b) !important; color: var(--org-primary-color, #01535b) !important; }
   .ar-tabs .ar-tab:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
+  /* On a phone the two tabs share the width: each label wraps, nothing runs off the edge. */
+  @media (max-width: 520px) {
+    .ar-tabs { gap: 0; }
+    .ar-tabs .ar-tab { flex: 1 1 0; justify-content: center; padding: 10px 6px; text-align: center; white-space: normal; line-height: 1.25; }
+  }
   .ar-section[hidden] { display: none; }
   .ar-reason strong, .ar-reason span { display: block; }
   .ar-reason span, .ar-by { font-size: .82rem; opacity: .7; }

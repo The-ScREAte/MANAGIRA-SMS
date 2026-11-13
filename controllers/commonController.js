@@ -8477,7 +8477,7 @@ const commonController = {
       // Archived students (graduated or left) are kept as they were.
       const archiveStatus = await getStudentArchiveStatus(db, organizationId, Number.parseInt(studentId, 10));
       if (archiveStatus) {
-        req.flash("error", `This student has ${archiveStatus.kind === "left" ? "left the school" : "graduated"} and can't be edited.${archiveStatus.permanent ? "" : " To change their details, restore them from Graduates & Alumni first."}`);
+        req.flash("error", `This student has ${archiveStatus.kind === "left" ? "transferred or withdrawn" : "graduated"} and can't be edited.${archiveStatus.permanent ? "" : " To change their details, restore them from Graduates & Alumni first."}`);
         return res.redirect(`/common/studentDetails?studentId=${encodeURIComponent(studentId)}&termId=${encodeURIComponent(queryTermId || req.session.currentTermId || "")}`);
       }
 
@@ -8614,7 +8614,7 @@ const commonController = {
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
       if (await getStudentArchiveStatus(db, sessionOrganizationId, Number.parseInt(studentId, 10))) {
-        req.flash("error", "This student has graduated or left the school and can't be edited. Restore them from Graduates & Alumni first.");
+        req.flash("error", "This student has graduated, transferred or withdrawn and can't be edited. Restore them from Graduates & Alumni first.");
         return res.redirect("/common/archivedStudents");
       }
       const {
@@ -21137,7 +21137,7 @@ NUMBERING:
       return res.redirect(redirectTo);
     }
     if (!kind) {
-      req.flash("error", "Choose whether the students graduated or left the school.");
+      req.flash("error", "Choose whether the students graduated, or transferred or withdrew.");
       return res.redirect(redirectTo);
     }
     if (kind === "left" && !reason) {
@@ -21187,7 +21187,7 @@ NUMBERING:
       }
       await client.query("COMMIT");
       const count = archivedIds.length;
-      const what = kind === "graduated" ? "graduated" : "recorded as having left the school";
+      const what = kind === "graduated" ? "graduated" : "recorded as transferred or withdrawn";
       req.flash(
         "success",
         count
@@ -21243,7 +21243,7 @@ NUMBERING:
       });
       const sections = [
         { key: "graduated", title: "Graduates", empty: "No graduates yet.", groupBy: (s) => s.group_name },
-        { key: "left", title: "Left school", empty: "No one has been recorded as leaving.", groupBy: (s) => s.reason || "Reason not given" },
+        { key: "left", title: "Transferred & withdrawn", empty: "No one has transferred or withdrawn.", groupBy: (s) => s.reason || "Reason not given" },
       ].map((section) => {
         const groups = new Map();
         students.filter((s) => s.archive_kind === section.key).forEach((student) => {

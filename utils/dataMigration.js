@@ -2419,7 +2419,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         ledger.made("students", { student_id: id });
         mine = true;
         loaded = written(incoming);
-        // One who left: a former student (Graduates & Alumni, or Left school, with the reason),
+        // One who left: a former student (Graduates & Alumni: Graduates, or Transferred & withdrawn with the reason),
         // archived on the day they left, so no billing hold and nothing to undo.
         if (gone) {
           const on = gone.on || new Date().toISOString().slice(0, 10);
