@@ -931,7 +931,18 @@ async function documentsOf(db, job, { limit = 300 } = {}) {
 }
 
 // What the sandbox holds, for the screen: counts, totals, a few rows of each kind.
+// What's in the sandbox (counts, credits, a few rows of each kind): it changes only with an
+// import, so each import's summary is kept for ten minutes rather than counted on every view.
+const summaries = new BoundedMap(200);
 async function sandboxSummary(db, job) {
+  const key = `${job.job_id}|${(job.totals && job.totals.importedAt) || ""}`;
+  const hit = summaries.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.value;
+  const value = await countSandbox(db, job);
+  summaries.set(key, { at: Date.now(), value });
+  return value;
+}
+async function countSandbox(db, job) {
   const NUM = "'^-?[0-9]+(\\.[0-9]+)?$'";
   const { rows } = await db.query(
     `SELECT entity, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE jsonb_array_length(issues) > 0)::int AS with_issues
@@ -951,9 +962,11 @@ async function sandboxSummary(db, job) {
     out.grades.credits = round(list.reduce((sum, r) => sum + (r.earned || 0), 0));
     out.grades.gpa = gpaOf(list);
   }
+  // The first five of each kind, read from the index (never the whole sandbox sorted).
   const { rows: sample } = await db.query(
-    `SELECT entity, source_id, data FROM (SELECT entity, source_id, data, ROW_NUMBER() OVER (PARTITION BY entity ORDER BY record_id) AS n FROM migration_records WHERE job_id = $1) x WHERE n <= 5`,
-    [job.job_id]
+    `SELECT e.entity, r.source_id, r.data FROM unnest($2::text[]) AS e(entity)
+       CROSS JOIN LATERAL (SELECT source_id, data FROM migration_records WHERE job_id = $1 AND entity = e.entity ORDER BY source_id LIMIT 5) r`, // in the index's order: no sort
+    [job.job_id, Object.keys(out)]
   );
   return { counts: out, sample };
 }
@@ -1184,13 +1197,14 @@ async function blockers(db, job) {
   const columns = await columnsOf(db, job);
   const open = openItems(columns);
   const out = [];
-  if (!(await currentFiles(db, job)).length) out.push("Upload the export files.");
+  // Which kinds of list are uploaded: one small read, not every list twice.
+  const present = new Set((await db.query("SELECT DISTINCT entity FROM migration_files WHERE job_id = $1 AND replaced_at IS NULL AND content IS NOT NULL", [job.job_id])).rows.map((r) => r.entity));
+  if (!present.size) out.push("Upload the export files.");
   if (open.unsure.length) out.push(`Confirm ${open.unsure.length} unsure ${open.unsure.length === 1 ? "match" : "matches"}.`);
   if (open.needAction.length) out.push(`${open.needAction.length} ${open.needAction.length === 1 ? "column needs" : "columns need"} an action from the Managira team.`);
   if (open.needApproval.length) out.push(`Approve leaving out ${open.needApproval.length} ${open.needApproval.length === 1 ? "column" : "columns"}.`);
   const blocking = ((job.totals && job.totals.report && job.totals.report.examples) || []).filter((e) => e.blocking).length;
   if (blocking) out.push("Fix the errors in the check report (red) in the export, upload it again and import.");
-  const present = new Set((await currentFiles(db, job)).map((f) => f.entity));
   const needed = SECTIONS.filter((s) => (ps.ENTITIES[s] ? present.has(s) : s === "roles" ? present.has("staff") : s === "custom_fields" ? columns.some((c) => c.target && c.target.startsWith("custom:") || c.action === "extra") : columns.some((c) => c.action === "archive") || present.has("attendance") || present.has("other")));
   if (present.has("staff")) {
     const { open: roleOpen } = await roleReport(db, job);

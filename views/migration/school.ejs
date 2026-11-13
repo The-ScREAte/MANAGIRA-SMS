@@ -12,7 +12,7 @@
   const _g = (v) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(2));
   const _actionWords = { map: 'Mapped', custom: 'Custom field', extra: 'Extra field', archive: 'Archived', exclude: 'Left out', alert: 'Alert on the student' };
   // Nothing uploaded yet: every step after Upload says so, and nothing looks done.
-  const _blank = !files.length && job.status === 'sandbox';
+  const _blank = !locals.anyFiles && job.status === 'sandbox';
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
 <div class="mg">

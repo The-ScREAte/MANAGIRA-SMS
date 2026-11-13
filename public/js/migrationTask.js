@@ -146,10 +146,11 @@
   }
 
   // ── Moving between steps without reloading the page ──
-  // Each step is loaded once in the background (one at a time) and kept: opening a step shows it
-  // at once, then a fresh copy is fetched quietly and swapped in only if something changed and
-  // nobody is typing. Anything saved (a form, an upload, a finished task) drops the kept copies.
-  // Links outside the migration open as usual; the back button still works.
+  // A step is fetched once, when it's opened or pointed at, and kept: opening it again shows it at
+  // once (refreshed quietly when older than two minutes, swapped in only if something changed and
+  // nobody is typing). Nothing is fetched ahead on its own. Anything saved (a form, an upload, a
+  // finished task) drops the kept copies. Links outside the migration open as usual; the back
+  // button still works.
   var cache = {};
   var inflight = {};
   var shown = null; // the step on screen, as it came from the server (before anything ran on it)
@@ -227,29 +228,14 @@
     var hit = cache[url];
     if (hit) {
       show(hit.html, url, push, true);
-      if (Date.now() - hit.at > 30000) refresh(url); // saving anything already drops the kept copies
-      warm();
+      if (Date.now() - hit.at > 120000) refresh(url); // saving anything already drops the kept copies
       return;
     }
     var current = document.querySelector(".mg");
     if (current) current.classList.add("is-loading");
     load(url)
-      .then(function (html) { if (!show(html, url, push)) window.location.href = url; warm(); })
+      .then(function (html) { if (!show(html, url, push)) window.location.href = url; })
       .catch(function (where) { window.location.href = typeof where === "string" && where ? where : url; });
-  }
-  // Every step loaded ahead, one after another, while nothing else is going on.
-  var warming = null;
-  function warm() {
-    clearTimeout(warming);
-    warming = setTimeout(function next() {
-      if (document.hidden) return;
-      var card = document.querySelector(".mg [data-task][data-open='true']");
-      if (card) return; // a task is changing things: wait for it
-      var urls = Array.prototype.map.call(document.querySelectorAll(".mg a.mg-step[href]"), function (a) { return migrationUrl(a.getAttribute("href")); })
-        .filter(function (u) { return u && u !== here() && !cache[u] && !inflight[u]; });
-      if (!urls.length) return;
-      load(urls[0]).then(function () { warming = setTimeout(next, 150); }, function () {});
-    }, 600);
   }
   document.addEventListener("click", function (e) {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -261,12 +247,15 @@
     if (url === here()) { refresh(url); return; }
     go(url, true);
   }, true); // before the app's own link handling, so its loading bar never starts for a step
-  // A step tab pointed at, not loaded yet, is fetched at once.
+  // A step tab the pointer rests on (not just passes over) is fetched, so it opens at once.
+  var resting = null;
   document.addEventListener("mouseover", function (e) {
     var a = e.target.closest && e.target.closest("a.mg-step[href]");
+    clearTimeout(resting);
     if (!a) return;
     var url = migrationUrl(a.getAttribute("href"));
-    if (url && url !== here() && !cache[url]) load(url).catch(function () {});
+    if (!url || url === here() || cache[url] || inflight[url]) return;
+    resting = setTimeout(function () { load(url).catch(function () {}); }, 150);
   });
   document.addEventListener("submit", function (e) {
     var form = e.target;
@@ -283,7 +272,7 @@
       .then(function (r) {
         var url = migrationUrl(r.url);
         if (!r.ok || !url) { window.location.href = r.url || action; return; }
-        return r.text().then(function (html) { if (!show(html, url, true)) window.location.href = url; else warm(); });
+        return r.text().then(function (html) { if (!show(html, url, true)) window.location.href = url; });
       })
       .catch(function () { form.submit(); });
   });
@@ -301,6 +290,4 @@
   var first = document.querySelector(".mg");
   if (first && migrationUrl(window.location.href)) cache[here()] = { html: first.outerHTML, at: Date.now() };
   init(first);
-  warm();
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) warm(); });
 })();

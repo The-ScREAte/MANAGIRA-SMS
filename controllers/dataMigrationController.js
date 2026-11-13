@@ -173,14 +173,25 @@ async function page(req, res, db) {
   if (!job) return requestPage(req, res, db);
   // Once Managira has opened it, every visit needs an authenticator code from the last 30 minutes.
   if (!mfa.passed(req)) return res.redirect(verifyUrl(req.originalUrl));
-  // Each step works out only what it shows: a large school's sandbox is tens of thousands of rows.
-  const [files, columns, custom, events, task] = await Promise.all([
-    m.currentFiles(db, job), m.columnsOf(db, job), m.customFieldsOf(db, job.organization_id),
-    db.query("SELECT actor, action, detail, at FROM migration_events WHERE job_id = $1 ORDER BY at DESC LIMIT 25", [job.job_id]).then((r) => r.rows),
+  // Each step reads only what it shows (a large school's sandbox is tens of thousands of rows):
+  // the lists on Upload, Check and Review; the column matches on Match columns, Columns to explain
+  // and Review; the activity on Review and Go live. Elsewhere a yes/no says whether anything is uploaded.
+  const asked = STEPS.includes(req.query.step) ? req.query.step : null;
+  const wants = (...steps) => !asked || steps.includes(asked);
+  const skip = (value) => Promise.resolve(value);
+  const [listed, anyUploaded, columns, custom, events, task] = await Promise.all([
+    wants("upload", "check", "review") ? m.currentFiles(db, job) : skip(null),
+    wants("upload", "check", "review") ? skip(null)
+      : db.query("SELECT EXISTS (SELECT 1 FROM migration_files WHERE job_id = $1 AND replaced_at IS NULL AND content IS NOT NULL) AS any", [job.job_id]).then((r) => r.rows[0].any),
+    wants("map", "notes", "review") ? m.columnsOf(db, job) : skip([]),
+    asked === "map" ? m.customFieldsOf(db, job.organization_id) : skip([]),
+    asked && ["review", "live"].includes(asked) ? db.query("SELECT actor, action, detail, at FROM migration_events WHERE organization_id = $2 AND job_id = $1 ORDER BY at DESC LIMIT 25", [job.job_id, job.organization_id]).then((r) => r.rows) : skip([]),
     m.taskStatus(db, job),
   ]);
+  const files = listed || [];
+  const anyFiles = listed ? listed.length > 0 : Boolean(anyUploaded);
   const open = m.openItems(columns);
-  const step = STEPS.includes(req.query.step) ? req.query.step : job.status === "live" ? "live" : !files.length ? "upload" : open.unsure.length ? "map" : "check";
+  const step = asked || (job.status === "live" ? "live" : !anyFiles ? "upload" : open.unsure.length ? "map" : "check");
   const on = (...steps) => steps.includes(step);
   // A finished go-live or catch-up is news only while the school is live (not after a rollback).
   // A task that finished well shows only on its own step (reading on Upload, the import on Check,
@@ -207,7 +218,7 @@ async function page(req, res, db) {
   ]);
   res.render("migration/school", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
-    job, step, steps: STEPS, files, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
+    job, step, steps: STEPS, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
     // The other apps the school ran (library, food service, health office…), from its lists' names.
     apps: on("check", "live") ? require("../utils/migration/apps").appsFrom(((job.totals && job.totals.report) || {}).lists, { areaLabels: Object.fromEntries(require("../utils/apiAccess").API_AREAS.map((a) => [a.key, a.label])) }) : [], matches, task: shownTask, docs, uploads, nextStep: NEXT_STEP, fieldChoices: m.fieldChoices(columns), fieldTypeOf: m.fieldTypeOf, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
