@@ -20,7 +20,7 @@
   <ol class="mg-path" aria-label="How a move works">
     <li class="<%= _open ? 'is-done' : 'is-on' %>"><span>1</span><div><strong>Send a request</strong><small>Tell us what you use now and when you'd like to move.</small></div></li>
     <li class="<%= _open && _open.status === 'contacted' ? 'is-done' : _open ? 'is-on' : '' %>"><span>2</span><div><strong>We plan it with you</strong><small>Our team gets in touch within two business days.</small></div></li>
-    <li class="<%= _open && _open.status === 'contacted' ? 'is-on' : '' %>"><span>3</span><div><strong>Your migration opens</strong><small>You confirm it's you with an authenticator app, then upload and check your data.</small></div></li>
+    <li class="<%= _open && _open.status === 'contacted' ? 'is-on' : '' %>"><span>3</span><div><strong>Your migration opens</strong><small><%= locals.codes ? "You confirm it's you with an authenticator app, then upload and check your data." : "You upload your exports and check everything in a private copy of your school." %></small></div></li>
     <li><span>4</span><div><strong>You go live</strong><small>Nothing reaches your live account until you sign off.</small></div></li>
   </ol>
 

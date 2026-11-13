@@ -152,6 +152,17 @@ async function verify(db, account, code) {
 }
 
 // The code holds for 30 minutes in this session, for this account only.
+// Whether the authenticator step is asked at all: the "migration_codes" feature (off until it's
+// released), or MIGRATION_CODES=on / off on the server. Off, the gates let managers straight through.
+function neededFor(organizationId = null) {
+  if (process.env.MIGRATION_CODES === "on") return true;
+  if (process.env.MIGRATION_CODES === "off") return false;
+  return require("./shards/features").isOn("migration_codes", { organizationId: Number(organizationId) || null });
+}
+const needed = (req) => neededFor(req && req.session ? req.session.organizationId : null);
+// Through the gate: no code is asked, or one was given in the last 30 minutes.
+const passed = (req) => !needed(req) || fresh(req);
+
 function fresh(req) {
   const account = accountOf(req);
   const mark = req && req.session && req.session.mfa;
@@ -182,4 +193,4 @@ async function reset(db, account) {
   return rowCount > 0;
 }
 
-module.exports = { accountOf, keyOf, labelOf, isSetUp, startSetup, confirmSetup, verify, fresh, markFresh, forSchool, reset, matchStep, codeAt, stepAt, base32, FRESH_MS, STEP_SECONDS };
+module.exports = { needed, neededFor, passed, accountOf, keyOf, labelOf, isSetUp, startSetup, confirmSetup, verify, fresh, markFresh, forSchool, reset, matchStep, codeAt, stepAt, base32, FRESH_MS, STEP_SECONDS };

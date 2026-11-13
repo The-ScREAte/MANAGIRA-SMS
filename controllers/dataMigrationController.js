@@ -26,7 +26,7 @@ const safeNext = (value) => (/^\/common\/(migration|studentDetails|management)(\
 const verifyUrl = (next) => `/common/migration/verify?embed=workspace&next=${encodeURIComponent(next)}`;
 // Every migration page and action needs a code from the last 30 minutes.
 function codeGate(req, res, next) {
-  if (mfa.fresh(req)) return next();
+  if (mfa.passed(req)) return next();
   if (req.method === "GET") return res.redirect(verifyUrl(req.originalUrl));
   req.flash("error", "Confirm it's you with your authenticator code first.");
   return res.redirect(verifyUrl("/common/migration?embed=workspace"));
@@ -39,6 +39,7 @@ const allowedHere = async (req, db) => orgOf(req) && isOrgAdmin(req.session) && 
 
 async function verifyPage(req, res, db) {
   if (!(await allowedHere(req, db))) return res.redirect("/");
+  if (!mfa.needed(req)) return res.redirect(safeNext(req.query.next)); // codes are switched off
   const account = mfa.accountOf(req);
   if (!account) return res.redirect("/");
   const next = safeNext(req.query.next);
@@ -124,7 +125,7 @@ async function requestPage(req, res, db) {
   };
   res.render("migration/request", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
-    request, form, schoolName: org.organization_name || "", systems: m.SYSTEMS, timings: m.TIMINGS, bring: m.BRING, guideUrl: "/legal/user-documentation/moving-to-managira",
+    request, form, schoolName: org.organization_name || "", codes: mfa.neededFor(organizationId), systems: m.SYSTEMS, timings: m.TIMINGS, bring: m.BRING, guideUrl: "/legal/user-documentation/moving-to-managira",
   });
 }
 async function requestPost(req, res, db) {
@@ -160,7 +161,7 @@ async function page(req, res, db) {
   const job = await m.openJob(db, orgOf(req));
   if (!job) return requestPage(req, res, db);
   // Once Managira has opened it, every visit needs an authenticator code from the last 30 minutes.
-  if (!mfa.fresh(req)) return res.redirect(verifyUrl(req.originalUrl));
+  if (!mfa.passed(req)) return res.redirect(verifyUrl(req.originalUrl));
   const [files, columns, custom, sandbox, check, events, staff, roleReport] = await Promise.all([
     m.currentFiles(db, job), m.columnsOf(db, job), m.customFieldsOf(db, job.organization_id), m.sandboxSummary(db, job), m.blockers(db, job),
     db.query("SELECT actor, action, detail, at FROM migration_events WHERE job_id = $1 ORDER BY at DESC LIMIT 25", [job.job_id]).then((r) => r.rows),
@@ -175,9 +176,12 @@ async function page(req, res, db) {
   const matches = step === "review" && files.some((f) => f.entity === "students") ? await m.liveMatches(db, job) : null;
   const task = await m.taskStatus(db, job);
   const docs = ["upload", "check"].includes(step) ? await m.documentsOf(db, job) : null;
+  const uploads = step === "upload" || step === "live"
+    ? (await db.query("SELECT upload_id, file_name, size_bytes, status, error, result, uploaded_by, created_at, read_at FROM migration_uploads WHERE job_id = $1 ORDER BY upload_id DESC LIMIT 20", [job.job_id])).rows
+    : [];
   res.render("migration/school", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
-    job, step, steps: STEPS, files, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, gpaCheck, matches, task, docs, nextStep: NEXT_STEP, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
+    job, step, steps: STEPS, files, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, gpaCheck, matches, task, docs, uploads, nextStep: NEXT_STEP, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
     summary: m.summary(columns, custom), targetLabel: m.targetLabel,
   });
@@ -345,7 +349,7 @@ async function studentOldSystem(db, req, studentId) {
   if (!(await m.ready(db))) return null;
   const organizationId = orgOf(req);
   const admin = isOrgAdmin(req.session);
-  const unlocked = admin && mfa.fresh(req);
+  const unlocked = admin && mfa.passed(req);
   const [extras, alerts, archives, history, attendance, docs] = await Promise.all([
     db.query("SELECT label, value, sensitive FROM record_extra_fields WHERE organization_id = $1 AND entity = 'student' AND record_id = $2 ORDER BY label", [organizationId, studentId]),
     db.query("SELECT label, text FROM student_alerts WHERE organization_id = $1 AND student_id = $2 ORDER BY alert_id", [organizationId, studentId]),
@@ -380,7 +384,7 @@ async function archivePage(req, res, db) {
   const { rows: [archive] } = await db.query("SELECT * FROM migration_archives WHERE organization_id = $1 AND archive_id = $2", [organizationId, toId(req.params.archiveId)]);
   // The school's own lists, and anything restricted, are for its admins, after their code.
   if (!archive || ((archive.sensitive || !archive.student_id) && !isOrgAdmin(req.session))) return res.status(404).send("Not found.");
-  if (archive.sensitive && !mfa.fresh(req)) return res.redirect(verifyUrl(req.originalUrl).replace("embed=workspace&", ""));
+  if (archive.sensitive && !mfa.passed(req)) return res.redirect(verifyUrl(req.originalUrl).replace("embed=workspace&", ""));
   const rows = Array.isArray(archive.content) ? archive.content : [];
   const columns = [...new Set(rows.flatMap((row) => Object.keys(row || {})))];
   if (req.query.format === "csv") {
@@ -403,7 +407,7 @@ async function documentFile(req, res, db) {
   const organizationId = orgOf(req);
   const { rows: [doc] } = await db.query("SELECT * FROM migration_documents WHERE organization_id = $1 AND document_id = $2", [organizationId, toId(req.params.documentId)]);
   if (!doc || ((doc.restricted || !doc.student_id) && !isOrgAdmin(req.session))) return res.status(404).send("Not found.");
-  if ((doc.restricted || !doc.student_id) && !mfa.fresh(req)) return res.redirect(verifyUrl(req.originalUrl).replace("embed=workspace&", ""));
+  if ((doc.restricted || !doc.student_id) && !mfa.passed(req)) return res.redirect(verifyUrl(req.originalUrl).replace("embed=workspace&", ""));
   const content = await require("../utils/migration/documents").read(doc);
   const inline = require("../utils/migration/documents").INLINE.has(doc.content_type) && req.query.download !== "1";
   res.setHeader("Content-Type", inline ? doc.content_type : "application/octet-stream");
@@ -420,7 +424,7 @@ const adminActor = (req) => req.shardActor || req.session.userEmail || "Managira
 const adminSafeNext = (value) => (/^\/admin\/(migrations|backups)(\/[\w/-]*)?(\?[\w=&%-]*)?$/.test(String(value || "")) ? String(value) : "/admin/migrations");
 // After the fresh password (requireFreshPassword), the authenticator code.
 function adminCodeGate(req, res, next) {
-  if (mfa.fresh(req)) return next();
+  if (mfa.passed(req)) return next();
   return res.redirect(`/admin/migrations/code?next=${encodeURIComponent(req.method === "GET" ? req.originalUrl : "/admin/migrations")}`);
 }
 async function adminCodePage(req, res, db) {

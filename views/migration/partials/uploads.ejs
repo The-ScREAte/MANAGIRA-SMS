@@ -1,0 +1,21 @@
+<%# The school's uploads (newest first): what each file was, where it stands, what it held. %>
+<% if (uploads.length) {
+  const _size = (b) => Number(b) >= 1048576 ? (Number(b) / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(Number(b) / 1024)) + ' KB';
+  const _at = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const _reading = task && task.open && task.kind === 'read_files';
+%>
+<section class="mg-card" style="margin-top:14px">
+  <h2>Your uploads</h2>
+  <div class="mg-scroll"><table class="mg-table"><thead><tr><th>File</th><th class="num">Size</th><th>Uploaded</th><th>Status</th><th>What it held</th></tr></thead><tbody>
+    <% uploads.forEach((u, i) => { const r = u.result || {}; const lists = r.lists || []; const core = lists.filter((l) => l.entity !== 'other').length; const probs = r.problems || []; %>
+    <tr>
+      <td><strong><%= u.file_name %></strong></td>
+      <td class="num"><%= _size(u.size_bytes) %></td>
+      <td class="mg-samples"><%= _at(u.created_at) %><%= u.uploaded_by ? ' · ' + u.uploaded_by : '' %></td>
+      <td><% if (u.status === 'read') { %><span class="mg-pill mg-pill--live">Read</span><% } else if (u.status === 'failed') { %><span class="mg-pill mg-pill--sensitive">Couldn't be read</span><% } else if (_reading) { %><span class="mg-pill mg-pill--sandbox">Reading…</span><% } else { %><span class="mg-pill mg-pill--review">Waiting</span><% } %></td>
+      <td><% if (u.status === 'read') { %><%= core %> into Managira<%= lists.length - core ? ', ' + (lists.length - core) + ' kept read-only' : '' %><%= r.documents ? ', ' + Number(r.documents).toLocaleString('en-US') + ' documents' : '' %><% if (probs.length) { %><small class="mg-warn" style="display:block"><%= probs.length %> <%= probs.length === 1 ? 'file' : 'files' %> not read: <%= probs.slice(0, 3).map((p) => String(p.name).split('›').pop().trim()).join(', ') %><%= probs.length > 3 ? '…' : '' %></small><% } %><% } else if (u.status === 'failed') { %><span class="mg-bad"><%= u.error %></span><% } else { %>—<% } %></td>
+    </tr>
+    <% }) %>
+  </tbody></table></div>
+</section>
+<% } %>

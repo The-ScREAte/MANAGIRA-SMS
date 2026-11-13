@@ -136,7 +136,7 @@ async function startJob(db, organizationId, actor) {
     "UPDATE migration_requests SET status = 'approved', job_id = $2, decided_by = $3, decided_at = NOW(), updated_at = NOW() WHERE organization_id = $1 AND status IN ('new', 'contacted') RETURNING contact_email",
     [organizationId, job.job_id, actor]
   ).catch(() => ({ rows: [] }));
-  tell(db, organizationId, "approved", {}, { alsoEmail: request ? [request.contact_email] : [] });
+  tell(db, organizationId, "approved", { codes: require("./mfa").neededFor(organizationId) }, { alsoEmail: request ? [request.contact_email] : [] });
   return job;
 }
 
@@ -222,8 +222,7 @@ async function readUploads(db, job, task, progress = quiet) {
   for (;;) {
     const { rows: [upload] } = await db.query("SELECT * FROM migration_uploads WHERE job_id = $1 AND status = 'waiting' ORDER BY upload_id LIMIT 1", [job.job_id]);
     if (!upload) break;
-    const { rows: [{ n: left }] } = await db.query("SELECT COUNT(*)::int AS n FROM migration_uploads WHERE job_id = $1 AND status = 'waiting'", [job.job_id]);
-    progress({ phase: 1, phases: 1, step: `Reading ${upload.file_name}`, done: read, total: read + left });
+    progress({ phase: 1, phases: 3, step: `Opening ${upload.file_name}`, done: 0, total: 0 });
     let lists;
     try {
       lists = await readerPool.expand(upload.content, { compressed: true, name: upload.file_name });
@@ -231,29 +230,38 @@ async function readUploads(db, job, task, progress = quiet) {
       lists = [{ name: upload.file_name, error: /^That file/.test(error.message) ? error.message : "It couldn't be read. Export it again and upload it." }];
     }
     const made = [];
-    // Every file that isn't a list is a document, kept as it is.
-    let kept = 0;
-    for (const doc of lists.filter((l) => l.document)) {
-      await documents.put(db, job, { path: doc.path, buffer: doc.content, uploadId: upload.upload_id, actor: upload.uploaded_by });
-      if (doc.note) problems.push({ name: doc.name, error: doc.note, skipped: true });
-      kept += 1;
-      if (kept % 25 === 0) { progress({ step: `Keeping documents from ${upload.file_name}: ${kept}` }); await tick(); }
-    }
-    documentCount += kept;
-    for (const doc of lists) delete doc.content;
+    const docs = lists.filter((l) => l.document);
     // A list longer than Managira reads is refused whole: totals worked out from part of it would be wrong.
     for (const list of lists) if (!list.error && !list.document && list.cut) list.error = `It has more than ${MAX_ROWS.toLocaleString("en-US")} rows. Split it into parts (by date or by grade) and send the parts together in one .zip, or export attendance as totals per term.`;
     const usable = lists.filter((l) => !l.error && !l.document);
+    progress({ phase: 2, phases: 3, step: "Reading the lists", done: 0, total: usable.length });
     for (const list of usable) {
       const file = await addList(db, job, list, { entity: usable.length === 1 ? upload.entity : null, actor: upload.uploaded_by, sourceName: list.name === upload.file_name ? null : upload.file_name, uploadId: upload.upload_id });
       made.push({ name: file.file_name, entity: file.entity, label: (ps.ENTITIES[file.entity] || {}).label || file.entity, rows: file.row_count });
+      progress({ done: made.length });
       await tick();
     }
-    for (const list of lists.filter((l) => l.error && !l.document)) problems.push({ name: list.name, error: list.error, skipped: Boolean(list.skipped) });
+    const listProblems = lists.filter((l) => l.error && !l.document).map((l) => ({ name: l.name, error: l.error, skipped: Boolean(l.skipped) }));
+    problems.push(...listProblems);
+    // Every file that isn't a list is a document, kept as it is: several stored at a time.
+    progress({ phase: 3, phases: 3, step: "Storing documents", done: 0, total: docs.length });
+    let kept = 0;
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(6, docs.length) }, async () => {
+      while (next < docs.length) {
+        const doc = docs[next++];
+        await documents.put(db, job, { path: doc.path, buffer: doc.content, uploadId: upload.upload_id, actor: upload.uploaded_by });
+        doc.content = null;
+        if (doc.note) problems.push({ name: doc.name, error: doc.note, skipped: true });
+        kept += 1;
+        progress({ done: kept });
+      }
+    }));
+    documentCount += kept;
     files.push(...made);
     await db.query(
       "UPDATE migration_uploads SET status = $2, content = NULL, result = $3::jsonb, error = $4, read_at = NOW() WHERE upload_id = $1",
-      [upload.upload_id, made.length || kept ? "read" : "failed", JSON.stringify({ lists: made, documents: kept }), made.length || kept ? null : ((lists.find((l) => l.error) || {}).error || null)]
+      [upload.upload_id, made.length || kept ? "read" : "failed", JSON.stringify({ lists: made, documents: kept, problems: listProblems.slice(0, 50) }), made.length || kept ? null : ((lists.find((l) => l.error) || {}).error || null)]
     );
     read += 1;
   }
@@ -742,7 +750,7 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
     }
   };
   for (const entity of Object.keys(ps.ENTITIES)) {
-    if (HEAVY.has(entity)) continue;
+    if (HEAVY.has(entity) || entity === "other") continue; // streamed below
     // One record per old ID: a repeated ID keeps its first row (the repeat is in the check report).
     const seenIds = new Set();
     const list = (byEntity[entity] || []).filter((r) => r.sourceId && !seenIds.has(r.sourceId) && seenIds.add(r.sourceId));

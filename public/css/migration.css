@@ -48,6 +48,11 @@
 .mg-upload__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .mg-upload__row .mg-field { flex: 1 1 260px; max-width: 360px; }
 .mg-sending { display: grid; gap: 6px; }
+.mg [hidden] { display: none !important; } /* hidden means hidden, whatever display a class sets */
+.mg-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+.mg-tiles > div { padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #f9fafb; }
+.mg-tiles strong { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.mg-tiles span { color: var(--mg-muted); font-size: 12.5px; }
 /* A background task (views/migration/partials/task.ejs). */
 .mg-task { margin: 0 0 14px; padding: 14px 16px; border: 1px solid var(--mg-line); border-radius: 14px; background: #fff; }
 .mg-task--queued, .mg-task--running { border-color: color-mix(in srgb, var(--mg-accent) 35%, #fff); background: var(--mg-soft); }

@@ -37,13 +37,32 @@
     <h2>Upload your export files</h2>
     <p class="mg-hint">Export each list from PowerSchool: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Upload them as they are: CSV, tab-separated text, Excel (.xlsx) or a .zip of them. Each sheet of a workbook and each file in a .zip is read as a list of its own; a list can have up to 200,000 rows, and a longer one (a year of daily attendance, say) can be sent in parts together in one .zip. Uploading a list again replaces it, and the import can always run again.</p>
     <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
-    <% if (files.length) { %>
-    <table class="mg-table"><thead><tr><th>List</th><th>Holds</th><th class="num">Rows</th><th>Uploaded</th></tr></thead><tbody>
-      <% files.forEach((f) => { %><tr><td><strong><%= f.file_name %></strong><% if (f.source_name && f.source_name !== f.file_name) { %><small class="mg-samples" style="display:block">from <%= f.source_name %></small><% } %></td><td><%= f.entity === 'other' ? 'Kept read-only' : entities[f.entity].label %></td><td class="num"><%= Number(f.row_count).toLocaleString('en-US') %></td><td><%= _when(f.uploaded_at) %> · <%= f.uploaded_by %></td></tr><% }) %>
-    </tbody></table>
-    <p class="mg-next"><a class="mg-btn" href="/common/migration?step=map&embed=workspace">Next: match columns</a></p>
-    <% } %>
   </section>
+  <%- include('partials/uploads', { uploads: locals.uploads || [], task: locals.task }) %>
+  <% if (files.length) { const _core = files.filter((f) => f.entity !== 'other'); const _keptFiles = files.filter((f) => f.entity === 'other'); const _short = (n) => String(n).split('›').pop().trim(); %>
+  <section class="mg-card" style="margin-top:14px">
+    <h2>What Managira has from them</h2>
+    <div class="mg-tiles">
+      <div><strong><%= _core.length %></strong><span>lists go into Managira</span></div>
+      <div><strong><%= _keptFiles.length %></strong><span>other lists kept read-only</span></div>
+      <div><strong><%= docs ? Number(docs.total).toLocaleString('en-US') : 0 %></strong><span>documents<%= docs && docs.total ? ' (' + Number(docs.matched).toLocaleString('en-US') + ' matched to a student)' : '' %></span></div>
+    </div>
+    <details class="mg-more" open><summary>Lists that go into Managira (<%= _core.length %>)</summary>
+      <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th>Goes into</th><th class="num">Rows</th><th>Uploaded</th></tr></thead><tbody>
+        <% _core.forEach((f) => { %><tr><td><strong><%= _short(f.file_name) %></strong></td><td><%= entities[f.entity].label %></td><td class="num"><%= Number(f.row_count).toLocaleString('en-US') %></td><td class="mg-samples"><%= _when(f.uploaded_at) %></td></tr><% }) %>
+      </tbody></table></div>
+    </details>
+    <% if (_keptFiles.length) { %>
+    <details class="mg-more"><summary>Other lists, kept read-only (<%= _keptFiles.length %>)</summary>
+      <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th></tr></thead><tbody>
+        <% _keptFiles.forEach((f) => { %><tr><td><%= _short(f.file_name) %></td><td class="num"><%= Number(f.row_count).toLocaleString('en-US') %></td></tr><% }) %>
+      </tbody></table></div>
+      <p class="mg-hint">Import to see where each goes: on each student's record, as details, or for the school. Restricted ones open only for your managers.</p>
+    </details>
+    <% } %>
+    <p class="mg-next"><a class="mg-btn mg-btn--primary" href="/common/migration?step=map&embed=workspace">Next: match columns</a></p>
+  </section>
+  <% } %>
   <% } %>
 
   <% if (step === 'map') { %>
@@ -95,7 +114,7 @@
       </tbody></table>
       <% if ((_report.lists || []).length || (docs && docs.total)) { const _kept = _report.lists || []; %>
       <h3>Your lists and documents</h3>
-      <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira (above). <strong><%= _kept.length %></strong> other <%= _kept.length === 1 ? 'list is' : 'lists are' %> kept read-only, nothing left behind: on each student's record where the list has a student number, or for the school<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> matched to <%= docs.students %> students)<% } %>. Restricted ones open only for your admins, with their code.</p>
+      <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira (above). <strong><%= _kept.length %></strong> other <%= _kept.length === 1 ? 'list is' : 'lists are' %> kept read-only, nothing left behind: on each student's record where the list has a student number, or for the school<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> matched to <%= docs.students %> students)<% } %>. Restricted ones open only for your school's managers.</p>
       <% if (_kept.length) { %>
       <details class="mg-more"><summary>The <%= _kept.length %> lists kept read-only</summary>
         <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th><th>Kept</th><th>Who sees it</th></tr></thead><tbody>

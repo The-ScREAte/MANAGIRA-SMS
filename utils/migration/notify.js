@@ -37,7 +37,7 @@ const STAGES = {
   },
   approved: {
     school: (d) => ({ subject: "Your data migration is ready to start", title: "Your data migration is ready to start", bell: "Your data migration is open",
-      paragraphs: [`Our migration team has opened ${d.school}'s data migration.`, "Your managers now see a Sandbox button at the top of Managira. The first time you open it, you'll set up an authenticator app on your phone for your school's safety.", "While your migration is open, your live account takes no new data, so nothing is entered twice. Everyone can still sign in and look."],
+      paragraphs: [`Our migration team has opened ${d.school}'s data migration.`, d.codes ? "Your managers now see a Sandbox button at the top of Managira. The first time you open it, you'll set up an authenticator app on your phone for your school's safety." : "Your managers now see a Sandbox button at the top of Managira: open it to upload your exports.", "While your migration is open, your live account takes no new data, so nothing is entered twice. Everyone can still sign in and look."],
       link: SCHOOL_LINK, linkText: "Open your data migration" }),
   },
   notes: {

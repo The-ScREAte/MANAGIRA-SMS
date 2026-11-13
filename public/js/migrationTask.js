@@ -45,6 +45,11 @@
   follow();
 
   // ── Uploads ──
+  // Coming back to the page (the browser's back button), nothing is left looking busy.
+  window.addEventListener("pageshow", function () {
+    root.querySelectorAll("[data-sending]").forEach(function (el) { el.hidden = true; });
+    root.querySelectorAll("form[data-upload] button[type=submit]").forEach(function (b) { b.disabled = false; });
+  });
   root.querySelectorAll("form[data-upload]").forEach(function (form) {
     var input = form.querySelector("input[type=file]");
     var drop = form.querySelector("[data-drop]");
@@ -102,8 +107,18 @@
       button.disabled = true;
       showError("");
       var xhr = new XMLHttpRequest();
+      var waiting = null;
+      var reloadSoon = function () { clearTimeout(waiting); window.location.reload(); };
       xhr.open("POST", form.getAttribute("action"));
       xhr.setRequestHeader("Accept", "application/json");
+      xhr.timeout = 180000;
+      // Sent: if the answer is slow, the page itself shows where the upload got to.
+      xhr.upload.onload = function () {
+        bar.style.width = "100%";
+        text.textContent = "Uploaded. Saving…";
+        waiting = setTimeout(reloadSoon, 30000);
+      };
+      xhr.ontimeout = reloadSoon;
       xhr.upload.onprogress = function (ev) {
         var sent = ev.lengthComputable ? ev.loaded : 0;
         var pct = total ? Math.min(100, Math.round((sent / (ev.total || total)) * 100)) : 0;
@@ -111,6 +126,7 @@
         text.textContent = pct >= 100 ? "Uploaded. Saving…" : "Uploading " + pct + "% (" + fmtSize(sent) + " of " + fmtSize(ev.total || total) + ")";
       };
       xhr.onload = function () {
+        clearTimeout(waiting);
         var body = null;
         try { body = JSON.parse(xhr.responseText); } catch (_e) { body = null; }
         if (xhr.status === 200 && body && body.ok) { window.location.href = body.next || window.location.href; return; }
@@ -120,6 +136,7 @@
         showError([body.error].concat(body.refused || []).filter(Boolean).join(" "));
       };
       xhr.onerror = function () {
+        clearTimeout(waiting);
         sending.hidden = true;
         button.disabled = false;
         showError("The upload didn't reach Managira. Check your connection and try again.");
