@@ -45,7 +45,7 @@
   <% if (step === 'upload') { %>
   <section class="mg-card">
     <h2>Upload your export files</h2>
-    <p class="mg-hint">Upload your school's export from PowerSchool: its lists (students, parents, staff, classes, grades, attendance and everything else) and its documents. The simplest way is to choose the whole export folder, or a .zip of it. Keep each student's documents in a folder named with their student number, and each is filed on that student's record (a photo becomes their picture). Managira recognises every list by itself and keeps everything, and nothing reaches your live account until you review and sign off. Upload a list again any time to replace it.</p>
+    <p class="mg-hint">Upload your school's export from PowerSchool: its lists (students, parents, staff, classes, grades, attendance and everything else) and its documents. The simplest way is to drag the whole export folder onto the box below, or upload a .zip of it. Keep each student's documents in a folder named with their student number, and each is filed on that student's record (a photo becomes their picture). Managira recognises every list by itself and keeps everything, and nothing reaches your live account until you review and sign off. Upload a list again any time to replace it.</p>
     <p class="mg-hint mg-hint--small">Lists can be CSV, text or Excel, with up to 200,000 rows each (send a longer one, such as a year of daily attendance, in parts). Any number of files, up to 60 MB each.</p>
     <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
   </section>

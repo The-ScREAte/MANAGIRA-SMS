@@ -71,7 +71,6 @@
     var current = null; // the request on its way, for Stop
     var stopped = false;
     var showError = function (text) { errorBox.textContent = text || ""; errorBox.hidden = !text; };
-    if (pickFolder && "webkitdirectory" in pickFolder) form.querySelector("[data-folder-choice]").hidden = false;
     if (pickFiles) pickFiles.removeAttribute("name"); // the script sends them, in batches
     var isList = function (name) { return /\.(csv|tsv|txt|tab|xlsx|xls|zip)$/i.test(name); };
     var pathOf = function (f, given) { return String(given || f.webkitRelativePath || f.name).replace(/\\/g, "/").replace(/^\/+/, ""); };
