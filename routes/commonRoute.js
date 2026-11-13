@@ -386,6 +386,14 @@ module.exports = (db) => {
     commonValidation.validateCreateEmployeesResult,
     (req, res) => commonController.createEmployeePost(req, res, db)
   );
+  // A school's own staff roles, made and changed from Add user and Edit user (utils/schoolRoles.js).
+  {
+    const schoolRoleRoutes = require("../utils/schoolRoles").handlers(db);
+    const staffForm = requirePermission([PERMISSIONS.EMPLOYEES_ADD, PERMISSIONS.EMPLOYEES_EDIT]);
+    router.post("/school-roles", isAuthenticated, staffForm, express.json({ limit: "64kb" }), schoolRoleRoutes.create);
+    router.post("/school-roles/:roleId(\\d+)", isAuthenticated, staffForm, express.json({ limit: "64kb" }), schoolRoleRoutes.update);
+    router.post("/school-roles/:roleId(\\d+)/remove", isAuthenticated, staffForm, schoolRoleRoutes.remove);
+  }
   router.get(
     "/manageEmployees",
     checkFeatureAccess,

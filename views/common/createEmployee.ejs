@@ -559,7 +559,11 @@
 
         const selectedRole = accountTypeSelect.value;
         const isDriver = selectedRole === "Driver";
-        const defaults = ROLE_DEFAULT_PERMISSIONS_MAP[selectedRole] || [];
+        // A school's own role ticks its own permissions (views/partials/schoolRoles.ejs).
+        const roleOption = accountTypeSelect.options[accountTypeSelect.selectedIndex];
+        let rolePermissions = null;
+        if (roleOption && roleOption.dataset.roleId) { try { rolePermissions = JSON.parse(roleOption.dataset.permissions || "[]"); } catch (e) { rolePermissions = []; } }
+        const defaults = rolePermissions || ROLE_DEFAULT_PERMISSIONS_MAP[selectedRole] || [];
 
         // Drivers see only their own permissions (the picker's forRole, below).
         document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
@@ -674,7 +678,9 @@
             <option value="Teacher">Teacher</option>
             <%# A driver is there for transportation alone: offered while the school has it switched on. %>
             <% if (!(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver">Driver</option><% } %>
+            <%- include('../partials/schoolRoles', { part: 'options' }) %>
           </select>
+          <%- include('../partials/schoolRoles', { part: 'panel' }) %>
         </div>
 
         <%- include('../partials/employeeSignIn', { signInIsExisting: false }) %>

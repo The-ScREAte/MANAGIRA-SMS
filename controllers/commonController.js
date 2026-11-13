@@ -9663,7 +9663,11 @@ const commonController = {
         ? Object.fromEntries(await require("../utils/mainTeacher").assistantsByClass(db, req.session.organizationId).catch(() => new Map()))
         : null;
 
+      const canAssignHighRisk = isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager";
       res.render("common/createEmployee", {
+        // The school's own roles (utils/schoolRoles.js), each with the permissions this form can tick.
+        schoolRoles: await require("../utils/schoolRoles").forForm(db, req.session.organizationId, { available: availablePermissionKeys, canAssignHighRisk, transportOn: await transportationIsOn(db, req) }).catch(() => null),
+        schoolRoleId: null,
         classAssistants,
         classMainTeachers,
         // How the new person signs in: asked only while the school's single sign-on is on.
@@ -9831,6 +9835,10 @@ const commonController = {
       );
       const userId = result.rows[0].user_id;
       if (signInMethod) await client.query("UPDATE users SET sign_in_method = $2 WHERE user_id = $1", [userId, signInMethod]);
+      // A school's own role (utils/schoolRoles.js): kept only when it's based on the role saved.
+      if (req.body.schoolRoleId && await require("../utils/schoolRoles").ready(db)) {
+        await require("../utils/schoolRoles").assign(client, req.session.organizationId, userId, req.body.schoolRoleId, account_type);
+      }
 
       // ─── Step 6: Assign classes ───────────────────────────────────────────
       const normalizedClassIds = [...new Set(
@@ -10452,6 +10460,9 @@ const commonController = {
       }, {});
 
       const employees = result.rows;
+      // A school's own role shows by its name (utils/schoolRoles.js).
+      const schoolRoleNames = await require("../utils/schoolRoles").namesByUser(db, req.session.organizationId).catch(() => new Map());
+      employees.forEach((employee) => { employee.role_name = schoolRoleNames.get(Number(employee.user_id)) || null; });
 
       // Last sign-in per person, from the activity log (every login is recorded there).
       const lastLoginResult = employees.length
@@ -10766,7 +10777,12 @@ const commonController = {
       const ssoConnections = require("../utils/sso/connections");
       const ssoSignIn = await ssoConnections.providerForStaff(db, req.session.organizationId).catch(() => null);
       const signInIsMain = ssoSignIn ? await ssoConnections.isMainManager(db, req.session.organizationId, user).catch(() => false) : false;
+      const schoolRoleId = await require("../utils/schoolRoles").roleOf(db, req.session.organizationId, user.user_id).catch(() => null);
+      const editorHighRisk = isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager";
       res.render("common/modifyEmployee", {
+        // The school's own roles (utils/schoolRoles.js); the person's own stays listed.
+        schoolRoles: await require("../utils/schoolRoles").forForm(db, req.session.organizationId, { available: availablePermissionKeys, canAssignHighRisk: editorHighRisk, transportOn: await transportationIsOn(db, req), current: schoolRoleId }).catch(() => null),
+        schoolRoleId,
         classMainTeachers: Object.fromEntries(mainTeachers),
         classAssistants,
         ssoSignIn,
@@ -10955,6 +10971,11 @@ const commonController = {
          WHERE user_id = $6 AND organization_id = $7`,
         [firstName, lastName, email, accountType, dateOfBirth || null, userId, organizationId]
       );
+      // A school's own role, when the form showed the choice (utils/schoolRoles.js): a built-in
+      // role clears it; a role not based on the saved account type is never kept.
+      if (Object.prototype.hasOwnProperty.call(req.body, "schoolRoleId") && await require("../utils/schoolRoles").ready(db)) {
+        await require("../utils/schoolRoles").assign(client, organizationId, userId, req.body.schoolRoleId, accountType);
+      }
 
       // How they sign in, when the form asked (single sign-on on, and not the main manager).
       const ssoConnections = require("../utils/sso/connections");

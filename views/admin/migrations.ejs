@@ -98,6 +98,18 @@
         <% } %>
       </section>
     <% } %>
+    <% if (job && ['sandbox', 'review'].includes(job.status)) { %>
+      <section class="mg-card mg-danger" id="start-over" style="margin-bottom:16px">
+        <h2>Start over</h2>
+        <p class="mg-hint">Empties this sandbox: every upload, list, record, document, column match, staff role and answer. The sandbox stays open for the school to upload again. Nothing in the school's live account is touched, and the activity log stays.</p>
+        <form method="POST" action="/admin/migrations/<%= job.organization_id %>/start-over" onsubmit="return confirm('Empty this sandbox? Every upload and answer in it is removed.')">
+          <div class="mg-actions" style="align-items:flex-end">
+            <label class="mg-field">Type the school's name to confirm<input name="confirm" required autocomplete="off" placeholder="<%= org.organization_name %>" /></label>
+            <button class="mg-btn mg-btn--danger" type="submit">Start over</button>
+          </div>
+        </form>
+      </section>
+    <% } %>
     <% if (locals.roleReport && roleReport.roles.length) { const _rw = roleReport.roles.filter((r) => r.state === 'waiting'); %>
       <section class="mg-card" id="roles" style="margin-bottom:16px">
         <h2>Staff roles</h2>

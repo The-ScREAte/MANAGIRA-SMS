@@ -209,3 +209,12 @@
 .mg-req__do details .mg-btn { margin-top: 8px; }
 @media (max-width: 700px) { .mg { padding: 16px; } .mg-notes { grid-template-columns: 1fr; } .mg-inline { flex-wrap: wrap; } .mg-path { grid-template-columns: 1fr 1fr; } .mg-facts { grid-template-columns: 1fr; } }
 @media print { .mg-steps, .mg-head, .mg-btn, form, .mg-log, .flash-wrapper { display: none !important; } .mg-card { border: 0; } .mg-verify .mg-codes { display: grid !important; } }
+
+/* Other apps the school used (views/migration/partials/apps.ejs). */
+.mg-apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 10px; }
+.mg-app { padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #fff; }
+.mg-app__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mg-app p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.45; }
+.mg-app .mg-app__lists { color: var(--mg-muted); font-size: 12.5px; }
+.mg-pill--ok { background: #ecfdf3; color: #067647; border-color: #abefc6; }
+.mg-pill--part { background: #eff8ff; color: #175cd3; }

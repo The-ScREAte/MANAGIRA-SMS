@@ -36,6 +36,7 @@ const lists = require("./migration/lists");
 const documents = require("./migration/documents");
 const tasks = require("./migration/tasks");
 const readerPool = require("./migration/readerPool");
+const schoolRoles = require("./schoolRoles");
 const zlib = require("zlib");
 const { promisify } = require("util");
 const gzip = promisify(zlib.gzip);
@@ -649,6 +650,17 @@ async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}
       });
     }
   }
+  for (const entity of Object.keys(byEntity)) {
+    if (HEAVY.has(entity) || entity === "other") continue;
+    const firstOf = new Map();
+    byEntity[entity] = byEntity[entity].filter((r) => {
+      const first = r.sourceId && firstOf.get(r.sourceId);
+      if (!first) { if (r.sourceId) firstOf.set(r.sourceId, r); return true; }
+      if (first.fileKey === r.fileKey) return true; // a repeat within one list: reported by the checks
+      mergeInto(first, r);
+      return false;
+    });
+  }
   await check(byEntity);
   return { byEntity, source, files, columns };
 }
@@ -985,6 +997,21 @@ function roleState(row) {
 async function confirmRole(db, job, roleId, target, actor) {
   const { rows: [row] } = await db.query("SELECT * FROM migration_roles WHERE job_id = $1 AND role_id = $2", [job.job_id, roleId]);
   if (!row) return { error: "That role isn't in this migration." };
+  // One of the school's own roles (Users › Add user › Add a role), for any old role, even one
+  // Managira couldn't match: never one based on Manager. Whatever it gives beyond the old role
+  // still needs the school admin's approval, person by person.
+  const own = /^school:(\d+)$/.exec(target);
+  if (own) {
+    const role = await schoolRoles.byId(db, job.organization_id, own[1]);
+    if (!role || role.base_type === "Manager") return { error: "Choose one of your school's roles (not one based on Manager)." };
+    await db.query(
+      `UPDATE migration_roles SET target = 'custom', label = $3, account_type = $4, permissions = $5::jsonb, school_role_id = $6, confirmed = TRUE, updated_at = NOW()
+        WHERE job_id = $1 AND role_id = $2`,
+      [job.job_id, roleId, role.name, role.base_type, JSON.stringify(role.permissions || []), role.role_id]
+    );
+    await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "role_confirmed", detail: { role: row.old_role, target: role.name } });
+    return { ok: true };
+  }
   if (!row.target) return { error: "The Managira team gives this role its match first." };
   const keep = target === "custom" && row.target === "custom";
   if (!keep && !roles.ROLES[target]) return { error: "Choose a role from the list." };
@@ -1019,6 +1046,7 @@ async function resolveRole(db, job, roleId, body, actor) {
         WHERE job_id = $1 AND role_id = $2`,
       [job.job_id, roleId, level, label, accountType, JSON.stringify(permissions), actor]
     );
+    if (await schoolRoles.ready(db)) await db.query("UPDATE migration_roles SET school_role_id = NULL WHERE job_id = $1 AND role_id = $2", [job.job_id, roleId]);
   } else {
     if (!roles.ROLES[body.target]) return { error: "Choose a Managira role." };
     await db.query("UPDATE migration_roles SET level = $3, target = $4, label = NULL, account_type = NULL, permissions = NULL, confirmed = TRUE, resolved_by = $5, resolved_at = NOW(), updated_at = NOW() WHERE job_id = $1 AND role_id = $2",
@@ -1249,6 +1277,7 @@ const LOADED = {
   classes: ["class_id"],
   enrollments: ["enrollment_id"],
   student_form_fields: ["field_id"],
+  school_roles: ["role_id"],
 };
 // The migration's own tables: every row it writes there carries its job_id.
 const OWN = ["student_course_history", "student_attendance_totals", "record_extra_fields", "student_alerts", "migration_archives", "migration_links", "staff_role_history", "student_source_gpas"];
@@ -1622,6 +1651,36 @@ async function loadLive(db, job, actor, progress = quiet) {
       "INSERT INTO staff_role_changes (organization_id, user_id, changed_by, what, old_value, new_value) VALUES ($1, $2, 'Data migration', 'role', $3, $4)",
       [org, userId, JSON.stringify(oldValue), JSON.stringify(newValue)]
     );
+    // A custom role becomes one of the school's own roles (Users › Add user), so its name stays
+    // with the people who have it: the school's role it was matched to, or one made now (once,
+    // by name) from the role the Managira team made.
+    const rolesReady = schoolRoles.on(org) && (await schoolRoles.ready(db));
+    const schoolRoleOf = new Map();
+    const schoolRoleFor = async (choice) => {
+      if (!rolesReady || !choice || !choice.custom) return null;
+      if (schoolRoleOf.has(choice.key)) return schoolRoleOf.get(choice.key);
+      let roleId = null;
+      if (choice.schoolRoleId) {
+        roleId = ((await q("SELECT role_id FROM school_roles WHERE role_id = $1 AND organization_id = $2 AND base_type = $3 AND archived_at IS NULL", [choice.schoolRoleId, org, choice.accountType])).rows[0] || {}).role_id || null;
+      } else if (choice.label && !schoolRoles.BASE_TYPES.some((b) => b.toLowerCase() === choice.label.toLowerCase())) {
+        const { rows: [hit] } = await q("SELECT role_id, base_type FROM school_roles WHERE organization_id = $1 AND LOWER(name) = LOWER($2) AND archived_at IS NULL", [org, choice.label]);
+        if (hit) roleId = hit.base_type === choice.accountType ? hit.role_id : null;
+        else {
+          ({ rows: [{ role_id: roleId }] } = await q(
+            "INSERT INTO school_roles (organization_id, name, base_type, permissions) VALUES ($1, $2, $3, $4::text[]) RETURNING role_id",
+            [org, choice.label.slice(0, 60), choice.accountType, choice.permissions]
+          ));
+          ledger.made("school_roles", { role_id: roleId });
+          counts.schoolRoles = (counts.schoolRoles || 0) + 1;
+        }
+      }
+      schoolRoleOf.set(choice.key, roleId);
+      return roleId;
+    };
+    const nameRole = async (userId, choice) => {
+      if (!rolesReady) return;
+      await q("UPDATE users SET school_role_id = $2 WHERE user_id = $1", [userId, await schoolRoleFor(choice)]);
+    };
     progress({ step: "Loading staff accounts", done: 0, total: staffRows.length });
     for (const t of staffRows) {
       const d = t.data;
@@ -1666,6 +1725,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         if (mine && choice && !changedHere) {
           if (was.role !== choice.accountType) await q("UPDATE users SET account_type = $2, updated_at = NOW() WHERE user_id = $1", [id, choice.accountType]);
           await savePermissions(id, choice.permissions);
+          await nameRole(id, choice);
           if (was.role !== choice.accountType) await logRole(id, was.role, `${choice.label} (${choice.accountType})`);
         }
       }
@@ -1682,6 +1742,7 @@ async function loadLive(db, job, actor, progress = quiet) {
           ledger.made("users", { user_id: id });
           staffLoaded = written(staffValues);
           await savePermissions(id, choice.permissions);
+          await nameRole(id, choice);
           await logRole(id, null, `${choice.label} (${choice.accountType})`);
           counts.staffNew += 1;
         }
@@ -2401,6 +2462,34 @@ async function inviteStaff(db, job, userIds, { baseUrl, actor }) {
 
 // ── Rolling back a go-live ──────────────────────────────────────────────────────────────
 // Possible until the 30-day clean-up deletes the sandbox and the record of what was loaded.
+// Super Admin: empty a sandbox that hasn't gone live (every upload, list, record, document,
+// column match, staff role and answer) and keep it open, so the school uploads again from the
+// start. Nothing in the school's live account is touched; the activity log stays.
+async function startOver(db, organizationId, actor) {
+  const job = await openJob(db, organizationId);
+  if (!job) return { error: "This school has no migration open." };
+  if (!["sandbox", "review"].includes(job.status)) return { error: "Only a sandbox that isn't live can start over. Roll the go-live back first." };
+  const running = await tasks.openTask(db, job.job_id);
+  if (running) return { error: `Wait until "${tasks.LABELS[running.kind]}" finishes.` };
+  const { rows: [{ n }] } = await db.query("SELECT COUNT(*)::int AS n FROM migration_loaded WHERE job_id = $1", [job.job_id]);
+  if (n) return { error: "Roll the go-live back first." };
+  const counted = {};
+  const count = async (table) => { counted[table] = (await db.query(`SELECT COUNT(*)::int AS n FROM ${table} WHERE job_id = $1`, [job.job_id])).rows[0].n; };
+  for (const table of ["migration_uploads", "migration_files", "migration_records", "migration_documents"]) await count(table);
+  await documents.removeAll(db, job.job_id);
+  for (const table of ["migration_records", "migration_columns", "migration_roles", "migration_snapshots", "migration_archives", "migration_links", "migration_files", "migration_uploads", "migration_tasks"]) {
+    await db.query(`DELETE FROM ${table} WHERE job_id = $1`, [job.job_id]);
+  }
+  await db.query(
+    `UPDATE migration_jobs SET status = 'sandbox', approvals = '{}'::jsonb, totals = '{}'::jsonb, role_approvals = '{}'::jsonb, match_decisions = '{}'::jsonb,
+            signed_name = NULL, signed_by = NULL, signed_at = NULL, updated_at = NOW() WHERE job_id = $1`,
+    [job.job_id]
+  );
+  forget(organizationId);
+  await event(db, { jobId: job.job_id, organizationId, actor, actorKind: "managira", action: "started_over", detail: counted });
+  return { ok: true, removed: counted };
+}
+
 async function rollbackJob(db, organizationId) {
   const { rows: [job] } = await db.query(
     "SELECT * FROM migration_jobs WHERE organization_id = $1 AND live_at IS NOT NULL AND purged_at IS NULL AND status IN ('live', 'closed') ORDER BY job_id DESC LIMIT 1",
@@ -2494,6 +2583,12 @@ async function rollback(db, job, actor) {
               AND NOT EXISTS (SELECT 1 FROM enrolled_classes c WHERE c.enrollment_id = e.enrollment_id)
               AND NOT EXISTS (SELECT 1 FROM enrolled_students s WHERE s.enrollment_id = e.enrollment_id)`,
           [made.map((k) => k.enrollment_id), org]
+        )).rowCount;
+      } else if (table === "school_roles") {
+        // A role it made goes, unless the school has since given it to someone.
+        removed = (await client.query(
+          "DELETE FROM school_roles r WHERE r.role_id = ANY($1::int[]) AND r.organization_id = $2 AND NOT EXISTS (SELECT 1 FROM users u WHERE u.school_role_id = r.role_id)",
+          [made.map((k) => k.role_id), org]
         )).rowCount;
       } else if (keys.length === 1) {
         const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields"].includes(table) ? " AND organization_id = $2" : "";
@@ -2714,7 +2809,7 @@ module.exports = {
   featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
-  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, gpaOf, addAttendance, currentEnrollment, LOADED,
+  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, gpaOf, addAttendance, currentEnrollment, LOADED,
   rolesOf, roleReport, confirmRole, roleNotes, resolveRole, approvePerson, gpaCheck, statusesFor, startHub,
   requestMove, withdrawRequest, listRequests, decideRequest, latestRequest, SYSTEMS, TIMINGS, BRING,
   liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,

@@ -154,6 +154,7 @@
       </details>
       <% } %>
       <% } %>
+      <%- include('partials/apps', { apps }) %>
       <% if (_report.tidied) { %><p class="mg-hint"><strong><%= _report.tidied %></strong> <%= _report.tidied === 1 ? 'value was' : 'values were' %> tidied as they came in: names typed in capitals, phone numbers to (555) 123-4567, emails in lower case, M and F to Male and Female.</p><% } %>
       <h3>Check report</h3>
       <% if (!_report.examples.length) { %><p class="mg-good">No problems found.</p><% } else { %>
@@ -180,6 +181,7 @@
   <section class="mg-card">
     <h2>Staff roles</h2>
     <p class="mg-hint">Each role or access group in your staff file, matched to a Managira role. A match never gives more access than the old role did: when unsure, it's the more limited one, and you can always choose a more limited role. Admin-level access needs your approval, person by person.</p>
+    <% if (locals.ownRolesOn !== false) { %><p class="mg-hint">Need a role Managira doesn't have, like Food Service? Make it in Users › Add user › Role › <strong>Add a role</strong>, and it's offered here.</p><% } %>
     <% if (!_R.roles.length && !_R.people.length) { %><p class="mg-empty">Upload your staff file and run the import (step 3) to see your roles here.</p><% } %>
     <% if (_R.roles.length) { %>
     <div class="mg-scroll"><table class="mg-table mg-map"><thead><tr><th>Old role</th><th class="num">Staff</th><th>Match</th><th>Managira role</th><th>Access</th></tr></thead><tbody>
@@ -190,11 +192,25 @@
           <td><%= r.state === 'waiting' ? "Can't map" : r.state === 'unsure' ? 'Unsure' : r.resolved_by ? 'Matched by Managira' : r.confirmed ? 'Confirmed' : 'Confident' %></td>
           <td>
             <% if (r.state === 'waiting') { %><%= r.notes ? 'With the Managira team' : 'Explain it below' %>
+              <% if (ownRoles.length) { %>
+              <form class="mg-inline" method="POST" action="/common/migration/roles/<%= r.role_id %>/confirm" style="margin-top:6px">
+                <select name="target" aria-label="One of your school's roles for <%= r.old_role %>">
+                  <option value="">Or use one of your roles…</option>
+                  <% ownRoles.forEach((o) => { %><option value="school:<%= o.role_id %>"><%= o.name %> (<%= o.base_type %>)</option><% }) %>
+                </select>
+                <button class="mg-btn mg-btn--sm" type="submit">Use</button>
+              </form>
+              <% } %>
             <% } else { %>
               <form class="mg-inline" method="POST" action="/common/migration/roles/<%= r.role_id %>/confirm">
                 <select name="target" aria-label="Managira role for <%= r.old_role %>">
-                  <% if (r.target === 'custom') { %><option value="custom" selected><%= r.label %> (custom)</option><% } %>
+                  <% if (r.target === 'custom' && !r.school_role_id) { %><option value="custom" selected><%= r.label %> (custom)</option><% } %>
                   <% Object.entries(roleChoices).forEach(([key, c]) => { %><option value="<%= key %>"<%= r.target === key ? ' selected' : '' %>><%= c.label %></option><% }) %>
+                  <% const _ownHere = ownRoles.some((o) => r.target === 'custom' && Number(r.school_role_id) === o.role_id); %>
+                  <% if (ownRoles.length || (r.target === 'custom' && r.school_role_id && !_ownHere)) { %><optgroup label="Your school's roles">
+                    <% if (r.target === 'custom' && r.school_role_id && !_ownHere) { %><option value="custom" selected><%= r.label %></option><% } %>
+                    <% ownRoles.forEach((o) => { %><option value="school:<%= o.role_id %>"<%= r.target === 'custom' && Number(r.school_role_id) === o.role_id ? ' selected' : '' %>><%= o.name %> (<%= o.base_type %>)</option><% }) %>
+                  </optgroup><% } %>
                 </select>
                 <button class="mg-btn mg-btn--sm<%= r.state === 'unsure' ? ' mg-btn--primary' : '' %>" type="submit"><%= r.state === 'unsure' ? 'Confirm' : 'Save' %></button>
               </form>
@@ -418,6 +434,7 @@
       <% } %>
       <% if (loaded.studentsWaiting) { %><p class="mg-notice"><%= loaded.studentsWaiting %> <%= loaded.studentsWaiting === 1 ? 'student wasn’t' : 'students weren’t' %> loaded: <%= loaded.studentsWaiting === 1 ? 'they' : 'they' %> may already be in Managira. Answer under Review & sign, Already in Managira.</p><% } %>
       <p><a class="mg-btn" href="/common/migration/old-records?embed=workspace" data-no-spa>Records from your old system</a> <small class="mg-hint">lists kept for the school, and documents not on a current student</small></p>
+      <%- include('partials/apps', { apps }) %>
       <h3>Your files beside Managira</h3>
       <table class="mg-table mg-compare"><thead><tr><th>What</th><th class="num">In your files</th><th class="num">In Managira</th></tr></thead><tbody>
         <% _rows.forEach(([label, a, b]) => { %><tr><td><%= label %></td><td class="num"><%= a %></td><td class="num<%= Number(a) !== Number(b) ? ' is-off' : '' %>"><%= b === null || b === undefined ? '—' : b %></td></tr><% }) %>

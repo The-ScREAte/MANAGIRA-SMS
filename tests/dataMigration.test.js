@@ -315,3 +315,35 @@ test("lists are known by their name first: core lists load, the school's own fie
   assert.ok(kept.restricted && kept.studentColumn === "Student_Number");
   assert.equal(lists.recognize("03_school_calendar_2026_27.csv", h("Date,Day_Type")).studentColumn, null, "a list with no student number is kept for the school");
 });
+
+test("the other apps a school ran are found from its lists' names, never from records of counseling or safety", () => {
+  const { appsFrom } = require("../utils/migration/apps");
+  const names = ["146_cafeteria_transactions_2025_26.csv", "148_library_checkouts_2019_2026.csv", "150_nurse_visits_history_2019_2026.csv", "118_medicaid_billing_claims.csv",
+    "139_online_payment_transactions.csv", "214_bus_routes_master.csv", "business_office_contacts.csv", "108_suicide_risk_screenings.csv", "107_threat_assessments.csv", "142_device_management_mdm.csv"];
+  const apps = appsFrom(names.map((name) => ({ name, label: name, rows: 10 })), { areaLabels: { students: "Students", classes: "Classes & subjects", staff: "Staff" } });
+  const by = Object.fromEntries(apps.map((a) => [a.key, a]));
+  assert.deepEqual(Object.keys(by).sort(), ["devices", "fees", "food", "health", "library", "special", "transport"]);
+  assert.deepEqual(by.transport.lists, ["214_bus_routes_master.csv"], "a business office isn't a bus");
+  assert.deepEqual(by.special.lists, ["118_medicaid_billing_claims.csv"], "Medicaid billing is special education, not fees");
+  assert.deepEqual(by.health.lists, ["150_nurse_visits_history_2019_2026.csv"], "a suicide risk screening is a restricted record, not a health app");
+  assert.ok(by.transport.has && by.fees.has && !by.library.has && !by.food.has);
+  assert.deepEqual(by.library.connectLabels, ["Students", "Classes & subjects", "Staff"]);
+  assert.deepEqual(appsFrom([]), []);
+});
+
+test("a school's own role: only real permissions the person may give, and a migration role keeps exactly its permissions", () => {
+  const schoolRoles = require("../utils/schoolRoles");
+  const { PERMISSIONS: P, HIGH_RISK_PERMISSIONS } = require("../middleware/permissionMiddleware");
+  const highRisk = [...HIGH_RISK_PERMISSIONS][0];
+  assert.deepEqual(schoolRoles.keep([P.MANAGE_STUDENTS, "not_a_permission", highRisk, P.MANAGE_STUDENTS]), [P.MANAGE_STUDENTS]);
+  assert.deepEqual(schoolRoles.keep([P.MANAGE_STUDENTS, highRisk], { highRisk: true }).sort(), [P.MANAGE_STUDENTS, highRisk].sort());
+  assert.deepEqual(schoolRoles.keep([P.MANAGE_STUDENTS, P.MARK_ATTENDANCE], { allowed: new Set([P.MARK_ATTENDANCE]) }), [P.MARK_ATTENDANCE], "outside the plan is left out");
+  assert.ok(schoolRoles.defaultsFor("Teacher", 1).includes(P.MANAGE_STUDENTS));
+  const roles = require("../utils/migration/roles");
+  const own = roles.choiceOf({ target: "custom", label: "Food Service", account_type: "Teacher", permissions: [P.MANAGE_STUDENTS, P.STUDENTS_EDIT], school_role_id: 7 });
+  assert.equal(own.schoolRoleId, 7);
+  assert.deepEqual(own.permissions, [P.MANAGE_STUDENTS, P.STUDENTS_EDIT], "a school role gives exactly what it gives, no follow-ups added");
+  assert.ok(roles.compare(null, own).up.length, "an old role nobody matched still needs approval person by person");
+  const made = roles.choiceOf({ target: "custom", label: "Food Service", account_type: "Teacher", permissions: [P.MANAGE_STUDENTS] });
+  assert.equal(made.schoolRoleId, undefined);
+});

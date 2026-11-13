@@ -32,6 +32,7 @@ const FEATURES = {
   data_migration: { label: "Data migration: a sandbox where a school moving from PowerSchool uploads its exports, maps and checks them, signs off and goes live", access: "selected" },
   learning_resources: { label: "Assessment resources: files, links and recommendations for each test and each question, for students and parents", access: "everyone" },
   assistant_teacher: { label: "Assistant teachers: beside a class's main teacher, assistants who see and work on the whole class (chosen on the staff form)", access: "selected" },
+  school_roles: { label: "Staff roles: a school adds its own roles (Food Service, Office Clerk) on Add user, each with the permissions it gives", access: "selected" },
   gpa: { label: "GPA: a Report Settings switch that prints each student's GPA (4.0 scale) on report cards and transcripts", access: "selected" },
 };
 

@@ -1,0 +1,30 @@
+<%# The other apps the school ran beside its old system (utils/migration/apps.js): what Managira already does, or how to keep the app and connect it with a service account. %>
+<% if (apps && apps.length) { const _covered = apps.filter((a) => a.has); %>
+<h3>Other apps your school used</h3>
+<p class="mg-hint">Your files show <%= apps.length %> <%= apps.length === 1 ? 'area' : 'areas' %> run by other apps; their lists are kept either way.<% if (_covered.length) { %> Managira does <%= _covered.length %> of them itself<%= apps.some((a) => a.partly) ? ' (some in part)' : '' %>.<% } %><% if (apps.length - _covered.length) { %> For the other <%= apps.length - _covered.length %>, keep the app and connect it to Managira: it reads your students, classes and staff from here, as it did from your old system.<% } %></p>
+<div class="mg-apps">
+  <% apps.forEach((a) => { %>
+  <div class="mg-app">
+    <div class="mg-app__head">
+      <strong><%= a.label %></strong>
+      <span class="mg-pill<%= a.has && !a.partly ? ' mg-pill--ok' : a.partly ? ' mg-pill--part' : '' %>"><%= a.partly ? 'Partly in Managira' : a.has ? 'In Managira' : 'Connect your app' %></span>
+    </div>
+    <p class="mg-app__lists"><%= a.lists.slice(0, 3).join(' · ') %><%= a.lists.length > 3 ? ' · ' + (a.lists.length - 3) + ' more' : '' %></p>
+    <% if (a.has) { %>
+      <p><%= a.has %>.<% if (a.where) { %> <small class="mg-samples"><%= a.where %>.</small><% } %></p>
+      <% if (a.connectLabels.length) { %><p class="mg-samples">Keeping your own app? Connect it with: <%= a.connectLabels.join(', ') %>.</p><% } %>
+    <% } else { %>
+      <p><%= a.about %><% if (a.where) { %> <small class="mg-samples"><%= a.where %>.</small><% } %></p>
+      <p class="mg-samples">Give it: <strong><%= a.connectLabels.join(', ') %></strong> (read only).</p>
+    <% } %>
+  </div>
+  <% }) %>
+</div>
+<% if (apps.some((a) => a.connectLabels.length)) { %>
+<p class="mg-actions" style="margin-top:10px">
+  <a class="mg-btn mg-btn--sm" href="/common/management?panel=service-accounts&page=<%= encodeURIComponent('/api-access/service-accounts') %>&label=<%= encodeURIComponent('Service Accounts') %>" target="_top" data-no-spa>Set up a service account</a>
+  <% if (apps.some((a) => a.integration)) { %><a class="mg-btn mg-btn--sm" href="/common/management?panel=integrations&page=<%= encodeURIComponent('/account/settings?section=integrations') %>&label=<%= encodeURIComponent('Integrations') %>" target="_top" data-no-spa>Integrations</a><% } %>
+  <small class="mg-hint">One service account per app: tick what it may read, then give its keys to the app's support team.</small>
+</p>
+<% } %>
+<% } %>

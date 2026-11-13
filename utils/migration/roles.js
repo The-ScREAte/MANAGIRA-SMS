@@ -70,6 +70,14 @@ function choiceOf(row) {
   if (row.target === "custom") {
     const accountType = ACCOUNT_TYPES.includes(row.account_type) ? row.account_type : "Teacher";
     const mains = (Array.isArray(row.permissions) ? row.permissions : []).filter((k) => OPTION.has(k));
+    // One of the school's own roles (utils/schoolRoles.js): exactly the permissions it gives.
+    if (row.school_role_id) {
+      return {
+        key: `school:${row.school_role_id}:${[...mains].sort().join(",")}`, label: row.label || "Your school's role", accountType, custom: true, schoolRoleId: Number(row.school_role_id),
+        allClasses: accountType === "Supervisor", permissions: accountType === "Driver" ? perms.driverPermissions(mains) : mains,
+        about: "One of your school's own roles.",
+      };
+    }
     return {
       key: `custom:${accountType}:${[...mains].sort().join(",")}:${row.label || ""}`, label: row.label || "Custom role", accountType, custom: true,
       allClasses: accountType === "Supervisor", permissions: accountType === "Driver" ? perms.driverPermissions(withFollowUps(mains)) : withFollowUps(mains),
