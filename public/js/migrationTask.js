@@ -136,6 +136,38 @@
       });
     });
 
+    // "Choose a folder": the browser's own folder access where it has it (it opens the folder for
+    // this visit), else the folder picker. A folder dragged in needs neither.
+    var folderButton = form.querySelector("[data-pick-folder-button]");
+    var reading = form.querySelector("[data-folder-reading]");
+    async function walkHandle(dir, prefix, out) {
+      for await (var entry of dir.values()) {
+        var path = prefix + "/" + entry.name;
+        if (entry.kind === "file") out.push({ file: await entry.getFile(), path: path });
+        else if (entry.kind === "directory") await walkHandle(entry, path, out);
+      }
+    }
+    if (folderButton) {
+      folderButton.addEventListener("click", async function () {
+        if (window.showDirectoryPicker) {
+          var dir;
+          try { dir = await window.showDirectoryPicker({ mode: "read" }); } catch (err) {
+            if (err && err.name === "AbortError") return; // closed without choosing
+            dir = null;
+          }
+          if (dir) {
+            reading.hidden = false;
+            var out = [];
+            try { await walkHandle(dir, dir.name, out); } catch (_e) { /* what could be read is listed */ }
+            reading.hidden = true;
+            add(out);
+            return;
+          }
+        }
+        if (pickFolder) pickFolder.click();
+      });
+    }
+
     // A dropped folder is read through, folder by folder.
     function readEntry(entry, out) {
       return new Promise(function (resolve) {

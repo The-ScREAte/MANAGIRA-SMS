@@ -5,10 +5,13 @@
   <div class="mg-drop" data-drop>
     <span class="mg-drop__icon" aria-hidden="true"></span>
     <strong>Drag your school's export folder here</strong>
-    <small>Or choose its files, or a .zip of the folder. Lists (CSV, text, Excel) and documents (PDFs, photos, scans, Word): any number of files, up to <%= locals.maxFileMb || 60 %> MB each.</small>
+    <small>Or choose the folder, its files, or a .zip of it. Lists (CSV, text, Excel) and documents (PDFs, photos, scans, Word): any number of files, up to <%= locals.maxFileMb || 60 %> MB each.</small>
     <div class="mg-drop__choose">
+      <button type="button" class="mg-btn mg-btn--sm" data-pick-folder-button>Choose a folder</button>
       <label class="mg-btn mg-btn--sm">Choose files<input type="file" name="files" data-pick-files multiple title="" /></label>
+      <input type="file" data-pick-folder webkitdirectory multiple hidden tabindex="-1" aria-hidden="true" />
     </div>
+    <small class="mg-drop__reading" data-folder-reading hidden>Reading the folder…</small>
   </div>
   <div class="mg-picked" data-picked hidden>
     <div class="mg-picked__head">
