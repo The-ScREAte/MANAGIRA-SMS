@@ -275,7 +275,9 @@ async function loadTransport(ctx, rows) {
 async function loadPayGira(ctx, rows) {
   const { q, ledger, org, counts, system } = ctx;
   const fees = (rows.fees || []).filter((f) => f.studentId);
-  const meals = (rows.meal_balances || []).filter((m) => m.studentId);
+  // Meal balances stay in the school's meal app unless it chose to move them into PayGira.
+  const mealsMove = ((ctx.job && ctx.job.options) || {}).mealBalances === "paygira";
+  const meals = mealsMove ? (rows.meal_balances || []).filter((m) => m.studentId) : [];
   if (!fees.length && !meals.length) return;
   counts.paygira = { bills: 0, charges: 0, paid: 0, payments: 0, mealDebts: 0, mealCredits: 0, owed: 0 };
   const p = counts.paygira;
@@ -360,9 +362,20 @@ async function loadPayGira(ctx, rows) {
     p.payments += 1;
   }
 
-  // Meal accounts: what's owed becomes a bill; money in credit stays with the school's meal service.
+  // Meal accounts moved into PayGira: what's owed becomes a bill, money in credit the student's credit.
   const debts = meals.map((m) => ({ ...m, balance: money(pick(m.row, "Current_Balance", "Balance")) })).filter((m) => m.balance !== null);
-  p.mealCredits = debts.filter((m) => m.balance > 0).length;
+  for (const m of debts.filter((d) => d.balance > 0)) {
+    const { rows: [had] } = await q("SELECT credit_id FROM finance_student_credits WHERE student_id = $1 AND organization_id = $2", [m.studentId, org]);
+    if (had) {
+      if (!ledger.mine("finance_student_credits", { credit_id: had.credit_id })) await ledger.before("finance_student_credits", { credit_id: had.credit_id }, ["amount"]);
+      await q("UPDATE finance_student_credits SET amount = amount + $2, updated_at = NOW() WHERE credit_id = $1", [had.credit_id, m.balance]);
+    } else {
+      const { rows: [c] } = await q("INSERT INTO finance_student_credits (organization_id, student_id, amount) VALUES ($1, $2, $3) RETURNING credit_id", [org, m.studentId, m.balance]);
+      ledger.made("finance_student_credits", { credit_id: c.credit_id });
+    }
+    p.mealCredits += 1;
+    p.credit = Math.round(((p.credit || 0) + m.balance) * 100) / 100;
+  }
   const owed = debts.filter((m) => m.balance < 0);
   if (owed.length) {
     const billId = await billFor("Meal account balance", `${source}: what each student's meal account owed when the school moved to Managira.`, 0, null);

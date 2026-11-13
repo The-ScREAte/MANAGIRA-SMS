@@ -257,24 +257,54 @@
     if (!url || url === here() || cache[url] || inflight[url]) return;
     resting = setTimeout(function () { load(url).catch(function () {}); }, 150);
   });
+  // Saving (Save, Confirm, Approve, Use, Remove…): sent in the background. Only the button pressed
+  // shows it's working; the page stays where it is and is brought up to date in place, with what
+  // the server said as a small message. A step change (signing, going live) opens that step.
+  function toast(text, bad) {
+    if (!text) return;
+    var el = document.getElementById("mgToast");
+    if (!el) { el = document.createElement("div"); el.id = "mgToast"; el.className = "mg-toast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+    el.textContent = text;
+    el.classList.toggle("is-bad", Boolean(bad));
+    el.classList.add("is-on");
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove("is-on"); }, bad ? 6000 : 3200);
+  }
   document.addEventListener("submit", function (e) {
     var form = e.target;
     if (e.defaultPrevented || !form || !form.matches || form.matches("[data-upload]") || form.target === "_blank") return;
     var action = form.getAttribute("action") || "";
     if ((form.getAttribute("method") || "get").toLowerCase() !== "post" || !/^\/common\/migration(\/|\?|$)/.test(action)) return;
     e.preventDefault();
+    if (window.ManagiraLoading) window.ManagiraLoading.stop(); // nothing leaves the page
+    if (form.dataset.sending === "1") return;
+    form.dataset.sending = "1";
     var data = new URLSearchParams(new FormData(form));
     if (e.submitter && e.submitter.name) data.append(e.submitter.name, e.submitter.value);
-    var current = document.querySelector(".mg");
-    if (current) current.classList.add("is-loading");
+    var button = e.submitter || form.querySelector("button[type=submit], button:not([type])");
+    var label = button ? button.innerHTML : "";
+    if (button) { button.disabled = true; button.classList.add("is-busy"); button.textContent = "Saving…"; }
+    var restore = function () { form.dataset.sending = ""; if (button && document.contains(button)) { button.disabled = false; button.classList.remove("is-busy"); button.innerHTML = label; } };
     forget();
+    var from = here();
     fetchPage(action, { method: "POST", body: data, headers: { accept: "text/html", "content-type": "application/x-www-form-urlencoded" } })
       .then(function (r) {
         var url = migrationUrl(r.url);
         if (!r.ok || !url) { window.location.href = r.url || action; return; }
-        return r.text().then(function (html) { if (!show(html, url, true)) window.location.href = url; });
+        return r.text().then(function (html) {
+          var fresh = new DOMParser().parseFromString(html, "text/html");
+          var said = fresh.querySelector(".mg .flash-message");
+          var bad = said && /error/.test(said.className);
+          var text = said ? (said.querySelector(".flash-content") || said).textContent.trim() : "";
+          var y = window.scrollY;
+          if (url === from) {
+            if (!show(html, null, false, true)) { window.location.href = url; return; }
+            window.scrollTo(0, y);
+          } else if (!show(html, url, true)) { window.location.href = url; return; }
+          toast(text || "Saved", bad);
+        });
       })
-      .catch(function () { form.submit(); });
+      .catch(function () { restore(); toast("That didn't save. Check your connection and try again.", true); });
   });
   window.addEventListener("popstate", function () {
     var url = migrationUrl(window.location.href);

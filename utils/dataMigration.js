@@ -368,12 +368,13 @@ async function autoMap(db, job, entity, header, rows) {
     const oldRecord = !match.target && STUDENT_LISTS.has(entity) && !sensitive && OLD_RECORD.test(ps.bare(column));
     // A program or indicator (IEP, 504, English learner…) fills the school's own Programs &
     // Indicators field of that name: editable, staff only (utils/studentFormFields.js INDICATORS).
-    const indicator = !match.target && STUDENT_LISTS.has(entity) && ["sped", "programs"].includes(sensitive) ? require("./studentFormFields").indicatorFor(column) : null;
+    const indicator = !match.target && STUDENT_LISTS.has(entity) && ["sped", "programs"].includes(sensitive) ? require("./studentFormFields").indicatorFor(column)
+      : !match.target && STUDENT_LISTS.has(entity) && sensitive === "demographics" ? { label: prettyLabel(column) } : null;
     if (indicator) {
       await db.query(
         `INSERT INTO migration_columns (job_id, organization_id, entity, source_column, target, confidence, confirmed, samples, sensitive, action, label)
-         VALUES ($1, $2, $3, $4, NULL, 'confident', TRUE, $5::jsonb, $6, 'custom', $7)
-         ON CONFLICT (job_id, entity, source_column) DO UPDATE SET target = NULL, confidence = 'confident', confirmed = TRUE, samples = EXCLUDED.samples, sensitive = EXCLUDED.sensitive, action = 'custom', label = EXCLUDED.label`,
+         VALUES ($1, $2, $3, $4, NULL, 'none', FALSE, $5::jsonb, $6, 'custom', $7)
+         ON CONFLICT (job_id, entity, source_column) DO UPDATE SET target = NULL, confidence = 'none', confirmed = FALSE, samples = EXCLUDED.samples, sensitive = EXCLUDED.sensitive, action = 'custom', label = EXCLUDED.label`,
         [job.job_id, job.organization_id, entity, column, JSON.stringify(samples), sensitive, indicator.label]
       );
       continue;
@@ -1313,6 +1314,7 @@ const LOADED = {
   finance_payments: ["payment_id"],
   finance_bill_assignments: ["assignment_id"],
   finance_bills: ["bill_id"],
+  finance_student_credits: ["credit_id"],
   transport_student_assignments: ["assignment_id"],
   transport_bus_schedules: ["schedule_id"],
   transport_stops: ["stop_id"],
@@ -1387,19 +1389,36 @@ async function ledgerFor(client, job) {
 const FIELD_ENTITIES = ["students", "student_details"];
 const fieldChoices = (columns) => columns.filter((c) => FIELD_ENTITIES.includes(c.entity)
   && ((c.action === "map" && String(c.target || "").startsWith("custom:")) || c.action === "custom" || c.action === "extra"));
-async function setCustomFields(db, job, chosen, actor) {
+// The school's choices for the whole migration (migration_jobs.options): only the ones listed here.
+const OPTIONS = { mealBalances: ["keep", "paygira"] };
+async function setOption(db, job, key, value, actor) {
+  if (!OPTIONS[key] || !OPTIONS[key].includes(value)) return { error: "Choose one of the options." };
+  await db.query("UPDATE migration_jobs SET options = COALESCE(options, '{}'::jsonb) || jsonb_build_object($2::text, $3::text), updated_at = NOW() WHERE job_id = $1", [job.job_id, key, value]);
+  await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "option_chosen", detail: { [key]: value } });
+  return { ok: true };
+}
+
+async function setCustomFields(db, job, chosen, actor, homes = {}) {
   const ticked = new Set(chosen.map(Number));
+  const sections = require("./studentFormFields").SECTIONS;
   let fields = 0;
   let details = 0;
+  let changed = 0; // ticks changed: the sandbox is imported again (where a field lives needs no import)
   for (const c of fieldChoices(await columnsOf(db, job))) {
     if (c.action === "map") continue; // already one of the school's own fields
     const custom = ticked.has(Number(c.column_id));
-    await db.query("UPDATE migration_columns SET action = $3, target = NULL, label = COALESCE(label, $4), resolved_by = $5, resolved_at = NOW() WHERE job_id = $1 AND column_id = $2",
-      [job.job_id, c.column_id, custom ? "custom" : "extra", prettyLabel(c.source_column), actor]);
+    if ((c.action === "custom") !== custom) changed += 1;
+    const home = homes[c.column_id] || {};
+    await db.query(
+      `UPDATE migration_columns SET action = $3, target = NULL, label = COALESCE(label, $4), resolved_by = $5, resolved_at = NOW(),
+              field_section = COALESCE($6, field_section), field_on_application = COALESCE($7, field_on_application) WHERE job_id = $1 AND column_id = $2`,
+      [job.job_id, c.column_id, custom ? "custom" : "extra", prettyLabel(c.source_column), actor,
+        sections[home.section] && home.section !== "guardian" ? home.section : null, home.section ? Boolean(home.onApplication) : null]
+    );
     if (custom) fields += 1; else details += 1;
   }
   await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "custom_fields_chosen", detail: { fields, details } });
-  return { ok: true, fields, details };
+  return { ok: true, fields, details, changed };
 }
 
 // A new custom field's type, from the values it will hold.
@@ -1847,7 +1866,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     const fieldTypes = new Map((await customFieldsOf(client, org)).map((f) => [Number(f.field_id), f.field_type]));
     const fieldByName = new Map((await customFieldsOf(client, org)).map((f) => [String(f.label).toLowerCase(), Number(f.field_id)]));
     const { rows: wanted } = await q(
-      `SELECT DISTINCT ON (LOWER(label)) label, samples, sensitive FROM migration_columns
+      `SELECT DISTINCT ON (LOWER(label)) label, samples, sensitive, field_section, field_on_application FROM migration_columns
         WHERE job_id = $1 AND action = 'custom' AND target IS NULL AND entity IN ('students', 'student_details') AND label IS NOT NULL ORDER BY LOWER(label), column_id`,
       [job.job_id]
     );
@@ -1858,12 +1877,15 @@ async function loadLive(db, job, actor, progress = quiet) {
       // A program or indicator is the standard field of Programs & Indicators; anything else takes the type its values have.
       const indicator = studentFields.INDICATORS.find((i) => i.label.toLowerCase() === key);
       const type = indicator ? indicator.type : fieldTypeOf(column.samples || []);
+      const suggested = studentFields.suggestHome(column.label);
+      const section = studentFields.SECTIONS[column.field_section] ? column.field_section : suggested.section;
+      const onApplication = column.field_on_application === null || column.field_on_application === undefined ? suggested.onApplication : Boolean(column.field_on_application);
       if (fieldByName.size >= 60) { counts.customFieldsSkipped += 1; continue; } // the school's limit: kept as details instead
       const { rows: [made] } = await q(
         `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section)
-         VALUES ($1, $2, $3, $4::jsonb, $5, FALSE, TRUE, FALSE, (SELECT COALESCE(MAX(position), 0) + 1 FROM student_form_fields WHERE organization_id = $1), NULL, $6) RETURNING field_id`,
+         VALUES ($1, $2, $3, $4::jsonb, $5, FALSE, TRUE, $7, (SELECT COALESCE(MAX(position), 0) + 1 FROM student_form_fields WHERE organization_id = $1), NULL, $6) RETURNING field_id`,
         [org, column.label.slice(0, 80), type, JSON.stringify(indicator ? indicator.options || [] : []),
-          indicator ? indicator.helpText : `From your old system (${system === "powerschool" ? "PowerSchool" : system})`, indicator ? "programs" : "more"]
+          indicator ? indicator.helpText : `From your old system (${system === "powerschool" ? "PowerSchool" : system})`, section, onApplication && section !== "programs"]
       );
       ledger.made("student_form_fields", { field_id: made.field_id });
       fieldByName.set(key, Number(made.field_id));
@@ -2812,7 +2834,7 @@ async function rollback(db, job, actor) {
           [made.map((k) => k.role_id), org]
         )).rowCount;
       } else if (keys.length === 1) {
-        const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields", "finance_payments", "finance_bill_assignments", "finance_bills", "transport_student_assignments",
+        const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields", "finance_payments", "finance_bill_assignments", "finance_bills", "finance_student_credits", "transport_student_assignments",
           "transport_bus_schedules", "transport_stops", "transport_drivers", "transport_routes", "transport_buses", "archived_student_info", "graduation_year_groups"].includes(table) ? " AND organization_id = $2" : "";
         removed = (await client.query(`DELETE FROM ${table} WHERE ${keys[0]} = ANY($1::int[])${scoped}`, scoped ? [made.map((k) => k[keys[0]]), org] : [made.map((k) => k[keys[0]])])).rowCount;
       } else {
@@ -3031,7 +3053,7 @@ module.exports = {
   featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
-  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, gpaOf, addAttendance, currentEnrollment, LOADED,
+  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, gpaOf, addAttendance, currentEnrollment, LOADED,
   rolesOf, roleReport, confirmRole, roleNotes, resolveRole, approvePerson, gpaCheck, statusesFor, startHub,
   requestMove, withdrawRequest, listRequests, decideRequest, latestRequest, SYSTEMS, TIMINGS, BRING,
   liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,

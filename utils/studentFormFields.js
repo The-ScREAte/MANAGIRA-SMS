@@ -411,7 +411,19 @@ async function addIndicators(db, organizationId, userId) {
   return added;
 }
 
+// Where a new student field from a data migration is best kept: the part of the student form, and
+// whether families answer it on the admission form too. Only a suggestion: the school chooses.
+function suggestHome(label) {
+  const k = String(label || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (INDICATORS.some((i) => i.label.toLowerCase().replace(/[^a-z0-9]/g, "") === k)) return { section: "programs", onApplication: false };
+  if (/preferred|nickname|pronoun|language|race|ethnic|hispanic|latino|birthplace|birthcountry|citizenship/.test(k)) return { section: "student", onApplication: true };
+  if (/homeroom|pathway|capstone|graduat|track|advisor|counselor|cohort|house|diploma/.test(k)) return { section: "academic", onApplication: false };
+  if (/photo|internet|media|permission|consent|release|tshirt|shirt|uniform|afterschool|aftercare|extendedday/.test(k)) return { section: "more", onApplication: true };
+  return { section: "more", onApplication: false };
+}
+
 module.exports = {
+  suggestHome,
   INDICATORS,
   indicatorFor,
   addIndicators,

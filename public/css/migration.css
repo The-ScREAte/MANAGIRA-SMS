@@ -232,3 +232,20 @@
 .mg-feat li:last-child { border-bottom: 0; }
 .mg-feat li span { color: var(--mg-muted); }
 @media (max-width: 640px) { .mg-feat li { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Student fields: where each new field lives (a part of the student form, and the admission form). */
+.mg-fields .mg-home { white-space: nowrap; }
+.mg-fields .mg-home select { font: inherit; font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--mg-line); border-radius: 8px; background: #fff; max-width: 190px; }
+.mg-fields .mg-app-tick { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; font-size: 12.5px; color: var(--mg-muted); }
+.mg-fields tr:not(.is-on) .mg-home { opacity: .45; }
+
+/* A save in the background: the button pressed says so, and a small message says what happened. */
+.mg .mg-btn.is-busy { opacity: .7; cursor: progress; }
+.mg-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 12px); max-width: min(560px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 10px; background: #0f172a; color: #fff; font-size: 13.5px; line-height: 1.4; box-shadow: 0 8px 24px rgba(15, 23, 42, .25); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; z-index: 13000; }
+.mg-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+.mg-toast.is-bad { background: #991b1b; }
+
+/* A choice for the whole migration (meal balances). */
+.mg-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #f9fafb; font-size: 13.5px; }
+.mg-choice label { display: inline-flex; align-items: baseline; gap: 6px; }
+.mg-choice small { color: var(--mg-muted); }

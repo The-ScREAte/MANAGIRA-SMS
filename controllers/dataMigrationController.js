@@ -145,10 +145,27 @@ async function customFieldsPost(req, res, db) {
   if (!job || job.status === "live") return res.redirect("/");
   const wait = await waitFor(db, job);
   if (wait) return done(req, res, { error: wait }, "map");
-  const result = await m.setCustomFields(db, job, [].concat(req.body.columns || []), actorOf(req));
-  await m.startTask(db, job, "import", actorOf(req));
-  req.flash("success", `Saved: ${result.fields} ${result.fields === 1 ? "custom field" : "custom fields"}, ${result.details} read-only ${result.details === 1 ? "detail" : "details"}. Importing again with your choice.`);
+  // Where each field lives: section_<column> and app_<column> (never a bare number as a key).
+  const homes = {};
+  for (const [key, value] of Object.entries(req.body || {})) {
+    const at = /^section_(\d+)$/.exec(key);
+    if (at) homes[at[1]] = { section: String(value), onApplication: Boolean(req.body[`app_${at[1]}`]) };
+  }
+  const result = await m.setCustomFields(db, job, [].concat(req.body.columns || []), actorOf(req), homes);
+  if (result.changed) await m.startTask(db, job, "import", actorOf(req));
+  req.flash("success", result.changed
+    ? `Saved: ${result.fields} ${result.fields === 1 ? "field" : "fields"}, ${result.details} read-only ${result.details === 1 ? "detail" : "details"}. Importing again with your choice.`
+    : "Saved where each field lives.");
   return res.redirect("/common/migration?step=map&embed=workspace");
+}
+// A choice for the whole migration (meal balances: kept in the meal app, or moved into PayGira).
+async function optionPost(req, res, db) {
+  const job = await schoolContext(req, res, db);
+  if (!job || job.status === "live") return res.redirect("/");
+  const result = await m.setOption(db, job, String(req.body.key || ""), String(req.body.value || ""), actorOf(req));
+  if (result.error) req.flash("error", result.error);
+  else req.flash("success", req.body.value === "paygira" ? "Meal balances will move into PayGira when you go live." : "Meal balances stay in your meal app.");
+  return res.redirect("/common/migration?step=check&embed=workspace");
 }
 async function matchPost(req, res, db) {
   const job = await schoolContext(req, res, db);
@@ -224,6 +241,8 @@ async function page(req, res, db) {
     // The other apps the school ran (library, food service, health office…), from its lists' names.
     listFeatures: require("../utils/migration/features").FEATURES,
     indicatorLabels: require("../utils/studentFormFields").INDICATORS.map((i) => i.label),
+    suggestHome: require("../utils/studentFormFields").suggestHome,
+    fieldHomes: Object.fromEntries(Object.entries(require("../utils/studentFormFields").SECTIONS).filter(([key]) => key !== "guardian")),
     transportOn,
     apps: on("check", "live") ? require("../utils/migration/apps").appsFrom(((job.totals && job.totals.report) || {}).lists, { areaLabels: Object.fromEntries(require("../utils/apiAccess").API_AREAS.map((a) => [a.key, a.label])) }) : [], matches, task: shownTask, docs, uploads, nextStep: NEXT_STEP, fieldChoices: m.fieldChoices(columns), fieldTypeOf: m.fieldTypeOf, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
@@ -672,7 +691,7 @@ const wrap = (fn) => async (req, res, db) => {
 };
 module.exports = {
   codeGate, verifyPage: wrap(verifyPage), verifyPost: wrap(verifyPost),
-  page: wrap(page), matchPost: wrap(matchPost), customFieldsPost: wrap(customFieldsPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
+  page: wrap(page), optionPost: wrap(optionPost), matchPost: wrap(matchPost), customFieldsPost: wrap(customFieldsPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
   legalPost: wrap(legalPost), importPost: wrap(importPost), approvePost: wrap(approvePost), signPost: wrap(signPost), goLivePost: wrap(goLivePost), catchUpPost: wrap(catchUpPost), taskPost: wrap(taskPost), invitePost: wrap(invitePost),
   roleConfirmPost: wrap(roleConfirmPost), roleNotesPost: wrap(roleNotesPost), roleApprovePost: wrap(roleApprovePost), roleReportFile: wrap(roleReportFile),
   archivePage: wrap(archivePage), documentFile: wrap(documentFile), oldRecords: wrap(oldRecords), studentOldSystem,

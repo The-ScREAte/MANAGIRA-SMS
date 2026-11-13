@@ -79,19 +79,23 @@
   <% if (fieldChoices.length) { const _typeWords = { text: 'Text', long_text: 'Long text', number: 'Number', date: 'Date', yes_no: 'Yes / No' }; %>
   <section class="mg-card" id="fields" style="margin-bottom:14px">
     <h2>Student fields</h2>
-    <p class="mg-hint">Columns about each student that Managira has no built-in place for. <strong>Ticked</strong>: one of your school's custom fields, added to the student form (under More) when you go live and filled with each student's value. <strong>Not ticked</strong>: kept as a read-only detail on the student. IEP, 504, English learner and the other indicators go into Programs &amp; Indicators, the school's own staff-only fields. Restricted ones like race and codes are best kept as details: custom fields are seen by everyone who sees the student form.</p>
+    <p class="mg-hint">Columns about each student that Managira has no built-in place for. <strong>Ticked</strong>: one of your school's own student fields, made when you go live and filled with each student's value, in the part of the student form you choose; tick <strong>Admission form</strong> to have families answer it when they apply too. You can change any of it later in Admission Settings › Student fields. <strong>Not ticked</strong>: kept as a read-only detail (codes like a locker combination stay that way). IEP, 504 and the other indicators live in Programs &amp; Indicators, staff only.</p>
     <form method="POST" action="/common/migration/custom-fields">
-      <div class="mg-scroll"><table class="mg-table mg-fields no-global-sort"><thead><tr><th class="mg-tickcol">Custom field</th><th>Their column</th><th>Sample values</th><th>In Managira</th></tr></thead><tbody>
-        <% fieldChoices.forEach((c) => { const own = c.action === 'map'; const on = own || c.action === 'custom'; %>
+      <div class="mg-scroll"><table class="mg-table mg-fields no-global-sort"><thead><tr><th class="mg-tickcol">Field</th><th>Their column</th><th>Sample values</th><th>In Managira</th><th>Lives in</th></tr></thead><tbody>
+        <% fieldChoices.forEach((c) => { const own = c.action === 'map'; const on = own || c.action === 'custom'; const _home = suggestHome(c.label || c.source_column); const _sec = c.field_section || _home.section; const _app = c.field_on_application === null || c.field_on_application === undefined ? _home.onApplication : c.field_on_application; %>
         <tr class="<%= on ? 'is-on' : '' %>">
           <td class="mg-tickcol"><label class="mg-box"><input type="checkbox" name="columns" value="<%= c.column_id %>"<%= on ? ' checked' : '' %><%= own ? ' disabled' : '' %> aria-label="Make <%= c.source_column %> a custom field" /><span aria-hidden="true"></span></label></td>
           <td><strong><%= c.source_column %></strong><small class="mg-samples" style="display:block"><%= entities[c.entity].label %></small></td>
           <td class="mg-samples"><%= (c.samples || []).slice(0, 3).join(' · ') %></td>
           <td><% if (own) { %><span class="mg-pill mg-pill--live">Already in Managira</span> <%= targetLabel(c.entity, c.target) %><% } else if (c.action === 'custom' && (locals.indicatorLabels || []).includes(c.label)) { %>Programs &amp; Indicators: <strong><%= c.label %></strong> <small class="mg-samples">staff only</small><% } else if (c.action === 'custom') { %>New custom field <strong><%= c.label %></strong> <small class="mg-samples"><%= _typeWords[fieldTypeOf(c.samples || [])] %></small><% } else { %>Read-only detail<% } %><% if (c.sensitive) { %> <span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] || 'Restricted' %></span><% } %></td>
+          <td class="mg-home"><% if (!own) { %>
+            <select name="section_<%= c.column_id %>" aria-label="Where <%= c.source_column %> lives"<%= _sec === 'programs' ? ' data-programs' : '' %>><% Object.entries(fieldHomes).forEach(([key, name]) => { %><option value="<%= key %>"<%= key === _sec ? ' selected' : '' %>><%= name %></option><% }) %></select>
+            <% if (_sec !== 'programs') { %><label class="mg-app-tick"><input type="checkbox" name="app_<%= c.column_id %>" value="1"<%= _app ? ' checked' : '' %> /> Admission form</label><% } %>
+          <% } else { %><span class="mg-samples">Already on the form</span><% } %></td>
         </tr>
         <% }) %>
       </tbody></table></div>
-      <div class="mg-actions" style="margin-top:12px"><button class="mg-btn mg-btn--primary">Save and import again</button></div>
+      <div class="mg-actions" style="margin-top:12px"><button class="mg-btn mg-btn--primary">Save</button><small class="mg-hint">Ticking or unticking a field imports again in the background; where it lives is kept as you chose.</small></div>
     </form>
   </section>
   <% } %>
@@ -151,6 +155,15 @@
       <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th>Goes into</th></tr></thead><tbody>
         <% _into.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td><td><%= listFeatures[l.feature].into %></td></tr><% }) %>
       </tbody></table></div>
+      <% if (_into.some((l) => l.feature === 'meal_balances')) { const _meals = ((job.options || {}).mealBalances) || 'keep'; %>
+      <form class="mg-choice" method="POST" action="/common/migration/options">
+        <input type="hidden" name="key" value="mealBalances" />
+        <strong>Meal balances</strong>
+        <label><input type="radio" name="value" value="keep"<%= _meals === 'keep' ? ' checked' : '' %> /> Stay in your meal app <small>(keep using it for the lunch line; connect it to Managira below)</small></label>
+        <label><input type="radio" name="value" value="paygira"<%= _meals === 'paygira' ? ' checked' : '' %> /> Move into PayGira <small>(amounts owed become bills, money in credit becomes each student's PayGira credit)</small></label>
+        <button class="mg-btn mg-btn--sm" type="submit">Save</button>
+      </form>
+      <% } %>
       <% } %>
       <% if (_kept.length) { %>
       <details class="mg-more"><summary>Every list kept read-only (<%= _kept.length %>)</summary>
@@ -458,7 +471,8 @@
            loaded.graduates ? ['Graduates & Alumni', `${loaded.graduates} graduates as former students, with ${Number(loaded.graduateCourses || 0).toLocaleString('en-US')} transcript courses`] : null,
            loaded.photos ? ['Student photos', `${loaded.photos} students' pictures from your files`] : null,
            (_t.routes || _t.buses || _t.riders) ? ['Transportation', `${_t.buses || 0} buses, ${_t.drivers || 0} drivers, ${_t.routes || 0} routes, ${_t.stops || 0} stops, ${_t.schedules || 0} weekly runs, ${_t.riders || 0} riders${_t.ridersKept ? ` (${_t.ridersKept} already on a bus kept theirs)` : ''}${_t.alternates ? `; ${_t.alternates} alternate-address arrangements on the students' records` : ''}`] : null,
-           (_p.bills || _p.payments) ? ['PayGira', `${_p.bills || 0} bills with ${_p.charges || 0} charges on students' ledgers (${_usd(_p.owed)} still owed), ${_p.payments || 0} payments${_p.mealDebts ? `; ${_p.mealDebts} meal accounts in debt billed` : ''}${_p.mealCredits ? `; ${_p.mealCredits} meal accounts in credit stay with your meal service` : ''}`] : null,
+           (_p.bills || _p.payments) ? ['PayGira', `${_p.bills || 0} bills with ${_p.charges || 0} charges on students' ledgers (${_usd(_p.owed)} still owed), ${_p.payments || 0} payments${_p.mealDebts ? `; ${_p.mealDebts} meal accounts in debt billed` : ''}${_p.mealCredits ? `; ${_p.mealCredits} meal accounts in credit (${_usd(_p.credit)}) as students' PayGira credit` : ''}`] : null,
+           (loaded.alerts || loaded.medicalAlerts) ? ['Alerts', `${loaded.medicalAlerts || 0} medical (care plans, severe allergies) and ${loaded.alerts || 0} custody alerts at the top of each student's page, for every teacher and substitute who opens it`] : null,
            loaded.parentDetails ? ["Parents' details", `${loaded.parentDetails} parents' phone, email or address filled in from your parent list`] : null,
            loaded.gradGroups ? ['Graduation years', `${loaded.gradGroups} graduation year ${loaded.gradGroups === 1 ? 'group' : 'groups'} made`] : null,
          ].filter(Boolean); %>

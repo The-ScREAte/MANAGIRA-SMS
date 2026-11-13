@@ -22,7 +22,7 @@ const FEATURES = {
   bus_fleet: { label: "Transportation: buses", into: "Transportation › Buses (plate, VIN, capacity, fuel)" },
   fees: { label: "PayGira: fees", into: "PayGira › a bill for each fee, on each student's ledger" },
   fee_payments: { label: "PayGira: payments", into: "PayGira › payments against those bills" },
-  meal_balances: { label: "PayGira: meal balances owed", into: "PayGira › a bill for each meal account in debt" },
+  meal_balances: { label: "Meal balances", into: "Your choice below: they stay in your meal app, or move into PayGira (amounts owed as bills, money in credit as each student's credit)" },
   parents_master: { label: "Parents' details", into: "Parents & guardians › each parent's phone, email and address" },
 };
 
