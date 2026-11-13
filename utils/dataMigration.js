@@ -594,7 +594,14 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   if (!id && entity === "section_teachers") id = hashId(data.section_source_id, data.teacher_source_id, data.class_role, data.start_date, index);
   if (!id && entity === "student_gpas") id = hashId(data.student_source_id, data.as_of, index);
   if (!id && entity === "student_details") id = clean(data.student_source_id, 120); // one row per student
-  return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [] };
+  return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [], fileKey: String(fileKey) };
+}
+// The same record in two lists of one kind (a contacts list and a relationships list): one record,
+// with what either list has. Within one list a repeat is a mistake, reported and left out.
+function mergeInto(first, again) {
+  for (const [k, v] of Object.entries(again.data || {})) if (first.data[k] === undefined || first.data[k] === "") first.data[k] = v;
+  for (const [k, v] of Object.entries(again.extra || {})) if (!first.extra[k]) first.extra[k] = v;
+  for (const [module, row] of Object.entries(again.archive || {})) first.archive[module] = { ...(row || {}), ...(first.archive[module] || {}) };
 }
 
 async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}) {
@@ -762,9 +769,15 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   };
   for (const entity of Object.keys(ps.ENTITIES)) {
     if (HEAVY.has(entity) || entity === "other") continue; // streamed below
-    // One record per old ID: a repeated ID keeps its first row (the repeat is in the check report).
-    const seenIds = new Set();
-    const list = (byEntity[entity] || []).filter((r) => r.sourceId && !seenIds.has(r.sourceId) && seenIds.add(r.sourceId));
+    // One record per old ID: a repeat within one list keeps its first row (it's in the check
+    // report); the same ID in another list of the same kind adds what that list has.
+    const firstOf = new Map();
+    const list = [];
+    for (const r of byEntity[entity] || []) {
+      if (!r.sourceId) continue;
+      const first = firstOf.get(r.sourceId);
+      if (!first) { firstOf.set(r.sourceId, r); list.push(r); } else if (first.fileKey !== r.fileKey) mergeInto(first, r);
+    }
     for (let i = 0; i < list.length; i += BATCH) {
       const part = list.slice(i, i + BATCH);
       await write(entity, part);
@@ -772,7 +785,7 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
       progress({ done: written });
       await tick();
     }
-    written += (byEntity[entity] || []).length - list.length; // repeats, reported, not written
+    written += (byEntity[entity] || []).length - list.length; // repeats (reported) and merged rows
     await db.query("DELETE FROM migration_records WHERE job_id = $1 AND entity = $2 AND updated_at < $3", [job.job_id, entity, started]);
     report.entities[entity] = { source: source.rows[entity] || 0, staged: list.length };
     for (const r of byEntity[entity] || []) noteIssues(entity, r);
@@ -1317,6 +1330,17 @@ function fieldValueAs(type, value) {
   if (type === "yes_no") return /^(1|y|yes|true)$/i.test(text) ? "yes" : "no";
   if (type === "date") { const iso = isoDate(text); return iso && iso !== "invalid" ? iso : text; }
   return text;
+}
+// A pickup list's "do not release" (or not authorized, restricted): a custody alert naming the person.
+function releaseAlertOf(list, row) {
+  if (!/pickup|release|authori[sz]ed|dismissal/i.test(list)) return null;
+  const pick = (...names) => { const key = Object.keys(row).find((k) => names.includes(String(k).toLowerCase().replace(/[^a-z0-9]/g, ""))); return key ? clean(row[key], 600) : ""; };
+  const status = pick("status", "pickupstatus", "authorization", "allowed");
+  const note = pick("restrictionnote", "restriction", "note", "notes", "courtorder");
+  if (!/do\s*not\s*release|not\s*authori|restrict|prohibit|no\s*contact/i.test(`${status} ${/^(0|n|no)$/i.test(status) ? "not authorised" : ""}`)) return null;
+  const person = pick("personname", "name", "adultname", "authorizedadult");
+  const relationship = pick("relationship");
+  return { label: `Do not release to ${person || "this person"}${relationship ? ` (${relationship})` : ""}`, text: note || `${status}.` };
 }
 // An alert for the top of a student's record from a health list: an emergency care plan, or a
 // condition marked severe or with an emergency action plan. Others stay in the restricted list.
@@ -2194,6 +2218,18 @@ async function loadLive(db, job, actor, progress = quiet) {
           const studentColumn = Object.keys(d.row || {}).find((k) => lists.STUDENT_KEYS.includes(String(k).toLowerCase().replace(/^\[[^\]]*\]/, "").replace(/[^a-z0-9]/g, "")));
           for (const [column, value] of Object.entries(d.row || {})) if (column !== studentColumn && !/^last_?first$|^student_?name$/i.test(column)) await extraOn("student", studentId, prettyLabel(column), { value, sensitive: Boolean(d.restricted) });
           continue;
+        }
+        const release = releaseAlertOf(d.list, d.row || {});
+        if (studentId && release) {
+          const said = await q("SELECT 1 FROM student_alerts WHERE organization_id = $1 AND student_id = $2 AND kind = 'custody' AND job_id = $3 AND LOWER(text) = LOWER($4) LIMIT 1", [org, studentId, job.job_id, release.text]);
+          if (!said.rowCount) {
+            await q(
+              `INSERT INTO student_alerts (organization_id, student_id, kind, label, text, source, job_id) VALUES ($1, $2, 'custody', $3, $4, $5, $6)
+               ON CONFLICT (organization_id, student_id, kind, label) DO UPDATE SET text = EXCLUDED.text, job_id = EXCLUDED.job_id`,
+              [org, studentId, release.label.slice(0, 120), release.text.slice(0, 2000), system, job.job_id]
+            );
+            counts.alerts += 1;
+          }
         }
         const medical = medicalAlertOf(d.list, d.row || {});
         if (studentId && medical) {
