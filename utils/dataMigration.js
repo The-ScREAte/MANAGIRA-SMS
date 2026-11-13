@@ -40,6 +40,17 @@ const zlib = require("zlib");
 const { promisify } = require("util");
 const gzip = promisify(zlib.gzip);
 const tick = tasks.tick;
+// A statement that's safe to repeat (an upsert, a delete by time) is tried again when the
+// connection drops under it: a long import doesn't fail for one network hiccup.
+const DROPPED = /Connection terminated|ECONNRESET|server closed the connection|Connection ended|EPIPE|connection timeout|terminating connection/i;
+async function again(fn, tries = 3) {
+  for (let attempt = 1; ; attempt += 1) {
+    try { return await fn(); } catch (error) {
+      if (attempt >= tries || !DROPPED.test(String(error && error.message))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+    }
+  }
+}
 const quiet = () => {};
 const { PERMISSIONS_SAVED_KEY, invalidateUserPermissionCache } = require("../middleware/permissionMiddleware");
 
@@ -716,13 +727,13 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   const toWrite = Object.keys(ps.ENTITIES).reduce((sum, entity) => sum + (byEntity[entity] || []).length, 0) + heavyFiles.reduce((sum, f) => sum + (Number(f.row_count) || 0), 0);
   let written = 0;
   step(3, "Saving to the sandbox", { total: toWrite });
-  const write = (entity, part) => db.query(
+  const write = (entity, part) => again(() => db.query(
     `INSERT INTO migration_records (job_id, organization_id, entity, source_id, data, extra, archive, issues)
      SELECT $1, $2, $3, x.id, x.data, x.extra, x.archive, x.issues
        FROM unnest($4::text[], $5::jsonb[], $6::jsonb[], $7::jsonb[], $8::jsonb[]) AS x(id, data, extra, archive, issues)
      ON CONFLICT (job_id, entity, source_id) DO UPDATE SET data = EXCLUDED.data, extra = EXCLUDED.extra, archive = EXCLUDED.archive, issues = EXCLUDED.issues, updated_at = NOW()`,
     [job.job_id, job.organization_id, entity, part.map((r) => r.sourceId), part.map((r) => JSON.stringify(r.data)), part.map((r) => JSON.stringify(r.extra)), part.map((r) => JSON.stringify(r.archive)), part.map((r) => JSON.stringify(r.issues))]
-  );
+  ));
   const noteIssues = (entity, r) => {
     for (const issue of r.issues) {
       const key = `${entity}:${issue.kind}`;
