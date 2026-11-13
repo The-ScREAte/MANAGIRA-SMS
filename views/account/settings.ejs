@@ -1374,6 +1374,19 @@
 
       
 
+      .password-modal .pw-who {
+        margin: -4px 0 4px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        color: #475467;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .password-modal .pw-who strong { color: #101828; font-weight: 650; }
+
       .password-modal .content-row {
         gap: 12px;
         align-items: stretch;
@@ -5414,14 +5427,16 @@
     </div>
     <div class="modal-overlay" id="billing-password-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="billing-password-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="billing-password-close">&times;</button>
         <h2>Confirm Password</h2>
         <p>Please confirm your password to continue.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="billing-password-input">Password</label>
+            <label class="form-label" for="billing-password-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="billing-password-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5436,14 +5451,16 @@
     </div>
     <div class="modal-overlay" id="google-deactivate-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="google-deactivate-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="google-deactivate-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="google-deactivate-copy">Please confirm your password to continue with Google Classroom changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="google-deactivate-input">Password</label>
+            <label class="form-label" for="google-deactivate-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="google-deactivate-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5458,14 +5475,16 @@
     </div>
     <div class="modal-overlay" id="student-portal-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="student-portal-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="student-portal-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="student-portal-activation-copy">Please confirm your password to continue with Student Portal changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="student-portal-activation-input">Password</label>
+            <label class="form-label" for="student-portal-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="student-portal-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5480,14 +5499,16 @@
     </div>
     <div class="modal-overlay" id="mira-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="mira-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="mira-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="mira-activation-copy">Please confirm your password to continue with Mira changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="mira-activation-input">Password</label>
+            <label class="form-label" for="mira-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="mira-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5502,14 +5523,16 @@
     </div>
     <div class="modal-overlay" id="sms-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="sms-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="sms-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="sms-activation-copy">Please confirm your password to continue.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="sms-activation-input">Password</label>
+            <label class="form-label" for="sms-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="sms-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5532,14 +5555,16 @@
     </aside>
     <div class="modal-overlay" id="transportation-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="transportation-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="transportation-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="transportation-activation-copy">Please confirm your password to continue with Transportation changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="transportation-activation-input">Password</label>
+            <label class="form-label" for="transportation-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="transportation-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5554,14 +5579,16 @@
     </div>
     <div class="modal-overlay" id="google-maps-nav-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="google-maps-nav-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="google-maps-nav-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="google-maps-nav-activation-copy">Please confirm your password to continue with Google Maps changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="google-maps-nav-activation-input">Password</label>
+            <label class="form-label" for="google-maps-nav-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="google-maps-nav-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5576,14 +5603,16 @@
     </div>
     <div class="modal-overlay" id="apple-maps-nav-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="apple-maps-nav-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="apple-maps-nav-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="apple-maps-nav-activation-copy">Please confirm your password to continue with Maps changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="apple-maps-nav-activation-input">Password</label>
+            <label class="form-label" for="apple-maps-nav-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="apple-maps-nav-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -5598,14 +5627,16 @@
     </div>
     <div class="modal-overlay" id="whatsapp-activation-modal">
       <div class="modal-card password-modal">
-        <button class="modal-close" type="button" id="whatsapp-activation-close">x</button>
+        <button class="modal-close" type="button" aria-label="Close" id="whatsapp-activation-close">&times;</button>
         <h2>Confirm Password</h2>
         <p id="whatsapp-activation-copy">Please confirm your password to continue with WhatsApp integration changes.</p>
+        <% if (locals.passwordWho && passwordWho.name) { %><p class="pw-who">Signed in as <strong><%= passwordWho.name %></strong><%= passwordWho.note ? ` · ${passwordWho.note}` : '' %></p><% } %>
         <div class="content-row">
           <div class="field-group">
-            <label class="form-label" for="whatsapp-activation-input">Password</label>
+            <label class="form-label" for="whatsapp-activation-input">Your password</label>
             <input
               type="password"
+              autocomplete="current-password"
               id="whatsapp-activation-input"
               placeholder="Enter your password"
               class="form-input"
@@ -9448,6 +9479,16 @@
         if (integrationInfoBackdrop) integrationInfoBackdrop.addEventListener("click", closeIntegrationInfo);
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape") closeIntegrationInfo();
+        });
+
+        // In any password pop-up, Enter confirms (the pop-up's own Continue button).
+        document.querySelectorAll(".password-modal input[type='password']").forEach((input) => {
+          input.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            const go = input.closest(".password-modal").querySelector(".form-actions .btn-primary");
+            if (go && !go.disabled) go.click();
+          });
         });
 
         // Close any open integration ⋮ action menu when clicking anywhere else on the page.

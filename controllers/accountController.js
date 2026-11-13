@@ -9407,8 +9407,13 @@ const accountController = {
 
       const isOnHoldRestricted = Boolean(req.session.onHoldRestricted);
 
+      // Whose password Settings' pop-ups ask for (utils/confirmOwnPassword.js), shown in them.
+      const signedIn = require("../utils/confirmOwnPassword").whoIsSignedIn(req);
+      const passwordWho = { name: signedIn.name, kind: signedIn.kind,
+        note: ["hub", "hubUser"].includes(signedIn.kind) ? "use your hub password" : signedIn.kind === "admin" ? "use your Managira admin password" : "use your own password" };
       res.render("account/settings", {
         title: "Settings",
+        passwordWho,
         isEmbedded,
         isOnHoldRestricted,
         hideGlobalHeader: isEmbedded,

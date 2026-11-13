@@ -11,17 +11,47 @@ const MAX_WRONG = 5;
 const WINDOW_MS = 10 * 60 * 1000;
 const wrongTries = new BoundedMap(5000, { keepUnderPressure: true });
 
-// Who is signed in: the school's own account, or a member of staff. A school's own account keeps
-// its organization's id in session.user.user_id, so the account type decides, never that id.
+// Who is really signed in, and where their password is kept:
+//  - a hub person who opened one of the hub's schools (hubOrgSwitch): their own hub sign-in (a hub
+//    user's, or the hub's own), or the Managira admin viewing that hub; never the school's;
+//  - a Managira admin who opened a school from Admin (superAdminOrgSwitch): the admin's own;
+//  - the school's own account (accountType "Organization", its id kept in session.user.user_id):
+//    the school's;
+//  - a member of staff: their own.
+const ADMIN_TYPES = ["Admin", "Mini Admin", "Internal Worker"];
+const fullName = (a, b) => `${a || ""} ${b || ""}`.trim();
 function whoIsSignedIn(req) {
   const session = (req && req.session) || {};
   const organizationId = Number(session.organizationId) || null;
+  const role = session.userRole || session.accountType || (session.user && session.user.account_type) || "User";
+  const hubSwitch = session.hubOrgSwitch && session.hubOrgSwitch.saved;
+  if (hubSwitch) {
+    const name = String(session.hubOrgSwitch.by || "").trim() || fullName(hubSwitch.firstName, hubSwitch.lastName) || hubSwitch.hubName || "Hub";
+    if (hubSwitch.adminHubView && Number(hubSwitch.userId)) return { organizationId, kind: "admin", id: Number(hubSwitch.userId), userId: null, name, role: "Managira admin" };
+    if (Number(hubSwitch.hubUserId)) return { organizationId, kind: "hubUser", id: Number(hubSwitch.hubUserId), hubId: Number(hubSwitch.hubId) || null, userId: null, name, role: "Hub" };
+    if (Number(hubSwitch.hubId)) return { organizationId, kind: "hub", id: Number(hubSwitch.hubId), userId: null, name, role: "Hub" };
+  }
+  if (session.superAdminOrgSwitch || session.originalAdminUserId) {
+    const id = Number(session.originalAdminUserId || session.userId) || null;
+    return { organizationId, kind: "admin", id, userId: null, name: fullName(session.firstName, session.lastName) || session.userEmail || "Managira admin", role: "Managira admin" };
+  }
   const schoolAccount = String(session.accountType || "").toLowerCase() === "organization";
   const userId = schoolAccount ? null : Number(session.userId || (session.user && session.user.user_id)) || null;
-  const name = `${session.firstName || (session.user && session.user.first_name) || ""} ${session.lastName || (session.user && session.user.last_name) || ""}`.trim()
+  const name = fullName(session.firstName || (session.user && session.user.first_name), session.lastName || (session.user && session.user.last_name))
     || session.organizationName || session.email || (session.user && session.user.email) || "Someone";
-  const role = session.userRole || session.accountType || (session.user && session.user.account_type) || "User";
-  return { organizationId, schoolAccount, userId, name, role };
+  return { organizationId, kind: schoolAccount ? "school" : "staff", id: schoolAccount ? organizationId : userId, schoolAccount, userId, name, role };
+}
+
+// The stored password hash of whoever is signed in (null when they have none).
+async function storedHash(who) {
+  const read = async (sql, args) => ((await db.query(sql, args)).rows[0] || {});
+  if (!who.id) return null;
+  if (who.kind === "school") return (await read("SELECT password FROM organizations WHERE organization_id = $1", [who.id])).password || null;
+  if (who.kind === "staff") return (await read("SELECT password FROM users WHERE user_id = $1 AND organization_id = $2", [who.id, who.organizationId])).password || null;
+  if (who.kind === "admin") return (await read("SELECT password FROM users WHERE user_id = $1 AND organization_id IS NULL AND account_type::text = ANY($2::text[])", [who.id, ADMIN_TYPES])).password || null;
+  if (who.kind === "hubUser") return (await read("SELECT password FROM hub_users WHERE hub_user_id = $1 AND ($2::int IS NULL OR hub_id = $2)", [who.id, who.hubId])).password || null;
+  if (who.kind === "hub") return (await read("SELECT hub_password FROM managira_hubs WHERE hub_id = $1", [who.id])).hub_password || null;
+  return null;
 }
 
 function logConfirmation(req, who, purpose, ok) {
@@ -53,13 +83,15 @@ async function confirmOwnPassword(req, password, { purpose = "" } = {}) {
   const typed = String(password || "");
   if (!typed) throw Object.assign(new Error("Enter your password."), { status: 400 });
   const who = whoIsSignedIn(req);
-  if (!who.organizationId || (!who.schoolAccount && !who.userId)) throw Object.assign(new Error("Sign in again to continue."), { status: 401 });
-  const { rows } = who.schoolAccount
-    ? await db.query("SELECT password FROM organizations WHERE organization_id = $1", [who.organizationId])
-    : await db.query("SELECT password FROM users WHERE user_id = $1 AND organization_id = $2", [who.userId, who.organizationId]);
-  const hash = rows[0] && rows[0].password;
+  if (!who.organizationId || !who.id) throw Object.assign(new Error("Sign in again to continue."), { status: 401 });
+  const hash = await storedHash(who);
   // Someone who signs in through the school's single sign-on has no Managira password to give.
-  if (!hash) throw Object.assign(new Error("Your account signs in through your school's single sign-on, so it has no Managira password to confirm with. Ask your school's main manager to do this."), { status: 403 });
+  if (!hash) {
+    const why = who.kind === "staff"
+      ? "Your account signs in through your school's single sign-on, so it has no Managira password to confirm with. Ask your school's main manager to do this."
+      : "Your account has no password to confirm with. Sign in again, then try once more.";
+    throw Object.assign(new Error(why), { status: 403 });
+  }
   if (!(await bcrypt.compare(typed, hash))) {
     if (!entry || now - entry.start >= WINDOW_MS) wrongTries.set(key, { start: now, count: 1 });
     else entry.count += 1;
