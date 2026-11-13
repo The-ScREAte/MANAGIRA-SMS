@@ -37,14 +37,28 @@
 .mg-upload { display: grid; gap: 12px; margin: 10px 0 16px; }
 .mg .mg-drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 18px; border: 1.5px dashed #c5cbd3; border-radius: 14px; background: #fafbfc; color: var(--mg-text); text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
 .mg .mg-drop:hover, .mg .mg-drop.is-over, .mg .mg-drop:focus-within { border-color: var(--mg-accent); background: var(--mg-soft); }
-.mg .mg-drop input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.mg .mg-drop { cursor: default; }
+.mg .mg-drop__choose { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.mg .mg-drop__choose label { position: relative; overflow: hidden; cursor: pointer; }
+.mg .mg-drop__choose input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .mg-drop__icon { width: 34px; height: 34px; border-radius: 10px; background: var(--mg-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2301535b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V4m0 0-4 4m4-4 4 4'/%3E%3Cpath d='M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3'/%3E%3C/svg%3E") center / 20px no-repeat; }
 .mg-drop small { color: var(--mg-muted); font-size: 12.5px; }
-.mg-picked { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.mg-picked li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 12px; border: 1px solid var(--mg-line); border-radius: 9px; font-size: 13px; }
-.mg-picked li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mg-picked li small { flex: none; color: var(--mg-muted); }
-.mg-picked li.is-bad { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+/* The files chosen: a summary line, a remove button beside each, the first few unless "Show all". */
+.mg-picked { border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; }
+.mg-picked__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid var(--mg-line); font-size: 13.5px; }
+.mg-picked__tools { display: inline-flex; gap: 14px; }
+.mg-picked__list { margin: 0; padding: 0; list-style: none; max-height: 360px; overflow-y: auto; }
+.mg-picked__list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-bottom: 1px solid #f2f4f7; font-size: 13px; }
+.mg-picked__list li:last-child { border-bottom: 0; }
+.mg-picked__list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-picked__list li small { flex: none; color: var(--mg-muted); font-variant-numeric: tabular-nums; }
+.mg-picked__list li.is-bad { background: #fef2f2; color: #991b1b; }
+.mg .mg-picked__remove { flex: none; width: 26px; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 6px; background: transparent !important; color: var(--mg-muted) !important; font-size: 17px; line-height: 1; cursor: pointer; box-shadow: none; }
+.mg .mg-picked__remove:hover { background: #fee2e2 !important; color: #b91c1c !important; }
+.mg .mg-link { all: unset; cursor: pointer; color: var(--mg-accent); font-weight: 600; font-size: 13px; }
+.mg .mg-link--quiet { color: var(--mg-muted); font-weight: 500; }
+.mg .mg-link:hover { text-decoration: underline; }
+.mg-sending__row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .mg-upload__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .mg-upload__row .mg-field { flex: 1 1 260px; max-width: 360px; }
 .mg-sending { display: grid; gap: 6px; }
@@ -249,3 +263,11 @@
 .mg-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #f9fafb; font-size: 13.5px; }
 .mg-choice label { display: inline-flex; align-items: baseline; gap: 6px; }
 .mg-choice small { color: var(--mg-muted); }
+
+/* A word on privacy beside the Upload button. */
+.mg-upload__row { align-items: center; }
+.mg-trust { display: flex; gap: 10px; align-items: flex-start; flex: 1 1 420px; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--mg-muted); }
+.mg-trust strong { color: var(--mg-text); }
+.mg-trust__icon { flex: none; width: 18px; height: 18px; margin-top: 1px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2301535b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center / 18px no-repeat; }
+
+.mg-hint--small { font-size: 12px; margin-top: -4px; }

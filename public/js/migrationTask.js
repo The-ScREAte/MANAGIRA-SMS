@@ -49,37 +49,111 @@
   follow();
 
   // ── Uploads ──
+  // Files or a whole folder (chosen or dropped), kept in a list with a remove button beside each,
+  // sent in batches one after another (any number of files) with one progress bar; Stop keeps
+  // what's left. Each file keeps its folder path, so a student's documents still find them.
   root.querySelectorAll("form[data-upload]").forEach(function (form) {
-    var input = form.querySelector("input[type=file]");
+    var pickFiles = form.querySelector("[data-pick-files]");
+    var pickFolder = form.querySelector("[data-pick-folder]");
     var drop = form.querySelector("[data-drop]");
-    var picked = form.querySelector("[data-picked]");
+    var box = form.querySelector("[data-picked]");
+    var listEl = form.querySelector("[data-picked-list]");
+    var summary = form.querySelector("[data-picked-summary]");
+    var toggle = form.querySelector("[data-picked-toggle]");
     var sending = form.querySelector("[data-sending]");
     var errorBox = form.querySelector("[data-upload-error]");
     var maxBytes = Number(form.getAttribute("data-max-mb") || 60) * 1048576;
-    var maxFiles = Number(form.getAttribute("data-max-files") || 20);
+    var perBatch = Number(form.getAttribute("data-max-files") || 50);
+    var BATCH_BYTES = 80 * 1048576;
+    var SHOWN = 12;
+    var picked = [];
+    var showAll = false;
+    var current = null; // the request on its way, for Stop
+    var stopped = false;
     var showError = function (text) { errorBox.textContent = text || ""; errorBox.hidden = !text; };
+    if (pickFolder && "webkitdirectory" in pickFolder) form.querySelector("[data-folder-choice]").hidden = false;
+    if (pickFiles) pickFiles.removeAttribute("name"); // the script sends them, in batches
+    var isList = function (name) { return /\.(csv|tsv|txt|tab|xlsx|xls|zip)$/i.test(name); };
+    var pathOf = function (f, given) { return String(given || f.webkitRelativePath || f.name).replace(/\\/g, "/").replace(/^\/+/, ""); };
+    var hidden = function (path) { return path.split("/").some(function (part) { return part.charAt(0) === "." || part === "__MACOSX"; }); };
 
-    var list = function () {
-      var files = Array.prototype.slice.call(input.files || []);
-      picked.innerHTML = "";
-      picked.hidden = !files.length;
-      var problem = "";
-      files.forEach(function (f) {
+    // A file chosen again (same path, size and date) isn't listed twice; files chosen together all
+    // count, even when two have the same name (each student's birth certificate).
+    function add(entries) {
+      var key = function (path, f) { return path + "|" + f.size + "|" + (f.lastModified || 0); };
+      var before = {};
+      picked.forEach(function (p) { before[key(p.path, p.file)] = true; });
+      entries.forEach(function (e) {
+        var path = pathOf(e.file, e.path);
+        if (hidden(path) || before[key(path, e.file)]) return;
+        picked.push({ file: e.file, path: path });
+      });
+      render();
+    }
+    function render() {
+      box.hidden = !picked.length;
+      listEl.innerHTML = "";
+      if (!picked.length) { showError(""); return; }
+      var bytes = 0, lists = 0, big = 0;
+      picked.forEach(function (p) { bytes += p.file.size; if (isList(p.path)) lists += 1; if (p.file.size > maxBytes) big += 1; });
+      // One folder chosen: its name once, at the top, and each file shown inside it.
+      var tops = {};
+      picked.forEach(function (p) { tops[p.path.indexOf("/") > 0 ? p.path.split("/")[0] : ""] = true; });
+      var folder = Object.keys(tops).length === 1 && Object.keys(tops)[0] ? Object.keys(tops)[0] : "";
+      var shown = function (p) { return folder ? p.path.slice(folder.length + 1) : p.path; };
+      summary.textContent = (folder ? folder + " · " : "") + picked.length.toLocaleString("en-US") + (picked.length === 1 ? " file" : " files") + " · " + fmtSize(bytes) + " · " +
+        lists.toLocaleString("en-US") + (lists === 1 ? " list" : " lists") + " · " + (picked.length - lists).toLocaleString("en-US") + (picked.length - lists === 1 ? " document" : " documents");
+      var rows = showAll ? picked : picked.slice(0, SHOWN);
+      rows.forEach(function (p) {
         var li = document.createElement("li");
+        if (p.file.size > maxBytes) li.className = "is-bad";
         var name = document.createElement("span");
-        name.textContent = f.name;
+        name.textContent = shown(p);
+        name.title = p.path;
         var size = document.createElement("small");
-        size.textContent = fmtSize(f.size);
+        size.textContent = fmtSize(p.file.size);
+        var remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "mg-picked__remove";
+        remove.setAttribute("aria-label", "Remove " + p.path);
+        remove.textContent = "×";
+        remove.addEventListener("click", function () { picked.splice(picked.indexOf(p), 1); render(); });
         li.appendChild(name);
         li.appendChild(size);
-        if (f.size > maxBytes) { li.className = "is-bad"; problem = f.name + " is larger than " + fmtSize(maxBytes) + ": export it in parts."; }
-        picked.appendChild(li);
+        li.appendChild(remove);
+        listEl.appendChild(li);
       });
-      if (files.length > maxFiles) problem = "Up to " + maxFiles + " files at a time.";
-      showError(problem);
-      return !problem;
-    };
-    input.addEventListener("change", list);
+      toggle.hidden = picked.length <= SHOWN;
+      toggle.textContent = showAll ? "Show fewer" : "Show all " + picked.length.toLocaleString("en-US");
+      showError(big ? (big === 1 ? "One file is" : big + " files are") + " larger than " + fmtSize(maxBytes) + ": remove " + (big === 1 ? "it" : "them") + " (marked in red) or export " + (big === 1 ? "it" : "them") + " in parts." : "");
+    }
+    toggle.addEventListener("click", function () { showAll = !showAll; render(); });
+    form.querySelector("[data-picked-clear]").addEventListener("click", function () { picked = []; showAll = false; render(); });
+    [pickFiles, pickFolder].forEach(function (input) {
+      if (!input) return;
+      input.addEventListener("change", function () {
+        add(Array.prototype.map.call(input.files || [], function (f) { return { file: f }; }));
+        input.value = "";
+      });
+    });
+
+    // A dropped folder is read through, folder by folder.
+    function readEntry(entry, out) {
+      return new Promise(function (resolve) {
+        if (entry.isFile) { entry.file(function (f) { out.push({ file: f, path: entry.fullPath }); resolve(); }, function () { resolve(); }); return; }
+        if (!entry.isDirectory) { resolve(); return; }
+        var reader = entry.createReader();
+        var all = [];
+        var more = function () {
+          reader.readEntries(function (batch) {
+            if (!batch.length) { Promise.all(all.map(function (e) { return readEntry(e, out); })).then(resolve); return; }
+            all = all.concat(Array.prototype.slice.call(batch));
+            more();
+          }, function () { resolve(); });
+        };
+        more();
+      });
+    }
     ["dragenter", "dragover"].forEach(function (type) {
       drop.addEventListener(type, function (e) { e.preventDefault(); drop.classList.add("is-over"); });
     });
@@ -87,60 +161,99 @@
       drop.addEventListener(type, function (e) { e.preventDefault(); drop.classList.remove("is-over"); });
     });
     drop.addEventListener("drop", function (e) {
-      if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
-      input.files = e.dataTransfer.files;
-      list();
+      var dt = e.dataTransfer;
+      if (!dt) return;
+      var items = Array.prototype.slice.call(dt.items || []).map(function (i) { return i.webkitGetAsEntry ? i.webkitGetAsEntry() : null; }).filter(Boolean);
+      if (items.length) {
+        var out = [];
+        Promise.all(items.map(function (entry) { return readEntry(entry, out); })).then(function () { add(out); });
+        return;
+      }
+      add(Array.prototype.map.call(dt.files || [], function (f) { return { file: f }; }));
     });
+
+    // Batches of up to `perBatch` files and about 80 MB, one after another.
+    function batches(list) {
+      var out = [], now = [], size = 0;
+      list.forEach(function (p) {
+        if (now.length && (now.length >= perBatch || size + p.file.size > BATCH_BYTES)) { out.push(now); now = []; size = 0; }
+        now.push(p);
+        size += p.file.size;
+      });
+      if (now.length) out.push(now);
+      return out;
+    }
+    form.querySelector("[data-sending-stop]").addEventListener("click", function () { stopped = true; if (current) current.abort(); });
 
     form.addEventListener("submit", function (e) {
       if (!window.FormData || !window.XMLHttpRequest) return;
       e.preventDefault();
-      if (!input.files || !input.files.length) { showError("Choose the files to upload."); return; }
-      if (!list()) return;
-      var data = new FormData(form);
-      var total = Array.prototype.reduce.call(input.files, function (sum, f) { return sum + f.size; }, 0);
+      if (!picked.length) { showError("Choose the files or the folder to upload."); return; }
+      if (picked.some(function (p) { return p.file.size > maxBytes; })) { render(); return; }
+      var entity = form.querySelector("select[name=entity]");
+      var parts = batches(picked.slice());
+      var total = picked.reduce(function (sum, p) { return sum + p.file.size; }, 0);
+      var totalFiles = picked.length;
       var bar = sending.querySelector("[data-sending-bar]");
       var text = sending.querySelector("[data-sending-text]");
       var button = form.querySelector("button[type=submit]");
+      var doneBytes = 0, doneFiles = 0, next = null, refused = [];
+      // One group for everything chosen together: its lists are read as one upload.
+      var group = "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
       sending.hidden = false;
       button.disabled = true;
+      stopped = false;
       showError("");
-      var xhr = new XMLHttpRequest();
-      var waiting = null;
-      var reloadSoon = function () { clearTimeout(waiting); window.location.reload(); };
-      xhr.open("POST", form.getAttribute("action"));
-      xhr.setRequestHeader("Accept", "application/json");
-      xhr.timeout = 180000;
-      // Sent: if the answer is slow, the page itself shows where the upload got to.
-      xhr.upload.onload = function () {
-        bar.style.width = "100%";
-        text.textContent = "Uploaded. Saving…";
-        waiting = setTimeout(reloadSoon, 30000);
-      };
-      xhr.ontimeout = reloadSoon;
-      xhr.upload.onprogress = function (ev) {
-        var sent = ev.lengthComputable ? ev.loaded : 0;
-        var pct = total ? Math.min(100, Math.round((sent / (ev.total || total)) * 100)) : 0;
-        bar.style.width = Math.max(3, pct) + "%";
-        text.textContent = pct >= 100 ? "Uploaded. Saving…" : "Uploading " + pct + "% (" + fmtSize(sent) + " of " + fmtSize(ev.total || total) + ")";
-      };
-      xhr.onload = function () {
-        clearTimeout(waiting);
-        var body = null;
-        try { body = JSON.parse(xhr.responseText); } catch (_e) { body = null; }
-        if (xhr.status === 200 && body && body.ok) { forget(); go(body.next || window.location.pathname + window.location.search, false); return; }
-        if (!body) { window.location.reload(); return; }
+      var finish = function (problem) {
+        current = null;
         sending.hidden = true;
         button.disabled = false;
-        showError([body.error].concat(body.refused || []).filter(Boolean).join(" "));
+        render();
+        if (problem) showError(problem);
       };
-      xhr.onerror = function () {
-        clearTimeout(waiting);
-        sending.hidden = true;
-        button.disabled = false;
-        showError("The upload didn't reach Managira. Check your connection and try again.");
+      var send = function (index) {
+        if (index >= parts.length) {
+          bar.style.width = "100%";
+          text.textContent = "Uploaded " + totalFiles.toLocaleString("en-US") + " files. Managira is reading them in the background: you don't need to wait.";
+          forget();
+          if (refused.length) showError(refused.join(" "));
+          go(next || window.location.pathname + window.location.search, false);
+          return;
+        }
+        if (stopped) { finish(doneFiles ? "Stopped after " + doneFiles.toLocaleString("en-US") + " files: they're being read. The rest are still listed: upload them when you're ready." : "Stopped. Nothing was sent."); return; }
+        var part = parts[index];
+        var data = new FormData();
+        if (entity && entity.value) data.append("entity", entity.value);
+        data.append("group", group);
+        part.forEach(function (p) { data.append("files", p.file, p.path); });
+        var xhr = new XMLHttpRequest();
+        current = xhr;
+        xhr.open("POST", form.getAttribute("action"));
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.timeout = 300000;
+        xhr.upload.onprogress = function (ev) {
+          var sent = doneBytes + (ev.lengthComputable ? ev.loaded : 0);
+          var pct = total ? Math.min(99, Math.round((sent / total) * 100)) : 0;
+          bar.style.width = Math.max(3, pct) + "%";
+          text.textContent = "Uploading " + pct + "% · " + Math.min(totalFiles, doneFiles + part.length).toLocaleString("en-US") + " of " + totalFiles.toLocaleString("en-US") + " files (" + fmtSize(sent) + " of " + fmtSize(total) + ")";
+        };
+        xhr.onload = function () {
+          var body = null;
+          try { body = JSON.parse(xhr.responseText); } catch (_e) { body = null; }
+          if (xhr.status !== 200 || !body || !body.ok) { finish((body && [body.error].concat(body.refused || []).filter(Boolean).join(" ")) || "The upload stopped. What's still listed wasn't sent: try again."); return; }
+          // Sent: off the list, so a retry or Stop never sends it twice.
+          part.forEach(function (p) { var i = picked.indexOf(p); if (i >= 0) picked.splice(i, 1); });
+          doneBytes += part.reduce(function (sum, p) { return sum + p.file.size; }, 0);
+          doneFiles += part.length;
+          refused = refused.concat(body.refused || []);
+          next = body.next || next;
+          send(index + 1);
+        };
+        xhr.onabort = function () { finish(doneFiles ? "Stopped after " + doneFiles.toLocaleString("en-US") + " files: they're being read. The rest are still listed." : "Stopped. Nothing was sent."); };
+        xhr.onerror = xhr.ontimeout = function () { finish("The upload didn't reach Managira. What's still listed wasn't sent: check your connection and try again."); };
+        xhr.send(data);
       };
-      xhr.send(data);
+      send(0);
     });
   });
   }

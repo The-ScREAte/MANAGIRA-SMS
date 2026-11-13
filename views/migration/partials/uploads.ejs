@@ -1,19 +1,44 @@
-<%# The school's uploads (newest first): what each file was, where it stands, what it held. %>
+<%# The school's uploads (newest first): what was sent, where it stands, what it held. Files sent
+    together (a folder, a batch of files) are one line, named by their folder when they share one. %>
 <% if (uploads.length) {
   const _size = (b) => Number(b) >= 1048576 ? (Number(b) / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(Number(b) / 1024)) + ' KB';
   const _at = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   const _reading = task && task.open && task.kind === 'read_files';
+  const _n = (v) => Number(v).toLocaleString('en-US');
+  // Sent together: the same person, each within 15 minutes of the one before.
+  const _groups = [];
+  uploads.forEach((u) => {
+    const g = _groups[_groups.length - 1];
+    if (g && g.by === u.uploaded_by && Math.abs(new Date(g.last) - new Date(u.created_at)) < 15 * 60000) { g.items.push(u); g.last = u.created_at; }
+    else _groups.push({ by: u.uploaded_by, last: u.created_at, items: [u] });
+  });
+  const _shown = _groups.slice(0, 12);
 %>
 <section class="mg-card" style="margin-top:14px">
   <h2>Your uploads</h2>
-  <div class="mg-scroll"><table class="mg-table"><thead><tr><th>File</th><th class="num">Size</th><th>Uploaded</th><th>Status</th><th>What it held</th></tr></thead><tbody>
-    <% uploads.forEach((u, i) => { const r = u.result || {}; const lists = r.lists || []; const core = lists.filter((l) => l.entity !== 'other').length; const probs = r.problems || []; %>
+  <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Sent</th><th class="num">Size</th><th>Uploaded</th><th>Status</th><th>What it held</th></tr></thead><tbody>
+    <% _shown.forEach((g) => {
+         const items = g.items;
+         const first = String(items[items.length - 1].file_name);
+         const folders = [...new Set(items.map((u) => String(u.file_name).includes('/') ? String(u.file_name).split('/')[0] : ''))];
+         const title = items.length <= 3 ? items.map((u) => String(u.file_name).split('/').pop()).reverse().join(', ') : folders.length === 1 && folders[0] ? folders[0] : _n(items.length) + ' files';
+         const bytes = items.reduce((s, u) => s + Number(u.size_bytes || 0), 0);
+         const read = items.filter((u) => u.status === 'read');
+         const failed = items.filter((u) => u.status === 'failed');
+         const waiting = items.length - read.length - failed.length;
+         let core = 0, kept = 0, docs = 0;
+         const probs = [];
+         read.forEach((u) => { const r = u.result || {}; (r.lists || []).forEach((l) => { if (l.entity === 'other') kept += 1; else core += 1; }); docs += Number(r.documents || 0); (r.problems || []).forEach((p) => probs.push(p)); });
+    %>
     <tr>
-      <td><strong><%= u.file_name %></strong></td>
-      <td class="num"><%= _size(u.size_bytes) %></td>
-      <td class="mg-samples"><%= _at(u.created_at) %><%= u.uploaded_by ? ' · ' + u.uploaded_by : '' %></td>
-      <td><% if (u.status === 'read') { %><span class="mg-pill mg-pill--live">Read</span><% } else if (u.status === 'failed') { %><span class="mg-pill mg-pill--sensitive">Couldn't be read</span><% } else if (_reading) { %><span class="mg-pill mg-pill--sandbox">Reading…</span><% } else { %><span class="mg-pill mg-pill--review">Waiting</span><% } %></td>
-      <td><% if (u.status === 'read') { %><%= core %> into Managira<%= lists.length - core ? ', ' + (lists.length - core) + ' kept read-only' : '' %><%= r.documents ? ', ' + Number(r.documents).toLocaleString('en-US') + ' documents' : '' %><% if (probs.length) { %><small class="mg-warn" style="display:block"><%= probs.length %> <%= probs.length === 1 ? 'file' : 'files' %> not read: <%= probs.slice(0, 3).map((p) => String(p.name).split('›').pop().trim()).join(', ') %><%= probs.length > 3 ? '…' : '' %></small><% } %><% } else if (u.status === 'failed') { %><span class="mg-bad"><%= u.error %></span><% } else { %>—<% } %></td>
+      <td><strong><%= title %></strong><% if (items.length > 3) { %><small class="mg-samples" style="display:block"><%= _n(items.length) %> files</small><% } %></td>
+      <td class="num"><%= _size(bytes) %></td>
+      <td class="mg-samples"><%= _at(items[items.length - 1].created_at) %><%= g.by ? ' · ' + g.by : '' %></td>
+      <td><% if (!waiting && !failed.length) { %><span class="mg-pill mg-pill--live">Read</span><% } else if (waiting) { %><span class="mg-pill <%= _reading ? 'mg-pill--sandbox' : 'mg-pill--review' %>"><%= _reading ? 'Reading…' : 'Waiting' %><%= items.length > 1 ? ' ' + _n(read.length) + ' of ' + _n(items.length) : '' %></span><% } else { %><span class="mg-pill mg-pill--live">Read</span><% } %><% if (failed.length) { %> <span class="mg-pill mg-pill--sensitive"><%= failed.length === items.length && items.length === 1 ? "Couldn't be read" : _n(failed.length) + " couldn't be read" %></span><% } %></td>
+      <td><% if (read.length) { %><%= core %> into Managira<%= kept ? ', ' + _n(kept) + ' kept read-only' : '' %><%= docs ? ', ' + _n(docs) + (docs === 1 ? ' document' : ' documents') : '' %><% } else { %>—<% } %>
+        <% if (failed.length) { %><small class="mg-bad" style="display:block"><%= failed.slice(0, 3).map((u) => String(u.file_name).split('/').pop() + ': ' + (u.error || "couldn't be read")).join(' · ') %><%= failed.length > 3 ? '…' : '' %></small><% } %>
+        <% if (probs.length) { %><small class="mg-warn" style="display:block"><%= probs.length %> <%= probs.length === 1 ? 'file' : 'files' %> not read: <%= probs.slice(0, 3).map((p) => String(p.name).split(/›|\//).pop().trim()).join(', ') %><%= probs.length > 3 ? '…' : '' %></small><% } %>
+      </td>
     </tr>
     <% }) %>
   </tbody></table></div>

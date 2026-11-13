@@ -14,7 +14,7 @@
   <% if (task.open) { %>
     <div class="mg-task__bar" role="progressbar" aria-label="<%= task.label %>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= task.percent %>"><span data-task-bar style="width:<%= Math.max(3, task.percent) %>%"></span></div>
     <p class="mg-task__step" data-task-step><%= _step || 'Getting ready' %></p>
-    <p class="mg-hint mg-task__note">This runs in the background: you can leave this page or close it, and Managira stays quick for everyone.<%= task.kind === 'go_live' ? ' Your managers are emailed when you’re live.' : '' %></p>
+    <p class="mg-hint mg-task__note">You don't need to wait here: this carries on in the background, even if you close this page. Come back any time to see where it is.<%= task.kind === 'go_live' ? ' Your managers are emailed when you’re live.' : '' %></p>
     <noscript><meta http-equiv="refresh" content="4" /></noscript>
   <% } else if (task.status === 'done') { %>
     <p class="mg-task__result" data-task-result><%= (task.result && task.result.message) || 'Done.' %></p>

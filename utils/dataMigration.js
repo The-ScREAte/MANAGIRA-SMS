@@ -59,7 +59,7 @@ const quiet = () => {};
 const { PERMISSIONS_SAVED_KEY, invalidateUserPermissionCache } = require("../middleware/permissionMiddleware");
 
 const MAX_FILE_BYTES = 60 * 1024 * 1024; // per file as uploaded (stored compressed)
-const MAX_UPLOAD_FILES = 20;
+const MAX_UPLOAD_FILES = 50; // a request's files: the page sends any number in batches of this many
 const BATCH = 2000; // rows written to the database per statement
 const MAX_ROWS = 200000;
 const KEEP_DAYS = 30;
@@ -180,18 +180,20 @@ function parse(text) {
   const { header, rows } = require("./migration/reader").parseText(text);
   return { header, rows };
 }
-async function storeUploads(db, job, files, { entity = null, actor }) {
+// `group`: the files the school chose together (a folder sent in batches), kept together as one.
+async function storeUploads(db, job, files, { entity = null, actor, group = null }) {
   const stored = [];
   const refused = [];
   for (const f of files.slice(0, MAX_UPLOAD_FILES)) {
-    const name = String(f.originalname || "export.csv").slice(0, 200);
+    // Its path in the folder the school chose ("School A/documents/1011001/photo.jpg"): a student's folder finds them.
+    const name = String(f.originalname || "export.csv").replace(/\\/g, "/").replace(/^\/+/, "").slice(0, 300);
     if (!f.buffer || !f.buffer.length) { refused.push(`${name}: the file is empty.`); continue; }
     if (f.buffer.length > MAX_FILE_BYTES) { refused.push(`${name}: files can be up to ${MAX_FILE_BYTES / 1048576} MB. Export it in parts.`); continue; }
     const content = await gzip(f.buffer); // on libuv's thread pool, not the main thread
     const { rows: [upload] } = await db.query(
-      `INSERT INTO migration_uploads (job_id, organization_id, file_name, size_bytes, entity, content, uploaded_by) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO migration_uploads (job_id, organization_id, file_name, size_bytes, entity, content, uploaded_by, group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING upload_id, file_name, size_bytes`,
-      [job.job_id, job.organization_id, name, f.buffer.length, ps.ENTITIES[entity] ? entity : null, content, actor]
+      [job.job_id, job.organization_id, name, f.buffer.length, ps.ENTITIES[entity] ? entity : null, content, actor, group]
     );
     stored.push(upload);
   }
@@ -200,24 +202,26 @@ async function storeUploads(db, job, files, { entity = null, actor }) {
 }
 
 // One list read from an upload: kept compressed, its columns matched.
-const lastPart = (name) => String(name || "").split("›").pop().trim();
-async function addList(db, job, list, { entity = null, actor = null, sourceName = null, uploadId = null }) {
+const lastPart = (name) => String(name || "").split(/›|\//).pop().trim();
+async function addList(db, job, list, { entity = null, actor = null, sourceName = null, uploadId = null, group = null }) {
   // What it is from its name first, then its columns (utils/migration/lists.js); the school can say.
   const kind = ps.ENTITIES[entity] && entity !== "other" ? entity : lists.recognize(list.name, list.header).entity;
+  // Lists sent with this one (the same upload, or files chosen together) are never replaced by it.
+  const together = `upload_id IS DISTINCT FROM $3 AND ($4::text IS NULL OR upload_id IS NULL OR upload_id NOT IN (SELECT upload_id FROM migration_uploads WHERE job_id = $1 AND group_id = $4))`;
   await db.query(
-    "UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND replaced_at IS NULL AND upload_id IS DISTINCT FROM $3 AND LOWER(regexp_replace(file_name, '^.*› ', '')) = LOWER($2)",
-    [job.job_id, lastPart(list.name), uploadId]
+    `UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND replaced_at IS NULL AND ${together} AND LOWER(regexp_replace(file_name, '^.*(› |/)', '')) = LOWER($2)`,
+    [job.job_id, lastPart(list.name), uploadId, group]
   );
   if (kind === "other") {
     // A list kept read-only replaces the one of the same name from an earlier upload.
     await db.query(
-      "UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND entity = 'other' AND replaced_at IS NULL AND upload_id IS DISTINCT FROM $3 AND LOWER(regexp_replace(file_name, '^.*› ', '')) = LOWER($2)",
-      [job.job_id, lastPart(list.name), uploadId]
+      `UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND entity = 'other' AND replaced_at IS NULL AND ${together} AND LOWER(regexp_replace(file_name, '^.*(› |/)', '')) = LOWER($2)`,
+      [job.job_id, lastPart(list.name), uploadId, group]
     );
   } else {
     // A list replaces the ones of its kind from earlier uploads (they stay, unchanged, until the
     // clean-up); lists of one kind sent together, a long list in parts, are read together.
-    await db.query("UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND entity = $2 AND replaced_at IS NULL AND upload_id IS DISTINCT FROM $3", [job.job_id, kind, uploadId]);
+    await db.query(`UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND entity = $2 AND replaced_at IS NULL AND ${together}`, [job.job_id, kind, uploadId, group]);
   }
   const { rows: [file] } = await db.query(
     `INSERT INTO migration_files (job_id, organization_id, entity, file_name, sha256, size_bytes, row_count, header, content, uploaded_by, compressed, source_name, upload_id)
@@ -252,7 +256,7 @@ async function readUploads(db, job, task, progress = quiet) {
     const usable = lists.filter((l) => !l.error && !l.document);
     progress({ phase: 2, phases: 3, step: "Reading the lists", done: 0, total: usable.length });
     for (const list of usable) {
-      const file = await addList(db, job, list, { entity: usable.length === 1 ? upload.entity : null, actor: upload.uploaded_by, sourceName: list.name === upload.file_name ? null : upload.file_name, uploadId: upload.upload_id });
+      const file = await addList(db, job, list, { entity: usable.length === 1 ? upload.entity : null, actor: upload.uploaded_by, sourceName: list.name === upload.file_name ? null : upload.file_name, uploadId: upload.upload_id, group: upload.group_id || null });
       made.push({ name: file.file_name, entity: file.entity, label: (ps.ENTITIES[file.entity] || {}).label || file.entity, rows: file.row_count });
       progress({ done: made.length });
       await tick();

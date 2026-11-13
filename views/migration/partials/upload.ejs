@@ -1,24 +1,36 @@
-<%# Uploading export files (views/migration/school.ejs): dropped or chosen, listed with their sizes,
-    sent with a progress bar (public/js/migrationTask.js). A plain form without scripts. %>
-<form class="mg-upload" method="POST" action="<%= action %>" enctype="multipart/form-data" data-upload data-max-mb="<%= locals.maxFileMb || 60 %>" data-max-files="<%= locals.maxFiles || 20 %>">
-  <label class="mg-drop" data-drop>
-    <input type="file" name="files" accept=".csv,.tsv,.txt,.tab,.xlsx,.zip,.pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.tif,.tiff,.bmp,.doc,.docx,.rtf,.xls,.ppt,.pptx,.md,text/csv,text/plain,text/tab-separated-values,application/zip,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,image/*" multiple required />
+<%# Uploading export files (views/migration/school.ejs): files or a whole folder, dropped or chosen,
+    shown as a compact list with a remove button beside each, sent in batches with one progress bar
+    (public/js/migrationTask.js). Without scripts it's a plain form for the chosen files. %>
+<form class="mg-upload" method="POST" action="<%= action %>" enctype="multipart/form-data" data-upload data-max-mb="<%= locals.maxFileMb || 60 %>" data-max-files="<%= locals.maxFiles || 50 %>">
+  <div class="mg-drop" data-drop>
     <span class="mg-drop__icon" aria-hidden="true"></span>
     <strong><%= label %></strong>
-    <small>or select to choose · CSV, text, Excel (.xlsx) or .zip · up to <%= locals.maxFileMb || 60 %> MB each, <%= locals.maxFiles || 20 %> at a time</small>
-  </label>
-  <ul class="mg-picked" data-picked hidden></ul>
+    <small>A school's whole folder, a .zip, or its files: lists (CSV, text, Excel) and documents (PDFs, photos, scans, Word). Any number of files, up to <%= locals.maxFileMb || 60 %> MB each.</small>
+    <div class="mg-drop__choose">
+      <label class="mg-btn mg-btn--sm">Choose files<input type="file" name="files" data-pick-files multiple /></label>
+      <label class="mg-btn mg-btn--sm" data-folder-choice hidden>Choose a folder<input type="file" data-pick-folder webkitdirectory directory multiple /></label>
+    </div>
+  </div>
+  <div class="mg-picked" data-picked hidden>
+    <div class="mg-picked__head">
+      <strong data-picked-summary></strong>
+      <span class="mg-picked__tools">
+        <button type="button" class="mg-link" data-picked-toggle hidden></button>
+        <button type="button" class="mg-link mg-link--quiet" data-picked-clear>Clear all</button>
+      </span>
+    </div>
+    <ul class="mg-picked__list" data-picked-list></ul>
+  </div>
   <div class="mg-upload__row">
-    <% if (withEntity) { %>
-    <label class="mg-field">What's in them?
-      <select name="entity"><option value="">Work it out from the columns</option><% Object.entries(entities).filter(([key]) => key !== 'other').forEach(([key, e]) => { %><option value="<%= key %>"><%= e.label %></option><% }) %></select>
-    </label>
-    <% } %>
     <button class="mg-btn mg-btn--primary" type="submit"<%= locals.task && task.open && task.kind !== 'read_files' ? ' disabled' : '' %>>Upload</button>
+    <p class="mg-trust"><span class="mg-trust__icon" aria-hidden="true"></span><span><strong>Private to your school.</strong> Your files travel encrypted and are kept in your school's private sandbox. Nothing reaches your live account until you review and sign off. Managira works out what each list is by itself, and reading carries on in the background, so you don't need to wait. Choosing a folder? Your browser will ask you to confirm the upload: that's its usual check.</span></p>
   </div>
   <div class="mg-sending" data-sending hidden>
     <div class="mg-task__bar" role="progressbar" aria-label="Uploading" aria-valuemin="0" aria-valuemax="100"><span data-sending-bar style="width:0%"></span></div>
-    <p class="mg-task__step" data-sending-text>Uploading…</p>
+    <div class="mg-sending__row">
+      <p class="mg-task__step" data-sending-text>Uploading…</p>
+      <button type="button" class="mg-link mg-link--quiet" data-sending-stop>Stop</button>
+    </div>
   </div>
   <p class="mg-bad" data-upload-error hidden></p>
 </form>

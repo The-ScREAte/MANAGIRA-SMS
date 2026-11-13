@@ -45,11 +45,12 @@
   <% if (step === 'upload') { %>
   <section class="mg-card">
     <h2>Upload your export files</h2>
-    <p class="mg-hint">Export each list from PowerSchool: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Upload them as they are: CSV, tab-separated text, Excel (.xlsx) or a .zip of them. Documents come too: PDFs, photos, scans and Word files, in the .zip beside your lists (a folder per student, named by their student number, matches each to its student; a student's photo becomes their picture) or on their own (with the student number in the file name). Each sheet of a workbook and each file in a .zip is read as a list of its own; a list can have up to 200,000 rows, and a longer one (a year of daily attendance, say) can be sent in parts together in one .zip. Uploading a list again replaces it, and the import can always run again.</p>
+    <p class="mg-hint">Upload your school's export from PowerSchool: its lists (students, parents, staff, classes, grades, attendance and everything else) and its documents. The simplest way is to choose the whole export folder, or a .zip of it. Keep each student's documents in a folder named with their student number, and each is filed on that student's record (a photo becomes their picture). Managira recognises every list by itself and keeps everything, and nothing reaches your live account until you review and sign off. Upload a list again any time to replace it.</p>
+    <p class="mg-hint mg-hint--small">Lists can be CSV, text or Excel, with up to 200,000 rows each (send a longer one, such as a year of daily attendance, in parts). Any number of files, up to 60 MB each.</p>
     <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
   </section>
   <%- include('partials/uploads', { uploads: locals.uploads || [], task: locals.task }) %>
-  <% if (files.length) { const _core = files.filter((f) => f.entity !== 'other'); const _keptFiles = files.filter((f) => f.entity === 'other'); const _short = (n) => String(n).split('›').pop().trim(); %>
+  <% if (files.length) { const _core = files.filter((f) => f.entity !== 'other'); const _keptFiles = files.filter((f) => f.entity === 'other'); const _short = (n) => String(n).split(/›|\//).pop().trim(); %>
   <section class="mg-card" style="margin-top:14px">
     <h2>What Managira has from them</h2>
     <div class="mg-tiles">

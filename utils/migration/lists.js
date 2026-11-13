@@ -12,7 +12,7 @@ const bare = (value) => String(value || "").toLowerCase().replace(/^\[[^\]]*\]/,
 // The list's own name: the last part of "export.zip › 05_students.csv", without its number,
 // extension, part number or school-year suffix.
 function baseName(fileName) {
-  const last = String(fileName || "").split("›").pop().trim();
+  const last = String(fileName || "").split(/›|\//).pop().trim(); // "zip › 05_students.csv", "School A/05_students.csv"
   return last
     .replace(/\.[a-z0-9]{2,5}$/i, "")
     .toLowerCase()

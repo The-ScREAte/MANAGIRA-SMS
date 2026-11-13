@@ -11,7 +11,8 @@ const bcrypt = require("../utils/passwordHashing");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { isOrgAdmin } = require("../middleware/migrationLock");
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: m.MAX_FILE_BYTES, files: m.MAX_UPLOAD_FILES } });
+// preservePath: a file chosen in a folder keeps its path, so a student's documents find them.
+const upload = multer({ storage: multer.memoryStorage(), preservePath: true, limits: { fileSize: m.MAX_FILE_BYTES, files: m.MAX_UPLOAD_FILES } });
 const orgOf = (req) => Number(req.session.organizationId);
 const toId = (v) => { const n = Number.parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
 const userIdOf = (req) => req.session.userId || req.session.user?.user_id || null;
@@ -229,7 +230,7 @@ async function page(req, res, db) {
     // Who is already in Managira, and the questions the school answers before signing.
     on("review") && files.some((f) => f.entity === "students") ? m.liveMatches(db, job) : none(null),
     on("upload", "check") ? m.documentsOf(db, job) : none(null),
-    on("upload", "live") ? db.query("SELECT upload_id, file_name, size_bytes, status, error, result, uploaded_by, created_at, read_at FROM migration_uploads WHERE job_id = $1 ORDER BY upload_id DESC LIMIT 20", [job.job_id]).then((r) => r.rows) : none([]),
+    on("upload", "live") ? db.query("SELECT upload_id, file_name, size_bytes, status, error, result, uploaded_by, created_at, read_at FROM migration_uploads WHERE job_id = $1 ORDER BY upload_id DESC LIMIT 3000", [job.job_id]).then((r) => r.rows) : none([]),
     // Whether the school uses Transportation (Go live says so when its buses came in while it's off).
     on("live") && job.status === "live" ? require("../utils/integrationSwitches").isOn(db, job.organization_id, "transportation").catch(() => true) : none(true),
     // The school's own roles (Users › Add user › Add a role), offered for its old roles; never one based on Manager.
@@ -253,7 +254,7 @@ async function page(req, res, db) {
 const uploadHandler = (req, res, next) => upload.array("files", m.MAX_UPLOAD_FILES)(req, res, (error) => {
   if (!error) return next();
   const message = error.code === "LIMIT_FILE_SIZE" ? `Files can be up to ${m.MAX_FILE_BYTES / 1048576} MB each. Export a large list in parts.`
-    : error.code === "LIMIT_FILE_COUNT" ? `Up to ${m.MAX_UPLOAD_FILES} files at a time.` : "The files couldn't be uploaded. Try again.";
+    : error.code === "LIMIT_FILE_COUNT" ? `Up to ${m.MAX_UPLOAD_FILES} files in one go without the page's script: choose them on the page, which sends any number.` : "The files couldn't be uploaded. Try again.";
   if (wantsJson(req)) return res.status(400).json({ ok: false, error: message });
   req.flash("error", message);
   return back(req, res, "upload");
@@ -275,7 +276,9 @@ async function uploadPost(req, res, db) {
   // Files go on being read while more arrive; anything else running comes first.
   const open = await m.busyTask(db, job);
   if (open && open.kind !== "read_files") return reply(409, { ok: false, error: await waitFor(db, job) }, step);
-  const { stored, refused } = await m.storeUploads(db, job, files, { entity: req.body.entity, actor: actorOf(req) });
+  // Files the school chose together come in batches with one group: they're kept together.
+  const group = /^[A-Za-z0-9-]{8,64}$/.test(String(req.body.group || "")) ? String(req.body.group) : null;
+  const { stored, refused } = await m.storeUploads(db, job, files, { entity: req.body.entity, actor: actorOf(req), group });
   if (!stored.length) return reply(400, { ok: false, error: refused[0] || "Nothing could be uploaded.", refused: refused.slice(1) }, step);
   if (!open) await m.startTask(db, job, "read_files", actorOf(req));
   const message = stored.length === 1 ? `Uploaded ${stored[0].file_name}. It's being read now.` : `Uploaded ${stored.length} files. They're being read now.`;
