@@ -1,0 +1,24 @@
+<%# Uploading export files (views/migration/school.ejs): dropped or chosen, listed with their sizes,
+    sent with a progress bar (public/js/migrationTask.js). A plain form without scripts. %>
+<form class="mg-upload" method="POST" action="<%= action %>" enctype="multipart/form-data" data-upload data-max-mb="<%= locals.maxFileMb || 60 %>" data-max-files="<%= locals.maxFiles || 20 %>">
+  <label class="mg-drop" data-drop>
+    <input type="file" name="files" accept=".csv,.tsv,.txt,.tab,.xlsx,.zip,text/csv,text/plain,text/tab-separated-values,application/zip,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple required />
+    <span class="mg-drop__icon" aria-hidden="true"></span>
+    <strong><%= label %></strong>
+    <small>or select to choose · CSV, text, Excel (.xlsx) or .zip · up to <%= locals.maxFileMb || 60 %> MB each, <%= locals.maxFiles || 20 %> at a time</small>
+  </label>
+  <ul class="mg-picked" data-picked hidden></ul>
+  <div class="mg-upload__row">
+    <% if (withEntity) { %>
+    <label class="mg-field">What's in them?
+      <select name="entity"><option value="">Work it out from the columns</option><% Object.entries(entities).filter(([key]) => key !== 'other').forEach(([key, e]) => { %><option value="<%= key %>"><%= e.label %></option><% }) %></select>
+    </label>
+    <% } %>
+    <button class="mg-btn mg-btn--primary" type="submit"<%= locals.task && task.open && task.kind !== 'read_files' ? ' disabled' : '' %>>Upload</button>
+  </div>
+  <div class="mg-sending" data-sending hidden>
+    <div class="mg-task__bar" role="progressbar" aria-label="Uploading" aria-valuemin="0" aria-valuemax="100"><span data-sending-bar style="width:0%"></span></div>
+    <p class="mg-task__step" data-sending-text>Uploading…</p>
+  </div>
+  <p class="mg-bad" data-upload-error hidden></p>
+</form>

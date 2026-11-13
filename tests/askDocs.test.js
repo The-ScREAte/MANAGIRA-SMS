@@ -61,6 +61,12 @@ const QUESTIONS = [
   ["how do I print report cards for the whole class", "report-card"],
   ["how do i delete a student", "edit-student-information"],
   ["how do parents pay fees online", "set-up-paygira-bills-collections-and-guardian-payments"],
+  ["How do we request a data migration?", "moving-to-managira"],
+  ["will the migration replace our existing records", "moving-to-managira"],
+  ["we already entered some students will they be doubled", "moving-to-managira"],
+  ["Why cant I see the sandbox button", "work-through-your-data-migration"],
+  ["can I upload an excel file for the migration", "prepare-your-data-for-the-move"],
+  ["can I close the page while it goes live", "work-through-your-data-migration"],
 ];
 
 test("real questions find the guide that answers them", () => {

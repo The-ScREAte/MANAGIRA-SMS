@@ -15,6 +15,7 @@ router.get("/", (req, res) => migration.adminQueue(req, res, db));
 router.get("/:orgId(\\d+)", (req, res) => migration.adminJob(req, res, db));
 router.post("/:orgId(\\d+)/:what(start|stop|cancel)", (req, res) => migration.adminToggle(req, res, db));
 router.post("/hubs/:hubId(\\d+)/start", (req, res) => migration.adminHubStart(req, res, db));
+router.post("/requests/:requestId(\\d+)/:what(contacted|approve|decline)", (req, res) => migration.adminRequestDecide(req, res, db));
 router.post("/:orgId(\\d+)/import", (req, res) => migration.adminImport(req, res, db));
 router.post("/:orgId(\\d+)/rollback", (req, res) => migration.adminRollback(req, res, db));
 router.post("/:orgId(\\d+)/columns/:columnId(\\d+)/resolve", (req, res) => migration.adminResolve(req, res, db));

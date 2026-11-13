@@ -30,21 +30,16 @@
       <a class="mg-step<%= s === step ? ' is-on' : '' %>" href="/common/migration?step=<%= s %>&embed=workspace"<%- s === step ? ' aria-current="step"' : '' %>><span><%= i + 1 %></span><%= _stepLabels[s] %></a>
     <% }) %>
   </nav>
+  <%- include('partials/task', { task: locals.task }) %>
 
   <% if (step === 'upload') { %>
   <section class="mg-card">
     <h2>Upload your export files</h2>
-    <p class="mg-hint">Export each list from PowerSchool as CSV: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Files are kept exactly as you upload them, so the import can always run again. Uploading a file again replaces it.</p>
-    <form class="mg-upload" method="POST" action="/common/migration/upload" enctype="multipart/form-data">
-      <label class="mg-drop"><input type="file" name="files" accept=".csv,text/csv" multiple required /><strong>Choose CSV files</strong><small>Up to 12 at a time, 30 MB each</small></label>
-      <label class="mg-field">What's in them?
-        <select name="entity"><option value="">Work it out from the columns</option><% Object.entries(entities).forEach(([key, e]) => { %><option value="<%= key %>"><%= e.label %></option><% }) %></select>
-      </label>
-      <button class="mg-btn mg-btn--primary" type="submit">Upload</button>
-    </form>
+    <p class="mg-hint">Export each list from PowerSchool: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Upload them as they are: CSV, tab-separated text, Excel (.xlsx) or a .zip of them. Each sheet of a workbook and each file in a .zip is read as a list of its own; a list can have up to 200,000 rows, and a longer one (a year of daily attendance, say) can be sent in parts together in one .zip. Uploading a list again replaces it, and the import can always run again.</p>
+    <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
     <% if (files.length) { %>
-    <table class="mg-table"><thead><tr><th>File</th><th>Holds</th><th class="num">Rows</th><th>Uploaded</th></tr></thead><tbody>
-      <% files.forEach((f) => { %><tr><td><strong><%= f.file_name %></strong></td><td><%= entities[f.entity].label %></td><td class="num"><%= f.row_count %></td><td><%= _when(f.uploaded_at) %> · <%= f.uploaded_by %></td></tr><% }) %>
+    <table class="mg-table"><thead><tr><th>List</th><th>Holds</th><th class="num">Rows</th><th>Uploaded</th></tr></thead><tbody>
+      <% files.forEach((f) => { %><tr><td><strong><%= f.file_name %></strong><% if (f.source_name && f.source_name !== f.file_name) { %><small class="mg-samples" style="display:block">from <%= f.source_name %></small><% } %></td><td><%= f.entity === 'other' ? 'Kept read-only' : entities[f.entity].label %></td><td class="num"><%= Number(f.row_count).toLocaleString('en-US') %></td><td><%= _when(f.uploaded_at) %> · <%= f.uploaded_by %></td></tr><% }) %>
     </tbody></table>
     <p class="mg-next"><a class="mg-btn" href="/common/migration?step=map&embed=workspace">Next: match columns</a></p>
     <% } %>
@@ -90,7 +85,7 @@
   <section class="mg-card">
     <h2>Check & import into the sandbox</h2>
     <p class="mg-hint">Imports everything that's matched now, and checks it. Run it again any time: records update, never duplicate.</p>
-    <form method="POST" action="/common/migration/import"><button class="mg-btn mg-btn--primary" type="submit"<%= files.length ? '' : ' disabled' %>>Import into the sandbox</button></form>
+    <form method="POST" action="/common/migration/import" data-starts-task><button class="mg-btn mg-btn--primary" type="submit"<%= files.length && !(task && task.open) ? '' : ' disabled' %>>Import into the sandbox</button></form>
     <% if (_report) { %>
       <h3>Records</h3>
       <table class="mg-table"><thead><tr><th>Area</th><th class="num">In your files</th><th class="num">In the sandbox</th><th class="num">With something to check</th></tr></thead><tbody>
@@ -98,6 +93,30 @@
         <tr><td><%= entities[entity].label %></td><td class="num"><%= v.source %></td><td class="num"><%= s.count || 0 %></td><td class="num"><%= s.withIssues || 0 %></td></tr>
       <% }) %>
       </tbody></table>
+      <% if ((_report.lists || []).length || (docs && docs.total)) { const _kept = _report.lists || []; %>
+      <h3>Your lists and documents</h3>
+      <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira (above). <strong><%= _kept.length %></strong> other <%= _kept.length === 1 ? 'list is' : 'lists are' %> kept read-only, nothing left behind: on each student's record where the list has a student number, or for the school<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> matched to <%= docs.students %> students)<% } %>. Restricted ones open only for your admins, with their code.</p>
+      <% if (_kept.length) { %>
+      <details class="mg-more"><summary>The <%= _kept.length %> lists kept read-only</summary>
+        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th><th>Kept</th><th>Who sees it</th></tr></thead><tbody>
+          <% _kept.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td>
+            <td><%= l.details ? 'As details on each student' : l.perStudent ? 'On each student (' + Number(l.students).toLocaleString('en-US') + ' rows matched)' : 'For the school' %></td>
+            <td><% if (l.restricted) { %><span class="mg-pill mg-pill--sensitive">Restricted</span><% } else { %>Staff who open students<% } %></td></tr><% }) %>
+        </tbody></table></div>
+      </details>
+      <% } %>
+      <% if (docs && docs.total) { %>
+      <details class="mg-more"><summary>Documents (<%= Number(docs.total).toLocaleString('en-US') %>, <%= (Number(docs.bytes) / 1048576).toFixed(1) %> MB)</summary>
+        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Student</th><th>Document</th><th>File</th><th></th></tr></thead><tbody>
+          <% docs.list.forEach((d) => { %><tr><td><%= d.student_source_id ? (d.student_name || '') + ' · ' + d.student_source_id : '—' %></td><td><strong><%= d.kind %></strong><% if (d.restricted) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td>
+            <td class="mg-samples"><%= d.file_name %> · <%= Math.max(1, Math.round(Number(d.size_bytes) / 1024)) %> KB</td><td><a class="mg-btn mg-btn--sm" href="/common/migration/documents/<%= d.document_id %>" target="_blank" rel="noopener" data-no-spa>Open</a></td></tr><% }) %>
+        </tbody></table></div>
+        <% if (docs.total > docs.list.length) { %><p class="mg-hint">The first <%= docs.list.length %> of <%= Number(docs.total).toLocaleString('en-US') %>.</p><% } %>
+        <% if (docs.total - docs.matched > 0) { %><p class="mg-hint"><%= docs.total - docs.matched %> <%= docs.total - docs.matched === 1 ? "document isn't" : "documents aren't" %> matched to a student yet: they're kept for the school. Import again after uploading the students list, or name each student's folder by their student number.</p><% } %>
+      </details>
+      <% } %>
+      <% } %>
+      <% if (_report.tidied) { %><p class="mg-hint"><strong><%= _report.tidied %></strong> <%= _report.tidied === 1 ? 'value was' : 'values were' %> tidied as they came in: names typed in capitals, phone numbers to (555) 123-4567, emails in lower case, M and F to Male and Female.</p><% } %>
       <h3>Check report</h3>
       <% if (!_report.examples.length) { %><p class="mg-good">No problems found.</p><% } else { %>
       <p class="mg-hint"><b class="mg-bad">Red</b> must be fixed in your export before going live; upload it again and import. <b class="mg-warn">Amber</b> is worth a look.</p>
@@ -229,6 +248,55 @@
   <% if (step === 'review') { %>
   <section class="mg-card">
     <h2>Review & sign</h2>
+    <% if (matches) { const _fmtDay = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : 'no date of birth'; const _canAnswer = ['sandbox', 'live'].includes(job.status); %>
+    <div id="matches" class="mg-matches">
+      <h3>Already in Managira</h3>
+      <p class="mg-hint">Nothing already in Managira is replaced. <strong><%= matches.matched.length %></strong> of your students <%= matches.matched.length === 1 ? 'is' : 'are' %> already here (by student number, or by name and date of birth): they keep everything they have, and only empty fields are filled in. <strong><%= matches.fresh %></strong> <%= matches.fresh === 1 ? 'is' : 'are' %> new.<% if (matches.guardians || matches.staff) { %> <%= matches.guardians %> <%= matches.guardians === 1 ? 'parent' : 'parents' %> and <%= matches.staff %> staff <%= matches.staff === 1 ? 'member' : 'members' %> already have a Managira record with the same email: they're kept too, and staff keep their access.<% } %></p>
+      <% if (matches.questions.length) { %>
+        <div class="<%= matches.waiting ? 'mg-blockers' : 'mg-good' %>"><%= matches.waiting ? 'Say whether each of these is the same student. Until you do, you can’t sign.' : 'Every question is answered.' %></div>
+        <div class="mg-scroll"><table class="mg-table mg-questions no-global-sort"><thead><tr><th>In your files</th><th>Could be</th><th>Your answer</th></tr></thead><tbody>
+          <% matches.questions.forEach((q) => { %>
+          <tr class="<%= q.answer ? '' : 'mg-row--unsure' %>">
+            <td><strong><%= q.name %></strong><small class="mg-samples" style="display:block"><%= q.sourceId %> · <%= _fmtDay(q.dob) %></small></td>
+            <td>
+              <% if (q.kind === 'file') { %>
+                <%= q.otherName %> <small class="mg-samples"><%= q.other %></small><small class="mg-samples" style="display:block">Same name and date of birth, twice in your files</small>
+              <% } else { q.candidates.forEach((c) => { %>
+                <div class="mg-candidate"><span><%= c.name %> <small class="mg-samples"><%= _fmtDay(c.dob) %><%= c.className ? ' · ' + c.className : '' %><%= c.number ? ' · No. ' + c.number : '' %></small></span>
+                  <% if (_canAnswer && !q.answer) { %><form method="POST" action="/common/migration/matches"><input type="hidden" name="key" value="<%= q.key %>" /><input type="hidden" name="choice" value="same" /><input type="hidden" name="id" value="<%= c.id %>" /><button class="mg-btn mg-btn--sm">Same student</button></form><% } %>
+                </div>
+              <% }) } %>
+            </td>
+            <td>
+              <% if (q.answer) { %>
+                <strong><%= q.answer.different ? (q.kind === 'file' ? 'Different students' : 'A new student') : q.kind === 'file' ? 'The same student: loaded once' : 'The same student: kept, empty fields filled in' %></strong>
+                <small class="mg-samples" style="display:block"><%= q.answer.by %></small>
+                <% if (_canAnswer) { %><form method="POST" action="/common/migration/matches"><input type="hidden" name="key" value="<%= q.key %>" /><input type="hidden" name="choice" value="undo" /><button class="mg-btn mg-btn--sm mg-btn--quiet">Change</button></form><% } %>
+              <% } else if (_canAnswer) { %>
+                <div class="mg-actions">
+                  <% if (q.kind === 'file') { %><form method="POST" action="/common/migration/matches"><input type="hidden" name="key" value="<%= q.key %>" /><input type="hidden" name="choice" value="same" /><button class="mg-btn mg-btn--sm">Same student</button></form><% } %>
+                  <form method="POST" action="/common/migration/matches"><input type="hidden" name="key" value="<%= q.key %>" /><input type="hidden" name="choice" value="different" /><button class="mg-btn mg-btn--sm"><%= q.kind === 'file' ? 'Different students' : 'A different student' %></button></form>
+                </div>
+              <% } %>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody></table></div>
+      <% } %>
+      <% const _changes = matches.matched.filter((x) => x.fills.length || x.kept.length); %>
+      <% if (_changes.length) { %>
+      <details class="mg-more">
+        <summary>What changes for students already here (<%= _changes.length %>)</summary>
+        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Student</th><th>Found by</th><th>Filled in (was empty)</th><th>Kept as Managira has it</th></tr></thead><tbody>
+          <% _changes.slice(0, 200).forEach((x) => { %><tr><td><strong><%= x.name %></strong> <small class="mg-samples"><%= x.sourceId %></small></td><td><%= x.how === 'link' ? 'an earlier move' : x.how %></td><td><%= x.fills.join(', ') || '—' %></td>
+            <td><% if (!x.kept.length) { %>—<% } else { x.kept.forEach((k) => { %><div><%= k.label %>: <strong><%= k.live %></strong> <small class="mg-samples">(your file: <%= k.file %>)</small></div><% }) } %></td></tr><% }) %>
+        </tbody></table></div>
+        <% if (_changes.length > 200) { %><p class="mg-hint">And <%= _changes.length - 200 %> more.</p><% } %>
+        <p class="mg-hint">To change a value kept as Managira has it, edit it on the student's page after you go live.</p>
+      </details>
+      <% } %>
+    </div>
+    <% } %>
     <h3>Your files beside the sandbox</h3>
     <table class="mg-table"><thead><tr><th>Area</th><th class="num">In your files</th><th class="num">In the sandbox</th></tr></thead><tbody>
       <% if (_report) Object.entries(_report.entities).filter(([, v]) => v.source).forEach(([entity, v]) => { %><tr><td><%= entities[entity].label %><% if (entity === 'guardians') { %> <small class="mg-hint">(the sandbox also has the parents named in the students file)</small><% } %></td><td class="num"><%= v.source %></td><td class="num"><%= (sandbox.counts[entity] || {}).count || 0 %></td></tr><% }) %>
@@ -300,6 +368,17 @@
     %>
       <h2>You're live</h2>
       <p class="mg-hint">Loaded on <%= _when(job.live_at) %><%= job.catch_up_at ? ', caught up on ' + _when(job.catch_up_at) : '' %>: students, parents, staff accounts, sections and their teachers, final grades and attendance totals. <strong><%= loaded.subjects || 0 %></strong> subjects and <strong><%= loaded.classes || 0 %></strong> classes were made, <strong><%= loaded.teacherLinks || 0 %></strong> teacher links and <strong><%= loaded.mainTeachers || 0 %></strong> teachers in charge of a class.</p>
+      <% if (loaded.matched || loaded.guardiansMatched || loaded.staffMatched || loaded.keptValues) { %>
+      <p class="mg-good"><% const _n = (v, one, many) => (v || 0) + ' ' + ((v || 0) === 1 ? one : many); const _keptAll = (loaded.matched || 0) + (loaded.guardiansMatched || 0) + (loaded.staffMatched || 0); %>Nothing already in Managira was replaced: <%= _n(loaded.matched, 'student', 'students') %>, <%= _n(loaded.guardiansMatched, 'parent', 'parents') %> and <%= _n(loaded.staffMatched, 'member of staff', 'staff') %> <%= _keptAll === 1 ? 'was' : 'were' %> already here and kept<%= loaded.filled ? ', with ' + loaded.filled + ' empty ' + (loaded.filled === 1 ? 'field' : 'fields') + ' filled in' : '' %>.<%= loaded.keptValues ? ' ' + loaded.keptValues + (loaded.keptValues === 1 ? ' value differs' : ' values differ') + ' from your files and stayed as Managira had ' + (loaded.keptValues === 1 ? 'it' : 'them') + '.' : '' %></p>
+      <% if ((loaded.kept || []).length) { %>
+      <details class="mg-more"><summary>Values kept as Managira had them</summary>
+        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Who</th><th>Kept</th></tr></thead><tbody>
+          <% loaded.kept.forEach((k) => { %><tr><td><strong><%= k.who %></strong></td><td><% k.fields.forEach((f) => { %><div><%= f.label %>: <strong><%= f.live %></strong> <small class="mg-samples">(your file: <%= f.file %>)</small></div><% }) %></td></tr><% }) %>
+        </tbody></table></div>
+      </details>
+      <% } %>
+      <% } %>
+      <% if (loaded.studentsWaiting) { %><p class="mg-notice"><%= loaded.studentsWaiting %> <%= loaded.studentsWaiting === 1 ? 'student wasn’t' : 'students weren’t' %> loaded: <%= loaded.studentsWaiting === 1 ? 'they' : 'they' %> may already be in Managira. Answer under Review & sign, Already in Managira.</p><% } %>
       <h3>Your files beside Managira</h3>
       <table class="mg-table mg-compare"><thead><tr><th>What</th><th class="num">In your files</th><th class="num">In Managira</th></tr></thead><tbody>
         <% _rows.forEach(([label, a, b]) => { %><tr><td><%= label %></td><td class="num"><%= a %></td><td class="num<%= Number(a) !== Number(b) ? ' is-off' : '' %>"><%= b === null || b === undefined ? '—' : b %></td></tr><% }) %>
@@ -337,11 +416,8 @@
       <h3>Catch-up</h3>
       <% if (job.catch_up_at) { %><p class="mg-hint">The catch-up import was used on <%= _when(job.catch_up_at) %>.</p><% } else { %>
         <p class="mg-hint">One last import for changes made in PowerSchool since (final grades, attendance). Upload the new files, then load them. Records are updated, never duplicated.</p>
-        <form class="mg-upload" method="POST" action="/common/migration/upload" enctype="multipart/form-data">
-          <label class="mg-drop"><input type="file" name="files" accept=".csv,text/csv" multiple required /><strong>Choose the new CSV files</strong></label>
-          <button class="mg-btn" type="submit">Upload</button>
-        </form>
-        <form method="POST" action="/common/migration/catch-up" onsubmit="return confirm('Load the latest files into your live account? This can be done once.')"><button class="mg-btn mg-btn--primary" type="submit">Load the catch-up</button></form>
+        <%- include('partials/upload', { label: 'Drop the new export files here', action: '/common/migration/upload', withEntity: false }) %>
+        <form method="POST" action="/common/migration/catch-up" data-starts-task onsubmit="return confirm('Load the latest files into your live account? This can be done once.')"><button class="mg-btn mg-btn--primary" type="submit">Load the catch-up</button></form>
       <% } %>
       <p class="mg-hint">On <%= job.purge_after ? new Date(job.purge_after).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '' %> the uploaded files, the snapshot and the sandbox are deleted. Your live records stay. Until then, Managira can roll the go-live back if something is wrong.</p>
     <% } else if (job.signed_at) { %>
@@ -351,7 +427,7 @@
         <li>Go live imports those files again, keeps a snapshot, and loads your live account: students (enrolled in the current term), parents, staff accounts (on hold until you invite them), sections as subjects of their classes with their teachers, final grades with credits and GPA on each student's transcript, and attendance totals per term. Daily attendance and archived columns stay read-only on each student.</li>
         <li>Your account opens for new data again. For 30 days Managira can roll the go-live back.</li>
       </ol>
-      <form method="POST" action="/common/migration/go-live" onsubmit="return confirm('Go live now? Your data moves into your live account.')"><button class="mg-btn mg-btn--primary" type="submit">Go live</button></form>
+      <form method="POST" action="/common/migration/go-live" data-starts-task onsubmit="return confirm('Go live now? Your data moves into your live account. It runs in the background and takes a few minutes for a large school.')"><button class="mg-btn mg-btn--primary" type="submit">Go live</button></form>
     <% } else { %>
       <h2>Go live</h2><p class="mg-hint">Sign the migration summary first (step 5).</p>
     <% } %>
@@ -362,3 +438,4 @@
     <ul><% events.forEach((e) => { %><li><span><%= _when(e.at) %></span> <%= e.actor %>: <%= e.action.replace(/_/g, ' ') %></li><% }) %></ul>
   </details>
 </div>
+<script src="<%= assetUrl('/js/migrationTask.js') %>" defer></script>

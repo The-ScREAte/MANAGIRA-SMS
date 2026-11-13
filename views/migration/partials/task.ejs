@@ -1,0 +1,28 @@
+<%# The school's background task (utils/migration/tasks.js): its progress while it runs, then how it went.
+    public/js/migrationTask.js follows it without reloading; without scripts the page refreshes itself. %>
+<% if (task) {
+  const _secs = (n) => n < 60 ? n + ' s' : Math.floor(n / 60) + ' min ' + String(n % 60).padStart(2, '0') + ' s';
+  const _step = task.step ? task.step + (task.total ? ': ' + Number(task.done).toLocaleString('en-US') + ' of ' + Number(task.total).toLocaleString('en-US') : '') : '';
+  const _problems = (task.result && task.result.problems) || [];
+%>
+<section class="mg-task mg-task--<%= task.status %>" data-task data-open="<%= task.open ? 'true' : 'false' %>" aria-live="polite">
+  <div class="mg-task__head">
+    <span class="mg-task__icon" aria-hidden="true"></span>
+    <strong data-task-label><%= task.label %></strong>
+    <span class="mg-task__meta" data-task-meta><%= task.status === 'queued' ? (task.ahead ? 'Waiting its turn (' + task.ahead + ' ahead)' : 'Starting…') : task.open ? (task.phases > 1 ? 'Step ' + task.phase + ' of ' + task.phases + ' · ' : '') + _secs(task.seconds) : task.status === 'done' ? 'Done in ' + _secs(task.seconds) : 'Stopped' %></span>
+  </div>
+  <% if (task.open) { %>
+    <div class="mg-task__bar" role="progressbar" aria-label="<%= task.label %>" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= task.percent %>"><span data-task-bar style="width:<%= Math.max(3, task.percent) %>%"></span></div>
+    <p class="mg-task__step" data-task-step><%= _step || 'Getting ready' %></p>
+    <p class="mg-hint mg-task__note">This runs in the background: you can leave this page or close it, and Managira stays quick for everyone.<%= task.kind === 'go_live' ? ' Your managers are emailed when you’re live.' : '' %></p>
+    <noscript><meta http-equiv="refresh" content="4" /></noscript>
+  <% } else if (task.status === 'done') { %>
+    <p class="mg-task__result" data-task-result><%= (task.result && task.result.message) || 'Done.' %></p>
+  <% } else { %>
+    <p class="mg-task__result mg-bad" data-task-result><%= task.error || 'It stopped. Try again.' %></p>
+  <% } %>
+  <% if (!task.open && _problems.length) { %>
+    <ul class="mg-task__problems"><% _problems.forEach((p) => { %><li class="<%= p.skipped ? '' : 'mg-warn' %>"><strong><%= p.name %></strong>: <%= p.error %></li><% }) %></ul>
+  <% } %>
+</section>
+<% } %>

@@ -172,3 +172,124 @@ test("backups are off unless the server turns them on: nothing runs, nothing is 
   assert.equal(backups.enabled(), true, "only an explicit true turns them on");
   if (saved === undefined) delete process.env.BACKUPS_ENABLED; else process.env.BACKUPS_ENABLED = saved;
 });
+
+test("tidying: capitals become names, US phones one format, emails lower case; anything typed with care is kept", () => {
+  const tidy = require("../utils/migration/tidy");
+  assert.equal(tidy.name("AMA MENSAH"), "Ama Mensah");
+  assert.equal(tidy.name("mary-jane o'brien"), "Mary-Jane O'Brien");
+  assert.equal(tidy.name("LUDWIG VAN BEETHOVEN"), "Ludwig van Beethoven");
+  assert.equal(tidy.name("MCKENZIE"), "McKenzie");
+  assert.equal(tidy.name("MACHADO"), "Machado", "Mac is left alone");
+  assert.equal(tidy.name("ROBERT SMITH III"), "Robert Smith III");
+  assert.equal(tidy.name("DeShawn"), "DeShawn", "mixed case is kept as typed");
+  assert.equal(tidy.phone("555.123.4567"), "(555) 123-4567");
+  assert.equal(tidy.phone("+1 555 123 4567"), "(555) 123-4567");
+  assert.equal(tidy.phone("555-123-4567 x12"), "555-123-4567 x12", "an extension is kept");
+  assert.equal(tidy.phone("+44 20 7946 0958"), "+44 20 7946 0958", "another country is kept");
+  assert.equal(tidy.email(" Ama@School.ORG "), "ama@school.org");
+  assert.equal(tidy.gender("f"), "Female");
+  assert.equal(tidy.gender("Non-binary"), "Non-binary");
+  const row = { first_name: "IVY", guardian1_phone: "5550201000", gender: "M", class_name: "GRADE 6", course_name: "ALGEBRA" };
+  assert.equal(tidy.record("students", row), 3);
+  assert.deepEqual(row, { first_name: "Ivy", guardian1_phone: "(555) 020-1000", gender: "Male", class_name: "GRADE 6", course_name: "ALGEBRA" });
+  assert.equal(tidy.record("grades", { first_name: "IVY" }), 0, "only people are tidied");
+});
+
+test("keeping what's there: only empty fields are filled; a value the school changed since is never overwritten", () => {
+  const live = { first_name: "Mia", last_name: "Ortiz-Lee", gender: null, email: "", class_id: 7 };
+  const plan = migration.mergePlan(live, { first_name: "MIA", last_name: "Ortiz", gender: "Female", email: "mia@example.com", class_id: 9 });
+  assert.deepEqual(plan.set, { gender: "Female", email: "mia@example.com" }, "empty fields are filled; the same name in capitals isn't a change");
+  assert.deepEqual(plan.kept.map((k) => k.field), ["last_name", "class_id"], "differences stay as Managira has them");
+  // A record the migration made: what it loaded last time can follow the files, unless the school changed it.
+  const mine = migration.mergePlan({ first_name: "Noah", last_name: "Larsen-Hart" }, { first_name: "Adaline", last_name: "Larson" }, { first_name: "Noah", last_name: "Larsen" });
+  assert.deepEqual(mine.set, { first_name: "Adaline" });
+  assert.deepEqual(mine.kept.map((k) => k.field), ["last_name"]);
+});
+
+test("records already in Managira: matched by old number or name and birthday; anyone who only might be the same is asked about", async () => {
+  const live = [
+    { student_id: 1, first_name: "Mia", last_name: "Ortiz-Lee", date_of_birth: "2012-10-05", custom_student_id: "900102" },
+    { student_id: 2, first_name: "Ava", last_name: "Rivera", date_of_birth: "2013-06-05", custom_student_id: null },
+    { student_id: 3, first_name: "Liam", last_name: "Silva", date_of_birth: "2011-07-22", custom_student_id: null },
+    { student_id: 4, first_name: "Eli", last_name: "Chen", date_of_birth: "2014-04-16", custom_student_id: "S-1" },
+    { student_id: 5, first_name: "Kai", last_name: "Brown", date_of_birth: null, custom_student_id: "900108" },
+  ];
+  const fakeDb = (links = []) => ({ query: async (sql) => ({ rows: /FROM students/.test(sql) ? live : /FROM migration_links/.test(sql) ? links : [] }) });
+  const staged = [
+    { source_id: "900102", data: { first_name: "Mia", last_name: "Ortiz", date_of_birth: "10/4/2012" } }, // old number, same first name
+    { source_id: "900100", data: { first_name: "AVA", last_name: "Rivera", date_of_birth: "6/5/2013" } }, // name and birthday
+    { source_id: "900101", data: { first_name: "Liam", last_name: "Silva", date_of_birth: "4/2/2012" } }, // same name, another birthday
+    { source_id: "900103", data: { first_name: "Noah", last_name: "Okafor", date_of_birth: "3/10/2013" } }, // new
+    { source_id: "900104", data: { first_name: "Noah", last_name: "Okafor", date_of_birth: "3/10/2013" } }, // twice in the files
+    { source_id: "900108", data: { first_name: "Zed", last_name: "Stone", date_of_birth: "1/1/2014" } }, // old number, another person
+  ];
+  const job = { organization_id: 63, source_system: "powerschool", match_decisions: {} };
+  let found = await migration.studentMatches(fakeDb(), job, staged);
+  assert.deepEqual(found.out.get("900102"), { id: 1, how: "number" });
+  assert.deepEqual(found.out.get("900100"), { id: 2, how: "name and date of birth" });
+  assert.deepEqual(found.out.get("900103"), { fresh: true });
+  assert.deepEqual(found.out.get("900101"), { waiting: true });
+  assert.deepEqual(found.out.get("900104"), { waiting: true });
+  assert.deepEqual(found.out.get("900108"), { waiting: true }, "the old number of someone with another name is asked about, never matched");
+  assert.deepEqual(found.questions.map((q) => q.key), ["students:900101", "file:900104", "students:900108"]);
+  assert.deepEqual(found.questions[0].candidates.map((c) => c.id), [3]);
+  assert.equal(found.waiting, 3);
+  // The school's answers: the same student (one shown), the same one twice, a different one.
+  job.match_decisions = { "students:900101": { same: 3 }, "file:900104": { sameAs: "900103" }, "students:900108": { different: true } };
+  found = await migration.studentMatches(fakeDb(), job, staged);
+  assert.deepEqual(found.out.get("900101"), { id: 3, how: "your answer" });
+  assert.deepEqual(found.out.get("900104"), { sameAs: "900103" });
+  assert.deepEqual(found.out.get("900108"), { fresh: true });
+  assert.equal(found.waiting, 0);
+  // An answer naming a student who wasn't shown counts as no answer.
+  job.match_decisions = { "students:900101": { same: 2 } };
+  found = await migration.studentMatches(fakeDb(), job, staged);
+  assert.deepEqual(found.out.get("900101"), { waiting: true });
+  // A student this migration already linked is never offered to anyone else.
+  job.match_decisions = {};
+  found = await migration.studentMatches(fakeDb([{ source_id: "800000", managira_id: 3, loaded: null }]), job, [...staged, { source_id: "800000", data: { first_name: "Liam", last_name: "Silva" } }]);
+  assert.deepEqual(found.out.get("900101"), { fresh: true });
+  assert.deepEqual(found.out.get("800000"), { id: 3, how: "link", loaded: null });
+});
+
+test("reading uploads: any encoding, tab or semicolon separated, Excel sheets and .zip files; every other file kept as a document", async () => {
+  const reader = require("../utils/migration/reader");
+  const zlib = require("zlib");
+  const ExcelJS = require("exceljs");
+  const JSZip = require("jszip");
+  assert.equal(reader.decode(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("Name\nJosé")])), "Name\nJosé");
+  assert.equal(reader.decode(Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("A\tB", "utf16le")])), "A\tB");
+  assert.equal(reader.decode(Buffer.from("A\tB\nOne\tTwo", "utf16le")), "A\tB\nOne\tTwo", "UTF-16 without a byte-order mark");
+  assert.equal(reader.decode(Buffer.from("Jos\xe9 N\xfa\xf1ez", "latin1")), "José Núñez", "Windows-1252");
+  const [tsv] = await reader.expand("contacts.txt", Buffer.from("Student_Number\tFirst_Name\n900100\tAva\n"));
+  assert.deepEqual([tsv.header, tsv.rowCount, tsv.sample[0].First_Name], [["Student_Number", "First_Name"], 1, "Ava"]);
+  const [semi] = await reader.expand("x.csv", Buffer.from("A;B;C\n1;2;3\n"));
+  assert.deepEqual(semi.header, ["A", "B", "C"]);
+  const book = new ExcelJS.Workbook();
+  const sheet = book.addWorksheet("Students");
+  sheet.addRow(["Student_Number", "DOB", "GPA"]);
+  sheet.addRow([900100, new Date(Date.UTC(2013, 5, 5)), { formula: "3+0.5", result: 3.5 }]);
+  book.addWorksheet("Notes");
+  const xlsx = Buffer.from(await book.xlsx.writeBuffer());
+  const sheets = await reader.expand("book.xlsx", xlsx);
+  assert.equal(sheets.length, 1, "an empty sheet is left out");
+  assert.deepEqual([sheets[0].name, sheets[0].sample[0]], ["book.xlsx › Students", { Student_Number: "900100", DOB: "2013-06-05", GPA: "3.5" }]);
+  const zip = new JSZip();
+  zip.file("export/students.csv", "Student_Number,First_Name\n900100,Ava\n");
+  zip.file("export/book.xlsx", xlsx);
+  zip.file("__MACOSX/export/._students.csv", "x");
+  zip.file("export/readme.pdf", "%PDF-1.4");
+  const lists = await reader.expand("export.zip", await zip.generateAsync({ type: "nodebuffer" }));
+  assert.deepEqual(lists.map((l) => l.name), ["export.zip › students.csv", "export.zip › book.xlsx › Students", "export.zip › readme.pdf"]);
+  assert.deepEqual([lists[2].document, lists[2].path, lists[2].content.toString()], [true, "export/readme.pdf", "%PDF-1.4"], "any other file is kept as a document, with its folder");
+  const oldExcel = (await reader.expand("old.xls", Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0, 0, 0, 0, 0])))[0];
+  assert.ok(oldExcel.document && /save it as \.xlsx or CSV/.test(oldExcel.note), "an old .xls is kept, with how to import it as a list");
+  assert.ok((await reader.expand("iep.pdf", Buffer.from("%PDF-1.7")))[0].document);
+  assert.ok((await reader.expand("photo.jpg", Buffer.from([0xff, 0xd8, 0xff, 0])))[0].document);
+  assert.match((await reader.expand("pic.csv", Buffer.from("\u0000\u0001binary,x\n1,2")))[0].error, /isn't a text or spreadsheet file/);
+  // Rows come back as arrays in the same column order the upload recorded, repeated headings renamed alike.
+  const text = "Student_Number,Name,Name,,Grade\n900100,Ava,Rivera,x,6\n";
+  const [chunk] = [...reader.rowChunks(zlib.gzipSync(Buffer.from(text)), true)];
+  assert.deepEqual(reader.parseText(text).header, ["Student_Number", "Name", "Name_1", "Grade"]);
+  assert.deepEqual([chunk.header, chunk.rows], [["Student_Number", "Name", "Name_1", "", "Grade"], [["900100", "Ava", "Rivera", "x", "6"]]]);
+});

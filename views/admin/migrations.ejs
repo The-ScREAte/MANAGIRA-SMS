@@ -7,8 +7,50 @@
 <div class="mg">
   <%- include('../partials/flash') %>
   <% if (!job) { %>
-    <header class="mg-head"><h1>Migration queue</h1><p>Schools moving their data in. Turn a school's sandbox on from Organizations (its ⋯ menu).</p></header>
+    <% const _requests = locals.requests || []; const _openRequests = _requests.filter((r) => ['new', 'contacted'].includes(r.status)); const _day = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; %>
+    <header class="mg-head"><h1>Migration queue</h1><p>Schools ask from Management, Data migration. Approving a request opens that school's migration and emails its managers.</p></header>
+    <section class="mg-card" id="requests" style="margin-top:16px">
+      <h2>Requests<% if (_openRequests.length) { %> <span class="mg-pill mg-pill--review"><%= _openRequests.length %> open</span><% } %></h2>
+      <% if (!_requests.length) { %><p class="mg-empty">No requests. A school's managers send one from Management, Data migration.</p><% } else { %>
+      <div class="mg-requests">
+        <% _requests.forEach((r) => { const _isOpen = ['new', 'contacted'].includes(r.status); %>
+        <article class="mg-req">
+          <header>
+            <strong><%= r.organization_name %></strong><% if (r.hub_name) { %><small>in <%= r.hub_name %></small><% } %>
+            <span class="mg-pill mg-pill--<%= { new: 'review', contacted: 'sandbox', approved: 'live', declined: 'sensitive' }[r.status] || '' %>"><%= { new: 'New', contacted: 'In touch', approved: 'Approved', declined: 'Declined', withdrawn: 'Withdrawn' }[r.status] %></span>
+            <small>Sent <%= _day(r.created_at) %><%= r.decided_at ? ' · ' + ({ approved: 'approved', declined: 'declined' }[r.status] || 'decided') + ' ' + _day(r.decided_at) + (r.decided_by ? ' by ' + r.decided_by : '') : '' %></small>
+          </header>
+          <dl class="mg-facts">
+            <div><dt>Current system</dt><dd><%= r.current_system %></dd></div>
+            <div><dt>When</dt><dd><%= r.timing ? r.timing + (r.preferred_date ? ' (' + _day(r.preferred_date) + ')' : '') : 'Not sure yet' %></dd></div>
+            <div><dt>Contact</dt><dd><a href="mailto:<%= r.contact_email %>"><%= r.contact_name %>, <%= r.contact_email %></a><%= r.contact_phone ? ' · ' + r.contact_phone : '' %></dd></div>
+            <div><dt>Students · Staff</dt><dd><%= r.students_estimate ?? '—' %> · <%= r.staff_estimate ?? '—' %></dd></div>
+            <% if ((r.bring || []).length) { %><div class="mg-wide"><dt>To bring</dt><dd><%= r.bring.join(', ') %></dd></div><% } %>
+            <% if (r.notes) { %><div class="mg-wide"><dt>Notes</dt><dd><%= r.notes %></dd></div><% } %>
+            <% if (r.decision_note) { %><div class="mg-wide"><dt>Our note</dt><dd><%= r.decision_note %></dd></div><% } %>
+          </dl>
+          <% if (_isOpen) { %>
+          <div class="mg-req__do">
+            <form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/approve" onsubmit="return confirm('Open <%= String(r.organization_name).replace(/[^A-Za-z0-9 .,()&-]/g, '') %>\'s migration? Their live account takes no new data until it closes, and their managers are emailed.');"><button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Approve and open</button></form>
+            <% if (r.status === 'new') { %><form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/contacted"><button class="mg-btn mg-btn--sm">Mark in touch</button></form><% } %>
+            <details>
+              <summary class="mg-btn mg-btn--sm">Decline…</summary>
+              <form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/decline">
+                <label class="mg-field">A note for the school (emailed to its managers)<textarea name="note" maxlength="1000" rows="2" placeholder="Why, and what they can do next"></textarea></label>
+                <button class="mg-btn mg-btn--danger mg-btn--sm">Decline request</button>
+              </form>
+            </details>
+          </div>
+          <% } else if (r.status === 'approved' && r.job_id) { %>
+          <div class="mg-req__do"><a class="mg-btn mg-btn--sm" href="/admin/migrations/<%= r.organization_id %>">Open their migration</a></div>
+          <% } %>
+        </article>
+        <% }) %>
+      </div>
+      <% } %>
+    </section>
     <section class="mg-card" style="margin-top:16px">
+      <h2>Migrations</h2>
       <% if (!queue.length) { %><p class="mg-empty">No school is migrating right now.</p><% } else { %>
       <table class="mg-table"><thead><tr><th>School</th><th>Stage</th><th class="num">Need an action</th><th class="num">Roles waiting</th><th class="num">With notes</th><th class="num">Sensitive</th><th></th></tr></thead><tbody>
         <% queue.forEach((q) => { %><tr><td><strong><%= q.organization_name %></strong><% if (q.hub_name) { %><span class="mg-samples" style="display:block">in <%= q.hub_name %></span><% } %></td><td><span class="mg-pill mg-pill--<%= q.status %>"><%= q.status %></span></td><td class="num"><%= q.need_action %></td><td class="num"><%= q.roles_waiting || 0 %></td><td class="num"><%= q.with_notes %></td><td class="num"><%= q.sensitive %></td><td class="num"><a class="mg-btn mg-btn--sm" href="/admin/migrations/<%= q.organization_id %>">Open</a></td></tr><% }) %>

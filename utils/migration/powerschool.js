@@ -80,6 +80,19 @@ const ENTITIES = {
       phone: ["Phone", ["phone", "homephone", "cellphone"], ["phone"]],
     },
   },
+  // A separate list of each member of staff's role or security group (it completes the staff list).
+  staff_roles: {
+    label: "Staff roles",
+    fields: {
+      source_id: ["Staff number *", ["teachernumber", "staffnumber", "staffid", "teacherid", "employeeid", "usersdcid"], ["teacher", "staff"]],
+      access_group: ["Security group", ["securitygroup", "group", "accessgroup", "usergroup", "rolegroup"], ["group", "access"]],
+      role: ["Role", ["role", "rolename", "staffrole"], ["role"]],
+      start_date: ["From", ["rolestartdate", "startdate", "datefrom"], []],
+      end_date: ["Until", ["roleenddate", "enddate", "dateto"], []],
+    },
+  },
+  // Every other list: kept read-only, whole (utils/migration/lists.js), never matched column by column.
+  other: { label: "Kept read-only", fields: {} },
   // Who teaches each section, as lead or co-teacher, from when to when (PowerSchool's
   // SectionTeacher table).
   section_teachers: {
@@ -99,7 +112,7 @@ const ENTITIES = {
       class_name: ["Course name *", ["coursename", "sectionname", "classname", "class", "name"], ["course", "name"]],
       course_number: ["Course number", ["coursenumber", "courseno", "coursecode"], ["course"]],
       section_number: ["Section number", ["sectionnumber", "sectionno"], []],
-      grade_level: ["Grade level", ["gradelevel", "grade", "grades"], ["grade"]],
+      grade_level: ["Grade level", ["gradelevel", "gradelevels", "grade", "grades"], ["grade"]],
       teacher_source_id: ["Teacher number", ["teacher", "teachernumber", "teacherid"], ["teacher"]],
       term: ["Term", ["termid", "term", "yearid"], ["term"]],
     },
@@ -126,7 +139,7 @@ const ENTITIES = {
       percent: ["Percent", ["percent", "percentage", "score"], ["percent"]],
       gpa_points: ["GPA points", ["gpapoints", "gpa", "gradepoints"], ["gpa"]],
       gpa_added_value: ["Honors/AP added value", ["gpaaddedvalue", "addedvalue", "gpaadded", "weightaddedvalue"], ["added"]],
-      credits: ["Credits earned", ["earnedcrhrs", "credithours", "credits", "earnedcredits", "credit"], ["credit"]],
+      credits: ["Credits earned", ["earnedcrhrs", "credithours", "credits", "earnedcredits", "creditsearned", "credit"], ["credit"]],
       credits_attempted: ["Credits attempted", ["potentialcrhrs", "creditsattempted", "attemptedcredits", "potentialcredits"], ["attempt", "potential"]],
       term: ["Term", ["storecode", "term", "termname"], []],
       term_id: ["Term ID", ["termid"], []],
@@ -145,7 +158,8 @@ const ENTITIES = {
       present: ["Present", ["present", "ispresent"], []],
       days_present: ["Days present", ["dayspresent", "presentdays", "totalpresent"], []],
       days_absent: ["Days absent", ["daysabsent", "absentdays", "totalabsences", "absences", "totalabsent"], []],
-      days_excused: ["Days excused", ["daysexcused", "excuseddays", "excusedabsences"], []],
+      days_excused: ["Days excused", ["daysexcused", "excuseddays", "excusedabsences", "absencesexcused"], []],
+      days_unexcused: ["Days absent, unexcused", ["daysunexcused", "unexcuseddays", "unexcusedabsences", "absencesunexcused"], []],
       days_tardy: ["Days tardy", ["daystardy", "tardydays", "tardies", "totaltardies"], []],
       term: ["Term", ["term", "storecode", "termname"], []],
       term_id: ["Term ID", ["termid", "yearid"], []],
@@ -195,13 +209,17 @@ function attendanceKind(code, present) {
 // Sensitive columns, from their name and their values.
 const SENSITIVE = [
   ["custody", /custody|court|restrain|nocontact|donotrelease|protectiveorder|pickuprestrict|notallowed|legalorder/],
-  ["ssn", /ssn|socialsecurity|ssnumber|socsec/],
+  ["ssn", /socialsecurity|ssnumber|socsec/],
   ["sped", /iep|504|sped|specialed|specialeducation|disabilit|accommodat/],
   ["medical", /medical|medication|allerg|health|diagnos|immuniz|condition|doctor|physician|nurse/],
   ["discipline", /disciplin|incident|suspen|expul|infraction|referral|behavio/],
+  ["programs", /englishlearner|^ell$|^lep$|limitedenglish|gifted|homeless|foster|migrant|meal|^frl$|freereduced|lunchstatus|economicallydisadv/],
 ];
+// A column's words, from its name: "Class_Name" → class, name; "SSN" → ssn.
+const words = (column) => String(column || "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 function sensitiveOf(column, samples) {
   const name = norm(column);
+  if (words(column).includes("ssn")) return "ssn";
   for (const [kind, rule] of SENSITIVE) if (rule.test(name)) return kind;
   const values = samples.filter(Boolean);
   if (values.length && values.filter((v) => /^\d{3}-?\d{2}-?\d{4}$/.test(String(v).trim())).length >= Math.ceil(values.length / 2)) return "ssn";

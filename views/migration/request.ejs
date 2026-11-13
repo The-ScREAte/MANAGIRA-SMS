@@ -1,0 +1,106 @@
+<%# Data migration before Managira opens it: a school's managers ask for a move (controllers/dataMigrationController.js,
+    utils/dataMigration.js requestMove). Managira gets in touch, then opens the migration; only then is an authenticator code asked. %>
+<%
+  const _day = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const _open = request && ['new', 'contacted'].includes(request.status) ? request : null;
+  const _declined = request && request.status === 'declined' ? request : null;
+  const _bring = (r) => (Array.isArray(r.bring) ? r.bring : []).join(', ');
+  const _today = new Date().toISOString().slice(0, 10);
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
+<div class="mg mg-request">
+  <%- include('../partials/flash') %>
+  <header class="mg-head">
+    <div>
+      <h1>Data migration<% if (_open) { %> <span class="mg-pill mg-pill--<%= _open.status === 'new' ? 'review' : 'sandbox' %>"><%= _open.status === 'new' ? 'Request sent' : 'In touch' %></span><% } %></h1>
+      <p>Bring your records from your current system into Managira, with our migration team beside you.</p>
+    </div>
+  </header>
+
+  <ol class="mg-path" aria-label="How a move works">
+    <li class="<%= _open ? 'is-done' : 'is-on' %>"><span>1</span><div><strong>Send a request</strong><small>Tell us what you use now and when you'd like to move.</small></div></li>
+    <li class="<%= _open && _open.status === 'contacted' ? 'is-done' : _open ? 'is-on' : '' %>"><span>2</span><div><strong>We plan it with you</strong><small>Our team gets in touch within two business days.</small></div></li>
+    <li class="<%= _open && _open.status === 'contacted' ? 'is-on' : '' %>"><span>3</span><div><strong>Your migration opens</strong><small>You confirm it's you with an authenticator app, then upload and check your data.</small></div></li>
+    <li><span>4</span><div><strong>You go live</strong><small>Nothing reaches your live account until you sign off.</small></div></li>
+  </ol>
+
+  <% if (_open) { %>
+  <section class="mg-card mg-request__sent">
+    <h2><%= _open.status === 'new' ? 'We have your request' : "We're planning your move with you" %></h2>
+    <p class="mg-hint"><%= _open.status === 'new'
+      ? 'Sent on ' + _day(_open.created_at) + '. Our migration team will contact ' + _open.contact_email + ' within two business days.'
+      : 'Our migration team is in touch with ' + _open.contact_email + '. When you are both ready, we open your migration and email your managers.' %></p>
+    <dl class="mg-facts">
+      <div><dt>Current system</dt><dd><%= _open.current_system %></dd></div>
+      <div><dt>When</dt><dd><%= _open.timing ? _open.timing + (_open.preferred_date ? ' (' + _day(_open.preferred_date) + ')' : '') : 'Not given' %></dd></div>
+      <div><dt>Students · Staff</dt><dd><%= _open.students_estimate ?? '—' %> · <%= _open.staff_estimate ?? '—' %></dd></div>
+      <div><dt>Contact</dt><dd><%= _open.contact_name %>, <%= _open.contact_email %><%= _open.contact_phone ? ', ' + _open.contact_phone : '' %></dd></div>
+      <% if (_bring(_open)) { %><div class="mg-wide"><dt>To bring</dt><dd><%= _bring(_open) %></dd></div><% } %>
+      <% if (_open.notes) { %><div class="mg-wide"><dt>Notes</dt><dd><%= _open.notes %></dd></div><% } %>
+    </dl>
+    <div class="mg-actions mg-request__foot">
+      <a class="mg-btn" href="<%= guideUrl %>" target="_blank" rel="noopener">How a move works</a>
+      <form method="POST" action="/common/migration/request/withdraw" data-no-spa onsubmit="return confirm('Withdraw your data migration request?');">
+        <button class="mg-btn mg-btn--quiet">Withdraw request</button>
+      </form>
+    </div>
+    <p class="mg-hint mg-request__help">Something to add? Write to <a href="mailto:support@managira.com">support@managira.com</a>. Everyone on your Managers list is emailed at each step.</p>
+  </section>
+  <% } else { %>
+  <% if (_declined) { %>
+    <p class="mg-notice">Our migration team couldn't start your last request (<%= _day(_declined.decided_at || _declined.updated_at) %>).<%= _declined.decision_note ? ' Their note: ' + _declined.decision_note : '' %> You can send a new one below.</p>
+  <% } %>
+  <section class="mg-card">
+    <h2>Request your move</h2>
+    <p class="mg-hint">Only your school's managers see this page. Nothing changes in your account until we open your migration together.</p>
+    <form class="mg-form" method="POST" action="/common/migration/request" data-no-spa>
+      <fieldset>
+        <legend>Your current system</legend>
+        <div class="mg-grid">
+          <label class="mg-field">System you use now
+            <select name="system" required>
+              <option value="">Choose one</option>
+              <% systems.forEach((s) => { %><option value="<%= s %>"<%= form.system === s ? ' selected' : '' %>><%= s %></option><% }) %>
+            </select>
+          </label>
+          <label class="mg-field mg-other">Which system?<input name="otherSystem" maxlength="80" value="<%= form.otherSystem || '' %>" placeholder="Its name" /></label>
+          <label class="mg-field">About how many students<input name="students" inputmode="numeric" maxlength="7" value="<%= form.students || '' %>" placeholder="e.g. 450" /></label>
+          <label class="mg-field">About how many staff<input name="staff" inputmode="numeric" maxlength="7" value="<%= form.staff || '' %>" placeholder="e.g. 40" /></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>What you'd like to bring</legend>
+        <div class="mg-ticks">
+          <% bring.forEach((b) => { %><label class="mg-check"><input type="checkbox" name="bring" value="<%= b %>"<%= !form.bring || [].concat(form.bring).includes(b) ? ' checked' : '' %> /> <%= b %></label><% }) %>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>When</legend>
+        <div class="mg-grid">
+          <label class="mg-field">Timing
+            <select name="timing">
+              <option value="">Not sure yet</option>
+              <% timings.forEach((t) => { %><option value="<%= t %>"<%= form.timing === t ? ' selected' : '' %>><%= t %></option><% }) %>
+            </select>
+          </label>
+          <label class="mg-field mg-date">Date<input type="date" name="preferredDate" min="<%= _today %>" value="<%= form.preferredDate || '' %>" /></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Who we should contact</legend>
+        <div class="mg-grid">
+          <label class="mg-field">Name<input name="contactName" maxlength="120" required value="<%= form.contactName || '' %>" autocomplete="name" /></label>
+          <label class="mg-field">Email<input type="email" name="contactEmail" maxlength="200" required value="<%= form.contactEmail || '' %>" autocomplete="email" /></label>
+          <label class="mg-field"><span>Phone <small>(optional)</small></span><input type="tel" name="contactPhone" maxlength="40" value="<%= form.contactPhone || '' %>" autocomplete="tel" /></label>
+        </div>
+        <label class="mg-field"><span>Anything we should know <small>(optional)</small></span><textarea name="notes" rows="3" maxlength="2000" placeholder="Other schools in your district, records you'd like to leave behind, a deadline…"><%= form.notes || '' %></textarea></label>
+      </fieldset>
+      <div class="mg-actions mg-request__foot">
+        <button class="mg-btn mg-btn--primary" type="submit">Send request</button>
+        <a class="mg-btn" href="<%= guideUrl %>" target="_blank" rel="noopener">How a move works</a>
+      </div>
+      <p class="mg-hint mg-request__help">We email this contact and your school's managers when we receive it, and at every step after. Questions? <a href="mailto:support@managira.com">support@managira.com</a>.</p>
+    </form>
+  </section>
+  <% } %>
+</div>

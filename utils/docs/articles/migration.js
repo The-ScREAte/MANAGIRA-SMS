@@ -13,7 +13,7 @@ module.exports = [
     topic: "Moving to Managira",
     order: 1,
     summary: "How a move from your current system works: who does what, what comes across, what to expect while it runs, and who to contact.",
-    tags: ["data migration", "migration", "how data migration works", "move to managira", "move our data", "move data from powerschool", "switch from powerschool", "powerschool", "import data", "moving data", "onboarding", "transfer records", "switching systems", "migration contact"],
+    tags: ["data migration", "migration", "how data migration works", "move to managira", "move our data", "move data from powerschool", "switch from powerschool", "powerschool", "import data", "moving data", "onboarding", "transfer records", "switching systems", "migration contact", "request a migration", "migration request", "existing records", "duplicates", "replace existing records", "overwrite our data", "keep existing data", "already in managira"],
     featured: true,
     who: "School leaders planning a move, and the managers who will work through it. Only your school's managers see the migration screens.",
     intro: "When your school moves to Managira from another student information system, such as PowerSchool, your records come with you. The Managira team works with you from start to finish. You export your data, check it in a private copy of your school, and sign off. Only then does anything reach your live account.",
@@ -21,8 +21,9 @@ module.exports = [
       {
         title: "How a move works",
         steps: [
-          "<strong>Plan.</strong> Contact the Managira team. Together you choose when to move: a quiet week, a weekend or a break works best.",
-          "<strong>Your sandbox opens.</strong> The Managira team opens a private copy of your school, the <strong>sandbox</strong>. Your managers see a <strong>Sandbox</strong> button at the top of Managira.",
+          "<strong>Request your move.</strong> A manager opens <strong>Management</strong>, then <strong>Data migration</strong>, and sends the short request form: the system you use now, roughly how many students and staff, and when you'd like to move. Your managers get an email copy.",
+          "<strong>Plan.</strong> The Managira team gets in touch within two business days. Together you choose when to move: a quiet week, a weekend or a break works best.",
+          "<strong>Your sandbox opens.</strong> The Managira team opens a private copy of your school, the <strong>sandbox</strong>, and emails your managers. They see a <strong>Sandbox</strong> button at the top of Managira.",
           "<strong>Export and upload.</strong> You export your lists from your current system and upload them, exactly as exported. See " + link("prepare-your-data-for-the-move", "Prepare your data for the move") + ".",
           "<strong>Check.</strong> Managira matches your information to its own and shows a check report: duplicates, missing details, dates that aren't dates. You fix anything marked in red in your export and upload it again, as often as you need.",
           "<strong>Explain what's different.</strong> Anything Managira doesn't have a place for comes to you with a few questions. The Managira team then gives each one a home. Nothing is left out without your approval.",
@@ -30,7 +31,16 @@ module.exports = [
           "<strong>Go live.</strong> Your records move into your live account in one step, and your account opens for new work.",
           "<strong>Catch up.</strong> Anything entered in your old system since, such as last grades or attendance, comes across once more.",
         ],
-        note: "While your sandbox is open, your live Managira account takes no new data, so nothing gets entered twice. Everyone can still sign in and look. Plan the move for a time your staff can pause.",
+        note: "While your sandbox is open, your live Managira account takes no new data, so nothing gets entered twice. Everyone can still sign in and look. Plan the move for a time your staff can pause. Your managers are emailed at each step: when the request arrives, when your sandbox opens, when questions are answered, when you sign and when you're live.",
+      },
+      {
+        title: "Records you already have in Managira",
+        list: [
+          "Nothing already in Managira is replaced. A student, parent or staff member who is already there keeps everything they have; only empty details are filled in from your files.",
+          "A student is recognized by their student number, or by the same name and date of birth. Someone who only might be the same, such as the same name with another date of birth, is shown to you to decide before you sign. So is anyone who appears twice in your files.",
+          "Staff who already have an account keep their access. Parents with the same email are kept as one person, linked to each of their children.",
+          "Names typed all in capitals, phone numbers and emails are tidied as they come in, so your records read the same way throughout.",
+        ],
       },
       {
         title: "What comes across",
@@ -75,6 +85,8 @@ module.exports = [
       },
     ],
     faq: [
+      ["How do we start?", "A manager opens Management, then Data migration, and sends the request form. Only managers see it. The Managira team replies within two business days."],
+      ["We already entered some students in Managira. Will they be doubled?", "No. They're recognized and kept as they are; only empty details are filled in. Anyone Managira isn't sure about is shown to you to decide before you sign."],
       ["How long does a move take?", "Most of the time goes on checking. Uploading and importing take minutes; how quickly your team reviews and answers questions decides the rest."],
       ["Can we keep working while we move?", "Everyone can sign in and look, but your live account takes no new data while the sandbox is open. That's why a quiet week or a break is the best time."],
       ["Can we try it more than once?", "Yes. Upload your files again and import again as often as you like before you sign. Records are updated, never doubled."],
@@ -89,9 +101,9 @@ module.exports = [
     topic: "Moving to Managira",
     order: 2,
     summary: "The lists to export from your current system (PowerSchool or another) before your move, and how to keep them ready to upload.",
-    tags: ["export", "powerschool export", "csv", "data export", "prepare migration", "migration files", "stored grades", "attendance export", "staff export", "what to export"],
+    tags: ["export", "powerschool export", "csv", "data export", "prepare migration", "migration files", "stored grades", "attendance export", "staff export", "what to export", "excel", "xlsx", "zip file", "file size", "upload limit", "large files", "file formats"],
     who: "Whoever exports reports from your current system, with your school's managers.",
-    intro: "Before your move, export each list below from your current system as a spreadsheet (a CSV file). You don't need every list: bring what your school uses. If you're not sure how to export one, the Managira team can help.",
+    intro: "Before your move, export each list below from your current system as a spreadsheet: CSV, tab-separated text or Excel. You don't need every list: bring what your school uses. If you're not sure how to export one, the Managira team can help.",
     sections: [
       {
         title: "The lists to export",
@@ -111,12 +123,25 @@ module.exports = [
       {
         title: "Keep the files as they are",
         list: [
-          "Export straight to CSV, with the column headings your system gives. Don't rename or delete columns.",
-          "Don't edit values to make them look tidy. Managira keeps your files exactly as exported, so the import can always run again from them.",
-          "One list per file. Upload them together or one at a time; uploading a list again replaces it.",
+          "Export straight from your system, with the column headings it gives. Don't rename or delete columns.",
+          "Don't edit values to make them look tidy. Managira keeps your lists exactly as exported, so the import can always run again from them, and tidies names in capitals, phone numbers and emails itself as it reads them.",
+          "One list per file, or per sheet of an Excel workbook. Upload them together or one at a time; uploading a list again replaces it.",
           "Keep each person's ID (student number, staff number) in the file: it's how a second import updates records instead of adding them again.",
         ],
         tip: "Fix mistakes in your current system, then export again. The check report in Managira shows you what to fix.",
+      },
+      {
+        title: "File types and sizes",
+        table: [
+          ["You can send", "Up to"],
+          ["CSV files, tab-separated text (.txt, .tsv), Excel workbooks (.xlsx: each sheet is a list), or a .zip of any of these", "60 MB a file, 20 files at a time"],
+          ["Any list", "200,000 rows"],
+        ],
+        list: [
+          "A longer list, such as a whole year of daily attendance for a large school, can be split into parts (by date range or by grade) and sent together in one .zip: the parts are read as one list. Or export attendance as each term's totals, which is much smaller.",
+          "Older Excel files (.xls), PDFs and Word documents can't be read: save the list as .xlsx or CSV.",
+          "Large files are read in the background. You can leave the page while they are, and Managira stays quick for everyone at your school and every other school.",
+        ],
       },
       {
         title: "Before you export",
@@ -143,7 +168,7 @@ module.exports = [
     topic: "Moving to Managira",
     order: 3,
     summary: "For school managers: upload your exports, check the matches and staff roles, review and sign, go live and invite your staff.",
-    tags: ["sandbox", "sandbox button", "migration screens", "upload exports", "match columns", "check and import", "staff roles", "role report", "review and sign", "go live", "invite staff", "catch-up", "migration summary", "gpa check"],
+    tags: ["sandbox", "sandbox button", "migration screens", "already in managira", "same student", "upload exports", "match columns", "check and import", "staff roles", "role report", "review and sign", "go live", "invite staff", "catch-up", "migration summary", "gpa check"],
     who: "Your school's managers, once the Managira team has opened your sandbox. Each confirms it's them with their password and an authenticator code.",
     intro: "Once your sandbox is open, select <strong>Sandbox</strong> at the top of Managira, or open <strong>Management</strong>, then <strong>Data migration</strong>. The steps run left to right. Nothing reaches your live account until you go live.",
     sections: [
@@ -151,8 +176,8 @@ module.exports = [
         title: "1. Upload",
         steps: [
           "The first time, set up your authenticator app: scan the code, type the 6-digit code it shows, and save your recovery codes.",
-          "Select <strong>Choose CSV files</strong> and pick your exports. Managira works out what each one holds.",
-          "Select <strong>Upload</strong>.",
+          "Drop your export files on the page, or select it to choose them: CSV, text, Excel or a .zip. Managira works out what each list holds.",
+          "Select <strong>Upload</strong>. A bar shows the upload, then Managira reads the files in the background and lists each one with its rows.",
         ],
       },
       {
@@ -184,12 +209,21 @@ module.exports = [
         title: "6. Review & sign",
         steps: [
           "Compare the counts with your files, and the credits from your grades.",
+          "Under <strong>Already in Managira</strong>, see who is already in your account. For anyone listed as possibly the same student, choose <strong>Same student</strong> or <strong>A different student</strong>. Nothing already in Managira is replaced: only empty details are filled in.",
           "Read the <strong>GPA check</strong>: any student whose GPA from your old system doesn't match their grades is listed. Their old GPA is kept on their transcript either way, but a difference usually means grades missing from the export.",
           "Open a few records you know well and check them.",
           "Approve each area, including the role report.",
           "Type your full name and select <strong>Sign</strong>.",
         ],
         note: "If anything still needs doing, Managira lists it under <em>Before you can sign</em>.",
+      },
+      {
+        title: "Large schools: the work runs in the background",
+        list: [
+          "Reading files, importing into the sandbox, going live and the catch-up each run in the background, with a progress bar at the top of the page. You can leave the page or close it: it carries on, and your managers are emailed when you're live.",
+          "While one runs, other changes to the migration wait until it finishes, so nothing is done twice.",
+          "Even a school of several thousand students imports in seconds and goes live in a few minutes, without slowing Managira down for anyone else.",
+        ],
       },
       {
         title: "7. Go live",
@@ -208,9 +242,11 @@ module.exports = [
       },
     ],
     faq: [
-      ["Why can't I see the Sandbox button?", "Only your school's managers see it, and only while your sandbox is open. Ask the Managira team to open it."],
+      ["Why can't I see the Sandbox button?", "Only your school's managers see it, and only while your sandbox is open. Until then, Management, Data migration shows the request form."],
       ["It asks for my code again.", "For your school's safety, the migration asks for your password and a fresh authenticator code every 30 minutes."],
       ["I lost my phone.", "Type one of your recovery codes instead. If you have none left, contact Managira support to reset your authenticator."],
+      ["Can I close the page while it imports or goes live?", "Yes. It runs in the background and carries on; open Data migration again to see where it is."],
+      ["A file was refused for having too many rows.", "A list can have up to 200,000 rows. Split it into parts (by date or by grade) and send the parts together in one .zip, or export attendance as each term's totals."],
     ],
     related: ["moving-to-managira", "prepare-your-data-for-the-move", "authenticator-codes", "your-access"],
   },

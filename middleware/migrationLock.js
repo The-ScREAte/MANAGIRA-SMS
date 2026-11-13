@@ -4,6 +4,7 @@
 // notifications. The state is read once per school every 30 seconds.
 const db = require("../config/db");
 const migration = require("../utils/dataMigration");
+require("../utils/migration/tasks").wakeAfterStart(db);
 
 const OPEN = [/^\/common\/migration(\/|$)/, /^\/account\//, /^\/notifications\//, /^\/common\/ui-preferences\//, /^\/admin(\/|$)/, /^\/logout/];
 const isOrgAdmin = (session) => {
@@ -15,12 +16,16 @@ module.exports = async function migrationLock(req, res, next) {
   const session = req.session || {};
   const organizationId = session.organizationId;
   res.locals.migrationState = null;
+  res.locals.migrationOffered = false; // Managers see Data migration (a request until Managira opens it).
   // Staff only: parents and students, and Managira's own staff, are never held back here.
   if (!organizationId || session.guardianId || session.studentId || session.hubId) return next();
   try {
     if (!migration.featureOn(organizationId)) return next();
     const state = await migration.stateFor(db, organizationId);
-    if (!state) return next();
+    if (!state) {
+      res.locals.migrationOffered = isOrgAdmin(session) && (await migration.ready(db));
+      return next();
+    }
     res.locals.migrationState = { ...state, isAdmin: isOrgAdmin(session) };
     if (!state.locked || ["GET", "HEAD", "OPTIONS"].includes(req.method) || OPEN.some((rule) => rule.test(req.path))) return next();
     const message = "Your school's data is moving to Managira. Nothing new can be saved until the move is finished.";

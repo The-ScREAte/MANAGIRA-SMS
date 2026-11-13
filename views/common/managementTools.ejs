@@ -616,7 +616,7 @@
           </a>
         </li>
         <% } %>
-        <% if (locals.migrationState && migrationState.isAdmin) { %>
+        <% if ((locals.migrationState && migrationState.isAdmin) || locals.migrationOffered) { %>
         <li>
           <a class="nav-link" href="/common/migration" data-no-spa data-section="migration" data-embed-url="/common/migration" data-embed-label="Data migration">
             <span class="nav-link-icon"><%- navIcon('enrollment') %></span>
@@ -829,7 +829,7 @@
       </section>
       <% } %>
 
-      <% if (locals.migrationState && migrationState.isAdmin) { %>
+      <% if ((locals.migrationState && migrationState.isAdmin) || locals.migrationOffered) { %>
       <section class="management-section" id="migration">
         <div class="embed-panel-body"><div class="embed-placeholder"><p>Loading Data migration…</p></div></div>
       </section>

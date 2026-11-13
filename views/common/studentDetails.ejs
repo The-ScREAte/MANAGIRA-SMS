@@ -724,6 +724,10 @@
           <% if (locals.oldSystem) { %>
             <% oldSystem.extras.forEach(function (x) { %><p><strong><%= x.label %></strong> <span style="white-space: pre-wrap"><%= x.value %></span><% if (x.sensitive) { %> <small style="color:#b91c1c">(restricted)</small><% } %></p><% }) %>
             <% oldSystem.archives.forEach(function (a) { %><p><strong><%= a.module %></strong> <a href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa>Open (<%= a.n %> <%= a.n === 1 ? 'row' : 'rows' %>, read-only)</a></p><% }) %>
+            <% if ((oldSystem.documents || []).length) { %>
+              <p style="margin-top:10px"><strong>Documents</strong></p>
+              <% oldSystem.documents.forEach(function (d) { %><p><a href="/common/migration/documents/<%= d.document_id %>" target="_blank" rel="noopener" data-no-spa><%= d.kind || d.file_name %></a> <small style="color:#667085"><%= d.file_name %> · <%= Math.max(1, Math.round(Number(d.size_bytes) / 1024)) %> KB<%= d.restricted ? ' · restricted' : '' %></small></p><% }) %>
+            <% } %>
             <% if (oldSystem.canUnlock) { %><p><strong>Restricted</strong> <%= oldSystem.hidden %> <%= oldSystem.hidden === 1 ? 'item' : 'items' %> from the old system. <a href="/common/migration/verify?next=<%= encodeURIComponent('/common/studentDetails?studentId=' + student.student_id) %>" data-no-spa>Show (asks for your authenticator code)</a></p><% } %>
           <% } %>
           </div>

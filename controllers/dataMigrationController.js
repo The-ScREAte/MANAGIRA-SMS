@@ -11,7 +11,7 @@ const bcrypt = require("../utils/passwordHashing");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { isOrgAdmin } = require("../middleware/migrationLock");
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: m.MAX_FILE_BYTES, files: 12 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: m.MAX_FILE_BYTES, files: m.MAX_UPLOAD_FILES } });
 const orgOf = (req) => Number(req.session.organizationId);
 const toId = (v) => { const n = Number.parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
 const userIdOf = (req) => req.session.userId || req.session.user?.user_id || null;
@@ -88,16 +88,79 @@ async function schoolContext(req, res, db) {
   return m.openJob(db, orgOf(req));
 }
 const back = (req, res, step) => res.redirect(`/common/migration?step=${step}&embed=workspace`);
+// Long work runs in the background (utils/migration/tasks.js); while it does, nothing else changes the migration.
+const waitFor = async (db, job) => {
+  const open = await m.busyTask(db, job);
+  return open ? `Wait until "${m.TASK_LABELS[open.kind]}" finishes: it's running now.` : null;
+};
+const wantsJson = (req) => /application\/json/.test(String(req.get("accept") || ""));
+// Where each task's result is seen.
+const NEXT_STEP = { read_files: "map", import: "check", go_live: "live", catch_up: "live" };
 const done = (req, res, result, step, ok) => {
   if (result && result.error) req.flash("error", result.error);
   else if (ok) req.flash("success", ok);
   return back(req, res, step);
 };
 
-async function page(req, res, db) {
+// Before Managira opens a migration, the page is a request (managers only, no code asked):
+// prefilled with the person's own details, and once sent, where it stands.
+const REQUEST_FIELDS = ["system", "otherSystem", "students", "staff", "bring", "timing", "preferredDate", "contactName", "contactEmail", "contactPhone", "notes"];
+async function requestPage(req, res, db) {
+  const organizationId = orgOf(req);
+  const userId = userIdOf(req);
+  const [request, me, org] = await Promise.all([
+    m.latestRequest(db, organizationId),
+    userId && req.session.accountType !== "organization"
+      ? db.query("SELECT first_name, last_name, email, phone_number FROM users WHERE user_id = $1 AND organization_id = $2", [userId, organizationId]).then((r) => r.rows[0] || null)
+      : Promise.resolve(null),
+    db.query("SELECT organization_name, email, organization_phone FROM organizations WHERE organization_id = $1", [organizationId]).then((r) => r.rows[0] || {}),
+  ]);
+  const draft = req.session.migrationRequestForm || null;
+  delete req.session.migrationRequestForm;
+  const form = draft || {
+    contactName: me ? [me.first_name, me.last_name].filter(Boolean).join(" ") : "",
+    contactEmail: (me && me.email) || org.email || "",
+    contactPhone: (me && me.phone_number) || org.organization_phone || "",
+  };
+  res.render("migration/request", {
+    title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
+    request, form, schoolName: org.organization_name || "", systems: m.SYSTEMS, timings: m.TIMINGS, bring: m.BRING, guideUrl: "/legal/user-documentation/moving-to-managira",
+  });
+}
+async function requestPost(req, res, db) {
+  if (!(await allowedHere(req, db))) return res.redirect("/");
+  const result = await m.requestMove(db, orgOf(req), req.body || {}, { userId: userIdOf(req), actor: actorOf(req), role: req.session.accountType === "organization" ? "School account" : "Manager" });
+  if (result.error) {
+    req.session.migrationRequestForm = Object.fromEntries(REQUEST_FIELDS.map((k) => [k, Array.isArray(req.body[k]) ? req.body[k].map(String) : String(req.body[k] || "").slice(0, 2000)]));
+    req.flash("error", result.error);
+  } else {
+    req.flash("success", `Request sent. We've emailed a copy to ${result.request.contact_email}; our migration team will be in touch within two business days.`);
+  }
+  return res.redirect("/common/migration?embed=workspace");
+}
+async function matchPost(req, res, db) {
   const job = await schoolContext(req, res, db);
-  if (!job) { req.flash("error", "There's no data migration open for your school."); return res.redirect("/"); }
+  if (!job) return res.redirect("/");
+  const wait = await waitFor(db, job);
+  if (wait) { req.flash("error", wait); return res.redirect("/common/migration?step=review&embed=workspace"); }
+  const result = await m.decideMatch(db, job, req.body || {}, actorOf(req));
+  if (result.error) req.flash("error", result.error);
+  return res.redirect(`/common/migration?step=review&embed=workspace#matches`);
+}
+async function withdrawPost(req, res, db) {
+  if (!(await allowedHere(req, db))) return res.redirect("/");
+  const result = await m.withdrawRequest(db, orgOf(req), actorOf(req));
+  req.flash(result.error ? "error" : "success", result.error || "Request withdrawn. You can send a new one at any time.");
+  return res.redirect("/common/migration?embed=workspace");
+}
+
+async function page(req, res, db) {
+  if (!(await allowedHere(req, db))) { req.flash("error", "Data migration is for your school's managers."); return res.redirect("/"); }
   if (!isEmbeddedRequest(req, "migration") && String(req.get("Sec-Fetch-Dest") || "") !== "iframe") return res.redirect(HUB_URL(req.query.step));
+  const job = await m.openJob(db, orgOf(req));
+  if (!job) return requestPage(req, res, db);
+  // Once Managira has opened it, every visit needs an authenticator code from the last 30 minutes.
+  if (!mfa.fresh(req)) return res.redirect(verifyUrl(req.originalUrl));
   const [files, columns, custom, sandbox, check, events, staff, roleReport] = await Promise.all([
     m.currentFiles(db, job), m.columnsOf(db, job), m.customFieldsOf(db, job.organization_id), m.sandboxSummary(db, job), m.blockers(db, job),
     db.query("SELECT actor, action, detail, at FROM migration_events WHERE job_id = $1 ORDER BY at DESC LIMIT 25", [job.job_id]).then((r) => r.rows),
@@ -108,37 +171,63 @@ async function page(req, res, db) {
   const step = STEPS.includes(req.query.step) ? req.query.step : job.status === "live" ? "live" : !files.length ? "upload" : open.unsure.length ? "map" : "check";
   // Each student's GPA from PowerSchool beside Managira's working, where the step shows it.
   const gpaCheck = ["review", "live"].includes(step) ? await m.gpaCheck(db, job) : null;
+  // Who is already in Managira, and the questions the school answers before signing.
+  const matches = step === "review" && files.some((f) => f.entity === "students") ? await m.liveMatches(db, job) : null;
+  const task = await m.taskStatus(db, job);
+  const docs = ["upload", "check"].includes(step) ? await m.documentsOf(db, job) : null;
   res.render("migration/school", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
-    job, step, steps: STEPS, files, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, gpaCheck,
+    job, step, steps: STEPS, files, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, gpaCheck, matches, task, docs, nextStep: NEXT_STEP, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
     summary: m.summary(columns, custom), targetLabel: m.targetLabel,
   });
 }
 
-const uploadHandler = (req, res, next) => upload.array("files", 12)(req, res, (error) => {
-  if (error) { req.flash("error", error.code === "LIMIT_FILE_SIZE" ? "Files can be up to 30 MB." : "The files couldn't be uploaded."); return back(req, res, "upload"); }
-  return next();
+const uploadHandler = (req, res, next) => upload.array("files", m.MAX_UPLOAD_FILES)(req, res, (error) => {
+  if (!error) return next();
+  const message = error.code === "LIMIT_FILE_SIZE" ? `Files can be up to ${m.MAX_FILE_BYTES / 1048576} MB each. Export a large list in parts.`
+    : error.code === "LIMIT_FILE_COUNT" ? `Up to ${m.MAX_UPLOAD_FILES} files at a time.` : "The files couldn't be uploaded. Try again.";
+  if (wantsJson(req)) return res.status(400).json({ ok: false, error: message });
+  req.flash("error", message);
+  return back(req, res, "upload");
 });
 async function uploadPost(req, res, db) {
   const job = await schoolContext(req, res, db);
-  if (!job) return res.redirect("/");
-  if (job.status === "live" && job.catch_up_at) return done(req, res, { error: "The catch-up import was already used." }, "live");
+  const reply = (status, body, step) => {
+    if (wantsJson(req)) return res.status(status).json(body);
+    if (body.error) req.flash("error", body.error);
+    (body.refused || []).forEach((r) => req.flash("error", r));
+    if (body.ok && body.message) req.flash("info", body.message);
+    return back(req, res, step);
+  };
+  if (!job) return reply(403, { ok: false, error: "There's no data migration open for your school." }, "upload");
+  const step = job.status === "live" ? "live" : "upload";
+  if (job.status === "live" && job.catch_up_at) return reply(409, { ok: false, error: "The catch-up import was already used." }, step);
   const files = req.files || [];
-  if (!files.length) return done(req, res, { error: "Choose the CSV files to upload." }, "upload");
-  const added = [];
-  for (const file of files) {
-    const result = await m.addFile(db, job, { name: file.originalname, buffer: file.buffer, entity: req.body.entity, actor: actorOf(req) });
-    if (result.error) { req.flash("error", `${file.originalname}: ${result.error}`); continue; }
-    added.push(`${result.file.file_name} (${m.ENTITIES[result.file.entity].label}, ${result.file.row_count} rows)`);
-  }
-  if (added.length) req.flash("success", `Uploaded ${added.join(", ")}. Check the matches next.`);
-  return back(req, res, job.status === "live" ? "live" : added.length ? "map" : "upload");
+  if (!files.length) return reply(400, { ok: false, error: "Choose the files to upload." }, step);
+  // Files go on being read while more arrive; anything else running comes first.
+  const open = await m.busyTask(db, job);
+  if (open && open.kind !== "read_files") return reply(409, { ok: false, error: await waitFor(db, job) }, step);
+  const { stored, refused } = await m.storeUploads(db, job, files, { entity: req.body.entity, actor: actorOf(req) });
+  if (!stored.length) return reply(400, { ok: false, error: refused[0] || "Nothing could be uploaded.", refused: refused.slice(1) }, step);
+  if (!open) await m.startTask(db, job, "read_files", actorOf(req));
+  const message = stored.length === 1 ? `Uploaded ${stored[0].file_name}. It's being read now.` : `Uploaded ${stored.length} files. They're being read now.`;
+  return reply(200, { ok: true, message, refused, next: `/common/migration?step=${step}&embed=workspace` }, step);
+}
+// Where the school's background task is, for its progress card.
+async function taskPost(req, res, db) {
+  const job = await schoolContext(req, res, db);
+  if (!job) return res.status(404).json({ task: null });
+  res.set("Cache-Control", "no-store");
+  const task = await m.taskStatus(db, job);
+  return res.json({ task, next: task && !task.open ? `/common/migration?step=${task.status === "failed" && task.kind === "go_live" ? "review" : NEXT_STEP[task.kind] || "upload"}&embed=workspace` : null });
 }
 
 const columnAction = (fn, step) => async (req, res, db) => {
   const job = await schoolContext(req, res, db);
   if (!job || job.status === "live") return res.redirect("/");
+  const wait = await waitFor(db, job);
+  if (wait) return done(req, res, { error: wait }, step);
   return done(req, res, await fn(job, req), step, "Saved.");
 };
 const confirmPost = (req, res, db) => columnAction((job) => m.confirmColumn(db, job, toId(req.params.columnId), String(req.body.target || ""), actorOf(req)), "map")(req, res, db);
@@ -146,50 +235,39 @@ const notesPost = (req, res, db) => columnAction((job) => m.saveNotes(db, job, t
 const excludePost = (req, res, db) => columnAction((job) => m.approveExclude(db, job, toId(req.params.columnId), userIdOf(req), actorOf(req)), "notes")(req, res, db);
 const legalPost = (req, res, db) => columnAction((job) => m.legalNeed(db, job, toId(req.params.columnId), userIdOf(req), actorOf(req)), "notes")(req, res, db);
 
-async function importPost(req, res, db) {
+// Import, go live and the catch-up start a background task; the page follows it.
+const startFor = (kind, step, allowed) => async (req, res, db) => {
   const job = await schoolContext(req, res, db);
-  if (!job || job.status === "live") return res.redirect("/");
-  const result = await m.runImport(db, job, actorOf(req));
-  return done(req, res, result, "check", "Imported into the sandbox. The check report is below.");
-}
+  if (!job) return res.redirect("/");
+  const refusal = allowed(job);
+  if (refusal) return done(req, res, { error: refusal }, step);
+  const started = await m.startTask(db, job, kind, actorOf(req));
+  if (started.busy) return done(req, res, { error: await waitFor(db, job) || "It's already running." }, step);
+  return back(req, res, step);
+};
+const importPost = startFor("import", "check", (job) => (job.status === "live" ? "You're live: use the catch-up instead." : null));
+const goLivePost = startFor("go_live", "live", (job) => (job.status !== "review" || !job.signed_at ? "Sign the migration summary first." : null));
+const catchUpPost = startFor("catch_up", "live", (job) => (job.status !== "live" ? "Catch-up is for after go-live." : job.catch_up_at ? "The catch-up import was already used." : null));
 async function approvePost(req, res, db) {
   const job = await schoolContext(req, res, db);
   if (!job || job.status === "live") return res.redirect("/");
+  const wait = await waitFor(db, job);
+  if (wait) return done(req, res, { error: wait }, "review");
   return done(req, res, await m.approveSection(db, job, String(req.body.section || ""), req.body.on === "1", actorOf(req)), "review");
 }
 async function signPost(req, res, db) {
   const job = await schoolContext(req, res, db);
   if (!job || job.status === "live") return res.redirect("/");
+  const wait = await waitFor(db, job);
+  if (wait) return done(req, res, { error: wait }, "review");
   return done(req, res, await m.sign(db, job, req.body.name, userIdOf(req), actorOf(req)), "review", "Signed. You can go live when you're ready.");
 }
-async function goLivePost(req, res, db) {
-  const job = await schoolContext(req, res, db);
-  if (!job) return res.redirect("/");
-  try {
-    const result = await m.goLive(db, job, actorOf(req));
-    const c = result.counts;
-    return done(req, res, result, result.error ? "review" : "live", c ? `You're live: ${c.students} students, ${c.guardians} parent links and ${c.staff} staff accounts loaded.` : "");
-  } catch (error) {
-    console.error("[Migration] go live:", error.message);
-    return done(req, res, { error: "Going live stopped and nothing was changed. Try again, or contact Managira." }, "review");
-  }
-}
-async function catchUpPost(req, res, db) {
-  const job = await schoolContext(req, res, db);
-  if (!job) return res.redirect("/");
-  try {
-    const result = await m.catchUp(db, job, actorOf(req));
-    return done(req, res, result, "live", result.counts ? `Catch-up loaded: ${result.counts.students} students updated.` : "");
-  } catch (error) {
-    console.error("[Migration] catch-up:", error.message);
-    return done(req, res, { error: "The catch-up stopped and nothing was changed. Try again." }, "live");
-  }
-}
-
 // ── Staff roles ──
 const roleAction = (fn) => async (req, res, db) => {
   const job = await schoolContext(req, res, db);
   if (!job || job.status === "live") return res.redirect("/");
+  const wait = await waitFor(db, job);
+  if (wait) return done(req, res, { error: wait }, "roles");
   return done(req, res, await fn(job, req), "roles", "Saved.");
 };
 const roleConfirmPost = (req, res, db) => roleAction((job) => m.confirmRole(db, job, toId(req.params.roleId), String(req.body.target || ""), actorOf(req)))(req, res, db);
@@ -268,7 +346,7 @@ async function studentOldSystem(db, req, studentId) {
   const organizationId = orgOf(req);
   const admin = isOrgAdmin(req.session);
   const unlocked = admin && mfa.fresh(req);
-  const [extras, alerts, archives, history, attendance] = await Promise.all([
+  const [extras, alerts, archives, history, attendance, docs] = await Promise.all([
     db.query("SELECT label, value, sensitive FROM record_extra_fields WHERE organization_id = $1 AND entity = 'student' AND record_id = $2 ORDER BY label", [organizationId, studentId]),
     db.query("SELECT label, text FROM student_alerts WHERE organization_id = $1 AND student_id = $2 ORDER BY alert_id", [organizationId, studentId]),
     db.query("SELECT archive_id, module, sensitive, jsonb_array_length(content) AS n FROM migration_archives WHERE organization_id = $1 AND student_id = $2 ORDER BY module", [organizationId, studentId]),
@@ -278,11 +356,13 @@ async function studentOldSystem(db, req, studentId) {
       [organizationId, studentId]
     ),
     db.query("SELECT school_year, term, days_present, days_absent, days_excused, days_tardy FROM student_attendance_totals WHERE organization_id = $1 AND student_id = $2 ORDER BY school_year, term", [organizationId, studentId]),
+    db.query("SELECT document_id, file_name, kind, restricted, size_bytes, content_type FROM migration_documents WHERE organization_id = $1 AND student_id = $2 ORDER BY kind, file_name", [organizationId, studentId]).catch(() => ({ rows: [] })),
   ]);
-  const restricted = extras.rows.filter((x) => x.sensitive).length + archives.rows.filter((a) => a.sensitive).length;
+  const restricted = extras.rows.filter((x) => x.sensitive).length + archives.rows.filter((a) => a.sensitive).length + docs.rows.filter((d) => d.restricted).length;
   const out = {
     extras: extras.rows.filter((x) => !x.sensitive || unlocked),
     archives: archives.rows.filter((a) => !a.sensitive || unlocked),
+    documents: docs.rows.filter((d) => !d.restricted || unlocked),
     alerts: alerts.rows,
     history: history.rows,
     attendance: attendance.rows,
@@ -292,7 +372,7 @@ async function studentOldSystem(db, req, studentId) {
     // The old system's GPA as it was exported: never worked out again.
     sourceGpa: await require("../utils/gpa").sourceGpaOf(db, organizationId, studentId).catch(() => null),
   };
-  if (!out.extras.length && !out.alerts.length && !out.archives.length && !out.history.length && !out.attendance.length && !out.hidden && !out.sourceGpa) return null;
+  if (!out.extras.length && !out.alerts.length && !out.archives.length && !out.documents.length && !out.history.length && !out.attendance.length && !out.hidden && !out.sourceGpa) return null;
   return out;
 }
 async function archivePage(req, res, db) {
@@ -315,6 +395,24 @@ async function archivePage(req, res, db) {
   if (archive.student_id) student = (await db.query("SELECT first_name, last_name FROM students WHERE organization_id = $1 AND student_id = $2", [organizationId, archive.student_id])).rows[0];
   await m.event(db, { organizationId, actor: actorOf(req), action: "archive_viewed", detail: { archiveId: archive.archive_id, sensitive: archive.sensitive }, ip: req.ip });
   return res.render("migration/archive", { layout: false, archive, rows, columns, student });
+}
+
+// A document from the old system. Before go-live (no student yet) and when restricted: the school's
+// admins, after their code. On a student's record and not restricted: staff who may open students.
+async function documentFile(req, res, db) {
+  const organizationId = orgOf(req);
+  const { rows: [doc] } = await db.query("SELECT * FROM migration_documents WHERE organization_id = $1 AND document_id = $2", [organizationId, toId(req.params.documentId)]);
+  if (!doc || ((doc.restricted || !doc.student_id) && !isOrgAdmin(req.session))) return res.status(404).send("Not found.");
+  if ((doc.restricted || !doc.student_id) && !mfa.fresh(req)) return res.redirect(verifyUrl(req.originalUrl).replace("embed=workspace&", ""));
+  const content = await require("../utils/migration/documents").read(doc);
+  const inline = require("../utils/migration/documents").INLINE.has(doc.content_type) && req.query.download !== "1";
+  res.setHeader("Content-Type", inline ? doc.content_type : "application/octet-stream");
+  res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${String(doc.file_name).replace(/[^\w .-]+/g, "_")}"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+  res.setHeader("Cache-Control", "private, no-store");
+  await m.event(db, { organizationId, actor: actorOf(req), action: "document_viewed", detail: { documentId: Number(doc.document_id), restricted: doc.restricted }, ip: req.ip });
+  return res.send(content);
 }
 
 // ── Super Admin ─────────────────────────────────────────────────────────────────────────
@@ -354,8 +452,23 @@ async function adminCodePost(req, res, db) {
 
 async function adminQueue(req, res, db) {
   if (!(await m.ready(db))) { req.flash("error", "Run the data migration database update first."); return res.redirect("/admin"); }
-  const [queue, needs] = await Promise.all([m.queue(db), m.needsAcrossSchools(db)]);
-  res.render("admin/migrations", { title: "Migration queue", queue, needs, job: null, columns: [], events: [], messages: req.flash() });
+  const [queue, needs, requests] = await Promise.all([m.queue(db), m.needsAcrossSchools(db), m.listRequests(db)]);
+  res.render("admin/migrations", { title: "Migration queue", queue, needs, requests, job: null, columns: [], events: [], messages: req.flash() });
+}
+// A school's request: in touch, approved (its migration opens and its managers are emailed), or declined.
+async function adminRequestDecide(req, res, db) {
+  const requestId = toId(req.params.requestId);
+  if (!requestId || !(await m.ready(db))) return res.redirect("/admin/migrations");
+  const what = req.params.what;
+  const result = await m.decideRequest(db, requestId, what, req.body && req.body.note, adminActor(req));
+  if (result.error) { req.flash("error", result.error); return res.redirect("/admin/migrations"); }
+  require("../utils/shards/registry").audit(req, `migration_request_${what}`, `org:${result.request.organization_id}`, { requestId });
+  if (what === "approve") {
+    req.flash("success", "Approved. Their migration is open, and their managers were emailed how to start.");
+    return res.redirect(`/admin/migrations/${result.request.organization_id}`);
+  }
+  req.flash("success", what === "contacted" ? "Marked as in touch." : "Declined. The school was emailed your note.");
+  return res.redirect("/admin/migrations#requests");
 }
 // The school's open migration, or its last go-live while it can still be rolled back.
 const adminJobOf = async (db, organizationId) => organizationId && ((await m.openJob(db, organizationId)) || (await m.rollbackJob(db, organizationId)));
@@ -414,8 +527,9 @@ async function adminImport(req, res, db) {
   const organizationId = toId(req.params.orgId);
   const job = organizationId && await m.openJob(db, organizationId);
   if (!job || job.status === "live") return res.redirect("/admin/migrations");
-  const result = await m.runImport(db, job, adminActor(req));
-  if (result.error) req.flash("error", result.error); else req.flash("success", "Imported again: the new fields are filled in on the sandbox records.");
+  const started = await m.startTask(db, job, "import", adminActor(req));
+  if (started.busy) req.flash("error", `Wait until "${m.TASK_LABELS[started.busy.kind]}" finishes for this school.`);
+  else req.flash("success", "Importing again in the background: the new fields fill in on the sandbox records in a moment.");
   return res.redirect(`/admin/migrations/${organizationId}`);
 }
 async function adminRoleResolve(req, res, db) {
@@ -472,11 +586,11 @@ const wrap = (fn) => async (req, res, db) => {
 };
 module.exports = {
   codeGate, verifyPage: wrap(verifyPage), verifyPost: wrap(verifyPost),
-  page: wrap(page), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
-  legalPost: wrap(legalPost), importPost: wrap(importPost), approvePost: wrap(approvePost), signPost: wrap(signPost), goLivePost, catchUpPost, invitePost: wrap(invitePost),
+  page: wrap(page), matchPost: wrap(matchPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
+  legalPost: wrap(legalPost), importPost: wrap(importPost), approvePost: wrap(approvePost), signPost: wrap(signPost), goLivePost: wrap(goLivePost), catchUpPost: wrap(catchUpPost), taskPost: wrap(taskPost), invitePost: wrap(invitePost),
   roleConfirmPost: wrap(roleConfirmPost), roleNotesPost: wrap(roleNotesPost), roleApprovePost: wrap(roleApprovePost), roleReportFile: wrap(roleReportFile),
-  archivePage: wrap(archivePage), studentOldSystem,
+  archivePage: wrap(archivePage), documentFile: wrap(documentFile), studentOldSystem,
   adminCodeGate, adminCodePage: wrap(adminCodePage), adminCodePost: wrap(adminCodePost),
   adminQueue: wrap(adminQueue), adminJob: wrap(adminJob), adminToggle: wrap(adminToggle), adminResolve: wrap(adminResolve), adminImport: wrap(adminImport),
-  adminRollback: wrap(adminRollback), adminCodeReset: wrap(adminCodeReset), adminRoleResolve: wrap(adminRoleResolve), adminHubStart: wrap(adminHubStart),
+  adminRequestDecide: wrap(adminRequestDecide), adminRollback: wrap(adminRollback), adminCodeReset: wrap(adminCodeReset), adminRoleResolve: wrap(adminRoleResolve), adminHubStart: wrap(adminHubStart),
 };
