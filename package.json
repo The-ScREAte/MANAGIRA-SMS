@@ -31,7 +31,7 @@
     "@aws-sdk/lib-storage": "^3.896.0",
     "@aws-sdk/s3-request-presigner": "^3.896.0",
     "@node-saml/node-saml": "^5.2.0",
-    "@stripe/stripe-js": "^5.5.0",
+    "@stripe/stripe-js": "^10.2.1",
     "@xmldom/xmldom": "^0.8.15",
     "axios": "^1.15.0",
     "bcryptjs": "^3.0.2",
