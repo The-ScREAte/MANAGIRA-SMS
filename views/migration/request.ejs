@@ -57,13 +57,7 @@
       <fieldset>
         <legend>Your current system</legend>
         <div class="mg-grid">
-          <label class="mg-field">System you use now
-            <select name="system" required>
-              <option value="">Choose one</option>
-              <% systems.forEach((s) => { %><option value="<%= s %>"<%= form.system === s ? ' selected' : '' %>><%= s %></option><% }) %>
-            </select>
-          </label>
-          <label class="mg-field mg-other">Which system?<input name="otherSystem" maxlength="80" value="<%= form.otherSystem || '' %>" placeholder="Its name" /></label>
+          <label class="mg-field">System you use now<input name="system" required maxlength="80" value="<%= form.system || form.otherSystem || '' %>" placeholder="Its name" /></label>
           <label class="mg-field">About how many students<input name="students" inputmode="numeric" maxlength="7" value="<%= form.students || '' %>" placeholder="e.g. 450" /></label>
           <label class="mg-field">About how many staff<input name="staff" inputmode="numeric" maxlength="7" value="<%= form.staff || '' %>" placeholder="e.g. 40" /></label>
         </div>

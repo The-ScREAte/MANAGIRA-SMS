@@ -20,7 +20,7 @@
   <header class="mg-head">
     <div>
       <h1>Data migration <span class="mg-pill mg-pill--<%= job.status %>"><%= _status %></span></h1>
-      <p>Move your data from PowerSchool. Nothing reaches your live account until you sign off and go live.</p>
+      <p>Move your data from your current system. Nothing reaches your live account until you sign off and go live.</p>
     </div>
   </header>
 
@@ -45,7 +45,7 @@
   <% if (step === 'upload') { %>
   <section class="mg-card">
     <h2>Upload your export files</h2>
-    <p class="mg-hint">Upload your school's export from PowerSchool: its lists (students, parents, staff, classes, grades, attendance and everything else) and its documents. The simplest way is to drag the whole export folder onto the box below, or upload a .zip of it. Keep each student's documents in a folder named with their student number, and each is filed on that student's record (a photo becomes their picture). Managira recognises every list by itself and keeps everything, and nothing reaches your live account until you review and sign off. Upload a list again any time to replace it.</p>
+    <p class="mg-hint">Upload your school's export from your current system: its lists (students, parents, staff, classes, grades, attendance and everything else) and its documents. The simplest way is to drag the whole export folder onto the box below, or upload a .zip of it. Keep each student's documents in a folder named with their student number, and each is filed on that student's record (a photo becomes their picture). Managira recognises every list by itself and keeps everything, and nothing reaches your live account until you review and sign off. Upload a list again any time to replace it.</p>
     <p class="mg-hint mg-hint--small">Lists can be CSV, text or Excel, with up to 200,000 rows each (send a longer one, such as a year of daily attendance, in parts). Any number of files, up to 60 MB each.</p>
     <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
   </section>
@@ -148,11 +148,11 @@
       </tbody></table>
       <% if ((_report.lists || []).length || (docs && docs.total)) { const _kept = _report.lists || []; %>
       <h3>Your lists and documents</h3>
-      <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira (above). <strong><%= _kept.length %></strong> other <%= _kept.length === 1 ? 'list is' : 'lists are' %> kept read-only, nothing left behind: on each student's record where the list has a student number, or for the school<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> matched to <%= docs.students %> students)<% } %>. Restricted ones open only for your school's managers.</p>
+      <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira, <strong><%= _kept.length %></strong> are kept read-only<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> on their students)<% } %>. Restricted ones open only for your managers.</p>
       <% const _into = _kept.filter((l) => l.feature && listFeatures[l.feature]); %>
       <% if (_into.length) { %>
       <h3>Loaded into Managira's own features</h3>
-      <p class="mg-hint">These <%= _into.length %> lists also go into the parts of Managira that do the same job, when you go live. They're kept read-only as well, so nothing is lost.</p>
+      <p class="mg-hint">These lists also go into Managira's own features when you go live, and are kept read-only too.</p>
       <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th>Goes into</th></tr></thead><tbody>
         <% _into.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td><td><%= listFeatures[l.feature].into %></td></tr><% }) %>
       </tbody></table></div>
@@ -393,9 +393,9 @@
     </tbody></table>
     <% if (gpaCheck && gpaCheck.checked) { %>
       <h3>GPA check</h3>
-      <p class="mg-hint"><strong><%= gpaCheck.matching %></strong> of <%= gpaCheck.checked %> students' GPA from PowerSchool matches the one worked out from their final grades. Their PowerSchool GPA is kept on their transcript either way. A difference usually means grades left out of the export, or a weighting the export doesn't carry.</p>
+      <p class="mg-hint"><strong><%= gpaCheck.matching %></strong> of <%= gpaCheck.checked %> students' GPA from your old system matches the one worked out from their final grades. Their GPA from your old system is kept on their transcript either way. A difference usually means grades left out of the export, or a weighting the export doesn't carry.</p>
       <% if (gpaCheck.differ.length) { %>
-      <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Student</th><th class="num">PowerSchool weighted</th><th class="num">From grades, weighted</th><th class="num">PowerSchool unweighted</th><th class="num">From grades, unweighted</th><th class="num">Courses</th></tr></thead><tbody>
+      <div class="mg-scroll"><table class="mg-table"><thead><tr><th>Student</th><th class="num">Old system, weighted</th><th class="num">From grades, weighted</th><th class="num">Old system, unweighted</th><th class="num">From grades, unweighted</th><th class="num">Courses</th></tr></thead><tbody>
         <% gpaCheck.differ.slice(0, 100).forEach((g) => { %><tr class="mg-row--unsure"><td><strong><%= g.name %></strong> <small class="mg-samples"><%= g.sourceId %></small></td>
           <td class="num"><%= _g(g.source.weighted !== undefined ? g.source.weighted : g.source.gpa) %></td><td class="num<%= g.differs.includes('weighted') || g.differs.includes('GPA') ? ' mg-bad' : '' %>"><%= _g(g.managira.weighted) %></td>
           <td class="num"><%= _g(g.source.unweighted) %></td><td class="num<%= g.differs.includes('unweighted') ? ' mg-bad' : '' %>"><%= _g(g.managira.unweighted) %></td><td class="num"><%= g.courses %></td></tr><% }) %>
@@ -448,7 +448,7 @@
            ['Sections placed in a class', (rep.classes || {}).source, (rep.classes || {}).source === undefined ? undefined : (rep.classes || {}).source - (loaded.sectionsUnplaced || 0)],
            ['Final grades (courses)', (rep.grades || {}).source, loaded.courses],
            ['Credits earned', src.credits, loaded.credits],
-           ...(gpaCheck && gpaCheck.checked ? [['Students whose GPA matches PowerSchool', gpaCheck.checked, gpaCheck.matching]] : []),
+           ...(gpaCheck && gpaCheck.checked ? [['Students whose GPA matches your old system', gpaCheck.checked, gpaCheck.matching]] : []),
            ['Days present', srcAtt.present, att.present],
            ['Days absent', srcAtt.absent, att.absent],
          ].filter((r) => r[1] !== undefined && r[1] !== null && (r[1] !== 0 || r[2]));
@@ -487,7 +487,7 @@
       <table class="mg-table mg-compare"><thead><tr><th>What</th><th class="num">In your files</th><th class="num">In Managira</th></tr></thead><tbody>
         <% _rows.forEach(([label, a, b]) => { %><tr><td><%= label %></td><td class="num"><%= a %></td><td class="num<%= Number(a) !== Number(b) ? ' is-off' : '' %>"><%= b === null || b === undefined ? '—' : b %></td></tr><% }) %>
       </tbody></table>
-      <% if (_rows.some(([, a, b]) => Number(a) !== Number(b))) { %><p class="mg-hint">Amber figures differ from your files: duplicates, rows the check report flagged, staff without an email (left out), or GPAs that don't match their grades (see Review; each student's PowerSchool GPA is kept on their transcript).</p><% } %>
+      <% if (_rows.some(([, a, b]) => Number(a) !== Number(b))) { %><p class="mg-hint">Amber figures differ from your files: duplicates, rows the check report flagged, staff without an email (left out), or GPAs that don't match their grades (see Review; each student's GPA from your old system is kept on their transcript).</p><% } %>
       <% if (loaded.sectionsUnplaced) { %><p class="mg-notice"><%= loaded.sectionsUnplaced %> <%= loaded.sectionsUnplaced === 1 ? 'section' : 'sections' %> couldn't be placed in a class (no grade level and no class enrollments). Add them to the classes on the Classes & subjects page.</p><% } %>
 
       <% if (staff.length) { const _waiting = staff.filter((p) => p.waiting); %>
@@ -519,7 +519,7 @@
 
       <h3>Catch-up</h3>
       <% if (job.catch_up_at) { %><p class="mg-hint">The catch-up import was used on <%= _when(job.catch_up_at) %>.</p><% } else { %>
-        <p class="mg-hint">One last import for changes made in PowerSchool since (final grades, attendance). Upload the new files, then load them. Records are updated, never duplicated.</p>
+        <p class="mg-hint">One last import for changes made in your old system since (final grades, attendance). Upload the new files, then load them. Records are updated, never duplicated.</p>
         <%- include('partials/upload', { label: 'Drop the new export files here', action: '/common/migration/upload', withEntity: false }) %>
         <form method="POST" action="/common/migration/catch-up" data-starts-task onsubmit="return confirm('Load the latest files into your live account? This can be done once.')"><button class="mg-btn mg-btn--primary" type="submit">Load the catch-up</button></form>
       <% } %>
@@ -527,7 +527,7 @@
     <% } else if (job.signed_at) { %>
       <h2>Go live</h2>
       <ol class="mg-list">
-        <li>Upload your latest export files first (step 1), so nothing entered in PowerSchool since is missed.</li>
+        <li>Upload your latest export files first (step 1), so nothing entered in your old system since is missed.</li>
         <li>Go live imports those files again, keeps a snapshot, and loads your live account: students (enrolled in the current term), parents, staff accounts (on hold until you invite them), sections as subjects of their classes with their teachers, final grades with credits and GPA on each student's transcript, and attendance totals per term. Daily attendance and archived columns stay read-only on each student.</li>
         <li>Your account opens for new data again. For 30 days Managira can roll the go-live back.</li>
       </ol>

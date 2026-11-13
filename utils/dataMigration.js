@@ -1889,7 +1889,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section)
          VALUES ($1, $2, $3, $4::jsonb, $5, FALSE, TRUE, $7, (SELECT COALESCE(MAX(position), 0) + 1 FROM student_form_fields WHERE organization_id = $1), NULL, $6) RETURNING field_id`,
         [org, column.label.slice(0, 80), type, JSON.stringify(indicator ? indicator.options || [] : []),
-          indicator ? indicator.helpText : `From your old system (${system === "powerschool" ? "PowerSchool" : system})`, section, onApplication && section !== "programs"]
+          indicator ? indicator.helpText : "From your old system", section, onApplication && section !== "programs"]
       );
       ledger.made("student_form_fields", { field_id: made.field_id });
       fieldByName.set(key, Number(made.field_id));
@@ -2891,13 +2891,13 @@ async function purgeDue(db) {
 }
 
 // ── Requests: a school asks; Managira gets in touch, then opens its sandbox or declines ────
-const SYSTEMS = ["PowerSchool", "Infinite Campus", "Skyward", "Aeries", "Other"];
+const SYSTEMS = []; // the system a school moves from is what it types: no platform is named
 const TIMINGS = ["As soon as possible", "Within a month", "Over a school break", "On a date"];
 const BRING = ["Students", "Parents & guardians", "Staff", "Classes & teachers", "Final grades & transcripts", "Attendance"];
 const latestRequest = async (db, organizationId) => (await db.query("SELECT * FROM migration_requests WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1", [organizationId])).rows[0] || null;
 async function requestMove(db, organizationId, body, { userId = null, actor = "School", role = "Manager" } = {}) {
   if (await openJob(db, organizationId)) return { error: "Your data migration is already open." };
-  const system = SYSTEMS.includes(body.system) ? (body.system === "Other" ? clean(body.otherSystem, 80) : body.system) : "";
+  const system = clean(body.system, 80) || clean(body.otherSystem, 80);
   const contactName = clean(body.contactName, 120);
   const contactEmail = clean(body.contactEmail, 200).toLowerCase();
   const count = (v) => { const n = Number.parseInt(String(v || "").replace(/[^0-9]/g, ""), 10); return Number.isInteger(n) && n >= 0 && n < 1000000 ? n : null; };

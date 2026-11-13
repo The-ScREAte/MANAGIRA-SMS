@@ -740,7 +740,7 @@
         <h3 class="sd-card__title">Academic record before Managira</h3>
         <% const _sg = oldSystem.sourceGpa; %>
         <% if (oldSystem.history.length || _sg) { %>
-        <p style="margin:0 0 8px;color:#475467;font-size:13px"><% if (oldSystem.history.length) { %>Credits earned <strong><%= Math.round(oldSystem.credits * 100) / 100 %></strong><% } %><% if (_sg) { %><%= oldSystem.history.length ? ' · ' : '' %>GPA from <%= _sg.source === 'powerschool' ? 'PowerSchool' : _sg.source %>: <% if (_sg.weighted !== null) { %>weighted <strong><%= _sg.weighted %></strong><% } %><% if (_sg.weighted !== null && _sg.unweighted !== null) { %> · <% } %><% if (_sg.unweighted !== null) { %>unweighted <strong><%= _sg.unweighted %></strong><% } %><% if (_sg.weighted === null && _sg.unweighted === null) { %><strong><%= _sg.gpa %></strong><% } %><% } %></p>
+        <p style="margin:0 0 8px;color:#475467;font-size:13px"><% if (oldSystem.history.length) { %>Credits earned <strong><%= Math.round(oldSystem.credits * 100) / 100 %></strong><% } %><% if (_sg) { %><%= oldSystem.history.length ? ' · ' : '' %>GPA from the old system: <% if (_sg.weighted !== null) { %>weighted <strong><%= _sg.weighted %></strong><% } %><% if (_sg.weighted !== null && _sg.unweighted !== null) { %> · <% } %><% if (_sg.unweighted !== null) { %>unweighted <strong><%= _sg.unweighted %></strong><% } %><% if (_sg.weighted === null && _sg.unweighted === null) { %><strong><%= _sg.gpa %></strong><% } %><% } %></p>
         <% } %>
         <% if (oldSystem.history.length) { %>
         <div class="table-container">

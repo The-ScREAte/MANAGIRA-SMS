@@ -282,7 +282,7 @@ async function loadPayGira(ctx, rows) {
   counts.paygira = { bills: 0, charges: 0, paid: 0, payments: 0, mealDebts: 0, mealCredits: 0, owed: 0 };
   const p = counts.paygira;
   const today = new Date().toISOString().slice(0, 10);
-  const source = `From ${system === "powerschool" ? "PowerSchool" : "your old system"}`;
+  const source = "From your old system";
 
   const billFor = async (title, description, amount, due) => {
     const { rows: [had] } = await q("SELECT bill_id FROM finance_bills WHERE organization_id = $1 AND title = $2 AND description = $3 ORDER BY bill_id LIMIT 1", [org, title, description]);
