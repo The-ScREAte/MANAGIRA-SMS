@@ -241,15 +241,15 @@ function logChange(req, description) {
   }).catch(() => {});
 }
 
-// Turning this on decides who can get into the whole school, so it asks for the password again.
-async function passwordIsRight(req, db, password) {
-  const given = String(password || "");
-  if (!given) return false;
-  const userId = req.session.userId;
-  const { rows } = userId
-    ? await db.query("SELECT password FROM users WHERE user_id = $1 AND organization_id = $2", [userId, req.session.organizationId])
-    : await db.query("SELECT password FROM organizations WHERE organization_id = $1", [req.session.organizationId]);
-  return Boolean(rows[0] && rows[0].password && await bcrypt.compare(given, rows[0].password));
+// Turning this on decides who can get into the whole school, so it asks for the signed-in
+// person's own password again (utils/confirmOwnPassword.js: never another person's, and logged).
+async function passwordIsRight(req, db, password, purpose = "change single sign-on") {
+  try {
+    await require("../utils/confirmOwnPassword").confirmOwnPassword(req, password, { purpose });
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 const answer = (res, work) => work().catch((error) => {
@@ -385,7 +385,7 @@ module.exports = {
   // Everyone at the school signs in with its provider from now on (asked with the password).
   everyone: (req, res, db) => answer(res, async () => {
     const organizationId = req.session.organizationId;
-    if (!(await passwordIsRight(req, db, req.body?.password))) return res.status(403).json({ success: false, message: "Enter your password to change how everyone signs in." });
+    if (!(await passwordIsRight(req, db, req.body?.password, "change how everyone signs in"))) return res.status(403).json({ success: false, message: "Enter your password to change how everyone signs in." });
     const row = await connections.connectionFor(db, organizationId);
     if (!row || row.status !== "active") return res.status(400).json({ success: false, message: "Turn on single sign-on first." });
     if (!(await connections.methodReady(db))) return res.status(400).json({ success: false, message: "This is getting ready. Try again in a few minutes." });
@@ -398,7 +398,7 @@ module.exports = {
   save: (req, res, db) => answer(res, async () => {
     // Once it's on, any change decides who gets in, so it asks for the password like turning it on.
     const current = await connections.connectionFor(db, req.session.organizationId);
-    if (current && current.status === "active" && !(await passwordIsRight(req, db, req.body?.confirmPassword))) {
+    if (current && current.status === "active" && !(await passwordIsRight(req, db, req.body?.confirmPassword, "change single sign-on"))) {
       return res.status(403).json({ success: false, needsPassword: true, message: "Enter your password to change this." });
     }
     const { row, wentOff } = await connections.saveSettings(db, req.session.organizationId, actorName(req), req.body);
@@ -431,7 +431,7 @@ module.exports = {
 
   turnOn: (req, res, db) => answer(res, async () => {
     const organizationId = req.session.organizationId;
-    if (!(await passwordIsRight(req, db, req.body?.password))) return res.status(403).json({ success: false, message: "That password isn't right." });
+    if (!(await passwordIsRight(req, db, req.body?.password, "turn single sign-on on"))) return res.status(403).json({ success: false, message: "That password isn't right." });
     const row = await connections.connectionFor(db, organizationId);
     if (!row || row.status === "draft") return res.status(400).json({ success: false, message: "Run a successful test first." });
     const byMain = await connections.isMainManager(db, organizationId, req.session.accountType === "Organization" ? { owner: true } : { user_id: req.session.userId, account_type: req.session.userRole, email: req.session.user?.email });
@@ -443,7 +443,7 @@ module.exports = {
 
   turnOff: (req, res, db) => answer(res, async () => {
     const organizationId = req.session.organizationId;
-    if (!(await passwordIsRight(req, db, req.body?.password))) return res.status(403).json({ success: false, message: "That password isn't right." });
+    if (!(await passwordIsRight(req, db, req.body?.password, "turn single sign-on off"))) return res.status(403).json({ success: false, message: "That password isn't right." });
     const row = await connections.connectionFor(db, organizationId);
     if (!row) return res.json({ success: true, connection: null, urls: null });
     const saved = await connections.setStatus(db, organizationId, row.tested_at ? "tested" : "draft");
@@ -454,7 +454,7 @@ module.exports = {
 
   remove: (req, res, db) => answer(res, async () => {
     const organizationId = req.session.organizationId;
-    if (!(await passwordIsRight(req, db, req.body?.password))) return res.status(403).json({ success: false, message: "That password isn't right." });
+    if (!(await passwordIsRight(req, db, req.body?.password, "remove single sign-on"))) return res.status(403).json({ success: false, message: "That password isn't right." });
     await connections.removeConnection(db, organizationId);
     await connections.record(db, { organizationId, kind: "setup", email: req.session.user?.email, outcome: "ok", detail: "Removed", ip: req.ip });
     logChange(req, `${actorName(req)} removed single sign-on.`);
