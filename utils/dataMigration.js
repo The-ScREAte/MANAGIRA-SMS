@@ -2333,6 +2333,11 @@ async function rollback(db, job, actor) {
         removed = (await client.query(`DELETE FROM ${table} WHERE (${keys[0]}, ${keys[1]}) IN (SELECT * FROM unnest($1::int[], $2::int[]))`, [made.map((k) => k[keys[0]]), made.map((k) => k[keys[1]])])).rowCount;
       }
       if (removed) result.removed[table] = removed;
+      // The accounts it made are gone: so are the role changes logged for them.
+      if (table === "users" && removed) {
+        const { rowCount } = await client.query("DELETE FROM staff_role_changes c WHERE c.organization_id = $1 AND c.changed_by = 'Data migration' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.user_id = c.user_id)", [org]);
+        if (rowCount) result.removed.staff_role_changes = rowCount;
+      }
     }
     await client.query("DELETE FROM migration_loaded WHERE job_id = $1", [job.job_id]);
     await client.query(

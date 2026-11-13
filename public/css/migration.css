@@ -53,6 +53,8 @@
 .mg-tiles > div { padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #f9fafb; }
 .mg-tiles strong { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
 .mg-tiles span { color: var(--mg-muted); font-size: 12.5px; }
+.mg { transition: opacity .12s ease; }
+.mg.is-loading { opacity: .55; pointer-events: none; }
 /* A background task (views/migration/partials/task.ejs). */
 .mg-task { margin: 0 0 14px; padding: 14px 16px; border: 1px solid var(--mg-line); border-radius: 14px; background: #fff; }
 .mg-task--queued, .mg-task--running { border-color: color-mix(in srgb, var(--mg-accent) 35%, #fff); background: var(--mg-soft); }

@@ -3,8 +3,8 @@
 // improvement on plain forms, which work without it.
 (function () {
   "use strict";
-  var root = document.querySelector(".mg");
-  if (!root) return;
+  if (!document.querySelector(".mg")) return;
+  var generation = 0; // a swapped-in step stops the last one's polling
 
   var fmtSize = function (bytes) {
     if (bytes >= 1048576) return (bytes / 1048576).toFixed(bytes >= 10485760 ? 0 : 1) + " MB";
@@ -13,6 +13,8 @@
   var fmtSecs = function (n) { return n < 60 ? n + " s" : Math.floor(n / 60) + " min " + String(n % 60).padStart(2, "0") + " s"; };
   var setText = function (el, text) { if (el) el.textContent = text; };
 
+  function init(root) {
+  var gen = ++generation;
   // ── The task card ──
   var card = root.querySelector("[data-task]");
   var lockForms = function (on) {
@@ -23,6 +25,7 @@
     lockForms(true);
     var started = Date.now();
     var poll = function () {
+      if (gen !== generation) return;
       fetch("/common/migration/task", { headers: { accept: "application/json" }, credentials: "same-origin", cache: "no-store" })
         .then(function (r) {
           if (!r.ok || (r.headers.get("content-type") || "").indexOf("json") === -1) throw new Error("reload");
@@ -35,7 +38,8 @@
           if (bar) { bar.style.width = Math.max(3, t.percent) + "%"; bar.parentNode.setAttribute("aria-valuenow", t.percent); }
           setText(card.querySelector("[data-task-step]"), t.step ? t.step + (t.total ? ": " + Number(t.done).toLocaleString("en-US") + " of " + Number(t.total).toLocaleString("en-US") : "") : "Getting ready");
           setText(card.querySelector("[data-task-meta]"), t.status === "queued" ? (t.ahead ? "Waiting its turn (" + t.ahead + " ahead)" : "Starting…") : (t.phases > 1 ? "Step " + t.phase + " of " + t.phases + " · " : "") + fmtSecs(t.seconds));
-          if (!t.open) { window.location.href = body.next || window.location.href; return; }
+          if (gen !== generation) return;
+          if (!t.open) { go(body.next || window.location.pathname + window.location.search, false); return; }
           setTimeout(poll, Date.now() - started > 60000 ? 3000 : 1200);
         })
         .catch(function () { window.location.reload(); });
@@ -45,11 +49,6 @@
   follow();
 
   // ── Uploads ──
-  // Coming back to the page (the browser's back button), nothing is left looking busy.
-  window.addEventListener("pageshow", function () {
-    root.querySelectorAll("[data-sending]").forEach(function (el) { el.hidden = true; });
-    root.querySelectorAll("form[data-upload] button[type=submit]").forEach(function (b) { b.disabled = false; });
-  });
   root.querySelectorAll("form[data-upload]").forEach(function (form) {
     var input = form.querySelector("input[type=file]");
     var drop = form.querySelector("[data-drop]");
@@ -129,7 +128,7 @@
         clearTimeout(waiting);
         var body = null;
         try { body = JSON.parse(xhr.responseText); } catch (_e) { body = null; }
-        if (xhr.status === 200 && body && body.ok) { window.location.href = body.next || window.location.href; return; }
+        if (xhr.status === 200 && body && body.ok) { go(body.next || window.location.pathname + window.location.search, false); return; }
         if (!body) { window.location.reload(); return; }
         sending.hidden = true;
         button.disabled = false;
@@ -144,4 +143,86 @@
       xhr.send(data);
     });
   });
+  }
+
+  // ── Moving between steps without reloading the page ──
+  // A step tab, a link inside the migration, or a form posted to it: the next page is fetched and
+  // swapped in place (the back button still works). Anything else opens as usual.
+  var cache = {};
+  var migrationUrl = function (href) {
+    try {
+      var u = new URL(href, window.location.href);
+      return u.origin === window.location.origin && u.pathname === "/common/migration" ? u.pathname + u.search : null;
+    } catch (_e) { return null; }
+  };
+  var fetchPage = function (url, options) {
+    return fetch(url, Object.assign({ credentials: "same-origin", headers: { accept: "text/html" } }, options || {}));
+  };
+  function show(html, url, push) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var fresh = doc.querySelector(".mg");
+    var current = document.querySelector(".mg");
+    if (!fresh || !current) return false;
+    current.replaceWith(fresh);
+    if (url) window.history[push ? "pushState" : "replaceState"]({ migration: true }, "", url);
+    window.scrollTo(0, 0);
+    init(fresh);
+    return true;
+  }
+  function go(url, push) {
+    var current = document.querySelector(".mg");
+    if (current) current.classList.add("is-loading");
+    var hit = cache[url] && Date.now() - cache[url].at < 15000 ? cache[url].page : null;
+    delete cache[url];
+    (hit || fetchPage(url).then(function (r) { return r.ok && migrationUrl(r.url) ? r.text() : Promise.reject(r.url); }))
+      .then(function (html) { if (!show(html, url, push)) window.location.href = url; })
+      .catch(function (where) { window.location.href = typeof where === "string" && where ? where : url; });
+  }
+  document.addEventListener("click", function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest && e.target.closest("a[href]");
+    if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+    var url = migrationUrl(a.getAttribute("href"));
+    if (!url) return;
+    e.preventDefault();
+    go(url, true);
+  });
+  // A step tab pointed at is fetched ahead, so it opens at once.
+  document.addEventListener("mouseover", function (e) {
+    var a = e.target.closest && e.target.closest("a.mg-step[href]");
+    if (!a) return;
+    var url = migrationUrl(a.getAttribute("href"));
+    if (!url || url === window.location.pathname + window.location.search || (cache[url] && Date.now() - cache[url].at < 15000)) return;
+    cache[url] = { at: Date.now(), page: fetchPage(url).then(function (r) { return r.ok && migrationUrl(r.url) ? r.text() : Promise.reject(r.url); }) };
+    cache[url].page.catch(function () { delete cache[url]; });
+  });
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (e.defaultPrevented || !form || !form.matches || form.matches("[data-upload]") || form.target === "_blank") return;
+    var action = form.getAttribute("action") || "";
+    if ((form.getAttribute("method") || "get").toLowerCase() !== "post" || !/^\/common\/migration(\/|\?|$)/.test(action)) return;
+    e.preventDefault();
+    var data = new URLSearchParams(new FormData(form));
+    if (e.submitter && e.submitter.name) data.append(e.submitter.name, e.submitter.value);
+    var current = document.querySelector(".mg");
+    if (current) current.classList.add("is-loading");
+    fetchPage(action, { method: "POST", body: data, headers: { accept: "text/html", "content-type": "application/x-www-form-urlencoded" } })
+      .then(function (r) {
+        var url = migrationUrl(r.url);
+        if (!r.ok || !url) { window.location.href = r.url || action; return; }
+        return r.text().then(function (html) { if (!show(html, url, true)) window.location.href = url; });
+      })
+      .catch(function () { form.submit(); });
+  });
+  window.addEventListener("popstate", function () {
+    var url = migrationUrl(window.location.href);
+    if (url) go(url, false);
+  });
+  // Coming back to the page (the browser's back button), nothing is left looking busy.
+  window.addEventListener("pageshow", function () {
+    document.querySelectorAll(".mg [data-sending]").forEach(function (el) { el.hidden = true; });
+    document.querySelectorAll(".mg form[data-upload] button[type=submit]").forEach(function (b) { b.disabled = false; });
+  });
+
+  init(document.querySelector(".mg"));
 })();

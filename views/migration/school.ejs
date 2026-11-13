@@ -398,6 +398,7 @@
       <% } %>
       <% } %>
       <% if (loaded.studentsWaiting) { %><p class="mg-notice"><%= loaded.studentsWaiting %> <%= loaded.studentsWaiting === 1 ? 'student wasn’t' : 'students weren’t' %> loaded: <%= loaded.studentsWaiting === 1 ? 'they' : 'they' %> may already be in Managira. Answer under Review & sign, Already in Managira.</p><% } %>
+      <p><a class="mg-btn" href="/common/migration/old-records?embed=workspace" data-no-spa>Records from your old system</a> <small class="mg-hint">lists kept for the school, and documents not on a current student</small></p>
       <h3>Your files beside Managira</h3>
       <table class="mg-table mg-compare"><thead><tr><th>What</th><th class="num">In your files</th><th class="num">In Managira</th></tr></thead><tbody>
         <% _rows.forEach(([label, a, b]) => { %><tr><td><%= label %></td><td class="num"><%= a %></td><td class="num<%= Number(a) !== Number(b) ? ' is-off' : '' %>"><%= b === null || b === undefined ? '—' : b %></td></tr><% }) %>

@@ -162,23 +162,28 @@ async function page(req, res, db) {
   if (!job) return requestPage(req, res, db);
   // Once Managira has opened it, every visit needs an authenticator code from the last 30 minutes.
   if (!mfa.passed(req)) return res.redirect(verifyUrl(req.originalUrl));
-  const [files, columns, custom, sandbox, check, events, staff, roleReport] = await Promise.all([
-    m.currentFiles(db, job), m.columnsOf(db, job), m.customFieldsOf(db, job.organization_id), m.sandboxSummary(db, job), m.blockers(db, job),
+  // Each step works out only what it shows: a large school's sandbox is tens of thousands of rows.
+  const [files, columns, custom, events, task] = await Promise.all([
+    m.currentFiles(db, job), m.columnsOf(db, job), m.customFieldsOf(db, job.organization_id),
     db.query("SELECT actor, action, detail, at FROM migration_events WHERE job_id = $1 ORDER BY at DESC LIMIT 25", [job.job_id]).then((r) => r.rows),
-    job.status === "live" ? m.staffAccounts(db, job) : Promise.resolve([]),
-    m.roleReport(db, job),
+    m.taskStatus(db, job),
   ]);
   const open = m.openItems(columns);
   const step = STEPS.includes(req.query.step) ? req.query.step : job.status === "live" ? "live" : !files.length ? "upload" : open.unsure.length ? "map" : "check";
-  // Each student's GPA from PowerSchool beside Managira's working, where the step shows it.
-  const gpaCheck = ["review", "live"].includes(step) ? await m.gpaCheck(db, job) : null;
-  // Who is already in Managira, and the questions the school answers before signing.
-  const matches = step === "review" && files.some((f) => f.entity === "students") ? await m.liveMatches(db, job) : null;
-  const task = await m.taskStatus(db, job);
-  const docs = ["upload", "check"].includes(step) ? await m.documentsOf(db, job) : null;
-  const uploads = step === "upload" || step === "live"
-    ? (await db.query("SELECT upload_id, file_name, size_bytes, status, error, result, uploaded_by, created_at, read_at FROM migration_uploads WHERE job_id = $1 ORDER BY upload_id DESC LIMIT 20", [job.job_id])).rows
-    : [];
+  const on = (...steps) => steps.includes(step);
+  const none = (value) => Promise.resolve(value);
+  const [sandbox, check, staff, roleReport, gpaCheck, matches, docs, uploads] = await Promise.all([
+    on("check", "review") ? m.sandboxSummary(db, job) : none({ counts: {}, sample: [] }),
+    on("review", "live") ? m.blockers(db, job) : none({ list: [], needed: [] }),
+    on("live") && job.status === "live" ? m.staffAccounts(db, job) : none([]),
+    on("roles") ? m.roleReport(db, job) : none({ roles: [], people: [], open: {} }),
+    // Each student's GPA from PowerSchool beside Managira's working, where the step shows it.
+    on("review", "live") ? m.gpaCheck(db, job) : none(null),
+    // Who is already in Managira, and the questions the school answers before signing.
+    on("review") && files.some((f) => f.entity === "students") ? m.liveMatches(db, job) : none(null),
+    on("upload", "check") ? m.documentsOf(db, job) : none(null),
+    on("upload", "live") ? db.query("SELECT upload_id, file_name, size_bytes, status, error, result, uploaded_by, created_at, read_at FROM migration_uploads WHERE job_id = $1 ORDER BY upload_id DESC LIMIT 20", [job.job_id]).then((r) => r.rows) : none([]),
+  ]);
   res.render("migration/school", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
     job, step, steps: STEPS, files, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, gpaCheck, matches, task, docs, uploads, nextStep: NEXT_STEP, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
@@ -401,6 +406,26 @@ async function archivePage(req, res, db) {
   return res.render("migration/archive", { layout: false, archive, rows, columns, student });
 }
 
+// Records from the old system that aren't one student's (lists kept for the school, documents
+// with no current student), and what's on students' records. The school's managers only.
+async function oldRecords(req, res, db) {
+  if (!orgOf(req) || !isOrgAdmin(req.session) || !(await m.ready(db))) return res.redirect("/");
+  const organizationId = orgOf(req);
+  const [schoolLists, studentLists, looseDocs, docCounts] = await Promise.all([
+    db.query("SELECT archive_id, module, sensitive, jsonb_array_length(content) AS n FROM migration_archives WHERE organization_id = $1 AND student_id IS NULL ORDER BY module", [organizationId]).then((r) => r.rows),
+    db.query("SELECT module, BOOL_OR(sensitive) AS sensitive, COUNT(*)::int AS students, SUM(jsonb_array_length(content))::int AS n FROM migration_archives WHERE organization_id = $1 AND student_id IS NOT NULL GROUP BY module ORDER BY module", [organizationId]).then((r) => r.rows),
+    db.query(
+      `SELECT d.document_id, d.file_name, d.kind, d.student_source_id, d.restricted, d.size_bytes FROM migration_documents d JOIN migration_jobs j ON j.job_id = d.job_id
+        WHERE d.organization_id = $1 AND d.student_id IS NULL AND j.live_at IS NOT NULL ORDER BY d.student_source_id NULLS LAST, d.path LIMIT 1000`,
+      [organizationId]
+    ).then((r) => r.rows),
+    db.query("SELECT COUNT(*) FILTER (WHERE student_id IS NOT NULL)::int AS \"onStudents\" FROM migration_documents WHERE organization_id = $1", [organizationId]).then((r) => r.rows[0]),
+  ]);
+  res.render("migration/oldRecords", {
+    title: "Records from your old system", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true,
+    schoolLists, studentLists, looseDocs, docCounts,
+  });
+}
 // A document from the old system. Before go-live (no student yet) and when restricted: the school's
 // admins, after their code. On a student's record and not restricted: staff who may open students.
 async function documentFile(req, res, db) {
@@ -593,7 +618,7 @@ module.exports = {
   page: wrap(page), matchPost: wrap(matchPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
   legalPost: wrap(legalPost), importPost: wrap(importPost), approvePost: wrap(approvePost), signPost: wrap(signPost), goLivePost: wrap(goLivePost), catchUpPost: wrap(catchUpPost), taskPost: wrap(taskPost), invitePost: wrap(invitePost),
   roleConfirmPost: wrap(roleConfirmPost), roleNotesPost: wrap(roleNotesPost), roleApprovePost: wrap(roleApprovePost), roleReportFile: wrap(roleReportFile),
-  archivePage: wrap(archivePage), documentFile: wrap(documentFile), studentOldSystem,
+  archivePage: wrap(archivePage), documentFile: wrap(documentFile), oldRecords: wrap(oldRecords), studentOldSystem,
   adminCodeGate, adminCodePage: wrap(adminCodePage), adminCodePost: wrap(adminCodePost),
   adminQueue: wrap(adminQueue), adminJob: wrap(adminJob), adminToggle: wrap(adminToggle), adminResolve: wrap(adminResolve), adminImport: wrap(adminImport),
   adminRequestDecide: wrap(adminRequestDecide), adminRollback: wrap(adminRollback), adminCodeReset: wrap(adminCodeReset), adminRoleResolve: wrap(adminRoleResolve), adminHubStart: wrap(adminHubStart),

@@ -1243,6 +1243,7 @@ module.exports = (db) => {
   router.post("/migration/roles/approve", ...migrationGate, (req, res) => migration.roleApprovePost(req, res, db));
   router.get("/migration/roles/report", ...migrationGate, (req, res) => migration.roleReportFile(req, res, db));
   router.get("/migration/archive/:archiveId(\\d+)", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) => migration.archivePage(req, res, db));
+  router.get("/migration/old-records", isAuthenticated, (req, res) => migration.oldRecords(req, res, db));
   router.get("/migration/documents/:documentId(\\d+)", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) => migration.documentFile(req, res, db));
   router.post("/custom-forms/save", ...formBuilders, express.json({ limit: "1mb" }), (req, res) => customForms.saveSection(req, res, db));
   router.post("/custom-forms/:id(\\d+)/delete", ...formBuilders, (req, res) => customForms.deleteSection(req, res, db));
