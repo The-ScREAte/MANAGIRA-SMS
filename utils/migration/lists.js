@@ -80,7 +80,8 @@ const DETAILS = /^(custom_?fields|student_?custom_?fields|extra_?fields|student_
 function recognize(fileName, header) {
   const name = baseName(fileName);
   const plain = withoutYears(name);
-  const other = (by) => ({ entity: "other", label: labelOf(fileName), restricted: RESTRICTED.test(name), studentColumn: studentColumn(header), details: DETAILS.test(plain) && Boolean(studentColumn(header)), by });
+  const other = (by) => ({ entity: "other", label: labelOf(fileName), restricted: RESTRICTED.test(name), studentColumn: studentColumn(header), details: false, by });
+  if (DETAILS.test(plain) && studentColumn(header)) return { entity: "student_details", label: ps.ENTITIES.student_details.label, restricted: false, studentColumn: studentColumn(header), details: true, by: "name" };
   for (const [entity, says, unless] of NAMED) {
     if (!says.test(plain)) continue;
     // Named like a core list but about something else ("staff attendance", "attendance codes"):

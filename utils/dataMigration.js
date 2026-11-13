@@ -62,7 +62,7 @@ const KEEP_DAYS = 30;
 const SECTIONS = ["students", "guardians", "staff", "roles", "classes", "enrollments", "grades", "attendance", "custom_fields", "archive"];
 const SECTION_LABELS = { students: "Students", guardians: "Parents & guardians", staff: "Staff accounts", roles: "Staff roles (the role report)", classes: "Sections & teachers", enrollments: "Class enrollments", grades: "Final grades", attendance: "Attendance", custom_fields: "Custom and extra fields", archive: "Archive" };
 const ACTIONS = ["map", "custom", "extra", "archive", "exclude", "alert"];
-const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits" };
+const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs" };
 // Whole modules Managira doesn't run yet: their columns are kept read-only per student.
 const ARCHIVE_MODULES = ["Special education", "Health records", "Transportation", "Fees", "Library", "Discipline", "Grades history", "Attendance history", "Other"];
 
@@ -192,6 +192,10 @@ const lastPart = (name) => String(name || "").split("›").pop().trim();
 async function addList(db, job, list, { entity = null, actor = null, sourceName = null, uploadId = null }) {
   // What it is from its name first, then its columns (utils/migration/lists.js); the school can say.
   const kind = ps.ENTITIES[entity] && entity !== "other" ? entity : lists.recognize(list.name, list.header).entity;
+  await db.query(
+    "UPDATE migration_files SET replaced_at = NOW() WHERE job_id = $1 AND replaced_at IS NULL AND upload_id IS DISTINCT FROM $3 AND LOWER(regexp_replace(file_name, '^.*› ', '')) = LOWER($2)",
+    [job.job_id, lastPart(list.name), uploadId]
+  );
   if (kind === "other") {
     // A list kept read-only replaces the one of the same name from an earlier upload.
     await db.query(
@@ -303,7 +307,8 @@ const customFieldsOf = async (db, organizationId) => (await db.query(
 // Where a column nobody matched goes at first (the school, or Managira, can change it): on the
 // student, a labeled detail; on the other lists, kept read-only with the record it belongs to.
 const DEFAULT_HOME = {
-  students: { action: "extra" },
+  students: { action: "custom" },
+  student_details: { action: "custom" },
   guardians: { action: "archive", label: "Parents & contacts" },
   staff: { action: "archive", label: "Staff (old system)" },
   staff_roles: { action: "archive", label: "Staff roles" },
@@ -316,8 +321,11 @@ const DEFAULT_HOME = {
 };
 async function autoMap(db, job, entity, header, rows) {
   const custom = await customFieldsOf(db, job.organization_id);
-  const { rows: had } = await db.query("SELECT source_column, confirmed, action, target FROM migration_columns WHERE job_id = $1 AND entity = $2", [job.job_id, entity]);
-  const kept = new Map(had.map((row) => [row.source_column, row]));
+  const { rows: had } = await db.query("SELECT source_column, confirmed, action, target, resolved_at, notes FROM migration_columns WHERE job_id = $1 AND entity = $2", [job.job_id, entity]);
+  // Someone's decision (a confirmed match, an action Managira or the school chose, notes) is kept;
+  // a home a column only got by default is worked out again.
+  const decided = (row) => row && (row.confirmed || row.resolved_at || row.notes);
+  const kept = new Map(had.filter(decided).map((row) => [row.source_column, row]));
   const taken = new Set(had.filter((row) => row.confirmed && row.target && !row.target.startsWith("custom:")).map((row) => row.target));
   const exactOf = new Map();
   for (const column of header) {
@@ -341,14 +349,15 @@ async function autoMap(db, job, entity, header, rows) {
     if (match.target && !match.target.startsWith("custom:")) taken.add(match.target);
     // Custody always becomes an alert; an SSN is left out unless the school confirms a legal need.
     const fallback = !match.target ? DEFAULT_HOME[entity] : null;
-    const action = sensitive === "custody" ? "alert" : sensitive === "ssn" ? "exclude" : match.confidence === "confident" ? "map" : fallback ? fallback.action : null;
+    const fallbackAction = fallback && fallback.action === "custom" && sensitive ? "extra" : fallback ? fallback.action : null;
+    const action = sensitive === "custody" ? "alert" : sensitive === "ssn" ? "exclude" : match.confidence === "confident" ? "map" : fallbackAction;
     await db.query(
       `INSERT INTO migration_columns (job_id, organization_id, entity, source_column, target, confidence, confirmed, samples, sensitive, action, label)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
        ON CONFLICT (job_id, entity, source_column) DO UPDATE SET target = EXCLUDED.target, confidence = EXCLUDED.confidence, confirmed = EXCLUDED.confirmed,
          samples = EXCLUDED.samples, sensitive = EXCLUDED.sensitive, action = EXCLUDED.action, label = EXCLUDED.label`,
       [job.job_id, job.organization_id, entity, column, match.target, match.confidence, match.confidence === "confident", JSON.stringify(samples), sensitive, action,
-        sensitive === "custody" ? prettyLabel(column) : action === "extra" ? prettyLabel(column) : action === "archive" && fallback ? fallback.label : null]
+        sensitive === "custody" ? prettyLabel(column) : action === "extra" || action === "custom" ? prettyLabel(column) : action === "archive" && fallback ? fallback.label : null]
     );
   }
 }
@@ -391,7 +400,7 @@ async function saveNotesOnly(db, job, columnId, raw, actor) {
   const { rowCount } = await db.query(
     `UPDATE migration_columns SET notes = $3::jsonb, notes_at = NOW(),
             label = CASE WHEN action IS NULL THEN label ELSE NULL END, action = NULL
-      WHERE job_id = $1 AND column_id = $2 AND (action IS NULL OR (action IN ('extra', 'archive') AND target IS NULL AND resolved_at IS NULL AND confidence = 'none'))`,
+      WHERE job_id = $1 AND column_id = $2 AND (action IS NULL OR (action IN ('extra', 'archive', 'custom') AND target IS NULL AND resolved_at IS NULL AND confidence = 'none'))`,
     [job.job_id, columnId, JSON.stringify(notes)]
   );
   if (!rowCount) return { error: "That column already has an action." };
@@ -557,6 +566,7 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
     else if (c.action === "extra") extra[c.label || prettyLabel(c.source_column)] = { value, sensitive: Boolean(c.sensitive) };
     else if (c.action === "archive") (archive[c.label || "Other"] = archive[c.label || "Other"] || {})[prettyLabel(c.source_column)] = value;
     else if (c.action === "alert") alerts[c.label || prettyLabel(c.source_column)] = value;
+    else if (c.action === "custom") (data.customNew = data.customNew || {})[c.label || prettyLabel(c.source_column)] = value;
   }
   if (entity === "grades") {
     const credits = num(data.credits);
@@ -583,6 +593,7 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   if (!id && entity === "enrollments") id = hashId(data.student_source_id, data.section_source_id, data.term);
   if (!id && entity === "section_teachers") id = hashId(data.section_source_id, data.teacher_source_id, data.class_role, data.start_date, index);
   if (!id && entity === "student_gpas") id = hashId(data.student_source_id, data.as_of, index);
+  if (!id && entity === "student_details") id = clean(data.student_source_id, 120); // one row per student
   return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [] };
 }
 
@@ -1179,6 +1190,7 @@ function summary(columns, customFields = []) {
     const where = `${ps.ENTITIES[c.entity] ? ps.ENTITIES[c.entity].label : c.entity}: ${c.source_column}`;
     if (c.action === "map" && c.target && c.target.startsWith("custom:")) groups.custom.push(`${where} → ${ps.targetLabel(c.entity, c.target, customFields)}`);
     else if (c.action === "map" && c.target) groups.mapped.push(`${where} → ${ps.targetLabel(c.entity, c.target)}`);
+    else if (c.action === "custom") groups.custom.push(`${where} → new custom field "${c.label}"`);
     else if (c.action === "extra") groups.extra.push(`${where} → ${c.label}${c.sensitive ? " (restricted)" : ""}`);
     else if (c.action === "archive") groups.archived.push(`${where} → ${c.label}`);
     else if (c.action === "exclude") groups.excluded.push(where);
@@ -1223,6 +1235,7 @@ const LOADED = {
   users: ["user_id"],
   classes: ["class_id"],
   enrollments: ["enrollment_id"],
+  student_form_fields: ["field_id"],
 };
 // The migration's own tables: every row it writes there carries its job_id.
 const OWN = ["student_course_history", "student_attendance_totals", "record_extra_fields", "student_alerts", "migration_archives", "migration_links", "staff_role_history", "student_source_gpas"];
@@ -1269,6 +1282,63 @@ async function ledgerFor(client, job) {
 // Loads the sandbox into the school's live records. Every record finds its earlier self by its
 // old ID (migration_links), so a second load updates; nothing is ever loaded twice. One
 // transaction: it all goes in, or nothing does.
+// Columns about a student with no built-in place in Managira: each is one of the school's custom
+// fields (its own, matched by name, or a new one made at go-live) or a read-only detail.
+const FIELD_ENTITIES = ["students", "student_details"];
+const fieldChoices = (columns) => columns.filter((c) => FIELD_ENTITIES.includes(c.entity)
+  && ((c.action === "map" && String(c.target || "").startsWith("custom:")) || c.action === "custom" || c.action === "extra"));
+async function setCustomFields(db, job, chosen, actor) {
+  const ticked = new Set(chosen.map(Number));
+  let fields = 0;
+  let details = 0;
+  for (const c of fieldChoices(await columnsOf(db, job))) {
+    if (c.action === "map") continue; // already one of the school's own fields
+    const custom = ticked.has(Number(c.column_id));
+    await db.query("UPDATE migration_columns SET action = $3, target = NULL, label = COALESCE(label, $4), resolved_by = $5, resolved_at = NOW() WHERE job_id = $1 AND column_id = $2",
+      [job.job_id, c.column_id, custom ? "custom" : "extra", prettyLabel(c.source_column), actor]);
+    if (custom) fields += 1; else details += 1;
+  }
+  await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "custom_fields_chosen", detail: { fields, details } });
+  return { ok: true, fields, details };
+}
+
+// A new custom field's type, from the values it will hold.
+function fieldTypeOf(samples) {
+  const values = (samples || []).map((v) => String(v).trim()).filter(Boolean);
+  if (!values.length) return "text";
+  if (values.every((v) => /^(0|1|y|n|yes|no|true|false)$/i.test(v))) return "yes_no";
+  if (values.every((v) => /^\d{1,2}\/\d{1,2}\/\d{4}$|^\d{4}-\d{2}-\d{2}$/.test(v))) return "date";
+  if (values.every((v) => /^-?\d+(\.\d+)?$/.test(v) && !/^0\d/.test(v))) return "number";
+  return values.some((v) => v.length > 120) ? "long_text" : "text";
+}
+function fieldValueAs(type, value) {
+  const text = clean(value, 4000);
+  if (!text) return null;
+  if (type === "yes_no") return /^(1|y|yes|true)$/i.test(text) ? "yes" : "no";
+  if (type === "date") { const iso = isoDate(text); return iso && iso !== "invalid" ? iso : text; }
+  return text;
+}
+// An alert for the top of a student's record from a health list: an emergency care plan, or a
+// condition marked severe or with an emergency action plan. Others stay in the restricted list.
+function medicalAlertOf(list, row) {
+  const pick = (...names) => { const key = Object.keys(row).find((k) => names.includes(String(k).toLowerCase().replace(/[^a-z0-9]/g, ""))); return key ? clean(row[key], 600) : ""; };
+  const condition = pick("condition", "diagnosis", "allergy", "healthcondition", "medicalcondition");
+  if (/care.?plan|emergency.?plan|health.?plan/i.test(list)) {
+    const steps = pick("emergencysteps", "emergencyaction", "actionplan", "steps", "instructions");
+    const trained = pick("trainedstaff", "trained");
+    if (!condition && !steps) return null;
+    return { label: pick("plantype", "type", "plan") || "Health care plan", text: `${condition}${steps ? ` — ${steps}` : ""}${trained ? ` (trained staff: ${trained})` : ""}` };
+  }
+  if (/allerg|health.?condition|medical.?condition|conditions/i.test(list)) {
+    const severity = pick("severity", "level");
+    const plan = pick("emergencyactionplan", "emergencyplan", "actionplan");
+    if (!condition || !(/severe|life|anaphyla/i.test(`${severity} ${condition}`) || /^(1|y|yes|true)$/i.test(plan))) return null;
+    const notes = pick("notes", "note", "comments");
+    return { label: condition, text: `${severity ? `${severity}. ` : ""}${notes || "See the student's health records."}` };
+  }
+  return null;
+}
+
 // ── Records already in Managira ─────────────────────────────────────────────────────────
 // Nothing the school already has is replaced. A student in the files is one Managira already
 // has when it has them by this migration's link, by their old student number (with the same
@@ -1420,6 +1490,7 @@ async function decideMatch(db, job, body, actor) {
 }
 
 async function loadLive(db, job, actor, progress = quiet) {
+  await require("./studentFormFields").ensureStudentFormFieldsSchema(db).catch(() => {}); // outside the go-live's transaction
   const org = job.organization_id;
   const system = job.source_system;
   const client = await db.connect();
@@ -1428,6 +1499,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     courses: 0, credits: 0, gpa: null, attendanceTerms: 0, attendance: { present: 0, absent: 0, excused: 0, tardy: 0 }, customValues: 0, extras: 0, alerts: 0, archives: 0,
     // Records Managira already had: kept, with only empty fields filled in; differences kept as Managira had them.
     matched: 0, guardiansMatched: 0, staffMatched: 0, filled: 0, keptValues: 0, kept: [], studentsWaiting: 0, lists: 0, listRows: 0, listRowsUnmatched: 0, documents: 0,
+    customFieldsMade: 0, customFieldsSkipped: 0, detailsUnmatched: 0, medicalAlerts: 0,
   };
   const noteKept = (who, kept) => {
     counts.keptValues += kept.length;
@@ -1608,6 +1680,37 @@ async function loadLive(db, job, actor, progress = quiet) {
     const staffArchive = staffRows.filter((t) => Object.keys(t.archive || {}).length).map((t) => ({ "Staff number": t.source_id, Name: [t.data.first_name, t.data.last_name].filter(Boolean).join(" "), ...flat(t.archive) }));
     if (staffArchive.length) keep(null, "Staff (old system)", staffArchive);
 
+    // The school's new custom fields (columns set to become one), made now and filled below; one
+    // with the same name is the school's own and is used as it is. Each takes the type its values have.
+    const fieldTypes = new Map((await customFieldsOf(client, org)).map((f) => [Number(f.field_id), f.field_type]));
+    const fieldByName = new Map((await customFieldsOf(client, org)).map((f) => [String(f.label).toLowerCase(), Number(f.field_id)]));
+    const { rows: wanted } = await q(
+      `SELECT DISTINCT ON (LOWER(label)) label, samples, sensitive FROM migration_columns
+        WHERE job_id = $1 AND action = 'custom' AND target IS NULL AND entity IN ('students', 'student_details') AND label IS NOT NULL ORDER BY LOWER(label), column_id`,
+      [job.job_id]
+    );
+    for (const column of wanted) {
+      const key = String(column.label).toLowerCase();
+      if (fieldByName.has(key)) continue;
+      const type = fieldTypeOf(column.samples || []);
+      if (fieldByName.size >= 60) { counts.customFieldsSkipped += 1; continue; } // the school's limit: kept as details instead
+      const { rows: [made] } = await q(
+        `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section)
+         VALUES ($1, $2, $3, '[]'::jsonb, $4, FALSE, TRUE, FALSE, (SELECT COALESCE(MAX(position), 0) + 1 FROM student_form_fields WHERE organization_id = $1), NULL, 'more') RETURNING field_id`,
+        [org, column.label.slice(0, 80), type, `From your old system (${system === "powerschool" ? "PowerSchool" : system})`]
+      );
+      ledger.made("student_form_fields", { field_id: made.field_id });
+      fieldByName.set(key, Number(made.field_id));
+      fieldTypes.set(Number(made.field_id), type);
+      counts.customFieldsMade += 1;
+    }
+    const fieldValues = (d) => {
+      const values = { ...(d.custom || {}) };
+      for (const [label, value] of Object.entries(d.customNew || {})) { const id = fieldByName.get(String(label).toLowerCase()); if (id) values[id] = value; }
+      for (const id of Object.keys(values)) values[id] = fieldValueAs(fieldTypes.get(Number(id)), values[id]);
+      return values;
+    };
+
     // Students. One Managira already has (studentMatches) keeps everything it has: only what's
     // empty is filled in, and it stays in its class. One this migration made follows the files,
     // except what the school changed since. Someone the school hasn't answered about waits.
@@ -1660,7 +1763,8 @@ async function loadLive(db, job, actor, progress = quiet) {
       counts.students += 1;
       await enroll(id, classId, !mine);
       // Custom fields: the same rule, field by field.
-      for (const [fieldId, value] of Object.entries(d.custom || {})) {
+      for (const [fieldId, value] of Object.entries(fieldValues(d))) {
+        if (value === null) continue;
         const slot = `custom:${Number(fieldId)}`;
         const { rows: [had] } = await q("SELECT value FROM student_field_values WHERE field_id = $1 AND student_id = $2", [Number(fieldId), id]);
         const plan = mergePlan({ [slot]: had ? had.value : null }, { [slot]: value }, loaded);
@@ -1700,6 +1804,26 @@ async function loadLive(db, job, actor, progress = quiet) {
       await link("students", sourceId, id);
     }
     const studentOf = async (sourceId) => studentIds.get(sourceId) || ((await linkOf("students", sourceId)) || {}).managira_id || null;
+
+    // More about each student (the school's own list of lockers, house, pathway…): its custom
+    // fields filled, its details kept. Only an empty value is filled in.
+    for (const r of await records("student_details")) {
+      const sid = await studentOf(r.data.student_source_id);
+      if (!sid) { counts.detailsUnmatched += 1; continue; }
+      for (const [label, item] of Object.entries(r.extra || {})) await extraOn("student", sid, label, item);
+      for (const [fieldId, value] of Object.entries(fieldValues(r.data))) {
+        if (value === null) continue;
+        const { rows: [had] } = await q("SELECT value FROM student_field_values WHERE field_id = $1 AND student_id = $2", [Number(fieldId), sid]);
+        if (had && String(had.value || "").trim()) continue;
+        await ledger.before("student_field_values", { field_id: Number(fieldId), student_id: sid }, ["value"]);
+        await q(
+          `INSERT INTO student_field_values (field_id, student_id, organization_id, value, updated_at) VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (field_id, student_id) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+          [Number(fieldId), sid, org, value]
+        );
+        counts.customValues += 1;
+      }
+    }
 
     // Parents: one profile per person (the same email is the same parent), linked to each child.
     const byEmail = new Map();
@@ -2071,6 +2195,15 @@ async function loadLive(db, job, actor, progress = quiet) {
           for (const [column, value] of Object.entries(d.row || {})) if (column !== studentColumn && !/^last_?first$|^student_?name$/i.test(column)) await extraOn("student", studentId, prettyLabel(column), { value, sensitive: Boolean(d.restricted) });
           continue;
         }
+        const medical = medicalAlertOf(d.list, d.row || {});
+        if (studentId && medical) {
+          await q(
+            `INSERT INTO student_alerts (organization_id, student_id, kind, label, text, source, job_id) VALUES ($1, $2, 'medical', $3, $4, $5, $6)
+             ON CONFLICT (organization_id, student_id, kind, label) DO UPDATE SET text = EXCLUDED.text, job_id = EXCLUDED.job_id`,
+            [org, studentId, medical.label.slice(0, 120), medical.text.slice(0, 2000), system, job.job_id]
+          );
+          counts.medicalAlerts += 1;
+        }
         if (studentId) keep(studentId, d.list, [d.row], d.restricted);
         else { keep(null, d.list, [d.row], d.restricted); if (d.student_source_id) counts.listRowsUnmatched += 1; }
       }
@@ -2327,7 +2460,7 @@ async function rollback(db, job, actor) {
           [made.map((k) => k.enrollment_id), org]
         )).rowCount;
       } else if (keys.length === 1) {
-        const scoped = ["students", "guardian_profiles", "guardians"].includes(table) ? " AND organization_id = $2" : "";
+        const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields"].includes(table) ? " AND organization_id = $2" : "";
         removed = (await client.query(`DELETE FROM ${table} WHERE ${keys[0]} = ANY($1::int[])${scoped}`, scoped ? [made.map((k) => k[keys[0]]), org] : [made.map((k) => k[keys[0]])])).rowCount;
       } else {
         removed = (await client.query(`DELETE FROM ${table} WHERE (${keys[0]}, ${keys[1]}) IN (SELECT * FROM unnest($1::int[], $2::int[]))`, [made.map((k) => k[keys[0]]), made.map((k) => k[keys[1]])])).rowCount;
@@ -2548,6 +2681,6 @@ module.exports = {
   staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, gpaOf, addAttendance, currentEnrollment, LOADED,
   rolesOf, roleReport, confirmRole, roleNotes, resolveRole, approvePerson, gpaCheck, statusesFor, startHub,
   requestMove, withdrawRequest, listRequests, decideRequest, latestRequest, SYSTEMS, TIMINGS, BRING,
-  liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,
+  liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,
   isoDate, parse, targetLabel: ps.targetLabel,
 };

@@ -55,6 +55,28 @@
 .mg-tiles span { color: var(--mg-muted); font-size: 12.5px; }
 .mg { transition: opacity .12s ease; }
 .mg.is-loading { opacity: .55; pointer-events: none; }
+/* Ready to sign / go live: a checklist (views/migration/partials/ready.ejs). */
+.mg-ready { margin-top: 12px; border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; }
+.mg-ready__head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; background: #f9fafb; border-bottom: 1px solid var(--mg-line); }
+.mg-ready__head span { color: var(--mg-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.mg-ready ul { margin: 0; padding: 0; list-style: none; }
+.mg-ready li { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #f2f4f7; }
+.mg-ready li:last-child { border-bottom: 0; }
+.mg-ready__box { flex: none; width: 20px; height: 20px; border: 2px solid #c5cbd3; border-radius: 6px; background: #fff; }
+.mg-ready li.is-done .mg-ready__box { border-color: #16a34a; background: #16a34a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 13px no-repeat; }
+.mg-ready__text { flex: 1; min-width: 0; font-weight: 600; }
+.mg-ready li.is-done .mg-ready__text { color: var(--mg-muted); font-weight: 500; }
+.mg-ready__text small { display: block; margin-top: 2px; color: #b45309; font-size: 12.5px; font-weight: 500; }
+.mg .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+/* Student fields: tick to make a custom field. */
+.mg-fields .mg-tickcol { width: 110px; text-align: center; }
+.mg-fields tr.is-on td { background: color-mix(in srgb, var(--mg-accent) 5%, #fff); }
+.mg .mg-box { position: relative; display: inline-flex; width: 22px; height: 22px; cursor: pointer; }
+.mg .mg-box input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.mg .mg-box span { width: 22px; height: 22px; border: 2px solid #c5cbd3; border-radius: 6px; background: #fff; transition: background .12s, border-color .12s; }
+.mg .mg-box input:checked + span { border-color: var(--mg-accent); background: var(--mg-accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 14px no-repeat; }
+.mg .mg-box input:disabled + span { opacity: .55; cursor: not-allowed; }
+.mg .mg-box input:focus-visible + span { outline: 2px solid var(--mg-accent); outline-offset: 2px; }
 /* A background task (views/migration/partials/task.ejs). */
 .mg-task { margin: 0 0 14px; padding: 14px 16px; border: 1px solid var(--mg-line); border-radius: 14px; background: #fff; }
 .mg-task--queued, .mg-task--running { border-color: color-mix(in srgb, var(--mg-accent) 35%, #fff); background: var(--mg-soft); }

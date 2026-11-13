@@ -1234,6 +1234,7 @@ module.exports = (db) => {
   router.post("/migration/columns/:columnId(\\d+)/legal-need", ...migrationGate, (req, res) => migration.legalPost(req, res, db));
   router.post("/migration/approve", ...migrationGate, (req, res) => migration.approvePost(req, res, db));
   router.post("/migration/matches", ...migrationGate, (req, res) => migration.matchPost(req, res, db));
+  router.post("/migration/custom-fields", ...migrationGate, (req, res) => migration.customFieldsPost(req, res, db));
   router.post("/migration/sign", ...migrationGate, (req, res) => migration.signPost(req, res, db));
   router.post("/migration/go-live", ...migrationGate, (req, res) => migration.goLivePost(req, res, db));
   router.post("/migration/catch-up", ...migrationGate, (req, res) => migration.catchUpPost(req, res, db));

@@ -66,6 +66,25 @@
   <% } %>
 
   <% if (step === 'map') { %>
+  <% if (fieldChoices.length) { const _typeWords = { text: 'Text', long_text: 'Long text', number: 'Number', date: 'Date', yes_no: 'Yes / No' }; %>
+  <section class="mg-card" id="fields" style="margin-bottom:14px">
+    <h2>Student fields</h2>
+    <p class="mg-hint">Columns about each student that Managira has no built-in place for. <strong>Ticked</strong>: one of your school's custom fields, added to the student form (under More) when you go live and filled with each student's value. <strong>Not ticked</strong>: kept as a read-only detail on the student. Restricted ones are best kept as details: custom fields are seen by everyone who sees the student form.</p>
+    <form method="POST" action="/common/migration/custom-fields">
+      <div class="mg-scroll"><table class="mg-table mg-fields no-global-sort"><thead><tr><th class="mg-tickcol">Custom field</th><th>Their column</th><th>Sample values</th><th>In Managira</th></tr></thead><tbody>
+        <% fieldChoices.forEach((c) => { const own = c.action === 'map'; const on = own || c.action === 'custom'; %>
+        <tr class="<%= on ? 'is-on' : '' %>">
+          <td class="mg-tickcol"><label class="mg-box"><input type="checkbox" name="columns" value="<%= c.column_id %>"<%= on ? ' checked' : '' %><%= own ? ' disabled' : '' %> aria-label="Make <%= c.source_column %> a custom field" /><span aria-hidden="true"></span></label></td>
+          <td><strong><%= c.source_column %></strong><small class="mg-samples" style="display:block"><%= entities[c.entity].label %></small></td>
+          <td class="mg-samples"><%= (c.samples || []).slice(0, 3).join(' · ') %></td>
+          <td><% if (own) { %><span class="mg-pill mg-pill--live">Already in Managira</span> <%= targetLabel(c.entity, c.target) %><% } else if (c.action === 'custom') { %>New custom field <strong><%= c.label %></strong> <small class="mg-samples"><%= _typeWords[fieldTypeOf(c.samples || [])] %></small><% } else { %>Read-only detail<% } %><% if (c.sensitive) { %> <span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] || 'Restricted' %></span><% } %></td>
+        </tr>
+        <% }) %>
+      </tbody></table></div>
+      <div class="mg-actions" style="margin-top:12px"><button class="mg-btn mg-btn--primary">Save and import again</button></div>
+    </form>
+  </section>
+  <% } %>
   <section class="mg-card">
     <h2>Match columns</h2>
     <p class="mg-hint">Each column was matched to a Managira field. <b class="mg-ok">Confident</b> matches are ready. Confirm or correct the <b class="mg-warn">unsure</b> ones. Columns we can't match go to step 4.</p>
@@ -354,7 +373,7 @@
       <p class="mg-good">Signed by <strong><%= job.signed_name %></strong> on <%= _when(job.signed_at) %>.</p>
       <p class="mg-next"><a class="mg-btn mg-btn--primary" href="/common/migration?step=live&embed=workspace">Next: go live</a></p>
     <% } else if (blockers.length) { %>
-      <div class="mg-blockers"><strong>Before you can sign</strong><ul><% blockers.forEach((b) => { %><li><%= b %></li><% }) %></ul></div>
+      <%- include('partials/ready', { heading: 'Before you can sign' }) %>
     <% } else { %>
       <form class="mg-sign" method="POST" action="/common/migration/sign">
         <label>Type your full name to sign<input name="name" required minlength="3" maxlength="120" autocomplete="name" /></label>
@@ -449,7 +468,9 @@
       </ol>
       <form method="POST" action="/common/migration/go-live" data-starts-task onsubmit="return confirm('Go live now? Your data moves into your live account. It runs in the background and takes a few minutes for a large school.')"><button class="mg-btn mg-btn--primary" type="submit">Go live</button></form>
     <% } else { %>
-      <h2>Go live</h2><p class="mg-hint">Sign the migration summary first (step 5).</p>
+      <h2>Go live</h2>
+      <p class="mg-hint">Going live moves everything in your sandbox into your live account in one step. It's ready when every box below is ticked.</p>
+      <%- include('partials/ready', { heading: 'Ready to go live' }) %>
     <% } %>
   </section>
   <% } %>

@@ -293,3 +293,25 @@ test("reading uploads: any encoding, tab or semicolon separated, Excel sheets an
   assert.deepEqual(reader.parseText(text).header, ["Student_Number", "Name", "Name_1", "Grade"]);
   assert.deepEqual([chunk.header, chunk.rows], [["Student_Number", "Name", "Name_1", "", "Grade"], [["900100", "Ava", "Rivera", "x", "6"]]]);
 });
+
+test("a member of staff is inactive however the export words it", () => {
+  const roles = require("../utils/migration/roles");
+  for (const s of ["Active", "1", "A", "", "Current"]) assert.equal(roles.isActive(s), true, s);
+  for (const s of ["0", "2", "I", "Inactive", "inactive", "Inactive (resigned 2026-06-05)", "Left school", "Terminated", "Resigned 2025", "Retired"]) assert.equal(roles.isActive(s), false, s);
+});
+
+test("lists are known by their name first: core lists load, the school's own field list becomes fields, everything else is kept", () => {
+  const lists = require("../utils/migration/lists");
+  const h = (s) => s.split(",");
+  assert.equal(lists.recognize("x.zip › 05_students.csv", h("Student_Number,First_Name,Last_Name,DOB")).entity, "students");
+  assert.equal(lists.recognize("06_parents_guardians_contacts.csv", h("ContactID,Student_Number,First_Name,Relationship")).entity, "guardians");
+  assert.equal(lists.recognize("08_staff_roles_permissions.csv", h("TeacherNumber,Role,Security_Group")).entity, "staff_roles");
+  assert.equal(lists.recognize("47_custom_fields.csv", h("Student_Number,LastFirst,Locker_Number")).entity, "student_details");
+  for (const [name, cols] of [["55_alumni_graduates.csv", "Student_Number,First_Name,Last_Name,DOB"], ["13_current_grades_2026_27.csv", "Student_Number,Course_Name,Letter_Grade"],
+    ["85_staff_attendance.csv", "TeacherNumber,First_Name,Date"], ["22_attendance_code_definitions.csv", "Code,Description"], ["49_early_dismissal_pickups.csv", "Student_Number,Relationship,Picked_Up_By"]]) {
+    assert.equal(lists.recognize(name, h(cols)).entity, "other", name);
+  }
+  const kept = lists.recognize("108_suicide_risk_screenings.csv", h("Student_Number,Screening_Date,Result"));
+  assert.ok(kept.restricted && kept.studentColumn === "Student_Number");
+  assert.equal(lists.recognize("03_school_calendar_2026_27.csv", h("Date,Day_Type")).studentColumn, null, "a list with no student number is kept for the school");
+});

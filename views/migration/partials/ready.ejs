@@ -1,0 +1,30 @@
+<%# What's done and what's left before signing and going live, ticked off, each with the step that does it. %>
+<%
+  const _has = (rx) => blockers.filter((b) => rx.test(b) && (rx.source.startsWith('^Approve') || !/^Approve: /.test(b)));
+  const _imported = Boolean(job.totals && job.totals.importedAt);
+  const _items = [
+    { step: 'upload', done: !_has(/^Upload the export/).length, text: 'Your export files are uploaded', todo: _has(/^Upload the export/)[0] },
+    { step: 'map', done: !_has(/unsure match/).filter((b) => !/role/i.test(b)).length, text: 'Every column is matched', todo: _has(/unsure match/).filter((b) => !/role/i.test(b))[0] },
+    { step: 'notes', done: !_has(/column(s)? need|leaving out/).length, text: 'Every column has a home', todo: _has(/column(s)? need|leaving out/).join(' ') },
+    { step: 'check', done: _imported && !_has(/Fix the errors/).length, text: 'Imported into the sandbox with no errors', todo: _has(/Fix the errors/)[0] || 'Import into the sandbox.' },
+    { step: 'roles', done: !_has(/role|Staff roles/i).length, text: 'Staff roles are settled', todo: _has(/role|Staff roles/i).join(' ') },
+    { step: 'review', done: !_has(/already in Managira/).length, text: 'Students who may already be in Managira are answered', todo: _has(/already in Managira/)[0] },
+    { step: null, done: !_has(/school year/).length, text: 'Your current school year and term are set', todo: _has(/school year/)[0] },
+    { step: 'review', done: !_has(/^Approve: /).length, text: 'Every area is approved', todo: _has(/^Approve: /)[0] },
+    { step: 'review', done: Boolean(job.signed_at), text: job.signed_at ? 'The migration summary is signed by ' + job.signed_name : 'The migration summary is signed', todo: 'Sign it in Review & sign.' },
+  ];
+  const _left = _items.filter((i) => !i.done).length;
+%>
+<div class="mg-ready">
+  <div class="mg-ready__head"><strong><%= heading %></strong><span><%= _items.length - _left %> of <%= _items.length %> done</span></div>
+  <ul>
+    <% _items.forEach((i) => { %>
+    <li class="<%= i.done ? 'is-done' : '' %>">
+      <span class="mg-ready__box" aria-hidden="true"></span>
+      <span class="mg-ready__text"><%= i.text %><% if (!i.done && i.todo) { %><small><%= i.todo %></small><% } %></span>
+      <% if (!i.done && i.step) { %><a class="mg-btn mg-btn--sm" href="/common/migration?step=<%= i.step %>&embed=workspace">Open</a><% } %>
+      <span class="sr-only"><%= i.done ? 'Done' : 'To do' %></span>
+    </li>
+    <% }) %>
+  </ul>
+</div>

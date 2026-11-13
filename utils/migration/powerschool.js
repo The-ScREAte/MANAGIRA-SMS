@@ -91,6 +91,15 @@ const ENTITIES = {
       end_date: ["Until", ["roleenddate", "enddate", "dateto"], []],
     },
   },
+  // A school's own list of extra details about each student (lockers, house, pathway…): each
+  // column becomes one of the school's custom fields, or a detail on the student.
+  student_details: {
+    label: "More about each student",
+    fields: {
+      student_source_id: ["Student number *", ["studentnumber", "studentid", "stunumber"], ["student"]],
+      student_name: ["The student's name (already on the student)", ["lastfirst", "firstlast", "studentname", "fullname", "name"], []],
+    },
+  },
   // Every other list: kept read-only, whole (utils/migration/lists.js), never matched column by column.
   other: { label: "Kept read-only", fields: {} },
   // Who teaches each section, as lead or co-teacher, from when to when (PowerSchool's
@@ -213,6 +222,7 @@ const SENSITIVE = [
   ["sped", /iep|504|sped|specialed|specialeducation|disabilit|accommodat/],
   ["medical", /medical|medication|allerg|health|diagnos|immuniz|condition|doctor|physician|nurse/],
   ["discipline", /disciplin|incident|suspen|expul|infraction|referral|behavio/],
+  ["secret", /combination|password|passcode|pincode|^pin$/],
   ["programs", /englishlearner|^ell$|^lep$|limitedenglish|gifted|homeless|foster|migrant|meal|^frl$|freereduced|lunchstatus|economicallydisadv/],
 ];
 // A column's words, from its name: "Class_Name" → class, name; "SSN" → ssn.
