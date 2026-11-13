@@ -2720,7 +2720,7 @@ async function startOver(db, organizationId, actor) {
     await db.query(`DELETE FROM ${table} WHERE job_id = $1`, [job.job_id]);
   }
   await db.query(
-    `UPDATE migration_jobs SET status = 'sandbox', approvals = '{}'::jsonb, totals = '{}'::jsonb, role_approvals = '{}'::jsonb, match_decisions = '{}'::jsonb,
+    `UPDATE migration_jobs SET status = 'sandbox', approvals = '{}'::jsonb, totals = '{}'::jsonb, role_approvals = '{}'::jsonb, match_decisions = '{}'::jsonb, options = '{}'::jsonb,
             signed_name = NULL, signed_by = NULL, signed_at = NULL, updated_at = NOW() WHERE job_id = $1`,
     [job.job_id]
   );
