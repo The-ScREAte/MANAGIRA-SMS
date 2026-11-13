@@ -384,7 +384,7 @@ async function answersFor(db, organizationId, { studentId, pendingId }, form) {
 const INDICATORS = [
   { label: "IEP", type: "yes_no", helpText: "Has an individualized education program (special education)", match: /^iep$|individualizededucation|^sped$|^specialeducation$|^specialed$/ },
   { label: "Section 504 plan", type: "yes_no", helpText: "Has a Section 504 accommodation plan", match: /504/ },
-  { label: "English learner", type: "yes_no", helpText: "Learning English (EL / ELL)", match: /englishlearner|^ell$|^el$|^lep$|limitedenglish/ },
+  { label: "English learner", type: "yes_no", helpText: "Learning English (EL / ELL)", match: /englishlearner|^ell(status|code|flag)?$|^el(status|code|flag)?$|^lep(status|flag)?$|^esl(status)?$|limitedenglish/ },
   { label: "Gifted & talented", type: "yes_no", helpText: "In the gifted and talented program", match: /gifted|talented|^gt$/ },
   { label: "Meal eligibility", type: "choice", options: ["Free", "Reduced", "Paid"], helpText: "Free or reduced-price meals", match: /mealeligib|mealstatus|freereduced|^frl$|lunchstatus/ },
   { label: "Military family", type: "yes_no", helpText: "A parent serves in the military", match: /military(family|connected|dependent)?$|^militaryfamily/ },

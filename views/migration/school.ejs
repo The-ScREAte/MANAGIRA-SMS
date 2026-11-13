@@ -182,13 +182,41 @@
       </form>
       <% } %>
       <% } %>
+      <% const _choice = (job.options && job.options.lists) || {};
+         const _useOf = (l) => (formsOn && l.offered ? (_choice[l.label] || l.suggest) : 'history');
+         const _byTopic = (arr) => (topicOrder || []).map((t) => [t, arr.filter((l) => (l.topic || 'Other records') === t)]).filter(([, a]) => a.length);
+         const _offered = formsOn ? _kept.filter((l) => l.offered) : []; %>
+      <% if (_offered.length) {
+           const _ticked = _offered.filter((l) => _useOf(l) === 'form').length;
+           // Managira's suggestions (and what the school ticked) first; the rest open on demand.
+           const _first = _offered.filter((l) => l.suggest === 'form' || _useOf(l) === 'form');
+           const _more = _offered.filter((l) => !_first.includes(l));
+           const _table = (arr) => { let out = ''; _byTopic(arr).forEach(([topic, group]) => { out += '<tr class="mg-group"><th colspan="4">' + _esc(topic) + '</th></tr>'; group.forEach((l) => {
+             out += '<tr><td class="mg-tick"><input type="hidden" name="shown" value="' + _esc(l.label) + '" /><input type="checkbox" name="forms" value="' + _esc(l.label) + '" aria-label="Keep using ' + _esc(l.label) + '"' + (_useOf(l) === 'form' ? ' checked' : '') + ' /></td>'
+               + '<td><strong>' + _esc(l.label) + '</strong>' + (l.restricted ? ' <span class="mg-pill mg-pill--sensitive">Restricted</span>' : '') + '</td>'
+               + '<td class="num">' + Number(l.people || 0).toLocaleString('en-US') + '</td><td class="num">' + Number(l.rows).toLocaleString('en-US') + '</td></tr>'; }); }); return out; };
+           const _head = '<thead><tr><th class="mg-tick">Keep using</th><th>List</th><th class="num">Students</th><th class="num">Rows</th></tr></thead>'; %>
+      <h3>Keep using them in Managira</h3>
+      <p class="mg-hint">Lists your staff kept by hand. Ticked ones keep working here: each becomes a form in the Custom editor, under "From your old system", with every row on its student, and your staff see it on the student's page and in the classroom and keep adding to it. Unticked ones are kept read-only. A restricted list you tick opens only for the people who build forms. <strong><%= _ticked %></strong> ticked.</p>
+      <form method="POST" action="/common/migration/lists">
+        <% if (_first.length) { %><div class="mg-scroll"><table class="mg-table no-global-sort mg-uselists"><%- _head %><tbody><%- _table(_first) %></tbody></table></div><% } %>
+        <% if (_more.length) { %>
+        <details class="mg-more"<%= _first.length ? '' : ' open' %>><summary>More lists you can keep using (<%= _more.length %>)</summary>
+          <div class="mg-scroll"><table class="mg-table no-global-sort mg-uselists"><%- _head %><tbody><%- _table(_more) %></tbody></table></div>
+        </details>
+        <% } %>
+        <p class="mg-next"><button class="mg-btn mg-btn--primary" type="submit">Save</button></p>
+      </form>
+      <% } %>
       <% if (_kept.length) { %>
-      <details class="mg-more"><summary>Every list kept read-only (<%= _kept.length %>)</summary>
-        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th><th>Kept</th><th>Also goes into</th><th>Who sees it</th></tr></thead><tbody>
-          <% _kept.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td>
-            <td><%= l.details ? 'As details on each student' : l.perStudent ? 'On each student (' + Number(l.students).toLocaleString('en-US') + ' rows matched)' : 'For the school' %></td>
-            <td><%= l.feature && listFeatures[l.feature] ? listFeatures[l.feature].label : '—' %></td>
-            <td><% if (l.restricted) { %><span class="mg-pill mg-pill--sensitive">Restricted</span><% } else { %>Staff who open students<% } %></td></tr><% }) %>
+      <details class="mg-more"><summary>Every other list (<%= _kept.length %>), by topic</summary>
+        <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th>Where it goes</th><th>Who sees it</th></tr></thead><tbody>
+        <% _byTopic(_kept).forEach(([topic, group]) => { %>
+          <tr class="mg-group"><th colspan="4"><%= topic %></th></tr>
+          <% group.forEach((l) => { const _form = _useOf(l) === 'form'; %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td>
+            <td><%= l.feature && listFeatures[l.feature] ? listFeatures[l.feature].label + ', and kept on each student' : l.details ? 'Details on each student' : _form ? 'A form your staff keep using' : l.perStudent ? 'Kept on each student (' + Number(l.people || 0).toLocaleString('en-US') + ')' : 'Kept for the school' %><% if (!_form && l.why && /log|columns/i.test(l.why)) { %> <small class="mg-samples">(<%= l.why.toLowerCase() %>)</small><% } %></td>
+            <td><% if (l.restricted) { %><span class="mg-pill mg-pill--sensitive">Restricted</span><% } else if (!l.perStudent) { %>Your managers<% } else { %>Staff who open the student<% } %></td></tr><% }) %>
+        <% }) %>
         </tbody></table></div>
       </details>
       <% } %>
@@ -493,6 +521,7 @@
            (loaded.alerts || loaded.medicalAlerts) ? ['Alerts', `${loaded.medicalAlerts || 0} medical (care plans, severe allergies) and ${loaded.alerts || 0} custody alerts at the top of each student's page, for every teacher and substitute who opens it`] : null,
            loaded.parentDetails ? ["Parents' details", `${loaded.parentDetails} parents' phone, email or address filled in from your parent list`] : null,
            loaded.gradGroups ? ['Graduation years', `${loaded.gradGroups} graduation year ${loaded.gradGroups === 1 ? 'group' : 'groups'} made`] : null,
+           loaded.forms || loaded.formEntries ? ['Forms you keep using', `${loaded.forms || 0} ${loaded.forms === 1 ? 'list' : 'lists'} in the Custom editor, under "From your old system", with ${Number(loaded.formEntries || 0).toLocaleString('en-US')} entries on students' records${loaded.formsSkipped ? ` (${loaded.formsSkipped} kept read-only: the Custom editor is full)` : ''}`] : null,
          ].filter(Boolean); %>
       <% if (_feat.length) { %>
       <h3>Also in Managira's own features</h3>

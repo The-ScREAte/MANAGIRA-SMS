@@ -167,6 +167,15 @@ async function optionPost(req, res, db) {
   else req.flash("success", req.body.value === "paygira" ? "Meal balances will move into PayGira when you go live." : "Meal balances stay in your meal app.");
   return res.redirect("/common/migration?step=check&embed=workspace");
 }
+// The lists the school keeps using in Managira (a form each) and those kept as history.
+async function listUsePost(req, res, db) {
+  const job = await schoolContext(req, res, db);
+  if (!job) return res.redirect("/");
+  const result = await m.setListUse(db, job, req.body.shown, req.body.forms, actorOf(req));
+  if (result.error) req.flash("error", result.error);
+  else req.flash("success", job.status === "live" ? "Saved. Apply again on the Go live step to make them." : `Saved: ${result.forms} ${result.forms === 1 ? "list becomes a form" : "lists become forms"} when you go live.`);
+  return res.redirect("/common/migration?step=check&embed=workspace");
+}
 async function matchPost(req, res, db) {
   const job = await schoolContext(req, res, db);
   if (!job) return res.redirect("/");
@@ -245,6 +254,9 @@ async function page(req, res, db) {
     suggestHome: require("../utils/studentFormFields").suggestHome,
     fieldHomes: Object.fromEntries(Object.entries(require("../utils/studentFormFields").SECTIONS).filter(([key]) => key !== "guardian")),
     transportOn,
+    // Lists the school keeps using become forms in the Custom editor (where the school has it).
+    formsOn: on("check", "live") ? require("../utils/customForms").featureOn(job.organization_id) && (await require("../utils/customForms").ready(db)) : false,
+    topicOrder: require("../utils/migration/forms").TOPIC_ORDER,
     apps: on("check", "live") ? require("../utils/migration/apps").appsFrom(((job.totals && job.totals.report) || {}).lists, { areaLabels: Object.fromEntries(require("../utils/apiAccess").API_AREAS.map((a) => [a.key, a.label])) }) : [], matches, task: shownTask, docs, uploads, nextStep: NEXT_STEP, fieldChoices: m.fieldChoices(columns), fieldTypeOf: m.fieldTypeOf, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
     summary: m.summary(columns, custom), targetLabel: m.targetLabel,
@@ -415,7 +427,7 @@ async function studentOldSystem(db, req, studentId) {
   const organizationId = orgOf(req);
   const admin = isOrgAdmin(req.session);
   const unlocked = admin && mfa.passed(req);
-  const [extras, alerts, archives, history, attendance, docs] = await Promise.all([
+  const [extras, alerts, archives, history, attendance, docs, forms] = await Promise.all([
     db.query("SELECT label, value, sensitive FROM record_extra_fields WHERE organization_id = $1 AND entity = 'student' AND record_id = $2 ORDER BY label", [organizationId, studentId]),
     db.query("SELECT label, text FROM student_alerts WHERE organization_id = $1 AND student_id = $2 ORDER BY alert_id", [organizationId, studentId]),
     db.query("SELECT archive_id, module, sensitive, jsonb_array_length(content) AS n FROM migration_archives WHERE organization_id = $1 AND student_id = $2 ORDER BY module", [organizationId, studentId]),
@@ -426,11 +438,21 @@ async function studentOldSystem(db, req, studentId) {
     ),
     db.query("SELECT school_year, term, days_present, days_absent, days_excused, days_tardy FROM student_attendance_totals WHERE organization_id = $1 AND student_id = $2 ORDER BY school_year, term", [organizationId, studentId]),
     db.query("SELECT document_id, file_name, kind, restricted, size_bytes, content_type FROM migration_documents WHERE organization_id = $1 AND student_id = $2 ORDER BY kind, file_name", [organizationId, studentId]).catch(() => ({ rows: [] })),
+    // Lists the school keeps using: forms of the Custom editor with this student's entries.
+    db.query(
+      `SELECT s.section_id, s.name, s.icon, s.protected, COUNT(e.entry_id)::int AS n FROM custom_sections s JOIN custom_section_entries e ON e.section_id = s.section_id AND e.student_id = $2
+        WHERE s.organization_id = $1 AND s.status <> 'archived' AND s.options->'origin'->>'kind' = 'old_system' GROUP BY s.section_id ORDER BY LOWER(s.name)`,
+      [organizationId, studentId]
+    ).catch(() => ({ rows: [] })),
   ]);
   const restricted = extras.rows.filter((x) => x.sensitive).length + archives.rows.filter((a) => a.sensitive).length + docs.rows.filter((d) => d.restricted).length;
+  const topicOf = require("../utils/migration/forms").topicOf;
   const out = {
     extras: extras.rows.filter((x) => !x.sensitive || unlocked),
-    archives: archives.rows.filter((a) => !a.sensitive || unlocked),
+    archives: archives.rows.filter((a) => !a.sensitive || unlocked).map((a) => ({ ...a, topic: topicOf(a.module) })),
+    // A protected form opens only for the people who build forms; the school's admins see it listed.
+    forms: forms.rows.filter((f) => !f.protected || admin).map((f) => ({ ...f, topic: topicOf(f.name) })),
+    topicOrder: require("../utils/migration/forms").TOPIC_ORDER,
     documents: docs.rows.filter((d) => !d.restricted || unlocked),
     alerts: alerts.rows,
     history: history.rows,
@@ -441,7 +463,7 @@ async function studentOldSystem(db, req, studentId) {
     // The old system's GPA as it was exported: never worked out again.
     sourceGpa: await require("../utils/gpa").sourceGpaOf(db, organizationId, studentId).catch(() => null),
   };
-  if (!out.extras.length && !out.alerts.length && !out.archives.length && !out.documents.length && !out.history.length && !out.attendance.length && !out.hidden && !out.sourceGpa) return null;
+  if (!out.extras.length && !out.alerts.length && !out.archives.length && !out.documents.length && !out.forms.length && !out.history.length && !out.attendance.length && !out.hidden && !out.sourceGpa) return null;
   return out;
 }
 async function archivePage(req, res, db) {
@@ -481,9 +503,18 @@ async function oldRecords(req, res, db) {
     ).then((r) => r.rows),
     db.query("SELECT COUNT(*) FILTER (WHERE student_id IS NOT NULL)::int AS \"onStudents\" FROM migration_documents WHERE organization_id = $1", [organizationId]).then((r) => r.rows[0]),
   ]);
+  // The lists the school keeps using: forms of the Custom editor.
+  const forms = await db.query(
+    `SELECT s.section_id, s.name, s.protected, COUNT(e.entry_id)::int AS entries, COUNT(DISTINCT e.student_id)::int AS students
+       FROM custom_sections s LEFT JOIN custom_section_entries e ON e.section_id = s.section_id
+      WHERE s.organization_id = $1 AND s.status <> 'archived' AND s.options->'origin'->>'kind' = 'old_system' GROUP BY s.section_id ORDER BY LOWER(s.name)`,
+    [organizationId]
+  ).then((r) => r.rows).catch(() => []);
+  const topicOf = require("../utils/migration/forms").topicOf;
+  for (const list of [...schoolLists, ...studentLists]) list.topic = topicOf(list.module);
   res.render("migration/oldRecords", {
     title: "Records from your old system", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true,
-    schoolLists, studentLists, looseDocs, docCounts,
+    schoolLists, studentLists, looseDocs, docCounts, forms, topicOrder: require("../utils/migration/forms").TOPIC_ORDER,
   });
 }
 // A document from the old system. Before go-live (no student yet) and when restricted: the school's
@@ -693,7 +724,7 @@ const wrap = (fn) => async (req, res, db) => {
 };
 module.exports = {
   codeGate, verifyPage: wrap(verifyPage), verifyPost: wrap(verifyPost),
-  page: wrap(page), optionPost: wrap(optionPost), matchPost: wrap(matchPost), customFieldsPost: wrap(customFieldsPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
+  page: wrap(page), optionPost: wrap(optionPost), listUsePost: wrap(listUsePost), matchPost: wrap(matchPost), customFieldsPost: wrap(customFieldsPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
   legalPost: wrap(legalPost), importPost: wrap(importPost), approvePost: wrap(approvePost), signPost: wrap(signPost), goLivePost: wrap(goLivePost), catchUpPost: wrap(catchUpPost), taskPost: wrap(taskPost), invitePost: wrap(invitePost),
   roleConfirmPost: wrap(roleConfirmPost), roleNotesPost: wrap(roleNotesPost), roleApprovePost: wrap(roleApprovePost), roleReportFile: wrap(roleReportFile),
   archivePage: wrap(archivePage), documentFile: wrap(documentFile), oldRecords: wrap(oldRecords), studentOldSystem,

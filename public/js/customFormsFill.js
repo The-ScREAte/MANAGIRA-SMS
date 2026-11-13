@@ -61,12 +61,18 @@
     var picks = root.querySelector('.cf-fill__picks');
     var pane = root.querySelector('.cf-fill__main');
 
+    function pickHtml(s) {
+      return '<button type="button" class="cf-pick" role="tab" data-section="' + s.id + '" aria-selected="' + Boolean(state.section && state.section.id === s.id) + '">'
+        + '<span class="cf-pick__icon">' + icon(s.icon, 16) + '</span><span><strong>' + esc(s.name) + '</strong><small>' + esc(PLACE[s.filledBy] || '') + '</small></span></button>';
+    }
+    // Lists the school brought from its old system: one tidy group after its own forms.
     function renderPicks() {
       if (!picks) return;
-      picks.innerHTML = sections.map(function (s) {
-        return '<button type="button" class="cf-pick" role="tab" data-section="' + s.id + '" aria-selected="' + Boolean(state.section && state.section.id === s.id) + '">'
-          + '<span class="cf-pick__icon">' + icon(s.icon, 16) + '</span><span><strong>' + esc(s.name) + '</strong><small>' + esc(PLACE[s.filledBy] || '') + '</small></span></button>';
-      }).join('');
+      var own = sections.filter(function (s) { return !s.old; });
+      var old = sections.filter(function (s) { return s.old; });
+      var showOld = !own.length || old.some(function (s) { return state.section && state.section.id === s.id; });
+      picks.innerHTML = own.map(pickHtml).join('') + (old.length ? '<details class="cf-pickgroup"' + (showOld ? ' open' : '') + '><summary>' + icon('clipboard', 15) + 'From your old system · ' + old.length + '</summary>'
+        + '<div class="cf-pickgroup__list">' + old.map(pickHtml).join('') + '</div></details>' : '');
     }
     function choose(id, thenStudent) {
       state.section = sections.filter(function (s) { return s.id === id; })[0] || sections[0];
@@ -521,7 +527,7 @@
       if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openStudent(Number(row.getAttribute('data-student'))); }
     });
     var sel = opts.selected || {};
-    choose(sel.section && sections.some(function (s) { return s.id === sel.section; }) ? sel.section : sections[0].id, sel.student);
+    choose(sel.section && sections.some(function (s) { return s.id === sel.section; }) ? sel.section : (sections.filter(function (s) { return !s.old; })[0] || sections[0]).id, sel.student);
   }
 
   // The classroom tab and the driver portal: load the sections the first time it shows. Every

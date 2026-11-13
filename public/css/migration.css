@@ -279,3 +279,8 @@
 .mg-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 6px; border: 1px solid var(--mg-line); border-radius: 50%; background: #fff; color: var(--mg-muted); font-size: 10.5px; font-weight: 700; line-height: 1; vertical-align: middle; cursor: help; }
 .mg-help:hover, .mg-help:focus-visible { color: var(--mg-accent); border-color: var(--mg-accent); outline: none; }
 .mg-tip { position: fixed; z-index: 13050; max-width: min(280px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 8px; background: #0f172a; color: #fff; font-size: 12px; line-height: 1.45; box-shadow: 0 6px 18px rgba(15, 23, 42, .25); pointer-events: none; }
+
+/* Lists grouped by topic; the lists the school keeps using, ticked. */
+.mg-table .mg-group th { padding-top: 14px; background: transparent; color: var(--mg-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; text-align: left; }
+.mg-table .mg-tick { width: 96px; text-align: center; }
+.mg-uselists input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--mg-accent); cursor: pointer; }

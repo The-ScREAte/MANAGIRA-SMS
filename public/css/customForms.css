@@ -444,3 +444,18 @@
 .cf-key span { display: inline-flex; align-items: center; gap: 6px; }
 .cf-key svg { color: var(--cf-accent); }
 .cf-key strong { color: var(--cf-text); font-variant-numeric: tabular-nums; }
+
+/* Lists a school brought from its old system: a group of their own, below its own sections. */
+.cf .cf-group { margin-top: 18px; border: 1px dashed var(--cf-line); border-radius: 14px; background: var(--cf-soft-2, #f8fafc); }
+.cf .cf-group > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.cf .cf-group > summary::-webkit-details-marker { display: none; }
+.cf .cf-group > summary::before { content: "▸"; color: var(--cf-muted); transition: transform .15s ease; }
+.cf .cf-group[open] > summary::before { transform: rotate(90deg); }
+.cf .cf-group > summary strong { font-size: 14px; }
+.cf .cf-group > summary em { color: var(--cf-muted); font-size: 12.5px; font-style: normal; }
+.cf .cf-group__list { display: grid; gap: 10px; padding: 0 12px 12px; }
+.cf .cf-pickgroup { flex-basis: 100%; }
+.cf .cf-pickgroup > summary { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed var(--cf-line); border-radius: 11px; color: var(--cf-muted); font-size: 13px; cursor: pointer; list-style: none; }
+.cf .cf-pickgroup > summary::-webkit-details-marker { display: none; }
+.cf .cf-pickgroup[open] > summary { margin-bottom: 8px; }
+.cf .cf-pickgroup__list { display: flex; flex-wrap: wrap; gap: 8px; }

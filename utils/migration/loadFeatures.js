@@ -155,7 +155,7 @@ async function loadTransport(ctx, rows) {
     const am = timeOf(pick(row, "Am_Time", "Am_Pickup_Time", "Pickup_Time"));
     const pm = timeOf(pick(row, "Pm_Time", "Pm_Dropoff_Time", "Dropoff_Time"));
     let id = stopIds.get(`${routeId}|${name.toLowerCase()}`);
-    const seq = numberOr(pick(row, "Sequence", "Stop_Sequence", "Stop_Order"));
+    const seq = numberOr(pick(row, "Sequence", "Stop_Sequence", "Stop_Order", "Seq"));
     if (!id) {
       ({ rows: [{ stop_id: id }] } = await q(
         `INSERT INTO transport_stops (organization_id, route_id, stop_name, stop_address, latitude, longitude, pickup_time, dropoff_time, stop_order)
@@ -233,8 +233,8 @@ async function loadTransport(ctx, rows) {
     riders.set(studentId, { row, run });
   }
   for (const [studentId, { row }] of riders) {
-    const stop = stops.get(clean(pick(row, "Stop_ID", "Stop"), 60));
-    const routeId = (stop && stop.routeId) || (await routeFor(pick(row, "Route_ID", "Route")));
+    const stop = stops.get(clean(pick(row, "Stop_ID", "Stop", "AM_Stop", "AM_Stop_ID"), 60));
+    const routeId = (stop && stop.routeId) || (await routeFor(pick(row, "Route_ID", "Route", "AM_Route")));
     const busId = (await busFor(pick(row, "Bus_Number", "Bus"))) || (routeId && routeBus.get(routeId)) || null;
     const { rowCount: has } = await q("SELECT 1 FROM transport_student_assignments WHERE organization_id = $1 AND student_id = $2", [org, studentId]);
     if (has) { t.ridersKept += 1; continue; }
@@ -334,7 +334,7 @@ async function loadPayGira(ctx, rows) {
       const amount = money(pick(f.row, "Amount", "Fee_Amount")) || 0;
       const balance = money(pick(f.row, "Balance"));
       const paid = money(pick(f.row, "Amount_Paid", "Paid")) ?? (balance !== null ? Math.max(0, amount - balance) : 0);
-      const cancelled = /waiv|void|cancel/i.test(pick(f.row, "Status")) || Boolean(pick(f.row, "Waiver_Reason"));
+      const cancelled = /waiv|void|cancel/i.test(pick(f.row, "Status")) || Boolean(pick(f.row, "Waiver_Reason")) || /^(y|yes|true|1)$/i.test(pick(f.row, "Waived"));
       const assignmentId = await shareOf(billId, f.studentId, amount, Math.min(paid, amount), isoDay(pick(f.row, "Due_Date")), cancelled);
       p.paid += Math.min(paid, amount);
       const feeId = clean(pick(f.row, "Fee_ID"), 60);

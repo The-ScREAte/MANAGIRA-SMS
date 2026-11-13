@@ -2,29 +2,43 @@
     lists kept for the school, a summary of what's on students' records, and documents with no current student. Managers only. %>
 <%
   const _kb = (b) => Number(b) >= 1048576 ? (Number(b) / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(Number(b) / 1024)) + ' KB';
+  const _byTopic = (arr) => (topicOrder || []).map((t) => [t, arr.filter((a) => (a.topic || 'Other records') === t)]).filter(([, a]) => a.length);
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
 <div class="mg">
   <header class="mg-head">
     <div>
       <h1>Records from your old system</h1>
-      <p>Everything your school brought from its old system that isn't one of Managira's own records stays here, read-only. Restricted items open only for your managers.</p>
+      <p>Everything your school brought from its old system that isn't one of Managira's own records: the lists your staff keep using, and the rest, read-only. Restricted items open only for your managers.</p>
     </div>
   </header>
 
   <div class="mg-tiles" style="margin-top:16px">
+    <% if (forms.length) { %><div><strong><%= forms.length %></strong><span>lists your staff keep using</span></div><% } %>
     <div><strong><%= schoolLists.length %></strong><span>lists kept for the school</span></div>
     <div><strong><%= studentLists.length %></strong><span>kinds of list on students' records</span></div>
     <div><strong><%= Number(docCounts.onStudents).toLocaleString('en-US') %></strong><span>documents on students' records</span></div>
     <div><strong><%= looseDocs.length %></strong><span>documents not on a current student</span></div>
   </div>
 
+  <% if (forms.length) { %>
+  <section class="mg-card" style="margin-top:16px">
+    <h2>Lists your staff keep using</h2>
+    <p class="mg-hint">Forms in the Custom editor, under "From your old system": every old row is on its student, and your staff add new ones on the student's page and in the classroom.</p>
+    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Students</th><th class="num">Entries</th><th></th></tr></thead><tbody>
+      <% forms.forEach((f) => { %><tr><td><strong><%= f.name %></strong><% if (f.protected) { %> <span class="mg-pill mg-pill--sensitive">Protected</span><% } %></td><td class="num"><%= Number(f.students).toLocaleString('en-US') %></td><td class="num"><%= Number(f.entries).toLocaleString('en-US') %></td>
+        <td class="num"><a class="mg-btn mg-btn--sm" href="/common/custom-forms/go?section=<%= f.section_id %>" data-no-spa>Open</a></td></tr><% }) %>
+    </tbody></table></div>
+  </section>
+  <% } %>
+
   <section class="mg-card" style="margin-top:16px">
     <h2>Kept for the school</h2>
     <% if (!schoolLists.length) { %><p class="mg-empty">Nothing yet: lists appear here once your migration goes live.</p><% } else { %>
-    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th><th></th></tr></thead><tbody>
-      <% schoolLists.forEach((a) => { %><tr><td><strong><%= a.module %></strong><% if (a.sensitive) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td><td class="num"><%= Number(a.n).toLocaleString('en-US') %></td>
-        <td class="num"><a class="mg-btn mg-btn--sm" href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa>Open</a> <a class="mg-btn mg-btn--sm" href="/common/migration/archive/<%= a.archive_id %>?format=csv" data-no-spa>CSV</a></td></tr><% }) %>
+    <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th></th></tr></thead><tbody>
+      <% _byTopic(schoolLists).forEach(([topic, group]) => { %><tr class="mg-group"><th colspan="3"><%= topic %></th></tr>
+      <% group.forEach((a) => { %><tr><td><strong><%= a.module %></strong><% if (a.sensitive) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td><td class="num"><%= Number(a.n).toLocaleString('en-US') %></td>
+        <td class="num"><a class="mg-btn mg-btn--sm" href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa>Open</a> <a class="mg-btn mg-btn--sm" href="/common/migration/archive/<%= a.archive_id %>?format=csv" data-no-spa>CSV</a></td></tr><% }) %><% }) %>
     </tbody></table></div>
     <% } %>
   </section>
@@ -43,9 +57,10 @@
   <% if (studentLists.length) { %>
   <section class="mg-card" style="margin-top:16px">
     <h2>On students' records</h2>
-    <p class="mg-hint">Open a student to see theirs, under "From your old system".</p>
-    <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Students</th><th class="num">Rows</th></tr></thead><tbody>
-      <% studentLists.forEach((a) => { %><tr><td><%= a.module %><% if (a.sensitive) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td><td class="num"><%= Number(a.students).toLocaleString('en-US') %></td><td class="num"><%= Number(a.n).toLocaleString('en-US') %></td></tr><% }) %>
+    <p class="mg-hint">Open a student to see theirs, under "From the old system".</p>
+    <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Students</th><th class="num">Rows</th></tr></thead><tbody>
+      <% _byTopic(studentLists).forEach(([topic, group]) => { %><tr class="mg-group"><th colspan="3"><%= topic %></th></tr>
+      <% group.forEach((a) => { %><tr><td><%= a.module %><% if (a.sensitive) { %> <span class="mg-pill mg-pill--sensitive">Restricted</span><% } %></td><td class="num"><%= Number(a.students).toLocaleString('en-US') %></td><td class="num"><%= Number(a.n).toLocaleString('en-US') %></td></tr><% }) %><% }) %>
     </tbody></table></div>
   </section>
   <% } %>

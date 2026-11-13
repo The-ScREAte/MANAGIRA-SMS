@@ -590,6 +590,21 @@
       }
       .sd-card + .sd-card { margin-top: 14px; }
       .sd-card__title { margin: 0 0 10px; font-size: 0.95rem; font-weight: 700; color: #0f172a; text-align: left; }
+      .sd-old__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 4px; }
+      .sd-old__head .sd-card__title { margin: 0; }
+      .sd-old__find { width: min(240px, 100%); height: 34px; padding: 0 10px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 13px; }
+      .sd-old__group { margin-top: 12px; }
+      .sd-old__groups { columns: 2 340px; column-gap: 28px; }
+      .sd-old__groups .sd-old__group { break-inside: avoid; }
+      .sd-old__group--use { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); column-gap: 28px; }
+      .sd-old__group--use h4 { grid-column: 1 / -1; }
+      .sd-old__group h4 { margin: 0 0 6px; color: #667085; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+      .sd-old__item { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; padding: 8px 10px; border-radius: 8px; color: #0f172a; text-decoration: none; }
+      .sd-old__item:hover, .sd-old__item:focus-visible { background: #f2f4f7; }
+      .sd-old__item span { font-size: 14px; font-weight: 600; }
+      .sd-old__item small { color: #667085; font-size: 12.5px; }
+      .sd-old__item--form span::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: #16a34a; vertical-align: middle; }
+      .sd-old__note, .sd-old__none { margin: 12px 0 0; color: #475467; font-size: 13px; }
       .sd-card .table-container { margin: 0; border: 1px solid #eef0f3; border-radius: 10px; }
       .sd-card th, .sd-card td { border: 0; border-bottom: 1px solid #eef0f3; padding: 9px 12px; }
       .sd-card tr:last-child > td, .sd-card tbody tr:last-child > th { border-bottom: 0; }
@@ -723,12 +738,6 @@
           <% }) %>
           <% if (locals.oldSystem) { %>
             <% oldSystem.extras.forEach(function (x) { %><p><strong><%= x.label %></strong> <span style="white-space: pre-wrap"><%= x.value %></span><% if (x.sensitive) { %> <small style="color:#b91c1c">(restricted)</small><% } %></p><% }) %>
-            <% oldSystem.archives.forEach(function (a) { %><p><strong><%= a.module %></strong> <a href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa>Open (<%= a.n %> <%= a.n === 1 ? 'row' : 'rows' %>, read-only)</a></p><% }) %>
-            <% if ((oldSystem.documents || []).length) { %>
-              <p style="margin-top:10px"><strong>Documents</strong></p>
-              <% oldSystem.documents.forEach(function (d) { %><p><a href="/common/migration/documents/<%= d.document_id %>" target="_blank" rel="noopener" data-no-spa><%= d.kind || d.file_name %></a> <small style="color:#667085"><%= d.file_name %> · <%= Math.max(1, Math.round(Number(d.size_bytes) / 1024)) %> KB<%= d.restricted ? ' · restricted' : '' %></small></p><% }) %>
-            <% } %>
-            <% if (oldSystem.canUnlock) { %><p><strong>Restricted</strong> <%= oldSystem.hidden %> <%= oldSystem.hidden === 1 ? 'item' : 'items' %> from the old system. <a href="/common/migration/verify?next=<%= encodeURIComponent('/common/studentDetails?studentId=' + student.student_id) %>" data-no-spa>Show (asks for your authenticator code)</a></p><% } %>
           <% } %>
           </div>
         </div>
@@ -769,6 +778,60 @@
         </div>
         <% } %>
       </section>
+      <% } %>
+      <% if (locals.oldSystem && (oldSystem.forms.length || oldSystem.archives.length || (oldSystem.documents || []).length || oldSystem.canUnlock)) { %>
+      <%# Everything else the school brought from its old system: the lists it keeps using (forms), the
+          lists kept read-only, by topic, and documents. %>
+      <% const _items = oldSystem.forms.length + oldSystem.archives.length + (oldSystem.documents || []).length; %>
+      <section class="sd-card sd-old" data-old-records>
+        <div class="sd-old__head"><h3 class="sd-card__title">From the old system</h3>
+          <% if (_items > 8) { %><input type="search" class="sd-old__find" placeholder="Find a record" aria-label="Find a record from the old system" data-old-filter /><% } %></div>
+        <% if (oldSystem.forms.length) { %>
+        <div class="sd-old__group sd-old__group--use" data-old-group>
+          <h4>Still in use</h4>
+          <% oldSystem.forms.forEach(function (f) { %><a class="sd-old__item sd-old__item--form" data-old-item href="/common/custom-forms/go?section=<%= f.section_id %>&student=<%= student.student_id %>" data-no-spa><span><%= f.name %></span><small><%= f.n %> <%= f.n === 1 ? 'entry' : 'entries' %> · add more</small></a><% }) %>
+        </div>
+        <% } %>
+        <div class="sd-old__groups">
+        <% (oldSystem.topicOrder || []).forEach(function (topic) { const _a = oldSystem.archives.filter(function (a) { return a.topic === topic; }); if (!_a.length) return; %>
+        <div class="sd-old__group" data-old-group>
+          <h4><%= topic %></h4>
+          <% _a.forEach(function (a) { %><a class="sd-old__item" data-old-item href="/common/migration/archive/<%= a.archive_id %>" target="_blank" rel="noopener" data-no-spa><span><%= a.module %></span><small><%= a.n %> <%= a.n === 1 ? 'row' : 'rows' %><%= a.sensitive ? ' · restricted' : '' %></small></a><% }) %>
+        </div>
+        <% }) %>
+        <% if ((oldSystem.documents || []).length) { %>
+        <div class="sd-old__group" data-old-group>
+          <h4>Documents</h4>
+          <% oldSystem.documents.forEach(function (d) { %><a class="sd-old__item" data-old-item href="/common/migration/documents/<%= d.document_id %>" target="_blank" rel="noopener" data-no-spa><span><%= d.kind || d.file_name %></span><small><%= d.file_name %> · <%= Math.max(1, Math.round(Number(d.size_bytes) / 1024)) %> KB<%= d.restricted ? ' · restricted' : '' %></small></a><% }) %>
+        </div>
+        <% } %>
+        </div>
+        <% if (oldSystem.canUnlock) { %><p class="sd-old__note"><%= oldSystem.hidden %> restricted <%= oldSystem.hidden === 1 ? 'item' : 'items' %>. <a href="/common/migration/verify?next=<%= encodeURIComponent('/common/studentDetails?studentId=' + student.student_id) %>" data-no-spa>Show (asks for your authenticator code)</a></p><% } %>
+        <p class="sd-old__none" data-old-none hidden>Nothing matches.</p>
+      </section>
+      <script>
+        (function () {
+          if (window.__sdOldFilter) return;
+          window.__sdOldFilter = true;
+          document.addEventListener('input', function (e) {
+            if (!e.target.matches || !e.target.matches('[data-old-filter]')) return;
+            var card = e.target.closest('[data-old-records]');
+            var words = e.target.value.trim().toLowerCase();
+            var any = false;
+            card.querySelectorAll('[data-old-group]').forEach(function (group) {
+              var shown = 0;
+              group.querySelectorAll('[data-old-item]').forEach(function (item) {
+                var hit = !words || (group.querySelector('h4').textContent + ' ' + item.textContent).toLowerCase().indexOf(words) !== -1;
+                item.hidden = !hit;
+                if (hit) shown += 1;
+              });
+              group.hidden = !shown;
+              if (shown) any = true;
+            });
+            card.querySelector('[data-old-none]').hidden = any;
+          });
+        })();
+      </script>
       <% } %>
       <% if (locals.transportationSnapshot) { %>
       <section class="sd-card">

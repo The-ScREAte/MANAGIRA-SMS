@@ -33,6 +33,7 @@ const roles = require("./migration/roles");
 const { tell } = require("./migration/notify");
 const tidy = require("./migration/tidy");
 const lists = require("./migration/lists");
+const oldForms = require("./migration/forms");
 const documents = require("./migration/documents");
 const tasks = require("./migration/tasks");
 const readerPool = require("./migration/readerPool");
@@ -66,7 +67,7 @@ const KEEP_DAYS = 30;
 const SECTIONS = ["students", "guardians", "staff", "roles", "classes", "enrollments", "grades", "attendance", "custom_fields", "archive"];
 const SECTION_LABELS = { students: "Students", guardians: "Parents & guardians", staff: "Staff accounts", roles: "Staff roles (the role report)", classes: "Sections & teachers", enrollments: "Class enrollments", grades: "Final grades", attendance: "Attendance", custom_fields: "Student fields", archive: "Other lists, documents, buses and fees" };
 const ACTIONS = ["map", "custom", "extra", "archive", "exclude", "alert"];
-const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs", demographics: "Race and ethnicity" };
+const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs", demographics: "Race and ethnicity", identity: "Passport, visa and national ID" };
 // Whole modules Managira doesn't run yet: their columns are kept read-only per student.
 const ARCHIVE_MODULES = ["Special education", "Health records", "Transportation", "Fees", "Library", "Discipline", "Grades history", "Attendance history", "Other"];
 
@@ -324,7 +325,10 @@ const customFieldsOf = async (db, organizationId) => (await db.query(
 // student, a labeled detail; on the other lists, kept read-only with the record it belongs to.
 const STUDENT_LISTS = new Set(["students", "student_details"]);
 // Old IDs and enrollment dates and reasons: the student's record keeps them; they make no custom field.
-const OLD_RECORD = /legacy|oldid|systemid|familyid|familyident|householdid|^id$|entrydate|exitdate|exitreason|exitcode|entrycode|enrolldate|enrollmentdate|withdraw|districtentry|schoolentry/;
+const OLD_RECORD = /legacy|oldid|systemid|familyid|familyident|householdid|^id$|entrydate|exitdate|exitreason|exitcode|entrycode|enrolldate|enrollmentdate|withdraw|districtentry|schoolentry|^age$|^entity$|^entitycode$|^schoolcode$|^schoolid$|^building$/;
+const ALIAS_SET = new Set(ps.ALIAS_KEYS);
+const FAMILY_SET = new Set(ps.FAMILY_KEYS);
+const oldIdColumn = (bare) => OLD_RECORD.test(bare) || ALIAS_SET.has(bare) || FAMILY_SET.has(bare);
 const DEFAULT_HOME = {
   students: { action: "custom" },
   student_details: { action: "custom" },
@@ -346,13 +350,11 @@ async function autoMap(db, job, entity, header, rows) {
   const decided = (row) => row && (row.confirmed || row.resolved_at || row.notes);
   const kept = new Map(had.filter(decided).map((row) => [row.source_column, row]));
   const taken = new Set(had.filter((row) => row.confirmed && row.target && !row.target.startsWith("custom:")).map((row) => row.target));
-  const exactOf = new Map();
-  for (const column of header) {
-    const before = kept.get(column);
-    if (before && (before.confirmed || before.action)) continue;
-    const exact = ps.matchColumn(entity, column, custom, taken);
-    if (exact.confidence === "confident" && exact.target && !exact.target.startsWith("custom:") && !ps.sensitiveOf(column, [])) { exactOf.set(column, exact.target); taken.add(exact.target); }
-  }
+  // Each field takes the column with its best-known name, across the whole list (a Mark is the
+  // final grade, so the Grade beside it is the grade level).
+  const skip = new Set(header.filter((column) => { const before = kept.get(column); return (before && (before.confirmed || before.action)) || ps.sensitiveOf(column, []); }));
+  const exactOf = ps.bestMatches(entity, header, { taken, skip });
+  for (const target of exactOf.values()) taken.add(target);
   for (const column of header) {
     const samples = [...new Set(rows.slice(0, 500).map((row) => String(row[column] == null ? "" : row[column]).trim()).filter(Boolean))].slice(0, 5);
     let sensitive = ps.sensitiveOf(column, samples);
@@ -369,7 +371,7 @@ async function autoMap(db, job, entity, header, rows) {
     // Custody always becomes an alert; an SSN is left out unless the school confirms a legal need.
     // A student column with no place in Managira: a custom field, unless it's restricted (a detail
     // only the right people see) or an old ID or enrollment date Managira keeps elsewhere (read-only).
-    const oldRecord = !match.target && STUDENT_LISTS.has(entity) && !sensitive && OLD_RECORD.test(ps.bare(column));
+    const oldRecord = !match.target && STUDENT_LISTS.has(entity) && !sensitive && oldIdColumn(ps.bare(column));
     // A program or indicator (IEP, 504, English learner…) fills the school's own Programs &
     // Indicators field of that name: editable, staff only (utils/studentFormFields.js INDICATORS).
     const indicator = !match.target && STUDENT_LISTS.has(entity) && ["sped", "programs"].includes(sensitive) ? require("./studentFormFields").indicatorFor(column)
@@ -553,7 +555,17 @@ function gpaOf(rows) {
 // Days of attendance in a row: a day with its code, or a row of totals. Tardy counts as present
 // and tardy; excused as absent and excused; a code we don't know as absent.
 const TOTAL_FIELDS = ["days_present", "days_absent", "days_excused", "days_unexcused", "days_tardy"];
-function addAttendance(sum, data) {
+// A period's row ("02") only makes the day late, never a day away: a whole day's code does that.
+const ALL_DAY = /^(all|all ?day|day|daily|ad|full|full ?day|0+)?$/i;
+const STRENGTH = { present: 0, tardy: 1, excused: 2, absent: 3 };
+function countDay(sum, kind, n) {
+  if (kind === "present" || kind === "tardy") sum.present += n; else sum.absent += n;
+  if (kind === "tardy") sum.tardy += n;
+  if (kind === "excused") sum.excused += n;
+}
+// `codes`: the school's own code list. `days`: the days already counted, so several rows of one
+// day (one per period) count once, as the most serious of them.
+function addAttendance(sum, data, { codes = null, days = null } = {}) {
   if (!data.date && TOTAL_FIELDS.some((f) => num(data[f]) !== null)) {
     const n = (f) => num(data[f]) || 0;
     sum.present += n("days_present");
@@ -564,10 +576,18 @@ function addAttendance(sum, data) {
     return;
   }
   if (!data.date) return;
-  const kind = ps.attendanceKind(data.code, data.present) || "absent";
-  if (kind === "present" || kind === "tardy") sum.present += 1; else sum.absent += 1;
-  if (kind === "tardy") sum.tardy += 1;
-  if (kind === "excused") sum.excused += 1;
+  let kind = ps.attendanceKind(data.code, data.present, codes) || "absent";
+  if (data.period && !ALL_DAY.test(String(data.period).trim()) && kind !== "tardy") kind = "present";
+  if (days) {
+    const key = `${data.student_source_id || ""}|${isoDate(data.date)}`;
+    const had = days.get(key);
+    if (had !== undefined) {
+      if (STRENGTH[kind] <= STRENGTH[had]) return;
+      countDay(sum, had, -1);
+    }
+    days.set(key, kind);
+  }
+  countDay(sum, kind, 1);
 }
 const HOMEROOM = /\bhome\s*room\b|\badvis(ory|ement)\b/i;
 // A class enrollment that still holds: not dropped (PowerSchool makes a dropped one's section
@@ -603,6 +623,33 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
     else if (c.action === "alert") alerts[c.label || prettyLabel(c.source_column)] = value;
     else if (c.action === "custom") (data.customNew = data.customNew || {})[c.label || prettyLabel(c.source_column)] = value;
   }
+  // Parts some systems send apart or together: an apartment beside the street, "Rhinelander, WI 54562" in one column.
+  if (data.address2) { data.address = [data.address, data.address2].filter(Boolean).join(" "); delete data.address2; }
+  if (data.city_state_zip) {
+    const m = /^\s*(.*?)[,\s]+([A-Za-z]{2})\.?\s+(\d{5}(?:-\d{4})?)\s*$/.exec(data.city_state_zip);
+    if (m) { data.city = data.city || m[1].replace(/,\s*$/, ""); data.state = data.state || m[2].toUpperCase(); data.zip = data.zip || m[3]; } else data.city = data.city || data.city_state_zip;
+    delete data.city_state_zip;
+  }
+  // A member of staff named in one column ("Griffin, Dave"): their first and last name.
+  if (entity === "staff" && data.full_name && !data.first_name && !data.last_name) [data.first_name, data.last_name] = splitName(data.full_name);
+  // Weighted grade points without the Honors/AP added value: it's the difference.
+  if (entity === "grades" && data.gpa_added_value === undefined && num(data.gpa_weighted_points) !== null && num(data.gpa_points) !== null) {
+    const added = Math.round((num(data.gpa_weighted_points) - num(data.gpa_points)) * 100) / 100;
+    if (added > 0) data.gpa_added_value = String(added);
+  }
+  // A student's other numbers (the old system's own keys, a state ID) and family: other lists
+  // that name them by one of these still reach them (linkPeople).
+  let aliases = null;
+  let family = null;
+  if (entity === "students") {
+    for (let i = 0; i < header.length; i += 1) {
+      const key = ps.bare(header[i]);
+      const value = clean(cells[i], 120);
+      if (!value || value === clean(data.source_id, 120)) continue;
+      if (ALIAS_SET.has(key)) (aliases = aliases || []).push(value);
+      else if (FAMILY_SET.has(key) && !family) family = value;
+    }
+  }
   if (entity === "grades") {
     const credits = num(data.credits);
     if (credits !== null) source.credits += credits;
@@ -610,7 +657,7 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   }
   if (entity === "attendance") {
     // Totals and days are counted apart: where a school sends both, its totals are the record.
-    if (data.date) addAttendance(source.attendanceDays, data); else { addAttendance(source.attendance, data); source.attendanceTotalRows = (source.attendanceTotalRows || 0) + 1; }
+    if (data.date) addAttendance(source.attendanceDays, data, { codes: source.codes || null, days: source.daysSeen || null }); else { addAttendance(source.attendance, data); source.attendanceTotalRows = (source.attendanceTotalRows || 0) + 1; }
   }
   if (Object.keys(custom).length) data.custom = custom;
   // Staff and class roles keep the row exactly as exported (bar columns left out), for their role history.
@@ -629,7 +676,7 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   if (!id && entity === "section_teachers") id = hashId(data.section_source_id, data.teacher_source_id, data.class_role, data.start_date, index);
   if (!id && entity === "student_gpas") id = hashId(data.student_source_id, data.as_of, index);
   if (!id && entity === "student_details") id = clean(data.student_source_id, 120); // one row per student
-  return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [], fileKey: String(fileKey) };
+  return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [], fileKey: String(fileKey), ...(aliases ? { aliases } : {}), ...(family ? { family } : {}) };
 }
 // The same record in two lists of one kind (a contacts list and a relationships list): one record,
 // with what either list has. Within one list a repeat is a mistake, reported and left out.
@@ -637,6 +684,110 @@ function mergeInto(first, again) {
   for (const [k, v] of Object.entries(again.data || {})) if (first.data[k] === undefined || first.data[k] === "") first.data[k] = v;
   for (const [k, v] of Object.entries(again.extra || {})) if (!first.extra[k]) first.extra[k] = v;
   for (const [module, row] of Object.entries(again.archive || {})) first.archive[module] = { ...(row || {}), ...(first.archive[module] || {}) };
+}
+
+// How a school's lists name its people, read from the lists themselves: a student's other numbers
+// (Skyward's Name-ID, a state ID) lead to their student number; a parents list on its own
+// completes each parent's link to a child (or, with no link, makes them the parent of each child of
+// their family); a teacher named rather than numbered is the member of staff of that name; a
+// co-teacher named on a section is a class role of it.
+function linkPeople(byEntity, source) {
+  const students = byEntity.students || [];
+  const primary = new Set(students.map((s) => clean(s.data.source_id, 120)).filter(Boolean));
+  const aliases = new Map();
+  const clash = new Set();
+  const families = new Map();
+  for (const s of students) {
+    const id = clean(s.data.source_id, 120);
+    if (!id) continue;
+    for (const value of s.aliases || []) {
+      if (primary.has(value)) continue;
+      if (aliases.has(value) && aliases.get(value) !== id) clash.add(value); else aliases.set(value, id);
+    }
+    if (s.family) { if (!families.has(s.family)) families.set(s.family, new Set()); families.get(s.family).add(id); }
+  }
+  for (const value of clash) aliases.delete(value); // a number two students share names neither
+  const toStudent = (value) => { const v = clean(value, 120); return !v || primary.has(v) ? v : aliases.get(v) || v; };
+  for (const entity of ["guardians", "enrollments", "student_gpas", "student_details"]) {
+    for (const r of byEntity[entity] || []) {
+      if (!r.data.student_source_id) continue;
+      const id = toStudent(r.data.student_source_id);
+      if (id === r.data.student_source_id) continue;
+      r.data.student_source_id = id;
+      if (entity === "guardians" && r.data.contact_id) r.sourceId = `${r.data.contact_id}:${clean(id, 60)}`;
+      if (entity === "student_details") r.sourceId = clean(id, 120);
+    }
+  }
+  const guardians = byEntity.guardians || [];
+  const people = guardians.filter((g) => !g.fromStudent && !g.data.student_source_id && g.data.source_id);
+  if (people.length) {
+    const byId = new Map(people.map((p) => [String(p.data.source_id), p]));
+    const linked = new Set();
+    for (const g of guardians) {
+      const p = g.data.student_source_id && g.data.contact_id ? byId.get(String(g.data.contact_id)) : null;
+      if (p) { mergeInto(g, p); linked.add(p); }
+    }
+    const out = guardians.filter((g) => g.fromStudent || g.data.student_source_id);
+    let made = 0;
+    let unlinked = 0;
+    for (const p of people) {
+      if (linked.has(p)) continue;
+      const children = p.data.family_id ? families.get(clean(p.data.family_id, 120)) : null;
+      if (!children || !children.size) {
+        p.data.unlinked = true;
+        unlinked += 1;
+        p.issues.push({ kind: "unlinked", text: "Not linked to any student in your files: kept with your school's records.", blocking: false });
+        out.push(p);
+        continue;
+      }
+      for (const sid of children) { out.push({ ...p, sourceId: `${p.data.source_id}:${sid}`, data: { ...p.data, student_source_id: sid, contact_id: String(p.data.source_id) }, issues: [] }); made += 1; }
+    }
+    // A parent's own row and their links to children are the same people: the files hold the links,
+    // the parents made for a family's children, and the parents linked to nobody.
+    source.rows.guardians = Math.max(0, (source.rows.guardians || 0) - people.length + made + unlinked);
+    byEntity.guardians = out;
+  }
+  // Teachers named rather than numbered ("Kelley, Kathleen"): the one member of staff of that name.
+  const staffIds = new Set((byEntity.staff || []).map((t) => clean(t.data.source_id, 120)).filter(Boolean));
+  const byName = new Map();
+  for (const t of byEntity.staff || []) {
+    const id = clean(t.data.source_id, 120);
+    if (!id) continue;
+    const key = tidy.key(t.data.first_name, t.data.last_name);
+    byName.set(key, byName.has(key) && byName.get(key) !== id ? null : id);
+  }
+  const teacherOf = (value) => {
+    const v = clean(value, 120);
+    if (!v || staffIds.has(v)) return v;
+    const [first, last] = splitName(v);
+    return byName.get(tidy.key(first, last)) || v;
+  };
+  for (const c of byEntity.classes || []) if (c.data.teacher_source_id) c.data.teacher_source_id = teacherOf(c.data.teacher_source_id);
+  for (const r of byEntity.section_teachers || []) if (r.data.teacher_source_id) r.data.teacher_source_id = teacherOf(r.data.teacher_source_id);
+  // A co-teacher or aide named on the section itself (and no class roles list): a class role.
+  if (!(byEntity.section_teachers || []).length) {
+    let made = 0;
+    for (const c of byEntity.classes || []) {
+      for (const name of String(c.data.co_teacher || "").split(/\s*[;|/]\s*|\s+&\s+/).map((n) => n.trim()).filter(Boolean)) {
+        (byEntity.section_teachers = byEntity.section_teachers || []).push({
+          entity: "section_teachers", sourceId: hashId(c.sourceId, name, "co"), line: c.line, fileKey: c.fileKey, extra: {}, archive: {}, issues: [],
+          data: { section_source_id: c.data.source_id, teacher_source_id: teacherOf(name), class_role: `Co-teacher${c.data.co_role ? ` (${clean(c.data.co_role, 60)})` : ""}`,
+            _raw: { Section: String(c.data.source_id || ""), "Co-teacher": name, Role: clean(c.data.co_role, 60) } },
+        });
+        made += 1;
+      }
+    }
+    if (made) source.rows.section_teachers = (source.rows.section_teachers || 0) + made;
+  }
+  // Who each parent's contact number reaches (their children): lists about a parent reach them too.
+  const contacts = new Map();
+  for (const g of byEntity.guardians || []) {
+    const contact = clean(g.data.contact_id, 120);
+    if (!contact || !g.data.student_source_id) continue;
+    if (!contacts.has(contact)) contacts.set(contact, new Set());
+    contacts.get(contact).add(String(g.data.student_source_id));
+  }
+  source.reach = { primary, aliases, families, contacts, toStudent };
 }
 
 async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}) {
@@ -662,6 +813,7 @@ async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}
     await tick();
     }
   }
+  linkPeople(byEntity, source);
   // A separate roles list (security groups) completes each member of staff's record.
   const staffById = new Map((byEntity.staff || []).map((t) => [String(t.sourceId), t]));
   for (const r of byEntity.staff_roles || []) {
@@ -718,6 +870,7 @@ async function check(byEntity) {
   const withParent = new Set((byEntity.guardians || []).map((g) => g.data.student_source_id));
   for (const s of students) if (s.data.source_id && !withParent.has(s.data.source_id)) add(s, "no_parent", "No parent or guardian.");
   for (const g of byEntity.guardians || []) {
+    if (g.data.unlinked) continue; // a parent no list links to a child: kept with the school's records
     if (!studentIds.has(g.data.student_source_id)) add(g, "orphan", `Student number ${g.data.student_source_id || "(none)"} isn't in the students file.`, true);
     if (!g.data.email && !g.data.phone) add(g, "missing", "No email or phone.");
     if (!g.data.full_name && !g.data.first_name && !g.data.last_name) add(g, "missing", "No name.", true);
@@ -758,7 +911,7 @@ async function check(byEntity) {
     checkHeavy(r, studentIds);
   }
 }
-function checkHeavy(r, studentIds, { schoolTotals = false } = {}) {
+function checkHeavy(r, studentIds, { schoolTotals = false, codes = null } = {}) {
   const add = (kind, text, blocking = false) => r.issues.push({ kind, text, blocking });
   if (!studentIds.has(r.data.student_source_id)) add("orphan", `Student number ${r.data.student_source_id || "(none)"} isn't in the students file.`, true);
   if (r.entity === "grades" && !r.data.course_name) add("missing", "No course.", true);
@@ -766,7 +919,69 @@ function checkHeavy(r, studentIds, { schoolTotals = false } = {}) {
   const totals = TOTAL_FIELDS.some((f) => num(r.data[f]) !== null);
   if (!r.data.date && !totals) add("missing", "No date and no totals.", true);
   else if (r.data.date && isoDate(r.data.date) === "invalid") add("date", `"${r.data.date}" isn't a date.`, true);
-  else if (r.data.date && !schoolTotals && ps.attendanceKind(r.data.code, r.data.present) === null) add("code", `Code "${r.data.code}" isn't one we know: it counts as absent.`);
+  else if (r.data.date && !schoolTotals && ps.attendanceKind(r.data.code, r.data.present, codes) === null) add("code", `Code "${r.data.code}" isn't one we know: it counts as absent.`);
+}
+
+// The school's own attendance code list (Code, Description, Presence, Excused): what each of its
+// codes means. Small, read whole.
+async function attendanceCodesOf(db, files) {
+  const file = files.find((f) => f.entity === "other" && /attendance_?codes?|att_?codes?|codes?_?definitions?|absence_?codes?/.test(lists.baseName(f.file_name)));
+  if (!file) return null;
+  const out = {};
+  for await (const chunk of fileChunks(db, file)) {
+    const at = (...names) => chunk.header.findIndex((h) => names.includes(ps.bare(h)));
+    const code = at("code", "attendancecode", "attcode", "codeid", "absencecode");
+    if (code < 0) return null;
+    const presence = at("presence", "present", "presencestatus", "presencecode", "type", "attendancetype", "category", "statecategory");
+    const excused = at("excused", "isexcused", "excusedabsence");
+    const words = at("description", "codedescription", "meaning", "name", "title");
+    for (const cells of chunk.rows) {
+      const c = clean(cells[code], 20).toLowerCase();
+      if (!c) continue;
+      const said = presence >= 0 ? String(cells[presence] || "") : "";
+      const text = `${said} ${words >= 0 ? cells[words] || "" : ""}`;
+      const excusedFlag = excused >= 0 ? /^(1|y|yes|true|t|x)$/i.test(String(cells[excused] || "").trim()) : /\bexcus/i.test(text) && !/unexcus/i.test(text);
+      let kind = null;
+      if (/tard|late/i.test(text) && !/absent/i.test(said)) kind = "tardy";
+      else if (/^\s*(present|p|yes|y|1|true)\b/i.test(said) || (!said && /present|field ?trip|activity|school business/i.test(text))) kind = "present";
+      else if (/absent|^\s*(a|no|n|0|false)\b/i.test(said) || (!said && /absen|ill|sick|suspen|medical/i.test(text))) kind = excusedFlag ? "excused" : "absent";
+      if (kind) out[c] = kind;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// How a kept list's rows reach their students, decided from its first rows: the column its name
+// says holds the student number, else whichever column holds students' numbers (any of them), a
+// parent's contact number (each of their children) or a family's (each child of it). A list that
+// reaches nobody is kept for the school.
+function reachOf(header, rows, named, reach) {
+  const sample = rows.slice(0, 300);
+  const tokens = (v) => String(v == null ? "" : v).split(/[;,|\s]+/).map((t) => t.trim()).filter(Boolean);
+  const asStudent = (t) => (reach.primary.has(t) ? t : reach.aliases.get(t) || null);
+  const ways = {
+    student: (v) => { const out = []; for (const t of tokens(v)) { const id = asStudent(t); if (id && !out.includes(id)) out.push(id); } return out; },
+    parent: (v) => [...(reach.contacts.get(clean(v, 120)) || [])],
+    family: (v) => [...(reach.families.get(clean(v, 120)) || [])],
+  };
+  const score = (i, fn) => {
+    let filled = 0;
+    let hit = 0;
+    for (const cells of sample) { const v = cells[i]; if (v === "" || v == null) continue; filled += 1; if (fn(v).length) hit += 1; }
+    return { hit, share: filled ? hit / filled : 0 };
+  };
+  const namedAt = named ? header.indexOf(named) : -1;
+  if (namedAt >= 0 && (!reach.primary.size || score(namedAt, ways.student).hit)) return { kind: "student", column: namedAt, studentsOf: (cells) => ways.student(cells[namedAt]) };
+  for (const kind of ["student", "parent", "family"]) {
+    let best = null;
+    header.forEach((h, i) => {
+      if (!h) return;
+      const s = score(i, ways[kind]);
+      if (s.hit >= Math.min(2, sample.length) && s.share >= 0.5 && (!best || s.share > best.share)) best = { i, ...s };
+    });
+    if (best) return { kind, column: best.i, studentsOf: (cells) => ways[kind](cells[best.i]) };
+  }
+  return { kind: namedAt >= 0 ? "student" : "none", column: namedAt, studentsOf: () => [] };
 }
 
 // Writes the sandbox: every record upserted by its old ID, anything no longer in the files
@@ -838,6 +1053,12 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   }
   // Grades and attendance: read, checked and written a chunk at a time.
   const studentIds = new Set((byEntity.students || []).map((r) => r.data.source_id).filter(Boolean));
+  const reach = source.reach || { primary: studentIds, aliases: new Map(), families: new Map(), contacts: new Map(), toStudent: (v) => v };
+  // What the school's own attendance codes mean, and each day counted once.
+  const codes = await attendanceCodesOf(db, files);
+  source.codes = codes;
+  source.daysSeen = new Map();
+  report.attendanceCodes = codes;
   const attendanceTotals = columns.some((c) => c.entity === "attendance" && c.action === "map" && /^days_/.test(c.target || "") && (c.confirmed || c.confidence === "confident"));
   for (const entity of HEAVY) {
     const seenIds = new Set();
@@ -850,7 +1071,8 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
         const part = [];
         for (let k = 0; k < chunk.rows.length; k += 1) {
           const r = toRecord(entity, cols, chunk.header, chunk.rows[k], chunk.offset + k, source, file.file_id);
-          checkHeavy(r, studentIds, { schoolTotals: attendanceTotals });
+          if (r.data.student_source_id) r.data.student_source_id = reach.toStudent(r.data.student_source_id);
+          checkHeavy(r, studentIds, { schoolTotals: attendanceTotals, codes });
           noteIssues(entity, r);
           if (r.sourceId && !seenIds.has(r.sourceId)) { seenIds.add(r.sourceId); part.push(r); }
         }
@@ -867,6 +1089,7 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   // Every other list: each row kept whole (bar Social Security numbers), with its student number.
   report.lists = [];
   let otherRows = 0;
+  let otherStaged = 0;
   const graduateIds = new Set(); // graduates become students at go-live: their documents are theirs
   for (const file of heavyFiles.filter((f) => f.entity === "other")) {
     const seen = lists.recognize(file.file_name, file.header);
@@ -875,29 +1098,47 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
     progress({ step: `Keeping ${seen.label}` });
     let rows = 0;
     let students = 0;
+    let way = null;
+    const people = new Set();
     for await (const chunk of fileChunks(db, file)) {
-      const at = seen.studentColumn ? chunk.header.indexOf(seen.studentColumn) : -1;
+      if (!way) way = reachOf(chunk.header, chunk.rows, seen.studentColumn, reach);
       const keepCol = chunk.header.map((h) => Boolean(h) && ps.sensitiveOf(h, []) !== "ssn");
-      const part = chunk.rows.map((cells, k) => {
+      const part = [];
+      chunk.rows.forEach((cells, k) => {
         const row = {};
         for (let i = 0; i < chunk.header.length; i += 1) if (keepCol[i] && cells[i] !== "" && cells[i] != null) row[chunk.header[i]] = clean(cells[i], 4000);
-        const student = at >= 0 ? clean(cells[at], 120) || null : null;
-        if (student && studentIds.has(student)) students += 1;
-        if (student && feature === "graduates") graduateIds.add(student);
-        return { sourceId: hashId(file.file_id, file.file_name, chunk.offset + k), line: chunk.offset + k + 2, data: { list: seen.label, restricted: seen.restricted, details: seen.details, student_source_id: student, row, ...(feature ? { feature } : {}) }, extra: {}, archive: {}, issues: [] };
+        // Every student the row is about (a family's list: each child); a number that's no
+        // current student's (a graduate's, a former student's) is kept with it as it is.
+        const who = way.studentsOf(cells);
+        if (who.length) students += 1;
+        for (const id of who) people.add(id);
+        const raw = way.kind === "student" && way.column >= 0 ? clean(cells[way.column], 120) || null : null;
+        (who.length ? who : [raw]).forEach((student, n) => {
+          if (student && feature === "graduates") graduateIds.add(student);
+          part.push({ sourceId: hashId(file.file_id, file.file_name, chunk.offset + k, n ? student : ""), line: chunk.offset + k + 2,
+            data: { list: seen.label, restricted: seen.restricted, details: seen.details, student_source_id: student, ...(way.kind === "parent" || way.kind === "family" ? { via: way.kind } : {}), row, ...(feature ? { feature } : {}) }, extra: {}, archive: {}, issues: [] });
+        });
       });
       for (let i = 0; i < part.length; i += BATCH) { await write("other", part.slice(i, i + BATCH)); await tick(); }
-      rows += part.length;
+      rows += chunk.rows.length;
+      otherStaged += part.length; // a family's row is kept on each of its children
       written += chunk.rows.length;
       progress({ done: written });
       await tick();
     }
     otherRows += rows;
-    report.lists.push({ name: file.file_name, label: seen.label, rows, restricted: seen.restricted, details: seen.details, perStudent: Boolean(seen.studentColumn), students, feature });
+    const kept = { name: file.file_name, label: seen.label, rows, restricted: seen.restricted, details: seen.details, perStudent: Boolean(way && way.kind !== "none"), via: way ? way.kind : "none",
+      students, people: people.size, feature, columns: (file.header || []).length, header: (file.header || []).slice(0, 60), keyColumn: way && way.column >= 0 ? (file.header || [])[way.column] || null : null, topic: oldForms.topicOf(seen.label) };
+    // Whether Managira suggests the school keeps using it (a form in the Custom editor) or keeps it as history.
+    const idea = oldForms.suggest(kept);
+    report.lists.push({ ...kept, suggest: idea.use, why: idea.why, offered: oldForms.offered(kept) });
   }
+  // At most MAX_FORMS lists are suggested as forms: the ones that reach the most students.
+  const suggested = report.lists.filter((l) => l.suggest === "form").sort((a, b) => (b.people || 0) - (a.people || 0));
+  for (const l of suggested.slice(oldForms.MAX_FORMS)) { l.suggest = "history"; l.why = `Up to ${oldForms.MAX_FORMS} lists become forms`; }
   await db.query("DELETE FROM migration_records WHERE job_id = $1 AND entity = 'other' AND updated_at < $2", [job.job_id, started]);
-  if (otherRows) report.entities.other = { source: otherRows, staged: otherRows };
-  report.documents = await matchDocuments(db, job, new Set([...studentIds, ...graduateIds]));
+  if (otherRows) report.entities.other = { source: otherRows, staged: otherStaged };
+  report.documents = await matchDocuments(db, job, new Set([...studentIds, ...graduateIds]), reach.aliases);
   report.tidied = source.tidied || 0;
   const totals = { ...job.totals, report, source: { credits: round(source.credits), gpa: gpaOf(source.grades), attendance: source.attendanceTotalRows ? source.attendance : source.attendanceDays }, importedAt: new Date().toISOString() };
   await db.query("UPDATE migration_jobs SET totals = $2::jsonb, updated_at = NOW() WHERE job_id = $1", [job.job_id, JSON.stringify(totals)]);
@@ -910,7 +1151,7 @@ const round = (n) => Math.round(n * 100) / 100;
 
 // Each document's student: the school's document index (by its path), else a student number in
 // its folder or file name. The index's type and "confidential" flag win over what the name says.
-async function matchDocuments(db, job, studentIds) {
+async function matchDocuments(db, job, studentIds, aliases = new Map()) {
   const { rows: docs } = await db.query("SELECT document_id, path, file_name, kind, restricted FROM migration_documents WHERE job_id = $1", [job.job_id]);
   if (!docs.length) return { total: 0, matched: 0, restricted: 0 };
   const index = new Map();
@@ -931,12 +1172,16 @@ async function matchDocuments(db, job, studentIds) {
   const kinds = [];
   const restricted = [];
   let matched = 0;
+  // Any of a student's numbers, whatever its case ("documents/YODERADA000/…" or "documents/31000/…").
+  const byToken = new Map();
+  for (const [alias, id] of aliases) byToken.set(String(alias).toLowerCase(), id);
+  for (const id of studentIds) byToken.set(String(id).toLowerCase(), id);
   for (const doc of docs) {
     const path = String(doc.path).toLowerCase();
     let hit = null;
     for (const [key, value] of index) if (path === key || path.endsWith(`/${key}`)) { hit = value; break; }
     let student = hit && hit.student;
-    if (!student) student = path.split(/[^a-z0-9]+/).find((token) => studentIds.has(token)) || null;
+    if (!student) { const token = path.split(/[^a-z0-9]+/).find((t) => byToken.has(t)); student = token ? byToken.get(token) : null; }
     if (student) matched += 1;
     ids.push(doc.document_id);
     students.push(student);
@@ -1346,6 +1591,8 @@ const yearOfDate = (iso) => { const y = Number(iso.slice(0, 4)); return Number(i
 // The school's live tables a go-live writes, each with its key. A rollback deletes the rows it
 // made in this order (whatever points at a row goes first) and puts back the ones it changed.
 const LOADED = {
+  custom_section_entries: ["entry_id"],
+  custom_sections: ["section_id"],
   finance_payments: ["payment_id"],
   finance_bill_assignments: ["assignment_id"],
   finance_bills: ["bill_id"],
@@ -1433,6 +1680,21 @@ async function setOption(db, job, key, value, actor) {
   return { ok: true };
 }
 
+// The lists the school keeps using in Managira (a form each in the Custom editor) and those kept as
+// history, from the ones offered: `shown` are the lists the page offered, `chosen` the ticked ones.
+async function setListUse(db, job, shown, chosen, actor) {
+  const offeredLabels = new Set(((job.totals && job.totals.report && job.totals.report.lists) || []).filter((l) => l.offered).map((l) => l.label));
+  const ticked = new Set((Array.isArray(chosen) ? chosen : [chosen]).filter(Boolean).map(String));
+  const choice = {};
+  for (const label of (Array.isArray(shown) ? shown : [shown]).filter(Boolean).map(String)) if (offeredLabels.has(label)) choice[label] = ticked.has(label) ? "form" : "history";
+  if (!Object.keys(choice).length) return { error: "Choose the lists to keep using." };
+  if (Object.values(choice).filter((v) => v === "form").length > oldForms.MAX_FORMS) return { error: `Up to ${oldForms.MAX_FORMS} lists can become forms.` };
+  await db.query("UPDATE migration_jobs SET options = jsonb_set(COALESCE(options, '{}'::jsonb), '{lists}', COALESCE(options->'lists', '{}'::jsonb) || $2::jsonb), updated_at = NOW() WHERE job_id = $1", [job.job_id, JSON.stringify(choice)]);
+  job.options = { ...(job.options || {}), lists: { ...((job.options || {}).lists || {}), ...choice } };
+  await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "lists_chosen", detail: { forms: Object.values(choice).filter((v) => v === "form").length, history: Object.values(choice).filter((v) => v === "history").length } });
+  return { ok: true, forms: Object.values(choice).filter((v) => v === "form").length };
+}
+
 async function setCustomFields(db, job, chosen, actor, homes = {}) {
   const ticked = new Set(chosen.map(Number));
   const sections = require("./studentFormFields").SECTIONS;
@@ -1468,7 +1730,11 @@ function fieldTypeOf(samples) {
 function fieldValueAs(type, value) {
   const text = clean(value, 4000);
   if (!text) return null;
-  if (type === "yes_no") return /^(1|y|yes|true)$/i.test(text) ? "yes" : "no";
+  // A status as well as a yes / no: "Active EL" is yes; "Not EL", "Exited", "Monitored" no.
+  if (type === "yes_no") {
+    if (/^(0|n|no|false|none|not\b|never|non[- ]|ineligible|exited|former|monitor|rfep|declined|waived|inactive)/i.test(text)) return "no";
+    return /^(1|y|yes|true|active|current|identified|eligible|qualif|enrolled|served|participat)/i.test(text) || /\b(active|current)\b/i.test(text) ? "yes" : "no";
+  }
   if (type === "date") { const iso = isoDate(text); return iso && iso !== "invalid" ? iso : text; }
   return text;
 }
@@ -1667,7 +1933,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     courses: 0, credits: 0, gpa: null, attendanceTerms: 0, attendance: { present: 0, absent: 0, excused: 0, tardy: 0 }, customValues: 0, extras: 0, alerts: 0, archives: 0,
     // Records Managira already had: kept, with only empty fields filled in; differences kept as Managira had them.
     matched: 0, guardiansMatched: 0, staffMatched: 0, filled: 0, keptValues: 0, kept: [], studentsWaiting: 0, lists: 0, listRows: 0, listRowsUnmatched: 0, documents: 0,
-    customFieldsMade: 0, customFieldsSkipped: 0, detailsUnmatched: 0, medicalAlerts: 0,
+    customFieldsMade: 0, customFieldsSkipped: 0, detailsUnmatched: 0, medicalAlerts: 0, forms: 0, formEntries: 0, formsSkipped: 0,
   };
   const noteKept = (who, kept) => {
     counts.keptValues += kept.length;
@@ -2003,6 +2269,11 @@ async function loadLive(db, job, actor, progress = quiet) {
         loaded[slot] = value;
         counts.customValues += 1;
       }
+      // A yes / no field filled from a status ("Monitored", "Exited 2025"): the status as it was, beside it.
+      for (const [label, raw] of Object.entries(d.customNew || {})) {
+        const fieldId = fieldByName.get(String(label).toLowerCase());
+        if (fieldId && fieldTypes.get(fieldId) === "yes_no" && !/^(1|0|y|n|yes|no|true|false)$/i.test(clean(raw, 60))) await extraOn("student", id, `${label} (as in your old system)`, { value: clean(raw, 400) });
+      }
       await link("students", s.source_id, id, loaded);
       const extras = { ...s.extra };
       if (d.middle_name) extras["Middle name"] = { value: d.middle_name };
@@ -2058,12 +2329,18 @@ async function loadLive(db, job, actor, progress = quiet) {
     for (const g of parentRecords) {
       if (++parentsDone % 100 === 0) progress({ done: parentsDone });
       const studentId = await studentOf(g.data.student_source_id);
-      if (!studentId) continue;
       let [first, last] = [clean(g.data.first_name, 100), clean(g.data.last_name, 100)];
       if (!first && g.data.full_name) [first, last] = splitName(g.data.full_name);
-      if (!first) continue;
       const email = clean(g.data.email, 200).toLowerCase() || null;
-      const parentValues = { first_name: first, last_name: last || null, email, phone: clean(g.data.phone, 40) || null };
+      const place = [clean(g.data.city, 80), [clean(g.data.state, 20), clean(g.data.zip, 20)].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+      const address = [clean(g.data.address, 200), place].filter(Boolean).join(", ") || null;
+      if (!studentId) {
+        // A parent no list links to a child: kept with the school's records, never lost.
+        if (g.data.unlinked && first) keep(null, "Parents not linked to a student", [{ Name: [first, last].filter(Boolean).join(" "), Email: email || "", Phone: clean(g.data.phone, 40), Address: address || "", ...flat(g.archive) }]);
+        continue;
+      }
+      if (!first) continue;
+      const parentValues = { first_name: first, last_name: last || null, email, phone: clean(g.data.phone, 40) || null, address };
       // The same parent: one already loaded with this email, the one this migration linked before,
       // one with this email in the school, or one of the same name already on this child.
       let id = (email && byEmail.get(email)) || (g.data.contact_id && byContact.get(String(g.data.contact_id))) || null;
@@ -2082,7 +2359,7 @@ async function loadLive(db, job, actor, progress = quiet) {
       }
       if (id && !again) {
         const mine = ledger.mine("guardian_profiles", { guardian_id: id });
-        const { rows: [live] } = await q("SELECT first_name, last_name, email, phone FROM guardian_profiles WHERE guardian_id = $1", [id]);
+        const { rows: [live] } = await q("SELECT first_name, last_name, email, phone, address FROM guardian_profiles WHERE guardian_id = $1", [id]);
         const plan = mergePlan(live, parentValues, loaded || {});
         const fields = Object.keys(plan.set);
         if (fields.length) {
@@ -2095,8 +2372,8 @@ async function loadLive(db, job, actor, progress = quiet) {
       }
       if (!id) {
         ({ rows: [{ guardian_id: id }] } = await q(
-          "INSERT INTO guardian_profiles (organization_id, first_name, last_name, email, phone, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING guardian_id",
-          [org, first, last || null, email, parentValues.phone]
+          "INSERT INTO guardian_profiles (organization_id, first_name, last_name, email, phone, address, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING guardian_id",
+          [org, first, last || null, email, parentValues.phone, address]
         ));
         ledger.made("guardian_profiles", { guardian_id: id });
         loaded = written(parentValues);
@@ -2338,6 +2615,8 @@ async function loadLive(db, job, actor, progress = quiet) {
       )).rows;
       const totals = new Map();
       const days = new Map();
+      const codes = (job.totals && job.totals.report && job.totals.report.attendanceCodes) || null;
+      const counted = new Map(); // each student's day once, however many period rows it has
       let attendanceDone = 0;
       for await (const page of pages("attendance")) {
       attendanceDone += page.length;
@@ -2356,7 +2635,7 @@ async function loadLive(db, job, actor, progress = quiet) {
           const t = terms.find((x) => iso >= x.starts && iso <= x.ends);
           if (t) { termId = t.term_id; year = t.year_label || yearOfDate(iso); label = t.term_name; } else year = yearOfDate(iso);
           if (!days.has(studentId)) days.set(studentId, []);
-          days.get(studentId).push({ Date: iso, Code: d.code || "", Meaning: ps.attendanceKind(d.code, d.present) || (hasTotals ? "as recorded" : "not known (counted absent)"), ...flat(r.archive) });
+          days.get(studentId).push({ Date: iso, ...(d.period ? { Period: d.period } : {}), Code: d.code || "", Meaning: ps.attendanceKind(d.code, d.present, codes) || (hasTotals ? "as recorded" : "not known (counted absent)"), ...flat(r.archive) });
           if (hasTotals) continue; // the school's own totals are the count
         } else {
           year = clean(d.school_year, 20) || ps.schoolYearOfTermId(d.term_id) || "";
@@ -2369,7 +2648,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         if (!totals.has(key)) totals.set(key, { studentId, termId, year, label, present: 0, absent: 0, excused: 0, tardy: 0 });
         const total = totals.get(key);
         if (!total.termId && termId) total.termId = termId;
-        addAttendance(total, d);
+        addAttendance(total, d, { codes, days: counted });
       }
       }
       await q("DELETE FROM student_attendance_totals WHERE organization_id = $1 AND job_id = $2", [org, job.job_id]);
@@ -2459,6 +2738,11 @@ async function loadLive(db, job, actor, progress = quiet) {
     // Other lists, documents and what loads into features come with the "Archive" area; the safety
     // alerts in them (do not release, medical) come with the students whatever is approved.
     const keepLists = approved("archive");
+    // Lists the school keeps using: a form each (when the Custom editor is there for it).
+    const cf = require("./customForms");
+    const formsReady = keepLists && cf.featureOn(org) && (await cf.ready(client));
+    const formLists = new Map();
+    if (formsReady) for (const l of ((job.totals && job.totals.report && job.totals.report.lists) || [])) if (oldForms.useOf(job, l) === "form") formLists.set(l.label, { list: l, rows: [] });
     const listTotal = await countOf("other");
     const byFeature = {}; // rows of the lists that load into a feature, gathered as they're read
     progress({ step: "Keeping your other lists read-only", done: 0, total: listTotal });
@@ -2500,6 +2784,7 @@ async function loadLive(db, job, actor, progress = quiet) {
           counts.medicalAlerts += 1;
         }
         if (!keepLists) continue;
+        if (studentId && formLists.has(d.list)) { formLists.get(d.list).rows.push({ studentId, sourceId: String(d.student_source_id), row: d.row || {} }); continue; }
         if (studentId) keep(studentId, d.list, [d.row], d.restricted);
         else { keep(null, d.list, [d.row], d.restricted); if (d.student_source_id) counts.listRowsUnmatched += 1; }
       }
@@ -2545,6 +2830,84 @@ async function loadLive(db, job, actor, progress = quiet) {
         await q(`UPDATE guardian_profiles SET ${fields.map((f, i) => `${f} = $${i + 2}`).join(", ")}, updated_at = NOW() WHERE guardian_id = $1`, [id, ...fields.map((f) => plan.set[f])]);
         counts.parentDetails += 1;
       }
+    }
+    // Each list the school keeps using: a section of the Custom editor ("From your old system"),
+    // every old row an entry on its student, dated by the row. Applying again adds only rows it
+    // hasn't brought before (migration_links), never a second section; a section the school has
+    // since removed isn't made again (its rows are kept read-only instead).
+    if (formLists.size) {
+      progress({ step: "Making the lists you keep using into forms", done: 0, total: formLists.size });
+      const terms = (await q("SELECT term_id, school_year_id, to_char(start_date, 'YYYY-MM-DD') AS s, to_char(end_date, 'YYYY-MM-DD') AS e FROM terms WHERE organization_id = $1 AND start_date IS NOT NULL AND end_date IS NOT NULL", [org])).rows;
+      const periodOf = (day) => { const t = terms.find((x) => day >= x.s && day <= x.e); return t ? [Number(t.term_id), Number(t.school_year_id)] : [null, null]; };
+      const today = new Date().toISOString().slice(0, 10);
+      const { rows: [{ seq }] } = await q("SELECT pg_get_serial_sequence('custom_section_entries', 'entry_id') AS seq");
+      let done = 0;
+      for (const { list, rows } of formLists.values()) {
+        progress({ done: ++done });
+        if (!rows.length) continue;
+        const asHistory = () => { for (const r of rows) keep(r.studentId, list.label, [r.row], list.restricted); };
+        const linked = await linkOf("form", list.label);
+        let section = null;
+        if (linked) {
+          section = await cf.getSection(client, org, Number(linked.managira_id));
+          if (!section) { asHistory(); continue; }
+        } else {
+          const { section: draft, dateField, secret } = oldForms.sectionFor(list, rows.map((r) => r.row), { isoDate, normalizeSection: cf.normalizeSection, today });
+          // Codes, PINs and ID numbers never show on a form: the rows as exported stay, restricted.
+          if (secret.length) for (const r of rows) keep(r.studentId, list.label, [r.row], true);
+          draft.origin.dateField = dateField;
+          const saved = counts.forms < oldForms.MAX_FORMS ? await cf.saveSection(client, org, draft, null) : null;
+          if (!saved || saved.error) { counts.formsSkipped += 1; asHistory(); continue; }
+          section = saved.section;
+          ledger.made("custom_sections", { section_id: section.id });
+          await link("form", list.label, section.id);
+          counts.forms += 1;
+        }
+        const dateField = section.origin && section.origin.dateField;
+        const { rows: had } = await q("SELECT source_id FROM migration_links WHERE organization_id = $1 AND entity = 'form_entry' AND source_system = $2 AND source_id LIKE $3",
+          [org, system, `${list.label.replace(/[\\%_]/g, "\\$&")}|%`]);
+        const already = new Set(had.map((r) => r.source_id));
+        const nth = new Map();
+        const fresh = [];
+        for (const r of rows) {
+          const same = `${r.sourceId}|${JSON.stringify(r.row)}`;
+          nth.set(same, (nth.get(same) || 0) + 1);
+          const key = `${list.label}|${oldForms.rowKey(r.sourceId, r.row, nth.get(same))}`;
+          if (already.has(key)) continue;
+          const data = oldForms.entryFor(section, r.row, isoDate);
+          if (!Object.keys(data).length) continue;
+          const day = (dateField && data[dateField]) || today;
+          const [termId, yearId] = periodOf(day);
+          fresh.push({ key, studentId: r.studentId, data, day, termId, yearId });
+        }
+        for (let at = 0; at < fresh.length; at += 2000) {
+          const part = fresh.slice(at, at + 2000);
+          const { rows: ids } = await q("SELECT nextval($1::regclass)::int AS id FROM generate_series(1, $2)", [seq, part.length]);
+          const entryIds = ids.map((r) => r.id);
+          await q(
+            `INSERT INTO custom_section_entries (entry_id, organization_id, section_id, student_id, data, saved_by_type, saved_by_name, term_id, school_year_id, entry_date, created_at, updated_at)
+             SELECT x.i, $1, $2, x.s, x.d, 'staff', $3, x.t, x.y, x.e, x.e::timestamptz + INTERVAL '12 hours', x.e::timestamptz + INTERVAL '12 hours'
+               FROM unnest($4::int[], $5::int[], $6::jsonb[], $7::int[], $8::int[], $9::date[]) AS x(i, s, d, t, y, e)`,
+            [org, section.id, oldForms.SOURCE_NAME, entryIds, part.map((f) => f.studentId), part.map((f) => JSON.stringify(f.data)), part.map((f) => f.termId), part.map((f) => f.yearId), part.map((f) => f.day)]
+          );
+          for (const id of entryIds) ledger.made("custom_section_entries", { entry_id: id });
+          await q(
+            `INSERT INTO migration_links (organization_id, entity, source_system, source_id, managira_id, job_id)
+             SELECT $1, 'form_entry', $2, x.k, x.i, $3 FROM unnest($4::text[], $5::int[]) AS x(k, i) ON CONFLICT DO NOTHING`,
+            [org, system, job.job_id, part.map((f) => f.key), entryIds]
+          );
+          counts.formEntries += part.length;
+          await tick();
+        }
+        // A form it just made shows in the classes of the students it holds (a teacher sees only the
+        // lists their class has; the school can open it to every class in the Custom editor).
+        if (!linked) {
+          const { rows: cls } = await q("SELECT DISTINCT class_id FROM students WHERE organization_id = $1 AND student_id = ANY($2::int[]) AND class_id IS NOT NULL", [org, [...new Set(rows.map((r) => r.studentId))]]);
+          const { rows: [{ n: classCount }] } = await q("SELECT COUNT(*)::int AS n FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL", [org]);
+          if (cls.length && cls.length < classCount && cls.length <= 500) await q("UPDATE custom_sections SET class_ids = $2::int[] WHERE section_id = $1 AND organization_id = $3", [section.id, cls.map((c) => Number(c.class_id)), org]);
+        }
+      }
+      cf.forget(org);
     }
     progress({ step: "Loading buses, routes and riders", done: 0, total: 0 });
     await loadFeatures.loadTransport(featureCtx, byFeature);
@@ -2617,6 +2980,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     progress({ step: "Finishing", done: 0, total: 0 });
     await ledger.save();
     await client.query("COMMIT");
+    require("./customForms").forget(org); // the forms it made show at once
     for (const userId of touched) invalidateUserPermissionCache(org, userId);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -2794,7 +3158,8 @@ async function rollbackPreview(db, job) {
     const [ownShares, ownPayments] = [await idsOf("finance_bill_assignments", "assignment_id"), await idsOf("finance_payments", "payment_id")];
     since.bills = await count("SELECT COUNT(*) AS n FROM finance_bill_assignments WHERE student_id = ANY($1::int[]) AND NOT (assignment_id = ANY($2::int[]))", [students, ownShares]);
     since.payments = await count("SELECT COUNT(*) AS n FROM finance_payments WHERE student_id = ANY($1::int[]) AND NOT (payment_id = ANY($2::int[]))", [students, ownPayments]);
-    since.forms = await count("SELECT COUNT(*) AS n FROM custom_section_entries WHERE student_id = ANY($1::int[])", [students]);
+    // Form answers staff gave since (not the old rows the migration brought into forms).
+    since.forms = await count("SELECT COUNT(*) AS n FROM custom_section_entries WHERE student_id = ANY($1::int[]) AND NOT (entry_id = ANY($2::int[]))", [students, await idsOf("custom_section_entries", "entry_id")]);
     since.studentLogins = await count("SELECT COUNT(*) AS n FROM student_accounts WHERE student_id = ANY($1::int[])", [students]);
   }
   if (parents.length) since.parentLogins = await count("SELECT COUNT(*) AS n FROM guardian_accounts WHERE guardian_id = ANY($1::int[])", [parents]);
@@ -2867,6 +3232,15 @@ async function rollback(db, job, actor) {
               AND NOT EXISTS (SELECT 1 FROM enrolled_students s WHERE s.enrollment_id = e.enrollment_id)`,
           [made.map((k) => k.enrollment_id), org]
         )).rowCount;
+      } else if (table === "custom_sections") {
+        // A form it made goes, unless staff have since added entries for students who stay (entries
+        // on the students it made go with them anyway).
+        const madeStudents = entries.filter((e) => e.created && e.table_name === "students").map((e) => Number(e.row_key.student_id));
+        removed = (await client.query(
+          `DELETE FROM custom_sections s WHERE s.section_id = ANY($1::int[]) AND s.organization_id = $2
+              AND NOT EXISTS (SELECT 1 FROM custom_section_entries e WHERE e.section_id = s.section_id AND NOT (e.student_id = ANY($3::int[])))`,
+          [made.map((k) => k.section_id), org, madeStudents]
+        )).rowCount;
       } else if (table === "school_roles") {
         // A role it made goes, unless the school has since given it to someone.
         removed = (await client.query(
@@ -2874,7 +3248,7 @@ async function rollback(db, job, actor) {
           [made.map((k) => k.role_id), org]
         )).rowCount;
       } else if (keys.length === 1) {
-        const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields", "finance_payments", "finance_bill_assignments", "finance_bills", "finance_student_credits", "transport_student_assignments",
+        const scoped = ["custom_section_entries", "students", "guardian_profiles", "guardians", "student_form_fields", "finance_payments", "finance_bill_assignments", "finance_bills", "finance_student_credits", "transport_student_assignments",
           "transport_bus_schedules", "transport_stops", "transport_drivers", "transport_routes", "transport_buses", "archived_student_info", "graduation_year_groups"].includes(table) ? " AND organization_id = $2" : "";
         removed = (await client.query(`DELETE FROM ${table} WHERE ${keys[0]} = ANY($1::int[])${scoped}`, scoped ? [made.map((k) => k[keys[0]]), org] : [made.map((k) => k[keys[0]])])).rowCount;
       } else {
@@ -3093,9 +3467,9 @@ module.exports = {
   featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
-  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,
+  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, setListUse, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,
   rolesOf, roleReport, confirmRole, roleNotes, resolveRole, approvePerson, gpaCheck, statusesFor, startHub,
   requestMove, withdrawRequest, listRequests, decideRequest, latestRequest, SYSTEMS, TIMINGS, BRING,
-  liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,
+  liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, fieldValueAs, attendanceCodesOf, reachOf, linkPeople, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,
   isoDate, parse, targetLabel: ps.targetLabel,
 };

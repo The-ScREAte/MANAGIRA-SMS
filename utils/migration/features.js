@@ -32,25 +32,30 @@ function featureOf(fileName, header) {
   const has = (...names) => names.some((n) => cols.has(n));
   const name = String(fileName || "").toLowerCase().split(/[›/\\]/).pop();
   // A student's number, as each system names it (Skyward's Other ID, Blackbaud's User ID, Veracross's person_id…).
-  const student = [...cols].some((c) => require("./lists").STUDENT_KEYS.includes(c) || ["otherid", "personid", "userid"].includes(c));
+  const student = [...cols].some((c) => require("./lists").STUDENT_KEYS.includes(c));
+  // How each system names a route, a bus, a stop and its place in the route.
+  const route = has("routeid", "route", "routenumber", "routeno", "routename", "amroute");
+  const bus = has("busnumber", "bus", "busno", "busid", "vehiclenumber", "vehicle");
+  const stop = has("stopid", "stop", "stopnumber", "stopcode", "amstop");
+  const seq = has("sequence", "stopsequence", "stoporder", "seq", "stopseq");
   if (/summary|totals|report_?card/.test(name)) return null; // a summary of a feature isn't its data
   // A log of what happened (scans, services, trips, arrivals) is history: kept read-only.
   const log = [...cols].some((c) => /^(date|event|eventtype|scantime|scandate|servicedate|servicetype|odometer|timestamp|recordedat|arrivaltime|logdate|tripdate|changedate)$/.test(c));
   if (log && !/graduat|alumni/.test(name)) return null;
   if (student && has("graduationyear", "graduationdate") && has("diplomatype", "finalgpaunweighted", "finalgpaweighted", "graduationdate") && has("lastname", "firstname")) return "graduates";
   if (student && /alumni|graduate/.test(name) && has("coursename") && has("lettergrade", "grade", "percent")) return "graduate_transcripts";
-  if (!student && has("runid") && has("routeid")) return "bus_runs";
-  if (!student && has("routeid") && has("stopid") && has("busnumber")) return "bus_routes_stops";
-  if (!student && has("routeid") && has("stopid") && has("sequence", "stopsequence", "stoporder")) return "bus_stops";
-  if (!student && has("routeid") && has("busnumber")) return "bus_routes";
-  if (student && has("alternateaddress", "alternatestopid")) return "bus_alternates";
-  if (student && has("routeid") && has("stopid")) return "bus_riders";
+  if (!student && has("runid") && route) return "bus_runs";
+  if (!student && route && stop && bus) return "bus_routes_stops";
+  if (!student && route && stop && seq) return "bus_stops";
+  if (!student && route && bus && /bus|route|transport|fleet/.test(name)) return "bus_routes";
+  if (student && has("alternateaddress", "alternatestopid") && !/dismissal|emergency|closure|weather/.test(name)) return "bus_alternates";
+  if (student && route && stop) return "bus_riders";
   if (student && has("homeaddress") && has("homelatitude", "homelat") && /transport|eligib|bus/.test(name)) return "bus_homes";
   if (!student && has("cdlnumber", "drivercdl", "licensenumber") && has("name", "drivername") && /driver/.test(name)) return "bus_drivers";
   if (!student && has("busnumber") && has("vin", "licenseplate")) return "bus_fleet";
-  if (student && has("feeid") && has("amount") && !has("paymentid")) return "fees";
+  if (student && has("feeid", "feecode", "feetype") && has("amount", "feeamount") && !has("paymentid")) return "fees";
   if (has("paymentid") && has("feeid") && has("amount")) return "fee_payments";
-  if (student && has("currentbalance") && /meal|cafeteria|lunch|food/.test(name)) return "meal_balances";
+  if (student && has("currentbalance", "balance", "accountbalance", "mealbalance") && /meal|cafeteria|lunch|food/.test(name) && !/transaction|history|notification|iou|claim|(^|_)counts?(_|\.|$)/.test(name)) return "meal_balances";
   if (!student && has("contactid") && has("firstname", "lastname") && has("primaryemail", "email", "mobilephone", "homephone")) return "parents_master";
   return null;
 }
