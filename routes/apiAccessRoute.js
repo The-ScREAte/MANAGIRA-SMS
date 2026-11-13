@@ -94,15 +94,15 @@ router.post("/service-accounts/:id", ...guard, handle(async (req) => ({
 })));
 // Pausing, resuming and revoking a service account each need the person's password.
 router.post("/service-accounts/:id/hold", ...guard, handle(async (req) => {
-  await confirmOwnPassword(req, (req.body || {}).password);
+  await confirmOwnPassword(req, (req.body || {}).password, { purpose: "pause a service account" });
   await api.holdServiceAccount(req, orgOf(req), Number(req.params.id));
 }));
 router.post("/service-accounts/:id/resume", ...guard, handle(async (req) => {
-  await confirmOwnPassword(req, (req.body || {}).password);
+  await confirmOwnPassword(req, (req.body || {}).password, { purpose: "resume a service account" });
   await api.resumeServiceAccount(req, orgOf(req), Number(req.params.id));
 }));
 router.post("/service-accounts/:id/revoke", ...guard, handle(async (req) => {
-  await confirmOwnPassword(req, (req.body || {}).password);
+  await confirmOwnPassword(req, (req.body || {}).password, { purpose: "revoke a service account" });
   await api.revokeServiceAccount(req, orgOf(req), Number(req.params.id));
 }));
 

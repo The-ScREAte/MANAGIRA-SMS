@@ -598,33 +598,22 @@ const GOOGLE_CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.profile.emails",
 ];
 
-async function verifySessionPassword(rawPassword, req) {
-  const password = String(rawPassword || "");
-  if (!password) return false;
-
-  const orgId = Number(req?.session?.organizationId || 0);
-  const userId = Number(req?.session?.userId || 0);
-
-  if (userId && orgId) {
-    const userResult = await db.query(
-      `SELECT password FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
-      [userId, orgId]
-    );
-    if (userResult.rows.length && userResult.rows[0].password) {
-      const matchUser = await bcryptjs.compare(password, userResult.rows[0].password);
-      if (matchUser) return true;
-    }
+// A sensitive action on Settings (an integration switched on or off, the plan cancelled) asks for
+// the signed-in person's own password, never the school's or anyone else's
+// (utils/confirmOwnPassword.js): logged with `purpose`. On a refusal that isn't simply a wrong
+// password (too many tries, an account with no password), req.passwordProblem says so.
+async function verifySessionPassword(rawPassword, req, purpose = "change a setting") {
+  try {
+    await require("../utils/confirmOwnPassword").confirmOwnPassword(req, rawPassword, { purpose });
+    return true;
+  } catch (error) {
+    if (error && error.status && error.status !== 401) req.passwordProblem = error.message;
+    else if (error && !error.status) console.error("[settings] password check:", error.message);
+    return false;
   }
-
-  if (!orgId) return false;
-
-  const orgResult = await db.query(
-    `SELECT password FROM organizations WHERE organization_id = $1 LIMIT 1`,
-    [orgId]
-  );
-  if (!orgResult.rows.length || !orgResult.rows[0].password) return false;
-  return bcryptjs.compare(password, orgResult.rows[0].password);
 }
+// The first words of a refusal: the reason, or that the password was wrong.
+const passwordWord = (req) => (req && req.passwordProblem) || "Incorrect password.";
 // Invalidate the /admin dashboard organizations cache so newly-registered
 // organizations become visible immediately (mirrors adminController’s behavior
 // on edit/approve actions; registration previously never busted this cache).
@@ -2321,14 +2310,14 @@ function buildExternalNavActivationHandler(provider, label) {
         });
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn ${label} ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         return respond(401, {
           success: false,
           activated: !shouldActivate,
           message: shouldActivate
-            ? `Incorrect password. ${label} was not activated.`
-            : `Incorrect password. ${label} was not deactivated.`,
+            ? `${passwordWord(req)} ${label} was not activated.`
+            : `${passwordWord(req)} ${label} was not deactivated.`,
         });
       }
 
@@ -5270,105 +5259,35 @@ const accountController = {
     });
   },
 
+  // Billing & Plan (a payment method, the plan, cancelling): the signed-in person's own password,
+  // never the school's or the main manager's. Logged in the activity log.
   confirmPasswordPost: async (req, res) => {
     const { password, redirectUrl } = req.body;
-
-    const orgId = req.session.organizationId;
-
+    // A page of this site only ("cancel-subscription" is /account/cancel-subscription, as before).
+    const asked = String(redirectUrl || "").trim();
+    const back = localPath(/^[a-z0-9-]+$/i.test(asked) ? `/account/${asked}` : asked, "/account/update-card");
     try {
-      const result = await db.query(
-        "SELECT password FROM organizations WHERE organization_id = $1",
-
-        [orgId]
-      );
-
-      if (result.rows.length === 0) {
-        req.flash("error", "Organization not found. Please log in again.");
-
-        return res.redirect("/account/login");
-      }
-
-      const storedHashedPassword = result.rows[0].password;
-
-      const match = await bcryptjs.compare(password, storedHashedPassword);
-
-      if (!match) {
-        req.flash("error", "Incorrect password. Please try again.");
-
-        return res.redirect(
-          `/account/confirm-password?redirect=${encodeURIComponent(
-            redirectUrl
-          )}`
-        );
-      }
-
-      // ✅ Set password verification flag
-
+      await require("../utils/confirmOwnPassword").confirmOwnPassword(req, password, { purpose: "manage billing and the plan" });
       req.session.passwordVerified = true;
-
-      await req.session.save();
-
-      // ✅ Redirect user to their intended page (Update Card Page)
-
-      return res.redirect(redirectUrl || "/account/update-card");
+      await new Promise((done) => req.session.save(() => done()));
+      return res.redirect(back);
     } catch (error) {
-            req.flash("error", "An unexpected error occurred. Please try again.");
-
-      return res.redirect(
-        `/account/confirm-password?redirect=${encodeURIComponent(redirectUrl)}`
-      );
+      if (error && error.status === 401 && /Sign in/.test(error.message)) { req.flash("error", error.message); return res.redirect("/account/login"); }
+      if (error && !error.status) console.error("[settings] confirm password:", error.message);
+      req.flash("error", error && error.status ? error.message : "An unexpected error occurred. Please try again.");
+      return res.redirect(`/account/confirm-password?redirect=${encodeURIComponent(back)}`);
     }
   },
 
   confirmPasswordJson: async (req, res) => {
-    const { password } = req.body;
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password is required.',
-      });
-    }
-    const orgId = req.session.organizationId;
-
     try {
-      if (!orgId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Organization not found. Please log in again.',
-        });
-      }
-
-      const result = await db.query(
-        'SELECT password FROM organizations WHERE organization_id = $1',
-        [orgId]
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Organization not found. Please log in again.',
-        });
-      }
-
-      const storedHashedPassword = result.rows[0].password;
-      const match = await bcryptjs.compare(password, storedHashedPassword);
-
-      if (!match) {
-        return res.status(401).json({
-          success: false,
-          message: 'Incorrect password. Please try again.',
-        });
-      }
-
+      await require("../utils/confirmOwnPassword").confirmOwnPassword(req, (req.body || {}).password, { purpose: "manage billing and the plan" });
       req.session.passwordVerified = true;
-      await req.session.save();
-
+      await new Promise((done) => req.session.save(() => done()));
       return res.json({ success: true });
     } catch (error) {
-            return res.status(500).json({
-        success: false,
-        message: 'An unexpected error occurred. Please try again.',
-      });
+      if (error && !error.status) console.error("[settings] confirm password:", error.message);
+      return res.status(error && error.status ? error.status : 500).json({ success: false, message: error && error.status ? error.message : "An unexpected error occurred. Please try again." });
     }
   },
 
@@ -9901,9 +9820,9 @@ const accountController = {
       // The form asks for the school's name and the person's password: both are checked here,
       // so one stray or forged request can't put a school on hold.
       const sameName = String(orgName || "").trim().toLowerCase() === String(organization_name || "").trim().toLowerCase();
-      if (!sameName || !(await verifySessionPassword(password, req))) {
+      if (!sameName || !(await verifySessionPassword(password, req, "cancel the subscription"))) {
         req.flash("error", sameName
-          ? "Incorrect password. Your subscription was not cancelled."
+          ? `${passwordWord(req)} Your subscription was not cancelled.`
           : "The organization name doesn't match. Your subscription was not cancelled.");
         return res.redirect("/account/cancel-subscription");
       }
@@ -11656,13 +11575,13 @@ const accountController = {
         return res.redirect("/account/settings?section=integrations");
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn Google Classroom ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         req.flash(
           "error",
           shouldActivate
-            ? "Incorrect password. Google Classroom integration was not activated."
-            : "Incorrect password. Google Classroom integration was not deactivated."
+            ? `${passwordWord(req)} Google Classroom integration was not activated.`
+            : `${passwordWord(req)} Google Classroom integration was not deactivated.`
         );
         return res.redirect("/account/settings?section=integrations");
       }
@@ -11723,14 +11642,14 @@ const accountController = {
         });
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn WhatsApp ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         return respond(401, {
           success: false,
           activated: !shouldActivate,
           message: shouldActivate
-            ? "Incorrect password. WhatsApp integration was not activated."
-            : "Incorrect password. WhatsApp integration was not deactivated.",
+            ? `${passwordWord(req)} WhatsApp integration was not activated.`
+            : `${passwordWord(req)} WhatsApp integration was not deactivated.`,
         });
       }
 
@@ -12128,13 +12047,13 @@ const accountController = {
         });
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn ${providerLabel} ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         return respond(401, {
           success: false,
           message: shouldActivate
-            ? `Incorrect password. ${providerLabel} was not activated.`
-            : `Incorrect password. ${providerLabel} was not deactivated.`,
+            ? `${passwordWord(req)} ${providerLabel} was not activated.`
+            : `${passwordWord(req)} ${providerLabel} was not deactivated.`,
         });
       }
 
@@ -12413,14 +12332,14 @@ const accountController = {
         });
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn the student portal ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         return respond(401, {
           success: false,
           activated: !shouldActivate,
           message: shouldActivate
-            ? "Incorrect password. Student Portal integration was not activated."
-            : "Incorrect password. Student Portal integration was not deactivated.",
+            ? `${passwordWord(req)} Student Portal integration was not activated.`
+            : `${passwordWord(req)} Student Portal integration was not deactivated.`,
         });
       }
 
@@ -12463,8 +12382,8 @@ const accountController = {
       if (!password.trim()) {
         return respond(400, { success: false, activated: !shouldActivate, message: `Enter your password to ${shouldActivate ? "turn on" : "turn off"} the parent portal.` });
       }
-      if (!(await verifySessionPassword(password, req))) {
-        return respond(401, { success: false, activated: !shouldActivate, message: "Incorrect password. Nothing was changed." });
+      if (!(await verifySessionPassword(password, req, `turn the parent portal ${shouldActivate ? "on" : "off"}`))) {
+        return respond(401, { success: false, activated: !shouldActivate, message: `${passwordWord(req)} Nothing was changed.` });
       }
       await require("../utils/guardianPortalAccess").setParentPortalActivation(db, orgId, shouldActivate);
       logIntegrationActivation(req, "Parent Portal", shouldActivate);
@@ -12519,14 +12438,14 @@ const accountController = {
         });
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn Mira ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         return respond(401, {
           success: false,
           activated: !shouldActivate,
           message: shouldActivate
-            ? "Incorrect password. Mira integration was not activated."
-            : "Incorrect password. Mira integration was not deactivated.",
+            ? `${passwordWord(req)} Mira integration was not activated.`
+            : `${passwordWord(req)} Mira integration was not deactivated.`,
         });
       }
 
@@ -12834,14 +12753,14 @@ const accountController = {
         });
       }
 
-      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn Transportation ${shouldActivate ? "on" : "off"}`);
       if (!isPasswordValid) {
         return respond(401, {
           success: false,
           activated: !shouldActivate,
           message: shouldActivate
-            ? "Incorrect password. Transportation integration was not activated."
-            : "Incorrect password. Transportation integration was not deactivated.",
+            ? `${passwordWord(req)} Transportation integration was not activated.`
+            : `${passwordWord(req)} Transportation integration was not deactivated.`,
         });
       }
 
