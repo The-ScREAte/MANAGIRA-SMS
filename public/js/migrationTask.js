@@ -15,6 +15,16 @@
 
   function init(root) {
   var gen = ++generation;
+  // A Save button is greyed until something in its form changes (and again once saved).
+  root.querySelectorAll("form[method=POST], form[method=post]").forEach(function (form) {
+    if (form.matches("[data-upload]")) return;
+    var button = Array.prototype.find.call(form.querySelectorAll("button[type=submit], button:not([type])"), function (b) { return b.textContent.trim() === "Save"; });
+    if (!button) return;
+    button.disabled = true;
+    var wake = function () { button.disabled = false; };
+    form.addEventListener("input", wake);
+    form.addEventListener("change", wake);
+  });
   // ── The task card ──
   var card = root.querySelector("[data-task]");
   var lockForms = function (on) {

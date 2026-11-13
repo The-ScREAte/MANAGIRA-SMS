@@ -10,7 +10,7 @@
     { step: 'roles', done: !_has(/role|Staff roles/i).length, text: 'Staff roles are settled', todo: _has(/role|Staff roles/i).join(' ') },
     { step: 'review', done: !_has(/already in Managira/).length, text: 'Students who may already be in Managira are answered', todo: _has(/already in Managira/)[0] },
     { step: null, done: !_has(/school year/).length, text: 'Your current school year and term are set', todo: _has(/school year/)[0] },
-    { step: 'review', done: !_has(/^Approve: /).length, text: 'Every area is approved', todo: _has(/^Approve: /)[0] },
+    { step: 'review', done: !_has(/^Approve at least/).length, text: 'The areas to load are approved', todo: _has(/^Approve at least/)[0] },
     { step: 'review', done: Boolean(job.signed_at), text: job.signed_at ? 'The migration summary is signed by ' + job.signed_name : 'The migration summary is signed', todo: 'Sign it in Review & sign.' },
   ];
   const _left = _items.filter((i) => !i.done).length;

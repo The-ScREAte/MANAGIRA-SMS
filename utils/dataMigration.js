@@ -64,7 +64,7 @@ const BATCH = 2000; // rows written to the database per statement
 const MAX_ROWS = 200000;
 const KEEP_DAYS = 30;
 const SECTIONS = ["students", "guardians", "staff", "roles", "classes", "enrollments", "grades", "attendance", "custom_fields", "archive"];
-const SECTION_LABELS = { students: "Students", guardians: "Parents & guardians", staff: "Staff accounts", roles: "Staff roles (the role report)", classes: "Sections & teachers", enrollments: "Class enrollments", grades: "Final grades", attendance: "Attendance", custom_fields: "Custom and extra fields", archive: "Archive" };
+const SECTION_LABELS = { students: "Students", guardians: "Parents & guardians", staff: "Staff accounts", roles: "Staff roles (the role report)", classes: "Sections & teachers", enrollments: "Class enrollments", grades: "Final grades", attendance: "Attendance", custom_fields: "Student fields", archive: "Other lists, documents, buses and fees" };
 const ACTIONS = ["map", "custom", "extra", "archive", "exclude", "alert"];
 const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs", demographics: "Race and ethnicity" };
 // Whole modules Managira doesn't run yet: their columns are kept read-only per student.
@@ -1224,10 +1224,41 @@ async function approveSection(db, job, section, on, actor) {
   if (!SECTIONS.includes(section)) return { error: "Unknown area." };
   const approvals = { ...(job.approvals || {}) };
   if (on) approvals[section] = { by: actor, at: new Date().toISOString() }; else delete approvals[section];
-  await db.query("UPDATE migration_jobs SET approvals = $2::jsonb, signed_at = NULL, signed_name = NULL, updated_at = NOW() WHERE job_id = $1", [job.job_id, JSON.stringify(approvals)]);
+  const keepsSignature = job.status === "live";
+  await db.query(`UPDATE migration_jobs SET approvals = $2::jsonb${keepsSignature ? "" : ", signed_at = NULL, signed_name = NULL"}, updated_at = NOW() WHERE job_id = $1`, [job.job_id, JSON.stringify(approvals)]);
   job.approvals = approvals;
   await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: on ? "section_approved" : "section_unapproved", detail: { section } });
   return { ok: true };
+}
+
+// Where the school is, step by step (the steps bar): one small read. A step is done when nothing
+// in it waits for the school; the next one opens then.
+const STEP_ORDER = ["upload", "map", "notes", "check", "roles", "review", "live"];
+async function stepProgress(db, job, { anyFiles = false, task = null } = {}) {
+  const { rows: [c] } = await db.query(
+    `SELECT (SELECT COUNT(*) FROM migration_columns WHERE job_id = $1 AND confidence = 'unsure' AND NOT confirmed AND action IS NULL)::int AS unsure,
+            (SELECT COUNT(*) FROM migration_columns WHERE job_id = $1 AND action IS NULL AND (confidence = 'none' OR (confirmed AND target IS NULL)) AND notes IS NULL)::int AS notes,
+            (SELECT COUNT(*) FROM migration_columns WHERE job_id = $1 AND action = 'exclude' AND exclude_approved_at IS NULL)::int AS approvals,
+            (SELECT COUNT(*) FROM migration_roles WHERE job_id = $1 AND ((confidence = 'unsure' AND NOT confirmed) OR (target IS NULL AND notes IS NULL)))::int AS roles,
+            (SELECT COUNT(*) FROM migration_files WHERE job_id = $1 AND replaced_at IS NULL AND content IS NOT NULL AND entity = 'staff')::int AS staff,
+            (SELECT MAX(uploaded_at) FROM migration_files WHERE job_id = $1 AND replaced_at IS NULL AND content IS NOT NULL) AS last_file`,
+    [job.job_id]
+  );
+  const busy = (kind) => Boolean(task && task.open && task.kind === kind);
+  const importedAt = job.totals && job.totals.importedAt ? new Date(job.totals.importedAt) : null;
+  const done = {};
+  done.upload = Boolean(anyFiles) && !busy("read_files");
+  done.map = done.upload && c.unsure === 0;
+  done.notes = done.map && c.notes === 0 && c.approvals === 0;
+  // Imported with the latest files (errors still to fix are listed there and stop signing on Review).
+  done.check = done.notes && Boolean(importedAt) && !busy("import") && !(c.last_file && importedAt < new Date(c.last_file));
+  done.roles = done.check && (c.staff === 0 || c.roles === 0);
+  done.review = done.roles && Boolean(job.signed_at);
+  done.live = job.status === "live";
+  const open = {};
+  STEP_ORDER.forEach((step, i) => { open[step] = job.status === "live" || i === 0 || done[STEP_ORDER[i - 1]] || done[step]; });
+  const next = STEP_ORDER.find((step) => !done[step]) || "live";
+  return { done, open, next };
 }
 
 // What still stops go-live, in words.
@@ -1259,8 +1290,8 @@ async function blockers(db, job) {
   if (present.has("students") && !(await db.query("SELECT 1 FROM terms WHERE organization_id = $1 AND current = TRUE LIMIT 1", [job.organization_id])).rowCount) {
     out.push("Set up your current school year and term (Management › School years), so the students can be enrolled in it.");
   }
-  const missing = needed.filter((s) => !(job.approvals || {})[s]);
-  if (missing.length) out.push(`Approve: ${missing.map((s) => SECTION_LABELS[s]).join(", ")}.`);
+  // Only the areas approved go to the live account (more can be approved and applied later).
+  if (needed.length && !needed.some((s) => (job.approvals || {})[s])) out.push("Approve at least one area to load (Review & sign).");
   return { list: out, needed, columns };
 }
 
@@ -1624,6 +1655,7 @@ async function decideMatch(db, job, body, actor) {
 }
 
 async function loadLive(db, job, actor, progress = quiet) {
+  const approved = (area) => Boolean((job.approvals || {})[area]);
   await require("./studentFormFields").ensureStudentFormFieldsSchema(db).catch(() => {}); // outside the go-live's transaction
   await require("./studentArchive").ensureStudentArchiveSchema(db).catch(() => {}); // graduates
   await require("./transportation").ensureTransportationSchema(db).catch(() => {}); // buses, routes, riders
@@ -1738,7 +1770,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // A new account is on hold (it can't sign in) until the school invites them. An account the
     // school already had keeps its access. Inactive staff get no account: only their history.
     const staffIds = new Map();
-    const staffRows = await records("staff");
+    const staffRows = approved("staff") && approved("roles") ? await records("staff") : [];
     const roleByOld = new Map((await q("SELECT * FROM migration_roles WHERE job_id = $1", [job.job_id])).rows.map((r) => [r.old_role, r]));
     const history = [];
     const touched = new Set();
@@ -1908,7 +1940,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // except what the school changed since. Someone the school hasn't answered about waits.
     const studentIds = new Map();
     const studentClass = new Map();
-    const staged = await records("students");
+    const staged = approved("students") ? await records("students") : [];
     const found = await studentMatches(client, job, staged);
     const sameAsFile = [];
     let loadedStudents = 0;
@@ -2020,7 +2052,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // Parents: one profile per person (the same email is the same parent), linked to each child.
     const byEmail = new Map();
     const byContact = new Map();
-    const parentRecords = await records("guardians");
+    const parentRecords = approved("guardians") ? await records("guardians") : [];
     progress({ step: "Linking parents to their children", done: 0, total: parentRecords.length });
     let parentsDone = 0;
     for (const g of parentRecords) {
@@ -2104,7 +2136,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // students enrolled in it), taught by its teacher. A homeroom section makes no subject:
     // its teacher is put in charge of the class, unless the school already chose someone.
     const sectionStudents = new Map();
-    for (const e of await records("enrollments")) {
+    for (const e of approved("enrollments") ? await records("enrollments") : []) {
       if (Object.keys(e.archive || {}).length) { const sid = await studentOf(e.data.student_source_id); if (sid) keep(sid, "Class schedule (old system)", [{ Section: String(e.data.section_source_id || ""), ...flat(e.archive) }]); }
       if (!currentEnrollment(e.data)) continue;
       const section = String(e.data.section_source_id);
@@ -2142,7 +2174,7 @@ async function loadLive(db, job, actor, progress = quiet) {
       }
     };
     const placement = new Map(); // section -> { name, classIds, homeroom }
-    for (const section of await records("classes")) {
+    for (const section of approved("classes") ? await records("classes") : []) {
       const d = section.data;
       const name = clean(d.class_name, 100);
       if (!name) continue;
@@ -2183,7 +2215,7 @@ async function loadLive(db, job, actor, progress = quiet) {
       }
       counts.assistants += 1;
     };
-    for (const r of await records("section_teachers")) {
+    for (const r of approved("classes") ? await records("section_teachers") : []) {
       const d = r.data;
       if (Object.keys(r.archive || {}).length) keep(null, "Class roles (old system)", [{ Section: String(d.section_source_id || ""), Staff: String(d.teacher_source_id || ""), ...flat(r.archive) }]);
       const staffRow = staffRows.find((t) => String(t.source_id) === String(d.teacher_source_id));
@@ -2219,7 +2251,7 @@ async function loadLive(db, job, actor, progress = quiet) {
       }
     };
     const countOf = async (entity) => Number((await q("SELECT COUNT(*)::int AS n FROM migration_records WHERE job_id = $1 AND entity = $2", [job.job_id, entity])).rows[0].n);
-    const gradeTotal = await countOf("grades");
+    const gradeTotal = approved("grades") ? await countOf("grades") : 0;
     progress({ step: "Loading final grades", done: 0, total: gradeTotal });
     if (gradeTotal) {
       const rows = [];
@@ -2291,7 +2323,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // Attendance: totals per student per term (one of the school's own terms when the dates or
     // the name match, so it counts on that term's report cards). The days themselves stay
     // read-only in each student's "Attendance history".
-    const attendanceTotal = await countOf("attendance");
+    const attendanceTotal = approved("attendance") ? await countOf("attendance") : 0;
     progress({ step: "Loading attendance", done: 0, total: attendanceTotal });
     if (attendanceTotal) {
       const hasTotals = (await q(
@@ -2373,7 +2405,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // Graduates: former students under Graduates & Alumni, recorded as a graduation records them, on
     // the day they graduated (no billing hold, nothing to undo), so staff find them by name and their
     // transcripts and documents land on their record. One already in Managira is left as it is.
-    const graduates = (await q("SELECT data FROM migration_records WHERE job_id = $1 AND entity = 'other' AND data->>'feature' = 'graduates' ORDER BY record_id", [job.job_id])).rows;
+    const graduates = !approved("students") ? [] : (await q("SELECT data FROM migration_records WHERE job_id = $1 AND entity = 'other' AND data->>'feature' = 'graduates' ORDER BY record_id", [job.job_id])).rows;
     if (graduates.length) {
       progress({ step: "Loading graduates", done: 0, total: graduates.length });
       await q("SELECT set_config('managira.actor_id', '', true), set_config('managira.actor_name', $1, true)", ["Data migration"]);
@@ -2424,6 +2456,9 @@ async function loadLive(db, job, actor, progress = quiet) {
       }
     }
 
+    // Other lists, documents and what loads into features come with the "Archive" area; the safety
+    // alerts in them (do not release, medical) come with the students whatever is approved.
+    const keepLists = approved("archive");
     const listTotal = await countOf("other");
     const byFeature = {}; // rows of the lists that load into a feature, gathered as they're read
     progress({ step: "Keeping your other lists read-only", done: 0, total: listTotal });
@@ -2437,7 +2472,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         const d = r.data || {};
         listNames.add(d.list);
         const studentId = d.student_source_id ? await studentOf(d.student_source_id) : null;
-        if (d.feature && d.feature !== "graduates") (byFeature[d.feature] = byFeature[d.feature] || []).push({ studentId, row: d.row || {} });
+        if ((keepLists || d.feature === "graduate_transcripts") && d.feature && d.feature !== "graduates") (byFeature[d.feature] = byFeature[d.feature] || []).push({ studentId, row: d.row || {} });
         if (studentId && d.details) {
           const studentColumn = Object.keys(d.row || {}).find((k) => lists.STUDENT_KEYS.includes(String(k).toLowerCase().replace(/^\[[^\]]*\]/, "").replace(/[^a-z0-9]/g, "")));
           for (const [column, value] of Object.entries(d.row || {})) if (column !== studentColumn && !/^last_?first$|^student_?name$/i.test(column)) await extraOn("student", studentId, prettyLabel(column), { value, sensitive: Boolean(d.restricted) });
@@ -2464,6 +2499,7 @@ async function loadLive(db, job, actor, progress = quiet) {
           );
           counts.medicalAlerts += 1;
         }
+        if (!keepLists) continue;
         if (studentId) keep(studentId, d.list, [d.row], d.restricted);
         else { keep(null, d.list, [d.row], d.restricted); if (d.student_source_id) counts.listRowsUnmatched += 1; }
       }
@@ -2473,7 +2509,7 @@ async function loadLive(db, job, actor, progress = quiet) {
 
     // The lists that fit one of Managira's features, loaded into it (they stay read-only as well).
     const featureCtx = { q, ledger, org, job, counts, system, linkOf, extraOn };
-    const transcripts = loadFeatures.transcriptRows(byFeature);
+    const transcripts = approved("grades") ? loadFeatures.transcriptRows(byFeature) : [];
     if (transcripts.length) {
       progress({ step: "Loading the graduates' transcripts", done: 0, total: transcripts.length });
       for (let at = 0; at < transcripts.length; at += 5000) {
@@ -2515,7 +2551,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     progress({ step: "Loading fees and payments into PayGira", done: 0, total: 0 });
     await loadFeatures.loadPayGira(featureCtx, byFeature);
     // Documents, on their student's record.
-    const { rows: docs } = await q("SELECT document_id, student_source_id FROM migration_documents WHERE job_id = $1 AND student_source_id IS NOT NULL", [job.job_id]);
+    const { rows: docs } = keepLists ? await q("SELECT document_id, student_source_id FROM migration_documents WHERE job_id = $1 AND student_source_id IS NOT NULL", [job.job_id]) : { rows: [] };
     const docIds = [];
     const docStudents = [];
     for (const doc of docs) { const sid = await studentOf(doc.student_source_id); if (sid) { docIds.push(doc.document_id); docStudents.push(sid); } }
@@ -2562,6 +2598,7 @@ async function loadLive(db, job, actor, progress = quiet) {
 
     // Everything kept read-only, written a batch at a time.
     progress({ step: "Saving what's kept read-only", done: 0, total: archived.size });
+    if (!keepLists) archived.clear();
     const perStudent = [...archived.values()].filter((a) => a.studentId);
     for (let i = 0; i < perStudent.length; i += 500) {
       const part = perStudent.slice(i, i + 500);
@@ -2657,8 +2694,7 @@ async function goLive(db, job, actor, progress = quiet) {
 }
 
 async function catchUp(db, job, actor, progress = quiet) {
-  if (job.status !== "live") return { error: "Catch-up is for after go-live." };
-  if (job.catch_up_at) return { error: "The catch-up import was already used." };
+  if (job.status !== "live") return { error: "Applying again is for after go-live." };
   const imported = await runImport(db, job, actor, { progress, phases: 4 });
   if (imported.error) return imported;
   const counts = await loadLive(db, job, actor, (u) => progress({ phase: 4, phases: 4, ...u }));
@@ -3057,7 +3093,7 @@ module.exports = {
   featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
-  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, gpaOf, addAttendance, currentEnrollment, LOADED,
+  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,
   rolesOf, roleReport, confirmRole, roleNotes, resolveRole, approvePerson, gpaCheck, statusesFor, startHub,
   requestMove, withdrawRequest, listRequests, decideRequest, latestRequest, SYSTEMS, TIMINGS, BRING,
   liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,

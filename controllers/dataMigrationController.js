@@ -17,7 +17,7 @@ const orgOf = (req) => Number(req.session.organizationId);
 const toId = (v) => { const n = Number.parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
 const userIdOf = (req) => req.session.userId || req.session.user?.user_id || null;
 const actorOf = (req) => [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userEmail || req.session.user?.email || "School admin";
-const STEPS = ["upload", "map", "check", "roles", "notes", "review", "live"];
+const STEPS = ["upload", "map", "notes", "check", "roles", "review", "live"]; // the order a school works in
 const HUB_URL = (step) => `/common/management?panel=migration&page=${encodeURIComponent(`/common/migration${step ? `?step=${step}` : ""}`)}&label=${encodeURIComponent("Data migration")}`;
 const baseUrlOf = (req) => `${req.protocol}://${req.get("host")}`;
 
@@ -143,7 +143,7 @@ async function requestPost(req, res, db) {
 // The school ticks which student columns become custom fields; the import runs again with it.
 async function customFieldsPost(req, res, db) {
   const job = await schoolContext(req, res, db);
-  if (!job || job.status === "live") return res.redirect("/");
+  if (!job) return res.redirect("/");
   const wait = await waitFor(db, job);
   if (wait) return done(req, res, { error: wait }, "map");
   // Where each field lives: section_<column> and app_<column> (never a bare number as a key).
@@ -153,16 +153,15 @@ async function customFieldsPost(req, res, db) {
     if (at) homes[at[1]] = { section: String(value), onApplication: Boolean(req.body[`app_${at[1]}`]) };
   }
   const result = await m.setCustomFields(db, job, [].concat(req.body.columns || []), actorOf(req), homes);
-  if (result.changed) await m.startTask(db, job, "import", actorOf(req));
-  req.flash("success", result.changed
-    ? `Saved: ${result.fields} ${result.fields === 1 ? "field" : "fields"}, ${result.details} read-only ${result.details === 1 ? "detail" : "details"}. Importing again with your choice.`
-    : "Saved where each field lives.");
+  const reimport = result.changed && job.status !== "live"; // once live, Apply again loads it
+  if (reimport) await m.startTask(db, job, "import", actorOf(req));
+  req.flash("success", reimport ? "Saved. Importing again with your choice." : job.status === "live" ? "Saved. Apply again on the Go live step to load it." : "Saved.");
   return res.redirect("/common/migration?step=map&embed=workspace");
 }
 // A choice for the whole migration (meal balances: kept in the meal app, or moved into PayGira).
 async function optionPost(req, res, db) {
   const job = await schoolContext(req, res, db);
-  if (!job || job.status === "live") return res.redirect("/");
+  if (!job) return res.redirect("/");
   const result = await m.setOption(db, job, String(req.body.key || ""), String(req.body.value || ""), actorOf(req));
   if (result.error) req.flash("error", result.error);
   else req.flash("success", req.body.value === "paygira" ? "Meal balances will move into PayGira when you go live." : "Meal balances stay in your meal app.");
@@ -209,7 +208,8 @@ async function page(req, res, db) {
   const files = listed || [];
   const anyFiles = listed ? listed.length > 0 : Boolean(anyUploaded);
   const open = m.openItems(columns);
-  const step = asked || (job.status === "live" ? "live" : !anyFiles ? "upload" : open.unsure.length ? "map" : "check");
+  const progress = await m.stepProgress(db, job, { anyFiles, task });
+  const step = asked || (job.status === "live" ? "live" : progress.next);
   const on = (...steps) => steps.includes(step);
   // A finished go-live or catch-up is news only while the school is live (not after a rollback).
   // A task that finished well shows only on its own step (reading on Upload, the import on Check,
@@ -238,7 +238,7 @@ async function page(req, res, db) {
   ]);
   res.render("migration/school", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
-    job, step, steps: STEPS, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
+    job, step, steps: STEPS, progress, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
     // The other apps the school ran (library, food service, health office…), from its lists' names.
     listFeatures: require("../utils/migration/features").FEATURES,
     indicatorLabels: require("../utils/studentFormFields").INDICATORS.map((i) => i.label),
@@ -270,7 +270,6 @@ async function uploadPost(req, res, db) {
   };
   if (!job) return reply(403, { ok: false, error: "There's no data migration open for your school." }, "upload");
   const step = job.status === "live" ? "live" : "upload";
-  if (job.status === "live" && job.catch_up_at) return reply(409, { ok: false, error: "The catch-up import was already used." }, step);
   const files = req.files || [];
   if (!files.length) return reply(400, { ok: false, error: "Choose the files to upload." }, step);
   // Files go on being read while more arrive; anything else running comes first.
@@ -295,7 +294,7 @@ async function taskPost(req, res, db) {
 
 const columnAction = (fn, step) => async (req, res, db) => {
   const job = await schoolContext(req, res, db);
-  if (!job || job.status === "live") return res.redirect("/");
+  if (!job) return res.redirect("/");
   const wait = await waitFor(db, job);
   if (wait) return done(req, res, { error: wait }, step);
   return done(req, res, await fn(job, req), step, "Saved.");
@@ -317,10 +316,10 @@ const startFor = (kind, step, allowed) => async (req, res, db) => {
 };
 const importPost = startFor("import", "check", (job) => (job.status === "live" ? "You're live: use the catch-up instead." : null));
 const goLivePost = startFor("go_live", "live", (job) => (job.status !== "review" || !job.signed_at ? "Sign the migration summary first." : null));
-const catchUpPost = startFor("catch_up", "live", (job) => (job.status !== "live" ? "Catch-up is for after go-live." : job.catch_up_at ? "The catch-up import was already used." : null));
+const catchUpPost = startFor("catch_up", "live", (job) => (job.status !== "live" ? "Applying again is for after go-live." : null));
 async function approvePost(req, res, db) {
   const job = await schoolContext(req, res, db);
-  if (!job || job.status === "live") return res.redirect("/");
+  if (!job) return res.redirect("/");
   const wait = await waitFor(db, job);
   if (wait) return done(req, res, { error: wait }, "review");
   return done(req, res, await m.approveSection(db, job, String(req.body.section || ""), req.body.on === "1", actorOf(req)), "review");
@@ -335,7 +334,7 @@ async function signPost(req, res, db) {
 // ── Staff roles ──
 const roleAction = (fn) => async (req, res, db) => {
   const job = await schoolContext(req, res, db);
-  if (!job || job.status === "live") return res.redirect("/");
+  if (!job) return res.redirect("/");
   const wait = await waitFor(db, job);
   if (wait) return done(req, res, { error: wait }, "roles");
   return done(req, res, await fn(job, req), "roles", "Saved.");

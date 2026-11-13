@@ -13,6 +13,13 @@
   const _actionWords = { map: 'Mapped', custom: 'Custom field', extra: 'Extra field', archive: 'Archived', exclude: 'Left out', alert: 'Alert on the student' };
   // Nothing uploaded yet: every step after Upload says so, and nothing looks done.
   const _blank = !locals.anyFiles && job.status === 'sandbox';
+  // Steps open one after another (utils/dataMigration.js stepProgress).
+  const _progress = locals.progress || null;
+  const _locked = Boolean(_progress) && !_progress.open[step] && job.status !== 'live';
+  const _hide = _blank || _locked;
+  // A small "?" that explains, on hover or focus.
+  const _esc = (t) => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const _tip = (t) => '<span class="mg-help" tabindex="0" role="note" aria-label="' + _esc(t) + '" data-tip="' + _esc(t) + '">?</span>';
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
 <div class="mg">
@@ -29,11 +36,20 @@
   <% } %>
   <nav class="mg-steps" aria-label="Steps">
     <% steps.forEach((s, i) => { %>
-      <a class="mg-step<%= s === step ? ' is-on' : '' %><%= _blank && s !== 'upload' ? ' is-idle' : '' %>" href="/common/migration?step=<%= s %>&embed=workspace"<%- s === step ? ' aria-current="step"' : '' %>><span><%= i + 1 %></span><%= _stepLabels[s] %></a>
+      <% const _open = !_progress || _progress.open[s]; const _done = _progress && _progress.done[s]; %>
+      <% if (_open) { %><a class="mg-step<%= s === step ? ' is-on' : '' %><%= _done ? ' is-done' : '' %>" href="/common/migration?step=<%= s %>&embed=workspace"<%- s === step ? ' aria-current="step"' : '' %>><span><%= _done ? '✓' : i + 1 %></span><%= _stepLabels[s] %></a>
+      <% } else { %><span class="mg-step is-locked" aria-disabled="true" title="Opens after <%= _stepLabels[steps[i - 1]] %>"><span><%= i + 1 %></span><%= _stepLabels[s] %></span><% } %>
     <% }) %>
   </nav>
   <%- include('partials/task', { task: locals.task }) %>
 
+  <% if (_locked && !_blank) { const _prev = steps[steps.indexOf(step) - 1]; %>
+  <section class="mg-card mg-blank">
+    <h2><%= _stepLabels[step] %></h2>
+    <p>This step opens once <strong><%= _stepLabels[_prev] %></strong> is done.</p>
+    <p class="mg-next"><a class="mg-btn mg-btn--primary" href="/common/migration?step=<%= _prev %>&embed=workspace">Go to <%= _stepLabels[_prev] %></a></p>
+  </section>
+  <% } %>
   <% if (_blank && step !== 'upload') { const _reading = locals.task && task.open; %>
   <section class="mg-card mg-blank">
     <h2><%= _stepLabels[step] %></h2>
@@ -44,7 +60,7 @@
 
   <% if (step === 'upload') { %>
   <section class="mg-card">
-    <h2>Upload your export files</h2>
+    <h2>Upload your export files <%- _tip('Send your school\'s export: its lists and documents. Upload more, or a list again, at any time.') %></h2>
     <p class="mg-hint">Upload your school's export from your current system: its lists (students, parents, staff, classes, grades, attendance and everything else) and its documents. The simplest way is to drag the whole export folder onto the box below, or upload a .zip of it. Keep each student's documents in a folder named with their student number, and each is filed on that student's record (a photo becomes their picture). Managira recognises every list by itself and keeps everything, and nothing reaches your live account until you review and sign off. Upload a list again any time to replace it.</p>
     <p class="mg-hint mg-hint--small">Lists can be CSV, text or Excel, with up to 200,000 rows each (send a longer one, such as a year of daily attendance, in parts). Any number of files, up to 60 MB each.</p>
     <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
@@ -52,7 +68,7 @@
   <%- include('partials/uploads', { uploads: locals.uploads || [], task: locals.task }) %>
   <% if (files.length) { const _core = files.filter((f) => f.entity !== 'other'); const _keptFiles = files.filter((f) => f.entity === 'other'); const _short = (n) => String(n).split(/›|\//).pop().trim(); %>
   <section class="mg-card" style="margin-top:14px">
-    <h2>What Managira has from them</h2>
+    <h2>What Managira has from them <%- _tip('Every list Managira recognised, and where it goes.') %></h2>
     <div class="mg-tiles">
       <div><strong><%= _core.length %></strong><span>lists go into Managira</span></div>
       <div><strong><%= _keptFiles.length %></strong><span>other lists kept read-only</span></div>
@@ -76,13 +92,13 @@
   <% } %>
   <% } %>
 
-  <% if (step === 'map' && !_blank) { %>
+  <% if (step === 'map' && !_hide) { %>
   <% if (fieldChoices.length) { const _typeWords = { text: 'Text', long_text: 'Long text', number: 'Number', date: 'Date', yes_no: 'Yes / No' }; %>
   <section class="mg-card" id="fields" style="margin-bottom:14px">
-    <h2>Student fields</h2>
+    <h2>Student fields <%- _tip('Columns about each student with no built-in place. Ticked ones become your own student fields; the rest are kept as read-only details.') %></h2>
     <p class="mg-hint">Columns about each student that Managira has no built-in place for. <strong>Ticked</strong>: one of your school's own student fields, made when you go live and filled with each student's value, in the part of the student form you choose; tick <strong>Admission form</strong> to have families answer it when they apply too. You can change any of it later in Admission Settings › Student fields. <strong>Not ticked</strong>: kept as a read-only detail (codes like a locker combination stay that way). IEP, 504 and the other indicators live in Programs &amp; Indicators, staff only.</p>
     <form method="POST" action="/common/migration/custom-fields">
-      <div class="mg-scroll"><table class="mg-table mg-fields no-global-sort"><thead><tr><th class="mg-tickcol">Field</th><th>Their column</th><th>Sample values</th><th>In Managira</th><th>Lives in</th></tr></thead><tbody>
+      <div class="mg-scroll"><table class="mg-table mg-fields no-global-sort"><thead><tr><th class="mg-tickcol">Field</th><th>Their column</th><th>Sample values</th><th>In Managira</th><th>Lives in <%- _tip('The part of the student form the field goes in. Tick Admission form to ask families when they apply.') %></th></tr></thead><tbody>
         <% fieldChoices.forEach((c) => { const own = c.action === 'map'; const on = own || c.action === 'custom'; const _home = suggestHome(c.label || c.source_column); const _sec = c.field_section || _home.section; const _app = c.field_on_application === null || c.field_on_application === undefined ? _home.onApplication : c.field_on_application; %>
         <tr class="<%= on ? 'is-on' : '' %>">
           <td class="mg-tickcol"><label class="mg-box"><input type="checkbox" name="columns" value="<%= c.column_id %>"<%= on ? ' checked' : '' %><%= own ? ' disabled' : '' %> aria-label="Make <%= c.source_column %> a custom field" /><span aria-hidden="true"></span></label></td>
@@ -96,12 +112,12 @@
         </tr>
         <% }) %>
       </tbody></table></div>
-      <div class="mg-actions" style="margin-top:12px"><button class="mg-btn mg-btn--primary">Save</button><small class="mg-hint">Ticking or unticking a field imports again in the background; where it lives is kept as you chose.</small></div>
+      <div class="mg-actions" style="margin-top:12px"><button class="mg-btn mg-btn--primary">Save</button></div>
     </form>
   </section>
   <% } %>
   <section class="mg-card">
-    <h2>Match columns</h2>
+    <h2>Match columns <%- _tip('Each column of your lists and the Managira field it goes into. Confirm the unsure ones.') %></h2>
     <p class="mg-hint">Each column was matched to a Managira field. <b class="mg-ok">Confident</b> matches are ready. Confirm or correct the <b class="mg-warn">unsure</b> ones. Columns we can't match go to step 4.</p>
     <% if (!columns.length) { %><p class="mg-empty">Upload your files first.</p><% } %>
     <% Object.entries(_byEntity).forEach(([entity, list]) => { const fields = entities[entity].fields; %>
@@ -134,9 +150,9 @@
   </section>
   <% } %>
 
-  <% if (step === 'check' && !_blank) { %>
+  <% if (step === 'check' && !_hide) { %>
   <section class="mg-card">
-    <h2>Check & import into the sandbox</h2>
+    <h2>Check & import into the sandbox <%- _tip('Puts your data in the sandbox and checks it. Nothing reaches your live account yet.') %></h2>
     <p class="mg-hint">Imports everything that's matched now, and checks it. Run it again any time: records update, never duplicate.</p>
     <form method="POST" action="/common/migration/import" data-starts-task><button class="mg-btn mg-btn--primary" type="submit"<%= files.length && !(task && task.open) ? '' : ' disabled' %>>Import into the sandbox</button></form>
     <% if (_report) { %>
@@ -151,7 +167,7 @@
       <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira, <strong><%= _kept.length %></strong> are kept read-only<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> on their students)<% } %>. Restricted ones open only for your managers.</p>
       <% const _into = _kept.filter((l) => l.feature && listFeatures[l.feature]); %>
       <% if (_into.length) { %>
-      <h3>Loaded into Managira's own features</h3>
+      <h3>Loaded into Managira's own features <%- _tip('Lists that also fill Managira features, such as buses and fees.') %></h3>
       <p class="mg-hint">These lists also go into Managira's own features when you go live, and are kept read-only too.</p>
       <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th>Goes into</th></tr></thead><tbody>
         <% _into.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td><td><%= listFeatures[l.feature].into %></td></tr><% }) %>
@@ -159,7 +175,7 @@
       <% if (_into.some((l) => l.feature === 'meal_balances')) { const _meals = ((job.options || {}).mealBalances) || 'keep'; %>
       <form class="mg-choice" method="POST" action="/common/migration/options">
         <input type="hidden" name="key" value="mealBalances" />
-        <strong>Meal balances</strong>
+        <strong>Meal balances <%- _tip('Keep them in your meal app, or move them into PayGira as bills and credits.') %></strong>
         <label><input type="radio" name="value" value="keep"<%= _meals === 'keep' ? ' checked' : '' %> /> Stay in your meal app <small>(keep using it for the lunch line; connect it to Managira below)</small></label>
         <label><input type="radio" name="value" value="paygira"<%= _meals === 'paygira' ? ' checked' : '' %> /> Move into PayGira <small>(amounts owed become bills, money in credit becomes each student's PayGira credit)</small></label>
         <button class="mg-btn mg-btn--sm" type="submit">Save</button>
@@ -210,9 +226,9 @@
   </section>
   <% } %>
 
-  <% if (step === 'roles' && !_blank) { const _R = roleReport; %>
+  <% if (step === 'roles' && !_hide) { const _R = roleReport; %>
   <section class="mg-card">
-    <h2>Staff roles</h2>
+    <h2>Staff roles <%- _tip('Each old role matched to a Managira role, never with more access than before.') %></h2>
     <p class="mg-hint">Each role or access group in your staff file, matched to a Managira role. A match never gives more access than the old role did: when unsure, it's the more limited one, and you can always choose a more limited role. Admin-level access needs your approval, person by person.</p>
     <% if (locals.ownRolesOn !== false) { %><p class="mg-hint">Need a role Managira doesn't have, like Food Service? Make it in Users › Add user › Role › <strong>Add a role</strong>, and it's offered here.</p><% } %>
     <% if (!_R.roles.length && !_R.people.length) { %><p class="mg-empty">Upload your staff file and run the import (step 3) to see your roles here.</p><% } %>
@@ -295,9 +311,9 @@
   </section>
   <% } %>
 
-  <% if (step === 'notes' && !_blank) { %>
+  <% if (step === 'notes' && !_hide) { %>
   <section class="mg-card">
-    <h2>Columns to explain</h2>
+    <h2>Columns to explain <%- _tip('Columns Managira could not place. Say what they hold and Managira gives them a home.') %></h2>
     <p class="mg-hint">These columns have no place in Managira yet. Tell us about each one. The Managira team then makes it a field of its own, keeps it on the record, or archives it. Nothing is left out without your approval.</p>
     <% if (!_needNotes.length && !_approvalsLeft.length) { %><p class="mg-good">Nothing to explain.</p><% } %>
     <% _needNotes.forEach((c) => { const n = c.notes || {}; %>
@@ -332,9 +348,9 @@
   </section>
   <% } %>
 
-  <% if (step === 'review' && !_blank) { %>
+  <% if (step === 'review' && !_hide) { %>
   <section class="mg-card">
-    <h2>Review & sign</h2>
+    <h2>Review & sign <%- _tip('Check the summary, approve the areas to load, and sign.') %></h2>
     <% if (matches) { const _fmtDay = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : 'no date of birth'; const _canAnswer = ['sandbox', 'live'].includes(job.status); %>
     <div id="matches" class="mg-matches">
       <h3>Already in Managira</h3>
@@ -403,7 +419,8 @@
       <% if (gpaCheck.differ.length > 100) { %><p class="mg-hint">And <%= gpaCheck.differ.length - 100 %> more.</p><% } %>
       <% } %>
     <% } %>
-    <h3>Approve each area</h3>
+    <h3>Approve each area <%- _tip('Only approved areas go to your live account. Approve more later and apply again.') %></h3>
+    <p class="mg-hint">Only approved areas go to your live account. You can approve more later and apply again.</p>
     <div class="mg-approvals">
       <% needed.forEach((s) => { const on = (job.approvals || {})[s]; %>
         <form method="POST" action="/common/migration/approve"><input type="hidden" name="section" value="<%= s %>" /><input type="hidden" name="on" value="<%= on ? '0' : '1' %>" />
@@ -433,7 +450,7 @@
   </section>
   <% } %>
 
-  <% if (step === 'live' && !_blank) { %>
+  <% if (step === 'live' && !_hide) { %>
   <section class="mg-card">
     <% if (job.status === 'live') {
          const loaded = (job.totals && job.totals.loaded) || {};
@@ -453,8 +470,8 @@
            ['Days absent', srcAtt.absent, att.absent],
          ].filter((r) => r[1] !== undefined && r[1] !== null && (r[1] !== 0 || r[2]));
     %>
-      <h2>You're live</h2>
-      <p class="mg-hint">Loaded on <%= _when(job.live_at) %><%= job.catch_up_at ? ', caught up on ' + _when(job.catch_up_at) : '' %>: students, parents, staff accounts, sections and their teachers, final grades and attendance totals. <strong><%= loaded.subjects || 0 %></strong> subjects and <strong><%= loaded.classes || 0 %></strong> classes were made, <strong><%= loaded.teacherLinks || 0 %></strong> teacher links and <strong><%= loaded.mainTeachers || 0 %></strong> teachers in charge of a class.</p>
+      <h2>You're live <%- _tip('What went into your live account. Change something or approve more, then apply again below.') %></h2>
+      <p class="mg-hint">Loaded on <%= _when(job.live_at) %><%= job.catch_up_at ? ', last applied on ' + _when(job.catch_up_at) : '' %>: students, parents, staff accounts, sections and their teachers, final grades and attendance totals. <strong><%= loaded.subjects || 0 %></strong> subjects and <strong><%= loaded.classes || 0 %></strong> classes were made, <strong><%= loaded.teacherLinks || 0 %></strong> teacher links and <strong><%= loaded.mainTeachers || 0 %></strong> teachers in charge of a class.</p>
       <% if (loaded.matched || loaded.guardiansMatched || loaded.staffMatched || loaded.keptValues) { %>
       <p class="mg-good"><% const _n = (v, one, many) => (v || 0) + ' ' + ((v || 0) === 1 ? one : many); const _keptAll = (loaded.matched || 0) + (loaded.guardiansMatched || 0) + (loaded.staffMatched || 0); %>Nothing already in Managira was replaced: <%= _n(loaded.matched, 'student', 'students') %>, <%= _n(loaded.guardiansMatched, 'parent', 'parents') %> and <%= _n(loaded.staffMatched, 'member of staff', 'staff') %> <%= _keptAll === 1 ? 'was' : 'were' %> already here and kept<%= loaded.filled ? ', with ' + loaded.filled + ' empty ' + (loaded.filled === 1 ? 'field' : 'fields') + ' filled in' : '' %>.<%= loaded.keptValues ? ' ' + loaded.keptValues + (loaded.keptValues === 1 ? ' value differs' : ' values differ') + ' from your files and stayed as Managira had ' + (loaded.keptValues === 1 ? 'it' : 'them') + '.' : '' %></p>
       <% if ((loaded.kept || []).length) { %>
@@ -517,12 +534,10 @@
         <p class="mg-hint">Add them on the Users page, or fix the export and load the catch-up.</p>
       <% } %>
 
-      <h3>Catch-up</h3>
-      <% if (job.catch_up_at) { %><p class="mg-hint">The catch-up import was used on <%= _when(job.catch_up_at) %>.</p><% } else { %>
-        <p class="mg-hint">One last import for changes made in your old system since (final grades, attendance). Upload the new files, then load them. Records are updated, never duplicated.</p>
-        <%- include('partials/upload', { label: 'Drop the new export files here', action: '/common/migration/upload', withEntity: false }) %>
-        <form method="POST" action="/common/migration/catch-up" data-starts-task onsubmit="return confirm('Load the latest files into your live account? This can be done once.')"><button class="mg-btn mg-btn--primary" type="submit">Load the catch-up</button></form>
-      <% } %>
+      <h3>Apply again <%- _tip('Loads what is approved again: new files, more areas, your changes. Records update, never duplicate.') %></h3>
+      <p class="mg-hint">Changed a step, approved more areas or have newer files? Upload them if you have them, then apply. Only approved areas load.</p>
+      <%- include('partials/upload', { label: 'Drop the new export files here', action: '/common/migration/upload', withEntity: false }) %>
+      <form method="POST" action="/common/migration/catch-up" data-starts-task onsubmit="return confirm('Apply your approved areas to your live account again?')"><button class="mg-btn mg-btn--primary" type="submit">Apply again</button></form>
       <p class="mg-hint">On <%= job.purge_after ? new Date(job.purge_after).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '' %> the uploaded files, the snapshot and the sandbox are deleted. Your live records stay. Until then, Managira can roll the go-live back if something is wrong.</p>
     <% } else if (job.signed_at) { %>
       <h2>Go live</h2>
@@ -540,7 +555,7 @@
   </section>
   <% } %>
 
-  <details class="mg-more mg-log"><summary>Activity</summary>
+  <details class="mg-more mg-log"><summary>Activity <%- _tip('A log of everything done in this migration: who did what, and when.') %></summary>
     <ul><% events.forEach((e) => { %><li><span><%= _when(e.at) %></span> <%= e.actor %>: <%= e.action.replace(/_/g, ' ') %></li><% }) %></ul>
   </details>
 </div>
