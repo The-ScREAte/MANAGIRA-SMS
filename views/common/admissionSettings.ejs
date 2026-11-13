@@ -117,6 +117,7 @@
   .as-group { border: 1px solid var(--as-line); border-radius: 12px; padding: 10px; background: #fbfcfd; }
   .as-group__head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; }
   .as-group__head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #334155; }
+  .as-group__note { margin: -4px 2px 8px; font-size: 12.5px; color: #64748b; }
   .as-group__head span { font-size: 12px; color: var(--as-muted); }
   .as-group__add { margin-left: auto; border: 0; background: none; color: #01535b; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
   
@@ -324,7 +325,7 @@
 
 <div id="asDialog" role="dialog" aria-modal="true" aria-labelledby="asDialogTitle"><div class="as-dlg" id="asDlg"></div></div>
 
-<script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, sections: (typeof fieldSections !== 'undefined' ? fieldSections : { more: 'More Details' }), hasWebsite }).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, sections: (typeof fieldSections !== 'undefined' ? fieldSections : { more: 'More Details' }), hasWebsite, indicators: (typeof indicatorLabels !== 'undefined' ? indicatorLabels : []) }).replace(/</g, '\\u003c') %></script>
 <script>
 (function () {
   const root = document.getElementById('asRoot');
@@ -336,6 +337,7 @@
   const SECTIONS = data.sections || { more: 'More Details' };
   const secOf = (f) => (SECTIONS[f.section] ? f.section : (SECTIONS.more ? 'more' : Object.keys(SECTIONS)[0]));
   const hasWebsite = data.hasWebsite;
+  const missingIndicators = () => (data.indicators || []).filter((label) => !fields.some((f) => String(f.label).toLowerCase() === label.toLowerCase()));
   let filter = 'all';
   const list = document.getElementById('asList');
   const dialog = document.getElementById('asDialog');
@@ -395,13 +397,15 @@
   function render() {
     const visible = fields.filter(shown);
     if (!fields.length) {
-      list.innerHTML = '<div class="as-empty"><strong>No extra fields yet</strong><span>Add a field to collect more details about students.</span></div>';
+      list.innerHTML = '<div class="as-empty"><strong>No extra fields yet</strong><span>Add a field to collect more details about students.</span>'
+        + (missingIndicators().length ? '<button type="button" class="as-btn" data-add-indicators style="margin-top:12px">Add the standard indicators</button><span>IEP, Section 504, English learner, gifted, meals and more. Staff only.</span>' : '') + '</div>';
       return;
     }
     list.innerHTML = Object.entries(SECTIONS).map(([key, name]) => {
       const rows = visible.filter((f) => secOf(f) === key);
       return `<div class="as-group${rows.length ? '' : ' is-empty'}" data-section="${key}">
-        <div class="as-group__head"><h3>${esc(name)}</h3><span>${rows.length || 'No fields yet'}</span><button type="button" class="as-group__add" data-add-in="${key}" aria-label="Add field to ${esc(name)}">+ Add</button></div>
+        <div class="as-group__head"><h3>${esc(name)}</h3><span>${rows.length || 'No fields yet'}</span>${key === 'programs' && missingIndicators().length ? `<button type="button" class="as-group__add" data-add-indicators title="${esc(missingIndicators().join(', '))}">+ Standard indicators</button>` : ''}<button type="button" class="as-group__add" data-add-in="${key}" aria-label="Add field to ${esc(name)}">+ Add</button></div>
+        ${key === 'programs' ? '<p class="as-group__note">IEP, 504, English learner and other indicators. Staff only: never on the application or the parent and student portals.</p>' : ''}
         <div class="as-group__list" data-group-list="${key}">${rows.map(rowHtml).join('') || '<div class="as-group__empty">Drop here</div>'}</div>
       </div>`;
     }).join('');
@@ -499,6 +503,15 @@
   list.addEventListener('click', async (e) => {
     const addIn = e.target.closest('[data-add-in]');
     if (addIn) return fieldDialog(null, addIn.dataset.addIn);
+    if (e.target.closest('[data-add-indicators]')) {
+      try {
+        const before = fields.length;
+        await call('/common/admissionSettings/fields/indicators');
+        render();
+        toast(`${fields.length - before} indicators added`);
+      } catch (err) { toast(err.message); }
+      return;
+    }
     const row = e.target.closest('[data-field]');
     const f = row && fields.find((x) => x.id === Number(row.dataset.field));
     if (!f) return;

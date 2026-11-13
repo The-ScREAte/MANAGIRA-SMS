@@ -347,3 +347,44 @@ test("a school's own role: only real permissions the person may give, and a migr
   const made = roles.choiceOf({ target: "custom", label: "Food Service", account_type: "Teacher", permissions: [P.MANAGE_STUDENTS] });
   assert.equal(made.schoolRoleId, undefined);
 });
+
+test("lists that fit a Managira feature are recognised by their columns; logs and summaries stay history", () => {
+  const f = require("../utils/migration/features");
+  const h = (line) => line.split(",");
+  assert.equal(f.featureOf("55_alumni_graduates.csv", h("Student_Number,Last_Name,First_Name,DOB,Gender,Graduation_Year,Graduation_Date,Diploma_Type,Final_GPA_Unweighted")), "graduates");
+  assert.equal(f.featureOf("56_alumni_transcripts.csv", h("Student_Number,LastFirst,School_Year,Course_Name,Letter_Grade,Percent")), "graduate_transcripts");
+  assert.equal(f.featureOf("214_bus_routes_master.csv", h("Route_ID,Bus_Number,Driver_Name,Depot,Route_Type")), "bus_routes");
+  assert.equal(f.featureOf("215_bus_stops_master.csv", h("Stop_ID,Route_ID,Sequence,Stop_Location,Am_Time,Pm_Time")), "bus_stops");
+  assert.equal(f.featureOf("216_route_runs_schedule.csv", h("Run_ID,Route_ID,Bus_Number,Run_Type,Departure_Time")), "bus_runs");
+  assert.equal(f.featureOf("217_student_transportation_assignments.csv", h("Student_Number,Run_ID,Route_ID,Stop_ID,Days,End_Date")), "bus_riders");
+  assert.equal(f.featureOf("bus_rider_assignments.csv", h("Other ID,Student Name,Route ID,Bus Number,Stop ID")), "bus_riders", "Skyward's Other ID is a student number");
+  assert.equal(f.featureOf("31_student_fees.csv", h("Fee_ID,Student_Number,Fee_Code,Description,Amount,Balance")), "fees");
+  assert.equal(f.featureOf("33_cafeteria_meal_accounts.csv", h("Meal_Account_Number,Student_Number,Current_Balance")), "meal_balances");
+  assert.equal(f.featureOf("201_parent_guardian_master.csv", h("ContactID,Last_Name,First_Name,Primary_Email,Mobile_Phone")), "parents_master");
+  assert.equal(f.featureOf("38_bus_ridership_history.csv", h("Student_Number,Route_ID,Bus_Number,Run,Event,Scan_Time,Stop_ID")), null, "a scan log is history");
+  assert.equal(f.featureOf("90_bus_fleet_maintenance.csv", h("Bus_Number,Route_ID,Service_Date,Odometer,Service_Type,Cost")), null, "a maintenance log is history");
+  assert.equal(f.featureOf("D16_district_transportation_summary.csv", h("Route_ID,Bus_Number,Riders")), null, "a summary isn't the data");
+  assert.equal(f.pick({ Fee_Code: "LAB", Description: "Lab fee" }, "Description", "Fee_Code"), "Lab fee", "the first name asked for wins, not the first column");
+  assert.deepEqual(f.daysOf("Mon-Fri"), ["monday", "tuesday", "wednesday", "thursday", "friday"]);
+  assert.deepEqual(f.daysOf("Thu, Fri"), ["thursday", "friday"]);
+  assert.equal(f.timeOf("3:10 PM"), "15:10");
+  assert.equal(f.addMinutes("07:05", 38), "07:43");
+});
+
+test("programs and indicators fill the school's own staff-only fields; race and IDs never become one", () => {
+  const fields = require("../utils/studentFormFields");
+  const label = (c) => (fields.indicatorFor(c) || {}).label || null;
+  assert.equal(label("IEP"), "IEP");
+  assert.equal(label("Section_504"), "Section 504 plan");
+  assert.equal(label("English_Learner"), "English learner");
+  assert.equal(label("Gifted"), "Gifted & talented");
+  assert.equal(label("Meal_Eligibility"), "Meal eligibility");
+  assert.equal(label("Military_Family"), "Military family");
+  assert.equal(label("Military_Recruiter_Opt_Out"), null);
+  assert.equal(label("Race"), null);
+  assert.ok(fields.SECTIONS.programs, "Programs & Indicators is a section of the student form");
+  const ps = require("../utils/migration/powerschool");
+  assert.equal(ps.sensitiveOf("Race", []), "demographics");
+  assert.equal(ps.sensitiveOf("Military_Family", []), "programs");
+  assert.equal(ps.matchColumn("students", "Graduation_Year").target, "graduation_year");
+});

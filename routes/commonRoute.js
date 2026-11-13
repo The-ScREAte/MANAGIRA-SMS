@@ -316,6 +316,7 @@ module.exports = (db) => {
   router.get("/admissionSettings", checkFeatureAccess, isAuthenticated, blockGuardians, admissionSettingsController.page);
   router.post("/admissionSettings/fields", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("create"));
   router.post("/admissionSettings/fields/order", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("order"));
+  router.post("/admissionSettings/fields/indicators", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("indicators"));
   router.post("/admissionSettings/fields/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("update"));
   router.post("/admissionSettings/fields/:id(\\d+)/status", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("status"));
   router.post("/admissionSettings/fields/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("delete"));

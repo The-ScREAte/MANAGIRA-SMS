@@ -2515,6 +2515,18 @@
               <% if (_cfIn('student').length) { %><div class="scf-grid"><%- include('../partials/studentCustomFields', { customFields: _cfIn('student'), nameSuffix: '___INDEX__', customValues: {} }) %></div><% } %>
             </div>
 
+            <% if (_cfIn('programs').length) { %>
+            <!-- ── Section: Programs & Indicators (IEP, 504, English learner…; staff only) ── -->
+            <div class="form-section">
+              <div class="form-section-header">
+                <h3 class="form-section-title">Programs &amp; Indicators</h3>
+              </div>
+              <div class="scf-grid">
+                <%- include('../partials/studentCustomFields', { customFields: _cfIn('programs'), nameSuffix: '___INDEX__', customValues: {} }) %>
+              </div>
+            </div>
+            <% } %>
+
             <% if (_cfMore.length) { %>
             <!-- ── Section: the school's own fields (Admission Settings > Forms) ── -->
             <div class="form-section">

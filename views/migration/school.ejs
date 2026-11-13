@@ -45,7 +45,7 @@
   <% if (step === 'upload') { %>
   <section class="mg-card">
     <h2>Upload your export files</h2>
-    <p class="mg-hint">Export each list from PowerSchool: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Upload them as they are: CSV, tab-separated text, Excel (.xlsx) or a .zip of them. Each sheet of a workbook and each file in a .zip is read as a list of its own; a list can have up to 200,000 rows, and a longer one (a year of daily attendance, say) can be sent in parts together in one .zip. Uploading a list again replaces it, and the import can always run again.</p>
+    <p class="mg-hint">Export each list from PowerSchool: students, parents and contacts, staff, sections (with their grade level), class enrollments (CC), stored grades, and attendance (a row per day, or totals per term). Upload them as they are: CSV, tab-separated text, Excel (.xlsx) or a .zip of them. Documents come too: PDFs, photos, scans and Word files, in the .zip beside your lists (a folder per student, named by their student number, matches each to its student; a student's photo becomes their picture) or on their own (with the student number in the file name). Each sheet of a workbook and each file in a .zip is read as a list of its own; a list can have up to 200,000 rows, and a longer one (a year of daily attendance, say) can be sent in parts together in one .zip. Uploading a list again replaces it, and the import can always run again.</p>
     <%- include('partials/upload', { label: 'Drop your export files here', action: '/common/migration/upload', withEntity: true }) %>
   </section>
   <%- include('partials/uploads', { uploads: locals.uploads || [], task: locals.task }) %>
@@ -144,11 +144,20 @@
       <% if ((_report.lists || []).length || (docs && docs.total)) { const _kept = _report.lists || []; %>
       <h3>Your lists and documents</h3>
       <p class="mg-hint"><strong><%= files.filter((f) => f.entity !== 'other').length %></strong> lists go into Managira (above). <strong><%= _kept.length %></strong> other <%= _kept.length === 1 ? 'list is' : 'lists are' %> kept read-only, nothing left behind: on each student's record where the list has a student number, or for the school<% if (docs && docs.total) { %>, and <strong><%= Number(docs.total).toLocaleString('en-US') %></strong> documents (<%= Number(docs.matched).toLocaleString('en-US') %> matched to <%= docs.students %> students)<% } %>. Restricted ones open only for your school's managers.</p>
+      <% const _into = _kept.filter((l) => l.feature && listFeatures[l.feature]); %>
+      <% if (_into.length) { %>
+      <h3>Loaded into Managira's own features</h3>
+      <p class="mg-hint">These <%= _into.length %> lists also go into the parts of Managira that do the same job, when you go live. They're kept read-only as well, so nothing is lost.</p>
+      <div class="mg-scroll"><table class="mg-table no-global-sort"><thead><tr><th>List</th><th class="num">Rows</th><th>Goes into</th></tr></thead><tbody>
+        <% _into.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td><td><%= listFeatures[l.feature].into %></td></tr><% }) %>
+      </tbody></table></div>
+      <% } %>
       <% if (_kept.length) { %>
-      <details class="mg-more"><summary>The <%= _kept.length %> lists kept read-only</summary>
-        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th><th>Kept</th><th>Who sees it</th></tr></thead><tbody>
+      <details class="mg-more"><summary>Every list kept read-only (<%= _kept.length %>)</summary>
+        <div class="mg-scroll"><table class="mg-table"><thead><tr><th>List</th><th class="num">Rows</th><th>Kept</th><th>Also goes into</th><th>Who sees it</th></tr></thead><tbody>
           <% _kept.forEach((l) => { %><tr><td><strong><%= l.label %></strong></td><td class="num"><%= Number(l.rows).toLocaleString('en-US') %></td>
             <td><%= l.details ? 'As details on each student' : l.perStudent ? 'On each student (' + Number(l.students).toLocaleString('en-US') + ' rows matched)' : 'For the school' %></td>
+            <td><%= l.feature && listFeatures[l.feature] ? listFeatures[l.feature].label : '—' %></td>
             <td><% if (l.restricted) { %><span class="mg-pill mg-pill--sensitive">Restricted</span><% } else { %>Staff who open students<% } %></td></tr><% }) %>
         </tbody></table></div>
       </details>
@@ -444,6 +453,20 @@
       <% } %>
       <% if (loaded.studentsWaiting) { %><p class="mg-notice"><%= loaded.studentsWaiting %> <%= loaded.studentsWaiting === 1 ? 'student wasn’t' : 'students weren’t' %> loaded: <%= loaded.studentsWaiting === 1 ? 'they' : 'they' %> may already be in Managira. Answer under Review & sign, Already in Managira.</p><% } %>
       <p><a class="mg-btn" href="/common/migration/old-records?embed=workspace" data-no-spa>Records from your old system</a> <small class="mg-hint">lists kept for the school, and documents not on a current student</small></p>
+      <% const _t = loaded.transport || {}; const _p = loaded.paygira || {}; const _usd = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+         const _feat = [
+           loaded.graduates ? ['Graduates & Alumni', `${loaded.graduates} graduates as former students, with ${Number(loaded.graduateCourses || 0).toLocaleString('en-US')} transcript courses`] : null,
+           loaded.photos ? ['Student photos', `${loaded.photos} students' pictures from your files`] : null,
+           (_t.routes || _t.buses || _t.riders) ? ['Transportation', `${_t.buses || 0} buses, ${_t.drivers || 0} drivers, ${_t.routes || 0} routes, ${_t.stops || 0} stops, ${_t.schedules || 0} weekly runs, ${_t.riders || 0} riders${_t.ridersKept ? ` (${_t.ridersKept} already on a bus kept theirs)` : ''}${_t.alternates ? `; ${_t.alternates} alternate-address arrangements on the students' records` : ''}`] : null,
+           (_p.bills || _p.payments) ? ['PayGira', `${_p.bills || 0} bills with ${_p.charges || 0} charges on students' ledgers (${_usd(_p.owed)} still owed), ${_p.payments || 0} payments${_p.mealDebts ? `; ${_p.mealDebts} meal accounts in debt billed` : ''}${_p.mealCredits ? `; ${_p.mealCredits} meal accounts in credit stay with your meal service` : ''}`] : null,
+           loaded.parentDetails ? ["Parents' details", `${loaded.parentDetails} parents' phone, email or address filled in from your parent list`] : null,
+           loaded.gradGroups ? ['Graduation years', `${loaded.gradGroups} graduation year ${loaded.gradGroups === 1 ? 'group' : 'groups'} made`] : null,
+         ].filter(Boolean); %>
+      <% if (_feat.length) { %>
+      <h3>Also in Managira's own features</h3>
+      <ul class="mg-feat"><% _feat.forEach(([what, text]) => { %><li><strong><%= what %></strong><span><%= text %></span></li><% }) %></ul>
+      <% if (_t.routes && !locals.transportOn) { %><p class="mg-notice">Your buses and routes are in Managira. Turn Transportation on in Settings › Integrations to use them.</p><% } %>
+      <% } %>
       <%- include('partials/apps', { apps }) %>
       <h3>Your files beside Managira</h3>
       <table class="mg-table mg-compare"><thead><tr><th>What</th><th class="num">In your files</th><th class="num">In Managira</th></tr></thead><tbody>

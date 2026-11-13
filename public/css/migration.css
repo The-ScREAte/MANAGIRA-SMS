@@ -225,3 +225,10 @@
 .mg-blank h2 { justify-content: center; text-align: center; }
 .mg-blank p { color: var(--mg-muted); margin: 6px 0 0; }
 .mg-blank .mg-next { margin-top: 16px; display: flex; justify-content: center; }
+
+/* What went into Managira's own features (Go live). */
+.mg-feat { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; }
+.mg-feat li { display: grid; grid-template-columns: 190px 1fr; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #f2f4f7; font-size: 13.5px; }
+.mg-feat li:last-child { border-bottom: 0; }
+.mg-feat li span { color: var(--mg-muted); }
+@media (max-width: 640px) { .mg-feat li { grid-template-columns: 1fr; gap: 2px; } }

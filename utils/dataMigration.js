@@ -37,6 +37,9 @@ const documents = require("./migration/documents");
 const tasks = require("./migration/tasks");
 const readerPool = require("./migration/readerPool");
 const schoolRoles = require("./schoolRoles");
+const { featureOf, FEATURES: LIST_FEATURES } = require("./migration/features");
+const feat = require("./migration/features");
+const loadFeatures = require("./migration/loadFeatures");
 const zlib = require("zlib");
 const { promisify } = require("util");
 const gzip = promisify(zlib.gzip);
@@ -63,7 +66,7 @@ const KEEP_DAYS = 30;
 const SECTIONS = ["students", "guardians", "staff", "roles", "classes", "enrollments", "grades", "attendance", "custom_fields", "archive"];
 const SECTION_LABELS = { students: "Students", guardians: "Parents & guardians", staff: "Staff accounts", roles: "Staff roles (the role report)", classes: "Sections & teachers", enrollments: "Class enrollments", grades: "Final grades", attendance: "Attendance", custom_fields: "Custom and extra fields", archive: "Archive" };
 const ACTIONS = ["map", "custom", "extra", "archive", "exclude", "alert"];
-const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs" };
+const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs", demographics: "Race and ethnicity" };
 // Whole modules Managira doesn't run yet: their columns are kept read-only per student.
 const ARCHIVE_MODULES = ["Special education", "Health records", "Transportation", "Fees", "Library", "Discipline", "Grades history", "Attendance history", "Other"];
 
@@ -76,10 +79,13 @@ let tablesReady = false;
 let lastCheck = 0;
 // The database updates have run (2026-11-27_data_migration, 2026-11-28_migration_core,
 // 2026-11-29_staff_roles_assistant, 2026-11-30_gpa_backups, 2026-12-01_migration_requests, 2026-12-02_migration_tasks, 2026-12-03_migration_documents).
+// A busy or unreachable database answers nothing: the last answer stands and it's asked again next
+// time (a failed read never makes a school's migration look switched off).
 async function ready(db) {
   if (tablesReady || Date.now() - lastCheck < 60000) return tablesReady;
-  lastCheck = Date.now();
-  const { rows } = await db.query(
+  let rows;
+  try {
+    ({ rows } = await db.query(
     `SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ANY($1::text[]))::int AS tables,
             (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema()
                 AND ((table_name = 'migration_links' AND column_name = 'job_id') OR (table_name = 'migration_jobs' AND column_name = 'role_approvals')
@@ -87,7 +93,11 @@ async function ready(db) {
                   OR (table_name = 'migration_links' AND column_name = 'loaded') OR (table_name = 'migration_jobs' AND column_name = 'match_decisions')
                   OR (table_name = 'migration_files' AND column_name = 'compressed') OR (table_name = 'migration_snapshots' AND column_name = 'content_gz')))::int AS cols`,
     [TABLES]
-  ).catch(() => ({ rows: [{ tables: 0, cols: 0 }] }));
+    ));
+  } catch (error) {
+    return tablesReady;
+  }
+  lastCheck = Date.now();
   tablesReady = Number(rows[0].tables) === TABLES.length && Number(rows[0].cols) === 7;
   return tablesReady;
 }
@@ -119,7 +129,8 @@ async function stateFor(db, organizationId) {
   if (hit && Date.now() - hit.at < 30000) return hit.value;
   let value = null;
   if (await ready(db)) {
-    const job = await openJob(db, key).catch(() => null);
+    let job;
+    try { job = await openJob(db, key); } catch (error) { return hit ? hit.value : null; } // unreachable: as it was, asked again next time
     value = job ? { jobId: job.job_id, status: job.status, locked: job.locked && ["sandbox", "review"].includes(job.status) } : null;
   }
   lockCache.set(key, { at: Date.now(), value });
@@ -307,6 +318,9 @@ const customFieldsOf = async (db, organizationId) => (await db.query(
 
 // Where a column nobody matched goes at first (the school, or Managira, can change it): on the
 // student, a labeled detail; on the other lists, kept read-only with the record it belongs to.
+const STUDENT_LISTS = new Set(["students", "student_details"]);
+// Old IDs and enrollment dates and reasons: the student's record keeps them; they make no custom field.
+const OLD_RECORD = /legacy|oldid|systemid|familyid|familyident|householdid|^id$|entrydate|exitdate|exitreason|exitcode|entrycode|enrolldate|enrollmentdate|withdraw|districtentry|schoolentry/;
 const DEFAULT_HOME = {
   students: { action: "custom" },
   student_details: { action: "custom" },
@@ -349,7 +363,22 @@ async function autoMap(db, job, entity, header, rows) {
       : exactOf.has(column) ? { target: exactOf.get(column), confidence: "confident" } : ps.matchColumn(entity, column, custom, taken);
     if (match.target && !match.target.startsWith("custom:")) taken.add(match.target);
     // Custody always becomes an alert; an SSN is left out unless the school confirms a legal need.
-    const fallback = !match.target ? DEFAULT_HOME[entity] : null;
+    // A student column with no place in Managira: a custom field, unless it's restricted (a detail
+    // only the right people see) or an old ID or enrollment date Managira keeps elsewhere (read-only).
+    const oldRecord = !match.target && STUDENT_LISTS.has(entity) && !sensitive && OLD_RECORD.test(ps.bare(column));
+    // A program or indicator (IEP, 504, English learner…) fills the school's own Programs &
+    // Indicators field of that name: editable, staff only (utils/studentFormFields.js INDICATORS).
+    const indicator = !match.target && STUDENT_LISTS.has(entity) && ["sped", "programs"].includes(sensitive) ? require("./studentFormFields").indicatorFor(column) : null;
+    if (indicator) {
+      await db.query(
+        `INSERT INTO migration_columns (job_id, organization_id, entity, source_column, target, confidence, confirmed, samples, sensitive, action, label)
+         VALUES ($1, $2, $3, $4, NULL, 'confident', TRUE, $5::jsonb, $6, 'custom', $7)
+         ON CONFLICT (job_id, entity, source_column) DO UPDATE SET target = NULL, confidence = 'confident', confirmed = TRUE, samples = EXCLUDED.samples, sensitive = EXCLUDED.sensitive, action = 'custom', label = EXCLUDED.label`,
+        [job.job_id, job.organization_id, entity, column, JSON.stringify(samples), sensitive, indicator.label]
+      );
+      continue;
+    }
+    const fallback = !match.target ? (oldRecord ? { action: "archive", label: "Student record (old system)" } : DEFAULT_HOME[entity]) : null;
     const fallbackAction = fallback && fallback.action === "custom" && sensitive ? "extra" : fallback ? fallback.action : null;
     const action = sensitive === "custody" ? "alert" : sensitive === "ssn" ? "exclude" : match.confidence === "confident" ? "map" : fallbackAction;
     await db.query(
@@ -833,8 +862,11 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   // Every other list: each row kept whole (bar Social Security numbers), with its student number.
   report.lists = [];
   let otherRows = 0;
+  const graduateIds = new Set(); // graduates become students at go-live: their documents are theirs
   for (const file of heavyFiles.filter((f) => f.entity === "other")) {
     const seen = lists.recognize(file.file_name, file.header);
+    // The Managira feature it loads into at go-live (it's kept read-only either way).
+    const feature = featureOf(file.file_name, file.header);
     progress({ step: `Keeping ${seen.label}` });
     let rows = 0;
     let students = 0;
@@ -846,7 +878,8 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
         for (let i = 0; i < chunk.header.length; i += 1) if (keepCol[i] && cells[i] !== "" && cells[i] != null) row[chunk.header[i]] = clean(cells[i], 4000);
         const student = at >= 0 ? clean(cells[at], 120) || null : null;
         if (student && studentIds.has(student)) students += 1;
-        return { sourceId: hashId(file.file_id, file.file_name, chunk.offset + k), line: chunk.offset + k + 2, data: { list: seen.label, restricted: seen.restricted, details: seen.details, student_source_id: student, row }, extra: {}, archive: {}, issues: [] };
+        if (student && feature === "graduates") graduateIds.add(student);
+        return { sourceId: hashId(file.file_id, file.file_name, chunk.offset + k), line: chunk.offset + k + 2, data: { list: seen.label, restricted: seen.restricted, details: seen.details, student_source_id: student, row, ...(feature ? { feature } : {}) }, extra: {}, archive: {}, issues: [] };
       });
       for (let i = 0; i < part.length; i += BATCH) { await write("other", part.slice(i, i + BATCH)); await tick(); }
       rows += part.length;
@@ -855,11 +888,11 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
       await tick();
     }
     otherRows += rows;
-    report.lists.push({ name: file.file_name, label: seen.label, rows, restricted: seen.restricted, details: seen.details, perStudent: Boolean(seen.studentColumn), students });
+    report.lists.push({ name: file.file_name, label: seen.label, rows, restricted: seen.restricted, details: seen.details, perStudent: Boolean(seen.studentColumn), students, feature });
   }
   await db.query("DELETE FROM migration_records WHERE job_id = $1 AND entity = 'other' AND updated_at < $2", [job.job_id, started]);
   if (otherRows) report.entities.other = { source: otherRows, staged: otherRows };
-  report.documents = await matchDocuments(db, job, studentIds);
+  report.documents = await matchDocuments(db, job, new Set([...studentIds, ...graduateIds]));
   report.tidied = source.tidied || 0;
   const totals = { ...job.totals, report, source: { credits: round(source.credits), gpa: gpaOf(source.grades), attendance: source.attendanceTotalRows ? source.attendance : source.attendanceDays }, importedAt: new Date().toISOString() };
   await db.query("UPDATE migration_jobs SET totals = $2::jsonb, updated_at = NOW() WHERE job_id = $1", [job.job_id, JSON.stringify(totals)]);
@@ -1277,6 +1310,16 @@ const yearOfDate = (iso) => { const y = Number(iso.slice(0, 4)); return Number(i
 // The school's live tables a go-live writes, each with its key. A rollback deletes the rows it
 // made in this order (whatever points at a row goes first) and puts back the ones it changed.
 const LOADED = {
+  finance_payments: ["payment_id"],
+  finance_bill_assignments: ["assignment_id"],
+  finance_bills: ["bill_id"],
+  transport_student_assignments: ["assignment_id"],
+  transport_bus_schedules: ["schedule_id"],
+  transport_stops: ["stop_id"],
+  transport_drivers: ["driver_id"],
+  transport_routes: ["route_id"],
+  transport_buses: ["bus_id"],
+  archived_student_info: ["id"],
   student_field_values: ["field_id", "student_id"],
   enrolled_students: ["enrolled_student_id"],
   enrolled_classes: ["enrolled_class_id"],
@@ -1292,6 +1335,7 @@ const LOADED = {
   enrollments: ["enrollment_id"],
   student_form_fields: ["field_id"],
   school_roles: ["role_id"],
+  graduation_year_groups: ["id"],
 };
 // The migration's own tables: every row it writes there carries its job_id.
 const OWN = ["student_course_history", "student_attendance_totals", "record_extra_fields", "student_alerts", "migration_archives", "migration_links", "staff_role_history", "student_source_gpas"];
@@ -1413,8 +1457,8 @@ function medicalAlertOf(list, row) {
 // everything, and only what's empty is filled in. Someone with the same name but another (or no)
 // date of birth, or several possible matches, is asked about; so is the same name and date of
 // birth twice in the files. Answers live in migration_jobs.match_decisions until go-live.
-const STUDENT_COLUMNS = ["first_name", "last_name", "date_of_birth", "date_of_birth_unknown", "gender", "class_id", "email", "address", "custom_student_id"];
-const FIELD_LABELS = { first_name: "First name", last_name: "Last name", date_of_birth: "Date of birth", gender: "Gender", class_id: "Class", class_name: "Class", email: "Email", address: "Address", custom_student_id: "Student number", phone: "Phone", phone_number: "Phone", org_role_title: "Title" };
+const STUDENT_COLUMNS = ["first_name", "last_name", "date_of_birth", "date_of_birth_unknown", "gender", "class_id", "email", "address", "custom_student_id", "graduation_year_group_id", "image_url"];
+const FIELD_LABELS = { first_name: "First name", last_name: "Last name", date_of_birth: "Date of birth", gender: "Gender", class_id: "Class", class_name: "Class", email: "Email", address: "Address", custom_student_id: "Student number", graduation_year_group_id: "Graduation year", phone: "Phone", phone_number: "Phone", org_role_title: "Title" };
 const isEmpty = (v) => v === null || v === undefined || String(v).trim() === "";
 const sameValue = (a, b) => tidy.key(a) === tidy.key(b);
 // What to write to a record: what's empty, and what the migration wrote last time if the school
@@ -1558,6 +1602,8 @@ async function decideMatch(db, job, body, actor) {
 
 async function loadLive(db, job, actor, progress = quiet) {
   await require("./studentFormFields").ensureStudentFormFieldsSchema(db).catch(() => {}); // outside the go-live's transaction
+  await require("./studentArchive").ensureStudentArchiveSchema(db).catch(() => {}); // graduates
+  await require("./transportation").ensureTransportationSchema(db).catch(() => {}); // buses, routes, riders
   const org = job.organization_id;
   const system = job.source_system;
   const client = await db.connect();
@@ -1615,6 +1661,23 @@ async function loadLive(db, job, actor, progress = quiet) {
       classIds.set(label.toLowerCase(), row.class_id);
       counts.classes += 1;
       return row.class_id;
+    };
+
+    // Graduation year groups: the school's own for that year, or a new one named as Managira names them.
+    const groups = (await q("SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY id", [org])).rows;
+    const gradGroupFor = async (value) => {
+      const year = (String(value || "").match(/\b(19|20)\d{2}\b/) || [])[0];
+      if (!year) return null;
+      const had = groups.find((g) => new RegExp(`\\b${year}\\b`).test(g.name));
+      if (had) return had.id;
+      const name = `Graduation Class of ${year} Group`;
+      const { rows: [row] } = await q(
+        "INSERT INTO graduation_year_groups (name, organization_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id", [name, org]
+      );
+      const id = row ? row.id : ((await q("SELECT id FROM graduation_year_groups WHERE organization_id = $1 AND name = $2", [org, name])).rows[0] || {}).id;
+      if (row) { ledger.made("graduation_year_groups", { id }); counts.gradGroups = (counts.gradGroups || 0) + 1; }
+      groups.push({ id, name });
+      return id || null;
     };
 
     // The current term: every imported student is enrolled in it, in their class.
@@ -1788,15 +1851,19 @@ async function loadLive(db, job, actor, progress = quiet) {
         WHERE job_id = $1 AND action = 'custom' AND target IS NULL AND entity IN ('students', 'student_details') AND label IS NOT NULL ORDER BY LOWER(label), column_id`,
       [job.job_id]
     );
+    const studentFields = require("./studentFormFields");
     for (const column of wanted) {
       const key = String(column.label).toLowerCase();
       if (fieldByName.has(key)) continue;
-      const type = fieldTypeOf(column.samples || []);
+      // A program or indicator is the standard field of Programs & Indicators; anything else takes the type its values have.
+      const indicator = studentFields.INDICATORS.find((i) => i.label.toLowerCase() === key);
+      const type = indicator ? indicator.type : fieldTypeOf(column.samples || []);
       if (fieldByName.size >= 60) { counts.customFieldsSkipped += 1; continue; } // the school's limit: kept as details instead
       const { rows: [made] } = await q(
         `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section)
-         VALUES ($1, $2, $3, '[]'::jsonb, $4, FALSE, TRUE, FALSE, (SELECT COALESCE(MAX(position), 0) + 1 FROM student_form_fields WHERE organization_id = $1), NULL, 'more') RETURNING field_id`,
-        [org, column.label.slice(0, 80), type, `From your old system (${system === "powerschool" ? "PowerSchool" : system})`]
+         VALUES ($1, $2, $3, $4::jsonb, $5, FALSE, TRUE, FALSE, (SELECT COALESCE(MAX(position), 0) + 1 FROM student_form_fields WHERE organization_id = $1), NULL, $6) RETURNING field_id`,
+        [org, column.label.slice(0, 80), type, JSON.stringify(indicator ? indicator.options || [] : []),
+          indicator ? indicator.helpText : `From your old system (${system === "powerschool" ? "PowerSchool" : system})`, indicator ? "programs" : "more"]
       );
       ledger.made("student_form_fields", { field_id: made.field_id });
       fieldByName.set(key, Number(made.field_id));
@@ -1827,14 +1894,14 @@ async function loadLive(db, job, actor, progress = quiet) {
       if (match.waiting) { counts.studentsWaiting += 1; continue; }
       if (match.sameAs) { sameAsFile.push([s.source_id, match.sameAs]); continue; }
       const fileClass = await classFor(d.class_name);
-      const incoming = { ...studentValues(d), class_id: fileClass };
+      const incoming = { ...studentValues(d), class_id: fileClass, graduation_year_group_id: await gradGroupFor(d.graduation_year) };
       let id = match.id || null;
       let mine = false;
       let loaded = (match.loaded && { ...match.loaded }) || {};
       let classId = fileClass;
       if (id) {
         mine = ledger.mine("students", { student_id: id });
-        const { rows: [live] } = await q("SELECT first_name, last_name, date_of_birth::text AS date_of_birth, gender, class_id, email, address, custom_student_id FROM students WHERE student_id = $1", [id]);
+        const { rows: [live] } = await q("SELECT first_name, last_name, date_of_birth::text AS date_of_birth, gender, class_id, email, address, custom_student_id, graduation_year_group_id FROM students WHERE student_id = $1", [id]);
         const plan = mergePlan(live, incoming, loaded);
         const fields = Object.keys(plan.set);
         if (fields.length) {
@@ -1849,9 +1916,9 @@ async function loadLive(db, job, actor, progress = quiet) {
         classId = plan.set.class_id || live.class_id || fileClass;
       } else {
         ({ rows: [{ student_id: id }] } = await q(
-          `INSERT INTO students (organization_id, first_name, last_name, date_of_birth, date_of_birth_unknown, gender, class_id, email, address, custom_student_id)
-           VALUES ($1, $2, $3, $4, ($4::date IS NULL), $5, $6, $7, $8, $9) RETURNING student_id`,
-          [org, incoming.first_name || "Unknown", incoming.last_name || "Unknown", incoming.date_of_birth, incoming.gender, fileClass, incoming.email, incoming.address, incoming.custom_student_id]
+          `INSERT INTO students (organization_id, first_name, last_name, date_of_birth, date_of_birth_unknown, gender, class_id, email, address, custom_student_id, graduation_year_group_id)
+           VALUES ($1, $2, $3, $4, ($4::date IS NULL), $5, $6, $7, $8, $9, $10) RETURNING student_id`,
+          [org, incoming.first_name || "Unknown", incoming.last_name || "Unknown", incoming.date_of_birth, incoming.gender, fileClass, incoming.email, incoming.address, incoming.custom_student_id, incoming.graduation_year_group_id]
         ));
         ledger.made("students", { student_id: id });
         mine = true;
@@ -1961,7 +2028,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         const plan = mergePlan(live, parentValues, loaded || {});
         const fields = Object.keys(plan.set);
         if (fields.length) {
-          await ledger.before("guardian_profiles", { guardian_id: id }, ["first_name", "last_name", "email", "phone"]);
+          await ledger.before("guardian_profiles", { guardian_id: id }, ["first_name", "last_name", "email", "phone", "address"]);
           await q(`UPDATE guardian_profiles SET ${fields.map((f, i) => `${f} = $${i + 2}`).join(", ")}, updated_at = NOW() WHERE guardian_id = $1`, [id, ...fields.map((f) => plan.set[f])]);
         }
         if (!mine) { counts.guardiansMatched += 1; counts.filled += fields.length; }
@@ -2277,7 +2344,62 @@ async function loadLive(db, job, actor, progress = quiet) {
       );
     }
     counts.roleHistory = history.length;
+    // Graduates: former students under Graduates & Alumni, recorded as a graduation records them, on
+    // the day they graduated (no billing hold, nothing to undo), so staff find them by name and their
+    // transcripts and documents land on their record. One already in Managira is left as it is.
+    const graduates = (await q("SELECT data FROM migration_records WHERE job_id = $1 AND entity = 'other' AND data->>'feature' = 'graduates' ORDER BY record_id", [job.job_id])).rows;
+    if (graduates.length) {
+      progress({ step: "Loading graduates", done: 0, total: graduates.length });
+      await q("SELECT set_config('managira.actor_id', '', true), set_config('managira.actor_name', $1, true)", ["Data migration"]);
+      counts.graduates = 0;
+      for (const { data: g } of graduates) {
+        const sourceId = clean(g.student_source_id, 120);
+        const r = g.row || {};
+        if (!sourceId || (await studentOf(sourceId))) continue;
+        const first = clean(feat.pick(r, "First_Name", "FirstName", "Given_Name"), 100);
+        const last = clean(feat.pick(r, "Last_Name", "LastName", "Surname"), 100);
+        if (!first && !last) continue;
+        const dob = isoDate(feat.pick(r, "DOB", "Birthdate", "Date_Of_Birth"));
+        const year = (feat.pick(r, "Graduation_Year", "Class_Of").match(/\b(19|20)\d{2}\b/) || [])[0] || null;
+        const graduatedOn = isoDate(feat.pick(r, "Graduation_Date"));
+        const on = graduatedOn && graduatedOn !== "invalid" ? graduatedOn : year ? `${year}-06-01` : new Date().toISOString().slice(0, 10);
+        const groupId = await gradGroupFor(year);
+        const sex = feat.pick(r, "Gender", "Sex");
+        const { rows: [{ student_id: id }] } = await q(
+          `INSERT INTO students (organization_id, first_name, last_name, date_of_birth, date_of_birth_unknown, gender, custom_student_id, graduation_year_group_id, graduated)
+           VALUES ($1, $2, $3, $4, ($4::date IS NULL), $5, $6, $7, TRUE) RETURNING student_id`,
+          [org, first || "Unknown", last || "Unknown", dob && dob !== "invalid" ? dob : null, /^m/i.test(sex) ? "Male" : /^f/i.test(sex) ? "Female" : clean(sex, 20) || null, sourceId.slice(0, 50), groupId]
+        );
+        ledger.made("students", { student_id: id });
+        const { rows: [arch] } = await q(
+          `INSERT INTO archived_student_info (student_id, graduation_year_group_id, organization_id, archive_kind, reason_note, archived_by_name, archived_at, archived_at_ts, billable_until, undo_until, rode_bus)
+           VALUES ($1, $2, $3, 'graduated', $4, $5, $6::date, $6::date, $6::date, $6::date, FALSE) RETURNING id`,
+          [id, groupId, org, [clean(feat.pick(r, "Diploma_Type"), 120), year ? `Class of ${year}` : ""].filter(Boolean).join(" · ") || null, "Data migration", on]
+        );
+        ledger.made("archived_student_info", { id: arch.id });
+        studentIds.set(sourceId, id);
+        await link("students", sourceId, id, { first_name: first, last_name: last });
+        const rank = feat.pick(r, "Class_Rank");
+        const size = feat.pick(r, "Class_Size");
+        for (const [label, value] of [["Diploma", feat.pick(r, "Diploma_Type")], ["Class rank", rank ? `${rank}${size ? ` of ${size}` : ""}` : ""], ["Credits earned", feat.pick(r, "Credits_Earned")], ["Graduated on", graduatedOn && graduatedOn !== "invalid" ? graduatedOn : ""]]) {
+          if (clean(value)) await extraOn("student", id, label, { value });
+        }
+        const weighted = asExported(feat.pick(r, "Final_GPA_Weighted", "GPA_Weighted"));
+        const unweighted = asExported(feat.pick(r, "Final_GPA_Unweighted", "GPA_Unweighted"));
+        if (weighted !== null || unweighted !== null) {
+          await q(
+            `INSERT INTO student_source_gpas (organization_id, student_id, source, gpa_weighted, gpa_unweighted, gpa, as_of, job_id) VALUES ($1, $2, $3, $4, $5, NULL, $6, $7)
+             ON CONFLICT (organization_id, student_id, source) DO UPDATE SET gpa_weighted = EXCLUDED.gpa_weighted, gpa_unweighted = EXCLUDED.gpa_unweighted, as_of = EXCLUDED.as_of, job_id = EXCLUDED.job_id, updated_at = NOW()`,
+            [org, id, system, weighted, unweighted, year ? `Final, class of ${year}` : "Final", job.job_id]
+          );
+        }
+        counts.graduates += 1;
+        if (counts.graduates % 100 === 0) { progress({ done: counts.graduates }); await tick(); }
+      }
+    }
+
     const listTotal = await countOf("other");
+    const byFeature = {}; // rows of the lists that load into a feature, gathered as they're read
     progress({ step: "Keeping your other lists read-only", done: 0, total: listTotal });
     let listDone = 0;
     const listNames = new Set();
@@ -2289,6 +2411,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         const d = r.data || {};
         listNames.add(d.list);
         const studentId = d.student_source_id ? await studentOf(d.student_source_id) : null;
+        if (d.feature && d.feature !== "graduates") (byFeature[d.feature] = byFeature[d.feature] || []).push({ studentId, row: d.row || {} });
         if (studentId && d.details) {
           const studentColumn = Object.keys(d.row || {}).find((k) => lists.STUDENT_KEYS.includes(String(k).toLowerCase().replace(/^\[[^\]]*\]/, "").replace(/[^a-z0-9]/g, "")));
           for (const [column, value] of Object.entries(d.row || {})) if (column !== studentColumn && !/^last_?first$|^student_?name$/i.test(column)) await extraOn("student", studentId, prettyLabel(column), { value, sensitive: Boolean(d.restricted) });
@@ -2321,6 +2444,50 @@ async function loadLive(db, job, actor, progress = quiet) {
     }
     counts.lists = listNames.size;
     counts.listRows = listDone;
+
+    // The lists that fit one of Managira's features, loaded into it (they stay read-only as well).
+    const featureCtx = { q, ledger, org, job, counts, system, linkOf, extraOn };
+    const transcripts = loadFeatures.transcriptRows(byFeature);
+    if (transcripts.length) {
+      progress({ step: "Loading the graduates' transcripts", done: 0, total: transcripts.length });
+      for (let at = 0; at < transcripts.length; at += 5000) {
+        const part = transcripts.slice(at, at + 5000);
+        const col = (i) => part.map((r) => r[i]);
+        await q(
+          `INSERT INTO student_course_history (organization_id, student_id, school_year, term, grade_level, course_number, course_name, grade, percent, gpa_points, credits_attempted, credits_earned, school_name, gpa_added_value, source, job_id)
+           SELECT $1, x.* , $15, $16 FROM unnest($2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::numeric[], $10::numeric[], $11::numeric[], $12::numeric[], $13::text[], $14::numeric[])
+             AS x(student_id, school_year, term, grade_level, course_number, course_name, grade, percent, gpa_points, credits_attempted, credits_earned, school_name, gpa_added_value)`,
+          [org, col(0), col(1), col(2), col(3), col(4), col(5), col(6), col(7), col(8), col(9), col(10), col(11), col(12), system, job.job_id]
+        );
+      }
+      counts.graduateCourses = transcripts.length;
+    }
+    // The parents' master list: each parent's empty phone, email and address filled in.
+    if ((byFeature.parents_master || []).length) {
+      counts.parentDetails = 0;
+      for (const { row } of byFeature.parents_master) {
+        const id = byContact.get(clean(feat.pick(row, "ContactID", "Contact_ID", "Contact_Number"), 60));
+        if (!id) continue;
+        const street = clean(feat.pick(row, "Street", "Address", "Mailing_Street"), 200);
+        const place = [clean(feat.pick(row, "City"), 80), [clean(feat.pick(row, "State"), 20), clean(feat.pick(row, "Zip", "Postal_Code"), 20)].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+        const incoming = {
+          email: clean(feat.pick(row, "Primary_Email", "Email"), 200).toLowerCase() || null,
+          phone: clean(feat.pick(row, "Mobile_Phone", "Cell_Phone", "Home_Phone", "Phone"), 40) || null,
+          address: [street, place].filter(Boolean).join(", ") || null,
+        };
+        const { rows: [live] } = await q("SELECT email, phone, address FROM guardian_profiles WHERE guardian_id = $1", [id]);
+        const plan = mergePlan(live, incoming, {});
+        const fields = Object.keys(plan.set);
+        if (!fields.length) continue;
+        if (!ledger.mine("guardian_profiles", { guardian_id: id })) await ledger.before("guardian_profiles", { guardian_id: id }, ["first_name", "last_name", "email", "phone", "address"]);
+        await q(`UPDATE guardian_profiles SET ${fields.map((f, i) => `${f} = $${i + 2}`).join(", ")}, updated_at = NOW() WHERE guardian_id = $1`, [id, ...fields.map((f) => plan.set[f])]);
+        counts.parentDetails += 1;
+      }
+    }
+    progress({ step: "Loading buses, routes and riders", done: 0, total: 0 });
+    await loadFeatures.loadTransport(featureCtx, byFeature);
+    progress({ step: "Loading fees and payments into PayGira", done: 0, total: 0 });
+    await loadFeatures.loadPayGira(featureCtx, byFeature);
     // Documents, on their student's record.
     const { rows: docs } = await q("SELECT document_id, student_source_id FROM migration_documents WHERE job_id = $1 AND student_source_id IS NOT NULL", [job.job_id]);
     const docIds = [];
@@ -2330,6 +2497,42 @@ async function loadLive(db, job, actor, progress = quiet) {
       await q("UPDATE migration_documents d SET student_id = x.s FROM unnest($1::bigint[], $2::int[]) AS x(id, s) WHERE d.document_id = x.id", [docIds.slice(i, i + 2000), docStudents.slice(i, i + 2000)]);
     }
     counts.documents = docIds.length;
+    // A student's photo (picture day, a portrait) becomes their picture in Managira, when they
+    // have none: copied where the app keeps student photos, the newest one where there are several.
+    const { rows: photos } = await q(
+      `SELECT DISTINCT ON (d.student_id) d.document_id, d.student_id, d.file_name, d.content_type, d.store, d.storage_key, d.content, d.sha256
+         FROM migration_documents d JOIN students s ON s.student_id = d.student_id AND s.organization_id = $2
+        WHERE d.job_id = $1 AND d.student_id IS NOT NULL AND d.content_type LIKE 'image/%'
+          AND (d.path ~* '(photo|picture|portrait|headshot|yearbook)' OR d.kind ~* '(photo|picture|portrait|headshot)')
+          AND (s.image_url IS NULL OR s.image_url = '' OR s.image_url = 'profilePlaceholder.png')
+        ORDER BY d.student_id, d.path DESC`,
+      [job.job_id, org]
+    );
+    if (photos.length) {
+      progress({ step: "Adding the students' photos", done: 0, total: photos.length });
+      const s3 = process.env.S3_BUCKET_NAME && process.env.AWS_ACCESS_KEY_ID ? require("../config/s3") : null;
+      counts.photos = 0;
+      for (const photo of photos) {
+        let url = null;
+        try {
+          if (s3) {
+            const ext = (String(photo.file_name).match(/\.([a-z0-9]{2,5})$/i) || [])[1] || "jpg";
+            const key = `images/studentimages/${org}/migrated/${photo.student_id}-${String(photo.sha256).slice(0, 12)}.${ext.toLowerCase()}`;
+            const { PutObjectCommand } = require("@aws-sdk/client-s3");
+            await s3.s3Client.send(new PutObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key, Body: await documents.read(photo), ContentType: photo.content_type }));
+            url = require("./publicImageUrl").s3ObjectUrl(key);
+          } else {
+            url = `/common/migration/documents/${photo.document_id}`; // a copy without file storage (the local copy): shown through Managira
+          }
+        } catch (error) {
+          console.error("[Migration] a student's photo:", error.message);
+          continue;
+        }
+        if (!ledger.mine("students", { student_id: photo.student_id })) await ledger.before("students", { student_id: photo.student_id }, STUDENT_COLUMNS);
+        await q("UPDATE students SET image_url = $2 WHERE student_id = $1 AND organization_id = $3 AND (image_url IS NULL OR image_url = '' OR image_url = 'profilePlaceholder.png')", [photo.student_id, url, org]);
+        counts.photos += 1;
+      }
+    }
 
     // Everything kept read-only, written a batch at a time.
     progress({ step: "Saving what's kept read-only", done: 0, total: archived.size });
@@ -2526,8 +2729,9 @@ async function rollbackPreview(db, job) {
   if (students.length) {
     since.attendance = await count("SELECT COUNT(*) AS n FROM attendance_records WHERE organization_id = $1 AND student_id = ANY($2::int[])", [org, students]);
     since.scores = await count("SELECT COUNT(*) AS n FROM assessment_results WHERE organization_id = $1 AND student_id = ANY($2::int[])", [org, students]);
-    since.bills = await count("SELECT COUNT(*) AS n FROM finance_bill_assignments WHERE student_id = ANY($1::int[])", [students]);
-    since.payments = await count("SELECT COUNT(*) AS n FROM finance_payments WHERE student_id = ANY($1::int[])", [students]);
+    const [ownShares, ownPayments] = [await idsOf("finance_bill_assignments", "assignment_id"), await idsOf("finance_payments", "payment_id")];
+    since.bills = await count("SELECT COUNT(*) AS n FROM finance_bill_assignments WHERE student_id = ANY($1::int[]) AND NOT (assignment_id = ANY($2::int[]))", [students, ownShares]);
+    since.payments = await count("SELECT COUNT(*) AS n FROM finance_payments WHERE student_id = ANY($1::int[]) AND NOT (payment_id = ANY($2::int[]))", [students, ownPayments]);
     since.forms = await count("SELECT COUNT(*) AS n FROM custom_section_entries WHERE student_id = ANY($1::int[])", [students]);
     since.studentLogins = await count("SELECT COUNT(*) AS n FROM student_accounts WHERE student_id = ANY($1::int[])", [students]);
   }
@@ -2557,6 +2761,9 @@ async function rollback(db, job, actor) {
     // Checked row by row, so a row something still points at is caught (and kept) where it is
     // deleted, not at the end (some of the school's foreign keys are checked at commit).
     await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+    // Graduates the migration brought in are permanent records to the school (no restore after a
+    // year); taking them back out is Managira's own support work, allowed for this transaction only.
+    await client.query("SELECT set_config('managira.archive_override', 'support', true), set_config('managira.actor_name', 'Data migration rollback', true)");
     const { rows: entries } = await client.query("SELECT table_name, row_key, created, before FROM migration_loaded WHERE job_id = $1", [job.job_id]);
     // Documents stay with the sandbox, no longer on a student's record.
     await client.query("UPDATE migration_documents SET student_id = NULL WHERE job_id = $1", [job.job_id]);
@@ -2605,7 +2812,8 @@ async function rollback(db, job, actor) {
           [made.map((k) => k.role_id), org]
         )).rowCount;
       } else if (keys.length === 1) {
-        const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields"].includes(table) ? " AND organization_id = $2" : "";
+        const scoped = ["students", "guardian_profiles", "guardians", "student_form_fields", "finance_payments", "finance_bill_assignments", "finance_bills", "transport_student_assignments",
+          "transport_bus_schedules", "transport_stops", "transport_drivers", "transport_routes", "transport_buses", "archived_student_info", "graduation_year_groups"].includes(table) ? " AND organization_id = $2" : "";
         removed = (await client.query(`DELETE FROM ${table} WHERE ${keys[0]} = ANY($1::int[])${scoped}`, scoped ? [made.map((k) => k[keys[0]]), org] : [made.map((k) => k[keys[0]])])).rowCount;
       } else {
         removed = (await client.query(`DELETE FROM ${table} WHERE (${keys[0]}, ${keys[1]}) IN (SELECT * FROM unnest($1::int[], $2::int[]))`, [made.map((k) => k[keys[0]]), made.map((k) => k[keys[1]])])).rowCount;

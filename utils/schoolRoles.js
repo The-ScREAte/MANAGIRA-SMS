@@ -12,10 +12,15 @@ let readyAt = 0;
 let isReady = false;
 async function ready(db) {
   if (isReady || Date.now() - readyAt < 60000) return isReady;
+  let r;
+  try {
+    ({ rows: [r] } = await db.query(
+      "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'school_roles')::int + (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'school_role_id')::int AS n"
+    ));
+  } catch (error) {
+    return isReady; // a busy database: asked again next time
+  }
   readyAt = Date.now();
-  const { rows: [r] } = await db.query(
-    "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'school_roles')::int + (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'school_role_id')::int AS n"
-  ).catch(() => ({ rows: [{ n: 0 }] }));
   isReady = Number(r.n) === 2;
   return isReady;
 }

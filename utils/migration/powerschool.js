@@ -31,6 +31,7 @@ const ENTITIES = {
       zip: ["ZIP code", ["zip", "zipcode", "postalcode", "mailingzip"], ["zip", "postal"]],
       phone: ["Home phone", ["homephone", "phone"], []],
       enroll_status: ["Enrollment status", ["enrollstatus", "enrollmentstatus", "status"], ["enroll"]],
+      graduation_year: ["Graduation year", ["graduationyear", "gradyear", "classof", "yearofgraduation", "expectedgraduationyear", "graduationyr", "cohortyear"], []],
       guardian1_name: ["Parent 1 name", ["mother", "mothername", "guardian", "guardianname", "parent1", "parent1name"], ["mother"]],
       guardian1_email: ["Parent 1 email", ["guardianemail", "motheremail", "parentemail", "parent1email"], []],
       guardian1_phone: ["Parent 1 phone", ["motherhomephone", "mothercell", "motherdayphone", "guardianphone", "parent1phone", "mothercellphone"], []],
@@ -223,7 +224,8 @@ const SENSITIVE = [
   ["medical", /medical|medication|allerg|health|diagnos|immuniz|condition|doctor|physician|nurse/],
   ["discipline", /disciplin|incident|suspen|expul|infraction|referral|behavio/],
   ["secret", /combination|password|passcode|pincode|^pin$/],
-  ["programs", /englishlearner|^ell$|^lep$|limitedenglish|gifted|homeless|foster|migrant|meal|^frl$|freereduced|lunchstatus|economicallydisadv/],
+  ["demographics", /^race|ethnic|hispanic|latino|tribal|nativeamerican/],
+  ["programs", /englishlearner|^ell$|^lep$|limitedenglish|gifted|homeless|foster|migrant|meal|^frl$|freereduced|lunchstatus|economicallydisadv|military/],
 ];
 // A column's words, from its name: "Class_Name" → class, name; "SSN" → ssn.
 const words = (column) => String(column || "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);

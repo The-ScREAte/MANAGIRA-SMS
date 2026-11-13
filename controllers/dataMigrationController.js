@@ -202,7 +202,7 @@ async function page(req, res, db) {
     : ["go_live", "catch_up"].includes(task.kind) && job.status !== "live" ? null
     : TASK_STEP[task.kind] && TASK_STEP[task.kind] !== step ? null : task;
   const none = (value) => Promise.resolve(value);
-  const [sandbox, check, staff, roleReport, gpaCheck, matches, docs, uploads, ownRoles] = await Promise.all([
+  const [sandbox, check, staff, roleReport, gpaCheck, matches, docs, uploads, transportOn, ownRoles] = await Promise.all([
     on("check", "review") ? m.sandboxSummary(db, job) : none({ counts: {}, sample: [] }),
     on("review", "live", "check") ? m.blockers(db, job) : none({ list: [], needed: [] }),
     on("live") && job.status === "live" ? m.staffAccounts(db, job) : none([]),
@@ -213,6 +213,8 @@ async function page(req, res, db) {
     on("review") && files.some((f) => f.entity === "students") ? m.liveMatches(db, job) : none(null),
     on("upload", "check") ? m.documentsOf(db, job) : none(null),
     on("upload", "live") ? db.query("SELECT upload_id, file_name, size_bytes, status, error, result, uploaded_by, created_at, read_at FROM migration_uploads WHERE job_id = $1 ORDER BY upload_id DESC LIMIT 20", [job.job_id]).then((r) => r.rows) : none([]),
+    // Whether the school uses Transportation (Go live says so when its buses came in while it's off).
+    on("live") && job.status === "live" ? require("../utils/integrationSwitches").isOn(db, job.organization_id, "transportation").catch(() => true) : none(true),
     // The school's own roles (Users › Add user › Add a role), offered for its old roles; never one based on Manager.
     on("roles") ? require("../utils/schoolRoles").list(db, job.organization_id).then((list) => list.filter((r) => r.base_type !== "Manager")).catch(() => []) : none([]),
   ]);
@@ -220,6 +222,8 @@ async function page(req, res, db) {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
     job, step, steps: STEPS, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
     // The other apps the school ran (library, food service, health office…), from its lists' names.
+    listFeatures: require("../utils/migration/features").FEATURES,
+    transportOn,
     apps: on("check", "live") ? require("../utils/migration/apps").appsFrom(((job.totals && job.totals.report) || {}).lists, { areaLabels: Object.fromEntries(require("../utils/apiAccess").API_AREAS.map((a) => [a.key, a.label])) }) : [], matches, task: shownTask, docs, uploads, nextStep: NEXT_STEP, fieldChoices: m.fieldChoices(columns), fieldTypeOf: m.fieldTypeOf, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
     summary: m.summary(columns, custom), targetLabel: m.targetLabel,
