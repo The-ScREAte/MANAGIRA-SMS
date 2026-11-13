@@ -167,6 +167,18 @@ async function optionPost(req, res, db) {
   else req.flash("success", req.body.value === "paygira" ? "Meal balances will move into PayGira when you go live." : "Meal balances stay in your meal app.");
   return res.redirect("/common/migration?step=check&embed=workspace");
 }
+// A district's export: the schools whose students are this school's. The sandbox is imported again.
+async function schoolsPost(req, res, db) {
+  const job = await schoolContext(req, res, db);
+  if (!job) return res.redirect("/");
+  const result = await m.setSchools(db, job, req.body.schools, actorOf(req));
+  if (result.error) req.flash("error", result.error);
+  else {
+    if (job.status !== "live") await m.startTask(db, job, "import", actorOf(req));
+    req.flash("success", job.status === "live" ? "Saved. Apply again on the Go live step." : "Saved. Importing again with only your schools' students.");
+  }
+  return res.redirect("/common/migration?step=check&embed=workspace");
+}
 // The lists the school keeps using in Managira (a form each) and those kept as history.
 async function listUsePost(req, res, db) {
   const job = await schoolContext(req, res, db);
@@ -724,7 +736,7 @@ const wrap = (fn) => async (req, res, db) => {
 };
 module.exports = {
   codeGate, verifyPage: wrap(verifyPage), verifyPost: wrap(verifyPost),
-  page: wrap(page), optionPost: wrap(optionPost), listUsePost: wrap(listUsePost), matchPost: wrap(matchPost), customFieldsPost: wrap(customFieldsPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
+  page: wrap(page), optionPost: wrap(optionPost), listUsePost: wrap(listUsePost), schoolsPost: wrap(schoolsPost), matchPost: wrap(matchPost), customFieldsPost: wrap(customFieldsPost), requestPost: wrap(requestPost), withdrawPost: wrap(withdrawPost), uploadHandler, uploadPost: wrap(uploadPost), confirmPost: wrap(confirmPost), notesPost: wrap(notesPost), excludePost: wrap(excludePost),
   legalPost: wrap(legalPost), importPost: wrap(importPost), approvePost: wrap(approvePost), signPost: wrap(signPost), goLivePost: wrap(goLivePost), catchUpPost: wrap(catchUpPost), taskPost: wrap(taskPost), invitePost: wrap(invitePost),
   roleConfirmPost: wrap(roleConfirmPost), roleNotesPost: wrap(roleNotesPost), roleApprovePost: wrap(roleApprovePost), roleReportFile: wrap(roleReportFile),
   archivePage: wrap(archivePage), documentFile: wrap(documentFile), oldRecords: wrap(oldRecords), studentOldSystem,

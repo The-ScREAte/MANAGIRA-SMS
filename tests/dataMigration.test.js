@@ -187,6 +187,8 @@ test("tidying: capitals become names, US phones one format, emails lower case; a
   assert.equal(tidy.phone("555-123-4567 x12"), "555-123-4567 x12", "an extension is kept");
   assert.equal(tidy.phone("+44 20 7946 0958"), "+44 20 7946 0958", "another country is kept");
   assert.equal(tidy.email(" Ama@School.ORG "), "ama@school.org");
+  for (const v of ["n/a", "NONE", "No email", "-", "ama at school"]) assert.equal(tidy.email(v), "", `${v}: nothing to write to`);
+  for (const v of ["N/A", "000-000-0000", "(999) 999-9999", "unknown"]) assert.equal(tidy.phone(v), "", `${v}: nothing to call`);
   assert.equal(tidy.gender("f"), "Female");
   assert.equal(tidy.gender("Non-binary"), "Non-binary");
   const row = { first_name: "IVY", guardian1_phone: "5550201000", gender: "M", class_name: "GRADE 6", course_name: "ALGEBRA" };
@@ -481,4 +483,39 @@ test("lists kept by hand become forms the school keeps using; logs, family lists
   assert.equal(cf.normalizeSection({ ...section, origin: section.origin }).origin.list, "Locker and service", "the origin survives every save");
   assert.equal(forms.topicOf("Nurse visit log"), "Health");
   assert.equal(forms.topicOf("Locker assignments"), "Library & devices");
+});
+
+test("dates however an export wrote them, and lists that write the day first", () => {
+  for (const [v, iso] of [["2026-09-10", "2026-09-10"], ["09/10/2026", "2026-09-10"], ["9/10/2026 07:45", "2026-09-10"], ["9.10.2026", "2026-09-10"], ["10 Sep 2026", "2026-09-10"],
+    ["Sep 10, 2026", "2026-09-10"], ["10-Sep-26", "2026-09-10"], ["2026/09/10", "2026-09-10"]]) assert.equal(migration.isoDate(v), iso, v);
+  assert.equal(migration.isoDate("13/02/2026"), "invalid", "month first unless the list says otherwise");
+  assert.equal(migration.isoDate("13/02/2026", true), "2026-02-13");
+  const cols = migration.dayFirstColumns(["Born", "Joined"], [["13/02/2015", "01/09/2026"], ["05/11/2014", "09/22/2026"]]);
+  assert.ok(cols.has("Born") && !cols.has("Joined"), "a day over 12 says day first; a second number over 12 keeps month first");
+});
+
+test("a student who left comes in as a former student, with why; grade levels however a school writes them", () => {
+  const left = (d) => migration.leftOf(d, "2026-11-13");
+  assert.equal(left({ enroll_status: "A" }), null);
+  assert.equal(left({ enroll_status: "Active", exit_date: "06/01/2025" }), null, "a status that says active wins over an old exit date");
+  assert.deepEqual([left({ enroll_status: "W", exit_reason: "Transferred - in state" }).kind, left({ enroll_status: "W", exit_reason: "Transferred - in state" }).reason], ["left", "Transferred to another school"]);
+  assert.equal(left({ enroll_status: "I", exit_reason: "D1 - Deceased" }).reason, "Passed away");
+  assert.equal(left({ enroll_status: "Graduated" }).kind, "graduated");
+  assert.equal(left({ enroll_status: "3", _numericStatus: true }).kind, "graduated", "PowerSchool's 3");
+  assert.equal(left({ enroll_status: "0", _numericStatus: true }), null, "PowerSchool's 0 is active");
+  assert.equal(left({ exit_date: "2026-06-05" }).on, "2026-06-05", "no status and an exit date gone by: left");
+  assert.equal(left({ exit_date: "2027-05-28" }), null, "an exit date still to come is the end of the year");
+  for (const [v, key] of [["KG", "k"], ["Kindergarten", "k"], ["PK", "pk"], ["Pre-K", "pk"], ["-1", "pk"], ["TK", "tk"], ["01", "1"], ["1st Grade", "1"], ["Grade 06", "6"], ["6th Grade", "6"], ["Sixth grade", "6"], ["12", "12"]]) {
+    assert.equal(migration.gradeKey(v), key, v);
+  }
+  for (const v of ["Grade 6 - Room 2", "6A", "Homeroom", "PK-5", "13"]) assert.equal(migration.gradeKey(v), null, v);
+});
+
+test("numbers a spreadsheet changed still find their student; a student named in one column is read", () => {
+  const lists = require("../utils/migration/lists");
+  const byEntity = { students: [{ data: { source_id: "00123" } }, { data: { source_id: "31000" } }], enrollments: [{ data: { student_source_id: "123" }, sourceId: "e1" }, { data: { student_source_id: "31000.0" }, sourceId: "e2" }] };
+  const source = { rows: {} };
+  migration.linkPeople(byEntity, source);
+  assert.deepEqual(byEntity.enrollments.map((e) => e.data.student_source_id), ["00123", "31000"]);
+  assert.equal(lists.recognize("student_list.csv", ["Student ID", "Student Name", "Grade", "Birth Date"]).entity, "students", "Smith, Ava in one column");
 });

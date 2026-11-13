@@ -284,3 +284,7 @@
 .mg-table .mg-group th { padding-top: 14px; background: transparent; color: var(--mg-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; text-align: left; }
 .mg-table .mg-tick { width: 96px; text-align: center; }
 .mg-uselists input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--mg-accent); cursor: pointer; }
+
+/* A district's export: the school ticks its own schools. */
+.mg-schools { margin-top: 14px; }
+.mg-schools label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; }

@@ -1246,6 +1246,7 @@ module.exports = (db) => {
   router.post("/migration/custom-fields", ...migrationGate, (req, res) => migration.customFieldsPost(req, res, db));
   router.post("/migration/options", ...migrationGate, (req, res) => migration.optionPost(req, res, db));
   router.post("/migration/lists", ...migrationGate, (req, res) => migration.listUsePost(req, res, db));
+  router.post("/migration/schools", ...migrationGate, (req, res) => migration.schoolsPost(req, res, db));
   router.post("/migration/sign", ...migrationGate, (req, res) => migration.signPost(req, res, db));
   router.post("/migration/go-live", ...migrationGate, (req, res) => migration.goLivePost(req, res, db));
   router.post("/migration/catch-up", ...migrationGate, (req, res) => migration.catchUpPost(req, res, db));

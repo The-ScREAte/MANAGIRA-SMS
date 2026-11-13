@@ -328,6 +328,9 @@ const STUDENT_LISTS = new Set(["students", "student_details"]);
 const OLD_RECORD = /legacy|oldid|systemid|familyid|familyident|householdid|^id$|entrydate|exitdate|exitreason|exitcode|entrycode|enrolldate|enrollmentdate|withdraw|districtentry|schoolentry|^age$|^entity$|^entitycode$|^schoolcode$|^schoolid$|^building$/;
 const ALIAS_SET = new Set(ps.ALIAS_KEYS);
 const FAMILY_SET = new Set(ps.FAMILY_KEYS);
+const SCHOOL_SET = new Set(ps.SCHOOL_KEYS);
+// A number as a spreadsheet may have changed it: "00123" became 123, 31000 became "31000.0".
+const plainId = (value) => String(value).replace(/\.0+$/, "").replace(/^0+(?=\d)/, "");
 const oldIdColumn = (bare) => OLD_RECORD.test(bare) || ALIAS_SET.has(bare) || FAMILY_SET.has(bare);
 const DEFAULT_HOME = {
   students: { action: "custom" },
@@ -518,19 +521,48 @@ function openItems(columns) {
 }
 
 // ── 3. Import into the sandbox, with the checks ─────────────────────────────────────────
-const DATE_RX = [[/^(\d{4})-(\d{1,2})-(\d{1,2})/, (m) => [m[1], m[2], m[3]]], [/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, (m) => [m[3], m[1], m[2]]], [/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/, (m) => [Number(m[3]) > 30 ? `19${m[3]}` : `20${m[3]}`, m[1], m[2]]]];
-function isoDate(value) {
+// A date however an export wrote it: 2026-09-10, 09/10/2026 (with a time or not), 9.10.2026,
+// 10 Sep 2026, Sep 10, 2026, 10-Sep-26. `dayFirst`: the list writes the day first (13/02/2026),
+// which dayFirstColumns works out from the list's own values.
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const monthOf = (word) => MONTHS[String(word || "").toLowerCase().slice(0, 3)] || NaN;
+const century = (yy) => (Number(yy) > 30 ? `19${yy}` : `20${yy}`);
+const DATE_RX = [
+  [/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:$|[T\s])/, (m) => [m[1], m[2], m[3]]],
+  [/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?:$|[T\s])/, (m, dayFirst) => (dayFirst ? [m[3], m[2], m[1]] : [m[3], m[1], m[2]])],
+  [/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2})$/, (m, dayFirst) => (dayFirst ? [century(m[3]), m[2], m[1]] : [century(m[3]), m[1], m[2]])],
+  [/^(\d{1,2})[\s-]([a-z]{3,9})\.?[\s,-]+(\d{4}|\d{2})(?:$|[T\s])/i, (m) => [m[3].length === 2 ? century(m[3]) : m[3], monthOf(m[2]), m[1]]],
+  [/^([a-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})(?:$|[T\s])/i, (m) => [m[3], monthOf(m[1]), m[2]]],
+];
+function isoDate(value, dayFirst = false) {
   const text = String(value || "").trim();
   if (!text) return null;
   for (const [rx, parts] of DATE_RX) {
     const m = text.match(rx);
     if (!m) continue;
-    const [y, mo, d] = parts(m).map(Number);
+    const [y, mo, d] = parts(m, dayFirst).map(Number);
     const date = new Date(Date.UTC(y, mo - 1, d));
     if (date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d && y > 1900 && y < 2100) return date.toISOString().slice(0, 10);
     return "invalid";
   }
   return "invalid";
+}
+// The columns of a list that write the day first: some value's first number is over 12, and no
+// value's second number is (a US list keeps month first however its days fall).
+function dayFirstColumns(header, rows) {
+  const out = new Set();
+  header.forEach((column, i) => {
+    let day = 0;
+    let month = 0;
+    for (const cells of rows.slice(0, 2000)) {
+      const m = /^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}(?:$|[T\s])/.exec(String(cells[i] == null ? "" : cells[i]).trim());
+      if (!m) continue;
+      if (Number(m[1]) > 12) day += 1;
+      if (Number(m[2]) > 12) month += 1;
+    }
+    if (day && !month) out.add(column);
+  });
+  return out;
 }
 const num = (value) => { const n = Number(String(value == null ? "" : value).replace(/[^0-9.\-]/g, "")); return String(value || "").trim() && Number.isFinite(n) ? n : null; };
 const clean = (value, max = 500) => String(value == null ? "" : value).trim().slice(0, max);
@@ -604,7 +636,7 @@ function currentEnrollment(data, today = new Date().toISOString().slice(0, 10)) 
 const HEAVY = new Set(["grades", "attendance"]);
 
 // One row of a list as a staged record: mapped fields, extra fields, archived columns, alerts.
-function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
+function toRecord(entity, cols, header, cells, index, source, fileKey = "", dayFirst = null) {
   const row = {};
   for (let i = 0; i < header.length; i += 1) row[header[i]] = cells[i];
   const data = {};
@@ -613,9 +645,12 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   const alerts = {};
   const custom = {};
   for (const c of cols) {
-    const value = clean(row[c.source_column], 4000);
+    let value = clean(row[c.source_column], 4000);
     if (!value) continue;
     const mapped = c.action === "map" && c.target && (c.confirmed || c.confidence === "confident");
+    // A list that writes the day first: its dates read as the school meant them.
+    if (dayFirst && dayFirst.has(c.source_column) && (mapped || c.action === "custom")) { const iso = isoDate(value, true); if (iso && iso !== "invalid") value = iso; }
+    if (mapped && c.target === "enroll_status" && ps.bare(c.source_column) === "enrollstatus") data._numericStatus = true; // PowerSchool's 0, 2, 3…
     if (mapped && c.target.startsWith("custom:")) custom[c.target.slice(7)] = value;
     else if (mapped) data[c.target] = value;
     else if (c.action === "extra") extra[c.label || prettyLabel(c.source_column)] = { value, sensitive: Boolean(c.sensitive) };
@@ -630,8 +665,8 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
     if (m) { data.city = data.city || m[1].replace(/,\s*$/, ""); data.state = data.state || m[2].toUpperCase(); data.zip = data.zip || m[3]; } else data.city = data.city || data.city_state_zip;
     delete data.city_state_zip;
   }
-  // A member of staff named in one column ("Griffin, Dave"): their first and last name.
-  if (entity === "staff" && data.full_name && !data.first_name && !data.last_name) [data.first_name, data.last_name] = splitName(data.full_name);
+  // A person named in one column ("Griffin, Dave"): their first and last name.
+  if ((entity === "staff" || entity === "students") && data.full_name && !data.first_name && !data.last_name) [data.first_name, data.last_name] = splitName(data.full_name);
   // Weighted grade points without the Honors/AP added value: it's the difference.
   if (entity === "grades" && data.gpa_added_value === undefined && num(data.gpa_weighted_points) !== null && num(data.gpa_points) !== null) {
     const added = Math.round((num(data.gpa_weighted_points) - num(data.gpa_points)) * 100) / 100;
@@ -641,11 +676,14 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   // that name them by one of these still reach them (linkPeople).
   let aliases = null;
   let family = null;
+  let school = null;
   if (entity === "students") {
     for (let i = 0; i < header.length; i += 1) {
       const key = ps.bare(header[i]);
       const value = clean(cells[i], 120);
-      if (!value || value === clean(data.source_id, 120)) continue;
+      if (!value) continue;
+      if (SCHOOL_SET.has(key) && !school) school = value; // a district's export: whose student this is
+      if (value === clean(data.source_id, 120)) continue;
       if (ALIAS_SET.has(key)) (aliases = aliases || []).push(value);
       else if (FAMILY_SET.has(key) && !family) family = value;
     }
@@ -676,7 +714,7 @@ function toRecord(entity, cols, header, cells, index, source, fileKey = "") {
   if (!id && entity === "section_teachers") id = hashId(data.section_source_id, data.teacher_source_id, data.class_role, data.start_date, index);
   if (!id && entity === "student_gpas") id = hashId(data.student_source_id, data.as_of, index);
   if (!id && entity === "student_details") id = clean(data.student_source_id, 120); // one row per student
-  return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [], fileKey: String(fileKey), ...(aliases ? { aliases } : {}), ...(family ? { family } : {}) };
+  return { entity, sourceId: id, line: index + 2, data, extra, archive, issues: [], fileKey: String(fileKey), ...(aliases ? { aliases } : {}), ...(family ? { family } : {}), ...(school ? { school } : {}) };
 }
 // The same record in two lists of one kind (a contacts list and a relationships list): one record,
 // with what either list has. Within one list a repeat is a mistake, reported and left out.
@@ -706,8 +744,18 @@ function linkPeople(byEntity, source) {
     }
     if (s.family) { if (!families.has(s.family)) families.set(s.family, new Set()); families.get(s.family).add(id); }
   }
+  for (const id of primary) {
+    const plain = plainId(id);
+    if (plain !== id && !primary.has(plain)) { if (aliases.has(plain) && aliases.get(plain) !== id) clash.add(plain); else aliases.set(plain, id); }
+  }
   for (const value of clash) aliases.delete(value); // a number two students share names neither
-  const toStudent = (value) => { const v = clean(value, 120); return !v || primary.has(v) ? v : aliases.get(v) || v; };
+  const toStudent = (value) => {
+    const v = clean(value, 120);
+    if (!v || primary.has(v)) return v;
+    if (aliases.has(v)) return aliases.get(v);
+    const plain = plainId(v);
+    return primary.has(plain) ? plain : aliases.get(plain) || v;
+  };
   for (const entity of ["guardians", "enrollments", "student_gpas", "student_details"]) {
     for (const r of byEntity[entity] || []) {
       if (!r.data.student_source_id) continue;
@@ -790,6 +838,26 @@ function linkPeople(byEntity, source) {
   source.reach = { primary, aliases, families, contacts, toStudent };
 }
 
+// A district's export holding several schools' students: only those of the schools this school
+// chose (Check & import) come in; everything about the others stays out of its sandbox.
+function leaveOut(byEntity, source, chosen) {
+  const counts = new Map();
+  for (const s of byEntity.students || []) if (s.school) counts.set(s.school, (counts.get(s.school) || 0) + 1);
+  source.schools = [...counts.entries()].map(([value, students]) => ({ value, students })).sort((a, b) => b.students - a.students || String(a.value).localeCompare(String(b.value)));
+  source.excluded = new Set();
+  if (counts.size < 2 || !Array.isArray(chosen) || !chosen.length) return;
+  const keep = new Set(chosen.map(String));
+  byEntity.students = (byEntity.students || []).filter((s) => {
+    if (!s.school || keep.has(s.school)) return true;
+    source.excluded.add(clean(s.data.source_id, 120));
+    return false;
+  });
+  for (const entity of ["guardians", "enrollments", "student_gpas", "student_details"]) {
+    byEntity[entity] = (byEntity[entity] || []).filter((r) => !source.excluded.has(clean(r.data.student_source_id, 120)));
+  }
+  for (const set of [...source.reach.contacts.values(), ...source.reach.families.values()]) for (const id of source.excluded) set.delete(id);
+}
+
 async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}) {
   const files = await currentFiles(db, job);
   const columns = await columnsOf(db, job);
@@ -802,11 +870,13 @@ async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}
     const cols = columns.filter((c) => c.entity === file.entity);
     const out = (byEntity[file.entity] = byEntity[file.entity] || []);
     progress({ step: `Reading ${file.file_name}`, done: seen, total: totalRows });
+    let dayFirst = null;
     for await (const chunk of fileChunks(db, file)) {
     source.rows[file.entity] = (source.rows[file.entity] || 0) + chunk.rows.length;
+    if (!dayFirst) dayFirst = dayFirstColumns(chunk.header, chunk.rows);
     chunk.rows.forEach((cells, k) => {
       const index = chunk.offset + k;
-      out.push(toRecord(file.entity, cols, chunk.header, cells, index, source, file.file_id));
+      out.push(toRecord(file.entity, cols, chunk.header, cells, index, source, file.file_id, dayFirst));
     });
     seen += chunk.rows.length;
     progress({ done: seen });
@@ -814,6 +884,7 @@ async function buildRecords(db, job, progress = quiet, { skip = new Set() } = {}
     }
   }
   linkPeople(byEntity, source);
+  leaveOut(byEntity, source, (job.options || {}).schools);
   // A separate roles list (security groups) completes each member of staff's record.
   const staffById = new Map((byEntity.staff || []).map((t) => [String(t.sourceId), t]));
   for (const r of byEntity.staff_roles || []) {
@@ -860,15 +931,24 @@ async function check(byEntity) {
   const people = new Map();
   for (const s of students) {
     if (++beat % 4000 === 0) await tick();
+    const gone = leftOf(s.data);
+    if (gone) add(s, "former", gone.kind === "graduated" ? "Graduated: comes in under Graduates & Alumni." : `Left${gone.on ? ` on ${gone.on}` : ""}${gone.reason ? ` (${gone.reason.toLowerCase()})` : ""}: comes in as a former student, in no class.`);
     if (!s.sourceId) add(s, "missing", "No student number.", true);
     if (!s.data.first_name || !s.data.last_name) add(s, "missing", "No first or last name.", true);
     if (s.data.date_of_birth && isoDate(s.data.date_of_birth) === "invalid") add(s, "date", `Date of birth "${s.data.date_of_birth}" isn't a date.`);
+    else if (s.data.date_of_birth && !gone) {
+      // A birthday that can't be a current student's (often a day and month the wrong way round).
+      const born = isoDate(s.data.date_of_birth);
+      const age = (Date.now() - new Date(`${born}T00:00:00Z`).getTime()) / (365.25 * 86400000);
+      if (age < 0) add(s, "date", `Date of birth ${born} is in the future.`);
+      else if (age < 2 || age > 25) add(s, "date", `Date of birth ${born} makes them ${Math.floor(age)}: check it.`);
+    }
     if (s.sourceId) { if (seen.has(s.sourceId)) add(s, "duplicate", `Student number ${s.sourceId} is also on line ${seen.get(s.sourceId)}.`, true); else seen.set(s.sourceId, s.line); }
     const person = [s.data.first_name, s.data.last_name, s.data.date_of_birth].map((v) => String(v || "").toLowerCase()).join("|");
     if (s.data.first_name && s.data.date_of_birth) { if (people.has(person)) add(s, "duplicate", `Same name and date of birth as line ${people.get(person)}.`); else people.set(person, s.line); }
   }
   const withParent = new Set((byEntity.guardians || []).map((g) => g.data.student_source_id));
-  for (const s of students) if (s.data.source_id && !withParent.has(s.data.source_id)) add(s, "no_parent", "No parent or guardian.");
+  for (const s of students) if (s.data.source_id && !withParent.has(s.data.source_id) && !leftOf(s.data)) add(s, "no_parent", "No parent or guardian.");
   for (const g of byEntity.guardians || []) {
     if (g.data.unlinked) continue; // a parent no list links to a child: kept with the school's records
     if (!studentIds.has(g.data.student_source_id)) add(g, "orphan", `Student number ${g.data.student_source_id || "(none)"} isn't in the students file.`, true);
@@ -958,7 +1038,7 @@ async function attendanceCodesOf(db, files) {
 function reachOf(header, rows, named, reach) {
   const sample = rows.slice(0, 300);
   const tokens = (v) => String(v == null ? "" : v).split(/[;,|\s]+/).map((t) => t.trim()).filter(Boolean);
-  const asStudent = (t) => (reach.primary.has(t) ? t : reach.aliases.get(t) || null);
+  const asStudent = (t) => { const id = reach.toStudent ? reach.toStudent(t) : reach.aliases.get(t) || t; return reach.primary.has(id) ? id : null; };
   const ways = {
     student: (v) => { const out = []; for (const t of tokens(v)) { const id = asStudent(t); if (id && !out.includes(id)) out.push(id); } return out; },
     parent: (v) => [...(reach.contacts.get(clean(v, 120)) || [])],
@@ -1054,6 +1134,8 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   // Grades and attendance: read, checked and written a chunk at a time.
   const studentIds = new Set((byEntity.students || []).map((r) => r.data.source_id).filter(Boolean));
   const reach = source.reach || { primary: studentIds, aliases: new Map(), families: new Map(), contacts: new Map(), toStudent: (v) => v };
+  const excluded = source.excluded || new Set();
+  report.schools = (source.schools || []).length > 1 ? source.schools.slice(0, 50) : [];
   // What the school's own attendance codes mean, and each day counted once.
   const codes = await attendanceCodesOf(db, files);
   source.codes = codes;
@@ -1066,12 +1148,15 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
     for (const file of heavyFiles.filter((f) => f.entity === entity)) {
       const cols = columns.filter((c) => c.entity === entity);
       progress({ step: `Saving ${file.file_name}` });
+      let dayFirst = null;
       for await (const chunk of fileChunks(db, file)) {
         source.rows[entity] = (source.rows[entity] || 0) + chunk.rows.length;
+        if (!dayFirst) dayFirst = dayFirstColumns(chunk.header, chunk.rows);
         const part = [];
         for (let k = 0; k < chunk.rows.length; k += 1) {
-          const r = toRecord(entity, cols, chunk.header, chunk.rows[k], chunk.offset + k, source, file.file_id);
+          const r = toRecord(entity, cols, chunk.header, chunk.rows[k], chunk.offset + k, source, file.file_id, dayFirst);
           if (r.data.student_source_id) r.data.student_source_id = reach.toStudent(r.data.student_source_id);
+          if (excluded.has(clean(r.data.student_source_id, 120))) continue; // another school's student
           checkHeavy(r, studentIds, { schoolTotals: attendanceTotals, codes });
           noteIssues(entity, r);
           if (r.sourceId && !seenIds.has(r.sourceId)) { seenIds.add(r.sourceId); part.push(r); }
@@ -1109,7 +1194,10 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
         for (let i = 0; i < chunk.header.length; i += 1) if (keepCol[i] && cells[i] !== "" && cells[i] != null) row[chunk.header[i]] = clean(cells[i], 4000);
         // Every student the row is about (a family's list: each child); a number that's no
         // current student's (a graduate's, a former student's) is kept with it as it is.
-        const who = way.studentsOf(cells);
+        const all = way.studentsOf(cells);
+        const who = all.filter((id) => !excluded.has(id));
+        if (all.length && !who.length) return; // only about another school's students
+        if (way.kind === "student" && way.column >= 0 && excluded.has(reach.toStudent(cells[way.column]))) return;
         if (who.length) students += 1;
         for (const id of who) people.add(id);
         const raw = way.kind === "student" && way.column >= 0 ? clean(cells[way.column], 120) || null : null;
@@ -1138,7 +1226,7 @@ async function runImport(db, job, actor, { progress = quiet, offset = 0, phases 
   for (const l of suggested.slice(oldForms.MAX_FORMS)) { l.suggest = "history"; l.why = `Up to ${oldForms.MAX_FORMS} lists become forms`; }
   await db.query("DELETE FROM migration_records WHERE job_id = $1 AND entity = 'other' AND updated_at < $2", [job.job_id, started]);
   if (otherRows) report.entities.other = { source: otherRows, staged: otherStaged };
-  report.documents = await matchDocuments(db, job, new Set([...studentIds, ...graduateIds]), reach.aliases);
+  report.documents = await matchDocuments(db, job, new Set([...studentIds, ...graduateIds]), reach.aliases, excluded);
   report.tidied = source.tidied || 0;
   const totals = { ...job.totals, report, source: { credits: round(source.credits), gpa: gpaOf(source.grades), attendance: source.attendanceTotalRows ? source.attendance : source.attendanceDays }, importedAt: new Date().toISOString() };
   await db.query("UPDATE migration_jobs SET totals = $2::jsonb, updated_at = NOW() WHERE job_id = $1", [job.job_id, JSON.stringify(totals)]);
@@ -1151,7 +1239,7 @@ const round = (n) => Math.round(n * 100) / 100;
 
 // Each document's student: the school's document index (by its path), else a student number in
 // its folder or file name. The index's type and "confidential" flag win over what the name says.
-async function matchDocuments(db, job, studentIds, aliases = new Map()) {
+async function matchDocuments(db, job, studentIds, aliases = new Map(), excluded = new Set()) {
   const { rows: docs } = await db.query("SELECT document_id, path, file_name, kind, restricted FROM migration_documents WHERE job_id = $1", [job.job_id]);
   if (!docs.length) return { total: 0, matched: 0, restricted: 0 };
   const index = new Map();
@@ -1175,18 +1263,22 @@ async function matchDocuments(db, job, studentIds, aliases = new Map()) {
   // Any of a student's numbers, whatever its case ("documents/YODERADA000/…" or "documents/31000/…").
   const byToken = new Map();
   for (const [alias, id] of aliases) byToken.set(String(alias).toLowerCase(), id);
-  for (const id of studentIds) byToken.set(String(id).toLowerCase(), id);
+  for (const id of studentIds) { byToken.set(String(id).toLowerCase(), id); byToken.set(plainId(String(id).toLowerCase()), id); }
+  for (const id of excluded) { byToken.set(String(id).toLowerCase(), `!${id}`); byToken.set(plainId(String(id).toLowerCase()), `!${id}`); }
   for (const doc of docs) {
     const path = String(doc.path).toLowerCase();
     let hit = null;
     for (const [key, value] of index) if (path === key || path.endsWith(`/${key}`)) { hit = value; break; }
     let student = hit && hit.student;
     if (!student) { const token = path.split(/[^a-z0-9]+/).find((t) => byToken.has(t)); student = token ? byToken.get(token) : null; }
+    // Another school's student's document: on nobody's record, and only for managers.
+    const theirs = Boolean(student && (String(student).startsWith("!") || excluded.has(String(student))));
+    if (theirs) student = null;
     if (student) matched += 1;
     ids.push(doc.document_id);
     students.push(student);
     kinds.push(String((hit && hit.kind) || doc.kind || "Document").slice(0, 120));
-    restricted.push(hit && hit.restricted !== null ? hit.restricted : doc.restricted); // the school's own "confidential" flag wins
+    restricted.push(theirs || (hit && hit.restricted !== null ? hit.restricted : doc.restricted)); // the school's own "confidential" flag wins
   }
   for (let i = 0; i < ids.length; i += 2000) {
     await db.query(
@@ -1491,12 +1583,15 @@ async function stepProgress(db, job, { anyFiles = false, task = null } = {}) {
   );
   const busy = (kind) => Boolean(task && task.open && task.kind === kind);
   const importedAt = job.totals && job.totals.importedAt ? new Date(job.totals.importedAt) : null;
+  const report = (job.totals && job.totals.report) || {};
   const done = {};
   done.upload = Boolean(anyFiles) && !busy("read_files");
   done.map = done.upload && c.unsure === 0;
   done.notes = done.map && c.notes === 0 && c.approvals === 0;
   // Imported with the latest files (errors still to fix are listed there and stop signing on Review).
-  done.check = done.notes && Boolean(importedAt) && !busy("import") && !(c.last_file && importedAt < new Date(c.last_file));
+  // A district's export: done once the school has said which schools are its own.
+  done.check = done.notes && Boolean(importedAt) && !busy("import") && !(c.last_file && importedAt < new Date(c.last_file))
+    && !(((report && report.schools) || []).length > 1 && !((job.options || {}).schools || []).length);
   done.roles = done.check && (c.staff === 0 || c.roles === 0);
   done.review = done.roles && Boolean(job.signed_at);
   done.live = job.status === "live";
@@ -1535,6 +1630,8 @@ async function blockers(db, job) {
   if (present.has("students") && !(await db.query("SELECT 1 FROM terms WHERE organization_id = $1 AND current = TRUE LIMIT 1", [job.organization_id])).rowCount) {
     out.push("Set up your current school year and term (Management › School years), so the students can be enrolled in it.");
   }
+  const schools = (job.totals && job.totals.report && job.totals.report.schools) || [];
+  if (schools.length > 1 && !((job.options || {}).schools || []).length) out.push(`Your files hold students of ${schools.length} schools: choose yours (Check & import).`);
   // Only the areas approved go to the live account (more can be approved and applied later).
   if (needed.length && !needed.some((s) => (job.approvals || {})[s])) out.push("Approve at least one area to load (Review & sign).");
   return { list: out, needed, columns };
@@ -1571,8 +1668,9 @@ function summary(columns, customFields = []) {
 // ── 7. Go live, 8. catch-up ─────────────────────────────────────────────────────────────
 const gradeClass = (value) => {
   const text = clean(value, 80);
+  const key = gradeKey(text);
+  if (key) return GRADE_LABELS[key] || `Grade ${key}`;
   if (/^-?\d+$/.test(text)) { const n = Number(text); return n === 0 ? "Kindergarten" : n < 0 ? "Pre-K" : `Grade ${n}`; }
-  if (/^k$/i.test(text)) return "Kindergarten";
   return text;
 };
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1678,6 +1776,17 @@ async function setOption(db, job, key, value, actor) {
   await db.query("UPDATE migration_jobs SET options = COALESCE(options, '{}'::jsonb) || jsonb_build_object($2::text, $3::text), updated_at = NOW() WHERE job_id = $1", [job.job_id, key, value]);
   await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "option_chosen", detail: { [key]: value } });
   return { ok: true };
+}
+
+// A district's export: the schools whose students are this school's (the rest stay out).
+async function setSchools(db, job, chosen, actor) {
+  const offered = new Set(((job.totals && job.totals.report && job.totals.report.schools) || []).map((x) => String(x.value)));
+  const picked = [...new Set((Array.isArray(chosen) ? chosen : [chosen]).filter(Boolean).map(String))].filter((v) => offered.has(v));
+  if (!picked.length) return { error: "Choose at least one school." };
+  await db.query("UPDATE migration_jobs SET options = jsonb_set(COALESCE(options, '{}'::jsonb), '{schools}', $2::jsonb), updated_at = NOW() WHERE job_id = $1", [job.job_id, JSON.stringify(picked)]);
+  job.options = { ...(job.options || {}), schools: picked };
+  await event(db, { jobId: job.job_id, organizationId: job.organization_id, actor, action: "schools_chosen", detail: { schools: picked } });
+  return { ok: true, schools: picked };
 }
 
 // The lists the school keeps using in Managira (a form each in the Custom editor) and those kept as
@@ -1805,6 +1914,57 @@ function studentValues(d) {
   };
 }
 const nameOf = (d) => [d.first_name, d.last_name].filter(Boolean).join(" ") || "(no name)";
+
+// A student the export says has left (withdrawn, transferred, graduated, passed away, or gone
+// past their exit date with no status saying otherwise): they come in as a former student, never
+// in a class. null: a current student. PowerSchool's Enroll_Status numbers: 0 active, -1
+// pre-registered, 1 and -2 inactive, 2 transferred out, 3 graduated, 4 historical.
+const ACTIVE_STATUS = /^(a|active|e|enrolled|current|y|yes|pre-?reg(istered)?|registered|new|returning|continuing|summer( school)?|attending)\b/i;
+const LEFT_REASONS = [
+  [/deceas|passed|death|died/i, "Passed away"],
+  [/transfer|other school|in-?state|out-?of-?(state|district)|private school|public school|another (school|district)/i, "Transferred to another school"],
+  [/moved|reloc|out of (area|country)/i, "Family relocated or moved away"],
+  [/expel|dismiss/i, "Dismissed or expelled"],
+  [/home ?school|parent|guardian|withdrawn by/i, "Withdrawn by parent or guardian"],
+  [/medical|health|illness/i, "Health or medical reasons"],
+  [/drop|stopped|truan|no[- ]?show|not attending/i, "Stopped attending"],
+  [/fee|financ|tuition/i, "Financial reasons (fees)"],
+  [/work|employ|trade|job/i, "Left to work or learn a trade"],
+];
+function leftOf(d, today = new Date().toISOString().slice(0, 10)) {
+  const status = clean(d.enroll_status, 80);
+  const exit = isoDate(d.exit_date);
+  const on = exit && exit !== "invalid" ? exit : null;
+  const why = clean(d.exit_reason, 200);
+  let kind = null;
+  if (d._numericStatus && /^-?\d$/.test(status)) kind = status === "3" ? "graduated" : ["1", "2", "4", "-2"].includes(status) ? "left" : null;
+  else if (/^(g|grad|graduated|graduate|alumni|alum|completed)\b/i.test(status)) kind = "graduated";
+  else if (/^(i|inactive|w|withdrawn?|withdrew|t|transferred|transfer|x|exited|left|dropped|drop|expelled|deceased|died|d|former|archived|historical|moved|no longer enrolled|not enrolled)\b/i.test(status) || /deceas|passed away/i.test(why)) kind = "left";
+  else if ((!status || !ACTIVE_STATUS.test(status)) && on && on < today) kind = "left";
+  if (!kind) return null;
+  if (kind === "left" && /^(graduat|diploma|completed)/i.test(why)) kind = "graduated";
+  const text = `${why} ${status}`;
+  const reason = kind === "left" ? (LEFT_REASONS.find(([rule]) => rule.test(text)) || [])[1] || null : null;
+  return { kind, on, reason, note: [why, status && !/^-?\d$/.test(status) ? `status ${status}` : ""].filter(Boolean).join(" · ") || null };
+}
+
+// What grade a class name or grade level means, however a school writes it: "KG", "K",
+// "Kindergarten" → k; "PK", "Pre-K", "-1" → pk; "TK" → tk; "01", "1st", "Grade 1", "1st Grade",
+// "First grade" → 1. null: not one grade ("Grade 6 - Room 2", "6A", a homeroom's name).
+const ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"];
+function gradeKey(value) {
+  const t = clean(value, 80).toLowerCase().replace(/[_.]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  if (/^(pk|p k|pre-?k|prek|pre-?kindergarten|pk3|pk4|p3|p4|pre-?school|preschool|nursery|-1|-2)$/.test(t)) return "pk";
+  if (/^(tk|transitional (k|kindergarten))$/.test(t)) return "tk";
+  if (/^(k|kg|kn|kinder|kindergarten|kindergarden|0|00)$/.test(t)) return "k";
+  let m = /^(?:grade |gr )?0*(\d{1,2})(?:st|nd|rd|th)?(?: grade| gr)?$/.exec(t);
+  if (m && Number(m[1]) >= 1 && Number(m[1]) <= 12) return String(Number(m[1]));
+  m = /^(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)(?: grade)?$/.exec(t);
+  if (m) return String(ORDINALS.indexOf(m[1]) + 1);
+  return null;
+}
+const GRADE_LABELS = { pk: "Pre-K", tk: "Transitional Kindergarten", k: "Kindergarten" };
 async function studentMatches(db, job, staged) {
   const org = job.organization_id;
   const decisions = job.match_decisions || {};
@@ -1933,7 +2093,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     courses: 0, credits: 0, gpa: null, attendanceTerms: 0, attendance: { present: 0, absent: 0, excused: 0, tardy: 0 }, customValues: 0, extras: 0, alerts: 0, archives: 0,
     // Records Managira already had: kept, with only empty fields filled in; differences kept as Managira had them.
     matched: 0, guardiansMatched: 0, staffMatched: 0, filled: 0, keptValues: 0, kept: [], studentsWaiting: 0, lists: 0, listRows: 0, listRowsUnmatched: 0, documents: 0,
-    customFieldsMade: 0, customFieldsSkipped: 0, detailsUnmatched: 0, medicalAlerts: 0, forms: 0, formEntries: 0, formsSkipped: 0,
+    customFieldsMade: 0, customFieldsSkipped: 0, detailsUnmatched: 0, medicalAlerts: 0, forms: 0, formEntries: 0, formsSkipped: 0, formerStudents: 0, sharedEmails: 0,
   };
   const noteKept = (who, kept) => {
     counts.keptValues += kept.length;
@@ -1972,14 +2132,25 @@ async function loadLive(db, job, actor, progress = quiet) {
     };
 
     // Classes: by name, or a new one ("Grade 6" for a grade level of 6).
-    const classIds = new Map((await q("SELECT class_id, LOWER(class_name) AS name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL", [org])).rows.map((r) => [r.name, r.class_id]));
+    const existingClasses = (await q("SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL", [org])).rows;
+    const classIds = new Map(existingClasses.map((r) => [String(r.class_name).toLowerCase(), r.class_id]));
+    // The school's own class for each grade, however it's named ("6th Grade" takes grade 06): never a
+    // second class for the same grade. A grade two of its classes could be (6A, 6B) isn't guessed.
+    const classByGrade = new Map();
+    for (const r of existingClasses) {
+      const key = gradeKey(r.class_name);
+      if (key) classByGrade.set(key, classByGrade.has(key) && classByGrade.get(key) !== r.class_id ? null : r.class_id);
+    }
     const classFor = async (name) => {
       const label = gradeClass(name);
       if (!label) return null;
+      const key = gradeKey(name);
+      if (key && classByGrade.get(key)) return classByGrade.get(key);
       if (classIds.has(label.toLowerCase())) return classIds.get(label.toLowerCase());
       const { rows: [row] } = await q("INSERT INTO classes (class_name, organization_id) VALUES ($1, $2) RETURNING class_id", [label.slice(0, 100), org]);
       ledger.made("classes", { class_id: row.class_id });
       classIds.set(label.toLowerCase(), row.class_id);
+      if (key && !classByGrade.has(key)) classByGrade.set(key, row.class_id);
       counts.classes += 1;
       return row.class_id;
     };
@@ -2217,7 +2388,8 @@ async function loadLive(db, job, actor, progress = quiet) {
       const match = found.out.get(String(s.source_id)) || {};
       if (match.waiting) { counts.studentsWaiting += 1; continue; }
       if (match.sameAs) { sameAsFile.push([s.source_id, match.sameAs]); continue; }
-      const fileClass = await classFor(d.class_name);
+      const gone = leftOf(d);
+      const fileClass = gone ? null : await classFor(d.class_name);
       const incoming = { ...studentValues(d), class_id: fileClass, graduation_year_group_id: await gradGroupFor(d.graduation_year) };
       let id = match.id || null;
       let mine = false;
@@ -2247,11 +2419,25 @@ async function loadLive(db, job, actor, progress = quiet) {
         ledger.made("students", { student_id: id });
         mine = true;
         loaded = written(incoming);
+        // One who left: a former student (Graduates & Alumni, or Left school, with the reason),
+        // archived on the day they left, so no billing hold and nothing to undo.
+        if (gone) {
+          const on = gone.on || new Date().toISOString().slice(0, 10);
+          await q("SELECT set_config('managira.actor_id', '', true), set_config('managira.actor_name', $1, true)", ["Data migration"]);
+          if (gone.kind === "graduated") await q("UPDATE students SET graduated = TRUE WHERE student_id = $1", [id]);
+          const { rows: [arch] } = await q(
+            `INSERT INTO archived_student_info (student_id, graduation_year_group_id, organization_id, archive_kind, reason, reason_note, archived_by_name, archived_at, archived_at_ts, billable_until, undo_until, rode_bus)
+             VALUES ($1, $2, $3, $4, $5, $6, 'Data migration', $7::date, $7::date, $7::date, $7::date, FALSE) RETURNING id`,
+            [id, incoming.graduation_year_group_id || null, org, gone.kind, gone.reason, gone.note ? `From your old system: ${gone.note}`.slice(0, 500) : "From your old system", on]
+          );
+          ledger.made("archived_student_info", { id: arch.id });
+          counts.formerStudents += 1;
+        }
       }
       studentIds.set(s.source_id, id);
       studentClass.set(s.source_id, classId);
       counts.students += 1;
-      await enroll(id, classId, !mine);
+      if (!(gone && mine)) await enroll(id, classId, !mine); // a former student is in no class
       // Custom fields: the same rule, field by field.
       for (const [fieldId, value] of Object.entries(fieldValues(d))) {
         if (value === null) continue;
@@ -2322,8 +2508,20 @@ async function loadLive(db, job, actor, progress = quiet) {
 
     // Parents: one profile per person (the same email is the same parent), linked to each child.
     const byEmail = new Map();
+    const byEmailName = new Map(); // a parent loaded by email: their first name, to tell a shared family email
     const byContact = new Map();
     const parentRecords = approved("guardians") ? await records("guardians") : [];
+    // Emails the files give to two people with different first names (a family email both parents
+    // use): there, the same email isn't the same person.
+    const namesByEmail = new Map();
+    for (const g of parentRecords) {
+      const mail = clean(g.data.email, 200).toLowerCase();
+      if (!mail) continue;
+      const firstName = clean(g.data.first_name, 100) || splitName(g.data.full_name || "")[0];
+      if (!namesByEmail.has(mail)) namesByEmail.set(mail, new Set());
+      if (firstName) namesByEmail.get(mail).add(tidy.key(firstName));
+    }
+    const sharedInFiles = new Set([...namesByEmail].filter(([, names]) => names.size > 1).map(([mail]) => mail));
     progress({ step: "Linking parents to their children", done: 0, total: parentRecords.length });
     let parentsDone = 0;
     for (const g of parentRecords) {
@@ -2343,12 +2541,22 @@ async function loadLive(db, job, actor, progress = quiet) {
       const parentValues = { first_name: first, last_name: last || null, email, phone: clean(g.data.phone, 40) || null, address };
       // The same parent: one already loaded with this email, the one this migration linked before,
       // one with this email in the school, or one of the same name already on this child.
-      let id = (email && byEmail.get(email)) || (g.data.contact_id && byContact.get(String(g.data.contact_id))) || null;
+      // A family email two parents share ("smithfamily@…"): the same email with another first name
+      // (and another contact number) is another person. The first keeps it for signing in; the
+      // second's is kept beside their record.
+      const emailOwner = email && byEmail.get(email);
+      const sameName = (gid) => byEmailName.get(gid) === tidy.key(first);
+      const sharedEmail = Boolean(emailOwner && sharedInFiles.has(email) && !sameName(emailOwner) && !(g.data.contact_id && byContact.get(String(g.data.contact_id)) === emailOwner));
+      let id = (!sharedEmail && emailOwner) || (g.data.contact_id && byContact.get(String(g.data.contact_id))) || null;
       const again = Boolean(id);
       let loaded = null;
       const known = !id && await linkOf("guardians", g.source_id);
       if (!id && known && (await q("SELECT 1 FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2", [known.managira_id, org])).rowCount) { id = known.managira_id; loaded = known.loaded || null; }
-      if (!id && email) id = ((await q("SELECT guardian_id FROM guardian_profiles WHERE organization_id = $1 AND LOWER(email) = $2 ORDER BY guardian_id LIMIT 1", [org, email])).rows[0] || {}).guardian_id;
+      if (!id && email && !sharedEmail) {
+        const { rows: [byMail] } = await q("SELECT guardian_id, first_name FROM guardian_profiles WHERE organization_id = $1 AND LOWER(email) = $2 ORDER BY guardian_id LIMIT 1", [org, email]);
+        // The school's own parent with this email is this parent, unless the files share the email between two people.
+        if (byMail && (!sharedInFiles.has(email) || !byMail.first_name || tidy.key(byMail.first_name) === tidy.key(first))) id = byMail.guardian_id;
+      }
       if (!id) {
         id = ((await q(
           `SELECT p.guardian_id FROM guardian_profiles p JOIN guardian_students gs ON gs.guardian_id = p.guardian_id
@@ -2371,14 +2579,15 @@ async function loadLive(db, job, actor, progress = quiet) {
         loaded = { ...(loaded || {}), ...plan.set };
       }
       if (!id) {
+        if (sharedEmail) { parentValues.email = null; counts.sharedEmails += 1; }
         ({ rows: [{ guardian_id: id }] } = await q(
           "INSERT INTO guardian_profiles (organization_id, first_name, last_name, email, phone, address, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING guardian_id",
-          [org, first, last || null, email, parentValues.phone, address]
+          [org, first, last || null, parentValues.email, parentValues.phone, address]
         ));
         ledger.made("guardian_profiles", { guardian_id: id });
         loaded = written(parentValues);
       }
-      if (email) byEmail.set(email, id);
+      if (email && !sharedEmail && !byEmail.has(email)) { byEmail.set(email, id); byEmailName.set(id, tidy.key(first)); }
       if (g.data.contact_id) byContact.set(String(g.data.contact_id), id);
       await link("guardians", g.source_id, id, again ? null : loaded);
       const { rows: [joined] } = await q(
@@ -2405,7 +2614,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         );
         counts.alerts += 1;
       }
-      if (Object.keys(g.archive || {}).length) keep(studentId, "Parents & contacts", [{ Name: [first, last].filter(Boolean).join(" "), Relationship: clean(g.data.relationship, 60) || "", Email: email || "", Phone: parentValues.phone || "", ...flat(g.archive) }]);
+      if (Object.keys(g.archive || {}).length || sharedEmail) keep(studentId, "Parents & contacts", [{ Name: [first, last].filter(Boolean).join(" "), Relationship: clean(g.data.relationship, 60) || "", Email: sharedEmail ? `${email} (a family email shared with another parent)` : email || "", Phone: parentValues.phone || "", ...flat(g.archive) }]);
       counts.guardians += 1;
     }
 
@@ -3467,7 +3676,7 @@ module.exports = {
   featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
-  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, setListUse, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,
+  staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, setListUse, setSchools, leftOf, gradeKey, dayFirstColumns, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,
   rolesOf, roleReport, confirmRole, roleNotes, resolveRole, approvePerson, gpaCheck, statusesFor, startHub,
   requestMove, withdrawRequest, listRequests, decideRequest, latestRequest, SYSTEMS, TIMINGS, BRING,
   liveMatches, decideMatch, mergePlan, studentMatches, documentsOf, matchDocuments, fieldChoices, setCustomFields, fieldTypeOf, fieldValueAs, attendanceCodesOf, reachOf, linkPeople, ROLES: roles.ROLES, LEVELS: roles.LEVELS, pickableRoles: roles.pickable, ACCOUNT_TYPES: roles.ACCOUNT_TYPES,

@@ -21,8 +21,12 @@ function name(value) {
   }).join(" ");
 }
 
+// What an export writes where it has nothing: "n/a", "none", "000-000-0000".
+const PLACEHOLDER = /^(n\/?a|na|none|no ?(email|phone)|unknown|null|nil|tbd|-+|\.+|x+|\?+)$/i;
 function phone(value) {
   const text = squash(value);
+  const bare = text.replace(/\D/g, "");
+  if (PLACEHOLDER.test(text) || (bare.length >= 7 && /^(\d)\1+$/.test(bare))) return ""; // nothing to call
   if (/(x|ext\.?|#)\s*\d+$/i.test(text)) return text; // an extension: kept as typed
   const digits = text.replace(/\D/g, "");
   const us = digits.length === 11 && digits[0] === "1" ? digits.slice(1) : digits;
@@ -30,7 +34,8 @@ function phone(value) {
   return text;
 }
 
-const email = (value) => squash(value).toLowerCase();
+// An email, or nothing: a placeholder or a value with no "@" can't be written to.
+const email = (value) => { const text = squash(value).toLowerCase(); return PLACEHOLDER.test(text) || !text.includes("@") ? "" : text; };
 
 function gender(value) {
   const text = squash(value);

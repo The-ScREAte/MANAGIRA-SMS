@@ -8,7 +8,7 @@
   columns.forEach((c) => { (_byEntity[c.entity] = _byEntity[c.entity] || []).push(c); });
   const _needNotes = columns.filter((c) => !c.action && (c.confidence === 'none' || (c.confirmed && !c.target)));
   const _approvalsLeft = columns.filter((c) => c.action === 'exclude' && !c.exclude_approved_at);
-  const _issueLabel = { missing: 'Missing', duplicate: 'Duplicate', date: 'Bad date', orphan: 'No match', no_parent: 'No parent', unplaced: "Can't place", code: 'Unknown code', email: 'Email in use', no_email: 'No email', gpa: 'Not a GPA' };
+  const _issueLabel = { missing: 'Missing', duplicate: 'Duplicate', date: 'Bad date', orphan: 'No match', no_parent: 'No parent', unplaced: "Can't place", code: 'Unknown code', email: 'Email in use', no_email: 'No email', gpa: 'Not a GPA', former: 'Former student', unlinked: 'Not linked' };
   const _g = (v) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(2));
   const _actionWords = { map: 'Mapped', custom: 'Custom field', extra: 'Extra field', archive: 'Archived', exclude: 'Left out', alert: 'Alert on the student' };
   // Nothing uploaded yet: every step after Upload says so, and nothing looks done.
@@ -155,6 +155,14 @@
     <h2>Check & import into the sandbox</h2>
     <p class="mg-hint">Imports everything that's matched now, and checks it. Run it again any time: records update, never duplicate.</p>
     <form method="POST" action="/common/migration/import" data-starts-task><button class="mg-btn mg-btn--primary" type="submit"<%= files.length && !(task && task.open) ? '' : ' disabled' %>>Import into the sandbox</button></form>
+    <% if (_report && (_report.schools || []).length > 1) { const _mine = (job.options && job.options.schools) || []; %>
+    <form class="mg-choice mg-schools" method="POST" action="/common/migration/schools">
+      <strong>Your files hold students of <%= _report.schools.length %> schools. Which are yours?</strong>
+      <p class="mg-hint">Only the students of the schools you tick come in, with everything about them. The others stay out of your sandbox.</p>
+      <% _report.schools.forEach((x) => { %><label><input type="checkbox" name="schools" value="<%= x.value %>"<%= _mine.includes(String(x.value)) ? ' checked' : '' %> /> <%= x.value %> <small>(<%= Number(x.students).toLocaleString('en-US') %> <%= x.students === 1 ? 'student' : 'students' %>)</small></label><% }) %>
+      <button class="mg-btn mg-btn--sm" type="submit">Save</button>
+    </form>
+    <% } %>
     <% if (_report) { %>
       <h3>Records</h3>
       <table class="mg-table"><thead><tr><th>Area</th><th class="num">In your files</th><th class="num">In the sandbox</th><th class="num">With something to check</th></tr></thead><tbody>
@@ -521,6 +529,8 @@
            (loaded.alerts || loaded.medicalAlerts) ? ['Alerts', `${loaded.medicalAlerts || 0} medical (care plans, severe allergies) and ${loaded.alerts || 0} custody alerts at the top of each student's page, for every teacher and substitute who opens it`] : null,
            loaded.parentDetails ? ["Parents' details", `${loaded.parentDetails} parents' phone, email or address filled in from your parent list`] : null,
            loaded.gradGroups ? ['Graduation years', `${loaded.gradGroups} graduation year ${loaded.gradGroups === 1 ? 'group' : 'groups'} made`] : null,
+           loaded.formerStudents ? ['Former students', `${loaded.formerStudents} ${loaded.formerStudents === 1 ? 'student who had left comes' : 'students who had left come'} in under Students › Graduates & Alumni (Left school, with the reason), in no class`] : null,
+           loaded.sharedEmails ? ['Shared family emails', `${loaded.sharedEmails} ${loaded.sharedEmails === 1 ? 'parent shares' : 'parents share'} an email with another parent: each is their own person, and the email stays with the first for signing in`] : null,
            loaded.forms || loaded.formEntries ? ['Forms you keep using', `${loaded.forms || 0} ${loaded.forms === 1 ? 'list' : 'lists'} in the Custom editor, under "From your old system", with ${Number(loaded.formEntries || 0).toLocaleString('en-US')} entries on students' records${loaded.formsSkipped ? ` (${loaded.formsSkipped} kept read-only: the Custom editor is full)` : ''}`] : null,
          ].filter(Boolean); %>
       <% if (_feat.length) { %>

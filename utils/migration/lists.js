@@ -86,7 +86,7 @@ function fits(entity, header) {
   const m = new Set(ps.bestMatches(entity, header).values());
   const any = (...targets) => targets.some((t) => m.has(t));
   switch (entity) {
-    case "students": return m.has("source_id") && m.has("first_name") && m.has("last_name");
+    case "students": return m.has("source_id") && ((m.has("first_name") && m.has("last_name")) || m.has("full_name"));
     case "guardians": return any("student_source_id", "source_id") && any("full_name", "first_name", "last_name") && any("email", "phone", "relationship");
     case "grades": return m.has("student_source_id") && m.has("course_name") && any("grade", "percent", "credits", "gpa_points");
     case "attendance": return m.has("student_source_id") && ((m.has("date") && any("code", "present")) || any("days_present", "days_absent", "days_excused", "days_unexcused", "days_tardy"));

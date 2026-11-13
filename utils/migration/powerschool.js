@@ -20,6 +20,8 @@ const ALIAS_KEYS = [...STUDENT_KEYS, "stateid", "ssid", "stateidssid", "statestu
   "altid", "alternateid", "alternatestudentid", "districtid", "districtstudentid", "legacyid", "oldid", "oldstudentnumber", "previousid", "nationalstudentid"];
 // A household's number: lists about a family reach each of its children.
 const FAMILY_KEYS = ["familyid", "householdid", "familynumber", "householdnumber", "familycode", "familyident", "familykey", "householdkey"];
+// The school a student belongs to, in a district's export of several schools.
+const SCHOOL_KEYS = ["schoolid", "school", "schoolname", "schoolnumber", "schoolcode", "homeschool", "homeschoolid", "building", "buildingname", "campus", "campusname", "entity", "site", "sitename"];
 // A parent's or contact's number.
 const CONTACT_KEYS = ["contactid", "guardianid", "parentid", "guardiannumber", "contactnumber", "parentnumber", "guardiannameid", "contactpersonid", "relationshipid"];
 
@@ -35,6 +37,8 @@ const ENTITIES = {
       first_name: ["First name *", ["firstname", "legalfirstname", "studentfirstname", "first", "fname", "givenname"], ["first"]],
       last_name: ["Last name *", ["lastname", "legallastname", "studentlastname", "last", "lname", "surname", "familyname"], ["last", "surname"]],
       middle_name: ["Middle name", ["middlename", "legalmiddlename", "middle"], ["middle"]],
+      // A list with only "Smith, Ava" (or "Ava Smith") in one column: split into first and last.
+      full_name: ["Full name", ["studentname", "lastfirst", "fullname", "studentfullname", "studentdisplayname", "legalname", "name"], []],
       date_of_birth: ["Date of birth", ["dob", "birthdate", "dateofbirth", "birthday", "studentbirthdate"], ["birth"]],
       gender: ["Gender", ["gender", "sex", "legalsex", "sexatbirth", "gendercode", "sexcode"], []],
       class_name: ["Class or grade level", ["gradelevel", "grade", "currentgrade", "gradelevelcode", "currentgradelevel", "homeroom", "class", "classname"], ["grade", "homeroom"]],
@@ -47,13 +51,16 @@ const ENTITIES = {
       city_state_zip: ["City, state and ZIP", ["citystzip", "citystatezip", "citystzipcode", "citystatepostal", "citystate"], []],
       phone: ["Home phone", ["homephone", "phone", "primaryphone", "householdphone"], []],
       enroll_status: ["Enrollment status", ["enrollstatus", "enrollmentstatus", "status", "studentstatus"], ["enroll"]],
+      // When and why a student left: one who left comes in as a former student, never in a class.
+      exit_date: ["Date left", ["exitdate", "withdrawdate", "withdrawaldate", "withdrawndate", "leavedate", "leftdate", "dateleft"], []],
+      exit_reason: ["Why they left", ["exitreason", "exitcode", "withdrawreason", "withdrawalreason", "withdrawcode", "withdrawalcode", "leavereason", "exitcomment"], []],
       graduation_year: ["Graduation year", ["graduationyear", "gradyear", "gradyr", "yog", "yearofgraduation", "classof", "classyear", "expectedgraduationyear", "projectedgraduationyear", "graduationyr", "cohortyear"], []],
-      guardian1_name: ["Parent 1 name", ["mother", "mothername", "guardian", "guardianname", "parent1", "parent1name"], ["mother"]],
-      guardian1_email: ["Parent 1 email", ["guardianemail", "motheremail", "parentemail", "parent1email"], []],
-      guardian1_phone: ["Parent 1 phone", ["motherhomephone", "mothercell", "motherdayphone", "guardianphone", "parent1phone", "mothercellphone"], []],
-      guardian2_name: ["Parent 2 name", ["father", "fathername", "parent2", "parent2name"], ["father"]],
-      guardian2_email: ["Parent 2 email", ["fatheremail", "parent2email"], []],
-      guardian2_phone: ["Parent 2 phone", ["fatherhomephone", "fathercell", "fatherdayphone", "parent2phone", "fathercellphone"], []],
+      guardian1_name: ["Parent 1 name", ["mother", "mothername", "guardian", "guardianname", "parent1", "parent1name", "guardian1", "guardian1name", "contact1name", "primaryguardian", "primaryguardianname", "primarycontact", "primarycontactname"], ["mother"]],
+      guardian1_email: ["Parent 1 email", ["guardianemail", "motheremail", "parentemail", "parent1email", "guardian1email", "contact1email", "primaryguardianemail", "primarycontactemail"], []],
+      guardian1_phone: ["Parent 1 phone", ["mothercell", "mothercellphone", "motherhomephone", "motherdayphone", "guardianphone", "parent1phone", "guardian1phone", "guardian1cell", "guardian1cellphone", "guardian1mobile", "contact1phone", "primaryguardianphone", "primarycontactphone"], []],
+      guardian2_name: ["Parent 2 name", ["father", "fathername", "parent2", "parent2name", "guardian2", "guardian2name", "contact2name", "secondaryguardian", "secondaryguardianname", "secondarycontact", "secondarycontactname"], ["father"]],
+      guardian2_email: ["Parent 2 email", ["fatheremail", "parent2email", "guardian2email", "contact2email", "secondaryguardianemail", "secondarycontactemail"], []],
+      guardian2_phone: ["Parent 2 phone", ["fathercell", "fathercellphone", "fatherhomephone", "fatherdayphone", "parent2phone", "guardian2phone", "guardian2cell", "guardian2cellphone", "guardian2mobile", "contact2phone", "secondaryguardianphone", "secondarycontactphone"], []],
       gpa_weighted: ["Weighted GPA", GPA_WEIGHTED, []],
       gpa_unweighted: ["Unweighted GPA", GPA_UNWEIGHTED, []],
       gpa_value: ["GPA (as exported)", GPA_PLAIN, []],
@@ -327,4 +334,4 @@ const targetLabel = (entity, target, customFields = []) => {
 };
 const requiredOf = (entity) => Object.entries(ENTITIES[entity].fields).filter(([, [label]]) => label.endsWith("*")).map(([key]) => key);
 
-module.exports = { ENTITIES, STUDENT_KEYS, ALIAS_KEYS, FAMILY_KEYS, CONTACT_KEYS, detectEntity, matchColumn, bestMatches, sensitiveOf, targetLabel, requiredOf, norm, bare, schoolYearOfTermId, attendanceKind };
+module.exports = { ENTITIES, STUDENT_KEYS, ALIAS_KEYS, FAMILY_KEYS, CONTACT_KEYS, SCHOOL_KEYS, detectEntity, matchColumn, bestMatches, sensitiveOf, targetLabel, requiredOf, norm, bare, schoolYearOfTermId, attendanceKind };
