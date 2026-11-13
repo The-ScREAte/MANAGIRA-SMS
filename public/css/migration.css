@@ -278,6 +278,4 @@
 /* A small "?" that explains, on hover or keyboard focus. */
 .mg-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 6px; border: 1px solid var(--mg-line); border-radius: 50%; background: #fff; color: var(--mg-muted); font-size: 10.5px; font-weight: 700; line-height: 1; vertical-align: middle; cursor: help; }
 .mg-help:hover, .mg-help:focus-visible { color: var(--mg-accent); border-color: var(--mg-accent); outline: none; }
-.mg-help::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: max-content; max-width: 260px; padding: 8px 10px; border-radius: 8px; background: #0f172a; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.4; text-align: left; text-transform: none; letter-spacing: 0; white-space: normal; opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 30; }
-.mg-help:hover::after, .mg-help:focus-visible::after { opacity: 1; }
-th .mg-help::after { bottom: auto; top: calc(100% + 8px); }
+.mg-tip { position: fixed; z-index: 13050; max-width: min(280px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 8px; background: #0f172a; color: #fff; font-size: 12px; line-height: 1.45; box-shadow: 0 6px 18px rgba(15, 23, 42, .25); pointer-events: none; }

@@ -299,7 +299,29 @@
   });
   }
 
-  // ── Moving between steps without reloading the page ──
+  // ── The "?" explanations: a box placed where it fits, inside the window ──
+  var tipBox = null;
+  function showTip(el) {
+    var text = el.getAttribute("data-tip");
+    if (!text) return;
+    if (!tipBox) { tipBox = document.createElement("div"); tipBox.className = "mg-tip"; tipBox.setAttribute("role", "tooltip"); document.body.appendChild(tipBox); }
+    tipBox.textContent = text;
+    tipBox.hidden = false;
+    var r = el.getBoundingClientRect();
+    var w = tipBox.offsetWidth, h = tipBox.offsetHeight, gap = 8, edge = 12;
+    var left = Math.min(Math.max(edge, r.left + r.width / 2 - w / 2), window.innerWidth - w - edge);
+    var top = r.top - h - gap >= edge ? r.top - h - gap : Math.min(r.bottom + gap, window.innerHeight - h - edge);
+    tipBox.style.left = left + "px";
+    tipBox.style.top = top + "px";
+  }
+  function hideTip() { if (tipBox) tipBox.hidden = true; }
+  document.addEventListener("mouseover", function (e) { var el = e.target.closest && e.target.closest(".mg-help"); if (el) showTip(el); });
+  document.addEventListener("mouseout", function (e) { if (e.target.closest && e.target.closest(".mg-help")) hideTip(); });
+  document.addEventListener("focusin", function (e) { if (e.target.matches && e.target.matches(".mg-help")) showTip(e.target); });
+  document.addEventListener("focusout", function (e) { if (e.target.matches && e.target.matches(".mg-help")) hideTip(); });
+  window.addEventListener("scroll", hideTip, true);
+
+    // ── Moving between steps without reloading the page ──
   // A step is fetched once, when it's opened or pointed at, and kept: opening it again shows it at
   // once (refreshed quietly when older than two minutes, swapped in only if something changed and
   // nobody is typing). Nothing is fetched ahead on its own. Anything saved (a form, an upload, a

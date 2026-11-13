@@ -202,7 +202,7 @@ async function page(req, res, db) {
       : db.query("SELECT EXISTS (SELECT 1 FROM migration_files WHERE job_id = $1 AND replaced_at IS NULL AND content IS NOT NULL) AS any", [job.job_id]).then((r) => r.rows[0].any),
     wants("map", "notes", "review") ? m.columnsOf(db, job) : skip([]),
     asked === "map" ? m.customFieldsOf(db, job.organization_id) : skip([]),
-    asked && ["review", "live"].includes(asked) ? db.query("SELECT actor, action, detail, at FROM migration_events WHERE organization_id = $2 AND job_id = $1 ORDER BY at DESC LIMIT 25", [job.job_id, job.organization_id]).then((r) => r.rows) : skip([]),
+    skip([]), // the activity log is kept for the Migration queue, not shown here
     m.taskStatus(db, job),
   ]);
   const files = listed || [];
