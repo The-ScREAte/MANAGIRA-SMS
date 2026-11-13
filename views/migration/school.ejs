@@ -79,7 +79,7 @@
   <% if (fieldChoices.length) { const _typeWords = { text: 'Text', long_text: 'Long text', number: 'Number', date: 'Date', yes_no: 'Yes / No' }; %>
   <section class="mg-card" id="fields" style="margin-bottom:14px">
     <h2>Student fields</h2>
-    <p class="mg-hint">Columns about each student that Managira has no built-in place for. <strong>Ticked</strong>: one of your school's custom fields, added to the student form (under More) when you go live and filled with each student's value. <strong>Not ticked</strong>: kept as a read-only detail on the student. Restricted ones are best kept as details: custom fields are seen by everyone who sees the student form.</p>
+    <p class="mg-hint">Columns about each student that Managira has no built-in place for. <strong>Ticked</strong>: one of your school's custom fields, added to the student form (under More) when you go live and filled with each student's value. <strong>Not ticked</strong>: kept as a read-only detail on the student. IEP, 504, English learner and the other indicators go into Programs &amp; Indicators, the school's own staff-only fields. Restricted ones like race and codes are best kept as details: custom fields are seen by everyone who sees the student form.</p>
     <form method="POST" action="/common/migration/custom-fields">
       <div class="mg-scroll"><table class="mg-table mg-fields no-global-sort"><thead><tr><th class="mg-tickcol">Custom field</th><th>Their column</th><th>Sample values</th><th>In Managira</th></tr></thead><tbody>
         <% fieldChoices.forEach((c) => { const own = c.action === 'map'; const on = own || c.action === 'custom'; %>
@@ -87,7 +87,7 @@
           <td class="mg-tickcol"><label class="mg-box"><input type="checkbox" name="columns" value="<%= c.column_id %>"<%= on ? ' checked' : '' %><%= own ? ' disabled' : '' %> aria-label="Make <%= c.source_column %> a custom field" /><span aria-hidden="true"></span></label></td>
           <td><strong><%= c.source_column %></strong><small class="mg-samples" style="display:block"><%= entities[c.entity].label %></small></td>
           <td class="mg-samples"><%= (c.samples || []).slice(0, 3).join(' · ') %></td>
-          <td><% if (own) { %><span class="mg-pill mg-pill--live">Already in Managira</span> <%= targetLabel(c.entity, c.target) %><% } else if (c.action === 'custom') { %>New custom field <strong><%= c.label %></strong> <small class="mg-samples"><%= _typeWords[fieldTypeOf(c.samples || [])] %></small><% } else { %>Read-only detail<% } %><% if (c.sensitive) { %> <span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] || 'Restricted' %></span><% } %></td>
+          <td><% if (own) { %><span class="mg-pill mg-pill--live">Already in Managira</span> <%= targetLabel(c.entity, c.target) %><% } else if (c.action === 'custom' && (locals.indicatorLabels || []).includes(c.label)) { %>Programs &amp; Indicators: <strong><%= c.label %></strong> <small class="mg-samples">staff only</small><% } else if (c.action === 'custom') { %>New custom field <strong><%= c.label %></strong> <small class="mg-samples"><%= _typeWords[fieldTypeOf(c.samples || [])] %></small><% } else { %>Read-only detail<% } %><% if (c.sensitive) { %> <span class="mg-pill mg-pill--sensitive"><%= sensitiveLabels[c.sensitive] || 'Restricted' %></span><% } %></td>
         </tr>
         <% }) %>
       </tbody></table></div>

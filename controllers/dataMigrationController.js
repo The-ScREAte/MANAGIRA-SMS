@@ -223,6 +223,7 @@ async function page(req, res, db) {
     job, step, steps: STEPS, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
     // The other apps the school ran (library, food service, health office…), from its lists' names.
     listFeatures: require("../utils/migration/features").FEATURES,
+    indicatorLabels: require("../utils/studentFormFields").INDICATORS.map((i) => i.label),
     transportOn,
     apps: on("check", "live") ? require("../utils/migration/apps").appsFrom(((job.totals && job.totals.report) || {}).lists, { areaLabels: Object.fromEntries(require("../utils/apiAccess").API_AREAS.map((a) => [a.key, a.label])) }) : [], matches, task: shownTask, docs, uploads, nextStep: NEXT_STEP, fieldChoices: m.fieldChoices(columns), fieldTypeOf: m.fieldTypeOf, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,
