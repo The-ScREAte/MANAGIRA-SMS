@@ -1236,6 +1236,8 @@ module.exports = (db) => {
   router.get("/migration", isAuthenticated, (req, res) => migration.page(req, res, db));
   router.post("/migration/request", isAuthenticated, (req, res) => migration.requestPost(req, res, db));
   router.post("/migration/request/withdraw", isAuthenticated, (req, res) => migration.withdrawPost(req, res, db));
+  // The school's sandbox switch (header menu): its managers turn it on or off, no code asked.
+  router.post("/migration/sandbox", isAuthenticated, (req, res) => migration.sandboxPost(req, res, db));
   router.post("/migration/upload", ...migrationGate, migration.uploadHandler, (req, res) => migration.uploadPost(req, res, db));
   router.get("/migration/task", ...migrationGate, (req, res) => migration.taskPost(req, res, db));
   router.post("/migration/import", ...migrationGate, (req, res) => migration.importPost(req, res, db));

@@ -120,7 +120,25 @@ async function openJob(db, organizationId) {
   return rows[0] || null;
 }
 
-// The banner and the lock, read once per school every 30 seconds (every page asks).
+// The sandbox switch (2026-12-07_sandbox_switch.sql): Managira gives a school its sandbox
+// (`allowed`) and the school's managers turn it on or off for themselves (`school_on`). Before the
+// columns exist, an open sandbox counts as given and on, as it always did.
+const allowedOf = (job) => Boolean(job) && job.allowed !== false;
+const schoolOnOf = (job) => allowedOf(job) && job.school_on !== false;
+let switchColumns = false;
+async function switchReady(db) {
+  if (switchColumns) return true;
+  try {
+    const { rows } = await db.query(
+      "SELECT COUNT(*)::int AS n FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'migration_jobs' AND column_name IN ('allowed', 'school_on', 'switched_at')"
+    );
+    switchColumns = rows[0].n === 3;
+  } catch (error) { /* asked again next time */ }
+  return switchColumns;
+}
+
+// The line at the top of the header, the menu's switch and the lock, read once per school every
+// 30 seconds (every page asks). `on`: the school has its sandbox on; only then is it held still.
 const lockCache = new BoundedMap(2000);
 const forget = (organizationId) => lockCache.delete(Number(organizationId));
 async function stateFor(db, organizationId) {
@@ -132,15 +150,27 @@ async function stateFor(db, organizationId) {
   if (await ready(db)) {
     let job;
     try { job = await openJob(db, key); } catch (error) { return hit ? hit.value : null; } // unreachable: as it was, asked again next time
-    value = job ? { jobId: job.job_id, status: job.status, locked: job.locked && ["sandbox", "review"].includes(job.status) } : null;
+    value = job ? {
+      jobId: job.job_id, status: job.status, allowed: allowedOf(job), on: schoolOnOf(job),
+      locked: schoolOnOf(job) && job.locked && ["sandbox", "review"].includes(job.status),
+    } : null;
   }
   lockCache.set(key, { at: Date.now(), value });
   return value;
 }
 
+// Managira gives the school its sandbox: the school's managers then find Sandbox in their menu,
+// off until they turn it on. A sandbox Managira turned off earlier is given back as it was left.
 async function startJob(db, organizationId, actor) {
   const existing = await openJob(db, organizationId);
-  if (existing) return existing;
+  if (existing && allowedOf(existing)) return existing;
+  if (existing) {
+    const { rows: [job] } = await db.query("UPDATE migration_jobs SET allowed = TRUE, school_on = FALSE, switched_at = NOW(), updated_at = NOW() WHERE job_id = $1 RETURNING *", [existing.job_id]);
+    forget(organizationId);
+    await event(db, { jobId: existing.job_id, organizationId, actor, actorKind: "managira", action: "sandbox_on" });
+    tell(db, organizationId, "approved", { codes: require("./mfa").neededFor(organizationId) });
+    return job;
+  }
   const { rows: [job] } = await db.query("INSERT INTO migration_jobs (organization_id, created_by) VALUES ($1, $2) RETURNING *", [organizationId, actor]);
   forget(organizationId);
   await event(db, { jobId: job.job_id, organizationId, actor, actorKind: "managira", action: "sandbox_on" });
@@ -151,6 +181,41 @@ async function startJob(db, organizationId, actor) {
   ).catch(() => ({ rows: [] }));
   tell(db, organizationId, "approved", { codes: require("./mfa").neededFor(organizationId) }, { alsoEmail: request ? [request.contact_email] : [] });
   return job;
+}
+
+// Managira turns the school's sandbox off: Sandbox leaves the school's menu and its live account
+// takes new data again. Nothing uploaded is deleted (Cancel migration does that); a school that
+// has gone live is closed, as it always was. Refused while a background task runs.
+async function closeSandbox(db, organizationId, actor) {
+  const job = await openJob(db, organizationId);
+  if (!job || !allowedOf(job)) return { ok: true, already: true };
+  if (job.status === "live") return stopJob(db, organizationId, actor);
+  if (!(await switchReady(db))) return { error: "Run the database update 2026-12-07_sandbox_switch.sql first." };
+  const running = await tasks.openTask(db, job.job_id);
+  if (running) return { error: `Wait until "${tasks.LABELS[running.kind]}" finishes.` };
+  await db.query("UPDATE migration_jobs SET allowed = FALSE, school_on = FALSE, switched_at = NOW(), updated_at = NOW() WHERE job_id = $1", [job.job_id]);
+  forget(organizationId);
+  await event(db, { jobId: job.job_id, organizationId, actor, actorKind: "managira", action: "sandbox_off" });
+  tell(db, organizationId, "paused");
+  return { ok: true };
+}
+
+// The school's own switch, from the header menu (its managers): on opens Data migration and holds
+// the live account still; off lets everyone save again and keeps everything uploaded. A switch
+// already where it's asked to be changes nothing. Off waits for a background task to finish.
+async function sandboxSwitch(db, organizationId, on, actor) {
+  const job = await openJob(db, organizationId);
+  if (!job || !allowedOf(job)) return { error: "Your school has no sandbox. Managira's team opens it when you're ready to move." };
+  if (!(await switchReady(db))) return { error: "The sandbox switch isn't ready yet. Try again in a few minutes." };
+  if (schoolOnOf(job) === Boolean(on)) return { ok: true, on: Boolean(on), unchanged: true, status: job.status };
+  if (!on) {
+    const running = await tasks.openTask(db, job.job_id);
+    if (running) return { error: `Wait until "${tasks.LABELS[running.kind]}" finishes, then turn the sandbox off.` };
+  }
+  await db.query("UPDATE migration_jobs SET school_on = $2, switched_at = NOW(), updated_at = NOW() WHERE job_id = $1", [job.job_id, Boolean(on)]);
+  forget(organizationId);
+  await event(db, { jobId: job.job_id, organizationId, actor, action: on ? "school_sandbox_on" : "school_sandbox_off" });
+  return { ok: true, on: Boolean(on), jobId: job.job_id, status: job.status };
 }
 
 // Off only once the school is live (it closes) or the migration was cancelled.
@@ -3515,7 +3580,7 @@ const TIMINGS = ["As soon as possible", "Within a month", "Over a school break",
 const BRING = ["Students", "Parents & guardians", "Staff", "Classes & teachers", "Final grades & transcripts", "Attendance"];
 const latestRequest = async (db, organizationId) => (await db.query("SELECT * FROM migration_requests WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1", [organizationId])).rows[0] || null;
 async function requestMove(db, organizationId, body, { userId = null, actor = "School", role = "Manager" } = {}) {
-  if (await openJob(db, organizationId)) return { error: "Your data migration is already open." };
+  if (allowedOf(await openJob(db, organizationId))) return { error: "Your data migration is already open." };
   const system = clean(body.system, 80) || clean(body.otherSystem, 80);
   const contactName = clean(body.contactName, 120);
   const contactEmail = clean(body.contactEmail, 200).toLowerCase();
@@ -3599,10 +3664,17 @@ async function decideRequest(db, requestId, what, note, actor) {
 async function statusesFor(db, organizationIds = null) {
   if (!(await ready(db))) return {};
   const { rows } = await db.query(
-    "SELECT organization_id, status FROM migration_jobs WHERE status IN ('sandbox', 'review', 'live') AND ($1::int[] IS NULL OR organization_id = ANY($1::int[]))",
+    `SELECT organization_id, status, to_jsonb(migration_jobs) ->> 'allowed' AS allowed, to_jsonb(migration_jobs) ->> 'school_on' AS school_on
+       FROM migration_jobs WHERE status IN ('sandbox', 'review', 'live') AND ($1::int[] IS NULL OR organization_id = ANY($1::int[]))`,
     [organizationIds]
   );
-  return Object.fromEntries(rows.map((r) => [r.organization_id, r.status]));
+  return Object.fromEntries(rows.map((r) => [r.organization_id, sandboxOf(r)]));
+}
+// What the admin pages show for a school's sandbox: `status`, `allowed` (given by Managira) and
+// `on` (the school turned it on). Read from text so it works before the switch columns exist.
+function sandboxOf(row) {
+  const allowed = row.allowed !== false && row.allowed !== "false";
+  return { status: row.status, allowed, on: allowed && row.school_on !== false && row.school_on !== "false" };
 }
 // A hub moving in: a sandbox for each of its schools that hasn't one (each school's data is its own).
 async function startHub(db, hubId, actor) {
@@ -3612,7 +3684,7 @@ async function startHub(db, hubId, actor) {
   );
   let started = 0;
   for (const school of schools) {
-    if (await openJob(db, school.organization_id)) continue;
+    if (allowedOf(await openJob(db, school.organization_id))) continue;
     await startJob(db, school.organization_id, actor);
     started += 1;
   }
@@ -3622,6 +3694,7 @@ async function startHub(db, hubId, actor) {
 async function queue(db) {
   const { rows } = await db.query(
     `SELECT j.job_id, j.organization_id, j.status, j.created_at, o.organization_name, h.hub_name,
+            to_jsonb(j) ->> 'allowed' AS allowed, to_jsonb(j) ->> 'school_on' AS school_on,
             COUNT(c.column_id) FILTER (WHERE c.action IS NULL AND NOT (c.confirmed AND c.target IS NOT NULL) AND c.confidence <> 'unsure')::int AS need_action,
             COUNT(c.column_id) FILTER (WHERE c.action IS NULL AND c.notes IS NOT NULL)::int AS with_notes,
             COUNT(c.column_id) FILTER (WHERE c.sensitive IS NOT NULL)::int AS sensitive,
@@ -3673,7 +3746,7 @@ const busyTask = (db, job) => tasks.openTask(db, job.job_id);
 module.exports = {
   storeUploads, readUploads, startTask, taskStatus, busyTask, MAX_UPLOAD_FILES, snapshot,
   ENTITIES: ps.ENTITIES, TASK_LABELS: tasks.LABELS, SECTIONS, SECTION_LABELS, SENSITIVE_LABELS, ARCHIVE_MODULES, ACTIONS, NOTE_KEYS, MAX_FILE_BYTES,
-  featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob,
+  featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob, closeSandbox, sandboxSwitch, switchReady, allowedOf, schoolOnOf, sandboxOf,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
   staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, setListUse, setSchools, leftOf, gradeKey, dayFirstColumns, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,

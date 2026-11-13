@@ -31,7 +31,7 @@
           </dl>
           <% if (_isOpen) { %>
           <div class="mg-req__do">
-            <form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/approve" onsubmit="return confirm('Open <%= String(r.organization_name).replace(/[^A-Za-z0-9 .,()&-]/g, '') %>\'s migration? Their live account takes no new data until it closes, and their managers are emailed.');"><button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Approve and open</button></form>
+            <form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/approve" onsubmit="return confirm('Open <%= String(r.organization_name).replace(/[^A-Za-z0-9 .,()&-]/g, '') %>\'s migration? Their managers are emailed and find Sandbox in their menu; while they have it on, their live account takes no new data.');"><button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Approve and open</button></form>
             <% if (r.status === 'new') { %><form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/contacted"><button class="mg-btn mg-btn--sm">Mark in touch</button></form><% } %>
             <details>
               <summary class="mg-btn mg-btn--sm">Decline…</summary>
@@ -53,7 +53,7 @@
       <h2>Migrations</h2>
       <% if (!queue.length) { %><p class="mg-empty">No school is migrating right now.</p><% } else { %>
       <table class="mg-table"><thead><tr><th>School</th><th>Stage</th><th class="num">Need an action</th><th class="num">Roles waiting</th><th class="num">With notes</th><th class="num">Sensitive</th><th></th></tr></thead><tbody>
-        <% queue.forEach((q) => { %><tr><td><strong><%= q.organization_name %></strong><% if (q.hub_name) { %><span class="mg-samples" style="display:block">in <%= q.hub_name %></span><% } %></td><td><span class="mg-pill mg-pill--<%= q.status %>"><%= q.status %></span></td><td class="num"><%= q.need_action %></td><td class="num"><%= q.roles_waiting || 0 %></td><td class="num"><%= q.with_notes %></td><td class="num"><%= q.sensitive %></td><td class="num"><a class="mg-btn mg-btn--sm" href="/admin/migrations/<%= q.organization_id %>">Open</a></td></tr><% }) %>
+        <% queue.forEach((q) => { %><tr><td><strong><%= q.organization_name %></strong><% if (q.hub_name) { %><span class="mg-samples" style="display:block">in <%= q.hub_name %></span><% } %></td><td><span class="mg-pill mg-pill--<%= q.status %>"><%= q.status %></span><% const _qs = (q.allowed === 'false' || q.allowed === false) ? 'Off (Managira)' : (q.school_on === 'false' || q.school_on === false) ? 'Off at school' : 'On'; %><span class="mg-samples" style="display:block">Sandbox: <%= _qs %></span></td><td class="num"><%= q.need_action %></td><td class="num"><%= q.roles_waiting || 0 %></td><td class="num"><%= q.with_notes %></td><td class="num"><%= q.sensitive %></td><td class="num"><a class="mg-btn mg-btn--sm" href="/admin/migrations/<%= q.organization_id %>">Open</a></td></tr><% }) %>
       </tbody></table>
       <% } %>
     </section>
@@ -68,12 +68,14 @@
     </section>
   <% } else { const waiting = columns.filter((c) => !c.action && (c.confidence === 'none' || (c.confirmed && !c.target))); %>
     <p><a href="/admin/migrations">← Migration queue</a></p>
-    <header class="mg-head"><h1><%= org.organization_name %> <span class="mg-pill mg-pill--<%= job.status %>"><%= job.status %></span></h1>
+    <% const _given = job.allowed !== false, _schoolOn = _given && job.school_on !== false, _openNow = ['sandbox', 'review', 'live'].includes(job.status); %>
+    <header class="mg-head"><h1><%= org.organization_name %> <span class="mg-pill mg-pill--<%= job.status %>"><%= job.status %></span><% if (_openNow) { %> <span class="mg-pill mg-pill--<%= _schoolOn ? 'sandbox' : 'off' %>"><%= !_given ? 'Sandbox off (Managira)' : _schoolOn ? 'Sandbox on' : 'Sandbox off at school' %></span><% } %></h1>
       <p><%= waiting.length %> <%= waiting.length === 1 ? 'column needs' : 'columns need' %> an action. Once each has one, run the import again so the new fields are filled in.</p></header>
     <div class="mg-actions" style="margin:14px 0">
       <% if (['sandbox', 'review'].includes(job.status)) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/import"><button class="mg-btn mg-btn--primary" type="submit">Run the import again</button></form>
       <form method="POST" action="/admin/migrations/<%= job.organization_id %>/cancel" onsubmit="return confirm('Cancel this migration? Its sandbox and files are deleted.')"><button class="mg-btn" type="submit">Cancel migration</button></form><% } %>
-      <% if (job.status === 'live') { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/stop"><button class="mg-btn" type="submit">Turn the sandbox off</button></form><% } %>
+      <% if (_openNow && _given) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/stop" onsubmit="return confirm('<%= job.status === 'live' ? 'Turn the sandbox off? This school is live, so its migration closes.' : 'Turn the sandbox off? The school loses its Sandbox switch and can save again. What it uploaded is kept.' %>')"><button class="mg-btn" type="submit">Turn the sandbox off</button></form><% } %>
+      <% if (_openNow && !_given) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/start"><button class="mg-btn mg-btn--primary" type="submit">Turn the sandbox on</button></form><% } %>
     </div>
     <% if (job.rolled_back_at && job.status === 'sandbox') { %><p class="mg-notice">Go-live rolled back on <%= _when(job.rolled_back_at) %> by <%= job.rolled_back_by %>. The sandbox is open again and locked.</p><% } %>
     <% if (locals.preview) { const _s = preview.since;

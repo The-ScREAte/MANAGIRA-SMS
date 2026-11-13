@@ -27,6 +27,10 @@
 <% const isMarketingHome = !!(!isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext && headerCurrentPath === '/'); %>
 <% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
 <header id="top-header" data-overlay-eligible="<%= (isMarketingHome || (typeof isMarketingHeroPage !== 'undefined' && isMarketingHeroPage)) ? '1' : '0' %>" class="<%= (isMarketingHome || (typeof isMarketingHeroPage !== 'undefined' && isMarketingHeroPage)) ? 'homepage-overlay-enabled' : '' %>">
+  <% if (isLoggedIn && locals.migrationState && migrationState.on) { %>
+  <%# The school's sandbox is on (utils/dataMigration.js): a thin line along the top, for all its staff. Its managers turn it off in the menu. %>
+  <div class="sandbox-line"><span title="<%= migrationState.locked ? 'Sandbox is on: nothing new can be saved until a manager turns it off in the menu.' : 'Sandbox is on: your data migration is open.' %>">Sandbox on</span></div>
+  <% } %>
   <% const publicOrgData = (typeof orgDetails !== 'undefined' && orgDetails) ? orgDetails : ((req && req.schoolDetails) ? req.schoolDetails : null); %>
   <% const headerHomeHref = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : '/'; %>
   <% const publicOrgFullName = (publicOrgData && publicOrgData.organization_name) ? publicOrgData.organization_name : ''; %>
@@ -327,15 +331,6 @@
           <% }); %>
         </ul>
       </nav>
-    <% } %>
-    <% if (locals.migrationState && migrationState.isAdmin) { %>
-      <%# A school moving its data in: the way to its migration screen, for its admins only. Its right margin clears #tools, which is drawn 45px left of its place (header.css). %>
-      <a class="mg-headbtn" href="/common/management?panel=migration&page=%2Fcommon%2Fmigration&label=Data%20migration" data-no-spa title="Data migration in progress">Sandbox</a>
-      <style>
-        .mg-headbtn { position: relative; margin: 0 69px 0 auto; display: inline-flex; flex: none; align-items: center; gap: 6px; height: 34px; padding: 0 16px; border-radius: 999px; background: #5b21b6; color: #fff !important; font-size: 13.5px; font-weight: 700; text-decoration: none; z-index: 2; box-shadow: 0 2px 8px rgba(91, 33, 182, .3); }
-        .mg-headbtn::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #c4b5fd; }
-        @media (max-width: 900px) { .mg-headbtn { margin-right: 53px; height: 30px; padding: 0 12px; font-size: 12.5px; } }
-      </style>
     <% } %>
     <div id="tools">
       <% if (session.firstName) { %>
@@ -685,6 +680,30 @@
             <span class="menu-icon"><%- navIcon('reports') %></span>
             Reports
           </a>
+        </li>
+        <% } %>
+        <% if (locals.migrationState && migrationState.allowed && migrationState.isAdmin) { %>
+        <%# The school's sandbox switch, for its managers once Managira gives it (utils/dataMigration.js sandboxSwitch); public/js/headerMenu.js asks before it changes. %>
+        <li class="nav-item sbx-item">
+          <form class="sbx<%= migrationState.on ? ' is-on' : '' %>" method="POST" action="/common/migration/sandbox" data-sbx data-no-spa>
+            <input type="hidden" name="on" value="<%= migrationState.on ? '0' : '1' %>">
+            <div class="sbx__row" data-sbx-row>
+              <span class="menu-icon"><%- navIcon('sandbox') %></span>
+              <span class="sbx__name">Sandbox<small><%= migrationState.on ? 'On' : 'Off' %></small></span>
+              <button type="button" class="sbx__switch" role="switch" aria-checked="<%= migrationState.on ? 'true' : 'false' %>" aria-label="Sandbox" data-sbx-toggle><span></span></button>
+            </div>
+            <div class="sbx__ask" data-sbx-ask hidden>
+              <% const _sbxLive = migrationState.status === 'live'; %>
+              <p><%= migrationState.on ? (_sbxLive ? 'Data migration closes from view. Your records stay.' : 'Everyone can save again. Your migration is kept.') : (_sbxLive ? 'Opens your data migration. Everyone keeps saving as usual.' : 'Nothing new can be saved until you turn it off.') %></p>
+              <div class="sbx__do">
+                <button type="submit" class="sbx__yes">Turn <%= migrationState.on ? 'off' : 'on' %></button>
+                <button type="button" class="sbx__no" data-sbx-cancel>Cancel</button>
+              </div>
+            </div>
+          </form>
+          <% if (migrationState.on) { %>
+          <a href="/common/migration" class="sbx__open" data-no-spa>Open data migration</a>
+          <% } %>
         </li>
         <% } %>
         <li class="nav-item">

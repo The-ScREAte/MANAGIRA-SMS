@@ -79,7 +79,7 @@
                 <% const _mg = (locals.migrationByOrg || {})[org.organization_id] || null; %>
                 <td>
                   <% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
-                  <% if (_mg) { %><a class="ah-status" href="/admin/migrations/<%= org.organization_id %>" data-no-spa style="background:#ede9fe;color:#5b21b6">Sandbox<%= _mg === 'live' ? ' (live)' : '' %></a><% } %>
+                  <% const _mgS = _mg && typeof _mg === 'object' ? _mg : (_mg ? { status: _mg, allowed: true, on: true } : null); if (_mgS && _mgS.allowed) { %><a class="ah-status" href="/admin/migrations/<%= org.organization_id %>" data-no-spa title="<%= _mgS.on ? 'The school has its sandbox on: nothing new is saved.' : 'Given to the school; its managers have it switched off.' %>" style="<%= _mgS.on ? 'background:#ede9fe;color:#5b21b6' : 'background:#f2f4f7;color:#475467' %>"><%= _mgS.on ? 'Sandbox on' : 'Sandbox ready' %><%= _mgS.status === 'live' ? ' (live)' : '' %></a><% } %>
                 </td>
                 <td class="ah-actions-cell">
                   <div class="ah-row-actions">

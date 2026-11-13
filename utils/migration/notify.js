@@ -37,7 +37,7 @@ const STAGES = {
   },
   approved: {
     school: (d) => ({ subject: "Your data migration is ready to start", title: "Your data migration is ready to start", bell: "Your data migration is open",
-      paragraphs: [`Our migration team has opened ${d.school}'s data migration.`, d.codes ? "Your managers now see a Sandbox button at the top of Managira. The first time you open it, you'll set up an authenticator app on your phone for your school's safety." : "Your managers now see a Sandbox button at the top of Managira: open it to upload your exports.", "While your migration is open, your live account takes no new data, so nothing is entered twice. Everyone can still sign in and look."],
+      paragraphs: [`Our migration team has opened ${d.school}'s data migration.`, d.codes ? "Your managers now find Sandbox in the menu (☰) at the top right of Managira. Turning it on opens your data migration; the first time, you'll set up an authenticator app on your phone for your school's safety." : "Your managers now find Sandbox in the menu (☰) at the top right of Managira. Turn it on to open your data migration and upload your exports.", "While your sandbox is on, your live account takes no new data, so nothing is entered twice. Everyone can still sign in and look. Turn it off at any time to work as usual: what you uploaded is kept."],
       link: SCHOOL_LINK, linkText: "Open your data migration" }),
   },
   notes: {
@@ -71,7 +71,11 @@ const STAGES = {
   },
   closed: {
     school: (d) => ({ subject: "Your data migration is complete", title: "Your data migration is complete", bell: "Data migration complete",
-      paragraphs: [`${d.school}'s data migration is complete and the Sandbox button is gone.`, "Your exports are deleted 30 days after you went live, as planned. Your records stay."] }),
+      paragraphs: [`${d.school}'s data migration is complete, and Sandbox is no longer in your menu.`, "Your exports are deleted 30 days after you went live, as planned. Your records stay."] }),
+  },
+  paused: {
+    school: (d) => ({ subject: "Your sandbox is off", title: "Your sandbox is off", bell: "Sandbox turned off",
+      paragraphs: [`Our migration team turned off ${d.school}'s sandbox. Your live account takes new data as usual.`, "Everything you uploaded is kept. When it's time to carry on, we'll turn it on again and you'll find Sandbox in your menu."], link: GUIDE, linkText: "How a move works" }),
   },
   cancelled: {
     school: (d) => ({ subject: "Your data migration was cancelled", title: "Your data migration was cancelled", bell: "Data migration cancelled",

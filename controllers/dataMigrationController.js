@@ -85,9 +85,45 @@ async function verifyPost(req, res, db) {
 }
 
 // ── School side ─────────────────────────────────────────────────────────────────────────
+// The school's migration, only while its sandbox is given and switched on: with the switch off,
+// nothing in the migration changes.
 async function schoolContext(req, res, db) {
   if (!(await allowedHere(req, db))) return null;
-  return m.openJob(db, orgOf(req));
+  const job = await m.openJob(db, orgOf(req));
+  return m.schoolOnOf(job) ? job : null;
+}
+
+// The school's own switch (header menu, its managers only): on opens Data migration, off lets
+// everyone save again. Each switch is in the school's activity log.
+async function sandboxPost(req, res, db) {
+  const json = wantsJson(req);
+  const reply = (status, body, fallback) => {
+    if (json) return res.status(status).json(body);
+    req.flash(body.success ? "success" : "error", body.message);
+    return res.redirect(fallback);
+  };
+  if (!(await allowedHere(req, db))) return reply(403, { success: false, message: "Only your school's managers can turn the sandbox on or off." }, "/");
+  const on = ["1", "on", "true"].includes(String((req.body && req.body.on) || "").toLowerCase());
+  const result = await m.sandboxSwitch(db, orgOf(req), on, actorOf(req));
+  const from = String(req.get("Referer") || "");
+  let back = "/";
+  try { const url = new URL(from); if (url.host === req.get("host") && !/^\/common\/(migration|management)/.test(url.pathname)) back = url.pathname + url.search; } catch (error) { /* home */ }
+  if (result.error) return reply(409, { success: false, message: result.error }, back);
+  if (!result.unchanged) {
+    const { whoIsSignedIn } = require("../utils/confirmOwnPassword");
+    const who = whoIsSignedIn(req);
+    require("../utils/activityLog").logOrganizationActivity({
+      organizationId: orgOf(req), userId: who.userId || orgOf(req), userName: who.name, userRole: who.role,
+      actionType: on ? "Turned sandbox on" : "Turned sandbox off", moduleName: "Data migration", pagePath: "/common/migration/sandbox",
+      recordType: "Sandbox", recordLabel: on ? "Sandbox on" : "Sandbox off",
+      description: on ? `${who.name} turned the sandbox on. Nothing new can be saved until it's turned off.` : `${who.name} turned the sandbox off. Everyone can save again; the migration is kept.`,
+      ipAddress: req.ip,
+    }).catch(() => {});
+  }
+  const live = result.status === "live";
+  const message = on ? (live ? "Sandbox on. Your data migration is open." : "Sandbox on. Your data migration is open; nothing new can be saved until you turn it off.")
+    : (live ? "Sandbox off. Your records stay." : "Sandbox off. Everyone can save again, and your migration is kept.");
+  return reply(200, { success: true, on, message, url: on ? HUB_URL() : back }, on ? HUB_URL() : back);
 }
 const back = (req, res, step) => res.redirect(`/common/migration?step=${step}&embed=workspace`);
 // Long work runs in the background (utils/migration/tasks.js); while it does, nothing else changes the migration.
@@ -208,7 +244,11 @@ async function page(req, res, db) {
   if (!(await allowedHere(req, db))) { req.flash("error", "Data migration is for your school's managers."); return res.redirect("/"); }
   if (!isEmbeddedRequest(req, "migration") && String(req.get("Sec-Fetch-Dest") || "") !== "iframe") return res.redirect(HUB_URL(req.query.step));
   const job = await m.openJob(db, orgOf(req));
-  if (!job) return requestPage(req, res, db);
+  if (!m.allowedOf(job)) return requestPage(req, res, db);
+  // Given, but the school has it switched off: one card to turn it on.
+  if (!m.schoolOnOf(job)) {
+    return res.render("migration/off", { title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash() });
+  }
   // Once Managira has opened it, every visit needs an authenticator code from the last 30 minutes.
   if (!mfa.passed(req)) return res.redirect(verifyUrl(req.originalUrl));
   // Each step reads only what it shows (a large school's sandbox is tens of thousands of rows):
@@ -629,11 +669,20 @@ async function adminToggle(req, res, db) {
   const organizationId = toId(req.params.orgId);
   if (!organizationId || !(await m.ready(db))) return res.redirect("/admin/hubs");
   const on = req.params.what === "start";
-  const result = on ? (await m.startJob(db, organizationId, adminActor(req)), { ok: true }) : await m.stopJob(db, organizationId, adminActor(req), { cancel: req.params.what === "cancel" });
+  const cancel = req.params.what === "cancel";
+  const result = on ? (await m.startJob(db, organizationId, adminActor(req)), { ok: true })
+    : cancel ? await m.stopJob(db, organizationId, adminActor(req), { cancel: true })
+    : await m.closeSandbox(db, organizationId, adminActor(req));
+  if (!result.error) require("../utils/shards/registry").audit(req, on ? "migration_sandbox_on" : cancel ? "migration_cancelled" : "migration_sandbox_off", `org:${organizationId}`, {});
   if (result.error) req.flash("error", result.error);
-  else req.flash("success", on ? "Sandbox on. The school's admins see a Sandbox button in their header." : req.params.what === "cancel" ? "Migration cancelled and its data deleted." : "Sandbox off.");
-  const fromHub = /^\/admin\/hubs\/\d+\/organizations$/.test(new URL(req.get("Referer") || "http://x/", "http://x").pathname) ? new URL(req.get("Referer"), "http://x").pathname : null;
-  return res.redirect(on ? `/admin/migrations/${organizationId}` : fromHub || "/admin/hubs");
+  else req.flash("success", on ? "Sandbox on. The school's managers now find Sandbox in their menu, off until they turn it on."
+    : cancel ? "Migration cancelled and its data deleted."
+    : "Sandbox off. It's gone from the school's menu and they can save again; what they uploaded is kept.");
+  // Back where it was pressed: a hub's schools, Organizations, or the migration's own page.
+  const from = new URL(req.get("Referer") || "http://x/", "http://x");
+  const back = /^\/admin\/(hubs(\/\d+\/organizations)?|migrations\/\d+)$/.test(from.pathname) ? from.pathname + (from.pathname === "/admin/hubs" ? from.search : "") : null;
+  if (cancel) return res.redirect("/admin/migrations");
+  return res.redirect(back || (on ? `/admin/migrations/${organizationId}` : "/admin/hubs"));
 }
 // A hub moving in: a sandbox for each of its schools that hasn't one.
 async function adminHubStart(req, res, db) {
@@ -644,7 +693,7 @@ async function adminHubStart(req, res, db) {
   const result = await m.startHub(db, hubId, adminActor(req));
   require("../utils/shards/registry").audit(req, "migration_hub_sandbox_on", `hub:${hubId}`, result);
   if (!result.schools) req.flash("error", "This hub has no schools yet.");
-  else req.flash("success", `Sandbox on for ${result.started} ${result.started === 1 ? "school" : "schools"} of ${hub.hub_name}${result.started < result.schools ? ` (${result.schools - result.started} already had one)` : ""}. Each school's managers see a Sandbox button in their header.`);
+  else req.flash("success", `Sandbox on for ${result.started} ${result.started === 1 ? "school" : "schools"} of ${hub.hub_name}${result.started < result.schools ? ` (${result.schools - result.started} already had one)` : ""}. Each school's managers find Sandbox in their menu.`);
   return res.redirect(`/admin/hubs/${hubId}/organizations`);
 }
 async function adminResolve(req, res, db) {
@@ -741,6 +790,6 @@ module.exports = {
   roleConfirmPost: wrap(roleConfirmPost), roleNotesPost: wrap(roleNotesPost), roleApprovePost: wrap(roleApprovePost), roleReportFile: wrap(roleReportFile),
   archivePage: wrap(archivePage), documentFile: wrap(documentFile), oldRecords: wrap(oldRecords), studentOldSystem,
   adminCodeGate, adminCodePage: wrap(adminCodePage), adminCodePost: wrap(adminCodePost),
-  adminQueue: wrap(adminQueue), adminJob: wrap(adminJob), adminToggle: wrap(adminToggle), adminResolve: wrap(adminResolve), adminImport: wrap(adminImport),
+  sandboxPost: wrap(sandboxPost), adminQueue: wrap(adminQueue), adminJob: wrap(adminJob), adminToggle: wrap(adminToggle), adminResolve: wrap(adminResolve), adminImport: wrap(adminImport),
   adminRequestDecide: wrap(adminRequestDecide), adminRollback: wrap(adminRollback), adminStartOver: wrap(adminStartOver), adminCodeReset: wrap(adminCodeReset), adminRoleResolve: wrap(adminRoleResolve), adminHubStart: wrap(adminHubStart),
 };
