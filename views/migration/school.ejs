@@ -11,6 +11,8 @@
   const _issueLabel = { missing: 'Missing', duplicate: 'Duplicate', date: 'Bad date', orphan: 'No match', no_parent: 'No parent', unplaced: "Can't place", code: 'Unknown code', email: 'Email in use', no_email: 'No email', gpa: 'Not a GPA' };
   const _g = (v) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? '—' : Number(v).toFixed(2));
   const _actionWords = { map: 'Mapped', custom: 'Custom field', extra: 'Extra field', archive: 'Archived', exclude: 'Left out', alert: 'Alert on the student' };
+  // Nothing uploaded yet: every step after Upload says so, and nothing looks done.
+  const _blank = !files.length && job.status === 'sandbox';
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/migration.css') %>" />
 <div class="mg">
@@ -27,10 +29,18 @@
   <% } %>
   <nav class="mg-steps" aria-label="Steps">
     <% steps.forEach((s, i) => { %>
-      <a class="mg-step<%= s === step ? ' is-on' : '' %>" href="/common/migration?step=<%= s %>&embed=workspace"<%- s === step ? ' aria-current="step"' : '' %>><span><%= i + 1 %></span><%= _stepLabels[s] %></a>
+      <a class="mg-step<%= s === step ? ' is-on' : '' %><%= _blank && s !== 'upload' ? ' is-idle' : '' %>" href="/common/migration?step=<%= s %>&embed=workspace"<%- s === step ? ' aria-current="step"' : '' %>><span><%= i + 1 %></span><%= _stepLabels[s] %></a>
     <% }) %>
   </nav>
   <%- include('partials/task', { task: locals.task }) %>
+
+  <% if (_blank && step !== 'upload') { const _reading = locals.task && task.open; %>
+  <section class="mg-card mg-blank">
+    <h2><%= _stepLabels[step] %></h2>
+    <p><%= _reading ? "Your files are being read. This step fills in as soon as that's done." : 'Nothing here yet. Everything starts with your export files.' %></p>
+    <% if (!_reading) { %><p class="mg-next"><a class="mg-btn mg-btn--primary" href="/common/migration?step=upload&embed=workspace">Go to step 1: Upload</a></p><% } %>
+  </section>
+  <% } %>
 
   <% if (step === 'upload') { %>
   <section class="mg-card">
@@ -65,7 +75,7 @@
   <% } %>
   <% } %>
 
-  <% if (step === 'map') { %>
+  <% if (step === 'map' && !_blank) { %>
   <% if (fieldChoices.length) { const _typeWords = { text: 'Text', long_text: 'Long text', number: 'Number', date: 'Date', yes_no: 'Yes / No' }; %>
   <section class="mg-card" id="fields" style="margin-bottom:14px">
     <h2>Student fields</h2>
@@ -119,7 +129,7 @@
   </section>
   <% } %>
 
-  <% if (step === 'check') { %>
+  <% if (step === 'check' && !_blank) { %>
   <section class="mg-card">
     <h2>Check & import into the sandbox</h2>
     <p class="mg-hint">Imports everything that's matched now, and checks it. Run it again any time: records update, never duplicate.</p>
@@ -177,7 +187,7 @@
   </section>
   <% } %>
 
-  <% if (step === 'roles') { const _R = roleReport; %>
+  <% if (step === 'roles' && !_blank) { const _R = roleReport; %>
   <section class="mg-card">
     <h2>Staff roles</h2>
     <p class="mg-hint">Each role or access group in your staff file, matched to a Managira role. A match never gives more access than the old role did: when unsure, it's the more limited one, and you can always choose a more limited role. Admin-level access needs your approval, person by person.</p>
@@ -262,7 +272,7 @@
   </section>
   <% } %>
 
-  <% if (step === 'notes') { %>
+  <% if (step === 'notes' && !_blank) { %>
   <section class="mg-card">
     <h2>Columns to explain</h2>
     <p class="mg-hint">These columns have no place in Managira yet. Tell us about each one. The Managira team then makes it a field of its own, keeps it on the record, or archives it. Nothing is left out without your approval.</p>
@@ -299,7 +309,7 @@
   </section>
   <% } %>
 
-  <% if (step === 'review') { %>
+  <% if (step === 'review' && !_blank) { %>
   <section class="mg-card">
     <h2>Review & sign</h2>
     <% if (matches) { const _fmtDay = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : 'no date of birth'; const _canAnswer = ['sandbox', 'live'].includes(job.status); %>
@@ -353,7 +363,7 @@
     <% } %>
     <h3>Your files beside the sandbox</h3>
     <table class="mg-table"><thead><tr><th>Area</th><th class="num">In your files</th><th class="num">In the sandbox</th></tr></thead><tbody>
-      <% if (_report) Object.entries(_report.entities).filter(([, v]) => v.source).forEach(([entity, v]) => { %><tr><td><%= entities[entity].label %><% if (entity === 'guardians') { %> <small class="mg-hint">(the sandbox also has the parents named in the students file)</small><% } %></td><td class="num"><%= v.source %></td><td class="num"><%= (sandbox.counts[entity] || {}).count || 0 %></td></tr><% }) %>
+      <% if (_report) Object.entries(_report.entities).filter(([, v]) => v.source).forEach(([entity, v]) => { %><tr><td><%= entities[entity].label %><% if (entity === 'guardians') { const _gl = files.filter((f) => f.entity === 'guardians').length; const _gs = (sandbox.counts.guardians || {}).count || 0; %> <small class="mg-hint"><%= _gl > 1 && _gs < v.source ? '(' + _gl + ' lists of the same parents, merged into one record each)' : _gs > v.source ? '(with the parents named in the students file)' : '' %></small><% } %></td><td class="num"><%= Number(v.source).toLocaleString('en-US') %></td><td class="num"><%= Number((sandbox.counts[entity] || {}).count || 0).toLocaleString('en-US') %></td></tr><% }) %>
       <% if (sandbox.counts.grades) { %>
         <tr><td>Credits earned (total)</td><td class="num"><%= (job.totals.source || {}).credits %></td><td class="num"><%= sandbox.counts.grades.credits %></td></tr>
       <% } %>
@@ -400,7 +410,7 @@
   </section>
   <% } %>
 
-  <% if (step === 'live') { %>
+  <% if (step === 'live' && !_blank) { %>
   <section class="mg-card">
     <% if (job.status === 'live') {
          const loaded = (job.totals && job.totals.loaded) || {};

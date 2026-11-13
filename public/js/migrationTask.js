@@ -39,7 +39,7 @@
           setText(card.querySelector("[data-task-step]"), t.step ? t.step + (t.total ? ": " + Number(t.done).toLocaleString("en-US") + " of " + Number(t.total).toLocaleString("en-US") : "") : "Getting ready");
           setText(card.querySelector("[data-task-meta]"), t.status === "queued" ? (t.ahead ? "Waiting its turn (" + t.ahead + " ahead)" : "Starting…") : (t.phases > 1 ? "Step " + t.phase + " of " + t.phases + " · " : "") + fmtSecs(t.seconds));
           if (gen !== generation) return;
-          if (!t.open) { go(body.next || window.location.pathname + window.location.search, false); return; }
+          if (!t.open) { forget(); go(body.next || window.location.pathname + window.location.search, false); return; }
           setTimeout(poll, Date.now() - started > 60000 ? 3000 : 1200);
         })
         .catch(function () { window.location.reload(); });
@@ -128,7 +128,7 @@
         clearTimeout(waiting);
         var body = null;
         try { body = JSON.parse(xhr.responseText); } catch (_e) { body = null; }
-        if (xhr.status === 200 && body && body.ok) { go(body.next || window.location.pathname + window.location.search, false); return; }
+        if (xhr.status === 200 && body && body.ok) { forget(); go(body.next || window.location.pathname + window.location.search, false); return; }
         if (!body) { window.location.reload(); return; }
         sending.hidden = true;
         button.disabled = false;
@@ -146,9 +146,15 @@
   }
 
   // ── Moving between steps without reloading the page ──
-  // A step tab, a link inside the migration, or a form posted to it: the next page is fetched and
-  // swapped in place (the back button still works). Anything else opens as usual.
+  // Each step is loaded once in the background (one at a time) and kept: opening a step shows it
+  // at once, then a fresh copy is fetched quietly and swapped in only if something changed and
+  // nobody is typing. Anything saved (a form, an upload, a finished task) drops the kept copies.
+  // Links outside the migration open as usual; the back button still works.
   var cache = {};
+  var inflight = {};
+  var shown = null; // the step on screen, as it came from the server (before anything ran on it)
+  var era = 0; // anything saved starts a new era: copies fetched before it aren't kept
+  var here = function () { return window.location.pathname + window.location.search; };
   var migrationUrl = function (href) {
     try {
       var u = new URL(href, window.location.href);
@@ -156,45 +162,111 @@
     } catch (_e) { return null; }
   };
   var fetchPage = function (url, options) {
-    return fetch(url, Object.assign({ credentials: "same-origin", headers: { accept: "text/html" } }, options || {}));
+    return fetch(url, Object.assign({ credentials: "same-origin", headers: { accept: "text/html" }, cache: "no-store" }, options || {}));
   };
-  function show(html, url, push) {
-    var doc = new DOMParser().parseFromString(html, "text/html");
-    var fresh = doc.querySelector(".mg");
+  function load(url) {
+    if (inflight[url]) return inflight[url];
+    var asked = era;
+    var p = fetchPage(url)
+      .then(function (r) {
+        var landed = r.ok && migrationUrl(r.url);
+        if (!landed) return Promise.reject(r.url);
+        return r.text().then(function (html) { if (landed === url && asked === era) cache[url] = { html: html, at: Date.now() }; return html; });
+      });
+    inflight[url] = p;
+    var done = function () { if (inflight[url] === p) delete inflight[url]; };
+    p.then(done, done);
+    return p;
+  }
+  function forget() { era += 1; cache = {}; inflight = {}; }
+  // The step's part of a page, as the server sent it (a kept copy without its one-time messages).
+  function stepOf(html, quiet) {
+    var fresh = new DOMParser().parseFromString(html, "text/html").querySelector(".mg");
+    if (fresh && quiet) fresh.querySelectorAll(".flash-message, .flash-container").forEach(function (el) { el.remove(); });
+    return fresh;
+  }
+  // Someone mid-way through something on the step: a field in use, an upload going, a box open.
+  function busy(root) {
+    var active = document.activeElement;
+    if (active && root.contains(active) && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return true;
+    if (root.querySelector("[data-sending]:not([hidden])")) return true;
+    if (root.querySelector("[data-picked]:not([hidden])")) return true;
+    return false;
+  }
+  function show(html, url, push, quiet) {
+    var fresh = stepOf(html, quiet);
     var current = document.querySelector(".mg");
     if (!fresh || !current) return false;
+    if (quiet) {
+      // A kept copy keeps the sections someone opened.
+      var open = {};
+      current.querySelectorAll("details").forEach(function (d) { var k = d.querySelector("summary"); if (k) open[k.textContent.trim()] = d.open; });
+      fresh.querySelectorAll("details").forEach(function (d) { var k = d.querySelector("summary"); if (k && Object.prototype.hasOwnProperty.call(open, k.textContent.trim())) d.open = open[k.textContent.trim()]; });
+    }
+    shown = fresh.outerHTML;
     current.replaceWith(fresh);
     if (url) window.history[push ? "pushState" : "replaceState"]({ migration: true }, "", url);
-    window.scrollTo(0, 0);
+    if (!quiet || push) window.scrollTo(0, 0);
     init(fresh);
+    // The app's loading bar (public/js/pageLoading.js) is for leaving the page: a step shown here is done.
+    if (window.ManagiraLoading) window.ManagiraLoading.stop();
     return true;
   }
+  // A step on screen, brought up to date in the background.
+  function refresh(url) {
+    load(url).then(function (html) {
+      var current = document.querySelector(".mg");
+      var fresh = stepOf(html, true);
+      if (here() !== url || !fresh || fresh.outerHTML === shown || !current || busy(current)) return;
+      var y = window.scrollY;
+      show(html, null, false, true);
+      window.scrollTo(0, y);
+    }).catch(function () {});
+  }
   function go(url, push) {
+    var hit = cache[url];
+    if (hit) {
+      show(hit.html, url, push, true);
+      if (Date.now() - hit.at > 30000) refresh(url); // saving anything already drops the kept copies
+      warm();
+      return;
+    }
     var current = document.querySelector(".mg");
     if (current) current.classList.add("is-loading");
-    var hit = cache[url] && Date.now() - cache[url].at < 15000 ? cache[url].page : null;
-    delete cache[url];
-    (hit || fetchPage(url).then(function (r) { return r.ok && migrationUrl(r.url) ? r.text() : Promise.reject(r.url); }))
-      .then(function (html) { if (!show(html, url, push)) window.location.href = url; })
+    load(url)
+      .then(function (html) { if (!show(html, url, push)) window.location.href = url; warm(); })
       .catch(function (where) { window.location.href = typeof where === "string" && where ? where : url; });
+  }
+  // Every step loaded ahead, one after another, while nothing else is going on.
+  var warming = null;
+  function warm() {
+    clearTimeout(warming);
+    warming = setTimeout(function next() {
+      if (document.hidden) return;
+      var card = document.querySelector(".mg [data-task][data-open='true']");
+      if (card) return; // a task is changing things: wait for it
+      var urls = Array.prototype.map.call(document.querySelectorAll(".mg a.mg-step[href]"), function (a) { return migrationUrl(a.getAttribute("href")); })
+        .filter(function (u) { return u && u !== here() && !cache[u] && !inflight[u]; });
+      if (!urls.length) return;
+      load(urls[0]).then(function () { warming = setTimeout(next, 150); }, function () {});
+    }, 600);
   }
   document.addEventListener("click", function (e) {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var a = e.target.closest && e.target.closest("a[href]");
-    if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+    if (!a || a.target === "_blank" || a.target === "_top" || a.hasAttribute("download") || a.hasAttribute("data-no-spa")) return;
     var url = migrationUrl(a.getAttribute("href"));
     if (!url) return;
     e.preventDefault();
+    if (url === here()) { refresh(url); return; }
     go(url, true);
-  });
-  // A step tab pointed at is fetched ahead, so it opens at once.
+  }, true); // before the app's own link handling, so its loading bar never starts for a step
+  // A step tab pointed at, not loaded yet, is fetched at once.
   document.addEventListener("mouseover", function (e) {
     var a = e.target.closest && e.target.closest("a.mg-step[href]");
     if (!a) return;
     var url = migrationUrl(a.getAttribute("href"));
-    if (!url || url === window.location.pathname + window.location.search || (cache[url] && Date.now() - cache[url].at < 15000)) return;
-    cache[url] = { at: Date.now(), page: fetchPage(url).then(function (r) { return r.ok && migrationUrl(r.url) ? r.text() : Promise.reject(r.url); }) };
-    cache[url].page.catch(function () { delete cache[url]; });
+    if (url && url !== here() && !cache[url]) load(url).catch(function () {});
   });
   document.addEventListener("submit", function (e) {
     var form = e.target;
@@ -206,11 +278,12 @@
     if (e.submitter && e.submitter.name) data.append(e.submitter.name, e.submitter.value);
     var current = document.querySelector(".mg");
     if (current) current.classList.add("is-loading");
+    forget();
     fetchPage(action, { method: "POST", body: data, headers: { accept: "text/html", "content-type": "application/x-www-form-urlencoded" } })
       .then(function (r) {
         var url = migrationUrl(r.url);
         if (!r.ok || !url) { window.location.href = r.url || action; return; }
-        return r.text().then(function (html) { if (!show(html, url, true)) window.location.href = url; });
+        return r.text().then(function (html) { if (!show(html, url, true)) window.location.href = url; else warm(); });
       })
       .catch(function () { form.submit(); });
   });
@@ -224,5 +297,10 @@
     document.querySelectorAll(".mg form[data-upload] button[type=submit]").forEach(function (b) { b.disabled = false; });
   });
 
-  init(document.querySelector(".mg"));
+  // The step the page opened on is kept too (as the server sent it, before anything ran on it).
+  var first = document.querySelector(".mg");
+  if (first && migrationUrl(window.location.href)) cache[here()] = { html: first.outerHTML, at: Date.now() };
+  init(first);
+  warm();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) warm(); });
 })();

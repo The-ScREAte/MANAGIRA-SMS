@@ -183,7 +183,13 @@ async function page(req, res, db) {
   const step = STEPS.includes(req.query.step) ? req.query.step : job.status === "live" ? "live" : !files.length ? "upload" : open.unsure.length ? "map" : "check";
   const on = (...steps) => steps.includes(step);
   // A finished go-live or catch-up is news only while the school is live (not after a rollback).
-  const shownTask = task && !task.open && ["go_live", "catch_up"].includes(task.kind) && job.status !== "live" ? null : task;
+  // A task that finished well shows only on its own step (reading on Upload, the import on Check,
+  // the go-live on Go live); one running or failed shows on every step.
+  const TASK_STEP = { read_files: "upload", import: "check", go_live: "live", catch_up: "live" };
+  const shownTask = !task ? null
+    : task.open || task.status === "failed" ? task
+    : ["go_live", "catch_up"].includes(task.kind) && job.status !== "live" ? null
+    : TASK_STEP[task.kind] && TASK_STEP[task.kind] !== step ? null : task;
   const none = (value) => Promise.resolve(value);
   const [sandbox, check, staff, roleReport, gpaCheck, matches, docs, uploads, ownRoles] = await Promise.all([
     on("check", "review") ? m.sandboxSummary(db, job) : none({ counts: {}, sample: [] }),

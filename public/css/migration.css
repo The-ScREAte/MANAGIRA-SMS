@@ -218,3 +218,10 @@
 .mg-app .mg-app__lists { color: var(--mg-muted); font-size: 12.5px; }
 .mg-pill--ok { background: #ecfdf3; color: #067647; border-color: #abefc6; }
 .mg-pill--part { background: #eff8ff; color: #175cd3; }
+
+/* Nothing uploaded yet (views/migration/school.ejs `_blank`): later steps look idle, one empty card. */
+.mg-step.is-idle:not(.is-on) { opacity: .55; }
+.mg-blank { text-align: center; padding: 36px 20px; }
+.mg-blank h2 { justify-content: center; text-align: center; }
+.mg-blank p { color: var(--mg-muted); margin: 6px 0 0; }
+.mg-blank .mg-next { margin-top: 16px; display: flex; justify-content: center; }
