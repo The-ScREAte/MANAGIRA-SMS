@@ -644,10 +644,10 @@ router.post("/paystack/set-primary", isAuthenticated, requirePermission(PERMISSI
 router.get("/stripe-connect/onboard", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.stripeConnectOnboardGet(req, res)
 );
-router.get("/stripe-connect/return", isAuthenticated, (req, res) =>
+router.get("/stripe-connect/return", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.stripeConnectReturnGet(req, res)
 );
-router.get("/stripe-connect/refresh", isAuthenticated, (req, res) =>
+router.get("/stripe-connect/refresh", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.stripeConnectRefreshGet(req, res)
 );
 
