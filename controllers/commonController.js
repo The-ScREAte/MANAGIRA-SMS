@@ -9476,10 +9476,14 @@ const commonController = {
       const attendanceForms = await require("../utils/customForms").attendanceColumns(db, req.session.organizationId, {
         classId: Number(classId), day: attendanceTodayKey, builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
       }).catch(() => []);
+      // Lunch is taken beside each day now, so a school's own old "Lunch" column isn't shown twice.
+      const attendanceFormsShown = lunchOn
+        ? attendanceForms.filter((form) => !/lunch/i.test(`${form.name || ""} ${(form.fields || []).map((f) => f.label).join(" ")}`))
+        : attendanceForms;
       res.render("common/attendanceCollection", {
         lunchOn,
         lunchMap,
-        attendanceForms,
+        attendanceForms: attendanceFormsShown,
         attendanceTodayKey,
         title: "Attendance Records",
         classId,
