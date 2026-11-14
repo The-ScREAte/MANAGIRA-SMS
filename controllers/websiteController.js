@@ -3,7 +3,7 @@
 // contact form itself. See utils/websiteExtras.js for the data rules.
 const db = require("../config/db");
 const { uploadToS3 } = require("../middleware/s3Upload");
-const { sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const {
   SECTION_KEYS,
   ensureWebsiteSchema,
@@ -149,12 +149,13 @@ module.exports = {
         html: renderCleanEmail({
           title: "New message from your school website",
           greeting: `Hello ${school?.organization_name || ""}`.trim() + ",",
-          paragraphs: message.split(/\n+/),
+          // What the visitor typed is shown as text, never as part of the email's markup.
+          paragraphs: message.split(/\n+/).map((line) => escapeHtml(line)),
           details: [
-            { label: "From", value: name },
-            ...(fromEmail ? [{ label: "Email", value: fromEmail }] : []),
-            ...(phone ? [{ label: "Phone", value: phone }] : []),
-            ...(subject ? [{ label: "Subject", value: subject }] : []),
+            { label: "From", value: escapeHtml(name) },
+            ...(fromEmail ? [{ label: "Email", value: escapeHtml(fromEmail) }] : []),
+            ...(phone ? [{ label: "Phone", value: escapeHtml(phone) }] : []),
+            ...(subject ? [{ label: "Subject", value: escapeHtml(subject) }] : []),
           ],
           note: fromEmail ? "Reply to this email to answer them directly. All messages are also in Manage Website > Messages." : "All messages are also in Manage Website > Messages.",
         }),

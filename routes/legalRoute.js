@@ -33,7 +33,9 @@ router.get('/product-category', legalController.productCategoryPage);
 // router.get('/directory', legalController.directory);
 router.get('/faq', legalController.faq);
 router.get('/help', legalController.getHelp);
-router.post('/help', legalController.postHelp);
+const { requireHuman } = require('../utils/humanCheck');
+// Public forms: a person, not a bot (utils/humanCheck.js).
+router.post('/help', requireHuman('help', { back: '/legal/help#contact-result', perHour: 10 }), legalController.postHelp);
 router.get('/privacy-policy', legalController.privacyPolicy);
 router.get('/terms-of-service', legalController.termsOfService);
 // Backward-compatible aliases used by older links and external references.
@@ -52,7 +54,7 @@ router.post('/employment/:id/apply', (req, res, next) => {
 		}
 		return next();
 	});
-}, legalController.submitEmploymentApplication);
+}, requireHuman('job', { back: '/legal/employment', perHour: 10 }), legalController.submitEmploymentApplication);
 router.get('/donations', legalController.donationsPage);
 const appDemoController = require('../controllers/appDemoController');
 // The app demo is not public: platform admins can still open it; everyone else gets the product tour video.
@@ -67,7 +69,7 @@ router.get('/app-demo/media/:id(\\d+)/file', appDemoController.serveFile);
 router.get('/app-demo/media/:id(\\d+)/poster', appDemoController.servePoster);
 router.get('/app-demo/play/:id(\\d+)', adminsOnlyDemo, appDemoController.playerPage);
 router.get('/request-demo', legalController.requestDemoPage);
-router.post('/request-demo', legalController.submitDemoRequest);
+router.post('/request-demo', requireHuman('demo', { back: '/legal/request-demo', perHour: 10 }), legalController.submitDemoRequest);
 router.get('/user-documentation/api/search', documentationController.documentationSearchJson);
 router.post('/user-documentation/api/helpful', documentationController.documentationHelpfulVote);
 

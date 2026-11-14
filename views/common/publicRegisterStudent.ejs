@@ -663,7 +663,7 @@
         </div>
       </div>
 
-      <form id="registrationForm" enctype="multipart/form-data">
+      <form id="registrationForm" enctype="multipart/form-data" data-human-check="admission">
         <input type="hidden" name="organizationId" value="<%= organizationId %>" />
 
           <!-- Student Information accordion card -->
@@ -1063,11 +1063,14 @@
 
       let registrationData;
       try {
+        // A person, not a bot (public/js/humanCheck.js): its answer goes with the form.
+        if (window.ManagiraHuman) await window.ManagiraHuman.ready(form);
         const res = await fetch('/common/publicRegister?organizationId=' + ORG_ID, {
           method: 'POST',
           body: new FormData(form),
         });
         registrationData = await res.json();
+        if (window.ManagiraHuman) window.ManagiraHuman.renew(form);
       } catch (err) {
         hideLoader();
         alert('Network error. Please check your connection and try again.');

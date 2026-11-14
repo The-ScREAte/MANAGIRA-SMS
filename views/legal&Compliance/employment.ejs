@@ -25,7 +25,7 @@
             <details class="apply-panel">
               <summary class="apply-summary">Apply for this role <span class="apply-hint">(expand)</span></summary>
 
-              <form class="application-form" method="POST" action="/legal/employment/<%= job.id %>/apply" enctype="multipart/form-data">
+              <form class="application-form" method="POST" action="/legal/employment/<%= job.id %>/apply" enctype="multipart/form-data" data-human-check="job">
                 <div class="grid-two">
                   <div class="field-group">
                     <label for="first_name_<%= job.id %>">First Name</label>
@@ -373,3 +373,4 @@
     });
   })();
 </script>
+<script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>

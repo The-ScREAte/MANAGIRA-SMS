@@ -362,7 +362,7 @@
           </div>
 
           <div class="demo-card">
-            <form action="/legal/request-demo" method="POST" id="demoRequestForm">
+            <form action="/legal/request-demo" method="POST" id="demoRequestForm" data-human-check="demo">
               <div class="form-grid">
                 <div class="full">
                   <label for="name">Full name</label>
@@ -396,11 +396,6 @@
               </div>
               <input type="hidden" name="form_started_at" id="form_started_at" value="">
 
-              <label class="confirm-row">
-                <input type="checkbox" id="confirmHuman" name="confirm_human" required>
-                <span>I'm requesting a demo for my school or district.</span>
-              </label>
-
               <button type="submit" id="demoSubmitBtn">Request my demo</button>
             </form>
           </div>
@@ -429,7 +424,7 @@
           form.reportValidity();
           return;
         }
-        if (!confirmBox.checked) {
+        if (confirmBox && !confirmBox.checked) {
           e.preventDefault();
           alert('Please confirm this is a genuine request before submitting.');
           return;
@@ -443,5 +438,6 @@
       });
     })();
   </script>
+  <script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>
 </body>
 </html>

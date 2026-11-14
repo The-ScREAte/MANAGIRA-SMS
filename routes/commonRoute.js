@@ -118,7 +118,7 @@ module.exports = (db) => {
     }
   );
   // Public website contact form (no sign-in).
-  router.post("/publicContact", websiteController.publicContact);
+  router.post("/publicContact", require("../utils/humanCheck").requireHuman("school-contact", { perHour: 10 }), websiteController.publicContact);
   router.get("/publicDashboard", checkFeatureAccess, redirectToExternalSchoolWebsite(db), async (req, res) => {
     const isProduction = process.env.NODE_ENV === "production";
 
@@ -200,6 +200,8 @@ module.exports = (db) => {
       { name: 'studentImage', maxCount: 1 },
       { name: 'guardianImage0', maxCount: 1 }
     ]),
+    // A person, not a bot (utils/humanCheck.js): a family may apply for a few children at once.
+    require("../utils/humanCheck").requireHuman("admission", { perHour: 20 }),
     commonValidation.validatePublicRegister,
     commonValidation.validatePublicRegisterResult,
     (req, res) => commonController.publicRegisterStudentPost(req, res, db)

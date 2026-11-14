@@ -284,6 +284,7 @@
     button[type="submit"]:disabled { background: #94a3b8; cursor: not-allowed; }
 
     /* Collapsible contact form */
+    .help-flash { max-width: 100%; margin: 0 0 12px; scroll-margin-top: 96px; }
     .contact-collapse {
       background: #fff;
       border: 1px solid var(--border);
@@ -446,8 +447,10 @@
       </div>
     </div>
 
-    <!-- CONTACT FORM (collapsed by default) -->
-    <details class="contact-collapse">
+    <!-- CONTACT FORM (collapsed by default; open when a message says something went wrong) -->
+    <% const _helpFlash = { success: [].concat(locals.success || []), error: [].concat((locals.messages && locals.messages.error) || [], locals.error || []), info: [].concat((locals.messages && locals.messages.info) || []) }; %>
+    <% if (_helpFlash.success.length || _helpFlash.error.length || _helpFlash.info.length) { %><div class="help-flash" id="contact-result"><%- include('../partials/flash', { messages: _helpFlash }) %></div><% } %>
+    <details class="contact-collapse"<%= _helpFlash.error.length ? ' open' : '' %>>
       <summary class="contact-summary">
         <span class="contact-summary-text">
           <strong>Still need a hand? Send us a message</strong>
@@ -456,7 +459,7 @@
         <svg class="contact-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
 
-      <form action="/legal/help" method="POST" class="contact-form" id="helpContactForm" novalidate>
+      <form action="/legal/help" method="POST" class="contact-form" id="helpContactForm" novalidate data-human-check="help">
         <p class="form-intro">
           Before submitting a request, try the search above — it looks across our full documentation, guides, and FAQ for instant answers.
           <br><br>
@@ -484,11 +487,6 @@
           <label>Leave this field blank<input type="text" name="company_website" tabindex="-1" autocomplete="off"></label>
         </div>
         <input type="hidden" name="form_started_at" id="form_started_at" value="">
-
-        <label class="confirm-row">
-          <input type="checkbox" id="confirmHuman" name="confirm_human" required>
-          <span>I confirm this is a genuine request, not spam.</span>
-        </label>
 
         <button type="submit" id="helpSubmitBtn">Submit Request</button>
       </form>
@@ -809,7 +807,7 @@
           msg.focus();
           return;
         }
-        if (!confirmBox.checked) {
+        if (confirmBox && !confirmBox.checked) {
           e.preventDefault();
           alert('Please confirm this is a genuine request before submitting.');
           return;
@@ -821,5 +819,6 @@
       });
     })();
   </script>
+  <script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>
 </body>
 </html>

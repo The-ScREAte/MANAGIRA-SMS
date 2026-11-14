@@ -2,7 +2,10 @@ const nodemailer = require('nodemailer');
 const db = require('../config/db');
 const path = require('path');
 const { uploadToS3 } = require('../config/s3');
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require('../utils/emailHelper');
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail, escapeHtml } = require('../utils/emailHelper');
+// Public forms never mail what a visitor typed back out, and mail any one address only a few times a day (utils/humanCheck.js).
+const { emailAllowance } = require('../utils/humanCheck');
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const { ensureEmploymentSchema } = require('../utils/employmentSchema');
 const { checkAntiSpam } = require('../utils/formAntiSpam');
 
@@ -579,13 +582,17 @@ const legalController = {
         try {
             if (!name || !email || !message) {
                 req.flash('error', 'Name, Email, and Message are required.');
-                return res.redirect('/legal/help');
+                return res.redirect('/legal/help#contact-result');
             }
 
-            const spamCheck = checkAntiSpam(req.body, { requireConfirm: true, minWords: 3, messageField: 'message' });
+            if (!EMAIL_RE.test(String(email).trim())) {
+                req.flash('error', 'Please check your email address.');
+                return res.redirect('/legal/help#contact-result');
+            }
+            const spamCheck = checkAntiSpam(req.body, { requireConfirm: false, minWords: 3, messageField: 'message' });
             if (!spamCheck.ok) {
                 req.flash('error', spamCheck.reason);
-                return res.redirect('/legal/help');
+                return res.redirect('/legal/help#contact-result');
             }
     
             // Create a new thread
@@ -604,19 +611,21 @@ const legalController = {
                 [threadId, name, email, message]
             );
     
+            // The confirmation says only that the ticket exists: never what was typed, so the form
+            // can't carry anyone's words (or links) to someone else's inbox.
             const html = renderCleanEmail({
                 title: `Support Ticket Created (#${threadId})`,
-                greeting: `Dear <strong>${name}</strong>,`,
+                greeting: `Dear <strong>${escapeHtml(String(name).slice(0, 80))}</strong>,`,
                 paragraphs: [
                     'Thank you for reaching out. Your support ticket has been created and our team will respond shortly.',
+                    "If you didn't contact Managira, you can ignore this email.",
                 ],
                 details: [
                     { label: 'Ticket Number', value: `#${threadId}` },
-                    { label: 'Your Message', value: message },
                 ],
             });
 
-            sendEmailInBackground({
+            if (emailAllowance(email)) sendEmailInBackground({
                 to: email,
                 subject: `Support Ticket Created - Ticket #${threadId}`,
                 html,
@@ -630,10 +639,10 @@ const legalController = {
             }, 'Legal Help Confirmation Email');
 
             req.flash('success', 'Help request submitted successfully.');
-            res.redirect('/legal/help');
+            res.redirect('/legal/help#contact-result');
         } catch (error) {
                         req.flash('error', 'Failed to submit your request.');
-            res.redirect('/legal/help');
+            res.redirect('/legal/help#contact-result');
         }
     },
 
@@ -892,8 +901,12 @@ const legalController = {
             }
 
             // Anti-spam: require the note and a minimum of 5 words.
+            if (!EMAIL_RE.test(String(email || '').trim())) {
+                req.flash('error', 'Please check your email address.');
+                return res.redirect('/legal/request-demo');
+            }
             const spamCheck = checkAntiSpam(req.body, {
-                requireConfirm: true,
+                requireConfirm: false,
                 minWords: 5,
                 messageField: 'message',
             });
@@ -933,20 +946,20 @@ const legalController = {
 
             const html = renderCleanEmail({
                 title: `Demo Request Received (#${threadId})`,
-                greeting: `Dear <strong>${name}</strong>,`,
+                greeting: `Dear <strong>${escapeHtml(String(name).slice(0, 80))}</strong>,`,
                 paragraphs: [
                     'Thanks for requesting a Managira demo. Our team will reach out shortly to schedule a personalised walkthrough.',
                     'In the meantime, you can explore our interactive App Demo and User Documentation from the Resources section.',
                 ],
                 details: [
                     { label: 'Reference', value: `#${threadId}` },
-                    { label: 'Organisation', value: organization || '—' },
-                    { label: 'Preferred Date', value: preferred_date || 'Flexible' },
-                    { label: 'Preferred Time', value: preferred_time || 'Flexible' },
+                    { label: 'Organisation', value: escapeHtml(organization || '—') },
+                    { label: 'Preferred Date', value: escapeHtml(preferred_date || 'Flexible') },
+                    { label: 'Preferred Time', value: escapeHtml(preferred_time || 'Flexible') },
                 ],
             });
 
-            sendEmailInBackground({
+            if (emailAllowance(email)) sendEmailInBackground({
                 to: email,
                 subject: `Managira Demo Request Received - #${threadId}`,
                 html,
@@ -975,16 +988,16 @@ const legalController = {
                     ],
                     details: [
                         { label: 'Reference', value: `#${threadId}` },
-                        { label: 'Name', value: name || '—' },
-                        { label: 'Email', value: email || '—' },
-                        { label: 'Phone', value: phone || '—' },
-                        { label: 'Organisation', value: organization || '—' },
-                        { label: 'Role', value: role || '—' },
-                        { label: 'Country', value: country || '—' },
-                        { label: 'Approx. Students', value: student_count || '—' },
-                        { label: 'Preferred Date', value: preferred_date || 'Flexible' },
-                        { label: 'Preferred Time', value: preferred_time || 'Flexible' },
-                        { label: 'Message', value: trimmedMessage || '—' },
+                        { label: 'Name', value: escapeHtml(name || '—') },
+                        { label: 'Email', value: escapeHtml(email || '—') },
+                        { label: 'Phone', value: escapeHtml(phone || '—') },
+                        { label: 'Organisation', value: escapeHtml(organization || '—') },
+                        { label: 'Role', value: escapeHtml(role || '—') },
+                        { label: 'Country', value: escapeHtml(country || '—') },
+                        { label: 'Approx. Students', value: escapeHtml(student_count || '—') },
+                        { label: 'Preferred Date', value: escapeHtml(preferred_date || 'Flexible') },
+                        { label: 'Preferred Time', value: escapeHtml(preferred_time || 'Flexible') },
+                        { label: 'Message', value: escapeHtml(trimmedMessage || '—') },
                     ],
                 });
 
