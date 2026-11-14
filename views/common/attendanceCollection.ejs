@@ -1345,11 +1345,13 @@
                                     <% } %>
                                     <% if (isToday) { %><span class="day-name">Today</span><% } %>
                                     <%= _formattedDate %>
-                                    <% if (locals.lunchOn && students.length > 0 && dateMeta.countable) { %>
-                                        <button type="button" class="lunch-link" data-lunch-date="<%= date %>" aria-expanded="false" onclick="toggleLunch('<%= date %>')">Lunch</button>
-                                    <% } %>
                                     <% if (students.length > 0 && dateMeta.countable) { %>
-                                        <div class="edit-save-link" data-date="<%= date %>" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
+                                        <div class="date-actions">
+                                        <% if (locals.lunchOn) { %>
+                                        <button type="button" class="lunch-link" data-lunch-date="<%= date %>" aria-expanded="false" aria-label="Lunch for <%= _formattedDate %>" title="Lunch" onclick="toggleLunch('<%= date %>')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 21V3c-2.5 1.5-4 4.5-4 8h4"/></svg></button>
+                                        <% } %>
+                                        <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
+                                        </div>
                                         <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
                                         <div class="mark-all-link" data-date="<%= date %>" style="display: none;" onclick="markAllPresentForDate('<%= date %>')">Mark All Present</div>
                                     <% } %>
@@ -1431,43 +1433,57 @@
 
     <% if (locals.lunchOn) { %>
     <style>
-        .attendance-sheet .lunch-link { display: inline-block; margin-top: 4px; padding: 2px 10px; border: 1px solid #0f766e; border-radius: 999px; background: #fff; color: #0f766e; font: 600 11px/1.5 inherit; cursor: pointer; }
-        .attendance-sheet .lunch-link[aria-expanded="true"] { background: #0f766e; color: #fff; }
-        .attendance-sheet th.lunch-col, .attendance-sheet td.lunch-col { min-width: 118px; background: #f0fdfa; border-left: 2px solid #0f766e; text-align: center; }
-        .attendance-sheet th.lunch-col .lunch-title { font-weight: 700; color: #0f766e; font-size: 12px; }
-        .attendance-sheet th.lunch-col .lunch-count { display: block; font-size: 11px; font-weight: 500; color: #475569; margin: 2px 0; }
-        .attendance-sheet th.lunch-col .lunch-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
-        .attendance-sheet th.lunch-col .lunch-actions button { padding: 2px 8px; border: 1px solid #0f766e; border-radius: 6px; background: #fff; color: #0f766e; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .attendance-sheet .date-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; }
+        .attendance-sheet .date-actions .lunch-link, .attendance-sheet .date-actions .edit-save-link { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; margin: 0; border-radius: 12px; cursor: pointer; font-size: 0; line-height: 0; text-decoration: none; box-sizing: border-box; }
+        .attendance-sheet .date-actions .lunch-link { border: 1.5px solid #0f766e; background: #fff; color: #0f766e; }
+        .attendance-sheet .date-actions .lunch-link[aria-expanded="true"] { background: #0f766e; color: #fff; }
+        .attendance-sheet .date-actions .edit-save-link { border: 1.5px solid currentColor; background: #fff; }
+        .attendance-sheet .date-actions .edit-save-link::before { content: ""; width: 20px; height: 20px; background: currentColor; -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E"); }
+        .attendance-sheet .date-actions .edit-save-link[data-mode="save"] { background: #166534; border-color: #166534; color: #fff; }
+        .attendance-sheet .date-actions .edit-save-link[data-mode="save"]::before { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E"); }
+        .attendance-sheet th.lunch-col, .attendance-sheet td.lunch-col { width: 1%; min-width: 0; padding: 6px 8px; white-space: nowrap; background: #f0fdfa; border-left: 2px solid #0f766e; text-align: center; }
+        .attendance-sheet th.lunch-col .lunch-title { display: flex; justify-content: center; color: #0f766e; }
+        .attendance-sheet th.lunch-col .lunch-count { display: flex; justify-content: center; gap: 8px; font-size: 13px; font-weight: 700; margin: 4px 0; }
+        .attendance-sheet th.lunch-col .lunch-count span { display: inline-flex; align-items: center; gap: 3px; }
+        .attendance-sheet th.lunch-col .lunch-actions { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
+        .attendance-sheet th.lunch-col .lunch-actions button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 1.5px solid #0f766e; border-radius: 12px; background: #fff; color: #0f766e; cursor: pointer; }
         .attendance-sheet th.lunch-col .lunch-actions button.primary { background: #0f766e; color: #fff; }
         .attendance-sheet th.lunch-col .lunch-actions button:disabled { opacity: .5; cursor: default; }
-        .attendance-sheet td.lunch-col .lunch-btn { min-width: 86px; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #64748b; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .attendance-sheet td.lunch-col .lunch-btn { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 2px solid #cbd5e1; border-radius: 14px; background: #fff; color: #94a3b8; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .attendance-sheet td.lunch-col .lunch-btn[data-v="yes"] { background: #dcfce7; border-color: #16a34a; color: #166534; }
-        .attendance-sheet td.lunch-col .lunch-btn[data-v="no"] { background: #f1f5f9; border-color: #94a3b8; color: #475569; text-decoration: line-through; }
-        @media print { .attendance-sheet .lunch-link { display: none; } }
+        .attendance-sheet td.lunch-col .lunch-btn[data-v="no"] { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+        @media (max-width: 760px) { .attendance-sheet .date-actions .lunch-link, .attendance-sheet .date-actions .edit-save-link { width: 44px; height: 44px; } .attendance-sheet td.lunch-col .lunch-btn { width: 52px; height: 52px; } }
+        @media print { .attendance-sheet .date-actions { display: none; } }
     </style>
     <script>
     (function () {
         var CLASS_ID = '<%= classId %>', TERM_ID = '<%= termId %>';
         var saved = <%- JSON.stringify(locals.lunchMap || {}) %>;
-        var LABEL = { yes: 'Lunch', no: 'No lunch', '': 'Tap' };
+        var svg = function (d, w) { return '<svg viewBox="0 0 24 24" width="' + (w || 24) + '" height="' + (w || 24) + '" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; };
+        var ICON = {
+            yes: svg('<path d="M5 12.5l4.5 4.5L19 7"/>', 28),
+            no: svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', 28),
+            '': svg('<circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>', 28)
+        };
+        var TITLE = { yes: 'Had lunch', no: 'No lunch', '': 'Not taken yet' };
         var ORDER = ['', 'yes', 'no'];
+        var utensils = '<path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 21V3c-2.5 1.5-4 4.5-4 8h4"/>';
         function valueOf(studentId, date) { var v = (saved[studentId] || {})[date]; return v === true ? 'yes' : v === false ? 'no' : ''; }
         function dateCell(row, date) { var box = row.querySelector('input[data-date="' + date + '"]'); return box ? box.closest('td') : null; }
         function count(th, date) {
             var yes = 0, no = 0, none = 0;
             document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { if (b.dataset.v === 'yes') yes++; else if (b.dataset.v === 'no') no++; else none++; });
-            th.querySelector('.lunch-count').textContent = yes + ' lunch · ' + no + ' no lunch · ' + none + ' not taken';
+            th.querySelector('.lunch-count').innerHTML = '<span title="Had lunch" style="color:#166534">' + svg('<path d="M5 12.5l4.5 4.5L19 7"/>', 16) + yes + '</span><span title="No lunch" style="color:#991b1b">' + svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', 16) + no + '</span><span title="Not taken yet" style="color:#64748b">' + svg('<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>', 16) + none + '</span>';
         }
-        function setBtn(btn, v) { btn.dataset.v = v; btn.textContent = LABEL[v]; btn.setAttribute('aria-label', LABEL[v] === 'Tap' ? 'Lunch not taken yet' : LABEL[v]); }
+        function setBtn(btn, v) { btn.dataset.v = v; btn.innerHTML = ICON[v]; btn.title = TITLE[v]; btn.setAttribute('aria-label', TITLE[v]); }
         window.toggleLunch = function (date) {
             var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
-            var open = document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]');
-            if (open) { closeLunch(date); return; }
+            if (document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]')) { closeLunch(date); return; }
             var th = document.querySelector('th[data-date="' + date + '"]');
             if (!th) return;
             var head = document.createElement('th');
             head.className = 'lunch-col'; head.dataset.lunchDate = date;
-            head.innerHTML = '<div class="lunch-title">Lunch</div><span class="lunch-count"></span><div class="lunch-actions"><button type="button" data-a="all">All had lunch</button><button type="button" class="primary" data-a="save">Save</button><button type="button" data-a="close">Close</button></div>';
+            head.innerHTML = '<div class="lunch-title" title="Lunch">' + svg(utensils, 24) + '</div><div class="lunch-count"></div><div class="lunch-actions"><button type="button" data-a="all" title="Mark everyone as had lunch" aria-label="Mark everyone as had lunch">' + svg('<path d="M2 12.5l4.5 4.5L15 8M10 16l1 1 9-10"/>', 22) + '</button><button type="button" class="primary" data-a="save" title="Save lunch" aria-label="Save lunch">' + svg('<path d="M5 3h11l3 3v15H5zM8 3v6h7V3M8 21v-7h8v7"/>', 22) + '</button><button type="button" data-a="close" title="Close lunch" aria-label="Close lunch">' + svg('<path d="M6 6l12 12M18 6L6 18"/>', 22) + '</button></div>';
             th.after(head);
             document.querySelectorAll('.attendance-sheet tbody tr').forEach(function (row) {
                 var cell = dateCell(row, date), id = row.querySelector('td.student-name[data-student-id]');
@@ -1479,10 +1495,11 @@
                 td.appendChild(btn); cell.after(td);
             });
             head.addEventListener('click', function (e) {
-                var a = e.target.dataset && e.target.dataset.a;
+                var b = e.target.closest('button[data-a]'); if (!b) return;
+                var a = b.dataset.a;
                 if (a === 'close') closeLunch(date);
-                if (a === 'all') { document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { setBtn(b, 'yes'); }); count(head, date); head.dataset.dirty = '1'; }
-                if (a === 'save') save(date, head, e.target);
+                if (a === 'all') { document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (x) { setBtn(x, 'yes'); }); count(head, date); head.dataset.dirty = '1'; }
+                if (a === 'save') save(date, head, b);
             });
             if (link) link.setAttribute('aria-expanded', 'true');
             count(head, date);
@@ -1497,17 +1514,21 @@
         function save(date, head, button) {
             var lunch = {};
             document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { lunch[b.dataset.student] = b.dataset.v || null; });
-            button.disabled = true; var was = button.textContent; button.textContent = 'Saving…';
+            button.disabled = true; var was = button.innerHTML;
             fetch('/common/saveLunch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lunch: lunch, classId: CLASS_ID, termId: TERM_ID, date: date }) })
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
                     if (!d.success) { alert(d.message || 'Failed to save lunch. Please try again.'); return; }
                     Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; if (lunch[id]) saved[id][date] = lunch[id] === 'yes'; else delete saved[id][date]; });
-                    head.dataset.dirty = ''; button.textContent = 'Saved ✓'; setTimeout(function () { button.textContent = was; }, 1500);
+                    head.dataset.dirty = ''; button.innerHTML = svg('<path d="M5 12.5l4.5 4.5L19 7"/>', 22); setTimeout(function () { button.innerHTML = was; }, 1400);
                 })
                 .catch(function () { alert('Failed to save lunch. Please try again.'); })
-                .finally(function () { button.disabled = false; if (button.textContent === 'Saving…') button.textContent = was; });
+                .finally(function () { button.disabled = false; });
         }
+        // The Edit icon turns into a tick while a day is being edited (the page's own script sets the words).
+        function syncModes() { document.querySelectorAll('.edit-save-link').forEach(function (l) { l.dataset.mode = l.textContent.trim() === 'Save' ? 'save' : 'edit'; l.title = l.dataset.mode === 'save' ? 'Save' : 'Edit'; l.setAttribute('aria-label', l.title + ' attendance'); }); }
+        new MutationObserver(syncModes).observe(document.querySelector('.attendance-sheet') || document.body, { subtree: true, childList: true, characterData: true });
+        syncModes();
     })();
     </script>
     <% } %>
