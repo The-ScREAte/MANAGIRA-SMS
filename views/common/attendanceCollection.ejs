@@ -1454,95 +1454,66 @@
         .attendance-sheet .date-actions .cancel-link::before { content: ""; width: 20px; height: 20px; background: currentColor; -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; }
         .attendance-sheet .date-actions .cancel-link::before { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
         .attendance-sheet .date-actions { flex-wrap: wrap; }
-        .attendance-sheet th.lunch-col, .attendance-sheet td.lunch-col { width: 1px; min-width: 0; padding: 6px 8px; white-space: nowrap; background: #f0fdfa; border-left: 2px solid #0f766e; text-align: center; }
-        .attendance-sheet th.lunch-col .lunch-title { display: flex; justify-content: center; color: #0f766e; }
-        .attendance-sheet th.lunch-col .lunch-count { display: flex; justify-content: center; gap: 8px; font-size: 13px; font-weight: 700; margin: 4px 0; }
-        .attendance-sheet th.lunch-col .lunch-count span { display: inline-flex; align-items: center; gap: 3px; }
-        .attendance-sheet th.lunch-col .lunch-actions { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
-        .attendance-sheet th.lunch-col .lunch-actions button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 1.5px solid #0f766e; border-radius: 12px; background: #fff; color: #0f766e; cursor: pointer; }
-        .attendance-sheet th.lunch-col .lunch-actions button.primary { background: #0f766e; color: #fff; }
-        .attendance-sheet th.lunch-col .lunch-actions button:disabled { opacity: .5; cursor: default; }
-        .attendance-sheet td.lunch-col .lunch-btn { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 2px solid #cbd5e1; border-radius: 14px; background: #fff; color: #94a3b8; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .attendance-sheet td.lunch-col .lunch-btn[data-v="yes"] { background: #dcfce7; border-color: #16a34a; color: #166534; }
-        .attendance-sheet td.lunch-col .lunch-btn[data-v="no"] { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
-        @media (max-width: 760px) { .attendance-sheet .date-actions .lunch-link, .attendance-sheet .date-actions .edit-save-link, .attendance-sheet .date-actions .cancel-link { width: 44px; height: 44px; } .attendance-sheet td.lunch-col .lunch-btn { width: 52px; height: 52px; } }
         @media print { .attendance-sheet .date-actions { display: none; } }
+        .attendance-sheet td .lunch-pick { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 40px; height: 40px; margin-left: 10px; padding: 0; border: 1.5px solid #cbd5e1; border-radius: 12px; background: #fff; color: #cbd5e1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .attendance-sheet td .lunch-pick[data-v="yes"] { background: #0f766e; border-color: #0f766e; color: #fff; }
+        .attendance-sheet .lunch-tally { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; font-weight: 700; color: #0f766e; }
+        @media (max-width: 760px) { .attendance-sheet td .lunch-pick { width: 44px; height: 44px; } }
     </style>
     <script>
     (function () {
         var CLASS_ID = '<%= classId %>', TERM_ID = '<%= termId %>';
         var saved = <%- JSON.stringify(locals.lunchMap || {}) %>;
-        var svg = function (d, w) { return '<svg viewBox="0 0 24 24" width="' + (w || 24) + '" height="' + (w || 24) + '" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; };
-        var ICON = {
-            yes: svg('<path d="M5 12.5l4.5 4.5L19 7"/>', 28),
-            no: svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', 28),
-            '': svg('<circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>', 28)
-        };
-        var TITLE = { yes: 'Had lunch', no: 'No lunch', '': 'Not taken yet' };
-        var ORDER = ['', 'yes', 'no'];
-        var utensils = '<circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/>';
-        function valueOf(studentId, date) { var v = (saved[studentId] || {})[date]; return v === true ? 'yes' : v === false ? 'no' : ''; }
-        function dateCell(row, date) { var box = row.querySelector('input[data-date="' + date + '"]'); return box ? box.closest('td') : null; }
-        function count(th, date) {
-            var yes = 0, no = 0, none = 0;
-            document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { if (b.dataset.v === 'yes') yes++; else if (b.dataset.v === 'no') no++; else none++; });
-            th.querySelector('.lunch-count').innerHTML = '<span title="Had lunch" style="color:#166534">' + svg('<path d="M5 12.5l4.5 4.5L19 7"/>', 16) + yes + '</span><span title="No lunch" style="color:#991b1b">' + svg('<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', 16) + no + '</span><span title="Not taken yet" style="color:#64748b">' + svg('<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>', 16) + none + '</span>';
+        var plate = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/></svg>';
+        var open = {};
+        function cellOf(box) { return box.closest('td'); }
+        function setPick(btn, v) { btn.dataset.v = v; btn.setAttribute('aria-pressed', v === 'yes' ? 'true' : 'false'); btn.title = v === 'yes' ? 'Had lunch' : 'No lunch'; btn.setAttribute('aria-label', btn.title); }
+        function tally(date) {
+            var n = document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"][data-v="yes"]').length;
+            var t = document.querySelector('.lunch-tally[data-lunch-date="' + date + '"]'); if (t) t.querySelector('b').textContent = n;
         }
-        function setBtn(btn, v) { btn.dataset.v = v; btn.innerHTML = ICON[v]; btn.title = TITLE[v]; btn.setAttribute('aria-label', TITLE[v]); }
         window.toggleLunch = function (date) {
             var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
-            if (document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]')) { closeLunch(date); return; }
-            var th = document.querySelector('th[data-date="' + date + '"]');
-            if (!th) return;
-            var head = document.createElement('th');
-            head.className = 'lunch-col'; head.dataset.lunchDate = date;
-            head.innerHTML = '<div class="lunch-title" title="Lunch">' + svg(utensils, 24) + '</div><div class="lunch-count"></div><div class="lunch-actions"><button type="button" data-a="all" title="Mark everyone as had lunch" aria-label="Mark everyone as had lunch">' + svg('<path d="M2 12.5l4.5 4.5L15 8M10 16l1 1 9-10"/>', 22) + '</button><button type="button" data-a="close" title="Close lunch" aria-label="Close lunch">' + svg('<path d="M6 6l12 12M18 6L6 18"/>', 22) + '</button></div>';
-            th.after(head);
-            document.querySelectorAll('.attendance-sheet tbody tr').forEach(function (row) {
-                var cell = dateCell(row, date), id = row.querySelector('td.student-name[data-student-id]');
-                if (!cell || !id) return;
-                var td = document.createElement('td'); td.className = 'lunch-col'; td.dataset.lunchDate = date;
-                var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lunch-btn'; btn.dataset.student = id.dataset.studentId;
-                setBtn(btn, valueOf(id.dataset.studentId, date));
-                btn.addEventListener('click', function () { setBtn(btn, ORDER[(ORDER.indexOf(btn.dataset.v) + 1) % 3]); count(head, date); head.dataset.dirty = '1'; });
-                td.appendChild(btn); cell.after(td);
+            if (open[date]) { closeLunch(date); return; }
+            open[date] = { dirty: false };
+            document.querySelectorAll('.attendance-sheet tbody input[data-date="' + date + '"]').forEach(function (box) {
+                if (box.dataset.countable !== 'true') return;
+                var id = box.dataset.studentId, cell = cellOf(box); if (!cell) return;
+                var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lunch-pick'; btn.dataset.lunchDate = date; btn.dataset.student = id; btn.innerHTML = plate;
+                setPick(btn, (saved[id] || {})[date] === true ? 'yes' : '');
+                btn.addEventListener('click', function () { var ed = document.querySelector('.edit-save-link[data-date="' + date + '"]'); if (ed && ed.textContent.trim() !== 'Save') { if (window.toggleEditSaveMode) window.toggleEditSaveMode(date); } setPick(btn, btn.dataset.v === 'yes' ? '' : 'yes'); open[date].dirty = true; tally(date); });
+                cell.appendChild(btn);
             });
-            head.addEventListener('click', function (e) {
-                var b = e.target.closest('button[data-a]'); if (!b) return;
-                var a = b.dataset.a;
-                if (a === 'close') closeLunch(date);
-                if (a === 'all') { document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (x) { setBtn(x, 'yes'); }); count(head, date); head.dataset.dirty = '1'; }
-            });
+            var th = document.querySelector('th[data-date="' + date + '"] .date-header');
+            if (th && !th.querySelector('.lunch-tally')) { var t = document.createElement('div'); t.className = 'lunch-tally'; t.dataset.lunchDate = date; t.innerHTML = plate.replace('width="24" height="24"', 'width="16" height="16"') + '<span>Lunch</span> <b>0</b>'; th.appendChild(t); }
             if (link) link.setAttribute('aria-expanded', 'true');
-            count(head, date);
+            tally(date);
             // One tick saves the day: attendance and lunch together.
             var edit = document.querySelector('.edit-save-link[data-date="' + date + '"]');
             if (edit && edit.textContent.trim() === 'Edit' && window.toggleEditSaveMode) window.toggleEditSaveMode(date);
         };
-        window.saveLunchForDate = function (date) {
-            var head = document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]');
-            if (head) save(date, head);
-        };
         function closeLunch(date) {
-            var head = document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]');
-            if (head && head.dataset.dirty === '1' && !confirm('Close without saving lunch for this day?')) return;
-            document.querySelectorAll('.lunch-col[data-lunch-date="' + date + '"]').forEach(function (n) { n.remove(); });
+            if (open[date] && open[date].dirty && !confirm('Close lunch without saving it for this day?')) return;
+            document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (n) { n.remove(); });
+            var t = document.querySelector('.lunch-tally[data-lunch-date="' + date + '"]'); if (t) t.remove();
+            delete open[date];
             var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
             if (link) link.setAttribute('aria-expanded', 'false');
         }
-        function save(date, head) {
+        // Called when the day's tick saves attendance: lunch goes with it (had lunch / no lunch for everyone in the class).
+        window.saveLunchForDate = function (date) {
+            if (!open[date]) return;
             var lunch = {};
-            document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { lunch[b.dataset.student] = b.dataset.v || null; });
-            fetch('/common/saveLunch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lunch: lunch, classId: CLASS_ID, termId: TERM_ID, date: date }) })
+            document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (b) { lunch[b.dataset.student] = b.dataset.v === 'yes' ? 'yes' : 'no'; });
+            fetch('/common/saveLunch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ lunch: lunch, classId: CLASS_ID, termId: TERM_ID, date: date }) })
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
-                    if (!d.success) { alert(d.message || 'Failed to save lunch. Please try again.'); return; }
-                    Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; if (lunch[id]) saved[id][date] = lunch[id] === 'yes'; else delete saved[id][date]; });
-                    head.dataset.dirty = '';
+                    if (!d.success) { alert(d.message || d.error || 'Failed to save lunch. Please try again.'); return; }
+                    Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; saved[id][date] = lunch[id] === 'yes'; });
+                    if (open[date]) open[date].dirty = false;
                 })
-                .catch(function () { alert('Failed to save lunch. Please try again.'); })
-        }
-        // The Edit icon turns into a tick while a day is being edited (the page's own script sets the words).
+                .catch(function () { alert('Failed to save lunch. Please try again.'); });
+        };
         function syncModes() { document.querySelectorAll('.edit-save-link').forEach(function (l) { l.dataset.mode = l.textContent.trim() === 'Save' ? 'save' : 'edit'; l.title = l.dataset.mode === 'save' ? 'Save' : 'Edit'; l.setAttribute('aria-label', l.title + ' attendance'); }); }
         new MutationObserver(syncModes).observe(document.querySelector('.attendance-sheet') || document.body, { subtree: true, childList: true, characterData: true });
         syncModes();
@@ -1997,6 +1968,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                 },
                 body: JSON.stringify({ attendance: attendanceData, classId, termId, date })
             })
@@ -2022,7 +1994,7 @@
                     setTimeout(updateAttendanceSummary, 50);
                 } else {
                     console.error('Failed to save attendance:', data.error);
-                    alert(data.message || 'Failed to save attendance. Please try again.');
+                    alert(data.message || data.error || 'Failed to save attendance. Please try again.');
                 }
             })
             .catch(error => {
