@@ -9522,29 +9522,31 @@ const commonController = {
       return res.status(400).json({ success: false, message: "Class, term and date are required." });
     }
     try {
-      const ctx = await db.query(
-        `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
-                (SELECT 1 FROM terms WHERE term_id = $2 AND organization_id = $3) AS term_ok`,
-        [classId, termId, organizationId]
-      );
-      if (!ctx.rows[0]?.class_ok || !ctx.rows[0]?.term_ok) {
-        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
-      }
       // Only this class's students; value true = had lunch, false = no lunch, null = not taken (row removed).
       const entries = Object.entries(req.body.lunch || {})
         .map(([id, v]) => [Number(id), v === true || v === "yes" ? true : v === false || v === "no" ? false : null])
         .filter(([id]) => Number.isInteger(id) && id > 0);
       const ids = entries.map(([id]) => id);
-      const owned = ids.length
-        ? await db.query(
-            `SELECT s.student_id FROM students s
-             WHERE s.student_id = ANY($1::int[]) AND s.organization_id = $3
-               AND (s.class_id = $2 OR EXISTS (
-                 SELECT 1 FROM enrolled_students es JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-                 WHERE es.student_id = s.student_id AND es.class_id = $2 AND e.term_id = $4 AND e.organization_id = $3))`,
-            [ids, classId, organizationId, termId]
-          ).then((r) => new Set(r.rows.map((x) => Number(x.student_id))))
-        : new Set();
+      const [ctx, owned] = await Promise.all([
+        db.query(
+          `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                  (SELECT 1 FROM terms WHERE term_id = $2 AND organization_id = $3) AS term_ok`,
+          [classId, termId, organizationId]
+        ),
+        ids.length
+          ? db.query(
+              `SELECT s.student_id FROM students s
+               WHERE s.student_id = ANY($1::int[]) AND s.organization_id = $3
+                 AND (s.class_id = $2 OR EXISTS (
+                   SELECT 1 FROM enrolled_students es JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                   WHERE es.student_id = s.student_id AND es.class_id = $2 AND e.term_id = $4 AND e.organization_id = $3))`,
+              [ids, classId, organizationId, termId]
+            ).then((r) => new Set(r.rows.map((x) => Number(x.student_id))))
+          : Promise.resolve(new Set()),
+      ]);
+      if (!ctx.rows[0]?.class_ok || !ctx.rows[0]?.term_ok) {
+        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
+      }
       const set = entries.filter(([id, v]) => owned.has(id) && v !== null);
       const clear = entries.filter(([id, v]) => owned.has(id) && v === null).map(([id]) => id);
       const markedBy = Number(req.session.user?.user_id) || null;
@@ -9587,42 +9589,42 @@ const commonController = {
     }
 
     try {
-      // Tenant boundary: class and term must belong to the caller's org.
-      const ctxCheck = await db.query(
-        `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
-                (SELECT 1 FROM terms   WHERE term_id  = $2 AND organization_id = $3) AS term_ok`,
-        [classId, termId, organizationId]
-      );
-      if (!ctxCheck.rows[0] || !ctxCheck.rows[0].class_ok || !ctxCheck.rows[0].term_ok) {
-        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
-      }
-
-      // Tenant boundary: keep only student ids that belong to this class and
-      // org, either by profile class or by enrollment for this term.
+      // Tenant boundary: class and term must belong to the caller's org, and only this class's
+      // students are kept (by profile class or by enrollment for this term). Both checks run together.
       const requestedStudentIds = Object.keys(attendance || {})
         .map(v => Number(v))
         .filter(v => Number.isInteger(v) && v > 0);
-      const ownedStudentsRes = requestedStudentIds.length
-        ? await db.query(
-            `SELECT s.student_id
-             FROM students s
-             WHERE s.student_id = ANY($1::int[])
-               AND s.organization_id = $3
-               AND (
-                 s.class_id = $2
-                 OR EXISTS (
-                   SELECT 1
-                   FROM enrolled_students es
-                   JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-                   WHERE es.student_id = s.student_id
-                     AND es.class_id = $2
-                     AND e.term_id = $4
-                     AND e.organization_id = $3
-                 )
-               )`,
-            [requestedStudentIds, classId, organizationId, termId]
-          )
-        : { rows: [] };
+      const [ctxCheck, ownedStudentsRes] = await Promise.all([
+        db.query(
+          `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                  (SELECT 1 FROM terms   WHERE term_id  = $2 AND organization_id = $3) AS term_ok`,
+          [classId, termId, organizationId]
+        ),
+        requestedStudentIds.length
+          ? db.query(
+              `SELECT s.student_id
+               FROM students s
+               WHERE s.student_id = ANY($1::int[])
+                 AND s.organization_id = $3
+                 AND (
+                   s.class_id = $2
+                   OR EXISTS (
+                     SELECT 1
+                     FROM enrolled_students es
+                     JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                     WHERE es.student_id = s.student_id
+                       AND es.class_id = $2
+                       AND e.term_id = $4
+                       AND e.organization_id = $3
+                   )
+                 )`,
+              [requestedStudentIds, classId, organizationId, termId]
+            )
+          : Promise.resolve({ rows: [] }),
+      ]);
+      if (!ctxCheck.rows[0] || !ctxCheck.rows[0].class_ok || !ctxCheck.rows[0].term_ok) {
+        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
+      }
       const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
 
       await ensureAttendanceCalendarSchema(db);
@@ -9656,51 +9658,30 @@ const commonController = {
         }
       }
 
-      // Use one dedicated connection for the transaction; BEGIN/COMMIT on the
-      // pool can land on different connections and strand writes.
-      const client = await db.connect();
+      // One statement writes every student (one array per column), so a big class saves as fast as a small one.
       const touchedStudentIds = [];
-      try {
-        await client.query("BEGIN");
-
-        for (const studentId in attendance) {
-          // Only "Present" or "Absent" are stored (any letter case is accepted).
-          const status = { present: "Present", absent: "Absent" }[String(attendance[studentId] || "").trim().toLowerCase()];
-          const parsedStudentId = Number.parseInt(studentId, 10);
-          if (!status || !Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
-            continue; // skip unknown marks and foreign or unknown student ids
-          }
-          touchedStudentIds.push(parsedStudentId);
-
-          // Tenant-safe UPSERT: the ON CONFLICT key (student_id, date, term_id)
-          // is enforced as unique at the DB level, but because student/term ids
-          // are now constrained above to this org, the conflict target cannot
-          // legitimately collide with another org's row.
-          await client.query(
-            `
-                      INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
-                      VALUES ($1, $2, $3, $4, $5, $6, $7)
-                      ON CONFLICT (student_id, date, term_id)
-                      DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
-                      WHERE attendance_records.organization_id = EXCLUDED.organization_id`,
-            [
-              parsedStudentId,
-              date,
-              status,
-              classId,
-              termId,
-              req.session.userId,
-              organizationId,
-            ]
-          );
+      const statuses = [];
+      for (const studentId in attendance) {
+        // Only "Present" or "Absent" are stored (any letter case is accepted).
+        const status = { present: "Present", absent: "Absent" }[String(attendance[studentId] || "").trim().toLowerCase()];
+        const parsedStudentId = Number.parseInt(studentId, 10);
+        if (!status || !Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
+          continue; // skip unknown marks and foreign or unknown student ids
         }
-
-        await client.query("COMMIT");
-      } catch (txError) {
-        await client.query("ROLLBACK").catch(() => {});
-        throw txError;
-      } finally {
-        client.release();
+        touchedStudentIds.push(parsedStudentId);
+        statuses.push(status);
+      }
+      if (touchedStudentIds.length) {
+        await db.query(
+          `INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
+           SELECT u.student_id, $1::date, u.status::attendance_status, $2::int, $3::int, $4::int, $5::int
+           FROM unnest($6::int[], $7::text[]) AS u(student_id, status)
+           ON CONFLICT (student_id, date, term_id)
+           DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
+           WHERE attendance_records.organization_id = EXCLUDED.organization_id
+             AND attendance_records.status IS DISTINCT FROM EXCLUDED.status`,
+          [date, classId, termId, req.session.userId, organizationId, touchedStudentIds, statuses]
+        );
       }
 
       // Trigger parent absence-threshold checks in background; dedupe protects against duplicate sends.

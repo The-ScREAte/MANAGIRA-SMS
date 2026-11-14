@@ -1512,7 +1512,7 @@
                 var id = box.dataset.studentId, cell = cellOf(box); if (!cell) return;
                 var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lunch-pick'; btn.dataset.lunchDate = date; btn.dataset.student = id; btn.innerHTML = plate;
                 setPick(btn, (saved[id] || {})[date] === true ? 'yes' : '');
-                btn.addEventListener('click', function () { var ed = document.querySelector('.edit-save-link[data-date="' + date + '"]'); if (ed && ed.textContent.trim() !== 'Save') { if (window.toggleEditSaveMode) window.toggleEditSaveMode(date); } setPick(btn, btn.dataset.v === 'yes' ? '' : 'yes'); open[date].dirty = true; tally(date); });
+                btn.addEventListener('click', function () { if (btn.disabled) return; var ed = document.querySelector('.edit-save-link[data-date="' + date + '"]'); if (ed && ed.textContent.trim() !== 'Save') { if (window.toggleEditSaveMode) window.toggleEditSaveMode(date); } setPick(btn, btn.dataset.v === 'yes' ? '' : 'yes'); open[date].dirty = true; tally(date); });
                 var pair = document.createElement('span'); pair.className = 'att-pair'; box.parentNode.insertBefore(pair, box); pair.appendChild(box); pair.appendChild(btn);
             });
             var th = document.querySelector('th[data-date="' + date + '"] .date-header');
@@ -1520,7 +1520,25 @@
             if (link) link.setAttribute('aria-expanded', 'true');
             var caBtn = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (caBtn) { caBtn.hidden = false; paint(caBtn, false); }
             if (link) { link.style.setProperty('background', 'var(--primary, #0f766e)', 'important'); link.style.setProperty('border-color', 'var(--primary, #0f766e)', 'important'); link.style.setProperty('color', '#fff', 'important'); }
+            syncPicks();
             tally(date);
+        }
+        // A day that was saved is locked until Edit is pressed; a day nobody has marked yet is open, and
+        // touching it starts editing (so Save appears at once).
+        function locked(date) {
+            var ed = document.querySelector('.edit-save-link[data-date="' + date + '"]');
+            if (!ed || ed.textContent.trim() === 'Save') return false;
+            var boxes = document.querySelectorAll('.attendance-sheet tbody input[data-date="' + date + '"][data-countable="true"]');
+            var anyLocked = Array.prototype.some.call(boxes, function (b) { return b.disabled; });
+            var anyLunch = Object.keys(saved).some(function (id) { return saved[id] && saved[id][date] !== undefined; });
+            return anyLocked || anyLunch;
+        }
+        function syncPicks() {
+            Object.keys(open).forEach(function (date) {
+                var lock = locked(date);
+                document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (b) { b.disabled = lock; b.style.cursor = lock ? 'default' : 'pointer'; });
+                var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) ca.disabled = lock;
+            });
         }
         function closeLunch(date) {
             if (open[date] && open[date].dirty && !confirm('Close lunch without saving it for this day?')) return;
@@ -1551,7 +1569,7 @@
             Object.keys(saved).forEach(function (id) { Object.keys(saved[id] || {}).forEach(function (d) { days[d] = true; }); });
             Object.keys(days).forEach(function (d) { if (document.querySelector('th[data-date="' + d + '"]')) build(d); });
         })();
-        function syncModes() { document.querySelectorAll('.edit-save-link').forEach(function (l) { l.dataset.mode = l.textContent.trim() === 'Save' ? 'save' : 'edit'; l.title = l.dataset.mode === 'save' ? 'Save' : 'Edit'; l.setAttribute('aria-label', l.title + ' attendance'); }); }
+        function syncModes() { syncPicks(); document.querySelectorAll('.edit-save-link').forEach(function (l) { l.dataset.mode = l.textContent.trim() === 'Save' ? 'save' : 'edit'; l.title = l.dataset.mode === 'save' ? 'Save' : 'Edit'; l.setAttribute('aria-label', l.title + ' attendance'); }); }
         new MutationObserver(syncModes).observe(document.querySelector('.attendance-sheet') || document.body, { subtree: true, childList: true, characterData: true });
         syncModes();
     })();
@@ -2014,7 +2032,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`Attendance for ${date} saved successfully!`);
+                    if (window.attToast) window.attToast('Saved'); 
                     link.textContent = 'Edit';
                     checkboxes.forEach(checkbox => {
                         checkbox.disabled = true;
@@ -2041,6 +2059,27 @@
                 alert('Failed to save attendance. Please try again.');
             });
         }
+
+        // A quiet note instead of a blocking pop-up.
+        window.attToast = function (text) {
+            var t = document.createElement('div');
+            t.textContent = text; t.setAttribute('role', 'status');
+            t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#0f766e;color:#fff;padding:10px 20px;border-radius:999px;font:700 14px/1 inherit;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:99999;';
+            document.body.appendChild(t);
+            setTimeout(function () { t.remove(); }, 1600);
+        };
+        // A day nobody has marked yet is open: the first tap on a box starts editing it, so Save is there at once.
+        (function () {
+            var sheet = document.querySelector('.attendance-sheet'); if (!sheet) return;
+            function begin(e) {
+                var box = e.target.closest && e.target.closest('input[type="checkbox"][data-date]');
+                if (!box || box.disabled) return;
+                var link = document.querySelector('.edit-save-link[data-date="' + box.dataset.date + '"]');
+                if (link && link.textContent.trim() === 'Edit') toggleEditSaveMode(box.dataset.date);
+            }
+            sheet.addEventListener('pointerdown', begin, true);
+            sheet.addEventListener('keydown', function (e) { if (e.key === ' ') begin(e); }, true);
+        })();
 
         function saveOriginalStates(date, checkboxes) {
             originalStates[date] = {};
