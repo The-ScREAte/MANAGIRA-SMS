@@ -1352,7 +1352,7 @@
                                         <% } %>
                                         <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
                                         <div class="cancel-link" data-date="<%= date %>" role="button" tabindex="0" title="Cancel" aria-label="Cancel changes" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
-                                        <div class="mark-all-link" data-date="<%= date %>" role="button" tabindex="0" title="Check all" aria-label="Check all present" style="display: none;" onclick="checkAllClick(event, '<%= date %>')"><input type="checkbox" class="check-all-box" aria-hidden="true" tabindex="-1"><span>Check All</span></div>
+                                        <div class="mark-all-link" data-date="<%= date %>" style="display: none;" onclick="checkAllClick(event, '<%= date %>')"><span class="ca-title">Check All</span><span class="ca-row"><input type="checkbox" class="check-all-box" title="Check everyone present" aria-label="Check everyone present"><button type="button" class="check-all-lunch" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/></svg></button></span></div>
                                         </div>
                                     <% } %>
                                     <div class="last-edited <%= (lastEditedMap && lastEditedMap[date]) ? 'has-tooltip' : '' %>" id="last-edited-<%= date %>">
@@ -1440,7 +1440,8 @@
         .attendance-sheet .date-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; }
         .attendance-sheet .date-actions .lunch-link, .attendance-sheet .date-actions .edit-save-link { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; margin: 0; border-radius: 12px; cursor: pointer; font-size: 0; line-height: 0; text-decoration: none; box-sizing: border-box; }
         .attendance-sheet .date-actions .lunch-link { border: 1.5px solid #0f766e; background: #fff; color: #0f766e; }
-        .attendance-sheet .date-actions .lunch-link[aria-expanded="true"] { background: #0f766e; color: #fff; }
+        .attendance-sheet .date-actions .lunch-link[aria-expanded="true"] { background: #0f766e !important; border-color: #0f766e !important; color: #fff !important; }
+        .attendance-sheet .date-actions .lunch-link svg { stroke: currentColor; }
         .attendance-sheet .date-actions .edit-save-link { border: 1.5px solid currentColor; background: #fff; }
         .attendance-sheet .date-actions .edit-save-link::before { content: ""; width: 20px; height: 20px; background: currentColor; -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E"); }
         .attendance-sheet .date-actions .edit-save-link[data-mode="save"] { background: #166534; border-color: #166534; color: #fff; }
@@ -1449,14 +1450,21 @@
         .attendance-sheet .date-actions .cancel-link[style*="block"] { display: flex !important; }
         .attendance-sheet .date-actions .mark-all-link[style*="block"] { display: flex !important; }
         .attendance-sheet .date-actions .cancel-link { color: #b91c1c; }
-        .attendance-sheet .date-actions .mark-all-link { flex-basis: 100%; justify-content: center; align-items: center; gap: 8px; padding: 6px 0 0; margin: 0; border: 0; background: none; color: #0f766e; font-size: 13px; font-weight: 700; text-transform: uppercase; text-decoration: underline; line-height: 1.2; cursor: pointer; }
-        .attendance-sheet .date-actions .mark-all-link .check-all-box { width: 20px; height: 20px; margin: 0; accent-color: #0f766e; cursor: pointer; }
+        .attendance-sheet .date-actions .mark-all-link { flex-basis: 100%; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 6px 0 0; margin: 0; border: 0; background: none; cursor: default; }
+        .attendance-sheet .date-actions .mark-all-link .ca-title { color: #0f766e; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+        .attendance-sheet .date-actions .mark-all-link .ca-row { display: inline-flex; align-items: center; gap: 10px; }
+        .attendance-sheet .date-actions .mark-all-link .check-all-box { width: 26px; height: 26px; margin: 0; accent-color: #0f766e; cursor: pointer; }
+        .attendance-sheet .date-actions .mark-all-link .check-all-lunch { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 1.5px solid #cbd5e1 !important; border-radius: 12px; background: #fff !important; color: #cbd5e1 !important; cursor: pointer; }
+        .attendance-sheet .date-actions .mark-all-link .check-all-lunch[hidden] { display: none; }
+        .attendance-sheet .date-actions .mark-all-link .check-all-lunch[aria-pressed="true"] { background: #0f766e !important; border-color: #0f766e !important; color: #fff !important; }
         .attendance-sheet .date-actions .cancel-link::before { content: ""; width: 20px; height: 20px; background: currentColor; -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; }
         .attendance-sheet .date-actions .cancel-link::before { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
         .attendance-sheet .date-actions { flex-wrap: wrap; }
         @media print { .attendance-sheet .date-actions { display: none; } }
-        .attendance-sheet td .lunch-pick { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 40px; height: 40px; margin-left: 10px; padding: 0; border: 1.5px solid #cbd5e1; border-radius: 12px; background: #fff; color: #cbd5e1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .attendance-sheet td .lunch-pick[data-v="yes"] { background: #0f766e; border-color: #0f766e; color: #fff; }
+        .attendance-sheet td .att-pair { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+        .attendance-sheet td .lunch-pick { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin: 0; padding: 0; border: 1.5px solid #cbd5e1 !important; border-radius: 12px; background: #fff !important; color: #cbd5e1 !important; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .attendance-sheet td .lunch-pick[data-v="yes"] { background: #0f766e !important; border-color: #0f766e !important; color: #fff !important; }
+        .attendance-sheet td .lunch-pick svg { stroke: currentColor; }
         .attendance-sheet .lunch-tally { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; font-weight: 700; color: #0f766e; }
         @media (max-width: 760px) { .attendance-sheet td .lunch-pick { width: 44px; height: 44px; } }
     </style>
@@ -1472,6 +1480,14 @@
             var n = document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"][data-v="yes"]').length;
             var t = document.querySelector('.lunch-tally[data-lunch-date="' + date + '"]'); if (t) t.querySelector('b').textContent = n;
         }
+        window.lunchAllForDate = function (date) {
+            if (!open[date]) return;
+            var btns = Array.from(document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]'));
+            var on = !btns.every(function (b) { return b.dataset.v === 'yes'; });
+            btns.forEach(function (b) { setPick(b, on ? 'yes' : ''); });
+            var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) ca.setAttribute('aria-pressed', on ? 'true' : 'false');
+            open[date].dirty = true; tally(date);
+        };
         window.toggleLunch = function (date) {
             var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
             if (open[date]) { closeLunch(date); return; }
@@ -1482,11 +1498,12 @@
                 var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lunch-pick'; btn.dataset.lunchDate = date; btn.dataset.student = id; btn.innerHTML = plate;
                 setPick(btn, (saved[id] || {})[date] === true ? 'yes' : '');
                 btn.addEventListener('click', function () { var ed = document.querySelector('.edit-save-link[data-date="' + date + '"]'); if (ed && ed.textContent.trim() !== 'Save') { if (window.toggleEditSaveMode) window.toggleEditSaveMode(date); } setPick(btn, btn.dataset.v === 'yes' ? '' : 'yes'); open[date].dirty = true; tally(date); });
-                cell.appendChild(btn);
+                var pair = document.createElement('span'); pair.className = 'att-pair'; box.parentNode.insertBefore(pair, box); pair.appendChild(box); pair.appendChild(btn);
             });
             var th = document.querySelector('th[data-date="' + date + '"] .date-header');
             if (th && !th.querySelector('.lunch-tally')) { var t = document.createElement('div'); t.className = 'lunch-tally'; t.dataset.lunchDate = date; t.innerHTML = plate.replace('width="24" height="24"', 'width="16" height="16"') + '<span>Lunch</span> <b>0</b>'; th.appendChild(t); }
             if (link) link.setAttribute('aria-expanded', 'true');
+            var caBtn = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (caBtn) caBtn.hidden = false;
             tally(date);
             // One tick saves the day: attendance and lunch together.
             var edit = document.querySelector('.edit-save-link[data-date="' + date + '"]');
@@ -1494,7 +1511,8 @@
         };
         function closeLunch(date) {
             if (open[date] && open[date].dirty && !confirm('Close lunch without saving it for this day?')) return;
-            document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (n) { n.remove(); });
+            document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (n) { var pair = n.parentNode; var box = pair.querySelector('input[data-date]'); n.remove(); if (box && pair.classList.contains('att-pair')) { pair.parentNode.insertBefore(box, pair); pair.remove(); } });
+            var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) { ca.hidden = true; ca.setAttribute('aria-pressed', 'false'); }
             var t = document.querySelector('.lunch-tally[data-lunch-date="' + date + '"]'); if (t) t.remove();
             delete open[date];
             var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
@@ -1939,6 +1957,8 @@
         }
 
         function checkAllClick(ev, date) {
+            const lunchBtn = ev.target.closest && ev.target.closest('.check-all-lunch');
+            if (lunchBtn) { if (window.lunchAllForDate) window.lunchAllForDate(date); return; }
             const box = ev.currentTarget.querySelector('.check-all-box');
             if (ev.target !== box) box.checked = !box.checked;
             markAllPresentForDate(date, box.checked);
