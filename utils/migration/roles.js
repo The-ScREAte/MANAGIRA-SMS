@@ -70,6 +70,14 @@ function choiceOf(row) {
   if (row.target === "custom") {
     const accountType = ACCOUNT_TYPES.includes(row.account_type) ? row.account_type : "Teacher";
     const mains = (Array.isArray(row.permissions) ? row.permissions : []).filter((k) => OPTION.has(k));
+    // One of the school's own roles (utils/schoolRoles.js): exactly the permissions it gives.
+    if (row.school_role_id) {
+      return {
+        key: `school:${row.school_role_id}:${[...mains].sort().join(",")}`, label: row.label || "Your school's role", accountType, custom: true, schoolRoleId: Number(row.school_role_id),
+        allClasses: accountType === "Supervisor", permissions: accountType === "Driver" ? perms.driverPermissions(mains) : mains,
+        about: "One of your school's own roles.",
+      };
+    }
     return {
       key: `custom:${accountType}:${[...mains].sort().join(",")}:${row.label || ""}`, label: row.label || "Custom role", accountType, custom: true,
       allClasses: accountType === "Supervisor", permissions: accountType === "Driver" ? perms.driverPermissions(withFollowUps(mains)) : withFollowUps(mains),
@@ -103,7 +111,11 @@ const summary = (choice) => {
 };
 
 // A member of staff is active unless the export says otherwise (PowerSchool: 1 active, 2 inactive).
-const isActive = (value) => !/^(2|0|inactive|i|no|n|false|former|terminated|left|disabled)$/i.test(String(value == null ? "" : value).trim());
+// Inactive however the export words it: "0", "I", "Inactive", "Inactive (resigned 2026-06-05)", "Left school"…
+const isActive = (value) => {
+  const text = String(value == null ? "" : value).trim();
+  return !/^(2|0|i|n|no|false)$/i.test(text) && !/^(inactive|not active|former|terminated|left|disabled|resigned|retired|separated|deceased|withdrawn)\b/i.test(text);
+};
 // Co-teacher or lead in a class (PowerSchool's section teacher roles).
 const isCoTeacher = (value) => /co[- ]?teach|assist|additional|second|support|para/i.test(String(value || ""));
 const schoolsOf = (value) => String(value || "").split(/[;,|]/).map((s) => s.trim()).filter(Boolean);

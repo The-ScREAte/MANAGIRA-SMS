@@ -17,7 +17,7 @@ const LOCK_SPACE = 61803;
 const RUNNER = `${os.hostname()}:${process.pid}`;
 // Production runs production's tasks; a development server (even on the hosted database) only its own.
 const ENV = process.env.NODE_ENV === "production" ? "production" : "development";
-const LABELS = { read_files: "Reading your files", import: "Importing into the sandbox", go_live: "Going live", catch_up: "Loading the catch-up" };
+const LABELS = { read_files: "Reading your files", import: "Importing into the sandbox", go_live: "Going live", catch_up: "Applying your changes" };
 const runners = new Map();
 let active = 0;
 let pumping = false;

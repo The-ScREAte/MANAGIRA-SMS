@@ -123,9 +123,12 @@ async function accessPage(db, { organizationId, userId, admin = false, allowedFe
   });
   const mapped = history.find((h) => h.kind === "mapped");
   const roleName = { Manager: "Manager", Supervisor: "Supervisor", Teacher: "Teacher", Driver: "Driver" }[user.role] || user.role;
+  // One of the school's own roles (utils/schoolRoles.js) shows by its name.
+  const ownRole = (await require("./schoolRoles").namesByUser(db, organizationId).catch(() => new Map())).get(Number(user.user_id));
   return {
     user,
-    role: mapped && mapped.detail && mapped.detail.accountType && mapped.value && mapped.value !== roleName ? `${mapped.value} (${roleName} account)` : roleName,
+    role: ownRole ? `${ownRole} (${roleName} account)`
+      : mapped && mapped.detail && mapped.detail.accountType && mapped.value && mapped.value !== roleName ? `${mapped.value} (${roleName} account)` : roleName,
     classes: classes.rows.map((c) => ({
       name: c.class_name,
       as: c.main ? "Main teacher" : c.assistant ? "Assistant teacher" : null,

@@ -318,6 +318,7 @@ module.exports = (db) => {
   router.get("/admissionSettings", checkFeatureAccess, isAuthenticated, blockGuardians, admissionSettingsController.page);
   router.post("/admissionSettings/fields", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("create"));
   router.post("/admissionSettings/fields/order", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("order"));
+  router.post("/admissionSettings/fields/indicators", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("indicators"));
   router.post("/admissionSettings/fields/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("update"));
   router.post("/admissionSettings/fields/:id(\\d+)/status", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("status"));
   router.post("/admissionSettings/fields/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("delete"));
@@ -388,6 +389,14 @@ module.exports = (db) => {
     commonValidation.validateCreateEmployeesResult,
     (req, res) => commonController.createEmployeePost(req, res, db)
   );
+  // A school's own staff roles, made and changed from Add user and Edit user (utils/schoolRoles.js).
+  {
+    const schoolRoleRoutes = require("../utils/schoolRoles").handlers(db);
+    const staffForm = requirePermission([PERMISSIONS.EMPLOYEES_ADD, PERMISSIONS.EMPLOYEES_EDIT]);
+    router.post("/school-roles", isAuthenticated, staffForm, express.json({ limit: "64kb" }), schoolRoleRoutes.create);
+    router.post("/school-roles/:roleId(\\d+)", isAuthenticated, staffForm, express.json({ limit: "64kb" }), schoolRoleRoutes.update);
+    router.post("/school-roles/:roleId(\\d+)/remove", isAuthenticated, staffForm, schoolRoleRoutes.remove);
+  }
   router.get(
     "/manageEmployees",
     checkFeatureAccess,
@@ -810,8 +819,10 @@ module.exports = (db) => {
            SELECT s.student_id, TRIM(CONCAT_WS(' ', s.first_name, s.last_name)) AS student_name,
                   COALESCE(NULLIF(TRIM(s.custom_student_id), ''), s.student_id::text) AS display_id,
                   c.class_name, s.class_id,
-                  CASE WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id) THEN 'Left'
-                       WHEN COALESCE(s.graduated, FALSE) THEN 'Graduated' ELSE 'Current' END AS status
+                  CASE WHEN COALESCE(s.graduated, FALSE) THEN 'Graduated'
+                       WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id AND a.archive_kind = 'left') THEN 'Left'
+                       WHEN EXISTS (SELECT 1 FROM archived_student_info a WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id) THEN 'Graduated'
+                       ELSE 'Current' END AS status
              FROM students s
              LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
             WHERE s.organization_id = $1
@@ -1227,6 +1238,8 @@ module.exports = (db) => {
   router.get("/migration", isAuthenticated, (req, res) => migration.page(req, res, db));
   router.post("/migration/request", isAuthenticated, (req, res) => migration.requestPost(req, res, db));
   router.post("/migration/request/withdraw", isAuthenticated, (req, res) => migration.withdrawPost(req, res, db));
+  // The school's sandbox switch (header menu): its managers turn it on or off, no code asked.
+  router.post("/migration/sandbox", isAuthenticated, (req, res) => migration.sandboxPost(req, res, db));
   router.post("/migration/upload", ...migrationGate, migration.uploadHandler, (req, res) => migration.uploadPost(req, res, db));
   router.get("/migration/task", ...migrationGate, (req, res) => migration.taskPost(req, res, db));
   router.post("/migration/import", ...migrationGate, (req, res) => migration.importPost(req, res, db));
@@ -1236,6 +1249,10 @@ module.exports = (db) => {
   router.post("/migration/columns/:columnId(\\d+)/legal-need", ...migrationGate, (req, res) => migration.legalPost(req, res, db));
   router.post("/migration/approve", ...migrationGate, (req, res) => migration.approvePost(req, res, db));
   router.post("/migration/matches", ...migrationGate, (req, res) => migration.matchPost(req, res, db));
+  router.post("/migration/custom-fields", ...migrationGate, (req, res) => migration.customFieldsPost(req, res, db));
+  router.post("/migration/options", ...migrationGate, (req, res) => migration.optionPost(req, res, db));
+  router.post("/migration/lists", ...migrationGate, (req, res) => migration.listUsePost(req, res, db));
+  router.post("/migration/schools", ...migrationGate, (req, res) => migration.schoolsPost(req, res, db));
   router.post("/migration/sign", ...migrationGate, (req, res) => migration.signPost(req, res, db));
   router.post("/migration/go-live", ...migrationGate, (req, res) => migration.goLivePost(req, res, db));
   router.post("/migration/catch-up", ...migrationGate, (req, res) => migration.catchUpPost(req, res, db));

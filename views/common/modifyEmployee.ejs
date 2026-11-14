@@ -441,14 +441,17 @@
       </div>
       <div>
         <label for="accountType">Role:</label>
+        <% const _builtIn = (locals.schoolRoles && locals.schoolRoles.on && locals.schoolRoles.roles.some((r) => r.id === Number(locals.schoolRoleId))) ? '' : user.account_type; %>
         <select name="accountType">
             <option value="">-- Select Role --</option>
-            <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager" <%= user.account_type === 'Manager' ? 'selected' : '' %>>Manager</option><% } %>
-            <option value="Supervisor" <%= user.account_type === 'Supervisor' ? 'selected' : '' %>>Supervisor</option>
-            <option value="Teacher" <%= user.account_type === 'Teacher' ? 'selected' : '' %>>Teacher</option>
+            <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager" <%= _builtIn === 'Manager' ? 'selected' : '' %>>Manager</option><% } %>
+            <option value="Supervisor" <%= _builtIn === 'Supervisor' ? 'selected' : '' %>>Supervisor</option>
+            <option value="Teacher" <%= _builtIn === 'Teacher' ? 'selected' : '' %>>Teacher</option>
             <%# A driver is there for transportation alone: offered while the school has it on, and kept for someone who already is one. %>
-            <% if (user.account_type === 'Driver' || !(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver" <%= user.account_type === 'Driver' ? 'selected' : '' %>>Driver</option><% } %>
+            <% if (user.account_type === 'Driver' || !(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver" <%= _builtIn === 'Driver' ? 'selected' : '' %>>Driver</option><% } %>
+            <%- include('../partials/schoolRoles', { part: 'options' }) %>
         </select>
+        <%- include('../partials/schoolRoles', { part: 'panel' }) %>
       </div>
     </div>
     <%- include('../partials/employeeSignIn', { signInIsExisting: true }) %>
@@ -575,7 +578,11 @@
       // On role change: reset checkboxes to that role's defaults.
       // The user can still customise before saving.
       const applyRoleDefaults = (role) => {
-        const defaults = ROLE_DEFAULT_PERMISSIONS_MAP[role] || [];
+        // A school's own role ticks its own permissions (views/partials/schoolRoles.ejs).
+        const roleOption = accountTypeSelect && accountTypeSelect.options[accountTypeSelect.selectedIndex];
+        let rolePermissions = null;
+        if (roleOption && roleOption.dataset.roleId) { try { rolePermissions = JSON.parse(roleOption.dataset.permissions || "[]"); } catch (e) { rolePermissions = []; } }
+        const defaults = rolePermissions || ROLE_DEFAULT_PERMISSIONS_MAP[role] || [];
         document.querySelectorAll('input[name="permissions"]').forEach(cb => {
           cb.checked = defaults.includes(cb.value);
         });

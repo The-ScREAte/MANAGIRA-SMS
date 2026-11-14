@@ -200,6 +200,7 @@ async function dataApi(req, res, db) {
     driver: Boolean(reach.driver),
     sections: sections.map((section) => ({
       id: section.id, name: section.name, icon: section.icon, tile: cf.ownTile(section, reach.driver ? "driver" : "staff"), filledBy: section.filledBy, multiple: section.multiple, once: section.once, repeat: section.repeat,
+      old: Boolean(section.origin), // a list the school brought from its old system: grouped apart
       required: section.required, dueDate: section.dueDate, status: section.status, classIds: section.classIds,
       // A section's fields come with its students, so this list stays small however many there are.
       canEdit: canEditFor({ section, reach, builder: reach.builder }),

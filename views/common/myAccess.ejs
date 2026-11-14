@@ -77,7 +77,7 @@
   <% if (history.length) { %>
   <section class="ma-card">
     <h2>Before Managira</h2>
-    <p class="ma-hint">As it was in the school's old system<%= mapped ? ' (' + (mapped.source_system === 'powerschool' ? 'PowerSchool' : mapped.source_system) + ')' : '' %>. Read-only.</p>
+    <p class="ma-hint">As it was in the school's old system. Read-only.</p>
     <div class="ma-scroll"><table class="ma-table"><thead><tr><th>What</th><th>Value</th><th>From</th><th>To</th><th>Status</th></tr></thead><tbody>
       <% history.forEach((h) => { %><tr><td><%= _kind[h.kind] || h.kind %></td><td><%= h.value || '—' %><% if (h.kind === 'class' && h.detail && h.detail._classRole) { %> <small>(<%= h.detail._classRole %>)</small><% } %></td><td><%= _date(h.start_date) %></td><td><%= _date(h.end_date) %></td><td><%= h.active === false ? 'Inactive' : h.active ? 'Active' : '' %></td></tr><% }) %>
     </tbody></table></div>

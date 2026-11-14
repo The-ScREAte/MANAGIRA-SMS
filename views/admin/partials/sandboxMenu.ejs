@@ -1,17 +1,20 @@
 <%#
-  A school's data migration sandbox in a Super Admin ⋯ menu (Organizations, and a hub's
-  schools): on for a school moving its data in; open it while it runs; off once it's live (or
-  cancel it on the migration's own page). Expects: org, status (its open migration's, or null).
+  A school's data migration sandbox in a Super Admin ⋯ menu (Organizations, and a hub's schools).
+  Turning it on gives the school Sandbox in its managers' menu, off until they turn it on; turning
+  it off takes it away again and keeps what they uploaded (Cancel migration, on the migration's own
+  page, deletes it). Expects: org, status ({ status, allowed, on } from statusesFor, or null).
 %>
-<% if (status) { %>
+<% const _sb = status && typeof status === 'object' ? status : (status ? { status: status, allowed: true, on: true } : null); %>
+<% const _sbName = String(org.organization_name || 'this school').replace(/[^A-Za-z0-9 .,()&-]/g, ''); %>
+<% if (_sb) { %>
   <a class="ah-menu__item" href="/admin/migrations/<%= org.organization_id %>" data-no-spa><i class="fa-solid fa-right-left" aria-hidden="true"></i> Open its migration</a>
-  <% if (status === 'live') { %>
-    <form action="/admin/migrations/<%= org.organization_id %>/stop" method="POST" onsubmit="return confirm('Turn the sandbox off for <%= String(org.organization_name || 'this school').replace(/[^A-Za-z0-9 .,()&-]/g, '') %>? Its migration is live; the sandbox button goes from its header.')">
-      <button type="submit" class="ah-menu__item"><i class="fa-solid fa-toggle-off" aria-hidden="true"></i> Turn sandbox off</button>
-    </form>
-  <% } %>
+<% } %>
+<% if (_sb && _sb.allowed) { %>
+  <form action="/admin/migrations/<%= org.organization_id %>/stop" method="POST" onsubmit="return confirm('<%= _sb.status === 'live' ? `Turn the sandbox off for ${_sbName}? Its migration is live, so this closes it.` : `Turn the sandbox off for ${_sbName}? Its managers lose the Sandbox switch and its staff can save again. What it uploaded is kept.` %>')">
+    <button type="submit" class="ah-menu__item"><i class="fa-solid fa-toggle-off" aria-hidden="true"></i> Turn sandbox off</button>
+  </form>
 <% } else { %>
-  <form action="/admin/migrations/<%= org.organization_id %>/start" method="POST" onsubmit="return confirm('Turn the data migration sandbox on for <%= String(org.organization_name || 'this school').replace(/[^A-Za-z0-9 .,()&-]/g, '') %>? Its managers see a Sandbox button, and its live account takes no new data until the move is finished.')">
+  <form action="/admin/migrations/<%= org.organization_id %>/start" method="POST" onsubmit="return confirm('Turn the sandbox on for <%= _sbName %>? Its managers find Sandbox in their menu and turn it on when they are ready. While it is on, its live account takes no new data.')">
     <button type="submit" class="ah-menu__item"><i class="fa-solid fa-toggle-on" aria-hidden="true"></i> Turn sandbox on</button>
   </form>
 <% } %>

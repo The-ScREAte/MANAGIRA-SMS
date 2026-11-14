@@ -284,7 +284,7 @@ module.exports = [
       {
         title: "Graduate and withdraw",
         steps: [
-          "Open <strong>Admissions</strong>, <strong>Graduate &amp; Former Students</strong>, then <strong>Graduate &amp; Withdraw</strong>.",
+          "Open <strong>Admissions</strong>, <strong>Former Students</strong>, then <strong>Graduate &amp; Withdraw</strong>.",
           "Graduate your final-year students, or withdraw students who are leaving.",
           "They move to <strong>Graduates &amp; Alumni</strong>, with their records and transcripts kept.",
         ],

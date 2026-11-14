@@ -28,7 +28,7 @@
         <% if (locals.isSuperAdmin) { %>
           <%# Data migration: a sandbox for each of the hub's schools (each school's data is its own). %>
           <div class="ah-menu__sep"></div>
-          <form action="/admin/migrations/hubs/<%= hub.hub_id %>/start" method="POST" onsubmit="return confirm('Turn the data migration sandbox on for every school in <%= String(hub.hub_name || 'this hub').replace(/[^A-Za-z0-9 .,()&-]/g, '') %>? Each school moves its own data; their managers see a Sandbox button, and their live accounts take no new data until each move is finished.')">
+          <form action="/admin/migrations/hubs/<%= hub.hub_id %>/start" method="POST" onsubmit="return confirm('Turn the data migration sandbox on for every school in <%= String(hub.hub_name || 'this hub').replace(/[^A-Za-z0-9 .,()&-]/g, '') %>? Each school moves its own data: their managers find Sandbox in their menu and turn it on when they are ready.')">
             <button type="submit" class="ah-menu__item"><i class="fa-solid fa-toggle-on" aria-hidden="true"></i> Sandbox for every school</button>
           </form>
           <a class="ah-menu__item" href="/admin/migrations" data-no-spa><i class="fa-solid fa-right-left" aria-hidden="true"></i> Migration queue</a>

@@ -1,0 +1,24 @@
+<%# The other apps the school ran (utils/migration/apps.js): what Managira does itself, or the app
+    to keep and connect with a service account. One short line each. %>
+<% if (apps && apps.length) { %>
+<h3>Other apps your school used</h3>
+<p class="mg-hint">Their lists are kept either way. Where Managira does the job, it's ready to use; otherwise keep your app and connect it to Managira.</p>
+<div class="mg-apps">
+  <% apps.forEach((a) => { %>
+  <div class="mg-app">
+    <div class="mg-app__head">
+      <strong><%= a.label %></strong>
+      <span class="mg-pill<%= a.has && !a.partly ? ' mg-pill--ok' : a.partly ? ' mg-pill--part' : '' %>"><%= a.partly ? 'Partly in Managira' : a.has ? 'In Managira' : 'Keep your app' %></span>
+    </div>
+    <p><%= a.has || a.about %></p>
+    <% if (a.connectLabels.length && !(a.has && !a.partly)) { %><p class="mg-samples">Connect it with: <%= a.connectLabels.join(', ') %></p><% } %>
+  </div>
+  <% }) %>
+</div>
+<% if (apps.some((a) => a.connectLabels.length && !(a.has && !a.partly))) { %>
+<p class="mg-actions" style="margin-top:10px">
+  <a class="mg-btn mg-btn--sm" href="/common/management?panel=service-accounts&page=<%= encodeURIComponent('/api-access/service-accounts') %>&label=<%= encodeURIComponent('Service Accounts') %>" target="_top" data-no-spa>Connect an app</a>
+  <% if (apps.some((a) => a.integration)) { %><a class="mg-btn mg-btn--sm" href="/common/management?panel=integrations&page=<%= encodeURIComponent('/account/settings?section=integrations') %>&label=<%= encodeURIComponent('Integrations') %>" target="_top" data-no-spa>Integrations</a><% } %>
+</p>
+<% } %>
+<% } %>

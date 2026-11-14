@@ -28,6 +28,7 @@ const STANDARD_FIELDS = {
 const SECTIONS = {
   student: "Student Information",
   more: "More Details",
+  programs: "Programs & Indicators",
   academic: "Academic Placement",
   guardian: "Guardian Details",
 };
@@ -376,7 +377,56 @@ async function answersFor(db, organizationId, { studentId, pendingId }, form) {
   return rows.map((r) => ({ ...toField(r), value: r.value || "", display: displayValue(r.field_type, r.value || "") }));
 }
 
+// Programs & Indicators: the standard set every US school tracks, added in one step (Admission
+// Settings › Student fields) and filled by a data migration. Staff only, like every student field:
+// never on the online application, never in the parent or student portals. `match`: the old
+// system's column it takes (its name with only letters and digits, lower case).
+const INDICATORS = [
+  { label: "IEP", type: "yes_no", helpText: "Has an individualized education program (special education)", match: /^iep$|individualizededucation|^sped$|^specialeducation$|^specialed$/ },
+  { label: "Section 504 plan", type: "yes_no", helpText: "Has a Section 504 accommodation plan", match: /504/ },
+  { label: "English learner", type: "yes_no", helpText: "Learning English (EL / ELL)", match: /englishlearner|^ell(status|code|flag)?$|^el(status|code|flag)?$|^lep(status|flag)?$|^esl(status)?$|limitedenglish/ },
+  { label: "Gifted & talented", type: "yes_no", helpText: "In the gifted and talented program", match: /gifted|talented|^gt$/ },
+  { label: "Meal eligibility", type: "choice", options: ["Free", "Reduced", "Paid"], helpText: "Free or reduced-price meals", match: /mealeligib|mealstatus|freereduced|^frl$|lunchstatus/ },
+  { label: "Military family", type: "yes_no", helpText: "A parent serves in the military", match: /military(family|connected|dependent)?$|^militaryfamily/ },
+  { label: "Homeless (McKinney-Vento)", type: "yes_no", helpText: "Eligible under McKinney-Vento", match: /homeless|mckinney/ },
+  { label: "Foster care", type: "yes_no", helpText: "In foster care", match: /foster/ },
+  { label: "Migrant", type: "yes_no", helpText: "In the migrant education program", match: /migrant/ },
+];
+const indicatorFor = (column) => {
+  const name = String(column || "").toLowerCase().replace(/^\[[^\]]*\]/, "").replace(/[^a-z0-9]/g, "");
+  return INDICATORS.find((i) => i.match.test(name)) || null;
+};
+
+// The standard indicators the school doesn't have yet, added to Programs & Indicators.
+async function addIndicators(db, organizationId, userId) {
+  await ensureStudentFormFieldsSchema(db);
+  const { rows } = await db.query("SELECT LOWER(label) AS label FROM student_form_fields WHERE organization_id = $1", [organizationId]);
+  const have = new Set(rows.map((r) => r.label));
+  let added = 0;
+  for (const i of INDICATORS) {
+    if (have.has(i.label.toLowerCase())) continue;
+    await createField(db, organizationId, { label: i.label, type: i.type, options: i.options || [], helpText: i.helpText, onStudentForm: true, onApplication: false, section: "programs" }, userId);
+    added += 1;
+  }
+  return added;
+}
+
+// Where a new student field from a data migration is best kept: the part of the student form, and
+// whether families answer it on the admission form too. Only a suggestion: the school chooses.
+function suggestHome(label) {
+  const k = String(label || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (INDICATORS.some((i) => i.label.toLowerCase().replace(/[^a-z0-9]/g, "") === k)) return { section: "programs", onApplication: false };
+  if (/preferred|nickname|pronoun|language|race|ethnic|hispanic|latino|birthplace|birthcountry|citizenship/.test(k)) return { section: "student", onApplication: true };
+  if (/homeroom|pathway|capstone|graduat|track|advisor|counselor|cohort|house|diploma/.test(k)) return { section: "academic", onApplication: false };
+  if (/photo|internet|media|permission|consent|release|tshirt|shirt|uniform|afterschool|aftercare|extendedday/.test(k)) return { section: "more", onApplication: true };
+  return { section: "more", onApplication: false };
+}
+
 module.exports = {
+  suggestHome,
+  INDICATORS,
+  indicatorFor,
+  addIndicators,
   FIELD_TYPES,
   STANDARD_FIELDS,
   FieldError,

@@ -346,6 +346,23 @@ function initHeaderMenu() {
         toggleNavMenu(shouldOpen);
       });
 
+      // The school's sandbox switch (views/partials/header.ejs): asks once, in the menu, before it
+      // changes. Bound on the elements, since clicks inside the menu don't reach the document.
+      navMenu.querySelectorAll("[data-sbx]").forEach((form) => {
+        if (form.dataset.sbxBound) return;
+        form.dataset.sbxBound = "1";
+        const ask = form.querySelector("[data-sbx-ask]");
+        const row = form.querySelector("[data-sbx-row]");
+        const toggle = form.querySelector("[data-sbx-toggle]");
+        const show = (open) => { ask.hidden = !open; toggle.setAttribute("aria-expanded", open ? "true" : "false"); };
+        row.addEventListener("click", (e) => { e.preventDefault(); show(ask.hidden); });
+        form.querySelector("[data-sbx-cancel]").addEventListener("click", (e) => { e.preventDefault(); show(false); });
+        form.addEventListener("submit", () => {
+          const yes = form.querySelector(".sbx__yes");
+          setTimeout(() => { if (yes) { yes.disabled = true; yes.textContent = "One moment…"; } }, 0);
+        });
+      });
+
       // Prevent clicks inside nav menu from bubbling to document (but not on links)
       navMenu.addEventListener("click", (e) => {
         // Don't stop propagation on links - let them navigate

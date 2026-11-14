@@ -23,7 +23,7 @@ module.exports = [
         steps: [
           "<strong>Request your move.</strong> A manager opens <strong>Management</strong>, then <strong>Data migration</strong>, and sends the short request form: the system you use now, roughly how many students and staff, and when you'd like to move. Your managers get an email copy.",
           "<strong>Plan.</strong> The Managira team gets in touch within two business days. Together you choose when to move: a quiet week, a weekend or a break works best.",
-          "<strong>Your sandbox opens.</strong> The Managira team opens a private copy of your school, the <strong>sandbox</strong>, and emails your managers. They see a <strong>Sandbox</strong> button at the top of Managira.",
+          "<strong>Your sandbox opens.</strong> The Managira team opens a private copy of your school, the <strong>sandbox</strong>, and emails your managers. They find <strong>Sandbox</strong> in the menu (☰) at the top right of Managira and turn it on when they're ready. While it's on, nothing new can be saved in your live account, so nothing is entered twice.",
           "<strong>Export and upload.</strong> You export your lists from your current system and upload them, exactly as exported. See " + link("prepare-your-data-for-the-move", "Prepare your data for the move") + ".",
           "<strong>Check.</strong> Managira matches your information to its own and shows a check report: duplicates, missing details, dates that aren't dates. You fix anything marked in red in your export and upload it again, as often as you need.",
           "<strong>Explain what's different.</strong> Anything Managira doesn't have a place for comes to you with a few questions. The Managira team then gives each one a home. Nothing is left out without your approval.",
@@ -168,9 +168,9 @@ module.exports = [
     topic: "Moving to Managira",
     order: 3,
     summary: "For school managers: upload your exports, check the matches and staff roles, review and sign, go live and invite your staff.",
-    tags: ["sandbox", "sandbox button", "migration screens", "already in managira", "same student", "upload exports", "match columns", "check and import", "staff roles", "role report", "review and sign", "go live", "invite staff", "catch-up", "migration summary", "gpa check"],
+    tags: ["sandbox", "sandbox switch", "turn sandbox on", "turn sandbox off", "migration screens", "already in managira", "same student", "upload exports", "match columns", "check and import", "staff roles", "role report", "review and sign", "go live", "invite staff", "catch-up", "migration summary", "gpa check"],
     who: "Your school's managers, once the Managira team has opened your sandbox. Each confirms it's them with their password and an authenticator code.",
-    intro: "Once your sandbox is open, select <strong>Sandbox</strong> at the top of Managira, or open <strong>Management</strong>, then <strong>Data migration</strong>. The steps run left to right. Nothing reaches your live account until you go live.",
+    intro: "Once your sandbox is open, turn on <strong>Sandbox</strong> in the menu (☰) at the top right of Managira, then open <strong>Management</strong>, then <strong>Data migration</strong>. A thin line along the top shows everyone while it's on. The steps run left to right. Nothing reaches your live account until you go live.",
     sections: [
       {
         title: "1. Upload",
@@ -242,7 +242,8 @@ module.exports = [
       },
     ],
     faq: [
-      ["Why can't I see the Sandbox button?", "Only your school's managers see it, and only while your sandbox is open. Until then, Management, Data migration shows the request form."],
+      ["Why can't I see Sandbox in my menu?", "Only your school's managers see it, and only once the Managira team has opened your sandbox. Until then, Management, Data migration shows the request form."],
+      ["Can staff still save while the sandbox is on?", "Everyone can sign in and look, but nothing new can be saved while it's on, so nothing is entered twice. A manager can turn it off from the menu at any time; what you uploaded is kept."],
       ["It asks for my code again.", "For your school's safety, the migration asks for your password and a fresh authenticator code every 30 minutes."],
       ["I lost my phone.", "Type one of your recovery codes instead. If you have none left, contact Managira support to reset your authenticator."],
       ["Can I close the page while it imports or goes live?", "Yes. It runs in the background and carries on; open Data migration again to see where it is."],

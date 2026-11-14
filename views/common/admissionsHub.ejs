@@ -12,7 +12,7 @@
   ].filter(Boolean);
   const _groups = [
     (menuAccess.alumni || _perms.includes('manage_school_year_terms')) && {
-      id: 'graduate-former', label: 'Graduate & Former Students',
+      id: 'graduate-former', label: 'Former Students',
       icon: 'graduation',
       links: [
         _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate & Withdraw', icon: 'leaveSchool' },
@@ -432,7 +432,9 @@
     display: inline-block;
     max-width: 220px;
     opacity: 1;
-    white-space: nowrap;
+    /* A long label wraps onto a second line, never cut off. */
+    white-space: normal;
+    line-height: 1.25;
     overflow: hidden;
     transition: opacity 0.12s ease, max-width 0.16s ease;
   }
@@ -440,6 +442,7 @@
   .hub-nav.is-collapsed .nav-link > span:not(.nav-link-icon) {
     opacity: 0;
     max-width: 0;
+    white-space: nowrap;
   }
 
   .hub-nav-overlay {
@@ -480,7 +483,7 @@
       grid-template-rows: auto 1fr !important;
     }
   }
-  /* Expandable groups (Online Admission, Graduate & Former Students), same as Reports */
+  /* Expandable groups (Online Admission, Former Students), same as Reports */
   .nav-group-toggle {
     justify-content: space-between;
   }
@@ -1120,7 +1123,7 @@
     }
 
     // Plain links load their page straight into their panel. A group
-    // (Online Admission, Graduate & Former Students) only opens or closes its
+    // (Online Admission, Former Students) only opens or closes its
     // list; its sub-links load into the group's panel.
     navLinks.forEach(link => {
       link.addEventListener('click', function(e) {

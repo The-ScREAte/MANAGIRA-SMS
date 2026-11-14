@@ -36,6 +36,15 @@ async function put(db, job, { path, buffer, uploadId = null, actor = null }) {
   const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
   const contentType = typeOf(fileName);
   const client = s3();
+  // The same file sent again in a later upload (same place in the export) replaces the earlier one.
+  const { rows: older } = await db.query("SELECT document_id, store, storage_key, sha256 FROM migration_documents WHERE job_id = $1 AND path = $2 AND upload_id IS DISTINCT FROM $3", [job.job_id, String(path).slice(0, 500), uploadId]);
+  for (const old of older.filter((o) => o.sha256 !== sha256)) {
+    if (old.store === "s3" && old.storage_key && client) {
+      const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
+      await client.s3Client.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: old.storage_key })).catch(() => {});
+    }
+    await db.query("DELETE FROM migration_documents WHERE document_id = $1", [old.document_id]);
+  }
   let key = null;
   if (client) {
     key = `migrations/${job.organization_id}/${job.job_id}/documents/${sha256.slice(0, 20)}-${fileName.replace(/[^A-Za-z0-9._-]+/g, "_")}`;

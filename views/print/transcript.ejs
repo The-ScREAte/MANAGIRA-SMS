@@ -851,7 +851,7 @@
             <p style="margin:4px 0 6px;color:#0f172a;font-size:14px;">GPA at <%= organization && organization.organization_name ? organization.organization_name : 'this school' %> (4.0 scale): <strong><%= Number(gpaSummary.all.unweighted).toFixed(2) %></strong><% if (gpaSummary.all.weighted !== null) { %>&nbsp;|&nbsp;weighted <strong><%= Number(gpaSummary.all.weighted).toFixed(2) %></strong><% } %></p>
           <% } %>
           <% if (typeof sourceGpa !== 'undefined' && sourceGpa) { %>
-            <p style="margin:4px 0 18px;color:#0f172a;font-size:14px;">Cumulative GPA from <%= sourceGpa.source === 'powerschool' ? 'PowerSchool' : sourceGpa.source %><%= sourceGpa.asOf ? ' (' + sourceGpa.asOf + ')' : '' %>:
+            <p style="margin:4px 0 18px;color:#0f172a;font-size:14px;">Cumulative GPA from previous records<%= sourceGpa.asOf ? ' (' + sourceGpa.asOf + ')' : '' %>:
               <% if (sourceGpa.weighted !== null) { %>weighted <strong><%= sourceGpa.weighted %></strong><% } %>
               <% if (sourceGpa.weighted !== null && sourceGpa.unweighted !== null) { %>&nbsp;|&nbsp;<% } %>
               <% if (sourceGpa.unweighted !== null) { %>unweighted <strong><%= sourceGpa.unweighted %></strong><% } %>

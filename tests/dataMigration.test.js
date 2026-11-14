@@ -187,6 +187,8 @@ test("tidying: capitals become names, US phones one format, emails lower case; a
   assert.equal(tidy.phone("555-123-4567 x12"), "555-123-4567 x12", "an extension is kept");
   assert.equal(tidy.phone("+44 20 7946 0958"), "+44 20 7946 0958", "another country is kept");
   assert.equal(tidy.email(" Ama@School.ORG "), "ama@school.org");
+  for (const v of ["n/a", "NONE", "No email", "-", "ama at school"]) assert.equal(tidy.email(v), "", `${v}: nothing to write to`);
+  for (const v of ["N/A", "000-000-0000", "(999) 999-9999", "unknown"]) assert.equal(tidy.phone(v), "", `${v}: nothing to call`);
   assert.equal(tidy.gender("f"), "Female");
   assert.equal(tidy.gender("Non-binary"), "Non-binary");
   const row = { first_name: "IVY", guardian1_phone: "5550201000", gender: "M", class_name: "GRADE 6", course_name: "ALGEBRA" };
@@ -292,4 +294,228 @@ test("reading uploads: any encoding, tab or semicolon separated, Excel sheets an
   const [chunk] = [...reader.rowChunks(zlib.gzipSync(Buffer.from(text)), true)];
   assert.deepEqual(reader.parseText(text).header, ["Student_Number", "Name", "Name_1", "Grade"]);
   assert.deepEqual([chunk.header, chunk.rows], [["Student_Number", "Name", "Name_1", "", "Grade"], [["900100", "Ava", "Rivera", "x", "6"]]]);
+});
+
+test("a member of staff is inactive however the export words it", () => {
+  const roles = require("../utils/migration/roles");
+  for (const s of ["Active", "1", "A", "", "Current"]) assert.equal(roles.isActive(s), true, s);
+  for (const s of ["0", "2", "I", "Inactive", "inactive", "Inactive (resigned 2026-06-05)", "Left school", "Terminated", "Resigned 2025", "Retired"]) assert.equal(roles.isActive(s), false, s);
+});
+
+test("lists are known by their name first: core lists load, the school's own field list becomes fields, everything else is kept", () => {
+  const lists = require("../utils/migration/lists");
+  const h = (s) => s.split(",");
+  assert.equal(lists.recognize("x.zip › 05_students.csv", h("Student_Number,First_Name,Last_Name,DOB")).entity, "students");
+  assert.equal(lists.recognize("06_parents_guardians_contacts.csv", h("ContactID,Student_Number,First_Name,Relationship")).entity, "guardians");
+  assert.equal(lists.recognize("08_staff_roles_permissions.csv", h("TeacherNumber,Role,Security_Group")).entity, "staff_roles");
+  assert.equal(lists.recognize("47_custom_fields.csv", h("Student_Number,LastFirst,Locker_Number")).entity, "student_details");
+  for (const [name, cols] of [["55_alumni_graduates.csv", "Student_Number,First_Name,Last_Name,DOB"], ["13_current_grades_2026_27.csv", "Student_Number,Course_Name,Letter_Grade"],
+    ["85_staff_attendance.csv", "TeacherNumber,First_Name,Date"], ["22_attendance_code_definitions.csv", "Code,Description"], ["49_early_dismissal_pickups.csv", "Student_Number,Relationship,Picked_Up_By"]]) {
+    assert.equal(lists.recognize(name, h(cols)).entity, "other", name);
+  }
+  const kept = lists.recognize("108_suicide_risk_screenings.csv", h("Student_Number,Screening_Date,Result"));
+  assert.ok(kept.restricted && kept.studentColumn === "Student_Number");
+  assert.equal(lists.recognize("03_school_calendar_2026_27.csv", h("Date,Day_Type")).studentColumn, null, "a list with no student number is kept for the school");
+});
+
+test("the other apps a school ran are found from its lists' names, never from records of counseling or safety", () => {
+  const { appsFrom } = require("../utils/migration/apps");
+  const names = ["146_cafeteria_transactions_2025_26.csv", "148_library_checkouts_2019_2026.csv", "150_nurse_visits_history_2019_2026.csv", "118_medicaid_billing_claims.csv",
+    "139_online_payment_transactions.csv", "214_bus_routes_master.csv", "business_office_contacts.csv", "108_suicide_risk_screenings.csv", "107_threat_assessments.csv", "142_device_management_mdm.csv"];
+  const apps = appsFrom(names.map((name) => ({ name, label: name, rows: 10 })), { areaLabels: { students: "Students", classes: "Classes & subjects", staff: "Staff" } });
+  const by = Object.fromEntries(apps.map((a) => [a.key, a]));
+  assert.deepEqual(Object.keys(by).sort(), ["devices", "fees", "food", "health", "library", "special", "transport"]);
+  assert.deepEqual(by.transport.lists, ["214_bus_routes_master.csv"], "a business office isn't a bus");
+  assert.deepEqual(by.special.lists, ["118_medicaid_billing_claims.csv"], "Medicaid billing is special education, not fees");
+  assert.deepEqual(by.health.lists, ["150_nurse_visits_history_2019_2026.csv"], "a suicide risk screening is a restricted record, not a health app");
+  assert.ok(by.transport.has && by.fees.has && !by.library.has && !by.food.has);
+  assert.deepEqual(by.library.connectLabels, ["Students", "Classes & subjects", "Staff"]);
+  assert.deepEqual(appsFrom([]), []);
+});
+
+test("a school's own role: only real permissions the person may give, and a migration role keeps exactly its permissions", () => {
+  const schoolRoles = require("../utils/schoolRoles");
+  const { PERMISSIONS: P, HIGH_RISK_PERMISSIONS } = require("../middleware/permissionMiddleware");
+  const highRisk = [...HIGH_RISK_PERMISSIONS][0];
+  assert.deepEqual(schoolRoles.keep([P.MANAGE_STUDENTS, "not_a_permission", highRisk, P.MANAGE_STUDENTS]), [P.MANAGE_STUDENTS]);
+  assert.deepEqual(schoolRoles.keep([P.MANAGE_STUDENTS, highRisk], { highRisk: true }).sort(), [P.MANAGE_STUDENTS, highRisk].sort());
+  assert.deepEqual(schoolRoles.keep([P.MANAGE_STUDENTS, P.MARK_ATTENDANCE], { allowed: new Set([P.MARK_ATTENDANCE]) }), [P.MARK_ATTENDANCE], "outside the plan is left out");
+  assert.ok(schoolRoles.defaultsFor("Teacher", 1).includes(P.MANAGE_STUDENTS));
+  const roles = require("../utils/migration/roles");
+  const own = roles.choiceOf({ target: "custom", label: "Food Service", account_type: "Teacher", permissions: [P.MANAGE_STUDENTS, P.STUDENTS_EDIT], school_role_id: 7 });
+  assert.equal(own.schoolRoleId, 7);
+  assert.deepEqual(own.permissions, [P.MANAGE_STUDENTS, P.STUDENTS_EDIT], "a school role gives exactly what it gives, no follow-ups added");
+  assert.ok(roles.compare(null, own).up.length, "an old role nobody matched still needs approval person by person");
+  const made = roles.choiceOf({ target: "custom", label: "Food Service", account_type: "Teacher", permissions: [P.MANAGE_STUDENTS] });
+  assert.equal(made.schoolRoleId, undefined);
+});
+
+test("lists that fit a Managira feature are recognised by their columns; logs and summaries stay history", () => {
+  const f = require("../utils/migration/features");
+  const h = (line) => line.split(",");
+  assert.equal(f.featureOf("55_alumni_graduates.csv", h("Student_Number,Last_Name,First_Name,DOB,Gender,Graduation_Year,Graduation_Date,Diploma_Type,Final_GPA_Unweighted")), "graduates");
+  assert.equal(f.featureOf("56_alumni_transcripts.csv", h("Student_Number,LastFirst,School_Year,Course_Name,Letter_Grade,Percent")), "graduate_transcripts");
+  assert.equal(f.featureOf("214_bus_routes_master.csv", h("Route_ID,Bus_Number,Driver_Name,Depot,Route_Type")), "bus_routes");
+  assert.equal(f.featureOf("215_bus_stops_master.csv", h("Stop_ID,Route_ID,Sequence,Stop_Location,Am_Time,Pm_Time")), "bus_stops");
+  assert.equal(f.featureOf("216_route_runs_schedule.csv", h("Run_ID,Route_ID,Bus_Number,Run_Type,Departure_Time")), "bus_runs");
+  assert.equal(f.featureOf("217_student_transportation_assignments.csv", h("Student_Number,Run_ID,Route_ID,Stop_ID,Days,End_Date")), "bus_riders");
+  assert.equal(f.featureOf("bus_rider_assignments.csv", h("Other ID,Student Name,Route ID,Bus Number,Stop ID")), "bus_riders", "Skyward's Other ID is a student number");
+  assert.equal(f.featureOf("31_student_fees.csv", h("Fee_ID,Student_Number,Fee_Code,Description,Amount,Balance")), "fees");
+  assert.equal(f.featureOf("33_cafeteria_meal_accounts.csv", h("Meal_Account_Number,Student_Number,Current_Balance")), "meal_balances");
+  assert.equal(f.featureOf("201_parent_guardian_master.csv", h("ContactID,Last_Name,First_Name,Primary_Email,Mobile_Phone")), "parents_master");
+  assert.equal(f.featureOf("38_bus_ridership_history.csv", h("Student_Number,Route_ID,Bus_Number,Run,Event,Scan_Time,Stop_ID")), null, "a scan log is history");
+  assert.equal(f.featureOf("90_bus_fleet_maintenance.csv", h("Bus_Number,Route_ID,Service_Date,Odometer,Service_Type,Cost")), null, "a maintenance log is history");
+  assert.equal(f.featureOf("D16_district_transportation_summary.csv", h("Route_ID,Bus_Number,Riders")), null, "a summary isn't the data");
+  assert.equal(f.pick({ Fee_Code: "LAB", Description: "Lab fee" }, "Description", "Fee_Code"), "Lab fee", "the first name asked for wins, not the first column");
+  assert.deepEqual(f.daysOf("Mon-Fri"), ["monday", "tuesday", "wednesday", "thursday", "friday"]);
+  assert.deepEqual(f.daysOf("Thu, Fri"), ["thursday", "friday"]);
+  assert.equal(f.timeOf("3:10 PM"), "15:10");
+  assert.equal(f.addMinutes("07:05", 38), "07:43");
+});
+
+test("programs and indicators fill the school's own staff-only fields; race and IDs never become one", () => {
+  const fields = require("../utils/studentFormFields");
+  const label = (c) => (fields.indicatorFor(c) || {}).label || null;
+  assert.equal(label("IEP"), "IEP");
+  assert.equal(label("Section_504"), "Section 504 plan");
+  assert.equal(label("English_Learner"), "English learner");
+  assert.equal(label("Gifted"), "Gifted & talented");
+  assert.equal(label("Meal_Eligibility"), "Meal eligibility");
+  assert.equal(label("Military_Family"), "Military family");
+  assert.equal(label("Military_Recruiter_Opt_Out"), null);
+  assert.equal(label("Race"), null);
+  assert.ok(fields.SECTIONS.programs, "Programs & Indicators is a section of the student form");
+  const ps = require("../utils/migration/powerschool");
+  assert.equal(ps.sensitiveOf("Race", []), "demographics");
+  assert.equal(ps.sensitiveOf("Military_Family", []), "programs");
+  assert.equal(ps.matchColumn("students", "Graduation_Year").target, "graduation_year");
+});
+
+test("every system's lists: students by Skyward's Other ID, Blackbaud's User ID or Veracross's person_id; look-alikes stay kept", () => {
+  const lists = require("../utils/migration/lists");
+  const h = (s) => s.split(",");
+  const profile = lists.recognize("001_Student_Profile.csv", h("Name-ID,Other ID,State ID (SSID),Last Name,First Name,Birth Date,Grade"));
+  assert.equal(profile.entity, "students");
+  assert.equal(profile.studentColumn, "Other ID", "Other ID before Name-ID");
+  assert.equal(lists.recognize("05_students.csv", h("User ID,Host ID,Last Name,First Name,Birth Date,Grade")).entity, "students");
+  assert.equal(lists.recognize("05_students.csv", h("person_id,state_id,last_name,first_name,birthday,grade")).entity, "students");
+  assert.equal(lists.recognize("060_Staff_Profiles.csv", h("Staff Name-ID,Employee ID,Name,Title,Email,Security Group")).entity, "staff", "a staff list named in one column");
+  assert.equal(lists.recognize("234_Teaching_Credentials_Endorsements.csv", h("Employee ID,Name,License No,License Type")).entity, "other", "credentials aren't the staff list");
+  assert.equal(lists.recognize("003_Family_Guardian_Profile.csv", h("Guardian ID,Last Name,First Name,Relationship,Family ID,Cell Phone,Primary Email")).entity, "guardians", "a parents list on its own");
+  assert.equal(lists.recognize("020_Section_Master.csv", h("Section Key,Course ID,Description,Primary Teacher")).entity, "classes");
+  for (const [name, cols] of [["095_Perfect_Attendance_Awards.csv", "Other ID,Student Name,Period,Absences,Tardies"], ["148_Practice_Game_Attendance.csv", "Other ID,Team,Date,Event,Attended"],
+    ["054_Parent_Bus_Tracking_Links.csv", "Other ID,Guardian ID,App,Token"], ["126_Seating_Charts.csv", "Section Key,Class,Name-ID,Row,Seat"], ["193_AI_Tutor_Transcripts.csv", "Other ID,Timestamp,Prompt"],
+    ["088_Class_Rank_Snapshots.csv", "Other ID,Snapshot,Rank,Weighted GPA At Snapshot"], ["205_parent_contact_methods.csv", "ContactID,Contact_Name,Method_Type,Value"]]) {
+    assert.equal(lists.recognize(name, h(cols)).entity, "other", name);
+  }
+  assert.equal(lists.RESTRICTED.test(lists.baseName("073_Bell_Schedules.csv")), false, "a short word (ELL) never matches inside another (bell)");
+  assert.equal(lists.RESTRICTED.test(lists.baseName("112_ELL_Assessment_History.csv")), true);
+});
+
+test("best matches: a Mark is the final grade and the Grade beside it the grade level; a parent's cell phone before their home phone", () => {
+  const grades = ps.bestMatches("grades", ["Other ID", "Grade", "Course Description", "Mark", "GPA Pts", "Weighted Pts", "Credit Earned"]);
+  assert.equal(grades.get("Mark"), "grade");
+  assert.equal(grades.get("Grade"), "grade_level");
+  assert.equal(grades.get("Other ID"), "student_source_id");
+  assert.equal(grades.get("Weighted Pts"), "gpa_weighted_points");
+  const ps2 = ps.bestMatches("grades", ["Student_Number", "Grade", "Grade_Level", "Course_Name"]);
+  assert.equal(ps2.get("Grade"), "grade", "PowerSchool's Grade stays the grade");
+  const parents = ps.bestMatches("guardians", ["Guardian ID", "Home Phone", "Cell Phone", "Primary Email"]);
+  assert.equal(parents.get("Cell Phone"), "phone");
+  assert.equal(parents.get("Home Phone"), undefined);
+  assert.equal(ps.bestMatches("classes", ["SectionNumber", "ClassName"]).get("SectionNumber"), "source_id", "Aeries' section number is the section's ID");
+});
+
+test("attendance: the school's own codes decide, and a day counts once however many period rows it has", () => {
+  const codes = { unx: "absent", med: "excused", tdy: "tardy", ed: "present" };
+  assert.equal(ps.attendanceKind("MED", null, codes), "excused");
+  assert.equal(ps.attendanceKind("A", null, codes), "absent", "codes it doesn't list still read as before");
+  const sum = { present: 0, absent: 0, excused: 0, tardy: 0 };
+  const days = new Map();
+  const add = (d) => migration.addAttendance(sum, { student_source_id: "1", ...d }, { codes, days });
+  add({ date: "2026-09-15", period: "01", code: "UNX" });
+  add({ date: "2026-09-15", period: "05", code: "UNX" });
+  add({ date: "2026-09-16", period: "ALL DAY", code: "MED" });
+  add({ date: "2026-09-16", period: "03", code: "UNX" });
+  add({ date: "2026-09-17", period: "02", code: "TDY" });
+  assert.deepEqual(sum, { present: 2, absent: 1, excused: 1, tardy: 1 });
+});
+
+test("a yes / no field from a status: active is yes; not, exited and monitored are no", () => {
+  for (const v of ["Y", "Yes", "Active EL", "Eligible", "Current"]) assert.equal(migration.fieldValueAs("yes_no", v), "yes", v);
+  for (const v of ["N", "Not EL", "Exited 2025", "Monitored", "Never", "Inactive"]) assert.equal(migration.fieldValueAs("yes_no", v), "no", v);
+});
+
+test("a kept list reaches its students by whichever column names them: a student's other number, a parent's, a family's", () => {
+  const reach = { primary: new Set(["31000", "31007"]), aliases: new Map([["YODERADA000", "31000"]]), contacts: new Map([["G1", new Set(["31000", "31007"])]]), families: new Map([["F1", new Set(["31007"])]]) };
+  const byName = migration.reachOf(["Visit", "Student Name-ID"], [["V1", "YODERADA000"], ["V2", "YODERADA000"]], null, reach);
+  assert.equal(byName.kind, "student");
+  assert.deepEqual(byName.studentsOf(["V1", "YODERADA000"]), ["31000"]);
+  const byParent = migration.reachOf(["Guardian ID", "Language"], [["G1", "Spanish"], ["G1", "Spanish"]], null, reach);
+  assert.equal(byParent.kind, "parent");
+  assert.deepEqual(byParent.studentsOf(["G1", "Spanish"]).sort(), ["31000", "31007"]);
+  assert.equal(migration.reachOf(["Family ID", "Size"], [["F1", "4"], ["F1", "4"]], null, reach).kind, "family");
+  assert.equal(migration.reachOf(["Bus", "Speed"], [["14", "25"], ["14", "30"]], null, reach).kind, "none", "a bus's log reaches nobody");
+});
+
+test("lists kept by hand become forms the school keeps using; logs, family lists and the document index stay history", () => {
+  const forms = require("../utils/migration/forms");
+  const base = { perStudent: true, students: 40, people: 20, via: "student", columns: 6, header: ["Other ID", "Date", "Hours"] };
+  assert.equal(forms.suggest({ ...base, label: "Community service hours", name: "153_Community_Service_Hours.csv" }).use, "form");
+  assert.equal(forms.suggest({ ...base, label: "Meal transactions itemized", name: "038_Meal_Transactions_Itemized.csv" }).use, "history");
+  assert.equal(forms.suggest({ ...base, label: "Bus pass scans", name: "x.csv", header: ["Other ID", "Latitude", "Longitude"] }).use, "history");
+  assert.equal(forms.suggest({ ...base, label: "Communication preferences", name: "x.csv", via: "parent" }).use, "history");
+  assert.equal(forms.offered({ ...base, label: "Document index", name: "308_Document_Index.csv" }), false);
+  const nurse = forms.suggest({ ...base, label: "Nurse visit log", name: "029_Nurse_Visit_Log.csv", restricted: true });
+  assert.ok(nurse.use === "history" && !nurse.fixed, "a restricted list is offered, not suggested");
+  assert.equal(forms.typeOf(["2", "3.5", "10"], migration.isoDate), "number");
+  assert.equal(forms.typeOf(["09/20/2026", "10/11/2026"], migration.isoDate), "date");
+  assert.equal(forms.typeOf(["Y", "N"], migration.isoDate), "yesno");
+  assert.equal(forms.typeOf(["0123", "0456"], migration.isoDate), "text", "codes with a leading zero stay text");
+  const cf = require("../utils/customForms");
+  const rows = [{ "Other ID": "1", "Student Name": "Yoder, Adam", Date: "09/20/2026", Hours: "2", Combination: "10-20-30" }];
+  const { section, dateField, secret } = forms.sectionFor({ label: "Locker and service", keyColumn: "Other ID" }, rows, { isoDate: migration.isoDate, normalizeSection: cf.normalizeSection });
+  assert.deepEqual(section.fields.map((f) => f.label), ["Date", "Hours"], "the student's own columns and codes never show on the form");
+  assert.deepEqual(secret, ["Combination"]);
+  const entry = forms.entryFor(section, rows[0], migration.isoDate);
+  assert.equal(entry[dateField], "2026-09-20");
+  assert.equal(Object.values(entry).includes(2), true);
+  assert.equal(cf.normalizeSection({ ...section, origin: section.origin }).origin.list, "Locker and service", "the origin survives every save");
+  assert.equal(forms.topicOf("Nurse visit log"), "Health");
+  assert.equal(forms.topicOf("Locker assignments"), "Library & devices");
+});
+
+test("dates however an export wrote them, and lists that write the day first", () => {
+  for (const [v, iso] of [["2026-09-10", "2026-09-10"], ["09/10/2026", "2026-09-10"], ["9/10/2026 07:45", "2026-09-10"], ["9.10.2026", "2026-09-10"], ["10 Sep 2026", "2026-09-10"],
+    ["Sep 10, 2026", "2026-09-10"], ["10-Sep-26", "2026-09-10"], ["2026/09/10", "2026-09-10"]]) assert.equal(migration.isoDate(v), iso, v);
+  assert.equal(migration.isoDate("13/02/2026"), "invalid", "month first unless the list says otherwise");
+  assert.equal(migration.isoDate("13/02/2026", true), "2026-02-13");
+  const cols = migration.dayFirstColumns(["Born", "Joined"], [["13/02/2015", "01/09/2026"], ["05/11/2014", "09/22/2026"]]);
+  assert.ok(cols.has("Born") && !cols.has("Joined"), "a day over 12 says day first; a second number over 12 keeps month first");
+});
+
+test("a student who left comes in as a former student, with why; grade levels however a school writes them", () => {
+  const left = (d) => migration.leftOf(d, "2026-11-13");
+  assert.equal(left({ enroll_status: "A" }), null);
+  assert.equal(left({ enroll_status: "Active", exit_date: "06/01/2025" }), null, "a status that says active wins over an old exit date");
+  assert.deepEqual([left({ enroll_status: "W", exit_reason: "Transferred - in state" }).kind, left({ enroll_status: "W", exit_reason: "Transferred - in state" }).reason], ["left", "Transferred to another school"]);
+  assert.equal(left({ enroll_status: "I", exit_reason: "D1 - Deceased" }).reason, "Passed away");
+  assert.equal(left({ enroll_status: "Graduated" }).kind, "graduated");
+  assert.equal(left({ enroll_status: "3", _numericStatus: true }).kind, "graduated", "PowerSchool's 3");
+  assert.equal(left({ enroll_status: "0", _numericStatus: true }), null, "PowerSchool's 0 is active");
+  assert.equal(left({ exit_date: "2026-06-05" }).on, "2026-06-05", "no status and an exit date gone by: left");
+  assert.equal(left({ exit_date: "2027-05-28" }), null, "an exit date still to come is the end of the year");
+  for (const [v, key] of [["KG", "k"], ["Kindergarten", "k"], ["PK", "pk"], ["Pre-K", "pk"], ["-1", "pk"], ["TK", "tk"], ["01", "1"], ["1st Grade", "1"], ["Grade 06", "6"], ["6th Grade", "6"], ["Sixth grade", "6"], ["12", "12"]]) {
+    assert.equal(migration.gradeKey(v), key, v);
+  }
+  for (const v of ["Grade 6 - Room 2", "6A", "Homeroom", "PK-5", "13"]) assert.equal(migration.gradeKey(v), null, v);
+});
+
+test("numbers a spreadsheet changed still find their student; a student named in one column is read", () => {
+  const lists = require("../utils/migration/lists");
+  const byEntity = { students: [{ data: { source_id: "00123" } }, { data: { source_id: "31000" } }], enrollments: [{ data: { student_source_id: "123" }, sourceId: "e1" }, { data: { student_source_id: "31000.0" }, sourceId: "e2" }] };
+  const source = { rows: {} };
+  migration.linkPeople(byEntity, source);
+  assert.deepEqual(byEntity.enrollments.map((e) => e.data.student_source_id), ["00123", "31000"]);
+  assert.equal(lists.recognize("student_list.csv", ["Student ID", "Student Name", "Grade", "Birth Date"]).entity, "students", "Smith, Ava in one column");
 });

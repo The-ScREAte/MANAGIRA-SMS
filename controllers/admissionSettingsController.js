@@ -75,6 +75,7 @@ module.exports = {
         formFields: list,
         fieldTypes: fields.FIELD_TYPES,
         standardFields: fields.STANDARD_FIELDS,
+        indicatorLabels: fields.INDICATORS.map((i) => i.label),
         // Parent details belong under Parents & guardians (kept once per parent). The student
         // form's Guardian Details part is offered only to schools already using it.
         fieldSections: (canFamily && !list.some((f) => f.section === "guardian"))
@@ -101,6 +102,7 @@ module.exports = {
       if (action === "status") await fields.setFieldStatus(db, organizationId, id, body.status);
       if (action === "delete") await fields.deleteField(db, organizationId, id);
       if (action === "order") await fields.saveOrder(db, organizationId, body.ids, body.sections);
+      if (action === "indicators") await fields.addIndicators(db, organizationId, actor(req).userId);
       return res.json({ success: true, fields: await fields.listFields(db, organizationId) });
     } catch (err) {
       return fail(res, err, "Could not save the form.");

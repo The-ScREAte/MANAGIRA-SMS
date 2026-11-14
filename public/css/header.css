@@ -1991,3 +1991,106 @@
       padding-left: 34px;
     }
   }
+
+/* The school's sandbox (views/partials/header.ejs): a thin amber line along the top of the header
+   while it's on, with a small tab in the middle, and its switch in the menu for managers. */
+header#top-header .sandbox-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #f59e0b;
+  z-index: 5;
+  pointer-events: none;
+}
+header#top-header .sandbox-line span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 9px 1px;
+  border-radius: 0 0 6px 6px;
+  background: #f59e0b;
+  color: #422006;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  line-height: 13px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+}
+header#top-header .nav-menu .sbx-item { margin: 0; }
+header#top-header .nav-menu .sbx { margin: 0; padding: 0; }
+header#top-header .nav-menu .sbx__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 5px 8px 5px 0;
+  border-radius: 8px;
+  color: var(--org-primary-color, #01535b);
+  cursor: pointer;
+}
+header#top-header .nav-menu .sbx__row:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent); }
+header#top-header .nav-menu .sbx__name { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; font-size: 0.88rem; font-weight: 600; line-height: 1.2; }
+header#top-header .nav-menu .sbx__name small { color: #667085; font-size: 0.72rem; font-weight: 500; }
+header#top-header .nav-menu .sbx.is-on .sbx__name small { color: #b45309; }
+header#top-header .nav-menu .sbx button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-family: inherit;
+}
+header#top-header .nav-menu .sbx .sbx__switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: #d0d5dd;
+  transition: background .15s ease;
+}
+header#top-header .nav-menu .sbx .sbx__switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .25);
+  transition: transform .15s ease;
+}
+header#top-header .nav-menu .sbx.is-on .sbx__switch { background: #f59e0b; }
+header#top-header .nav-menu .sbx.is-on .sbx__switch span { transform: translateX(14px); }
+header#top-header .nav-menu .sbx .sbx__switch:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
+header#top-header .nav-menu .sbx__ask { margin: 2px 8px 6px 0; padding: 9px 10px; border: 1px solid #e4e7ec; border-radius: 9px; background: #f9fafb; }
+header#top-header .nav-menu .sbx__ask[hidden] { display: none; }
+header#top-header .nav-menu .sbx__ask p { margin: 0 0 8px; color: #344054; font-size: 0.78rem; line-height: 1.35; white-space: normal; }
+header#top-header .nav-menu .sbx__do { display: flex; gap: 6px; }
+header#top-header .nav-menu .sbx .sbx__yes,
+header#top-header .nav-menu .sbx .sbx__no {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+header#top-header .nav-menu .sbx .sbx__yes { background: var(--org-primary-color, #01535b); color: #fff; }
+header#top-header .nav-menu .sbx .sbx__yes[disabled] { opacity: .6; cursor: default; }
+header#top-header .nav-menu .sbx .sbx__no { border: 1px solid #d0d5dd; background: #fff; color: #344054; }
+header#top-header .nav-menu .sbx-item a.sbx__open {
+  display: block;
+  margin: 0 8px 4px 42px;
+  padding: 2px 0 4px;
+  text-align: left;
+  color: var(--org-primary-color, #01535b);
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+header#top-header .nav-menu .sbx-item a.sbx__open:hover { text-decoration: underline; }

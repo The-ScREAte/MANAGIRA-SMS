@@ -485,7 +485,7 @@
   <%
     const _permOptions = (Array.isArray(locals.permissionOptions) ? permissionOptions : []).filter((p) => !p.parent && !p.retired);
     const _mainPermKeys = new Set(_permOptions.map((p) => p.key));
-    const _roles = Array.from(new Set(employees.map((e) => e.account_type).filter(Boolean))).sort();
+    const _roles = Array.from(new Set(employees.map((e) => e.role_name || e.account_type).filter(Boolean))).sort();
     const _name = (e) => (typeof formatDisplayName === 'function' ? formatDisplayName(e) : [e.first_name, e.last_name].filter(Boolean).join(' ').trim());
     const _isoDay = (v) => (v ? new Date(v).toISOString().slice(0, 10) : '');
     const _fmtWhen = (v) => (v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never');
@@ -505,7 +505,7 @@
       last: e.last_name || '',
       email: e.email || '',
       phone: e.phone_number || '',
-      role: e.account_type || '',
+      role: e.role_name || e.account_type || '',
       title: e.org_role_title || '',
       status: e.status,
       removed: Boolean(e.is_removed),
@@ -687,7 +687,7 @@
         <% employees.forEach((employee, idx) => { %>
         <tr class="ux-row<%= employee.is_removed ? ' is-removed' : '' %>" tabindex="0" data-user-id="<%= employee.user_id %>"
             data-name="<%= _name(employee).toLowerCase() %>" data-email="<%= String(employee.email || '').toLowerCase() %>"
-            data-status="<%= employee.status %>" data-role="<%= employee.account_type %>"
+            data-status="<%= employee.status %>" data-role="<%= employee.role_name || employee.account_type %>"
             data-perms="<%= (employee.permissions || []).filter((k) => _mainPermKeys.has(k)).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k).join('|') %>"
             data-last-login="<%= _isoDay(employee.last_login) %>" data-sign-in="<%= employee.sign_in || 'password' %>" data-used-sso="<%= employee.last_sso ? '1' : '' %>">
           <td data-label="Status">
@@ -708,7 +708,7 @@
           </td>
           <td data-label="Name" class="ws-card-title"><strong><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></strong></td>
           <td data-label="Email" class="ws-card-wide"><%= employee.email %></td>
-          <td data-label="Role"><%= employee.account_type %><% if (employee.is_owner) { %> <span class="ux-owner">Main</span><% } %></td>
+          <td data-label="Role"><%= employee.role_name || employee.account_type %><% if (employee.role_name) { %> <small class="ux-via"><%= employee.account_type %></small><% } %><% if (employee.is_owner) { %> <span class="ux-owner">Main</span><% } %></td>
           <td data-label="Last sign-in" class="ux-when"><%= _fmtWhen(employee.last_login) %><% if (employee.last_login && employee.last_login_sso) { %><small class="ux-via">with <%= _ssoName || 'single sign-on' %></small><% } %></td>
           <% if (_sso) { const _way = _signIn(employee); %><td data-label="Sign-in"><span class="ws-pill <%= _way.pill %>" title="<%= _way.long %>"><%= _way.short %></span></td><% } %>
           <td data-label="Classes">

@@ -141,6 +141,20 @@ function normalizeField(raw, used) {
   return field;
 }
 
+// A section made from a list a school brought from its old system (utils/migration/forms.js):
+// which list, and the column each field came from. Shown in a group of its own; kept on every save.
+function originOf(raw) {
+  if (!raw || typeof raw !== "object" || raw.kind !== "old_system") return null;
+  const columns = raw.columns && typeof raw.columns === "object" ? raw.columns : {};
+  return {
+    kind: "old_system",
+    list: text(raw.list, 200),
+    columns: Object.fromEntries(Object.entries(columns).filter(([id, column]) => ID.test(id) && typeof column === "string").slice(0, MAX_FIELDS).map(([id, column]) => [id, text(column, 200)])),
+    // The field whose date says when each old row was (the entry's day).
+    dateField: ID.test(String(raw.dateField || "")) ? String(raw.dateField) : null,
+  };
+}
+
 // A section as the editor sent it, made safe and complete. Unknown values fall back to defaults.
 function normalizeSection(raw = {}) {
   const used = { ids: new Set(), keys: new Set() };
@@ -188,6 +202,7 @@ function normalizeSection(raw = {}) {
     required: portal && raw.required === true,
     dueDate,
     status: ["draft", "live", "archived"].includes(raw.status) ? raw.status : "draft",
+    origin: originOf(raw.origin),
     fields,
   };
 }
@@ -422,6 +437,7 @@ function fromRow(row) {
     required: row.required,
     dueDate: row.due_date ? (row.due_date instanceof Date ? row.due_date.toISOString().slice(0, 10) : String(row.due_date).slice(0, 10)) : null,
     status: row.status,
+    origin: originOf(options.origin),
     fields: Array.isArray(row.fields) ? row.fields : [],
     position: Number(row.position || 0),
     updatedAt: row.updated_at,
@@ -458,14 +474,17 @@ async function getSection(db, organizationId, sectionId) {
 async function saveSection(db, organizationId, raw, actorId) {
   const clean = normalizeSection(raw);
   const values = [clean.name, clean.icon, clean.notes || null, clean.multiple, clean.filledBy, clean.classIds, clean.showParents, clean.showStudents,
-    clean.protected, clean.required, clean.dueDate, clean.status, JSON.stringify(clean.fields), JSON.stringify({ repeat: clean.repeat, reportCard: clean.reportCard, tile: clean.tile, attendance: clean.attendance, tell: clean.tell, via: clean.via }), clean.once];
+    clean.protected, clean.required, clean.dueDate, clean.status, JSON.stringify(clean.fields),
+    JSON.stringify({ repeat: clean.repeat, reportCard: clean.reportCard, tile: clean.tile, attendance: clean.attendance, tell: clean.tell, via: clean.via, ...(clean.origin ? { origin: clean.origin } : {}) }), clean.once];
   const id = Number.parseInt(raw.id, 10);
   forget(organizationId);
   if (Number.isInteger(id) && id > 0) {
     const { rows } = await db.query(
       `WITH before AS (SELECT status FROM custom_sections WHERE section_id = $16 AND organization_id = $17)
        UPDATE custom_sections SET name = $1, icon = $2, notes = $3, multiple = $4, filled_by = $5, class_ids = $6, show_parents = $7,
-              show_students = $8, protected = $9, required = $10, due_date = $11, status = $12, fields = $13::jsonb, options = $14::jsonb, once = $15, updated_at = NOW()
+              show_students = $8, protected = $9, required = $10, due_date = $11, status = $12, fields = $13::jsonb,
+              options = CASE WHEN $14::jsonb ? 'origin' OR NOT (custom_sections.options ? 'origin') THEN $14::jsonb ELSE $14::jsonb || jsonb_build_object('origin', custom_sections.options->'origin') END,
+              once = $15, updated_at = NOW()
         WHERE section_id = $16 AND organization_id = $17
         RETURNING *, (SELECT status FROM before) AS was`,
       [...values, id, organizationId]

@@ -99,7 +99,7 @@
           <fieldset class="ga-kinds">
             <legend>Why are they leaving the active register?</legend>
             <label class="ga-kind"><input type="radio" name="kind" value="graduated" required /> <span><strong>Graduated</strong><small>They finished at the school.</small></span></label>
-            <label class="ga-kind"><input type="radio" name="kind" value="left" required /> <span><strong>Left the school</strong><small>They left before graduating.</small></span></label>
+            <label class="ga-kind"><input type="radio" name="kind" value="left" required /> <span><strong>Transferred or withdrawn</strong><small>They left before graduating: moved to another school, or withdrew.</small></span></label>
           </fieldset>
 
           <div class="ga-reason" data-ga-reason hidden>
@@ -151,7 +151,7 @@
             var isOther = left && select.value === 'Other';
             other.hidden = !isOther;
             otherInput.required = isOther;
-            confirmBtn.textContent = kind === 'graduated' ? 'Graduate and archive' : kind === 'left' ? 'Archive as left school' : 'Archive students';
+            confirmBtn.textContent = kind === 'graduated' ? 'Graduate and archive' : kind === 'left' ? 'Archive as transferred or withdrawn' : 'Archive students';
           }
           dialog.addEventListener('change', sync);
           sync();

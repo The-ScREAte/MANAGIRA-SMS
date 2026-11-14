@@ -37,7 +37,7 @@
         <option value="">All students</option>
         <option value="Current">Current</option>
         <option value="Graduated">Graduated</option>
-        <option value="Left">Left</option>
+        <option value="Left">Transferred or withdrawn</option>
       </select>
       <button class="gp-btn gp-btn--primary tr-go" type="submit">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -117,7 +117,7 @@
       name.textContent = s.student_name;
       const meta = document.createElement('span');
       meta.className = 'gp-card__note';
-      meta.textContent = [s.display_id, s.class_name, s.status].filter(Boolean).join(' · ');
+      meta.textContent = [s.display_id, s.class_name, s.status === 'Left' ? 'Transferred or withdrawn' : s.status].filter(Boolean).join(' · ');
       text.append(name, meta);
       const open = document.createElement('button');
       open.type = 'button';

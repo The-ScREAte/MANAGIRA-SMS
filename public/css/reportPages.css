@@ -285,8 +285,9 @@ html:has(.gp-page), body:has(.gp-page) { background: var(--ap-page, #f8fafc); }
   .gp-page { padding: 16px 12px 96px; }
   .gp-col-class, .gp-col-date { display: none; }
   .gp-table th, .gp-table td { padding: 9px 10px; }
-  .gp-group__meta { margin-left: 0; width: 100%; }
-  .gp-group > summary { flex-wrap: wrap; }
+  /* The counts stay beside the name when they fit; only a long name moves them below. */
+  .gp-group > summary { flex-wrap: wrap; row-gap: 6px; }
+  .gp-group__name { flex: 1 1 auto; min-width: 0; }
   .gp-actionbar { left: 12px; right: 12px; transform: translateY(140%); justify-content: space-between; }
   .gp-actionbar.is-visible { transform: translateY(0); }
 }

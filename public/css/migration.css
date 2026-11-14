@@ -12,6 +12,8 @@
 .mg-pill { display: inline-flex; align-items: center; height: 22px; margin-left: 6px; padding: 0 9px; border-radius: 999px; background: #f2f4f7; color: #344054; font-size: 11.5px; font-weight: 700; vertical-align: middle; }
 .mg-pill--sandbox { background: #ede9fe; color: #5b21b6; } .mg-pill--review { background: #fef3c7; color: #92400e; } .mg-pill--live { background: #dcfce7; color: #166534; }
 .mg-pill--sensitive { background: #fee2e2; color: #991b1b; }
+.mg-pill--off { background: #f2f4f7; color: #475467; }
+.mg-off { max-width: 640px; } .mg-off h2 { margin: 0 0 6px; font-size: 16px; } .mg-off form { margin: 4px 0 0; }
 .mg-steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 14px; }
 .mg .mg-step { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border: 1px solid var(--mg-line); border-radius: 999px; background: #fff; color: var(--mg-muted); font-weight: 600; text-decoration: none; }
 .mg .mg-step span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f2f4f7; font-size: 12px; }
@@ -37,14 +39,28 @@
 .mg-upload { display: grid; gap: 12px; margin: 10px 0 16px; }
 .mg .mg-drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 18px; border: 1.5px dashed #c5cbd3; border-radius: 14px; background: #fafbfc; color: var(--mg-text); text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
 .mg .mg-drop:hover, .mg .mg-drop.is-over, .mg .mg-drop:focus-within { border-color: var(--mg-accent); background: var(--mg-soft); }
-.mg .mg-drop input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.mg .mg-drop { cursor: default; }
+.mg .mg-drop__choose { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.mg .mg-drop__choose label { position: relative; overflow: hidden; cursor: pointer; }
+.mg .mg-drop__choose input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .mg-drop__icon { width: 34px; height: 34px; border-radius: 10px; background: var(--mg-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2301535b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V4m0 0-4 4m4-4 4 4'/%3E%3Cpath d='M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3'/%3E%3C/svg%3E") center / 20px no-repeat; }
 .mg-drop small { color: var(--mg-muted); font-size: 12.5px; }
-.mg-picked { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.mg-picked li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 12px; border: 1px solid var(--mg-line); border-radius: 9px; font-size: 13px; }
-.mg-picked li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mg-picked li small { flex: none; color: var(--mg-muted); }
-.mg-picked li.is-bad { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+/* The files chosen: a summary line, a remove button beside each, the first few unless "Show all". */
+.mg-picked { border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; }
+.mg-picked__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid var(--mg-line); font-size: 13.5px; }
+.mg-picked__tools { display: inline-flex; gap: 14px; }
+.mg-picked__list { margin: 0; padding: 0; list-style: none; max-height: 360px; overflow-y: auto; }
+.mg-picked__list li { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-bottom: 1px solid #f2f4f7; font-size: 13px; }
+.mg-picked__list li:last-child { border-bottom: 0; }
+.mg-picked__list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-picked__list li small { flex: none; color: var(--mg-muted); font-variant-numeric: tabular-nums; }
+.mg-picked__list li.is-bad { background: #fef2f2; color: #991b1b; }
+.mg .mg-picked__remove { flex: none; width: 26px; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 6px; background: transparent !important; color: var(--mg-muted) !important; font-size: 17px; line-height: 1; cursor: pointer; box-shadow: none; }
+.mg .mg-picked__remove:hover { background: #fee2e2 !important; color: #b91c1c !important; }
+.mg .mg-link { all: unset; cursor: pointer; color: var(--mg-accent); font-weight: 600; font-size: 13px; }
+.mg .mg-link--quiet { color: var(--mg-muted); font-weight: 500; }
+.mg .mg-link:hover { text-decoration: underline; }
+.mg-sending__row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .mg-upload__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .mg-upload__row .mg-field { flex: 1 1 260px; max-width: 360px; }
 .mg-sending { display: grid; gap: 6px; }
@@ -55,6 +71,28 @@
 .mg-tiles span { color: var(--mg-muted); font-size: 12.5px; }
 .mg { transition: opacity .12s ease; }
 .mg.is-loading { opacity: .55; pointer-events: none; }
+/* Ready to sign / go live: a checklist (views/migration/partials/ready.ejs). */
+.mg-ready { margin-top: 12px; border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; }
+.mg-ready__head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; background: #f9fafb; border-bottom: 1px solid var(--mg-line); }
+.mg-ready__head span { color: var(--mg-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.mg-ready ul { margin: 0; padding: 0; list-style: none; }
+.mg-ready li { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #f2f4f7; }
+.mg-ready li:last-child { border-bottom: 0; }
+.mg-ready__box { flex: none; width: 20px; height: 20px; border: 2px solid #c5cbd3; border-radius: 6px; background: #fff; }
+.mg-ready li.is-done .mg-ready__box { border-color: #16a34a; background: #16a34a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 13px no-repeat; }
+.mg-ready__text { flex: 1; min-width: 0; font-weight: 600; }
+.mg-ready li.is-done .mg-ready__text { color: var(--mg-muted); font-weight: 500; }
+.mg-ready__text small { display: block; margin-top: 2px; color: #b45309; font-size: 12.5px; font-weight: 500; }
+.mg .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+/* Student fields: tick to make a custom field. */
+.mg-fields .mg-tickcol { width: 110px; text-align: center; }
+.mg-fields tr.is-on td { background: color-mix(in srgb, var(--mg-accent) 5%, #fff); }
+.mg .mg-box { position: relative; display: inline-flex; width: 22px; height: 22px; cursor: pointer; }
+.mg .mg-box input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.mg .mg-box span { width: 22px; height: 22px; border: 2px solid #c5cbd3; border-radius: 6px; background: #fff; transition: background .12s, border-color .12s; }
+.mg .mg-box input:checked + span { border-color: var(--mg-accent); background: var(--mg-accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 14px no-repeat; }
+.mg .mg-box input:disabled + span { opacity: .55; cursor: not-allowed; }
+.mg .mg-box input:focus-visible + span { outline: 2px solid var(--mg-accent); outline-offset: 2px; }
 /* A background task (views/migration/partials/task.ejs). */
 .mg-task { margin: 0 0 14px; padding: 14px 16px; border: 1px solid var(--mg-line); border-radius: 14px; background: #fff; }
 .mg-task--queued, .mg-task--running { border-color: color-mix(in srgb, var(--mg-accent) 35%, #fff); background: var(--mg-soft); }
@@ -187,3 +225,72 @@
 .mg-req__do details .mg-btn { margin-top: 8px; }
 @media (max-width: 700px) { .mg { padding: 16px; } .mg-notes { grid-template-columns: 1fr; } .mg-inline { flex-wrap: wrap; } .mg-path { grid-template-columns: 1fr 1fr; } .mg-facts { grid-template-columns: 1fr; } }
 @media print { .mg-steps, .mg-head, .mg-btn, form, .mg-log, .flash-wrapper { display: none !important; } .mg-card { border: 0; } .mg-verify .mg-codes { display: grid !important; } }
+
+/* Other apps the school used (views/migration/partials/apps.ejs). */
+.mg-apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 10px; }
+.mg-app { padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #fff; }
+.mg-app__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mg-app p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.45; }
+.mg-app .mg-app__lists { color: var(--mg-muted); font-size: 12.5px; }
+.mg-pill--ok { background: #ecfdf3; color: #067647; border-color: #abefc6; }
+.mg-pill--part { background: #eff8ff; color: #175cd3; }
+
+/* Nothing uploaded yet (views/migration/school.ejs `_blank`): later steps look idle, one empty card. */
+.mg-step.is-idle:not(.is-on) { opacity: .55; }
+.mg-blank { text-align: center; padding: 36px 20px; }
+.mg-blank h2 { justify-content: center; text-align: center; }
+.mg-blank p { color: var(--mg-muted); margin: 6px 0 0; }
+.mg-blank .mg-next { margin-top: 16px; display: flex; justify-content: center; }
+
+/* What went into Managira's own features (Go live). */
+.mg-feat { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--mg-line); border-radius: 12px; overflow: hidden; }
+.mg-feat li { display: grid; grid-template-columns: 190px 1fr; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #f2f4f7; font-size: 13.5px; }
+.mg-feat li:last-child { border-bottom: 0; }
+.mg-feat li span { color: var(--mg-muted); }
+@media (max-width: 640px) { .mg-feat li { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Student fields: where each new field lives (a part of the student form, and the admission form). */
+.mg-fields .mg-home { white-space: nowrap; }
+.mg-fields .mg-home select { font: inherit; font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--mg-line); border-radius: 8px; background: #fff; max-width: 190px; }
+.mg-fields .mg-app-tick { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; font-size: 12.5px; color: var(--mg-muted); }
+.mg-fields tr:not(.is-on) .mg-home { opacity: .45; }
+
+/* A save in the background: the button pressed says so, and a small message says what happened. */
+.mg .mg-btn.is-busy { opacity: .7; cursor: progress; }
+.mg-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 12px); max-width: min(560px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 10px; background: #0f172a; color: #fff; font-size: 13.5px; line-height: 1.4; box-shadow: 0 8px 24px rgba(15, 23, 42, .25); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; z-index: 13000; }
+.mg-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+.mg-toast.is-bad { background: #991b1b; }
+
+/* A choice for the whole migration (meal balances). */
+.mg-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px; padding: 12px 14px; border: 1px solid var(--mg-line); border-radius: 12px; background: #f9fafb; font-size: 13.5px; }
+.mg-choice label { display: inline-flex; align-items: baseline; gap: 6px; }
+.mg-choice small { color: var(--mg-muted); }
+
+/* A word on privacy beside the Upload button. */
+.mg-upload__row { align-items: center; }
+.mg-trust { display: flex; gap: 10px; align-items: flex-start; flex: 1 1 420px; margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--mg-muted); }
+.mg-trust strong { color: var(--mg-text); }
+.mg-trust__icon { flex: none; width: 18px; height: 18px; margin-top: 1px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2301535b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center / 18px no-repeat; }
+
+.mg-hint--small { font-size: 12px; margin-top: -4px; }
+
+/* Steps open one after another: done ones ticked, later ones greyed. */
+.mg-step.is-locked { opacity: .45; cursor: not-allowed; }
+.mg-step.is-done span { background: #16a34a; color: #fff; }
+/* A small "?" that explains, on hover or keyboard focus. */
+.mg-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 6px; border: 1px solid var(--mg-line); border-radius: 50%; background: #fff; color: var(--mg-muted); font-size: 10.5px; font-weight: 700; line-height: 1; vertical-align: middle; cursor: help; }
+.mg-help:hover, .mg-help:focus-visible { color: var(--mg-accent); border-color: var(--mg-accent); outline: none; }
+.mg-tip { position: fixed; z-index: 13050; max-width: min(280px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 8px; background: #0f172a; color: #fff; font-size: 12px; line-height: 1.45; box-shadow: 0 6px 18px rgba(15, 23, 42, .25); pointer-events: none; }
+
+/* Lists grouped by topic; the lists the school keeps using, ticked. */
+.mg-table .mg-group th { padding-top: 14px; background: transparent; color: var(--mg-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; text-align: left; }
+.mg-table .mg-tick { width: 96px; text-align: center; }
+.mg-uselists input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--mg-accent); cursor: pointer; }
+
+/* A district's export: the school ticks its own schools. */
+.mg-schools { margin-top: 14px; }
+.mg-schools label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; }
+
+/* A list's name opens it: no separate button, nothing cut off on a phone. */
+.mg-link { color: var(--mg-accent); font-weight: 600; text-decoration: none; }
+.mg-link:hover, .mg-link:focus-visible { text-decoration: underline; }

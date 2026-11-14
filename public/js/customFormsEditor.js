@@ -316,10 +316,17 @@
       listEl.innerHTML = '<div class="cf-empty-list cf-ed__empty"><strong>No sections yet</strong>Start from a ready school form, or build your own.<br><button type="button" class="cf-btn cf-btn--primary" data-act="new" style="margin-top:14px">Create New Section</button></div>';
       return;
     }
-    listEl.innerHTML = rows.map(function (s, index) {
-      var open = (state.openId === 'new' && s === state.current) || (s.id && s.id === state.openId);
-      return open ? openHtml() : cardHtml(s, index, rows.length);
-    }).join('');
+    // Lists the school brought from its old system sit in a group of their own, below its own sections.
+    var isOld = function (s) { return Boolean(s.origin && s.origin.kind === 'old_system'); };
+    var isOpen = function (s) { return (state.openId === 'new' && s === state.current) || (s.id && s.id === state.openId); };
+    var draw = function (list) { return list.map(function (s, index) { return isOpen(s) ? openHtml() : cardHtml(s, index, list.length); }).join(''); };
+    var own = rows.filter(function (s) { return !isOld(s); });
+    var old = rows.filter(isOld);
+    listEl.innerHTML = draw(own) + (old.length ? '<details class="cf-group"' + (old.some(isOpen) || !own.length || state.oldOpen ? ' open' : '') + ' data-old-group>'
+      + '<summary><strong>From your old system</strong><em>' + esc(plural(old.length, 'list')) + ' your school brought with it, each row on its student. Your staff keep adding to them.</em></summary>'
+      + '<div class="cf-group__list">' + draw(old) + '</div></details>' : '');
+    var group = listEl.querySelector('[data-old-group]');
+    if (group) group.addEventListener('toggle', function () { state.oldOpen = group.open; });
     if (state.current) bindOpen();
   }
   function cardHtml(s, index, total) {
