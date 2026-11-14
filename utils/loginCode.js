@@ -48,6 +48,8 @@ function wanted(session) {
 }
 
 function sendCode(email, code) {
+  // Local development only: show the code in the terminal so signing in never depends on mail working.
+  if (process.env.NODE_ENV !== "production") console.log(`[Login code] (development) code for ${masked(email)}: ${code}`);
   const html = renderCleanEmail({
     title: "Your verification code",
     greeting: "Your security matters to us.",
