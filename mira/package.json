@@ -10,7 +10,7 @@
     "test": "MIRA_MOCK_LLM=true node --test tests/*.test.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.1",
+    "@anthropic-ai/sdk": "^1.8.0",
     "bullmq": "^5.34.0",
     "cookie": "^0.7.1",
     "dotenv": "^16.4.7",
