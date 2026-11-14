@@ -907,6 +907,9 @@ module.exports = (db) => {
   router.post("/setMainEmployee", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_EDIT), (req, res) =>
     commonController.setMainEmployee(req, res, db)
   );
+  router.post("/saveLunch", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), (req, res) =>
+    commonController.saveLunch(req, res, db)
+  );
   router.post("/saveSingleAttendance", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), (req, res) =>
     commonController.saveSingleAttendance(req, res, db)
   );

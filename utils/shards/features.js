@@ -33,6 +33,7 @@ const FEATURES = {
   learning_resources: { label: "Assessment resources: files, links and recommendations for each test and each question, for students and parents", access: "everyone" },
   assistant_teacher: { label: "Assistant teachers: beside a class's main teacher, assistants who see and work on the whole class (chosen on the staff form)", access: "everyone" },
   school_roles: { label: "Staff roles: a school adds its own roles (Food Service, Office Clerk) on Add user, each with the permissions it gives", access: "everyone" },
+  class_lunch: { label: "Lunch: take lunch for each day from the class attendance page, kept for reports", access: "selected" },
   gpa: { label: "GPA: a Report Settings switch that prints each student's GPA (4.0 scale) on report cards and transcripts", access: "everyone" },
 };
 

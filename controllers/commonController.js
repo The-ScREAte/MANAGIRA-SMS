@@ -9460,12 +9460,25 @@ const commonController = {
         }
       });
 
+      // Lunch taken each day (feature class_lunch): student -> day -> true / false.
+      const lunchOn = require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) });
+      const lunchMap = {};
+      if (lunchOn) {
+        const lunchRows = await db.query(
+          `SELECT student_id, lunch_date::text AS day, had_lunch FROM class_lunch
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+          [organizationId, classId, termId]
+        ).then((r) => r.rows).catch(() => []);
+        lunchRows.forEach((row) => { (lunchMap[row.student_id] = lunchMap[row.student_id] || {})[String(row.day).slice(0, 10)] = row.had_lunch; });
+      }
       // Render the attendance collection page
       // Classroom sections collected every day that asked for a column here (a lunch count).
       const attendanceForms = await require("../utils/customForms").attendanceColumns(db, req.session.organizationId, {
         classId: Number(classId), day: attendanceTodayKey, builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
       }).catch(() => []);
       res.render("common/attendanceCollection", {
+        lunchOn,
+        lunchMap,
         attendanceForms,
         attendanceTodayKey,
         title: "Attendance Records",
@@ -9489,6 +9502,71 @@ const commonController = {
     } catch (error) {
       // ...removed error log for clean background operation...
       res.status(500).send("Error loading attendance records page");
+    }
+  },
+
+  saveLunch: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
+    if (!require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })) {
+      return res.status(404).json({ success: false, message: "Lunch is not switched on for your school." });
+    }
+    const classId = Number(req.body.classId);
+    const termId = Number(req.body.termId);
+    const day = String(req.body.date || "");
+    if (!Number.isInteger(classId) || !Number.isInteger(termId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      return res.status(400).json({ success: false, message: "Class, term and date are required." });
+    }
+    try {
+      const ctx = await db.query(
+        `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                (SELECT 1 FROM terms WHERE term_id = $2 AND organization_id = $3) AS term_ok`,
+        [classId, termId, organizationId]
+      );
+      if (!ctx.rows[0]?.class_ok || !ctx.rows[0]?.term_ok) {
+        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
+      }
+      // Only this class's students; value true = had lunch, false = no lunch, null = not taken (row removed).
+      const entries = Object.entries(req.body.lunch || {})
+        .map(([id, v]) => [Number(id), v === true || v === "yes" ? true : v === false || v === "no" ? false : null])
+        .filter(([id]) => Number.isInteger(id) && id > 0);
+      const ids = entries.map(([id]) => id);
+      const owned = ids.length
+        ? await db.query(
+            `SELECT s.student_id FROM students s
+             WHERE s.student_id = ANY($1::int[]) AND s.organization_id = $3
+               AND (s.class_id = $2 OR EXISTS (
+                 SELECT 1 FROM enrolled_students es JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                 WHERE es.student_id = s.student_id AND es.class_id = $2 AND e.term_id = $4 AND e.organization_id = $3))`,
+            [ids, classId, organizationId, termId]
+          ).then((r) => new Set(r.rows.map((x) => Number(x.student_id))))
+        : new Set();
+      const set = entries.filter(([id, v]) => owned.has(id) && v !== null);
+      const clear = entries.filter(([id, v]) => owned.has(id) && v === null).map(([id]) => id);
+      const markedBy = Number(req.session.user?.user_id) || null;
+      if (set.length) {
+        await db.query(
+          `INSERT INTO class_lunch (organization_id, class_id, term_id, student_id, lunch_date, had_lunch, marked_by)
+           SELECT $1, $2, $3, u.student_id, $4::date, u.had_lunch, $5
+           FROM unnest($6::int[], $7::boolean[]) AS u(student_id, had_lunch)
+           ON CONFLICT (organization_id, student_id, lunch_date) DO UPDATE
+             SET had_lunch = EXCLUDED.had_lunch, class_id = EXCLUDED.class_id, term_id = EXCLUDED.term_id,
+                 marked_by = EXCLUDED.marked_by, updated_at = NOW()
+             WHERE class_lunch.had_lunch IS DISTINCT FROM EXCLUDED.had_lunch`,
+          [organizationId, classId, termId, day, markedBy, set.map(([id]) => id), set.map(([, v]) => v)]
+        );
+      }
+      if (clear.length) {
+        await db.query(
+          `DELETE FROM class_lunch WHERE organization_id = $1 AND lunch_date = $2::date AND student_id = ANY($3::int[])`,
+          [organizationId, day, clear]
+        );
+      }
+      return res.json({ success: true, saved: set.length, cleared: clear.length, savedAt: new Date().toISOString() });
+    } catch (error) {
+      if (error.code === "42P01") return res.status(503).json({ success: false, message: "Lunch isn't set up yet. Run npm run migrate." });
+      console.error("[saveLunch]", error.message);
+      return res.status(500).json({ success: false, message: "Failed to save lunch. Please try again." });
     }
   },
 

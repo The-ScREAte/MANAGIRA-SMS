@@ -1345,6 +1345,9 @@
                                     <% } %>
                                     <% if (isToday) { %><span class="day-name">Today</span><% } %>
                                     <%= _formattedDate %>
+                                    <% if (locals.lunchOn && students.length > 0 && dateMeta.countable) { %>
+                                        <button type="button" class="lunch-link" data-lunch-date="<%= date %>" aria-expanded="false" onclick="toggleLunch('<%= date %>')">Lunch</button>
+                                    <% } %>
                                     <% if (students.length > 0 && dateMeta.countable) { %>
                                         <div class="edit-save-link" data-date="<%= date %>" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
                                         <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
@@ -1426,6 +1429,88 @@
 
     </div>
 
+    <% if (locals.lunchOn) { %>
+    <style>
+        .attendance-sheet .lunch-link { display: inline-block; margin-top: 4px; padding: 2px 10px; border: 1px solid #0f766e; border-radius: 999px; background: #fff; color: #0f766e; font: 600 11px/1.5 inherit; cursor: pointer; }
+        .attendance-sheet .lunch-link[aria-expanded="true"] { background: #0f766e; color: #fff; }
+        .attendance-sheet th.lunch-col, .attendance-sheet td.lunch-col { min-width: 118px; background: #f0fdfa; border-left: 2px solid #0f766e; text-align: center; }
+        .attendance-sheet th.lunch-col .lunch-title { font-weight: 700; color: #0f766e; font-size: 12px; }
+        .attendance-sheet th.lunch-col .lunch-count { display: block; font-size: 11px; font-weight: 500; color: #475569; margin: 2px 0; }
+        .attendance-sheet th.lunch-col .lunch-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+        .attendance-sheet th.lunch-col .lunch-actions button { padding: 2px 8px; border: 1px solid #0f766e; border-radius: 6px; background: #fff; color: #0f766e; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .attendance-sheet th.lunch-col .lunch-actions button.primary { background: #0f766e; color: #fff; }
+        .attendance-sheet th.lunch-col .lunch-actions button:disabled { opacity: .5; cursor: default; }
+        .attendance-sheet td.lunch-col .lunch-btn { min-width: 86px; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #64748b; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .attendance-sheet td.lunch-col .lunch-btn[data-v="yes"] { background: #dcfce7; border-color: #16a34a; color: #166534; }
+        .attendance-sheet td.lunch-col .lunch-btn[data-v="no"] { background: #f1f5f9; border-color: #94a3b8; color: #475569; text-decoration: line-through; }
+        @media print { .attendance-sheet .lunch-link { display: none; } }
+    </style>
+    <script>
+    (function () {
+        var CLASS_ID = '<%= classId %>', TERM_ID = '<%= termId %>';
+        var saved = <%- JSON.stringify(locals.lunchMap || {}) %>;
+        var LABEL = { yes: 'Lunch', no: 'No lunch', '': 'Tap' };
+        var ORDER = ['', 'yes', 'no'];
+        function valueOf(studentId, date) { var v = (saved[studentId] || {})[date]; return v === true ? 'yes' : v === false ? 'no' : ''; }
+        function dateCell(row, date) { var box = row.querySelector('input[data-date="' + date + '"]'); return box ? box.closest('td') : null; }
+        function count(th, date) {
+            var yes = 0, no = 0, none = 0;
+            document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { if (b.dataset.v === 'yes') yes++; else if (b.dataset.v === 'no') no++; else none++; });
+            th.querySelector('.lunch-count').textContent = yes + ' lunch · ' + no + ' no lunch · ' + none + ' not taken';
+        }
+        function setBtn(btn, v) { btn.dataset.v = v; btn.textContent = LABEL[v]; btn.setAttribute('aria-label', LABEL[v] === 'Tap' ? 'Lunch not taken yet' : LABEL[v]); }
+        window.toggleLunch = function (date) {
+            var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
+            var open = document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]');
+            if (open) { closeLunch(date); return; }
+            var th = document.querySelector('th[data-date="' + date + '"]');
+            if (!th) return;
+            var head = document.createElement('th');
+            head.className = 'lunch-col'; head.dataset.lunchDate = date;
+            head.innerHTML = '<div class="lunch-title">Lunch</div><span class="lunch-count"></span><div class="lunch-actions"><button type="button" data-a="all">All had lunch</button><button type="button" class="primary" data-a="save">Save</button><button type="button" data-a="close">Close</button></div>';
+            th.after(head);
+            document.querySelectorAll('.attendance-sheet tbody tr').forEach(function (row) {
+                var cell = dateCell(row, date), id = row.querySelector('td.student-name[data-student-id]');
+                if (!cell || !id) return;
+                var td = document.createElement('td'); td.className = 'lunch-col'; td.dataset.lunchDate = date;
+                var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lunch-btn'; btn.dataset.student = id.dataset.studentId;
+                setBtn(btn, valueOf(id.dataset.studentId, date));
+                btn.addEventListener('click', function () { setBtn(btn, ORDER[(ORDER.indexOf(btn.dataset.v) + 1) % 3]); count(head, date); head.dataset.dirty = '1'; });
+                td.appendChild(btn); cell.after(td);
+            });
+            head.addEventListener('click', function (e) {
+                var a = e.target.dataset && e.target.dataset.a;
+                if (a === 'close') closeLunch(date);
+                if (a === 'all') { document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { setBtn(b, 'yes'); }); count(head, date); head.dataset.dirty = '1'; }
+                if (a === 'save') save(date, head, e.target);
+            });
+            if (link) link.setAttribute('aria-expanded', 'true');
+            count(head, date);
+        };
+        function closeLunch(date) {
+            var head = document.querySelector('th.lunch-col[data-lunch-date="' + date + '"]');
+            if (head && head.dataset.dirty === '1' && !confirm('Close without saving lunch for this day?')) return;
+            document.querySelectorAll('.lunch-col[data-lunch-date="' + date + '"]').forEach(function (n) { n.remove(); });
+            var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
+            if (link) link.setAttribute('aria-expanded', 'false');
+        }
+        function save(date, head, button) {
+            var lunch = {};
+            document.querySelectorAll('td.lunch-col[data-lunch-date="' + date + '"] .lunch-btn').forEach(function (b) { lunch[b.dataset.student] = b.dataset.v || null; });
+            button.disabled = true; var was = button.textContent; button.textContent = 'Saving…';
+            fetch('/common/saveLunch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lunch: lunch, classId: CLASS_ID, termId: TERM_ID, date: date }) })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.success) { alert(d.message || 'Failed to save lunch. Please try again.'); return; }
+                    Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; if (lunch[id]) saved[id][date] = lunch[id] === 'yes'; else delete saved[id][date]; });
+                    head.dataset.dirty = ''; button.textContent = 'Saved ✓'; setTimeout(function () { button.textContent = was; }, 1500);
+                })
+                .catch(function () { alert('Failed to save lunch. Please try again.'); })
+                .finally(function () { button.disabled = false; if (button.textContent === 'Saving…') button.textContent = was; });
+        }
+    })();
+    </script>
+    <% } %>
     <script>
         var originalStates = window.__attendanceOriginalStates || {};
         window.__attendanceOriginalStates = originalStates;
