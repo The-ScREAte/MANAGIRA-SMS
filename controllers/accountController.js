@@ -4836,6 +4836,19 @@ const accountController = {
         });
       }
 
+      // A school that owes a failed payment gets it tried again on the new card, in the
+      // background, so the person never waits for it (and never twice at once: one charge per school).
+      Promise.resolve().then(async () => {
+        const owed = await db.query(
+          `SELECT 1 FROM billing_invoices WHERE organization_id = $1 AND status = 'failed' AND paid_at IS NULL LIMIT 1`,
+          [orgId]
+        );
+        if (!owed.rows.length) return;
+        const { chargeOrganizationNow } = require("../jobs/recurringStripeBilling");
+        const result = await chargeOrganizationNow(orgId);
+        if (!result?.success) console.warn(`[Card saved] retry for school ${orgId} did not go through: ${result?.message || "declined"}`);
+      }).catch((error) => console.error("[Card saved] retry failed:", error.message));
+
       return res.json({
         success: true,
         message: "Card saved successfully.",
