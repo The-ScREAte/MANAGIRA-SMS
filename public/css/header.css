@@ -1895,6 +1895,18 @@
       display: none;
     }
 
+    /* The section menu is pinned to the bottom of the screen. A blurred header would become its
+       containing block (a fixed child then sits inside the header, over the logo), so no blur here. */
+    header#top-header:has(> .sticky-nav) {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    /* The icons are the only label on a small screen (the words are hidden), so they must show. */
+    header#top-header .sticky-nav ul li a .nav-icon {
+      display: block !important;
+    }
+
     header#top-header .sticky-nav ul li a .nav-icon {
       width: 16px;
       height: 16px;
