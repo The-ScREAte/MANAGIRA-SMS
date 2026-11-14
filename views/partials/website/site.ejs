@@ -36,7 +36,7 @@
     : '--sw-emblem-image: url("' + publicImageUrl(EM.imageUrl, { public: true }) + '")');
   const emblemMark = (cls, prefix, attrs) => include('./emblemMark', { site, cls, prefix, attrs });
 %>
-<div class="sw-site sw-site--<%= L %><%= site.design && site.design !== L ? ' sw-site--' + site.design : '' %><%= EM ? ' sw-emblem sw-emblem--' + EM.kind + ' sw-emblem--' + EM.placement : '' %><%= site.wholePhotos ? ' sw-whole' : '' %>" data-sw-layout="<%= L %>" data-sw-design="<%= site.design || L %>"<%= site.motion ? ' data-sw-motion' : '' %><% if (emStyle) { %> style="<%= emStyle %>"<% } %>>
+<div class="sw-site sw-site--<%= L %><%= site.design && site.design !== L ? ' sw-site--' + site.design : '' %><%= EM ? ' sw-emblem sw-emblem--' + EM.kind + ' sw-emblem--' + EM.placement : '' %><%= site.wholePhotos ? ' sw-whole' : '' %>" data-sw-layout="<%= L %>" data-sw-design="<%= site.design || L %>"<%= String(S.name || '').length > 46 ? ' data-sw-name="xlong"' : String(S.name || '').length > 28 ? ' data-sw-name="long"' : '' %><%= site.motion ? ' data-sw-motion' : '' %><% if (emStyle) { %> style="<%= emStyle %>"<% } %>>
 <% if (site.motion) { %><script>
   // 3D designs: starting positions are set before the page first shows, so nothing jumps.
   // Nothing moves for visitors who ask their device for less motion, and if the motion

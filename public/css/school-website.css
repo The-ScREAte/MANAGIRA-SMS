@@ -830,3 +830,21 @@ body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName {
 .sw-site--mascot .sw-band--tint { --sw-pattern-strength: .06; }
 .sw-site--mascot .sw-band--facts .sw-fact__value { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 900; }
 @media (max-width: 760px) { .sw-site--mascot .sw-emblem-mark--panel { width: 70%; right: -10%; bottom: -10%; } }
+
+/* A long school name: the big title steps down so it sits in two or three tidy, balanced lines
+   instead of crowding the page (the name is long above 28 characters, very long above 46). */
+.sw-site[data-sw-name] :is(.sw-ac-hero__title, .sw-intro__title, .sw-hero__title, .sw-masthead__title, .sw-spot-hero__title, .sw-min-head__title, .sw-mosaic__title, .sw-gl-title, .sw-pr-title, .sw-pa-title) {
+  line-height: 1.12 !important;
+  letter-spacing: -.01em !important;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 100% !important;
+}
+.sw-site[data-sw-name="long"] :is(.sw-ac-hero__title, .sw-intro__title, .sw-hero__title, .sw-masthead__title, .sw-spot-hero__title, .sw-min-head__title, .sw-mosaic__title, .sw-gl-title, .sw-pr-title, .sw-pa-title) {
+  font-size: clamp(1.7rem, 5.2vw, 2.9rem) !important;
+}
+.sw-site[data-sw-name="xlong"] :is(.sw-ac-hero__title, .sw-intro__title, .sw-hero__title, .sw-masthead__title, .sw-spot-hero__title, .sw-min-head__title, .sw-mosaic__title, .sw-gl-title, .sw-pr-title, .sw-pa-title) {
+  font-size: clamp(1.4rem, 4.2vw, 2.2rem) !important;
+}
+.sw-site[data-sw-name] .sw-masthead__title { margin: 14px 0 4px !important; }
