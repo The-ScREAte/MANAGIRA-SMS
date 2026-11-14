@@ -1352,7 +1352,7 @@
                                         <% } %>
                                         <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
                                         <div class="cancel-link" data-date="<%= date %>" role="button" tabindex="0" title="Cancel" aria-label="Cancel changes" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
-                                        <div class="mark-all-link" data-date="<%= date %>" style="display: none;" onclick="checkAllClick(event, '<%= date %>')"><span class="ca-title">Check All</span><span class="ca-row"><input type="checkbox" class="check-all-box" title="Check everyone present" aria-label="Check everyone present"><button type="button" class="check-all-lunch" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/></svg></button></span></div>
+                                        <div class="mark-all-link" data-date="<%= date %>" style="display: none;"><span class="ca-title">Check All</span><span class="ca-row"><input type="checkbox" class="check-all-box" onclick="markAllPresentForDate('<%= date %>', this.checked)" title="Check everyone present" aria-label="Check everyone present"><button type="button" class="check-all-lunch" onclick="window.lunchAllForDate && window.lunchAllForDate('<%= date %>')" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/></svg></button></span></div>
                                         </div>
                                     <% } %>
                                     <div class="last-edited <%= (lastEditedMap && lastEditedMap[date]) ? 'has-tooltip' : '' %>" id="last-edited-<%= date %>">
@@ -1432,8 +1432,8 @@
     </div>
 
     <style>
-        .attendance-sheet td input[type="checkbox"][data-date] { width: 26px; height: 26px; cursor: pointer; accent-color: #0f766e; }
-        @media (max-width: 760px) { .attendance-sheet td input[type="checkbox"][data-date] { width: 30px; height: 30px; } }
+        .attendance-sheet td input[type="checkbox"][data-date] { width: 22px; height: 22px; cursor: pointer; accent-color: #0f766e; }
+        @media (max-width: 760px) { .attendance-sheet td input[type="checkbox"][data-date] { width: 26px; height: 26px; } }
     </style>
     <% if (locals.lunchOn) { %>
     <style>
@@ -1451,9 +1451,9 @@
         .attendance-sheet .date-actions .mark-all-link[style*="block"] { display: flex !important; }
         .attendance-sheet .date-actions .cancel-link { color: #b91c1c; }
         .attendance-sheet .date-actions .mark-all-link { flex-basis: 100%; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 6px 0 0; margin: 0; border: 0; background: none; cursor: default; }
-        .attendance-sheet .date-actions .mark-all-link .ca-title { color: #0f766e; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
+        .attendance-sheet .date-actions .mark-all-link .ca-title { color: #0f766e; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; text-decoration: none; pointer-events: none; cursor: default; }
         .attendance-sheet .date-actions .mark-all-link .ca-row { display: inline-flex; align-items: center; gap: 10px; }
-        .attendance-sheet .date-actions .mark-all-link .check-all-box { width: 26px; height: 26px; margin: 0; accent-color: #0f766e; cursor: pointer; }
+        .attendance-sheet .date-actions .mark-all-link .check-all-box { width: 22px; height: 22px; margin: 0; accent-color: #0f766e; cursor: pointer; }
         .attendance-sheet .date-actions .mark-all-link .check-all-lunch { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 1.5px solid #cbd5e1 !important; border-radius: 12px; background: #fff !important; color: #cbd5e1 !important; cursor: pointer; }
         .attendance-sheet .date-actions .mark-all-link .check-all-lunch[hidden] { display: none; }
         .attendance-sheet .date-actions .mark-all-link .check-all-lunch[aria-pressed="true"] { background: #0f766e !important; border-color: #0f766e !important; color: #fff !important; }
@@ -1474,8 +1474,13 @@
         var saved = <%- JSON.stringify(locals.lunchMap || {}) %>;
         var plate = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/></svg>';
         var open = {};
+        function paint(el, on) {
+            var set = function (k, v) { el.style.setProperty(k, v, 'important'); };
+            if (on) { set('background', 'var(--primary, #0f766e)'); set('border-color', 'var(--primary, #0f766e)'); set('color', '#fff'); }
+            else { set('background', '#fff'); set('border-color', '#cbd5e1'); set('color', '#9ca3af'); }
+        }
         function cellOf(box) { return box.closest('td'); }
-        function setPick(btn, v) { btn.dataset.v = v; btn.setAttribute('aria-pressed', v === 'yes' ? 'true' : 'false'); btn.title = v === 'yes' ? 'Had lunch' : 'No lunch'; btn.setAttribute('aria-label', btn.title); }
+        function setPick(btn, v) { paint(btn, v === 'yes'); btn.dataset.v = v; btn.setAttribute('aria-pressed', v === 'yes' ? 'true' : 'false'); btn.title = v === 'yes' ? 'Had lunch' : 'No lunch'; btn.setAttribute('aria-label', btn.title); }
         function tally(date) {
             var n = document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"][data-v="yes"]').length;
             var t = document.querySelector('.lunch-tally[data-lunch-date="' + date + '"]'); if (t) t.querySelector('b').textContent = n;
@@ -1485,7 +1490,7 @@
             var btns = Array.from(document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]'));
             var on = !btns.every(function (b) { return b.dataset.v === 'yes'; });
             btns.forEach(function (b) { setPick(b, on ? 'yes' : ''); });
-            var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) ca.setAttribute('aria-pressed', on ? 'true' : 'false');
+            var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) { ca.setAttribute('aria-pressed', on ? 'true' : 'false'); paint(ca, on); }
             open[date].dirty = true; tally(date);
         };
         window.toggleLunch = function (date) {
@@ -1503,7 +1508,8 @@
             var th = document.querySelector('th[data-date="' + date + '"] .date-header');
             if (th && !th.querySelector('.lunch-tally')) { var t = document.createElement('div'); t.className = 'lunch-tally'; t.dataset.lunchDate = date; t.innerHTML = plate.replace('width="24" height="24"', 'width="16" height="16"') + '<span>Lunch</span> <b>0</b>'; th.appendChild(t); }
             if (link) link.setAttribute('aria-expanded', 'true');
-            var caBtn = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (caBtn) caBtn.hidden = false;
+            var caBtn = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (caBtn) { caBtn.hidden = false; paint(caBtn, false); }
+            if (link) { link.style.setProperty('background', 'var(--primary, #0f766e)', 'important'); link.style.setProperty('border-color', 'var(--primary, #0f766e)', 'important'); link.style.setProperty('color', '#fff', 'important'); }
             tally(date);
             // One tick saves the day: attendance and lunch together.
             var edit = document.querySelector('.edit-save-link[data-date="' + date + '"]');
@@ -1512,7 +1518,8 @@
         function closeLunch(date) {
             if (open[date] && open[date].dirty && !confirm('Close lunch without saving it for this day?')) return;
             document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (n) { var pair = n.parentNode; var box = pair.querySelector('input[data-date]'); n.remove(); if (box && pair.classList.contains('att-pair')) { pair.parentNode.insertBefore(box, pair); pair.remove(); } });
-            var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) { ca.hidden = true; ca.setAttribute('aria-pressed', 'false'); }
+            var ca = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (ca) { ca.hidden = true; ca.setAttribute('aria-pressed', 'false'); paint(ca, false); }
+            var lk = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]'); if (lk) ['background', 'border-color', 'color'].forEach(function (k) { lk.style.removeProperty(k); });
             var t = document.querySelector('.lunch-tally[data-lunch-date="' + date + '"]'); if (t) t.remove();
             delete open[date];
             var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
