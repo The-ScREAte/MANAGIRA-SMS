@@ -1366,7 +1366,7 @@
                                 </div>
                             </th>
                         <% }); %>
-                        <th class="overall-attendance">Overall Attendance</th>
+                        <th class="overall-attendance">Overall</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1401,7 +1401,7 @@
                                 <%_ if (dateMeta.countable && mark === 'Present') { presentCount++; } _%>
 </td>
                             <%_ }); _%>
-                            <td class="overall-attendance"><%= presentCount %>/<%= totalCount %></td>
+                            <td class="overall-attendance"><% if (locals.lunchOn) { %><span class="ov-pair"><span class="ov-att" title="Days present"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><%= presentCount %>/<%= totalCount %></span><span class="ov-lunch" data-student="<%= student.student_id %>" title="Days with lunch"></span></span><% } else { %><%= presentCount %>/<%= totalCount %><% } %></td>
                         </tr>
                     <% }); %>
                 </tbody>
@@ -1437,6 +1437,9 @@
     </style>
     <% if (locals.lunchOn) { %>
     <style>
+        .attendance-sheet td.overall-attendance .ov-pair { display: inline-flex; align-items: center; justify-content: center; gap: 14px; white-space: nowrap; }
+        .attendance-sheet td.overall-attendance .ov-att, .attendance-sheet td.overall-attendance .ov-lunch { display: inline-flex; align-items: center; gap: 4px; }
+        .attendance-sheet td.overall-attendance .ov-lunch { color: var(--primary, #0f766e); }
         .attendance-sheet .date-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; }
         .attendance-sheet .date-actions .lunch-link, .attendance-sheet .date-actions .edit-save-link { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; margin: 0; border-radius: 12px; cursor: pointer; font-size: 0; line-height: 0; text-decoration: none; box-sizing: border-box; }
         .attendance-sheet .date-actions .lunch-link { border: 1.5px solid #0f766e; background: #fff; color: #0f766e; }
@@ -1474,6 +1477,17 @@
         var saved = <%- JSON.stringify(locals.lunchMap || {}) %>;
         var plate = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="6.5"/><circle cx="9" cy="12" r="3"/><ellipse cx="19.5" cy="7" rx="1.8" ry="2.8"/><path d="M19.5 9.8V21"/></svg>';
         var open = {};
+        function overallLunch() {
+            var days = {};
+            Object.keys(saved).forEach(function (id) { Object.keys(saved[id] || {}).forEach(function (d) { days[d] = true; }); });
+            var total = Object.keys(days).length;
+            document.querySelectorAll('.ov-lunch[data-student]').forEach(function (el) {
+                var mine = saved[el.dataset.student] || {}, yes = 0;
+                Object.keys(mine).forEach(function (d) { if (mine[d] === true) yes++; });
+                el.innerHTML = plate.replace('width="24" height="24"', 'width="16" height="16"') + yes + '/' + total;
+            });
+        }
+        overallLunch();
         function paint(el, on) {
             var set = function (k, v) { el.style.setProperty(k, v, 'important'); };
             if (on) { set('background', 'var(--primary, #0f766e)'); set('border-color', 'var(--primary, #0f766e)'); set('color', '#fff'); }
@@ -1561,6 +1575,7 @@
                     if (!d.success) { alert(d.message || d.error || 'Failed to save lunch. Please try again.'); return; }
                     Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; saved[id][date] = lunch[id] === 'yes'; });
                     if (open[date]) open[date].dirty = false;
+                    overallLunch();
                 })
                 .catch(function () { alert('Failed to save lunch. Please try again.'); });
         };
