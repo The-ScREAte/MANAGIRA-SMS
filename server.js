@@ -1193,6 +1193,8 @@ app.use((req, res, next) => (allowsBigBody(req) ? bigForm : smallForm)(req, res,
 
 // Light or dark, for whoever is signed in (staff, school owner, parent, student,
 // driver, hub owner or hub user). Kept per person.
+// The challenge public forms solve to show a person is sending them (utils/humanCheck.js).
+app.get("/human-check/challenge", require("./utils/humanCheck").challengeRoute);
 app.post("/appearance", (req, res) => require("./controllers/themeController").updateAppearancePost(req, res));
 app.use(createOrganizationActivityLogMiddleware(db));
 

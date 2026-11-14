@@ -21,6 +21,7 @@ router.get("/register", (req, res) => accountController.registerGet(req, res));
 router.post(
   "/register",
   upload.fields([{ name: "proof1" }, { name: "proof2" }]),
+  require("../utils/humanCheck").requireHuman("register", { back: "/account/register", perHour: 10 }),
   (req, res) => accountController.registerPost(req, res)
 );
 

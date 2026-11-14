@@ -214,7 +214,7 @@
 <% } else if (key === 'contact') { const c = x.contact; %>
   <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: c.intro, number }) %>
   <div class="sw-contact">
-    <form class="sw-contact__form" id="swContactForm" method="POST" action="/common/publicContact" novalidate>
+    <form class="sw-contact__form" id="swContactForm" method="POST" action="/common/publicContact" novalidate data-human-check="school-contact">
       <input type="hidden" name="organizationId" value="<%= site.school.id %>">
       <div class="sw-hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
       <div class="sw-form-row">

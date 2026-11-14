@@ -623,7 +623,7 @@
         <p class="register-sub">It takes about five minutes. You'll add classes, students and staff after this.</p>
       </div>
 
-      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data" data-human-check="register" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
         <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
         <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
         <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
@@ -1100,5 +1100,6 @@
     });
   </script>
   </div>
+  <script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>
 </body>
 </html>
