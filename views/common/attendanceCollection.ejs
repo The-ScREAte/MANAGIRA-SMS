@@ -1478,6 +1478,8 @@
             var set = function (k, v) { el.style.setProperty(k, v, 'important'); };
             if (on) { set('background', 'var(--primary, #0f766e)'); set('border-color', 'var(--primary, #0f766e)'); set('color', '#fff'); }
             else { set('background', '#fff'); set('border-color', '#cbd5e1'); set('color', '#9ca3af'); }
+            var ink = on ? '#fff' : '#9ca3af';
+            el.querySelectorAll('svg, svg *').forEach(function (n) { n.style.setProperty('stroke', ink, 'important'); });
         }
         function cellOf(box) { return box.closest('td'); }
         function setPick(btn, v) { paint(btn, v === 'yes'); btn.dataset.v = v; btn.setAttribute('aria-pressed', v === 'yes' ? 'true' : 'false'); btn.title = v === 'yes' ? 'Had lunch' : 'No lunch'; btn.setAttribute('aria-label', btn.title); }
@@ -1494,8 +1496,16 @@
             open[date].dirty = true; tally(date);
         };
         window.toggleLunch = function (date) {
-            var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
             if (open[date]) { closeLunch(date); return; }
+            build(date);
+            // One tick saves the day: attendance and lunch together.
+            var edit = document.querySelector('.edit-save-link[data-date="' + date + '"]');
+            if (edit && edit.textContent.trim() === 'Edit' && window.toggleEditSaveMode) window.toggleEditSaveMode(date);
+        };
+        // Draws the day's lunch buttons beside its checkboxes (a day already saved shows them as soon as the page opens).
+        function build(date) {
+            var link = document.querySelector('.lunch-link[data-lunch-date="' + date + '"]');
+            if (open[date]) return;
             open[date] = { dirty: false };
             document.querySelectorAll('.attendance-sheet tbody input[data-date="' + date + '"]').forEach(function (box) {
                 if (box.dataset.countable !== 'true') return;
@@ -1511,10 +1521,7 @@
             var caBtn = document.querySelector('.mark-all-link[data-date="' + date + '"] .check-all-lunch'); if (caBtn) { caBtn.hidden = false; paint(caBtn, false); }
             if (link) { link.style.setProperty('background', 'var(--primary, #0f766e)', 'important'); link.style.setProperty('border-color', 'var(--primary, #0f766e)', 'important'); link.style.setProperty('color', '#fff', 'important'); }
             tally(date);
-            // One tick saves the day: attendance and lunch together.
-            var edit = document.querySelector('.edit-save-link[data-date="' + date + '"]');
-            if (edit && edit.textContent.trim() === 'Edit' && window.toggleEditSaveMode) window.toggleEditSaveMode(date);
-        };
+        }
         function closeLunch(date) {
             if (open[date] && open[date].dirty && !confirm('Close lunch without saving it for this day?')) return;
             document.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]').forEach(function (n) { var pair = n.parentNode; var box = pair.querySelector('input[data-date]'); n.remove(); if (box && pair.classList.contains('att-pair')) { pair.parentNode.insertBefore(box, pair); pair.remove(); } });
@@ -1539,6 +1546,11 @@
                 })
                 .catch(function () { alert('Failed to save lunch. Please try again.'); });
         };
+        (function showSavedDays() {
+            var days = {};
+            Object.keys(saved).forEach(function (id) { Object.keys(saved[id] || {}).forEach(function (d) { days[d] = true; }); });
+            Object.keys(days).forEach(function (d) { if (document.querySelector('th[data-date="' + d + '"]')) build(d); });
+        })();
         function syncModes() { document.querySelectorAll('.edit-save-link').forEach(function (l) { l.dataset.mode = l.textContent.trim() === 'Save' ? 'save' : 'edit'; l.title = l.dataset.mode === 'save' ? 'Save' : 'Edit'; l.setAttribute('aria-label', l.title + ' attendance'); }); }
         new MutationObserver(syncModes).observe(document.querySelector('.attendance-sheet') || document.body, { subtree: true, childList: true, characterData: true });
         syncModes();
