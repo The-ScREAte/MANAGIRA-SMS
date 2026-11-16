@@ -14,7 +14,7 @@ BEGIN
   ) THEN
     ALTER TABLE employment_applications
       ADD CONSTRAINT employment_applications_status_check
-      CHECK (status IN ('pending', 'rejected'));
+      CHECK (status IN ('pending', 'approved', 'rejected', 'hired'));
   END IF;
 END $$;
 

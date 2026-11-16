@@ -198,8 +198,9 @@ module.exports = {
       let password = null;
       if (signIn === "password") {
         const raw = String(req.body.password || "");
-        if (raw.length < 8 || !/[A-Za-z]/.test(raw) || !/\d/.test(raw)) {
-          req.flash("error", "The password needs at least 8 characters with letters and numbers.");
+        const hubUserPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(raw);
+        if (hubUserPasswordIssue || !/[A-Za-z]/.test(raw) || !/\d/.test(raw)) {
+          req.flash("error", hubUserPasswordIssue || "The password needs at least 8 characters with letters and numbers.");
           return res.redirect(back);
         }
         password = await bcrypt.hash(raw, 10);

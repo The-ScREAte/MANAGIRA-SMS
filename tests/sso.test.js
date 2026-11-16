@@ -54,7 +54,10 @@ test("the email comes from what the provider signed, and an unverified one is re
   assert.equal(saml.emailFrom({ nameID: "opaque-id", workMail: "c@school.edu" }, { email_attribute: "workMail" }), "c@school.edu");
   assert.equal(saml.emailFrom({ nameID: "opaque-id" }, plain), null);
   assert.equal(oidc.emailFrom({ email: "d@school.edu", email_verified: true }, plain), "d@school.edu");
-  assert.equal(oidc.emailFrom({ preferred_username: "e@school.edu" }, plain), "e@school.edu");
+  // A username stands in for the email only from Microsoft Entra ID, where the school assigns it.
+  const entra = { iss: "https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/v2.0", tid: "11111111-2222-3333-4444-555555555555" };
+  assert.equal(oidc.emailFrom({ ...entra, preferred_username: "e@school.edu" }, plain), "e@school.edu");
+  assert.equal(oidc.emailFrom({ iss: "https://idp.example.com", preferred_username: "e@school.edu" }, plain), null);
   assert.throws(() => oidc.emailFrom({ email: "f@school.edu", email_verified: false }, plain), /verified/);
 });
 

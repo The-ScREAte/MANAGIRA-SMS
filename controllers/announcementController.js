@@ -426,8 +426,10 @@ async function uploadImage(req, res) {
   try {
     if (!req.file) return res.status(400).json({ error: "No image uploaded." });
     if (!/^image\/(jpeg|png|webp|gif)$/.test(req.file.mimetype)) return res.status(400).json({ error: "Use a JPG, PNG, WebP or GIF image." });
-    const safeName = String(req.file.originalname || "image").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(-60);
-    const result = await uploadToS3(req.file, `images/announcements/${Date.now()}_${safeName}`);
+    // A lower-case extension from the file's type: the bucket shows announcement pictures by it.
+    const safeName = String(req.file.originalname || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-60);
+    const ext = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif" }[req.file.mimetype];
+    const result = await uploadToS3(req.file, `images/announcements/${Date.now()}_${safeName}${ext}`);
     const imageUrl = typeof result === "string" ? result : result?.Location;
     if (!imageUrl) return res.status(500).json({ error: "Unable to upload image." });
     return res.json({ image_url: imageUrl });
@@ -455,7 +457,13 @@ async function announcementAudience({ targets, tenantId, admin }) {
     ? await audienceMembers(db, { roles, allOrganizations: !orgScope, organizationIds: orgScope || [] })
     : [];
   if (userIds.length) {
-    const rows = (await db.query(`SELECT user_id, organization_id FROM users WHERE user_id = ANY($1::int[]) AND organization_id IS NOT NULL`, [userIds])).rows;
+    // A school's announcement reaches only its own staff (ids are numbered across all schools).
+    const rows = (await db.query(
+      `SELECT user_id, organization_id FROM users
+        WHERE user_id = ANY($1::int[]) AND organization_id IS NOT NULL
+          AND ($2::int[] IS NULL OR organization_id = ANY($2::int[]))`,
+      [userIds, tenantId ? [Number(tenantId)] : null]
+    )).rows;
     rows.forEach((r) => {
       if (!members.some((m) => m.type === "staff" && m.id === r.user_id && m.orgId === r.organization_id)) {
         members.push({ type: "staff", id: r.user_id, orgId: r.organization_id });

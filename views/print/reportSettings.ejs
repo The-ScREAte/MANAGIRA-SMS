@@ -1982,6 +1982,11 @@
       justify-content: center;
     }
 
+    /* Report Settings › Advanced: the Custom editor sections a class prints (feature report_remarks_forms) */
+    .ds-adv-cfgroup { display: flex; flex-direction: column; gap: 2px; }
+    .ds-adv-cfgroup .ds-adv-sub-lbl small { margin-left: 4px; color: var(--muted); font-size: 11px; font-weight: 500; white-space: nowrap; }
+    .ds-adv-cflist { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 4px 24px; }
+
     .gr-remark-head {
       display: flex;
       align-items: center;
@@ -2282,11 +2287,117 @@
       main .btn { box-shadow: none; }
       /* Breathing room at the screen edges on phones and tablets. */
       @media (max-width: 900px) { main { padding-left: 14px !important; padding-right: 14px !important; box-sizing: border-box; } }
+    /* ── Cleaner Report Settings ─────────────────────────────────────────────
+       Every card takes the full width, one under the other. */
+    .rs-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 16px; }
+    .rs-stack > .card { margin: 0; }
+
+    /* "What prints on report cards" (was "Advanced"): titled groups, plain rows. */
+    .rs-adv { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; }
+    .rs-adv-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: #f8fafc; border: 0; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+    .rs-adv-toggle:hover { background: #f1f5f9; }
+    .rs-adv-toggle__title { display: block; font-weight: 700; font-size: 0.92rem; color: #0f172a; }
+    .rs-adv-toggle__sub { display: block; margin-top: 2px; font-size: 0.78rem; font-weight: 400; color: var(--muted); }
+    .rs-adv-toggle__arrow { flex: none; font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+    .rs-adv__panel { padding: 16px; border-top: 1px solid var(--border); background: #fff; }
+    .rs-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+    .rs-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .rs-group { border: 1px solid var(--border); border-radius: 10px; background: #fff; min-width: 0; }
+    .rs-group__head { padding: 10px 14px 9px; border-bottom: 1px solid var(--border); }
+    .rs-group__title { margin: 0; font-size: 0.86rem; font-weight: 700; color: #0f172a; }
+    .rs-group__sub { margin: 2px 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.4; }
+    .rs-group__body { padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+    #advancedDsPanel .rs-opt { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 7px 8px; border: 0 !important; border-radius: 8px; background: transparent !important; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+    #advancedDsPanel .rs-opt:hover { background: #f8fafc !important; }
+    #advancedDsPanel .rs-opt input[type="checkbox"] { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--primary); }
+    .rs-opt__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .rs-opt__text b { font-weight: 600; color: #0f172a; }
+    .rs-opt__text small { font-size: 0.76rem; font-weight: 400; color: var(--muted); line-height: 1.35; }
+    #advancedDsPanel .rs-opt--split { align-items: center; justify-content: space-between; flex-wrap: wrap; cursor: default; }
+    .rs-opt__main { display: flex; align-items: flex-start; gap: 10px; flex: 1 1 220px; min-width: 0; margin: 0; cursor: pointer; }
+    .rs-opt__aside { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 0 26px; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+    .rs-opt__aside input { width: 84px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; }
+    .rs-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px; margin-top: 4px; padding-top: 6px; border-top: 1px dashed var(--border); }
+    #advancedDsPanel .rs-cols .ds-adv-flat-lbl { border: 0; background: transparent; padding: 6px 8px; border-radius: 8px; }
+    #advancedDsPanel .rs-cols .ds-adv-flat-lbl:hover { background: #f8fafc; }
+    .rs-sub { display: grid; gap: 10px; margin: 2px 8px 6px 34px; }
+    .rs-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--muted); }
+    .rs-field input { max-width: 180px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+    .rs-details > summary { cursor: pointer; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 0.82rem; max-width: 320px; }
+    .rs-details__body { max-height: 200px; overflow: auto; margin-top: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+    #advancedDsPanel .paygira-adv-box { margin: 2px 6px 6px 34px; }
+    .rs-adv-foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .rs-adv-foot .btn { padding: 8px 22px; font-size: 0.86rem; }
+    .rs-group--gpa { margin-top: 16px; padding: 12px 14px; }
+    /* The old boxed rows, flattened to match. */
+    #advancedDsPanel .rs-group .ds-adv-masterrow { border: 0 !important; background: transparent !important; padding: 7px 8px; border-radius: 8px; }
+    #advancedDsPanel .rs-group .ds-adv-masterrow:hover { background: #f8fafc !important; }
+    #advancedDsPanel .rs-group .ds-adv-group { margin: 0; }
+    #advancedDsPanel .rs-group .ds-adv-sub { border: 0 !important; background: transparent !important; margin: 0 0 4px 26px; padding: 0 0 4px; }
+    #advancedDsPanel .rs-cols .ds-adv-flat-lbl { border: 0 !important; background: transparent !important; padding: 6px 8px; border-radius: 8px; font-weight: 500; }
+    #advancedDsPanel .rs-cols .ds-adv-flat-lbl:hover { background: #f8fafc !important; }
+    #advancedDsPanel .ds-adv-cflist { margin: 0 0 4px 26px; display: flex; flex-direction: column; gap: 0; }
+    #advancedDsPanel .ds-adv-cflist .ds-adv-sub-lbl { border: 0 !important; background: transparent !important; padding: 5px 8px; border-radius: 8px; }
+    #advancedDsPanel .ds-adv-cflist .ds-adv-sub-lbl:hover { background: #f8fafc !important; }
+    .rs-group--gpa > * { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
+    /* GPA weights: one row per subject (name, level, and credits where the school has them). */
+    .rs-gpa-list { display: flex; flex-direction: column; gap: 2px; max-width: 620px; }
+    .rs-gpa-row { display: grid; grid-template-columns: minmax(0, 1fr) 128px; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 8px; font-size: 0.86rem; }
+    .rs-gpa-list--credits .rs-gpa-row { grid-template-columns: minmax(0, 1fr) 128px 84px; }
+    .rs-gpa-row:not(.rs-gpa-row--head):hover { background: #f8fafc; }
+    .rs-gpa-row--head { padding-bottom: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .rs-gpa-row__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rs-gpa-row select, .rs-gpa-row input { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 0.84rem; background: #fff; }
+    .rs-gpa-row input { text-align: right; font-variant-numeric: tabular-nums; }
+    /* Signature Management: report cards and transcripts side by side. */
+    .rs-card-sub { margin: -4px 0 14px; font-size: 0.84rem; color: var(--muted); line-height: 1.45; }
+    .rs-sig-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 18px; align-items: start; }
+    .rs-sig-col { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #fcfcfd; }
+    .rs-sig-col__title { margin: 0 0 12px; font-size: 1rem; color: var(--primary); }
+    .rs-sig-col__label { margin: 0 0 8px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    /* Promotion & grading: a clean class list, then Promotion, Grades and What prints, each titled. */
+    #classList.class-list { flex-direction: column; flex-wrap: nowrap; gap: 2px; padding: 8px; box-shadow: none; }
+    .rs-classlist-head { padding: 4px 8px 8px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    #classList .class-button { width: 100%; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-color: transparent; border-radius: 8px; padding: 9px 10px; font-weight: 600; }
+    #classList .class-button:hover { background: #f8fafc; }
+    #classList .class-button.active, #classList .class-button[aria-current="true"] { border-color: var(--primary); background: rgba(15,90,102,0.07); }
+    .rs-cls-status { flex: none; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 11px; font-weight: 600; }
+    .rs-cls-status.is-set { background: rgba(22,101,52,0.1); color: #166534; }
+    .rs-psec { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .rs-psec__title { margin: 0; font-size: 1rem; font-weight: 700; color: #0f172a; }
+    .rs-psec__sub { margin: 2px 0 12px; font-size: 0.82rem; color: var(--muted); }
+    .rs-grade-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: visible; }
+    .rs-grade-row { display: grid; grid-template-columns: 64px 140px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--border); background: #fff; }
+    .rs-grade-row:first-child { border-top: 0; border-radius: 10px 10px 0 0; }
+    .rs-grade-row:last-child { border-radius: 0 0 10px 10px; }
+    .rs-grade-row__grade { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 30px; padding: 0 8px; border-radius: 8px; background: rgba(15,90,102,0.08); color: var(--primary); font-weight: 800; }
+    .rs-grade-row__range { font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; font-size: 0.88rem; }
+    .rs-grade-row__remark { color: #475569; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #advancedDsAccordion.rs-adv { margin-top: 18px; }
+    @media (max-width: 560px) { .rs-grade-row { grid-template-columns: 52px minmax(0, 1fr) auto; } .rs-grade-row__remark { grid-column: 2; grid-row: 2; white-space: normal; } }
+    /* Transcript Design: four choices, each with a small sketch, a preview and one Save. */
+    .rs-td-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .rs-td-option { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1.5px solid var(--border); border-radius: 12px; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .rs-td-option:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+    .rs-td-option:has(input:checked) { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent); }
+    .rs-td-option input { position: absolute; top: 18px; right: 18px; z-index: 2; width: 18px; height: 18px; accent-color: var(--primary); }
+    .rs-td-name { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.95rem; color: #0f172a; }
+    .rs-td-current { padding: 1px 8px; border-radius: 999px; background: rgba(22,101,52,0.1); color: #166534; font-style: normal; font-size: 11px; font-weight: 700; }
+    .rs-td-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.4; flex: 1; }
+    .rs-td-preview { align-self: flex-start; font-size: 0.82rem; font-weight: 700; color: var(--primary); text-decoration: none; }
+    .rs-td-preview:hover { text-decoration: underline; }
+    .rs-td-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+    .rs-td-note { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+    .rs-td-note.is-ok { color: #166534; } .rs-td-note.is-error { color: #b42318; }
+    /* The sketches: a small page in each design's shape. */
+    /* Transcript design sketches: views/partials/transcriptDesignThumbs.ejs */
+    @media (max-width: 860px) { .rs-groups { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) { .rs-cols { grid-template-columns: 1fr; } .rs-sub { margin-left: 8px; } #advancedDsPanel .paygira-adv-box { margin-left: 6px; } }
     </style>
     <header class="gp-head gp-scope">
       <div>
         <h1 class="gp-title">Report Settings</h1>
-        <p class="gp-sub">Promotion, grades, remarks, signatures and report card layouts.</p>
+        <p class="gp-sub">Promotion, grades, what prints on report cards, layouts and signatures.</p>
       </div>
     </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
@@ -2305,10 +2416,11 @@
       <div class="section-title">Promotion &amp; grading by class</div>
       <div class="class-layout">
         <div class="class-list" id="classList">
+          <div class="rs-classlist-head">Classes</div>
           <% enrolledClasses.forEach((cls, idx) => { const hasSetting = groupedStatusSettings.some(s => s.classes && s.classes.includes(cls.class_id)); %>
             <button type="button" class="class-button" data-class-id="<%= cls.class_id %>" <%= idx===0 ? 'aria-current="true"' : '' %>>
               <span><%= cls.class_name %></span>
-              <span style="font-size:12px;color:<%= hasSetting ? 'var(--text)' : '#94a3b8' %>;"><%= hasSetting ? 'Set' : 'Not set' %></span>
+              <span class="rs-cls-status<%= hasSetting ? ' is-set' : '' %>" title="<%= hasSetting ? 'Promotion is set for this class' : 'Promotion isn\'t set for this class yet' %>"><%= hasSetting ? 'Set' : 'Not set' %></span>
             </button>
           <% }); %>
         </div>
@@ -2462,34 +2574,23 @@
             <div class="status-overview-card">
               <div class="status-overview-toolbar">
                 <div>
-                  <div class="status-overview-title">Current Settings</div>
-                  <div class="status-overview-note">Review this class summary or open row editor.</div>
+                  <div class="status-overview-title">Promotion</div>
+                  <div class="status-overview-note">Where this class's students go next, the pass mark and when school reopens.</div>
                 </div>
                 <div class="status-overview-actions rs-action-links">
-                  <a href="javascript:void(0)" id="bulkStatusSettingsBtn" class="rs-action-link">Edit Status Rows</a>
+                  <a href="javascript:void(0)" id="bulkStatusSettingsBtn" class="rs-action-link">Edit</a>
                 </div>
               </div>
               <div id="currentSettingsDisplay" class="status-overview-grid"></div>
             </div>
           </div>
 
-          <!-- ── Advanced Display Settings Accordion ── -->
-          <div id="advancedDsAccordion" style="margin-top:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-            <button type="button" id="advancedDsToggleBtn" onclick="toggleAdvancedDsPanel()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--muted);letter-spacing:0.01em;">
-              <span style="display:flex;align-items:center;gap:7px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 1 4.93 19.07"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83"/></svg>
-                Advanced
-              </span>
-              <span id="advancedDsArrow" style="font-size:10px;transition:transform 0.2s;">▼</span>
-            </button>
-            <div id="advancedDsPanel" style="display:none;padding:14px 16px;background:#fff;border-top:1px solid var(--border);">
-              <!-- Populated by renderAdvancedDs(classId) -->
-            </div>
-          </div>
-          <!-- ── /Advanced Display Settings Accordion ── -->
 
-          <div style="margin-top:20px;padding-top:20px;border-top:2px solid var(--border);">
-            <div class="section-title" style="margin:0 0 10px 0;">Grades for <span id="selectedClassName"></span></div>
+          <div class="rs-psec">
+            <div class="rs-psec__head">
+              <h3 class="rs-psec__title">Grades</h3>
+              <p class="rs-psec__sub">The grade and remark for each score range in <span id="selectedClassName"></span>.</p>
+            </div>
 
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;">
@@ -2656,11 +2757,25 @@
 
             </div>
           </div>
+          <!-- ── Advanced Display Settings Accordion ── -->
+          <div id="advancedDsAccordion" class="rs-adv">
+            <button type="button" id="advancedDsToggleBtn" class="rs-adv-toggle" onclick="toggleAdvancedDsPanel()" aria-controls="advancedDsPanel">
+              <span class="rs-adv-toggle__text">
+                <span class="rs-adv-toggle__title">What prints on report cards</span>
+                <span class="rs-adv-toggle__sub">Scores, promotion, attendance &amp; lunch, remarks, fees and GPA for this class</span>
+              </span>
+              <span id="advancedDsArrow" class="rs-adv-toggle__arrow" aria-hidden="true">▼</span>
+            </button>
+            <div id="advancedDsPanel" class="rs-adv__panel" style="display:none;">
+              <!-- Populated by renderAdvancedDs(classId) -->
+            </div>
+          </div>
+          <!-- ── /Advanced Display Settings Accordion ── -->
         </div>
       </div>
     </div>
 
-    <div class="grid">
+    <div class="rs-stack">
       <div class="card" id="reportLayoutCard">
         <h2>Report Card Layout</h2>
         <div class="notice">Choose how each class's report card looks. Make your own in <a href="/documents" target="_blank" rel="noopener">Docs &amp; Sheets</a>.</div>
@@ -2718,7 +2833,10 @@
         })();
       </script>
 
-      <div class="card">
+      <%# Remarks are set up and collected in the Custom editor where feature report_remarks_forms is on
+          (customFormSections is then a list): this card isn't shown. It stays in the page unseen, so the
+          page's scripts that reach into it keep working. %>
+      <div class="card" id="globalRemarksCard"<%= Array.isArray(locals.customFormSections) ? ' hidden' : '' %>>
         <h2>Global Remarks</h2>
         <div class="notice">Ready-made remarks teachers can pick on report cards.</div>
         <div class="gr-toolbar">
@@ -2855,10 +2973,13 @@
 
       <div class="card">
         <h2>Signature Management</h2>
-        <div class="notice">One signature per class, across all terms and school years. Changes apply to future reports; saved report files remain unchanged.</div>
-        
+        <p class="rs-card-sub">One signature per class, for every term and school year. Changes apply to reports made from now on; reports already saved don't change.</p>
+        <div class="rs-sig-cols">
+        <section class="rs-sig-col" aria-label="Report card signatures">
+        <h3 class="rs-sig-col__title">Report cards</h3>
+
         <% if (signatureGroups && Object.keys(signatureGroups).length) { %>
-          <div class="section-title" style="margin-top:0;margin-bottom:12px;">In use across all terms</div>
+          <div class="rs-sig-col__label">In use</div>
           <div style="display:grid;gap:12px;margin-bottom:20px;">
             <% Object.keys(signatureGroups).forEach(signaturePath => { const sig = signatureGroups[signaturePath]; %>
               <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
@@ -2942,14 +3063,13 @@
           </div>
         </div>
 
+        </section>
         <% if (hasTranscriptFeature) { %>
-        <!-- Transcript Signatures Section -->
-        <div style="border-top:3px solid var(--primary);padding-top:20px;margin-top:24px;">
-          <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary);">Transcript signatures</h3>
-          <div class="notice" style="margin-bottom:16px;">Signatures printed on transcripts.</div>
+        <section class="rs-sig-col" aria-label="Transcript signatures">
+          <h3 class="rs-sig-col__title">Transcripts</h3>
           
           <% if (transcriptSignatureGroups && Object.keys(transcriptSignatureGroups).length) { %>
-            <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current</div>
+            <div class="rs-sig-col__label">In use</div>
             <div style="display:grid;gap:12px;margin-bottom:20px;">
               <% Object.keys(transcriptSignatureGroups).forEach(signaturePath => { const sig = transcriptSignatureGroups[signaturePath]; %>
                 <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
@@ -3032,9 +3152,55 @@
               </div>
             </div>
           </div>
-        </div>
+        </section>
         <% } %>
+        </div>
       </div>
+
+      <% if (hasTranscriptFeature && Array.isArray(locals.transcriptDesigns) && locals.featureOn && featureOn('transcript_designs')) { %>
+      <%- include('../partials/transcriptDesignThumbs') %>
+      <div class="card" id="transcriptDesignCard">
+        <h2>Transcript Design</h2>
+        <p class="rs-card-sub">How transcripts look when they're printed or emailed. Preview each design with a sample student, then save the one your school uses.</p>
+        <div class="rs-td-grid" role="radiogroup" aria-label="Transcript design">
+          <% transcriptDesigns.forEach((d) => { %>
+            <label class="rs-td-option">
+              <input type="radio" name="transcriptDesign" value="<%= d.key %>"<%= d.key === transcriptDesign ? ' checked' : '' %>>
+              <span class="rs-td-thumb rs-td-thumb--<%= d.key %>" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="rs-td-name"><%= d.name %><em class="rs-td-current"<%= d.key === transcriptDesign ? '' : ' hidden' %>>In use</em></span>
+              <span class="rs-td-desc"><%= d.description %></span>
+              <a class="rs-td-preview" href="/print/transcriptDesignPreview?design=<%= d.key %>" target="_blank" rel="noopener" data-no-spa>Preview</a>
+            </label>
+          <% }) %>
+        </div>
+        <div class="rs-td-actions">
+          <button type="button" class="btn" id="transcriptDesignSave">Save design</button>
+          <span id="transcriptDesignNote" class="rs-td-note" role="status"></span>
+        </div>
+      </div>
+      <script>
+        (function () {
+          var card = document.getElementById('transcriptDesignCard');
+          if (!card) return;
+          var button = document.getElementById('transcriptDesignSave');
+          var note = document.getElementById('transcriptDesignNote');
+          button.addEventListener('click', function () {
+            var picked = card.querySelector('input[name="transcriptDesign"]:checked');
+            if (!picked) return;
+            button.disabled = true; note.textContent = 'Saving…'; note.className = 'rs-td-note';
+            fetch('/print/transcriptDesign', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ design: picked.value }) })
+              .then(function (r) { return r.json().catch(function () { return { success: false, message: 'The design wasn\'t saved. Please try again.' }; }); })
+              .then(function (d) {
+                if (!d.success) throw new Error(d.message || 'The design wasn\'t saved.');
+                card.querySelectorAll('.rs-td-current').forEach(function (em) { em.hidden = em.closest('.rs-td-option').querySelector('input').value !== d.design; });
+                note.textContent = '✓ Saved. New transcripts use this design.'; note.className = 'rs-td-note is-ok';
+              })
+              .catch(function (e) { note.textContent = e.message; note.className = 'rs-td-note is-error'; })
+              .finally(function () { button.disabled = false; });
+          });
+        })();
+      </script>
+      <% } %>
     </div>
 
     <% } %>
@@ -3500,20 +3666,24 @@
       if (!gpaWeights) return '';
       const subjects = getAvailableClassSubjects(classId);
       const opt = (value, label, current) => `<option value="${value}" ${current === value ? 'selected' : ''}>${label}</option>`;
+      // Course credits (feature gpa_credits; null where it's off): each subject counts by its credits.
+      const creditsOn = gpaWeights.credits !== null && gpaWeights.credits !== undefined;
       const rows = subjects.map((subject) => {
         const current = (gpaWeights.levels || {})[subject.subject_id] || '';
-        return `<label class="ds-adv-flat-lbl" style="justify-content:space-between;"><span>${dsEsc(subject.subject_name)}</span>
-          <select class="ds-gpa-level" data-subject-id="${subject.subject_id}" aria-label="Level of ${dsEsc(subject.subject_name)}">${opt('', 'Regular', current)}${opt('honors', 'Honors', current)}${opt('ap', 'AP / IB', current)}</select></label>`;
+        const credits = creditsOn && gpaWeights.credits[subject.subject_id] !== undefined ? Number(gpaWeights.credits[subject.subject_id]) : '';
+        return `<div class="rs-gpa-row"><span class="rs-gpa-row__name">${dsEsc(subject.subject_name)}</span>
+          <select class="ds-gpa-level" data-subject-id="${subject.subject_id}" aria-label="Level of ${dsEsc(subject.subject_name)}">${opt('', 'Regular', current)}${opt('honors', 'Honors', current)}${opt('ap', 'AP / IB', current)}</select>
+          ${creditsOn ? `<input type="number" class="ds-gpa-credits" data-subject-id="${subject.subject_id}" min="0" max="20" step="0.25" placeholder="1" value="${credits}" aria-label="Credits of ${dsEsc(subject.subject_name)}" title="Credits (empty: 1)">` : ''}</div>`;
       }).join('');
       return `<div id="dsGpaWeights" style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;">
         <p class="ds-adv-section-label">GPA weights</p>
-        <p style="margin:0 0 8px;color:var(--muted);font-size:12.5px;">A passing grade in an Honors or AP / IB subject adds these points to the weighted GPA, shown beside the unweighted one on report cards and transcripts. The weights are the school's; the levels below are this class's subjects.</p>
+        <p style="margin:0 0 8px;color:var(--muted);font-size:12.5px;">A passing grade in an Honors or AP / IB subject adds these points to the weighted GPA, shown beside the unweighted one on report cards and transcripts. The weights are the school's; the levels below are this class's subjects.${creditsOn ? ' Each subject counts toward GPA by its credits (empty counts as 1): GPA is grade points × credits, divided by credits.' : ''}</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
           <label class="ds-adv-flat-lbl">Honors adds <input type="number" id="dsGpaHonors" min="0" max="2" step="0.05" value="${Number(gpaWeights.honors)}" style="width:72px;" ${gpaWeights.canSetBonuses ? '' : 'disabled'}></label>
           <label class="ds-adv-flat-lbl">AP / IB adds <input type="number" id="dsGpaAp" min="0" max="2" step="0.05" value="${Number(gpaWeights.ap)}" style="width:72px;" ${gpaWeights.canSetBonuses ? '' : 'disabled'}></label>
           ${gpaWeights.canSetBonuses ? '' : '<span style="align-self:center;color:var(--muted);font-size:12px;">Set by the school\'s managers.</span>'}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px;">${rows || '<span style="color:var(--muted);font-size:12.5px;">No subjects in this class yet.</span>'}</div>
+        <div class="rs-gpa-list${creditsOn ? ' rs-gpa-list--credits' : ''}">${rows ? `<div class="rs-gpa-row rs-gpa-row--head"><span>Subject</span><span>Level</span>${creditsOn ? '<span>Credits</span>' : ''}</div>${rows}` : '<span style="color:var(--muted);font-size:12.5px;">No subjects in this class yet.</span>'}</div>
         <div style="margin-top:8px;display:flex;align-items:center;gap:10px;"><button type="button" id="dsGpaSave" class="btn" style="padding:7px 18px;font-size:0.85rem;">Save GPA weights</button><span id="dsGpaMsg" style="font-size:12px;font-weight:600;display:none;"></span></div>
       </div>`;
     }
@@ -4734,14 +4904,12 @@
         gradeListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No grade/remark rule saved for this class.</p>';
       } else {
         gradeListEl.innerHTML =
-          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
+          '<div class="rs-grade-list">'
           + mergedRuleRows.map(row => `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;color:var(--primary);margin-bottom:2px;">Grade: ${escAttr(String(row.grade_label || '').trim() || '-')}</div>
-              <div style="font-size:0.84rem;color:#334155;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Remark: ${escAttr((String(row.remark || '').trim() && String(row.remark || '').trim() !== 'No Remark') ? row.remark : '-')}</div>
-              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
-            </div>
+          <div class="rs-grade-row">
+            <span class="rs-grade-row__grade">${escAttr(String(row.grade_label || '').trim() || '–')}</span>
+            <span class="rs-grade-row__range">${row.from_percentage}% – ${row.to_percentage}%</span>
+            <span class="rs-grade-row__remark">${escAttr((String(row.remark || '').trim() && String(row.remark || '').trim() !== 'No Remark') ? row.remark : '—')}</span>
             ${(isRuleLocked('grade', classId, row.from_percentage, row.to_percentage)
               || isRuleLocked('remark', classId, row.from_percentage, row.to_percentage))
               ? getRuleLockBadgeHtml()
@@ -6548,7 +6716,7 @@
         signatureClassCheckboxes.innerHTML = sortClassesByArrangement(availableClasses).map(cls => `
           <div style="display:flex;align-items:center;gap:8px;">
             <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-${cls.class_id}" />
-            <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
+            <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${escapeHtmlText(cls.class_name)}</label>
           </div>
         `).join('');
       }
@@ -6561,14 +6729,14 @@
             sortClassesByArrangement(assignedClasses).map(cls => `
               <div style="display:flex;align-items:center;gap:8px;">
                 <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-assigned-${cls.class_id}" />
-                <label for="sig-class-assigned-${cls.class_id}" style="cursor:pointer;margin:0;color:var(--muted);">${cls.class_name}</label>
+                <label for="sig-class-assigned-${cls.class_id}" style="cursor:pointer;margin:0;color:var(--muted);">${escapeHtmlText(cls.class_name)}</label>
               </div>
             `).join('') + '</div>';
         } else if(availableClasses.length === 0){
           signatureClassCheckboxes.innerHTML += sortClassesByArrangement(assignedClasses).map(cls => `
             <div style="display:flex;align-items:center;gap:8px;">
               <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-${cls.class_id}" />
-              <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
+              <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${escapeHtmlText(cls.class_name)}</label>
             </div>
           `).join('');
         }
@@ -6604,7 +6772,7 @@
         }
         
         const classOptions = sortClassesByArrangement(availableClasses)
-          .map(cls => `<label style="display:block;padding:6px;"><input type="checkbox" value="${cls.class_id}" style="margin-right:8px;">${cls.class_name}</label>`)
+          .map(cls => `<label style="display:block;padding:6px;"><input type="checkbox" value="${cls.class_id}" style="margin-right:8px;">${escapeHtmlText(cls.class_name)}</label>`)
           .join('');
         
         const modal = document.createElement('div');
@@ -6706,7 +6874,7 @@
         transcriptSigCheckboxes.innerHTML = sortClassesByArrangement(availableClasses).map(cls => `
           <div style=\"display:flex;align-items:center;gap:8px;\">
             <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-class-${cls.class_id}\" />
-            <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${cls.class_name}</label>
+            <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${escapeHtmlText(cls.class_name)}</label>
           </div>
         `).join('');
       }
@@ -6718,14 +6886,14 @@
             sortClassesByArrangement(assignedClasses).map(cls => `
               <div style=\"display:flex;align-items:center;gap:8px;\">
                 <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-assigned-${cls.class_id}\" />
-                <label for=\"trans-sig-assigned-${cls.class_id}\" style=\"cursor:pointer;margin:0;color:var(--muted);\">${cls.class_name}</label>
+                <label for=\"trans-sig-assigned-${cls.class_id}\" style=\"cursor:pointer;margin:0;color:var(--muted);\">${escapeHtmlText(cls.class_name)}</label>
               </div>
             `).join('') + '</div>';
         } else if(availableClasses.length === 0){
           transcriptSigCheckboxes.innerHTML += sortClassesByArrangement(assignedClasses).map(cls => `
             <div style=\"display:flex;align-items:center;gap:8px;\">
               <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-class-${cls.class_id}\" />
-              <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${cls.class_name}</label>
+              <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${escapeHtmlText(cls.class_name)}</label>
             </div>
           `).join('');
         }
@@ -6760,7 +6928,7 @@
         }
         
         const classOptions = sortClassesByArrangement(availableClasses)
-          .map(cls => `<label style=\"display:block;padding:6px;\"><input type=\"checkbox\" value=\"${cls.class_id}\" style=\"margin-right:8px;\">${cls.class_name}</label>`)
+          .map(cls => `<label style=\"display:block;padding:6px;\"><input type=\"checkbox\" value=\"${cls.class_id}\" style=\"margin-right:8px;\">${escapeHtmlText(cls.class_name)}</label>`)
           .join('');
         
         const modal = document.createElement('div');
@@ -7027,6 +7195,7 @@
       const isOpen = panel.style.display !== 'none';
       panel.style.display = isOpen ? 'none' : 'block';
       if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+      document.getElementById('advancedDsToggleBtn')?.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
     }
     window.toggleAdvancedDsPanel = toggleAdvancedDsPanel;
 
@@ -7164,30 +7333,22 @@
       const otherItems = [...(catMap['Other'] || []), ...(catMap['Other Assessment'] || [])];
       const uniformScaling = normalizeUniformSubjectScalingState(ds.sections.uniformSubjectScaling);
       const uniformScalingHtml = `
-        <section style="margin:0 0 12px;padding:12px;border:1px solid #dbe5ed;border-radius:9px;background:#f8fafc;">
-          <label style="display:flex;align-items:center;gap:8px;font-weight:700;color:#173042;">
-            <input type="checkbox" id="ds-uniform-scaling-enabled" style="accent-color:var(--primary);" ${uniformScaling.enabled ? 'checked' : ''}>
-            Enable Uniform Subject Scaling
+          <label class="ds-adv-flat-lbl rs-opt">
+            <input type="checkbox" id="ds-uniform-scaling-enabled" ${uniformScaling.enabled ? 'checked' : ''}>
+            <span class="rs-opt__text"><b>Scale every subject to the same maximum</b><small>Each chosen class's subjects print out of the same score, based on their assessment weights.</small></span>
           </label>
-          <div style="display:grid;grid-template-columns:minmax(180px,260px) minmax(200px,1fr);gap:10px 16px;align-items:end;margin:10px 0 0 26px;">
-            <label style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--muted);">
-              Base Max Score per Subject
-              <input type="number" id="ds-uniform-scaling-base" min="0.01" step="any" value="${uniformScaling.baseMaxScore}" style="max-width:180px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;" ${uniformScaling.enabled ? '' : 'disabled'}>
+          <div class="rs-sub">
+            <label class="rs-field">
+              <span>Maximum score per subject</span>
+              <input type="number" id="ds-uniform-scaling-base" min="0.01" step="any" value="${uniformScaling.baseMaxScore}" ${uniformScaling.enabled ? '' : 'disabled'}>
             </label>
-            <div style="font-size:0.75rem;color:var(--muted);">Selected subjects will each use this maximum, based on their assessment weights.</div>
-            <div style="grid-column:1/-1;">
-              <label for="ds-uniform-scaling-classes" style="display:block;margin-bottom:4px;font-size:0.78rem;font-weight:600;color:#334155;">Apply to Classes</label>
-              <details id="ds-uniform-scaling-classes" style="max-width:420px;">
-                <summary style="cursor:pointer;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.82rem;">
-                  Choose classes to apply this setting to
-                </summary>
-                <div class="paygira-apply-classes-grid" style="max-height:190px;overflow:auto;margin-top:4px;padding:8px;border:1px solid var(--border);border-radius:6px;background:#fff;">
-                  ${buildUniformScalingApplyClassesHtml(classId, uniformScaling.applyToClasses)}
-                </div>
-              </details>
-            </div>
-          </div>
-        </section>`;
+            <details id="ds-uniform-scaling-classes" class="rs-details">
+              <summary>Classes it applies to</summary>
+              <div class="paygira-apply-classes-grid rs-details__body">
+                ${buildUniformScalingApplyClassesHtml(classId, uniformScaling.applyToClasses)}
+              </div>
+            </details>
+          </div>`;
 
       const flatCols = [['totalScore','Total Score'],['scaledScore','Scaled Score'],['totalPercentage','Overall %'],['grade','Grade'],['position','Position'],['remarksCol','Remarks Col']];
       const flatColsHtml = flatCols.map(([key,lbl]) => `
@@ -7199,6 +7360,27 @@
       const secRows = [['teacherRemarks','💬','Teacher Remarks'],['conductRemarks','📋','Conduct Remarks'],['attitudeRemarks','🌟','Attitude Remarks'],['interestRemarks','🎯','Interest Remarks'],['gradeKey','🔑','Grade Key'],['attendance','📅','Attendance'],['promotion','🎓','Promotion'],['choiceResults','✅','Choice results (Yes / No …)'],['customSections','📝','Custom editor sections']];
       // GPA (feature gpa): the term's GPA on the 4.0 scale, from the subjects' grade letters; transcripts show it too.
       if (<%- JSON.stringify(Boolean(locals.featureOn && featureOn('gpa'))) %>) secRows.push(['gpa','📊','GPA (4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0)']);
+      // Overall lunch (feature class_lunch): the term's days with lunch, printed beside attendance. Off by default.
+      if (<%- JSON.stringify(Boolean(locals.featureOn && featureOn('class_lunch'))) %>) secRows.splice(secRows.findIndex((row) => row[0] === 'attendance') + 1, 0, ['lunch','🍽️','Overall lunch']);
+      // Custom editor sections (feature report_remarks_forms; null where it's off): a tick for each
+      // section on report cards for this class, with Select all. One left unticked doesn't print,
+      // its remarks included (they fall back to the ones saved on the report card).
+      const customFormReportSections = <%- JSON.stringify(Array.isArray(locals.customFormSections) ? customFormSections : null) %>;
+      const cfSections = (customFormReportSections || []).filter((s) => !s.classIds.length || s.classIds.includes(Number(classId)));
+      let cfSectionsHtml = '';
+      if (cfSections.length) {
+        secRows.splice(secRows.findIndex((row) => row[0] === 'customSections'), 1);
+        const cfShown = (ds.sections && ds.sections.customSectionsVisibility) || {};
+        const cfAllOn = ds.sections.customSections !== false;
+        const cfOn = (s) => cfAllOn && cfShown[String(s.id)] !== false;
+        cfSectionsHtml = `<div class="ds-adv-cfgroup">
+          <label class="ds-adv-flat-lbl rs-opt"><input type="checkbox" class="ds-adv-cf-all" ${cfSections.every(cfOn) ? 'checked' : ''}> <span class="rs-opt__text"><b>Custom editor forms</b><small>Select all, or only the forms that should print.</small></span></label>
+          <div class="ds-adv-cflist">${cfSections.map((s) => {
+            const note = s.remarks.length ? (s.ownRows ? 'with its remarks' : 'prints as remarks') : '';
+            return `<label class="ds-adv-sub-lbl"${s.remarks.length ? ` title="${dsEsc('Remarks: ' + s.remarks.join(', '))}"` : ''}><input type="checkbox" class="ds-adv-cf-sec" data-section-id="${Number(s.id)}" style="accent-color:var(--primary);" ${cfOn(s) ? 'checked' : ''}> ${dsEsc(s.name)}${note ? `<small>${note}</small>` : ''}</label>`;
+          }).join('')}</div>
+        </div>`;
+      }
       const customRows = customRemarkTypesState.map((customType) => {
         const typeKey = String(customType.type_key || '').trim();
         const label = String(customType.label || '').trim();
@@ -7206,31 +7388,51 @@
         const customVisibilityMap = (ds.sections && ds.sections.customRemarksVisibility) || {};
         const checked = customVisibilityMap[typeKey] !== false;
         return `
-        <label class="ds-adv-flat-lbl">
-          <input type="checkbox" class="ds-adv-sec-custom" data-type-key="${dsEsc(typeKey)}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''}>
-          <span style="font-size:13px;line-height:1;">🧩</span> ${dsEsc(label)}
+        <label class="ds-adv-flat-lbl rs-opt">
+          <input type="checkbox" class="ds-adv-sec-custom" data-type-key="${dsEsc(typeKey)}" ${checked ? 'checked' : ''}>
+          <span class="rs-opt__text"><b>${dsEsc(label)}</b><small>The school's own remark.</small></span>
         </label>`;
       }).filter(Boolean).join('');
 
-      const secHtml = secRows.map(([key,icon,lbl]) => `
-        <label class="ds-adv-flat-lbl">
-          <input type="checkbox" class="ds-adv-sec" data-key="${key}" style="accent-color:var(--primary);" ${ds.sections[key] ? 'checked' : ''}>
-          <span style="font-size:13px;line-height:1;">${icon}</span> ${lbl}
-        </label>`).join('');
+      // Each report section is one plain row: its name and what it adds (no icons).
+      const SECTION_WORDS = {
+        teacherRemarks: ["Teacher's remarks", "The class teacher's remark."],
+        conductRemarks: ['Conduct remarks', 'How the student behaves.'],
+        attitudeRemarks: ['Attitude remarks', "The student's attitude to learning."],
+        interestRemarks: ['Interest remarks', "The student's interests."],
+        gradeKey: ['Grade key', 'What each grade letter means.'],
+        attendance: ['Attendance', 'Days present out of school days.'],
+        lunch: ['Overall lunch', 'Days with lunch out of the days it was taken.'],
+        promotion: ['Promotion', 'Promoted, repeated, or the class they move to.'],
+        choiceResults: ['Choice results', 'Answers like Yes / No from assessments.'],
+        customSections: ['Custom editor forms', 'Forms from the Custom editor that print on report cards.'],
+        gpa: ['GPA', '4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0.'],
+      };
+      const secKeys = new Set(secRows.map((row) => row[0]));
+      const secRow = (key) => {
+        if (!secKeys.has(key)) return '';
+        const words = SECTION_WORDS[key] || [secRows.find((row) => row[0] === key)[2], ''];
+        return `
+        <label class="ds-adv-flat-lbl rs-opt">
+          <input type="checkbox" class="ds-adv-sec" data-key="${key}" ${ds.sections[key] ? 'checked' : ''}>
+          <span class="rs-opt__text"><b>${words[0]}</b>${words[1] ? `<small>${words[1]}</small>` : ''}</span>
+        </label>`;
+      };
+      const secHtml = secRows.map(([key]) => secRow(key)).join('');
 
       const turnOffAutoAttendanceOn = ds.sections.turnOffAutoAttendance === true;
       const manualAttendanceOutOfValue = Number.isFinite(Number(ds.sections.manualAttendanceOutOf)) && Number(ds.sections.manualAttendanceOutOf) > 0
         ? Number(ds.sections.manualAttendanceOutOf)
         : '';
       const attendanceManualRow = `
-        <div class="ds-adv-flat-lbl" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;flex:1;min-width:220px;">
-            <input type="checkbox" id="ds-adv-turnOffAutoAttendance" style="accent-color:var(--primary);" ${turnOffAutoAttendanceOn ? 'checked' : ''}>
-            <span style="font-size:13px;line-height:1;">🛑</span> Turn off auto attendance
+        <div class="ds-adv-flat-lbl rs-opt rs-opt--split">
+          <label class="rs-opt__main">
+            <input type="checkbox" id="ds-adv-turnOffAutoAttendance" ${turnOffAutoAttendanceOn ? 'checked' : ''}>
+            <span class="rs-opt__text"><b>Type attendance by hand</b><small>Instead of counting the attendance page.</small></span>
           </label>
-          <label style="display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:0.82rem;">
+          <label class="rs-opt__aside">
             Out of
-            <input type="number" id="ds-adv-manualAttendanceOutOf" min="0" value="${manualAttendanceOutOfValue}" placeholder="e.g. 30" style="width:84px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;" ${turnOffAutoAttendanceOn ? '' : 'disabled'}>
+            <input type="number" id="ds-adv-manualAttendanceOutOf" min="0" value="${manualAttendanceOutOfValue}" placeholder="e.g. 30" ${turnOffAutoAttendanceOn ? '' : 'disabled'}>
           </label>
         </div>`;
 
@@ -7319,12 +7521,10 @@
         </div>`;
       }).join('');
       const paygiraHtml = `
-        <div class="ds-adv-flat-lbl" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;flex:1;min-width:220px;">
-            <input type="checkbox" id="ds-adv-paygira-enabled" style="accent-color:var(--primary);" ${paygiraEnabled ? 'checked' : ''}>
-            <span style="font-size:13px;line-height:1;">💳</span> Show Billing Table
-          </label>
-        </div>
+        <label class="ds-adv-flat-lbl rs-opt">
+          <input type="checkbox" id="ds-adv-paygira-enabled" ${paygiraEnabled ? 'checked' : ''}>
+          <span class="rs-opt__text"><b>Show the billing table</b><small>Bills and payments from PayGira, filled in for you or typed in.</small></span>
+        </label>
         <div id="ds-adv-paygira-box" class="paygira-adv-box" style="display:${paygiraEnabled ? 'block' : 'none'};">
           <div class="paygira-adv-row">
             <label class="ds-adv-sub-lbl" style="padding:0;">
@@ -7402,55 +7602,77 @@
       // Activate Promotion — stored in status_settings, synced to the hidden form checkbox
       const statusData = (typeof statusSettingsMap !== 'undefined') ? statusSettingsMap[String(classId)] : null;
       const activationOn = statusData ? !!statusData.activate_promotion : false;
-      const activatePromotionRow = `<label class="ds-adv-flat-lbl" style="border-color:#e2e8f0;background:#f0fdf4;">
-          <input type="checkbox" id="ds-adv-activatePromotion" style="accent-color:#16a34a;" ${activationOn ? 'checked' : ''}>
-          <span style="font-size:13px;line-height:1;">🚦</span> Activate Promotion
+      const activatePromotionRow = `<label class="ds-adv-flat-lbl rs-opt">
+          <input type="checkbox" id="ds-adv-activatePromotion" ${activationOn ? 'checked' : ''}>
+          <span class="rs-opt__text"><b>Use promotion this term</b><small>Decide who moves up, using this class's promotion rules.</small></span>
         </label>`;
 
       panel.dataset.classId = String(classId);
+      const group = (title, sub, body) => (String(body).trim() ? `
+        <section class="rs-group">
+          <header class="rs-group__head"><h4 class="rs-group__title">${title}</h4>${sub ? `<p class="rs-group__sub">${sub}</p>` : ''}</header>
+          <div class="rs-group__body">${body}</div>
+        </section>` : '');
+      const scoresHtml = `
+        ${buildMasterGroupHtml('classScore','Class Score',classItems,ds.columns.classScore,ds.columns.classScore_items)}
+        ${buildMasterGroupHtml('examsScore','Exams Score',examsItems,ds.columns.examsScore,ds.columns.examsScore_items)}
+        ${buildMasterGroupHtml('otherScore','Other Score',otherItems,ds.columns.otherScore,ds.columns.otherScore_items)}
+        <div class="rs-cols">${flatColsHtml}</div>`;
+      const gpaHtml = gpaWeightsHtml(classId);
       panel.innerHTML = `
-        ${uniformScalingHtml}
-        <div class="ds-adv-grid">
-          <div>
-            <p class="ds-adv-section-label">Score Columns</p>
-            ${buildMasterGroupHtml('classScore','Class Score',classItems,ds.columns.classScore,ds.columns.classScore_items)}
-            ${buildMasterGroupHtml('examsScore','Exams Score',examsItems,ds.columns.examsScore,ds.columns.examsScore_items)}
-            ${buildMasterGroupHtml('otherScore','Other Score',otherItems,ds.columns.otherScore,ds.columns.otherScore_items)}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;">${flatColsHtml}</div>
-            <div id="ds-adv-sections-left-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
-              <p class="ds-adv-section-label" style="margin-bottom:6px;">Report Sections</p>
-              <div id="ds-adv-sections-left-list" style="display:flex;flex-direction:column;gap:3px;"></div>
-            </div>
+        <div class="rs-groups">
+          <div class="rs-col">
+            ${group('Scores', 'The columns of the scores table.', scoresHtml)}
+            ${group('Subject scaling', 'Give every subject the same maximum score.', uniformScalingHtml)}
+            ${group('Fees (PayGira)', 'Bills and payments on the report card.', paygiraHtml)}
           </div>
-          <div>
-            <p class="ds-adv-section-label">Report Sections</p>
-            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${paygiraHtml}<div id="ds-adv-sections-right-wrap"><div id="ds-adv-sections-right-list">${secHtml}${customRows}</div></div></div>
+          <div class="rs-col">
+            ${group('Promotion', '', activatePromotionRow + secRow('promotion'))}
+            ${group('Attendance &amp; lunch', '', secRow('attendance') + secRow('lunch') + attendanceManualRow)}
+            ${group('Remarks', 'Which remarks print.', secRow('teacherRemarks') + secRow('conductRemarks') + secRow('attitudeRemarks') + secRow('interestRemarks') + customRows)}
+            ${group('Also on the report card', '', secRow('gradeKey') + secRow('choiceResults') + secRow('gpa') + secRow('customSections') + cfSectionsHtml)}
           </div>
         </div>
-        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
-          <button type="button" id="advDsSaveBtn" class="btn" style="padding:7px 18px;font-size:0.85rem;">Save Advanced</button>
+        <div class="rs-adv-foot">
+          <button type="button" id="advDsSaveBtn" class="btn">Save</button>
           <span id="advDsSaveMsg" style="font-size:12px;color:#16a34a;font-weight:600;display:none;animation:dsFadeIn 0.3s ease;">✓ Saved</span>
-        </div>${gpaWeightsHtml(classId)}`;
+        </div>${gpaHtml ? `<section class="rs-group rs-group--gpa">${gpaHtml}</section>` : ''}`;
 
       // GPA weights save on their own (the school's bonuses, this class's subject levels).
       panel.querySelector('#dsGpaSave')?.addEventListener('click', async () => {
         const levels = {};
         panel.querySelectorAll('.ds-gpa-level').forEach((select) => { levels[select.dataset.subjectId] = select.value; });
+        const credits = {};
+        panel.querySelectorAll('.ds-gpa-credits').forEach((input) => { credits[input.dataset.subjectId] = input.value.trim(); });
         const msg = panel.querySelector('#dsGpaMsg');
         try {
           const response = await fetch('/print/gpaSettings', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ ...(gpaWeights.canSetBonuses ? { honors: panel.querySelector('#dsGpaHonors').value, ap: panel.querySelector('#dsGpaAp').value } : {}), levels }) });
+            body: JSON.stringify({ ...(gpaWeights.canSetBonuses ? { honors: panel.querySelector('#dsGpaHonors').value, ap: panel.querySelector('#dsGpaAp').value } : {}), levels, ...(Object.keys(credits).length ? { credits } : {}) }) });
           const result = await response.json();
           if (!result.success) throw new Error(result.error || 'Not saved.');
           gpaWeights.honors = result.honors; gpaWeights.ap = result.ap;
           gpaWeights.levels = gpaWeights.levels || {};
           Object.entries(levels).forEach(([id, level]) => { if (level) gpaWeights.levels[id] = level; else delete gpaWeights.levels[id]; });
+          if (gpaWeights.credits) Object.entries(credits).forEach(([id, value]) => { if (value !== '' && Number.isFinite(Number(value))) gpaWeights.credits[id] = Number(value); else delete gpaWeights.credits[id]; });
           msg.textContent = '✓ Saved'; msg.style.color = '#16a34a';
         } catch (error) {
           msg.textContent = error.message || 'Not saved.'; msg.style.color = '#b91c1c';
         }
         msg.style.display = 'inline';
       });
+
+      // Custom editor sections: Select all ticks every one, and shows ticked when all are.
+      const cfAll = panel.querySelector('.ds-adv-cf-all');
+      const cfTicks = Array.from(panel.querySelectorAll('.ds-adv-cf-sec'));
+      const syncCfAll = () => {
+        if (!cfAll) return;
+        const on = cfTicks.filter((cb) => cb.checked).length;
+        cfAll.checked = on === cfTicks.length;
+        cfAll.indeterminate = on > 0 && on < cfTicks.length;
+      };
+      cfAll?.addEventListener('change', () => { cfTicks.forEach((cb) => { cb.checked = cfAll.checked; }); cfAll.indeterminate = false; });
+      cfTicks.forEach((cb) => cb.addEventListener('change', syncCfAll));
+      syncCfAll();
 
       // Wire master toggles
       panel.querySelectorAll('.ds-adv-master').forEach(masterCb => {
@@ -8068,6 +8290,15 @@
       panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
       const sections = {};
       panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
+      // Custom editor sections ticked one by one (feature report_remarks_forms). Ticks for sections
+      // not listed here are kept; without the list, what was saved stays as it was.
+      const savedCfShown = (((allDisplaySettingsMap[String(classId)] || {}).sections || {}).customSectionsVisibility) || {};
+      const cfTickBoxes = panel.querySelectorAll('.ds-adv-cf-sec');
+      sections.customSectionsVisibility = { ...savedCfShown };
+      if (cfTickBoxes.length) {
+        cfTickBoxes.forEach((cb) => { sections.customSectionsVisibility[cb.dataset.sectionId] = cb.checked; });
+        sections.customSections = true;
+      }
       const customRemarksVisibility = {};
       panel.querySelectorAll('.ds-adv-sec-custom').forEach((cb) => {
         const typeKey = String(cb.dataset.typeKey || '').trim();

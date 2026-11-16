@@ -42,7 +42,7 @@
 
   .hub-wrapper {
     width: 100%;
-    height: calc(100vh - 68px);
+    height: calc(var(--app-vh, 100vh) - var(--header-height, 64px) - 16px); /* the window below the header, on every screen size */
     overflow: hidden;
   }
 

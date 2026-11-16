@@ -11,6 +11,9 @@ const DEFAULTS = Object.freeze({
   login_code_required: true,
   remember_device_allowed: true,
   remember_device_days: 3,
+  // Two-step sign-in with an authenticator app (utils/signInMfa.js): "off" (each person chooses),
+  // "admins" (required for managers and supervisors) or "staff" (required for all staff).
+  mfa_required: "off",
 });
 // The choices the page offers; nothing else is saved.
 const CHOICES = Object.freeze({
@@ -18,6 +21,7 @@ const CHOICES = Object.freeze({
   keep_signed_in_days: [7, 14, 30, 60, 90],
   remember_device_days: [1, 3, 7, 14, 30],
 });
+const WORD_CHOICES = Object.freeze({ mfa_required: ["off", "admins", "staff"] });
 const CACHE_MS = 60 * 1000;
 const TABLE_MISSING = "42P01";
 const cache = new BoundedMap(20000);
@@ -65,6 +69,12 @@ function readChoices(body, current) {
     if (!CHOICES[key].includes(number)) throw new TenantSettingsError("Choose one of the options shown.");
     next[key] = number;
   }
+  for (const key of Object.keys(WORD_CHOICES)) {
+    if (body[key] === undefined) continue;
+    const word = String(body[key]);
+    if (!WORD_CHOICES[key].includes(word)) throw new TenantSettingsError("Choose one of the options shown.");
+    next[key] = word;
+  }
   return next;
 }
 
@@ -81,6 +91,14 @@ async function saveSettings(db, organizationId, body, actorName) {
        updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
     [organizationId, next.session_hours, next.keep_signed_in_allowed, next.keep_signed_in_days, next.login_code_required, next.remember_device_allowed, next.remember_device_days, actorName]
   );
+  // The authenticator rule has its own column (2026-12-13_sign_in_authenticator.sql): saved apart,
+  // so the other rules still save on a database that hasn't had the migration.
+  if (next.mfa_required !== current.mfa_required) {
+    await db.query("UPDATE tenant_settings SET mfa_required = $2 WHERE organization_id = $1", [organizationId, next.mfa_required]).catch((error) => {
+      if (error.code === "42703") throw new TenantSettingsError("This choice needs a database update first. Ask Managira support.");
+      throw error;
+    });
+  }
   cache.delete(Number(organizationId));
   return { before: current, after: next };
 }
@@ -92,4 +110,4 @@ function sessionLimitMs(settings, keepSignedIn) {
   return settings.session_hours * 60 * 60 * 1000;
 }
 
-module.exports = { DEFAULTS, CHOICES, settingsFor, saveSettings, sessionLimitMs, TenantSettingsError };
+module.exports = { DEFAULTS, CHOICES, WORD_CHOICES, settingsFor, saveSettings, sessionLimitMs, TenantSettingsError };

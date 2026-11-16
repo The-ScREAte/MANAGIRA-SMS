@@ -9,7 +9,6 @@ const path = require("path");
 const PDFDocument = require("pdfkit");
 const Stripe = require("stripe");
 const axios = require("axios");
-const bcrypt = require("../utils/passwordHashing");
 const db = require("../config/db");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { logOrganizationActivity } = require("../utils/activityLog");
@@ -3214,22 +3213,12 @@ async function verifyCollectionSignoffCredentials(client, req, fullName, passwor
     || req.session.userName
     || "";
 
-  let passwordMatch = false;
-  if (userRow.password) {
-    passwordMatch = await bcrypt.compare(String(password), userRow.password);
-  }
-  if (!passwordMatch) {
-    const organizationResult = await client.query(
-      `SELECT password FROM organizations WHERE organization_id = $1 LIMIT 1`,
-      [orgId]
-    );
-    if (organizationResult.rows[0]?.password) {
-      passwordMatch = await bcrypt.compare(String(password), organizationResult.rows[0].password);
-    }
-  }
-
-  if (!passwordMatch) {
-    throw new PaygiraRequestError("Incorrect password. Please try again.", 401);
+  // The signer's own password only (never the school's), with wrong tries limited and logged
+  // (utils/confirmOwnPassword.js): the sign-off is in their name.
+  try {
+    await require("../utils/confirmOwnPassword").confirmOwnPassword(req, password, { purpose: "sign off a collection" });
+  } catch (refusal) {
+    throw new PaygiraRequestError(refusal.message || "Incorrect password. Please try again.", refusal.status || 401);
   }
 
   return {
@@ -5511,6 +5500,12 @@ module.exports = {
         ? (validRec || before.recurrence || null)
         : null;
       const requestedStatus = validStatusAction || validStatus || before.status || 'active';
+      // Cancelling a bill (it cancels every unpaid share) needs Cancel & Delete Bills, as the
+      // bill's own Cancel action does; editing can't be a way around it.
+      if (requestedStatus === 'cancelled' && before.status !== 'cancelled'
+        && !(await userHasPermission(db, require("../middleware/permissionMiddleware").sessionActor(req), PERMISSIONS.PAYGIRA_DELETE_BILLS).catch(() => false))) {
+        throw new PaygiraRequestError("You don't have permission to cancel bills. Ask someone with Cancel & Delete Bills.", 403);
+      }
       const requestedSchoolYearId = school_year_id || before.school_year_id;
       const requestedTermId = term_id || before.term_id;
       const requestedAudience = ['school', 'classes', 'students'].includes(String(applies_to))

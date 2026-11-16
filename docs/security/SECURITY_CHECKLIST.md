@@ -13,33 +13,33 @@ Every security item and its status.
 | ☑️ | In place; verified in code, configuration or database |
 | 🔵 | Planned |
 
-*Last reviewed: 15 October 2026*
+*Last reviewed: 16 November 2026*
 
 ## Priorities
 
 1. **Verify every release in production**: re-run `npm run security:check -- https://managira.com` after each deploy.
-2. **Make the remaining private files private**: move signatures, photos and documents to signed links.
+2. **Make storage private and move it to the United States**: the app now opens every private file through signed links; apply the bucket policy and the move (`docs/security/STORAGE.md`).
 3. **Prove school data separation** across every read, edit, delete, export and download, then add database row-level security as a second layer.
-4. **Protect privileged accounts** with two-step sign-in (MFA) for platform administrators and school owners.
+4. **Protect platform administrators** with an authenticator app at sign-in. Schools already have it: each person can turn it on, and a school can require it for managers and supervisors, all staff, or one person.
 5. **Test the attack surface** (APIs, uploads, file storage, Mira, payments) and commission an independent penetration test.
-6. **Prove recovery** by restoring a backup of both the database and uploaded files.
+6. **Turn on nightly backups** (`docs/BACKUPS.md`) and prove recovery by restoring the database and uploaded files.
 
 ## Overview
 
 | # | Area | ✅ | ☑️ | 🔵 |
 |---|---|---|---|---|
-| 1 | School data separation | 5 | 2 | 6 |
-| 2 | Sign-in and accounts | 4 | 8 | 3 |
-| 3 | Sessions and cookies | 4 | 2 | 1 |
-| 4 | Roles and permissions | 1 | 5 | 1 |
+| 1 | School data separation | 5 | 3 | 6 |
+| 2 | Sign-in and accounts | 6 | 11 | 3 |
+| 3 | Sessions and cookies | 4 | 3 | 1 |
+| 4 | Roles and permissions | 2 | 5 | 1 |
 | 5 | Web protections and API limits | 9 | 5 | 6 |
-| 6 | Files and uploads | 6 | 1 | 5 |
+| 6 | Files and uploads | 8 | 3 | 5 |
 | 7 | Payments | 4 | 2 | 3 |
-| 8 | Database, secrets and keys | 0 | 6 | 5 |
-| 9 | Background jobs and Mira | 3 | 1 | 6 |
-| 10 | Monitoring and incident response | 2 | 2 | 5 |
-| 11 | Dependencies and delivery | 2 | 3 | 3 |
-| 12 | Backups and recovery | 0 | 0 | 5 |
+| 8 | Database, secrets and keys | 0 | 7 | 5 |
+| 9 | Background jobs and Mira | 3 | 2 | 5 |
+| 10 | Monitoring and incident response | 2 | 6 | 4 |
+| 11 | Dependencies and delivery | 2 | 5 | 3 |
+| 12 | Backups and recovery | 0 | 2 | 5 |
 | 13 | Database row-level security | 0 | 1 | 3 |
 | 14 | Hosting and uptime | 1 | 2 | 5 |
 | 15 | Independent review | 0 | 0 | 2 |
@@ -54,6 +54,7 @@ Every security item and its status.
 - ✅ School-locked file storage
 - ✅ Parents and students see only their own records
 - ☑️ Code review of every update, delete and user-driven read for a school filter
+- ☑️ Audit of every state-changing route for school and permission checks (16 November 2026): cross-school writes in assessments, admissions, announcements and transportation closed; teachers kept to their own classes on the student, parent and bus pages
 - ✅ Automated cross-school test for owners, students and parents (`npm run security:cross-school`)
 - 🔵 Destructive security tests (edits, deletes, account changes, row-level security) run only on a separate database copy
 - 🔵 Extend the cross-school test to documents, staff profiles, messages, attendance, timetables, exports and downloads
@@ -75,8 +76,13 @@ Every security item and its status.
 - ☑️ Suspended accounts and schools lose access automatically
 - ☑️ Sessions of removed schools end
 - ☑️ 4-hour idle timeout and 24-hour maximum session
+- ☑️ Emailed verification code on every password sign-in (unless the school turns it off); a right code remembers that browser for the school's chosen period (3 days by default)
+- ✅ Two-step sign-in with an authenticator app (TOTP) for staff and school accounts: anyone can turn it on; a school can require it for managers and supervisors, all staff, or one person; 10 single-use recovery codes; a manager resets a lost phone with their own password
+- ✅ Passwords found in known data breaches are refused (k-anonymity check: the password never leaves Managira)
+- ☑️ Single sign-on (SAML 2.0, OpenID Connect) per school, tested before it can be turned on
+- ☑️ The same reply whatever the email when someone asks for a password reset
 - ✅ Security log of failed sign-ins and sign-in limits
-- 🔵 Two-step sign-in (MFA) for platform administrators and school owners, plus re-confirmation for sensitive actions (payout details, large exports, security settings)
+- 🔵 Two-step sign-in for Managira platform administrators, plus re-confirmation for large exports
 - 🔵 Account-recovery paths protected to the same standard as sign-in
 - 🔵 Sign-in limits shared across servers (Redis) when more than one web server runs
 
@@ -88,6 +94,7 @@ Every security item and its status.
 - ☑️ Session key held only in the server environment
 - ☑️ Server-side session storage
 - ✅ Signed-in pages sent with `no-store`; the service worker caches static files only
+- ☑️ A single sign-on session ends when the browser closes (no Keep me logged in)
 - 🔵 A "signed-in devices" page where users can sign out other devices
 
 ## 4. Roles and permissions
@@ -96,6 +103,7 @@ Every security item and its status.
 - ✅ Separate portals for staff, students, parents and drivers
 - ☑️ Plan-based feature access
 - ☑️ Platform admin area limited to Managira administrators
+- ✅ Staff give only roles at or below their own and only permissions they hold; Managira's own roles can't be given to a school account, and a school account holding one is signed out (`tests/staffChangeGuard.test.js`)
 - ☑️ Separate hub owner and hub team rights
 - ☑️ Text and WhatsApp shown only when switched on
 - 🔵 Least-privilege review of every role and administrator permission
@@ -132,7 +140,11 @@ Every security item and its status.
 - ✅ School migration files served through signed, expiring links
 - ✅ Storage bucket contents can't be listed anonymously
 - ✅ `migrations/` folder private on S3; files open only through signed links
-- 🔵 Move signatures, staff and student photos, and documents to private storage served through signed links (logos and website media stay public)
+- ✅ Every private file (photos, signatures, report cards, transcripts, form answers, sign-up documents, job applications) opened through a signed link that works for minutes, after a check of who is asking (`tests/storedFiles.test.js`)
+- ✅ Text-message links to report cards: 64 random bits, expire after 90 days
+- ☑️ File storage encrypted at rest (AES-256; SSE-C refused); access control lists off
+- ☑️ New uploads named with a random part; sign-up documents in a private folder of their own
+- 🔵 Apply the private bucket policy (only site pictures public, HTTPS only) and move storage to a United States bucket (`docs/security/STORAGE.md`)
 - 🔵 File-content verification (not only the name and type), safe server-side file names, image-dimension limits
 - 🔵 Per-school storage quotas
 - 🔵 Malware scanning for risky uploads
@@ -162,7 +174,8 @@ Every security item and its status.
 - 🔵 Retire the database referenced in early Git history and change its password
 - 🔵 Scan logs, build artifacts and deployment settings for credentials
 - 🔵 Key-rotation schedule for database, Stripe, Paystack, AWS and email keys
-- 🔵 Confirm encryption at rest for the database and file storage, and set data-retention and secure-deletion rules for student records
+- 🔵 Confirm encryption at rest for the database with Render (file storage confirmed: see section 6)
+- ☑️ Student data returned or deleted within 60 days of a school's request or the end of its agreement (Privacy Policy, section 13)
 
 ## 9. Background jobs and Mira
 
@@ -173,7 +186,7 @@ Every security item and its status.
 - 🔵 Idempotent job steps, with tests for recovery after a crash mid-run
 - 🔵 Test that Mira returns only the signed-in user's school data
 - 🔵 Treat uploaded documents and prompts as untrusted; prompts can't override access rules
-- 🔵 Mira actions follow the same permissions as the app
+- ☑️ Mira actions follow the same permissions as the app (`mira/services/access.js`)
 - 🔵 Review URL-fetching features for server-side request forgery (SSRF)
 - 🔵 Queued jobs carry a trusted school identity
 
@@ -186,25 +199,32 @@ Every security item and its status.
 - 🔵 Alerts for repeated failed sign-ins, refused cross-school requests, unusual exports, billing anomalies and resource spikes
 - 🔵 One combined log of permission changes, exports and billing changes
 - 🔵 Log access control and tamper protection
-- 🔵 Written incident procedure: who responds, disabling compromised accounts, preserving evidence, rotating keys, notifying schools and regulators
+- ☑️ Written incident procedure: who responds, disabling compromised accounts, preserving evidence, rotating keys, notifying schools and regulators (`docs/security/INCIDENT_RESPONSE.md`; fill in the people in Section 1)
 - 🔵 Confirm the activity-log retention period meets legal and contractual needs
+- ☑️ Schools told of a confirmed incident affecting their data within 72 hours (Privacy Policy, section 12; `docs/security/INCIDENT_RESPONSE.md`)
+- ☑️ Published vulnerability disclosure policy (managira.com/legal/security) and `/.well-known/security.txt`
+- ☑️ Refused requests are not written to the activity log as if they happened
 
 ## 11. Dependencies and delivery
 
-- ✅ Dependency audit with no critical issues
+- ✅ Dependency audit with no critical or high issues (3 low, in a holiday calendar package)
+- ☑️ Install scripts run only for packages allowed by name (`allowScripts` in `package.json`)
 - ✅ Patched HTML sanitizer loads on every supported Node version (bundled copy checked by a test)
 - ☑️ GitHub Actions on every push and pull request: unit tests, dependency audit (fails on critical), security module checks
 - ☑️ Weekly Dependabot checks for the app and Mira
 - ☑️ Every runtime package declared
-- 🔵 Major-version upgrades for `puppeteer`, `nodemailer`, `http-proxy-middleware`, `sharp`, `exceljs` and `mammoth`, tested before release
+- ☑️ Puppeteer upgraded to 25 (PDF generation tested)
+- 🔵 Major-version upgrades for `nodemailer`, `http-proxy-middleware`, `sharp`, `exceljs` and `mammoth`, tested before release
 - 🔵 Process and timeline for urgent security updates
 - 🔵 Automated security scanning (static analysis) in GitHub Actions
 
 ## 12. Backups and recovery
 
-- 🔵 Confirm daily Postgres backups, retention, point-in-time recovery and restricted backup access on Render
-- 🔵 Restore a backup into a separate environment and record the time taken
-- 🔵 Back up and restore-test uploaded files
+- ☑️ Nightly encrypted database backups (AES-256-GCM) to a private bucket of their own, kept 30 days; restore tested on the local copy (13 s, every table identical) (`docs/BACKUPS.md`)
+- 🔵 Make the backup bucket (`scripts/s3BackupBucket.js`) and set `BACKUPS_ENABLED=true` in production
+- ☑️ Render point-in-time recovery (3 days on Hobby, 7 days on Professional)
+- 🔵 Restore a production backup into a separate database and record the time taken
+- 🔵 Uploaded files versioned (kept 30 days after a change or deletion) once storage moves to the United States bucket
 - 🔵 Tested deployment rollback
 - 🔵 Written recovery steps for web server and database outages
 

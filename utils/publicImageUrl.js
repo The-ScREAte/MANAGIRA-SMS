@@ -47,12 +47,22 @@ function isSignedS3Url(value) {
   return /[?&](?:X-Amz-|AWSAccessKeyId=|Signature=|Expires=)/i.test(value);
 }
 
+// The current bucket and any earlier one the files were copied from (S3_LEGACY_BUCKETS): an
+// address stored while files lived in the earlier bucket names the same key in the current one.
+function sameBucket(name, bucket) {
+  const wanted = String(name || "").toLowerCase();
+  return [bucket, ...String(process.env.S3_LEGACY_BUCKETS || "").split(",")]
+    .map((b) => String(b || "").trim().toLowerCase())
+    .filter(Boolean)
+    .includes(wanted);
+}
+
 function resolveS3Object(value, bucket) {
   const image = String(value || "").trim();
   if (!image) return null;
 
   const s3Uri = image.match(/^s3:\/\/([^/]+)\/(.*)$/i);
-  if (s3Uri && s3Uri[1] === bucket) {
+  if (s3Uri && sameBucket(s3Uri[1], bucket)) {
     return { key: decodeObjectKey(s3Uri[2]) };
   }
 
@@ -61,13 +71,13 @@ function resolveS3Object(value, bucket) {
     const host = absolute[1].toLowerCase().replace(/:\d+$/, "");
     const path = absolute[2].split(/[?#]/, 1)[0];
     const virtualHost = host.match(/^(.+)\.s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com$/i);
-    if (virtualHost && virtualHost[1] === bucket.toLowerCase()) {
+    if (virtualHost && sameBucket(virtualHost[1], bucket)) {
       return { key: decodeObjectKey(path) };
     }
 
     if (/^s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com$/i.test(host)) {
       const separator = path.indexOf("/");
-      if (separator > 0 && path.slice(0, separator) === bucket) {
+      if (separator > 0 && sameBucket(path.slice(0, separator), bucket)) {
         return { key: decodeObjectKey(path.slice(separator + 1)) };
       }
     }
@@ -95,10 +105,12 @@ function isSupportedImageKey(key) {
   return Object.prototype.hasOwnProperty.call(IMAGE_TYPES, require("path").extname(normalized).toLowerCase());
 }
 
+// The pictures /public-image serves (storage is private: utils/storedFiles.js): images/..., the
+// report card and transcript signatures (signatures/...), and the older ones stored at the top level.
 function isRoutableImageKey(key) {
   const normalized = String(key || "");
   return isSupportedImageKey(normalized) &&
-    (normalized.startsWith("images/") || /^\d{13}-[^/]+\.[a-z0-9]+$/i.test(normalized));
+    (normalized.startsWith("images/") || normalized.startsWith("signatures/") || /^\d{13}-[^/]+\.[a-z0-9]+$/i.test(normalized));
 }
 
 function isPublicImageKey(key) {

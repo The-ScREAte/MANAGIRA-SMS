@@ -587,6 +587,7 @@ async function getUnreadCount(db, context) {
     }
 
     if (recipientType === 'guardian') {
+      const hiddenCards = await guardianHiddenReportCards(db, orgId, recipientId);
       const result = await db.query(
         `SELECT COUNT(*)::int AS cnt
          FROM notifications n
@@ -594,6 +595,7 @@ async function getUnreadCount(db, context) {
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
            AND n.recipient_type = 'guardian'
            AND n.recipient_id = $2
+           AND NOT (n.type = 'report_card_ready' AND COALESCE(n.ref_id = ANY($3::int[]), FALSE))
            AND NOT EXISTS (
              SELECT 1 FROM notification_reads nr
              WHERE nr.notification_id = n.id AND nr.reader_id = $2
@@ -602,7 +604,7 @@ async function getUnreadCount(db, context) {
              SELECT 1 FROM notification_dismissals nd
              WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
            )`,
-        [orgId, recipientId]
+        [orgId, recipientId, hiddenCards]
       );
       return result.rows[0]?.cnt ?? 0;
     }
@@ -612,6 +614,19 @@ async function getUnreadCount(db, context) {
     console.error('[NotificationService] getUnreadCount failed:', err.message);
     return 0;
   }
+}
+
+// A parent's children whose class keeps report cards from parents (Class settings): their
+// "Report card ready" notices (ref_id = the student) stay out of the bell. Nothing is read
+// while the school doesn't have class settings.
+async function guardianHiddenReportCards(db, orgId, guardianId) {
+  const classSettings = require('./classSettings');
+  if (!orgId || !guardianId || !classSettings.isOn(orgId)) return [];
+  const { rows } = await db.query('SELECT DISTINCT student_id FROM guardian_students WHERE guardian_id = $1', [guardianId]);
+  const ids = rows.map((row) => Number(row.student_id)).filter((id) => Number.isInteger(id) && id > 0);
+  if (!ids.length) return [];
+  const see = await classSettings.parentsSeeFor(db, orgId, ids);
+  return ids.filter((id) => see.has(id) && see.get(id).reportCards === false);
 }
 
 async function getFeed(db, context) {
@@ -650,6 +665,7 @@ async function getFeed(db, context) {
     }
 
     if (recipientType === 'guardian') {
+      const hiddenCards = await guardianHiddenReportCards(db, orgId, recipientId);
       const result = await db.query(
         `SELECT n.*, (nr.reader_id IS NOT NULL) AS is_read
          FROM notifications n
@@ -659,13 +675,14 @@ async function getFeed(db, context) {
            AND n.type NOT IN ('birthday_student', 'birthday_staff', 'birthday_guardian')
            AND n.recipient_type = 'guardian'
            AND n.recipient_id = $2
+           AND NOT (n.type = 'report_card_ready' AND COALESCE(n.ref_id = ANY($4::int[]), FALSE))
            AND NOT EXISTS (
              SELECT 1 FROM notification_dismissals nd
              WHERE nd.notification_id = n.id AND nd.dismisser_id = $2
            )
          ORDER BY n.created_at DESC
          LIMIT $3`,
-        [orgId, recipientId, safeLimit]
+        [orgId, recipientId, safeLimit, hiddenCards]
       );
       return result.rows;
     }

@@ -32,10 +32,13 @@ const paygiraPlaceOf = (pageId) => (PAYGIRA_MENU.find((place) => place.pages.som
 const FULL_MENU_ROLES = new Set(["organization", "admin", "mini admin", "manager", "supervisor", "superviser"]);
 const MANAGER_ROLES = new Set(["organization", "admin", "mini admin", "manager"]);
 
-function workspaceAccess({ permissions, features, role } = {}) {
+// `featureOn(key)` says whether a feature (utils/shards/features.js) is released to the school;
+// without it, items behind a feature stay hidden.
+function workspaceAccess({ permissions, features, role, featureOn } = {}) {
   const granted = new Set((Array.isArray(permissions) ? permissions : []).map((key) => String(key || "").trim().toLowerCase()));
   const plan = new Set((Array.isArray(features) ? features : []).map((name) => String(name || "").trim().toLowerCase()));
   const can = (...keys) => keys.some((key) => granted.has(key));
+  const released = (key) => typeof featureOn === "function" && Boolean(featureOn(key));
   const hasFeature = (...names) => names.some((name) => plan.has(name.toLowerCase()));
   const hasProfile = hasFeature("Student and Guardian Profile", "Student and Guadian Profile");
   const hasAssessments = hasFeature("Assessment Tracking", "Assessment tracking feature");
@@ -65,6 +68,9 @@ function workspaceAccess({ permissions, features, role } = {}) {
     emailIssues: fullMenuRole,
     // The page itself also needs the custom_forms feature (customFormsController).
     customForms: can("custom_forms"),
+    // Class settings for every class (controllers/classSettingsController.js managementPage):
+    // the class_settings feature and Class Settings › Every Class.
+    classSettings: can("class_settings_all") && released("class_settings"),
   };
   const reports = {
     stats: can("manage_records") && hasFeature("Organization Analytics & Insights"),

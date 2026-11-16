@@ -8,7 +8,7 @@
   const _isoDay = (v) => (v ? new Date(v).toISOString().slice(0, 10) : '');
   const _fmtWhen = (v) => (v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never');
   const _classes = Array.from(new Set(guardians.flatMap((g) => (g.children || []).map((c) => c.className)).filter(Boolean))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  const _photo = (g) => (g.image_url && g.image_url !== 'profilePlaceholder.png' ? g.image_url : '');
+  const _photo = (g) => (g.image_url && g.image_url !== 'profilePlaceholder.png' ? publicImageUrl(g.image_url) : '');
   const _panelData = guardians.map((g) => ({
     key: g.source + ':' + g.guardian_id,
     id: g.guardian_id,

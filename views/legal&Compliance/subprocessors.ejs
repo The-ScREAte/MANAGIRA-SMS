@@ -1,0 +1,35 @@
+<%# /legal/subprocessors: the outside services that process school data for Managira (Privacy Policy, section 8). Keep it the same as docs/security/DISTRICT_SECURITY_OVERVIEW.md. %>
+<style>
+  .lg { max-width: 920px; margin: 0 auto; padding: 40px 20px 72px; color: #1f2937; line-height: 1.7; font-size: 16px; }
+  .lg h1 { font-size: 32px; line-height: 1.2; margin: 0 0 6px; color: #0f172a; }
+  .lg p { color: #374151; }
+  .lg .lg-updated { color: #6b7280; font-size: 14px; margin: 0 0 22px; }
+  .lg a { color: #01535b; }
+  .lg-table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid #e5e7eb; border-radius: 12px; }
+  .lg table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 620px; }
+  .lg th, .lg td { padding: 11px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid #f1f2f4; }
+  .lg th { background: #f9fafb; color: #475467; font-size: 12.5px; letter-spacing: .03em; text-transform: uppercase; }
+  .lg tr:last-child td { border-bottom: 0; }
+  @media (max-width: 640px) { .lg { padding: 28px 16px 56px; } .lg h1 { font-size: 26px; } }
+</style>
+<main class="lg">
+  <h1>Subprocessors</h1>
+  <p class="lg-updated">Last updated November 15, 2026</p>
+  <p>These are the outside services that store or process school data for Managira, each under a written agreement to use it only to provide its service and to protect it. Services marked "when a school turns it on" receive data only from schools that use that feature. We update this list before a new service receives student data.</p>
+  <div class="lg-table-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>What it does for Managira</th><th>Data it receives</th><th>Location</th></tr></thead>
+      <tbody>
+        <tr><td>Render</td><td>Hosting for the application and its database</td><td>All service data</td><td>United States</td></tr>
+        <tr><td>Amazon Web Services</td><td>File storage and encrypted backups</td><td>Uploaded and generated files, backups</td><td>United States</td></tr>
+        <tr><td>Namecheap Private Email</td><td>Sending email (sign-in codes, notices, report cards)</td><td>The recipient's address and the message</td><td>United States</td></tr>
+        <tr><td>Stripe</td><td>Card and bank payments, when a school uses Billing &amp; Payments (PayGira)</td><td>Payer details (Managira stores no card numbers)</td><td>United States</td></tr>
+        <tr><td>Twilio</td><td>Text messages, when a school turns them on</td><td>Phone number and message</td><td>United States</td></tr>
+        <tr><td>Meta (WhatsApp)</td><td>WhatsApp messages, when a school turns them on</td><td>Phone number and message</td><td>United States</td></tr>
+        <tr><td>Anthropic, OpenAI</td><td>Mira, the staff assistant, when a school turns it on (never for parents or students)</td><td>A staff member's question and the records Mira looks up for them; their terms exclude training on this data</td><td>United States</td></tr>
+        <tr><td>Google, Microsoft</td><td>Google Classroom and calendar connections a school or person turns on</td><td>Only what that feature needs</td><td>United States</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Questions about how a service handles data can be sent to <a href="mailto:info@managira.com">info@managira.com</a>. Our commitments are in the <a href="/legal/privacy-policy">Privacy Policy</a>, and security reports go to <a href="/legal/security">security@managira.com</a>.</p>
+</main>

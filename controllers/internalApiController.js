@@ -4137,19 +4137,28 @@ async function assignStudentTransportationApi(req, res) {
       return res.status(400).json({ error: "Provide at least one of busNumber, routeName, or stopName." });
     }
 
+    // Whatever Mira wasn't asked to change stays as it is: "move Ama to bus 12" keeps her route,
+    // stop, pickup times and pickup address.
+    const current = (await db.query(
+      `SELECT bus_id, route_id, stop_id, pickup_time, dropoff_time, home_address, home_latitude, home_longitude
+         FROM transport_student_assignments WHERE organization_id = $1 AND student_id = $2`,
+      [organizationId, student.student_id]
+    ).catch(() => ({ rows: [] }))).rows[0] || {};
+    const given = (key) => req.body?.[key] !== undefined && req.body?.[key] !== null && String(req.body[key]).trim() !== "";
+    const clock = (value) => (value ? String(value).slice(0, 5) : null);
     const capture = makeFlashCapture();
     const fakeReq = {
       session: { organizationId },
       body: {
         studentId: student.student_id,
-        busId,
-        routeId,
-        stopId,
-        pickupTime: req.body?.pickupTime,
-        dropoffTime: req.body?.dropoffTime,
-        homeAddress: req.body?.homeAddress,
-        homeLatitude: req.body?.homeLatitude,
-        homeLongitude: req.body?.homeLongitude,
+        busId: busId || current.bus_id || null,
+        routeId: routeId || current.route_id || null,
+        stopId: stopId || (routeId && routeId !== current.route_id ? null : current.stop_id) || null,
+        pickupTime: given("pickupTime") ? req.body.pickupTime : clock(current.pickup_time),
+        dropoffTime: given("dropoffTime") ? req.body.dropoffTime : clock(current.dropoff_time),
+        homeAddress: given("homeAddress") ? req.body.homeAddress : current.home_address,
+        homeLatitude: given("homeLatitude") ? req.body.homeLatitude : current.home_latitude,
+        homeLongitude: given("homeLongitude") ? req.body.homeLongitude : current.home_longitude,
       },
       flash: capture.flash,
     };
@@ -9157,7 +9166,11 @@ async function generateReportPdfApi(req, res) {
     }
 
     const rendered = await renderFreshReportCardPdfs(identity, { classId: cls.class_id, termId: term.term_id, students: targets });
-    const reports = rendered.map(({ studentName, pdfUrl, error }) => (error ? { studentName, error } : { studentName, pdfUrl }));
+    // Storage is private: each report card goes back as a Managira short link (utils/shortLink.js).
+    const { protocol: linkProtocol, host: linkHost } = publicBaseUrlParts();
+    const reports = await Promise.all(rendered.map(async ({ studentName, pdfUrl, error }) => (error
+      ? { studentName, error }
+      : { studentName, pdfUrl: await createShortLink(db, { targetUrl: pdfUrl, organizationId: identity.organizationId, baseUrl: `${linkProtocol}://${linkHost}` }) })));
     if (!reports.some((report) => report.pdfUrl)) {
       const error = new Error(reports[0]?.error || "The report cards could not be generated.");
       error.status = 502;
@@ -9721,7 +9734,9 @@ async function generateMeritSheetPdfApi(req, res) {
     const safeClassName = safeFileNameSegment(cls.class_name, `class_${cls.class_id}`);
     const safeTermName = safeFileNameSegment(term.term_name, `term_${term.term_id}`);
     const pdfKey = `merit-sheets/org_${organizationId}/term_${term.term_id}/class_${cls.class_id}/${safeClassName}_${safeTermName}_${Date.now()}.pdf`;
-    const pdfUrl = await storePdf(pdfKey, buffer);
+    const storedUrl = await storePdf(pdfKey, buffer);
+    const { protocol: linkProtocol, host: linkHost } = publicBaseUrlParts();
+    const pdfUrl = await createShortLink(db, { targetUrl: storedUrl, organizationId, baseUrl: `${linkProtocol}://${linkHost}` });
 
     return res.json({ className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, columns: columnKeys, pdfUrl, warnings });
   } catch (error) {

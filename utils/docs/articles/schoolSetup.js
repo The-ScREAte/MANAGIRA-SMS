@@ -8,8 +8,8 @@ module.exports = [
     topic: "School setup",
     order: 1,
     summary: "Add your logo, contact details, web address, brand color, font, name and date formats, school calendar and student ID format in Settings, Customize School.",
-    tags: ["customize school", "logo", "brand color", "school details", "web address", "school calendar"],
-    who: "Managers, and staff given the <strong>Profile</strong> settings permission.",
+    tags: ["customize school", "logo", "brand color", "school details", "web address", "school calendar", "attendance calendar", "holidays", "public holidays", "days off", "weekends"],
+    who: "Managers, and staff given <strong>Manage Organization Settings</strong> with <strong>School Profile &amp; Branding</strong>.",
     intro: "Your school's name, logo and color appear on every page, report card, email and on your public website. Set them once in <strong>Customize School</strong>.",
     sections: [
       {
@@ -28,17 +28,28 @@ module.exports = [
           ["<strong>Short name and web address</strong>", "Your nickname and public address, for example <code>riverside.managira.com</code>."],
           ["<strong>Brand color</strong> and <strong>Font</strong>", "The color and typeface of your school's pages, emails and website."],
           ["<strong>Names and dates</strong>", "How names (first name first, or last name first) and dates (for example 11/09/2026) are shown everywhere."],
-          ["<strong>School calendar</strong>", "School days, holidays and closures, used by attendance and the calendar."],
+          ["<strong>School calendar</strong>", "Under <strong>School rules</strong>: weekends, public holidays and days off, which attendance skips. See below."],
           ["<strong>Student IDs</strong>", "Automatic student numbers with your own prefix. See <a href=\"/legal/user-documentation/configure-custom-student-ids\">Student IDs</a>."],
         ],
         tip: "Change the brand color and look at a report card preview before printing a whole class, so the color reads well on paper.",
+      },
+      {
+        title: "Set weekends, holidays and days off",
+        text: "The school calendar decides which days count for attendance across the whole school. Attendance and lunch skip the days it leaves out.",
+        steps: [
+          "In <strong>Customize School</strong>, find <strong>School calendar</strong> under <strong>School rules</strong>.",
+          "Tick your <strong>weekend</strong> days, and choose whether attendance counts on <strong>public holidays</strong>. Save.",
+          "Leave <strong>Show weekends and holidays on the attendance sheet</strong> ticked to see them greyed beside the school days (then <strong>Last 3 days</strong> is the last 3 calendar days, today included), or untick it to hide them (then it's the last 3 school days).",
+          "Under <strong>Special days</strong>, add a single date with a reason, such as a teacher training day or a snow day, and choose <strong>Don't count</strong>. Select <strong>Add day</strong>.",
+        ],
+        note: "If your school has Class settings, each class's Class settings shows the term's calendar, with <strong>Change in Settings</strong> for staff allowed to edit it. See <a href=\"/legal/user-documentation/class-settings\">Class settings</a>.",
       },
     ],
     faq: [
       ["Will changing the web address break old links?", "Links with the old address stop working, so update any links you've shared, such as on social media or in emails."],
       ["Who sees the motto?", "It appears on your public website and on documents where your school's details are printed."],
     ],
-    related: ["register-a-school-and-complete-first-time-setup", "school-website", "configure-custom-student-ids"],
+    related: ["register-a-school-and-complete-first-time-setup", "school-website", "configure-custom-student-ids", "class-settings"],
   },
   {
     slug: "create-school-years-terms-and-set-the-current-term",

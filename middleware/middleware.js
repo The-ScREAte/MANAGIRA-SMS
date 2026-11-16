@@ -95,7 +95,9 @@ async function isAuthenticated(req, res, next) {
             return res.redirect('/driver/dashboard');
         }
 
-        if (!req.session || (!req.session.organizationId && !req.session.userId)) {
+        // Someone really signed in (session.user or session.userId): a school id alone is not a
+        // sign-in (a failed sign-in elsewhere can leave one behind).
+        if (!req.session || (!req.session.userId && !req.session.user)) {
             if (expectsJsonResponse(req)) {
                 return res.status(401).json({ success: false, message: 'Your session has expired. Please log in again.' });
             }

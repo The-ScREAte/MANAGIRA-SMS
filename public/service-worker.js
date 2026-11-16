@@ -63,8 +63,11 @@ function dropPanelCopies() {
     .catch(() => {});
 }
 
+// A development server sends this flag: pages are never kept there, so code changes show at once.
+const DEV_SERVER = self.MANAGIRA_DEV === true;
+
 function isWorkspacePanel(request, url) {
-  return request.method === 'GET'
+  return !DEV_SERVER && request.method === 'GET'
     && request.mode === 'navigate'
     && url.origin === self.location.origin
     && url.searchParams.get('embed') === 'workspace'
@@ -75,7 +78,7 @@ function isWorkspacePanel(request, url) {
 // that opens is chosen in the page from its address, so one copy per menu.
 const HUB_PAGES = ['/common/management', '/common/admissions', '/common/reports', '/account/settings/finance'];
 function isHubPage(request, url) {
-  return request.method === 'GET'
+  return !DEV_SERVER && request.method === 'GET'
     && request.mode === 'navigate'
     && request.destination === 'document' // a page opened inside a hub's panel gets that page, never the hub again
     && url.origin === self.location.origin

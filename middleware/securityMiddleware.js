@@ -41,7 +41,8 @@ function securityHeaders(req, res, next) {
 // A few older actions delete things from a plain link (GET). Those links must
 // come from our own pages: another website can't trigger them by embedding the
 // address (an image or hidden link) while a manager is signed in.
-const GET_ACTIONS_THAT_CHANGE_DATA = /^\/account\/(deleteImage|deleteText)\/|^\/common\/(deleteGraduationYearGroup|deleteSubject)(\/|$|\?)|^\/common\/deleteStudentImage\/|^\/print\/delete(StatusSettings|SignatureImage|SignatureForClass|EntireSignature|TranscriptSignatureForClass|EntireTranscriptSignature)(\/|$|\?)|^\/print\/(deleteRemark|deleteScoreRemark)\//;
+// Case-insensitive, as Express routes are (/common/DeleteSubject reaches /common/deleteSubject).
+const GET_ACTIONS_THAT_CHANGE_DATA = /^\/account\/(deleteImage|deleteText)\/|^\/common\/(deleteGraduationYearGroup|deleteSubject|deleteClass)(\/|$|\?)|^\/common\/deleteStudentImage\/|^\/print\/delete(StatusSettings|SignatureImage|SignatureForClass|EntireSignature|TranscriptSignatureForClass|EntireTranscriptSignature)(\/|$|\?)|^\/print\/(deleteRemark|deleteScoreRemark)\//i;
 
 function fromAnotherSite(req) {
   const fetchSite = req.get("sec-fetch-site");

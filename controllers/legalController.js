@@ -1040,6 +1040,22 @@ const legalController = {
         });
     },
     
+    // How to report a security problem (vulnerability disclosure), linked from /.well-known/security.txt.
+    securityPolicy: (req, res) => {
+        res.render('legal&Compliance/securityPolicy', {
+            title: 'Security and Vulnerability Disclosure',
+            showFooterTopSection: true
+        });
+    },
+
+    // The outside services that process school data (Privacy Policy, section 8).
+    subprocessors: (req, res) => {
+        res.render('legal&Compliance/subprocessors', {
+            title: 'Subprocessors',
+            showFooterTopSection: true
+        });
+    },
+
     termsOfService: (req, res) => {
         res.render('legal&Compliance/TermsofService', { 
             title: 'Terms of Service',

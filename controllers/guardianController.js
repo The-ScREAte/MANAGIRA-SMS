@@ -26,6 +26,8 @@ const {
 } = require("../utils/emailPreferences");
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const { getTransportationIntegrationStatus } = require("../utils/transportation");
+const classSettings = require("../utils/classSettings");
+const overallLunch = require("../utils/overallLunch");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const { resolveFinanceStripeRuntime } = require("./financeController");
@@ -245,6 +247,14 @@ async function guardianHasStudentAccess(db, guardianId, organizationId, studentI
   return ownership.rows.length > 0;
 }
 
+// What a child's class lets parents see (Class settings): { attendance, lunch, reportCards, gpa,
+// transport }, each true unless the class turned it off (and everywhere class_settings is off).
+async function parentsSeeChild(db, organizationId, studentId) {
+  const id = Number(studentId);
+  const see = await classSettings.parentsSeeFor(db, organizationId, [id]);
+  return see.get(id) || classSettings.withDefaults(null).parents;
+}
+
 async function resolveEffectiveClassForStudentTerm(db, organizationId, studentId, preferredTermId = null) {
   const parsedPreferredTermId = Number.parseInt(preferredTermId, 10);
 
@@ -333,15 +343,22 @@ module.exports = {
       const allChildren = [...approvedChildren, ...pendingKids.rows];
       const childTransportationMap = {};
       const transportationIntegration = await getTransportationIntegrationStatus(db, organizationId).catch(() => null);
+      // A child whose class keeps the bus from parents (Class settings) has no bus buttons here.
+      const parentsSee = await classSettings.parentsSeeFor(db, organizationId, approvedChildren.map((child) => child.student_id));
+      const transportHiddenIds = approvedChildren
+        .map((child) => Number(child.student_id))
+        .filter((id) => parentsSee.has(id) && parentsSee.get(id).transport === false);
 
       await Promise.all(
         approvedChildren.map(async (child) => {
           const resolvedStudentId = Number(child.student_id || 0);
           if (!Number.isInteger(resolvedStudentId) || resolvedStudentId <= 0) return;
+          if (transportHiddenIds.includes(resolvedStudentId)) return;
           const snapshot = await getStudentTransportationSnapshot(
             db,
             organizationId,
-            resolvedStudentId
+            resolvedStudentId,
+            { imageUrl: res.locals.publicImageUrl }
           ).catch(() => null);
           if (snapshot) {
             childTransportationMap[String(resolvedStudentId)] = snapshot;
@@ -354,6 +371,7 @@ module.exports = {
         guardian: guardian,
         children: allChildren,
         childTransportationMap,
+        transportHiddenIds,
         transportationActive: Boolean(transportationIntegration && transportationIntegration.activated),
         inboxSummary,
         currentTermId: req.session.currentTermId || null,
@@ -482,7 +500,8 @@ module.exports = {
                   WHEN ar.total_percentage >= 90 THEN 'A'
                   WHEN ar.total_percentage >= 80 THEN 'B'
                   WHEN ar.total_percentage >= 70 THEN 'C'
-                  ELSE 'D'
+                  WHEN ar.total_percentage >= 60 THEN 'D'
+                  ELSE 'F'
                 END
               )
               FROM score_remarks sr
@@ -505,7 +524,8 @@ module.exports = {
               WHEN ar.total_percentage >= 90 THEN 'A'
               WHEN ar.total_percentage >= 80 THEN 'B'
               WHEN ar.total_percentage >= 70 THEN 'C'
-              ELSE 'D'
+              WHEN ar.total_percentage >= 60 THEN 'D'
+              ELSE 'F'
             END
           ) AS grade
         FROM assessments a
@@ -1059,6 +1079,9 @@ module.exports = {
         return res.redirect('/guardian/dashboard');
       }
 
+      // What the child's class shows parents (Class settings): nothing hidden is even read.
+      const see = await parentsSeeChild(db, organizationId, studentId);
+
       // Everything that needs only the student and the term, fetched together.
       const [
         studentResult,
@@ -1085,15 +1108,15 @@ module.exports = {
          WHERE t.term_id = $1 AND t.organization_id = $2`,
           [termId, organizationId]
         ),
-        db.query(
+        see.attendance ? db.query(
           `SELECT date, status
          FROM attendance_records
          WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
          ORDER BY date DESC`,
           [studentId, organizationId, termId]
-        ),
+        ) : { rows: [] },
         // Past report cards (if the table exists).
-        db.query(
+        !see.reportCards ? { rows: [] } : db.query(
           `SELECT 
              t.term_name,
              sy.year_label,
@@ -1123,7 +1146,7 @@ module.exports = {
          LIMIT 3`,
           [organizationId]
         ),
-        ensurePostedReportCardsTable(db).then(() => db.query(
+        !see.reportCards ? { rows: [{ count: 0 }] } : ensurePostedReportCardsTable(db).then(() => db.query(
           `SELECT COUNT(*)::int AS count
          FROM posted_report_cards
          WHERE organization_id = $1
@@ -1171,6 +1194,8 @@ module.exports = {
       // Everything that needs the class: teachers, subjects, scores, positions and the timetable.
       // With the assessments flow, parents see only approved grades.
       const gradeFlow2 = assessmentApproval.flowOn(organizationId);
+      // Overall lunch (feature class_lunch), unless the class keeps it from parents.
+      const lunchShown = see.lunch && overallLunch.isOn(organizationId);
       const [
         mainTeacherResult,
         subjectsResult,
@@ -1178,6 +1203,8 @@ module.exports = {
         assessmentsResult,
         positionsResult,
         classSchedule,
+        lunchTotals,
+        classTakesLunch,
       ] = await Promise.all([
         db.query(
           `SELECT u.first_name, u.last_name, u.email
@@ -1231,7 +1258,8 @@ module.exports = {
                    WHEN ar.total_percentage >= 90 THEN 'A'
                    WHEN ar.total_percentage >= 80 THEN 'B'
                    WHEN ar.total_percentage >= 70 THEN 'C'
-                   ELSE 'D'
+                   WHEN ar.total_percentage >= 60 THEN 'D'
+                   ELSE 'F'
                  END
                )
                FROM score_remarks sr
@@ -1254,7 +1282,8 @@ module.exports = {
                WHEN ar.total_percentage >= 90 THEN 'A'
                WHEN ar.total_percentage >= 80 THEN 'B'
                WHEN ar.total_percentage >= 70 THEN 'C'
-               ELSE 'D'
+               WHEN ar.total_percentage >= 60 THEN 'D'
+               ELSE 'F'
              END
            ) AS grade
          FROM assessments a
@@ -1289,6 +1318,10 @@ module.exports = {
         effectiveClassId
           ? getClassScheduleForTerm(db, { organizationId, classId: effectiveClassId, termId })
           : null,
+        lunchShown ? overallLunch.totalsFor(db, organizationId, termId, [studentId]) : new Map(),
+        lunchShown && effectiveClassId
+          ? classSettings.settingsFor(db, organizationId, effectiveClassId).then((s) => s.lunch !== false).catch(() => true)
+          : lunchShown,
       ]);
 
       const subjectsMap = new Map();
@@ -1378,9 +1411,24 @@ module.exports = {
 
       const hasPostedReportCards = (postedReportCardsCountResult.rows[0]?.count || 0) > 0;
 
+      // Lunch shows where it's taken for the class, or was taken this term before it stopped.
+      const lunchTotal = lunchTotals.get(studentId) || null;
+      const lunch = lunchShown && (lunchTotal || classTakesLunch)
+        ? { days: lunchTotal ? lunchTotal.days : 0, taken: lunchTotal ? lunchTotal.taken : 0, label: overallLunch.label(lunchTotal) }
+        : null;
+
       const scheduleWatermarkUrl = resolveScheduleWatermarkUrl(req);
 
+      // GPA (features gpa and family_gpa), unless the class keeps it from parents (Class settings):
+      // this term's, from the grades shown above, and the cumulative over finished terms.
+      const gpaInfo = see.gpa && require('../utils/shards/features').isOn('family_gpa', { organizationId })
+        ? await require('../utils/gpa').familyGpa(db, organizationId, studentId, {
+            termGrades: subjects.filter((s) => s.grade).map((s) => ({ subject_id: s.subject_id, grade: s.grade })),
+          }).catch((error) => { console.error('[Guardian Academic Details] GPA:', error?.message || error); return null; })
+        : null;
+
       return res.render('guardian/studentAcademicDetails', {
+        gpaInfo,
         title: `${student.first_name}'s Academic Details`,
         student,
         mainTeacher: mainTeacherResult.rows[0] || null,
@@ -1389,6 +1437,9 @@ module.exports = {
         uniqueAssessments,
         attendance,
         attendanceSummary,
+        showAttendance: see.attendance,
+        lunch,
+        showReportCards: see.reportCards,
         pastResults,
         terms: termsResult.rows,
         selectedTermId: termId,
@@ -1428,6 +1479,10 @@ module.exports = {
       if (!hasAccess) {
         return res.status(403).json({ success: false, message: 'Access denied.' });
       }
+      // The child's class keeps report cards from parents (Class settings).
+      if (!(await parentsSeeChild(db, organizationId, studentId)).reportCards) {
+        return res.status(403).json({ success: false, message: "Report cards for this class aren't shared with parents." });
+      }
 
       await ensurePostedReportCardsTable(db);
 
@@ -1450,26 +1505,15 @@ module.exports = {
         [organizationId, studentId]
       );
 
-      const bucket = String(process.env.S3_BUCKET_NAME || '').trim();
-      const region = String(process.env.AWS_REGION || '').trim();
+      // Each report card opens through Managira's own route, which checks the parent again and
+      // hands out a link that works for a few minutes: storage is private (utils/storedFiles.js).
       const reportCards = (reportCardsResult.rows || []).map((row) => {
-        const directUrl = String(row.pdf_url || '').trim();
-        const s3Key = String(row.pdf_s3_key || '').trim();
-        let resolvedPdfUrl = directUrl;
-        if (!resolvedPdfUrl && s3Key) {
-          const chosenBucket = bucket || String(process.env.S3_PUBLIC_BUCKET_NAME || '').trim() || 'oneplaces3';
-          const cleanKey = s3Key.replace(/^\/+/, '');
-          if (!region || region === 'us-east-1') {
-            resolvedPdfUrl = `https://${chosenBucket}.s3.amazonaws.com/${cleanKey}`;
-          } else {
-            resolvedPdfUrl = `https://${chosenBucket}.s3.${region}.amazonaws.com/${cleanKey}`;
-          }
-        }
-        const fallbackPdfRoute = `/guardian/student-report-cards/${row.posted_report_card_id}/pdf`;
+        const pdfRoute = `/guardian/student-report-cards/${row.posted_report_card_id}/pdf`;
+        const { pdf_url: _storedUrl, pdf_s3_key: _storedKey, ...rest } = row;
         return {
-          ...row,
-          resolved_pdf_url: resolvedPdfUrl || null,
-          fallback_pdf_route: fallbackPdfRoute,
+          ...rest,
+          resolved_pdf_url: pdfRoute,
+          fallback_pdf_route: pdfRoute,
         };
       });
 
@@ -1511,25 +1555,20 @@ module.exports = {
       if (!hasAccess) {
         return res.status(403).send('Access denied.');
       }
-
-      const s3Key = String(record.pdf_s3_key || '').trim();
-      const directUrl = String(record.pdf_url || '').trim();
-      let targetUrl = directUrl;
-
-      if (!targetUrl && s3Key) {
-        const bucket = String(process.env.S3_BUCKET_NAME || '').trim();
-        const region = String(process.env.AWS_REGION || '').trim();
-        if (bucket && region) {
-          targetUrl = `https://${bucket}.s3.${region}.amazonaws.com/${s3Key.replace(/^\/+/, '')}`;
-        }
+      if (!(await parentsSeeChild(db, organizationId, record.student_id)).reportCards) {
+        return res.status(403).send("Report cards for this class aren't shared with parents.");
       }
 
+      // Storage is private: the parent gets a link that works for a few minutes (utils/storedFiles.js).
+      const stored = String(record.pdf_s3_key || '').trim() || String(record.pdf_url || '').trim();
+      const targetUrl = stored ? await require('../utils/storedFiles').signedUrl(stored, { seconds: 300 }) : null;
       if (!targetUrl) {
         return res.status(404).send('PDF file unavailable.');
       }
 
-      res.setHeader('Content-Type', 'application/pdf');
-      return res.redirect(targetUrl);
+      res.set('Cache-Control', 'private, no-store');
+      res.set('Referrer-Policy', 'no-referrer');
+      return res.redirect(302, targetUrl);
     } catch (error) {
       console.error('[studentReportCardPdfGet] Error:', error?.message || error);
       return res.status(500).send('Unable to open report card PDF.');
@@ -2249,3 +2288,4 @@ module.exports = {
 };
 
 module.exports.guardianHasStudentAccess = guardianHasStudentAccess;
+module.exports.parentsSeeChild = parentsSeeChild;

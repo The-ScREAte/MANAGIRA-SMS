@@ -165,24 +165,33 @@
     <main class="login-card">
       <% if (locals.schoolLogo) { %><img class="login-school" src="<%= schoolLogo %>" alt="" /><% } %>
       <% const _codeStep = locals.step === 'code'; %>
-      <h1><%= _codeStep ? 'Check your email' : (locals.schoolName ? `Log in to ${schoolName}` : 'Log in to your account') %></h1>
+      <% const _appCode = _codeStep && locals.codeMode === 'app'; %>
+      <h1><%= _appCode ? 'Enter your authenticator code' : (_codeStep ? 'Check your email' : (locals.schoolName ? `Log in to ${schoolName}` : 'Log in to your account')) %></h1>
 
       <%- include('../partials/flash') %>
 
       <% if (_codeStep) { %>
+      <% if (_appCode) { %>
+      <p class="lead">Open your authenticator app and enter the 6-digit code it shows for Managira.</p>
+      <% } else { %>
       <p class="lead">We sent a 6-character code to <strong><%= locals.codeTo %></strong>. Enter it below to finish logging in. It expires in 10 minutes.</p>
+      <% } %>
       <% if (locals.codeNote) { %><p class="note-ok" role="status"><%= codeNote %></p><% } %>
       <form id="codeForm" action="/account/login/verify-code" method="post" novalidate data-loader-text="Signing you in">
         <div class="field">
-          <div class="field-top"><label for="code">Verification code</label></div>
+          <div class="field-top"><label for="code"><%= _appCode ? 'Authenticator code' : 'Verification code' %></label></div>
+          <% if (_appCode) { %>
+          <input type="text" id="code" name="code" class="code-input" data-app inputmode="text" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" maxlength="12" placeholder="123456" required autofocus aria-describedby="codeHelp" style="text-transform:none" />
+          <% } else { %>
           <input type="text" id="code" name="code" class="code-input" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="ABC123" required autofocus aria-describedby="codeHelp" />
+          <% } %>
           <% if (locals.codeError) { %><p class="field-error" role="alert"><%= codeError %></p><% } %>
-          <p class="field-help" id="codeHelp">Can't find it? Check your spam or junk folder.</p>
+          <p class="field-help" id="codeHelp"><%= _appCode ? "Lost your phone? Type one of your recovery codes instead (like ab12c-34de5)." : "Can't find it? Check your spam or junk folder." %></p>
         </div>
         <button type="submit" class="btn-primary" data-submit>Verify</button>
       </form>
       <div class="code-actions">
-        <form action="/account/login/resend-code" method="post" data-loader-text="Sending a new code"><button type="submit" class="link-button">Send a new code</button></form>
+        <% if (!_appCode) { %><form action="/account/login/resend-code" method="post" data-loader-text="Sending a new code"><button type="submit" class="link-button">Send a new code</button></form><% } %>
         <a href="/account/login">Use a different account</a>
       </div>
       <% } else { %>
@@ -257,8 +266,14 @@
       var codeInput = document.getElementById('code');
       if (codeInput) {
         // A code pasted with a space or a dash still works; the box shows it as one word.
-        codeInput.addEventListener('input', function () { var v = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); if (v !== codeInput.value) codeInput.value = v; });
-        document.getElementById('codeForm').addEventListener('submit', function (event) { if (codeInput.value.length !== 6) { event.preventDefault(); codeInput.setCustomValidity('Enter the 6-character code.'); codeInput.reportValidity(); codeInput.setCustomValidity(''); } });
+        // An emailed code is 6 letters and digits; an authenticator code or recovery code is left as typed.
+        if (!codeInput.hasAttribute('data-app')) codeInput.addEventListener('input', function () { var v = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); if (v !== codeInput.value) codeInput.value = v; });
+        document.getElementById('codeForm').addEventListener('submit', function (event) {
+          var app = codeInput.hasAttribute('data-app');
+          var value = codeInput.value.trim();
+          var ok = app ? (/^\d{6}$/.test(value.replace(/\s+/g, '')) || /^[a-z0-9]{5}-?[a-z0-9]{5}$/i.test(value)) : value.length === 6;
+          if (!ok) { event.preventDefault(); codeInput.setCustomValidity(app ? 'Enter the 6-digit code from your app, or a recovery code.' : 'Enter the 6-character code.'); codeInput.reportValidity(); codeInput.setCustomValidity(''); }
+        });
         document.querySelectorAll('.flash-close').forEach(function (x) { x.addEventListener('click', function () { x.parentElement.remove(); }); });
         return;
       }

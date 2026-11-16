@@ -261,6 +261,77 @@ function attendanceRollup(groupBy, bind, criteria) {
     ) x`;
 }
 
+// School days in each term so far, counted as the class attendance page counts them for its
+// "Overall" (days present on school days / school days): the term's days up to today (and inside
+// "Dates between"), less the weekends, public holidays and excluded days of the school's
+// attendance calendar (its term's, else its latest); a day the school added back counts, and the
+// term's last day always counts. With no attendance calendar every day counts. Joined only when
+// one of these columns is chosen (per term once, then each student's present marks on those days).
+const SCHOOL_DAY_COLUMNS = ["school_days", "school_present", "school_rate"];
+function schoolDaysJoin(bind, criteria) {
+  const range = criteria.date || {};
+  const from = range.from ? `GREATEST(tt.start_date, ${bind(range.from)}::date)` : "tt.start_date";
+  const to = `LEAST(tt.end_date, CURRENT_DATE${range.to ? `, ${bind(range.to)}::date` : ""})`;
+  return `LEFT JOIN (
+      SELECT tt.term_id,
+             ARRAY_AGG(g.day) FILTER (WHERE g.day = tt.end_date OR cal.calendar_id IS NULL OR CASE
+               WHEN LOWER(cd.source) = 'manual' THEN cd.counts_for_attendance
+               WHEN LOWER(cd.source) = 'public_holiday' AND cal.include_public_holidays THEN FALSE
+               ELSE NOT (EXTRACT(DOW FROM g.day)::int = ANY(COALESCE(NULLIF(cal.weekend_days, '{}'), ARRAY[0, 6]::smallint[])))
+             END) AS days
+        FROM terms tt
+        LEFT JOIN LATERAL (
+          SELECT oc.calendar_id, oc.weekend_days, oc.include_public_holidays
+            FROM organization_attendance_calendars oc
+           WHERE oc.organization_id = tt.organization_id
+           ORDER BY (oc.term_id = tt.term_id) DESC, oc.updated_at DESC, oc.created_at DESC
+           LIMIT 1
+        ) cal ON TRUE
+        CROSS JOIN LATERAL generate_series((${from})::timestamp, (${to})::timestamp, INTERVAL '1 day') AS gs(day)
+        CROSS JOIN LATERAL (SELECT gs.day::date AS day) g
+        LEFT JOIN organization_attendance_calendar_days cd ON cd.calendar_id = cal.calendar_id AND cd.calendar_date = g.day
+       WHERE tt.organization_id = $1 ${criteria.term ? `AND tt.term_id = ANY(${bind(criteria.term)}::int[])` : ""}
+       GROUP BY tt.term_id
+    ) sd ON sd.term_id = x.term_id
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*) AS present FROM attendance_records a3
+       WHERE a3.organization_id = x.organization_id AND a3.student_id = x.student_id
+         AND a3.class_id = x.class_id AND a3.term_id = x.term_id
+         AND a3.status::text ILIKE 'present' AND a3.date = ANY(sd.days)
+    ) sp ON TRUE`;
+}
+
+// Lunch, taken beside attendance on the class attendance page (feature class_lunch): one
+// class_lunch row per student per day, had lunch or not; no row = lunch wasn't taken that day.
+// Grouped like attendanceRollup, dates filtered inside. Per student, "days lunch was taken" are
+// the class's (every day lunch was taken for the class that term), as the page's "Overall" shows.
+function lunchRollup(groupBy, bind, criteria, { classDays = false } = {}) {
+  const dates = (alias) => (criteria.date ? `AND ${dateRangeSql(bind, `${alias}.lunch_date`, criteria.date)}` : "");
+  const columns = groupBy.map((column) => `l.${column}`).join(", ");
+  const grouped = `
+      SELECT l.organization_id, ${columns},
+             COUNT(*) AS recorded,
+             COUNT(*) FILTER (WHERE l.had_lunch) AS had,
+             COUNT(*) FILTER (WHERE NOT l.had_lunch) AS without
+        FROM class_lunch l
+       WHERE l.organization_id = $1 ${dates("l")}
+       GROUP BY l.organization_id, ${columns}`;
+  if (!classDays) return `(${grouped}) x`;
+  return `(
+      SELECT g.*, COALESCE(cd.days, 0) AS class_days
+        FROM (${grouped}) g
+        LEFT JOIN (
+          SELECT d.class_id, d.term_id, COUNT(DISTINCT d.lunch_date) AS days
+            FROM class_lunch d
+           WHERE d.organization_id = $1 ${dates("d")}
+           GROUP BY d.class_id, d.term_id
+        ) cd ON cd.class_id = g.class_id AND cd.term_id IS NOT DISTINCT FROM g.term_id
+    ) x`;
+}
+// Who marked a day's lunch: a member of staff, or the school's own account (whose session
+// carries the school's id as its user id), never someone of another school.
+const LUNCH_MARKED_BY = `COALESCE(NULLIF(${fullName("mu")}, ''), NULLIF(TRIM(mo.organization_name), ''))`;
+
 // ---- Merit sheet helpers ------------------------------------------------------
 
 // A SQL string literal for school-defined names (subjects, categories, remark
@@ -877,6 +948,9 @@ const REPORTS = {
       status: { label: "Status", expression: "ar.status::text" },
       term_name: { label: "Term", expression: "t.term_name" },
       marked_by: { label: "Marked by", expression: fullName("mu") },
+      // The mark as it stands was saved then (a change updates it); first marked is the first save.
+      marked_at: { label: "Marked at", expression: "COALESCE(ar.updated_at, ar.marked_at)", type: "datetime" },
+      first_marked: { label: "First marked", expression: "ar.marked_at", type: "datetime" },
       ...PARENT_COLUMNS,
     },
     criteria: [
@@ -896,10 +970,11 @@ const REPORTS = {
     organizationExpression: "x.organization_id",
     classExpression: "x.class_id",
     stableOrderExpressions: ["x.student_id", "x.class_id", "x.term_id"],
-    from: (bind, criteria) => `FROM ${attendanceRollup("student_id, class_id, term_id", bind, criteria)}
+    from: (bind, criteria, columns = []) => `FROM ${attendanceRollup("student_id, class_id, term_id", bind, criteria)}
       JOIN students s ON s.student_id = x.student_id AND s.organization_id = x.organization_id
       LEFT JOIN classes c ON c.class_id = x.class_id AND c.organization_id = x.organization_id
-      LEFT JOIN terms t ON t.term_id = x.term_id AND t.organization_id = x.organization_id`,
+      LEFT JOIN terms t ON t.term_id = x.term_id AND t.organization_id = x.organization_id
+      ${columns.some((key) => SCHOOL_DAY_COLUMNS.includes(key)) ? schoolDaysJoin(bind, criteria) : ""}`,
     joins: STUDENT_JOINS,
     defaultColumns: ["student_name", "class_name", "term_name", "days", "present", "absent", "rate"],
     defaultSort: { key: "student_name", dir: "asc" },
@@ -911,6 +986,10 @@ const REPORTS = {
       present: { label: "Present", expression: "x.present", type: "number" },
       absent: { label: "Absent", expression: "x.absent", type: "number" },
       rate: { label: "Attendance %", expression: "ROUND(x.present * 100.0 / NULLIF(x.days, 0), 1)", type: "number" },
+      // The page's "Overall": days present on school days out of the term's school days so far.
+      school_days: { label: "School days", expression: "COALESCE(CARDINALITY(sd.days), 0)", type: "number", requires: "attendanceCalendar" },
+      school_present: { label: "Present on school days", expression: "COALESCE(sp.present, 0)", type: "number", requires: "attendanceCalendar" },
+      school_rate: { label: "Attendance % of school days", expression: "ROUND(sp.present * 100.0 / NULLIF(CARDINALITY(sd.days), 0), 1)", type: "number", requires: "attendanceCalendar" },
       ...PARENT_COLUMNS,
     },
     criteria: [
@@ -960,6 +1039,138 @@ const REPORTS = {
       choiceCriterion("rate", "Attendance rate", [
         { value: "below90", label: "Below 90%", sql: "x.present * 100.0 / NULLIF(x.days, 0) < 90" },
         { value: "full", label: "Everyone present", sql: "x.absent = 0" },
+      ]),
+    ],
+  },
+
+  // Lunch (feature class_lunch), in the Attendance entry beside the marks it is taken with.
+  lunch: {
+    title: "Attendance",
+    variant: "Lunch each day",
+    permission: "mark_attendance",
+    requires: "lunch",
+    releaseFeature: "class_lunch",
+    organizationExpression: "cl.organization_id",
+    classExpression: "cl.class_id",
+    stableOrderExpressions: ["cl.lunch_id"],
+    from: `FROM class_lunch cl
+      JOIN students s ON s.student_id = cl.student_id AND s.organization_id = cl.organization_id
+      LEFT JOIN classes c ON c.class_id = cl.class_id AND c.organization_id = cl.organization_id
+      LEFT JOIN terms t ON t.term_id = cl.term_id AND t.organization_id = cl.organization_id
+      LEFT JOIN users mu ON mu.user_id = cl.marked_by AND mu.organization_id = cl.organization_id
+      LEFT JOIN organizations mo ON mo.organization_id = cl.organization_id AND cl.marked_by = cl.organization_id AND mu.user_id IS NULL`,
+    joins: {
+      ...STUDENT_JOINS,
+      // The day's attendance mark beside its lunch.
+      day_mark: `LEFT JOIN LATERAL (
+          SELECT a2.status::text AS status FROM attendance_records a2
+           WHERE a2.organization_id = cl.organization_id AND a2.student_id = cl.student_id AND a2.date = cl.lunch_date
+           ORDER BY (a2.term_id = cl.term_id) DESC NULLS LAST
+           LIMIT 1
+        ) dm ON TRUE`,
+    },
+    defaultColumns: ["date", "student_name", "class_name", "had_lunch"],
+    defaultSort: { key: "date", dir: "desc" },
+    columns: {
+      date: { label: "Date", expression: "cl.lunch_date", type: "date" },
+      weekday: { label: "Day", expression: "TRIM(TO_CHAR(cl.lunch_date, 'Day'))" },
+      ...STUDENT_COLUMNS,
+      class_name: { label: "Class", expression: "c.class_name" },
+      had_lunch: { label: "Had lunch", expression: "CASE WHEN cl.had_lunch THEN 'Yes' ELSE 'No' END" },
+      attendance_status: { label: "Attendance that day", expression: "dm.status", join: "day_mark" },
+      term_name: { label: "Term", expression: "t.term_name" },
+      marked_by: { label: "Marked by", expression: LUNCH_MARKED_BY },
+      marked_at: { label: "Marked at", expression: "COALESCE(cl.updated_at, cl.marked_at)", type: "datetime" },
+      first_marked: { label: "First marked", expression: "cl.marked_at", type: "datetime" },
+      ...PARENT_COLUMNS,
+    },
+    criteria: [
+      ...studentCriteria(),
+      classCriterion("cl.class_id"),
+      termCriterion("cl.term_id"),
+      choiceCriterion("had_lunch", "Had lunch", [
+        { value: "yes", label: "Had lunch", sql: "cl.had_lunch" },
+        { value: "no", label: "No lunch", sql: "NOT cl.had_lunch" },
+      ]),
+      nameCriterion("marked_by", "Marked by", fieldsMatch([LUNCH_MARKED_BY])),
+      dateCriterion("Date between", "cl.lunch_date"),
+    ],
+  },
+  lunch_summary: {
+    title: "Attendance",
+    variant: "Lunch per student",
+    permission: "mark_attendance",
+    requires: "lunch",
+    releaseFeature: "class_lunch",
+    organizationExpression: "x.organization_id",
+    classExpression: "x.class_id",
+    stableOrderExpressions: ["x.student_id", "x.class_id", "x.term_id"],
+    from: (bind, criteria) => `FROM ${lunchRollup(["student_id", "class_id", "term_id"], bind, criteria, { classDays: true })}
+      JOIN students s ON s.student_id = x.student_id AND s.organization_id = x.organization_id
+      LEFT JOIN classes c ON c.class_id = x.class_id AND c.organization_id = x.organization_id
+      LEFT JOIN terms t ON t.term_id = x.term_id AND t.organization_id = x.organization_id`,
+    joins: STUDENT_JOINS,
+    defaultColumns: ["student_name", "class_name", "term_name", "class_days", "had", "without", "rate"],
+    defaultSort: { key: "student_name", dir: "asc" },
+    columns: {
+      ...STUDENT_COLUMNS,
+      class_name: { label: "Class", expression: "c.class_name" },
+      term_name: { label: "Term", expression: "t.term_name" },
+      class_days: { label: "Days lunch was taken", expression: "x.class_days", type: "number" },
+      had: { label: "Days with lunch", expression: "x.had", type: "number" },
+      without: { label: "Days without lunch", expression: "x.without", type: "number" },
+      not_recorded: { label: "Not recorded", expression: "GREATEST(x.class_days - x.recorded, 0)", type: "number" },
+      rate: { label: "Lunch %", expression: "ROUND(x.had * 100.0 / NULLIF(x.class_days, 0), 1)", type: "number" },
+      ...PARENT_COLUMNS,
+    },
+    criteria: [
+      ...studentCriteria(),
+      classCriterion("x.class_id"),
+      termCriterion("x.term_id"),
+      { ...dateCriterion("Dates between", "lunch_date"), where: () => null, inFrom: true },
+      choiceCriterion("without", "Days without lunch", [
+        { value: "any", label: "1 or more", sql: "x.without > 0" },
+        { value: "3plus", label: "3 or more", sql: "x.without >= 3" },
+        { value: "none", label: "None", sql: "x.without = 0" },
+      ]),
+      choiceCriterion("rate", "Lunch rate", [
+        { value: "below50", label: "Below 50%", sql: "x.had * 100.0 / NULLIF(x.class_days, 0) < 50" },
+        { value: "below90", label: "Below 90%", sql: "x.had * 100.0 / NULLIF(x.class_days, 0) < 90" },
+        { value: "90plus", label: "90% or higher", sql: "x.had * 100.0 / NULLIF(x.class_days, 0) >= 90" },
+      ]),
+    ],
+  },
+  class_lunch: {
+    title: "Attendance",
+    variant: "Lunch per class & day",
+    permission: "mark_attendance",
+    requires: "lunch",
+    releaseFeature: "class_lunch",
+    organizationExpression: "x.organization_id",
+    classExpression: "x.class_id",
+    stableOrderExpressions: ["x.class_id", "x.term_id"],
+    from: (bind, criteria) => `FROM ${lunchRollup(["class_id", "term_id", "lunch_date"], bind, criteria)}
+      LEFT JOIN classes c ON c.class_id = x.class_id AND c.organization_id = x.organization_id
+      LEFT JOIN terms t ON t.term_id = x.term_id AND t.organization_id = x.organization_id`,
+    defaultColumns: ["date", "class_name", "recorded", "had", "without"],
+    defaultSort: { key: "date", dir: "desc" },
+    columns: {
+      date: { label: "Date", expression: "x.lunch_date", type: "date" },
+      weekday: { label: "Day", expression: "TRIM(TO_CHAR(x.lunch_date, 'Day'))" },
+      class_name: { label: "Class", expression: "c.class_name" },
+      term_name: { label: "Term", expression: "t.term_name" },
+      recorded: { label: "Students recorded", expression: "x.recorded", type: "number" },
+      had: { label: "Had lunch", expression: "x.had", type: "number" },
+      without: { label: "No lunch", expression: "x.without", type: "number" },
+      rate: { label: "Lunch %", expression: "ROUND(x.had * 100.0 / NULLIF(x.recorded, 0), 1)", type: "number" },
+    },
+    criteria: [
+      classCriterion("x.class_id"),
+      termCriterion("x.term_id"),
+      { ...dateCriterion("Date between", "lunch_date"), where: () => null, inFrom: true },
+      choiceCriterion("without", "No lunch", [
+        { value: "any", label: "Someone had no lunch", sql: "x.without > 0" },
+        { value: "none", label: "Everyone had lunch", sql: "x.without = 0" },
       ]),
     ],
   },
@@ -1990,7 +2201,7 @@ const FAMILIES = [
   { key: "admissions", group: "Students", title: "Admissions & enrollment", description: "Online applications and enrollment by term", views: ["admissions", "enrollments"] },
   { key: "assessments", group: "Students", title: "Assessments", description: "Recorded scores and online tests", views: ["assessment_results", "online_tests"] },
   { key: "merit", group: "Students", title: "Merit sheet", description: "Class rankings by term: totals, averages, grades, positions and remarks", views: ["merit_ranking", "merit_subjects"] },
-  { key: "attendance", group: "Students", title: "Attendance", description: "Daily marks, totals per student and class counts", views: ["attendance", "attendance_summary", "class_attendance"] },
+  { key: "attendance", group: "Students", title: "Attendance", description: "Daily marks, totals per student and class counts", also: { lunch: ", and lunch" }, views: ["attendance", "attendance_summary", "class_attendance", "lunch", "lunch_summary", "class_lunch"] },
   { key: "parents", group: "Parents & messages", title: "Parents & guardians", description: "Contacts, children and parent portal access", views: ["parents"] },
   { key: "parent_messages", group: "Parents & messages", title: "Parent messages", description: "Messages from parents and how they were handled", views: ["parent_messages"] },
   { key: "messages", group: "Parents & messages", title: "Messages sent", description: "Emails, texts and report cards, and undelivered emails", views: ["message_delivery", "failed_emails"] },
@@ -2047,6 +2258,12 @@ const FEATURES = {
   profile: (db, organizationId) => planHas(db, organizationId, ["Student and Guardian Profile", "Student and Guadian Profile"]),
   assessments: (db, organizationId) => planHas(db, organizationId, ["Assessment Tracking", "Assessment tracking feature"]),
   attendance: (db, organizationId) => planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
+  // The attendance calendar's tables (made on the first visit to attendance pages).
+  attendanceCalendar: tableExists("organization_attendance_calendars", "organization_attendance_calendar_days"),
+  // Lunch is taken on the class attendance page: released to the school, its table made, and attendance in the plan.
+  lunch: async (db, organizationId) => require("./shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })
+    && (await tableExists("class_lunch")(db))
+    && planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
   website: (db, organizationId) => planHas(db, organizationId, ["School Website", "SchoolWebsite"]),
 };
 
@@ -2154,7 +2371,8 @@ function buildQueries(report, { columns, criteria = {}, organizationId, allowedC
     return `$${values.length}`;
   };
 
-  const fromSql = typeof report.from === "function" ? report.from(bind, criteria) : report.from;
+  // A grouped report's `from` may add a join only when a chosen column needs it.
+  const fromSql = typeof report.from === "function" ? report.from(bind, criteria, columns) : report.from;
   const clauses = [`${report.organizationExpression} = $1`];
   if (report.baseWhere) clauses.push(report.baseWhere);
   if (ownRowsOf !== null) clauses.push(report.ownerWhere(bind, ownRowsOf));

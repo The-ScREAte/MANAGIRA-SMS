@@ -1849,8 +1849,8 @@
       flex-wrap: nowrap;
       justify-content: space-between;
       align-items: stretch;
-      gap: 4px;
-      padding: 8px 10px;
+      gap: 2px;
+      padding: 8px 6px;
       margin: 0;
       overflow-x: auto;
       scrollbar-width: none;
@@ -1868,8 +1868,8 @@
     }
 
     .sticky-nav ul li {
-      flex: 1 0 56px;
-      min-width: 56px;
+      flex: 1 0 48px;
+      min-width: 48px;
       text-align: center;
     }
 
@@ -1879,6 +1879,7 @@
       align-items: center;
       justify-content: center;
       gap: 4px;
+      box-sizing: border-box;
       width: 100%;
       min-width: 0;
       min-height: 52px;
@@ -1921,15 +1922,27 @@
     }
 
     /* The header on these pages: logo, the school's short name, one Sign In button. */
+    /* Exactly the page's top space (66px), so the header never covers the top of the page. */
     header#top-header:has(> .sticky-nav) {
-      min-height: 64px;
+      box-sizing: border-box;
+      height: 66px;
+      min-height: 66px;
+      padding-top: 0;
+      padding-bottom: 0;
     }
 
     header#top-header:has(> .sticky-nav) .header-mobile-row {
       width: 100%;
-      min-height: 64px;
+      height: 66px;
+      min-height: 66px;
       gap: 12px;
       align-items: center;
+    }
+
+    header#top-header:has(> .sticky-nav) .org-names a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
     }
 
     header#top-header:has(> .sticky-nav) .logo {

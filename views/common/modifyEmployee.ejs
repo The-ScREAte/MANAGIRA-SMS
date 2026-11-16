@@ -445,8 +445,10 @@
         <select name="accountType">
             <option value="">-- Select Role --</option>
             <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager" <%= _builtIn === 'Manager' ? 'selected' : '' %>>Manager</option><% } %>
-            <option value="Supervisor" <%= _builtIn === 'Supervisor' ? 'selected' : '' %>>Supervisor</option>
-            <option value="Teacher" <%= _builtIn === 'Teacher' ? 'selected' : '' %>>Teacher</option>
+            <%# Only the roles this person may give (the person's own stays listed; utils/staffChangeGuard.js). %>
+            <% const _canGive = (type) => typeof canGiveRoles === 'undefined' || canGiveRoles.includes(type) || _builtIn === type; %>
+            <% if (_canGive('Supervisor')) { %><option value="Supervisor" <%= _builtIn === 'Supervisor' ? 'selected' : '' %>>Supervisor</option><% } %>
+            <% if (_canGive('Teacher')) { %><option value="Teacher" <%= _builtIn === 'Teacher' ? 'selected' : '' %>>Teacher</option><% } %>
             <%# A driver is there for transportation alone: offered while the school has it on, and kept for someone who already is one. %>
             <% if (user.account_type === 'Driver' || !(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver" <%= _builtIn === 'Driver' ? 'selected' : '' %>>Driver</option><% } %>
             <%- include('../partials/schoolRoles', { part: 'options' }) %>
@@ -455,6 +457,26 @@
       </div>
     </div>
     <%- include('../partials/employeeSignIn', { signInIsExisting: true }) %>
+    <%# Two-step sign-in for this person alone (utils/signInMfa.js); the school-wide rule is in Settings › Tenant configuration. %>
+    <% if (locals.mfaOption && mfaOption.show) { %>
+    <div class="employee-section emp-mfa">
+      <input type="hidden" name="mfaRequiredShown" value="1" />
+      <label class="emp-mfa__option">
+        <input type="checkbox" name="mfaRequired" value="1"<%= mfaOption.required ? ' checked' : '' %> />
+        <span>
+          <strong>Require an authenticator app at sign-in</strong>
+          <small>When they sign in with a password, they also enter a code from an app on their phone. If they haven't set one up, they're asked to before anything else. Your school's rule in Settings › Tenant configuration can require it for more people.</small>
+        </span>
+      </label>
+    </div>
+    <style>
+      .modify-employee-card .emp-mfa__option { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 18px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #fff; font-weight: 400; cursor: pointer; }
+      .modify-employee-card .emp-mfa__option input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--org-primary-color, #01535b); }
+      .modify-employee-card .emp-mfa__option span { display: grid; gap: 2px; min-width: 0; }
+      .modify-employee-card .emp-mfa__option strong { font-size: .92rem; color: #111827; }
+      .modify-employee-card .emp-mfa__option small { font-size: .8rem; line-height: 1.4; color: #6b7280; }
+    </style>
+    <% } %>
     <div class="employee-section employee-section-classes">
       <p style="color:#64748b; font-size:12px; margin: 4px 0 0; display:none;" id="driverSubjectsNote">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
       <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classIds[]' }) %>

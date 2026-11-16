@@ -73,7 +73,7 @@
     "pdfkit": "^0.20.2",
     "pg": "^8.13.1",
     "pg-copy-streams": "^7.0.0",
-    "puppeteer": "^24.43.1",
+    "puppeteer": "^25.17.0",
     "qrcode": "^1.5.4",
     "redis": "^4.7.0",
     "resend": "^6.12.3",
@@ -107,5 +107,11 @@
   },
   "engines": {
     "node": "24.x"
+  },
+  "allowScripts": {
+    "puppeteer": true,
+    "ffmpeg-static": true,
+    "fsevents": false,
+    "tesseract.js": false
   }
 }

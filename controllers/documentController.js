@@ -735,11 +735,15 @@ const documentController = {
 
       res.render("common/documentEditor", {
         title: doc.title,
-        reportFields: reportTemplate.fieldGroupsFor(customRemarkTypes),
+        reportFields: reportTemplate.fieldGroupsFor(customRemarkTypes, {
+          lunch: require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(orgId) }),
+        }),
         reportTemplateOn: !!doc.report_template,
         reportTemplateClasses: templateClasses.rows,
         canInsertData: canManageRecords,
-        dataSources: documentData.describeSources(),
+        dataSources: documentData.describeSources({
+          lunch: require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(orgId) }),
+        }),
         terms: termsResult.rows,
         document: doc,
         permissionLevel,

@@ -32,11 +32,15 @@ const idOf = (value) => {
 // The subjects a request names, through whichever of its ids it carries.
 async function subjectsNamed(db, organizationId, source) {
   const subjects = [];
-  const lookups = [
-    [source.questionSetId ?? source.sourceQuestionSetId ?? source.setId,
-      `SELECT a.subject_id FROM assessment_question_sets qs
+  // Every question set the request names is checked, not just the first key present: copying
+  // names its own set and the one it copies from, and both must be the teacher's.
+  const setSql = `SELECT a.subject_id FROM assessment_question_sets qs
          JOIN assessments a ON a.assessment_id = qs.assessment_id AND a.organization_id = qs.organization_id
-        WHERE qs.organization_id = $1 AND qs.question_set_id = $2`],
+        WHERE qs.organization_id = $1 AND qs.question_set_id = $2`;
+  const lookups = [
+    [source.questionSetId, setSql],
+    [source.sourceQuestionSetId, setSql],
+    [source.setId, setSql],
     [source.assessmentId, "SELECT subject_id FROM assessments WHERE organization_id = $1 AND assessment_id = $2"],
     [source.attemptId,
       `SELECT a.subject_id FROM student_assessment_attempts saa

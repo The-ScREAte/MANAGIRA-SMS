@@ -19,10 +19,14 @@ the whole database. Super Admin › Backups shows each run and has **Back up now
 
 ## Setting it up (once)
 
-1. Create a new S3 bucket for backups only, with **Block all public access** on (the uploads
-   bucket can't be used: its files are public). Turning on versioning is a good extra.
+1. Make the backup bucket, in the United States, for backups only:
+   `node scripts/s3BackupBucket.js --bucket <name> --region us-west-2` shows what it will do, and
+   `--apply` does it: every public access block on, HTTPS only, AES-256 at rest, access lists off,
+   versioned (a backup removed by mistake can be recovered for 7 days). Never the uploads bucket.
 2. An IAM user (or keys) that can `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` and
-   `s3:DeleteObject` on that bucket only.
+   `s3:DeleteObject` on that bucket only. Storage space isn't a concern: each backup is about
+   3 MB encrypted, so 30 days is about 100 MB, and the server's disk isn't used (a backup streams
+   straight to the bucket).
 3. Make a key and keep a copy away from Managira (a password manager):
    `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
 4. Set on the server: `BACKUP_ENCRYPTION_KEY`, `BACKUP_S3_BUCKET`, and, if they differ from the
@@ -32,6 +36,13 @@ the whole database. Super Admin › Backups shows each run and has **Back up now
 6. Super Admin › Backups › **Back up now**, and check it says Ready and lists the backup.
 
 Without the key no backup can be read: losing it loses every backup.
+
+## Render's own recovery
+
+Separately from these backups, Render keeps the database recoverable to any moment of the last
+days (point-in-time recovery: 3 days on Hobby workspaces, 7 days on Professional and above) and
+keeps its own daily exports for 7 days. That covers a mistake noticed at once; Managira's nightly
+backups cover the 30 days after, and live outside Render.
 
 ## Restoring
 

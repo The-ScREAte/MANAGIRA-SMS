@@ -50,9 +50,13 @@ async function startUrl(db, req, res, base, connection, kind, loginHint) {
 
 const looksLikeEmail = (value) => typeof value === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
 
+// The person's email: the attribute the school chose, else the `email` claim. A username
+// (preferred_username, upn) is used only from Microsoft Entra ID, where the organization assigns it;
+// other providers may let people pick their own, so it never stands in for an email there.
+const isEntra = (claims) => /^https:\/\/login\.microsoftonline\.(com|us)\/[0-9a-f-]{36}\/v2\.0\/?$/i.test(String(claims.iss || "")) && Boolean(claims.tid);
 function emailFrom(claims, connection) {
   if (String(claims.email_verified).toLowerCase() === "false") throw new Error("the provider says this email isn't verified");
-  const names = connection.email_attribute ? [connection.email_attribute, "email", "preferred_username", "upn"] : ["email", "preferred_username", "upn"];
+  const names = [connection.email_attribute, "email"].concat(isEntra(claims) ? ["preferred_username", "upn"] : []).filter(Boolean);
   for (const name of names) if (looksLikeEmail(claims[name])) return claims[name].trim().toLowerCase();
   return null;
 }

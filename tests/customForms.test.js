@@ -172,3 +172,131 @@ test("choices can show as icons; a seat shows a photo or a name; unknown icons a
   assert.equal(plain.icons, undefined, "icons are kept only when choices show as icons");
   assert.equal(cf.normalizeSection({ fields: [{ type: "yesno", label: "x", display: "buttons" }] }).fields[0].display, undefined);
 });
+
+// ── Report-card remarks and forms beside each student (feature report_remarks_forms) ──────
+test("a typed field offers suggestions and prints as a remark only on a classroom section on report cards", () => {
+  const remarks = cf.normalizeSection({ name: "Remarks", filledBy: "staff", repeat: "term", reportCard: true, fields: [
+    { type: "textarea", label: "Teacher's remark", printsAs: "TEACHER", suggestions: ["  Works  hard. ", "works hard.", "", null, "Needs\r\nhelp"] },
+    { type: "textarea", label: "Another teacher's remark", printsAs: "teacher" },
+    { type: "text", label: "Principal", printsAs: "custom:principal-remark" },
+    { type: "choice", label: "Effort", options: ["Good", "Fair"], printsAs: "conduct", suggestions: ["x"] },
+    { type: "textarea", label: "Odd", printsAs: "custom:<b>" },
+    { type: "textarea", label: "Old", printsAs: "attitude", retired: true },
+  ] });
+  const [teacher, again, principal, effort, odd, old] = remarks.fields;
+  assert.equal(teacher.printsAs, "teacher");
+  assert.deepEqual(teacher.suggestions, ["Works hard.", "Needs help"], "phrases are tidied and kept once");
+  assert.equal(again.printsAs, undefined, "one field per remark: the first one wins");
+  assert.equal(principal.printsAs, "custom:principal-remark", "a school's own remark type");
+  assert.equal(effort.printsAs, undefined, "only typed answers print as a remark");
+  assert.equal(effort.suggestions, undefined, "or offer suggestions");
+  assert.equal(odd.printsAs, undefined, "an unknown remark is dropped");
+  assert.equal(old.printsAs, undefined, "a field no longer used prints nowhere");
+  assert.deepEqual(cf.remarkFields(remarks).map((field) => field.printsAs), ["teacher", "custom:principal-remark"]);
+
+  const field = [{ type: "textarea", label: "Remark", printsAs: "teacher", suggestions: ["Good"] }];
+  assert.equal(cf.normalizeSection({ filledBy: "staff", repeat: "term", fields: field }).fields[0].printsAs, undefined, "not on report cards: no remark");
+  assert.equal(cf.normalizeSection({ filledBy: "parent", repeat: "term", reportCard: true, fields: field }).fields[0].printsAs, undefined, "a parent form fills no remark");
+  assert.equal(cf.normalizeSection({ filledBy: "staff", repeat: "day", reportCard: true, fields: field }).fields[0].printsAs, undefined, "a daily count is never on report cards");
+  assert.deepEqual(cf.normalizeSection({ filledBy: "parent", fields: field }).fields[0].suggestions, ["Good"], "suggestions work on any form");
+  const many = cf.normalizeSection({ fields: [{ type: "text", label: "x", suggestions: Array.from({ length: 60 }, (_, i) => `Phrase ${i}`) }] });
+  assert.equal(many.fields[0].suggestions.length, 40);
+});
+
+test("a section sits beside each student only in the classroom", () => {
+  assert.equal(cf.normalizeSection({ filledBy: "staff", beside: true }).beside, true);
+  assert.equal(cf.normalizeSection({ filledBy: "staff", multiple: true, beside: true }).beside, true, "a log too: coloured once it has entries");
+  assert.equal(cf.normalizeSection({ filledBy: "parent", beside: true }).beside, false);
+  assert.equal(cf.normalizeSection({ filledBy: "driver", beside: true }).beside, false);
+  assert.equal(cf.normalizeSection({ filledBy: "staff", beside: "yes" }).beside, false);
+});
+
+test("Report card remarks is made from the remarks the school uses, hidden until made live", () => {
+  const section = cf.remarksSection({ used: [
+    { key: "teacher", label: "Teacher's Remarks", suggestions: ["Very hardworking.", "Very hardworking."] },
+    { key: "custom:principal-remark", label: "Principal remark", suggestions: [] },
+  ] });
+  assert.equal(section.status, "draft");
+  assert.equal(section.filledBy, "staff");
+  assert.equal(section.repeat, "term");
+  assert.equal(section.reportCard, true);
+  assert.equal(section.beside, true);
+  assert.deepEqual(section.fields.map((field) => [field.type, field.key, field.printsAs]), [["textarea", "teacherRemarks", "teacher"], ["textarea", "principalRemark", "custom:principal-remark"]]);
+  assert.deepEqual(section.fields[0].suggestions, ["Very hardworking."]);
+  assert.equal(section.fields[1].suggestions, undefined);
+});
+
+// A stand-in database for the reads below: one school, its sections, one term and the answers.
+function stubDb({ sections, entries, seen }) {
+  return {
+    query: async (sql, params) => {
+      if (seen) seen.push(sql);
+      if (/information_schema/.test(sql)) return { rows: [{ n: 8 }] };
+      if (/FROM custom_sections/.test(sql)) return { rows: sections };
+      if (/FROM terms/.test(sql)) return { rows: [{ term_id: 241, school_year_id: 9 }] };
+      if (/FROM custom_section_entries/.test(sql)) return { rows: typeof entries === "function" ? entries(sql, params) : entries };
+      return { rows: [] };
+    },
+  };
+}
+const sectionRow = (id, raw) => {
+  const clean = cf.normalizeSection(raw);
+  return {
+    section_id: id, name: clean.name, icon: clean.icon, notes: "", multiple: clean.multiple, once: clean.once, filled_by: clean.filledBy, class_ids: clean.classIds,
+    show_parents: clean.showParents, show_students: clean.showStudents, protected: clean.protected, required: clean.required, due_date: null, status: "live",
+    fields: clean.fields, options: { repeat: clean.repeat, reportCard: clean.reportCard, beside: clean.beside }, position: id,
+  };
+};
+async function withRemarksFeature(run) {
+  const features = require("../utils/shards/features");
+  const isOn = features.isOn;
+  features.isOn = () => true;
+  try { return await run(); } finally { features.isOn = isOn; }
+}
+
+test("a remark answer prints in its place on the report card, and not again under its section", () => withRemarksFeature(async () => {
+  const remarks = sectionRow(1, { name: "Report card remarks", filledBy: "staff", repeat: "term", reportCard: true, fields: [
+    { id: "f_teach01", type: "textarea", label: "Teacher's Remarks", printsAs: "teacher" },
+    { id: "f_princ01", type: "textarea", label: "Principal remark", printsAs: "custom:principal-remark" },
+    { id: "f_effor01", type: "choice", label: "Effort", options: ["Good", "Fair"] },
+  ] });
+  const skills = sectionRow(2, { name: "Skills", filledBy: "staff", repeat: "term", reportCard: true, fields: [{ id: "f_skill01", type: "choice", label: "Reading", options: ["Good", "Fair"] }] });
+  const db = stubDb({ sections: [remarks, skills], entries: [
+    { section_id: 1, student_id: 5, term_id: 241, school_year_id: 9, data: { f_teach01: "Works hard.", f_effor01: "Good" } },
+    { section_id: 1, student_id: 6, term_id: 240, school_year_id: 9, data: { f_teach01: "Last term's remark." } },
+    { section_id: 2, student_id: 5, term_id: 241, school_year_id: 9, data: { f_skill01: "Fair" } },
+  ] });
+  const card = await cf.reportCard(db, 9101, { classId: 146, termId: 241, studentIds: [5, 6] });
+  assert.deepEqual(card.remarks.get(5), { teacher: { text: "Works hard.", section: "Report card remarks", sectionId: 1 } });
+  assert.equal(card.remarks.get(6), undefined, "another term's answer doesn't print: the remark saved on the card does");
+  assert.deepEqual(card.sections.get(5), [{ name: "Report card remarks", rows: [{ label: "Effort", value: "Good" }] }, { name: "Skills", rows: [{ label: "Reading", value: "Fair" }] }],
+    "a remark isn't printed twice; the section's other answers still print");
+  cf.forget(9101);
+  const unticked = await cf.reportCard(db, 9101, { classId: 146, termId: 241, studentIds: [5], visibility: { 1: false } });
+  assert.equal(unticked.remarks.size, 0, "a section unticked in Report Settings prints nothing, remarks included");
+  assert.deepEqual(unticked.sections.get(5).map((block) => block.name), ["Skills"]);
+  cf.forget(9101);
+}));
+
+test("forms beside each student: one read for the class, coloured once this period's entry is in", () => withRemarksFeature(async () => {
+  const seen = [];
+  const db = stubDb({
+    seen,
+    sections: [
+      sectionRow(1, { name: "Report card remarks", filledBy: "staff", repeat: "term", reportCard: true, beside: true, fields: [{ id: "f_teach01", type: "textarea", label: "Teacher", printsAs: "teacher" }] }),
+      sectionRow(2, { name: "Lunch count", filledBy: "staff", repeat: "day", beside: true, classIds: [999], fields: [{ type: "yesno", label: "Lunch" }] }),
+      sectionRow(3, { name: "Behavior log", filledBy: "staff", multiple: true, fields: [{ type: "textarea", label: "What happened" }] }),
+    ],
+    entries: (sql, params) => {
+      assert.match(sql, /x\.section_id = \$3 AND x\.term_id IS NOT DISTINCT FROM \$4::int/, "the term the classroom shows");
+      assert.deepEqual(params, [9102, [5, 6], 1, 241]);
+      return [{ section_id: 1, student_id: 6 }];
+    },
+  });
+  const beside = await cf.besideFor(db, 9102, { classId: 146, studentIds: [5, 6, 6], termId: 241, day: "2026-11-15" });
+  assert.deepEqual(beside.sections.map((section) => section.id), [1], "only live classroom sections for this class that asked to be beside each student");
+  assert.deepEqual(beside.done, { 1: [6] });
+  assert.deepEqual(beside.remarkSlots, ["teacher"], "this class's teacher remark comes from the Custom editor");
+  assert.equal(seen.filter((sql) => /custom_section_entries/.test(sql)).length, 1);
+  cf.forget(9102);
+}));

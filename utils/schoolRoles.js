@@ -105,14 +105,18 @@ function keep(keys, { allowed = null, highRisk = false } = {}) {
 }
 
 // The staff form's role list: each role with only the permissions this page can tick.
-async function forForm(db, organizationId, { available = null, canAssignHighRisk = false, transportOn = true, current = null } = {}) {
+// `canGive(baseType)`: the built-in roles this person may give (utils/staffChangeGuard.js canGiveRole).
+async function forForm(db, organizationId, { available = null, canAssignHighRisk = false, transportOn = true, current = null, canGive = null } = {}) {
   const roles = await list(db, organizationId).catch(() => []);
+  const giveable = (base) => !canGive || canGive(base);
   return {
     on: on(organizationId) && (await ready(db)),
     canAddManager: Boolean(canAssignHighRisk),
-    canAddDriver: Boolean(transportOn),
+    canAddDriver: Boolean(transportOn) && giveable("Driver"),
+    canAddSupervisor: giveable("Supervisor"),
+    canAddTeacher: giveable("Teacher"),
     roles: roles
-      .filter((r) => r.role_id === Number(current) || ((r.base_type !== "Manager" || canAssignHighRisk) && (r.base_type !== "Driver" || transportOn)))
+      .filter((r) => r.role_id === Number(current) || ((r.base_type !== "Manager" || canAssignHighRisk) && (r.base_type !== "Driver" || transportOn) && giveable(r.base_type)))
       .map((r) => ({ id: r.role_id, name: r.name, base: r.base_type, people: r.people, permissions: (r.permissions || []).filter((k) => !available || available.has(k)) })),
   };
 }
@@ -150,9 +154,12 @@ function handlers(db) {
     const transportOn = Boolean(transport && transport.activated);
     const role = req.session.userRole || (req.session.user && req.session.user.account_type) || req.session.accountType;
     const highRisk = p.isManagerLikeRole(role) || String(role || "").trim() === "Manager";
-    const allowed = new Set(p.permissionOptionsFor({ organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: transportOn }).map((o) => o.key));
+    // Nobody makes a role that gives more than they could give: a non-manager uses only the
+    // permissions they hold themselves, and bases a role on one at or below their own.
+    const grant = await require("./staffChangeGuard").grantLimits(db, req);
+    const allowed = new Set(p.permissionOptionsFor({ organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: transportOn }).map((o) => o.key).filter((key) => grant.holds(key)));
     const userId = req.session.userId || (req.session.user && req.session.user.user_id) || null;
-    return { organizationId, transportOn, highRisk, allowed, userId };
+    return { organizationId, transportOn, highRisk, allowed, userId, canGive: grant.role };
   };
   const answer = (res, result) => res.status(result.error ? 400 : 200).json(result);
   const failed = (res, error) => { console.error("[schoolRoles]", error.message); res.status(500).json({ error: "That didn't save. Try again." }); };
@@ -161,6 +168,7 @@ function handlers(db) {
       try {
         const c = await context(req, res);
         const body = req.body || {};
+        if (BASE_TYPES.includes(body.baseType) && !c.canGive(body.baseType)) return answer(res, { error: "You can make a role only on one at or below your own." });
         const result = await create(db, c.organizationId, { name: body.name, baseType: body.baseType, permissions: Array.isArray(body.permissions) ? body.permissions : null }, { userId: c.userId, allowed: c.allowed, highRisk: c.highRisk, transportOn: c.transportOn });
         if (result.role) result.role = { id: result.role.role_id, name: result.role.name, base: result.role.base_type, people: 0, permissions: result.role.permissions };
         answer(res, result);
@@ -169,6 +177,8 @@ function handlers(db) {
     update: async (req, res) => {
       try {
         const c = await context(req, res);
+        const current = await byId(db, c.organizationId, req.params.roleId);
+        if (current && !c.canGive(current.base_type)) return answer(res, { error: "You can change a role only if it's at or below your own." });
         const result = await update(db, c.organizationId, req.params.roleId, { permissions: (req.body || {}).permissions }, { allowed: c.allowed, highRisk: c.highRisk });
         if (result.role) result.role = { id: result.role.role_id, name: result.role.name, base: result.role.base_type, permissions: result.role.permissions.filter((k) => c.allowed.has(k)) };
         answer(res, result);
@@ -179,6 +189,7 @@ function handlers(db) {
         const c = await context(req, res);
         const role = await byId(db, c.organizationId, req.params.roleId);
         if (role && role.base_type === "Manager" && !c.highRisk) return answer(res, { error: "Only a manager can remove a role based on Manager." });
+        if (role && !c.canGive(role.base_type)) return answer(res, { error: "You can remove a role only if it's at or below your own." });
         answer(res, await archive(db, c.organizationId, req.params.roleId));
       } catch (error) { failed(res, error); }
     },

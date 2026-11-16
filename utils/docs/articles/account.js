@@ -19,7 +19,7 @@ module.exports = [
           ["Go to <a href=\"https://managira.com/account/login\" target=\"_blank\">managira.com/account/login</a> (or your school's address) and enter your <strong>Email address</strong>.", "sign-in.webp", "The sign-in page: email first, then your password or your school's own sign-in."],
           "Enter your <strong>Password</strong>. If your school signs in through Google, Microsoft or another provider, you go to that page instead.",
           "Tick <strong>Keep me logged in</strong> on your own device to stay signed in (30 days unless your school chose otherwise). Leave it unticked on a shared computer: you are signed out when the browser closes.",
-          "If asked, enter the <strong>Verification code</strong> we emailed you (six characters, like <code>ABC123</code>) and select <strong>Verify</strong>.",
+          "If asked, enter the <strong>Verification code</strong> we emailed you (six characters, like <code>ABC123</code>), or the 6-digit code from your authenticator app if you use one, and select <strong>Verify</strong>.",
         ],
         note: "Parents, students and hub users sign in on the same page. Once the password is confirmed, they go straight to their own portal.",
       },
@@ -28,8 +28,9 @@ module.exports = [
         text: "Unless your school turned it off, Managira emails you a code when you sign in on a browser it doesn't know, as a second check that it's really you. The code arrives from <strong>reminders@managira.com</strong>. After a right code, that browser is remembered for your school's trust period (3 days unless your school chose otherwise), so you aren't asked every time.",
         list: [
           "Can't find the email? Check spam and junk, then select <strong>Send a new code</strong>.",
+          "If you use an authenticator app, Managira asks for the app's code instead, and sends no email. See " + "<a href=\"/legal/user-documentation/two-step-sign-in\">Two-step sign-in with an authenticator app</a>.",
           "Signing in with your school's single sign-on skips the code: your provider has already checked you.",
-          "Accounts without an email address aren't asked for a code.",
+          "Accounts without an email address aren't asked for an emailed code.",
         ],
       },
       {
@@ -42,7 +43,7 @@ module.exports = [
       ["Can I sign in on several devices?", "Yes. Each device has its own sign-in. Use Keep me logged in only on devices you own."],
       ["Where do parents sign in?", "On the same page, with the email the school has for them. If the school hasn't invited them yet, ask the school office."],
     ],
-    related: ["reset-a-password-or-recover-account-access", "single-sign-on", "tenant-configuration"],
+    related: ["reset-a-password-or-recover-account-access", "two-step-sign-in", "single-sign-on", "tenant-configuration"],
   },
   {
     slug: "reset-a-password-or-recover-account-access",
@@ -68,6 +69,14 @@ module.exports = [
           "Under <strong>Change Password</strong>, enter the <strong>New Password</strong> twice and select <strong>Update Password</strong>.",
         ],
         tip: "Use a long password you don't use anywhere else. A short sentence of four or five unrelated words works well.",
+      },
+      {
+        title: "Password rules",
+        list: [
+          "At least 8 characters. Some forms also ask for a mix of letters, numbers and symbols.",
+          "A password that has appeared in a known data breach is refused, even if it looks strong. Your password never leaves Managira for this check: only the first five characters of a scrambled (hashed) copy are looked up in a public list of breached passwords, and the match is made on Managira's side.",
+          "Changing your password signs you out on your other devices.",
+        ],
       },
       {
         title: "If you can't get in",
@@ -120,7 +129,7 @@ module.exports = [
       },
       {
         title: "How people sign in afterwards",
-        text: "People enter their email on the Managira login page and select <strong>Continue</strong>. Someone set to your provider sees <strong>Your school signs in with</strong> it and a <strong>Continue with</strong> button; someone set to a Managira password sees the password box. Your main manager gets both, so someone can always get in if the provider is down. People can also start from your provider's app list.",
+        text: "People enter their email on the Managira login page and select <strong>Continue</strong>. Someone set to your provider sees <strong>Your school signs in with</strong> it and a <strong>Continue with</strong> button; someone set to a Managira password sees the password box. Your main manager always keeps a password, so someone can still get in if the provider is down, and is also offered your provider once they turned single sign-on on themselves. People can also start from your provider's app list.",
       },
       {
         title: "See how each person signs in",
@@ -129,7 +138,7 @@ module.exports = [
       {
         title: "Stay safe",
         list: [
-          "Your school's <strong>main manager can always sign in with a password</strong>, so nobody is locked out if the provider has an outage.",
+          "Your school's <strong>main manager can always sign in with a password</strong>, so nobody is locked out if the provider has an outage. Your provider opens the main manager's account only if they turned single sign-on on themselves.",
           "Changing how single sign-on works (a new certificate, a new provider) turns it off until a new test passes.",
           "Someone set to your provider can't use a password, and someone set to a Managira password can't use your provider. Try it with a few people first and check they can sign in.",
           "Turning single sign-on off moves everyone back to Managira passwords. Anyone who never had one sets it with <strong>Forgot password?</strong>.",
@@ -153,8 +162,8 @@ module.exports = [
     title: "Tenant configuration: your school's sign-in rules",
     topic: "Account & sign-in",
     order: 4,
-    summary: "Choose how long people stay signed in, whether Keep me logged in is allowed, whether a code is emailed at sign-in, and how long a browser is trusted.",
-    tags: ["tenant configuration", "session timeout", "keep me logged in", "verification code", "trusted devices", "security settings"],
+    summary: "Choose how long people stay signed in, Keep me logged in, the emailed code, trusted browsers, and who must use an authenticator app.",
+    tags: ["tenant configuration", "session timeout", "keep me logged in", "verification code", "trusted devices", "security settings", "two-step sign-in", "require authenticator", "mfa policy"],
     who: "Managers only.",
     intro: "Tenant configuration sets the sign-in rules for everyone at your school. The defaults suit most schools; change them to match your district's security policy.",
     sections: [
@@ -175,15 +184,100 @@ module.exports = [
           ["<strong>Email a code at sign-in</strong>", "Asks for a code sent by email after the password, on a browser that isn't remembered.", "On"],
           ["<strong>Allow device to be remembered</strong>", "After a right code, skips the code on that browser for a while.", "On"],
           ["<strong>Trust duration</strong>", "How long a browser stays remembered, counted from the code: 1, 3, 7, 14 or 30 days.", "3 days"],
+          ["<strong>Authenticator app at sign-in</strong>", "Under Two-step sign-in: let each person choose, or require an authenticator app for managers and supervisors (and your school's own account), or for all staff.", "Each person chooses"],
         ],
         note: "If the settings can't be read for a moment, nobody is signed out because of it.",
       },
+      {
+        title: "Two-step sign-in",
+        text: "The <strong>Two-step sign-in</strong> card sets who must use an authenticator app, and lists everyone who uses one, each with a <strong>Reset</strong> button for when someone loses their phone (it asks for your password). See <a href=\"/legal/user-documentation/two-step-sign-in\">Two-step sign-in with an authenticator app</a>.",
+      },
     ],
     faq: [
-      ["Does this affect single sign-on?", "Single sign-on skips the emailed code, because your provider has already checked the person. Session timeout still applies."],
-      ["Do the rules apply to parents?", "Yes. They apply to everyone who signs in to your school."],
+      ["Does this affect single sign-on?", "Single sign-on skips the emailed code and the authenticator app, because your provider has already checked the person with its own two-step sign-in. Session timeout still applies."],
+      ["Do the rules apply to parents?", "The session and code rules do. The authenticator app is for staff and your school's own account; parents and students keep the emailed code."],
+      ["Can we turn the emailed code off but keep the authenticator app?", "Yes. Turning off <strong>Email a code at sign-in</strong> never turns off the app: anyone who uses one is still asked for its code."],
     ],
-    related: ["sign-in-to-managira", "single-sign-on"],
+    related: ["sign-in-to-managira", "two-step-sign-in", "single-sign-on"],
+  },
+  {
+    slug: "two-step-sign-in",
+    title: "Two-step sign-in with an authenticator app",
+    topic: "Account & sign-in",
+    order: 4.5,
+    summary: "Protect your account with a code from your phone. Turn it on yourself, or require it for managers, for all staff or for one person.",
+    tags: ["two-step sign-in", "two-factor", "2fa", "mfa", "multi-factor authentication", "authenticator app", "google authenticator", "microsoft authenticator", "authy", "recovery codes", "lost phone", "require mfa", "security"],
+    featured: true,
+    who: "Any member of staff can turn it on for themselves. Managers require it for others and reset it.",
+    intro: "With two-step sign-in, signing in with your password also asks for a 6-digit code from an authenticator app on your phone. Someone who learns your password still can't open your account without your phone.",
+    sections: [
+      {
+        title: "Turn it on for yourself",
+        steps: [
+          "Install an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator, 1Password or Authy.",
+          "In Managira, open the <strong>?</strong> menu at the top of the page and choose <strong>Two-step sign-in</strong>.",
+          "Select <strong>Set up</strong>. In your app, add an account (usually the <strong>+</strong> button) and scan the QR code. If you can't scan it, type the key shown beside it.",
+          "Enter the 6-digit code your app shows and select <strong>Turn on</strong>.",
+          "Save your 10 <strong>recovery codes</strong>: print them or keep them in a password manager. They're shown only once.",
+        ],
+      },
+      {
+        title: "Sign in with the app",
+        list: [
+          "Enter your email and password as usual. Managira then asks for the code from your app instead of emailing one.",
+          "The app shows a new code every 30 seconds. Type the newest one; each code works once.",
+          "If your school lets browsers be remembered, a right code also remembers that browser for the school's trust period (3 days unless it chose otherwise), so you aren't asked every time on your own computer.",
+          "After 5 wrong codes, wait 10 minutes, then sign in again.",
+        ],
+        tip: "If a right code is refused, check that your phone sets its time automatically. Codes depend on the clock.",
+      },
+      {
+        title: "Lost or replaced your phone",
+        list: [
+          "Type one of your recovery codes where the app's code goes (they look like <code>ab12c-34de5</code>). Each works once, and Managira tells you how many are left.",
+          "Then open <strong>Two-step sign-in</strong> again: turn it off and set it up on your new phone, or ask a manager to reset it.",
+          "No recovery codes left? Ask a manager at your school to reset your app (below). You set it up again the next time you sign in.",
+        ],
+      },
+      {
+        title: "Turn it off",
+        text: "Open <strong>Two-step sign-in</strong>, type your password and select <strong>Turn off</strong>. If your school requires the app for you, it can't be turned off; a manager can reset it so you can move it to a new phone.",
+      },
+      {
+        title: "Require it at your school (managers)",
+        steps: [
+          "Open <strong>Settings</strong>, then <strong>Tenant configuration</strong>, and find <strong>Two-step sign-in</strong>.",
+          "Under <strong>Authenticator app at sign-in</strong>, choose <strong>Each person chooses</strong> (the default), <strong>Required for managers and supervisors</strong> (your school's own account too), or <strong>Required for all staff</strong>, and select <strong>Save</strong>.",
+          "Anyone required to use it who hasn't set it up is taken to the set-up page the next time they open Managira, and can't open other pages until it's on.",
+        ],
+        note: "Changes are recorded in your school's activity log.",
+      },
+      {
+        title: "Require it for one person (managers)",
+        steps: [
+          "In <strong>Management</strong>, open <strong>Users / Employees</strong> and choose <strong>Edit</strong> beside the person.",
+          "Tick <strong>Require an authenticator app at sign-in</strong>, confirm the access, and select <strong>Save Changes</strong>.",
+        ],
+        note: "Untick it to go back to your school's rule for them. Only managers see this choice.",
+      },
+      {
+        title: "Reset someone's app (managers)",
+        steps: [
+          "In <strong>Settings</strong>, <strong>Tenant configuration</strong>, <strong>Two-step sign-in</strong> lists everyone at your school who uses an authenticator app.",
+          "Select <strong>Reset</strong> beside the person and confirm with your own password.",
+          "Their old app and recovery codes stop working. If the app is still required for them, they set it up again when they next sign in.",
+        ],
+        note: "Before you reset, make sure it's really them asking, for example by phone or in person. Someone who has taken over an email account may ask for a reset.",
+      },
+    ],
+    faq: [
+      ["Does it work with single sign-on?", "People who sign in through your school's single sign-on provider aren't asked for the app: your provider checks them with its own two-step sign-in. The app is used whenever they sign in with a Managira password."],
+      ["Do parents and students use it?", "No. Parents and students sign in as before, with the emailed code when your school uses it."],
+      ["Is this the same app as the one for the data migration?", "Yes. One authenticator app covers both: two-step sign-in and the sensitive pages that ask for a code."],
+      ["What if the code check can't run for a moment?", "Nobody is locked out because a check couldn't run. Managira checks again on the next page."],
+      ["Does Managira need my phone number?", "No. The authenticator app works without a phone number or a signal."],
+    ],
+    related: ["sign-in-to-managira", "tenant-configuration", "authenticator-codes", "reset-a-password-or-recover-account-access"],
   },
   {
     slug: "profile-and-appearance",
@@ -252,6 +346,9 @@ module.exports = [
         text: "Type one of your recovery codes in place of the 6-digit code. Each works once. If you have none left, contact Managira support: <a href=\"mailto:support@managira.com\">support@managira.com</a>. Once we've checked it's you, we reset your authenticator and you set it up again.",
       },
     ],
-    related: ["work-through-your-data-migration", "moving-to-managira"],
+    faq: [
+      ["I already use an authenticator app to sign in. Do I set up another?", "No. The app you use for two-step sign-in also gives the codes these pages ask for."],
+    ],
+    related: ["two-step-sign-in", "work-through-your-data-migration", "moving-to-managira"],
   },
 ];

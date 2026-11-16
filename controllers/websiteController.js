@@ -59,7 +59,9 @@ module.exports = {
       const optimized = file.mimetype === "image/gif" ? null : await require("../utils/mediaOptimize").optimizeImage(file.buffer).catch(() => null);
       const url = optimized
         ? await uploadToS3({ buffer: optimized.buffer, mimetype: optimized.mimetype }, `images/website/org_${organizationId}/${Date.now()}_${safeName}${optimized.ext}`)
-        : await uploadToS3(file, `images/website/org_${organizationId}/${Date.now()}_${safeName}`);
+        // Kept as uploaded (a GIF, or a picture the optimizer couldn't read), with its own extension:
+        // the bucket shows website pictures by their picture extension (utils/storedFiles.js).
+        : await uploadToS3(file, `images/website/org_${organizationId}/${Date.now()}_${safeName}${({ "image/gif": ".gif", "image/png": ".png", "image/webp": ".webp", "image/jpeg": ".jpg" })[file.mimetype] || ".jpg"}`);
       return res.json({ success: true, url });
     } catch (error) {
       console.error("[website/uploadImage]", error);

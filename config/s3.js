@@ -30,7 +30,14 @@ const uploadToS3 = async (file) => {
   // Read the file from the safe path asynchronously to avoid blocking the event loop.
   const fileContent = await fsp.readFile(safePath);
 
-  const fileName = `${Date.now()}-${file.originalname}`;
+  // A random part makes a stored file's address impossible to guess; the original name (made safe)
+  // stays readable at the end. `file.prefix` puts it in a folder (images/ads/ for the public
+  // sign-in banners; everything else is private: utils/storedFiles.js).
+  const original = String(file.originalname || "file");
+  const ext = path.extname(original).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 10);
+  const base = path.basename(original, path.extname(original)).replace(/[^A-Za-z0-9_-]+/g, "_").replace(/_+/g, "_").slice(0, 60) || "file";
+  const prefix = /^[a-z0-9-]+(\/[a-z0-9-]+)*\/$/i.test(String(file.prefix || "")) ? String(file.prefix) : "";
+  const fileName = `${prefix}${Date.now()}-${require("crypto").randomUUID()}-${base}${ext}`;
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: fileName,

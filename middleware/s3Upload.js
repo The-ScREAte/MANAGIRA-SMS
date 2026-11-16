@@ -41,10 +41,14 @@ const uploadToS3 = async (file, customKey = null) => {
   }
 };
 
+// Takes a key or a stored address (utils/storedFiles.js reads either); anything that isn't one of
+// Managira's stored files is left alone.
 const deleteFromS3 = async (key) => {
+  const objectKey = require('../utils/storedFiles').keyOf(key);
+  if (!objectKey) return;
   const deleteParams = {
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: key,
+    Key: objectKey,
   };
 
   try {

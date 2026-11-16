@@ -64,13 +64,25 @@ const FIELD_GROUPS = [
   { group: 'Footer', note: 'Every printed card already ends with the school website (if any) and a Managira line.', fields: [['school.copyright', 'School name @year all rights reserved']] },
 ];
 
-// The field list for a school: the fixed fields plus its own remark types.
-function fieldGroupsFor(customRemarkTypes) {
+// Overall lunch (feature class_lunch): listed only for schools that take lunch, and filled
+// when "Overall lunch" is on in Report Settings › Advanced.
+const LUNCH_FIELDS = [
+  ['attendance.lunch', 'Lunch (e.g. 42 of 58 days; turn Overall lunch on in Advanced)'],
+  ['attendance.lunch_days', 'Days with lunch'],
+  ['attendance.lunch_taken', 'Days lunch was taken'],
+];
+
+// The field list for a school: the fixed fields plus its own remark types (and lunch where it's on).
+function fieldGroupsFor(customRemarkTypes, { lunch = false } = {}) {
   const custom = (customRemarkTypes || []).map((t) => [
     'remarks.' + String(t.type_key || '').replace(/^custom:/, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
     t.label || 'Custom remark',
   ]).filter((f) => f[0] !== 'remarks.');
-  return FIELD_GROUPS.map((g) => (g.group === 'Remarks' ? Object.assign({}, g, { fields: g.fields.concat(custom) }) : g));
+  return FIELD_GROUPS.map((g) => {
+    if (g.group === 'Remarks') return Object.assign({}, g, { fields: g.fields.concat(custom) });
+    if (g.group === 'Attendance' && lunch) return Object.assign({}, g, { fields: g.fields.concat(LUNCH_FIELDS) });
+    return g;
+  });
 }
 
 const TOKEN = /\{\{\s*([^{}]+?)\s*\}\}/g;
@@ -144,7 +156,7 @@ function resolveField(token, ctx, student, subject, subjectNo) {
     case 'school.website': return r.schoolWebsiteHost;
     case 'school.region': return r.orgProvince;
     case 'school.country': return r.orgCountry;
-    case 'school.logo': { const logo = ctx.logo || r.logoUrl; return logo ? { img: logo, size: Number(arg) || 80 } : ''; }
+    case 'school.logo': { const logo = ctx.logo || r.logoUrl; return logo ? { img: ctx.image ? ctx.image(logo) : logo, size: Number(arg) || 80 } : ''; }
     case 'school.copyright': return (r.orgName || '') + ' @' + (r.reportYear || new Date().getFullYear()) + ' all rights reserved';
     case 'term.name': return r.term && r.term.term_name;
     case 'term.year': return r.schoolYearLabel;
@@ -157,7 +169,7 @@ function resolveField(token, ctx, student, subject, subjectNo) {
     case 'student.id': return student.display_student_id || student.custom_student_id;
     case 'student.class': return student.class_name || ctx.className;
     case 'student.class_size': return ctx.classSize;
-    case 'student.photo': return { img: student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png', size: Number(arg) || 90 };
+    case 'student.photo': return { img: student.image_url && student.image_url !== 'profilePlaceholder.png' ? (ctx.image ? ctx.image(student.image_url) : student.image_url) : '/images/profilePlaceholder.png', size: Number(arg) || 90 };
     case 'student.position_in_class': return clean(student.positionInClass);
     case 'student.overall': {
       const pct = student.overallPercentage ? student.overallPercentage + ' %' : '';
@@ -175,10 +187,18 @@ function resolveField(token, ctx, student, subject, subjectNo) {
     case 'attendance.present': return clean(present);
     case 'attendance.total': return clean(total);
     case 'attendance.absent': return Number.isFinite(Number(total)) && Number.isFinite(Number(present)) && total ? Number(total) - Number(present) : '';
+    // Overall lunch: student.lunch is set only while it's on (null when none was taken this term).
+    case 'attendance.lunch': {
+      if (student.lunch === undefined) return '';
+      const l = student.lunch;
+      return l && l.taken ? l.days + ' of ' + l.taken + (l.taken === 1 ? ' day' : ' days') : '—';
+    }
+    case 'attendance.lunch_days': return student.lunch && student.lunch.taken ? student.lunch.days : '';
+    case 'attendance.lunch_taken': return student.lunch && student.lunch.taken ? student.lunch.taken : '';
     case 'remarks.teacher': case 'remarks.conduct': case 'remarks.attitude': case 'remarks.interest':
       if (ctx.remarkField) return { html: ctx.remarkField(path.slice(8), student) };
       return student[path.slice(8) + 'Remarks'];
-    case 'signature.image': return r.signatureImageUrl ? { img: r.signatureImageUrl, size: Number(arg) || 50 } : '';
+    case 'signature.image': return r.signatureImageUrl ? { img: ctx.image ? ctx.image(r.signatureImageUrl) : r.signatureImageUrl, size: Number(arg) || 50 } : '';
     case 'grades.key': {
       const list = (r.scoreRemarks || []).slice().sort((a, b) => Number(b.toPercentage || b.to_percentage || 0) - Number(a.toPercentage || a.to_percentage || 0));
       return list.map((x) => (x.gradeLabel || '-') + ' (' + (x.fromPercentage ?? x.from_percentage) + ' to ' + (x.toPercentage ?? x.to_percentage) + ') = ' + (x.remark || '-')).join('  ·  ');
@@ -303,8 +323,26 @@ function renderSheet(sheet, ctx, student) {
 }
 
 // Doc template -> HTML. Lines with subject fields repeat for every subject.
+// A Doc's body is what someone typed in the editor: its formatting, tables and pictures are kept,
+// but never a script, an event handler or a javascript: link (the page and the PDF run it signed in).
+const DOC_HTML = {
+  allowedTags: ["p", "br", "div", "span", "strong", "b", "em", "i", "u", "s", "sub", "sup", "small", "ol", "ul", "li", "a",
+    "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code", "hr", "img",
+    "table", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "figure", "figcaption"],
+  allowedAttributes: {
+    "*": ["class", "style", "align"],
+    a: ["href", "target", "rel"],
+    img: ["src", "alt", "width", "height"],
+    td: ["colspan", "rowspan", "width"], th: ["colspan", "rowspan", "width"], col: ["span", "width"],
+  },
+  allowedSchemes: ["http", "https", "mailto", "tel", "data"],
+  allowedSchemesByTag: { img: ["http", "https", "data"], a: ["http", "https", "mailto", "tel"] },
+  allowedSchemesAppliedToAttributes: ["href", "src"],
+};
+const cleanDocHtml = (html) => require('./sanitizeHtml')(String(html || ''), DOC_HTML);
+
 function renderDoc(doc, ctx, student) {
-  let html = doc.html;
+  let html = doc.html ? cleanDocHtml(doc.html) : doc.html;
   if (!html) {
     const text = (doc.ops || []).map((op) => (typeof op.insert === 'string' ? op.insert : '')).join('');
     html = text.split('\n').map((line) => '<p>' + esc(line) + '</p>').join('');

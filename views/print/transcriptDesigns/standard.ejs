@@ -1,0 +1,218 @@
+<%# Standard: the original Managira transcript (the default design). %>
+    <!-- Transcript Document -->
+    <div class="transcript">
+      <div class="transcript-border-top"></div>
+      
+      <% const _schoolLogo = publicImageUrl((session && session.logo) || organization.logo || '', { public: true }); %>
+      <% if (_schoolLogo) { %>
+        <img src="<%= _schoolLogo %>" alt="" class="transcript-watermark-logo" />
+      <% } %>
+      
+      <% if (!official) { %>
+      <!-- Multiple Watermark Pattern -->
+      <div class="transcript-watermark">
+        <% for (let row = 0; row < 15; row++) { %>
+          <% for (let col = 0; col < 4; col++) { %>
+            <div class="watermark-text" style="top: <%= row * 80 - 40 %>px; left: <%= col * 300 - 50 %>px;">UNOFFICIAL</div>
+          <% } %>
+        <% } %>
+      </div>
+      <% } %>
+      
+      <div class="transcript-content">
+
+        <!-- Header -->
+        <% const _place = [organization.organization_address, organization.organization_province, organization.organization_country].filter(Boolean).join(', '); %>
+        <div class="t-header">
+          <div class="t-brand">
+            <% if (_schoolLogo) { %>
+              <div class="t-logo"><img src="<%= _schoolLogo %>" alt="School Logo" /></div>
+            <% } %>
+            <div class="t-heading">
+              <h1><%= organization.organization_name %></h1>
+              <div class="t-subtitle">Academic Transcript</div>
+            </div>
+          </div>
+          <div class="t-contact">
+            <% if (_place) { %><div><%= _place %></div><% } %>
+            <% if (organization.organization_phone) { %><div><%= organization.organization_phone %></div><% } %>
+            <% if (organization.email) { %><div><%= organization.email %></div><% } %>
+          </div>
+        </div>
+
+        <!-- Student Information -->
+        <div class="t-student-info">
+          <h2>Student Information</h2>
+          <div class="t-student-grid">
+<%
+              const _dob = student.date_of_birth ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) : '';
+              const _studentFields = [
+                ['Full Name', typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()],
+                ['Date of Birth', _dob],
+                ['Gender', student.gender],
+                ['Hometown', student.hometown],
+                ['Current Class', student.class_name],
+                ['Graduation Group', student.graduation_year_group],
+              ].filter(([, value]) => value && String(value).trim());
+            %>
+            <% _studentFields.forEach(([label, value]) => { %>
+            <p><strong><%= label %>:</strong> <%= value %></p>
+            <% }) %>
+          </div>
+        </div>
+
+        <!-- Academic Records -->
+        <div class="t-academic">
+          <h2>Academic Records</h2>
+
+          <% 
+            const termSections = [];
+            scores.forEach((score) => {
+              const termKey = `${score.year_label}__${score.term_name}__${score.start_date || ''}__${score.end_date || ''}`;
+              let section = termSections.find((entry) => entry.key === termKey);
+              if (!section) {
+                section = {
+                  key: termKey,
+                  yearLabel: score.year_label,
+                  termName: score.term_name,
+                  startDate: score.start_date,
+                  endDate: score.end_date,
+                  rows: [],
+                };
+                termSections.push(section);
+              }
+              section.rows.push(score);
+            });
+
+            const formatTermDate = (value) => {
+              if (!value) return null;
+              const parsed = new Date(value);
+              return Number.isNaN(parsed.getTime())
+                ? null
+                : (typeof formatDisplayDate === 'function' ? formatDisplayDate(parsed) : parsed.toLocaleDateString());
+            };
+          %>
+
+          <%
+            // Final grades from before Managira (data migration), grouped by year and term.
+            const _history = (typeof history !== 'undefined' && Array.isArray(history)) ? history : [];
+            const _historySections = [];
+            _history.forEach((row) => {
+              const key = `${row.school_year || ''}__${row.term || ''}`;
+              let section = _historySections.find((entry) => entry.key === key);
+              if (!section) { section = { key, year: row.school_year, term: row.term, school: row.school_name, rows: [] }; _historySections.push(section); }
+              section.rows.push(row);
+            });
+            const _num = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
+          %>
+          <% if (_historySections.length) { %>
+            <% _historySections.forEach(section => { %>
+              <div class="t-year-section">
+                <h3><%= section.term || 'Final grades' %></h3>
+                <p style="margin:0 0 10px;color:#64748b;font-size:13px;line-height:1.5;">
+                  <strong style="color:#0f172a;"><%= section.year || 'Earlier records' %></strong><% if (section.school) { %>&nbsp;|&nbsp;<%= section.school %><% } %>
+                </p>
+                <div class="t-term-section">
+                  <table class="t-table">
+                    <thead><tr><th>Course</th><th>Percentage (%)</th><th>Grade</th><th>Credits</th></tr></thead>
+                    <tbody>
+                      <% section.rows.forEach(row => { %>
+                        <tr><td><%= row.course_name %></td><td><%= _num(row.percent) %></td><td><%= row.grade || '' %></td><td><%= _num(row.credits_earned) %></td></tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            <% }); %>
+            <% if (typeof historyTotals !== 'undefined' && historyTotals) { %>
+              <p style="margin:0 0 18px;color:#0f172a;font-size:13px;">Credits earned: <strong><%= historyTotals.credits %></strong></p>
+            <% } %>
+          <% } %>
+
+          <% if (!termSections.length && !_historySections.length) { %>
+            <p style="margin:0;color:#64748b;line-height:1.6;">No ended semester records are available yet for this student. Transcript records appear after a semester has ended or is marked closed.</p>
+          <% } %>
+
+          <% termSections.forEach(section => { %>
+            <div class="t-year-section">
+              <h3><%= section.termName %></h3>
+              <p style="margin:0 0 10px;color:#64748b;font-size:13px;line-height:1.5;">
+                <strong style="color:#0f172a;"><%= section.yearLabel %></strong>
+                <% const startLabel = formatTermDate(section.startDate); %>
+                <% const endLabel = formatTermDate(section.endDate); %>
+                <% if (startLabel || endLabel) { %>
+                  <span>&nbsp;|&nbsp;<%= [startLabel, endLabel].filter(Boolean).join(' - ') %></span>
+                <% } %>
+              </p>
+              <div class="t-term-section">
+                <table class="t-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Percentage (%)</th>
+                      <th>Grade</th>
+                      <% if (t.usesCredits) { %><th>Credits</th><% } %>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% section.rows.forEach(score => { %>
+                      <tr>
+                        <td><%= score.subject_name %></td>
+                        <td><%= score.total_percentage %></td>
+                        <td><%= score.grade %></td>
+                        <% if (t.usesCredits) { %><td><%= Number(score.credits).toFixed(2) %></td><% } %>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+                <%# This term's GPA, and the cumulative GPA up to and including it (utils/gpa.js). %>
+                <% const _tt = t.years.flatMap((y) => y.terms).find((x) => x.key === section.key); %>
+                <% if (_tt) { [['Term', _tt.gpa, _tt.credits], ['Cumulative', _tt.cumulative, _tt.cumulativeCredits]].forEach(([label, g, c]) => { if (!g && !c) return; %>
+                  <p style="margin:6px 0 0;color:#0f172a;font-size:13px;"><span style="display:inline-block;min-width:118px;color:#64748b;"><%= label %> GPA:</span><% if (g) { %> <strong><%= g.unweighted %></strong><% if (g.weighted) { %>&nbsp;|&nbsp;weighted <strong><%= g.weighted %></strong><% } %><% } else { %> —<% } %><% if (c) { %>&nbsp;|&nbsp;credits earned <strong><%= c.earned %></strong><%= c.attempted !== c.earned ? ' of ' + c.attempted : '' %><% } %></p>
+                <% }) } %>
+              </div>
+            </div>
+          <% }); %>
+          <% if (typeof gpaSummary !== 'undefined' && gpaSummary && gpaSummary.all.unweighted !== null) { %>
+            <p style="margin:4px 0 6px;color:#0f172a;font-size:14px;">Cumulative GPA at <%= organization && organization.organization_name ? organization.organization_name : 'this school' %> (4.0 scale): <strong><%= Number(gpaSummary.all.unweighted).toFixed(2) %></strong><% if (gpaSummary.all.weighted !== null) { %>&nbsp;|&nbsp;weighted <strong><%= Number(gpaSummary.all.weighted).toFixed(2) %></strong><% } %><% if (t.overallCredits) { %>&nbsp;|&nbsp;credits earned <strong><%= t.overallCredits.earned %></strong><% } %></p>
+          <% } %>
+          <% if (t.key) { %>
+            <style>@media print { .t-gpa-key { display: none !important; } }</style><%# the full key is on the page after the record %>
+            <p class="t-gpa-key" style="margin:6px 0 14px;color:#64748b;font-size:11.5px;line-height:1.55;"><strong style="color:#0f172a;">Grading key</strong> · 4.0 scale: <%= t.key.scale %>. <%= t.key.weighted %> <%= t.key.method %></p>
+          <% } %>
+          <% if (typeof sourceGpa !== 'undefined' && sourceGpa) { %>
+            <p style="margin:4px 0 18px;color:#0f172a;font-size:14px;">Cumulative GPA from previous records<%= sourceGpa.asOf ? ' (' + sourceGpa.asOf + ')' : '' %>:
+              <% if (sourceGpa.weighted !== null) { %>weighted <strong><%= sourceGpa.weighted %></strong><% } %>
+              <% if (sourceGpa.weighted !== null && sourceGpa.unweighted !== null) { %>&nbsp;|&nbsp;<% } %>
+              <% if (sourceGpa.unweighted !== null) { %>unweighted <strong><%= sourceGpa.unweighted %></strong><% } %>
+              <% if (sourceGpa.weighted === null && sourceGpa.unweighted === null && sourceGpa.gpa !== null) { %><strong><%= sourceGpa.gpa %></strong><% } %>
+            </p>
+          <% } %>
+        </div>
+
+        <!-- Signature -->
+        <div class="t-signature-area">
+          <div class="t-signature-block">
+            <% if (signatureImageUrl) { %>
+              <img src="<%= publicImageUrl(signatureImageUrl) %>" alt="Signature" class="t-signature-img" />
+            <% } %>
+            <div class="t-signature-line"></div>
+            <div class="t-signature-name"><%= signatureName || "" %></div>
+            <div class="t-signature-label"><%= signatureTitle || "Authorized signature" %></div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="t-footer">
+          <% const _issued = typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString(); %>
+          <% if (official) { %>
+          <p>Official transcript, issued by email on <%= _issued %>.</p>
+          <% } else { %>
+          <p>Unofficial copy, <%= _issued %>. Official transcripts are sent by the school by email.</p>
+          <% } %>
+          <p>This document is the property of <%= organization.organization_name %>.</p>
+        </div>
+
+      </div>
+      <div class="transcript-border-bottom"></div>
+    </div>

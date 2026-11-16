@@ -68,7 +68,6 @@
       '/account/managePublicContent',
       '/account/update-card',
       '/account/update-plan',
-      '/account/cancel-subscription',
       '/common/studentDetails',
       '/common/editStudent',
       '/common/admissionPending',

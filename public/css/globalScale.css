@@ -5,6 +5,11 @@
    applied identically everywhere - change it here, not per page. */
 html {
   zoom: 0.9;
+  /* The zoom shrinks vh too (100vh measures 90% of the window): pages that size a frame to the
+     window use --app-vh, the window's real height in this page's units. Pages without this file
+     (the hub shells) aren't zoomed and fall back to plain 100vh. */
+  --app-zoom: 0.9;
+  --app-vh: calc(100dvh / var(--app-zoom));
 }
 
 /* Disable on narrow viewports - CSS zoom throws off mobile browsers'
@@ -14,5 +19,6 @@ html {
 @media (max-width: 960px) {
   html {
     zoom: 1;
+    --app-zoom: 1;
   }
 }

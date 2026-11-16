@@ -33,8 +33,14 @@ const FEATURES = {
   learning_resources: { label: "Assessment resources: files, links and recommendations for each test and each question, for students and parents", access: "everyone" },
   assistant_teacher: { label: "Assistant teachers: beside a class's main teacher, assistants who see and work on the whole class (chosen on the staff form)", access: "everyone" },
   school_roles: { label: "Staff roles: a school adds its own roles (Food Service, Office Clerk) on Add user, each with the permissions it gives", access: "everyone" },
+  class_settings: { label: "Class settings: a Class settings page in each classroom and in Management (lunch on or off; what is shared with parents and with students: attendance, lunch, report cards, bus), a summary of the school attendance calendar linking to Settings, and the Class Settings permission", access: "selected" },
   class_lunch: { label: "Lunch: take lunch for each day from the class attendance page, kept for reports", access: "selected" },
   gpa: { label: "GPA: a Report Settings switch that prints each student's GPA (4.0 scale) on report cards and transcripts", access: "everyone" },
+  sign_in_authenticator: { label: "Two-step sign-in with an authenticator app: each member of staff can turn it on for themselves; a manager can require it for managers and supervisors, for all staff, or for one person (Settings › Tenant configuration, Edit user)", access: "selected" },
+  family_gpa: { label: "GPA for families: this term's and the cumulative GPA on the parent portal (Academic info) and the student portal (dashboard tile, Grades panel), unless the class's Class settings › Share with › GPA is off", access: "selected" },
+  transcript_designs: { label: "Transcript designs: five designs chosen in Report Settings, the document-viewer transcript page, and each finished term's GPA and the cumulative GPA on every transcript (while off: the original page, with GPA only when Report Settings' GPA switch is on)", access: "selected" },
+  gpa_credits: { label: "Course credits: each subject's credits (Report Settings › GPA weights) weight GPA by credit, and transcripts show credits attempted and earned each term and in total", access: "selected" },
+  report_remarks_forms: { label: "Report card remarks in the Custom editor: a Report card remarks form (suggestions from the school's ready-made remarks, each field printing as a remark), forms shown beside each student in the classroom, and which Custom editor sections print chosen in Report Settings", access: "selected" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

@@ -66,6 +66,17 @@ const ANSWER_ICONS = ["check", "close", "none", "lunch", "bag", "apple", "water"
 const MAX_SECTIONS = 200;
 const MAX_FIELDS = 80;
 const MAX_FILES = 5;
+// Report-card remarks (feature report_remarks_forms). A typed field of a classroom section on
+// report cards can print as one of the card's remarks: the four built-in ones, or one of the
+// school's own remark types ("custom:principal-remark", Report Settings › Custom Remarks).
+const REMARK_SLOTS = ["teacher", "conduct", "interest", "attitude"];
+const REMARK_LABELS = { teacher: "Teacher's Remarks", conduct: "Conduct Remarks", interest: "Interest Remarks", attitude: "Attitude Remarks" };
+const remarkSlot = (value) => {
+  const slot = String(value || "").trim().toLowerCase();
+  return REMARK_SLOTS.includes(slot) || /^custom:[a-z0-9][a-z0-9_-]{0,59}$/.test(slot) ? slot : "";
+};
+// Phrases a typed field offers to tap (a remark's ready-made remarks).
+const MAX_SUGGESTIONS = 40;
 
 const text = (value, max) => String(value == null ? "" : value).replace(/\r\n/g, "\n").trim().slice(0, max);
 const intOr = (value, fallback, min, max) => {
@@ -138,6 +149,18 @@ function normalizeField(raw, used) {
   if (type === "yesno" && raw.display === "icons") field.display = "icons";
   if (type === "seat" && raw.display === "names") field.display = "names";
   if (type === "instructions") field.help = text(raw.help, 4000);
+  // A typed answer may offer phrases to tap (each fills the answer or is added to it), and may
+  // print as a report-card remark (normalizeSection keeps that only where it fits).
+  if (type === "text" || type === "textarea") {
+    const seen = new Set();
+    const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : [])
+      .map((item) => text(item, 300).replace(/\s+/g, " "))
+      .filter((item) => item && !seen.has(item.toLowerCase()) && seen.add(item.toLowerCase()))
+      .slice(0, MAX_SUGGESTIONS);
+    if (suggestions.length) field.suggestions = suggestions;
+    const slot = remarkSlot(raw.printsAs);
+    if (slot) field.printsAs = slot;
+  }
   return field;
 }
 
@@ -172,6 +195,16 @@ function normalizeSection(raw = {}) {
   const repeat = !multiple && REPEATS.includes(raw.repeat) ? raw.repeat : "";
   const tell = raw.tell && typeof raw.tell === "object" ? raw.tell : {};
   const via = raw.via && typeof raw.via === "object" ? raw.via : {};
+  // Prints on report cards (never a list, a daily or weekly count, or a protected section).
+  const reportCard = !multiple && raw.protected !== true && raw.reportCard === true && repeat !== "day" && repeat !== "week";
+  // "Prints as" a remark belongs to a classroom section on report cards: one field per remark,
+  // the first one wins.
+  const slotsTaken = new Set();
+  fields.forEach((field) => {
+    if (!field.printsAs) return;
+    if (!reportCard || filledBy !== "staff" || field.retired || slotsTaken.has(field.printsAs)) delete field.printsAs;
+    else slotsTaken.add(field.printsAs);
+  });
   return {
     name: text(raw.name, 120) || "Untitled section",
     icon: ICONS.includes(raw.icon) ? raw.icon : "form",
@@ -181,8 +214,9 @@ function normalizeSection(raw = {}) {
     once: !multiple && raw.once === true,
     // Collected again every day, week, term or school year (a list just keeps growing).
     repeat,
-    // Prints on report cards (never a list, a daily or weekly count, or a protected section).
-    reportCard: !multiple && raw.protected !== true && raw.reportCard === true && repeat !== "day" && repeat !== "week",
+    reportCard,
+    // Its icon beside each student in the classroom's Students list (a classroom section).
+    beside: filledBy === "staff" && raw.beside === true,
     // A column on the attendance page: a classroom section collected every day.
     attendance: filledBy === "staff" && repeat === "day" && raw.attendance === true,
     // Who hears when someone sends it: the class's main teacher (unless switched off) and,
@@ -412,6 +446,9 @@ function readySync() {
   return tablesReady;
 }
 const featureOn = (organizationId) => features.isOn("custom_forms", { organizationId: Number(organizationId) || null });
+// Report-card remarks collected with the Custom editor, and forms beside each student in the
+// classroom (feature report_remarks_forms, on top of custom_forms).
+const remarksOn = (organizationId) => featureOn(organizationId) && features.isOn("report_remarks_forms", { organizationId: Number(organizationId) || null });
 
 // ── Sections ─────────────────────────────────────────────────────────────────────────────
 function fromRow(row) {
@@ -425,6 +462,7 @@ function fromRow(row) {
     once: Boolean(row.once),
     repeat: !row.multiple && REPEATS.includes(options.repeat) ? options.repeat : "",
     reportCard: !row.multiple && !row.protected && options.reportCard === true,
+    beside: row.filled_by === "staff" && options.beside === true,
     tile: options.tile === true,
     attendance: row.filled_by === "staff" && options.repeat === "day" && options.attendance === true,
     tell: { teacher: !(options.tell && options.tell.teacher === false), builders: Boolean(options.tell && options.tell.builders === true) },
@@ -475,7 +513,7 @@ async function saveSection(db, organizationId, raw, actorId) {
   const clean = normalizeSection(raw);
   const values = [clean.name, clean.icon, clean.notes || null, clean.multiple, clean.filledBy, clean.classIds, clean.showParents, clean.showStudents,
     clean.protected, clean.required, clean.dueDate, clean.status, JSON.stringify(clean.fields),
-    JSON.stringify({ repeat: clean.repeat, reportCard: clean.reportCard, tile: clean.tile, attendance: clean.attendance, tell: clean.tell, via: clean.via, ...(clean.origin ? { origin: clean.origin } : {}) }), clean.once];
+    JSON.stringify({ repeat: clean.repeat, reportCard: clean.reportCard, beside: clean.beside, tile: clean.tile, attendance: clean.attendance, tell: clean.tell, via: clean.via, ...(clean.origin ? { origin: clean.origin } : {}) }), clean.once];
   const id = Number.parseInt(raw.id, 10);
   forget(organizationId);
   if (Number.isInteger(id) && id > 0) {
@@ -643,6 +681,54 @@ function sectionsForStaff(sections, reach) {
 }
 
 const inSection = (section, classId) => !section.classIds.length || section.classIds.includes(Number(classId));
+
+// The fields of a section that print as report-card remarks (see REMARK_SLOTS), and the live
+// classroom sections that fill a class's remarks, in the school's order.
+const remarkFields = (section) => (section && section.reportCard && section.filledBy === "staff"
+  ? (section.fields || []).filter((field) => field.printsAs && !field.retired && (field.type === "text" || field.type === "textarea"))
+  : []);
+const remarkSectionsFor = (sections, classId) => sections.filter((section) => section.status === "live" && inSection(section, classId) && remarkFields(section).length);
+
+// Which of a class's remarks come from the Custom editor (the classroom then stops asking for
+// them in its remark pop-up). Read from the school's cached list; nothing where it's off.
+async function classRemarks(db, organizationId, classId) {
+  if (!remarksOn(organizationId) || !classId || !(await ready(db))) return { slots: new Set(), sections: [] };
+  const sections = remarkSectionsFor(await listSections(db, organizationId, { status: "live" }), classId);
+  return { slots: new Set(sections.flatMap((section) => remarkFields(section).map((field) => field.printsAs))), sections };
+}
+
+// The classroom's Students list: live classroom sections shown beside each student, and the
+// students who already have this period's entry (`done`, by section; the term the classroom is
+// showing and the person's own day). One read for every student and section; a school without
+// such a section reads nothing. `remarkSlots`: the class's remarks that come from the Custom editor.
+async function besideFor(db, organizationId, { classId, studentIds, termId = null, day = null, builder = false }) {
+  const out = { sections: [], done: {}, remarkSlots: [] };
+  if (!remarksOn(organizationId) || !classId || !(await ready(db))) return out;
+  const live = await listSections(db, organizationId, { status: "live" });
+  out.remarkSlots = [...new Set(remarkSectionsFor(live, classId).flatMap((section) => remarkFields(section).map((field) => field.printsAs)))];
+  // A protected section opens only for people who build forms (as in sectionsForStaff).
+  const sections = live.filter((section) => section.beside && section.filledBy === "staff" && inSection(section, classId) && (!section.protected || builder));
+  out.sections = sections.map((section) => ({
+    id: section.id, name: section.name, icon: section.icon, filledBy: section.filledBy, multiple: section.multiple, once: section.once,
+    repeat: section.repeat, required: section.required, dueDate: section.dueDate, status: section.status,
+  }));
+  const ids = [...new Set((studentIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!sections.length || !ids.length) return out;
+  const period = { ...(await periodFor(db, organizationId, termId)), day };
+  const params = [Number(organizationId), ids];
+  const periods = sections.map((section) => {
+    params.push(section.id, periodValue(section, period));
+    return `(x.section_id = $${params.length - 1} AND ${periodSql(section, "x", `$${params.length}`)})`;
+  });
+  const { rows } = await db.query(
+    `SELECT DISTINCT x.section_id, x.student_id FROM custom_section_entries x
+      WHERE x.organization_id = $1 AND x.student_id = ANY($2::int[]) AND (${periods.join(" OR ")})`,
+    params
+  );
+  sections.forEach((section) => { out.done[section.id] = []; });
+  rows.forEach((row) => { (out.done[Number(row.section_id)] || []).push(Number(row.student_id)); });
+  return out;
+}
 
 // Sections that asked for a tile or menu item of their own. It shows where the section lives,
 // for the people who fill it in: a child's page ("parent"), a student's dashboard ("student"),
@@ -1096,7 +1182,7 @@ async function exportRows(db, organizationId, section, { reachClasses = null, st
     const student = byId.get(Number(row.student_id)) || {};
     return [student.name || "", student.className || "", row.entry_day || "", row.term_name || "", row.year_label || "", new Date(row.updated_at).toISOString().slice(0, 16).replace("T", " "),
       [row.saved_by_name, row.saved_by_type === "staff" ? "" : `(${row.saved_by_type})`].filter(Boolean).join(" "),
-      ...fields.map((field) => (field.type === "file" && Array.isArray(row.data[field.id]) ? row.data[field.id].map((f) => f.url).join(" ") : display(field, row.data[field.id])))];
+      ...fields.map((field) => (field.type === "file" && Array.isArray(row.data[field.id]) ? row.data[field.id].map((f) => require("./storedFiles").fileLink(f, { absolute: true })).filter(Boolean).join(" ") : display(field, row.data[field.id])))];
   });
   students.filter((student) => !student.entries).forEach((student) => out.push([student.name, student.className, "", "", "", "", "Not yet", ...fields.map(() => "")]));
   return [header, ...out];
@@ -1127,13 +1213,20 @@ async function attendanceColumns(db, organizationId, { classId, day, builder = f
   }));
 }
 
-// What prints on report cards: the sections marked "Show on report cards" for this class, with
-// each student's answers for the report's term. Schools without one cost no query.
-async function reportCardSections(db, organizationId, { classId, termId, studentIds }) {
-  const out = new Map();
-  if (!featureOn(organizationId) || !(await ready(db)) || !studentIds || !studentIds.length) return out;
-  const sections = (await listSections(db, organizationId, { status: "live" })).filter((section) => section.reportCard && inSection(section, classId));
-  if (!sections.length) return out;
+// What prints on report cards: the sections marked "Show on report cards" for this class (less
+// those Report Settings › Advanced unticked for it, `visibility`: { sectionId: false }), with each
+// student's answers for the report's term. `sections`: student -> [{ name, rows }]. `remarks`:
+// student -> { slot: { text, section } }, the answers of fields that print as a remark (feature
+// report_remarks_forms), which then stay out of their section's rows so nothing prints twice.
+// Schools without such a section cost no query.
+async function reportCard(db, organizationId, { classId, termId, studentIds, visibility = null }) {
+  const result = { sections: new Map(), remarks: new Map() };
+  const out = result.sections;
+  if (!featureOn(organizationId) || !(await ready(db)) || !studentIds || !studentIds.length) return result;
+  const shown = (section) => !visibility || typeof visibility !== "object" || visibility[section.id] !== false;
+  const asRemarks = remarksOn(organizationId);
+  const sections = (await listSections(db, organizationId, { status: "live" })).filter((section) => section.reportCard && inSection(section, classId) && shown(section));
+  if (!sections.length) return result;
   const [period, { rows }] = await Promise.all([
     periodFor(db, organizationId, termId),
     db.query(
@@ -1145,21 +1238,98 @@ async function reportCardSections(db, organizationId, { classId, termId, student
   ]);
   sections.forEach((section) => {
     const byId = new Map(section.fields.map((field) => [field.id, field]));
+    const asRemark = asRemarks ? remarkFields(section) : [];
+    const mapped = new Set(asRemark.map((field) => field.id));
     const done = new Set();
     rows.forEach((row) => {
       const studentId = Number(row.student_id);
       if (Number(row.section_id) !== section.id || done.has(studentId) || !inPeriod(section, period, row)) return;
       done.add(studentId); // the newest answer of the period
       const data = row.data || {};
+      // A remark goes in its usual place on the card; the first section to answer it wins.
+      asRemark.forEach((field) => {
+        const value = isVisible(field, data, byId) ? display(field, data[field.id]).trim() : "";
+        if (!value) return;
+        const slots = result.remarks.get(studentId) || {};
+        if (!slots[field.printsAs]) slots[field.printsAs] = { text: value, section: section.name, sectionId: section.id };
+        result.remarks.set(studentId, slots);
+      });
       const lines = answerFields(section)
-        .filter((field) => field.type !== "file" && isVisible(field, data, byId) && !isEmpty(data[field.id]))
+        .filter((field) => !mapped.has(field.id) && field.type !== "file" && isVisible(field, data, byId) && !isEmpty(data[field.id]))
         .map((field) => ({ label: field.label, value: display(field, data[field.id]) }));
       if (!lines.length) return;
       if (!out.has(studentId)) out.set(studentId, []);
       out.get(studentId).push({ name: section.name, rows: lines });
     });
   });
-  return out;
+  return result;
+}
+const reportCardSections = async (db, organizationId, options) => (await reportCard(db, organizationId, options)).sections;
+
+// ── Report-card remarks (feature report_remarks_forms) ──────────────────────────────────
+// The remarks a school uses today: the remark types its classroom pop-up asks for (Report
+// Settings › Class Remark Types), then its own remark types, each with its ready-made remarks
+// (Global Remarks). `slots`: every remark a field can print as.
+async function schoolRemarks(db, organizationId) {
+  const org = Number(organizationId);
+  const [settings, types, presets] = await Promise.all([
+    db.query(
+      `SELECT display_settings->'sections'->'classroomRemarkTypes' AS types FROM report_settings
+        WHERE organization_id = $1 AND jsonb_typeof(display_settings->'sections'->'classroomRemarkTypes') = 'array'
+        ORDER BY setting_id DESC LIMIT 500`,
+      [org]
+    ).then((r) => r.rows).catch(() => []),
+    db.query("SELECT type_key, label, obsolete_at FROM organization_custom_remark_types WHERE organization_id = $1 ORDER BY LOWER(label), id", [org])
+      .then((r) => r.rows).catch(() => []),
+    db.query("SELECT remark, remark_type FROM remarks WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY LOWER(remark), id", [org])
+      .then((r) => r.rows).catch(() => []),
+  ]);
+  const custom = types.map((row) => {
+    const key = String(row.type_key || "").trim().toLowerCase();
+    const pretty = key.replace(/^custom:/, "").split(/[-_\s]+/).filter(Boolean).map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
+    return { key, label: text(row.label, 60) || pretty || "Custom remarks", obsolete: Boolean(row.obsolete_at) };
+  }).filter((type) => remarkSlot(type.key) && type.key.startsWith("custom:"));
+  const labelOf = (key) => REMARK_LABELS[key] || (custom.find((type) => type.key === key) || {}).label || "";
+  // The classroom's choice, as the classroom reads it: the newest one that isn't just "teacher".
+  const sets = settings.map((row) => (Array.isArray(row.types) ? row.types.map(remarkSlot).filter((key) => key && labelOf(key)) : [])).filter((set) => set.length);
+  const asked = sets.find((set) => !(set.length === 1 && set[0] === "teacher")) || sets[0] || ["teacher"];
+  const used = [...new Set([...asked, ...custom.filter((type) => !type.obsolete).map((type) => type.key)])];
+  return {
+    used: used.map((key) => ({
+      key,
+      label: labelOf(key),
+      suggestions: presets.filter((row) => String(row.remark_type || "").trim().toLowerCase() === key).map((row) => String(row.remark || "")),
+    })),
+    slots: [...REMARK_SLOTS.map((key) => ({ key, label: REMARK_LABELS[key] })), ...custom.filter((type) => !type.obsolete).map(({ key, label }) => ({ key, label }))],
+  };
+}
+
+// The library's "Report card remarks" (how a school sets its remarks up): a classroom section
+// collected every term that prints on report cards and sits beside each student, one long answer
+// per remark the school uses, its ready-made remarks offered as suggestions.
+function remarksSection(remarks) {
+  return normalizeSection({
+    name: "Report card remarks", icon: "pencil", filledBy: "staff", repeat: "term", reportCard: true, beside: true, status: "draft",
+    notes: "Each field prints as a remark on the report card, in its usual place.",
+    fields: ((remarks && remarks.used) || []).map((type) => ({
+      type: "textarea", label: type.label, printsAs: type.key, suggestions: type.suggestions,
+      key: REMARK_LABELS[type.key] ? `${type.key}Remarks` : keyFrom(type.key.replace(/^custom:/, "").replace(/[-_]+/g, " ")),
+    })),
+  });
+}
+
+// Report Settings › Advanced (feature report_remarks_forms): the live sections on report cards,
+// for its list of which sections each class prints (`remarks`: the fields printing as remarks;
+// `ownRows`: whether anything prints under the section's name). Null where the feature is off.
+async function reportSettingsSections(db, organizationId) {
+  if (!remarksOn(organizationId) || !(await ready(db))) return null;
+  return (await listSections(db, organizationId, { status: "live" })).filter((section) => section.reportCard).map((section) => ({
+    id: section.id,
+    name: section.name,
+    classIds: section.classIds,
+    remarks: remarkFields(section).map((field) => field.label),
+    ownRows: answerFields(section).some((field) => !field.retired && !field.printsAs && field.type !== "file"),
+  }));
 }
 
 // Forms a student still has to fill in, for their bell and dashboard.
@@ -1191,6 +1361,9 @@ module.exports = {
   listSections, getSection, saveSection, deleteSection, saveOrder, entryCounts, forget,
   currentPeriod, periodFor,
   studentsFor, studentInfo, entriesFor, saveEntry, deleteEntry, portalForms,
-  afterSave, announce, runReminders, remindMissing, exportRows, reportCardSections, studentToDo, studentDashboard,
+  afterSave, announce, runReminders, remindMissing, exportRows, reportCardSections, reportCard, studentToDo, studentDashboard,
   quickFields, attendanceColumns, REPEATS, ANSWER_ICONS,
+  // Report-card remarks and forms beside each student (feature report_remarks_forms).
+  REMARK_SLOTS, REMARK_LABELS, remarkSlot, remarksOn, remarkFields, remarkSectionsFor, classRemarks, besideFor,
+  schoolRemarks, remarksSection, reportSettingsSections,
 };

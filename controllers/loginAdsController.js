@@ -66,7 +66,8 @@ async function uploadAdFile(file) {
   const ext = optimized ? ".webp" : path.extname(file.originalname || "").toLowerCase().replace(/[^a-z0-9.]/g, "") || "";
   try {
     // Clean key name: original names can contain characters that break the S3 URL.
-    const result = await uploadToS3({ filename: source.filename, mimetype: source.mimetype, originalname: `login-ad${ext}`, cacheControl: AD_CACHE_CONTROL });
+    // Sign-in banners are shown to everyone, so they live in the public images/ads/ folder.
+    const result = await uploadToS3({ filename: source.filename, mimetype: source.mimetype, originalname: `login-ad${ext}`, cacheControl: AD_CACHE_CONTROL, prefix: "images/ads/" });
     return {
       url: result.Location,
       key: result.Key,

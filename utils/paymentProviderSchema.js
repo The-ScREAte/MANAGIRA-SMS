@@ -5,8 +5,10 @@ let subaccountSchemaReady = false;
 let subaccountSchemaPromise = null;
 
 /**
- * Ensures paystack_subaccounts.account_type allows 'stripe_card'.
- * Safe to call multiple times — runs once per process lifetime.
+ * Makes sure paystack_subaccounts.account_type allows 'stripe_card' before a Stripe card payout
+ * account is saved. The change itself is database/migrations/stripe_subaccount_account_type_migration.sql;
+ * this only reads the rule, and widens it the same way on a database the migration hasn't reached.
+ * The checks on bank and mobile money fields always stay. Once per process.
  */
 async function ensureStripeSubaccountSchema(db) {
   if (subaccountSchemaReady) return;
@@ -16,43 +18,20 @@ async function ensureStripeSubaccountSchema(db) {
   }
 
   subaccountSchemaPromise = (async () => {
-    // Drop old account_type constraint that only had 'bank','mobile_money'
-    await db.query(`
-      ALTER TABLE paystack_subaccounts
-        DROP CONSTRAINT IF EXISTS paystack_subaccounts_account_type_check
-    `);
-
-    // Drop nullability cross-checks that would block stripe_card rows
-    await db.query(`ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS bank_fields_null_for_momo`);
-    await db.query(`ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS momo_fields_null_for_bank`);
-    await db.query(`ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS bank_fields_check`);
-    await db.query(`ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS momo_fields_check`);
-
-    // New constraint: bank, mobile_money, stripe_card
-    await db.query(`
-      ALTER TABLE paystack_subaccounts
-        ADD CONSTRAINT paystack_subaccounts_account_type_check
-        CHECK (account_type IN ('bank', 'mobile_money', 'stripe_card'))
-    `);
-
-    // Restore bank fields check (enforced only for bank rows)
-    await db.query(`
-      ALTER TABLE paystack_subaccounts
-        ADD CONSTRAINT bank_fields_check CHECK (
-          (account_type = 'bank' AND account_number IS NOT NULL AND bank_code IS NOT NULL AND bank_name IS NOT NULL)
-          OR account_type <> 'bank'
-        )
-    `);
-
-    // Restore momo fields check (enforced only for mobile_money rows)
-    await db.query(`
-      ALTER TABLE paystack_subaccounts
-        ADD CONSTRAINT momo_fields_check CHECK (
-          (account_type = 'mobile_money' AND momo_number IS NOT NULL AND momo_provider IS NOT NULL AND account_holder_name IS NOT NULL)
-          OR account_type <> 'mobile_money'
-        )
-    `);
-
+    const { rows } = await db.query(
+      `SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'paystack_subaccounts'::regclass
+          AND conname = 'paystack_subaccounts_account_type_check'
+          AND pg_get_constraintdef(oid) LIKE '%stripe_card%'`
+    );
+    if (!rows.length) {
+      await db.query(`ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS paystack_subaccounts_account_type_check`);
+      await db.query(`
+        ALTER TABLE paystack_subaccounts
+          ADD CONSTRAINT paystack_subaccounts_account_type_check
+          CHECK (account_type IN ('bank', 'mobile_money', 'stripe_card'))
+      `);
+    }
     subaccountSchemaReady = true;
   })();
 

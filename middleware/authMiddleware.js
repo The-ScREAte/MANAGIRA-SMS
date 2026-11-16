@@ -18,7 +18,20 @@ const ON_HOLD_ALLOWED_PATH_PREFIXES = [
     '/account/paystack',
     '/account/invoices',
     '/account/logout',
+    // Billing on the restricted Settings page: the password it asks for, the card form and the plan.
+    '/account/confirm-password',
+    '/account/update-card',
+    '/account/update-plan',
+    '/account/service-plan',
 ];
+
+// A request from a page's script (fetch with JSON) gets its answer as JSON, never a redirect to
+// a page it can't read ("Unable to verify password" was a sign-in page read as JSON).
+function wantsJson(req) {
+    const accept = String((req.headers && req.headers.accept) || '');
+    const type = String((req.headers && req.headers['content-type']) || '');
+    return Boolean(req.xhr) || /application\/json/i.test(accept) || (req.method !== 'GET' && /application\/json/i.test(type));
+}
 
 function isOnHoldAllowedPath(originalUrl) {
     const path = String(originalUrl || '').split('?')[0];
@@ -77,11 +90,16 @@ const isAuthenticated = async (req, res, next) => {
         if (req.session.superAdminOrgSwitch && req.session.userId && req.session.organizationId) {
             return next();
         }
-        // 1. Check session existence
-        if (!req.session.userId && !req.session.organizationId) {
+        // 1. Someone must really be signed in: staff, the school's own account and hub switches all
+        // set session.user (Managira admins have userId). A school id alone isn't a sign-in: a
+        // visitor's session can carry one, and the page would draw without anyone signed in.
+        if (!req.session.userId && !req.session.user) {
             console.warn(`[isAuthenticated] Not signed in: ${req.method} ${req.originalUrl}`);
+            if (wantsJson(req)) {
+                return res.status(401).json({ success: false, signedOut: true, message: 'Your session has ended. Sign in again to continue.', redirect: '/account/login' });
+            }
 
-            if (!req.session.returnTo) {
+            if (!req.session.returnTo && req.method === 'GET') {
                 req.session.returnTo = req.originalUrl;
             }
 
@@ -118,6 +136,9 @@ const isAuthenticated = async (req, res, next) => {
                 if (req.session.userRole === 'Manager') {
                     req.session.onHoldRestricted = true;
                     if (!isOnHoldAllowedPath(req.originalUrl)) {
+                        if (wantsJson(req)) {
+                            return res.status(423).json({ success: false, onHold: true, message: "Your school's account is on hold. Update billing in Settings to continue.", redirect: '/account/settings' });
+                        }
                         return res.redirect('/account/settings');
                     }
                     // Fall through: settingsGet renders the restricted billing-only view.
@@ -223,6 +244,14 @@ const fetchUserInfo = async (req, res, next) => {
                 const user = userResult.rows[0];
                 req.session.firstName = user.first_name;
                 req.session.lastName = user.last_name;
+                // Managira's own roles (Admin, Mini Admin, Internal Worker) belong to accounts with no
+                // school. A school account never takes one into its session, whatever the row says:
+                // those roles open every school's admin pages.
+                const platformRole = ['Admin', 'Mini Admin', 'Internal Worker'].includes(user.account_type);
+                if (platformRole && user.organization_id !== null && user.organization_id !== undefined) {
+                    console.warn(`[Security] ${JSON.stringify({ event: 'school_account_with_platform_role', userId: user.user_id, organizationId: user.organization_id })}`);
+                    return req.session.regenerate(() => res.redirect('/account/login'));
+                }
                 req.session.accountType = user.account_type;
                 req.session.profileImageUrl = user.profile_image_url || null;
 

@@ -190,10 +190,30 @@ function holdForCode(req, res, next) {
     const session = req.session;
     const db = req.app.get("db") || require("../config/db");
     const settings = await settingsFor(db, session.organizationId);
-    // A school can turn the code off; a recognized browser skips it.
-    if ((session.organizationId && !settings.login_code_required) || await isTrusted(req, db, session, settings)) {
+    // Someone who uses an authenticator app (utils/signInMfa.js) gives its code instead of an
+    // emailed one; everyone else gets the emailed code, where the school asks for it.
+    const signInMfa = require("./signInMfa");
+    const appAccount = signInMfa.accountOfSession(session);
+    const appOn = Boolean(appAccount && signInMfa.featureOn(appAccount.organizationId) && await signInMfa.hasApp(db, appAccount));
+    const codeOn = wanted(session) && Boolean(emailOf(session));
+    if (!appOn && !codeOn) return original(...args);
+    // A school can turn the emailed code off (never the app); a recognized browser skips either.
+    if ((!appOn && session.organizationId && !settings.login_code_required) || await isTrusted(req, db, session, settings)) {
       session.verifiedBy = "trusted-device";
       return original(...args);
+    }
+    if (appOn) {
+      const snapshot = JSON.parse(JSON.stringify(session));
+      delete snapshot.cookie;
+      await regenerate(req);
+      req.session.pendingLogin = {
+        snapshot, target, remember, next: nextPage, method: "app", account: appAccount,
+        expiresAt: Date.now() + LIFETIME_MS, tries: 0, sends: 0, sentAt: Date.now(),
+      };
+      await save(req);
+      res.set("X-Managira-Login", "code");
+      res.set("Cache-Control", "no-store");
+      return require("../controllers/accountController").loginGet(req, res, db, { step: "code" });
     }
     const email = emailOf(session);
     const snapshot = JSON.parse(JSON.stringify(session));
@@ -213,7 +233,7 @@ function holdForCode(req, res, next) {
   const wrap = (name, targetOf) => {
     const original = res[name].bind(res);
     res[name] = (...args) => {
-      if (held || !signedIn(req.session) || identityOf(req.session) === before || !emailOf(req.session) || !wanted(req.session)) return original(...args);
+      if (held || !signedIn(req.session) || identityOf(req.session) === before || req.session.signedInWith === "sso") return original(...args);
       const target = targetOf(args);
       if (target === null) return original(...args);
       held = true;
@@ -247,9 +267,23 @@ async function verify(req, res, db) {
     req.flash("error", "That code has expired. Log in again.");
     return res.redirect("/account/login");
   }
+  let appResult = null;
+  if (pending.method === "app") {
+    appResult = await require("./mfa").verify(db, pending.account, String((req.body && req.body.code) || "").trim());
+    if (!appResult.ok) {
+      pending.tries += 1;
+      const left = MAX_TRIES - pending.tries;
+      if (left <= 0) {
+        delete req.session.pendingLogin;
+        req.flash("error", "Too many wrong codes. Log in again.");
+        return res.redirect("/account/login");
+      }
+      return require("../controllers/accountController").loginGet(req, res, db, { step: "code", codeError: appResult.error || "That code isn't right." });
+    }
+  }
   const given = Buffer.from(hashOf(req.body && req.body.code));
-  const right = Buffer.from(pending.codeHash);
-  if (tidy(req.body && req.body.code).length !== CODE_LENGTH || given.length !== right.length || !crypto.timingSafeEqual(given, right)) {
+  const right = Buffer.from(pending.codeHash || "");
+  if (!appResult && (tidy(req.body && req.body.code).length !== CODE_LENGTH || given.length !== right.length || !crypto.timingSafeEqual(given, right))) {
     pending.tries += 1;
     const left = MAX_TRIES - pending.tries;
     if (left <= 0) {
@@ -270,7 +304,10 @@ async function verify(req, res, db) {
   if (keep) req.session.cookie.maxAge = settings.keep_signed_in_days * 24 * 60 * 60 * 1000;
   else req.session.cookie.expires = false;
   req.session.lastActivity = Date.now();
-  req.session.verifiedBy = "email-code";
+  req.session.verifiedBy = appResult ? "authenticator" : "email-code";
+  if (appResult && appResult.recoveryLeft !== undefined) {
+    req.flash("success", `You used a recovery code. ${appResult.recoveryLeft} left. Set up your authenticator again if you no longer have your phone.`);
+  }
   await save(req);
   // "Don't ask again on this browser" is ticked unless the person unticks it.
   await trustDevice(req, res, db, snapshot, settings);
@@ -288,6 +325,7 @@ async function resend(req, res, db) {
     return res.redirect("/account/login");
   }
   const accountController = require("../controllers/accountController");
+  if (pending.method === "app") return accountController.loginGet(req, res, db, { step: "code", codeNote: "Open your authenticator app and type the newest code." });
   if (pending.sends >= MAX_SENDS) return accountController.loginGet(req, res, db, { step: "code", codeError: "We've sent several codes already. Check your spam folder, or log in again later." });
   if (Date.now() - pending.sentAt < RESEND_AFTER_MS) return accountController.loginGet(req, res, db, { step: "code", codeNote: "We just sent a code. It can take a minute to arrive." });
   const code = newCode();

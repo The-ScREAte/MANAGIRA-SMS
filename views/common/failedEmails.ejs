@@ -434,7 +434,9 @@ function setStatus(id, state, msg) {
   if (!el) return;
   el.className = 'fe-check-status ' + (state || '');
   const icon = { checking: SVG_SPIN, valid: SVG_CHECK, invalid: SVG_X }[state] || '';
-  el.innerHTML = state ? `${icon}<span>${msg || ''}</span>` : '';
+  // The message can carry someone's name: it goes in as text, never as markup.
+  el.innerHTML = state ? icon : '';
+  if (state) { const text = document.createElement('span'); text.textContent = msg || ''; el.appendChild(text); }
   if (btn) btn.disabled = (state !== 'valid');
 }
 

@@ -1,33 +1,17 @@
--- Migration: add 'stripe_card' as a valid account_type in paystack_subaccounts
--- Run this once against your database before deploying the Stripe card subaccount feature.
-
+-- Lets a school keep a Stripe card payout account: paystack_subaccounts.account_type also allows
+-- 'stripe_card'. Only that check changes; the checks on bank and mobile money fields stay, and a
+-- stripe_card row passes them (each applies only to its own account type). Safe to repeat.
 DO $$
 BEGIN
-    -- Drop old account_type check constraint
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'paystack_subaccounts'::regclass
+       AND conname = 'paystack_subaccounts_account_type_check'
+       AND pg_get_constraintdef(oid) LIKE '%stripe_card%'
+  ) THEN
     ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS paystack_subaccounts_account_type_check;
-
-    -- Drop field-nullability constraints that would block stripe_card rows
-    ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS bank_fields_null_for_momo;
-    ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS momo_fields_null_for_bank;
-    ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS bank_fields_check;
-    ALTER TABLE paystack_subaccounts DROP CONSTRAINT IF EXISTS momo_fields_check;
-
-    -- New account_type constraint that includes stripe_card
     ALTER TABLE paystack_subaccounts
-        ADD CONSTRAINT paystack_subaccounts_account_type_check
-        CHECK (account_type IN ('bank', 'mobile_money', 'stripe_card'));
-
-    -- Restore bank-fields check (still enforced for bank rows)
-    ALTER TABLE paystack_subaccounts
-        ADD CONSTRAINT bank_fields_check CHECK (
-            (account_type = 'bank' AND account_number IS NOT NULL AND bank_code IS NOT NULL AND bank_name IS NOT NULL)
-            OR account_type <> 'bank'
-        );
-
-    -- Restore momo-fields check (still enforced for mobile_money rows)
-    ALTER TABLE paystack_subaccounts
-        ADD CONSTRAINT momo_fields_check CHECK (
-            (account_type = 'mobile_money' AND momo_number IS NOT NULL AND momo_provider IS NOT NULL AND account_holder_name IS NOT NULL)
-            OR account_type <> 'mobile_money'
-        );
+      ADD CONSTRAINT paystack_subaccounts_account_type_check
+      CHECK (account_type IN ('bank', 'mobile_money', 'stripe_card'));
+  END IF;
 END $$;

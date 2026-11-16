@@ -461,6 +461,11 @@
     font-weight: 600;
 }
 
+/* A remark collected with the Custom editor (feature report_remarks_forms): read here, changed there. */
+.remark-line textarea.remark-from-form,
+.rt-template .rt-remark textarea.remark-from-form { cursor: default; }
+.remark-line textarea.remark-from-form:focus { border-bottom: 1px dotted #999; color: #1a1a1a; font-weight: 500; }
+
 /* Ensure dropdown is properly positioned */
 .remark-dropdown {
     position: absolute;
@@ -2853,6 +2858,10 @@
 
                     <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
                     <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
+                    <%# Overall lunch (Report Settings › Advanced, feature class_lunch): days with lunch out of the days lunch was taken this term. %>
+                    <% const showLunch = !!displaySettings.sections.lunch; %>
+                    <% const lunchText = student.lunch && student.lunch.taken ? student.lunch.days + ' of ' + student.lunch.taken + (student.lunch.taken === 1 ? ' day' : ' days') : '—'; %>
+                    <% const lunchCols = showLunch ? 2 : 0; %>
 
                                         <% if (displaySettings.sections.attendance) { %>
                     <div class="attendance-info">
@@ -2887,6 +2896,10 @@
                                                                         <%= student.attendance.presentDays %>/<%= student.attendance.totalDays %>
                                                                     <% } %>
                                                                 </td>
+                                <% if (showLunch) { %>
+                                <td>Lunch:</td>
+                                <td class="report-lunch"><%= lunchText %></td>
+                                <% } %>
                                 <td>Vacation Date:</td>
                                 <td><%= termEndDate %></td>
                                 <td>School Reopens:</td>
@@ -2912,14 +2925,14 @@
                                         </span>
                                     </td>
                                     <td id="promotionClass-<%= student.student_id %>" data-class-id="<%= student.promotionClassId || '' %>"><%= student.promotionClass %></td>
-                                    <td colspan="4"></td>
+                                    <td colspan="<%= 4 + lunchCols %>"></td>
                                 </tr>
                             <% } else { %>
                                 <% if (showGradeTotalRow) { %>
                                     <tr>
                                         <td>Total Grade Score:</td>
                                         <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
-                                        <td colspan="6"></td>
+                                        <td colspan="<%= 6 + lunchCols %>"></td>
                                     </tr>
                                 <% } %>
                                 <% if (showPromotionRow) { %>
@@ -2941,13 +2954,20 @@
                     </div>
                     <% } %>
 
-                    <% if (!displaySettings.sections.attendance && showGradeTotalRow) { %>
+                    <% if (!displaySettings.sections.attendance && (showGradeTotalRow || showLunch)) { %>
+                    <%# Attendance is off: the grade total and lunch still print, in the attendance row's style. %>
                     <div class="attendance-info">
                         <table class="promotion-table">
                             <tr>
+                                <% if (showGradeTotalRow) { %>
                                 <td>Total Grade Score:</td>
                                 <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
-                                <td colspan="6"></td>
+                                <% } %>
+                                <% if (showLunch) { %>
+                                <td>Lunch:</td>
+                                <td class="report-lunch"><%= lunchText %></td>
+                                <% } %>
+                                <td colspan="<%= showGradeTotalRow && showLunch ? 4 : 6 %>"></td>
                             </tr>
                         </table>
                     </div>
@@ -3020,6 +3040,17 @@
                                                                 ]; %>
 
                                                                 <% remarkRows.forEach((remarkRow) => { %>
+                                    <% const fromForm = (student.formRemarks || {})[remarkRow.rowKey]; %>
+                                    <% if (fromForm) { %>
+                                    <%# Collected with the Custom editor (feature report_remarks_forms): shown as it was given there.
+                                        The remark saved on this page rides along unseen, so Save Changes keeps it. %>
+                                    <% const savedHere = student.savedRemarks ? (remarkRow.customTypeKey ? (student.savedRemarks.custom || {})[remarkRow.customTypeKey] : student.savedRemarks[remarkRow.rowKey.replace(/Remarks$/, '')]) : remarkRow.value; %>
+                                    <div class="remark-line remark-line--form">
+                                        <label><%= remarkRow.label %></label>
+                                        <textarea class="remark-from-form" readonly tabindex="-1" aria-readonly="true" aria-label="<%= remarkRow.label %>" title="Collected with the Custom editor › <%= fromForm %>"><%= remarkRow.value || '' %></textarea>
+                                        <textarea hidden id="<%= remarkRow.rowKey %>-<%= student.student_id %>" name="<%= remarkRow.rowKey %>-<%= student.student_id %>" data-custom-remark-type="<%= remarkRow.customTypeKey || '' %>"><%= savedHere || '' %></textarea>
+                                    </div>
+                                    <% } else { %>
                                     <div class="remark-line">
                                                                                 <label for="<%= remarkRow.rowKey %>-<%= student.student_id %>">
                                                                                         <%= remarkRow.label %>
@@ -3046,6 +3077,7 @@
                                             <% }); %>
                                         </div>
                                     </div>
+                                    <% } %>
                                 <% }); %>
                                 
                             </div>

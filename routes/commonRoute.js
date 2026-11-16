@@ -153,8 +153,9 @@ module.exports = (db) => {
       if (!orgId)
         return res.status(400).send("Missing organizationId in development");
 
+      // Only the page's own value: a visitor's session must never carry a school id (it made a
+      // signed-out browser look signed in to the org dashboard).
       req.organizationId = orgId;
-      req.session.organizationId = orgId; // ✅ So save works later
     }
 
     // 🔁 Now pass it to the controller
@@ -259,6 +260,12 @@ module.exports = (db) => {
   router.get("/management", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.management(req, res, db)
   );
+  // Class settings (feature class_settings): Management › Class settings (Every Class) and the
+  // switch saves from it and from each classroom (controllers/classSettingsController.js checks
+  // the feature and who may manage which class).
+  const classSettingsPages = require("../controllers/classSettingsController");
+  router.get("/class-settings", isAuthenticated, blockGuardians, (req, res) => classSettingsPages.managementPage(req, res, db));
+  router.post("/class-settings/save", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.save(req, res, db));
   router.get("/failedEmails", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.getFailedEmails(req, res, db)
   );
@@ -273,22 +280,23 @@ module.exports = (db) => {
   router.get("/guardians", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_GUARDIANS), (req, res) =>
     commonController.guardiansListGet(req, res, db)
   );
+  // Guardian actions need Manage Guardians, as the page offers them (a teacher only views).
   router.get("/guardianDetails", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardianDetailsGet(req, res, db)
   );
-  router.post("/guardianEdit/:guardianId", checkFeatureAccess, isAuthenticated, upload.single("guardianImage"), (req, res) =>
+  router.post("/guardianEdit/:guardianId", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_GUARDIANS), upload.single("guardianImage"), (req, res) =>
     commonController.guardianEditPost(req, res, db)
   );
-  router.post("/guardianRemoveStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.post("/guardianRemoveStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_GUARDIANS), (req, res) =>
     commonController.guardianRemoveStudent(req, res, db)
   );
-  router.post("/guardianRelinkStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.post("/guardianRelinkStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_GUARDIANS), (req, res) =>
     commonController.guardianRelinkStudent(req, res, db)
   );
-  router.post("/guardianRequestPasswordReset", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.post("/guardianRequestPasswordReset", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_GUARDIANS), (req, res) =>
     commonController.guardianRequestPasswordReset(req, res, db)
   );
-  router.post("/studentRequestPasswordReset", checkFeatureAccess, isAuthenticated, (req, res) =>
+  router.post("/studentRequestPasswordReset", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.studentRequestPasswordReset(req, res, db)
   );
   router.post(
@@ -365,13 +373,14 @@ module.exports = (db) => {
   router.post("/deleteStudent/:studentId", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_DELETE), (req, res) =>
     commonController.deleteStudent(req, res, db)
   );
-  router.get("/getAttendanceForClass", isAuthenticated, (req, res) =>
+  router.get("/getAttendanceForClass", isAuthenticated, require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.getAttendanceForClass(req, res, db)
   );
   router.get(
     "/attendanceCollection",
     checkFeatureAccess,
     isAuthenticated,
+    require("../utils/classScope").requireLeadsClass(db),
     (req, res) => commonController.attendanceCollection(req, res, db)
   );
   router.get(
@@ -449,13 +458,13 @@ module.exports = (db) => {
     requireSetAssessmentQuestionsFeature,
     (req, res) => commonController.allClassAssessmentExamsPage(req, res, db)
   );
-  router.post("/deleteAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
+  router.post("/deleteAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), require("../utils/classScope").requireGroupScope(db), (req, res) =>
     commonController.deleteAssessmentPost(req, res, db)
   );
-  router.post("/updateAssessmentControl", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
+  router.post("/updateAssessmentControl", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), require("../utils/classScope").requireGroupScope(db), (req, res) =>
     commonController.updateAssessmentControlPost(req, res, db)
   );
-  router.post("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
+  router.post("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), require("../utils/classScope").requireGroupScope(db), (req, res) =>
     commonController.modifyAssessmentPost(req, res, db)
   );
   router.get("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
@@ -775,12 +784,10 @@ module.exports = (db) => {
   router.get("/getSubjectsByClass", isAuthenticated, (req, res) =>
     commonController.getSubjectsByClass(req, res, db)
   );
-  router.get("/deleteStudentImage/:studentId", isAuthenticated, (req, res) =>
+  // Removing a student's photo changes the record: a POST, for people who may edit students.
+  router.post("/deleteStudentImage/:studentId", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) =>
     commonController.deleteStudentImage(req, res, db)
   );
-  router.post("/deleteStudentImage/:id", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_EDIT), (req, res) => {
-    commonController.deleteStudentImage(req, res, db);
-  });
 
   router.get("/deleteSubject", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.deleteSubject(req, res, db)
@@ -857,13 +864,13 @@ module.exports = (db) => {
       const organizationId = req.session.organizationId;
       const student = await db.query("SELECT 1 FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId]);
       if (!student.rows.length) return res.status(404).json({ success: false, message: "Student not found." });
-      const userId = req.session.user?.user_id || req.session.userId || null;
-      const stored = userId
-        ? await db.query("SELECT password FROM users WHERE user_id = $1 AND organization_id = $2", [userId, organizationId])
-        : await db.query("SELECT password FROM organizations WHERE organization_id = $1", [organizationId]);
-      const hash = stored.rows[0]?.password;
-      const ok = hash ? await require("../utils/passwordHashing").compare(password, hash) : false;
-      if (!ok) return res.status(401).json({ success: false, message: "That password is not correct." });
+      // The signed-in person's own password (the school's for someone signed in as the school),
+      // with wrong tries limited and logged (utils/confirmOwnPassword.js).
+      try {
+        await require("../utils/confirmOwnPassword").confirmOwnPassword(req, password, { purpose: "open a transcript" });
+      } catch (refusal) {
+        return res.status(refusal.status || 401).json({ success: false, message: refusal.message || "That password is not correct." });
+      }
       req.session.transcriptAccess = { studentId, until: Date.now() + 10 * 60 * 1000 };
       return res.json({ success: true, url: `/transcript/transcript/${studentId}` });
     } catch (error) {
@@ -907,10 +914,10 @@ module.exports = (db) => {
   router.post("/setMainEmployee", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_EDIT), (req, res) =>
     commonController.setMainEmployee(req, res, db)
   );
-  router.post("/saveLunch", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), (req, res) =>
+  router.post("/saveLunch", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.saveLunch(req, res, db)
   );
-  router.post("/saveSingleAttendance", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), (req, res) =>
+  router.post("/saveSingleAttendance", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.saveSingleAttendance(req, res, db)
   );
   router.get("/createTest", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
@@ -973,7 +980,8 @@ module.exports = (db) => {
   router.get("/set-password", (req, res) =>
     commonController.setPasswordGet(req, res, db)
   );
-  router.post("/set-password", (req, res) =>
+  // Like reset-password: a token guessed at speed is slowed down (utils/authRateLimit.js).
+  router.post("/set-password", require("../utils/authRateLimit").authRateLimit("set-password", { field: "token", perIp: 50 }), (req, res) =>
     commonController.setPasswordPost(req, res, db)
   );
 
@@ -986,7 +994,9 @@ module.exports = (db) => {
 
 
   // Guardian search API for autocomplete
-  router.get("/api/guardians/search", isAuthenticated, (req, res) =>
+  // Parents' names, phones and emails: for people who manage parents or add and edit students
+  // (the Guardians page and Add student use it).
+  router.get("/api/guardians/search", isAuthenticated, requirePermission([PERMISSIONS.MANAGE_GUARDIANS, PERMISSIONS.STUDENTS_ADD, PERMISSIONS.STUDENTS_EDIT]), (req, res) =>
     commonController.searchGuardiansApi(req, res, db)
   );
 

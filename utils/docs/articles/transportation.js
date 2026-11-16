@@ -69,9 +69,9 @@ module.exports = [
           ["Sign in on your phone and choose today's run.", "driver-app.webp", "The driver app: the route, directions and the next stop."],
           "Start the trip. Families can now see the bus on the map, and directions guide you to each stop.",
           "At each stop, everyone due there is counted as <strong>All boarded</strong> when you drive off. If someone didn't board, tap <strong>Except</strong> and choose who.",
-          "At school (or the last stop), select <strong>End trip</strong>. Everyone on board is marked as arrived, in the same tap.",
+          "At school (or the last stop), select <strong>End trip</strong>. Everyone on board is marked as arrived, in the same tap. Riders at a stop you skipped, or didn't reach, aren't counted as arrived.",
         ],
-        note: "If the signal drops, the app keeps working and sends everything when it can, so ending a trip never makes you wait.",
+        note: "If the signal drops, the app keeps working and sends everything when it can, so ending a trip never makes you wait. A bus marked out of service, a paused route or a driver set to inactive can't start a trip: ask your transportation lead.",
       },
       {
         title: "Report a problem",

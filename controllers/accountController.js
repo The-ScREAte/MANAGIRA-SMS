@@ -1469,42 +1469,6 @@ async function sendInvoiceEmail(email, orgName, invoice) {
   }
 }
 
-async function sendCancellationEmail(orgName, firstName, email) {
-  if (!email) {
-    throw new Error("Recipient email is not defined.");
-  }
-
-  const html = renderCleanEmail({
-    title: "Subscription Cancellation Confirmation",
-    greeting: `Dear <strong>${he.encode(firstName)}</strong>,`,
-    paragraphs: [
-      `We wanted to confirm that your subscription for <strong>${he.encode(orgName)}</strong> has been successfully canceled.`,
-      "You will continue to have full access until the end of your current billing cycle, after which your subscription will be fully deactivated.",
-      "If you decide to reactivate before the billing cycle ends, you can do so from your account settings.",
-      "If you need any assistance, our support team is always available.",
-    ],
-    note: 'If you have questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
-  });
-
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-
-    to: email,
-
-    subject: "Subscription Cancellation Confirmation",
-
-    html,
-    attachments: [
-      {
-        filename: "managira.png",
-        path: path.join(__dirname, "../public/images/managira.png"),
-        cid: "managira_logo",
-      },
-    ],
-  };
-  sendEmailInBackground(mailOptions, "Cancellation Email");
-}
-
 async function sendRegistrationSuccessEmail(
   email,
 
@@ -2872,6 +2836,13 @@ const accountController = {
 
       // Helper: on error, store formData/messages in session and redirect
       // Uses session.save() to guarantee persistence before redirecting (avoids mobile race condition)
+      // A school's sign-up documents are private: a folder of their own and a random name
+      // (never images/logos/, which is public; utils/storedFiles.js).
+      const signUpProofKey = (file) => {
+        const ext = require("path").extname(String(file.originalname || "")).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 10);
+        return `school-signup/${require("crypto").randomUUID()}${ext}`;
+      };
+
       function stickyError(message) {
         req.session.formData = formData;
         req.session.registrationProofDraft = {
@@ -2885,7 +2856,7 @@ const accountController = {
 
       if (proof1) {
         try {
-          const newlyUploadedProof1Url = await uploadToS3(proof1);
+          const newlyUploadedProof1Url = await uploadToS3(proof1, signUpProofKey(proof1));
           if (proof1Url && proof1Url !== newlyUploadedProof1Url) {
             await deleteFromS3(proof1Url).catch(() => {});
           }
@@ -2898,7 +2869,7 @@ const accountController = {
 
       if (proof2) {
         try {
-          const newlyUploadedProof2Url = await uploadToS3(proof2);
+          const newlyUploadedProof2Url = await uploadToS3(proof2, signUpProofKey(proof2));
           if (proof2Url && proof2Url !== newlyUploadedProof2Url) {
             await deleteFromS3(proof2Url).catch(() => {});
           }
@@ -3020,10 +2991,12 @@ const accountController = {
       // Password security check
 
       const passwordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
 
+      const passwordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+      if (passwordIssue) return stickyError(passwordIssue);
       if (!passwordRegex.test(password)) {
-        return stickyError("Password must meet security standards.");
+        return stickyError("Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *.");
       }
 
       const hashedPassword = await bcryptjs.hash(password, 10);
@@ -5276,7 +5249,7 @@ const accountController = {
   // never the school's or the main manager's. Logged in the activity log.
   confirmPasswordPost: async (req, res) => {
     const { password, redirectUrl } = req.body;
-    // A page of this site only ("cancel-subscription" is /account/cancel-subscription, as before).
+    // A page of this site only (a bare word like "update-card" is /account/update-card).
     const asked = String(redirectUrl || "").trim();
     const back = localPath(/^[a-z0-9-]+$/i.test(asked) ? `/account/${asked}` : asked, "/account/update-card");
     try {
@@ -5319,6 +5292,8 @@ const accountController = {
       messages: req.flash(),
       step: ["password", "code"].includes(step) || (step === "sso" && sso) ? step : "email",
       codeTo: pending && !pending.expired ? pending.email : "",
+      // "app": the code comes from the person's authenticator app (utils/signInMfa.js).
+      codeMode: pending && !pending.expired && pending.method === "app" ? "app" : "email",
       codeError,
       codeNote,
       email,
@@ -5365,7 +5340,7 @@ const accountController = {
           return res.redirect("/account/login");
         }
 
-        const match = await bcrypt.compare(password, admin.password);
+        const match = await require("../utils/passwordRules").passwordMatches(password, admin.password);
 
         if (!match) {
                     req.flash("error", "Invalid email or password.");
@@ -5422,13 +5397,13 @@ const accountController = {
           return res.redirect("/account/login");
         }
 
-        const match = await bcrypt.compare(password, user.password);
+        const match = await require("../utils/passwordRules").passwordMatches(password, user.password);
 
         // The school signs in through its own provider. Its main manager can always use a password.
         // The school signs in through its own provider: show its sign-in for this email. Its
         // main manager can always use a password.
         if (match && !user.removed_at && await require("../utils/sso/connections").passwordRefused(db, user.organization_id, { isMainManager: await require("../utils/sso/connections").isMainManager(db, user.organization_id, user), user })) {
-          return require("./ssoController").continueWithEmail(req, res, db, { quiet: true });
+          return require("./ssoController").continueWithEmail(req, res, db, { quiet: true, organizationId: user.organization_id });
         }
 
         // Removed by the school: the account is kept (and can be enabled again).
@@ -5631,7 +5606,7 @@ const accountController = {
       if (orgResult.rows.length > 0) {
         const organization = orgResult.rows[0];
 
-        const match = await bcrypt.compare(password, organization.password);
+        const match = await require("../utils/passwordRules").passwordMatches(password, organization.password);
 
         if (match) {
           if (organization.deleted) {
@@ -5834,7 +5809,7 @@ const accountController = {
         return res.redirect("/account/guardian-login");
       }
 
-      const match = await bcrypt.compare(password, ga.password_hash);
+      const match = await require("../utils/passwordRules").passwordMatches(password, ga.password_hash);
       if (!match) {
         req.flash("error", "Invalid email/phone or password.");
         return res.redirect("/account/guardian-login");
@@ -6003,7 +5978,7 @@ const accountController = {
       const passwordMatchedAccounts = [];
       for (const account of candidateAccounts) {
         if (!account.password_hash || !String(account.password_hash).trim()) continue;
-        const match = await bcrypt.compare(password, account.password_hash);
+        const match = await require("../utils/passwordRules").passwordMatches(password, account.password_hash);
         if (match) passwordMatchedAccounts.push(account);
       }
 
@@ -6211,7 +6186,9 @@ const accountController = {
 
       let orgDetails;
 
-      if (req.session.user.account_type === "Manager") {
+      // The school's own account edits the school's details; everyone else, managers included,
+      // edits only their own staff account.
+      if (req.session.accountType === "Organization") {
         const orgQuery = await db.query(
           `SELECT organization_id, first_name, last_name, email, scheduled_hold_date, on_hold,
                    organization_address, organization_country, organization_province
@@ -6301,6 +6278,11 @@ const accountController = {
 
       return res.redirect("/account/update");
     }
+    const newPasswordIssue = password ? await require("../utils/passwordRules").passwordProblemAsync(password) : null;
+    if (newPasswordIssue) {
+      req.flash("error", newPasswordIssue);
+      return res.redirect("/account/update");
+    }
 
     // An account's email is how it signs in and gets its reset links: it must be an address.
     if (!looksLikeEmail(email)) {
@@ -6335,9 +6317,10 @@ const accountController = {
         return res.redirect("/account/update");
       }
 
-      // Determine if updating a user (employee) or an organization
-
-      if (req.session.user.account_type === "Manager") {
+      // Only the school's own account (signed in as the school) changes the school's email and
+      // password. A member of staff, a Manager included, changes only their own users row: a staff
+      // Manager could otherwise take over the school's own account.
+      if (req.session.accountType === "Organization") {
         // Update organization
 
         let updateQuery = `UPDATE organizations SET first_name = $1, last_name = $2, email = $3, organization_address = $4, organization_country = $5, organization_province = $6`;
@@ -6862,6 +6845,11 @@ const accountController = {
 
     if (password !== confirmPassword) {
       req.flash("error", "Passwords do not match.");
+      return res.redirect(localPath(redirectTo, "/account/settings"));
+    }
+    const securityPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+    if (securityPasswordIssue) {
+      req.flash("error", securityPasswordIssue);
       return res.redirect(localPath(redirectTo, "/account/settings"));
     }
 
@@ -8148,6 +8136,11 @@ const accountController = {
 
   forgetPasswordPost: async (req, res) => {
     const email = String(req.body.email || "").trim();
+    // One answer for every email: whether an account exists, or which kind, is never said here.
+    const sentAnyway = () => {
+      req.flash("success", "If that email has an account, a link to reset the password is on its way. It expires in 15 minutes. Parents and students setting up for the first time: ask your school for an invitation.");
+      return res.redirect("/account/login");
+    };
     await require("../utils/shards/routing").passResetToOtherShards(req, email);
     const baseUrl = res.locals.BASE_URL || `${req.protocol}://${req.get("host")}`;
 
@@ -8174,16 +8167,8 @@ const accountController = {
           (row) => row.password_hash && !row.must_reset_password
         );
 
-        if (eligibleAccounts.length === 0) {
-          req.flash(
-            "error",
-            "This portal account needs its first-time password setup. Please contact your school to receive an invitation."
-          );
-          const loginPath = portalAccountResult.rows.some((row) => row.source === "guardian")
-            ? "/account/guardian-login"
-            : "/account/student-login";
-          return res.redirect(loginPath);
-        }
+        // An account still waiting for its first-time setup gets the same answer as any other.
+        if (eligibleAccounts.length === 0) return sentAnyway();
 
         const tokenExpiration = new Date(Date.now() + 15 * 60 * 1000);
         const uniqueAccounts = new Map(
@@ -8206,15 +8191,7 @@ const accountController = {
           });
         }
 
-        req.flash(
-          "success",
-          "A password reset link has been sent to your email. The link expires in 15 minutes."
-        );
-        return res.redirect(
-          eligibleAccounts.some((row) => row.source === "guardian")
-            ? "/account/guardian-login"
-            : "/account/student-login"
-        );
+        return sentAnyway();
       }
 
       // Someone who signs in with their school's provider has no Managira password to reset.
@@ -8237,13 +8214,7 @@ const accountController = {
         [email]
       );
 
-      if (userResult.rows.length === 0) {
-        req.flash(
-          "error",
-          "No account was found with that email. For first-time parent or student portal setup, please contact your school."
-        );
-        return res.redirect("/account/forget-password");
-      }
+      if (userResult.rows.length === 0) return sentAnyway();
 
       const token = crypto.randomBytes(32).toString("hex");
       const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -8276,12 +8247,7 @@ const accountController = {
 
       sendPasswordResetEmail(email, token, baseUrl);
 
-      req.flash(
-        "success",
-        "A password reset link has been sent to your email. The link will expire in 15 minutes."
-      );
-
-      res.redirect("/account/login");
+      return sentAnyway();
     } catch (error) {
       console.error("[forgetPasswordPost] Error:", error.message);
       req.flash("error", "An error occurred. Please try again.");
@@ -8366,12 +8332,13 @@ const accountController = {
     }
 
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
 
-    if (!passwordRegex.test(password)) {
+    const resetPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+    if (resetPasswordIssue || !passwordRegex.test(password)) {
       req.flash(
         "error",
-        "Password must be at least 6 characters long, contain uppercase, lowercase, a number, and a special character."
+        resetPasswordIssue || "Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *."
       );
       return res.render("account/resetPassword", {
         title: "Reset Password",
@@ -8637,7 +8604,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, organization_address, organization_country, organization_province, organization_currency, is_hub_member, hub_id, joined_hub_at, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
+            `SELECT organization_name, scheduled_hold_date, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, organization_address, organization_country, organization_province, organization_currency, is_hub_member, hub_id, joined_hub_at, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -9309,11 +9276,17 @@ const accountController = {
         },
       };
       let integrationActivity = {};
-      const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
+      const [settingsPermission, billingPermission, paygiraPermission, profilePermission] = await Promise.all([
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS).catch(() => false),
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING).catch(() => false),
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA).catch(() => false),
+        userHasPermission(db, permissionContext, PERMISSIONS.SETTINGS_PROFILE).catch(() => false),
       ]);
+      // The school-wide email choices show only to someone who may change them (School Profile).
+      if (!profilePermission) {
+        orgNotificationPrefs = [];
+        savedOrgNotificationPrefs = {};
+      }
 
       canAccessCustomizeSettings = settingsPermission || localPermissionSet.has(PERMISSIONS.MANAGE_SETTINGS);
       canAccessBillingSettings = billingPermission || localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
@@ -9608,6 +9581,8 @@ const accountController = {
         ? requestedCountryCode
         : fallbackCountryCode;
       const includePublicHolidays = parseBoolean(req.body.includePublicHolidays);
+      // Days off on the attendance sheet: shown (ticked, the default) or hidden.
+      const showDaysOff = parseBoolean(req.body.showDaysOff);
       const requestedWeekendDays = normalizeWeekendDaysInput(req.body.weekendDays || []);
       const weekendDays = requestedWeekendDays.length > 0 ? requestedWeekendDays : [0, 6];
 
@@ -9641,6 +9616,9 @@ const accountController = {
         includePublicHolidays,
         userId,
       });
+
+      const daysOffSaved = await require("../utils/attendanceCalendar").saveShowDaysOff(db, profile.calendar_id, showDaysOff);
+      if (!daysOffSaved && !showDaysOff) req.flash("info", "Hiding weekends and holidays will be available once the latest database update has run.");
 
       const now = new Date();
       const holidayStartDate = `${now.getUTCFullYear()}-01-01`;
@@ -9790,239 +9768,6 @@ const accountController = {
     } catch (error) {
       req.flash("error", "Failed to remove calendar day.");
       return res.redirect(redirectBase);
-    }
-  },
-
-  cancelSubscriptionGet: (req, res) => {
-    res.render("account/cancelSubscription", {
-      title: "Cancel Subscription",
-
-      messages: req.flash(),
-    });
-  },
-
-  cancelSubscriptionPost: async (req, res) => {
-    const { password, orgName } = req.body;
-
-    const orgId = req.session.organizationId;
-
-    try {
-      // Step 1: Fetch organization details (trial status, name, email)
-
-      const orgResult = await db.query(
-        `SELECT trial_active_until, organization_name, email FROM organizations WHERE organization_id = $1`,
-
-        [orgId]
-      );
-
-      if (orgResult.rows.length === 0) {
-        req.flash("error", "Organization not found.");
-
-        return res.redirect("/account/update");
-      }
-      const { trial_active_until, organization_name, email } =
-        orgResult.rows[0];
-
-      // The form asks for the school's name and the person's password: both are checked here,
-      // so one stray or forged request can't put a school on hold.
-      const sameName = String(orgName || "").trim().toLowerCase() === String(organization_name || "").trim().toLowerCase();
-      if (!sameName || !(await verifySessionPassword(password, req, "cancel the subscription"))) {
-        req.flash("error", sameName
-          ? `${passwordWord(req)} Your subscription was not cancelled.`
-          : "The organization name doesn't match. Your subscription was not cancelled.");
-        return res.redirect("/account/cancel-subscription");
-      }
-
-      // Step 2: Check for next_payment_end_date in latest payment
-
-      const paymentResult = await db.query(
-        `SELECT next_payment_end_date FROM payments WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1`,
-
-        [orgId]
-      );
-
-      const now = new Date();
-
-      let scheduledHoldDate = null;
-
-      let immediateHold = false;
-
-      if (trial_active_until && new Date(trial_active_until) > now) {
-        // Free trial is active, put org on hold immediately
-
-        await db.query(
-          `UPDATE organizations SET on_hold = true, hold_by = 'User', trial_active_until = NULL, scheduled_hold_date = NOW() WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        // ✅ CRITICAL FIX: Deactivate all stored cards to prevent future charges
-        await db.query(
-          `UPDATE stored_cards SET is_active = false WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        // ✅ CRITICAL FIX: Set payment status to cancelled
-        await db.query(
-          `UPDATE payments SET status = 'cancelled' WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        scheduledHoldDate = now;
-
-        immediateHold = true;
-      } else if (
-        paymentResult.rows.length > 0 &&
-        paymentResult.rows[0].next_payment_end_date
-      ) {
-        // Schedule hold for the end of the current paid period
-        scheduledHoldDate = new Date(
-          paymentResult.rows[0].next_payment_end_date
-        );
-        await db.query(
-          `UPDATE organizations SET scheduled_hold_date = $1, hold_by = 'User' WHERE organization_id = $2`,
-
-          [scheduledHoldDate, orgId]
-        );
-
-        // ✅ CRITICAL FIX: Set payment status to cancelled (will take effect after billing period)
-        await db.query(
-          `UPDATE payments SET status = 'cancelled' WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        // ✅ CRITICAL FIX: Deactivate all stored cards to prevent future charges
-        await db.query(
-          `UPDATE stored_cards SET is_active = false WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        immediateHold = false;
-      } else {
-        // No payment info, put org on hold immediately
-
-        await db.query(
-          `UPDATE organizations SET on_hold = true, hold_by = 'User', scheduled_hold_date = NOW() WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        // ✅ CRITICAL FIX: Deactivate all stored cards to prevent future charges
-        await db.query(
-          `UPDATE stored_cards SET is_active = false WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        // ✅ CRITICAL FIX: Set payment status to cancelled
-        await db.query(
-          `UPDATE payments SET status = 'cancelled' WHERE organization_id = $1`,
-
-          [orgId]
-        );
-
-        scheduledHoldDate = now;
-
-        immediateHold = true;
-      }
-
-      try {
-        await sendCancellationEmail(
-          organization_name,
-
-          req.session.firstName,
-
-          email,
-
-          scheduledHoldDate
-        );
-      } catch (e) {
-        // Ignore email errors
-      }
-
-      if (immediateHold) {
-        // Log user out and show cancellation message
-
-        // A fresh, signed-out session carries the message: flashing after destroy() throws
-        // ("req.flash() requires sessions") outside any handler, which stopped the whole server.
-        req.session.regenerate(() => {
-          if (req.session) {
-            req.flash(
-              "error",
-              "Your account has been cancelled and placed on hold. If you need further assistance, please contact support."
-            );
-          }
-
-          return res.redirect("/account/login");
-        });
-      } else {
-        // Do not log out, just redirect to update page
-
-        req.flash(
-          "success",
-
-          "Your subscription has been cancelled. You will retain access until the end of your current billing period."
-        );
-
-        return res.redirect("/account/update");
-      }
-    } catch (error) {
-            req.flash("error", "An unexpected error occurred. Please try again.");
-
-      res.redirect("/account/cancel-subscription");
-    }
-  },
-
-  resumeOrCancelCancellationPost: async (req, res) => {
-    const orgId = req.session.organizationId;
-
-    try {
-      // Only update the org's scheduled_hold_date and hold_by fields
-
-      const orgResult = await db.query(
-        `SELECT organization_id FROM organizations WHERE organization_id = $1`,
-
-        [orgId]
-      );
-
-      if (orgResult.rows.length === 0) {
-        req.flash("error", "Organization not found.");
-
-        return res.redirect("/account/update");
-      }
-
-      await db.query(
-        `UPDATE organizations
-                 SET scheduled_hold_date = NULL, hold_by = NULL, on_hold = false, on_hold_at = NULL, hold_reminder_count = 0
-                 WHERE organization_id = $1`,
-        [orgId]
-      );
-
-      // Reactivate stored cards so recurring billing can charge again
-      await db.query(
-        `UPDATE stored_cards SET is_active = true WHERE organization_id = $1`,
-        [orgId]
-      );
-
-      // Reactivate payment status so recurring billing picks them up
-      await db.query(
-        `UPDATE payments SET status = 'active' WHERE organization_id = $1 AND status = 'cancelled'`,
-        [orgId]
-      );
-
-      req.flash(
-        "success",
-        "Your organization has been resumed successfully. Payments will continue via Paystack."
-      );
-      return res.redirect("/account/update");
-    } catch (error) {
-            req.flash("error", "Failed to resume organization. Please try again.");
-
-      return res.redirect("/account/update");
     }
   },
 
@@ -12555,65 +12300,6 @@ const accountController = {
     res.render("account/partials/miraInfo", { layout: false });
   },
 
-  // POST /account/mira/permissions - bulk-sets which employees may open
-  // Mira. checked out user IDs on the form get Use Mira; anyone else in
-  // the org loses it, in one pass - the same replace-all shape the rest of
-  // the app's permission-checkbox saves use (see modifyEmployeePost).
-  miraPermissionsPost: async (req, res) => {
-    const orgId = req.session.organizationId;
-    if (!orgId) return res.redirect("/account/login");
-
-    try {
-      const rawUserIds = Array.isArray(req.body.userIds)
-        ? req.body.userIds
-        : req.body.userIds
-        ? [req.body.userIds]
-        : [];
-      const selectedUserIds = new Set(
-        rawUserIds.map((value) => parseInt(value, 10)).filter((value) => Number.isInteger(value))
-      );
-
-      const employeesResult = await db.query(
-        `SELECT user_id, email FROM users WHERE organization_id = $1`,
-        [orgId]
-      );
-
-      const grantorId = req.session.user?.user_id || req.session.userId || null;
-
-      // Owner included - Mira access requires an explicit grant for
-      // everyone, no free/unbilled bypass for the org owner.
-      for (const employee of employeesResult.rows) {
-        const shouldHaveAccess = selectedUserIds.has(employee.user_id);
-        const existing = await getUserPermissions(db, employee.user_id, orgId);
-        const hasAccess = existing.includes(PERMISSIONS.USE_MIRA);
-
-        if (shouldHaveAccess && !hasAccess) {
-          await db.query(
-            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (user_id, organization_id, permission_key) DO NOTHING`,
-            [employee.user_id, orgId, PERMISSIONS.USE_MIRA, grantorId]
-          );
-          invalidateUserPermissionCache(orgId, employee.user_id);
-        } else if (!shouldHaveAccess && hasAccess) {
-          await db.query(
-            `DELETE FROM user_permissions
-             WHERE user_id = $1 AND organization_id = $2 AND permission_key = $3`,
-            [employee.user_id, orgId, PERMISSIONS.USE_MIRA]
-          );
-          invalidateUserPermissionCache(orgId, employee.user_id);
-        }
-      }
-
-      req.flash("success", "Mira access updated.");
-      return res.redirect("/account/mira");
-    } catch (error) {
-      console.error("[accountController/miraPermissionsPost]", error);
-      req.flash("error", "Unable to update Mira access right now.");
-      return res.redirect("/account/mira");
-    }
-  },
-
   // GET /account/mira/user/:userId (AJAX/JSON) - powers the "Edit" modal on
   // /account/mira: what this one employee can currently do, i.e. exactly
   // the real permissions Mira's own tools check against (see
@@ -13025,6 +12711,14 @@ const accountController = {
                 await client.query('ROLLBACK');
         client.release();
         req.flash('error', 'Please fill in all required fields.');
+        return res.redirect(`/account/accept-hub-invitation/${token}`);
+      }
+
+      const hubAdminPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(admin_password);
+      if (hubAdminPasswordIssue) {
+        await client.query('ROLLBACK');
+        client.release();
+        req.flash('error', hubAdminPasswordIssue);
         return res.redirect(`/account/accept-hub-invitation/${token}`);
       }
 
@@ -13594,7 +13288,6 @@ accountController.updatePayoutPreferencePost = async (req, res) => {
 accountController.sendBrandedReceiptEmail = sendBrandedReceiptEmail;
 accountController.sendRegistrationSuccessEmail = sendRegistrationSuccessEmail;
 accountController.sendInvoiceEmail = sendInvoiceEmail;
-accountController.sendCancellationEmail = sendCancellationEmail;
 
 module.exports = accountController;
 

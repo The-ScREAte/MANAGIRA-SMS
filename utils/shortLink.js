@@ -21,11 +21,15 @@ async function ensureShortLinkSchema(dbClient) {
   schemaReady = true;
 }
 
+// 64 random bits (11 characters, URL-safe): a link can't be found by trying codes. Codes made
+// before this were 7 characters; they keep working until they expire.
 function generateCode() {
-  // Base62-ish via base64url, trimmed — short, URL-safe, unambiguous enough
-  // for a one-time text link (not meant to be typed by hand).
-  return crypto.randomBytes(5).toString("base64url").slice(0, 7);
+  return crypto.randomBytes(8).toString("base64url");
 }
+
+// A link to a stored student file (a report card sent by text) works for this long after it was
+// made; after that the family signs in to see it. Other links (a web page) don't expire.
+const FILE_LINK_DAYS = 90;
 
 // baseUrl: protocol+host of the request making the link (e.g. "https://managira.com"),
 // so the shortened link always points back at whichever host generated it.
@@ -52,12 +56,23 @@ async function createShortLink(dbClient, { targetUrl, organizationId, baseUrl })
 }
 
 async function resolveShortLink(dbClient, code) {
+  const text = String(code || "").trim();
+  if (!/^[A-Za-z0-9_-]{6,16}$/.test(text)) return null;
   await ensureShortLinkSchema(dbClient);
-  const result = await dbClient.query(`SELECT target_url FROM short_links WHERE code = $1 LIMIT 1`, [String(code || "").trim()]);
-  return result.rows[0]?.target_url || null;
+  const result = await dbClient.query(
+    `SELECT target_url, created_at < NOW() - make_interval(days => $2) AS past_file_age FROM short_links WHERE code = $1 LIMIT 1`,
+    [text, FILE_LINK_DAYS]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const storedFiles = require("./storedFiles");
+  const key = storedFiles.keyOf(row.target_url);
+  if (row.past_file_age && key && !storedFiles.isPublicKey(key)) return null;
+  return row.target_url;
 }
 
 module.exports = {
+  FILE_LINK_DAYS,
   ensureShortLinkSchema,
   createShortLink,
   resolveShortLink,

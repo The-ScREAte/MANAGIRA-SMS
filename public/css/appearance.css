@@ -177,5 +177,9 @@ html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow:
   html[data-appearance] header#top-header:has(> .sticky-nav) {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+    /* Solid, so the page never shows through it while scrolling. */
+    background: #fff !important;
   }
+  html[data-appearance="gray"] header#top-header:has(> .sticky-nav) { background: #f8f6ef !important; }
+  html[data-appearance="dark"] header#top-header:has(> .sticky-nav) { background: var(--ap-header, #1f242b) !important; }
 }

@@ -582,7 +582,8 @@ module.exports = {
         title: "Calendar",
         // "Connected" (or what went wrong) after coming back from Google or Microsoft.
         messages: req.flash(),
-        canPublish: can(res, "publish_events_announcements") && await isOrgMember(db, req),
+        // School events on the calendar need the Events follow-up (the server checks it on save too).
+        canPublish: can(res, "events_events") && await isOrgMember(db, req),
         hasWebsite: features.includes("School Website") || features.includes("SchoolWebsite"),
         initialDate: parseDate(req.query.date) || "",
         initialCompose: ["event", "announcement", "task"].includes(req.query.new) ? req.query.new : "",
@@ -607,7 +608,7 @@ module.exports = {
         organizationId: Number(req.session.organizationId),
         actor: resolveActor(req),
         start, end,
-        canPublish: can(res, "publish_events_announcements"),
+        canPublish: can(res, "events_events"),
         seesAllClasses: can(res, "publish_events_announcements") || isManagerRole(req.session.userRole || req.session.accountType),
         role: req.session.accountType === "Organization" ? "Organization" : (req.session.userRole || req.session.accountType),
       });
@@ -663,7 +664,8 @@ module.exports = {
       const id = req.params.id ? Number(req.params.id) : null;
       const e = readEventBody(req.body || {});
       const personal = isPersonalRoute || (!id && e.visibility === PERSONAL);
-      if (!personal && !can(res, "publish_events_announcements")) return fail(res, 403, "You can add personal events. School events need the Events & Announcements permission.");
+      // School events need the Events follow-up, as on the Events & Announcements page.
+      if (!personal && !can(res, "events_events")) return fail(res, 403, "You can add personal events. School events need the Events permission (Events & Announcements, Events).");
       if (personal && id) {
         const owner = await canEditPersonal(db, organizationId, id, actor.id);
         if (owner === null) return fail(res, 404, "Event not found.");
@@ -766,7 +768,7 @@ module.exports = {
         scheduleOrgSync(db, organizationId, baseUrl(req));
         return res.json({ success: true });
       }
-      if (!can(res, "publish_events_announcements")) return fail(res, 403, "You don't have permission to manage events.");
+      if (!can(res, "events_events")) return fail(res, 403, "You don't have permission to manage events.");
       const r = await db.query(`DELETE FROM school_events WHERE id = $1 AND organization_id = $2`, [id, organizationId]);
       if (!r.rowCount) return fail(res, 404, "Event not found.");
       scheduleOrgSync(db, organizationId, baseUrl(req));
@@ -779,7 +781,7 @@ module.exports = {
 
   // POST /common/calendar/announcements
   createAnnouncement: async (req, res, db) => {
-    if (!can(res, "publish_events_announcements")) return fail(res, 403, "You don't have permission to post announcements.");
+    if (!can(res, "events_announcements")) return fail(res, 403, "You don't have permission to post announcements.");
     try {
       const organizationId = Number(req.session.organizationId);
       const message = cleanText(req.body.message, 5000);
@@ -1005,7 +1007,7 @@ module.exports = {
         name: fullName(u),
         first: u.first_name || "",
         role: u.role || "",
-        image: u.image && !/placeholder/i.test(u.image) ? u.image : null,
+        image: u.image && !/placeholder/i.test(u.image) ? res.locals.publicImageUrl(u.image) : null,
         me: u.user_id === actor.id,
       })));
     } catch (err) {

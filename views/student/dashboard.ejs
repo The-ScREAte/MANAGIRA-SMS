@@ -200,6 +200,19 @@
     grid-template-columns: repeat(3, minmax(0,1fr));
   }
 
+  /* One column per tile shown: attendance (3), lunch and the Testing Room come and go with the
+     school's features and what the class shares with its students. */
+  .sp-tiles.sp-tiles--n1 { grid-template-columns: minmax(0,1fr); }
+  .sp-tiles.sp-tiles--n2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .sp-tiles.sp-tiles--n3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .sp-tiles.sp-tiles--n4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .sp-tiles.sp-tiles--n5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+  .sp-tiles.sp-tiles--n6 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  /* GPA (Class settings › Share with › GPA): this term's figure, the cumulative one beneath. */
+  .sp-tile--gpa .v { color: var(--sp-org-base, #01535b); }
+  .sp-gpa-line { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 10px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; font-size: .82rem; color: #475569; }
+  .sp-gpa-line strong { color: #0f172a; font-variant-numeric: tabular-nums; }
+
   .sp-action-tiles.sp-action-tiles-no-testing {
     grid-template-columns: repeat(3, minmax(0,1fr));
   }
@@ -643,8 +656,13 @@
   }
 
   @media (max-width: 980px) {
-    .sp-tiles, .sp-action-tiles {
+    .sp-tiles, .sp-action-tiles,
+    .sp-tiles.sp-tiles--n4, .sp-tiles.sp-tiles--n5, .sp-tiles.sp-tiles--n6 {
       grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    /* Five tiles two by two: the last one goes across. */
+    .sp-tiles.sp-tiles--n5 > .sp-tile:last-child {
+      grid-column: 1 / -1;
     }
     .sp-summary {
       grid-template-columns: 1fr;
@@ -813,6 +831,8 @@
 </style>
 
 <div class="sp-shell">
+  <%# The class may keep attendance, lunch or the bus from its students (Class settings). %>
+  <% const _sees = locals.sees || { attendance: true, lunch: true, reportCards: true, transport: true }; %>
   <%- include('../partials/flash') %>
 
   <section class="sp-header">
@@ -880,7 +900,15 @@
           </div>
         </div>
 
-        <div class="sp-tiles <%= testingRoomEnabled ? '' : 'sp-tiles-no-testing' %>">
+        <%
+          const _showAttendance = _sees.attendance !== false;
+          const _lunch = locals.lunchSummary || null;
+          const _gpa = locals.gpaInfo || null;
+          const _tileCount = (_showAttendance ? 3 : 0) + (_lunch ? 1 : 0) + (_gpa ? 1 : 0) + (testingRoomEnabled ? 1 : 0);
+        %>
+        <% if (_tileCount) { %>
+        <div class="sp-tiles sp-tiles--n<%= _tileCount %>">
+          <% if (_showAttendance) { %>
           <article class="sp-tile">
             <div class="l">Attendance Rate</div>
             <div class="v"><%= attendanceSummary.attendanceRate %>%</div>
@@ -894,6 +922,24 @@
             <div class="l">Absent</div>
             <div class="v"><%= attendanceSummary.absent %></div>
           </article>
+          <% } %>
+          <% if (_lunch) { %>
+          <%# Overall lunch (feature class_lunch): days with lunch out of the days it was taken this term. %>
+          <article class="sp-tile">
+            <div class="l">Lunch</div>
+            <div class="v"><%= _lunch.label %></div>
+            <div class="sp-tile-note"><%= _lunch.taken ? 'Days with lunch this term' : 'Not taken this term yet' %></div>
+          </article>
+          <% } %>
+          <% if (_gpa) { %>
+          <%# GPA (feature gpa) unless the class keeps it from students (Class settings): the cumulative
+              over finished terms when there is one, else this term's so far. %>
+          <article class="sp-tile sp-tile--gpa">
+            <div class="l"><%= _gpa.cumulative ? 'Cumulative GPA' : 'GPA this term' %></div>
+            <div class="v"><%= (_gpa.cumulative || _gpa.term).unweighted %></div>
+            <div class="sp-tile-note"><%= _gpa.cumulative && _gpa.term ? 'This term ' + _gpa.term.unweighted : (_gpa.cumulative ? _gpa.terms + ' finished term' + (_gpa.terms === 1 ? '' : 's') : 'So far, 4.0 scale') %></div>
+          </article>
+          <% } %>
           <% if (testingRoomEnabled) { %>
           <article class="sp-tile">
             <div class="l">Open Testing Room</div>
@@ -901,6 +947,7 @@
           </article>
           <% } %>
         </div>
+        <% } %>
 
         <% if (locals.featureOn && featureOn('class_activities')) { %>
         <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
@@ -910,7 +957,9 @@
           <button class="sp-action-tile app-tile" type="button" data-panel="activities"><span class="app-tile__icon"><%- navIcon('activities') %></span><span class="app-tile__name">Activities</span><% if (studentActivities && studentActivities.length) { %><span class="app-tile__badge"><%= studentActivities.length > 99 ? '99+' : studentActivities.length %></span><% } %></button>
           <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('stats') %></span><span class="app-tile__name">Grades</span></button>
           <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('staff') %></span><span class="app-tile__name">Subject Teachers</span></button>
+          <% if (_sees.transport !== false) { %>
           <button class="sp-action-tile app-tile" type="button" data-panel="transport"><span class="app-tile__icon"><%- navIcon('transportation') %></span><span class="app-tile__name">Transportation</span></button>
+          <% } %>
           <% if (testingRoomEnabled) { %>
           <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span></a>
           <% } %>
@@ -938,10 +987,12 @@
             <h4 class="sp-action-title">Grades</h4>
             <p class="sp-action-copy">Open current-term subject grades.</p>
           </button>
+          <% if (_sees.transport !== false) { %>
           <button class="sp-action-tile" type="button" data-panel="transport">
             <h4 class="sp-action-title">Transportation</h4>
             <p class="sp-action-copy"><%= transportationSnapshot && transportationSnapshot.bus && transportationSnapshot.bus.busNumber ? transportationSnapshot.bus.busNumber : 'Not assigned' %><%= transportationSnapshot && transportationSnapshot.route && transportationSnapshot.route.routeName ? ' • ' + transportationSnapshot.route.routeName : '' %></p>
           </button>
+          <% } %>
           <% if (testingRoomEnabled) { %>
           <a class="sp-action-tile sp-testing" href="/student/testing-room">
             <h4 class="sp-action-title">Testing Room</h4>
@@ -987,6 +1038,7 @@
       </style>
       <% } %>
 
+      <% if (_sees.transport !== false) { %>
       <section class="sp-panel" id="panel-transport" hidden>
         <h3 class="sp-section-title">Transportation</h3>
         <% if (transportationSnapshot) { %>
@@ -1003,6 +1055,7 @@
         <p class="sp-muted">No transportation assignment has been set for your account yet.</p>
         <% } %>
       </section>
+      <% } %>
 
       <section class="sp-panel" id="panel-teachers" hidden>
         <h3 class="sp-section-title">Teachers (Current Term)</h3>
@@ -1125,6 +1178,14 @@
 
       <section class="sp-panel" id="panel-grades" hidden>
         <h3 class="sp-section-title">Subject Grades (Current Term)</h3>
+        <% const _gpaRow = locals.gpaInfo || null; %>
+        <% if (_gpaRow) { %>
+          <div class="sp-gpa-line" aria-label="GPA">
+            <% if (_gpaRow.term) { %><span>GPA this term <strong><%= _gpaRow.term.unweighted %></strong><%= _gpaRow.term.weighted ? ' (weighted ' + _gpaRow.term.weighted + ')' : '' %></span><% } %>
+            <% if (_gpaRow.cumulative) { %><span>Cumulative GPA <strong><%= _gpaRow.cumulative.unweighted %></strong><%= _gpaRow.cumulative.weighted ? ' (weighted ' + _gpaRow.cumulative.weighted + ')' : '' %> over <%= _gpaRow.terms %> finished term<%= _gpaRow.terms === 1 ? '' : 's' %></span><% } %>
+            <span>4.0 scale</span>
+          </div>
+        <% } %>
         <% if (assessmentGrades.length) { %>
           <div class="sp-table-wrap">
             <table class="sp-table sp-grades-table">

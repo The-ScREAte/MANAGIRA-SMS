@@ -38,6 +38,15 @@
     { key: 'any', label: 'Any time', text: 'A list that grows: add an entry whenever something happens, like a log.' }
   ];
   var CHANNELS = boot.channels || {};
+  // Report-card remarks (feature report_remarks_forms; null where it's off): the remarks a field
+  // can print as, and the library's Report card remarks made from the school's own remarks.
+  var REMARKS = boot.remarks || null;
+  function slotLabel(key) {
+    var slot = ((REMARKS && REMARKS.slots) || []).filter(function (x) { return x.key === key; })[0];
+    return slot ? slot.label : String(key || '').replace(/^custom:/, '').replace(/[-_]+/g, ' ');
+  }
+  // Fields that can offer suggestions and print as a remark: typed answers.
+  function isTyped(f) { return f && (f.type === 'text' || f.type === 'textarea'); }
   // Where a section shows when it has a tile of its own (otherwise it sits under Forms).
   var OWN_TILE = {
     staff: 'In Class Tools, by its name. Without this it sits under Forms.',
@@ -52,6 +61,9 @@
     if (s.filledBy !== 'staff' || s.repeat !== 'day') s.attendance = false;
     if (s.filledBy !== 'parent') s.via = { email: false, sms: false, whatsapp: false };
     if (s.filledBy !== 'parent' && s.filledBy !== 'student') { s.dueDate = null; s.required = false; }
+    // Beside each student, and remarks on the report card, belong to classroom sections.
+    if (s.filledBy !== 'staff') s.beside = false;
+    if (!s.reportCard || s.filledBy !== 'staff') (s.fields || []).forEach(function (f) { delete f.printsAs; });
   }
   // The answers as a report: Report Builder, on this form, with its fields as columns.
   function openReport(id) {
@@ -232,10 +244,19 @@
       } }
     ] }
   ];
+  // Report card remarks, how a school sets its remarks up: one long answer per remark the school
+  // uses, each printing as that remark in its usual place, with the school's ready-made remarks to
+  // tap (made on the server from its remark types and ready-made remarks, so it matches what
+  // teachers had in the classroom's remark pop-up).
+  if (REMARKS && REMARKS.template) {
+    LIBRARY[0].items.unshift({ name: 'Report card remarks', icon: REMARKS.template.icon || 'pencil', filledBy: 'staff', repeat: 'term', reportCard: true, beside: true, build: function () {
+      return (REMARKS.template.fields || []).map(function (f) { return Object.assign(clone(f), { id: uid('f') }); });
+    } });
+  }
   function fromLibrary(t) {
     return Object.assign(blank(), {
       name: t.name, icon: t.icon, filledBy: t.filledBy, multiple: Boolean(t.multiple), once: Boolean(t.once), repeat: t.repeat || '', reportCard: Boolean(t.reportCard),
-      attendance: Boolean(t.attendance), tile: Boolean(t.tile),
+      attendance: Boolean(t.attendance), tile: Boolean(t.tile), beside: Boolean(t.beside),
       protected: Boolean(t.protected), required: Boolean(t.required), dueDate: t.dueDate || null,
       showParents: t.filledBy === 'parent' || Boolean(t.showParents), showStudents: t.filledBy === 'student', fields: t.build()
     });
@@ -262,7 +283,7 @@
   }
 
   function blank() {
-    return { id: null, name: '', icon: 'form', notes: '', multiple: false, once: false, repeat: '', reportCard: false, tile: false, attendance: false, tell: { teacher: true, builders: false }, via: { email: false, sms: false, whatsapp: false }, filledBy: 'staff', classIds: [], showParents: false, showStudents: false, protected: false, required: false, dueDate: null, status: 'live', fields: [], entries: 0 };
+    return { id: null, name: '', icon: 'form', notes: '', multiple: false, once: false, repeat: '', reportCard: false, beside: false, tile: false, attendance: false, tell: { teacher: true, builders: false }, via: { email: false, sms: false, whatsapp: false }, filledBy: 'staff', classIds: [], showParents: false, showStudents: false, protected: false, required: false, dueDate: null, status: 'live', fields: [], entries: 0 };
   }
 
   // ── Modal ─────────────────────────────────────────────────────────────────────────────
@@ -336,6 +357,7 @@
       + '<span class="cf-sec__text"><strong>' + esc(s.name) + (live ? '<span class="cf-pill cf-pill--live">Live</span>' : '<span class="cf-pill">Hidden</span>') + '</strong><em>' + esc(metaLine(s)) + '</em></span></button>'
       + '<div class="cf-sec__tools">'
       + (s.reportCard ? '<span class="cf-pill cf-pill--accent">Report card</span>' : '')
+      + (REMARKS && s.beside ? '<span class="cf-pill" title="Its icon sits beside each student in the class’s Students list">Beside students</span>' : '')
       + (s.tile ? '<span class="cf-pill">Own tile</span>' : '')
       + (s.attendance ? '<span class="cf-pill">Attendance</span>' : '')
       + (s.protected ? '<span class="cf-pill" title="Only people who build forms can open it">' + icon('lock', 11) + 'Protected</span>' : '')
@@ -369,7 +391,7 @@
     var daily = s.repeat === 'day';
     var counted = daily || s.repeat === 'week';
     var hears = s.filledBy !== 'staff' || s.multiple;
-    var moreOpen = state.moreOpen || s.dueDate || s.required || s.protected || s.notes || s.reportCard || s.tile || s.attendance
+    var moreOpen = state.moreOpen || s.dueDate || s.required || s.protected || s.notes || s.reportCard || s.tile || s.attendance || (REMARKS && s.beside)
       || s.via.email || s.via.sms || s.via.whatsapp || s.tell.builders || !s.tell.teacher || (!portal && (s.showParents || s.showStudents));
     var more = (portal ? row('Deadline', '<div class="cf-inline"><input type="date" class="cf-input cf-input--auto" data-bind="dueDate" value="' + esc(s.dueDate || '') + '" aria-label="Due date" />'
         + check('required', s.required, 'Required', s.filledBy === 'parent' ? 'Families are reminded 2 days before' : '') + '</div>') : '')
@@ -383,7 +405,9 @@
         + (!portal ? check('showParents', s.showParents, 'Parents') + check('showStudents', s.showStudents, 'Students') : '') + '</div>'
         + '<div style="margin-top:8px">' + check('protected', s.protected, 'Keep it from teachers', 'Only people who build forms can open it') + '</div>')
       + (s.filledBy === 'staff' && daily ? row('Attendance', check('attendance', s.attendance, 'Add it to the attendance page', 'A column beside each student for today. Shows Yes / No, dropdown and rating fields.')) : '')
-      + (!s.multiple && !s.protected && !counted ? row('Report card', check('reportCard', s.reportCard, 'Show on report cards', 'Prints each student’s answers for the term')) : '')
+      + (!s.multiple && !s.protected && !counted ? row('Report card', check('reportCard', s.reportCard, 'Show on report cards', 'Prints each student’s answers for the term'
+        + (REMARKS && s.filledBy === 'staff' ? '. A typed field can print as a remark instead: open it and choose Prints as.' : ''))) : '')
+      + (REMARKS && s.filledBy === 'staff' ? row('Beside each student', check('beside', s.beside, 'Show beside each student', 'Its icon sits beside every student in the class’s Students list, in colour once this period’s entry is in. A tap opens that student’s form.')) : '')
       + row('Its own tile', check('tile', s.tile, 'Give it a tile of its own', OWN_TILE[s.filledBy]))
       + row('Notes', '<textarea class="cf-input" rows="2" data-bind="notes" maxlength="2000" placeholder="Only people who build forms see this">' + esc(s.notes || '') + '</textarea>');
     var every = everyOf(s);
@@ -436,6 +460,8 @@
     var out = [];
     if (f.required) out.push('<span class="cf-pill cf-pill--warn">Required</span>');
     if (f.cond) out.push('<span class="cf-pill cf-pill--accent">' + (f.cond.action === 'hide' ? 'Hides' : 'Shows') + ' when…</span>');
+    if (REMARKS && f.printsAs) out.push('<span class="cf-pill cf-pill--accent" title="Prints in this remark’s place on the report card">Prints as ' + esc(slotLabel(f.printsAs)) + '</span>');
+    if (REMARKS && f.suggestions && f.suggestions.length) out.push('<span class="cf-pill">' + plural(f.suggestions.length, 'suggestion') + '</span>');
     if (f.retired) out.push('<span class="cf-pill">Not used</span>');
     return out.join('');
   }
@@ -608,6 +634,8 @@
         }).join('') + '</select></div>'
         + '<div><label class="cf-label" for="cfm-label">' + (f.type === 'instructions' ? 'Heading' : 'Question') + '</label><input id="cfm-label" class="cf-input" data-f="label" maxlength="200" value="' + esc(f.label) + '" placeholder="' + (f.type === 'instructions' ? 'e.g. Before you start' : 'e.g. Does your child have any allergies?') + '" /></div>'
         + '<div><label class="cf-label" for="cfm-help">' + (f.type === 'instructions' ? 'Text to show' : 'Help text (optional)') + '</label><textarea id="cfm-help" class="cf-input" data-f="help" rows="' + (f.type === 'instructions' ? 5 : 2) + '" maxlength="' + (f.type === 'instructions' ? 4000 : 1000) + '">' + esc(f.help || '') + '</textarea></div>'
+        + (REMARKS && isTyped(f) ? suggestionsHtml(f) : '')
+        + (REMARKS && isTyped(f) && state.current.reportCard && state.current.filledBy === 'staff' ? printsAsHtml(f) : '')
         + (t.options ? optionsHtml(f) : '')
         + (f.type === 'yesno' ? '<div><span class="cf-label">Show as</span><div class="cf-seg"><button type="button" data-display="text" aria-pressed="' + (f.display !== 'icons') + '">Yes / No</button><button type="button" data-display="icons" aria-pressed="' + (f.display === 'icons') + '">' + icon('check', 15) + ' ' + icon('close', 15) + ' Icons</button></div></div>' : '')
         + (f.type === 'seat' ? '<div><span class="cf-label">Show seats with</span><div class="cf-seg"><button type="button" data-display="photos" aria-pressed="' + (f.display !== 'names') + '">Photos and names</button><button type="button" data-display="names" aria-pressed="' + (f.display === 'names') + '">Names only</button></div></div>' : '')
@@ -624,6 +652,26 @@
         + '<div><span class="cf-label">Width</span><div class="cf-seg"><button type="button" data-width="full" aria-pressed="' + (f.width !== 'half') + '">Full row</button><button type="button" data-width="half" aria-pressed="' + (f.width === 'half') + '">Half (two side by side)</button></div></div>'
         + (f.type !== 'instructions' ? '<label class="cf-check"><input type="checkbox" data-f-check="retired"' + (f.retired ? ' checked' : '') + ' /><span>Stop using this field<small>It’s hidden from now on. Answers already given are kept.</small></span></label>' : '')
         + '</div></details>';
+    }
+    // Phrases to tap (one per line), and the report-card remark a typed answer prints as.
+    function suggestionsHtml(field) {
+      var lines = field._sugg !== undefined ? field._sugg : (field.suggestions || []).join('\n');
+      return '<div><label class="cf-label" for="cfm-sugg">Suggestions <small style="font-weight:400;color:var(--cf-muted)">(optional)</small></label>'
+        + '<textarea id="cfm-sugg" class="cf-input" rows="4" maxlength="12000" data-f-sugg placeholder="One per line, e.g. Works hard and helps others.">' + esc(lines) + '</textarea>'
+        + '<p class="cf-hint">Each line is a phrase to tap. It fills the answer, or is added to what’s there.</p></div>';
+    }
+    function printsAsHtml(field) {
+      var taken = {};
+      state.current.fields.forEach(function (o) { if (o.id !== field.id && o.printsAs) taken[o.printsAs] = o.label; });
+      var slots = ((REMARKS && REMARKS.slots) || []).slice();
+      if (field.printsAs && !slots.some(function (x) { return x.key === field.printsAs; })) slots.push({ key: field.printsAs, label: slotLabel(field.printsAs) + ' (no longer used)' });
+      return '<div><label class="cf-label" for="cfm-prints">Prints as</label><select id="cfm-prints" class="cf-input" data-f="printsAs">'
+        + '<option value="">Its own line, under the section’s name</option>'
+        + slots.map(function (x) {
+          var by = taken[x.key];
+          return '<option value="' + esc(x.key) + '"' + (field.printsAs === x.key ? ' selected' : '') + (by ? ' disabled' : '') + '>' + esc(x.label + (by ? ' (used by “' + by + '”)' : '')) + '</option>';
+        }).join('')
+        + '</select><p class="cf-hint">A remark prints in its usual place on the report card, where it prints today.</p></div>';
     }
     function optionsHtml(field) {
       return '<div><div style="display:flex;align-items:center;justify-content:space-between"><span class="cf-label">Choices</span>'
@@ -663,6 +711,7 @@
         }
       }
       if (e.target.getAttribute('data-cond') === 'value' && f.cond) f.cond.value = e.target.value;
+      if (e.target.hasAttribute('data-f-sugg')) f._sugg = e.target.value;
     });
     form.addEventListener('change', function (e) {
       var k = e.target.getAttribute('data-f');
@@ -766,6 +815,22 @@
         if (f.type !== 'choice') delete f.display;
       } else if (f.type !== 'yesno' && f.type !== 'seat') { delete f.options; delete f.display; delete f.icons; }
       else { delete f.options; delete f.icons; }
+      // Suggestions and "Prints as" belong to typed answers (one phrase per line, no repeats).
+      if (!isTyped(f)) { delete f.suggestions; delete f.printsAs; }
+      else if (REMARKS) {
+        if (f._sugg !== undefined) {
+          var seenPhrase = {};
+          f.suggestions = String(f._sugg).split(/\r?\n/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); }).filter(function (x) {
+            var low = x.toLowerCase();
+            if (!x || seenPhrase[low]) return false;
+            seenPhrase[low] = true;
+            return true;
+          }).slice(0, 40);
+        }
+        if (!f.suggestions || !f.suggestions.length) delete f.suggestions;
+        if (!f.printsAs) delete f.printsAs;
+      }
+      delete f._sugg;
       delete f._ic; delete f._man;
       if (needsValue(f.cond)) { toast('Finish “Visibility”: give the answer it depends on, or choose Always.', true); return; }
       f.key = keyFrom(f.key || f.label);
@@ -992,7 +1057,7 @@
       var parts = k.split('.');
       if (parts.length === 2) s[parts[0]][parts[1]] = e.target.checked; else s[k] = e.target.checked;
       tidy(s);
-      return changed(k === 'protected' || parts.length === 2);
+      return changed(k === 'protected' || k === 'reportCard' || parts.length === 2);
     }
     if (e.target.hasAttribute('data-live')) { s.status = e.target.checked ? 'live' : 'draft'; return changed(true); }
     if (e.target.getAttribute('data-bind') === 'dueDate') { s.dueDate = e.target.value || null; return changed(false); }

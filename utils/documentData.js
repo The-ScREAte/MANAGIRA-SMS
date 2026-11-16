@@ -2,6 +2,8 @@
 // columns a user can pick, and returns { columns, rows } for chosen classes in
 // a term. All queries are scoped to the caller's organization.
 
+const overallLunch = require('./overallLunch');
+
 const SOURCES = {
   students: {
     label: 'Students',
@@ -34,6 +36,8 @@ const SOURCES = {
     fields: [
       ['name', 'Student', true], ['sid', 'Student ID'], ['class', 'Class', true],
       ['present', 'Days present', true], ['absent', 'Days absent', true], ['total', 'Days marked'], ['rate', 'Attendance %', true],
+      // Overall lunch (feature class_lunch): offered only to schools that take lunch.
+      ['lunch', 'Lunch', false, { lunch: true }], // e.g. "42 of 58 days"
     ],
   },
   results: {
@@ -45,13 +49,16 @@ const SOURCES = {
   },
 };
 
+// A field the school can use: lunch fields only where it takes lunch (feature class_lunch).
+const fieldOffered = (field, { lunch = false } = {}) => !(field[3] && field[3].lunch) || lunch;
+
 // Field lists for the page (no SQL details).
-function describeSources() {
+function describeSources(options = {}) {
   return Object.entries(SOURCES).map(([key, s]) => ({
     key,
     label: s.label,
     noClasses: !!s.noClasses,
-    fields: s.fields.map(([k, label, def]) => ({ key: k, label, def: !!def })),
+    fields: s.fields.filter((f) => fieldOffered(f, options)).map(([k, label, def]) => ({ key: k, label, def: !!def })),
   }));
 }
 
@@ -109,7 +116,8 @@ async function loadRoster(db, orgId, term, classIds) {
 async function buildData(db, { orgId, source, classIds, fields, termId }) {
   const def = SOURCES[source];
   if (!def) throw Object.assign(new Error('Unknown data source.'), { status: 400 });
-  const allowed = new Map(def.fields.map(([k, label]) => [k, label]));
+  const lunchOn = overallLunch.isOn(orgId);
+  const allowed = new Map(def.fields.filter((f) => fieldOffered(f, { lunch: lunchOn })).map(([k, label]) => [k, label]));
   let picked = (Array.isArray(fields) ? fields : []).filter((f) => allowed.has(f));
   if (!picked.length) picked = def.fields.filter((f) => f[2]).map((f) => f[0]);
   const ids = (Array.isArray(classIds) ? classIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -223,10 +231,15 @@ async function buildData(db, { orgId, source, classIds, fields, termId }) {
     `, [orgId, term.term_id, roster.map((r) => r.student_id)]) : { rows: [] };
     const att = new Map(rows.map((r) => [r.student_id, r]));
     const a = (r) => att.get(r.student_id) || { present: 0, absent: 0, total: 0 };
+    // Overall lunch beside attendance, read for the whole list at once.
+    const lunch = picked.includes('lunch')
+      ? await overallLunch.totalsFor(db, orgId, term.term_id, roster.map((r) => r.student_id))
+      : new Map();
     const t = simple({
       name: (r) => fullName(r.first_name, r.last_name), sid: (r) => r.custom_student_id, class: (r) => r.class_name,
       present: (r) => Number(a(r).present), absent: (r) => Number(a(r).absent), total: (r) => Number(a(r).total),
       rate: (r) => (Number(a(r).total) ? round1((100 * Number(a(r).present)) / Number(a(r).total)) : ''),
+      lunch: (r) => overallLunch.label(lunch.get(Number(r.student_id))),
     });
     return { columns: t.columns, rows: t.rowsFrom(roster), term: termLabel };
   }

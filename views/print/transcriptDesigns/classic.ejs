@@ -1,0 +1,199 @@
+<%# Classic: a traditional registrar's record — serif type, the school's crest, each school year with its
+    terms side by side, a cumulative summary, a seal and the signature. Data: `t` (views/print/transcript.ejs). %>
+<style>
+  .td.transcript::after, .td.transcript::before { display: none !important; content: none !important; }
+  .td-classic { --ink: #1c1c1c; --soft: #5b5b5b; --line: #1c1c1c; --hair: #c9c9c9; position: relative; max-width: 8.5in; margin: 0 auto 32px; padding: 0.55in 0.6in 0.5in; background: #fff; color: var(--ink); font-family: Georgia, "Times New Roman", Times, serif; font-size: 12.5px; line-height: 1.45; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12); overflow: hidden; }
+  .td-classic * { box-sizing: border-box; }
+  .td-classic .tc-frame { position: absolute; inset: 0.22in; border: 1px solid var(--line); pointer-events: none; }
+  .td-classic .tc-frame::after { content: ""; position: absolute; inset: 4px; border: 0.5px solid var(--hair); }
+  .td-classic .td-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+  .td-classic .td-watermark span { transform: rotate(-32deg); font-size: 96px; font-weight: 700; letter-spacing: 0.18em; color: rgba(0, 0, 0, 0.05); white-space: nowrap; }
+  .td-classic .tc-body { position: relative; z-index: 1; }
+  .td-classic .tc-head { text-align: center; }
+  .td-classic .tc-crest { display: block; width: 70px; height: 70px; object-fit: contain; margin: 0 auto 8px; }
+  .td-classic .tc-school { font-size: 22px; font-variant: small-caps; letter-spacing: 0.06em; font-weight: 700; }
+  .td-classic .tc-contact { margin-top: 3px; font-size: 11px; color: var(--soft); }
+  .td-classic .tc-rule { margin: 12px auto 10px; height: 4px; border-top: 1.5px solid var(--line); border-bottom: 0.5px solid var(--line); }
+  .td-classic .tc-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; }
+  .td-classic .tc-subtitle { margin-top: 3px; font-size: 11px; font-style: italic; color: var(--soft); }
+  .td-classic .tc-student { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 22px; margin: 18px 0 16px; padding: 10px 0; border-top: 0.5px solid var(--hair); border-bottom: 0.5px solid var(--hair); }
+  .td-classic .tc-field { display: flex; flex-direction: column; padding: 4px 0; }
+  .td-classic .tc-field__label { font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); }
+  .td-classic .tc-field__value { font-size: 13px; font-weight: 700; }
+  .td-classic .tc-section-title { margin: 14px 0 6px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700; text-align: center; }
+  .td-classic .tc-year { margin-bottom: 14px; break-inside: avoid; }
+  .td-classic .tc-year__label { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 12px; font-weight: 700; }
+  .td-classic .tc-year__label::before, .td-classic .tc-year__label::after { content: ""; flex: 1; border-top: 0.5px solid var(--hair); }
+  .td-classic .tc-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+  .td-classic .tc-term { break-inside: avoid; }
+  .td-classic table { width: 100%; border-collapse: collapse; }
+  .td-classic caption { caption-side: top; text-align: left; padding: 0 0 3px; font-weight: 700; font-size: 12px; }
+  .td-classic caption small { display: block; font-weight: 400; font-style: italic; font-size: 10.5px; color: var(--soft); }
+  .td-classic th { padding: 4px 6px; border-top: 1px solid var(--line); border-bottom: 0.5px solid var(--line); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; font-weight: 700; }
+  .td-classic td { padding: 3.5px 6px; border-bottom: 0.5px dotted var(--hair); font-size: 12px; }
+  .td-classic .num { text-align: right; font-variant-numeric: tabular-nums; width: 64px; }
+  .td-classic .grade { text-align: center; width: 54px; font-weight: 700; }
+  .td-classic tfoot td { padding: 4px 6px 5px; border-bottom: 1px solid var(--line); border-top: 0.5px solid var(--line); font-size: 11px; }
+  .td-classic .tc-tot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; line-height: 1.55; }
+  .td-classic .tc-tot__k { width: 74px; font-variant: small-caps; letter-spacing: 0.06em; color: var(--soft); }
+  .td-classic .tc-tot b { font-variant-numeric: tabular-nums; }
+  .td-classic .tc-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; margin: 16px 0 6px; border: 1px solid var(--line); break-inside: avoid; }
+  .td-classic .tc-summary > div { padding: 8px 12px; border-left: 0.5px solid var(--hair); text-align: center; }
+  .td-classic .tc-summary > div:first-child { border-left: 0; }
+  .td-classic .tc-summary__label { display: block; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); }
+  .td-classic .tc-summary__value { display: block; margin-top: 2px; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .td-classic .tc-key { margin: 8px 0 0; padding: 7px 10px; border: 0.5px solid var(--hair); font-size: 10px; line-height: 1.5; color: var(--soft); break-inside: avoid; }
+  .td-classic .tc-key b { color: var(--ink); font-variant: small-caps; letter-spacing: 0.06em; }
+  .td-classic .tc-sign { display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 24px; margin-top: 28px; break-inside: avoid; }
+  .td-classic .tc-seal { width: 104px; height: 104px; border: 1.5px double var(--soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); padding: 10px; }
+  .td-classic .tc-signature { text-align: center; }
+  .td-classic .tc-signature img { display: block; max-width: 190px; max-height: 64px; margin: 0 auto -4px; object-fit: contain; }
+  .td-classic .tc-signature__line { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px; font-weight: 700; font-size: 12.5px; }
+  .td-classic .tc-signature__title { font-size: 10.5px; color: var(--soft); font-style: italic; }
+  .td-classic .tc-foot { margin-top: 20px; padding-top: 8px; border-top: 0.5px solid var(--hair); font-size: 10px; color: var(--soft); text-align: center; }
+  .td-classic .tc-foot p { margin: 2px 0; }
+  .td-classic .tc-empty { margin: 8px 0; font-style: italic; color: var(--soft); text-align: center; }
+  .td-classic .tc-close { break-inside: avoid; page-break-inside: avoid; }
+  @media screen and (max-width: 720px) {
+    .td-classic { padding: 28px 22px; font-size: 12px; }
+    .td-classic .tc-frame { inset: 8px; }
+    .td-classic .tc-student, .td-classic .tc-terms { grid-template-columns: 1fr 1fr; }
+  }
+  @media screen and (max-width: 480px) { .td-classic .tc-student, .td-classic .tc-terms, .td-classic .tc-sign { grid-template-columns: 1fr; } .td-classic .tc-seal { margin: 0 auto; } }
+  @media print {
+    @page { margin: 0.4in; }
+    /* Each printed page gets its own double rule and inner margin (the frame repeats on every page). */
+    .td-classic { max-width: none; margin: 0; padding: 0.24in 0.32in; font-size: 11.5px; border: 1px solid var(--line); box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 4.5px var(--hair); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+    .td-classic .tc-student { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .td-classic .tc-key { display: none; } /* the full key is on the page after the record */
+    .td-classic .tc-crest { width: 56px; height: 56px; margin-bottom: 4px; }
+    .td-classic .tc-school { font-size: 20px; }
+    .td-classic .tc-rule { margin: 8px auto 7px; }
+    .td-classic .tc-student { margin: 10px 0 8px; padding: 6px 0; }
+    .td-classic .tc-field { padding: 2px 0; }
+    .td-classic .tc-field__value { font-size: 12px; }
+    .td-classic .tc-section-title { margin: 8px 0 4px; }
+    .td-classic .tc-year { margin-bottom: 8px; }
+    .td-classic .tc-terms { gap: 8px 16px; }
+    .td-classic td { padding: 2px 6px; font-size: 11px; line-height: 1.3; }
+    .td-classic tfoot td { line-height: 1.4; }
+    .td-classic th { padding: 3px 6px; }
+    .td-classic tfoot td { padding: 3px 6px 4px; font-size: 10.5px; }
+    .td-classic .tc-summary { margin: 10px 0 4px; }
+    .td-classic .tc-summary > div { padding: 5px 10px; }
+    .td-classic .tc-summary__value { font-size: 15px; }
+    .td-classic .tc-key { margin-top: 6px; padding: 5px 8px; }
+    .td-classic .tc-sign { margin-top: 14px; }
+    .td-classic .tc-seal { width: 84px; height: 84px; }
+    .td-classic .tc-signature img { max-height: 52px; }
+    .td-classic .tc-foot { margin-top: 10px; padding-top: 6px; }
+    .td-classic .tc-frame { display: none; }
+    .td-classic .td-watermark { position: fixed; }
+    .td-classic, .td-classic * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+<div class="transcript td td-classic">
+  <div class="tc-frame" aria-hidden="true"></div>
+  <% if (!t.official) { %><div class="td-watermark" aria-hidden="true"><span>UNOFFICIAL</span></div><% } %>
+  <div class="tc-body">
+    <div class="tc-head" role="banner">
+      <% if (t.logo) { %><img class="tc-crest" src="<%= t.logo %>" alt="<%= t.schoolName %> crest"><% } %>
+      <div class="tc-school"><%= t.schoolName %></div>
+      <div class="tc-contact"><%= [t.address, t.phone, t.email].filter(Boolean).join('  ·  ') %></div>
+      <div class="tc-rule" aria-hidden="true"></div>
+      <h1 class="tc-title"><%= t.official ? 'Official Academic Transcript' : 'Academic Transcript' %></h1>
+      <div class="tc-subtitle"><%= t.official ? 'Issued ' + t.issued : 'Unofficial copy · ' + t.issued %></div>
+    </div>
+
+    <section class="tc-student" aria-label="Student">
+      <% t.fields.forEach(([label, value]) => { %>
+        <div class="tc-field"><span class="tc-field__label"><%= label %></span><span class="tc-field__value"><%= value %></span></div>
+      <% }) %>
+    </section>
+
+    <div class="tc-section-title">Academic record</div>
+    <% if (!t.years.length && !t.earlier.length) { %>
+      <p class="tc-empty">No completed terms yet. Records appear here once a term has ended.</p>
+    <% } %>
+
+    <% if (t.earlier.length) { %>
+      <div class="tc-year">
+        <div class="tc-year__label">Earlier records</div>
+        <div class="tc-terms">
+          <% t.earlier.forEach((section) => { %>
+            <div class="tc-term">
+              <table>
+                <caption><%= section.term %> · <%= section.year %><% if (section.school) { %><small><%= section.school %></small><% } %></caption>
+                <thead><tr><th>Course</th><th class="num">%</th><th class="grade">Grade</th><th class="num">Credits</th></tr></thead>
+                <tbody>
+                  <% section.rows.forEach((row) => { %><tr><td><%= row.subject %></td><td class="num"><%= row.percent %></td><td class="grade"><%= row.grade %></td><td class="num"><%= row.credits %></td></tr><% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <% t.years.forEach((year) => { %>
+      <div class="tc-year">
+        <div class="tc-year__label">School year <%= year.label %></div>
+        <div class="tc-terms">
+          <% year.terms.forEach((term) => { %>
+            <div class="tc-term">
+              <table>
+                <caption><%= term.name %><% if (term.dates) { %><small><%= term.dates %></small><% } %></caption>
+                <thead><tr><th>Course</th><th class="num">%</th><th class="grade">Grade</th><% if (t.usesCredits) { %><th class="num">Credits</th><% } %></tr></thead>
+                <tbody>
+                  <% term.rows.forEach((row) => { %><tr><td><%= row.subject %></td><td class="num"><%= row.percent %></td><td class="grade"><%= row.grade %></td><% if (t.usesCredits) { %><td class="num"><%= row.credits %></td><% } %></tr><% }) %>
+                </tbody>
+                <% if (term.gpa || term.cumulative || term.credits) { %>
+                  <tfoot><tr><td colspan="<%= t.usesCredits ? 4 : 3 %>">
+                    <% [['Term', term.gpa, term.credits], ['Cumulative', term.cumulative, term.cumulativeCredits]].forEach(([label, g, c]) => { if (!g && !c) return; %>
+                      <div class="tc-tot"><span class="tc-tot__k"><%= label %></span>
+                        <% if (g) { %><span>GPA <b><%= g.unweighted %></b></span><% if (g.weighted) { %><span>Weighted <b><%= g.weighted %></b></span><% } %><% } %>
+                        <% if (c) { %><span>Credits <b><%= c.earned %></b><%= c.attempted !== c.earned ? ' of ' + c.attempted : '' %></span><% } %>
+                      </div>
+                    <% }) %>
+                  </td></tr></tfoot>
+                <% } %>
+              </table>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% }) %>
+
+    <%# The summary, key, signature and closing lines stay together on paper: a signature never sits alone on a page. %>
+    <div class="tc-close">
+    <% if (t.overall || t.previous || t.creditsEarned || t.termCount) { %>
+      <section class="tc-summary" aria-label="Summary">
+        <div><span class="tc-summary__label">Terms completed</span><span class="tc-summary__value"><%= t.termCount %></span></div>
+        <% if (t.overall) { %>
+          <div><span class="tc-summary__label">Cumulative GPA</span><span class="tc-summary__value"><%= t.overall.unweighted %></span></div>
+          <% if (t.overall.weighted) { %><div><span class="tc-summary__label">Weighted GPA</span><span class="tc-summary__value"><%= t.overall.weighted %></span></div><% } %>
+        <% } %>
+        <% if (t.previous) { %>
+          <div><span class="tc-summary__label">Previous records GPA<%= t.previous.asOf ? ' (' + t.previous.asOf + ')' : '' %></span><span class="tc-summary__value"><%= t.previous.weighted !== null && t.previous.weighted !== undefined ? t.previous.weighted : (t.previous.unweighted !== null && t.previous.unweighted !== undefined ? t.previous.unweighted : t.previous.gpa) %></span></div>
+        <% } %>
+        <% if (t.creditsEarned) { %><div><span class="tc-summary__label">Credits earned</span><span class="tc-summary__value"><%= t.creditsEarned %></span></div><% } %>
+      </section>
+      <% if (t.key) { %><p class="tc-key"><b>Grading key</b> · 4.0 scale: <%= t.key.scale %>. <%= t.key.weighted %> <%= t.key.method %></p><% } %>
+    <% } %>
+
+    <section class="tc-sign">
+      <div class="tc-seal" aria-hidden="true">School seal</div>
+      <div class="tc-signature">
+        <% if (t.signature.image) { %><img src="<%= t.signature.image %>" alt="Signature"><% } %>
+        <div class="tc-signature__line"><%= t.signature.name || ' ' %></div>
+        <div class="tc-signature__title"><%= t.signature.title %></div>
+      </div>
+    </section>
+
+    <div class="tc-foot" role="contentinfo">
+      <p><%= t.official ? 'This official transcript was issued by email on ' + t.issued + '.' : 'Unofficial copy printed ' + t.issued + '. Official transcripts are sent by the school by email.' %></p>
+      <p>This document is the property of <%= t.schoolName %> and is released only with the consent of the student or guardian.</p>
+    </div>
+    </div>
+  </div>
+</div>

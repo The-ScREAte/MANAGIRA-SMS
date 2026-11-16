@@ -1,109 +1,79 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <link rel="stylesheet" href="/css/globalScale.css">
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
-    <title>Scheduled Holds</title>
-    <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
+<%# Admin › Subscription Cancellation (adminController.scheduledHoldsPage): schools whose subscription
+    ends on a set day, and schools on hold because it ended. Only Managira cancels a subscription
+    (Organizations › a school's ⋯ menu; utils/subscriptionCancel.js); undo it here or there. %>
+<%
+  const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : '';
+  const _who = (org) => [org.first_name, org.last_name].filter(Boolean).join(' ') || org.email || '';
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
 
-      body {
-        font-family: var(--font-family);
-        background-color: #f4f6f9;
-        margin: 0;
-      }
+<div class="ah" data-ap-page="subscription-cancellation">
+  <%- include('../partials/flash') %>
 
-      .container {
-        max-width: 800px;
-        margin: 50px auto;
-        padding: 20px;
-        background-color: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-      }
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Subscription Cancellation</span>
+  </nav>
 
-      h1 {
-        text-align: center;
-        color: #333;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-      }
-
-      th,
-      td {
-        padding: 12px;
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-      }
-
-      th {
-        background-color: #007bff;
-        color: white;
-        text-transform: uppercase;
-      }
-
-      
-
-      .error {
-        background-color: #f8d7da;
-        color: #721c24;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 4px;
-        border: 1px solid #f5c6cb;
-      }
-
-      .success {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 4px;
-        border: 1px solid #c3e6cb;
-      }
-
-      td.empty {
-        text-align: center;
-        color: #777;
-        font-style: italic;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>Organizations Scheduled for Hold</h1>
-
-    <div class="container">
-      <%- include('../partials/flash') %>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Organization</th>
-            <th>Scheduled Hold Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% if (organizations.length === 0) { %>
-          <tr>
-            <td class="empty" colspan="2">
-              No organizations scheduled for hold.
-            </td>
-          </tr>
-          <% } else { %> <% organizations.forEach(org => { %>
-          <tr>
-            <td><%= org.organization_name %></td>
-            <td><%= new Date(org.scheduled_hold_date).toDateString() %></td>
-          </tr>
-          <% }) %> <% } %>
-        </tbody>
-      </table>
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">Subscription Cancellation</h1>
+      <p class="ah-head__sub">Schools can't cancel from their own Settings: they ask Managira support. To cancel a school's subscription, open <a href="/admin/hubs">Organizations</a> and choose <strong>Cancel subscription</strong> in its ⋯ menu. The school keeps its access until the end of the period it paid for.</p>
     </div>
-  </body>
-</html>
+  </header>
+
+  <section class="ah-card" aria-label="Ending soon">
+    <div class="ah-card__bar"><h2 class="ah-card__title">Ending on a set day</h2></div>
+    <% if (pending.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>School</th><th>Access ends</th><th class="ah-num"></th></tr></thead>
+          <tbody>
+            <% pending.forEach((org) => { %>
+              <tr>
+                <td><strong><%= org.organization_name %></strong><span class="ah-sub"><%= _who(org) %></span></td>
+                <td><%= _date(org.scheduled_hold_date) %></td>
+                <td class="ah-actions-cell">
+                  <form action="/admin/organizations/<%= org.organization_id %>/undo-cancellation" method="POST" data-ah-ajax data-ah-ask-ok="Undo cancellation" data-ah-ask="Undo the cancellation for <%= org.organization_name %>? Its subscription continues and saved cards are charged again as usual.">
+                    <input type="hidden" name="back" value="holds" />
+                    <button type="submit" class="ah-btn ah-btn--soft ah-btn--sm"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Undo</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="ah-empty"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i>No subscription is set to end.</div>
+    <% } %>
+  </section>
+
+  <section class="ah-card" aria-label="Ended">
+    <div class="ah-card__bar"><h2 class="ah-card__title">Ended (on hold)</h2></div>
+    <% if (ended.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>School</th><th>On hold since</th><th class="ah-num"></th></tr></thead>
+          <tbody>
+            <% ended.forEach((org) => { %>
+              <tr>
+                <td><strong><%= org.organization_name %></strong><span class="ah-sub"><%= _who(org) %></span></td>
+                <td><%= _date(org.on_hold_at) || '—' %></td>
+                <td class="ah-actions-cell">
+                  <form action="/admin/organizations/<%= org.organization_id %>/undo-cancellation" method="POST" data-ah-ajax data-ah-ask-ok="Undo cancellation" data-ah-ask="Bring <%= org.organization_name %> back? Everyone can sign in again and saved cards are charged again as usual.">
+                    <input type="hidden" name="back" value="holds" />
+                    <button type="submit" class="ah-btn ah-btn--soft ah-btn--sm"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Undo</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="ah-empty"><i class="fa-solid fa-school" aria-hidden="true"></i>No school is on hold after a cancellation.</div>
+    <% } %>
+  </section>
+
+  <%- include('partials/hubAdminDialogs') %>
+</div>

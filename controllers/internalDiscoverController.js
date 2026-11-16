@@ -172,7 +172,9 @@ module.exports = {
   ssoStatus: reply(async (req) => {
     const person = who(req.query);
     if (!features.isOn("sso", { organizationId: person.organizationId })) return { available: false };
-    if (!(await can(person, PERMISSIONS.MANAGE_SSO))) throw refuse("You need the Single Sign-On permission to see this.");
+    // Only a manager reaches single sign-on, whatever else someone holds (as on the settings page).
+    const managerOnly = ["manager", "organization"].includes(String(person.userRole || person.accountType || "").trim().toLowerCase());
+    if (!managerOnly || !(await can(person, PERMISSIONS.MANAGE_SSO))) throw refuse("Only a manager can see the school's single sign-on settings.");
     const row = await ssoConnections.connectionFor(db, person.organizationId);
     const howTo = "A manager sets this up in Settings, Single sign-on. Mira can explain it, but only a manager can change it, there.";
     if (!row) return { available: true, setUp: false, howTo, settingsPage: "/account/settings" };

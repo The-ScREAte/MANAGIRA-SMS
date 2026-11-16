@@ -938,8 +938,10 @@
       st.boardingAt = Date.now();
       item.tries += 1;
       var drop = function () { if (st.boardingOut[0] === item) st.boardingOut.shift(); };
-      st.boardingBusy = postJson('/transportation/driver/trips/boarding', item).then(drop).catch(function () {
-        if (item.tries >= 5) drop();
+      st.boardingBusy = postJson('/transportation/driver/trips/boarding', item).then(drop).catch(function (error) {
+        // Only a definite refusal from the server drops an answer. A lost signal keeps it queued:
+        // it's sent again on the next fix, and the trip's end carries whatever is still waiting.
+        if (error && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) drop();
         else throw new Error('retry');
       }).then(function () {
         st.boardingBusy = null;
@@ -1009,8 +1011,14 @@
     }
     /* ---------- ending the trip ---------- */
     // Everyone on board arrived, unless the driver says otherwise.
+    // Who arrives with the bus. With boarding on, only riders who boarded (a stop driven off counts
+    // its riders as boarded): a skipped or unreached stop's riders were never picked up. Without
+    // boarding, everyone riding today except those marked as not boarding.
     function onBoard() {
-      return ridersOnRoute().filter(function (student) { return !student.notRiding && st.boarded[student.id] !== false; });
+      return ridersOnRoute().filter(function (student) {
+        if (student.notRiding) return false;
+        return cfg.boarding ? st.boarded[student.id] === true : st.boarded[student.id] !== false;
+      });
     }
     function openEndCheck() {
       if (!ui.confirm.hidden) return; // already open: answers stay as they are
@@ -1157,7 +1165,11 @@
         body: JSON.stringify(data)
       }).then(function (res) {
         return res.json().catch(function () { return null; }).then(function (json) {
-          if (!res.ok || !json || !json.success) throw new Error((json && json.message) || 'Something went wrong. Try again.');
+          if (!res.ok || !json || !json.success) {
+            var failure = new Error((json && json.message) || 'Something went wrong. Try again.');
+            failure.status = res.status;
+            throw failure;
+          }
           return json;
         });
       });

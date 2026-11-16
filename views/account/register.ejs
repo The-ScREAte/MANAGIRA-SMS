@@ -863,7 +863,7 @@
         <div class="password-requirements" style="margin-top: 0; margin-bottom: 10px;">
           <p>Your password needs:</p>
           <ul>
-            <li data-rule="length">6 or more characters</li>
+            <li data-rule="length">8 or more characters</li>
             <li data-rule="upper">An uppercase letter</li>
             <li data-rule="lower">A lowercase letter</li>
             <li data-rule="number">A number</li>
@@ -1008,13 +1008,13 @@
     function checkPasswordStrength(password) {
       const strengthText = document.getElementById("password-strength");
       // Each requirement ticks itself off as it's met.
-      const rules = { length: /.{6,}/, upper: /[A-Z]/, lower: /[a-z]/, number: /\d/, symbol: /[!@#$%^&*]/ };
+      const rules = { length: /.{8,}/, upper: /[A-Z]/, lower: /[a-z]/, number: /\d/, symbol: /[!@#$%^&*]/ };
       document.querySelectorAll('.password-requirements [data-rule]').forEach(function (li) {
         li.classList.toggle('is-met', rules[li.getAttribute('data-rule')].test(password || ''));
       });
-      const weak = /.{6,}/;
-      const medium = /^(?=.*[A-Za-z])(?=.*\d).{6,}$/;
-      const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/;
+      const weak = /.{8,}/;
+      const medium = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+      const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
       if (!strengthText) return;
       if (strong.test(password)) {
         strengthText.textContent = 'Strong password';
@@ -1078,8 +1078,8 @@
       if (formEl) {
         formEl.addEventListener("submit", function (event) {
           if (passwordInput && confirmPasswordInput) {
-            if (passwordInput.value.length < 6) {
-              alert('⚠️ Password must be at least 6 characters long.');
+            if (passwordInput.value.length < 8) {
+              alert('⚠️ Password must be at least 8 characters long.');
               event.preventDefault();
             } else if (passwordInput.value !== confirmPasswordInput.value) {
               alert('⚠️ Passwords do not match.');

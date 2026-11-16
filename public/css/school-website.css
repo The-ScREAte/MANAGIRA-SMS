@@ -755,6 +755,14 @@ body[data-page="publicDashboard"] .sw-site--academy { margin-top: 0; }
 
 /* Academy has its own menu with the school's name: the site header keeps only sign-in. */
 body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName { visibility: hidden; }
+/* Phones: the name sits in the header like every other design, so Academy's menu is one row of sections and Apply. */
+@media (max-width: 768px) {
+  body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName { visibility: visible; }
+  .sw-site--academy .sw-ac-nav .sw-ac-brand { display: none !important; }
+  .sw-site--academy .sw-ac-nav .sw-ac-nav__in { flex-wrap: nowrap !important; align-items: center; gap: 8px !important; min-height: 52px !important; padding-block: 6px !important; }
+  .sw-site--academy .sw-ac-nav .sw-ac-nav__links { order: 1 !important; flex: 1 1 auto !important; flex-basis: auto !important; min-width: 0; margin-inline: calc(var(--sw-gutter, 16px) * -1) 0 !important; padding: 0 12px 0 var(--sw-gutter, 16px) !important; justify-content: flex-start; }
+  .sw-site--academy .sw-ac-nav .sw-ac-nav__cta { order: 2 !important; flex: none; }
+}
 @media (max-width: 860px) {
   .sw-ac-nav__in { flex-wrap: wrap; justify-content: space-between; min-height: 58px; padding-top: 8px; gap: 8px 12px; }
   .sw-ac-nav__links { order: 3; flex-basis: 100%; justify-content: flex-start; margin-inline: -8px; padding-bottom: 6px; }
@@ -848,3 +856,6 @@ body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName {
   font-size: clamp(1.4rem, 4.2vw, 2.2rem) !important;
 }
 .sw-site[data-sw-name] .sw-masthead__title { margin: 14px 0 4px !important; }
+
+/* A hidden gallery photo (past the first ones, until "See more") stays hidden: the grid's display would otherwise show it. */
+.sw-site .sw-gallery__item[hidden] { display: none !important; }

@@ -678,7 +678,13 @@ app.use(createRequestLatencyMonitor());
 app.get("/service-worker.js", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-  res.sendFile(path.join(__dirname, "public", "service-worker.js"));
+  if (process.env.NODE_ENV === "production") return res.sendFile(path.join(__dirname, "public", "service-worker.js"));
+  // Development: no kept copies of pages, so a code change shows on the next load
+  // (a kept panel would otherwise show the old page for up to half an hour).
+  require("fs").readFile(path.join(__dirname, "public", "service-worker.js"), "utf8", (error, body) => {
+    if (error) return res.status(500).end();
+    res.send(`self.MANAGIRA_DEV = true;\n${body}`);
+  });
 });
 
 // Web app manifest — explicit route ensures correct MIME type on all hosts
@@ -973,6 +979,8 @@ app.use(require("./utils/hubBrand").hubBrandMiddleware(db));
 app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
 app.use(setAllowedPermissions);
+// Someone their school requires to use an authenticator app sets it up first (utils/signInMfa.js).
+app.use(require("./utils/signInMfa").gate(db));
 // A school moving its data in (data migration sandbox): banner, and no new data until it's done.
 app.use(require("./middleware/migrationLock"));
 app.use(setThemeColor);
@@ -1126,12 +1134,35 @@ app.get("/r/:code", async (req, res) => {
   try {
     const { resolveShortLink } = require("./utils/shortLink");
     const target = await resolveShortLink(db, req.params.code);
-    if (!target) return res.status(404).send("This link has expired or doesn't exist.");
-    return res.redirect(302, target);
+    res.set("Cache-Control", "private, no-store");
+    if (!target) return res.status(404).send("This link has expired or doesn't exist. Sign in to Managira to see your school's documents.");
+    // A stored file (a report card sent to a parent) opens through a link that works for a few
+    // minutes: storage itself is private (utils/storedFiles.js).
+    const link = await require("./utils/storedFiles").signedUrl(target, { seconds: 600 });
+    if (!link) return res.status(404).send("This link has expired or doesn't exist. Sign in to Managira to see your school's documents.");
+    res.set("Referrer-Policy", "no-referrer");
+    return res.redirect(302, link);
   } catch (error) {
     return res.status(500).send("Unable to open this link right now.");
   }
 });
+
+// How to report a security problem (RFC 9116). Expires is kept under a year ahead, as the standard asks.
+app.get("/.well-known/security.txt", (req, res) => {
+  const expires = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
+  res.type("text/plain").set("Cache-Control", "public, max-age=86400").send([
+    "Contact: mailto:security@managira.com",
+    `Expires: ${expires}`,
+    "Preferred-Languages: en",
+    "Canonical: https://managira.com/.well-known/security.txt",
+    "Policy: https://managira.com/legal/security",
+    "",
+  ].join("\n"));
+});
+
+// A school's own files (form answers, help on a question, parent resources), for someone signed in
+// to that school (utils/storedFiles.js).
+app.get("/files/*", (req, res) => require("./utils/storedFiles").serveSchoolFile(req, res));
 
 // Dynamic favicon for subdomains: root domain keeps default favicon,
 // school subdomains use school logo so search engines can show school branding.

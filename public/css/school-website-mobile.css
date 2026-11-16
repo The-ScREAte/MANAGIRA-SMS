@@ -1,0 +1,676 @@
+/* School website on phones and small tablets (max-width: 768px). Loaded after school-website.css
+   (and school-website-3d.css), so desktop is unchanged; each design's rules are scoped to it. */
+
+/* ==================== Sections every design shares (block.ejs, slides, photos, footer) ==================== */
+/* The sections every design draws (views/partials/website/block.ejs), the slideshow,
+   photos and the footer, tidied for phones. Desktop is untouched: every rule is inside
+   a small-screen media query. Most rules start with :where(.sw-site), so they replace
+   the base styles while a design's own styling for a section still wins. */
+@media (max-width: 768px) {
+  /* ---------- Section heads ---------- */
+  .sw-site .sw-head__title { text-wrap: balance; overflow-wrap: break-word; }
+  :where(.sw-site) .sw-head__intro { font-size: 1rem; line-height: 1.55; }
+  /* Minimal and Mosaic headings read as labels at their desktop size. */
+  .sw-site--minimal .sw-min-main .sw-head__title,
+  .sw-site--mosaic .sw-head__title { font-size: 1.45rem; }
+
+  /* ---------- Buttons inside sections: full width, easy to tap ---------- */
+  .sw-site .sw-section .sw-actions { gap: 10px; }
+  .sw-site .sw-section .sw-actions .sw-btn { flex: 1 1 100%; min-height: 46px; text-align: center; }
+  .sw-site .sw-section button.sw-btn { font-family: inherit; }
+
+  /* ---------- Quick facts: two across, compact ---------- */
+  :where(.sw-site) .sw-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  :where(.sw-site) .sw-fact:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  :where(.sw-site) .sw-fact { padding: 14px 10px; }
+  :where(.sw-site) .sw-fact__value { font-size: 1.6rem; overflow-wrap: anywhere; }
+  :where(.sw-site) .sw-fact__label { font-size: .86rem; line-height: 1.35; }
+
+  /* ---------- Welcome: reads as a letter, left-aligned (centered designs stay centered) ---------- */
+  .sw-site .sw-welcome { gap: 18px; text-align: left; justify-items: start; }
+  .sw-site .sw-welcome__sign { justify-items: start; }
+  .sw-site:is(.sw-site--classic, .sw-site--academy) .sw-welcome { text-align: center; justify-items: center; }
+  .sw-site:is(.sw-site--classic, .sw-site--academy) .sw-welcome__sign { justify-items: center; }
+  :where(.sw-site) .sw-welcome__photo { width: 112px; }
+  :where(.sw-site) .sw-welcome__message { font-size: 1.05rem; line-height: 1.7; }
+
+  /* ---------- About ---------- */
+  :where(.sw-site) .sw-about__motto { font-size: 1.15rem; margin-bottom: 12px; }
+  :where(.sw-site) .sw-about__body { font-size: 1rem; line-height: 1.7; }
+  :where(.sw-site) .sw-about__facts { margin-top: 20px; gap: 14px; }
+
+  /* Phone and email links: a bigger tap area without moving the text. */
+  .sw-site :is(.sw-about__facts, .sw-contact__info) dd { overflow-wrap: anywhere; }
+  .sw-site :is(.sw-about__facts, .sw-contact__info) dd a { display: inline-block; padding-block: 9px; margin-block: -9px; text-underline-offset: 3px; }
+
+  /* ---------- Cards ---------- */
+  :where(.sw-site) .sw-cards { gap: 14px; }
+  :where(.sw-site) .sw-card__body { padding: 16px 18px 18px; }
+  :where(.sw-site) .sw-card__body h3 { font-size: 1.1rem; }
+  :where(.sw-site) .sw-card__body p { font-size: .95rem; line-height: 1.6; }
+  :where(.sw-site) .sw-card:hover { transform: none; }
+  /* Academy's program tiles: shorter on a phone, and shorter still without a photo. */
+  .sw-site--academy .sw-program { min-height: 240px; }
+  .sw-site--academy .sw-program:has(> .sw-card__media--blank) { min-height: 168px; }
+
+  /* ---------- Admissions steps ---------- */
+  :where(.sw-site) .sw-steps { gap: 10px; }
+  :where(.sw-site) .sw-step { gap: 14px; padding: 16px; }
+  :where(.sw-site) .sw-step__num { width: 34px; height: 34px; }
+  :where(.sw-site) .sw-step p { font-size: .95rem; line-height: 1.55; }
+
+  /* ---------- Gallery: two thumbnails across, the first one wide ---------- */
+  .sw-site :is(.sw-gallery--classic, .sw-gallery--spotlight, .sw-gallery--minimal, .sw-gallery--mosaic, .sw-gallery--campus, .sw-gallery--glide, .sw-gallery--editorial) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+  .sw-site :is(.sw-gallery--classic, .sw-gallery--spotlight, .sw-gallery--minimal, .sw-gallery--mosaic, .sw-gallery--campus, .sw-gallery--glide, .sw-gallery--editorial) > .sw-gallery__item:first-child { grid-column: 1 / -1; }
+  /* An even number of photos would leave the last one alone: it widens too. */
+  .sw-site :is(.sw-gallery--classic, .sw-gallery--spotlight, .sw-gallery--minimal, .sw-gallery--mosaic, .sw-gallery--campus, .sw-gallery--glide, .sw-gallery--editorial) > .sw-gallery__item:nth-last-child(1 of :not([hidden])):nth-child(even of :not([hidden])) { grid-column: 1 / -1; }
+  .sw-site .sw-gallery--editorial > .sw-gallery__item:first-child { grid-row: auto; }
+  /* Photos past the first 12 (3D designs) wait for the photo viewer. */
+  .sw-site .sw-gallery__item[hidden] { display: none; }
+  .sw-site .sw-gallery--horizon { columns: 2; column-gap: 10px; }
+  .sw-site .sw-gallery--horizon .sw-gallery__item { margin-bottom: 12px; }
+  :where(.sw-site) .sw-gallery__item { gap: 6px; align-content: start; }
+  :where(.sw-site) .sw-gallery__item figcaption { font-size: .82rem; line-height: 1.4; }
+  :where(.sw-site) .sw-gallery__play { width: 44px; height: 44px; }
+  /* Academy shows captions on hover; a phone has no hover, so they show. */
+  .sw-site--academy .sw-gallery__item figcaption { opacity: 1; padding: 22px 10px 8px; font-size: .78rem; line-height: 1.35; }
+
+  /* ---------- Events ---------- */
+  :where(.sw-site) .sw-events { gap: 10px; }
+  :where(.sw-site) .sw-event { grid-template-columns: 54px minmax(0, 1fr); gap: 14px; padding: 14px; }
+  :where(.sw-site) .sw-event__date { height: 58px; border-radius: 10px; }
+  :where(.sw-site) .sw-event__day { font-size: 1.5rem; }
+  :where(.sw-site) .sw-event__month { font-size: .7rem; }
+  :where(.sw-site) .sw-event__body h3 { font-size: 1.04rem; line-height: 1.3; }
+  :where(.sw-site) .sw-event__when { font-size: .84rem; margin-top: 3px; }
+  :where(.sw-site) .sw-event__details { font-size: .94rem; line-height: 1.55; }
+
+  /* ---------- Notices ---------- */
+  :where(.sw-site) .sw-notices { gap: 10px; }
+  :where(.sw-site) .sw-notice { padding: 14px 16px; font-size: .97rem; line-height: 1.6; }
+
+  /* ---------- News ---------- */
+  :where(.sw-site) .sw-articles { gap: 14px; }
+  :where(.sw-site) .sw-article { padding: 18px; }
+  :where(.sw-site) .sw-article__title { font-size: 1.15rem; line-height: 1.3; }
+  :where(.sw-site) .sw-article__excerpt { font-size: .98rem; line-height: 1.65; }
+  :where(.sw-site) .sw-article__more { margin-top: 6px; }
+  :where(.sw-site) .sw-article__more summary { align-items: center; min-height: 44px; }
+  /* Magazine: the lead story stays below the section title in size. */
+  .sw-site .sw-articles--editorial .sw-article--lead .sw-article__title { font-size: 1.45rem; }
+  :where(.sw-site) .sw-rich { font-size: .98rem; overflow-wrap: break-word; }
+  :where(.sw-site) .sw-rich :is(img, video, iframe, table) { max-width: 100%; height: auto; }
+
+  /* ---------- Leadership: one row per person, photo beside the name ---------- */
+  .sw-site .sw-section .sw-people { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  :where(.sw-site) .sw-person { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 14px; align-items: center; padding: 14px 16px; text-align: left; }
+  :where(.sw-site) .sw-person > .sw-person__photo { grid-row: 1 / span 2; width: 64px; height: 64px; margin: 0; font-size: 1.15rem; }
+  :where(.sw-site) .sw-person h3 { align-self: end; text-align: left; font-size: 1.04rem; }
+  :where(.sw-site) .sw-person__role { align-self: start; font-size: .86rem; }
+  :where(.sw-site) .sw-person__message { grid-column: 1 / -1; margin-top: 12px; font-size: .94rem; line-height: 1.6; }
+
+  /* ---------- Achievements ---------- */
+  :where(.sw-site) .sw-awards { gap: 10px; }
+  :where(.sw-site) .sw-award { gap: 12px; padding: 16px; }
+  :where(.sw-site) .sw-award h3 { font-size: 1.02rem; line-height: 1.35; }
+  :where(.sw-site) .sw-award p { font-size: .93rem; line-height: 1.55; }
+
+  /* ---------- Testimonials ---------- */
+  :where(.sw-site) .sw-quotes { gap: 12px; }
+  :where(.sw-site) .sw-quote { padding: 18px 18px 16px; }
+  :where(.sw-site) .sw-quote blockquote { line-height: 1.65; }
+
+  /* ---------- FAQ ---------- */
+  :where(.sw-site) .sw-faq { gap: 8px; }
+  :where(.sw-site) .sw-faq__item summary { align-items: center; min-height: 52px; padding: 14px 16px; line-height: 1.4; }
+  :where(.sw-site) .sw-faq__answer { padding: 0 16px 16px; font-size: .97rem; line-height: 1.65; }
+
+  /* ---------- Contact ---------- */
+  :where(.sw-site) .sw-contact { gap: 14px; }
+  :where(.sw-site) .sw-contact__form { padding: 18px 16px; gap: 14px; }
+  :where(.sw-site) .sw-contact__form :is(input, textarea) { min-height: 46px; }
+  :where(.sw-site) .sw-form-foot { gap: 10px; }
+  :where(.sw-site) .sw-form-foot .sw-contact__submit { order: -1; flex: 1 1 100%; min-height: 48px; font-family: inherit; }
+  :where(.sw-site) .sw-contact__info { padding: 18px 16px; gap: 14px; }
+  :where(.sw-site) .sw-map { min-height: 200px; }
+
+  /* ---------- Slideshow controls ---------- */
+  :where(.sw-site) .sw-slider__dots { gap: 10px; }
+  :where(.sw-site) .sw-slider__dot { position: relative; }
+  :where(.sw-site) .sw-slider__dot::after { content: ""; position: absolute; inset: -14px -5px; }
+  :where(.sw-site) .sw-slider__pause { width: 38px; height: 38px; }
+  :where(.sw-site) .sw-slide__caption { font-size: .9rem; line-height: 1.35; padding: 34px 64px 40px 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  /* Framed slideshows: arrows and dots in one row along the bottom, pause in the corner. */
+  :where(.sw-site) .sw-slider--card .sw-slider__arrow { top: auto; bottom: 10px; transform: none; width: 38px; height: 38px; font-size: 1.3rem; background: rgba(255, 255, 255, .88); }
+  :where(.sw-site) .sw-slider--card .sw-slider__arrow--prev { left: 10px; }
+  :where(.sw-site) .sw-slider--card .sw-slider__arrow--next { right: 10px; }
+  :where(.sw-site) .sw-slider--card .sw-slider__dots { bottom: 24px; }
+  :where(.sw-site) .sw-slider--card .sw-slider__pause { top: 10px; right: 10px; bottom: auto; }
+  :where(.sw-site) .sw-slider--card .sw-slide__caption { padding: 34px 16px 58px; }
+
+  /* ---------- Footer: stacked, tidy, easy to tap ---------- */
+  /* The shadow carries the footer's color under the bottom menu, so the page ends cleanly. */
+  :where(.sw-site) .sw-footer { padding: 36px 0 22px; box-shadow: 0 90px 0 0 color-mix(in srgb, var(--sw-accent) 42%, #0b0f14); }
+  .sw-site--prism .sw-footer { box-shadow: 0 90px 0 0 #06080d; }
+  :where(.sw-site) .sw-footer__grid { gap: 0; }
+  :where(.sw-site) .sw-footer__grid > * + * { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .12); }
+  :where(.sw-site) .sw-footer__logo { width: 52px; height: 52px; }
+  :where(.sw-site) .sw-footer__name { font-size: 1.12rem; }
+  .sw-site .sw-footer__head { margin-bottom: 8px !important; }
+  :where(.sw-site) .sw-footer__col { gap: 2px; font-size: .95rem; }
+  :where(.sw-site) .sw-footer__col > p:not(.sw-footer__head) { display: flex; align-items: center; min-height: 40px; overflow-wrap: anywhere; }
+  :where(.sw-site) .sw-footer__col > p > a { display: flex; align-items: center; min-height: 40px; }
+  :where(.sw-site) .sw-footer__links { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+  :where(.sw-site) .sw-footer__links a { display: flex; align-items: center; min-height: 40px; }
+  :where(.sw-site) .sw-footer__cta { gap: 10px; margin-top: 12px; }
+  .sw-site .sw-footer__cta .sw-btn { flex: 1 1 0; min-height: 44px; font-size: .95rem; }
+  :where(.sw-site) .sw-social { margin-top: 16px; gap: 10px; }
+  :where(.sw-site) .sw-social a { width: 42px; height: 42px; }
+  .sw-site .sw-footer__legal { flex-direction: column; gap: 4px; margin-top: 28px; padding-top: 16px; }
+  .sw-site .sw-footer__legal a { display: inline-block; padding-block: 8px; margin-block: -8px; }
+
+  /* ---------- Spacing between sections ---------- */
+  .sw-site--minimal :is(.sw-event, .sw-notice, .sw-article):last-child { border-bottom: 0; padding-bottom: 0; }
+  .sw-site--academy .sw-ac-main > .sw-ac-band { padding-block: 44px; }
+  .sw-site--story .sw-head { row-gap: 6px; }
+  .sw-site--horizon .sw-main--cards > .sw-section { padding: 20px 16px; border-radius: 16px; }
+  .sw-site--mosaic .sw-mosaic__grid > .sw-tile--quickFacts { padding: 0; }
+  .sw-site--panorama .sw-pa-scene { padding-block: 56px; }
+  .sw-site--glide .sw-gl-band { padding-block: 44px; }
+  .sw-site--glide .sw-gl-band--facts { padding-block: 32px; }
+}
+
+/* ==================== Academy, Classic, Modern, Magazine, Story ==================== */
+   The phone look of five designs' own parts (their openings, menus, bands and
+   closing calls): academy, classic, horizon (Modern), editorial (Magazine) and
+   story. Shared sections are in swm-shared.css. Desktop is unchanged. */
+
+/* ---------- ACADEMY ---------- */
+@media (max-width: 768px) {
+  /* Announcement bar: one tidy strip, the link beside the text. */
+  .sw-site--academy .sw-ac-bar { font-size: .86rem; }
+  .sw-site--academy .sw-ac-bar__in { flex-wrap: nowrap; justify-content: space-between; gap: 12px; padding-block: 6px; text-align: left; }
+  .sw-site--academy .sw-ac-bar__in p { flex: 1 1 auto; min-width: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .sw-site--academy .sw-ac-bar__in a { flex: none; display: inline-flex; align-items: center; min-height: 40px; white-space: nowrap; }
+
+  /* Own menu: one slim row (logo, the section links scrolling sideways, Apply),
+     so the pinned bars don't take a quarter of the screen. The school's name stays
+     on the link for screen readers and is the big title just below. */
+  .sw-site--academy .sw-ac-nav__in { flex-wrap: nowrap; justify-content: flex-start; min-height: 56px; padding-block: 8px; gap: 6px; }
+  .sw-site--academy .sw-ac-brand { flex: none; max-width: none; }
+  .sw-site--academy .sw-ac-brand img, .sw-site--academy .sw-ac-brand__initials { width: 36px; height: 36px; }
+  .sw-site--academy .sw-ac-brand > span:not(.sw-ac-brand__initials) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .sw-site--academy .sw-ac-nav__links { order: 0; flex: 1 1 auto; flex-basis: auto; min-width: 0; margin-inline: 0; padding: 0 18px 0 0; justify-content: flex-start; gap: 2px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+  .sw-site--academy .sw-ac-nav__links a { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 10px; font-size: .92rem; }
+  .sw-site--academy .sw-ac-nav__cta { flex: none; min-height: 40px; padding: 8px 16px; font-size: .92rem; }
+
+  /* Opening: the title, tagline and buttons sit low over the whole photo. */
+  .sw-site--academy .sw-ac-hero { min-height: min(68vh, 560px); }
+  .sw-site--academy .sw-ac-hero--plain { min-height: 400px; }
+  .sw-site--academy .sw-ac-hero__content { padding-block: 40px 56px; }
+  .sw-site--academy .sw-ac-kicker { margin-bottom: 12px !important; padding: 5px 11px; font-size: .7rem; }
+  .sw-site--academy:not([data-sw-name]) .sw-ac-hero__title { font-size: clamp(2.1rem, 9.6vw, 2.6rem); line-height: 1.06; }
+  .sw-site--academy .sw-ac-hero__tagline { margin-top: 10px !important; font-size: 1.05rem; line-height: 1.5; }
+  .sw-site--academy .sw-ac-hero .sw-actions { margin-top: 22px; gap: 10px; }
+  .sw-site--academy .sw-ac-hero .sw-btn { min-height: 46px; padding: 10px 18px; font-size: .98rem; }
+  /* A whole photo that doesn't fill the tall frame sits at the top, flush under the
+     menu; the words below rest on its soft, darkened copy instead of covering it. */
+  .sw-site--academy.sw-whole .sw-ac-hero .sw-slide:not(.is-fill) .sw-slide__img { object-position: 50% 0; }
+  .sw-site--academy .sw-ac-hero .sw-slider__dots { bottom: 18px; }
+  .sw-site--academy .sw-ac-hero .sw-slider__pause { bottom: 12px; }
+
+  /* Next steps: compact tiles. */
+  .sw-site--academy .sw-ac-next { padding: 32px 0; }
+  .sw-site--academy .sw-ac-next__title { font-size: 1.4rem; margin-bottom: 16px; }
+  .sw-site--academy .sw-ac-next__grid { gap: 12px; }
+  .sw-site--academy .sw-ac-step { gap: 14px; padding: 16px; }
+  .sw-site--academy .sw-ac-step__icon { width: 46px; height: 46px; }
+  .sw-site--academy .sw-ac-step__icon svg { width: 23px; height: 23px; }
+  .sw-site--academy .sw-ac-step__text strong { font-size: 1.02rem; }
+  .sw-site--academy .sw-ac-step__text span { font-size: .9rem; }
+
+  /* Bands and their headings, scaled to the screen. */
+  .sw-site--academy .sw-ac-band { padding: 44px 0; }
+  .sw-site--academy .sw-head { margin-bottom: 22px; }
+  .sw-site--academy .sw-head__title { font-size: 1.75rem; line-height: 1.2; }
+  .sw-site--academy .sw-ac-band__title { font-size: 1.6rem; line-height: 1.2; margin-bottom: 20px !important; }
+  .sw-site--academy .sw-ac-band--facts .sw-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .sw-site--academy .sw-ac-band--facts .sw-fact { padding: 14px 8px; }
+  .sw-site--academy .sw-ac-band--facts .sw-fact__value { font-size: 2.4rem; }
+  .sw-site--academy .sw-ac-band--facts .sw-fact:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* Programs as photo tiles: shorter on a phone. */
+  .sw-site--academy .sw-program { min-height: 230px; }
+  .sw-site--academy .sw-program .sw-card__body { padding: 48px 18px 18px; }
+
+  /* Gallery: photo tiles fill their grid cells (a tile's photo is height: 100%,
+     so the tile must stretch), and a last photo left alone in its row takes the whole row. */
+  .sw-site--academy .sw-gallery__item { align-content: stretch; }
+  .sw-site--academy .sw-gallery__item:last-child:nth-child(even):not(:first-child) { grid-column: 1 / -1 !important; }
+
+  /* One quote at a time; a hairline keeps it apart from a tinted band just before it. */
+  .sw-site--academy .sw-ac-band--tint + .sw-ac-band--quotes { border-top: 1px solid var(--sw-line); }
+  .sw-site--academy .sw-quote blockquote { font-size: 1.2rem; }
+  .sw-site--academy .sw-quote blockquote::before { font-size: 3.4rem; }
+  .sw-site--academy .sw-ac-quote-nav { margin-top: 18px; }
+
+  /* Closing call: the buttons in a neat grid of equal widths. */
+  .sw-site--academy .sw-ac-cta { padding: 56px 0; }
+  .sw-site--academy .sw-ac-cta h2 { font-size: clamp(1.8rem, 8vw, 2.2rem); line-height: 1.15; }
+  .sw-site--academy .sw-ac-cta p { font-size: 1.02rem; }
+  .sw-site--academy .sw-ac-cta .sw-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+  .sw-site--academy .sw-ac-cta .sw-btn { min-height: 46px; padding: 10px 12px; text-align: center; }
+  .sw-site--academy .sw-ac-cta .sw-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  .sw-site--academy .sw-ac-nav__links a { padding-inline: 8px; font-size: .9rem; }
+  .sw-site--academy .sw-ac-nav__cta { padding-inline: 13px; }
+  .sw-site--academy .sw-ac-cta .sw-btn { font-size: .9rem; }
+}
+
+/* ---------- CLASSIC (only Classic itself: Crest is drawn on its page) ---------- */
+@media (max-width: 768px) {
+  /* Intro under the photos: logo beside the name, buttons side by side below. */
+  .sw-site--classic[data-sw-design="classic"] .sw-intro { column-gap: 14px; row-gap: 16px; padding-block: 22px 24px; }
+  .sw-site--classic[data-sw-design="classic"]:not([data-sw-name]) .sw-intro__title { font-size: clamp(1.7rem, 7.6vw, 2rem); line-height: 1.15; }
+  .sw-site--classic[data-sw-design="classic"] .sw-intro__tagline { font-size: 1rem; }
+  .sw-site--classic[data-sw-design="classic"] .sw-intro__actions { gap: 10px; }
+  .sw-site--classic[data-sw-design="classic"] .sw-intro__actions .sw-btn { min-height: 46px; }
+  /* Admissions strip: the words, then a full-width button. */
+  .sw-site--classic[data-sw-design="classic"] .sw-admit { display: grid; gap: 12px; }
+  .sw-site--classic[data-sw-design="classic"] .sw-admit p { font-size: .98rem; line-height: 1.5; }
+  .sw-site--classic[data-sw-design="classic"] .sw-admit .sw-btn { width: 100%; min-height: 46px; }
+  .sw-site--classic[data-sw-design="classic"] .sw-band { padding: 40px 0; }
+  .sw-site--classic[data-sw-design="classic"] .sw-band--accent { padding: 18px 0 20px; }
+  .sw-site--classic[data-sw-design="classic"] .sw-head__title { font-size: 1.75rem; line-height: 1.2; }
+}
+
+/* ---------- MODERN (horizon) ---------- */
+@media (max-width: 768px) {
+  /* Notice ribbon: one line, the link easy to tap. */
+  .sw-site--horizon .sw-ribbon .sw-wrap { gap: 10px; padding-block: 4px; min-height: 44px; }
+  .sw-site--horizon .sw-ribbon { font-size: .88rem; }
+  .sw-site--horizon .sw-ribbon a { display: inline-flex; align-items: center; min-height: 36px; font-size: .86rem; }
+  /* Opening: words first, then the photos, all in one column. */
+  .sw-site--horizon .sw-hero--horizon { gap: 24px; padding-block: 26px 8px; }
+  .sw-site--horizon:not([data-sw-name]) .sw-hero--horizon .sw-hero__title { font-size: clamp(2rem, 9vw, 2.5rem); line-height: 1.1; }
+  .sw-site--horizon .sw-hero--horizon .sw-hero__title { margin-top: 8px; }
+  .sw-site--horizon .sw-hero--horizon .sw-hero__tagline { margin-top: 10px; font-size: 1.06rem; line-height: 1.5; }
+  .sw-site--horizon .sw-hero--horizon .sw-actions { margin-top: 20px; gap: 10px; }
+  .sw-site--horizon .sw-hero--horizon .sw-actions .sw-btn { min-height: 46px; }
+  /* At-a-glance figures: even columns with dividers. */
+  .sw-site--horizon .sw-hero__facts { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; margin-top: 24px; padding-top: 18px; }
+  .sw-site--horizon .sw-hero__facts > div { padding-inline: 12px; border-left: 1px solid var(--sw-line); }
+  .sw-site--horizon .sw-hero__facts > div:first-child { padding-left: 0; border-left: 0; }
+  .sw-site--horizon .sw-hero__facts dt { font-size: 1.5rem; }
+  .sw-site--horizon .sw-hero__facts dd { font-size: .84rem; line-height: 1.3; }
+  .sw-site--horizon .sw-hero--horizon .sw-slider--card { aspect-ratio: 4 / 3; }
+  /* Section cards: a little less inner padding, even spacing between them. */
+  .sw-site--horizon .sw-main--cards > .sw-section { padding: 22px 16px; margin-top: 12px; border-radius: 16px; }
+  .sw-site--horizon .sw-head__title { font-size: 1.6rem; line-height: 1.2; }
+}
+
+/* ---------- MAGAZINE (editorial) ---------- */
+@media (max-width: 768px) {
+  .sw-site--editorial .sw-masthead { padding-top: 10px; }
+  .sw-site--editorial .sw-masthead__rule { padding: 8px 0; font-size: .7rem; letter-spacing: .1em; line-height: 1.5; }
+  .sw-site--editorial:not([data-sw-name]) .sw-masthead__title { font-size: clamp(2.3rem, 11vw, 3rem); line-height: 1.05; margin: 18px 0 8px; }
+  .sw-site--editorial .sw-masthead__tagline { font-size: 1.04rem; }
+  /* Section index: one row under the rules that scrolls sideways, fading at the edge. */
+  .sw-site--editorial .sw-masthead__nav { flex-wrap: nowrap; justify-content: flex-start; gap: 0 12px; margin-top: 16px; padding: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .sw-site--editorial .sw-masthead__nav::-webkit-scrollbar { display: none; }
+  .sw-site--editorial .sw-masthead__nav a { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; white-space: nowrap; font-size: .8rem; }
+  .sw-site--editorial .sw-masthead__nav a:first-child { padding-left: 0; }
+  .sw-site--editorial .sw-masthead__nav::after { content: ""; position: sticky; right: 0; flex: none; width: 32px; margin-left: -32px; background: linear-gradient(90deg, transparent, var(--sw-paper)); pointer-events: none; }
+  /* Front page: a taller lead photo, the boxes stacked below it. */
+  .sw-site--editorial .sw-front { gap: 16px; margin-top: 20px; }
+  .sw-site--editorial .sw-front__lead .sw-slider--card { aspect-ratio: 4 / 3; }
+  .sw-site--editorial .sw-front__side { gap: 12px; }
+  .sw-site--editorial .sw-front__box { padding: 18px; }
+  .sw-site--editorial .sw-front__box h2 { font-size: 1.3rem; line-height: 1.25; }
+  .sw-site--editorial .sw-front__box > p:not(.sw-front__label) { line-height: 1.55; }
+  .sw-site--editorial a.sw-front__box > p:last-child { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .sw-site--editorial .sw-front__box--accent .sw-btn { min-height: 44px; }
+  /* Columns: even rules between sections. */
+  .sw-site--editorial .sw-paper { gap: 32px; margin-top: 28px; }
+  .sw-site--editorial .sw-paper__main > .sw-section + .sw-section, .sw-site--editorial .sw-paper__aside > .sw-section + .sw-section { margin-top: 28px; padding-top: 24px; }
+  .sw-site--editorial .sw-paper__aside { padding-top: 28px; }
+  .sw-site--editorial .sw-head__title { font-size: 1.6rem; line-height: 1.2; }
+  /* The magazine's headings are set left: the welcome letter follows them. */
+  .sw-site--editorial .sw-welcome { text-align: left; justify-items: start; }
+  .sw-site--editorial .sw-welcome__sign { justify-items: start; }
+}
+
+/* ---------- STORY ---------- */
+@media (max-width: 768px) {
+  /* Opening: a whole photo that doesn't fill the frame sits at the top; the words
+     rest below it on its soft, darkened copy, with the slide controls under them. */
+  .sw-site--story .sw-hero--story { min-height: clamp(500px, 70vh, 600px); }
+  .sw-site--story.sw-whole .sw-hero--story .sw-slide:not(.is-fill) .sw-slide__img { object-position: 50% 0; }
+  .sw-site--story .sw-hero--story .sw-hero__overlay { padding: 0 var(--sw-gutter) 64px; }
+  .sw-site--story .sw-hero--story.sw-hero--plain { min-height: 380px; }
+  .sw-site--story .sw-hero--plain .sw-hero__overlay { padding-bottom: 40px; }
+  .sw-site--story .sw-hero--story .sw-slider::after { background: linear-gradient(180deg, transparent 38%, rgba(0,0,0,.5) 62%, rgba(0,0,0,.78)); }
+  .sw-site--story .sw-hero--story .sw-hero__overlay { text-shadow: 0 1px 14px rgba(0,0,0,.35); }
+  .sw-site--story .sw-hero--story .sw-hero__kicker { font-size: .72rem; }
+  .sw-site--story:not([data-sw-name]) .sw-hero--story .sw-hero__title { font-size: clamp(2.1rem, 9.4vw, 2.6rem); line-height: 1.08; }
+  .sw-site--story .sw-hero--story .sw-hero__tagline { margin-top: 10px; font-size: 1.06rem; line-height: 1.5; }
+  .sw-site--story .sw-hero--story .sw-actions { margin-top: 20px; gap: 10px; }
+  .sw-site--story .sw-hero--story .sw-btn { min-height: 46px; }
+  .sw-site--story .sw-hero--story .sw-slider__dots { left: var(--sw-gutter); right: auto; bottom: 30px; transform: none; }
+  .sw-site--story .sw-hero--story .sw-slider__pause { right: var(--sw-gutter); bottom: 16px; }
+  /* Chapters: even spacing, the number above the title. */
+  .sw-site--story .sw-chapter { padding: 40px 0; }
+  .sw-site--story .sw-chapter--facts { padding: 0; }
+  .sw-site--story .sw-head__num { font-size: 2.3rem; margin-bottom: 2px; }
+  .sw-site--story .sw-head__title { font-size: 1.75rem; line-height: 1.15; }
+  .sw-site--story .sw-chapter--facts .sw-fact { padding: 24px 12px; }
+  .sw-site--story .sw-chapter--facts .sw-fact:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+}
+
+/* ---------- Phones: the two opening buttons share the row evenly ---------- */
+@media (max-width: 480px) {
+  .sw-site--classic[data-sw-design="classic"] .sw-intro__actions .sw-btn,
+  .sw-site--horizon .sw-hero--horizon .sw-actions .sw-btn { flex: 1 1 0; min-width: max-content; }
+}
+
+/* ==================== Campus, Spotlight, Minimal, Mosaic, Crest, Mascot ==================== */
+   The phone look of six designs' own parts (their openings, menus, tiles, emblems and
+   bands): campus, spotlight, minimal, mosaic, crest (on classic's page) and mascot (on
+   spotlight's page). Shared sections are in swm-shared.css. Desktop is unchanged. */
+
+/* ---------- CAMPUS ---------- */
+@media (max-width: 768px) {
+  /* The page starts under the site header like every other design (the desktop pull-up
+     would tuck the school bar beneath it). */
+  body[data-page="publicDashboard"][data-sw-layout="campus"] .sw-site.sw-site--campus { margin-top: 0; }
+
+  /* The side panel becomes one dark bar pinned under the site header (66px tall on a
+     phone and up to 768px): the section menu scrolling sideways, with Apply beside it.
+     The site header already shows the logo and the opening shows the school's name, so
+     the panel's own name card is left out (it stays when the school hides its opening). */
+  .sw-site--campus .sw-campus { grid-template-columns: minmax(0, 1fr) auto; min-height: 0; }
+  .sw-site--campus .sw-campus__side { display: contents; }
+  .sw-site--campus .sw-campus__main { grid-column: 1 / -1; }
+  .sw-site--campus .sw-campus__brand { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: center; padding: 22px var(--sw-gutter) 6px; background: #14181f; color: rgba(255, 255, 255, .82); }
+  .sw-site--campus .sw-campus:has(.sw-campus__intro) .sw-campus__brand { display: none; }
+  .sw-site--campus .sw-campus__brand img, .sw-site--campus .sw-campus__initials { grid-row: span 2; width: 48px; height: 48px; border-radius: 12px; }
+  .sw-site--campus .sw-campus__name { margin-top: 0; font-size: 1.08rem; }
+  .sw-site--campus .sw-campus__motto { margin-top: 2px; font-size: .9rem; }
+
+  .sw-site--campus .sw-campus__nav,
+  .sw-site--campus .sw-campus__contact { position: sticky; top: 66px; z-index: 30; align-self: start; background: #14181f; }
+  .sw-site--campus .sw-campus__nav { grid-column: 1; display: flex; flex-wrap: nowrap; gap: 2px; margin: 0; padding: 8px var(--sw-gutter); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .sw-site--campus .sw-campus__nav::-webkit-scrollbar { display: none; }
+  .sw-site--campus .sw-campus__nav a { flex: none; display: inline-flex; align-items: center; height: 40px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 2px 2px; white-space: nowrap; font-size: .94rem; color: rgba(255, 255, 255, .8); }
+  .sw-site--campus .sw-campus__nav a.is-active { background: rgba(255, 255, 255, .09); color: #fff; border-bottom-color: var(--sw-accent); }
+  .sw-site--campus .sw-campus__contact { grid-column: 2; display: flex; align-items: center; gap: 0; margin: 0; padding: 8px var(--sw-gutter) 8px 4px; }
+  .sw-site--campus .sw-campus__contact a:not(.sw-btn) { display: none; }
+  /* The menu fades out under Apply, so it reads as one that scrolls. */
+  .sw-site--campus .sw-campus__contact::before { content: ""; position: absolute; top: 0; bottom: 0; right: 100%; width: 28px; background: linear-gradient(90deg, rgba(20, 24, 31, 0), #14181f); pointer-events: none; }
+  .sw-site--campus .sw-campus:has(.sw-campus__contact .sw-btn) .sw-campus__nav { padding-right: 24px; }
+  .sw-site--campus .sw-campus__contact:not(:has(.sw-btn)) { display: none; }
+  .sw-site--campus .sw-campus__contact .sw-btn { height: 40px; min-height: 0; margin: 0; padding: 0 16px; font-size: .92rem; line-height: 1.2; white-space: nowrap; }
+  /* Sections land below the header and the pinned bar. */
+  .sw-site--campus .sw-section, .sw-site--campus .sw-anchor { scroll-margin-top: 136px; }
+
+  /* Opening: the name, then the photos in a frame tall enough for a phone. */
+  .sw-site--campus .sw-campus__main { padding: 28px var(--sw-gutter) 0; }
+  .sw-site--campus .sw-campus__intro .sw-hero__title { font-size: 2.1rem; line-height: 1.12; }
+  .sw-site--campus .sw-campus__intro .sw-hero__tagline { margin-top: 8px; font-size: 1.08rem; line-height: 1.5; }
+  .sw-site--campus .sw-campus__photos { margin-top: 22px; }
+  .sw-site--campus .sw-visually-hidden + .sw-campus__photos { margin-top: 0; }
+  .sw-site--campus .sw-campus__photos .sw-slider--card { aspect-ratio: 4 / 3; max-height: 460px; }
+  .sw-site--campus .sw-main > .sw-section { padding: 32px 0; }
+  .sw-site--campus .sw-main > .sw-section:last-child { border-bottom: 0; }
+}
+@media (max-width: 480px) {
+  .sw-site--campus .sw-campus__nav,
+  .sw-site--campus .sw-campus__contact { top: 66px; }
+}
+@media (max-width: 380px) {
+  .sw-site--campus .sw-campus__nav a { padding-inline: 10px; font-size: .9rem; }
+  .sw-site--campus .sw-campus__contact .sw-btn { padding-inline: 13px; }
+}
+
+/* ---------- SPOTLIGHT and MASCOT (drawn on spotlight's page) ---------- */
+@media (max-width: 768px) {
+  /* Opening: the welcome in the school's color, then the whole photo. */
+  .sw-site--spotlight .sw-spot-hero { min-height: 0; }
+  .sw-site--spotlight .sw-spot-hero__panel { gap: 0; padding: 28px var(--sw-gutter) 30px; }
+  .sw-site--spotlight .sw-spot-hero__logo { width: 52px; height: 52px; margin-bottom: 16px; }
+  .sw-site--spotlight .sw-spot-hero__title { font-size: 2.15rem; line-height: 1.1; }
+  .sw-site--spotlight .sw-spot-hero__tagline { margin-top: 10px; font-size: 1.08rem; line-height: 1.5; }
+  .sw-site--spotlight .sw-spot-hero__panel .sw-actions { margin-top: 22px; gap: 10px; }
+  .sw-site--spotlight .sw-spot-hero__panel .sw-btn { min-height: 46px; padding: 10px 20px; font-size: .98rem; }
+  .sw-site--spotlight .sw-spot-hero__media .sw-slider { height: auto; min-height: 0; max-height: 460px; aspect-ratio: 4 / 3; }
+
+  /* Bands run straight into the footer, as on the other banded designs. */
+  .sw-site--spotlight .sw-footer { margin-top: 0; }
+  .sw-site--spotlight .sw-band { padding-block: 40px; }
+  .sw-site--spotlight .sw-band--facts { padding-block: 22px; }
+  .sw-site--spotlight .sw-head__title { font-size: 1.75rem; line-height: 1.2; }
+  .sw-site--spotlight .sw-program .sw-card__body { padding: 14px 2px 4px; }
+  .sw-site--spotlight .sw-program:has(.sw-card__media--blank) .sw-card__body { padding: 4px 0 4px 16px; }
+  .sw-site--spotlight .sw-program .sw-card__body h3 { font-size: 1.2rem; }
+
+  /* Mascot: the uppercase name a touch smaller, and the mascot in the top corner beside
+     the logo, so it decorates without sitting under the words or the buttons. */
+  .sw-site--mascot .sw-spot-hero__title { font-size: 2.05rem; line-height: 1.06; }
+  .sw-site--mascot .sw-emblem-mark--panel { width: min(46%, 200px); top: -18px; right: -26px; bottom: auto; opacity: .14; }
+  .sw-site--mascot .sw-emblem-mark--panel.sw-emblem-mark--image { opacity: .16; }
+  .sw-site--mascot .sw-head__title { font-size: 1.5rem; letter-spacing: .01em; }
+  .sw-site--mascot .sw-band--facts .sw-fact__value { font-size: 2.1rem; }
+}
+
+/* ---------- MINIMAL ---------- */
+@media (max-width: 768px) {
+  .sw-site--minimal .sw-min-head { padding-top: 30px; }
+  .sw-site--minimal .sw-min-head__title { font-size: 2.3rem; line-height: 1.1; }
+  .sw-site--minimal .sw-min-head__tagline { margin-top: 8px; font-size: 1.08rem; line-height: 1.5; }
+  .sw-site--minimal .sw-min-head .sw-actions { margin-top: 20px; }
+  .sw-site--minimal .sw-min-head .sw-btn { min-height: 46px; }
+  .sw-site--minimal .sw-min-head__photos { margin-top: 24px; }
+  .sw-site--minimal .sw-min-head__photos .sw-slider--card { aspect-ratio: 4 / 3; max-height: 460px; }
+  .sw-site--minimal .sw-min-main > .sw-section { gap: 12px; padding: 30px 0; }
+  .sw-site--minimal .sw-min-main > .sw-section:first-child { margin-top: 28px; }
+}
+
+/* ---------- MOSAIC ---------- */
+@media (max-width: 768px) {
+  .sw-site--mosaic .sw-mosaic { padding-top: 14px; }
+  .sw-site--mosaic .sw-mosaic__top { gap: 12px; }
+  .sw-site--mosaic .sw-mosaic__grid { gap: 12px; margin-top: 12px; }
+  .sw-site--mosaic .sw-tile { border-radius: 18px; }
+  .sw-site--mosaic .sw-tile--photos .sw-slider { height: auto; min-height: 0; max-height: 460px; aspect-ratio: 4 / 3; }
+  /* The welcome tile: the name large enough to lead the page. */
+  .sw-site--mosaic .sw-tile--brand { padding: 24px 20px; }
+  .sw-site--mosaic .sw-mosaic__title { font-size: 1.95rem; line-height: 1.12; }
+  .sw-site--mosaic .sw-mosaic__tagline { margin-top: 8px; font-size: 1.05rem; line-height: 1.5; }
+  .sw-site--mosaic .sw-tile--brand .sw-actions { margin-top: 20px; gap: 10px; }
+  .sw-site--mosaic .sw-tile--brand .sw-btn { min-height: 46px; }
+  .sw-site--mosaic .sw-tile--peek { height: auto; aspect-ratio: 4 / 3; }
+  /* Tiles line up with the page edges; the facts tile has no frame of its own. */
+  .sw-site--mosaic .sw-mosaic__grid > .sw-tile { padding: 20px 16px; }
+  .sw-site--mosaic .sw-mosaic__grid > .sw-tile--quickFacts { padding: 0; }
+  .sw-site--mosaic .sw-tile--quickFacts .sw-fact { background: var(--sw-paper); border-color: transparent; }
+}
+
+@media (max-width: 480px) {
+  /* Two square photo tiles under the welcome. */
+  .sw-site--mosaic .sw-tile--peek { aspect-ratio: 1; }
+}
+
+/* ---------- CREST (drawn on classic's page) ---------- */
+@media (max-width: 768px) {
+  .sw-site--crest .sw-stage .sw-slider { height: auto; max-height: 460px; aspect-ratio: 4 / 3; }
+  .sw-site--crest .sw-intro { gap: 12px; padding-block: 40px 44px; }
+  .sw-site--crest .sw-intro__logo { width: 64px; height: 64px; }
+  /* The name stays the centerpiece over the emblem (classic's phone size is smaller). */
+  .sw-site--crest:not([data-sw-name]) .sw-intro__title { font-size: clamp(2rem, 9vw, 2.4rem); line-height: 1.1; text-wrap: balance; }
+  .sw-site--crest .sw-intro__tagline { margin-top: 6px; font-size: 1.08rem; }
+  .sw-site--crest .sw-intro__actions { gap: 10px; margin-top: 10px; }
+  .sw-site--crest .sw-intro__actions .sw-btn { min-height: 46px; }
+  /* The emblem frames the whole welcome, centered behind the logo and the name. */
+  .sw-site--crest .sw-emblem-mark--intro { width: min(78vw, 300px); opacity: .07; }
+  /* A finer pattern on the tinted bands at phone size. */
+  .sw-site--crest .sw-band--tint { --sw-pattern-size: 84px; }
+}
+
+/* ==================== 3D designs: Glide, Prism, Panorama, Orbit ==================== */
+/* The 3D designs on phones: Glide, Prism, Panorama and Orbit (Prism with the
+   school's emblem). Only each design's own parts: the opening, its menu, the
+   photo stack, the photo wall, the sideways gallery, the closing call. Motion
+   stays transform and opacity, gentler than on wide screens, and every part
+   still reads without public/js/schoolSiteMotion.js. */
+@media (max-width: 768px) {
+  /* ---------- Every 3D design ---------- */
+
+  /* The bottom section menu is hidden on these designs, so the page needn't keep room for it. */
+  body[data-page="publicDashboard"]:is([data-sw-layout="glide"], [data-sw-layout="prism"], [data-sw-layout="panorama"]):has(header#top-header > .sticky-nav) {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Their own menu: the school's name and the main action, then a swipeable row of sections, each a full-size tap. */
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-nav__in { gap: 2px 12px; min-height: 0; padding-top: 6px; }
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-brand { flex: 1 1 0; gap: 9px; max-width: none; font-size: .95rem; }
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-nav__cta { min-height: 40px; padding: 7px 18px; font-size: .9rem; }
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-nav__links {
+    gap: 0; margin-inline: calc(var(--sw-gutter) * -1); padding: 0 var(--sw-gutter) 2px;
+    scroll-padding-inline: var(--sw-gutter); overscroll-behavior-x: contain;
+    /* Fades at the edges show there is more to swipe to. */
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 30px), transparent);
+    mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 30px), transparent);
+  }
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-nav__links a {
+    display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; font-size: .9rem;
+  }
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-nav__links a:first-child { margin-left: -12px; }
+  .sw-site:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) .sw-mo-nav__links a:last-child { margin-right: 8px; }
+
+  /* Parts float in from a shorter distance on a small screen. */
+  .sw-site.sw-moving:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) :is([data-m] .sw-section > .sw-head, [data-m] .sw-section > :not(.sw-head, .sw-anchor, .sw-visually-hidden) > :not([hidden]), [data-m-items] > *):not(.is-in) {
+    translate: 0 24px -30px; rotate: x 7deg;
+  }
+  .sw-site.sw-moving:is(.sw-site--glide, .sw-site--prism, .sw-site--panorama) [data-m="panel"]:not(.is-in) { translate: 0 40px -50px; rotate: x 6deg; }
+
+  /* ---------- GLIDE ---------- */
+  .sw-site--glide .sw-gl-hero { padding-top: 40px; }
+  .sw-site--glide .sw-gl-kicker { padding: 6px 12px; font-size: .7rem; }
+  .sw-site.sw-site--glide .sw-gl-title { margin-top: 16px; font-size: clamp(2.25rem, 10.4vw, 2.75rem); line-height: 1.04; }
+  .sw-site--glide .sw-gl-tagline { margin-top: 12px !important; font-size: 1.06rem; line-height: 1.5; }
+  .sw-site--glide .sw-gl-hero .sw-actions { margin-top: 24px; gap: 10px; }
+  .sw-site--glide .sw-gl-hero .sw-btn { min-height: 46px; padding: 10px 22px; }
+  .sw-site--glide .sw-gl-stage { margin-top: 30px; padding-bottom: 44px; perspective: 1200px; }
+  /* The photo still tilts into place, just less. */
+  .sw-site--glide .sw-gl-screen {
+    border-radius: 18px;
+    transform: rotateX(calc((1 - var(--p, 1)) * 14deg)) scale(calc(.94 + var(--p, 1) * .06)) translateY(calc((1 - var(--p, 1)) * 12px));
+    box-shadow: 0 34px 60px -34px rgba(15, 23, 42, .55), 0 0 0 1px rgba(15, 23, 42, .06);
+  }
+  .sw-site--glide .sw-gl-brand { gap: 10px; padding: 24px; }
+  .sw-site--glide .sw-head { margin-bottom: 22px; }
+  .sw-site.sw-site--glide .sw-head__title { font-size: 1.75rem; line-height: 1.18; }
+  .sw-site--glide .sw-head__title::before { width: 36px; margin-bottom: 14px; }
+  .sw-site--glide .sw-block--quickFacts .sw-fact { padding: 12px 6px; }
+  .sw-site--glide .sw-block--quickFacts .sw-fact__value { font-size: 2.3rem; }
+  /* Gallery thumbnails (two across on phones) get a smaller corner. */
+  .sw-site--glide .sw-gallery__open { border-radius: 12px; }
+  .sw-site--glide .sw-gl-close { padding: 60px 0 64px; }
+  .sw-site.sw-site--glide .sw-gl-close__title { font-size: clamp(1.75rem, 8vw, 2.2rem); line-height: 1.15; text-wrap: balance; }
+  .sw-site--glide .sw-gl-close__text { font-size: 1.02rem; }
+  .sw-site--glide .sw-gl-close .sw-actions { margin-top: 22px; }
+
+  /* ---------- PRISM (and ORBIT, drawn on it) ---------- */
+  .sw-site--prism .sw-pr-hero { padding: 34px 0 30px; }
+  .sw-site--prism .sw-pr-hero__in { gap: 18px; }
+  .sw-site--prism .sw-pr-kicker { padding: 6px 12px; font-size: .7rem; }
+  .sw-site.sw-site--prism .sw-pr-title { margin-top: 16px; font-size: clamp(2.3rem, 10.6vw, 2.8rem); line-height: 1.04; }
+  .sw-site--prism .sw-pr-tagline { margin-top: 12px !important; font-size: 1.06rem; line-height: 1.5; }
+  .sw-site--prism .sw-pr-hero .sw-actions { margin-top: 24px; }
+  .sw-site--prism .sw-pr-hero .sw-btn { min-height: 46px; padding: 10px 22px; }
+  .sw-site--prism .sw-pr-hero__facts { gap: 12px 28px; margin-top: 26px; padding-top: 18px; }
+  .sw-site.sw-site--prism .sw-pr-hero__facts dt { font-size: 1.7rem; }
+  .sw-site--prism .sw-pr-hero__facts dd { font-size: .84rem; }
+  /* The photo stack fits the screen: a softer lean, the photos behind peeking out a little. */
+  .sw-site--prism .sw-pr-stage { padding: 8px 9% 26px 3%; perspective: 1100px; }
+  .sw-site--prism .sw-pr-stack { transform: rotateY(-8deg) rotateX(4deg); }
+  .sw-site--prism .sw-pr-card { border-radius: 18px; box-shadow: 0 28px 60px -22px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .09); }
+  .sw-site--prism .sw-pr-card--front { transform: translateZ(calc(20px + var(--p, 0) * 24px)); }
+  .sw-site--prism .sw-pr-card--back {
+    transform:
+      translate3d(calc(var(--side, 1) * (4% + var(--p, 0) * 7%)), calc(var(--k) * -9px - var(--p, 0) * var(--k) * 5px), calc(var(--k) * -50px))
+      rotateY(calc(var(--side, 1) * var(--p, 0) * -7deg))
+      rotateZ(calc(var(--side, 1) * var(--k) * -1.4deg));
+  }
+  .sw-site--prism .sw-pr-crest { gap: 10px; padding: 22px; }
+  /* Glass panels a little wider, with less padding inside, so the cards in them have room. */
+  .sw-site--prism .sw-pr-band { padding: 8px 0; }
+  .sw-site--prism .sw-pr-band > .sw-wrap { padding-inline: calc(var(--sw-gutter) - 4px); }
+  .sw-site--prism .sw-pr-panel { padding: 26px 18px; border-radius: 22px; }
+  .sw-site--prism .sw-head { margin-bottom: 20px; }
+  .sw-site.sw-site--prism .sw-head__title { font-size: 1.7rem; line-height: 1.18; }
+  /* The photo wall: a gentler tilt, and columns that drift apart only slightly, clear of the heading. */
+  .sw-site--prism .sw-pr-band--wall { padding: 48px 0 36px; }
+  .sw-site--prism .sw-pr-band--wall > .sw-wrap { padding-inline: var(--sw-gutter); }
+  .sw-site--prism .sw-pr-wall .sw-head { margin-bottom: 30px; }
+  .sw-site--prism .sw-pr-wall .sw-gallery {
+    gap: 14px 10px; transform-origin: 50% 10%;
+    transform: rotateX(calc(var(--t) * 20deg)) rotateZ(calc(var(--t) * -4deg)) scale(calc(1 - var(--t) * .08));
+  }
+  .sw-site--prism .sw-pr-wall .sw-gallery__item { translate: 0 calc((var(--p, .5) - .5) * var(--shift, 0) * 22px); }
+  .sw-site--prism .sw-pr-wall .sw-gallery__open { border-radius: 14px; }
+  .sw-site--prism .sw-pr-close { padding: 28px 0 56px; }
+  .sw-site--prism .sw-pr-close > .sw-wrap { padding-inline: calc(var(--sw-gutter) - 4px); }
+  .sw-site--prism .sw-pr-close__panel { padding: 40px 20px; border-radius: 26px; }
+  .sw-site.sw-site--prism .sw-pr-close__title { font-size: clamp(1.75rem, 8vw, 2.2rem); line-height: 1.15; text-wrap: balance; }
+  .sw-site--prism .sw-pr-close__text { font-size: 1.02rem; }
+  .sw-site--prism .sw-pr-close .sw-actions { margin-top: 22px; }
+
+  /* ---------- ORBIT ---------- */
+  /* The emblem sits behind the page's right edge, faint, so it never competes with the text. */
+  .sw-site--orbit .sw-or-emblem { width: 110vw; right: -46vw; top: 18vh; }
+
+  /* ---------- PANORAMA ---------- */
+  /* The opening photo starts just under the buttons instead of low on the screen. */
+  .sw-site--panorama .sw-pa-hero { --pa-y0: 38%; }
+  .sw-site--panorama .sw-pa-hero__copy { padding-top: 32px; }
+  .sw-site--panorama .sw-pa-kicker { font-size: .72rem; letter-spacing: .18em; }
+  .sw-site.sw-site--panorama .sw-pa-title { font-size: clamp(2.4rem, 11.4vw, 3rem); line-height: 1; }
+  .sw-site--panorama .sw-pa-tagline { margin-top: 12px !important; font-size: 1.06rem; line-height: 1.5; }
+  .sw-site--panorama .sw-pa-hero .sw-actions { margin-top: 24px; }
+  .sw-site--panorama .sw-pa-hint { bottom: 16px; }
+  /* Without movement the opening photo is a plain frame under the title: about square, so a whole photo fills most of it. */
+  .sw-site.sw-site--panorama:not(.sw-moving) .sw-pa-hero__frame { height: clamp(300px, 104vw, 62svh); }
+  /* Chapters: the outlined number sits above its title, so the title has the full width. */
+  .sw-site.sw-site--panorama .sw-head { grid-template-columns: minmax(0, 1fr); margin-bottom: 26px; }
+  .sw-site.sw-site--panorama .sw-head__num { grid-row: auto; margin-bottom: 10px; font-size: 3rem; line-height: .8; -webkit-text-stroke-width: 1.4px; }
+  .sw-site.sw-site--panorama .sw-head__title { font-size: clamp(1.85rem, 8.6vw, 2.25rem); line-height: 1.06; letter-spacing: -.03em; }
+  .sw-site.sw-site--panorama .sw-head__intro { margin-top: 12px; }
+  .sw-site--panorama .sw-pa-scene { padding: 60px 0; }
+  .sw-site--panorama .sw-pa-scene--accent { padding-block: 44px; }
+  .sw-site.sw-site--panorama .sw-pa-scene--accent .sw-fact__value { font-size: 2.5rem; }
+  .sw-site.sw-site--panorama .sw-welcome__message { font-size: 1.12rem; line-height: 1.6; }
+  /* Chapter headings and cards turn in, less far. */
+  .sw-site.sw-site--panorama.sw-moving [data-m] .sw-section > .sw-head:not(.is-in) { rotate: x 40deg; translate: 0 20px -30px; }
+  .sw-site.sw-site--panorama.sw-moving [data-m] .sw-section > :not(.sw-head, .sw-anchor, .sw-visually-hidden) > :nth-child(odd):not(.is-in) { rotate: y 9deg; translate: -16px 20px -40px; }
+  .sw-site.sw-site--panorama.sw-moving [data-m] .sw-section > :not(.sw-head, .sw-anchor, .sw-visually-hidden) > :nth-child(even):not(.is-in) { rotate: y -9deg; translate: 16px 20px -40px; }
+  /* The sideways gallery: a swipeable strip, the next photo clearly peeking in.
+     (From 760px the motion script pins it instead; those rules stay as they are.) */
+  .sw-site--panorama .sw-pa-flow:not(.is-pinned) .sw-pa-flow__stage { padding-block: 56px 44px; }
+  .sw-site--panorama .sw-pa-flow:not(.is-pinned) .sw-head { margin-bottom: 8px; }
+  .sw-site.sw-site--panorama .sw-pa-flow:not(.is-pinned) .sw-gallery { gap: 12px; padding-block: 18px 22px; scroll-padding-inline: var(--sw-gutter); overscroll-behavior-x: contain; }
+  .sw-site.sw-site--panorama .sw-pa-flow:not(.is-pinned) .sw-gallery__item {
+    width: 72vw; max-width: 340px; scroll-snap-align: start;
+    transform: perspective(900px) rotateY(calc(var(--d, 0) * -14deg)) translateZ(calc(var(--ad, 0) * -36px)) scale(calc(1 - var(--ad, 0) * .03));
+    opacity: calc(1 - var(--ad, 0) * .18);
+  }
+  .sw-site--panorama .sw-pa-flow .sw-gallery__open { border-radius: 14px; }
+  /* The closing scene. */
+  .sw-site--panorama .sw-pa-close { min-height: clamp(460px, 78svh, 680px); }
+  .sw-site--panorama .sw-pa-close__copy { padding-block: 40px 44px; }
+  .sw-site.sw-site--panorama .sw-pa-close__title { font-size: clamp(2.1rem, 10vw, 2.6rem); line-height: 1.02; text-wrap: balance; }
+  .sw-site--panorama .sw-pa-close__text { font-size: 1.04rem; }
+  .sw-site--panorama .sw-pa-close .sw-actions { margin-top: 22px; }
+  .sw-site--panorama .sw-pa-close .sw-btn--ghost { color: #fff; border-color: rgba(255, 255, 255, .55); background: rgba(7, 9, 13, .28); }
+}

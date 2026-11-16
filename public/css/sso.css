@@ -78,3 +78,12 @@
 .sso-setup[open] > summary { margin-bottom: 12px; }
 .sso-setup[open] > summary::after { content: "Hide"; }
 .sso-set a.sso-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+
+/* Tenant configuration › Two-step sign-in (public/js/tenantSettings.js). */
+.tc-note { margin: 4px 0 10px; color: #475467; font-size: 13.5px; line-height: 1.5; }
+.tc-list { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+.tc-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid #eaecf0; border-radius: 10px; }
+.tc-list small { color: #667085; font-size: 12.5px; }
+.tc-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.tc-reset[hidden] { display: none; }
+.tc-reset .sso-msg { flex-basis: 100%; margin: 0; }

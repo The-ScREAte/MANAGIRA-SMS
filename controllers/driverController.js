@@ -98,19 +98,27 @@ async function resolveMyStudents(db, organizationId, userId, driverBus, routeIds
     routeId: row.route_id === null ? null : Number(row.route_id),
     stopId: row.stop_id === null ? null : Number(row.stop_id),
     stopName: row.stop_name || "",
-    address: withDetails ? row.home_address || row.address || "" : "",
+    address: "",
     parentPhone: "",
+    _address: row.home_address || row.address || "",
   })).sort((a, b) => a.lastName.localeCompare(b.lastName) || a.name.localeCompare(b.name));
-  if (withDetails && students.length) {
+  // Home address and a parent's phone only for the driver's own riders (Student Details): never
+  // for classmates who ride another bus or none.
+  students.forEach((student) => {
+    if (withDetails && student.hasAccess) student.address = student._address;
+    delete student._address;
+  });
+  const riders = students.filter((student) => student.hasAccess);
+  if (withDetails && riders.length) {
     const phones = await db.query(
       `SELECT DISTINCT ON (gs.student_id) gs.student_id, gp.phone
          FROM guardian_students gs JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
         WHERE gs.student_id = ANY($1::int[]) AND gp.organization_id = $2 AND COALESCE(gp.phone, '') <> ''
         ORDER BY gs.student_id, gp.guardian_id`,
-      [students.map((student) => student.id), organizationId]
+      [riders.map((student) => student.id), organizationId]
     ).catch(() => ({ rows: [] }));
     const byStudent = new Map(phones.rows.map((row) => [Number(row.student_id), row.phone]));
-    students.forEach((student) => { student.parentPhone = byStudent.get(student.id) || ""; });
+    riders.forEach((student) => { student.parentPhone = byStudent.get(student.id) || ""; });
   }
   return students;
 }

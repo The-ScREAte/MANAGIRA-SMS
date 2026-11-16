@@ -1,0 +1,39 @@
+<%# The transcript designs' sketches (Report Settings' Transcript Design card and the transcript page's
+    design picker). Markup: <span class="rs-td-thumb rs-td-thumb--<key>"> with six <i></i>. %>
+<style>
+.rs-td-thumb { position: relative; display: block; height: 118px; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; background: #fbfbfc; overflow: hidden; }
+.rs-td-thumb i { position: absolute; display: block; background: #d7dce3; border-radius: 2px; }
+.rs-td-thumb--standard i:nth-child(1) { left: 0; right: 0; top: 0; height: 7px; background: var(--primary, #01535b); border-radius: 0; }
+.rs-td-thumb--standard i:nth-child(2) { left: 12px; top: 16px; width: 18px; height: 18px; border-radius: 50%; }
+.rs-td-thumb--standard i:nth-child(3) { left: 36px; top: 19px; width: 60%; height: 6px; background: #94a3b8; }
+.rs-td-thumb--standard i:nth-child(4) { left: 12px; right: 12px; top: 44px; height: 22px; }
+.rs-td-thumb--standard i:nth-child(5) { left: 12px; right: 12px; top: 72px; height: 22px; }
+.rs-td-thumb--standard i:nth-child(6) { right: 12px; bottom: 8px; width: 34%; height: 4px; background: #94a3b8; }
+.rs-td-thumb--classic { background: #fff; outline: 1px solid #94a3b8; outline-offset: -6px; }
+.rs-td-thumb--classic i:nth-child(1) { left: calc(50% - 9px); top: 12px; width: 18px; height: 18px; border-radius: 50%; background: #475569; }
+.rs-td-thumb--classic i:nth-child(2) { left: 22%; right: 22%; top: 35px; height: 5px; background: #334155; }
+.rs-td-thumb--classic i:nth-child(3) { left: 14px; right: 14px; top: 46px; height: 3px; background: none; border-top: 1px solid #334155; border-bottom: 1px solid #334155; border-radius: 0; }
+.rs-td-thumb--classic i:nth-child(4) { left: 14px; width: calc(50% - 18px); top: 56px; height: 34px; }
+.rs-td-thumb--classic i:nth-child(5) { right: 14px; width: calc(50% - 18px); top: 56px; height: 34px; }
+.rs-td-thumb--classic i:nth-child(6) { left: 14px; bottom: 10px; width: 18px; height: 18px; border-radius: 50%; background: none; border: 1px solid #64748b; }
+.rs-td-thumb--modern i:nth-child(1) { left: 0; right: 0; top: 0; height: 26px; background: var(--primary, #01535b); border-radius: 0; }
+.rs-td-thumb--modern i:nth-child(2) { left: 10px; top: 7px; width: 13px; height: 13px; border-radius: 4px; background: #fff; }
+.rs-td-thumb--modern i:nth-child(3) { left: 10px; width: 36%; top: 34px; height: 16px; border-radius: 4px; background: color-mix(in srgb, var(--primary, #01535b) 16%, #fff); }
+.rs-td-thumb--modern i:nth-child(4) { right: 10px; width: 42%; top: 34px; height: 16px; border-radius: 4px; }
+.rs-td-thumb--modern i:nth-child(5) { left: 10px; width: calc(50% - 14px); top: 58px; height: 46px; border-radius: 5px; background: #fff; border: 1px solid #d7dce3; }
+.rs-td-thumb--modern i:nth-child(6) { right: 10px; width: calc(50% - 14px); top: 58px; height: 46px; border-radius: 5px; background: #fff; border: 1px solid #d7dce3; }
+.rs-td-thumb--compact i:nth-child(1) { left: 10px; right: 10px; top: 12px; height: 3px; background: var(--primary, #01535b); }
+.rs-td-thumb--compact i:nth-child(2) { left: 10px; right: 10px; top: 20px; height: 10px; border-radius: 3px; }
+.rs-td-thumb--compact i:nth-child(3) { left: 10px; width: calc(33% - 10px); top: 38px; height: 34px; border-radius: 3px; }
+.rs-td-thumb--compact i:nth-child(4) { left: calc(33% + 4px); width: calc(33% - 10px); top: 38px; height: 34px; border-radius: 3px; }
+.rs-td-thumb--compact i:nth-child(5) { right: 10px; width: calc(33% - 10px); top: 38px; height: 34px; border-radius: 3px; }
+.rs-td-thumb--compact i:nth-child(6) { left: 10px; width: calc(33% - 10px); top: 78px; height: 30px; border-radius: 3px; }
+/* Registrar: a ruled header, the student in a box, terms in two columns, statistics at the foot. */
+.rs-td-thumb--registrar { background: #fff; }
+.rs-td-thumb--registrar i:nth-child(1) { left: 10px; right: 10px; top: 12px; height: 7px; background: none; border-bottom: 2px solid #1f2937; border-radius: 0; }
+.rs-td-thumb--registrar i:nth-child(2) { left: 10px; right: 10px; top: 26px; height: 12px; background: #fff; border: 1px solid #d7dce3; border-left: 2px solid var(--primary, #01535b); border-radius: 0; }
+.rs-td-thumb--registrar i:nth-child(3) { left: 10px; width: calc(50% - 14px); top: 45px; height: 40px; background: repeating-linear-gradient(#d7dce3 0 2px, transparent 2px 6px); border-top: 3px solid #1f2937; border-radius: 0; }
+.rs-td-thumb--registrar i:nth-child(4) { right: 10px; width: calc(50% - 14px); top: 45px; height: 40px; background: repeating-linear-gradient(#d7dce3 0 2px, transparent 2px 6px); border-top: 3px solid #1f2937; border-radius: 0; }
+.rs-td-thumb--registrar i:nth-child(5) { left: calc(50% - 1px); width: 1px; top: 45px; height: 40px; background: #d7dce3; }
+.rs-td-thumb--registrar i:nth-child(6) { left: 10px; right: 10px; top: 92px; height: 12px; background: #eef1f4; border-top: 1px solid #1f2937; border-bottom: 1px solid #1f2937; border-radius: 0; }
+</style>

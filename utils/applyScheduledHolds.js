@@ -118,9 +118,13 @@ async function applyScheduledHolds() {
       const { organization_id, organization_name, email, scheduled_hold_date } = org;
 
       // ✅ 2️⃣ Place the organization on hold
+      // A cancelled subscription keeps saying so (utils/subscriptionCancel.js lists and undoes it).
       await db.query(
-        `UPDATE organizations 
-         SET on_hold = true, hold_by = 'System', scheduled_hold_date = NULL 
+        `UPDATE organizations
+         SET on_hold = true,
+             hold_by = CASE WHEN hold_by IN ('Cancelled', 'User') THEN hold_by ELSE 'System' END,
+             on_hold_at = COALESCE(on_hold_at, NOW()),
+             scheduled_hold_date = NULL
          WHERE organization_id = $1`,
         [organization_id]
       );

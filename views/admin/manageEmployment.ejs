@@ -1104,13 +1104,13 @@
                           <p style="margin: 8px 0 4px;"><strong>Cover Letter Note:</strong></p>
                           <p style="margin: 0 0 8px; white-space: pre-wrap;"><%= application.cover_letter %></p>
                           <% if (application.cover_letter_url) { %>
-                            <p style="margin: 0 0 8px;"><a href="<%= application.cover_letter_url %>" target="_blank" rel="noopener">Download Cover Letter</a></p>
+                            <p style="margin: 0 0 8px;"><a href="/admin/employment/applications/<%= application.id %>/cover-letter" target="_blank" rel="noopener noreferrer" data-no-spa>Download Cover Letter</a></p>
                           <% } %>
                           <% if (application.rejection_reason) { %>
                             <p style="margin: 8px 0 4px;"><strong>Rejection Reason:</strong></p>
                             <p style="margin: 0 0 8px; white-space: pre-wrap;"><%= application.rejection_reason %></p>
                           <% } %>
-                          <p style="margin: 0;"><a href="<%= application.resume_url %>" target="_blank" rel="noopener">Download Resume</a></p>
+                          <p style="margin: 0;"><a href="/admin/employment/applications/<%= application.id %>/resume" target="_blank" rel="noopener noreferrer" data-no-spa>Download Resume</a></p>
 
                           <div style="display: grid; gap: 8px; margin-top: 12px;">
                             <form method="POST" action="/admin/employment/applications/<%= application.id %>/approve" onsubmit="return confirm('Send approval email for this applicant?');" style="margin: 0;">
@@ -1366,8 +1366,9 @@
           ? `<span class="stage-chip ${escapeHtml(effectiveStage)}">${stageLabelMap[effectiveStage]}</span>`
           : '';
 
-        const resumeUrl = item.resume_url || '';
-        const coverLetterUrl = item.cover_letter_url || '';
+        // Files open through Managira, which hands out a short-lived link (storage is private).
+        const resumeUrl = item.resume_url ? `/admin/employment/applications/${encodeURIComponent(item.id)}/resume` : '';
+        const coverLetterUrl = item.cover_letter_url ? `/admin/employment/applications/${encodeURIComponent(item.id)}/cover-letter` : '';
         const docsCell = `
           <div class="docs-cell">
             ${resumeUrl

@@ -133,6 +133,16 @@ function registrationInfo(org, now) {
 
 // The emblem an emblem design shows: one of ours, the school's logo or its own image.
 // Image links go into the page's CSS, so only plain https links are used.
+// A school's article text comes from its rich-text editor: only that editor's formatting is
+// kept (no scripts, event handlers or styles), so a page never runs what someone typed.
+const ARTICLE_HTML = {
+  allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "s", "sub", "sup", "ol", "ul", "li", "a", "h1", "h2", "h3", "h4", "blockquote", "pre", "code", "span"],
+  allowedAttributes: { a: ["href", "target", "rel"], "*": ["class"] },
+  allowedClasses: { "*": [/^ql-[a-z0-9-]+$/] },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  transformTags: { a: (tag, attribs) => ({ tagName: "a", attribs: { ...attribs, rel: "noopener noreferrer" } }) },
+};
+const articleHtml = (html) => require("./sanitizeHtml")(String(html || ""), ARTICLE_HTML);
 const cssSafeUrl = (url) => (/^https:\/\/[^\s"'()<>\\]+$/i.test(String(url || "")) ? String(url) : "");
 function emblemFor(setting, org) {
   const s = setting || {};
@@ -189,7 +199,7 @@ function buildSiteModel(input = {}) {
       const plain = stripHtml(t.paragraph);
       return {
         title: clean(t.heading),
-        html: t.paragraph || "",
+        html: articleHtml(t.paragraph),
         excerpt: plain.length > 220 ? `${plain.slice(0, 217).replace(/\s+\S*$/, "")}…` : plain,
         readMinutes: Math.max(1, Math.round(plain.split(/\s+/).length / 200)),
       };

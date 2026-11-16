@@ -510,7 +510,13 @@ function analyzeQualification({ jobDescription, coverLetter, resumeText }) {
 async function fetchResumeText(url) {
   if (!url) return "";
   try {
-    const res = await fetch(url);
+    // A stored file is read through a link that works for a couple of minutes (storage is private).
+    // Only Managira's own stored files are read, never another address.
+    const storedFiles = require("./storedFiles");
+    if (!storedFiles.keyOf(url)) return "";
+    const link = await storedFiles.signedUrl(url, { seconds: 120 });
+    if (!link || !/^https:\/\//i.test(link)) return "";
+    const res = await fetch(link);
     if (!res.ok) return "";
     const ct = (res.headers.get("content-type") || "").toLowerCase();
     const buf = Buffer.from(await res.arrayBuffer());

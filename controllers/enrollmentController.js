@@ -992,6 +992,8 @@ const enrollmentController = {
               ...subjectsRes.rows,
             ].map((item) => ({
               ...item,
+              // Photos through the signed image route (storage is private).
+              image_url: item.image_url && !/placeholder/i.test(item.image_url) ? res.locals.publicImageUrl(item.image_url) : item.image_url,
               display_name:
                 formatDisplayName(item, orgNameDisplayFormat) ||
                 item.subject_name ||

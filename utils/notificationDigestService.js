@@ -677,12 +677,15 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
   const guardianMap = await resolveGuardianLinks(database, organizationId);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
   const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
+  // No alert about a child whose class keeps attendance from parents (Class settings).
+  const parentsSee = await require("./classSettings").parentsSeeFor(database, organizationId, studentIds);
 
   let sent = 0;
   for (const row of result.rows) {
     const studentId = Number(row.student_id);
     const info = studentBasics.get(studentId);
     if (!info) continue;
+    if (parentsSee.has(studentId) && parentsSee.get(studentId).attendance === false) continue;
 
     const recipients = [];
     for (const guardian of guardianMap.values()) {
@@ -929,6 +932,8 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
   const weeklySignals = await getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
   const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
+  // A child whose class keeps attendance from parents (Class settings) shows none in the digest.
+  const parentsSee = await require("./classSettings").parentsSeeFor(database, organizationId, studentIds);
 
   let sent = 0;
   for (const guardian of guardianMap.values()) {
@@ -936,6 +941,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     for (const sid of guardian.studentIds) {
       const basic = studentBasics.get(sid);
       if (!basic) continue;
+      const attendanceHidden = parentsSee.has(sid) && parentsSee.get(sid).attendance === false;
       const attendance = attendanceMap.get(sid) || {};
       const avgScore = averageMap.get(sid);
       const standing = classStandingMap.get(sid);
@@ -949,16 +955,18 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       const presentCount = toNumber(attendance.presentCount, 0);
       const lateCount = toNumber(attendance.lateCount, 0);
 
-      const attendanceSummary = Number.isFinite(Number(attendance.attendancePct))
-        ? `${Number(attendance.attendancePct).toFixed(1)}% this week (${presentCount} present, ${absentCount} absent${lateCount > 0 ? `, ${lateCount} late` : ""})`
-        : "Attendance marks recorded this week";
+      const attendanceSummary = attendanceHidden
+        ? "—"
+        : Number.isFinite(Number(attendance.attendancePct))
+          ? `${Number(attendance.attendancePct).toFixed(1)}% this week (${presentCount} present, ${absentCount} absent${lateCount > 0 ? `, ${lateCount} late` : ""})`
+          : "Attendance marks recorded this week";
 
       const academicStanding = standing?.standingLabel
         || (Number.isFinite(Number(avgScore))
           ? `${scoreBand(avgScore, toNumber(policy.good_score_threshold, 60))} assessment trend`
           : "Assessment profile is still being built");
 
-      let weeklyFocus = "Attendance routines stayed active this week.";
+      let weeklyFocus = attendanceHidden ? "Classroom routines stayed active this week." : "Attendance routines stayed active this week.";
       if (standing && Number.isFinite(standing.percentileRank) && standing.percentileRank <= 0.2) {
         weeklyFocus = "Recent classroom entries place your child in a top-performing group.";
       } else if (weeklySignals.assessmentUpdates > 0) {

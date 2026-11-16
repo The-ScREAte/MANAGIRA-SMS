@@ -125,11 +125,13 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_hubs_modtime ON managira_hubs;
 CREATE TRIGGER update_hubs_modtime
     BEFORE UPDATE ON managira_hubs
     FOR EACH ROW
     EXECUTE FUNCTION update_hub_modified_column();
 
+DROP TRIGGER IF EXISTS update_hub_invitations_modtime ON hub_organization_invitations;
 CREATE TRIGGER update_hub_invitations_modtime
     BEFORE UPDATE ON hub_organization_invitations
     FOR EACH ROW
@@ -138,7 +140,13 @@ CREATE TRIGGER update_hub_invitations_modtime
 -- =====================================================
 -- 7. CREATE USEFUL VIEW FOR HUB ORGANIZATIONS
 -- =====================================================
-CREATE OR REPLACE VIEW hub_organizations_view AS
+-- Made only when missing: 2026-10-12_widen_nickname_and_phone_columns.sql rebuilds it for the
+-- wider columns, and replacing it here with the narrower types would fail.
+DO $view$
+BEGIN
+  IF to_regclass('public.hub_organizations_view') IS NULL THEN
+    EXECUTE $create$
+CREATE VIEW hub_organizations_view AS
 SELECT 
     o.organization_id,
     o.organization_name,
@@ -165,7 +173,10 @@ SELECT
 FROM organizations o
 JOIN managira_hubs mh ON o.hub_id = mh.hub_id
 LEFT JOIN plans p ON mh.plan_id = p.id
-WHERE o.is_hub_member = true AND o.deleted = false;
+WHERE o.is_hub_member = true AND o.deleted = false
+    $create$;
+  END IF;
+END $view$;
 
 -- =====================================================
 -- MIGRATION COMPLETE

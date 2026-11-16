@@ -53,6 +53,10 @@ module.exports = [
           ["Change notices and your details", "Menu, <strong>Settings</strong>", link("parent-notifications-and-settings", "Notifications and settings")],
         ],
       },
+      {
+        title: "What your school shares for each class",
+        text: "Your school chooses, for each class, whether parents see attendance, lunch, report cards, GPA and the bus. What you see for each child follows that child's class, so one child's page can show something another's doesn't. Staff set this in " + link("class-settings", "Class settings") + ".",
+      },
     ],
     faq: [
       ["I see no children.", "The school hasn't linked you to a student yet. Ask the school office. (Staff: <strong>Management</strong>, <strong>Guardians</strong>, <strong>Relink student</strong>.)"],
@@ -115,8 +119,8 @@ module.exports = [
         steps: [
           ["On your child's page, open <strong>Academic info</strong>. Choose the term at the top.", "parent-grades.webp", "Academic info: teachers, schedule, attendance and grades for the term."],
           "<strong>Teaching Staff</strong> and <strong>Class Schedule</strong> open with a tap.",
-          "<strong>Attendance Summary</strong>: school days, days present and absent, and the attendance rate.",
-          "<strong>Current Term Performance</strong>: each subject's assessments, total and grade.",
+          "<strong>Attendance Summary</strong>: school days, days present and absent, and the attendance rate. If your child's school takes lunch, overall lunch shows beside overall attendance.",
+          "<strong>Current Term Performance</strong>: each subject's assessments, total and grade. Where grades are letters, your child's GPA this term and their cumulative GPA show above them (see " + link("gpa-on-report-cards-and-transcripts", "GPA") + ").",
         ],
         note: "A grade shows once the teacher posts it. While a subject has a grade waiting, its total waits too, so a total never counts a grade you can't see.",
       },
@@ -125,11 +129,13 @@ module.exports = [
         steps: [
           ["Select <strong>Report Card</strong> at the top of Academic info. Each report card the school posted is listed; select <strong>Open PDF</strong>.", "parent-report-cards.webp", "Posted report cards, ready to open."],
         ],
+        note: "A report card shows as soon as the school publishes it. If your school doesn't share report cards for your child's class, they don't show here and no report card notice or email is sent.",
       },
     ],
     faq: [
       ["A grade is missing.", "The teacher hasn't posted it yet. You'll get a notice when they do."],
       ["Can I see last term?", "Yes: choose it in <strong>Academic period</strong>."],
+      ["I don't see attendance, lunch, GPA or report cards.", "Your school chooses what parents see for each class, so it may not share them for your child's class. Ask the school office. (Staff: see " + link("class-settings", "Class settings") + ".)"],
     ],
     related: ["parent-portal", "parent-tests-and-results", "report-card"],
   },
@@ -271,7 +277,7 @@ module.exports = [
     title: "The student portal",
     topic: "Student portal",
     order: 1,
-    summary: "How students get access and sign in, and what they see: classes, schedule, grades, tests, calendar and the bus.",
+    summary: "How students get access and sign in, and what they see: classes, schedule, grades, report cards, tests, calendar and the bus.",
     tags: ["student portal", "students", "sign in", "testing room"],
     featured: true,
     who: "Students, once your school turns on <strong>Student Portal</strong> in Integrations and invites them.",
@@ -287,7 +293,7 @@ module.exports = [
       },
       {
         title: "What students see",
-        text: "The dashboard shows the student's class, attendance this term and how many tests are open, then a tile for each area.",
+        text: "The dashboard shows the student's class, attendance this term (with overall lunch beside it, if your school takes lunch), your GPA where grades are letters, and how many tests are open, then a tile for each area.",
         image: "student-portal.webp",
         caption: "The student dashboard: attendance, open tests and a tile for each area.",
         table: [
@@ -302,6 +308,14 @@ module.exports = [
           ["<strong>Portfolio</strong>", "A folder for each term: your marked tests, grades and report card.", ""],
         ],
         note: "<strong>Settings</strong> (in the menu) sets Light, Classic or Dark.",
+      },
+      {
+        title: "See your report cards",
+        text: "Students see their report cards in <strong>Portfolio</strong>: choose the term, and the report card is under <strong>Documents</strong> as soon as the school publishes it.",
+      },
+      {
+        title: "What your school shares with your class",
+        text: "Your school chooses, for each class, whether students see attendance, lunch, report cards, GPA and the bus. If one isn't shared with your class, its tile or page doesn't show. Staff set this in " + link("class-settings", "Class settings") + ".",
       },
     ],
     faq: [

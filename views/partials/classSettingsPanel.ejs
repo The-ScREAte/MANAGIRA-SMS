@@ -1,0 +1,83 @@
+<%# Class Tools › Class settings (feature class_settings): Take lunch, who each item is shared
+    with (parents, students), and the school's attendance calendar. `panel` comes from
+    controllers/classSettingsController.js classroomPanel (null when the person can't manage this
+    class); public/js/classSettings.js saves each switch and tick box as it changes. %>
+<% const _cs = panel; %>
+<section class="workspace-panel" id="panel-settings" data-panel-key="settings">
+  <link rel="stylesheet" href="<%= assetUrl('/css/classSettings.css') %>" />
+  <div class="workspace-panel-head">
+    <div>
+      <h2 class="card-title">Class settings</h2>
+      <p class="cset-sub">What <%= className %> uses, and who sees what about its students. Changes save as you make them.</p>
+    </div>
+  </div>
+  <div class="cset" data-class-settings data-save-url="<%= _cs.saveUrl %>" data-class-id="<%= classId %>" data-from="classroom">
+    <% if (!_cs.ready) { %>
+      <p class="cset-note" role="status">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span>Class settings are still being set up for your school. Everything stays on and shared until then; the choices show here once setup has finished.</span>
+      </p>
+    <% } else { %>
+      <% if (_cs.classSwitches.length) { %>
+      <div class="cset-card">
+        <div class="cset-card__head">
+          <div>
+            <h3 class="cset-card__title">This class</h3>
+            <p class="cset-card__sub">Tools this class uses.</p>
+          </div>
+        </div>
+        <ul class="cset-list">
+          <% _cs.classSwitches.forEach((item) => { const _id = 'cset-' + item.key.replace(/\W/g, '-'); %>
+          <li class="cset-row" data-cs-row>
+            <div class="cset-row__text">
+              <label class="cset-row__label" for="<%= _id %>"><%= item.label %></label>
+              <p class="cset-row__help" id="<%= _id %>-help"><%= item.help %></p>
+            </div>
+            <div class="cset-row__side">
+              <p class="cset-msg" data-cs-msg role="status" aria-live="polite"></p>
+              <span class="cset-switch">
+                <input type="checkbox" role="switch" id="<%= _id %>" data-cs-key="<%= item.key %>" aria-describedby="<%= _id %>-help" <%= item.on ? 'checked' : '' %> />
+                <span class="cset-switch__track" aria-hidden="true"></span>
+              </span>
+            </div>
+          </li>
+          <% }) %>
+        </ul>
+      </div>
+      <% } %>
+
+      <div class="cset-card">
+        <div class="cset-card__head">
+          <div>
+            <h3 class="cset-card__title">Share with</h3>
+            <p class="cset-card__sub">Tick who sees each of these about the students of this class: their parents, the students themselves, or both.</p>
+          </div>
+        </div>
+        <ul class="cset-list">
+          <% _cs.share.forEach((item) => { const _id = 'cset-share-' + item.key; %>
+          <li class="cset-row cset-row--share" data-cs-row>
+            <div class="cset-row__text">
+              <span class="cset-row__label" id="<%= _id %>"><%= item.label %></span>
+              <p class="cset-row__help" id="<%= _id %>-help"><%= item.help %></p>
+            </div>
+            <div class="cset-row__side">
+              <p class="cset-msg" data-cs-msg role="status" aria-live="polite"></p>
+              <div class="cset-ticks" role="group" aria-labelledby="<%= _id %>" aria-describedby="<%= _id %>-help">
+                <% item.boxes.forEach((box) => { %>
+                <label class="cset-tick">
+                  <input type="checkbox" data-cs-key="<%= box.key %>" aria-label="Share <%= item.label.toLowerCase() %> with <%= box.label.toLowerCase() %>" <%= box.on ? 'checked' : '' %> />
+                  <span><%= box.label %></span>
+                </label>
+                <% }) %>
+              </div>
+            </div>
+          </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
+    <%- include('classSettingsCalendar', { calendar: _cs.calendar, fromHub: false }) %>
+  </div>
+  <script src="<%= assetUrl('/js/classSettings.js') %>" defer></script>
+</section>

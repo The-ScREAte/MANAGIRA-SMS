@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <title><%= title %></title>
+    <style>
+      :root {
+        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+        --primary: var(--org-primary-color, #01535b);
+        --primary-hover: var(--org-primary-hover, #013a40);
+        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
+      }
+
+      .ctrl-btn {
+        width: auto;
+        margin: 0;
+        padding: 8px 14px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.2;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        white-space: nowrap;
+        text-decoration: none;
+      }
+
+      .ctrl-btn svg { flex: 0 0 auto; }
+
+      .ctrl-btn-print {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      .ctrl-btn-back {
+        background: #fff;
+        color: #334155;
+        border-color: #e2e8f0;
+      }
+
+      .ctrl-btn-email {
+        background: color-mix(in srgb, var(--primary) 10%, white);
+        color: var(--primary);
+        border-color: color-mix(in srgb, var(--primary) 22%, white);
+      }
+
+      /* Top controls bar */
+      .transcript-controls {
+        max-width: 900px;
+        margin: 0 auto 24px;
+        padding: 12px 14px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      }
+
+      /* Header */
+      .t-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding-bottom: 18px;
+        margin-bottom: 22px;
+        border-bottom: 2px solid var(--primary);
+      }
+
+      .t-brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .t-header .t-logo {
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .t-header .t-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .t-header .t-heading {
+        text-align: left;
+      }
+
+      .t-header h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.2;
+        color: var(--primary);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+
+      .t-header .t-subtitle {
+        margin: 6px 0 0;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+      }
+
+      .t-header .t-contact {
+        flex-shrink: 0;
+        max-width: 260px;
+        text-align: right;
+        font-size: 11.5px;
+        color: #475569;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 640px) {
+        .t-header { flex-direction: column; align-items: flex-start; }
+        .t-header .t-contact { text-align: left; max-width: none; }
+      }
+
+      /* ===== TRANSCRIPT DOCUMENT ===== */
+      .transcript {
+        max-width: 900px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 0;
+        border-radius: 0;
+        border: none;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Decorative top border */
+      .transcript-border-top {
+        height: 6px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-hover), var(--primary));
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Watermark - Logo (using actual img element for PDF reliability) */
+      .transcript-watermark-logo {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 400px;
+        height: 400px;
+        object-fit: contain;
+        opacity: 0.10;
+        z-index: 0;
+        pointer-events: none;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Watermark - UNOFFICIAL TEXT (Multiple Small) */
+      <% if (!official) { %>
+      .transcript::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 120px,
+          rgba(225, 29, 72, 0.06) 120px,
+          rgba(225, 29, 72, 0.06) 121px
+        );
+        z-index: 1;
+        pointer-events: none;
+      }
+      
+      .transcript-watermark {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      
+      .watermark-text {
+        position: absolute;
+        font-size: 18px;
+        font-weight: 700;
+        color: rgba(225, 29, 72, 0.08);
+        transform: rotate(-45deg);
+        white-space: nowrap;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      <% } %>
+
+      .transcript-content {
+        position: relative;
+        z-index: 2;
+        padding: 28px 36px;
+      }
+
+      /* Student Info */
+      .t-student-info {
+        margin-bottom: 20px;
+        padding: 14px 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        border-left: 3px solid var(--primary);
+      }
+
+      .t-student-info h2 {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .t-student-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 20px;
+      }
+
+      .t-student-grid p {
+        font-size: 11px;
+        color: #334155;
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      .t-student-grid strong {
+        color: #0f172a;
+        font-weight: 700;
+      }
+
+      /* Academic Info */
+      .t-academic h2 {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 14px;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--primary);
+      }
+
+      .t-year-section {
+        margin-bottom: 20px;
+      }
+
+      .t-year-section h3 {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        border-left: 4px solid var(--primary);
+        border-radius: 0 6px 6px 0;
+        margin-bottom: 10px;
+      }
+
+      .t-term-section {
+        margin-bottom: 20px;
+      }
+
+      .t-term-section h4 {
+        font-size: 13px;
+        font-weight: 700;
+        color: #475569;
+        padding: 6px 0 6px 14px;
+        border-left: 3px solid var(--primary);
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* Table */
+      .t-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+        font-size: 13px;
+      }
+
+      .t-table th {
+        background: var(--primary);
+        color: white;
+        padding: 10px 14px;
+        text-align: left;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .t-table th:first-child { border-radius: 6px 0 0 0; }
+      .t-table th:last-child { border-radius: 0 6px 0 0; }
+
+      .t-table td {
+        padding: 9px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+      }
+
+      .t-table tr:nth-child(even) td {
+        background: #fafbfc;
+      }
+
+      .t-table tr:last-child td {
+        border-bottom: 2px solid var(--primary);
+      }
+
+      /* Signature Section */
+      .t-signature-area {
+        margin-top: 40px;
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .t-signature-block {
+        text-align: center;
+        min-width: 220px;
+      }
+
+      .t-signature-img {
+        max-width: 170px;
+        max-height: 70px;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto -4px;
+      }
+
+      .transcript-note {
+        max-width: 900px;
+        margin: -12px auto 16px;
+        font-size: 13px;
+        color: #92400e;
+      }
+
+      .transcript-note a { color: inherit; font-weight: 600; }
+
+      .t-signature-line {
+        width: 200px;
+        border-bottom: 2px solid #1e293b;
+        margin: 0 auto 6px;
+      }
+
+      .t-signature-label {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .t-signature-name {
+        font-size: 13px;
+        color: #0f172a;
+        font-weight: 700;
+        min-height: 16px;
+      }
+
+      /* Footer */
+      .t-footer {
+        text-align: center;
+        margin-top: 36px;
+        padding-top: 16px;
+        border-top: 2px solid #e2e8f0;
+      }
+
+      .t-footer p {
+        font-size: 11px;
+        color: #94a3b8;
+        margin: 2px 0;
+      }
+
+      /* Decorative bottom border */
+      .transcript-border-bottom {
+        height: 6px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-hover), var(--primary));
+      }
+
+      /* ===== SIGNATURE TOOLS (hidden on print) ===== */
+      .sig-tools {
+        max-width: 900px;
+        margin: 24px auto 0;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      }
+
+      .sig-tools h3 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 16px;
+      }
+
+      .sig-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .sig-tab {
+        flex: 1;
+        padding: 8px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #f8fafc;
+        color: #64748b;
+        border: none;
+        transition: all 0.2s;
+      }
+
+      .sig-tab.active {
+        background: var(--primary);
+        color: white;
+      }
+
+      
+
+      .sig-panel {
+        display: none;
+      }
+
+      .sig-panel.active {
+        display: block;
+      }
+
+      /* Upload panel */
+      .sig-upload-form {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .sig-upload-form input[type="file"] {
+        font-size: 13px;
+      }
+
+      .sig-upload-btn {
+        padding: 7px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      
+
+      /* Draw panel */
+      .sig-canvas-wrapper {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 12px;
+        background: white;
+      }
+
+      .sig-canvas {
+        display: block;
+        width: 100%;
+        height: 150px;
+        cursor: crosshair;
+        touch-action: none;
+      }
+
+      .sig-canvas-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .sig-clear-btn {
+        padding: 7px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      
+
+      .sig-save-btn {
+        padding: 7px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      
+
+      .sig-status {
+        font-size: 13px;
+        color: #10b981;
+        font-weight: 600;
+        margin-top: 8px;
+        display: none;
+      }
+
+      /* ===== PRINT STYLES ===== */
+      @media print {
+        @page {
+          size: A4 portrait;
+          margin: 10mm;
+        }
+
+        body {
+          background: #fff !important;
+          padding: 0;
+          margin: 0;
+        }
+
+        /* Hide controls and tools when printing */
+        .transcript-controls { display: none !important; }
+        .transcript-note { display: none !important; }
+        #emailModal { display: none !important; }
+        
+        /* Hide page headers, footers, chatbot, navigation, etc */
+        header { display: none !important; }
+        footer { display: none !important; }
+        nav { display: none !important; }
+        .navbar { display: none !important; }
+        .sidebar { display: none !important; }
+        .chatbot { display: none !important; }
+        #chatbot { display: none !important; }
+        .chat-widget { display: none !important; }
+        .floating-button { display: none !important; }
+        [class*="chatbot"] { display: none !important; }
+        [id*="chatbot"] { display: none !important; }
+        [class*="chat-"] { display: none !important; }
+        .no-print { display: none !important; }
+
+        /* Ensure transcript shows with proper styling */
+        .transcript {
+          box-shadow: none !important;
+          border: none;
+          margin: 0 auto;
+          page-break-inside: avoid;
+        }
+
+        /* Force watermarks to show in print - uses color not background so always visible */
+        .transcript::before {
+          content: "" !important;
+          display: block !important;
+          opacity: 0.12 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        .transcript::after {
+          content: "" !important;
+          display: block !important;
+        }
+        
+        .transcript-watermark {
+          display: block !important;
+        }
+        
+        .watermark-text {
+          display: block !important;
+          color: rgba(225, 29, 72, 0.12) !important;
+          opacity: 1 !important;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
+        
+        /* Show disclaimer page in print */
+        .pdf-disclaimer-page {
+          display: block !important;
+          page-break-before: always !important;
+        }
+
+        .transcript-content {
+          padding: 20px 24px;
+        }
+
+        .t-table th {
+          background: #e2e8f0 !important;
+          color: #0f172a !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .t-year-section {
+          page-break-inside: avoid;
+        }
+
+        .t-term-section {
+          page-break-inside: avoid;
+        }
+
+        .t-footer {
+          page-break-after: avoid;
+        }
+
+        .transcript-border-top,
+        .transcript-border-bottom {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Controls -->
+    <div class="transcript-controls">
+      <button class="ctrl-btn ctrl-btn-email" type="button" onclick="openEmailModal()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+        Email
+      </button>
+      <% if (canBroadcastToGuardians) { %>
+      <button
+        class="ctrl-btn ctrl-btn-email notify-guardians-btn"
+        type="button"
+        data-context="transcript"
+        data-context-id="<%= student.student_id %>"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+        Notify guardians
+      </button>
+      <% } %>
+      <button class="ctrl-btn ctrl-btn-print" type="button" onclick="trackTranscriptPrintAndPrint()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>
+        Print
+      </button>
+    </div>
+    <% if (!signatureImageUrl) { %>
+    <p class="transcript-note">No signature is set for this class yet. Add one in <a href="/print/reportSettings" data-no-spa>Report Settings</a>.</p>
+    <% } %>
+
+    <!-- Transcript Document -->
+    <div class="transcript">
+      <div class="transcript-border-top"></div>
+      
+      <% const _schoolLogo = publicImageUrl((session && session.logo) || organization.logo || '', { public: true }); %>
+      <% if (_schoolLogo) { %>
+        <img src="<%= _schoolLogo %>" alt="" class="transcript-watermark-logo" />
+      <% } %>
+      
+      <% if (!official) { %>
+      <!-- Multiple Watermark Pattern -->
+      <div class="transcript-watermark">
+        <% for (let row = 0; row < 15; row++) { %>
+          <% for (let col = 0; col < 4; col++) { %>
+            <div class="watermark-text" style="top: <%= row * 80 - 40 %>px; left: <%= col * 300 - 50 %>px;">UNOFFICIAL</div>
+          <% } %>
+        <% } %>
+      </div>
+      <% } %>
+      
+      <div class="transcript-content">
+
+        <!-- Header -->
+        <% const _place = [organization.organization_address, organization.organization_province, organization.organization_country].filter(Boolean).join(', '); %>
+        <div class="t-header">
+          <div class="t-brand">
+            <% if (_schoolLogo) { %>
+              <div class="t-logo"><img src="<%= _schoolLogo %>" alt="School Logo" /></div>
+            <% } %>
+            <div class="t-heading">
+              <h1><%= organization.organization_name %></h1>
+              <div class="t-subtitle">Academic Transcript</div>
+            </div>
+          </div>
+          <div class="t-contact">
+            <% if (_place) { %><div><%= _place %></div><% } %>
+            <% if (organization.organization_phone) { %><div><%= organization.organization_phone %></div><% } %>
+            <% if (organization.email) { %><div><%= organization.email %></div><% } %>
+          </div>
+        </div>
+
+        <!-- Student Information -->
+        <div class="t-student-info">
+          <h2>Student Information</h2>
+          <div class="t-student-grid">
+<%
+              const _dob = student.date_of_birth ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) : '';
+              const _studentFields = [
+                ['Full Name', typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()],
+                ['Date of Birth', _dob],
+                ['Gender', student.gender],
+                ['Hometown', student.hometown],
+                ['Current Class', student.class_name],
+                ['Graduation Group', student.graduation_year_group],
+              ].filter(([, value]) => value && String(value).trim());
+            %>
+            <% _studentFields.forEach(([label, value]) => { %>
+            <p><strong><%= label %>:</strong> <%= value %></p>
+            <% }) %>
+          </div>
+        </div>
+
+        <!-- Academic Records -->
+        <div class="t-academic">
+          <h2>Academic Records</h2>
+
+          <% 
+            const termSections = [];
+            scores.forEach((score) => {
+              const termKey = `${score.year_label}__${score.term_name}__${score.start_date || ''}__${score.end_date || ''}`;
+              let section = termSections.find((entry) => entry.key === termKey);
+              if (!section) {
+                section = {
+                  key: termKey,
+                  yearLabel: score.year_label,
+                  termName: score.term_name,
+                  startDate: score.start_date,
+                  endDate: score.end_date,
+                  rows: [],
+                };
+                termSections.push(section);
+              }
+              section.rows.push(score);
+            });
+
+            const formatTermDate = (value) => {
+              if (!value) return null;
+              const parsed = new Date(value);
+              return Number.isNaN(parsed.getTime())
+                ? null
+                : (typeof formatDisplayDate === 'function' ? formatDisplayDate(parsed) : parsed.toLocaleDateString());
+            };
+          %>
+
+          <%
+            // Final grades from before Managira (data migration), grouped by year and term.
+            const _history = (typeof history !== 'undefined' && Array.isArray(history)) ? history : [];
+            const _historySections = [];
+            _history.forEach((row) => {
+              const key = `${row.school_year || ''}__${row.term || ''}`;
+              let section = _historySections.find((entry) => entry.key === key);
+              if (!section) { section = { key, year: row.school_year, term: row.term, school: row.school_name, rows: [] }; _historySections.push(section); }
+              section.rows.push(row);
+            });
+            const _num = (v) => (v === null || v === undefined || v === '' ? '' : Number(v));
+          %>
+          <% if (_historySections.length) { %>
+            <% _historySections.forEach(section => { %>
+              <div class="t-year-section">
+                <h3><%= section.term || 'Final grades' %></h3>
+                <p style="margin:0 0 10px;color:#64748b;font-size:13px;line-height:1.5;">
+                  <strong style="color:#0f172a;"><%= section.year || 'Earlier records' %></strong><% if (section.school) { %>&nbsp;|&nbsp;<%= section.school %><% } %>
+                </p>
+                <div class="t-term-section">
+                  <table class="t-table">
+                    <thead><tr><th>Course</th><th>Percentage (%)</th><th>Grade</th><th>Credits</th></tr></thead>
+                    <tbody>
+                      <% section.rows.forEach(row => { %>
+                        <tr><td><%= row.course_name %></td><td><%= _num(row.percent) %></td><td><%= row.grade || '' %></td><td><%= _num(row.credits_earned) %></td></tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            <% }); %>
+            <% if (typeof historyTotals !== 'undefined' && historyTotals) { %>
+              <p style="margin:0 0 18px;color:#0f172a;font-size:13px;">Credits earned: <strong><%= historyTotals.credits %></strong></p>
+            <% } %>
+          <% } %>
+
+          <% if (!termSections.length && !_historySections.length) { %>
+            <p style="margin:0;color:#64748b;line-height:1.6;">No ended semester records are available yet for this student. Transcript records appear after a semester has ended or is marked closed.</p>
+          <% } %>
+
+          <% termSections.forEach(section => { %>
+            <div class="t-year-section">
+              <h3><%= section.termName %></h3>
+              <p style="margin:0 0 10px;color:#64748b;font-size:13px;line-height:1.5;">
+                <strong style="color:#0f172a;"><%= section.yearLabel %></strong>
+                <% const startLabel = formatTermDate(section.startDate); %>
+                <% const endLabel = formatTermDate(section.endDate); %>
+                <% if (startLabel || endLabel) { %>
+                  <span>&nbsp;|&nbsp;<%= [startLabel, endLabel].filter(Boolean).join(' - ') %></span>
+                <% } %>
+              </p>
+              <div class="t-term-section">
+                <table class="t-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Percentage (%)</th>
+                      <th>Grade</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% section.rows.forEach(score => { %>
+                      <tr>
+                        <td><%= score.subject_name %></td>
+                        <td><%= score.total_percentage %></td>
+                        <td><%= score.grade %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+                <% if (typeof gpaSummary !== 'undefined' && gpaSummary && gpaSummary.terms[section.key]) { const _tg = gpaSummary.terms[section.key]; %>
+                  <p style="margin:6px 0 0;color:#0f172a;font-size:13px;">Term GPA: <strong><%= _tg.unweighted === null ? '—' : Number(_tg.unweighted).toFixed(2) %></strong><% if (_tg.weighted !== null) { %>&nbsp;|&nbsp;weighted <strong><%= Number(_tg.weighted).toFixed(2) %></strong><% } %></p>
+                <% } %>
+              </div>
+            </div>
+          <% }); %>
+          <% if (typeof gpaSummary !== 'undefined' && gpaSummary && gpaSummary.all.unweighted !== null) { %>
+            <p style="margin:4px 0 6px;color:#0f172a;font-size:14px;">GPA at <%= organization && organization.organization_name ? organization.organization_name : 'this school' %> (4.0 scale): <strong><%= Number(gpaSummary.all.unweighted).toFixed(2) %></strong><% if (gpaSummary.all.weighted !== null) { %>&nbsp;|&nbsp;weighted <strong><%= Number(gpaSummary.all.weighted).toFixed(2) %></strong><% } %></p>
+          <% } %>
+          <% if (typeof sourceGpa !== 'undefined' && sourceGpa) { %>
+            <p style="margin:4px 0 18px;color:#0f172a;font-size:14px;">Cumulative GPA from previous records<%= sourceGpa.asOf ? ' (' + sourceGpa.asOf + ')' : '' %>:
+              <% if (sourceGpa.weighted !== null) { %>weighted <strong><%= sourceGpa.weighted %></strong><% } %>
+              <% if (sourceGpa.weighted !== null && sourceGpa.unweighted !== null) { %>&nbsp;|&nbsp;<% } %>
+              <% if (sourceGpa.unweighted !== null) { %>unweighted <strong><%= sourceGpa.unweighted %></strong><% } %>
+              <% if (sourceGpa.weighted === null && sourceGpa.unweighted === null && sourceGpa.gpa !== null) { %><strong><%= sourceGpa.gpa %></strong><% } %>
+            </p>
+          <% } %>
+        </div>
+
+        <!-- Signature -->
+        <div class="t-signature-area">
+          <div class="t-signature-block">
+            <% if (signatureImageUrl) { %>
+              <img src="<%= publicImageUrl(signatureImageUrl) %>" alt="Signature" class="t-signature-img" />
+            <% } %>
+            <div class="t-signature-line"></div>
+            <div class="t-signature-name"><%= signatureName || "" %></div>
+            <div class="t-signature-label"><%= signatureTitle || "Authorized signature" %></div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="t-footer">
+          <% const _issued = typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString(); %>
+          <% if (official) { %>
+          <p>Official transcript, issued by email on <%= _issued %>.</p>
+          <% } else { %>
+          <p>Unofficial copy, <%= _issued %>. Official transcripts are sent by the school by email.</p>
+          <% } %>
+          <p>This document is the property of <%= organization.organization_name %>.</p>
+        </div>
+
+      </div>
+      <div class="transcript-border-bottom"></div>
+    </div>
+
+    <!-- Email Step 1: Enter Email -->
+    <div id="emailStepModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
+      <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">Email Transcript</h3>
+        <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">Enter the email address where you'd like to send this official transcript.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Recipient Email Address</label>
+          <input type="email" id="emailTarget" placeholder="guardian@example.com" style="width:100%;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;" value="<%= student.guardian_email || '' %>" />
+          <p style="font-size:11px;color:#64748b;margin-top:6px;margin-bottom:0;">Default: <%= student.guardian_email || 'No guardian email on file' %></p>
+        </div>
+        <div id="emailStepStatus" style="font-size:12px;color:#e11d48;margin-bottom:12px;min-height:18px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="closeEmailStepModal()">Cancel</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="proceedToPasswordStep()">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email Step 2: Confirm Password -->
+    <div id="passwordConfirmModal" style="display:none;position:fixed;inset:0;z-index:2001;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
+      <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">Confirm Your Password</h3>
+        <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">For security, please confirm your password to send the transcript.</p>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Your Password</label>
+          <input type="password" id="emailPassword" placeholder="Enter your password" style="width:100%;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;" />
+        </div>
+        <div id="passwordStatus" style="font-size:12px;color:#64748b;margin-bottom:12px;min-height:18px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="backToEmailStep()">Back</button>
+          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="sendTranscriptEmail()">Send Email</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let emailRecipient = '';
+
+      function trackTranscriptPrintAndPrint() {
+        try {
+          fetch('/print/logDeliveryEvent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            keepalive: true,
+            body: JSON.stringify({
+              eventDomain: 'transcript',
+              eventName: 'transcript_printed',
+              classId: <%= student.class_id || 'null' %>,
+              studentId: <%= student.student_id %>,
+              status: 'printed',
+              notes: 'Transcript printed from transcript page.',
+            })
+          }).catch(() => {});
+        } catch (_) {
+          // Do not block printing if event logging fails.
+        }
+
+        window.print();
+      }
+      
+      function openEmailModal(){
+        document.getElementById('emailStepStatus').textContent = '';
+        document.getElementById('emailTarget').value = '<%= student.guardian_email || "" %>';
+        document.getElementById('emailStepModal').style.display = 'flex';
+      }
+      
+      function closeEmailStepModal(){ 
+        document.getElementById('emailStepModal').style.display = 'none'; 
+      }
+      
+      function proceedToPasswordStep(){
+        const emailInput = document.getElementById('emailTarget').value.trim();
+        const statusEl = document.getElementById('emailStepStatus');
+        
+        if(!emailInput || !emailInput.includes('@')){
+          statusEl.textContent = 'Please enter a valid email address.';
+          return;
+        }
+        
+        emailRecipient = emailInput;
+        document.getElementById('emailStepModal').style.display = 'none';
+        document.getElementById('emailPassword').value = '';
+        document.getElementById('passwordStatus').textContent = '';
+        document.getElementById('passwordConfirmModal').style.display = 'flex';
+      }
+      
+      function backToEmailStep(){
+        document.getElementById('passwordConfirmModal').style.display = 'none';
+        document.getElementById('emailStepModal').style.display = 'flex';
+      }
+      
+      async function sendTranscriptEmail(){
+        const statusEl = document.getElementById('passwordStatus');
+        const password = document.getElementById('emailPassword').value;
+        
+        if(!password){
+          statusEl.style.color = '#e11d48';
+          statusEl.textContent = 'Please enter your password.';
+          return;
+        }
+        
+        statusEl.style.color = '#0ea5e9';
+        statusEl.textContent = 'Sending email...';
+        
+        try {
+          const res = await fetch('/transcript/emailTranscript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ 
+              studentId: '<%= student.student_id %>', 
+              targetEmail: emailRecipient, 
+              password 
+            })
+          });
+          const data = await res.json();
+          if(!data.success){ throw new Error(data.message || 'Failed to send email'); }
+          
+          statusEl.style.color = '#10b981';
+          statusEl.textContent = '✓ Email sent successfully!';
+          setTimeout(() => {
+            document.getElementById('passwordConfirmModal').style.display = 'none';
+          }, 1200);
+        } catch(err){
+          statusEl.style.color = '#e11d48';
+          statusEl.textContent = err.message;
+        }
+      }
+
+      // ===== Tab Switching =====
+      function switchSigTab(tab) {
+        document.querySelectorAll('.sig-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.sig-panel').forEach(p => p.classList.remove('active'));
+
+        if (tab === 'upload') {
+          document.querySelectorAll('.sig-tab')[0].classList.add('active');
+          document.getElementById('sigUploadPanel').classList.add('active');
+        } else {
+          document.querySelectorAll('.sig-tab')[1].classList.add('active');
+          document.getElementById('sigDrawPanel').classList.add('active');
+          initCanvas();
+        }
+      }
+
+      // ===== Canvas Signature Pad =====
+      let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0, canvasInitialized = false;
+
+      function initCanvas() {
+        if (canvasInitialized) return;
+        canvas = document.getElementById('signatureCanvas');
+        ctx = canvas.getContext('2d');
+        
+        // Set actual canvas size (not CSS size)
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * 2;
+        canvas.height = rect.height * 2;
+        ctx.scale(2, 2);
+        
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+          isDrawing = true;
+          const pos = getPos(e);
+          lastX = pos.x;
+          lastY = pos.y;
+        });
+        canvas.addEventListener('mousemove', (e) => {
+          if (!isDrawing) return;
+          const pos = getPos(e);
+          drawLine(lastX, lastY, pos.x, pos.y);
+          lastX = pos.x;
+          lastY = pos.y;
+        });
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          isDrawing = true;
+          const pos = getTouchPos(e);
+          lastX = pos.x;
+          lastY = pos.y;
+        }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => {
+          e.preventDefault();
+          if (!isDrawing) return;
+          const pos = getTouchPos(e);
+          drawLine(lastX, lastY, pos.x, pos.y);
+          lastX = pos.x;
+          lastY = pos.y;
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => isDrawing = false);
+
+        canvasInitialized = true;
+      }
+
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      }
+
+      function getTouchPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+      }
+
+      function drawLine(x1, y1, x2, y2) {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+
+      function clearCanvas() {
+        if (!canvas) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function isCanvasBlank() {
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] !== 0) return false;
+        }
+        return true;
+      }
+
+      async function saveDigitalSignature() {
+        if (!canvas || isCanvasBlank()) {
+          alert('Please draw your signature first.');
+          return;
+        }
+
+        const statusEl = document.getElementById('sigStatus');
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#64748b';
+        statusEl.textContent = 'Saving signature...';
+
+        try {
+          const dataURL = canvas.toDataURL('image/png');
+          const response = await fetch('/transcript/saveDigitalSignature', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signatureData: dataURL })
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            statusEl.style.color = '#10b981';
+            statusEl.textContent = '✅ Signature saved successfully!';
+            setTimeout(() => window.location.reload(), 1200);
+          } else {
+            statusEl.style.color = '#ef4444';
+            statusEl.textContent = '❌ ' + (result.error || 'Failed to save signature.');
+          }
+        } catch (err) {
+          statusEl.style.color = '#ef4444';
+          statusEl.textContent = '❌ Error saving signature. Please try again.';
+        }
+      }
+    </script>
+
+    <!-- Disclaimer Page (Shows in print mode and PDF exports, hidden in browser view) -->
+    <% const showDisclaimer = (typeof official !== 'undefined' && official && req.query.pdf === 'true') || req.query.print === 'true'; %>
+    <% if (showDisclaimer || true) { %>
+    <div class="pdf-disclaimer-page" style="page-break-before: always; padding: 25px 30px; font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.4; color: #1e293b; position: relative; display: none;">      
+      <% if (!official) { %>
+      <!-- Watermark for disclaimer page -->
+      <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; pointer-events: none; overflow: hidden;">
+        <% for (let row = 0; row < 15; row++) { %>
+          <% for (let col = 0; col < 4; col++) { %>
+            <div style="position: absolute; font-size: 16px; font-weight: 700; color: rgba(225, 29, 72, 0.12); transform: rotate(-45deg); white-space: nowrap; letter-spacing: 1px; text-transform: uppercase; top: <%= row * 6.5 %>%; left: <%= col * 25 %>%;">UNOFFICIAL</div>
+          <% } %>
+        <% } %>
+      </div>
+      <% } %>
+      <div style="position: relative; z-index: 2;">
+        
+        <h1 style="color: var(--primary, #0f5a66); text-align: center; margin: 0 0 18px 0; font-size: 20px; border-bottom: 2px solid var(--primary, #0f5a66); padding-bottom: 10px;">
+          OFFICIAL ACADEMIC TRANSCRIPT - IMPORTANT INFORMATION
+        </h1>
+        
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">What is an Official Transcript:</strong> This is a comprehensive record of a student's academic performance throughout their enrollment period, containing complete course history, grades, assessment records across all academic terms, cumulative performance data, and official institutional verification. This document is issued for official purposes only including academic applications, employment verification, professional certification, and legal/immigration requirements.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Proper Usage:</strong> This transcript must be handled with appropriate care and used only for legitimate purposes such as submission to educational institutions for admission, transfer or scholarship purposes; providing proof of academic qualifications to employers or licensing boards; supporting applications for professional certifications; and meeting documentation requirements for legal proceedings or immigration applications.
+        </p>
+
+        <p style="margin: 10px 0; color: #dc2626; font-size: 11px; line-height: 1.5; font-weight: 600;">
+          <strong style="color: #dc2626;">⚠️ PROHIBITED USES:</strong> Recipients are expressly PROHIBITED from: (1) Any modification, editing, or tampering with this document; (2) Presenting this document as belonging to another individual; (3) Sharing, copying, or distributing without proper authorization; (4) Creating counterfeit copies or falsified versions. Violation may result in criminal prosecution under fraud and forgery statutes, civil liability for damages, permanent revocation of student privileges, and reporting to relevant authorities.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Document Authenticity:</strong> This transcript has been issued through Managira's secure academic records management system with digital authentication, authorized signatures from institutional representatives, official institutional seal/logo, and clear date of issue. For verification inquiries, contact the issuing institution directly through official channels. Institutions may verify authenticity by cross-referencing student information and date of issue with internal records.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Recipient Responsibilities:</strong> By receiving this transcript, you agree to: maintain confidentiality and security; use only for intended legitimate purposes; report suspected fraud or misuse immediately; comply with all applicable privacy laws and data protection regulations; not reproduce or distribute without authorization; securely dispose when no longer needed.
+        </p>
+
+        <p style="margin: 10px 0; color: #1e293b; font-size: 11px; line-height: 1.5;">
+          <strong style="color: var(--primary, #0f5a66);">Privacy & Data Protection:</strong> This document contains personally identifiable student information protected under applicable privacy regulations including educational privacy laws, data protection acts, and all relevant international and local data protection regulations. Recipients must store securely to prevent unauthorized access, limit access to personnel with legitimate need-to-know, implement safeguards against data breaches, and report security incidents immediately.
+        </p>
+
+        <p style="margin: 14px 0 10px 0; padding: 10px; background: #fef2f2; color: #dc2626; font-size: 10px; line-height: 1.4; text-align: center; font-weight: 600; border: 1px solid #dc2626;">
+          ⚖️ LEGAL DISCLAIMER: This document is protected by copyright and educational privacy laws. Unauthorized use, reproduction, alteration, or distribution is strictly prohibited and may result in legal action. The issuing institution reserves all rights to this document and the information contained herein.
+        </p>
+
+        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--primary, #0f5a66); text-align: center;">
+          <p style="color: var(--primary, #0f5a66); font-size: 10px; margin: 4px 0;">
+            <strong>Generated By:</strong> Managira Academic Records Management System | <strong>Date:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString()) %>
+          </p>
+          <p style="color: #64748b; font-size: 9px; margin: 4px 0; font-style: italic;">
+            For questions or verification, contact the issuing institution directly.
+          </p>
+        </div>
+
+      </div>
+    </div>
+    <% } %>
+
+    <script src="<%= assetUrl('/js/guardianBroadcast.js') %>"></script>
+    <script>
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.notify-guardians-btn');
+        if (!btn) return;
+        e.preventDefault();
+        openGuardianBroadcast({
+          context: btn.dataset.context || 'transcript',
+          contextId: btn.dataset.contextId || '',
+        });
+      });
+    </script>
+  </body>
+</html>
