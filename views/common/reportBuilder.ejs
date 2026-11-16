@@ -11,6 +11,7 @@
     userEmail: typeof userEmail !== "undefined" ? userEmail : "",
     school: typeof school !== "undefined" ? school : {},
     pageSizes: pageSizes || [25, 50, 100],
+    stateReporting: typeof stateReporting !== "undefined" && stateReporting === true,
   };
   const hourLabel = (hour) => `${hour % 12 || 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
 %>
@@ -186,6 +187,7 @@
           <button class="rb-btn rb-btn-light" type="button" data-open-modal="download" data-icon="download">Export</button>
           <button class="rb-btn rb-btn-light" type="button" data-open-modal="share" data-icon="share" hidden>Share</button>
           <button class="rb-btn rb-btn-light" type="button" data-open-modal="schedule" data-icon="clock" hidden>Schedule</button>
+          <button class="rb-btn rb-btn-light" type="button" data-state-file hidden>Gov/state report</button>
         </div>
         <p class="rb-status" id="rb-save-status" role="status" aria-live="polite"></p>
       </div>
@@ -316,4 +318,8 @@
   window.reportBuilderData = <%- JSON.stringify(reportBuilderData).replace(/</g, '\\u003c') %>;
 </script>
 <script src="<%= assetUrl('/js/reportBuilder.js') %>" defer></script>
+<% if (reportBuilderData.stateReporting) { %>
+<link rel="stylesheet" href="<%= assetUrl('/css/stateFile.css') %>">
+<script src="<%= assetUrl('/js/stateFile.js') %>" defer></script>
+<% } %>
 </main>

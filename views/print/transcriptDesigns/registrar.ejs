@@ -1,0 +1,232 @@
+<%# Registrar: a college registrar's record. The school and the document across the top, the student in a
+    ruled box, the terms flowing in two columns (each course with its grade, credits attempted and earned
+    and quality points, and under every term its totals and the cumulative totals to date), transcript
+    statistics, the signature and an end-of-transcript line. Data: `t` (views/print/transcript.ejs). %>
+<%
+  const cr = t.usesCredits; // with course credits: Attempted and Earned columns; without: the percentage
+  const span = cr ? 2 : 3;
+  const dash = (v) => (v === null || v === undefined || v === '' ? '—' : v);
+  const previousGpa = t.previous ? (t.previous.unweighted !== null && t.previous.unweighted !== undefined ? t.previous.unweighted : (t.previous.gpa !== null && t.previous.gpa !== undefined ? t.previous.gpa : t.previous.weighted)) : null;
+  const showWeighted = Boolean(t.totals && t.totals.weighted);
+  const count = (v) => (v === null || v === undefined || v === '' ? '—' : String(Number(v))); // a number of courses: 6, not 6.00
+  const earlierHasCredits = t.earlier.some((section) => section.rows.some((row) => row.attempted !== '' || row.earned !== ''));
+%>
+<style>
+  .td.transcript::after, .td.transcript::before { display: none !important; content: none !important; }
+  .td-registrar { --accent: var(--primary, #01535b); --ink: #111827; --soft: #6b7280; --line: #111827; --hair: #d1d5db; --band: #f3f4f6; position: relative; max-width: 8.5in; margin: 0 auto 32px; padding: 0.45in 0.5in 0.4in; background: #fff; color: var(--ink); font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10.5px; line-height: 1.4; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12); overflow: hidden; }
+  .td-registrar * { box-sizing: border-box; }
+  .td-registrar .td-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+  .td-registrar .td-watermark span { transform: rotate(-30deg); font-size: 96px; font-weight: 800; letter-spacing: 0.14em; color: rgba(17, 24, 39, 0.045); white-space: nowrap; }
+  .td-registrar .tr-body { position: relative; z-index: 1; }
+
+  /* The school and the document */
+  .td-registrar .tr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--line); }
+  .td-registrar .tr-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .td-registrar .tr-logo { flex: none; width: 46px; height: 46px; object-fit: contain; }
+  .td-registrar .tr-school { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.15; }
+  .td-registrar .tr-contact { margin-top: 3px; font-size: 9.5px; color: var(--soft); }
+  .td-registrar .tr-doc { flex: none; text-align: right; }
+  .td-registrar .tr-doc__title { font-size: 13px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; }
+  .td-registrar .tr-doc__kind { margin-top: 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  .td-registrar .tr-doc__date { font-size: 9.5px; color: var(--soft); }
+
+  /* The student */
+  .td-registrar .tr-student { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 16px; margin: 12px 0 14px; padding: 9px 12px; border: 1px solid var(--hair); border-left: 3px solid var(--accent); }
+  .td-registrar .tr-field span { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); }
+  .td-registrar .tr-field b { display: block; font-size: 11px; overflow-wrap: anywhere; }
+
+  /* The record: terms flowing in two columns */
+  .td-registrar .tr-section { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 10px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; }
+  .td-registrar .tr-section::before, .td-registrar .tr-section::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .td-registrar .tr-cols { column-count: 2; column-gap: 0.3in; column-rule: 0.5px solid var(--hair); }
+  .td-registrar .tr-group { margin: 0 0 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); break-after: avoid; }
+  .td-registrar .tr-term { break-inside: avoid; page-break-inside: avoid; margin: 0 0 12px; }
+  .td-registrar .tr-term__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 4px 6px; background: var(--band); border-top: 1px solid var(--line); }
+  .td-registrar .tr-term__head b { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .td-registrar .tr-term__head span { font-size: 9px; color: var(--soft); white-space: nowrap; }
+  .td-registrar table { width: 100%; border-collapse: collapse; }
+  .td-registrar th { padding: 3px 6px; border-bottom: 0.5px solid var(--line); font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--soft); text-align: right; }
+  .td-registrar th:first-child { text-align: left; }
+  .td-registrar td { padding: 2.5px 6px; font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
+  .td-registrar td:first-child { text-align: left; font-variant-numeric: normal; }
+  .td-registrar td.grade, .td-registrar th.grade { text-align: center; font-weight: 700; width: 40px; }
+  .td-registrar th.grade { font-weight: 700; }
+  .td-registrar .num { width: 46px; }
+  .td-registrar tbody tr:nth-child(even) td { background: #fafafa; }
+  .td-registrar tfoot td { padding: 2.5px 6px; font-size: 9.5px; border-top: 0.5px solid var(--hair); }
+  .td-registrar tfoot tr:first-child td { border-top: 0.5px solid var(--line); }
+  .td-registrar tfoot tr:last-child td { border-bottom: 1px solid var(--line); }
+  .td-registrar tfoot .tr-k { color: var(--soft); }
+  .td-registrar tfoot .tr-k b { color: var(--ink); margin-left: 4px; }
+  .td-registrar tfoot .tr-k em { font-style: normal; margin-left: 6px; }
+  .td-registrar .tr-empty { margin: 8px 0; color: var(--soft); text-align: center; }
+
+  /* Transcript statistics, signature, end */
+  .td-registrar .tr-close { break-inside: avoid; page-break-inside: avoid; margin-top: 4px; }
+  .td-registrar .tr-stats { margin: 0 0 10px; }
+  .td-registrar .tr-stats th, .td-registrar .tr-stats td { padding: 4px 8px; }
+  .td-registrar .tr-stats th { white-space: nowrap; }
+  .td-registrar .tr-stats thead th { border-top: 1px solid var(--line); background: var(--band); }
+  .td-registrar .tr-stats tbody td { border-bottom: 0.5px solid var(--hair); font-size: 10.5px; }
+  .td-registrar .tr-stats tbody tr:last-child td { border-bottom: 1px solid var(--line); }
+  .td-registrar .tr-stats td:first-child { font-weight: 700; }
+  .td-registrar .tr-stats .gpa { font-weight: 800; color: var(--accent); }
+  .td-registrar .tr-stats td small { display: block; font-weight: 400; font-size: 8.5px; color: var(--soft); }
+  .td-registrar .tr-key { margin: 0 0 10px; font-size: 9px; color: var(--soft); line-height: 1.5; }
+  .td-registrar .tr-key b { color: var(--ink); }
+  .td-registrar .tr-sign { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px; margin-top: 14px; }
+  .td-registrar .tr-note { font-size: 9px; color: var(--soft); line-height: 1.5; }
+  .td-registrar .tr-note p { margin: 1px 0; }
+  .td-registrar .tr-signature { min-width: 210px; text-align: center; }
+  .td-registrar .tr-signature img { display: block; max-width: 180px; max-height: 54px; margin: 0 auto -2px; object-fit: contain; }
+  .td-registrar .tr-signature__line { border-top: 1px solid var(--line); padding-top: 3px; font-weight: 700; font-size: 10.5px; }
+  .td-registrar .tr-signature__title { font-size: 9px; color: var(--soft); }
+  .td-registrar .tr-end { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 8.5px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: var(--soft); }
+  .td-registrar .tr-end::before, .td-registrar .tr-end::after { content: ""; flex: 1; border-top: 0.5px dashed var(--hair); }
+
+  @media screen and (max-width: 760px) {
+    .td-registrar { padding: 22px 16px; }
+    .td-registrar .tr-head { flex-direction: column; align-items: flex-start; }
+    .td-registrar .tr-doc { text-align: left; }
+    .td-registrar .tr-student { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .td-registrar .tr-cols { column-count: 1; }
+    .td-registrar .tr-stats { display: block; overflow-x: auto; }
+    .td-registrar .tr-sign { grid-template-columns: 1fr; }
+  }
+  @media print {
+    @page { margin: 0.4in; }
+    .td-registrar { max-width: none; margin: 0; padding: 0; box-shadow: none; }
+    .td-registrar .td-watermark { position: fixed; }
+    .td-registrar .tr-key { display: none; } /* the full key is on the page after the record */
+    .td-registrar, .td-registrar * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+<div class="transcript td td-registrar">
+  <% if (!t.official) { %><div class="td-watermark" aria-hidden="true"><span>UNOFFICIAL</span></div><% } %>
+  <div class="tr-body">
+    <div class="tr-head" role="banner">
+      <div class="tr-brand">
+        <% if (t.logo) { %><img class="tr-logo" src="<%= t.logo %>" alt="<%= t.schoolName %> logo"><% } %>
+        <div>
+          <div class="tr-school"><%= t.schoolName %></div>
+          <div class="tr-contact"><%= [t.address, t.phone, t.email].filter(Boolean).join('  ·  ') %></div>
+        </div>
+      </div>
+      <div class="tr-doc">
+        <div class="tr-doc__title">Academic Transcript</div>
+        <div class="tr-doc__kind"><%= t.official ? 'Official' : 'Unofficial copy' %></div>
+        <div class="tr-doc__date"><%= t.official ? 'Issued' : 'Printed' %> <%= t.issued %></div>
+      </div>
+    </div>
+
+    <section class="tr-student" aria-label="Student">
+      <% t.fields.forEach(([label, value]) => { %><div class="tr-field"><span><%= label %></span><b><%= value %></b></div><% }) %>
+    </section>
+
+    <div class="tr-section">Academic record</div>
+    <% if (!t.years.length && !t.earlier.length) { %>
+      <p class="tr-empty">No completed terms yet. Records appear here once a term has ended.</p>
+    <% } %>
+
+    <div class="tr-cols">
+      <% if (t.earlier.length) { %>
+        <div class="tr-group">Previous records</div>
+        <% t.earlier.forEach((section) => { %>
+          <div class="tr-term">
+            <div class="tr-term__head"><b><%= section.term %></b><span><%= [section.year, section.school].filter(Boolean).join(' · ') %></span></div>
+            <table>
+              <thead><tr><th>Course</th><% if (!earlierHasCredits) { %><th class="num">%</th><% } %><th class="grade">Grade</th><% if (earlierHasCredits) { %><th class="num">Att.</th><th class="num">Earned</th><% } %><th class="num">Points</th></tr></thead>
+              <tbody>
+                <% section.rows.forEach((row) => { %>
+                  <tr><td><%= row.subject %></td><% if (!earlierHasCredits) { %><td><%= row.percent %></td><% } %><td class="grade"><%= row.grade %></td><% if (earlierHasCredits) { %><td><%= row.attempted %></td><td><%= row.earned %></td><% } %><td><%= row.points %></td></tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% }) %>
+      <% } %>
+
+      <% t.years.forEach((year) => { %>
+        <% year.terms.forEach((term) => { %>
+          <div class="tr-term">
+            <div class="tr-term__head"><b><%= term.name %> · <%= year.label %></b><span><%= term.dates %></span></div>
+            <table>
+              <thead><tr><th>Course</th><% if (!cr) { %><th class="num">%</th><% } %><th class="grade">Grade</th><% if (cr) { %><th class="num">Att.</th><th class="num">Earned</th><% } %><th class="num">Points</th></tr></thead>
+              <tbody>
+                <% term.rows.forEach((row) => { %>
+                  <tr><td><%= row.subject %></td><% if (!cr) { %><td><%= row.percent %></td><% } %><td class="grade"><%= row.grade %></td><% if (cr) { %><td><%= row.attempted %></td><td><%= row.earned %></td><% } %><td><%= row.points %></td></tr>
+                <% }) %>
+              </tbody>
+              <% if (term.sum) { %>
+                <tfoot>
+                  <% [['Term', term.sum], ['Cumulative', term.cumulativeSum]].forEach(([label, g]) => { if (!g) return; %>
+                    <tr>
+                      <td colspan="<%= span %>" class="tr-k"><%= label %> GPA<b><%= dash(g.gpa) %></b><% if (g.weighted) { %><em>W <b><%= g.weighted %></b></em><% } %></td>
+                      <% if (cr) { %><td><%= g.attempted %></td><td><%= g.earned %></td><% } %>
+                      <td><%= dash(g.points) %></td>
+                    </tr>
+                  <% }) %>
+                </tfoot>
+              <% } %>
+            </table>
+          </div>
+        <% }) %>
+      <% }) %>
+    </div>
+
+    <%# Statistics, key, signature and the end line stay together on paper: a signature never sits alone. %>
+    <div class="tr-close">
+      <% if (t.totals || t.previous || t.previousCredits) { %>
+        <div class="tr-section">Transcript statistics</div>
+        <table class="tr-stats">
+          <thead>
+            <tr>
+              <th></th>
+              <% if (cr) { %><th class="num">Attempted</th><th class="num">Earned</th><% } else { %><th class="num">Courses</th><% } %>
+              <th class="num"><%= cr ? 'GPA credits' : 'GPA courses' %></th>
+              <th class="num">Points</th>
+              <th class="num">GPA</th>
+              <% if (showWeighted) { %><th class="num">Weighted</th><% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (t.totals) { %>
+              <tr>
+                <td><%= t.schoolName %><small><%= t.termCount - t.earlier.length %> term<%= t.termCount - t.earlier.length === 1 ? '' : 's' %> completed</small></td>
+                <% if (cr) { %><td><%= t.totals.attempted %></td><td><%= t.totals.earned %></td><% } else { %><td><%= count(t.totals.attempted) %></td><% } %>
+                <td><%= cr ? t.totals.gpaCredits : count(t.totals.gpaCredits) %></td>
+                <td><%= dash(t.totals.points) %></td>
+                <td class="gpa"><%= dash(t.totals.gpa) %></td>
+                <% if (showWeighted) { %><td class="gpa"><%= dash(t.totals.weighted) %></td><% } %>
+              </tr>
+            <% } %>
+            <% if (t.previous || t.previousCredits) { %>
+              <tr>
+                <td>Previous records<small>As received<%= t.previous && t.previous.asOf ? ', ' + t.previous.asOf : '' %><%= !cr && t.previousCredits ? '; ' + t.previousCredits.earned + ' credits earned' : '' %>; not part of this school's GPA</small></td>
+                <% if (cr) { %><td><%= dash(t.previousCredits && t.previousCredits.attempted) %></td><td><%= dash(t.previousCredits && t.previousCredits.earned) %></td><% } else { %><td>—</td><% } %>
+                <td>—</td>
+                <td>—</td>
+                <td class="gpa"><%= dash(previousGpa) %></td>
+                <% if (showWeighted) { %><td class="gpa"><%= dash(t.previous && t.previous.weighted) %></td><% } %>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      <% } %>
+      <% if (t.key) { %><p class="tr-key"><b>Grading key</b> · 4.0 scale: <%= t.key.scale %>. <%= t.key.weighted %> <%= t.key.method %><%= cr ? ' Att. = credits attempted; Earned = credits earned; Points = quality points.' : ' Points = grade points.' %></p><% } %>
+
+      <div class="tr-sign">
+        <div class="tr-note" role="contentinfo">
+          <p><%= t.official ? 'This official transcript was issued by email on ' + t.issued + '.' : 'Unofficial copy. Official transcripts are sent by the school by email.' %></p>
+          <p>This document is the property of <%= t.schoolName %> and is released only with the consent of the student or guardian.</p>
+        </div>
+        <div class="tr-signature">
+          <% if (t.signature.image) { %><img src="<%= t.signature.image %>" alt="Signature"><% } %>
+          <div class="tr-signature__line"><%= t.signature.name || ' ' %></div>
+          <div class="tr-signature__title"><%= t.signature.title %></div>
+        </div>
+      </div>
+      <div class="tr-end">End of transcript</div>
+    </div>
+  </div>
+</div>

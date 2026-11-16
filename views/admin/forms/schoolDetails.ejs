@@ -1,9 +1,9 @@
 <%# Admin › Organizations › a single school: who runs it, its plan, user licenses, the documents
     it sent when it signed up, and putting it on hold or deleting it. %>
 <% const _d = (v) => v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-   // The school's sign-up documents: a web address as it is, a stored file through its public link.
-   const _docHref = (url) => (/^https?:\/\//i.test(url) ? url : (typeof publicImageUrl === 'function' ? publicImageUrl(url) : url));
-   const _docs = [org.proof_of_existence_1, org.proof_of_existence_2].filter((url) => url && !/^\s*javascript:/i.test(url)); %>
+   // The school's sign-up documents open through Managira, which hands out a short-lived link
+   // (storage is private). Each keeps its number (1 or 2) for its address.
+   const _docs = [org.proof_of_existence_1, org.proof_of_existence_2].map((url, i) => ({ url, n: i + 1 })).filter((d) => d.url && !/^\s*javascript:/i.test(d.url)); %>
 <div data-ahd-title="<%= org.organization_name || '(No name)' %>" data-ahd-sub="<%= org.nickname ? `${org.nickname}.managira.com` : '' %>">
   <section class="ahd-section">
     <dl class="ah-dl">
@@ -17,7 +17,7 @@
     </dl>
     <% if (_docs.length) { %>
       <div class="ah-row-actions" style="justify-content:flex-start;margin-top:12px">
-        <% _docs.forEach((url, i) => { %><a class="ah-btn ah-btn--sm" href="<%= _docHref(url) %>" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file" aria-hidden="true"></i> Document <%= i + 1 %></a><% }) %>
+        <% _docs.forEach((doc) => { %><a class="ah-btn ah-btn--sm" href="/admin/organizations/<%= org.organization_id %>/documents/<%= doc.n %>" target="_blank" rel="noopener noreferrer" data-no-spa><i class="fa-solid fa-file" aria-hidden="true"></i> Document <%= doc.n %></a><% }) %>
       </div>
     <% } %>
   </section>

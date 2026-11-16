@@ -161,7 +161,8 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
               WHEN ar.total_percentage >= 90 THEN 'A'
               WHEN ar.total_percentage >= 80 THEN 'B'
               WHEN ar.total_percentage >= 70 THEN 'C'
-              ELSE 'D'
+              WHEN ar.total_percentage >= 60 THEN 'D'
+              ELSE 'F'
             END
           ) AS grade,
           a.weight

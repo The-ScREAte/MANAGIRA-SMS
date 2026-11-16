@@ -755,6 +755,14 @@ body[data-page="publicDashboard"] .sw-site--academy { margin-top: 0; }
 
 /* Academy has its own menu with the school's name: the site header keeps only sign-in. */
 body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName { visibility: hidden; }
+/* Phones: the name sits in the header like every other design, so Academy's menu is one row of sections and Apply. */
+@media (max-width: 768px) {
+  body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName { visibility: visible; }
+  .sw-site--academy .sw-ac-nav .sw-ac-brand { display: none !important; }
+  .sw-site--academy .sw-ac-nav .sw-ac-nav__in { flex-wrap: nowrap !important; align-items: center; gap: 8px !important; min-height: 52px !important; padding-block: 6px !important; }
+  .sw-site--academy .sw-ac-nav .sw-ac-nav__links { order: 1 !important; flex: 1 1 auto !important; flex-basis: auto !important; min-width: 0; margin-inline: calc(var(--sw-gutter, 16px) * -1) 0 !important; padding: 0 12px 0 var(--sw-gutter, 16px) !important; justify-content: flex-start; }
+  .sw-site--academy .sw-ac-nav .sw-ac-nav__cta { order: 2 !important; flex: none; }
+}
 @media (max-width: 860px) {
   .sw-ac-nav__in { flex-wrap: wrap; justify-content: space-between; min-height: 58px; padding-top: 8px; gap: 8px 12px; }
   .sw-ac-nav__links { order: 3; flex-basis: 100%; justify-content: flex-start; margin-inline: -8px; padding-bottom: 6px; }
@@ -830,3 +838,24 @@ body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName {
 .sw-site--mascot .sw-band--tint { --sw-pattern-strength: .06; }
 .sw-site--mascot .sw-band--facts .sw-fact__value { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 900; }
 @media (max-width: 760px) { .sw-site--mascot .sw-emblem-mark--panel { width: 70%; right: -10%; bottom: -10%; } }
+
+/* A long school name: the big title steps down so it sits in two or three tidy, balanced lines
+   instead of crowding the page (the name is long above 28 characters, very long above 46). */
+.sw-site[data-sw-name] :is(.sw-ac-hero__title, .sw-intro__title, .sw-hero__title, .sw-masthead__title, .sw-spot-hero__title, .sw-min-head__title, .sw-mosaic__title, .sw-gl-title, .sw-pr-title, .sw-pa-title) {
+  line-height: 1.12 !important;
+  letter-spacing: -.01em !important;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  max-width: 100% !important;
+}
+.sw-site[data-sw-name="long"] :is(.sw-ac-hero__title, .sw-intro__title, .sw-hero__title, .sw-masthead__title, .sw-spot-hero__title, .sw-min-head__title, .sw-mosaic__title, .sw-gl-title, .sw-pr-title, .sw-pa-title) {
+  font-size: clamp(1.7rem, 5.2vw, 2.9rem) !important;
+}
+.sw-site[data-sw-name="xlong"] :is(.sw-ac-hero__title, .sw-intro__title, .sw-hero__title, .sw-masthead__title, .sw-spot-hero__title, .sw-min-head__title, .sw-mosaic__title, .sw-gl-title, .sw-pr-title, .sw-pa-title) {
+  font-size: clamp(1.4rem, 4.2vw, 2.2rem) !important;
+}
+.sw-site[data-sw-name] .sw-masthead__title { margin: 14px 0 4px !important; }
+
+/* A hidden gallery photo (past the first ones, until "See more") stays hidden: the grid's display would otherwise show it. */
+.sw-site .sw-gallery__item[hidden] { display: none !important; }

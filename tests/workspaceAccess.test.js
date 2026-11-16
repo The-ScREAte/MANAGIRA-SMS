@@ -159,6 +159,15 @@ test("plan features decide the menus, whatever permissions someone holds", () =>
   assert.ok(all.management.guardians && all.management.assessments && all.management.website && all.management.paygira);
 });
 
+test("Management › Class settings needs Every Class and the class_settings feature", () => {
+  const menu = (permissions, released) => workspaceAccess({ permissions, role: "Teacher", featureOn: (key) => released && key === "class_settings" }).management;
+  assert.equal(menu(["class_settings", "class_settings_all"], true).classSettings, true);
+  assert.equal(menu(["class_settings", "class_settings_all"], true).any, true);
+  assert.equal(menu(["class_settings"], true).classSettings, false, "own classes only: the classroom, not Management");
+  assert.equal(menu(["class_settings", "class_settings_all"], false).classSettings, false, "not released to the school");
+  assert.equal(workspaceAccess({ permissions: ["class_settings_all"], role: "Teacher" }).management.classSettings, false, "no feature check given: hidden");
+});
+
 test("an empty plan hides plan-tied permissions; only an unreadable plan shows them", () => {
   const empty = permissionOptionsFor({ allowedFeatures: [] }).map((option) => option.key);
   ["manage_students", "manage_reports", "manage_paygira", "manage_assessments", "mark_attendance", "generate_transcripts", "settings_website", "see_contacts"].forEach((key) => assert.ok(!empty.includes(key), key));

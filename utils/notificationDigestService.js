@@ -680,12 +680,15 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
   const guardianMap = await resolveGuardianLinks(database, organizationId);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
   const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
+  // No alert about a child whose class keeps attendance from parents (Class settings).
+  const parentsSee = await require("./classSettings").parentsSeeFor(database, organizationId, studentIds);
 
   let sent = 0;
   for (const row of result.rows) {
     const studentId = Number(row.student_id);
     const info = studentBasics.get(studentId);
     if (!info) continue;
+    if (parentsSee.has(studentId) && parentsSee.get(studentId).attendance === false) continue;
 
     const recipients = [];
     for (const guardian of guardianMap.values()) {
@@ -833,6 +836,8 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
   const { organizationName } = await getOrganizationSummary(database, organizationId);
   const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
   const goodThreshold = toNumber(policy.good_score_threshold, 60);
+  // A child whose class keeps attendance from parents (Class settings) shows none in the digest.
+  const parentsSee = await require("./classSettings").parentsSeeFor(database, organizationId, studentIds);
 
   let sent = 0;
   for (const guardian of guardianMap.values()) {
@@ -840,6 +845,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     for (const sid of guardian.studentIds) {
       const basic = studentBasics.get(sid);
       if (!basic) continue;
+      const attendanceHidden = parentsSee.has(sid) && parentsSee.get(sid).attendance === false;
       const attendance = attendanceMap.get(sid) || {};
       const marksCount = toNumber(attendance.marksCount, 0);
 
@@ -851,7 +857,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
         firstName: basic.firstName,
         name: `${basic.firstName} ${basic.lastName}`.trim(),
         className: basic.className,
-        attendance: attendanceInWords({
+        attendance: attendanceHidden ? null : attendanceInWords({
           marksCount,
           presentCount: toNumber(attendance.presentCount, 0),
           absentCount: toNumber(attendance.absentCount, 0),
@@ -868,6 +874,9 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     // Nothing happened for this guardian's children this week: no email at all.
     if (!children.length) continue;
 
+    // A child whose class keeps attendance from parents and has no grades yet has nothing to say.
+    children.splice(0, children.length, ...children.filter((child) => child.attendance || child.grades));
+    if (!children.length) continue;
     children.sort((a, b) => a.name.localeCompare(b.name));
 
     // One short summary per child: attendance this week, and how grades are going this term.
@@ -875,7 +884,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       escapeHtml(child.name),
       child.className ? escapeHtml(child.className) : "",
       [
-        `Attendance: ${escapeHtml(child.attendance)}`,
+        child.attendance ? `Attendance: ${escapeHtml(child.attendance)}` : "",
         child.grades ? `Grades this term: ${escapeHtml(child.grades)}` : "",
       ]
     ));
@@ -891,7 +900,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
         cards.join(""),
       ],
       preheader: children
-        .map((child) => `${child.firstName}: ${child.attendance}${child.grades ? `; grades this term: ${child.grades}` : ""}.`)
+        .map((child) => `${child.firstName}: ${[child.attendance, child.grades ? `grades this term: ${child.grades}` : ""].filter(Boolean).join("; ") || "this week at school"}.`)
         .join(" "),
       schoolName: organizationName,
       organizationId,

@@ -38,6 +38,8 @@ const { requireHuman } = require('../utils/humanCheck');
 router.post('/help', requireHuman('help', { back: '/legal/help#contact-result', perHour: 10 }), legalController.postHelp);
 router.get('/privacy-policy', legalController.privacyPolicy);
 router.get('/terms-of-service', legalController.termsOfService);
+router.get('/security', legalController.securityPolicy);
+router.get('/subprocessors', legalController.subprocessors);
 // Backward-compatible aliases used by older links and external references.
 router.get('/privacy', legalController.privacyPolicy);
 router.get('/terms', legalController.termsOfService);

@@ -43,6 +43,10 @@ module.exports = [
         note: "Unticking a permission really removes it, even if their role would normally include it.",
       },
       {
+        title: "Require an authenticator app for one person",
+        text: "On someone's Edit user page, a manager can tick <strong>Require an authenticator app at sign-in</strong>. When they next sign in with a password, Managira takes them to Settings, Two-step sign-in to set up the app, and asks for its code from then on. To require it for everyone in a role, use <strong>Settings</strong>, <strong>Tenant configuration</strong>. See <a href=\"/legal/user-documentation/two-step-sign-in\">Two-step sign-in with an authenticator app</a>.",
+      },
+      {
         title: "When someone leaves",
         list: [
           "<strong>Put on hold</strong> to pause their sign-in while keeping everything they did (for example, during leave).",
@@ -54,11 +58,11 @@ module.exports = [
     ],
     faq: [
       ["A teacher can't see their class.", "Check the class is assigned to them in Users / Employees, and that the class is enrolled in the current term."],
-      ["A teacher can't mark attendance.", "Attendance is marked by the class's main teacher. Tick Main teacher beside the class on their record in Users / Employees, and check they have the Mark Attendance permission."],
+      ["A teacher can't mark attendance.", "Attendance is marked by the class's main teacher and assistant teachers. Tick Main teacher (or Assistant) beside the class on their record in Users / Employees, and check they have the Mark Attendance permission."],
       ["Can someone have two roles?", "Each person has one role. Add the permissions of the other job to their account instead."],
       ["The invitation email didn't arrive.", "Check their email address for typos, ask them to look in spam, and send it again from their page."],
     ],
-    related: ["roles-and-permissions", "single-sign-on", "driver-app"],
+    related: ["roles-and-permissions", "single-sign-on", "two-step-sign-in", "driver-app"],
   },
   {
     slug: "roles-and-permissions",
@@ -76,7 +80,7 @@ module.exports = [
           ["Role", "Typically does"],
           ["<strong>Manager</strong>", "Runs the school: settings, staff, every workspace. Only managers can change other managers, single sign-on and sign-in rules."],
           ["<strong>Supervisor</strong>", "Oversees classes and staff: students, reports and day-to-day administration, as permitted."],
-          ["<strong>Teacher</strong>", "Their own classes: attendance, assessments and scores, activities, the Pickup list and class bus reports."],
+          ["<strong>Teacher</strong>", "Their own classes: attendance, assessments and scores, activities, the Pickup list, class bus reports and the settings of the classes they lead."],
           ["<strong>Driver</strong>", "The driver app: their bus runs, boarding and reports. Leads can also manage other drivers."],
         ],
       },
@@ -85,7 +89,7 @@ module.exports = [
         table: [
           ["Group", "Permissions"],
           ["People", "Users / Employees (with Add Staff, Edit Staff &amp; Access, Hold &amp; Remove Staff), Manage Students (with Add, Edit and Delete Students, Enrollment, Graduates &amp; Alumni), Manage Guardians, See Contacts, Edit Contact Template"],
-          ["Academics", "Manage Classes &amp; Subjects, Manage Assessments &amp; Scores (with Set Assessment Questions), Assess Other School Years, Mark Attendance, Manage School Records, Manage School Years &amp; Terms"],
+          ["Academics", "Manage Classes &amp; Subjects, Manage Assessments &amp; Scores (with Set Assessment Questions), Assess Other School Years, Mark Attendance, Class Settings (with Every Class), Manage School Records, Manage School Years &amp; Terms"],
           ["Admissions &amp; Promotions", "Approve Admissions, Approve Promotions, Manage Promotions"],
           ["Reports", "Manage Reports/Printing (with Terminal Reports, Report Builder, Report Settings), Generate Transcripts"],
           ["Communication", "Publish Events &amp; Announcements (with Announcements, Events), Mailroom, Use Mira (AI Assistant)"],
@@ -99,8 +103,12 @@ module.exports = [
         note: "Some permissions are follow-ups of a main one (for example <em>Add Staff</em> under <em>Users / Employees</em>). A follow-up only counts while its main permission is held.",
       },
       {
+        title: "Permissions for class settings",
+        text: "If your school has Class settings, <strong>Class Settings</strong> lets someone turn class features on and off and choose what parents and students see, for the classes they lead as main or assistant teacher; teachers have it by default. Its follow-up <strong>Every Class</strong> adds every class's settings, from Management, Class settings; managers have it. Without Class Settings, the page isn't shown. The school calendar is changed in Settings, with <strong>Manage Organization Settings</strong> and <strong>School Profile &amp; Branding</strong>. See <a href=\"/legal/user-documentation/class-settings\">Class settings</a>.",
+      },
+      {
         title: "High-risk permissions",
-        text: "These can change many records or money at once, and are left out of new staff defaults: <strong>Users / Employees</strong>, <strong>Edit Staff &amp; Access</strong>, <strong>Hold &amp; Remove Staff</strong>, <strong>Delete Students</strong>, <strong>Manage School Years &amp; Terms</strong>, <strong>Approve Promotions</strong>, <strong>Manage Billing</strong>, <strong>Manage Organization Settings</strong> and <strong>Single Sign-On</strong>.",
+        text: "These can change many records or money at once, and are left out of new staff defaults: <strong>Users / Employees</strong>, <strong>Edit Staff &amp; Access</strong>, <strong>Hold &amp; Remove Staff</strong>, <strong>Delete Students</strong>, <strong>Every Class</strong>, <strong>Manage School Years &amp; Terms</strong>, <strong>Approve Promotions</strong>, <strong>Manage Billing</strong>, <strong>Manage Organization Settings</strong> and <strong>Single Sign-On</strong>.",
       },
       {
         title: "Mira follows the same rules",
@@ -168,12 +176,13 @@ module.exports = [
           ["", "Main teacher", "Assistant teacher", "Subject teacher"],
           ["Every subject of the class", "Yes", "Yes", "Only theirs"],
           ["Take the class's attendance", "Yes", "Yes", "No"],
+          ["Change the class's Class settings", "Yes", "Yes", "No"],
           ["Students' pages", "Every subject", "Every subject", "Their subjects"],
           ["The class's lessons on their calendar", "Yes", "Yes", "Their subjects"],
           ["Edit the class schedule", "Yes", "No", "No"],
           ["In charge of the class", "Yes", "No", "No"],
         ],
-        tip: "What anyone can do still depends on their permissions too: an assistant takes attendance only if they hold Mark Attendance.",
+        tip: "What anyone can do still depends on their permissions too: an assistant takes attendance only if they hold Mark Attendance, and changes Class settings only with Class Settings.",
       },
     ],
     related: ["create-and-manage-employee-accounts-and-permissions", "your-access", "mark-attendance-for-a-class"],

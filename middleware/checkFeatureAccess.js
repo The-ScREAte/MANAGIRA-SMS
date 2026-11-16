@@ -101,9 +101,14 @@ const checkFeatureAccess = async (req, res, next) => {
     return Array.from(candidates);
   })();
 
+  // A school id from the address is only ever a whole number ("?organizationId=abc" is no school,
+  // not a database error).
+  const queryOrganizationId = /^\d{1,9}$/.test(String(req.query.organizationId || '')) && Number(req.query.organizationId) > 0
+    ? Number(req.query.organizationId)
+    : null;
   const organizationId =
     req.session?.organizationId ||
-    req.query.organizationId ||
+    queryOrganizationId ||
     req.schoolDetails?.organization_id;
 
   // Support both normal users and super admin org switch

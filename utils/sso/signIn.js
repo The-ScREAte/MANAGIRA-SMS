@@ -62,6 +62,8 @@ function schoolSession(req, school) {
   req.session.signedInWith = "sso";
   // The provider decides how long people stay signed in there; here it lasts the browser session.
   req.session.keepSignedIn = false;
+  // Gone when the browser closes, like an unticked Keep me logged in (a shared lab computer).
+  req.session.cookie.expires = false;
   // The school's provider checked who this is: no emailed code is needed.
   req.session.verifiedBy = "sso";
   req.session.lastActivity = Date.now();
@@ -127,6 +129,9 @@ async function signIn(db, req, connection, account) {
   }
 
   const { user } = account;
+  // A school's single sign-on opens only a school role (as the password sign-in does): never one
+  // of Managira's own (Admin, Mini Admin, Internal Worker), which open every school's admin pages.
+  if (!require("../staffChangeGuard").isSchoolRole(user.account_type)) throw new SignInRefused("This account can't sign in here. Ask your school's manager.");
   if (user.removed_at) throw new SignInRefused("Your school removed this account. Ask your school to enable it again.");
   if (user.on_hold) throw new SignInRefused("Your account is on hold. Ask your school to take it off hold.");
   const isManager = String(user.account_type || "").trim().toLowerCase() === "manager";

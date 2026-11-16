@@ -5,6 +5,7 @@
 //   <div data-cf-fill data-base="/driver/forms"></div>                        (driver portal)
 //   data-only="12" shows that one form; data-skip-tiles leaves out forms with a place of their own
 //   CustomFormsFill.mount(el, { base, sections, selected })                    (the editor)
+//   CustomFormsFill.openStudent({ base, section, studentId, termId, onChange }) (one student's form)
 // Each one loads only when it is first shown, so the page around it stays fast.
 (function () {
   'use strict';
@@ -318,151 +319,19 @@
       if (input && q) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
     }
 
-    // ── One student ───────────────────────────────────────────────────────────────────
-    var drawer = null;
-    function closeDrawer() {
-      if (!drawer) return;
-      drawer.el.remove();
-      drawer.back.remove();
-      document.removeEventListener('keydown', drawer.onKey);
-      drawer = null;
-    }
-    function openStudent(studentId) {
-      var s = state.section;
-      closeDrawer();
-      var back = document.createElement('div');
-      back.className = 'cf-drawer__backdrop';
-      var el = document.createElement('aside');
-      el.className = 'cf-drawer cf';
-      el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-modal', 'true');
-      el.innerHTML = '<div class="cf-drawer__head"><span class="cf-iconbox">' + icon(s.icon) + '</span><div style="flex:1;min-width:0"><h2></h2><p></p></div><button type="button" class="cf-btn cf-btn--sm cf-btn--ghost" data-close aria-label="Close">' + icon('close', 16) + '</button></div>'
-        + '<div class="cf-drawer__body"><div class="cf-blank">Loading…</div></div><div class="cf-drawer__foot" hidden></div>';
-      el.querySelector('h2').textContent = s.name;
-      // Under the app header (where the page has one), never over it.
-      var header = document.getElementById('top-header');
-      if (header) { back.style.top = header.offsetHeight + 'px'; el.style.top = header.offsetHeight + 'px'; }
-      document.body.appendChild(back);
-      document.body.appendChild(el);
-      var onKey = function (e) { if (e.key === 'Escape') closeDrawer(); };
-      document.addEventListener('keydown', onKey);
-      back.addEventListener('click', closeDrawer);
-      el.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeDrawer(); });
-      drawer = { el: el, back: back, onKey: onKey, studentId: studentId };
-      api(withTerm(base + '/' + s.id + '/student/' + studentId)).then(function (res) {
-        if (!drawer || drawer.studentId !== studentId) return;
-        drawer.data = res;
-        el.querySelector('.cf-drawer__head p').textContent = res.student.name + (res.student.className ? ' · ' + res.student.className : '');
-        drawStudent();
-      }).catch(function (err) { el.querySelector('.cf-drawer__body').innerHTML = '<div class="cf-blank">' + esc(err.message) + '</div>'; });
-    }
-    function entryCard(en, canEdit) {
-      var kind = en.savedByType === 'parent' ? ' (parent)' : en.savedByType === 'student' ? ' (student)' : en.savedByType === 'driver' ? ' (driver)' : '';
-      return '<div class="cf-entry"><div class="cf-entry__head"><strong>' + esc(when(en.updatedAt || en.createdAt)) + '</strong><span>' + esc((en.savedBy || '') + kind) + '</span><span class="cf-spacer"></span>'
-        + (canEdit ? '<button type="button" class="cf-btn cf-btn--sm" data-edit="' + en.id + '">Edit</button><button type="button" class="cf-btn cf-btn--sm cf-btn--ghost cf-btn--danger" data-delete="' + en.id + '" aria-label="Delete entry">' + icon('trash', 14) + '</button>' : '')
-        + '</div><div class="cf-entry__body" data-view="' + en.id + '"></div></div>';
-    }
-    function drawStudent() {
-      var s = state.section;
-      var d = drawer.data;
-      var body = drawer.el.querySelector('.cf-drawer__body');
-      var foot = drawer.el.querySelector('.cf-drawer__foot');
-      foot.hidden = true;
-      foot.innerHTML = '';
-      body.onclick = null;
-      var entries = d.entries;
-      var editable = d.canEdit && !d.locked;
-      if (!s.multiple) {
-        var entry = entries[0];
-        // A family's form that hasn't come in: staff can enter one handed in on paper.
-        if (!entry && d.paper) {
-          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong>' + (s.filledBy === 'parent' ? 'The family hasn’t sent it.' : 'The student hasn’t sent it.')
-            + '<br><button type="button" class="cf-btn" data-paper style="margin-top:14px">Received on paper? Fill it in</button></div>';
-          body.onclick = function (e) { if (e.target.closest('[data-paper]')) editEntry(null); };
-          return;
-        }
-        if (editable) return editEntry(entry || null);
-        if (!entry) {
-          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong>Nobody has filled it in.</div>';
-          return;
-        }
-        body.innerHTML = (d.locked ? '<div class="cf-note" style="margin:0 0 12px">' + icon('lock', 16) + '<span>Submitted. It can only be sent once.</span></div>' : '') + entryCard(entry, false);
-        R.view(body.querySelector('[data-view]'), s, entry.data);
-        return;
-      }
-      body.innerHTML = (editable ? '<button type="button" class="cf-btn cf-btn--primary" data-add style="margin-bottom:14px">' + icon('plus', 15) + 'Add entry</button>' : '')
-        + (entries.length ? entries.map(function (en) { return entryCard(en, editable); }).join('') : '<div class="cf-blank"><strong>No entries yet</strong>' + (editable ? 'Add the first one.' : '') + '</div>');
-      Array.prototype.forEach.call(body.querySelectorAll('[data-view]'), function (v) {
-        var en = entries.filter(function (x) { return String(x.id) === v.getAttribute('data-view'); })[0];
-        R.view(v, s, en.data);
-      });
-      body.onclick = function (e) {
-        if (e.target.closest('[data-add]')) return editEntry(null);
-        var ed = e.target.closest('[data-edit]');
-        if (ed) return editEntry(entries.filter(function (x) { return String(x.id) === ed.getAttribute('data-edit'); })[0]);
-        var del = e.target.closest('[data-delete]');
-        if (del && window.confirm('Delete this entry? It can’t be undone.')) {
-          api(base + '/' + s.id + '/entry/' + del.getAttribute('data-delete') + '/delete', {}).then(function () {
-            d.entries = d.entries.filter(function (x) { return String(x.id) !== del.getAttribute('data-delete'); });
-            drawStudent();
-            refreshRow();
-            toast('Deleted.');
-          }).catch(function (err) { toast(err.message, true); });
-        }
-      };
-    }
-    function editEntry(entry) {
-      var s = state.section;
-      var body = drawer.el.querySelector('.cf-drawer__body');
-      var foot = drawer.el.querySelector('.cf-drawer__foot');
-      body.onclick = null;
-      // A section collected again starts from last time's answers.
-      var start = entry ? entry.data : (!s.multiple && drawer.data.previous) || {};
-      body.innerHTML = (s.once ? '<div class="cf-note" style="margin:0 0 14px">' + icon('lock', 16) + '<span>Once it’s submitted it can’t be changed.</span></div>' : '')
-        + (!entry && !s.multiple && drawer.data.previous ? '<div class="cf-note" style="margin:0 0 14px">' + icon('info', 16) + '<span>Filled in with last time’s answers. Check them, then save.</span></div>' : '')
-        + (entry && entry.savedBy ? '<p class="cf-card__sub" style="margin:0 0 14px">Last saved ' + esc(when(entry.updatedAt)) + ' by ' + esc(entry.savedBy) + '</p>' : '') + '<div data-form></div>';
-      drawer.form = R.mount(body.querySelector('[data-form]'), s, {
-        values: start,
-        upload: function (file) {
-          var fd = new FormData();
-          fd.append('file', file);
-          return fetch(base + '/' + s.id + '/upload', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: fd })
-            .then(function (res) { return res.json().then(function (j) { if (!res.ok || !j.success) throw new Error(j.error || 'Upload failed.'); return j.file; }); });
-        }
-      });
-      foot.hidden = false;
-      foot.innerHTML = (s.multiple ? '<button type="button" class="cf-btn" data-cancel>Back</button>' : '') + '<span class="cf-spacer"></span><span data-msg style="color:var(--cf-danger);font-size:13px;font-weight:600"></span><button type="button" class="cf-btn cf-btn--primary" data-save>' + (s.once ? 'Submit' : 'Save') + '</button>';
-      foot.onclick = function (e) {
-        if (e.target.closest('[data-cancel]')) return drawStudent();
-        if (!e.target.closest('[data-save]')) return;
-        if (drawer.form.validate().length) return;
-        var btn = foot.querySelector('[data-save]');
-        btn.disabled = true;
-        btn.textContent = 'Saving…';
-        api(base + '/' + s.id + '/student/' + drawer.studentId, { entryId: entry ? entry.id : null, values: drawer.form.values(), termId: termId || undefined }).then(function (res) {
-          var list = drawer.data.entries.filter(function (x) { return !entry || x.id !== entry.id; });
-          drawer.data.entries = [Object.assign({ savedBy: 'You', savedByType: 'staff' }, res.entry)].concat(list);
-          toast(s.once ? 'Submitted.' : 'Saved.');
-          refreshRow();
-          if (s.multiple) drawStudent();
-          else closeDrawer();
-        }).catch(function (err) {
-          btn.disabled = false;
-          btn.textContent = s.once ? 'Submit' : 'Save';
-          if (err.errors) drawer.form.showErrors(err.errors);
-          foot.querySelector('[data-msg]').textContent = err.message;
-        });
-      };
-    }
-    function refreshRow() {
-      var st = state.students.filter(function (x) { return x.id === drawer.studentId; })[0];
+    // ── One student: the drawer (studentDrawer, below) ────────────────────────────────
+    // A save or a delete there updates the student's row.
+    function refreshRow(studentId, entries) {
+      var st = state.students.filter(function (x) { return x.id === studentId; })[0];
       if (!st) return;
-      st.entries = drawer.data.entries.length;
-      st.lastAt = drawer.data.entries[0] ? drawer.data.entries[0].updatedAt : null;
-      st.lastBy = drawer.data.entries[0] ? drawer.data.entries[0].savedBy : '';
-      if (state.quick.length) st.data = drawer.data.entries[0] ? drawer.data.entries[0].data : null;
+      st.entries = entries.length;
+      st.lastAt = entries[0] ? entries[0].updatedAt : null;
+      st.lastBy = entries[0] ? entries[0].savedBy : '';
+      if (state.quick.length) st.data = entries[0] ? entries[0].data : null;
       renderTable();
     }
+    var studentForm = studentDrawer({ base: base, termId: termId, section: function () { return state.section; }, onChange: refreshRow });
+    function openStudent(studentId) { studentForm.open(studentId); }
 
     if (picks) picks.addEventListener('click', function (e) {
       var b = e.target.closest('[data-section]');
@@ -530,6 +399,158 @@
     choose(sel.section && sections.some(function (s) { return s.id === sel.section; }) ? sel.section : (sections.filter(function (s) { return !s.old; })[0] || sections[0]).id, sel.student);
   }
 
+  // ── One student's form, in a drawer under the app header (never over it) ──────────────
+  //   ctx: base, termId, section() (the form; one without its fields gets them with the
+  //   student), onChange(studentId, entries) after a save or a delete.
+  // Used by the lists above and on its own (openStudent: the classroom's Students list).
+  var closeActive = null; // one drawer at a time on a page
+  function studentDrawer(ctx) {
+    var base = ctx.base || '/common/forms';
+    var termId = ctx.termId || '';
+    function withTerm(url) { return termId ? url + (url.indexOf('?') === -1 ? '?' : '&') + 'termId=' + encodeURIComponent(termId) : url; }
+    var drawer = null;
+    function refreshRow() { if (drawer && ctx.onChange) ctx.onChange(drawer.studentId, drawer.data.entries); }
+    function closeDrawer() {
+      if (!drawer) return;
+      drawer.el.remove();
+      drawer.back.remove();
+      document.removeEventListener('keydown', drawer.onKey);
+      drawer = null;
+      if (closeActive === closeDrawer) closeActive = null;
+    }
+    function openStudent(studentId) {
+      var s = ctx.section();
+      if (closeActive) closeActive();
+      closeDrawer();
+      var back = document.createElement('div');
+      back.className = 'cf-drawer__backdrop';
+      var el = document.createElement('aside');
+      el.className = 'cf-drawer cf';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.innerHTML = '<div class="cf-drawer__head"><span class="cf-iconbox">' + icon(s.icon) + '</span><div style="flex:1;min-width:0"><h2></h2><p></p></div><button type="button" class="cf-btn cf-btn--sm cf-btn--ghost" data-close aria-label="Close">' + icon('close', 16) + '</button></div>'
+        + '<div class="cf-drawer__body"><div class="cf-blank">Loading…</div></div><div class="cf-drawer__foot" hidden></div>';
+      el.querySelector('h2').textContent = s.name;
+      // Under the app header (where the page has one), never over it.
+      var header = document.getElementById('top-header');
+      if (header) { back.style.top = header.offsetHeight + 'px'; el.style.top = header.offsetHeight + 'px'; }
+      document.body.appendChild(back);
+      document.body.appendChild(el);
+      var onKey = function (e) { if (e.key === 'Escape') closeDrawer(); };
+      document.addEventListener('keydown', onKey);
+      back.addEventListener('click', closeDrawer);
+      el.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeDrawer(); });
+      drawer = { el: el, back: back, onKey: onKey, studentId: studentId, section: s };
+      closeActive = closeDrawer;
+      api(withTerm(base + '/' + s.id + '/student/' + studentId)).then(function (res) {
+        if (!drawer || drawer.studentId !== studentId) return;
+        if (res.fields && !(s.fields && s.fields.length)) s.fields = res.fields;
+        drawer.data = res;
+        el.querySelector('.cf-drawer__head p').textContent = res.student.name + (res.student.className ? ' · ' + res.student.className : '');
+        drawStudent();
+      }).catch(function (err) { el.querySelector('.cf-drawer__body').innerHTML = '<div class="cf-blank">' + esc(err.message) + '</div>'; });
+    }
+    function entryCard(en, canEdit) {
+      var kind = en.savedByType === 'parent' ? ' (parent)' : en.savedByType === 'student' ? ' (student)' : en.savedByType === 'driver' ? ' (driver)' : '';
+      return '<div class="cf-entry"><div class="cf-entry__head"><strong>' + esc(when(en.updatedAt || en.createdAt)) + '</strong><span>' + esc((en.savedBy || '') + kind) + '</span><span class="cf-spacer"></span>'
+        + (canEdit ? '<button type="button" class="cf-btn cf-btn--sm" data-edit="' + en.id + '">Edit</button><button type="button" class="cf-btn cf-btn--sm cf-btn--ghost cf-btn--danger" data-delete="' + en.id + '" aria-label="Delete entry">' + icon('trash', 14) + '</button>' : '')
+        + '</div><div class="cf-entry__body" data-view="' + en.id + '"></div></div>';
+    }
+    function drawStudent() {
+      var s = drawer.section;
+      var d = drawer.data;
+      var body = drawer.el.querySelector('.cf-drawer__body');
+      var foot = drawer.el.querySelector('.cf-drawer__foot');
+      foot.hidden = true;
+      foot.innerHTML = '';
+      body.onclick = null;
+      var entries = d.entries;
+      var editable = d.canEdit && !d.locked;
+      if (!s.multiple) {
+        var entry = entries[0];
+        // A family's form that hasn't come in: staff can enter one handed in on paper.
+        if (!entry && d.paper) {
+          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong>' + (s.filledBy === 'parent' ? 'The family hasn’t sent it.' : 'The student hasn’t sent it.')
+            + '<br><button type="button" class="cf-btn" data-paper style="margin-top:14px">Received on paper? Fill it in</button></div>';
+          body.onclick = function (e) { if (e.target.closest('[data-paper]')) editEntry(null); };
+          return;
+        }
+        if (editable) return editEntry(entry || null);
+        if (!entry) {
+          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong>Nobody has filled it in.</div>';
+          return;
+        }
+        body.innerHTML = (d.locked ? '<div class="cf-note" style="margin:0 0 12px">' + icon('lock', 16) + '<span>Submitted. It can only be sent once.</span></div>' : '') + entryCard(entry, false);
+        R.view(body.querySelector('[data-view]'), s, entry.data);
+        return;
+      }
+      body.innerHTML = (editable ? '<button type="button" class="cf-btn cf-btn--primary" data-add style="margin-bottom:14px">' + icon('plus', 15) + 'Add entry</button>' : '')
+        + (entries.length ? entries.map(function (en) { return entryCard(en, editable); }).join('') : '<div class="cf-blank"><strong>No entries yet</strong>' + (editable ? 'Add the first one.' : '') + '</div>');
+      Array.prototype.forEach.call(body.querySelectorAll('[data-view]'), function (v) {
+        var en = entries.filter(function (x) { return String(x.id) === v.getAttribute('data-view'); })[0];
+        R.view(v, s, en.data);
+      });
+      body.onclick = function (e) {
+        if (e.target.closest('[data-add]')) return editEntry(null);
+        var ed = e.target.closest('[data-edit]');
+        if (ed) return editEntry(entries.filter(function (x) { return String(x.id) === ed.getAttribute('data-edit'); })[0]);
+        var del = e.target.closest('[data-delete]');
+        if (del && window.confirm('Delete this entry? It can’t be undone.')) {
+          api(base + '/' + s.id + '/entry/' + del.getAttribute('data-delete') + '/delete', {}).then(function () {
+            d.entries = d.entries.filter(function (x) { return String(x.id) !== del.getAttribute('data-delete'); });
+            drawStudent();
+            refreshRow();
+            toast('Deleted.');
+          }).catch(function (err) { toast(err.message, true); });
+        }
+      };
+    }
+    function editEntry(entry) {
+      var s = drawer.section;
+      var body = drawer.el.querySelector('.cf-drawer__body');
+      var foot = drawer.el.querySelector('.cf-drawer__foot');
+      body.onclick = null;
+      // A section collected again starts from last time's answers.
+      var start = entry ? entry.data : (!s.multiple && drawer.data.previous) || {};
+      body.innerHTML = (s.once ? '<div class="cf-note" style="margin:0 0 14px">' + icon('lock', 16) + '<span>Once it’s submitted it can’t be changed.</span></div>' : '')
+        + (!entry && !s.multiple && drawer.data.previous ? '<div class="cf-note" style="margin:0 0 14px">' + icon('info', 16) + '<span>Filled in with last time’s answers. Check them, then save.</span></div>' : '')
+        + (entry && entry.savedBy ? '<p class="cf-card__sub" style="margin:0 0 14px">Last saved ' + esc(when(entry.updatedAt)) + ' by ' + esc(entry.savedBy) + '</p>' : '') + '<div data-form></div>';
+      drawer.form = R.mount(body.querySelector('[data-form]'), s, {
+        values: start,
+        upload: function (file) {
+          var fd = new FormData();
+          fd.append('file', file);
+          return fetch(base + '/' + s.id + '/upload', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: fd })
+            .then(function (res) { return res.json().then(function (j) { if (!res.ok || !j.success) throw new Error(j.error || 'Upload failed.'); return j.file; }); });
+        }
+      });
+      foot.hidden = false;
+      foot.innerHTML = (s.multiple ? '<button type="button" class="cf-btn" data-cancel>Back</button>' : '') + '<span class="cf-spacer"></span><span data-msg style="color:var(--cf-danger);font-size:13px;font-weight:600"></span><button type="button" class="cf-btn cf-btn--primary" data-save>' + (s.once ? 'Submit' : 'Save') + '</button>';
+      foot.onclick = function (e) {
+        if (e.target.closest('[data-cancel]')) return drawStudent();
+        if (!e.target.closest('[data-save]')) return;
+        if (drawer.form.validate().length) return;
+        var btn = foot.querySelector('[data-save]');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        api(base + '/' + s.id + '/student/' + drawer.studentId, { entryId: entry ? entry.id : null, values: drawer.form.values(), termId: termId || undefined }).then(function (res) {
+          var list = drawer.data.entries.filter(function (x) { return !entry || x.id !== entry.id; });
+          drawer.data.entries = [Object.assign({ savedBy: 'You', savedByType: 'staff' }, res.entry)].concat(list);
+          toast(s.once ? 'Submitted.' : 'Saved.');
+          refreshRow();
+          if (s.multiple) drawStudent();
+          else closeDrawer();
+        }).catch(function (err) {
+          btn.disabled = false;
+          btn.textContent = s.once ? 'Submit' : 'Save';
+          if (err.errors) drawer.form.showErrors(err.errors);
+          foot.querySelector('[data-msg]').textContent = err.message;
+        });
+      };
+    }
+    return { open: openStudent, close: closeDrawer };
+  }
+
   // The classroom tab and the driver portal: load the sections the first time it shows. Every
   // box on a page asking for the same list shares one request.
   var lists = {};
@@ -586,7 +607,15 @@
       io.observe(el);
     });
   }
-  window.CustomFormsFill = { mount: mount, show: show };
+  // One student's form by itself, in the drawer (the classroom's Students list, feature
+  // report_remarks_forms): CustomFormsFill.openStudent({ base, section, studentId, termId, onChange }).
+  function openStudentAlone(opts) {
+    var section = opts.section;
+    var form = studentDrawer({ base: opts.base, termId: opts.termId, section: function () { return section; }, onChange: opts.onChange });
+    form.open(Number(opts.studentId));
+    return form;
+  }
+  window.CustomFormsFill = { mount: mount, show: show, openStudent: openStudentAlone };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
   else watch();
 })();

@@ -1,0 +1,58 @@
+<%# /legal/security: how to report a security problem (vulnerability disclosure policy), and how Managira protects school data in brief. Linked from /.well-known/security.txt. %>
+<style>
+  .lg { max-width: 860px; margin: 0 auto; padding: 40px 20px 72px; color: #1f2937; line-height: 1.7; font-size: 16px; }
+  .lg h1 { font-size: 32px; line-height: 1.2; margin: 0 0 6px; color: #0f172a; }
+  .lg h2 { font-size: 21px; margin: 34px 0 8px; color: #0f172a; }
+  .lg p, .lg li { color: #374151; }
+  .lg .lg-updated { color: #6b7280; font-size: 14px; margin: 0 0 22px; }
+  .lg ul { padding-left: 22px; }
+  .lg li { margin: 6px 0; }
+  .lg a { color: #01535b; }
+  .lg .lg-box { margin: 18px 0; padding: 16px 18px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f9fafb; }
+  @media (max-width: 640px) { .lg { padding: 28px 16px 56px; } .lg h1 { font-size: 26px; } }
+</style>
+<main class="lg">
+  <h1>Security and vulnerability disclosure</h1>
+  <p class="lg-updated">Last updated November 15, 2026</p>
+
+  <p>Schools trust Managira with student records, so we welcome reports from anyone who finds a security weakness in our service. This page explains how to report one, what we ask of you, and what you can expect from us.</p>
+
+  <div class="lg-box">
+    <strong>Report a security problem:</strong> email <a href="mailto:security@managira.com">security@managira.com</a> with a description, the steps to reproduce it, and the address or page involved. Please do not include student or family information in your report.
+  </div>
+
+  <h2>What to include</h2>
+  <ul>
+    <li>The page, address or feature affected, and the kind of problem (for example, access to another school's records).</li>
+    <li>Step-by-step instructions to reproduce it, with screenshots or a short recording if they help.</li>
+    <li>What an attacker could do with it, as you understand it.</li>
+    <li>How we can reach you, and whether you would like to be credited once it is fixed.</li>
+  </ul>
+
+  <h2>Our commitments</h2>
+  <ul>
+    <li>We acknowledge your report within 3 business days and tell you who is handling it.</li>
+    <li>We keep you informed as we confirm and fix the problem, and tell you when it is resolved.</li>
+    <li>We fix confirmed problems as quickly as their severity requires, and notify affected schools as described in our <a href="/legal/privacy-policy">Privacy Policy</a>.</li>
+    <li>We will not take legal action against research carried out in good faith under this policy.</li>
+  </ul>
+
+  <h2>Guidelines for research</h2>
+  <ul>
+    <li>Test only with accounts you own or have permission to use, and stop as soon as you reach data that is not yours.</li>
+    <li>Do not view, change, download or delete other people's information, and do not keep any you encounter.</li>
+    <li>Do not run denial-of-service tests, send spam, or use social engineering or physical attacks against our staff, schools or families.</li>
+    <li>Do not use automated scanners in a way that degrades the service for schools.</li>
+    <li>Give us reasonable time to fix a problem before you share details publicly.</li>
+  </ul>
+  <p>Managira does not run a paid bug bounty program at this time.</p>
+
+  <h2>How we protect school data</h2>
+  <ul>
+    <li>All connections use HTTPS. Data is encrypted at rest, and nightly backups are encrypted before they are stored.</li>
+    <li>Schools give each person a role and specific permissions, checked on our servers for every request. One school can never see another school's records.</li>
+    <li>Passwords are stored only as salted hashes. Password sign-ins are confirmed with a code, by email or from an authenticator app, and schools can require an authenticator app or sign-in through their own identity provider.</li>
+    <li>Student files open only through links that expire within minutes.</li>
+    <li>Our full commitments are in the <a href="/legal/privacy-policy">Privacy Policy</a>, and the services we use are listed on the <a href="/legal/subprocessors">subprocessors</a> page.</li>
+  </ul>
+</main>

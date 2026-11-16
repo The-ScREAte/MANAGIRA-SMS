@@ -23,6 +23,13 @@ async function studentRow(db, organizationId, studentId) {
   return row ? { id: Number(row.student_id), firstName: row.first_name || "", name: [row.first_name, row.last_name].filter(Boolean).join(" "), imageUrl: row.image_url, classId: row.class_id ? Number(row.class_id) : null, className: row.class_name || "" } : null;
 }
 
+// A folder without its report card, when the class doesn't share report cards with this audience.
+function withoutReportCard(data, shown) {
+  if (!data || shown) return;
+  if (data.reportCard) data.summary.documents = Math.max(0, data.summary.documents - 1);
+  data.reportCard = null;
+}
+
 // The folder for the term asked for (or the current one), with the term list.
 async function folder(db, req, student) {
   const organizationId = orgOf(req);
@@ -73,10 +80,13 @@ async function guardianPage(req, res, db) {
     return res.redirect("/guardian/dashboard");
   }
   const { terms, term, data } = await folder(db, req, child);
+  // The class may keep report cards from parents (Class settings): then the folder has none.
+  const showReportCard = await require("../utils/classSettings").parentsSee(db, orgOf(req), child.id, "reportCards");
+  withoutReportCard(data, showReportCard);
   const q = `studentId=${child.id}`;
   res.render("guardian/childPortfolio", {
     title: `${child.firstName}'s portfolio`,
-    child, terms, term, data,
+    child, terms, term, data, showReportCard,
     links: {
       term: `/guardian/child/portfolio?${q}&termId=`,
       test: `/guardian/child/portfolio/test/{id}?${q}`,
@@ -101,11 +111,28 @@ async function studentPage(req, res, db) {
   const me = await studentRow(db, orgOf(req), Number(req.session.studentId));
   if (!me) return res.redirect("/student/dashboard");
   const { terms, term, data } = await folder(db, req, me);
+  // The class may keep report cards from its students (Class settings): then the folder has none.
+  const showReportCard = await require("../utils/classSettings").studentsSee(db, orgOf(req), me.id, "reportCards");
+  withoutReportCard(data, showReportCard);
   res.render("student/portfolio", {
     title: "My portfolio",
-    child: me, terms, term, data,
-    links: { term: "/student/portfolio?termId=", test: "/student/portfolio/test/{id}", report: data && data.reportCard && data.reportCard.url ? data.reportCard.url : null },
+    child: me, terms, term, data, showReportCard,
+    links: { term: "/student/portfolio?termId=", test: "/student/portfolio/test/{id}", report: data && data.reportCard ? `/student/portfolio/report-card/${data.reportCard.id}` : null },
   });
+}
+
+// GET /student/portfolio/report-card/:id: the student's own posted report card, while their class
+// shares report cards with students, through a link that works for a few minutes (storage is private).
+async function studentReportCard(req, res, db) {
+  if (!portfolio.featureOn(orgOf(req))) return res.redirect("/student/dashboard");
+  const studentId = Number(req.session.studentId);
+  const { rows } = await db.query(
+    "SELECT pdf_s3_key, pdf_url FROM posted_report_cards WHERE posted_report_card_id = $1 AND organization_id = $2 AND student_id = $3 LIMIT 1",
+    [toId(req.params.id), orgOf(req), studentId]
+  );
+  const shown = rows[0] && (await require("../utils/classSettings").studentsSee(db, orgOf(req), studentId, "reportCards"));
+  if (!shown) return res.status(404).send("That report card isn't available.");
+  return require("../utils/storedFiles").redirectToFile(res, rows[0].pdf_s3_key || rows[0].pdf_url);
 }
 
 async function studentTest(req, res, db) {
@@ -130,4 +157,5 @@ module.exports = {
   guardianTest: wrap(guardianTest, "/guardian/dashboard"),
   studentPage: wrap(studentPage, "/student/dashboard"),
   studentTest: wrap(studentTest, "/student/dashboard"),
+  studentReportCard: wrap(studentReportCard, "/student/portfolio"),
 };

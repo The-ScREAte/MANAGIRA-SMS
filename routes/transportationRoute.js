@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const { roadRoute } = require("../utils/roadRouting");
-const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
-const { transportationController, forgetStudentBuses, guardianStudentIds, staffIdentity } = require("../controllers/transportationController");
+const { requirePermission, PERMISSIONS, userHasPermission, sessionActor } = require("../middleware/permissionMiddleware");
+const { transportationController, forgetStudentBuses, guardianTransportStudentIds, staffIdentity } = require("../controllers/transportationController");
 const { BoundedMap } = require("../utils/boundedMap");
 const { upload } = require("../middleware/s3Upload");
 
@@ -15,6 +15,56 @@ module.exports = (db) => {
   const ownChildChecks = new BoundedMap(5000);
   const OWN_CHILD_TTL_MS = 60000;
 
+  // A parent's or student's portal must still be open: the school not on hold or deleted, and its
+  // parent (or student) portal switched on, as their own pages require. Remembered for a minute.
+  const portalChecks = new BoundedMap(2000);
+  async function portalOpen(session) {
+    const organizationId = Number(session.organizationId);
+    if (!organizationId) return false;
+    const kind = session.userRole === "Student" ? "student" : "guardian";
+    const key = `${organizationId}:${kind}`;
+    const known = portalChecks.get(key);
+    if (known && known.until > Date.now()) return known.ok;
+    const org = await db.query("SELECT deleted, on_hold FROM organizations WHERE organization_id = $1", [organizationId]);
+    let ok = Boolean(org.rows[0]) && !org.rows[0].deleted && !org.rows[0].on_hold;
+    if (ok && kind === "guardian") ok = await require("../utils/guardianPortalAccess").hasGuardianPortalFeature(db, organizationId);
+    if (ok && kind === "student") ok = Boolean((await require("../utils/studentPortal").getStudentPortalIntegrationStatus(db, organizationId)).activated);
+    portalChecks.set(key, { ok, until: Date.now() + OWN_CHILD_TTL_MS });
+    return ok;
+  }
+  const portalClosed = (res) => res.status(403).json({ success: false, message: "Your school's portal isn't open right now." });
+
+  // Staff see a student's bus details (home address, stop, pickup times) only where their work
+  // shows that student: a teacher for students of their own classes, anyone else with Manage
+  // Students or a Transportation students permission. Remembered for a minute (the map polls).
+  const staffChecks = new BoundedMap(5000);
+  async function staffSeesStudent(req, studentId) {
+    const session = req.session || {};
+    const organizationId = Number(session.organizationId);
+    const userId = Number(session.userId || (session.user && session.user.user_id)) || 0;
+    if (!organizationId || !Number.isInteger(studentId) || studentId <= 0) return false;
+    const key = `${organizationId}:${session.accountType || ""}:${userId}:${studentId}`;
+    const known = staffChecks.get(key);
+    if (known && known.until > Date.now()) return known.ok;
+    let ok = false;
+    const inSchool = await db.query("SELECT 1 FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId]);
+    if (inSchool.rowCount) {
+      const role = String(session.userRole || (session.user && session.user.account_type) || "").trim().toLowerCase();
+      if (role === "teacher") {
+        const classScope = require("../utils/classScope");
+        const mine = await classScope.assignedClasses(db, req);
+        ok = (await classScope.studentsInClasses(db, organizationId, [studentId], mine)).has(studentId);
+      } else {
+        const actor = sessionActor(req);
+        for (const permission of [PERMISSIONS.MANAGE_STUDENTS, PERMISSIONS.TRANSPORT_STUDENTS, PERMISSIONS.TRANSPORT_STUDENT_ROUTES]) {
+          if (await userHasPermission(db, actor, permission)) { ok = true; break; }
+        }
+      }
+    }
+    staffChecks.set(key, { ok, until: Date.now() + OWN_CHILD_TTL_MS });
+    return ok;
+  }
+
   // Live bus location for a single student is staff-only by default, but a
   // guardian may fetch it for their own linked child, and a student may
   // fetch it for themself — each strictly scoped, everyone else 401/403s.
@@ -25,14 +75,30 @@ module.exports = (db) => {
     if (role === "Guardian" || role === "Student") {
       const organizationId = session.organizationId;
       const studentId = Number.parseInt(req.params.studentId || req.query.studentId, 10);
+      try {
+        if (!(await portalOpen(session))) return portalClosed(res);
+      } catch (error) {
+        return res.status(500).json({ success: false, message: "Authorization check failed." });
+      }
 
       if (!organizationId || !Number.isInteger(studentId)) {
         return res.status(400).json({ success: false, message: "Student is required." });
       }
 
       if (role === "Student") {
-        if (Number(session.studentId) === studentId) return next();
-        return res.status(403).json({ success: false, message: "Forbidden." });
+        if (Number(session.studentId) !== studentId) return res.status(403).json({ success: false, message: "Forbidden." });
+        // Only while the student's class shows the bus to its students (Class settings).
+        const ownKey = `${organizationId}:student:${studentId}`;
+        if ((ownChildChecks.get(ownKey) || 0) > Date.now()) return next();
+        try {
+          if (await require("../utils/classSettings").studentsSee(db, organizationId, studentId, "transport")) {
+            ownChildChecks.set(ownKey, Date.now() + OWN_CHILD_TTL_MS);
+            return next();
+          }
+          return res.status(403).json({ success: false, message: "Forbidden." });
+        } catch (error) {
+          return res.status(500).json({ success: false, message: "Authorization check failed." });
+        }
       }
 
       const ownKey = `${organizationId}:${session.guardianId}:${studentId}`;
@@ -47,7 +113,8 @@ module.exports = (db) => {
             LIMIT 1`,
           [studentId, organizationId, session.guardianId]
         );
-        if (ownership.rows.length) {
+        // Their child, and the child's class shows the bus to parents (Class settings).
+        if (ownership.rows.length && await require("../utils/classSettings").parentsSee(db, organizationId, studentId, "transport")) {
           ownChildChecks.set(ownKey, Date.now() + OWN_CHILD_TTL_MS);
           return next();
         }
@@ -57,7 +124,15 @@ module.exports = (db) => {
       }
     }
 
-    return isAuthenticated(req, res, next);
+    return isAuthenticated(req, res, async () => {
+      try {
+        const studentId = Number.parseInt(req.params.studentId || req.query.studentId, 10);
+        if (await staffSeesStudent(req, studentId)) return next();
+        return res.status(403).json({ success: false, message: "You can only see the bus details of students your work covers." });
+      } catch (error) {
+        return res.status(500).json({ success: false, message: "Authorization check failed." });
+      }
+    });
   }
 
   // Who may ask for a bus: a parent for their own child, or staff of the school.
@@ -69,7 +144,9 @@ module.exports = (db) => {
     if (role === "Guardian") {
       if (!session.organizationId || !session.guardianId) return res.status(401).json({ success: false, message: "Please sign in." });
       try {
-        const ownIds = await guardianStudentIds(db, session);
+        if (!(await portalOpen(session))) return portalClosed(res);
+        // Only for their children whose class shows the bus to parents (Class settings).
+        const ownIds = await guardianTransportStudentIds(db, session);
         if (Number.isInteger(studentId) && !ownIds.includes(studentId)) {
           return res.status(403).json({ success: false, message: "Forbidden." });
         }
@@ -84,14 +161,27 @@ module.exports = (db) => {
         return res.status(500).json({ success: false, message: "Authorization check failed." });
       }
     }
-    return isAuthenticated(req, res, () => {
-      req.busRequester = { ...staffIdentity(session), studentId };
-      next();
+    return isAuthenticated(req, res, async () => {
+      try {
+        // A student's address and any waiting request show only to staff whose work covers them.
+        if (Number.isInteger(studentId) && !(await staffSeesStudent(req, studentId))) {
+          return res.status(403).json({ success: false, message: "You can only ask for a bus for students your work covers." });
+        }
+        req.busRequester = { ...staffIdentity(session), studentId };
+        return next();
+      } catch (error) {
+        return res.status(500).json({ success: false, message: "Authorization check failed." });
+      }
     });
   }
-  function guardianOnly(req, res, next) {
-    if (req.session && req.session.userRole === "Guardian" && req.session.guardianId) return next();
-    return res.status(403).json({ success: false, message: "Forbidden." });
+  async function guardianOnly(req, res, next) {
+    if (!(req.session && req.session.userRole === "Guardian" && req.session.guardianId)) return res.status(403).json({ success: false, message: "Forbidden." });
+    try {
+      if (!(await portalOpen(req.session))) return portalClosed(res);
+      return next();
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Authorization check failed." });
+    }
   }
 
   router.get("/requests/start", authorizeBusRequester, (req, res) => transportationController.requestStartGet(req, res, db));

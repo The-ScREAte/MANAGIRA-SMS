@@ -25,9 +25,9 @@ Nothing changes for any school until step 6.
    npm run migrate -- --only 2026-11-06_driver_reports_and_arrivals.sql
    npm run migrate -- --only 2026-11-07_shards.sql
    ```
-   Don't run plain `npm run migrate` on `us-shard-01`: it has no history, and some older files
-   were never applied there, so it would run all of them at once. New shards start with every
-   file recorded as done.
+   Every file in `database/migrations` is recorded as done on `us-shard-01` (checked file by file
+   against its structure on November 15, 2026), so plain `npm run migrate` runs only new files.
+   New shards start with every file recorded as done.
 
 2. **Secure the database login.**
    ```

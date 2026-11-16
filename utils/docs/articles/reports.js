@@ -27,8 +27,8 @@ module.exports = [
         list: [
           "The student's name, ID, class, term and position.",
           "Each subject with its scores, total, percentage, grade, position and remark.",
-          "Attendance for the term, and the dates the term began and ends, and when school reopens.",
-          "Teacher and principal comments, conduct and interest remarks, and signatures.",
+          "Attendance for the term (and overall lunch, if your school uses lunch and turns it on in Report Settings), and the dates the term began and ends, and when school reopens.",
+          "Teacher and principal comments, conduct and interest remarks, and signatures. If your school has remarks in the Custom editor, teachers write them in its <a href=\"/legal/user-documentation/custom-editor\">Report card remarks</a> form.",
           "Your school's own sections, such as skills and effort, filled in by teachers each term. Build them in the <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>.",
           "The promotion decision: <strong>Promoted To</strong> or <strong>Repeated In</strong> a class. Save it with the report; promotion uses it. See <a href=\"/legal/user-documentation/promote-students-and-manage-graduation\">Promotion</a>.",
         ],
@@ -39,6 +39,7 @@ module.exports = [
       ["A subject is missing from a report card.", "Check the student is enrolled in that subject this term, and that its assessments have scores."],
       ["The grades look wrong.", "Check the grading scale in Report Settings and the assessment weights for the term."],
       ["Can parents download report cards?", "Yes. See <a href=\"/legal/user-documentation/parent-grades-and-report-cards\">Grades and report cards</a> in the parent portal guides."],
+      ["Parents or students in one class can't see report cards.", "If your school has Class settings, check that class's <strong>Share with</strong>, <strong>Report cards</strong> boxes. A class that doesn't share report cards with parents doesn't send them the report card notice or email either. See <a href=\"/legal/user-documentation/class-settings\">Class settings</a>."],
     ],
     related: ["report-settings", "report-card-templates", "merit-sheet", "configure-dynamic-grading-and-remarks", "promote-students-and-manage-graduation", "grading-or-marking-assessment"],
   },
@@ -48,7 +49,7 @@ module.exports = [
     topic: "Reports & analytics",
     order: 2,
     summary: "Choose what report cards show: score columns, grade mapping, remarks, promotion rules, reopening date and signatures for report cards and transcripts.",
-    tags: ["report settings", "report card design", "signature", "grade mapping", "remarks", "promotion cut-off"],
+    tags: ["report settings", "report card design", "signature", "grade mapping", "remarks", "promotion cut-off", "overall lunch", "lunch on report cards"],
     who: "Managers, and staff given <strong>Report Settings</strong>.",
     sections: [
       {
@@ -58,15 +59,34 @@ module.exports = [
           "For each class, set the <strong>Promoted Class</strong>, <strong>Repeated Class</strong>, <strong>Cut-Off Point</strong> and <strong>School Reopen Date</strong>. You can apply them to several classes at once.",
           "Open <strong>Advanced</strong> to choose the score columns and which sections appear.",
           "Add your <strong>Grade Mapping</strong> (for example A = 90–100) and <strong>Score Remarks</strong> (for example Excellent = 90–100).",
-          "Add <strong>Global Remarks</strong> for teacher comments, conduct, interest and attitude.",
-          "For anything else you grade each term (effort, work habits, skills), build a section in the <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a> and tick <strong>Show on report cards</strong>. Under <strong>Advanced</strong>, <strong>Custom editor sections</strong> turns them on or off.",
+          "Add <strong>Global Remarks</strong> for teacher comments, conduct, interest and attitude. If your school has remarks in the Custom editor, there's no remarks card here: set them up with the <strong>Report card remarks</strong> form (see <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>).",
+          "For anything else you grade each term (effort, work habits, skills), build a section in the <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a> and tick <strong>Show on report cards</strong>.",
           "Add a <strong>Report Signature</strong>, and a transcript signature, and assign them to classes.",
           "Save, then preview one student's report card before rolling out.",
         ],
         tip: "Set up one class completely, check its report card, then copy the settings to the rest.",
       },
+      {
+        title: "Choose which forms print on report cards",
+        text: "Forms built in the Custom editor with <strong>Show on report cards</strong> ticked, remarks included, print for the classes they're for.",
+        steps: [
+          "In <strong>Report Settings</strong>, choose the class and open <strong>Advanced</strong>.",
+          "If your school has remarks in the Custom editor, every form that prints on report cards is listed, each with a tick, and <strong>Select all</strong>. They all print until you untick one. Otherwise, <strong>Custom editor sections</strong> turns them all on or off.",
+          "Select <strong>Save Advanced</strong>.",
+        ],
+      },
+      {
+        title: "Print overall lunch on report cards",
+        text: "If your school takes lunch on the attendance page, report cards can show each student's lunch for the term beside their attendance.",
+        steps: [
+          "In <strong>Report Settings</strong>, choose the class and term and open <strong>Advanced</strong>.",
+          "Tick <strong>Overall lunch</strong>, beside Attendance under Report Sections. It's off until you turn it on.",
+          "Select <strong>Save Advanced</strong>.",
+        ],
+        example: "The report card shows <em>Lunch: 42 of 58 days</em> beside attendance, or <em>—</em> if lunch wasn't taken that term.",
+      },
     ],
-    related: ["report-card", "report-card-templates", "configure-dynamic-grading-and-remarks", "transcript"],
+    related: ["report-card", "report-card-templates", "configure-dynamic-grading-and-remarks", "transcript", "mark-attendance-for-a-class"],
   },
   {
     slug: "report-card-templates",
@@ -155,6 +175,7 @@ module.exports = [
               ["<code>{{term.name}}</code>, <code>{{term.year}}</code>", "Term and school year."],
               ["<code>{{term.next_begins}}</code>", "When school reopens."],
               ["<code>{{attendance.present}}</code>, <code>{{attendance.total}}</code>", "Days present, and days school was open. Also <code>attendance.absent</code>."],
+              ["<code>{{attendance.lunch}}</code>", "Lunch for the term, e.g. <em>42 of 58 days</em>, when <strong>Overall lunch</strong> is on in Report Settings, Advanced. Also <code>attendance.lunch_days</code> (days with lunch) and <code>attendance.lunch_taken</code> (days lunch was taken). Listed for schools that use lunch."],
             ],
           },
           {
@@ -282,7 +303,7 @@ module.exports = [
     topic: "Reports & analytics",
     order: 5,
     summary: "Produce an official, signed transcript of a student's results across every term, for current students and graduates, and email or print it.",
-    tags: ["transcript", "official transcript", "academic record", "graduates", "signature"],
+    tags: ["transcript", "official transcript", "academic record", "graduates", "signature", "transcript design", "registrar"],
     who: "Managers, and staff given <strong>Generate Transcripts</strong>.",
     sections: [
       {
@@ -301,8 +322,24 @@ module.exports = [
         ],
         note: "A transcript printed without being sent is marked as unofficial. Send it from Managira for an official copy.",
       },
+      {
+        title: "Choose a transcript design",
+        steps: [
+          "Open <strong>Report Settings</strong> and find <strong>Transcript Design</strong>. Select <strong>Preview</strong> under any design to see it with a sample student (no real record is shown).",
+          "Choose the design and select <strong>Save design</strong>. Every transcript, including the emailed official copy, uses it.",
+        ],
+        table: [
+          ["Design", "What it looks like"],
+          ["<strong>Standard</strong>", "The original Managira transcript, with a table for each term."],
+          ["<strong>Classic</strong>", "A traditional record: serif type, the school's crest, each school year's terms side by side, a seal and the signature."],
+          ["<strong>Modern</strong>", "A header in the school's colour, a summary with the GPA at a glance, and each term in its own card."],
+          ["<strong>Compact</strong>", "The whole record on as few pages as possible, with terms in a neat grid."],
+          ["<strong>Registrar</strong>", "A college registrar's record: terms in two columns, each course's credits and quality points, term and cumulative totals under every term, and transcript statistics at the end."],
+        ],
+        note: "Every design shows each term's GPA and the cumulative GPA to date (see <a href=\"/legal/user-documentation/gpa-on-report-cards-and-transcripts\">GPA on report cards and transcripts</a>), and a printed copy ends with an About this transcript page. On a transcript, the <strong>Design</strong> menu opens it in another design to compare.",
+      },
     ],
-    related: ["report-settings", "promote-students-and-manage-graduation", "report-card"],
+    related: ["report-settings", "promote-students-and-manage-graduation", "report-card", "gpa-on-report-cards-and-transcripts"],
   },
   {
     slug: "report-builder",
@@ -310,7 +347,7 @@ module.exports = [
     topic: "Reports & analytics",
     order: 6,
     summary: "Build any report you need: students, attendance, grades, staff, fees, messages, transportation and more. Filter, choose columns, save, share, export or email.",
-    tags: ["report builder", "custom reports", "export", "csv", "excel", "word", "attendance report", "data"],
+    tags: ["report builder", "custom reports", "export", "csv", "excel", "word", "attendance report", "lunch report", "data"],
     featured: true,
     who: "Managers, and staff given <strong>Report Builder</strong>. Each report also needs the permission for what it shows.",
     intro: "Report Builder answers questions like <em>which 9th graders missed more than five days this month?</em> or <em>which families still owe fees?</em> Pick a report, filter it, choose the columns, and export it.",
@@ -330,7 +367,7 @@ module.exports = [
           ["Area", "Reports"],
           ["Students", "Students; answers to your custom forms; admissions and enrollment"],
           ["Academics", "Assessment results, online tests, merit sheets"],
-          ["Attendance", "Daily attendance, attendance summary, attendance by class"],
+          ["Attendance", "Each mark, per student, per class &amp; day; and lunch, where your school takes it (see below)"],
           ["Families", "Parents and guardians, parent messages"],
           ["Communication", "Messages sent, failed emails"],
           ["Staff", "Staff, staff tasks, activity log"],
@@ -340,15 +377,35 @@ module.exports = [
         ],
       },
       {
+        title: "Attendance and lunch reports",
+        text: "Under <strong>Students</strong>, <strong>Attendance</strong>:",
+        table: [
+          ["Report", "Shows"],
+          ["<strong>Per student</strong>", "Each student's days present and absent and attendance %. Add <strong>School days</strong>, <strong>Present on school days</strong> and <strong>Attendance % of school days</strong> to match the attendance page's Overall."],
+          ["<strong>Lunch each day</strong>", "Date, student, class, had lunch, attendance that day, and who marked it and when."],
+          ["<strong>Lunch per student</strong>", "Days with lunch, days without, days not recorded, and lunch %."],
+          ["<strong>Lunch per class &amp; day</strong>", "For each class and day: had lunch, no lunch, and lunch %."],
+        ],
+        note: "Lunch reports show when your school takes lunch, for staff with <strong>Mark Attendance</strong>. Teachers see their own classes.",
+      },
+      {
         title: "Examples: reports schools use every week",
         subsections: [
           {
             title: "Students who missed more than five days this month",
             steps: [
-              "Choose <strong>Attendance</strong>, then the attendance summary.",
+              "Choose <strong>Attendance</strong>, then <strong>Per student</strong>.",
               "Filter the dates to this month, and the class if you want one grade.",
               "Sort by days absent, highest first, and keep the students with more than five.",
               "Run it, then email it to your counselor or export it.",
+            ],
+          },
+          {
+            title: "Students who often go without lunch",
+            steps: [
+              "Choose <strong>Attendance</strong>, then <strong>Lunch per student</strong>.",
+              "Filter to the term and class, and days without lunch to <strong>3 or more</strong>.",
+              "Sort by lunch %, lowest first, and share it with your counselor or nurse.",
             ],
           },
           {
@@ -402,7 +459,82 @@ module.exports = [
       ["Why are some columns missing?", "Columns about parents or attendance need those permissions. Ask a manager if you need them."],
       ["A driver sees fewer rows than I do.", "People with limited access see only their own rows, for example a driver's own trips. Full access opens everyone's."],
     ],
-    related: ["analytical-dashboard", "merit-sheet", "transportation-reports"],
+    related: ["state-reporting-files", "analytical-dashboard", "merit-sheet", "transportation-reports"],
+  },
+  {
+    slug: "state-reporting-files",
+    title: "Gov/state reports",
+    topic: "Reports & analytics",
+    order: 6.5,
+    summary: "Turn a saved report into your state's file (CSV, tab, pipe or fixed width), check it, schedule it, and send it securely to the people you choose.",
+    tags: ["gov/state report", "government report", "state reporting", "state report", "state submission", "state filing", "october count", "census day", "count day", "fixed width", "flat file", "state codes", "send report to state"],
+    who: "Staff given <strong>Report Builder</strong> with its <strong>Gov/state reporting</strong> permission (Users / Employees › Edit › Reports). Only the person who saved a report changes how its file is written.",
+    intro: "Every state publishes its own file layouts for collections such as the October count, attendance and end-of-year reports. Most take a CSV or a fixed-width text file. A Gov/state report writes one of your saved Report Builder reports exactly the way your state's layout asks: its field names, order, widths, date style and codes, and sends it securely to the people you choose.",
+    sections: [
+      {
+        title: "How it works",
+        text: "A Gov/state report is made from a <strong>saved report</strong>. The report decides what goes in the file: which students (its filters) and which columns, in which order. The Gov/state report only decides how the file is written (the file type, the state's field names and codes) and who it's sent to. Who can do it: staff with <strong>Report Builder</strong> and its <strong>Gov/state reporting</strong> permission, which a manager gives in Users / Employees (Edit, Reports, Report Builder, Gov/state reporting).",
+      },
+      {
+        title: "Build the report",
+        steps: [
+          "In <strong>Report Builder</strong>, choose the report your state's layout matches (for example <strong>Students</strong> for an enrollment file), and pick the columns in the state's order.",
+          "Add the filters the collection needs (for example current students only), and <strong>Save</strong> the report.",
+          "Your school's own student fields, such as race and ethnicity, Programs &amp; Indicators or a state student ID (Admissions › Admission Settings › Student fields), are columns too, under Student fields.",
+        ],
+      },
+      {
+        title: "Write it the state's way",
+        steps: [
+          "Select <strong>Gov/state report</strong>: the building button beside the report in <strong>My reports</strong>, or the <strong>Gov/state report</strong> button on the Save / export step.",
+          "<strong>1. File type</strong>: choose CSV, tab-separated, pipe or fixed width, as your state's instructions say (CSV is the most common). Choose how dates look (CCYYMMDD is the most common) and whether the first line lists the field names.",
+          "<strong>2. Fields</strong>: type each field's name as your state's layout lists it (leave it empty to keep the report's own), and for fixed width how many characters it takes. Under <strong>State codes</strong>, pick a ready-made set: sex (M / F / X), yes / no (Y / N or 1 / 0) or grade levels (PK, KG, 01 to 12).",
+          "Select <strong>More</strong> on a field for anything else: mark it as required by the state, give your own codes (for example JHS 1 → 07), or put the same value in every row, such as your school or district number.",
+          "<strong>3. Check &amp; make</strong>: the check shows how many rows are in the file, anything to fix (an empty required field, a value too long, a value without a code), and the first rows exactly as the state will get them. Then select <strong>Make the file</strong>.",
+        ],
+        tip: "Keep your state's file layout open beside you. Layouts change most years, so check the field list each fall.",
+      },
+      {
+        title: "Choose who gets it, and when",
+        steps: [
+          "Open <strong>Schedule &amp; send</strong>. Under <strong>Send it to</strong>, add the email addresses it goes to (up to 10), such as your state or district data office.",
+          "Add the <strong>dates</strong> your state collects it (such as the first Wednesday in October), and if it's needed regularly, <strong>repeat</strong> it every weekday, week or month, at the time you choose. Then select <strong>Save</strong>.",
+          "On each date, Managira makes the file from that day's records and sends it to everyone on the list. You (and the people the report is shared with) get an email saying it was made and who it went to.",
+          "To send a file by hand, open <strong>Files made</strong> and select <strong>Send</strong> on it.",
+        ],
+      },
+      {
+        title: "How each person receives it",
+        list: [
+          "The file is <strong>never attached</strong> to an email.",
+          "<strong>Staff at your school</strong> with Gov/state reporting get a link to sign in and download it (their password is asked).",
+          "<strong>Anyone else</strong> gets a secure link that works for 7 days and a 6-digit code in a separate email. The link asks for the code; five wrong codes lock it, and it allows up to 5 downloads.",
+          "<strong>Files made</strong> shows who each file was sent to and whether they downloaded it. Every send and download is in your activity log.",
+          "Only add people allowed to see this information, such as your state or district education agency.",
+        ],
+      },
+      {
+        title: "Download and keep a record",
+        steps: [
+          "To upload it yourself, open <strong>Files made</strong>, type your password and select <strong>Download</strong>, then upload it to your state's portal.",
+          "Select <strong>Mark as sent</strong>, with the state's confirmation number if it gives one. Each file keeps its fingerprint, so you can show exactly what went to the state.",
+        ],
+      },
+      {
+        title: "How your students' data is protected",
+        list: [
+          "Each file is kept encrypted in Managira for a year, then its content is removed and its record stays.",
+          "Each file shows only what the report's owner could see; a file made on a schedule uses the owner's access on that day, and stops if they no longer have Gov/state reporting.",
+        ],
+      },
+    ],
+    faq: [
+      ["Is the Gov/state report different from the report I made?", "No: it is that report, written in your state's format. Change the report to change which students or columns are in it; use Gov/state report to change how it's written and who it's sent to."],
+      ["Who will it be sent to?", "The people you add under Send it to on the Schedule & send tab. With nobody there, it isn't sent to anyone: you (and the people the report is shared with) are told it's ready, and you download it."],
+      ["Can Managira upload it to the state's website for us?", "Not yet: it's sent to the people you choose, or you download it and upload it. Sending straight to a state's secure file server (SFTP) is planned; ask Managira support if your state accepts it."],
+      ["Does Managira support Ed-Fi?", "Not yet. States that collect through the Ed-Fi API (such as Texas, Wisconsin and Michigan) certify each vendor; contact Managira support to discuss your state."],
+    ],
+    related: ["report-builder", "gpa-on-report-cards-and-transcripts", "edit-student-information"],
   },
   {
     slug: "analytical-dashboard",
@@ -441,34 +573,64 @@ module.exports = [
     title: "GPA on report cards and transcripts",
     topic: "Reports & analytics",
     order: 30,
-    summary: "Turn on GPA in Report Settings, set Honors and AP weights, and see GPA on report cards and transcripts. GPA from your old system is kept as it was.",
-    tags: ["gpa", "grade point average", "weighted gpa", "unweighted gpa", "honors", "ap", "ib", "cumulative gpa", "transcript gpa", "report card gpa"],
-    who: "Managers, and staff given <strong>Report Settings</strong>. Only managers and supervisors change the Honors and AP weights.",
-    intro: "Managira works out GPA on the 4.0 scale from your grade letters: A 4.0, B 3.0, C 2.0, D 1.0, F 0; a + adds 0.3 and a − takes 0.3 away (A+ stays 4.0). A grade that isn't a letter doesn't count.",
+    summary: "How term and cumulative GPA are worked out, where they show, course credits, Honors and AP weights, and keeping GPA from families.",
+    tags: ["gpa", "grade point average", "weighted gpa", "unweighted gpa", "honors", "ap", "ib", "cumulative gpa", "term gpa", "semester gpa", "credits", "course credits", "quality points", "transcript gpa", "report card gpa", "parent portal gpa", "student portal gpa"],
+    who: "Managers, and staff given <strong>Report Settings</strong>. Only managers and supervisors change the Honors and AP weights. Sharing with families is set in <strong>Class settings</strong>.",
+    intro: "Managira works out GPA the way registrars do, on the standard 4.0 scale from your grade letters: A 4.0, A− 3.7, B+ 3.3, B 3.0, B− 2.7, C+ 2.3, C 2.0, C− 1.7, D+ 1.3, D 1.0, D− 0.7, F 0 (A+ stays 4.0). A grade that isn't a letter (Pass, or a number such as 1 to 9) doesn't count, so a class graded with numbers shows no GPA.",
     sections: [
       {
-        title: "Turn GPA on",
+        title: "How term and cumulative GPA are worked out",
+        list: [
+          "<strong>Term GPA</strong> (semester GPA) counts only that term's courses.",
+          "<strong>Cumulative GPA</strong> counts every course from every finished term up to then: all the grade points over all the credits. It is not an average of the term GPAs, so a term with more courses or credits counts for more.",
+          "Each course counts by its credits when your school uses <strong>course credits</strong> (below); otherwise every course counts once. Grade points × credits are the course's quality points, and GPA = quality points ÷ credits.",
+          "An F counts with no points. Pass, withdrawn and incomplete grades don't count.",
+          "GPAs are worked out exactly and rounded to two decimal places once, at the end.",
+        ],
+      },
+      {
+        title: "On transcripts",
+        list: [
+          "Every transcript shows, under each finished term, its <strong>Term</strong> GPA and the <strong>Cumulative</strong> GPA to date (weighted beside unweighted when Honors or AP subjects apply), and ends with the cumulative GPA. There is nothing to turn on.",
+          "Where courses carry credits, each course shows its credits, and each term and the whole record show the credits earned (and attempted, when a course was failed).",
+          "A printed or emailed transcript ends with an <strong>About this transcript</strong> page: the grade scale, how GPA is worked out, and notes on official copies and privacy.",
+          "A term counts once it has ended. The current term appears after its end date, and a term that hasn't started never counts.",
+          "If your school moved from another system, each student's GPA from it is printed exactly as it was (weighted and unweighted), never worked out again.",
+        ],
+      },
+      {
+        title: "Course credits",
+        steps: [
+          "Open <strong>Report Settings</strong>, choose the class, then open <strong>What prints on report cards</strong>.",
+          "Under <strong>GPA weights</strong>, type each subject's <strong>Credits</strong> beside its level (for example 1 for a full-year course, 0.5 for a semester course). An empty box counts as 1.",
+          "Select <strong>Save GPA weights</strong>. Transcripts, report cards and the parent and student portals then count each course by its credits.",
+        ],
+        note: "Credits are offered where your school has course credits turned on. Until a subject has credits, every course counts once, exactly as before.",
+      },
+      {
+        title: "Show GPA on report cards",
         steps: [
           "Open <strong>Report Settings</strong> and choose the class and term.",
-          "Open <strong>Advanced</strong>, tick <strong>GPA</strong> under Report Sections, and select <strong>Save Advanced</strong>.",
+          "Open <strong>What prints on report cards</strong>, tick <strong>GPA</strong> under <strong>Also on the report card</strong>, and select <strong>Save</strong>.",
           "Report cards for that class and term now show the term's GPA. Layouts can print it with <code>{{grades.gpa}}</code> and <code>{{grades.gpa_weighted}}</code>.",
+        ],
+      },
+      {
+        title: "Parents and students",
+        steps: [
+          "Parents see GPA on their child's page and students on their dashboard: this term's GPA so far, and the cumulative GPA over finished terms.",
+          "Only grades families can already see count: a subject with a score still waiting for the teacher's approval is left out until it's approved.",
+          "To keep GPA from a class's parents or students, open <strong>Class settings</strong> for the class and untick <strong>GPA</strong> under <strong>Share with</strong> for <strong>Parents</strong>, <strong>Students</strong> or both. It's shared until you turn it off.",
         ],
       },
       {
         title: "Honors and AP weights",
         steps: [
-          "In <strong>Advanced</strong>, under <strong>GPA weights</strong>, set what <strong>Honors</strong> and <strong>AP / IB</strong> add to a passing grade (0.5 and 1.0 unless you change them).",
+          "In <strong>What prints on report cards</strong>, under <strong>GPA weights</strong>, set what <strong>Honors</strong> and <strong>AP / IB</strong> add to a passing grade (0.5 and 1.0 unless you change them).",
           "Set each of the class's subjects to <strong>Regular</strong>, <strong>Honors</strong> or <strong>AP / IB</strong>.",
           "Select <strong>Save GPA weights</strong>.",
         ],
-        note: "Report cards and transcripts then show the weighted GPA beside the unweighted one. A failing grade never gets a bonus.",
-      },
-      {
-        title: "On transcripts",
-        list: [
-          "Each of Managira's terms shows its GPA, and the transcript shows the GPA across all your Managira terms.",
-          "If your school moved from another system, each student's GPA from it is printed exactly as it was (weighted and unweighted), never worked out again.",
-        ],
+        note: "Transcripts, report cards and the portals then show the weighted GPA beside the unweighted one. A failing grade never gets a bonus.",
       },
     ],
     related: ["report-card", "transcript", "moving-to-managira"],

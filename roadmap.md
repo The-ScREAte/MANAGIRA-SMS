@@ -1,3 +1,9 @@
+# Payment-method security
+
+- [x] Verify each signed-in person confirms with their own password, including school and hub accounts.
+- [x] Require Manage Billing on every payment-method and Stripe onboarding route.
+- [x] Run focused security tests and commit the verified change to main.
+
 # Mira public page cleanup
 
 # Transportation bus requests

@@ -47,7 +47,8 @@
 
   .management-wrapper {
     width: 100%;
-    height: calc(100vh - 68px);
+    /* the window below the header (the body's top padding), on every screen size */
+    height: calc(var(--app-vh, 100vh) - var(--header-height, 64px) - 16px);
     overflow: hidden;
   }
 
@@ -517,6 +518,15 @@
           </a>
         </li>
         <% } %>
+        <%# Every class's switches and the school attendance calendar (feature class_settings, Every Class). %>
+        <% if (menuAccess.classSettings && locals.featureOn && featureOn('class_settings')) { %>
+        <li>
+          <a class="nav-link" href="/common/class-settings" data-no-spa data-section="class-settings" data-embed-url="/common/class-settings" data-embed-label="Class settings">
+            <span class="nav-link-icon"><%- navIcon('settings') %></span>
+            <span>Class settings</span>
+          </a>
+        </li>
+        <% } %>
         <% if (menuAccess.assessments) { %>
         <li>
           <a class="nav-link" href="<%= assessmentUrl %>" data-no-spa data-section="assessment-scores" data-embed-url="<%= assessmentUrl %>" data-embed-label="Assessments">
@@ -704,6 +714,17 @@
           </div>
         </div>
       </section>
+
+      <% if (menuAccess.classSettings && locals.featureOn && featureOn('class_settings')) { %>
+      <section class="management-section" id="class-settings">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></svg>
+            <p>Loading Class settings…</p>
+          </div>
+        </div>
+      </section>
+      <% } %>
 
       <section class="management-section" id="assessment-scores">
         <div class="embed-panel-body">

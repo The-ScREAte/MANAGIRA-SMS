@@ -1,0 +1,55 @@
+<%# Class settings: the school attendance calendar for the current term, read only (it is edited in
+    Settings › Customize School › School calendar). `calendar` = { summary, settingsUrl } from
+    controllers/classSettingsController.js calendarCard; settingsUrl is null for someone who
+    can't open that part of Settings. `fromHub`: the page sits inside a Management panel. %>
+<% const _sum = calendar && calendar.summary; %>
+<div class="cset-card" id="cs-calendar">
+  <div class="cset-card__head">
+    <div>
+      <h3 class="cset-card__title">School attendance calendar</h3>
+      <p class="cset-card__sub">Set for the whole school: attendance isn't counted on weekends and days off.</p>
+    </div>
+    <% if (calendar && calendar.settingsUrl) { %>
+      <a class="cset-link" href="<%= calendar.settingsUrl %>" data-no-spa<% if (locals.fromHub) { %> target="_top"<% } %>>Change in Settings</a>
+    <% } %>
+  </div>
+  <% if (!_sum) { %>
+    <p class="cset-empty">The calendar couldn't load just now.</p>
+  <% } else { %>
+    <dl class="cset-facts">
+      <div>
+        <dt>Term</dt>
+        <dd><%= _sum.term ? _sum.term.name : 'No current term' %><% if (_sum.term && _sum.term.dates) { %><small><%= _sum.term.dates %></small><% } %></dd>
+      </div>
+      <div>
+        <dt>Weekends</dt>
+        <dd><%= _sum.weekends %><% if (!_sum.set) { %><small>The usual weekend</small><% } %></dd>
+      </div>
+      <div>
+        <dt>Public holidays</dt>
+        <% if (!_sum.set) { %>
+          <dd>Not set up yet<small><%= calendar.settingsUrl ? 'Choose a country in Settings.' : 'The school chooses a country in Settings.' %></small></dd>
+        <% } else if (_sum.publicHolidays) { %>
+          <dd>Days off<small><%= _sum.country ? 'Holidays of ' + _sum.country : 'Country not chosen' %></small></dd>
+        <% } else { %>
+          <dd>School days<small>Attendance is counted on them</small></dd>
+        <% } %>
+      </div>
+    </dl>
+    <h4 class="cset-days-head">Days off coming up</h4>
+    <% if (_sum.upcoming.length) { %>
+      <ul class="cset-days">
+        <% _sum.upcoming.forEach((day) => { %>
+        <li class="cset-day">
+          <span class="cset-day__date"><strong><%= day.day %></strong><small><%= day.weekday %></small></span>
+          <span class="cset-day__name"><%= day.label %></span>
+          <span class="cset-tag<%= day.kind === 'Public holiday' ? ' cset-tag--muted' : '' %>"><%= day.kind %></span>
+        </li>
+        <% }) %>
+      </ul>
+      <% if (_sum.more) { %><p class="cset-empty">And <%= _sum.more %> more this term.</p><% } %>
+    <% } else { %>
+      <p class="cset-empty"><%= _sum.set ? 'No days off for the rest of this term.' : 'No days off have been added yet.' %></p>
+    <% } %>
+  <% } %>
+</div>

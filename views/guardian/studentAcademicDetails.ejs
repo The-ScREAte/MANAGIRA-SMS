@@ -197,6 +197,45 @@
     border: 1px solid #e2e8f0;
   }
 
+  /* Lunch on its own (the class keeps attendance from parents) uses the whole row. */
+  .info-grid > .info-item:only-child {
+    grid-column: 1 / -1;
+  }
+
+  /* GPA above the term's grades: this term's and the cumulative, side by side. */
+  .info-grid.info-grid--gpa {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    margin-bottom: 16px;
+  }
+
+  .info-value.info-value--gpa {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--org-primary-color, #0f5a66);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .info-note {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  /* Attendance's four figures and lunch on one row; two by two (lunch across) on small screens. */
+  .info-grid.info-grid--five {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  @media (max-width: 900px) {
+    .info-grid.info-grid--five {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .info-grid.info-grid--five > .info-item:last-child {
+      grid-column: 1 / -1;
+    }
+  }
+
   .info-label {
     font-size: 12px;
     color: #64748b;
@@ -438,6 +477,11 @@
 
   .term-selector-actions {
     display: contents;
+  }
+
+  /* No Report Card button (the class keeps report cards from parents): the term picker fills the row. */
+  .term-selector.term-selector--solo {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .term-selector-actions .report-cards-trigger {
@@ -1181,7 +1225,8 @@
       </div>
       
       <!-- Term Selector -->
-      <div class="term-selector">
+      <% const _showReportCards = locals.showReportCards !== false; %>
+      <div class="term-selector<%= _showReportCards ? '' : ' term-selector--solo' %>">
         <form method="GET" action="/guardian/academic-details">
           <input type="hidden" name="studentId" value="<%= student.student_id %>" />
           <label for="termSelect">Academic Period</label>
@@ -1193,11 +1238,14 @@
             <% }) %>
           </select>
         </form>
+        <%# The class may keep report cards from parents (Class settings): then there's no button. %>
+        <% if (_showReportCards) { %>
         <div class="term-selector-actions">
           <button type="button" class="report-cards-trigger" id="openReportCardsBtn">
             Report Card
           </button>
         </div>
+        <% } %>
       </div>
     </div>
   </div>
@@ -1349,11 +1397,18 @@
     </details>
   </div>
 
-  <!-- Attendance Summary -->
+  <!-- Attendance Summary (and overall lunch). The class may keep either from parents (Class settings). -->
+  <%
+    const _showAttendance = locals.showAttendance !== false;
+    const _lunch = locals.lunch || null;
+    const _hasAttendance = _showAttendance && attendance && attendance.length > 0;
+  %>
+  <% if (_showAttendance || _lunch) { %>
   <div class="section-card">
-    <h2>📅 Attendance Summary</h2>
-    <% if (attendance && attendance.length > 0) { %>
-      <div class="info-grid">
+    <h2>📅 <%= _showAttendance ? (_lunch ? 'Attendance & Lunch' : 'Attendance Summary') : 'Lunch' %></h2>
+    <% if (_hasAttendance || _lunch) { %>
+      <div class="info-grid<%= _hasAttendance && _lunch ? ' info-grid--five' : '' %>">
+        <% if (_hasAttendance) { %>
         <div class="info-item">
           <div class="info-label">Total Days</div>
           <div class="info-value"><%= attendanceSummary.totalDays %></div>
@@ -1370,15 +1425,47 @@
           <div class="info-label">Attendance Rate</div>
           <div class="info-value" style="color: #0f5a66;"><%= attendanceSummary.attendanceRate %>%</div>
         </div>
+        <% } %>
+        <% if (_lunch) { %>
+        <div class="info-item">
+          <div class="info-label">Lunch</div>
+          <div class="info-value" style="color: #0f5a66;"><%= _lunch.label %></div>
+        </div>
+        <% } %>
       </div>
+      <% if (_showAttendance && !_hasAttendance) { %>
+        <p class="no-data" style="margin-top: 12px;">No attendance records yet.</p>
+      <% } %>
     <% } else { %>
       <p class="no-data">No attendance records yet.</p>
     <% } %>
   </div>
+  <% } %>
 
   <!-- Current Term Assessments -->
   <div class="section-card">
     <h2>Current Term Performance</h2>
+    <%# GPA (feature gpa) unless the class keeps it from parents (Class settings › Share with › GPA):
+        this term's, from the grades parents can see, and the cumulative over finished terms. %>
+    <% const _gpa = locals.gpaInfo || null; %>
+    <% if (_gpa) { %>
+      <div class="info-grid info-grid--gpa" aria-label="GPA">
+        <% if (_gpa.term) { %>
+        <div class="info-item">
+          <div class="info-label">GPA this term</div>
+          <div class="info-value info-value--gpa"><%= _gpa.term.unweighted %></div>
+          <div class="info-note"><%= _gpa.term.weighted ? 'Weighted ' + _gpa.term.weighted + ' · ' : '' %>So far, 4.0 scale</div>
+        </div>
+        <% } %>
+        <% if (_gpa.cumulative) { %>
+        <div class="info-item">
+          <div class="info-label">Cumulative GPA</div>
+          <div class="info-value info-value--gpa"><%= _gpa.cumulative.unweighted %></div>
+          <div class="info-note"><%= _gpa.cumulative.weighted ? 'Weighted ' + _gpa.cumulative.weighted + ' · ' : '' %><%= _gpa.terms %> finished term<%= _gpa.terms === 1 ? '' : 's' %></div>
+        </div>
+        <% } %>
+      </div>
+    <% } %>
     <% if (subjects && subjects.length > 0) { %>
       <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
         <table class="assessment-table">
@@ -1411,6 +1498,7 @@
 
 </div>
 
+<% if (_showReportCards) { %>
 <div class="report-cards-modal" id="reportCardsModal" aria-hidden="true">
   <div class="report-cards-modal-card" role="dialog" aria-modal="true" aria-labelledby="reportCardsModalTitle">
     <div class="report-cards-modal-head">
@@ -1424,6 +1512,7 @@
     </div>
   </div>
 </div>
+<% } %>
 
 <script>
   (function() {

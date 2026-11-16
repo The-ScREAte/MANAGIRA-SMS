@@ -44,7 +44,7 @@
          it needs to keep scrolling normally in that case. */
       .settings-wrapper {
         width: 100%;
-        min-height: calc(100vh - 68px);
+        min-height: calc(var(--app-vh, 100vh) - var(--header-height, 64px) - 16px);
       }
 
       .settings-wrapper.is-embedded {
@@ -79,7 +79,10 @@
            instead of stopping as soon as their own content ends. Min-height
            (not height) so genuinely long content still grows and scrolls
            normally rather than getting clipped. */
-        min-height: calc(100vh - var(--header-height, 64px) - 120px) !important;
+        /* the window below the header (the app's boxes include their padding, so the layout's 12px
+           top and 24px bottom are inside this): the menu and the panel both end 24px above the
+           window's bottom, like the hubs */
+        min-height: calc(var(--app-vh, 100vh) - var(--header-height, 64px) - 16px) !important;
       }
 
       #settings-layout-root .settings-nav {
@@ -1422,17 +1425,6 @@
 
       
 
-      #cancel-modal {
-        overflow-y: auto;
-        align-items: flex-start;
-        padding-top: 92px;
-      }
-
-      .cancel-modal {
-        max-height: calc(100vh - 128px);
-        overflow-y: auto;
-      }
-
       #school-account-modal {
         overflow-y: auto;
         align-items: flex-start;
@@ -2335,20 +2327,11 @@
           padding: 92px 12px 12px;
         }
 
-        #cancel-modal {
-          padding: 92px 12px 12px;
-        }
-
         #school-account-modal {
           padding: 92px 12px 12px;
         }
 
         .plan-modal {
-          max-height: calc(100vh - 124px);
-          padding: 16px;
-        }
-
-        .cancel-modal {
           max-height: calc(100vh - 124px);
           padding: 16px;
         }
@@ -3278,6 +3261,12 @@
             <span>Security</span>
           </button></li>
           <% } %>
+          <% if (locals.twoStep && twoStep.show) { %>
+          <li><button class="nav-link" data-target="two-step">
+            <span class="nav-link-icon"><%- navIcon('security') %></span>
+            <span>Two-step sign-in</span>
+          </button></li>
+          <% } %>
           <% if (_canTenant) { %>
           <li><button class="nav-link" data-target="tenant">
             <span class="nav-link-icon"><%- navIcon('security') %></span>
@@ -3546,7 +3535,8 @@
           <div class="card settings-group" data-save-group>
             <h4><span class="settings-group__icon" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></span><span class="settings-group__text">School rules<span class="settings-group__desc">Calendar rules and student ID numbers</span></span></h4>
 
-            <div class="settings-subcard">
+            <%# id: Class settings links here (/account/settings?section=customize#school-calendar). %>
+            <div class="settings-subcard" id="school-calendar">
               <div class="cz-intro">
                 <h4>School calendar</h4>
                 <small>Which days count for attendance across the school.</small>
@@ -3586,6 +3576,12 @@
                     </div>
                     <span class="cz-hint">Attendance isn't counted on these days.</span>
                   </div>
+
+                  <%# Days off on the attendance sheet: shown greyed (a 3-day view is the last 3 calendar days), or hidden (the last 3 school days). %>
+                  <label class="cz-check">
+                    <input type="checkbox" id="show-days-off" name="showDaysOff" value="true" <%= !attendanceCalendarProfile || attendanceCalendarProfile.show_days_off !== false ? 'checked' : '' %> />
+                    <span>Show weekends and holidays on the attendance sheet <small class="cz-hint" style="display:block;">Shown greyed, so "Last 3 days" is the last 3 calendar days. Untick to hide them: then it's the last 3 school days.</small></span>
+                  </label>
 
                   <label class="cz-check">
                     <input
@@ -4202,13 +4198,15 @@
             </div>
           </div>
 
-          <% if (!_isOnHoldRestricted) { %>
+          <%# Only Managira cancels a subscription (Admin › Organizations; utils/subscriptionCancel.js): the school asks support. %>
+          <% if (!_isOnHoldRestricted && !isHubMember) { %>
           <div class="card">
-            <h4>Cancel Subscription</h4>
-            <small>End your subscription at the end of the current billing cycle.</small>
-            <div class="content-row">
-              <button class="btn-danger btn-link" id="open-cancel-modal" type="button">Cancel Subscription</button>
-            </div>
+            <h4>Cancel subscription</h4>
+            <% if (org && org.scheduled_hold_date) { %>
+              <small>Your subscription ends on <strong><%= new Date(org.scheduled_hold_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %></strong>. Your school keeps full access until then. To keep it going, contact <a href="mailto:support@managira.com">support@managira.com</a>.</small>
+            <% } else { %>
+              <small>To cancel, contact Managira support at <a href="mailto:support@managira.com">support@managira.com</a>. Your school keeps full access until the end of the period you paid for, and your records are kept.</small>
+            <% } %>
           </div>
           <% } %>
 
@@ -5098,6 +5096,15 @@
         <% } %>
 
         <% if (_canSecuritySettings && !_isOnHoldRestricted) { %>
+        <% if (locals.twoStep && twoStep.show) { %>
+        <section id="two-step" class="settings-section">
+          <h1>Two-step sign-in</h1>
+          <p class="lead">Use a code from an app on your phone when you sign in with your password.</p>
+          <link rel="stylesheet" href="<%= assetUrl('/css/sso.css') %>" />
+          <div class="sso-set" id="twoStepSettings" data-required="<%= twoStep.required ? '1' : '0' %>"></div>
+          <script src="<%= assetUrl('/js/authenticatorSettings.js') %>" defer></script>
+        </section>
+        <% } %>
         <% if (_canTenant) { %><%- include('partials/tenantSettings', { withSso: _canSso }) %><% } else if (_canSso) { %><%- include('partials/ssoSettings') %><% } %>
         <section id="security" class="settings-section">
           <h1>Security</h1>
@@ -5375,55 +5382,6 @@
         <% } %>
       </div>
     </main>
-    </div>
-    <div class="modal-overlay" id="cancel-modal">
-      <div class="modal-card cancel-modal">
-        <button class="modal-close" type="button" id="cancel-modal-close">x</button>
-        <h2>Cancel Your Subscription</h2>
-        <p>We are sorry to see you go. Please read the information below before proceeding.</p>
-        <p>
-          Once you confirm this cancellation, your organization subscription will be placed on hold.
-          Your data will be preserved and you can return at any time by contacting support.
-          After the current billing cycle ends, all users associated with your organization will be unable to log in.
-        </p>
-        <p>
-          If you have questions or feedback, please <a href="mailto:info@managira.com">email us at info@managira.com</a>.
-          We want you to know you are always welcome back.
-        </p>
-        <p><strong>Please confirm the following details to proceed:</strong></p>
-        <form action="/account/cancel-subscription" method="POST">
-          <div class="content-row">
-            <div class="field-group">
-              <label class="form-label" for="cancel-org-name">Organization Name</label>
-              <input
-                type="text"
-                id="cancel-org-name"
-                name="orgName"
-                placeholder="Enter your organization name"
-                required
-                class="form-input"
-              />
-            </div>
-            <div class="field-group">
-              <label class="form-label" for="cancel-password">Password</label>
-              <input
-                type="password"
-                id="cancel-password"
-                name="password"
-                placeholder="Enter your password"
-                required
-                class="form-input"
-              />
-            </div>
-            <p class="warning-text">
-              By confirming, all users in your organization will be unable to log in after the current billing period ends.
-            </p>
-            <div class="form-actions">
-              <button type="submit" class="btn-danger btn-link">Confirm Cancellation</button>
-            </div>
-          </div>
-        </form>
-      </div>
     </div>
     <div class="modal-overlay" id="billing-password-modal">
       <div class="modal-card password-modal">
@@ -6142,9 +6100,6 @@
         const fontSelect = document.getElementById("font-select");
         const fontPreview = document.getElementById("font-preview");
         const fontPreviewName = document.getElementById("font-preview-name");
-        const cancelModal = document.getElementById("cancel-modal");
-        const cancelModalOpen = document.getElementById("open-cancel-modal");
-        const cancelModalClose = document.getElementById("cancel-modal-close");
         const newPasswordInput = document.getElementById("settings-new-password");
         const confirmPasswordInput = document.getElementById("settings-confirm-password");
         const paymentModal = document.getElementById("payment-method-modal");
@@ -6624,7 +6579,7 @@
           }
 
           // Ensure password modal is never hidden behind another open modal.
-          [planModal, paymentModal, cancelModal].forEach((modal) => {
+          [planModal, paymentModal].forEach((modal) => {
             if (modal && modal !== passwordModal) {
               closeModal(modal);
             }
@@ -8241,25 +8196,37 @@
 
         if (passwordModalSubmit && passwordModalInput) {
           passwordModalSubmit.addEventListener("click", async () => {
-            const passwordValue = passwordModalInput.value.trim();
-            if (!passwordValue) {
+            // Sent exactly as typed: a password may begin or end with a space.
+            const passwordValue = passwordModalInput.value;
+            if (!passwordValue.trim()) {
               if (passwordModalError) {
-                passwordModalError.textContent = "Password is required.";
+                passwordModalError.textContent = "Enter your password.";
               }
               return;
             }
 
             passwordModalSubmit.disabled = true;
             passwordModalSubmit.textContent = "Checking...";
+            if (passwordModalError) passwordModalError.textContent = "";
 
             try {
               const response = await fetch("/account/confirm-password/json", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify({ password: passwordValue }),
               });
 
-              const result = await response.json();
+              let result = null;
+              try { result = await response.json(); } catch (_) { result = null; }
+              if (!result) {
+                result = { success: false, message: response.redirected && /\/account\/login/.test(response.url)
+                  ? "Your session has ended. Sign in again to continue."
+                  : "We couldn't check your password just now. Please try again." };
+              }
+              if (result.signedOut) {
+                if (passwordModalError) passwordModalError.innerHTML = 'Your session has ended. <a href="/account/login">Sign in again</a> to continue.';
+                return;
+              }
               if (result.success) {
                 passwordVerified = true;
                 closeModal(passwordModal);
@@ -8275,7 +8242,7 @@
               }
             } catch (error) {
               if (passwordModalError) {
-                passwordModalError.textContent = "Unable to verify password. Try again.";
+                passwordModalError.textContent = "We couldn't reach Managira. Check your connection and try again.";
               }
             } finally {
               passwordModalSubmit.disabled = false;
@@ -8386,30 +8353,6 @@
             updateEyeIcon(button, !isVisible);
           });
         });
-
-        function closeCancelModal() {
-          if (cancelModal) {
-            cancelModal.classList.remove("show");
-          }
-        }
-
-        if (cancelModalOpen && cancelModal) {
-          cancelModalOpen.addEventListener("click", () => {
-            requestPassword(cancelModal);
-          });
-        }
-
-        if (cancelModalClose) {
-          cancelModalClose.addEventListener("click", closeCancelModal);
-        }
-
-        if (cancelModal) {
-          cancelModal.addEventListener("click", (event) => {
-            if (event.target === cancelModal) {
-              closeCancelModal();
-            }
-          });
-        }
 
         function setPrimaryCardRequest(authorizationCode) {
           return fetch("/account/cards/set-primary", {
@@ -9304,6 +9247,11 @@
         const finalParams = new URLSearchParams(window.location.search);
         const initialSection = finalParams.get("section") || "<%= _defaultSettingsSectionId %>";
         showSection(initialSection, { scroll: false });
+        // A link to one card of the section (Class settings' "Change in Settings": #school-calendar).
+        const linkedCard = window.location.hash && document.getElementById(window.location.hash.slice(1));
+        if (linkedCard && linkedCard.classList.contains("settings-subcard")) {
+          setTimeout(() => linkedCard.scrollIntoView({ block: "start" }), 60);
+        }
       });
     })();
     </script>

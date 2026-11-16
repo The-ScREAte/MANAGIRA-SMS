@@ -14,7 +14,7 @@ main { padding: 0 !important; max-width: none !important; }
 /* Layout wrappers */
 .hub-wrapper, .management-wrapper, .settings-wrapper {
   width: 100%;
-  min-height: calc(100vh - 68px);
+  min-height: calc(var(--app-vh, 100vh) - var(--header-height, 64px) - 16px); /* the window below the header */
 }
 
 .hub-layout, .management-layout, .settings-layout {
@@ -25,6 +25,16 @@ main { padding: 0 !important; max-width: none !important; }
   margin: 0;
   padding: 12px 16px 24px;
   align-items: start;
+}
+
+/* The hubs' frame is exactly the window below the header: the layout fills it, padding included,
+   so the menu and the panel are always the same height and both end 24px above the window's
+   bottom (a page's own `height: calc(100% - 12px)` plus this padding overflowed the frame and
+   pushed both cards to the very edge). */
+.hub-wrapper > .hub-layout,
+.management-wrapper > .management-layout {
+  box-sizing: border-box;
+  height: 100%;
 }
 
 /* Sidebar */

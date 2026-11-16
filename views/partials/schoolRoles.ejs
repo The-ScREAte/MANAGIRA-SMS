@@ -19,8 +19,8 @@
       <label class="sr-field"><span>Role name</span><input type="text" maxlength="60" placeholder="e.g. Food Service" data-sr-name autocomplete="off"></label>
       <label class="sr-field"><span>Based on</span>
         <select data-sr-base>
-          <option value="Teacher">Teacher</option>
-          <option value="Supervisor">Supervisor</option>
+          <% if (_sr.canAddTeacher !== false) { %><option value="Teacher">Teacher</option><% } %>
+          <% if (_sr.canAddSupervisor !== false) { %><option value="Supervisor">Supervisor</option><% } %>
           <% if (_sr.canAddManager) { %><option value="Manager">Manager</option><% } %>
           <% if (_sr.canAddDriver) { %><option value="Driver">Driver</option><% } %>
         </select>

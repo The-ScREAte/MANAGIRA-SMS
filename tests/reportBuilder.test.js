@@ -337,6 +337,7 @@ test("scheduled emails give each shared person only their own access, or no copy
         return { rows: [
           { user_id: 2, email: "allowed@example.invalid", role: "Manager" },
           { user_id: 3, email: "blocked@example.invalid", role: "Manager" },
+          { user_id: 4, email: "no-report-builder@example.invalid", role: "Manager" },
         ] };
       }
       if (sql.includes("COUNT(*)")) return { rows: [{ total: 1 }] };
@@ -348,8 +349,34 @@ test("scheduled emails give each shared person only their own access, or no copy
   const summary = await runDueReportSchedules(db, {
     now,
     send: async (message) => { sent.push(message.to); },
-    hasPermission: async (_db, identity, key) => key === "manage_employees" && identity.userId !== 3,
+    // Person 4 lost Report Builder: no copy, even though they can see staff.
+    hasPermission: async (_db, identity, key) => (key === "reports_builder" ? identity.userId !== 4 : key === "manage_employees" && identity.userId !== 3),
   });
   assert.equal(summary.failed, 0);
   assert.deepEqual(sent.sort(), ["allowed@example.invalid", "owner@example.invalid"]);
+});
+
+test("a scheduled report stops when its owner loses Report Builder", async () => {
+  const { runDueReportSchedules } = require("../controllers/reportBuilderController");
+  const now = new Date("2026-11-04T08:30:00Z");
+  const schedule = {
+    report_id: 8, report_name: "Staff", report_type: "staff", columns_json: ["name"], criteria_json: {}, branding_json: {},
+    created_by: 1, owner_email: "owner@example.invalid", owner_role: "Teacher", organization_id: 63, organization_name: "School",
+    whatsapp_timezone: "UTC", frequency: "weekly", file_format: "csv", include_shared: false,
+    weekdays: [0, 1, 2, 3, 4, 5, 6], weekday: now.getUTCDay(), day_of_week: now.getUTCDay(), days_of_week: [0, 1, 2, 3, 4, 5, 6],
+    send_hour: 8, hour: 8, last_sent_on: null,
+  };
+  const errors = [];
+  const db = {
+    async query(sql, params) {
+      if (sql.includes("FROM custom_report_schedules sch")) return { rows: [schedule] };
+      if (sql.includes("last_error")) errors.push(params[2]);
+      return { rows: [] };
+    },
+  };
+  const sent = [];
+  const summary = await runDueReportSchedules(db, { now, send: async (m) => { sent.push(m.to); }, hasPermission: async (_db, _who, key) => key !== "reports_builder" });
+  assert.deepEqual(sent, []);
+  assert.equal(summary.failed, 1);
+  assert.match(String(errors[0]), /no longer has Report Builder/);
 });

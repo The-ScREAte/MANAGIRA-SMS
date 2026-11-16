@@ -58,6 +58,7 @@ module.exports = {
       if (!keys.length) return res.status(404).json({ success: false, error: "This contact isn't in your contact list." });
       const contact = await contacts.readContact(db, Number(req.session.organizationId), keys);
       res.set("Cache-Control", "no-store");
+      if (contact && contact.base && contact.base.imageUrl) contact.base.imageUrl = res.locals.publicImageUrl(contact.base.imageUrl);
       return res.json({ success: true, contact, canEdit: access.edit, canEditTemplate: access.template });
     } catch (err) {
       return fail(res, err, "Could not load this contact.");
@@ -74,6 +75,7 @@ module.exports = {
       const organizationId = Number(req.session.organizationId);
       await contacts.saveContact(db, organizationId, keys, req.body || {}, actor(req).userId);
       const contact = await contacts.readContact(db, organizationId, keys);
+      if (contact && contact.base && contact.base.imageUrl) contact.base.imageUrl = res.locals.publicImageUrl(contact.base.imageUrl);
       return res.json({ success: true, contact, canEdit: true, canEditTemplate: access.template });
     } catch (err) {
       return fail(res, err, "Could not save this contact.");

@@ -22,9 +22,10 @@ const TABLE_MISSING = "42P01";
 // What a briefing can hold. `audiences` says who may get it: payments are for parents only.
 const SECTIONS = [
   { key: "attendance", label: "Attendance", hint: "Days present and absent this week.", audiences: ["parents", "students"] },
+  { key: "lunch", label: "Lunch", hint: "Days the student had lunch at school this week, where the class takes lunch.", audiences: ["parents", "students"] },
   { key: "grades", label: "New grades", hint: "Grades teachers posted this week, as the portal shows them.", audiences: ["parents", "students"] },
   { key: "bus", label: "Bus", hint: "For students who ride a bus: their route, pickup time and this week's rides.", audiences: ["parents", "students"] },
-  { key: "records", label: "Daily class records", hint: "Daily class forms the school shows to families, such as lunch.", audiences: ["parents", "students"] },
+  { key: "records", label: "Daily class records", hint: "The school's own daily class forms that it shows to families.", audiences: ["parents", "students"] },
   { key: "forms", label: "Forms to fill in", hint: "School forms still waiting for an answer.", audiences: ["parents", "students"] },
   { key: "payments", label: "Payments", hint: "Unpaid bills, and repeating charges such as lunch.", audiences: ["parents"] },
   { key: "tests", label: "Tests coming up", hint: "Online tests that open in the next seven days.", audiences: ["parents", "students"] },
@@ -253,6 +254,33 @@ async function attendanceFor(db, organizationId, studentIds, past) {
     [organizationId, studentIds, past.from, past.to]
   ), { rows: [] });
   return new Map(rows.map((row) => [Number(row.student_id), row]));
+}
+
+// Lunch taken on the class attendance page (class_lunch): days with lunch out of the days marked.
+async function lunchFor(db, organizationId, studentIds, past) {
+  const { rows } = await safe(db.query(
+    `SELECT student_id, COUNT(*)::int AS days, COUNT(*) FILTER (WHERE had_lunch)::int AS had
+       FROM class_lunch
+      WHERE organization_id = $1 AND student_id = ANY($2::int[]) AND lunch_date BETWEEN $3::date AND $4::date
+      GROUP BY student_id`,
+    [organizationId, studentIds, past.from, past.to]
+  ), { rows: [] });
+  return new Map(rows.map((row) => [Number(row.student_id), row]));
+}
+
+// Class settings › Share with: what each student's class shares with parents and with students
+// (attendance, lunch, bus & transport). Without the feature, everything is shared.
+async function sharingFor(db, organizationId, studentIds) {
+  try {
+    const classSettings = require("./classSettings");
+    const [parents, students] = await Promise.all([
+      classSettings.parentsSeeFor(db, organizationId, studentIds),
+      classSettings.studentsSeeFor(db, organizationId, studentIds),
+    ]);
+    return { parents, students };
+  } catch (_) {
+    return { parents: new Map(), students: new Map() };
+  }
 }
 
 async function gradesFor(db, organizationId, studentIds, past, timeZone) {
@@ -507,7 +535,9 @@ async function paymentsFor(db, organizationId, studentIds, today) {
 async function gatherWeek(db, organizationId, students, windows, need) {
   const ids = students.map((student) => student.id);
   const has = (key) => need.has(key);
-  const [attendance, grades, tests, activities, events, bus, payments, parentExtras, studentExtras] = await Promise.all([
+  const [share, lunch, attendance, grades, tests, activities, events, bus, payments, parentExtras, studentExtras] = await Promise.all([
+    sharingFor(db, organizationId, ids),
+    has("lunch") ? lunchFor(db, organizationId, ids, windows.past) : new Map(),
     has("attendance") ? attendanceFor(db, organizationId, ids, windows.past) : new Map(),
     has("grades") ? gradesFor(db, organizationId, ids, windows.past, windows.timeZone) : new Map(),
     has("tests") ? testsFor(db, organizationId, students, windows.next) : new Map(),
@@ -518,7 +548,7 @@ async function gatherWeek(db, organizationId, students, windows, need) {
     has("parents:forms") || has("parents:records") ? formsAndRecordsFor(db, organizationId, students, windows.past, "parents") : { forms: new Map(), records: new Map() },
     has("students:forms") || has("students:records") ? formsAndRecordsFor(db, organizationId, students, windows.past, "students") : { forms: new Map(), records: new Map() },
   ]);
-  return { attendance, grades, tests, activities, events, bus, payments, extras: { parents: parentExtras, students: studentExtras } };
+  return { share, lunch, attendance, grades, tests, activities, events, bus, payments, extras: { parents: parentExtras, students: studentExtras } };
 }
 
 // ── The email ──────────────────────────────────────────────────────────────────────────────
@@ -532,10 +562,13 @@ const lines = (items, more = 0) => {
 
 // The rows of one student's block, in the order a family reads them.
 function rowsFor(student, week, settings, audience, { withEvents = false } = {}) {
+  // The school's briefing choices, and what the student's class shares with this audience.
+  const shares = (week.share && week.share[audience] && week.share[audience].get(student.id)) || {};
+  const shared = (key) => shares[key] !== false;
   const on = (key) => settings.sections[key] === true;
   const rows = [];
   const attendance = week.attendance.get(student.id);
-  if (on("attendance") && attendance && attendance.days > 0) {
+  if (on("attendance") && shared("attendance") && attendance && attendance.days > 0) {
     const absent = (attendance.absent_days || []).map((day) => dayLabel(day));
     const allDays = attendance.days === 1 ? "Present the one day attendance was taken"
       : attendance.days === 2 ? "Present both days attendance was taken"
@@ -545,12 +578,19 @@ function rowsFor(student, week, settings, audience, { withEvents = false } = {})
       : `Present ${attendance.present} of ${plural(attendance.days, "day")}${absent.length ? ` · absent ${absent.join(", ")}` : ""}`;
     rows.push({ label: "Attendance", value: escapeHtml(text) });
   }
+  const lunch = week.lunch.get(student.id);
+  if (on("lunch") && shared("lunch") && lunch && lunch.days > 0) {
+    const text = lunch.had === lunch.days
+      ? (lunch.days === 1 ? "Had lunch the one day it was taken" : `Had lunch all ${lunch.days} days`)
+      : `Had lunch ${lunch.had} of ${plural(lunch.days, "day")}`;
+    rows.push({ label: "Lunch", value: escapeHtml(text) });
+  }
   const grades = week.grades.get(student.id) || [];
   if (on("grades") && grades.length) {
     rows.push({ label: "New grades", value: lines(grades.map((grade) => `${grade.subject ? `${grade.subject} · ` : ""}${grade.title}: ${grade.grade}`)) });
   }
   const bus = week.bus.get(student.id);
-  if (on("bus") && bus) {
+  if (on("bus") && shared("transport") && bus) {
     const parts = [];
     const route = [bus.route, bus.stop ? `${bus.stop} stop` : ""].filter(Boolean).join(" · ");
     if (route) parts.push(route);

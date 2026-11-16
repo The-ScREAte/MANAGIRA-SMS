@@ -51,7 +51,7 @@
     "express-validator": "^7.3.0",
     "ffmpeg-static": "^5.2.0",
     "googleapis": "^173.0.0",
-    "he": "^2.0.0",
+    "he": "^1.2.0",
     "http-proxy-middleware": "^2.0.10",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
@@ -73,7 +73,7 @@
     "pdfkit": "^0.20.2",
     "pg": "^8.13.1",
     "pg-copy-streams": "^7.0.0",
-    "puppeteer": "^24.43.1",
+    "puppeteer": "^25.17.0",
     "qrcode": "^1.5.4",
     "redis": "^4.7.0",
     "resend": "^6.12.3",
@@ -107,5 +107,11 @@
   },
   "engines": {
     "node": "24.x"
+  },
+  "allowScripts": {
+    "puppeteer": true,
+    "ffmpeg-static": true,
+    "fsevents": false,
+    "tesseract.js": false
   }
 }

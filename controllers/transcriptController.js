@@ -104,7 +104,7 @@ const transcriptController = (db) => ({
 
             // Fetch student details
             const studentQuery = `
-                                    SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown,
+                                    SELECT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown,
                                             (
                                                 SELECT gp.email
                                                 FROM guardian_students gs
@@ -159,64 +159,10 @@ const transcriptController = (db) => ({
                 );
             }
 
-                        // Fetch total percentage and grade for each subject for ended semesters
-                        const scoresQuery = `
-                                                                SELECT sub.subject_name, sub.subject_id,
-                                                                                         MAX(ar.total_percentage) AS total_percentage,
-                                                                                         MAX(
-                                                                                             COALESCE(
-                                                                                                 (
-                                                                                                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
-                                                                                                         CASE
-                                                                                                             WHEN ar.total_percentage >= 90 THEN 'A'
-                                                                                                             WHEN ar.total_percentage >= 80 THEN 'B'
-                                                                                                             WHEN ar.total_percentage >= 70 THEN 'C'
-                                                                                                             ELSE 'D'
-                                                                                                         END
-                                                                                                     )
-                                                                                                     FROM score_remarks sr
-                                                                                                     WHERE sr.organization_id = ar.organization_id
-                                                                                                         AND sr.class_id = ar.class_id
-                                                                                                         AND sr.term_id = ar.term_id
-                                                                                                         AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
-                                                                                                                                                                                                         ORDER BY
-                                                                                                                                                                                                             CASE
-                                                                                                                                                                                                                 WHEN ar.total_percentage IS NULL THEN 1000000000
-                                                                                                                                                                                                                 WHEN ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage THEN 0
-                                                                                                                                                                                                                 WHEN ar.total_percentage::numeric < sr.from_percentage THEN sr.from_percentage - ar.total_percentage::numeric
-                                                                                                                                                                                                                 ELSE ar.total_percentage::numeric - sr.to_percentage
-                                                                                                                                                                                                             END ASC,
-                                                                                                                                                                                                             sr.from_percentage DESC
-                                                                                                     LIMIT 1
-                                                                                                 ),
-                                                                                                 CASE
-                                                                                                     WHEN ar.total_percentage IS NULL THEN NULL
-                                                                                                     WHEN ar.total_percentage >= 90 THEN 'A'
-                                                                                                     WHEN ar.total_percentage >= 80 THEN 'B'
-                                                                                                     WHEN ar.total_percentage >= 70 THEN 'C'
-                                                                                                     ELSE 'D'
-                                                                                                 END
-                                                                                             )
-                                                                                         ) AS grade,
-                                                                                         t.term_name,
-                                                                                         t.start_date,
-                                                                                         t.end_date,
-                                                                                         sy.year_label
-                                FROM assessment_results ar
-                                JOIN assessments a ON ar.assessment_id = a.assessment_id
-                                JOIN subjects sub ON a.subject_id = sub.subject_id
-                                JOIN terms t ON ar.term_id = t.term_id
-                                JOIN school_years sy ON t.school_year_id = sy.id
-                                WHERE ar.student_id = $1 AND ar.organization_id = $2
-                                                                        AND (
-                                                                                t.current = FALSE
-                                                                                OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
-                                                                        )
-                                                                GROUP BY sub.subject_id, sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
-                                                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name;
-                        `;
-            const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
-            const scores = scoresResult.rows;
+            // Each finished term's subjects with their percentage and grade (shared with the GPA
+            // that parents and students see, utils/gpa.js endedTermGrades).
+            const gpa = require('../utils/gpa');
+            const scores = await gpa.endedTermGrades(db, organizationId, studentId);
 
             // Final grades from the school's old system (data migration, student_course_history):
             // printed before Managira's own terms, with credits and GPA.
@@ -230,13 +176,19 @@ const transcriptController = (db) => ({
                 credits: Math.round(history.reduce((sum, r) => sum + Number(r.credits_earned || 0), 0) * 100) / 100,
             } : null;
             // GPA from the old system: as it was exported, never worked out again.
-            const gpa = require('../utils/gpa');
             const sourceGpa = await gpa.sourceGpaOf(db, organizationId, studentId).catch(() => null);
-            // GPA in Managira (feature gpa, Report Settings): each of Managira's terms, and all of
-            // them together, unweighted and (with honors/AP subjects) weighted. Never blended with
-            // the old system's GPA, whose credits and method Managira doesn't have.
+            // GPA in Managira (feature gpa): always on the transcript, as a registrar prints it:
+            // each term's GPA and the cumulative GPA up to it (quality points over credits, from
+            // letter grades only), and over every term; weighted beside unweighted where Honors or
+            // AP subjects add to a pass; credits attempted and earned where courses carry credits.
+            // Never blended with the old system's GPA, whose credits and method Managira doesn't have.
+            // While transcript_designs isn't released to a school it keeps the original page, with GPA
+            // only when Report Settings' GPA switch is on (each term's GPA and the GPA over them).
+            const designsOn = require('../utils/shards/features').isOn('transcript_designs', { organizationId, hubId: req.session.hubId || null });
             let gpaSummary = null;
-            if (await gpa.schoolShowsGpa(db, organizationId)) {
+            if (designsOn) {
+                gpaSummary = gpa.featureOn(organizationId) ? await gpa.transcriptGpa(db, organizationId, scores) : null;
+            } else if (await gpa.schoolShowsGpa(db, organizationId)) {
                 const [settings, levels] = await Promise.all([
                     gpa.settingsFor(db, organizationId),
                     gpa.levelsFor(db, organizationId, { subjectIds: [...new Set(scores.map((r) => Number(r.subject_id)).filter(Boolean))] }),
@@ -294,7 +246,16 @@ const transcriptController = (db) => ({
                 whatsapp: { ready: false },
             }));
 
-            res.render('print/transcript', {
+            // The school's transcript design (Report Settings); ?design= opens another one to compare.
+            // The emailed, official copy always uses the school's own choice.
+            const transcriptDesign = require('../utils/transcriptDesign');
+            const savedDesign = designsOn ? await transcriptDesign.designFor(db, organizationId).catch(() => transcriptDesign.DEFAULT) : transcriptDesign.DEFAULT;
+            const design = !designsOn || isServerRender(req) ? savedDesign : transcriptDesign.pick(req.query.design, savedDesign);
+
+            res.render(designsOn ? 'print/transcript' : 'print/transcriptClassic', {
+                design,
+                savedDesign,
+                transcriptDesigns: transcriptDesign.DESIGNS,
                 title: `Transcript for ${student.first_name} ${student.last_name}`,
                 organization,
                 student,
@@ -339,7 +300,7 @@ const transcriptController = (db) => ({
             }
 
             // Fetch organization details
-            const orgResult = await db.query('SELECT password, organization_name FROM organizations WHERE organization_id = $1', [organizationId]);
+            const orgResult = await db.query('SELECT organization_name FROM organizations WHERE organization_id = $1', [organizationId]);
             if (orgResult.rows.length === 0) {
                 console.log('[emailTranscript] Organization not found');
                 return res.status(404).json({ success: false, message: "Organization not found. Please log in again." });
@@ -347,26 +308,12 @@ const transcriptController = (db) => ({
 
             const organization = orgResult.rows[0];
             
-            // Check password - try logged-in user's password first, then org password
-            let passwordMatch = false;
-            const userId = req.session.userId || (req.session.user && req.session.user.user_id);
-            
-            if (userId) {
-                const userResult = await db.query('SELECT password FROM users WHERE user_id = $1 AND organization_id = $2', [userId, organizationId]);
-                if (userResult.rows.length > 0 && userResult.rows[0].password) {
-                    passwordMatch = await bcrypt.compare(password, userResult.rows[0].password);
-                }
-            }
-            
-            // Fall back to organization password
-            if (!passwordMatch) {
-                passwordMatch = await bcrypt.compare(password, organization.password);
-            }
-            
-            console.log('[emailTranscript] Password verification:', { match: passwordMatch });
-            if (!passwordMatch) {
-                console.log('[emailTranscript] Incorrect password');
-                return res.status(401).json({ success: false, message: "Incorrect password. Please try again." });
+            // The signed-in person's own password, never the school's for a member of staff, with
+            // wrong tries limited and logged (utils/confirmOwnPassword.js).
+            try {
+                await require('../utils/confirmOwnPassword').confirmOwnPassword(req, password, { purpose: 'email a transcript' });
+            } catch (refusal) {
+                return res.status(refusal.status || 401).json({ success: false, message: refusal.message || "Incorrect password. Please try again." });
             }
 
             // Fetch student data

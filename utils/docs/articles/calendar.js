@@ -95,7 +95,7 @@ module.exports = [
     order: 3,
     summary: "See school events, your lessons, personal events and tasks in one calendar; assign tasks to colleagues, tag them in events, and track what's due.",
     tags: ["calendar", "tasks", "assign task", "mentions", "personal events", "lessons", "timetable"],
-    who: "All staff. Posting school events needs <strong>Publish Events &amp; Announcements</strong>.",
+    who: "All staff. Posting school events needs <strong>Publish Events &amp; Announcements</strong> with its <strong>Events</strong> follow-up, and announcements its <strong>Announcements</strong> follow-up.",
     sections: [
       {
         title: "Your calendar",

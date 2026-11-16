@@ -21,10 +21,26 @@ const QUESTIONS = [
   ["where is the sandbox button", "work-through-your-data-migration"],
   ["how do I make someone an assistant teacher", "assistant-teachers"],
   ["how do I turn on gpa", "gpa-on-report-cards-and-transcripts"],
-  ["I lost my phone with the authenticator app", "authenticator-codes"],
+  ["I lost my phone with the authenticator app", "two-step-sign-in"],
+  ["how do I turn on two-step sign-in", "two-step-sign-in"],
+  ["can we require an authenticator app for all staff", "two-step-sign-in"],
+  ["the authenticator code for the data migration", "authenticator-codes"],
+  ["why was my new password refused as breached", "reset-a-password-or-recover-account-access"],
   ["where can I see what I have access to", "your-access"],
   ["can I import many students at once", "create-and-add-student"],
   ["how do I take attendance", "mark-attendance-for-a-class"],
+  ["how do I take lunch", "mark-attendance-for-a-class"],
+  ["how do I turn off lunch for a class", "class-settings"],
+  ["who can change class settings", "class-settings"],
+  ["how do I stop parents seeing report cards", "class-settings"],
+  ["how do I add a holiday to the attendance calendar", "customize-your-school"],
+  ["where do I set holidays", "customize-your-school"],
+  ["class settings", "class-settings"],
+  ["can students see their report cards", "class-settings"],
+  ["how do I add teacher remarks", "custom-editor"],
+  ["where are report card remarks set up", "custom-editor"],
+  ["how do I show a form beside each student", "custom-editor"],
+  ["can I report on lunch", "report-builder"],
   ["how do I add a teacher", "create-and-add-employee-accounts-and-permissions"],
   ["how do parents pay school fees online", "set-up-paygira-bills-collections-and-guardian-payments"],
   ["how do i create a bill", "set-up-paygira-bills-collections-and-guardian-payments"],
@@ -121,8 +137,9 @@ test("a guide's subject gets its overview, unless one of its sections is about e
 });
 
 test("a word the chat already reads as a phrase is never respelt (saml is single sign-on, not same)", () => {
+  // Either single sign-on guide answers these: the one for managers, or the one for IT teams.
   for (const question of ["saml", "oidc", "openid", "SAML login"]) {
-    assert.match(ask(question, articles).source.url, /\/single-sign-on(#|$)/, question);
+    assert.match(ask(question, articles).source.url, /\/single-sign-on(-it-administrators)?(#|$)/, question);
   }
   assert.equal(ask("move everyone to sso", articles).source.section, "Move everyone, or one person, to your provider");
   for (const question of ["who signs in with sso", "how do i add a user who signs in with okta"]) {

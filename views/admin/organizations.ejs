@@ -66,7 +66,8 @@
                     <span class="ah-sub"><% if (ownParts.length) { %><span class="ap-own">Own price</span> · <%= ownParts.join(' · ') %><% } else { %>Standard price<% } %><%= org.next_payment_end_date ? ` · next bill ${_date(org.next_payment_end_date)}` : '' %></span>
                   </td>
                   <td>
-                    <% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
+                    <% const _sub = org.subscription || {}; %>
+                    <% if (org.on_hold) { %><span class="ah-status ah-status--hold"><%= _sub.canUndo ? 'Cancelled' : 'On hold' %></span><% } else if (_sub.pending) { %><span class="ah-status ah-status--hold" title="Subscription cancelled: access ends on this day">Ends <%= _date(_sub.endsOn) %></span><% } else { %><span class="ah-status">Active</span><% } %>
                     <% const _mg = (locals.migrationByOrg || {})[org.organization_id]; %><% const _mgS = _mg && typeof _mg === 'object' ? _mg : (_mg ? { status: _mg, allowed: true, on: true } : null); if (_mgS && _mgS.allowed) { %><a class="ah-status" href="/admin/migrations/<%= org.organization_id %>" data-no-spa title="<%= _mgS.on ? 'The school has its sandbox on: nothing new is saved.' : 'Given to the school; its managers have it switched off.' %>" style="<%= _mgS.on ? 'background:#ede9fe;color:#5b21b6' : 'background:#f2f4f7;color:#475467' %>"><%= _mgS.on ? 'Sandbox on' : 'Sandbox ready' %><%= _mgS.status === 'live' ? ' (live)' : '' %></a><% } %>
                   </td>
                   <td class="ah-actions-cell">
@@ -80,6 +81,17 @@
                           <% if (isAdmin) { %><%- include('partials/sandboxMenu', { org, status: (locals.migrationByOrg || {})[org.organization_id] || null }) %><% } %>
                           <% if (isAdmin) { %>
                             <div class="ah-menu__sep"></div>
+                            <%# Only Managira cancels a school's subscription (utils/subscriptionCancel.js); the school asks support. %>
+                            <% if (_sub.canCancel) { %>
+                              <form action="/admin/organizations/<%= org.organization_id %>/cancel-subscription" method="POST" data-ah-ajax data-ah-danger data-ah-ask-ok="Cancel subscription" data-ah-ask="Cancel <%= org.organization_name %>'s subscription? The school keeps its access until the end of the period it paid for, or goes on hold today if it's on a free trial or has nothing paid. Saved cards stop being charged, and the school is emailed.">
+                                <button type="submit" class="ah-menu__item ah-menu__item--danger"><i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> Cancel subscription</button>
+                              </form>
+                            <% } %>
+                            <% if (_sub.canUndo) { %>
+                              <form action="/admin/organizations/<%= org.organization_id %>/undo-cancellation" method="POST" data-ah-ajax data-ah-ask-ok="Undo cancellation" data-ah-ask="Undo the cancellation for <%= org.organization_name %>? Its subscription continues, everyone can sign in, and saved cards are charged again as usual.">
+                                <button type="submit" class="ah-menu__item"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Undo cancellation</button>
+                              </form>
+                            <% } %>
                             <% if (org.on_hold) { %>
                               <form action="/admin/resume" method="POST" data-ah-ajax data-ah-ask="Resume <%= org.organization_name %>? Everyone can sign in again." data-ah-ask-ok="Resume">
                                 <input type="hidden" name="orgId" value="<%= org.organization_id %>">

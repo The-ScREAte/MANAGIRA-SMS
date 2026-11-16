@@ -30,7 +30,8 @@ async function getGuardianContactsForStudent(database, organizationId, studentId
        JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
        WHERE gs.student_id = $1 AND gp.organization_id = $2
        UNION
-       SELECT g.email, g.phone
+       -- The older per-student rows only add email addresses (a parent is a guardian_profiles row).
+       SELECT g.email, NULL::text AS phone
        FROM guardians g
        WHERE g.student_id = $1 AND g.organization_id = $2
      ) guardian_contacts
@@ -156,9 +157,17 @@ async function runTransportArrivalSweep(database = db) {
       [trip.organization_id, trip.bus_id]
     );
 
+    // A class can stop sharing the bus with its parents (Class settings): their families then hear
+    // nothing about it, here as everywhere else.
+    const seen = await require("./classSettings").parentsSeeFor(database, trip.organization_id, assignments.rows.map((r) => r.student_id))
+      .catch(() => new Map());
     for (const student of assignments.rows) {
-      const targetLat = student.home_latitude ?? student.stop_latitude;
-      const targetLng = student.home_longitude ?? student.stop_longitude;
+      const shared = seen.get(Number(student.student_id));
+      if (shared && shared.transport === false) continue;
+      // The bus comes to the stop, so that's what it's measured to (the home only when the rider
+      // has no stop: a door-to-door pickup).
+      const targetLat = student.stop_latitude ?? student.home_latitude;
+      const targetLng = student.stop_longitude ?? student.home_longitude;
       if (targetLat === null || targetLat === undefined || targetLng === null || targetLng === undefined) continue;
 
       const distanceKm = calculateDistanceKm(ping.latitude, ping.longitude, targetLat, targetLng);
@@ -173,6 +182,14 @@ async function runTransportArrivalSweep(database = db) {
       if (!isArrived && !isApproaching) continue;
 
       const eventType = isArrived ? "arrived" : "approaching";
+      // Once the bus has arrived, "about to arrive" is never sent (a bus pulling away is close too).
+      if (eventType === "approaching") {
+        const already = await database.query(
+          "SELECT 1 FROM transport_notification_events WHERE trip_id = $1 AND student_id = $2 AND event_type = 'arrived' LIMIT 1",
+          [trip.trip_id, student.student_id]
+        ).catch(() => ({ rows: [] }));
+        if (already.rows.length) continue;
+      }
       const claimed = await reserveNotificationEvent(database, {
         organizationId: trip.organization_id,
         tripId: trip.trip_id,

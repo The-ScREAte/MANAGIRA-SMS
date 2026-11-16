@@ -1,0 +1,122 @@
+<%# Management › Class settings (feature class_settings, Every Class): every class in one table,
+    Take lunch and, for each item, who it's shared with (parents, students), with an "All
+    classes" row that sets a box for every class at once; then the school attendance calendar
+    (read only: it's changed in Settings). controllers/classSettingsController.js managementPage;
+    public/js/classSettings.js saves. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/classSettings.css') %>" />
+<%
+  const _totalText = rows.length === 1 ? '1 class' : rows.length + ' classes';
+  const _what = (item, audience) => 'shares ' + item.label.toLowerCase() + ' with ' + audience.label.toLowerCase();
+  const _lunchWhat = 'takes lunch';
+%>
+<div class="cset-page" data-class-settings data-save-url="<%= saveUrl %>" data-from="management">
+  <div class="cset-page__head">
+    <div>
+      <h1 class="cset-page__title">Class settings</h1>
+      <p class="cset-sub">Choose what each class uses and who sees what about its students. Changes save as you make them.</p>
+    </div>
+    <p class="cset-status" data-cs-status role="status" aria-live="polite"></p>
+  </div>
+
+  <div class="cset-card">
+    <div class="cset-card__head">
+      <div>
+        <h2 class="cset-card__title">Classes</h2>
+        <p class="cset-card__sub">Under each item, tick who it's shared with. Teachers can also change these for the classes they lead, in their classroom's Class Tools.</p>
+      </div>
+    </div>
+    <% if (!ready) { %>
+      <p class="cset-note" style="margin: 0 20px 18px;" role="status">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span>Class settings are still being set up for your school. Every class keeps everything on and shared until then; the choices show here once setup has finished.</span>
+      </p>
+    <% } else if (!rows.length) { %>
+      <p class="cset-none">Your school has no classes yet. Add them in Management › Classes &amp; subjects.</p>
+    <% } else { %>
+      <% if (rows.length > 6) { %>
+      <div class="cset-toolbar">
+        <input type="search" class="cset-search" data-cs-search placeholder="Find a class" aria-label="Find a class" autocomplete="off" />
+        <span class="cset-count" data-cs-count data-total="<%= rows.length %>" data-total-text="<%= _totalText %>"><%= _totalText %></span>
+      </div>
+      <% } %>
+      <div class="cset-table-wrap">
+        <table class="cset-table">
+          <thead>
+            <tr>
+              <th scope="col" rowspan="2" class="cset-col-class">Class</th>
+              <% classSwitches.forEach((s) => { %>
+              <th scope="col" rowspan="2" class="cset-col-switch" title="<%= s.help %>"><%= s.label %></th>
+              <% }) %>
+              <% shareItems.forEach((item) => { %>
+              <th scope="colgroup" colspan="<%= audiences.length %>" class="cset-item-th cset-pair-start" title="<%= item.help %>"><span><%= item.label %></span></th>
+              <% }) %>
+            </tr>
+            <tr>
+              <% shareItems.forEach((item) => { audiences.forEach((a, i) => { %>
+              <th scope="col" class="cset-aud-th<%= i === 0 ? ' cset-pair-start' : '' %>"><%= a.label %></th>
+              <% }) }) %>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="cset-allrow">
+              <td class="cset-class cset-col-class"><strong>All classes</strong><small>Sets every class at once</small></td>
+              <% classSwitches.forEach((s) => { %>
+              <td class="cset-col-switch">
+                <span class="cset-switch">
+                  <input type="checkbox" data-cs-key="<%= s.key %>" data-cs-all data-cs-what="<%= _lunchWhat %>" aria-label="<%= s.label %>, all classes" <%= rows.every((r) => r.on[s.key]) ? 'checked' : '' %> />
+                  <span class="cset-switch__track" aria-hidden="true"></span>
+                </span>
+              </td>
+              <% }) %>
+              <% shareItems.forEach((item) => { audiences.forEach((a, i) => { const _key = a.key + '.' + item.key; %>
+              <td class="<%= i === 0 ? 'cset-pair-start' : '' %>">
+                <input type="checkbox" class="cset-box" data-cs-key="<%= _key %>" data-cs-all data-cs-what="<%= _what(item, a) %>" aria-label="Share <%= item.label.toLowerCase() %> with <%= a.label.toLowerCase() %>, all classes" <%= rows.every((r) => r.on[_key]) ? 'checked' : '' %> />
+              </td>
+              <% }) }) %>
+            </tr>
+            <% rows.forEach((r) => { %>
+            <tr data-cs-name="<%= r.name %>" data-cs-find="<%= [r.name, r.lead, r.cohort].join(' ').toLowerCase() %>">
+              <td class="cset-class cset-col-class">
+                <strong><%= r.name %></strong>
+                <small><%= r.lead ? r.lead : 'No main teacher' %><%= r.cohort ? ' · ' + r.cohort : '' %></small>
+              </td>
+              <% classSwitches.forEach((s) => { %>
+              <td class="cset-col-switch">
+                <span class="cset-switch">
+                  <input type="checkbox" role="switch" data-cs-key="<%= s.key %>" data-cs-class="<%= r.id %>" data-cs-what="<%= _lunchWhat %>" aria-label="<%= s.label %>, <%= r.name %>" <%= r.on[s.key] ? 'checked' : '' %> />
+                  <span class="cset-switch__track" aria-hidden="true"></span>
+                </span>
+              </td>
+              <% }) %>
+              <% shareItems.forEach((item) => { audiences.forEach((a, i) => { const _key = a.key + '.' + item.key; %>
+              <td class="<%= i === 0 ? 'cset-pair-start' : '' %>">
+                <input type="checkbox" class="cset-box" data-cs-key="<%= _key %>" data-cs-class="<%= r.id %>" data-cs-what="<%= _what(item, a) %>" aria-label="Share <%= item.label.toLowerCase() %> with <%= a.label.toLowerCase() %>, <%= r.name %>" <%= r.on[_key] ? 'checked' : '' %> />
+              </td>
+              <% }) }) %>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <p class="cset-none" data-cs-none hidden>No class matches.</p>
+      </div>
+      <details class="cset-legend">
+        <summary>What each one covers</summary>
+        <dl>
+          <% classSwitches.forEach((s) => { %>
+          <dt><%= s.label %></dt>
+          <dd><%= s.help %></dd>
+          <% }) %>
+          <% shareItems.forEach((item) => { %>
+          <dt><%= item.label %></dt>
+          <dd><%= item.help %></dd>
+          <% }) %>
+          <dt><%= audiences.map((a) => a.label).join(' and ') %></dt>
+          <dd>Ticked: the class's parents see it in the parent portal, and its students in the student portal.</dd>
+        </dl>
+      </details>
+    <% } %>
+  </div>
+
+  <%- include('../partials/classSettingsCalendar', { calendar, fromHub: true }) %>
+</div>
+<script src="<%= assetUrl('/js/classSettings.js') %>" defer></script>

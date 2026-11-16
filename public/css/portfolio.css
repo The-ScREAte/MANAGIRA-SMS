@@ -21,6 +21,8 @@
 .pf .pf-term[aria-current="true"] { border-color: var(--pf-accent); background: var(--pf-soft); box-shadow: 0 0 0 1px var(--pf-accent); }
 .pf .pf-term[aria-current="true"] strong { color: var(--pf-accent); }
 .pf-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 6px 0 18px; }
+/* Without the report card (the class keeps report cards from parents): three across. */
+.pf-stats.pf-stats--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pf-stat { padding: 14px; border: 1px solid var(--pf-line); border-radius: 12px; background: var(--pf-surface); }
 .pf-stat span { display: block; color: var(--pf-muted); font-size: 12px; font-weight: 600; }
 .pf-stat strong { display: block; margin-top: 3px; font-size: 21px; font-weight: 750; letter-spacing: -.01em; }
@@ -58,6 +60,7 @@
 .pf-score--none { color: var(--pf-muted); font-size: 12.5px; font-weight: 600; }
 .pf-empty { padding: 26px 18px; border: 1px dashed var(--pf-line); border-radius: 12px; color: var(--pf-muted); text-align: center; font-size: 13.5px; }
 @media (max-width: 860px) {
-  .pf-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pf-stats, .pf-stats.pf-stats--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pf-stats.pf-stats--3 > .pf-stat:last-child { grid-column: 1 / -1; }
 }
 

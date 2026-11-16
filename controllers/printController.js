@@ -574,6 +574,13 @@ async function getOrganizationCustomRemarkTypes(dbClient, organizationId) {
     .filter((row) => row.type_key.startsWith("custom:") && row.label);
 }
 
+// Report Settings › Advanced (feature report_remarks_forms): the Custom editor sections a class
+// leaves off its report cards, { "<sectionId>": false }; a section not listed prints.
+function normalizeCustomSectionsVisibility(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return Object.fromEntries(Object.entries(source).filter(([id, on]) => /^\d{1,9}$/.test(id) && typeof on === "boolean").slice(0, 500));
+}
+
 function normalizeCustomRemarkVisibilityMap(value, customRemarkTypes) {
   const source = value && typeof value === "object" ? value : {};
   const normalized = {};
@@ -1081,7 +1088,8 @@ function getDefaultGradeLabel(percentage) {
   if (value >= 90) return "A";
   if (value >= 80) return "B";
   if (value >= 70) return "C";
-  return "D";
+  if (value >= 60) return "D";
+  return "F";
 }
 
 function resolveGradeLabelFromRule(rule, percentage) {
@@ -1096,7 +1104,8 @@ function getDefaultScoreRemark(percentage) {
   if (value >= 90) return "Excellent";
   if (value >= 80) return "Very Good";
   if (value >= 70) return "Good";
-  return "Needs Improvement";
+  if (value >= 60) return "Needs Improvement";
+  return "Unsatisfactory";
 }
 
 function buildDefaultScoreRemarkRows() {
@@ -1104,7 +1113,8 @@ function buildDefaultScoreRemarkRows() {
     { from: 90, to: 100 },
     { from: 80, to: 89 },
     { from: 70, to: 79 },
-    { from: 0, to: 69 },
+    { from: 60, to: 69 },
+    { from: 0, to: 59 },
   ];
 
   return ranges.map((r) => ({
@@ -1280,6 +1290,16 @@ async function getLockedClassesForRule(dbClient, organizationId, termId, entryTy
   );
 
   return lockedResult.rows;
+}
+
+// A report card sent outside Managira (a text, WhatsApp): storage is private, so the message
+// carries Managira's own short link (/r/<code>), signed when it is opened (utils/shortLink.js).
+async function reportCardShortLink(req, organizationId, pdfUrl) {
+  if (!pdfUrl) return "";
+  const base = process.env.NODE_ENV === "production"
+    ? String(process.env.BASE_URL_PRODUCTION || "https://managira.com")
+    : `${req.protocol}://${req.get("host")}`;
+  return require("../utils/shortLink").createShortLink(db, { targetUrl: pdfUrl, organizationId, baseUrl: base });
 }
 
 // Helper functions for S3 actions
@@ -1824,6 +1844,9 @@ const printController = (db) => ({
           customSections:  secVis.customSections  !== false,
           // GPA (feature gpa): off until the school turns it on.
           gpa:             secVis.gpa === true,
+          // Overall lunch (feature class_lunch): off until the school turns it on.
+          lunch:           secVis.lunch === true
+            && require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) }),
         },
       };
 
@@ -1922,6 +1945,20 @@ const printController = (db) => ({
         attendanceMap[row.student_id] = Number(attendanceMap[row.student_id] || 0) + Number(row.days || 0);
       }
 
+      // Overall lunch (Report Settings › Advanced, feature class_lunch): for each student, the
+      // term's days with lunch out of the days lunch was taken. One read for the class.
+      const lunchMap = new Map();
+      if (displaySettings.sections.lunch && students.length) {
+        const lunchRows = await db.query(
+          `SELECT student_id, COUNT(*) FILTER (WHERE had_lunch)::int AS had, COUNT(*)::int AS taken
+             FROM class_lunch
+            WHERE organization_id = $1 AND term_id = $2 AND student_id = ANY($3::int[])
+            GROUP BY student_id`,
+          [organizationId, parsedTermId, students.map((student) => Number(student.student_id))]
+        ).then((r) => r.rows).catch(() => []);
+        for (const row of lunchRows) lunchMap.set(Number(row.student_id), { days: Number(row.had) || 0, taken: Number(row.taken) || 0 });
+      }
+
       await ensureReportPaygiraManualOverridesTable(db);
       const studentIds = students.map((student) => Number(student.student_id)).filter((id) => Number.isFinite(id) && id > 0);
       const paygiraOverrideRowsResult = studentIds.length
@@ -1981,16 +2018,25 @@ const printController = (db) => ({
       };
 
       // Custom editor sections marked "Show on report cards": each student's answers for this
-      // term (one read for the class; schools without such a section cost nothing).
-      const customSectionsByStudent = displaySettings.sections.customSections === false ? new Map()
-        : await require("../utils/customForms").reportCardSections(db, organizationId, {
+      // term (one read for the class; schools without such a section cost nothing), less those
+      // unticked in Report Settings › Advanced. A field that prints as a remark (feature
+      // report_remarks_forms) fills that remark below instead of printing under its section.
+      const customFormsCard = displaySettings.sections.customSections === false ? { sections: new Map(), remarks: new Map() }
+        : await require("../utils/customForms").reportCard(db, organizationId, {
           classId: parsedClassId, termId: parsedTermId, studentIds: students.map((student) => Number(student.student_id)),
-        }).catch(() => new Map());
+          visibility: normalizeCustomSectionsVisibility(secVis.customSectionsVisibility),
+        }).catch(() => ({ sections: new Map(), remarks: new Map() }));
+      const customSectionsByStudent = customFormsCard.sections;
 
-      // GPA, where the school shows it: each subject's level (Honors, AP) and what a level adds.
+      // GPA, where the school shows it: each subject's level (Honors, AP), what a level adds, and
+      // (feature gpa_credits) its credits, so the report card's term GPA is the transcript's.
       const gpaUtil = require("../utils/gpa");
       const gpaContext = displaySettings.sections.gpa && gpaUtil.featureOn(organizationId)
-        ? { settings: await gpaUtil.settingsFor(db, organizationId), levels: await gpaUtil.levelsFor(db, organizationId, { classId: parsedClassId }) }
+        ? {
+            settings: await gpaUtil.settingsFor(db, organizationId),
+            levels: await gpaUtil.levelsFor(db, organizationId, { classId: parsedClassId }),
+            credits: await gpaUtil.creditsFor(db, organizationId, { classId: parsedClassId }),
+          }
         : null;
       students.forEach((student) => {
         const savedReport = savedReportsMap[student.student_id] || {};
@@ -2003,6 +2049,28 @@ const printController = (db) => ({
         student.customRemarks = (savedReport.custom_remarks_json && typeof savedReport.custom_remarks_json === 'object')
           ? savedReport.custom_remarks_json
           : {};
+        // Remarks collected with the Custom editor print in their usual place (and in layouts'
+        // remark fields); a remark its section has no answer for keeps the one saved here.
+        // `formRemarks` (row key -> section name) shows them read-only; `savedRemarks` rides along
+        // so Save Changes keeps what was saved here.
+        const formRemarks = customFormsCard.remarks.get(Number(student.student_id));
+        if (formRemarks) {
+          student.savedRemarks = {
+            teacher: student.teacherRemarks, conduct: student.conductRemarks, interest: student.interestRemarks, attitude: student.attitudeRemarks,
+            custom: { ...student.customRemarks },
+          };
+          student.customRemarks = { ...student.customRemarks };
+          student.formRemarks = {};
+          Object.entries(formRemarks).forEach(([slot, answer]) => {
+            if (slot.startsWith("custom:")) {
+              student.customRemarks[slot] = answer.text;
+              student.formRemarks[`customRemark_${slot.replace(/[^a-z0-9]+/gi, "_")}`] = answer.section;
+            } else {
+              student[`${slot}Remarks`] = answer.text;
+              student.formRemarks[`${slot}Remarks`] = answer.section;
+            }
+          });
+        }
         student.manualAttendancePresentDays = Number.isFinite(Number(savedReport.manual_attendance_present_days))
           ? Number(savedReport.manual_attendance_present_days)
           : null;
@@ -2162,10 +2230,12 @@ const printController = (db) => ({
           presentDays: attendanceMap[student.student_id] || 0,
           totalDays,
         };
+        // Days with lunch out of days taken; null where lunch was never taken this term.
+        if (displaySettings.sections.lunch) student.lunch = lunchMap.get(Number(student.student_id)) || null;
         // The term's GPA from the subjects' grade letters (utils/gpa.js): unweighted, and weighted
         // when an Honors or AP subject adds to a pass.
         if (gpaContext) {
-          const termGpa = gpaUtil.gpaOf(student.subjects.map((sub) => ({ grade: sub.gradeRaw, level: gpaContext.levels.get(Number(sub.subject_id)) || null })), gpaContext.settings);
+          const termGpa = gpaUtil.gpaOf(student.subjects.map((sub) => ({ grade: sub.gradeRaw, level: gpaContext.levels.get(Number(sub.subject_id)) || null, credits: gpaContext.credits.get(Number(sub.subject_id)) })), gpaContext.settings);
           student.gpa = termGpa.unweighted;
           student.gpaWeighted = termGpa.weighted;
         }
@@ -2551,16 +2621,27 @@ const printController = (db) => ({
           }),
         ];
         const usedRemarks = new Map();
+        // A remark collected with the Custom editor shows read-only; the one saved here rides
+        // along unseen so Save Changes keeps it.
+        const savedRemark = (def, st) => (!st.savedRemarks ? def.value(st)
+          : def.typeKey ? (st.savedRemarks.custom || {})[def.typeKey] || "" : st.savedRemarks[def.key] || "");
         const remarkBox = (def, student, hidden) => {
           const id = `${def.rowKey}-${student.student_id}`;
-          const area = `<textarea id="${id}" name="${id}" data-custom-remark-type="${escHtml(def.typeKey)}" maxlength="150" rows="1"${hidden ? " hidden" : ' onfocus="this.select();"'}>${escHtml(def.value(student))}</textarea>`;
+          const fromForm = (student.formRemarks || {})[def.rowKey];
+          const area = `<textarea id="${id}" name="${id}" data-custom-remark-type="${escHtml(def.typeKey)}" maxlength="150" rows="1"${hidden || fromForm ? " hidden" : ' onfocus="this.select();"'}>${escHtml(fromForm ? savedRemark(def, student) : def.value(student))}</textarea>`;
           if (hidden) return area;
+          if (fromForm) {
+            return `<span class="remark-line rt-remark rt-remark--form"><textarea class="remark-from-form" rows="1" readonly tabindex="-1" aria-readonly="true" title="${escHtml(`Collected with the Custom editor › ${fromForm}`)}">${escHtml(def.value(student))}</textarea>${area}</span>`;
+          }
           const options = (def.options || []).map((r) => `<div class="remark-dropdown-option" onclick="selectRemark('${def.rowKey}', ${Number(student.student_id)}, this.textContent.trim())">${escHtml(r.remark)}</div>`).join("");
           return `<span class="remark-line rt-remark">${area}<span class="remark-arrow" id="arrow-${id}" onclick="toggleDropdown('${def.rowKey}', ${Number(student.student_id)})">▼</span><div class="remark-dropdown" id="dropdown-${id}">${options}</div></span>`;
         };
         const templateCtx = {
           locals: reportLocals,
           logo: (req.session && req.session.logo) || logoUrl || null, // same logo as the standard card
+          // Pictures go through Managira's image route, signed for this session (the same session
+          // Puppeteer uses for the PDF): storage itself is private (utils/storedFiles.js).
+          image: (value) => (value && typeof res.locals.publicImageUrl === "function" ? res.locals.publicImageUrl(value) : value),
           motto: organization.motto || '',
           className: classData && classData.class_name,
           classSize: classStudentCount,
@@ -2974,7 +3055,9 @@ const printController = (db) => ({
             promotion:       sec.promotion       !== false,
             choiceResults:   sec.choiceResults   !== false,
             customSections:  sec.customSections  !== false,
+            customSectionsVisibility: normalizeCustomSectionsVisibility(sec.customSectionsVisibility),
             gpa:             sec.gpa === true,
+            lunch:           sec.lunch === true,
           },
         };
       });
@@ -3168,7 +3251,9 @@ const printController = (db) => ({
           promotion:       secVis2.promotion       !== false,
           choiceResults:   secVis2.choiceResults   !== false,
           customSections:  secVis2.customSections  !== false,
+          customSectionsVisibility: normalizeCustomSectionsVisibility(secVis2.customSectionsVisibility),
           gpa:             secVis2.gpa === true,
+          lunch:           secVis2.lunch === true,
         },
       };
 
@@ -3179,18 +3264,32 @@ const printController = (db) => ({
         db.query(`SELECT class_id, document_id FROM report_template_classes WHERE organization_id = $1`, [organizationId]),
       ]);
 
-      // GPA weights (feature gpa): what Honors and AP add, and each subject's level.
+      // GPA weights (feature gpa): what Honors and AP add, each subject's level and (feature
+      // gpa_credits) its credits; credits is null where the school doesn't have course credits.
       const gpaUtil = require("../utils/gpa");
       const gpaWeights = gpaUtil.featureOn(organizationId) && await gpaUtil.weightsReady(db)
         ? {
             ...(await gpaUtil.settingsFor(db, organizationId)),
             levels: Object.fromEntries(await gpaUtil.levelsFor(db, organizationId)),
+            credits: gpaUtil.creditsOn(organizationId) && await gpaUtil.creditsReady(db) ? Object.fromEntries(await gpaUtil.creditsFor(db, organizationId)) : null,
             // The bonuses are the school's: its managers and supervisors set them.
             canSetBonuses: String(req.session.accountType || "").toLowerCase() === "organization" || ["manager", "supervisor"].includes(String(req.session.userRole || req.session.user?.account_type || "").toLowerCase()),
           }
         : null;
 
+      // Remarks in the Custom editor (feature report_remarks_forms; null where it's off): remarks
+      // are set up and collected there, so the remarks card isn't shown, and Advanced ticks which
+      // Custom editor sections each class prints.
+      const customFormSections = await require("../utils/customForms").reportSettingsSections(db, organizationId).catch(() => null);
+
+      // Transcript design (utils/transcriptDesign.js): which one the school prints.
+      const transcriptDesignUtil = require("../utils/transcriptDesign");
+      const transcriptDesign = await transcriptDesignUtil.designFor(db, organizationId).catch(() => transcriptDesignUtil.DEFAULT);
+
       res.render("print/reportSettings", {
+        transcriptDesign,
+        transcriptDesigns: transcriptDesignUtil.DESIGNS,
+        customFormSections,
         gpaWeights,
         title: "Report Settings",
         isEmbedded,
@@ -3365,6 +3464,7 @@ const printController = (db) => ({
         sections: {
           ...sections,
           classroomRemarkTypes: effectiveClassroomRemarkTypes,
+          customSectionsVisibility: normalizeCustomSectionsVisibility(sections.customSectionsVisibility),
           paygiraBills: {
             ...paygiraBills,
             manual: {
@@ -7001,6 +7101,9 @@ const printController = (db) => ({
 
             const guardianRecipientsResult = postedStudentIds.length
               ? await db.query(
+                  // A parent's children are guardian_students rows (parent profile to student). The
+                  // older per-student guardians rows are numbered separately: they only add email
+                  // addresses, never a bell notice (their ids would reach another family's bell).
                   `SELECT DISTINCT gs.student_id,
                           gp.guardian_id,
                           'profile' AS source,
@@ -7033,10 +7136,16 @@ const printController = (db) => ({
             const guardianNotifications = [];
             const guardianEmailTargets = [];
             const seenGuardianEmailKey = new Set();
+            // Class settings › Share with › Report cards · Parents: a class that doesn't share report
+            // cards with parents sends them no notice or email (the parent portal hides them too).
+            const parentsShare = await require("../utils/classSettings")
+              .parentsSeeFor(db, organizationId, (guardianRecipientsResult.rows || []).map((row) => row.student_id))
+              .catch(() => new Map());
 
             (guardianRecipientsResult.rows || []).forEach((row) => {
               const guardianId = Number(row.guardian_id);
               const studentId = Number(row.student_id);
+              if ((parentsShare.get(studentId) || {}).reportCards === false) return;
               const studentName = studentNameById.get(studentId) || `Student ${studentId}`;
               const guardianEmail = String(row.email || '').trim().toLowerCase();
               const guardianName = String(row.guardian_name || 'Guardian').trim() || 'Guardian';
@@ -8100,9 +8209,11 @@ const printController = (db) => ({
 
           try {
             const fileName = `${studentName.replace(/[^a-zA-Z0-9_-]+/g, '_')}_Report.pdf`;
+            // Meta fetches the document itself within minutes: a link that works for an hour.
+            const documentLink = await require("../utils/storedFiles").signedUrl(pdfUrl, { seconds: 3600 });
             const documentResult = await sendWhatsappDocumentMessage(credentials.accessToken, credentials.phoneNumberId, {
               to: normalized.normalized,
-              documentLink: pdfUrl,
+              documentLink,
               filename: fileName,
               caption: `${studentName} report card (${termName})`,
             });
@@ -8138,7 +8249,8 @@ const printController = (db) => ({
             const documentErrorCode = Number(documentError?.response?.data?.error?.code || 0);
 
             try {
-              const fallbackMessage = `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready. Download it here: ${pdfUrl}`;
+              const fallbackLink = await reportCardShortLink(req, organizationId, pdfUrl);
+              const fallbackMessage = `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready. Download it here: ${fallbackLink}`;
               const fallbackResult = await sendWhatsappTextMessage(credentials.accessToken, credentials.phoneNumberId, {
                 to: normalized.normalized,
                 text: fallbackMessage,
@@ -8421,8 +8533,9 @@ const printController = (db) => ({
         }
 
         const pdfUrl = pdfUrlByStudentId.get(studentId) || "";
-        const message = pdfUrl
-          ? `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready. View/download: ${pdfUrl}`
+        const pdfLink = pdfUrl ? await reportCardShortLink(req, organizationId, pdfUrl).catch(() => "") : "";
+        const message = pdfLink
+          ? `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready. View/download: ${pdfLink}`
           : `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready — please check the school portal or contact the office.`;
 
         for (const phone of phones) {
@@ -8902,6 +9015,17 @@ const printController = (db) => ({
       rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
       rows = rows.slice(0, 1000);
 
+      // A teacher sees only their own classes' history (utils/classScope.js), like their report cards.
+      const teacherClasses = await require('../utils/classScope').listScope(db, req);
+      if (teacherClasses) rows = rows.filter((row) => row.class_id && teacherClasses.has(Number(row.class_id)));
+
+      // Storage is private: each PDF opens through a link that works for an hour (utils/storedFiles.js).
+      const storedFiles = require('../utils/storedFiles');
+      await Promise.all(rows.map(async (row) => {
+        if (!row.report_pdf_url) return;
+        row.report_pdf_url = (await storedFiles.signedUrl(row.report_pdf_url, { seconds: 3600 }).catch(() => null)) || null;
+      }));
+
       return res.json({ success: true, data: rows });
     } catch (error) {
       console.error('[getEmailHistory] Error:', error);
@@ -8968,7 +9092,7 @@ const printController = (db) => ({
 
 });
 
-// GPA weights from Report Settings › Advanced (utils/gpa.js): JSON { honors, ap, levels }.
+// GPA weights from Report Settings › Advanced (utils/gpa.js): JSON { honors, ap, levels, credits }.
 printController.saveGpaSettings = async (req, res) => {
   try {
     const organizationId = Number(req.session.organizationId);
@@ -8979,13 +9103,16 @@ printController.saveGpaSettings = async (req, res) => {
     // The bonuses are the whole school's: its managers and supervisors set them.
     const role = String(req.session.userRole || req.session.user?.account_type || "").toLowerCase();
     if (!(String(req.session.accountType || "").toLowerCase() === "organization" || ["manager", "supervisor"].includes(role))) { delete body.honors; delete body.ap; }
-    // A teacher sets the level of the subjects they work on (the gradebook's own rule).
+    // A teacher sets the level and credits of the subjects they work on (the gradebook's own rule).
     const scope = await require("../utils/classScope").teacherScope(db, req);
-    if (scope && body.levels && typeof body.levels === "object") {
-      const ids = Object.keys(body.levels).map((id) => Number.parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0);
-      const { rows } = ids.length ? await db.query("SELECT subject_id, class_id FROM subjects WHERE organization_id = $1 AND subject_id = ANY($2::int[])", [organizationId, ids]) : { rows: [] };
-      const allowed = new Set(rows.filter((r) => scope.subjects.has(Number(r.subject_id)) || scope.mainClasses.has(Number(r.class_id))).map((r) => String(r.subject_id)));
-      body.levels = Object.fromEntries(Object.entries(body.levels).filter(([id]) => allowed.has(String(Number.parseInt(id, 10)))));
+    if (scope) {
+      for (const field of ["levels", "credits"]) {
+        if (!body[field] || typeof body[field] !== "object") continue;
+        const ids = Object.keys(body[field]).map((id) => Number.parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0);
+        const { rows } = ids.length ? await db.query("SELECT subject_id, class_id FROM subjects WHERE organization_id = $1 AND subject_id = ANY($2::int[])", [organizationId, ids]) : { rows: [] };
+        const allowed = new Set(rows.filter((r) => scope.subjects.has(Number(r.subject_id)) || scope.mainClasses.has(Number(r.class_id))).map((r) => String(r.subject_id)));
+        body[field] = Object.fromEntries(Object.entries(body[field]).filter(([id]) => allowed.has(String(Number.parseInt(id, 10)))));
+      }
     }
     const result = await gpaUtil.saveSettings(db, organizationId, body, actor);
     if (result.error) return res.status(400).json({ success: false, error: result.error });

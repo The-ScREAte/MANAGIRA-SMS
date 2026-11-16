@@ -584,7 +584,9 @@
   <%- include('../partials/familyDetailsCard', { mode: 'parent' }) %>
 
   <!-- Children Section -->
-  <% const parentBusRequests = !!locals.transportationActive && children.length > 0; %>
+  <%# A child whose class keeps the bus from parents (Class settings) has no bus buttons, and the bus tabs show only while one child is left. %>
+  <% const _transportHidden = new Set((locals.transportHiddenIds || []).map(Number)); %>
+  <% const parentBusRequests = !!locals.transportationActive && children.some((child) => !_transportHidden.has(Number(child.student_id))); %>
   <% if (parentBusRequests) { %>
     <link rel="stylesheet" href="<%= assetUrl('/css/busRequest.css') %>" />
     <div class="gdr gdr-confirm" data-gdr-confirm hidden></div>
@@ -680,7 +682,7 @@
                   data-riding="<%= child.student_id %>"
                   data-riding-name="<%= child.first_name || childDisplayName %>">Not coming</button>
                 <% } %>
-                <% } else if (parentBusRequests) { %>
+                <% } else if (parentBusRequests && !_transportHidden.has(Number(child.student_id))) { %>
                 <button
                   type="button"
                   class="child-transport-btn child-transport-btn--none"

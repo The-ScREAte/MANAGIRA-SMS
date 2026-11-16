@@ -28,6 +28,7 @@ const { invalidateAccessForPlan } = require("../utils/accessCache");
 
 const PRICING = "/admin/servicePricing";
 const ORGS = "/admin/hubs";
+const subscriptionCancel = require("../utils/subscriptionCancel");
 const TABS = ["schools", "hubs", "payments"];
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const toId = (value) => {
@@ -551,7 +552,7 @@ async function loadSchools() {
   const ints = await hubBilling.integrationSql(db);
   const own = await db.query("SELECT custom_monthly_price FROM organizations LIMIT 0").then(() => true).catch(() => false);
   const rows = (await db.query(
-    `SELECT o.organization_id, o.organization_name, o.nickname, o.on_hold, o.hold_by, o.max_users, o.created_at,
+    `SELECT o.organization_id, o.organization_name, o.nickname, o.on_hold, o.hold_by, o.scheduled_hold_date, o.max_users, o.created_at,
             o.first_name, o.last_name, o.email, o.organization_country, p.plan_name,
             ${own ? "o.custom_monthly_price, o.custom_discount_percent, o.custom_addon_prices" : "NULL::numeric AS custom_monthly_price, 0 AS custom_discount_percent, NULL::jsonb AS custom_addon_prices"},
             (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id
@@ -570,7 +571,7 @@ async function loadSchools() {
     if (error.code !== "42703" && error.code !== "42P01") throw error;
     // Older databases without payments.status or billing_period_key: the list without billing.
     return db.query(
-      `SELECT o.organization_id, o.organization_name, o.nickname, o.on_hold, o.hold_by, o.max_users, o.created_at,
+      `SELECT o.organization_id, o.organization_name, o.nickname, o.on_hold, o.hold_by, o.scheduled_hold_date, o.max_users, o.created_at,
               o.first_name, o.last_name, o.email, o.organization_country, p.plan_name,
               NULL::numeric AS custom_monthly_price, 0 AS custom_discount_percent, NULL::jsonb AS custom_addon_prices, 0 AS user_count, ${ints}
          FROM organizations o LEFT JOIN plans p ON p.id = o.plan_id
@@ -582,6 +583,7 @@ async function loadSchools() {
     ...r,
     addons: hubBilling.INTEGRATIONS.filter((i) => r[`int_${i.key}`]).map((i) => i.label),
     ownPricing: orgPricing.normalizeOverrides(r),
+    subscription: subscriptionCancel.stateOf(r),
   }));
 }
 
@@ -633,6 +635,18 @@ async function schoolForPanel(organizationId) {
       WHERE o.organization_id = $1 AND o.deleted = false`,
     [organizationId]
   )).rows[0] || null;
+}
+
+// GET /admin/organizations/:id/documents/:n: one of the documents a school sent when it signed up,
+// through a link that works for a few minutes (storage is private: utils/storedFiles.js).
+async function schoolDocumentGet(req, res) {
+  const n = Number(req.params.n);
+  const { rows } = await db.query(
+    "SELECT proof_of_existence_1, proof_of_existence_2 FROM organizations WHERE organization_id = $1 AND deleted = false",
+    [toId(req.params.organizationId)]
+  );
+  const value = rows[0] ? (n === 1 ? rows[0].proof_of_existence_1 : n === 2 ? rows[0].proof_of_existence_2 : null) : null;
+  return require("../utils/storedFiles").redirectToFile(res, value);
 }
 
 async function schoolDetailsGet(req, res) {
@@ -697,6 +711,39 @@ async function schoolPricingPost(req, res) {
   res.redirect(ORGS);
 }
 
+// Cancelling a single school's subscription is Managira's to do (utils/subscriptionCancel.js):
+// the school asks support. It keeps access to the end of the period it paid for.
+const actorOf = (req) => [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || "Managira";
+const longDay = (value) => new Date(value).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+async function schoolCancelPost(req, res) {
+  try {
+    const result = await subscriptionCancel.cancel(db, toId(req.params.organizationId), { actor: actorOf(req) });
+    if (result.error) req.flash("error", result.error);
+    else req.flash("success", result.endsNow
+      ? `${result.org.organization_name}: subscription cancelled. The school is on hold from today.`
+      : `${result.org.organization_name}: subscription cancelled. It keeps access until ${longDay(result.endsOn)}.`);
+  } catch (error) {
+    console.error("[Admin organizations] cancel subscription:", error.message);
+    req.flash("error", "Could not cancel the subscription. Try again.");
+  }
+  require("../utils/cacheManager").invalidate("admin", "organizations:list");
+  res.redirect(String(req.body && req.body.back) === "holds" ? "/admin/scheduled-holds" : ORGS);
+}
+
+async function schoolUndoCancelPost(req, res) {
+  try {
+    const result = await subscriptionCancel.undo(db, toId(req.params.organizationId), { actor: actorOf(req) });
+    if (result.error) req.flash("error", result.error);
+    else req.flash("success", `${result.org.organization_name}: cancellation undone. The subscription continues.`);
+  } catch (error) {
+    console.error("[Admin organizations] undo cancellation:", error.message);
+    req.flash("error", "Could not undo the cancellation. Try again.");
+  }
+  require("../utils/cacheManager").invalidate("admin", "organizations:list");
+  res.redirect(String(req.body && req.body.back) === "holds" ? "/admin/scheduled-holds" : ORGS);
+}
+
 module.exports = {
   pricingGet,
   addonsPost,
@@ -708,6 +755,9 @@ module.exports = {
   cyclesPost,
   organizationsGet,
   schoolDetailsGet,
+  schoolDocumentGet,
   schoolPricingGet,
   schoolPricingPost,
+  schoolCancelPost,
+  schoolUndoCancelPost,
 };

@@ -1581,8 +1581,12 @@ const adminController = {
 
     const { orgId } = req.body;
     try {
+      // An end date already passed is cleared too, or the nightly hold job would put it straight back.
       const result = await db.query(
-        "UPDATE organizations SET on_hold = false, on_hold_at = NULL, hold_reminder_count = 0 WHERE organization_id = $1 RETURNING email, first_name, last_name",
+        `UPDATE organizations
+            SET on_hold = false, on_hold_at = NULL, hold_reminder_count = 0,
+                scheduled_hold_date = CASE WHEN scheduled_hold_date <= NOW() THEN NULL ELSE scheduled_hold_date END
+          WHERE organization_id = $1 RETURNING email, first_name, last_name`,
         [orgId]
       );
       const organization = result.rows[0];
@@ -3185,22 +3189,28 @@ const adminController = {
     return res.redirect("/admin/servicePricing");
   },
 
+  // Admin › Subscription Cancellation: schools whose subscription ends on a set day, and schools
+  // on hold because it ended. Cancelling is done from Organizations (utils/subscriptionCancel.js).
   scheduledHoldsPage: async (req, res) => {
     try {
+      const { CANCELLED_HOLDS } = require("../utils/subscriptionCancel");
       const result = await db.query(
-        `SELECT organization_id, organization_name, scheduled_hold_date 
-                     FROM organizations 
-                     WHERE scheduled_hold_date IS NOT NULL 
-                     ORDER BY scheduled_hold_date ASC`
+        `SELECT organization_id, organization_name, email, first_name, last_name, on_hold, hold_by, scheduled_hold_date, on_hold_at
+           FROM organizations
+          WHERE deleted = false
+            AND (hub_id IS NULL OR COALESCE(is_hub_member, false) = false)
+            AND ((scheduled_hold_date IS NOT NULL AND on_hold = false) OR (on_hold = true AND hold_by = ANY($1::text[])))
+          ORDER BY on_hold, scheduled_hold_date NULLS LAST, LOWER(organization_name)`,
+        [CANCELLED_HOLDS]
       );
-
       res.render("admin/scheduledHolds", {
-        title: "Scheduled Holds",
-        organizations: result.rows,
-        messages: req.flash(),
+        title: "Subscription Cancellation",
+        pending: result.rows.filter((row) => !row.on_hold),
+        ended: result.rows.filter((row) => row.on_hold),
       });
     } catch (error) {
-            req.flash("error", "Failed to load scheduled holds.");
+      console.error("[Admin] subscription cancellations:", error.message);
+      req.flash("error", "Could not load subscription cancellations.");
       res.redirect("/admin");
     }
   },
@@ -3401,6 +3411,19 @@ const adminController = {
       messages: req.flash(),
       showFooterTopSection: true
     });
+  },
+
+  // GET /admin/employment/applications/:id/resume (or cover-letter): the applicant's file, through
+  // a link that works for a few minutes (storage is private: utils/storedFiles.js).
+  employmentDocumentGet: async (req, res) => {
+    try {
+      const { rows } = await db.query("SELECT resume_url, cover_letter_url FROM employment_applications WHERE id = $1", [Number(req.params.id)]);
+      const value = rows[0] ? (req.params.doc === "resume" ? rows[0].resume_url : rows[0].cover_letter_url) : null;
+      return require("../utils/storedFiles").redirectToFile(res, value);
+    } catch (error) {
+      console.error("[admin] employment document:", error.message);
+      return res.status(500).send("That file couldn't be opened. Try again.");
+    }
   },
 
   getEmploymentApplicationsAjax: async (req, res) => {
@@ -4722,7 +4745,8 @@ const adminController = {
                                WHEN ar.total_percentage >= 90 THEN 'A'
                                WHEN ar.total_percentage >= 80 THEN 'B'
                                WHEN ar.total_percentage >= 70 THEN 'C'
-                               ELSE 'D'
+                               WHEN ar.total_percentage >= 60 THEN 'D'
+                               ELSE 'F'
                              END
                            )
                            FROM score_remarks sr
@@ -4745,7 +4769,8 @@ const adminController = {
                            WHEN ar.total_percentage >= 90 THEN 'A'
                            WHEN ar.total_percentage >= 80 THEN 'B'
                            WHEN ar.total_percentage >= 70 THEN 'C'
-                           ELSE 'D'
+                           WHEN ar.total_percentage >= 60 THEN 'D'
+                           ELSE 'F'
                          END
                        ) AS grade
                 FROM assessment_results ar
@@ -5749,8 +5774,9 @@ adminController.hubSetPasswordPost = async (req, res) => {
     if (!hub) return;
 
     const password = String(req.body.newPassword || '');
-    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      req.flash('error', 'Use at least 8 characters with letters and numbers.');
+    const adminHubPasswordIssue = await require('../utils/passwordRules').passwordProblemAsync(password);
+    if (adminHubPasswordIssue || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      req.flash('error', adminHubPasswordIssue || 'Use 8 to 72 characters with letters and numbers.');
       return res.redirect('/admin/hubs');
     }
 

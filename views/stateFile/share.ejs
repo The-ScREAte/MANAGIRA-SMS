@@ -1,0 +1,62 @@
+<%# A Gov/state report sent outside the school (controllers/stateReportingController.js createGovShare). %>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Gov/state report<%= school ? ` · ${school}` : '' %></title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: #f4f6f8; color: #101828; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .card { width: min(460px, 100%); padding: 28px 26px; border: 1px solid #e4e7ec; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px rgba(16, 24, 40, .06); }
+    .brand { margin: 0 0 18px; color: #01535b; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    h1 { margin: 0 0 6px; font-size: 21px; line-height: 1.3; }
+    p { margin: 0 0 14px; color: #475467; }
+    .file { margin: 0 0 18px; padding: 12px 14px; border-radius: 10px; background: #f9fafb; color: #344054; font-size: 14px; overflow-wrap: anywhere; }
+    .file strong { color: #101828; }
+    label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+    input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #d0d5dd; border-radius: 10px; font: 600 22px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .4em; text-align: center; }
+    input:focus { outline: 2px solid #01535b; outline-offset: 1px; border-color: #01535b; }
+    button { width: 100%; height: 46px; margin-top: 14px; border: 0; border-radius: 10px; background: #01535b; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    .msg { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #fef3f2; color: #b42318; font-size: 14px; }
+    .done { margin: 12px 0 0; color: #067647; font-size: 14px; }
+    .small { margin: 18px 0 0; color: #667085; font-size: 12.5px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <p class="brand">Managira · Gov/state report</p>
+    <% if (status === 'open') { %>
+      <h1><%= school %> sent you a report</h1>
+      <p>Enter the 6-digit code from the other email we sent you, then download the file.</p>
+      <div class="file"><strong><%= fileName %></strong><br><%= Number(rows).toLocaleString() %> <%= Number(rows) === 1 ? 'row' : 'rows' %> · works until <%= expires %> · <%= downloadsLeft %> <%= downloadsLeft === 1 ? 'download' : 'downloads' %> left</div>
+      <form method="post" autocomplete="off" id="codeForm">
+        <label for="code">Code</label>
+        <input id="code" name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" required autofocus placeholder="000000" />
+        <button type="submit">Download</button>
+      </form>
+      <% if (message) { %><p class="msg" role="alert"><%= message %></p><% } %>
+      <p class="done" id="done" hidden>Your download has started. You can close this page.</p>
+      <p class="small">Sent through Managira for <%= school %>. If you weren’t expecting this, you can close this page.</p>
+      <script>
+        document.getElementById('codeForm').addEventListener('submit', function () {
+          // The file downloads and this page stays: say so once the request is sent.
+          setTimeout(function () { document.getElementById('done').hidden = false; }, 1200);
+        });
+      </script>
+    <% } else { %>
+      <h1><%= { expired: 'This link has expired', locked: 'This link is locked', used: 'This link has been used up', removed: 'This file is no longer kept', missing: 'This link doesn’t work' }[status] || 'This link doesn’t work' %></h1>
+      <p><%= {
+        expired: 'Links to a Gov/state report work for 7 days.',
+        locked: 'Too many wrong codes were entered.',
+        used: 'This link has reached its number of downloads.',
+        removed: 'The school’s copy of this file was removed after a year.',
+        missing: 'Check that you copied the whole link from the email.'
+      }[status] || '' %> <% if (school) { %>Ask <%= school %> to send it again.<% } else { %>Ask the school to send it again.<% } %></p>
+      <% if (message) { %><p class="msg" role="alert"><%= message %></p><% } %>
+    <% } %>
+  </main>
+</body>
+</html>

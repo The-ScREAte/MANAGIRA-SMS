@@ -1,0 +1,103 @@
+/* Report Builder › State file (public/js/stateFile.js). Starts below the app header (its top
+   padding is measured from #top-header when it opens) and sits just under it in the stack. */
+.sf-modal { z-index: 13000; padding-top: calc(var(--header-height, 64px) + 12px); }
+.sf-dialog { width: min(920px, 100%); max-height: calc(100vh - var(--header-height, 64px) - 32px); gap: 12px; }
+.sf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sf-head p { margin: 2px 0 0; font-size: 13.5px; }
+.report-builder-page .sf-x { flex: none; width: 32px !important; height: 32px; margin: 0 !important; padding: 0 !important; border: 0; border-radius: 8px; background: var(--rb-neutral, #eef1f4); color: #344054; box-shadow: none; font-size: 20px; line-height: 1; cursor: pointer; }
+.sf-how { padding: 10px 14px; border-radius: 10px; background: var(--rb-primary-soft, #eef6f6); color: #344054; font-size: 13.5px; line-height: 1.5; }
+.sf-explain p { margin: 0 0 10px; color: #344054; font-size: 14px; line-height: 1.55; }
+.sf-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--rb-neutral, #eef1f4); align-self: flex-start; }
+.report-builder-page .sf-tab { width: auto !important; margin: 0 !important; padding: 7px 14px !important; border: 0; border-radius: 8px; background: none; color: #475467; box-shadow: none; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.report-builder-page .sf-tab.is-on { background: #fff; color: #111827; box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
+.sf-body { flex: 1; min-height: 200px; overflow-y: auto; padding: 2px; }
+.sf-step { display: grid; gap: 14px; }
+.sf-lead { margin: 0 !important; color: #344054; font-size: 14px; line-height: 1.5; }
+.sf-note { margin: 0; padding: 8px 12px; border-radius: 10px; background: #f2f4f7; color: #475467; font-size: 13px; }
+.sf-hint { display: block; margin-top: 4px; font-size: 12px; }
+.sf-sub { margin: 4px 0 0 !important; color: #475467; font-size: 12.5px; font-weight: 600; }
+
+/* 1. File type */
+.sf-types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.report-builder-page .sf-type { display: grid; gap: 4px; align-content: start; width: 100% !important; min-height: 92px; margin: 0 !important; padding: 12px 14px !important; border: 1px solid var(--rb-line, #e5e7eb); border-radius: 12px; background: #fff; color: #111827; box-shadow: none; text-align: left; cursor: pointer; }
+.report-builder-page .sf-type strong { font-size: 14.5px; }
+.report-builder-page .sf-type span { color: var(--rb-muted, #6b7280); font-size: 12.5px; font-weight: 400; line-height: 1.4; }
+.report-builder-page .sf-type.is-on { border-color: var(--rb-primary, #01535b); background: var(--rb-primary-soft, #eef6f6); box-shadow: 0 0 0 1px var(--rb-primary, #01535b); }
+.report-builder-page .sf-type:disabled { cursor: default; opacity: 1; }
+.sf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; align-items: end; }
+.sf-wide { grid-column: 1 / -1; }
+.sf-checks { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.sf-align { padding-bottom: 8px; }
+.sf-more { border-top: 1px solid var(--rb-line, #e5e7eb); padding-top: 10px; }
+.sf-more > summary { color: var(--rb-primary, #01535b); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.sf-more[open] > summary { margin-bottom: 10px; }
+.sf-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sf-inline .rb-input { width: auto; flex: 1 1 160px; }
+.sf-inline .sf-ext { flex: 0 0 90px; }
+
+/* 2. Fields */
+.sf-fields { display: grid; gap: 6px; }
+.sf-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 84px minmax(0, 1.1fr) auto; gap: 8px; align-items: center; }
+.sf-field.no-width { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.2fr) auto; }
+.sf-field-head { padding: 0 10px; color: var(--rb-muted, #6b7280); font-size: 11.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.sf-field-wrap { border: 1px solid var(--rb-line, #e5e7eb); border-radius: 10px; padding: 8px 10px; background: #fff; }
+.sf-field-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.sf-field-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.sf-tag { padding: 1px 7px; border-radius: 999px; background: #fef0c7; color: #93370d; font-size: 11px; font-weight: 600; }
+.sf-field .rb-input { width: 100%; min-width: 0; }
+.sf-codes { margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--rb-line, #e5e7eb); display: grid; gap: 8px; }
+.sf-codes p { margin: 0; font-size: 13px; }
+.sf-code-list { display: grid; gap: 6px; }
+.sf-code-row { display: grid; grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); gap: 8px; align-items: center; font-size: 13.5px; }
+.sf-code-row > span:first-child { overflow-wrap: anywhere; }
+.sf-pad { max-width: 320px; }
+
+/* 3. Check & make */
+.sf-result { display: grid; gap: 6px; padding: 12px 14px; border-radius: 10px; font-size: 13.5px; }
+.sf-result.is-clean { background: #ecfdf3; color: #067647; }
+.sf-result.has-problems { background: #fffaeb; color: #93370d; }
+.sf-result ul { margin: 0; padding-left: 18px; color: #344054; }
+.sf-file-name { color: #344054; font-size: 12.5px; overflow-wrap: anywhere; }
+.sf-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--rb-line, #e5e7eb); border-radius: 10px; }
+.sf-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.sf-table th, .sf-table td { padding: 6px 10px; border-bottom: 1px solid var(--rb-line, #eef1f4); text-align: left; white-space: nowrap; }
+.sf-table th { background: #f9fafb; color: #475467; font-weight: 700; }
+.sf-table tr:last-child td { border-bottom: 0; }
+.sf-pre { max-height: 160px; margin: 8px 0 0; padding: 10px; border-radius: 8px; background: #f9fafb; color: #111827; overflow: auto; font-size: 12px; white-space: pre; }
+
+/* Schedule and files */
+.sf-schedule { max-width: 640px; }
+.sf-schedule h4 { margin: 4px 0 -6px; font-size: 14px; }
+.sf-schedule > p { margin: 0; font-size: 13px; }
+.sf-schedule > .rb-btn, .sf-schedule > .rb-field { justify-self: start; }
+.report-builder-page .sf-schedule > .rb-btn { width: auto; }
+.sf-dates { display: grid; gap: 6px; }
+.sf-inline .sf-date { flex: 0 1 200px; }
+.sf-hour { max-width: 200px; }
+.sf-files { display: grid; gap: 8px; }
+.sf-file { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--rb-line, #e5e7eb); border-radius: 10px; background: #fff; }
+.sf-file p { margin: 0; font-size: 12.5px; }
+.sf-file-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.sf-file-top strong { font-size: 14px; overflow-wrap: anywhere; }
+.sf-pill { padding: 2px 10px; border-radius: 999px; background: #fef0c7; color: #93370d; font-size: 12px; font-weight: 600; }
+.sf-pill.is-sent { background: #dcfae6; color: #067647; }
+.sf-file .rb-input { flex: 1 1 160px; max-width: 230px; }
+.sf-status { flex: 1; margin: 0 auto 0 0; text-align: left; }
+.sf-actions { align-items: center; flex-wrap: wrap; }
+
+@media (max-width: 760px) {
+  .sf-types { grid-template-columns: 1fr 1fr; }
+  .sf-grid { grid-template-columns: 1fr; }
+  .sf-field, .sf-field.no-width { grid-template-columns: 1fr 1fr; }
+  .sf-field-head { display: none; }
+  .sf-field-name { grid-column: 1 / -1; }
+  .sf-code-row { grid-template-columns: 1fr; }
+  .sf-code-row > span:nth-child(2) { display: none; }
+}
+.sf-table th { text-transform: none; letter-spacing: 0; }
+/* Schedule & send: who it goes to. */
+.sf-people { display: flex; flex-wrap: wrap; gap: 6px; }
+.sf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border: 1px solid var(--rb-line, #e5e7eb); border-radius: 999px; background: #fff; font-size: 13px; }
+.report-builder-page .sf-chip-x { width: 22px !important; height: 22px; margin: 0 !important; padding: 0 !important; border: 0; border-radius: 50%; background: var(--rb-neutral, #eef1f4); color: #475467; box-shadow: none; font-size: 15px; line-height: 1; cursor: pointer; }
+.sf-callout { padding: 12px 14px; border-radius: 10px; background: var(--rb-primary-soft, #eef6f6); font-size: 13px; }
+.sf-callout p { margin: 4px 0 0; color: #344054; }

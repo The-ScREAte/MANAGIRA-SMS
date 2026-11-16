@@ -39,7 +39,7 @@ const PLAN = [
   { key: "report_cards", tier: "Starter", names: ["Terminal Report", "Progressive Student Report"], aliases: ["Progressive Student Report "], label: "Report cards and progress reports" },
   { key: "parent_portal", tier: "Starter", names: ["Parent/Guardian Portal"], aliases: ["Guardian Portal", "Parent Portal", "Parent Guardian Portal"], label: "Parent portal", addon: "parent_portal" },
   { key: "student_portal", tier: "Starter", names: ["Student Portal"], label: "Student portal", addon: "student_portal" },
-  { key: "paygira", tier: "Starter", names: ["PayGira"], aliases: ["Pay Gira", "PayGira & Payments", "PayGira and Payments"], label: "PayGira fees and payments" },
+  { key: "paygira", tier: "Starter", names: ["PayGira"], aliases: ["Pay Gira", "PayGira & Payments", "PayGira and Payments"], label: "Billing & Payments (PayGira)" },
   { key: "school_analytics", tier: "Starter", names: ["Organization Analytics & Insights"], label: "School analytics" },
   { key: "online_tests", tier: "Pro", names: ["Set Assessment Questions"], aliases: ["Assessment Questions"], label: "Online tests and Testing Room" },
   { key: "transcripts", tier: "Pro", names: ["Official School Transcript"], label: "Official transcripts" },
@@ -88,6 +88,7 @@ const ROOT_NEEDS = {
 };
 const OPTION_NEEDS = {
   reports_builder: ["Report Builder"],
+  state_reporting: ["Report Builder"],
   reports_settings: ["Custom Report Card Templates"],
 };
 

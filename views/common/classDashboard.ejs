@@ -1806,8 +1806,12 @@ main {
 
 .workspace-sidebar {
   position: sticky;
-  top: 12px;
-  max-height: calc(100vh - 24px);
+  /* below the fixed header (the body's top padding), not under it */
+  top: calc(var(--header-height, 64px) + 16px);
+  /* as tall as the tab pane beside it, to the window's bottom (--side-fill, measured in
+     fitWorkspaceStage); before that's measured, the window below the header */
+  height: var(--side-fill, auto);
+  max-height: calc(var(--app-vh, 100vh) - var(--header-height, 64px) - 32px);
   overflow: auto;
   border-radius: 14px;
   padding-bottom: 12px;
@@ -3573,6 +3577,7 @@ main {
     width: 300px;
     max-width: 86vw;
     height: calc(100vh - 88px);
+    max-height: none;
     z-index: 999;
   }
 
@@ -3924,6 +3929,18 @@ main {
 /* The bus icon: in colour with bus access, grey without (a grey one asks for a bus). */
 .student-transport-btn.has-bus svg { stroke: var(--primary); stroke-width: 2.2; }
 .student-transport-btn.no-bus svg { stroke: #b4bcc8; }
+/* A Custom editor form beside each student (feature report_remarks_forms): grey until this
+   period's entry is in, then the school's colour, the same as the bus icon. */
+.student-form-btn {
+  flex: 0 0 30px; width: 30px; height: 30px; margin: 0; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 8px; background: transparent; color: #b4bcc8; box-shadow: none; transform: none; cursor: pointer;
+}
+.student-form-btn:hover, .student-form-btn:focus { background: transparent; border-color: transparent; color: #b4bcc8; box-shadow: none; transform: none; }
+.student-form-btn.is-done, .student-form-btn.is-done:hover, .student-form-btn.is-done:focus { color: var(--primary); }
+.student-form-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.student-form-btn svg { width: 17px; height: 17px; }
+.student-form-btn.is-done svg { stroke-width: 2.2; }
 
 /* Header: the class-details and options buttons share one size and shape. */
 .workspace-meta-toggle,
@@ -3970,6 +3987,9 @@ main {
   <% const _offerAttendance = hasAttendanceFeature && _canMarkAttendance && (userRole !== "Teacher" || isMainTeacher || (typeof isAssistantTeacher !== 'undefined' && isAssistantTeacher)); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <% const _canOpenPaygiraWorkspace = typeof canOpenPaygiraWorkspace === 'boolean' ? canOpenPaygiraWorkspace : true; %>
+  <%# The weekly briefing's choices for this class: in Class settings when the class has it, else in Class Tools. %>
+  <% const _briefingAllowed = Boolean(locals.featureOn && featureOn('weekly_briefing') && locals.workspaceAccess && workspaceAccess().management.briefing); %>
+  <% const _classSettingsShown = Boolean(locals.classSettingsPanel && locals.featureOn && featureOn('class_settings')); %>
   <div class="workspace-shell">
     <button class="nav-toggle" type="button" aria-label="Open Class Tools" aria-expanded="false" aria-controls="class-tools-panel">
       <span class="hamburger-icon" aria-hidden="true"></span>
@@ -4006,7 +4026,7 @@ main {
               </button>
             </li>
 
-            <% if (locals.featureOn && featureOn('weekly_briefing') && locals.workspaceAccess && workspaceAccess().management.briefing) { %>
+            <% if (_briefingAllowed && !_classSettingsShown) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="briefing" onclick="openWorkspaceTabByKey('briefing')">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('mailroom') %></span>
@@ -4120,6 +4140,16 @@ main {
                   <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
                     <span class="files-badge" title="Assigned docs/sheets"><%= assignedFilesCount %></span>
                   <% } %>
+                </button>
+              </li>
+            <% } %>
+
+            <%# Class settings (feature class_settings): only for someone who may manage this class. %>
+            <% if (locals.classSettingsPanel && locals.featureOn && featureOn('class_settings')) { %>
+              <li>
+                <button class="nav-link" type="button" data-nav-key="settings" onclick="openWorkspaceTabByKey('settings')">
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('settings') %></span>
+                  <span class="nav-link-label">Class settings</span>
                 </button>
               </li>
             <% } %>
@@ -4313,6 +4343,14 @@ main {
                       <span class="section-sort-spacer"></span>
                       <span class="section-count-pill"><%= students.length %></span>
                     </div>
+                    <%# Forms shown beside each student (Custom editor, feature report_remarks_forms): in the school's
+                        colour once this period's entry is in, grey until then; a tap opens that student's form
+                        (script below the list). The remark pencil stays while the pop-up still has remarks to ask. %>
+                    <% const _beside = locals.classBeside && Array.isArray(classBeside.sections) ? classBeside : { sections: [], done: {} }; %>
+                    <% const _besideDone = {}; _beside.sections.forEach(function (form) { _besideDone[form.id] = new Set(((_beside.done || {})[form.id] || []).map(Number)); }); %>
+                    <% const _besideWhen = function (form) { return form.repeat === 'day' ? ' today' : form.repeat === 'week' ? ' this week' : form.repeat === 'term' ? ' this term' : form.repeat === 'year' ? ' this year' : ''; }; %>
+                    <% const _besideTitle = function (form, done) { return form.name + ': ' + (form.multiple ? (done ? 'has entries' : 'no entries yet') : (done ? 'filled in' + _besideWhen(form) : 'not filled in yet')); }; %>
+                    <% const _showRemarkPencil = locals.showRemarkPencil !== false; %>
                     <ul class="students-numbered-list" id="classDashboardStudentsList">
                       <% if (students.length > 0) { %>
                         <% sortedOverviewStudents.forEach(function(student, i) { %>
@@ -4349,6 +4387,17 @@ main {
                             <% } else { %>
                             <span class="student-action-slot" aria-hidden="true"></span>
                             <% } %>
+                            <% _beside.sections.forEach(function (form) { const _done = _besideDone[form.id].has(Number(student.student_id)); %>
+                            <button
+                              class="student-form-btn<%= _done ? ' is-done' : '' %>"
+                              type="button"
+                              data-cf-beside="<%= form.id %>"
+                              data-student-id="<%= student.student_id %>"
+                              data-student-name="<%= studentFullName %>"
+                              title="<%= _besideTitle(form, _done) %>"
+                              aria-label="<%= form.name %> for <%= studentFullName %>, <%= _done ? 'filled in' : 'not filled in yet' %>"><%- formIcon(form.icon, 17) %></button>
+                            <% }); %>
+                            <% if (_showRemarkPencil) { %>
                             <button
                               class="student-remark-btn"
                               type="button"
@@ -4359,12 +4408,50 @@ main {
                               onclick="openStudentTeacherRemarkModal(this, event)">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                             </button>
+                            <% } %>
                           </li>
                         <% }); %>
                       <% } else { %>
                         <li class="card-subtext"><%= _noStudentsText %></li>
                       <% } %>
                     </ul>
+                    <% if (_beside.sections.length) { %>
+                    <script>
+                      // A form beside a student opens that student's form in the drawer under the header
+                      // (public/js/customFormsFill.js); saving colours its icon.
+                      (function () {
+                        var list = document.getElementById('classDashboardStudentsList');
+                        if (!list || list.__cfBeside) return;
+                        list.__cfBeside = true;
+                        var forms = <%- JSON.stringify(_beside.sections) %>;
+                        var termId = <%- JSON.stringify(_beside.termId || null) %>;
+                        var classId = <%- JSON.stringify(Number(classId)) %>;
+                        function when(form) { return form.repeat === 'day' ? ' today' : form.repeat === 'week' ? ' this week' : form.repeat === 'term' ? ' this term' : form.repeat === 'year' ? ' this year' : ''; }
+                        function mark(button, form, done) {
+                          button.classList.toggle('is-done', done);
+                          button.title = form.name + ': ' + (form.multiple ? (done ? 'has entries' : 'no entries yet') : (done ? 'filled in' + when(form) : 'not filled in yet'));
+                          button.setAttribute('aria-label', form.name + ' for ' + (button.getAttribute('data-student-name') || '') + ', ' + (done ? 'filled in' : 'not filled in yet'));
+                        }
+                        list.addEventListener('click', function (event) {
+                          var button = event.target.closest('[data-cf-beside]');
+                          if (!button || !list.contains(button)) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          var form = forms.filter(function (f) { return f.id === Number(button.getAttribute('data-cf-beside')); })[0];
+                          var studentId = Number(button.getAttribute('data-student-id'));
+                          if (!form || !studentId) return;
+                          if (!window.CustomFormsFill || !window.CustomFormsFill.openStudent) {
+                            window.location.href = '/common/classDashboard/' + classId + '/forms?section=' + form.id + '&student=' + studentId;
+                            return;
+                          }
+                          window.CustomFormsFill.openStudent({
+                            base: '/common/forms', section: form, studentId: studentId, termId: termId || '',
+                            onChange: function (_id, entries) { mark(button, form, entries.length > 0); },
+                          });
+                        });
+                      })();
+                    </script>
+                    <% } %>
                   </div>
 
                   <% if (hasAssessmentFeature) { %>
@@ -4537,6 +4624,10 @@ main {
                 })();
               </script>
             </section>
+            <% } %>
+
+            <% if (locals.classSettingsPanel && locals.featureOn && featureOn('class_settings')) { %>
+              <%- include('../partials/classSettingsPanel', { panel: classSettingsPanel }) %>
             <% } %>
 
             <% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
@@ -4858,6 +4949,7 @@ main {
         docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&embed=workspace`) %>,
         paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace&classId=${classId}`) %>,
         briefingUrl: <%- JSON.stringify(`/common/briefing/class/${classId}?embed=workspace`) %>,
+        canOpenBriefing: <%= _briefingAllowed ? 'true' : 'false' %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
         canOpenAttendance: <%= _offerAttendance ? 'true' : 'false' %>,
@@ -4884,7 +4976,8 @@ main {
         customRemarkTypes: <%- JSON.stringify(Array.isArray(classroomCustomRemarkTypes) ? classroomCustomRemarkTypes : []) %>,
         optionsLoadedAt: Date.now(),
         optionsMaxAgeMs: 2 * 60 * 1000,
-        studentRemarkCache: <%- JSON.stringify(studentTeacherRemarksMap || {}) %>,
+        <%# Without the pencil (remarks come from the Custom editor), names aren't marked for old remarks. %>
+        studentRemarkCache: <%- JSON.stringify(locals.showRemarkPencil === false ? {} : (studentTeacherRemarksMap || {})) %>,
         activeLoadToken: 0,
         inputDirty: false,
       };
@@ -5296,6 +5389,29 @@ main {
         };
       }
 
+      // Class settings (feature class_settings): there only for someone who may manage this class.
+      function getWorkspaceSettingsTab() {
+        if (!document.getElementById('panel-settings')) return getWorkspaceOverviewTab();
+        return {
+          id: 'settings',
+          title: 'Class settings',
+          panelId: 'panel-settings',
+          routePath: workspaceContext.basePath + '/settings',
+          sidebarKey: 'settings',
+        };
+      }
+      // Lunch switched on or off: an attendance tab already open loads again, so it shows the change
+      // (bound once, however many times the page-switcher opens a classroom).
+      if (!window.__classSettingsLunchReload) {
+        window.__classSettingsLunchReload = true;
+        document.addEventListener('managira:class-settings-saved', function (event) {
+          if (!event.detail || event.detail.key !== 'lunch') return;
+          document.querySelectorAll('#panel-frame-attendance iframe.workspace-frame').forEach(function (frame) {
+            try { frame.contentWindow.location.reload(); } catch (_) { frame.src = frame.src; }
+          });
+        });
+      }
+
       function getWorkspaceTransportationTab() {
         return {
           id: 'transportation',
@@ -5442,6 +5558,7 @@ main {
         if (tabKey === 'schedule') return openWorkspaceTab(getWorkspaceScheduleTab(), options || {});
         if (tabKey === 'transportation') return openWorkspaceTab(getWorkspaceTransportationTab(), options || {});
         if (tabKey === 'pickup') return openWorkspaceTab(getWorkspacePickupTab(), options || {});
+        if (tabKey === 'settings') return openWorkspaceTab(getWorkspaceSettingsTab(), options || {});
         if (tabKey === 'activities') return openWorkspaceTab(getWorkspaceActivitiesTab(), options || {});
         if (tabKey === 'forms' && document.getElementById('panel-forms')) return openWorkspaceTab(getWorkspaceFormsTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
@@ -5450,7 +5567,7 @@ main {
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
         if (tabKey === 'paygira') return openWorkspaceTab(getWorkspacePaygiraTab(), options || {});
-        if (tabKey === 'briefing' && document.querySelector('[data-nav-key="briefing"]')) return openWorkspaceTab(getWorkspaceBriefingTab(), options || {});
+        if (tabKey === 'briefing' && workspaceContext.canOpenBriefing) return openWorkspaceTab(getWorkspaceBriefingTab(), options || {});
         return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
       }
 
@@ -5741,7 +5858,9 @@ main {
             return;
           }
           statusEl.textContent = 'Current transportation assignment';
-          summaryEl.innerHTML = '<span class="transport-summary-chip">🚌 ' + [snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ') + '</span>';
+          // Names and addresses are typed by people: they go in as text, never as markup.
+          var transportText = function(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+          summaryEl.innerHTML = '<span class="transport-summary-chip">🚌 ' + transportText([snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ')) + '</span>';
           var details = [
             ['Driver', snapshot.driverName || '-'],
             ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
@@ -5753,7 +5872,7 @@ main {
             ['Home', snapshot.homeAddress || '-']
           ];
           gridEl.innerHTML = details.map(function(entry) {
-            return '<div class="transport-detail-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>';
+            return '<div class="transport-detail-card"><span class="k">' + transportText(entry[0]) + '</span><span class="v">' + transportText(entry[1]) + '</span></div>';
           }).join('');
           setTimeout(function() {
             renderTransportMap('studentTransportModalMap', snapshot, false);
@@ -5886,7 +6005,11 @@ main {
       }
 
       function getCurrentRemarkValuesFromInputs() {
-        var values = emptyRemarkValues();
+        // Starts from what the student already has, so remarks the pop-up doesn't ask for (other
+        // types, or ones collected with the Custom editor) are saved back unchanged, never emptied.
+        var values = Number.isInteger(studentTeacherRemarkState.studentId)
+          ? getCachedStudentTeacherRemark(studentTeacherRemarkState.studentId)
+          : emptyRemarkValues();
         Array.prototype.forEach.call(document.querySelectorAll('.student-remark-input[data-remark-type]'), function(textArea) {
           var typeKey = normalizeRemarkTypeKey(textArea.getAttribute('data-remark-type'));
           values[typeKey] = normalizeTeacherRemarkText(textArea.value || '');
@@ -6203,6 +6326,7 @@ main {
         if (safeRoute.panel === 'activities') return openWorkspaceTabByKey('activities', safeOptions);
         if (safeRoute.panel === 'forms') return safeRoute.itemId ? openWorkspaceFormTab(safeRoute.itemId, safeOptions) : openWorkspaceTabByKey('forms', safeOptions);
         if (safeRoute.panel === 'pickup') return openWorkspaceTabByKey('pickup', safeOptions);
+        if (safeRoute.panel === 'settings') return openWorkspaceTabByKey('settings', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
@@ -6778,21 +6902,51 @@ main {
 
       initClassDashboard();
 
-      // The tab pane reaches the bottom of the window (pages are zoomed on wide
-      // screens, so the measured space is turned back into page pixels).
+      // The tab pane and the menu card beside it both reach the bottom of the window, so they're
+      // always the same height (pages are zoomed on wide screens, so the measured space is turned
+      // back into page pixels). Measured again whenever anything above them changes size (the
+      // class banner opening, the tab bar wrapping, the header), not only when the window does.
       function fitWorkspaceStage() {
         var stage = document.querySelector('.workspace-stage');
         if (!stage) return;
         var zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+        var gap = 16;
         var top = stage.getBoundingClientRect().top + window.scrollY;
-        var fill = Math.max(360, Math.floor((window.innerHeight - top - 16) / zoom));
-        stage.style.setProperty('--stage-fill', fill + 'px');
+        var fill = Math.max(360, Math.floor((window.innerHeight - top - gap) / zoom)) + 'px';
+        if (stage.style.getPropertyValue('--stage-fill') !== fill) stage.style.setProperty('--stage-fill', fill);
+        var side = document.querySelector('.workspace-sidebar');
+        var grid = document.querySelector('.workspace-grid');
+        if (!side || !grid) return;
+        if (window.matchMedia('(min-width: 961px)').matches) {
+          // From the grid's top (the menu is sticky, so its own position moves when the page scrolls).
+          var sideTop = grid.getBoundingClientRect().top + window.scrollY;
+          var sideFill = Math.max(240, Math.floor((window.innerHeight - sideTop - gap) / zoom)) + 'px';
+          if (side.style.getPropertyValue('--side-fill') !== sideFill) side.style.setProperty('--side-fill', sideFill);
+        } else if (side.style.getPropertyValue('--side-fill')) {
+          side.style.removeProperty('--side-fill'); // a drawer below 961px
+        }
       }
       fitWorkspaceStage();
       if (!window.__workspaceStageFitBound) {
         window.__workspaceStageFitBound = true;
-        window.addEventListener('resize', fitWorkspaceStage);
-        window.addEventListener('load', fitWorkspaceStage);
+        var fitQueued = false;
+        var queueFit = function () {
+          if (fitQueued) return;
+          fitQueued = true;
+          requestAnimationFrame(function () { fitQueued = false; fitWorkspaceStage(); });
+        };
+        window.addEventListener('resize', queueFit);
+        window.addEventListener('load', queueFit);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(queueFit);
+        if (window.ResizeObserver) {
+          // Settling: a size set here changes nothing the second time, so this never loops.
+          var fitObserver = new ResizeObserver(queueFit);
+          ['#top-header', '.workspace-main', '.workspace-grid'].forEach(function (sel) {
+            var el = document.querySelector(sel);
+            if (el) fitObserver.observe(el);
+          });
+          window.__workspaceFitObserver = fitObserver;
+        }
       }
       // A plain visit opens the top item of the person's own menu order.
       var initialRoute = workspaceContext.initialRoute || { panel: 'overview', itemId: '' };

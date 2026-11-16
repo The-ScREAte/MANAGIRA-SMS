@@ -126,7 +126,11 @@ async function tellFamilies(db, organizationId, trip, changed) {
     [organizationId, ids]
   );
   const byStudent = new Map(changed.map((row) => [Number(row.student_id), row]));
-  await createNotifications(db, rows.map((row) => {
+  // Not about a child whose class keeps the bus from parents (Class settings).
+  const see = await require("./classSettings").parentsSeeFor(db, organizationId, ids);
+  const shown = rows.filter((row) => { const s = see.get(Number(row.student_id)); return !s || s.transport !== false; });
+  if (!shown.length) return;
+  await createNotifications(db, shown.map((row) => {
     const saved = byStudent.get(Number(row.student_id));
     return {
       orgId: organizationId,

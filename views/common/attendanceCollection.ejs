@@ -1135,6 +1135,17 @@
                                 <p class="cal-popover-value"><%= attendanceCalendarSummary.includePublicHolidays ? 'Excluded from attendance' : 'Included in attendance' %></p>
                             </div>
                         </div>
+                        <% if (attendanceCalendarSummary.hiddenDateCount > 0) { %>
+                        <div class="cal-pill-wrap">
+                            <button type="button" class="cal-pill cal-pill-muted" data-pill="hidden" aria-expanded="false" aria-controls="popover-hidden">
+                                Days off hidden
+                            </button>
+                            <div class="cal-pill-popover" id="popover-hidden">
+                                <p class="cal-popover-label">Days off</p>
+                                <p class="cal-popover-value">Weekends and holidays are hidden, so the ranges count school days. Show them in Settings › School rules.</p>
+                            </div>
+                        </div>
+                        <% } %>
                         <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
                         <div class="cal-pill-wrap">
                             <button type="button" class="cal-pill cal-pill-muted" data-pill="excluded" aria-expanded="false" aria-controls="popover-excluded">
@@ -1184,17 +1195,21 @@
                                     <label class="filter-field">
                                         Show
                                         <select id="dateFilter">
+                                            <%# The sheet's columns run oldest to newest, so today is always the far-right column;
+                                                the One day list runs newest first, today at the top. %>
+                                            <% const _oldestFirst = (displayDates || []).slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)); %>
+                                            <% const _newestFirst = _oldestFirst.slice().reverse(); %>
                                             <optgroup label="Range (remembered)">
-                                                <option value="d1">Last school day</option>
-                                                <option value="d2">Last 2 school days</option>
-                                                <option value="d3">Last 3 school days</option>
+                                                <option value="d1"><%= _oldestFirst.includes(todayKey) ? 'Today' : 'Last school day' %></option>
+                                                <option value="d2">Last 2 days</option>
+                                                <option value="d3">Last 3 days</option>
                                                 <option value="w1">Last week</option>
                                                 <option value="w2">Last 2 weeks</option>
                                                 <option value="m1">Last month</option>
                                                 <option value="all">Whole term</option>
                                             </optgroup>
                                             <optgroup label="One day">
-                                                <% displayDates.slice().reverse().forEach(date => { %>
+                                                <% _newestFirst.forEach(date => { %>
                                                     <% const isToday = date === todayKey; %>
                                                     <% const dateObj = new Date(`${date}T00:00:00Z`); %>
                                                     <% const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); %>
@@ -1327,7 +1342,7 @@
                         <% (locals.attendanceForms || []).forEach((form) => form.fields.forEach((field) => { %>
                         <th class="att-form-col" title="<%= form.name %>"><%= field.label %><small>Today</small><% if (field.type === 'yesno' || field.display === 'icons' || field.display === 'buttons') { const _keyChoices = field.type === 'yesno' ? [['yes', 'Yes', field.display === 'icons' ? 'check' : ''], ['no', 'No', field.display === 'icons' ? 'close' : '']] : (field.options || []).map((o) => [o, o, field.display === 'icons' ? ((field.icons || {})[o] || '') : '']); %><span class="att-key" data-att-key="<%= form.id %>:<%= field.id %>"><% _keyChoices.forEach((choice) => { %><span data-k="<%= choice[0] %>"><% if (choice[2]) { %><%- formIcon(choice[2], 14) %><% } %><%= choice[1] %> <b>0</b></span><% }) %></span><% } %></th>
                         <% })) %>
-                        <% displayDates.forEach(date => { %>
+                        <% _oldestFirst.forEach(date => { %>
                             <% const isToday = date === todayKey; %>
                             <% const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true }; %>
                             <th data-date="<%= date %>" class="<%= isToday ? 'today-col' : '' %> <%= !dateMeta.countable ? 'date-col-excluded' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-col' : '' %>">
@@ -1346,9 +1361,12 @@
                                     <% if (isToday) { %><span class="day-name">Today</span><% } %>
                                     <%= _formattedDate %>
                                     <% if (students.length > 0 && dateMeta.countable) { %>
-                                        <div class="edit-save-link" data-date="<%= date %>" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
-                                        <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
-                                        <div class="mark-all-link" data-date="<%= date %>" style="display: none;" onclick="markAllPresentForDate('<%= date %>')">Mark All Present</div>
+                                        <div class="date-actions">
+                                            <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
+                                            <div class="cancel-link" data-date="<%= date %>" role="button" tabindex="0" title="Cancel" aria-label="Cancel changes" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
+                                            <div class="mark-all-link" data-date="<%= date %>" style="display: none;"><span class="ca-title">Check all</span><span class="ca-row"><input type="checkbox" class="check-all-box" onclick="markAllPresentForDate('<%= date %>', this.checked)" title="Everyone present" aria-label="Mark everyone present"><% if (locals.lunchOn) { %><button type="button" class="check-all-lunch att-plate-btn" onclick="window.lunchAllForDate && window.lunchAllForDate('<%= date %>')" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false"></button><% } %></span></div>
+                                        </div>
+                                        <% if (locals.lunchOn) { %><div class="lunch-tally" data-lunch-date="<%= date %>" title="Students who had lunch" hidden><span class="att-plate-ico" aria-hidden="true"></span><b>0</b></div><% } %>
                                     <% } %>
                                     <div class="last-edited <%= (lastEditedMap && lastEditedMap[date]) ? 'has-tooltip' : '' %>" id="last-edited-<%= date %>">
                                         <% if (lastEditedMap && lastEditedMap[date]) { %>
@@ -1361,7 +1379,7 @@
                                 </div>
                             </th>
                         <% }); %>
-                        <th class="overall-attendance">Overall Attendance</th>
+                        <th class="overall-attendance">Overall<% if (locals.lunchOn) { %><span class="ov-head-sub">Present · Lunch</span><% } %></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1380,7 +1398,7 @@
                             <% let totalCount = 0; %>
                             <%# One cell per student per school day: thousands on a page, so each is written
                                 on one line with no indentation (this block was three quarters of the page's size). %>
-                            <%_ displayDates.forEach(date => { _%>
+                            <%_ _oldestFirst.forEach(date => { _%>
                                 <%_ const isTodayCell = date === todayKey; _%>
                                 <%_ const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true, markerLabel: null }; _%>
                                 <%_ const showPairedWatermark = (rowIndex % 2) === 0; _%>
@@ -1396,7 +1414,7 @@
                                 <%_ if (dateMeta.countable && mark === 'Present') { presentCount++; } _%>
 </td>
                             <%_ }); _%>
-                            <td class="overall-attendance"><%= presentCount %>/<%= totalCount %></td>
+                            <td class="overall-attendance"><% if (locals.lunchOn) { %><span class="ov-pair"><span class="ov-att" title="Days present"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><%= presentCount %>/<%= totalCount %></span><span class="ov-lunch" data-student="<%= student.student_id %>" title="Days with lunch (of the days lunch was taken)"><span class="att-plate-ico" aria-hidden="true"></span><b></b></span></span><% } else { %><%= presentCount %>/<%= totalCount %><% } %></td>
                         </tr>
                     <% }); %>
                 </tbody>
@@ -1426,6 +1444,69 @@
 
     </div>
 
+    <style>
+        /* Day header: Edit (pencil); while editing, Save (tick) and Cancel (cross), with "Check all" under them. */
+        .attendance-sheet { --att-accent: var(--primary, #0f766e); --att-line: #d6dbe1; --att-muted: #9aa4b2; }
+        /* Checkboxes drawn the same in every browser: the school's colour with a tick when present; a
+           saved day keeps its colours (no grey), and an absent student shows a quiet dash. */
+        .attendance-sheet td input[type="checkbox"][data-date], .attendance-sheet .check-all-box { -webkit-appearance: none; appearance: none; box-sizing: border-box; display: inline-grid; place-content: center; width: 22px; height: 22px; margin: 0; vertical-align: middle; border: 1.5px solid #b8c1cc; border-radius: 6px; background: #fff; cursor: pointer; transition: background .12s, border-color .12s; }
+        .attendance-sheet td input[type="checkbox"][data-date]::before, .attendance-sheet .check-all-box::before { content: ""; width: 13px; height: 13px; background: #fff; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E") center / contain no-repeat; transform: scale(0); transition: transform .12s; }
+        .attendance-sheet td input[type="checkbox"][data-date]:checked, .attendance-sheet .check-all-box:checked { background: var(--att-accent); border-color: var(--att-accent); }
+        .attendance-sheet td input[type="checkbox"][data-date]:checked::before, .attendance-sheet .check-all-box:checked::before { transform: scale(1); }
+        .attendance-sheet td input[type="checkbox"][data-date]:focus-visible, .attendance-sheet .check-all-box:focus-visible, .attendance-sheet .att-plate-btn:focus-visible { outline: 2px solid var(--att-accent); outline-offset: 2px; }
+        .attendance-sheet td input[type="checkbox"][data-date]:disabled { cursor: default; }
+        .attendance-sheet td input[type="checkbox"][data-date]:disabled:checked { opacity: .82; }
+        .attendance-sheet td input[type="checkbox"][data-date][data-countable="true"]:disabled:not(:checked) { background: #f4f6f8; border-color: #dde2e8; }
+        .attendance-sheet td input[type="checkbox"][data-date][data-countable="true"]:disabled:not(:checked)::before { width: 9px; height: 2px; border-radius: 2px; background: #9aa4b2; -webkit-mask: none; mask: none; transform: none; }
+        .attendance-sheet td input[type="checkbox"][data-date][data-countable="false"] { opacity: .35; }
+        /* Day headers line up (Edit at the same height on every day), whatever sits under them. */
+        .attendance-sheet thead th[data-date] { vertical-align: top; }
+        .attendance-sheet thead th.student-name, .attendance-sheet thead th.overall-attendance { vertical-align: middle; }
+        .attendance-sheet th.overall-attendance .ov-head-sub { display: block; margin-top: 3px; color: #64748b; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; text-transform: none; }
+        @media (min-width: 761px) {
+            .attendance-sheet th.student-name, .attendance-sheet td.student-name { width: 1px; white-space: nowrap; padding-right: 28px !important; }
+        }
+        .attendance-sheet .date-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; }
+        .attendance-sheet .date-actions .edit-save-link,
+        .attendance-sheet .date-actions .cancel-link { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 34px; height: 34px; margin: 0; padding: 0; border: 1.5px solid var(--att-line); border-radius: 10px; background: #fff; color: #475569; font-size: 0; line-height: 0; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+        .attendance-sheet .date-actions .edit-save-link:hover { border-color: var(--att-accent); color: var(--att-accent); }
+        .attendance-sheet .date-actions .edit-save-link::before,
+        .attendance-sheet .date-actions .cancel-link::before { content: ""; width: 18px; height: 18px; background: currentColor; -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; }
+        .attendance-sheet .date-actions .edit-save-link::before { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E"); }
+        .attendance-sheet .date-actions .edit-save-link[data-mode="save"] { background: var(--att-accent); border-color: var(--att-accent); color: #fff; }
+        .attendance-sheet .date-actions .edit-save-link[data-mode="save"]::before { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E"); }
+        .attendance-sheet .date-actions .cancel-link { color: #b42318; }
+        .attendance-sheet .date-actions .cancel-link:hover { border-color: #b42318; }
+        .attendance-sheet .date-actions .cancel-link::before { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
+        .attendance-sheet .date-actions .cancel-link[style*="block"] { display: inline-flex !important; }
+        .attendance-sheet .date-actions .mark-all-link[style*="block"] { display: flex !important; }
+        .attendance-sheet .date-actions .mark-all-link { flex-basis: 100%; flex-direction: column; align-items: center; gap: 4px; margin: 4px 0 0; padding: 6px 0 0; border: 0; border-top: 1px dashed var(--att-line); background: none; cursor: default; text-decoration: none !important; }
+        .attendance-sheet .date-actions .mark-all-link .ca-title { color: #64748b; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: none; text-decoration: none; pointer-events: none; }
+        .attendance-sheet .date-actions .mark-all-link .ca-row { display: inline-flex; align-items: center; gap: 8px; }
+        .attendance-sheet .date-actions .mark-all-link .check-all-box { width: 22px; height: 22px; margin: 0; accent-color: var(--att-accent); cursor: pointer; }
+        /* Lunch: a plate beside each checkbox, grey until chosen, then the school's colour. */
+        .attendance-sheet .att-pair { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .attendance-sheet .att-plate-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 34px; height: 34px; margin: 0; padding: 0; border: 1.5px solid var(--att-line); border-radius: 10px; background: #fff; color: var(--att-muted); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s, border-color .15s, color .15s; }
+        .attendance-sheet .att-plate-btn::before, .attendance-sheet .att-plate-ico { content: ""; display: inline-block; width: 18px; height: 18px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='12' r='6.5'/%3E%3Ccircle cx='9' cy='12' r='3'/%3E%3Cellipse cx='19.5' cy='7' rx='1.8' ry='2.8'/%3E%3Cpath d='M19.5 9.8V21'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='12' r='6.5'/%3E%3Ccircle cx='9' cy='12' r='3'/%3E%3Cellipse cx='19.5' cy='7' rx='1.8' ry='2.8'/%3E%3Cpath d='M19.5 9.8V21'/%3E%3C/svg%3E") center / contain no-repeat; }
+        .attendance-sheet .att-plate-btn:disabled { cursor: default; }
+        .attendance-sheet .att-plate-btn:disabled:not([aria-pressed="true"]) { opacity: .55; }
+        .attendance-sheet .lunch-tally { display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin-top: 5px; color: var(--att-accent); font-size: 11.5px; font-weight: 700; }
+        .attendance-sheet .lunch-tally[hidden] { display: none; }
+        .attendance-sheet .lunch-tally .att-plate-ico { width: 14px; height: 14px; }
+        .attendance-sheet td.overall-attendance .ov-pair { display: inline-flex; align-items: center; justify-content: center; gap: 12px; white-space: nowrap; }
+        .attendance-sheet td.overall-attendance .ov-att, .attendance-sheet td.overall-attendance .ov-lunch { display: inline-flex; align-items: center; gap: 4px; }
+        .attendance-sheet td.overall-attendance .ov-lunch { color: var(--att-accent); }
+        .attendance-sheet td.overall-attendance .ov-lunch .att-plate-ico { width: 15px; height: 15px; }
+        @media (max-width: 760px) {
+            .attendance-sheet td input[type="checkbox"][data-date], .attendance-sheet .check-all-box { width: 24px; height: 24px; }
+            .attendance-sheet td.student-name { font-size: 13px !important; line-height: 1.25; }
+            .attendance-sheet th.student-name { font-size: 11.5px !important; }
+            .attendance-sheet td.overall-attendance { font-size: 12px !important; }
+            .attendance-sheet td.overall-attendance .ov-pair { flex-direction: column; gap: 4px; }
+            .attendance-sheet .date-actions .edit-save-link, .attendance-sheet .date-actions .cancel-link, .attendance-sheet .att-plate-btn { width: 40px; height: 40px; }
+        }
+        @media print { .attendance-sheet .date-actions, .attendance-sheet .att-plate-btn:not([aria-pressed="true"]) { display: none; } }
+    </style>
     <script>
         var originalStates = window.__attendanceOriginalStates || {};
         window.__attendanceOriginalStates = originalStates;
@@ -1476,28 +1557,36 @@
         }
 
         // ---- Which days show: a remembered range, or one day ----
-        // Ranges count school days (1-3 days) or calendar days (weeks, month)
-        // back from today. The person's pick is remembered on this device
+        // Ranges count back from today, the far-right day: the last 1-3 days on the
+        // sheet (calendar days, or school days where days off are hidden), or calendar
+        // days (weeks, month). The person's pick is remembered on this device
         // until they change it; until then it's the last 3 school days, or
         // the last week when a school day in the past week wasn't marked.
-        var ATT_RANGES = { d1: 'Last school day', d2: 'Last 2 school days', d3: 'Last 3 school days', w1: 'Last week', w2: 'Last 2 weeks', m1: 'Last month', all: 'Whole term' };
+        var ATT_RANGES = { d1: 'Today', d2: 'Last 2 days', d3: 'Last 3 days', w1: 'Last week', w2: 'Last 2 weeks', m1: 'Last month', all: 'Whole term' };
         function rangeStore() { var el = document.getElementById('filterControlsContent'); return el ? el.dataset.rangeKey : ''; }
         function readSavedRange() { try { var v = localStorage.getItem(rangeStore()); return ATT_RANGES[v] ? v : null; } catch (e) { return null; } }
         function saveRange(v) { try { if (v) localStorage.setItem(rangeStore(), v); else localStorage.removeItem(rangeStore()); } catch (e) {} }
         function keyToDate(key) { var p = String(key).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
         function shortDay(key) { return keyToDate(key).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
         function rangeLabel(v) { return ATT_RANGES[v] || (v.indexOf('date:') === 0 ? shortDay(v.slice(5)) : ''); }
+        // The sheet's days, oldest to newest (as the columns run: today is the far-right column).
         function sheetDates() {
             return Array.from(document.querySelectorAll('.attendance-sheet thead th[data-date]')).map(function (th) {
                 return { date: th.dataset.date, countable: !th.classList.contains('date-col-excluded') };
-            });
+            }).sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
         }
         function datesForRange(v) {
             var all = sheetDates();
             if (v === 'all') return new Set(all.map(function (d) { return d.date; }));
             if (v.indexOf('date:') === 0) return new Set([v.slice(5)]);
-            var schoolDays = { d1: 1, d2: 2, d3: 3 }[v];
-            if (schoolDays) return new Set(all.filter(function (d) { return d.countable; }).slice(-schoolDays).map(function (d) { return d.date; }));
+            var lastDays = { d1: 1, d2: 2, d3: 3 }[v];
+            if (lastDays) {
+                // The last days on the sheet up to today: calendar days (a weekend shows greyed), or
+                // school days when the school hides days off (Settings › School rules), where the
+                // server leaves them off the sheet. Today is always the far-right day.
+                var today = document.getElementById('filterControlsContent').dataset.today;
+                return new Set(all.filter(function (d) { return d.date <= today; }).slice(-lastDays).map(function (d) { return d.date; }));
+            }
             var span = { w1: 7, w2: 14, m1: 30 }[v] || 7;
             // Counted back from the newest day on the sheet, so a week is always 7 days.
             var from = keyToDate(all.length ? all[all.length - 1].date : document.getElementById('filterControlsContent').dataset.today);
@@ -1513,9 +1602,9 @@
             return all.filter(function (d) {
                 if (!d.countable || d.date === today || d.date === newest || keyToDate(d.date) < from) return false;
                 return !Array.from(document.querySelectorAll('.attendance-sheet tbody input[data-date="' + d.date + '"]')).some(function (cb) { return cb.disabled; });
-            }).map(function (d) { return d.date; });
+            }).map(function (d) { return d.date; }); // oldest to newest, like the columns
         }
-        function defaultRange() { return missedDays().length ? 'w1' : 'd3'; }
+        function defaultRange() { return 'd3'; }
         function missedHiddenKey() { return 'att-missed-hidden:' + rangeStore(); }
         function showMissedNote() {
             var note = document.getElementById('attMissedNote');
@@ -1570,6 +1659,9 @@
             if (ensureLocalToday()) return;
             var select = document.getElementById('dateFilter');
             if (!select) return;
+            // Today isn't on the sheet when the school hides days off and today is one.
+            var todayKey = document.getElementById('filterControlsContent').dataset.today;
+            if (!sheetDates().some(function (d) { return d.date === todayKey; })) ATT_RANGES.d1 = 'Last school day';
             select.value = readSavedRange() || defaultRange();
             var note = document.getElementById('attMissedNote');
             if (note && !note.dataset.bound) {
@@ -1643,6 +1735,9 @@
             let maleCount = 0, femaleCount = 0;
             let malePresent = 0, femalePresent = 0;
             let maleAbsent = 0, femaleAbsent = 0;
+            // Lunch, when the school takes it: plates chosen on the days shown.
+            const LUNCH = <%= locals.lunchOn ? 'true' : 'false' %>;
+            let maleLunch = 0, femaleLunch = 0;
 
             rows.forEach(row => {
                 if (row.style.display === 'none') return; // Skip hidden rows
@@ -1666,25 +1761,35 @@
                         if (rowGender === 'female') femaleAbsent++;
                     }
                 });
+                if (LUNCH) {
+                    row.querySelectorAll('.lunch-pick[data-v="yes"]').forEach(pick => {
+                        const cell = pick.closest('td');
+                        if (cell && cell.style.display === 'none') return;
+                        if (rowGender === 'male') maleLunch++;
+                        if (rowGender === 'female') femaleLunch++;
+                    });
+                }
             });
 
             // Update the summary table
             const summaryContainer = document.getElementById('attendance-summary');
             if (summaryContainer) {
+                const lunchTh = LUNCH ? '<th>Had lunch</th>' : '';
+                const lunchTd = (n) => (LUNCH ? `<td>${n}</td>` : '');
                 summaryContainer.innerHTML = `
                     <thead>
-                        <tr><th>Students</th><th>Total</th><th>Days present</th><th>Days absent</th></tr>
+                        <tr><th>Students</th><th>Total</th><th>Days present</th><th>Days absent</th>${lunchTh}</tr>
                     </thead>
                     <tbody>
-                        <tr><td>Male</td><td>${maleCount}</td><td>${malePresent}</td><td>${maleAbsent}</td></tr>
-                        <tr><td>Female</td><td>${femaleCount}</td><td>${femalePresent}</td><td>${femaleAbsent}</td></tr>
-                        <tr><td>Class</td><td>${maleCount + femaleCount}</td><td>${malePresent + femalePresent}</td><td>${maleAbsent + femaleAbsent}</td></tr>
+                        <tr><td>Male</td><td>${maleCount}</td><td>${malePresent}</td><td>${maleAbsent}</td>${lunchTd(maleLunch)}</tr>
+                        <tr><td>Female</td><td>${femaleCount}</td><td>${femalePresent}</td><td>${femaleAbsent}</td>${lunchTd(femaleLunch)}</tr>
+                        <tr><td>Class</td><td>${maleCount + femaleCount}</td><td>${malePresent + femalePresent}</td><td>${maleAbsent + femaleAbsent}</td>${lunchTd(maleLunch + femaleLunch)}</tr>
                     </tbody>
                 `;
             }
         }
 
-        // Scroll attendance table so the most recent (rightmost) date is visible first
+        // Today is the far-right column: scroll the sheet to its end so today is in view.
         function scrollAttendanceToEnd() {
             const container = document.querySelector('.attendance-sheet-container');
             if (container) {
@@ -1844,17 +1949,26 @@
             }
         }
 
-        function markAllPresentForDate(date) {
+        function checkAllClick(ev, date) {
+            const lunchBtn = ev.target.closest && ev.target.closest('.check-all-lunch');
+            if (lunchBtn) { if (window.lunchAllForDate) window.lunchAllForDate(date); return; }
+            const box = ev.currentTarget.querySelector('.check-all-box');
+            if (ev.target !== box) box.checked = !box.checked;
+            markAllPresentForDate(date, box.checked);
+        }
+
+        function markAllPresentForDate(date, on) {
             const checkboxes = document.querySelectorAll(`input[data-date='${date}']`);
             checkboxes.forEach(checkbox => {
                 if (checkbox.dataset.countable === 'true' && !checkbox.disabled) {
-                    checkbox.checked = true;
+                    checkbox.checked = on !== false;
                 }
             });
             setTimeout(updateAttendanceSummary, 10);
         }
 
         function saveAttendanceForDate(date, checkboxes, link) {
+            if (window.saveLunchForDate) window.saveLunchForDate(date);
             const attendanceData = {};
             const classId = '<%= classId %>';
             const termId = '<%= termId %>';
@@ -1867,13 +1981,14 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                 },
                 body: JSON.stringify({ attendance: attendanceData, classId, termId, date })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`Attendance for ${date} saved successfully!`);
+                    if (window.attToast) window.attToast('Saved'); 
                     link.textContent = 'Edit';
                     checkboxes.forEach(checkbox => {
                         checkbox.disabled = true;
@@ -1892,7 +2007,7 @@
                     setTimeout(updateAttendanceSummary, 50);
                 } else {
                     console.error('Failed to save attendance:', data.error);
-                    alert(data.message || 'Failed to save attendance. Please try again.');
+                    alert(data.message || data.error || 'Failed to save attendance. Please try again.');
                 }
             })
             .catch(error => {
@@ -1900,6 +2015,27 @@
                 alert('Failed to save attendance. Please try again.');
             });
         }
+
+        // A quiet note instead of a blocking pop-up.
+        window.attToast = function (text) {
+            var t = document.createElement('div');
+            t.textContent = text; t.setAttribute('role', 'status');
+            t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#0f766e;color:#fff;padding:10px 20px;border-radius:999px;font:700 14px/1 inherit;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:99999;';
+            document.body.appendChild(t);
+            setTimeout(function () { t.remove(); }, 1600);
+        };
+        // A day nobody has marked yet is open: the first tap on a box starts editing it, so Save is there at once.
+        (function () {
+            var sheet = document.querySelector('.attendance-sheet'); if (!sheet) return;
+            function begin(e) {
+                var box = e.target.closest && e.target.closest('input[type="checkbox"][data-date]');
+                if (!box || box.disabled) return;
+                var link = document.querySelector('.edit-save-link[data-date="' + box.dataset.date + '"]');
+                if (link && link.textContent.trim() === 'Edit') toggleEditSaveMode(box.dataset.date);
+            }
+            sheet.addEventListener('pointerdown', begin, true);
+            sheet.addEventListener('keydown', function (e) { if (e.key === ' ') begin(e); }, true);
+        })();
 
         function saveOriginalStates(date, checkboxes) {
             originalStates[date] = {};
@@ -2026,4 +2162,124 @@
 
             
             </script>
+    <script>
+    // The Edit button shows a tick while its day is being edited (the page's own script switches the words).
+    (function () {
+        function sync(link) { var save = link.textContent.trim() === 'Save'; link.dataset.mode = save ? 'save' : 'edit'; link.title = save ? 'Save' : 'Edit'; link.setAttribute('aria-label', (save ? 'Save' : 'Edit') + ' attendance'); }
+        document.querySelectorAll('.attendance-sheet .edit-save-link').forEach(function (link) {
+            sync(link);
+            new MutationObserver(function () { sync(link); link.dispatchEvent(new CustomEvent('att:mode', { bubbles: true })); }).observe(link, { childList: true, characterData: true, subtree: true });
+        });
+    })();
+    </script>
+    <% if (locals.lunchOn) { %>
+    <script>
+    // Lunch, beside each student's checkbox. A day nobody has marked is open: the first tap starts editing.
+    // A saved day is locked until Edit. Lunch is saved with the day's attendance, and only for a day
+    // whose lunch was touched, so a day nobody took lunch for stays "not taken".
+    (function () {
+        var sheet = document.querySelector('.attendance-sheet');
+        if (!sheet) return;
+        var CLASS_ID = '<%= classId %>', TERM_ID = '<%= termId %>';
+        var saved = <%- JSON.stringify(locals.lunchMap || {}) %>;
+        var touched = {};
+        function q(sel) { return sheet.querySelector(sel); }
+        function picks(date) { return Array.prototype.slice.call(sheet.querySelectorAll('.lunch-pick[data-lunch-date="' + date + '"]')); }
+        function editing(date) { var ed = q('.edit-save-link[data-date="' + date + '"]'); return !!ed && ed.textContent.trim() === 'Save'; }
+        function hasSaved(date) { return Object.keys(saved).some(function (id) { return saved[id] && saved[id][date] !== undefined; }); }
+        function locked(date) {
+            if (editing(date)) return false;
+            var boxes = sheet.querySelectorAll('tbody input[data-date="' + date + '"][data-countable="true"]');
+            return Array.prototype.some.call(boxes, function (b) { return b.disabled; }) || hasSaved(date);
+        }
+        // Colours are set on the element itself so the app's general button styles can't change them.
+        function paint(el, on) {
+            var set = function (k, v) { el.style.setProperty(k, v, 'important'); };
+            set('background', on ? 'var(--att-accent)' : '#fff');
+            set('border-color', on ? 'var(--att-accent)' : 'var(--att-line)');
+            set('color', on ? '#fff' : 'var(--att-muted)');
+        }
+        function setPick(btn, on) {
+            btn.dataset.v = on ? 'yes' : '';
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            btn.title = on ? 'Had lunch' : 'No lunch';
+            btn.setAttribute('aria-label', btn.title);
+            paint(btn, on);
+        }
+        function refresh(date) {
+            var lock = locked(date), list = picks(date), yes = list.filter(function (b) { return b.dataset.v === 'yes'; }).length;
+            list.forEach(function (b) { b.disabled = lock; });
+            var all = q('.mark-all-link[data-date="' + date + '"] .check-all-lunch');
+            if (all) { var full = list.length > 0 && yes === list.length; all.setAttribute('aria-pressed', full ? 'true' : 'false'); paint(all, full); }
+            var t = q('.lunch-tally[data-lunch-date="' + date + '"]');
+            if (t) { var b = t.querySelector('b'); if (b.textContent !== String(yes)) b.textContent = yes; t.hidden = !(yes > 0 || editing(date)); }
+            if (typeof window.updateAttendanceSummary === 'function') { clearTimeout(refresh.summary); refresh.summary = setTimeout(window.updateAttendanceSummary, 30); }
+        }
+        function startEditing(date) { if (!editing(date) && window.toggleEditSaveMode) window.toggleEditSaveMode(date); }
+        function overall() {
+            var days = {};
+            Object.keys(saved).forEach(function (id) { Object.keys(saved[id] || {}).forEach(function (d) { days[d] = true; }); });
+            var total = Object.keys(days).length;
+            sheet.querySelectorAll('.ov-lunch[data-student]').forEach(function (el) {
+                var mine = saved[el.dataset.student] || {}, yes = 0;
+                Object.keys(mine).forEach(function (d) { if (mine[d] === true) yes++; });
+                el.querySelector('b').textContent = yes + '/' + total;
+            });
+        }
+        var dates = {};
+        sheet.querySelectorAll('tbody input[type="checkbox"][data-date][data-countable="true"]').forEach(function (box) {
+            var date = box.dataset.date, id = box.dataset.studentId;
+            dates[date] = true;
+            var btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'lunch-pick att-plate-btn'; btn.dataset.lunchDate = date; btn.dataset.student = id;
+            setPick(btn, (saved[id] || {})[date] === true);
+            btn.addEventListener('click', function () {
+                if (btn.disabled) return;
+                startEditing(date);
+                setPick(btn, btn.dataset.v !== 'yes');
+                touched[date] = true;
+                refresh(date);
+            });
+            var pair = document.createElement('span'); pair.className = 'att-pair';
+            box.parentNode.insertBefore(pair, box); pair.appendChild(box); pair.appendChild(btn);
+        });
+        window.lunchAllForDate = function (date) {
+            if (locked(date)) return;
+            startEditing(date);
+            var list = picks(date), on = !list.every(function (b) { return b.dataset.v === 'yes'; });
+            list.forEach(function (b) { setPick(b, on); });
+            touched[date] = true;
+            refresh(date);
+        };
+        // Called by the day's Save: lunch goes with attendance (had lunch / no lunch for each student).
+        window.saveLunchForDate = function (date) {
+            if (!touched[date]) return;
+            var lunch = {};
+            picks(date).forEach(function (b) { lunch[b.dataset.student] = b.dataset.v === 'yes' ? 'yes' : 'no'; });
+            fetch('/common/saveLunch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ lunch: lunch, classId: CLASS_ID, termId: TERM_ID, date: date }) })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.success) { alert(d.message || d.error || 'Lunch wasn\'t saved. Please try again.'); return; }
+                    Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; saved[id][date] = lunch[id] === 'yes'; });
+                    touched[date] = false;
+                    overall(); refresh(date);
+                })
+                .catch(function () { alert('Lunch wasn\'t saved. Please try again.'); });
+        };
+        // Cancel puts the day's lunch back as it was saved.
+        var cancel = window.cancelEditMode;
+        if (typeof cancel === 'function') {
+            window.cancelEditMode = function (date) {
+                cancel(date);
+                picks(date).forEach(function (b) { setPick(b, (saved[b.dataset.student] || {})[date] === true); });
+                touched[date] = false;
+                refresh(date);
+            };
+        }
+        sheet.addEventListener('att:mode', function (e) { var d = e.target.dataset && e.target.dataset.date; if (d) refresh(d); });
+        Object.keys(dates).forEach(refresh);
+        overall();
+    })();
+    </script>
+    <% } %>
             

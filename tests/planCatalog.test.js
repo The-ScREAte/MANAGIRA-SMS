@@ -79,7 +79,7 @@ test("plan cards list only what each plan adds to the one before it", () => {
   ]);
   const labels = (list) => list.map((f) => f.feature_name);
   assert.deepEqual(labels(plans[0].newFeatures), ["School dashboard", "Student and family records", "Attendance", "Gradebook and assessments",
-    "Report cards and progress reports", "Parent portal", "Student portal", "PayGira fees and payments", "School analytics"]);
+    "Report cards and progress reports", "Parent portal", "Student portal", "Billing & Payments (PayGira)", "School analytics"]);
   assert.equal(plans[0].plusOf, null);
   assert.equal(plans[1].plusOf, "Starter");
   assert.deepEqual(labels(plans[1].newFeatures), ["Online tests and Testing Room", "Official transcripts", "Custom report card templates", "Class merit sheets", "Class analytics"]);

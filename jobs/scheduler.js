@@ -238,6 +238,11 @@ if (process.env.NODE_ENV === 'production' || process.env.ENABLE_REPORT_SCHEDULES
       if (summary.sent || summary.failed) {
         console.log(`[Report Schedules] sent=${summary.sent} failed=${summary.failed}`);
       }
+      // State files due on a count date (made and kept locked; people are told, nothing attached).
+      const state = await require('../controllers/stateReportingController').runDueStateFiles(require('../config/db'));
+      if (state.made || state.failed || state.purged) {
+        console.log(`[State Files] made=${state.made} failed=${state.failed} purged=${state.purged}`);
+      }
     } catch (error) {
       console.error('[Report Schedules] Sweep failed:', error.message);
     }

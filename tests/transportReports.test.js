@@ -189,7 +189,8 @@ test("only a manager changes a manager, and nobody but a manager changes their o
   const lead = { session: { organizationId: 777003, userId: 5, userRole: "Driver" } };
   assert.match(await staffChangeRefusal(db("Teacher"), lead, 5), /your own account/);
   assert.match(await staffChangeRefusal(db("Manager"), lead, 6), /Only a manager/);
-  assert.equal(await staffChangeRefusal(db("Teacher"), lead, 6), null);
+  assert.equal(await staffChangeRefusal(db("Driver"), lead, 6), null, "a lead driver works on drivers");
+  assert.match(await staffChangeRefusal(db("Teacher"), lead, 6), /at or below your own/, "and not on staff above their own role");
   const manager = { session: { organizationId: 777003, userId: 5, userRole: "Manager" } };
   assert.equal(await staffChangeRefusal(db("Manager"), manager, 5), null);
   const broken = { query: async () => { throw new Error("busy"); } };

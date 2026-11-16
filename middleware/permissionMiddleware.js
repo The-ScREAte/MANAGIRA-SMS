@@ -55,6 +55,7 @@ const PERMISSIONS = {
   REPORTS_TERMINAL: "reports_terminal",
   REPORTS_SETTINGS: "reports_settings",
   REPORTS_BUILDER: "reports_builder",
+  STATE_REPORTING: "state_reporting",
   EVENTS_ANNOUNCEMENTS: "events_announcements",
   EVENTS_EVENTS: "events_events",
   SETTINGS_PROFILE: "settings_profile",
@@ -84,6 +85,8 @@ const PERMISSIONS = {
   EDIT_CONTACTS: "edit_contacts",
   EDIT_CONTACT_TEMPLATE: "edit_contact_template",
   USE_MIRA: "use_mira",
+  CLASS_SETTINGS: "class_settings",
+  CLASS_SETTINGS_ALL: "class_settings_all",
 };
 
 // Not a PERMISSION_OPTIONS entry (so it never renders as its own checkbox) —
@@ -121,6 +124,11 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.SET_ASSESSMENT_QUESTIONS, label: "Set Assessment Questions", parent: PERMISSIONS.MANAGE_ASSESSMENTS, features: ["Set Assessment Questions", "Assessment Questions"], description: "Write online tests for their classes, grade them and post the grades" },
   { key: PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS, label: "Assess Other School Years", group: "Academics", description: "Enter scores in the classroom for years other than the current one" },
   { key: PERMISSIONS.MARK_ATTENDANCE, label: "Mark Attendance", group: "Academics", description: "Mark attendance and run attendance reports" },
+  // Class Settings (feature class_settings, utils/classSettings.js): a class's features and what its
+  // parents and students see. On its own: the classes the person leads (main or assistant teacher), in the
+  // classroom. "Every class" adds Management › Class settings (the calendar stays in Settings › Profile).
+  { key: PERMISSIONS.CLASS_SETTINGS, label: "Class Settings", group: "Academics", sandboxFeature: "class_settings", description: "Turn class features on and off and choose what parents and students see, for the classes they lead" },
+  { key: PERMISSIONS.CLASS_SETTINGS_ALL, label: "Every Class", parent: PERMISSIONS.CLASS_SETTINGS, highRisk: true, sandboxFeature: "class_settings", description: "Manage Class Settings for every class from Management" },
   { key: PERMISSIONS.MANAGE_RECORDS, label: "Manage School Records", group: "Academics", description: "See school years, statistics and the activity log" },
   { key: PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS, label: "Manage School Years & Terms", group: "Academics", highRisk: true, description: "Open and close terms, graduate and withdraw students" },
 
@@ -132,6 +140,8 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_REPORTS, label: "Manage Reports/Printing", group: "Reports", description: "Reports and printing. Choose which ones below", childrenRequired: "Choose at least one report area" },
   { key: PERMISSIONS.REPORTS_TERMINAL, label: "Terminal Reports", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Open, print and send report cards and merit sheets" },
   { key: PERMISSIONS.REPORTS_BUILDER, label: "Report Builder", parent: PERMISSIONS.MANAGE_REPORTS, description: "Build reports, limited to what their other permissions allow" },
+  // Under Report Builder: only someone who builds reports files them with the state.
+  { key: PERMISSIONS.STATE_REPORTING, label: "Gov/state reporting", parent: PERMISSIONS.REPORTS_BUILDER, highRisk: true, sandboxFeature: "state_reporting", description: "Turn saved reports into the Gov/state reports the state asks for, schedule them, and send or download them" },
   { key: PERMISSIONS.REPORTS_SETTINGS, label: "Report Settings", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Grading, remarks, signatures and report card layouts" },
   { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts", group: "Reports", description: "Open official student transcripts" },
 
@@ -265,6 +275,8 @@ const ROLE_DEFAULT_PERMISSIONS = {
     PERMISSIONS.MANAGE_CLASSES_SUBJECTS,
     PERMISSIONS.MANAGE_REPORTS,
     PERMISSIONS.TRANSPORT_CLASS_REPORTS,
+    // Their own classes only (utils/classSettings.js); "Every Class" stays with managers.
+    PERMISSIONS.CLASS_SETTINGS,
   ],
   Supervisor: [
     PERMISSIONS.MANAGE_STUDENTS,
@@ -447,6 +459,8 @@ function expandUnsavedPermissions(normalizedRole, held) {
     if (option.key === PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT && normalizedRole === "Teacher") return;
     // It was its own permission before it was a follow-up: only those who held it keep it.
     if (option.key === PERMISSIONS.SET_ASSESSMENT_QUESTIONS) return;
+    // Every class is a manager's: someone unsaved with Class Settings keeps their own classes only.
+    if (option.key === PERMISSIONS.CLASS_SETTINGS_ALL && !isManagerRole(normalizedRole)) return;
     expanded.add(option.key);
   });
   return [...expanded];

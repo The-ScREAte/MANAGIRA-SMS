@@ -165,7 +165,8 @@ async function classStudentIds(db, req, res) {
     [session.userId || session.user?.user_id || 0, classId, organizationId]
   );
   const role = String(session.userRole || "").toLowerCase();
-  if (!mine.rows[0] && role !== "manager" && !(res.locals.userPermissions || []).includes("manage_students")) {
+  // A teacher works only on their own classes, whatever else they hold; others by permission.
+  if (!mine.rows[0] && (role === "teacher" || (role !== "manager" && !(res.locals.userPermissions || []).includes("manage_students")))) {
     throw new transportReports.ReportError("You can only see your own classes.", 403);
   }
   const { rows } = await db.query("SELECT student_id FROM students WHERE organization_id = $1 AND class_id = $2", [organizationId, classId]);
@@ -191,6 +192,15 @@ async function guardianStudentIds(db, session) {
     [session.organizationId, session.guardianId]
   );
   return rows.map((row) => Number(row.student_id));
+}
+
+// A parent's children whose class shows the bus to parents (Class settings, parents.transport):
+// every parent bus page and answer (tracker, boarding, arrivals, shared reports, requests) uses these.
+async function guardianTransportStudentIds(db, session) {
+  const ids = await guardianStudentIds(db, session);
+  if (!ids.length) return ids;
+  const see = await require("../utils/classSettings").parentsSeeFor(db, session.organizationId, ids);
+  return ids.filter((id) => !see.has(id) || see.get(id).transport !== false);
 }
 
 // Turns a student's pickup address into a stop the bus passes through. A stop shared
@@ -413,7 +423,9 @@ async function saveLastAnswers(req, db, organizationId, userId, tripId) {
   ]);
 }
 
-async function getStudentTransportationSnapshot(db, organizationId, studentId) {
+// `imageUrl` (res.locals.publicImageUrl) turns the driver's photo into a short-lived link; the
+// stored address itself never leaves the server (student and staff files are private).
+async function getStudentTransportationSnapshot(db, organizationId, studentId, { imageUrl = null } = {}) {
   const details = await studentBusDetails(db, organizationId, studentId);
   if (!details) return null;
   const { school, row, routeStopsResult } = details;
@@ -485,7 +497,7 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
           recordedAt: live.recorded_at,
           startedAt: live.started_at,
           driverName: live.driver_name || null,
-          driverPhoto: live.driver_photo || null,
+          driverPhotoUrl: live.driver_photo && typeof imageUrl === "function" ? imageUrl(live.driver_photo) : null,
           licensePlate: live.license_plate || null,
           estimated: Boolean(live.estimated),
           lastGpsAt: live.last_gps_at || null,
@@ -1351,11 +1363,38 @@ const transportationController = {
           return res.redirect("/transportation/manage");
         }
         userId = existing.user_id;
+        const renameRefusal = await require("../utils/staffChangeGuard").staffChangeRefusal(db, req, userId);
+        if (renameRefusal) {
+          if (wantsJson(req)) return res.status(403).json({ ok: false, message: renameRefusal });
+          req.flash("error", renameRefusal);
+          return res.redirect("/transportation/manage");
+        }
         await db.query(
           `UPDATE users SET first_name = $1, last_name = $2, updated_at = NOW() WHERE user_id = $3`,
           [firstName, lastName, userId]
         );
       } else {
+        // A new account follows the same rules as Add user: the school's user licenses, and an
+        // email no other account (in any school, or a school's own sign-in) already uses.
+        const license = await require("../utils/licenses").orgLicense(db, organizationId).catch(() => ({ full: false }));
+        if (license.full) {
+          const message = `Your school has used all ${license.max} user licenses. Contact Managira to add more.`;
+          if (wantsJson(req)) return res.status(409).json({ ok: false, message });
+          req.flash("error", message);
+          return res.redirect("/transportation/manage");
+        }
+        const taken = await db.query(
+          `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)
+           UNION ALL
+           SELECT 1 FROM organizations WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+          [email]
+        );
+        if (taken.rows.length) {
+          const message = "That email address is already in use by another account.";
+          if (wantsJson(req)) return res.status(409).json({ ok: false, message });
+          req.flash("error", message);
+          return res.redirect("/transportation/manage");
+        }
         const crypto = require("crypto");
         const token = crypto.randomBytes(32).toString("hex");
         const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -1466,6 +1505,13 @@ const transportationController = {
       if (!userCheck.rows.length) {
         if (wantsJson(req)) return res.status(404).json({ ok: false, message: "Driver not found." });
         req.flash("error", "Driver not found.");
+        return res.redirect("/transportation/manage");
+      }
+      // The staff rules apply here too (a lead driver doesn't change their own sign-in).
+      const editRefusal = await require("../utils/staffChangeGuard").staffChangeRefusal(db, req, userId);
+      if (editRefusal) {
+        if (wantsJson(req)) return res.status(403).json({ ok: false, message: editRefusal });
+        req.flash("error", editRefusal);
         return res.redirect("/transportation/manage");
       }
 
@@ -2335,6 +2381,22 @@ const transportationController = {
     try {
       await ensureTransportationSchema(db);
 
+      // The student, bus, route and stop must all be this school's.
+      const ownStudent = await db.query("SELECT 1 FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId]);
+      if (!ownStudent.rowCount) {
+        req.flash("error", "That student isn't in your school.");
+        return res.redirect("/transportation/manage");
+      }
+      const verified = await verifyOrgIds(db, organizationId, busId, routeId);
+      if (!verified.valid) {
+        req.flash("error", verified.message);
+        return res.redirect("/transportation/manage");
+      }
+      if (stopId && !(await db.query("SELECT 1 FROM transport_stops WHERE stop_id = $1 AND organization_id = $2", [stopId, organizationId])).rowCount) {
+        req.flash("error", "That stop isn't part of this school.");
+        return res.redirect("/transportation/manage");
+      }
+
       let resolvedStopId = stopId;
       let resolvedRouteId = routeId;
       let distanceKm = null;
@@ -2381,6 +2443,8 @@ const transportationController = {
         ]
       );
 
+      // Trackers read the new bus at once rather than after their 30-second memory.
+      try { forgetStudentBuses(organizationId); } catch (_e) { /* the memory expires on its own */ }
       req.flash("success", "Student transportation assignment saved.");
     } catch (error) {
       req.flash("error", "Unable to save student transportation assignment.");
@@ -2415,7 +2479,7 @@ const transportationController = {
   }),
 
   requestsMineGet: (req, res, db) => answer(res, async () => {
-    const studentIds = await guardianStudentIds(db, req.session);
+    const studentIds = await guardianTransportStudentIds(db, req.session);
     const requests = studentIds.length
       ? await busRequests.listRequests(db, req.session.organizationId, {
           bucket: req.query.bucket === "old" ? "old" : "new",
@@ -2426,7 +2490,7 @@ const transportationController = {
   }),
 
   requestCancelPost: (req, res, db) => answer(res, async () => {
-    const studentIds = await guardianStudentIds(db, req.session);
+    const studentIds = await guardianTransportStudentIds(db, req.session);
     await busRequests.cancelRequest(db, req.session.organizationId, toInt(req.params.requestId), studentIds);
     return { success: true, message: "Request cancelled." };
   }),
@@ -2495,7 +2559,7 @@ const transportationController = {
   parentRidingGet: (req, res, db) => answer(res, async () => {
     requireBoarding(req);
     const session = req.session;
-    const family = await transportBoarding.familyOf(db, session.organizationId, session.guardianId, () => guardianStudentIds(db, session));
+    const family = await transportBoarding.familyOf(db, session.organizationId, session.guardianId, () => guardianTransportStudentIds(db, session));
     const reading = await transportBoarding.schoolDay(db, session.organizationId, transportBoarding.dayFrom(req.query.date));
     return { success: true, riders: family.riders, ...transportBoarding.forStudents(reading, family.studentIds) };
   }),
@@ -2504,7 +2568,7 @@ const transportationController = {
     requireBoarding(req);
     const session = req.session;
     const studentId = toInt(req.body?.studentId);
-    if (!(await guardianStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student isn't yours.", 403);
+    if (!(await guardianTransportStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student's bus isn't available to you.", 403);
     const name = [session.firstName, session.lastName].filter(Boolean).join(" ");
     await transportBoarding.setRiding(db, session.organizationId, studentId, transportBoarding.dayFrom(req.body?.date), req.body?.coming === true, { by: "parent", name });
     return { success: true };
@@ -2514,7 +2578,7 @@ const transportationController = {
     requireBoarding(req);
     const session = req.session;
     const studentId = toInt(req.body?.studentId);
-    if (!(await guardianStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student isn't yours.", 403);
+    if (!(await guardianTransportStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student's bus isn't available to you.", 403);
     await transportBoarding.askToStopBus(db, session.organizationId, studentId, [session.firstName, session.lastName].filter(Boolean).join(" "));
     return { success: true };
   }),
@@ -2571,12 +2635,12 @@ const transportationController = {
   }),
 
   arrivalsMineGet: (req, res, db) => answer(res, async () => {
-    const studentIds = await guardianStudentIds(db, req.session);
+    const studentIds = await guardianTransportStudentIds(db, req.session);
     return { success: true, arrivals: await transportReports.pendingArrivalsForParent(db, req.session.organizationId, studentIds) };
   }),
 
   arrivalAnswerPost: (req, res, db) => answer(res, async () => {
-    const studentIds = await guardianStudentIds(db, req.session);
+    const studentIds = await guardianTransportStudentIds(db, req.session);
     await transportReports.answerArrival(db, req.session.organizationId, toInt(req.params.arrivalId), {
       guardianId: req.session.guardianId,
       studentIds,
@@ -2586,7 +2650,7 @@ const transportationController = {
   }),
 
   reportsMineGet: (req, res, db) => answer(res, async () => {
-    const studentIds = await guardianStudentIds(db, req.session);
+    const studentIds = await guardianTransportStudentIds(db, req.session);
     return { success: true, reports: await transportReports.reportsForParent(db, req.session.organizationId, studentIds) };
   }),
 
@@ -2599,7 +2663,7 @@ const transportationController = {
       "SELECT 1 FROM user_classes uc JOIN classes c ON c.class_id = uc.class_id WHERE uc.user_id = $1 AND uc.class_id = $2 AND c.organization_id = $3 LIMIT 1",
       [session.userId || session.user?.user_id || 0, classId, organizationId]
     );
-    if (!mine.rows[0] && role !== "manager" && !(res.locals.userPermissions || []).includes("manage_students")) {
+    if (!mine.rows[0] && (role === "teacher" || (role !== "manager" && !(res.locals.userPermissions || []).includes("manage_students")))) {
       throw new transportReports.ReportError("You can only see your own classes.", 403);
     }
     return { success: true, reports: await transportReports.reportsForClass(db, organizationId, classId) };
@@ -2684,7 +2748,7 @@ const transportationController = {
     const busId = toInt(body.busId);
     const routeId = toInt(body.routeId);
     const stopId = toInt(body.stopId);
-    if (!(await verifyOrgIds(db, organizationId, busId, routeId))) {
+    if (!(await verifyOrgIds(db, organizationId, busId, routeId)).valid) {
       throw new busRequests.RequestError("That bus or route is not part of this school.");
     }
     if (stopId) {
@@ -2925,20 +2989,34 @@ const transportationController = {
       // Only the bus's assigned driver may start a trip on it — closes the
       // gap where any authenticated staff member could drive any bus.
       const busCheck = await db.query(
-        `SELECT bus_id FROM transport_buses
+        `SELECT bus_id, status FROM transport_buses
           WHERE bus_id = $1 AND organization_id = $2 AND driver_user_id = $3`,
         [busId, organizationId, userId]
       );
       if (!busCheck.rows.length) {
         return res.status(403).json({ success: false, message: "You are not the assigned driver for this bus." });
       }
+      // A bus the school took off the road, a paused route or a driver set to inactive doesn't start.
+      if (["maintenance", "out_of_service"].includes(String(busCheck.rows[0].status || "").toLowerCase())) {
+        return res.status(409).json({ success: false, message: "This bus is marked as not in service. Ask your transportation lead." });
+      }
+      const driverState = await db.query(
+        "SELECT status FROM transport_drivers WHERE organization_id = $1 AND user_id = $2 LIMIT 1",
+        [organizationId, userId]
+      ).catch(() => ({ rows: [] }));
+      if (String((driverState.rows[0] || {}).status || "").toLowerCase() === "inactive") {
+        return res.status(409).json({ success: false, message: "Your driver profile is set to inactive. Ask your transportation lead." });
+      }
 
       const routeCheck = await db.query(
-        `SELECT route_id FROM transport_routes WHERE route_id = $1 AND organization_id = $2`,
+        `SELECT route_id, route_status FROM transport_routes WHERE route_id = $1 AND organization_id = $2`,
         [routeId, organizationId]
       );
       if (!routeCheck.rows.length) {
         return res.status(400).json({ success: false, message: "Route not found." });
+      }
+      if (String(routeCheck.rows[0].route_status || "").toLowerCase() === "inactive") {
+        return res.status(409).json({ success: false, message: "This route is paused. Ask your transportation lead." });
       }
 
       // A driver may only start a trip on a route actually assigned to them
@@ -3013,7 +3091,8 @@ const transportationController = {
             RETURNING bus_id
          ), bus AS (
            UPDATE transport_buses b
-              SET status = 'active', updated_at = NOW()
+              -- Back from its trip; a status the school set meanwhile (maintenance) stays.
+              SET status = CASE WHEN b.status = 'on_trip' THEN 'active' ELSE b.status END, updated_at = NOW()
              FROM ended
             WHERE b.organization_id = $1 AND b.bus_id = ended.bus_id
          )
@@ -3083,11 +3162,7 @@ const transportationController = {
     if (!studentId) return res.status(400).json({ success: false, message: "Student is required." });
 
     try {
-      const snapshot = await getStudentTransportationSnapshot(db, organizationId, studentId);
-      if (snapshot && snapshot.live) {
-        snapshot.live.driverPhotoUrl = snapshot.live.driverPhoto ? res.locals.publicImageUrl(snapshot.live.driverPhoto) : null;
-        delete snapshot.live.driverPhoto;
-      }
+      const snapshot = await getStudentTransportationSnapshot(db, organizationId, studentId, { imageUrl: res.locals.publicImageUrl });
       // While the map is open it only needs the position, not the whole route again.
       if (req.query.liveOnly === "1") return res.json({ success: true, data: { live: snapshot ? snapshot.live : null } });
       return res.json({ success: true, data: snapshot });
@@ -3139,6 +3214,7 @@ module.exports = {
   transportationController,
   forgetStudentBuses,
   guardianStudentIds,
+  guardianTransportStudentIds,
   staffIdentity,
   getStudentTransportationSnapshot,
   getClassTransportationSnapshot,

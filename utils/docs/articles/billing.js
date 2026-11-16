@@ -8,7 +8,7 @@ module.exports = [
     topic: "Billing & subscriptions",
     order: 1,
     summary: "Understand why renewal can change based on student count and billing cycle choices.",
-    tags: ['renewal', 'student count', 'billing cycles', 'subscription amount', 'free students'],
+    tags: ['renewal', 'student count', 'billing cycles', 'subscription amount', 'free students', 'cancel subscription', 'cancel'],
     rawHtml: `
       <h2>Overview</h2>
       <p>Renewal is not always a permanently fixed number. It can change as your active student count changes.</p>
@@ -26,6 +26,9 @@ module.exports = [
         <li>Check renewal details in the billing area before charge date.</li>
       </ol>
       <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> If your school expects a pricing jump, review student archive and graduation updates before renewal to avoid overcounting inactive learners.</div>
+      <h2>Cancel your subscription</h2>
+      <p>To cancel, contact Managira support at <a href="mailto:support@managira.com">support@managira.com</a>, or use <strong>Contact support</strong> in the help menu. Your school keeps full access until the end of the period it paid for, nothing more is charged, and your records are kept. <strong>Settings</strong>, <strong>Billing &amp; Plan</strong> shows the day your access ends.</p>
+      <p>Changed your mind? Contact support before that day and your subscription continues. Schools in a hub are billed by their hub: ask the hub instead.</p>
     `,
   },
   {

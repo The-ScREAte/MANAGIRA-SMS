@@ -26,25 +26,73 @@ module.exports = (db) => {
 
     // Report Settings and what it saves.
     const canManageReports = requirePermission(PERMISSIONS.REPORTS_SETTINGS);
+    // Report cards and merit sheets: open, print, post and send (Terminal Reports).
+    const canOpenReportCards = requirePermission(PERMISSIONS.REPORTS_TERMINAL);
 
     // Define routes
-    router.get('/printStudentReport', checkFeatureAccess, isAuthenticated, printController.printStudentReport); // Fetch student report
+    router.get('/printStudentReport', checkFeatureAccess, isAuthenticated, canOpenReportCards, printController.printStudentReport); // Fetch student report
     router.get('/reportSettings', checkFeatureAccess, isAuthenticated, canManageReports, printController.reportSettingsPage); // Render report settings page
     router.post('/savePromotionSettings', isAuthenticated, canManageReports, printController.savePromotionSettings); // Save promotion settings
-    router.post('/saveReportTemplates', isAuthenticated, canManageReports, express.json(), printController.saveReportTemplates); // Which report card layout each class uses
+    router.post('/saveReportTemplates', isAuthenticated, canManageReports, express.json(), printController.saveReportTemplates);
+    // Transcript designs (utils/transcriptDesign.js): the school's choice, and a preview of each
+    // with a made-up student (no real record is opened here).
+    // Both answer only where transcript_designs is released to the school.
+    const designsOn = (req, res, next) => (require('../utils/shards/features').isOn('transcript_designs', { organizationId: req.session.organizationId, hubId: req.session.hubId || null })
+        ? next()
+        : res.status(404).json({ success: false, message: 'Not available.' }));
+    router.post('/transcriptDesign', isAuthenticated, designsOn, canManageReports, express.json(), async (req, res) => {
+        try {
+            const design = await require('../utils/transcriptDesign').saveDesign(db, req.session.organizationId, (req.body || {}).design);
+            return res.json({ success: true, design });
+        } catch (error) {
+            if (!error.status) console.error('[transcriptDesign] save:', error.message);
+            return res.status(error.status || 500).json({ success: false, message: error.status ? error.message : 'The design wasn\'t saved. Please try again.' });
+        }
+    });
+    router.get('/transcriptDesignPreview', checkFeatureAccess, isAuthenticated, designsOn, canManageReports, async (req, res) => {
+        try {
+            const transcriptDesign = require('../utils/transcriptDesign');
+            const organizationId = req.session.organizationId;
+            const { rows } = await db.query(
+                'SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path, logo FROM organizations WHERE organization_id = $1',
+                [organizationId]
+            );
+            const savedDesign = await transcriptDesign.designFor(db, organizationId).catch(() => transcriptDesign.DEFAULT);
+            // The sample shows course credits only where the school has them (feature gpa_credits).
+            const sample = transcriptDesign.sampleData(rows[0] || {}, { credits: require('../utils/gpa').creditsOn(organizationId) });
+            return res.render('print/transcript', {
+                ...sample,
+                preview: true,
+                design: transcriptDesign.pick(req.query.design, savedDesign),
+                savedDesign,
+                transcriptDesigns: transcriptDesign.DESIGNS,
+                title: 'Transcript design preview',
+                signatureImageUrl: null,
+                signatureName: '',
+                signatureTitle: 'Registrar',
+                official: false,
+                canBroadcastToGuardians: false,
+                hideGlobalHeader: true,
+                hideGlobalFooter: true,
+            });
+        } catch (error) {
+            console.error('[transcriptDesign] preview:', error.message);
+            return res.status(500).send('The preview could not be shown.');
+        }
+    }); // Which report card layout each class uses
     router.post('/gpaSettings', isAuthenticated, canManageReports, express.json(), require('../controllers/printController').saveGpaSettings); // GPA weights: Honors, AP and each subject's level
     router.post('/saveScoreRemarks', isAuthenticated, canManageReports, printController.saveScoreRemarks); // Save score remarks
     router.post('/saveScoreRemarksAjax', isAuthenticated, canManageReports, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
 // Lock/unlock a specific score remark rule range for selected classes
-    router.post('/saveRemarks', isAuthenticated, printController.saveRemarks); // Save remarks
+    router.post('/saveRemarks', isAuthenticated, canManageReports, printController.saveRemarks); // Save remarks
     router.post('/createCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.createCustomRemarkTypeAjax); // Create custom remark type via AJAX
     router.post('/deleteCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.deleteCustomRemarkTypeAjax); // Delete custom remark type via AJAX
-    router.post('/saveClassroomRemarkTypes', isAuthenticated, printController.saveClassroomRemarkTypes); // Save classroom remark visibility controls
-    router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
+    router.post('/saveClassroomRemarkTypes', isAuthenticated, canManageReports, printController.saveClassroomRemarkTypes); // Save classroom remark visibility controls
+    router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, canOpenReportCards, printController.meritSheetPage); // Render merit sheet page
     // Merit sheet generation (supports GET refresh + POST form submit)
-    router.get('/generateMeritSheet', checkFeatureAccess, isAuthenticated, printController.generateMeritSheet);
-    router.post('/generateMeritSheet', isAuthenticated, printController.generateMeritSheet); // Generate merit sheet
-    router.post('/downloadMeritSheet', checkFeatureAccess, isAuthenticated, express.json(), printController.downloadMeritSheet); // Merit sheet PDF
+    router.get('/generateMeritSheet', checkFeatureAccess, isAuthenticated, canOpenReportCards, printController.generateMeritSheet);
+    router.post('/generateMeritSheet', isAuthenticated, canOpenReportCards, printController.generateMeritSheet); // Generate merit sheet
+    router.post('/downloadMeritSheet', checkFeatureAccess, isAuthenticated, canOpenReportCards, express.json(), printController.downloadMeritSheet); // Merit sheet PDF
 
     // Route to upload a signature image using multer's memory storage
     router.post('/uploadSignatureImage', isAuthenticated, canManageReports, upload.single('signatureImage'), printController.uploadSignatureImage);
@@ -59,7 +107,7 @@ module.exports = (db) => {
     router.get('/deleteEntireTranscriptSignature', isAuthenticated, canManageReports, printController.deleteEntireTranscriptSignature);
     router.post('/addClassesToTranscriptSignature', isAuthenticated, canManageReports, printController.addClassesToTranscriptSignature);
 
-    router.get('/deleteRemark/:id', isAuthenticated, printController.deleteRemark);
+    router.get('/deleteRemark/:id', isAuthenticated, canManageReports, printController.deleteRemark);
 
     // Make obsolete / restore: remarks and remark types stay on the report
     // cards that use them; obsolete signatures stay on their classes.
@@ -87,13 +135,13 @@ module.exports = (db) => {
             return res.status(500).json({ success: false, message: "That couldn't be saved. Please try again." });
         }
     });
-    router.get('/deleteScoreRemark/:id', isAuthenticated, printController.deleteScoreRemark);
-    router.post('/saveReportChanges', isAuthenticated, printController.saveReportChanges);
-    router.post('/savePaygiraReportOverrides', isAuthenticated, express.json(), printController.savePaygiraReportOverrides);
-    router.post('/saveDisplaySettings', isAuthenticated, express.json(), printController.saveDisplaySettings);
+    router.get('/deleteScoreRemark/:id', isAuthenticated, canManageReports, printController.deleteScoreRemark);
+    router.post('/saveReportChanges', isAuthenticated, canOpenReportCards, printController.saveReportChanges);
+    router.post('/savePaygiraReportOverrides', isAuthenticated, canOpenReportCards, express.json(), printController.savePaygiraReportOverrides);
+    router.post('/saveDisplaySettings', isAuthenticated, canManageReports, express.json(), printController.saveDisplaySettings);
 
    // Email reports
-    router.get('/emailHistoryPage', isAuthenticated, async (req, res, next) => {
+    router.get('/emailHistoryPage', isAuthenticated, canOpenReportCards, async (req, res, next) => {
         const { classId = '', termId = '' } = req.query;
         const organizationId = req.session.organizationId;
         try {
@@ -116,17 +164,17 @@ module.exports = (db) => {
           next(error);
         }
     });
-   router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
-    router.get('/getGuardianWhatsappNumbers', isAuthenticated, printController.getGuardianWhatsappNumbers);
-    router.post('/postReportCards', isAuthenticated, express.json(), printController.postReportCards);
-    router.post('/downloadReports', isAuthenticated, express.json(), printController.downloadReports);
-    router.get('/postReportCardsStatus', isAuthenticated, printController.getReportPostJobStatus);
+   router.get('/getGuardianEmails', isAuthenticated, canOpenReportCards, printController.getGuardianEmails);
+    router.get('/getGuardianWhatsappNumbers', isAuthenticated, canOpenReportCards, printController.getGuardianWhatsappNumbers);
+    router.post('/postReportCards', isAuthenticated, canOpenReportCards, express.json(), printController.postReportCards);
+    router.post('/downloadReports', isAuthenticated, canOpenReportCards, express.json(), printController.downloadReports);
+    router.get('/postReportCardsStatus', isAuthenticated, canOpenReportCards, printController.getReportPostJobStatus);
     router.post('/logDeliveryEvent', isAuthenticated, express.json(), printController.logDeliveryEvent);
-   router.post('/emailReports', isAuthenticated, express.json(), printController.emailReports);
-    router.post('/whatsappReports', isAuthenticated, express.json(), printController.whatsappReports);
-    router.post('/smsReports', isAuthenticated, express.json(), printController.smsReports);
-   router.get('/emailHistory', isAuthenticated, printController.getEmailHistory);
-   router.post('/retryEmail', isAuthenticated, express.json(), printController.retryFailedEmail);
+   router.post('/emailReports', isAuthenticated, canOpenReportCards, express.json(), printController.emailReports);
+    router.post('/whatsappReports', isAuthenticated, canOpenReportCards, express.json(), printController.whatsappReports);
+    router.post('/smsReports', isAuthenticated, canOpenReportCards, express.json(), printController.smsReports);
+   router.get('/emailHistory', isAuthenticated, canOpenReportCards, printController.getEmailHistory);
+   router.post('/retryEmail', isAuthenticated, canOpenReportCards, express.json(), printController.retryFailedEmail);
    
     return router;
 };

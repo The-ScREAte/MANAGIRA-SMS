@@ -3437,7 +3437,8 @@ function getDefaultGradeLabel(percentage) {
   if (value >= 90) return "A";
   if (value >= 80) return "B";
   if (value >= 70) return "C";
-  return "D";
+  if (value >= 60) return "D";
+  return "F";
 }
 
 async function getGradeLabelFromScoreRemark(
@@ -3781,10 +3782,9 @@ const commonController = {
         effectiveDashboardRole = String(roleResult.rows[0].account_type).trim().toLowerCase();
       }
 
-      const shouldRestrictToAssignedClasses =
-        effectiveDashboardRole === "teacher" ||
-        effectiveDashboardRole === "supervisor" ||
-        effectiveDashboardRole === "superviser";
+      // A teacher (and a school role based on Teacher) sees only the classes they're assigned to;
+      // managers and supervisors see every class.
+      const shouldRestrictToAssignedClasses = effectiveDashboardRole === "teacher";
 
       let schoolYear = null;
       let currentTerm = null;
@@ -5175,7 +5175,8 @@ const commonController = {
         const imageFile = uploadedFileByField.get(`studentImage${prefix}`);
         let imageUrl = "profilePlaceholder.png";
         if (imageFile) {
-          const s3Key = `images/studentimages/${organizationId}/${imageFile.originalname}`;
+          // A unique name, so two photos with the same file name never replace each other.
+          const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${crypto.randomUUID()}${path.extname(String(imageFile.originalname || "")).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 10)}`;
           imageUrl = await uploadToS3(imageFile, s3Key);
         }
 
@@ -6824,9 +6825,31 @@ const commonController = {
     const stripeSessionId = String(req.query.session_id || '').trim();
     // Payment Element redirect returns payment_intent instead of session_id
     const paymentIntentIdFromQuery = String(req.query.payment_intent || '').trim();
-    const redirectStatus = String(req.query.redirect_status || '').trim();
     const pendingStudentId = req.query.pendingStudentId;
     const wasCancelled = parseTruthyFlag(req.query.cancelled);
+
+    // A cancelled payment removes only the visitor's own application, the one this browser just
+    // made (its id is in the session), and only while it's unpaid. The address can be typed by
+    // anyone, so an id from it alone never deletes anything.
+    const dropOwnUnpaidApplication = async (pendingId) => {
+      const own = req.session && req.session.pendingStudentId;
+      if (!pendingId || !own || String(own) !== String(pendingId)) return false;
+      const { rows } = await db.query(
+        `SELECT pending_id, organization_id FROM pending_students
+          WHERE pending_id = $1 AND COALESCE(stripe_payment_verified, false) = false`,
+        [pendingId]
+      ).catch(() => ({ rows: [] }));
+      if (!rows[0]) return false;
+      await db.query(
+        `UPDATE public_registration_payments SET status = 'cancelled', updated_at = NOW()
+          WHERE pending_student_id = $1 AND status IS DISTINCT FROM 'success'`,
+        [pendingId]
+      ).catch(() => {});
+      await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [pendingId]).catch(() => {});
+      await db.query(`DELETE FROM pending_student_subjects WHERE pending_student_id = $1`, [pendingId]).catch(() => {});
+      await db.query(`DELETE FROM pending_students WHERE pending_id = $1 AND organization_id = $2`, [pendingId, rows[0].organization_id]).catch(() => {});
+      return true;
+    };
 
     // ── Branch 1: Payment Element inline flow (payment_intent in query) ──────
     if (paymentIntentIdFromQuery && !wasCancelled) {
@@ -6856,13 +6879,9 @@ const commonController = {
             ? `https://${orgDetails.nickname}.managira.com/common/publicRegister?organizationId=${organizationId}`
             : `/common/publicRegister?organizationId=${organizationId}`;
 
-        if (redirectStatus === 'canceled' || paymentIntent.status === 'canceled') {
-          if (qPendingStudentId) {
-            await db.query(`UPDATE public_registration_payments SET status = 'cancelled' WHERE stripe_session_id = $1`, [paymentIntentIdFromQuery]).catch(() => {});
-            await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [qPendingStudentId]).catch(() => {});
-            await db.query(`DELETE FROM pending_student_subjects WHERE pending_student_id = $1`, [qPendingStudentId]).catch(() => {});
-            await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [qPendingStudentId]).catch(() => {});
-          }
+        // Cancelled is what Stripe says, never what the address says.
+        if (paymentIntent.status === 'canceled') {
+          await dropOwnUnpaidApplication(qPendingStudentId);
           req.session.pendingStudentId = null;
           req.session.publicRegistrationExistingGuardianId = null;
           req.flash('error', 'Payment was cancelled. Registration was not saved.');
@@ -6881,7 +6900,14 @@ const commonController = {
         );
         const paymentRecord = paymentRecordResult.rows[0] || null;
 
-        const recordPendingId = paymentRecord?.pending_student_id || qPendingStudentId;
+        // The application this payment is for: the one its payment record names, or this
+        // visitor's own (in the session). Never just a number from the address.
+        const ownPendingId = req.session && req.session.pendingStudentId && String(req.session.pendingStudentId) === String(qPendingStudentId || '') ? qPendingStudentId : null;
+        const recordPendingId = paymentRecord?.pending_student_id || ownPendingId;
+        if (!recordPendingId) {
+          req.flash('error', 'We could not match this payment to your application. Please contact the school with your payment receipt.');
+          return res.redirect(registrationRedirect);
+        }
 
         // Mark payment verified
         await db.query(
@@ -6986,15 +7012,7 @@ const commonController = {
             : `/common/publicRegister?organizationId=${organizationId}`;
 
         if (wasCancelled) {
-          await db.query(
-            `UPDATE public_registration_payments
-                SET status = 'cancelled', updated_at = NOW()
-              WHERE pending_student_id = $1 AND payment_provider = 'stripe'`,
-            [pendingStudentId]
-          ).catch(() => {});
-          await db.query(`DELETE FROM pending_guardians WHERE pending_id = $1`, [pendingStudentId]).catch(() => {});
-          await db.query(`DELETE FROM pending_student_subjects WHERE pending_student_id = $1`, [pendingStudentId]).catch(() => {});
-          await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [pendingStudentId]).catch(() => {});
+          await dropOwnUnpaidApplication(pendingStudentId);
           req.session.pendingStudentId = null;
           req.session.publicRegistrationExistingGuardianId = null;
           req.flash('error', 'Payment was cancelled. Registration was not saved.');
@@ -8044,6 +8062,18 @@ const commonController = {
         return res.status(404).send("Student not found.");
       }
 
+      // A teacher opens only students of their own classes, the same ones the header search and
+      // the class page show them (utils/classScope.js); typing another student's number doesn't.
+      if (normalizedUserRole === "teacher") {
+        const classScope = require("../utils/classScope");
+        const mine = await classScope.assignedClasses(db, req);
+        const allowed = await classScope.studentsInClasses(db, Number(organizationId), [Number(studentId)], mine, termId);
+        if (!allowed.has(Number(studentId))) {
+          req.flash("error", "You can only open students in your classes.");
+          return res.redirect("/common/orgDashboard");
+        }
+      }
+
       const student = studentResult.rows[0];
       const classId = Number.isInteger(requestedClassId)
         ? requestedClassId
@@ -8091,7 +8121,8 @@ const commonController = {
       const transportationSnapshot = await getStudentTransportationSnapshot(
         db,
         organizationId,
-        Number(studentId)
+        Number(studentId),
+        { imageUrl: res.locals.publicImageUrl }
       ).catch(() => null);
 
       // **Check if user is the main teacher of the class**
@@ -8172,7 +8203,8 @@ const commonController = {
                          WHEN ar.total_percentage >= 90 THEN 'A'
                          WHEN ar.total_percentage >= 80 THEN 'B'
                          WHEN ar.total_percentage >= 70 THEN 'C'
-                         ELSE 'D'
+                         WHEN ar.total_percentage >= 60 THEN 'D'
+                         ELSE 'F'
                        END
                      )
                      FROM score_remarks sr
@@ -8195,7 +8227,8 @@ const commonController = {
                      WHEN ar.total_percentage >= 90 THEN 'A'
                      WHEN ar.total_percentage >= 80 THEN 'B'
                      WHEN ar.total_percentage >= 70 THEN 'C'
-                     ELSE 'D'
+                     WHEN ar.total_percentage >= 60 THEN 'D'
+                     ELSE 'F'
                    END
                  ) AS grade,
                  COALESCE(a.scale_base, 100) AS scale_base
@@ -8640,7 +8673,8 @@ const commonController = {
 
       let imageUrl = null;
       if (req.file) {
-        const s3Key = `images/studentimages/${sessionOrganizationId}/${req.file.originalname}`;
+        // A unique name, so two photos with the same file name never replace each other.
+        const s3Key = `images/studentimages/${sessionOrganizationId}/${Date.now()}_${crypto.randomUUID()}${path.extname(String(req.file.originalname || "")).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 10)}`;
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 
@@ -9323,9 +9357,14 @@ const commonController = {
       // We intentionally limit by calendar days (not only valid days) so term-end days still appear.
       const userRole = (req.session.userRole || '').toLowerCase();
       const isTeacher = userRole === 'teacher';
-      const dateLimit = isTeacher ? 6 : dates.length;
+      // Days off (weekends, holidays, days turned off) show greyed unless the school hides them
+      // (Settings › School rules); the official term end always shows.
+      const hideDaysOff = Boolean(attendanceCalendarProfile && attendanceCalendarProfile.show_days_off === false);
+      const sheetDates = hideDaysOff ? dates.filter((dateKey) => dateKey === termEndKey || getDateMeta(dateKey).countable) : dates;
+      const hiddenDateCount = dates.length - sheetDates.length;
+      const dateLimit = isTeacher ? 6 : sheetDates.length;
 
-      const displayDates = [...dates]
+      const displayDates = [...sheetDates]
         .sort((a, b) => new Date(b) - new Date(a))
         .slice(0, dateLimit)
         .reverse();
@@ -9362,7 +9401,7 @@ const commonController = {
             weekendLabels: (attendanceCalendarProfile.weekend_days || [])
               .map((day) => weekendLabelMap[Number(day)])
               .filter(Boolean),
-            hiddenDateCount: 0,
+            hiddenDateCount,
             excludedDisplayDateCount,
             excludedTotalDateCount,
           }
@@ -9393,13 +9432,32 @@ const commonController = {
         }
       });
 
+      // Lunch taken each day (feature class_lunch): student -> day -> true / false.
+      // Lunch shows where the school has it (class_lunch) and the class hasn't turned it off (Class settings).
+      const lunchOn = require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })
+        && (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
+      const lunchMap = {};
+      if (lunchOn) {
+        const lunchRows = await db.query(
+          `SELECT student_id, lunch_date::text AS day, had_lunch FROM class_lunch
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+          [organizationId, classId, termId]
+        ).then((r) => r.rows).catch(() => []);
+        lunchRows.forEach((row) => { (lunchMap[row.student_id] = lunchMap[row.student_id] || {})[String(row.day).slice(0, 10)] = row.had_lunch; });
+      }
       // Render the attendance collection page
       // Classroom sections collected every day that asked for a column here (a lunch count).
       const attendanceForms = await require("../utils/customForms").attendanceColumns(db, req.session.organizationId, {
         classId: Number(classId), day: attendanceTodayKey, builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
       }).catch(() => []);
+      // Lunch is taken beside each day now, so a school's own old "Lunch" column isn't shown twice.
+      const attendanceFormsShown = lunchOn
+        ? attendanceForms.filter((form) => !/lunch/i.test(`${form.name || ""} ${(form.fields || []).map((f) => f.label).join(" ")}`))
+        : attendanceForms;
       res.render("common/attendanceCollection", {
-        attendanceForms,
+        lunchOn,
+        lunchMap,
+        attendanceForms: attendanceFormsShown,
         attendanceTodayKey,
         title: "Attendance Records",
         classId,
@@ -9425,6 +9483,76 @@ const commonController = {
     }
   },
 
+  saveLunch: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
+    if (!require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })) {
+      return res.status(404).json({ success: false, message: "Lunch is not switched on for your school." });
+    }
+    const classId = Number(req.body.classId);
+    const termId = Number(req.body.termId);
+    const day = String(req.body.date || "");
+    if (!Number.isInteger(classId) || !Number.isInteger(termId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      return res.status(400).json({ success: false, message: "Class, term and date are required." });
+    }
+    try {
+      // Only this class's students; value true = had lunch, false = no lunch, null = not taken (row removed).
+      const entries = Object.entries(req.body.lunch || {})
+        .map(([id, v]) => [Number(id), v === true || v === "yes" ? true : v === false || v === "no" ? false : null])
+        .filter(([id]) => Number.isInteger(id) && id > 0);
+      const ids = entries.map(([id]) => id);
+      const [ctx, owned] = await Promise.all([
+        db.query(
+          `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                  (SELECT 1 FROM terms WHERE term_id = $2 AND organization_id = $3) AS term_ok`,
+          [classId, termId, organizationId]
+        ),
+        ids.length
+          ? db.query(
+              `SELECT s.student_id FROM students s
+               WHERE s.student_id = ANY($1::int[]) AND s.organization_id = $3
+                 AND (s.class_id = $2 OR EXISTS (
+                   SELECT 1 FROM enrolled_students es JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                   WHERE es.student_id = s.student_id AND es.class_id = $2 AND e.term_id = $4 AND e.organization_id = $3))`,
+              [ids, classId, organizationId, termId]
+            ).then((r) => new Set(r.rows.map((x) => Number(x.student_id))))
+          : Promise.resolve(new Set()),
+      ]);
+      if (!ctx.rows[0]?.class_ok || !ctx.rows[0]?.term_ok) {
+        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
+      }
+      if ((await require("../utils/classSettings").settingsFor(db, organizationId, classId)).lunch === false) {
+        return res.status(409).json({ success: false, message: "Lunch is turned off for this class in Class settings." });
+      }
+      const set = entries.filter(([id, v]) => owned.has(id) && v !== null);
+      const clear = entries.filter(([id, v]) => owned.has(id) && v === null).map(([id]) => id);
+      const markedBy = Number(req.session.user?.user_id) || null;
+      if (set.length) {
+        await db.query(
+          `INSERT INTO class_lunch (organization_id, class_id, term_id, student_id, lunch_date, had_lunch, marked_by)
+           SELECT $1, $2, $3, u.student_id, $4::date, u.had_lunch, $5
+           FROM unnest($6::int[], $7::boolean[]) AS u(student_id, had_lunch)
+           ON CONFLICT (organization_id, student_id, lunch_date) DO UPDATE
+             SET had_lunch = EXCLUDED.had_lunch, class_id = EXCLUDED.class_id, term_id = EXCLUDED.term_id,
+                 marked_by = EXCLUDED.marked_by, updated_at = NOW()
+             WHERE class_lunch.had_lunch IS DISTINCT FROM EXCLUDED.had_lunch`,
+          [organizationId, classId, termId, day, markedBy, set.map(([id]) => id), set.map(([, v]) => v)]
+        );
+      }
+      if (clear.length) {
+        await db.query(
+          `DELETE FROM class_lunch WHERE organization_id = $1 AND lunch_date = $2::date AND student_id = ANY($3::int[])`,
+          [organizationId, day, clear]
+        );
+      }
+      return res.json({ success: true, saved: set.length, cleared: clear.length, savedAt: new Date().toISOString() });
+    } catch (error) {
+      if (error.code === "42P01") return res.status(503).json({ success: false, message: "Lunch isn't set up yet. Run npm run migrate." });
+      console.error("[saveLunch]", error.message);
+      return res.status(500).json({ success: false, message: "Failed to save lunch. Please try again." });
+    }
+  },
+
   saveSingleAttendance: async (req, res, db) => {
     const { attendance, classId, termId, date } = req.body;
 
@@ -9438,42 +9566,42 @@ const commonController = {
     }
 
     try {
-      // Tenant boundary: class and term must belong to the caller's org.
-      const ctxCheck = await db.query(
-        `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
-                (SELECT 1 FROM terms   WHERE term_id  = $2 AND organization_id = $3) AS term_ok`,
-        [classId, termId, organizationId]
-      );
-      if (!ctxCheck.rows[0] || !ctxCheck.rows[0].class_ok || !ctxCheck.rows[0].term_ok) {
-        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
-      }
-
-      // Tenant boundary: keep only student ids that belong to this class and
-      // org, either by profile class or by enrollment for this term.
+      // Tenant boundary: class and term must belong to the caller's org, and only this class's
+      // students are kept (by profile class or by enrollment for this term). Both checks run together.
       const requestedStudentIds = Object.keys(attendance || {})
         .map(v => Number(v))
         .filter(v => Number.isInteger(v) && v > 0);
-      const ownedStudentsRes = requestedStudentIds.length
-        ? await db.query(
-            `SELECT s.student_id
-             FROM students s
-             WHERE s.student_id = ANY($1::int[])
-               AND s.organization_id = $3
-               AND (
-                 s.class_id = $2
-                 OR EXISTS (
-                   SELECT 1
-                   FROM enrolled_students es
-                   JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-                   WHERE es.student_id = s.student_id
-                     AND es.class_id = $2
-                     AND e.term_id = $4
-                     AND e.organization_id = $3
-                 )
-               )`,
-            [requestedStudentIds, classId, organizationId, termId]
-          )
-        : { rows: [] };
+      const [ctxCheck, ownedStudentsRes] = await Promise.all([
+        db.query(
+          `SELECT (SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $3) AS class_ok,
+                  (SELECT 1 FROM terms   WHERE term_id  = $2 AND organization_id = $3) AS term_ok`,
+          [classId, termId, organizationId]
+        ),
+        requestedStudentIds.length
+          ? db.query(
+              `SELECT s.student_id
+               FROM students s
+               WHERE s.student_id = ANY($1::int[])
+                 AND s.organization_id = $3
+                 AND (
+                   s.class_id = $2
+                   OR EXISTS (
+                     SELECT 1
+                     FROM enrolled_students es
+                     JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                     WHERE es.student_id = s.student_id
+                       AND es.class_id = $2
+                       AND e.term_id = $4
+                       AND e.organization_id = $3
+                   )
+                 )`,
+              [requestedStudentIds, classId, organizationId, termId]
+            )
+          : Promise.resolve({ rows: [] }),
+      ]);
+      if (!ctxCheck.rows[0] || !ctxCheck.rows[0].class_ok || !ctxCheck.rows[0].term_ok) {
+        return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
+      }
       const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
 
       await ensureAttendanceCalendarSchema(db);
@@ -9507,51 +9635,30 @@ const commonController = {
         }
       }
 
-      // Use one dedicated connection for the transaction; BEGIN/COMMIT on the
-      // pool can land on different connections and strand writes.
-      const client = await db.connect();
+      // One statement writes every student (one array per column), so a big class saves as fast as a small one.
       const touchedStudentIds = [];
-      try {
-        await client.query("BEGIN");
-
-        for (const studentId in attendance) {
-          // Only "Present" or "Absent" are stored (any letter case is accepted).
-          const status = { present: "Present", absent: "Absent" }[String(attendance[studentId] || "").trim().toLowerCase()];
-          const parsedStudentId = Number.parseInt(studentId, 10);
-          if (!status || !Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
-            continue; // skip unknown marks and foreign or unknown student ids
-          }
-          touchedStudentIds.push(parsedStudentId);
-
-          // Tenant-safe UPSERT: the ON CONFLICT key (student_id, date, term_id)
-          // is enforced as unique at the DB level, but because student/term ids
-          // are now constrained above to this org, the conflict target cannot
-          // legitimately collide with another org's row.
-          await client.query(
-            `
-                      INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
-                      VALUES ($1, $2, $3, $4, $5, $6, $7)
-                      ON CONFLICT (student_id, date, term_id)
-                      DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
-                      WHERE attendance_records.organization_id = EXCLUDED.organization_id`,
-            [
-              parsedStudentId,
-              date,
-              status,
-              classId,
-              termId,
-              req.session.userId,
-              organizationId,
-            ]
-          );
+      const statuses = [];
+      for (const studentId in attendance) {
+        // Only "Present" or "Absent" are stored (any letter case is accepted).
+        const status = { present: "Present", absent: "Absent" }[String(attendance[studentId] || "").trim().toLowerCase()];
+        const parsedStudentId = Number.parseInt(studentId, 10);
+        if (!status || !Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
+          continue; // skip unknown marks and foreign or unknown student ids
         }
-
-        await client.query("COMMIT");
-      } catch (txError) {
-        await client.query("ROLLBACK").catch(() => {});
-        throw txError;
-      } finally {
-        client.release();
+        touchedStudentIds.push(parsedStudentId);
+        statuses.push(status);
+      }
+      if (touchedStudentIds.length) {
+        await db.query(
+          `INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
+           SELECT u.student_id, $1::date, u.status::attendance_status, $2::int, $3::int, $4::int, $5::int
+           FROM unnest($6::int[], $7::text[]) AS u(student_id, status)
+           ON CONFLICT (student_id, date, term_id)
+           DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
+           WHERE attendance_records.organization_id = EXCLUDED.organization_id
+             AND attendance_records.status IS DISTINCT FROM EXCLUDED.status`,
+          [date, classId, termId, req.session.userId, organizationId, touchedStudentIds, statuses]
+        );
       }
 
       // Trigger parent absence-threshold checks in background; dedupe protects against duplicate sends.
@@ -9599,8 +9706,10 @@ const commonController = {
       const canAssignHighRisk = isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager";
       res.render("common/createEmployee", {
         // The school's own roles (utils/schoolRoles.js), each with the permissions this form can tick.
-        schoolRoles: await require("../utils/schoolRoles").forForm(db, req.session.organizationId, { available: availablePermissionKeys, canAssignHighRisk, transportOn: await transportationIsOn(db, req) }).catch(() => null),
+        schoolRoles: await require("../utils/schoolRoles").forForm(db, req.session.organizationId, { available: availablePermissionKeys, canAssignHighRisk, transportOn: await transportationIsOn(db, req), canGive: (type) => require("../utils/staffChangeGuard").canGiveRole(req, type) }).catch(() => null),
         schoolRoleId: null,
+        // The roles this person may give (at or below their own; utils/staffChangeGuard.js).
+        canGiveRoles: ["Manager", "Supervisor", "Teacher", "Driver"].filter((type) => require("../utils/staffChangeGuard").canGiveRole(req, type)),
         classAssistants,
         classMainTeachers,
         // How the new person signs in: asked only while the school's single sign-on is on.
@@ -9683,10 +9792,17 @@ const commonController = {
       req.flash("error", "Only managers can create manager accounts.");
       return res.redirect(createEmployeeRedirectUrl);
     }
+    // Nobody gives more than they could give (utils/staffChangeGuard.js): a role at or below their
+    // own (a lead driver adds drivers), and only permissions they hold themselves.
+    const grant = await require("../utils/staffChangeGuard").grantLimits(db, req);
+    if (!grant.role(account_type)) {
+      req.flash("error", require("../utils/staffChangeGuard").isSchoolRole(account_type) ? "You can add staff only with a role at or below your own. Ask a manager to add this person." : "Choose Manager, Supervisor, Teacher or Driver.");
+      return res.redirect(createEmployeeRedirectUrl);
+    }
 
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
       ? featureFilteredPermissions
-      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission));
+      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission) && grant.holds(permission));
 
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
@@ -9704,7 +9820,8 @@ const commonController = {
     if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "all") {
       effectivePermissions.push(MAILROOM_ALL_ACCESS_KEY);
     }
-    const savedPermissionRows = [...effectivePermissions, PERMISSIONS_SAVED_KEY];
+    // One row per key: a scope marker can arrive both from the form and from what the person kept.
+    const savedPermissionRows = [...new Set([...effectivePermissions, PERMISSIONS_SAVED_KEY])];
     if (!Array.isArray(mailroomClassIds)) mailroomClassIds = [mailroomClassIds];
 
     // How they sign in: asked on the form only while the school's single sign-on is on.
@@ -10047,12 +10164,16 @@ const commonController = {
       return res.redirect(backToForm);
     }
 
-    if (password.length < 6) {
-      req.flash("error", "Password must be at least 6 characters long.");
+    const setPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+    if (setPasswordIssue) {
+      req.flash("error", setPasswordIssue);
       return res.redirect(backToForm);
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // The password is hashed only once the token is known to be good: hashing is slow on purpose,
+    // and an unknown token must not cost a hash.
+    let hashedPassword = null;
+    const hashPassword = async () => (hashedPassword = hashedPassword || await bcrypt.hash(password, 10));
 
     try {
       const tokenResult = await db.query(
@@ -10084,7 +10205,7 @@ const commonController = {
            SET password_hash = $1, must_reset_password = FALSE, updated_at = NOW()
            WHERE guardian_id = $2
            RETURNING guardian_id, login_email, login_phone`,
-          [hashedPassword, guardianId]
+          [await hashPassword(), guardianId]
         );
 
         if (updateResult.rowCount === 0) {
@@ -10113,7 +10234,7 @@ const commonController = {
            SET password_hash = $1, must_reset_password = FALSE, updated_at = NOW()
            WHERE student_id = $2
            RETURNING student_id`,
-          [hashedPassword, studentId]
+          [await hashPassword(), studentId]
         );
 
         if (updateResult.rowCount === 0) {
@@ -10131,12 +10252,20 @@ const commonController = {
 
       // Handle staff employee invite tokens stored in users table
       const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+      const known = await db.query(
+        "SELECT 1 FROM users WHERE reset_password_token = $1 AND reset_password_expires > NOW() LIMIT 1",
+        [hashedToken]
+      );
+      if (!known.rowCount) {
+        req.flash("error", "Invalid or expired token.");
+        return res.redirect("/account/login");
+      }
       const result = await db.query(
         `UPDATE users
          SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
          WHERE reset_password_token = $2 AND reset_password_expires > NOW()
          RETURNING first_name, last_name, email, organization_id, user_id`,
-        [hashedPassword, hashedToken]
+        [await hashPassword(), hashedToken]
       );
 
       if (result.rowCount === 0) {
@@ -10229,7 +10358,12 @@ const commonController = {
 
         employee.classes = Object.values(classesMap);
       } else {
-        // Manager logic
+        // The school's own account (its session's user id is the school's id). Any other id that
+        // isn't one of this school's staff is not found: never another school's owner.
+        if (Number(userId) !== Number(organizationId)) {
+          req.flash("error", "Employee not found.");
+          return res.redirect("/common/manageEmployees");
+        }
         const orgResult = await db.query(
           `SELECT 
              o.organization_id AS user_id,
@@ -10529,6 +10663,11 @@ const commonController = {
       // Classes with nobody in charge: listed at the top so someone is chosen.
       const classesWithoutLead = await require("../utils/mainTeacher").classesWithoutMainTeacher(db, req.session.organizationId).catch(() => []);
 
+      // A lead driver leads the other drivers and works on drivers only (utils/staffChangeGuard.js),
+      // so their list shows drivers: not every teacher's and manager's details.
+      const viewerIsDriver = String(req.session.userRole || req.session.user?.account_type || "").trim() === "Driver";
+      const employeesShown = viewerIsDriver ? employees.filter((employee) => employee.account_type === "Driver") : employees;
+
       res.render("common/manageEmployees", {
         title: "Users / Employees",
         classesWithoutLead,
@@ -10538,7 +10677,7 @@ const commonController = {
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
-        employees: employees,
+        employees: employeesShown,
         permissionLabelMap,
         messages: {
           success: req.flash("success"),
@@ -10714,13 +10853,17 @@ const commonController = {
       const editorHighRisk = isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager";
       res.render("common/modifyEmployee", {
         // The school's own roles (utils/schoolRoles.js); the person's own stays listed.
-        schoolRoles: await require("../utils/schoolRoles").forForm(db, req.session.organizationId, { available: availablePermissionKeys, canAssignHighRisk: editorHighRisk, transportOn: await transportationIsOn(db, req), current: schoolRoleId }).catch(() => null),
+        schoolRoles: await require("../utils/schoolRoles").forForm(db, req.session.organizationId, { available: availablePermissionKeys, canAssignHighRisk: editorHighRisk, transportOn: await transportationIsOn(db, req), current: schoolRoleId, canGive: (type) => require("../utils/staffChangeGuard").canGiveRole(req, type) }).catch(() => null),
         schoolRoleId,
+        // The roles this person may give (at or below their own; utils/staffChangeGuard.js).
+        canGiveRoles: ["Manager", "Supervisor", "Teacher", "Driver"].filter((type) => require("../utils/staffChangeGuard").canGiveRole(req, type)),
         classMainTeachers: Object.fromEntries(mainTeachers),
         classAssistants,
         ssoSignIn,
         signInMethod: user.sign_in_method === "sso" ? "sso" : "password",
         signInIsMain,
+        // A manager may require an authenticator app for this person (utils/signInMfa.js).
+        mfaOption: { show: editorHighRisk && require("../utils/signInMfa").featureOn(req.session.organizationId), required: user.mfa_required === true },
         signInMainSso: signInIsMain ? Boolean((await ssoConnections.connectionFor(db, req.session.organizationId).catch(() => null) || {}).turned_on_by_main) : false,
         canAssignHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
         title: "Modify Employee",
@@ -10813,13 +10956,30 @@ const commonController = {
     if (accountType === "Manager" && !canAssignSensitivePermissions) {
       return respondModifyEmployeeError(403, "Only managers can assign manager role.");
     }
+    // Nobody gives more than they could give (utils/staffChangeGuard.js): a role at or below their
+    // own, and only permissions they hold themselves.
+    const grant = await require("../utils/staffChangeGuard").grantLimits(db, req);
+    if (!grant.role(accountType)) {
+      return respondModifyEmployeeError(403, require("../utils/staffChangeGuard").isSchoolRole(accountType) ? "You can give a role only at or below your own. Ask a manager." : "Choose Manager, Supervisor, Teacher or Driver.");
+    }
 
-    // Non-managers can't hand out high-risk permissions, but saving someone doesn't
-    // take away the ones that person already has.
-    const heldEffectivePermissions = new Set(effectivePermissionsForRole(accountType, [...heldPermissionKeys]));
+    // Non-managers hand out only what they could give (no high-risk permission, and only ones they
+    // hold); saving someone never takes away what that person has that the editor couldn't give.
+    // What the person has comes from the role they have NOW: someone never saved holds their current
+    // role's defaults, not the defaults of the role chosen in the form.
+    const currentRoleRow = (await db.query(
+      "SELECT account_type FROM users WHERE user_id = $1 AND organization_id = $2",
+      [userId, req.session.organizationId]
+    )).rows[0];
+    const currentAccountType = currentRoleRow ? String(currentRoleRow.account_type || "") : accountType;
+    const heldEffectivePermissions = new Set(effectivePermissionsForRole(currentAccountType, [...heldPermissionKeys]));
+    const editorCanGive = (permission) => !highRiskPermissions.has(permission) && grant.holds(permission);
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
       ? featureFilteredPermissions
-      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission) || heldEffectivePermissions.has(permission));
+      : [...new Set([
+          ...featureFilteredPermissions.filter((permission) => editorCanGive(permission) || heldEffectivePermissions.has(permission)),
+          ...[...heldEffectivePermissions].filter((permission) => !editorCanGive(permission)),
+        ])];
 
     // Persist exactly what was selected in the form (after safety filtering).
     // Drivers only hold driving and transportation permissions.
@@ -10835,7 +10995,8 @@ const commonController = {
     if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "all") {
       effectivePermissions.push(MAILROOM_ALL_ACCESS_KEY);
     }
-    const savedPermissionRows = [...effectivePermissions, PERMISSIONS_SAVED_KEY];
+    // One row per key: a scope marker can arrive both from the form and from what the person kept.
+    const savedPermissionRows = [...new Set([...effectivePermissions, PERMISSIONS_SAVED_KEY])];
 
     // Guard: session must have organizationId or the INSERT will fail
     if (!organizationId) {
@@ -11000,6 +11161,12 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+      // A manager can require an authenticator app for this one person (utils/signInMfa.js); saved
+      // only when the form showed the choice (before the migration, the column isn't there yet).
+      if (req.body.mfaRequiredShown === "1" && canAssignSensitivePermissions && require("../utils/signInMfa").featureOn(organizationId)) {
+        await db.query("UPDATE users SET mfa_required = $1 WHERE user_id = $2 AND organization_id = $3", [["1", "on", "true"].includes(String(req.body.mfaRequired || "")), userId, organizationId])
+          .catch((error) => { if (error.code !== "42703") console.error("[modifyEmployee] authenticator choice:", error.message); });
+      }
       {
         const staffRoles = require("../utils/staffRoles");
         const roleAfter = await staffRoles.snapshot(db, organizationId, userId).catch(() => null);
@@ -15899,7 +16066,8 @@ NUMBERING:
                     WHEN d.total_percentage >= 90 THEN 'A'
                     WHEN d.total_percentage >= 80 THEN 'B'
                     WHEN d.total_percentage >= 70 THEN 'C'
-                    ELSE 'D'
+                    WHEN d.total_percentage >= 60 THEN 'D'
+                    ELSE 'F'
                   END
                 )
             FROM decorated d
@@ -16508,6 +16676,26 @@ NUMBERING:
           test.testWeight = 0;
         }
       }
+
+      // Every term, class and subject named must be this school's: ids are numbered across all
+      // schools, and an assessment row for another school's class would block its own.
+      {
+        const idsOf = (values) => [...new Set((values || []).map((v) => Number.parseInt(v, 10)))];
+        const classIds = idsOf((tests || []).flatMap((t) => t.classes || []));
+        const pairs = (tests || []).flatMap((t) => (t.subjects || []).map((v) => String(v).split("-").map((n) => Number.parseInt(n, 10))));
+        const subjectIds = [...new Set(pairs.map((p) => p[1]))];
+        const bad = (ids) => ids.some((id) => !Number.isInteger(id) || id <= 0);
+        const termOk = (await client.query("SELECT 1 FROM terms t JOIN school_years sy ON sy.id = t.school_year_id WHERE t.term_id = $1 AND sy.organization_id = $2", [Number.parseInt(formTermId, 10) || 0, organizationId])).rowCount > 0;
+        const classesOk = !bad(classIds) && (await client.query("SELECT COUNT(*)::int AS n FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2", [classIds, organizationId])).rows[0].n === classIds.length;
+        const subjectRows = bad(subjectIds) || pairs.some((p) => p.length !== 2) ? null
+          : (await client.query("SELECT subject_id, class_id FROM subjects WHERE subject_id = ANY($1::int[]) AND organization_id = $2", [subjectIds, organizationId])).rows;
+        const subjectClass = new Map((subjectRows || []).map((r) => [Number(r.subject_id), Number(r.class_id)]));
+        const subjectsOk = Boolean(subjectRows) && pairs.every(([cls, subj]) => subjectClass.has(subj) && (!subjectClass.get(subj) || subjectClass.get(subj) === cls));
+        if (!termOk || !classesOk || !subjectsOk) {
+          return res.status(400).json({ error: "Choose the term, classes and subjects from your own school." });
+        }
+      }
+
       await client.query("BEGIN"); // Start a transaction
 
       // Track the classes for which tests were added
@@ -17310,12 +17498,35 @@ NUMBERING:
         // The class's Custom editor sections (feature custom_forms); /forms/12 is one with a
         // menu item of its own.
         initialWorkspaceRoute = { panel: 'forms', itemId: /^\d+$/.test(routeItemId) ? routeItemId : '' };
+      } else if (routePanel === 'settings') {
+        initialWorkspaceRoute = { panel: 'settings', itemId: '' };
       }
+      // Class Tools › Class settings (feature class_settings): only for someone who may manage
+      // this class (controllers/classSettingsController.js); null leaves it out of the menu.
+      const classSettingsPanel = await require("./classSettingsController").classroomPanel(db, req, {
+        classId: Number(classId),
+        term: realCurrentTerm || currentTerm,
+      }).catch((error) => { console.error("[ClassDashboard] class settings:", error.message); return null; });
       // Forms the school gave a Class Tools item of their own (the school's cached list).
       const classFormTiles = await require("../utils/customForms").tilesFor(db, req.session.organizationId, "staff", {
         classId,
         builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
       }).catch(() => []);
+      // Forms shown beside each student in the Students list (feature report_remarks_forms), and
+      // who already has this period's entry: one read for the class. Remarks collected with the
+      // Custom editor leave the remark pop-up; with none left, its pencil goes.
+      const classBeside = await require("../utils/customForms").besideFor(db, req.session.organizationId, {
+        classId: Number(classId),
+        studentIds: classStudentIds,
+        termId: currentTerm.term_id,
+        day: require("../utils/localDate").todayKeyFor(req),
+        builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
+      }).catch((error) => {
+        console.error("[ClassDashboard] forms beside students:", error.message);
+        return { sections: [], done: {}, remarkSlots: [] };
+      });
+      const formRemarkSlots = new Set(classBeside.remarkSlots);
+      const pencilRemarkTypes = configuredClassroomRemarkTypes.filter((type) => !formRemarkSlots.has(type));
 
       // This person's own order of the Class Tools menu, if they've set one.
       const classToolsOrder = await require("../utils/uiPreferences").getPreference(req.session, "menu-order:classroom").catch(() => null);
@@ -17323,6 +17534,7 @@ NUMBERING:
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
         classFormTiles,
+        classSettingsPanel,
         classToolsOrder: Array.isArray(classToolsOrder) ? classToolsOrder : [],
         title: `Class Dashboard - ${className}`,
         className: className,
@@ -17351,7 +17563,9 @@ NUMBERING:
         canManageAllClassAssessmentExams,
         canOpenPaygiraWorkspace,
         teacherRemarkOptions,
-        classroomRemarkTypes: configuredClassroomRemarkTypes,
+        classroomRemarkTypes: formRemarkSlots.size && pencilRemarkTypes.length ? pencilRemarkTypes : configuredClassroomRemarkTypes,
+        showRemarkPencil: !formRemarkSlots.size || pencilRemarkTypes.length > 0,
+        classBeside: { ...classBeside, termId: Number(currentTerm.term_id) },
         classroomCustomRemarkTypes: customRemarkTypes,
         studentTeacherRemarksMap,
         canAccessAssessmentQuestions,
@@ -17474,7 +17688,7 @@ NUMBERING:
         return res.status(404).json({ success: false, message: "Student/class/term context not found for this organization." });
       }
 
-      const [customRemarkTypes, configuredRemarkTypes, savedRemarkResult] = await Promise.all([
+      const [customRemarkTypes, askedRemarkTypes, savedRemarkResult, formRemarks] = await Promise.all([
         getOrganizationCustomRemarkTypes(db, organizationId),
         getConfiguredClassroomRemarkTypes(db, organizationId, classId, termId),
         db.query(
@@ -17484,7 +17698,11 @@ NUMBERING:
            LIMIT 1`,
           [organizationId, classId, termId, studentId]
         ),
+        // Remarks collected with the Custom editor (feature report_remarks_forms) leave the pop-up.
+        require("../utils/customForms").classRemarks(db, organizationId, classId).catch(() => ({ slots: new Set() })),
       ]);
+      const leftForPopup = askedRemarkTypes.filter((type) => !formRemarks.slots.has(type));
+      const configuredRemarkTypes = formRemarks.slots.size && leftForPopup.length ? leftForPopup : askedRemarkTypes;
 
       const teacherOptions = await getTeacherRemarkOptionsCached(db, organizationId, classId, termId, {
         remarkTypes: configuredRemarkTypes,
@@ -17558,7 +17776,7 @@ NUMBERING:
         return res.status(404).json({ success: false, error: 'Student not found in this class.' });
       }
 
-      const snapshot = await getStudentTransportationSnapshot(db, organizationId, studentId).catch(() => null);
+      const snapshot = await getStudentTransportationSnapshot(db, organizationId, studentId, { imageUrl: res.locals.publicImageUrl }).catch(() => null);
       return res.json({ success: true, snapshot });
     } catch (error) {
       return res.status(500).json({ success: false, error: 'Unable to load student transportation details.' });
@@ -17968,6 +18186,28 @@ NUMBERING:
       if (!ownership.rows[0] || !ownership.rows[0].class_ok || !ownership.rows[0].user_ok) {
         return res.status(403).json({ success: false, message: "Class or employee does not belong to your organization." });
       }
+      // This is for a class with nobody in charge (Users / Employees lists them): it never steps
+      // someone down, and the person chosen follows the staff rules (only a manager changes a
+      // manager, nobody changes their own access here) and already works in the class.
+      const current = await db.query(
+        `SELECT uc.user_id FROM user_classes uc JOIN users u ON u.user_id = uc.user_id AND u.organization_id = $2
+          WHERE uc.class_id = $1 AND uc.main = TRUE AND uc.user_id <> $3 LIMIT 1`,
+        [class_id, organizationId, main_employee]
+      );
+      if (current.rows.length) {
+        return res.status(409).json({ success: false, message: "This class already has a main teacher. Change it on that person's staff form." });
+      }
+      const refusal = await staffChangeRefusal(db, req, main_employee);
+      if (refusal) return res.status(403).json({ success: false, message: refusal });
+      const eligible = await db.query(
+        `SELECT 1 FROM user_classes uc JOIN users u ON u.user_id = uc.user_id
+          WHERE uc.class_id = $1 AND uc.user_id = $2 AND u.organization_id = $3
+            AND COALESCE(u.on_hold, false) = false AND LOWER(COALESCE(u.account_type::text, '')) <> 'driver'`,
+        [class_id, main_employee, organizationId]
+      );
+      if (!eligible.rows.length) {
+        return res.status(400).json({ success: false, message: "Choose someone who works in this class and isn't a driver or on hold." });
+      }
       txClient = await db.connect();
       await txClient.query("BEGIN");
       await txClient.query(
@@ -17982,6 +18222,10 @@ NUMBERING:
             AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = uc.user_id AND u.organization_id = $3)`,
         [class_id, main_employee, organizationId]
       );
+      // Never both main teacher and assistant of one class.
+      if (await require("../utils/mainTeacher").assistantReady(db)) {
+        await txClient.query("UPDATE user_classes SET assistant = FALSE WHERE class_id = $1 AND user_id = $2", [class_id, main_employee]);
+      }
       await txClient.query("COMMIT");
       res.json({ success: true, message: "Main employee set successfully." });
     } catch (error) {
@@ -20018,6 +20262,12 @@ NUMBERING:
          AND NOT (user_id = $3 AND $4 = 'staff') LIMIT 1`,
         [newEmail, orgId, failure.user_id, failure.user_type]
       );
+      // A member of staff's sign-in email follows the staff rules: only a manager changes a manager,
+      // and nobody changes someone above their own role (utils/staffChangeGuard.js).
+      if (failure.user_type === 'staff') {
+        const refusal = await staffChangeRefusal(db, req, failure.user_id);
+        if (refusal) return res.status(403).json({ success: false, error: refusal });
+      }
       if (failure.user_type === 'staff' && await require("../utils/staffChangeGuard").takesOwnersEmail(db, orgId, failure.user_id, newEmail)) {
         return res.json({ success: false, error: 'That email address is already in use by another account.' });
       }
@@ -20484,6 +20734,10 @@ NUMBERING:
         if (!Number.isInteger(classId) || classId <= 0 || !newClassName) {
           continue;
         }
+        // The same characters a new class may have (letters, numbers, spaces and hyphens).
+        if (!/^[A-Za-z0-9\s\-]+$/.test(newClassName)) {
+          throw Object.assign(new Error("A class name can only use letters, numbers, spaces and hyphens."), { userFacing: true });
+        }
 
         await client.query(
           "UPDATE classes SET class_name = $1 WHERE class_id = $2 AND organization_id = $3",
@@ -20502,7 +20756,7 @@ NUMBERING:
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (error) {
       await client.query("ROLLBACK");
-      req.flash("error", "Failed to update class.");
+      req.flash("error", error && error.userFacing ? error.message : "Failed to update class.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } finally {
       client.release();
@@ -21668,16 +21922,14 @@ NUMBERING:
           ? [guardianId, organizationId, userId]
           : [guardianId, organizationId];
 
+        // A parent's children are their guardian_students rows. The older per-student `guardians`
+        // rows are numbered separately, so their ids are never matched to a parent's.
         studentsResult = await db.query(
           `
           WITH linked_students AS (
             SELECT gs.student_id
             FROM guardian_students gs
             WHERE gs.guardian_id = $1
-            UNION
-            SELECT g.student_id
-            FROM guardians g
-            WHERE g.guardian_id = $1 AND g.organization_id = $2
           )
           SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
                  c.class_name, c.class_id, 'Parent/Guardian' AS relationship
@@ -21783,6 +22035,26 @@ NUMBERING:
         );
       }
 
+      // Who opens a parent: anyone with Manage Guardians (or a manager), and a teacher or
+      // supervisor only for the parents of students in their own classes, as the header search
+      // offers them. A parent's details never show to anyone else by typing their number.
+      const canManageGuardians = isManagerLikeRole(userRole) || await userHasPermission(
+        db,
+        sessionActor(req, { organizationId }),
+        PERMISSIONS.MANAGE_GUARDIANS
+      );
+      if (!canManageGuardians) {
+        const classScope = require("../utils/classScope");
+        const mine = await classScope.assignedClasses(db, req);
+        const childIds = (studentsResult?.rows || []).map((row) => Number(row.student_id));
+        const inMyClasses = mine ? await classScope.studentsInClasses(db, Number(organizationId), childIds, mine) : new Set();
+        if (!inMyClasses.size) {
+          req.flash('error', "You can only open the parents of students in your classes.");
+          return res.redirect('/common/orgDashboard');
+        }
+        studentsResult.rows = studentsResult.rows.filter((row) => inMyClasses.has(Number(row.student_id)));
+      }
+
       if (studentsResult?.rows?.length) {
         const studentIds = studentsResult.rows
           .map((row) => Number.parseInt(row.student_id, 10))
@@ -21877,15 +22149,8 @@ NUMBERING:
         }
       }
 
-      // Determine edit capability: managers & anyone with manage_guardians permission
-      // Teachers are never allowed to edit.
-      const canEdit = userRole !== 'Teacher' && (
-        isManagerLikeRole(userRole) || await userHasPermission(
-          db,
-          sessionActor(req, { organizationId }),
-          PERMISSIONS.MANAGE_GUARDIANS
-        )
-      );
+      // Managers and anyone with Manage Guardians edit; teachers never do.
+      const canEdit = userRole !== 'Teacher' && canManageGuardians;
 
       const hasGuardianPortal = await hasGuardianPortalFeature(db, organizationId);
 
@@ -24617,6 +24882,16 @@ NUMBERING:
     console.log('[Save Pending Student Changes] Organization ID:', organizationId);
     console.log('[Save Pending Student Changes] Body keys:', Object.keys(body));
     console.log('[Save Pending Student Changes] File:', file ? file.originalname : 'No file');
+
+    // Only this school's own application: pending ids are numbered across all schools, and the
+    // guardian and subject rows below are keyed by the pending id alone.
+    const owned = await db.query(
+      "SELECT 1 FROM pending_students WHERE pending_id = $1 AND organization_id = $2",
+      [Number.parseInt(id, 10) || 0, organizationId]
+    );
+    if (!owned.rowCount) {
+      return res.status(404).json({ error: "That application wasn't found in your school." });
+    }
 
     const client = await db.connect();
 

@@ -1823,49 +1823,44 @@
       line-height: 1.25;
     }
 
+    /* School website section menu: a clean bar pinned to the bottom of the screen, every item the
+       same width with its icon over its name; the section on screen takes the school's colour. */
     .sticky-nav {
       position: fixed !important;
-      /* Always anchor to visual-viewport bottom — no offset on `bottom` itself.
-         This prevents the hard snap when browser chrome hides/shows.
-         The safe-area is handled via padding-bottom instead, which transitions. */
       bottom: 0 !important;
       top: auto !important;
       left: 0;
       right: 0;
-      width: 100vw;
-      /* push content up for home-indicator; transitions when inset changes */
-      padding: 8px 8px 0 8px;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-      background: transparent;
-      border-top: none;
-      box-shadow: none;
+      width: 100%;
+      padding: 0 0 env(safe-area-inset-bottom, 0px);
+      background: rgba(255, 255, 255, 0.98);
+      border-top: 1px solid rgba(15, 23, 42, 0.1);
+      box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
       backdrop-filter: none;
       z-index: 10010;
-      /* own compositor layer → follows viewport resize without repaint flash */
       transform: translateZ(0);
       -webkit-transform: translateZ(0);
       will-change: transform;
-      /* smooth out safe-area-inset changes */
-      transition: padding-bottom 0.12s ease;
     }
 
     .sticky-nav ul {
       display: flex;
       flex-direction: row;
       flex-wrap: nowrap;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 8px;
+      justify-content: space-between;
+      align-items: stretch;
+      gap: 2px;
+      padding: 8px 6px;
+      margin: 0;
       overflow-x: auto;
       scrollbar-width: none;
       max-width: 100%;
-      background: rgba(255, 255, 255, 0.68);
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      border-radius: 999px;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
-      backdrop-filter: blur(14px) saturate(140%);
-      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
 
     .sticky-nav ul::-webkit-scrollbar {
@@ -1873,44 +1868,131 @@
     }
 
     .sticky-nav ul li {
-      flex: 0 0 auto;
+      flex: 1 0 48px;
+      min-width: 48px;
       text-align: center;
     }
 
     header#top-header .sticky-nav ul li a {
-      display: inline-flex;
+      display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 4px 6px;
-      font-size: 11.5px;
-      min-width: 34px;
-      min-height: 28px;
-      border-radius: 18px;
-      background: var(--org-primary-color, #01535b);
-      color: #fff;
-      border: 1px solid var(--org-primary-color, #01535b);
+      gap: 4px;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 52px;
+      padding: 7px 2px 6px;
+      border-radius: 12px;
+      background: transparent;
+      color: #475569;
+      border: 0;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+      text-decoration: none;
     }
 
     header#top-header .sticky-nav ul li a .nav-text {
-      display: none;
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     header#top-header .sticky-nav ul li a .nav-icon {
-      width: 16px;
-      height: 16px;
+      display: block !important;
+      width: 21px;
+      height: 21px;
       margin: 0;
     }
 
-    header#top-header .sticky-nav ul li a[href="#events"] {
-      min-width: 32px;
-      min-height: 27px;
-      padding: 3px 6px;
-      border-radius: 18px;
+    header#top-header .sticky-nav ul li a.active,
+    header#top-header .sticky-nav ul li a:active {
+      background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, white);
+      color: var(--org-primary-color, #01535b);
     }
 
-    header#top-header .sticky-nav ul li a[href="#events"] .nav-icon {
-      width: 15px;
-      height: 15px;
+    /* Keep the end of the page clear of the bar. */
+    body:has(header#top-header > .sticky-nav) {
+      padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* The header on these pages: logo, the school's short name, one Sign In button. */
+    /* Exactly the page's top space (66px), so the header never covers the top of the page. */
+    header#top-header:has(> .sticky-nav) {
+      box-sizing: border-box;
+      height: 66px;
+      min-height: 66px;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    header#top-header:has(> .sticky-nav) .header-mobile-row {
+      width: 100%;
+      height: 66px;
+      min-height: 66px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    header#top-header:has(> .sticky-nav) .org-names a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+    }
+
+    header#top-header:has(> .sticky-nav) .logo {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+    }
+
+    header#top-header:has(> .sticky-nav) .header-mobile-left {
+      min-width: 0;
+      flex: 1 1 auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    header#top-header:has(> .sticky-nav) .org-names {
+      min-width: 0;
+    }
+
+    header#top-header:has(> .sticky-nav) .org-names a {
+      display: block;
+      min-width: 0;
+    }
+
+    header#top-header:has(> .sticky-nav) .org-full-name {
+      display: none !important;
+    }
+
+    header#top-header:has(> .sticky-nav) .org-nickname {
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1.12rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    header#top-header:has(> .sticky-nav) #tools #loginbutton {
+      flex: none;
+      min-height: 40px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: 0;
+      background: var(--org-primary-color, #01535b);
+      color: #fff !important;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
     }
 
     .flash-wrapper {

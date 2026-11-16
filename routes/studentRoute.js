@@ -60,6 +60,7 @@ module.exports = (db) => {
   const portfolioController = require("../controllers/portfolioController");
   router.get("/portfolio", isStudentAuthenticated, (req, res) => portfolioController.studentPage(req, res, db));
   router.get("/portfolio/test/:attemptId(\\d+)", isStudentAuthenticated, (req, res) => portfolioController.studentTest(req, res, db));
+  router.get("/portfolio/report-card/:id(\\d+)", isStudentAuthenticated, (req, res) => portfolioController.studentReportCard(req, res, db));
   router.get("/calendar", isStudentAuthenticated, (req, res) => familyCalendar.studentPage(req, res, db));
   router.get("/calendar/feed", isStudentAuthenticated, (req, res) => familyCalendar.studentFeed(req, res, db));
   router.get("/calendar/sync", isStudentAuthenticated, (req, res) => familyCalendar.studentSync(req, res, db));

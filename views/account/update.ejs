@@ -126,23 +126,10 @@
 <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole
 !== 'Supervisor') { %>
 
-<!-- Show "Cancel Subscription" button ONLY if the org is NOT on hold AND has no scheduled hold date -->
-<% if (!orgDetails.on_hold && !orgDetails.scheduled_hold_date) { %>
+<%# Only Managira cancels or resumes a subscription (Admin › Organizations; utils/subscriptionCancel.js). %>
+<% if (orgDetails.scheduled_hold_date && !orgDetails.on_hold) { %>
 <div class="link-to-next-back">
-  <a
-    href="/account/confirm-password?redirect=cancel-subscription"
-    class="btn-danger"
-    >Cancel Subscription</a
-  >
-</div>
-<% } %>
-
-<!-- Show "Resume Subscription" button ONLY if the org has a scheduled hold date -->
-<% if (orgDetails.scheduled_hold_date) { %>
-<div class="link-to-next-back">
-  <form action="/account/resume-or-cancel-cancellation" method="POST">
-    <button type="submit" class="btn-primary">Resume Subscription</button>
-  </form>
+  <p style="margin:0">Your subscription ends on <strong><%= new Date(orgDetails.scheduled_hold_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %></strong>. To keep it going, contact <a href="mailto:support@managira.com">support@managira.com</a>.</p>
 </div>
 <% } %>
 

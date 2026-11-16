@@ -513,7 +513,7 @@
       removedBy: e.removed_by_name || '',
       owner: Boolean(e.is_owner),
       locked: !workspaceAccess().employees.canChangeManagers && (e.account_type === 'Manager' || Boolean(e.is_owner) || String(e.user_id) === String(session.userId || (session.user && session.user.user_id))),
-      photo: e.photo_url || '',
+      photo: e.photo_url ? publicImageUrl(e.photo_url) : '',
       joined: e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
       lastLogin: _fmtWhen(e.last_login) + (e.last_login && e.last_login_sso ? ` · with ${_ssoName || 'single sign-on'}` : ''),
       signIn: _signIn(e).long,

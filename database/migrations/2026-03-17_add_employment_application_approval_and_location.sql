@@ -10,6 +10,7 @@ ALTER TABLE employment_applications
 ALTER TABLE employment_applications
   DROP CONSTRAINT IF EXISTS employment_applications_status_check;
 
+-- Every status the hiring pages use (utils/employmentSchema.js), "hired" included.
 ALTER TABLE employment_applications
   ADD CONSTRAINT employment_applications_status_check
-  CHECK (status IN ('pending', 'approved', 'rejected'));
+  CHECK (status IN ('pending', 'approved', 'rejected', 'hired'));

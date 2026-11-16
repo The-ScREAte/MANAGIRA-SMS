@@ -42,6 +42,17 @@ module.exports = async (req, res, next) => {
 
         if (userId && organizationId && !isPortalSession) {
             const dbRole = await getCurrentRoleFromDb(userId, organizationId);
+            // A school's staff account is only ever Manager, Supervisor, Teacher or Driver. One that
+            // carries a Managira role (Admin, Mini Admin, Internal Worker) never gets it into a session:
+            // it is signed out, as fetchUserInfo does on the admin pages.
+            if (dbRole && !require('../utils/staffChangeGuard').isSchoolRole(String(dbRole).trim())) {
+                console.warn(`[Security] A school account (user ${userId}, school ${organizationId}) carries the platform role ${dbRole}; signing it out.`);
+                return req.session.regenerate(() => {
+                    if (typeof req.flash === 'function') req.flash('error', 'Your account needs attention. Ask your school\'s manager to check your role.');
+                    if (req.xhr || /json/i.test(req.get('accept') || '')) return res.status(401).json({ success: false, message: 'Sign in again.' });
+                    return res.redirect('/account/login');
+                });
+            }
             if (dbRole) {
                 resolvedRole = String(dbRole).trim();
 

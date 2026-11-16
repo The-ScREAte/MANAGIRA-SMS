@@ -995,9 +995,7 @@
           <label class="es-upload-label">Change photo
           <input type="file" name="studentImage" accept="image/*" class="es-upload-input"></label>
           <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
-            <a href="/common/deleteStudentImage/<%= student.student_id %>" 
-               onclick="return confirmDelete('Are you sure you want to delete this image?')" 
-               class="es-delete-image-btn">Remove photo</a>
+            <button type="submit" form="es-remove-photo" class="es-delete-image-btn">Remove photo</button>
           <% } %>
           </div>
         </div>
@@ -1160,6 +1158,7 @@
   </form>
 
   <form id="deleteStudentForm" action="/common/deleteStudent/<%= student.student_id %>" method="POST"></form>
+<form id="es-remove-photo" method="post" action="/common/deleteStudentImage/<%= student.student_id %>" onsubmit="return confirmDelete('Are you sure you want to delete this image?')" hidden></form>
 </div>
 </body>
 </html>

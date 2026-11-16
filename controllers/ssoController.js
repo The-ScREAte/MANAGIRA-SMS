@@ -32,9 +32,12 @@ const nextOf = (value) => (value === "mira" ? "mira" : "");
 // Each member of staff has one way in, chosen on their staff form (connections.waysFor). A school's
 // main manager always keeps a password, in case the provider is down, and is offered single
 // sign-on only once they turned it on themselves (until then it wouldn't let them in).
-async function signInChoice(req, db, email) {
+// `organizationId`: the school a right password has already proved (the login page passes it),
+// so an email someone else's school also lists never hides this person's own provider.
+async function signInChoice(req, db, email, { organizationId = null } = {}) {
   const school = req.schoolDetails || null;
-  const row = await connections.connectionForEmail(db, email, { onlyOrganizationId: school ? school.organization_id : null });
+  const onlyOrganizationId = organizationId || (school ? school.organization_id : null);
+  const row = await connections.connectionForEmail(db, email, { onlyOrganizationId });
   if (!isActive(row)) return { sso: null, password: true };
   const account = await findAccount(db, row, email);
   if (!account) return { sso: null, password: true };
@@ -268,7 +271,7 @@ module.exports = {
   // school's provider (named, with its own button), a password, or either when the school
   // allows both. An email nobody has gets the same password step, so this tells a stranger
   // nothing about password accounts.
-  continueWithEmail: async (req, res, db, { quiet = false } = {}) => {
+  continueWithEmail: async (req, res, db, { quiet = false, organizationId = null } = {}) => {
     const next = nextOf(req.body?.next || req.query.next);
     const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 320);
     const wantsJson = !quiet && /json/i.test(req.get("accept") || "");
@@ -279,7 +282,7 @@ module.exports = {
     }
     let choice = { sso: null, password: true };
     try {
-      choice = await signInChoice(req, db, email);
+      choice = await signInChoice(req, db, email, { organizationId });
     } catch (error) {
       // Whatever went wrong with single sign-on, a password still works.
       console.error("[Login] continue:", error.message);
@@ -434,7 +437,10 @@ module.exports = {
     if (!(await passwordIsRight(req, db, req.body?.password, "turn single sign-on on"))) return res.status(403).json({ success: false, message: "That password isn't right." });
     const row = await connections.connectionFor(db, organizationId);
     if (!row || row.status === "draft") return res.status(400).json({ success: false, message: "Run a successful test first." });
-    const byMain = await connections.isMainManager(db, organizationId, req.session.accountType === "Organization" ? { owner: true } : { user_id: req.session.userId, account_type: req.session.userRole, email: req.session.user?.email });
+    // Only the main manager signed in as themselves counts: a hub person or a Managira admin who
+    // opened the school is never "the main manager turning it on for their own account".
+    const viaSwitch = Boolean(req.session.hubOrgSwitch || req.session.superAdminOrgSwitch || req.session.originalAdminUserId);
+    const byMain = !viaSwitch && await connections.isMainManager(db, organizationId, req.session.accountType === "Organization" ? { owner: true } : { user_id: req.session.userId, account_type: req.session.userRole, email: req.session.user?.email });
     const saved = await connections.setStatus(db, organizationId, "active", { byMain });
     await connections.record(db, { organizationId, kind: "setup", email: req.session.user?.email, outcome: "ok", detail: "Turned on", ip: req.ip });
     logChange(req, `${actorName(req)} turned on single sign-on with ${row.display_name}.`);

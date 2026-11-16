@@ -47,6 +47,7 @@
     share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
+    state: '<path d="M3 21h18M5 21V10M19 21V10M9 21v-6h6v6M3 10l9-6 9 6"/>',
   };
 
   const $ = (selector) => root.querySelector(selector);
@@ -243,6 +244,8 @@
         iconButton("star", saved.is_favorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`, { favoriteSaved: id }, saved.is_favorite ? "is-on" : ""),
         iconButton("download", `Export ${name}`, { openModal: "download", reportId: id }),
       ];
+      // State file (public/js/stateFile.js): this saved report written the way the state asks.
+      if (data.stateReporting) tools.push(iconButton("state", `Gov/state report from ${name}`, { stateFile: id }));
       if (saved.is_owner) {
         tools.push(iconButton("share", `Share ${name}`, { openModal: "share", reportId: id }));
         tools.push(iconButton("trash", `Delete ${name}`, { deleteSaved: id }, "is-danger"));
@@ -806,6 +809,13 @@
   function renderFinish() {
     $("[data-step-panel='5'] [data-open-modal='share']").hidden = !ownsSaved();
     $("[data-step-panel='5'] [data-open-modal='schedule']").hidden = !ownsSaved();
+    // State file (public/js/stateFile.js): for people with State filing (under Report Builder).
+    const stateButton = $("[data-step-panel='5'] [data-state-file]");
+    if (stateButton) {
+      // Shown before saving too: it then explains that the file is made from a saved report.
+      stateButton.hidden = !data.stateReporting;
+      stateButton.dataset.reportId = state.saved?.report_id || "";
+    }
     setTitles();
   }
 

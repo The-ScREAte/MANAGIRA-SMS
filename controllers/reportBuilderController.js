@@ -591,6 +591,10 @@ function reportBuilderController(db, options = {}) {
           },
           pageSizes: PAGE_SIZES,
           isEmbeddedFrame: Boolean(res.locals.isEmbeddedFrame),
+          // State files (controllers/stateReportingController.js): released, and both permissions held.
+          stateReporting: releaseFeatures.isOn("state_reporting", { organizationId })
+            && await Promise.all(["reports_builder", "state_reporting"].map((key) => Promise.resolve(userHasPermission(db, context.identity, key)).catch(() => false)))
+              .then((held) => held.every(Boolean)),
         });
       } catch (error) {
         console.error("[reportBuilder/page]", error);
@@ -1047,6 +1051,7 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
        FROM custom_report_schedules sch
        JOIN custom_report_definitions r ON r.report_id = sch.report_id
        JOIN users u ON u.user_id = r.created_by AND u.organization_id = r.organization_id AND u.removed_at IS NULL
+                   AND COALESCE(u.on_hold, false) = false
        JOIN organizations o ON o.organization_id = r.organization_id`
   );
   const summary = { checked: schedules.rows.length, sent: 0, failed: 0 };
@@ -1062,7 +1067,8 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
         const shared = await db.query(
           `SELECT u.user_id, u.email, u.first_name, u.account_type::text AS role FROM custom_report_shares sh
              JOIN users u ON u.user_id = sh.user_id AND u.organization_id = $2 AND u.removed_at IS NULL
-            WHERE sh.report_id = $1 AND u.email IS NOT NULL AND COALESCE(u.on_hold, FALSE) = FALSE`,
+                         AND COALESCE(u.on_hold, false) = false
+            WHERE sh.report_id = $1 AND u.email IS NOT NULL`,
           [row.report_id, row.organization_id]
         );
         shared.rows.forEach((recipient) => {
@@ -1070,7 +1076,19 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
         });
       }
       const header = row.file_format === "csv" ? null : await loadReportHeader(db, row.organization_id, row.branding_json);
+      // Each copy needs Report Builder now (a driver's Reports): a permission taken away, or a plan
+      // that no longer has it (userHasPermission checks the plan for everyone), stops the email.
+      const check = hasPermission || userHasPermission;
+      const holdsReportBuilder = async (recipient) => {
+        const who = { userId: recipient.userId, userRole: recipient.role, accountType: recipient.role, organizationId: row.organization_id, userEmail: recipient.email };
+        if (await check(db, who, "reports_builder").catch(() => false)) return true;
+        return String(recipient.role || "").toLowerCase() === "driver" && await check(db, who, "driver_report_builder").catch(() => false);
+      };
       for (const recipient of recipients) {
+        if (!(await holdsReportBuilder(recipient))) {
+          if (recipient.isOwner) throw new Error("The person who made this report no longer has Report Builder, so it wasn't sent.");
+          continue;
+        }
         const context = await service.getContext({
           userId: recipient.userId,
           userRole: recipient.role,
@@ -1129,6 +1147,8 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
 
 module.exports = reportBuilderController;
 module.exports.runDueReportSchedules = runDueReportSchedules;
+// Shared with State reporting (controllers/stateReportingController.js), which runs the same reports.
+module.exports.shared = { ensureReportSchema, createReportService, identityFromRequest, localParts, isElevated };
 module.exports._test = {
   ensureReportSchema,
   createReportService,

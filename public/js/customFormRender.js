@@ -119,6 +119,13 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  // An uploaded file opens through Managira (/files/...), which checks the person is signed in to
+  // the school; the storage address is never used as a link.
+  function fileHref(f) {
+    var key = f && f.key ? String(f.key) : '';
+    if (!/^(custom-forms|question-help|parent-resources)\/\d+\//.test(key)) return '#';
+    return '/files/' + key.split('/').map(encodeURIComponent).join('/');
+  }
   function isEmpty(v) {
     return v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length);
   }
@@ -196,6 +203,23 @@
         + '<span>' + (c[2] ? icon(c[2], 26) : '') + '<small>' + esc(c[1]) + '</small></span></label>';
     }).join('') + '</div>';
   }
+  // Phrases a typed field offers (a remark's ready-made remarks): a tap fills the answer, or adds
+  // the phrase to what's there; a phrase already in the answer is lit, and a tap takes it out.
+  function hasPhrase(text, phrase) { return Boolean(phrase) && String(text || '').indexOf(phrase) !== -1; }
+  function togglePhrase(text, phrase) {
+    var now = String(text || '');
+    var at = now.indexOf(phrase);
+    if (at !== -1) return (now.slice(0, at) + now.slice(at + phrase.length)).replace(/[ \t]{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+    now = now.replace(/\s+$/, '');
+    return now ? now + ' ' + phrase : phrase;
+  }
+  function suggestionsHtml(field, value) {
+    var list = Array.isArray(field.suggestions) ? field.suggestions : [];
+    if (!list.length || (field.type !== 'text' && field.type !== 'textarea')) return '';
+    return '<div class="cff-suggest" role="group" aria-label="Suggestions for ' + esc(field.label) + '">' + list.map(function (phrase, i) {
+      return '<button type="button" class="cff-suggest__chip" data-suggest="' + i + '" aria-pressed="' + hasPhrase(value, phrase) + '">' + esc(phrase) + '</button>';
+    }).join('') + '</div>';
+  }
   function controlHtml(field, value, uid, opts) {
     var id = uid + field.id;
     var name = ' name="' + id + '" id="' + id + '"';
@@ -238,7 +262,7 @@
         var files = Array.isArray(value) ? value : [];
         return '<label class="cff-drop">' + icon('file') + '<span>' + (opts.preview ? 'Upload a file' : 'Choose a file to upload') + '</span><input type="file" id="' + id + '" /></label>'
           + '<ul class="cff-files">' + files.map(function (f, i) {
-            return '<li><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a><button type="button" data-remove-file="' + i + '">Remove</button></li>';
+            return '<li><a href="' + esc(fileHref(f)) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a><button type="button" data-remove-file="' + i + '">Remove</button></li>';
           }).join('') + '</ul>';
       case 'signature':
         var sig = value && typeof value === 'object' ? value : {};
@@ -263,6 +287,7 @@
     return '<div class="' + cls + '" data-field="' + esc(field.id) + '">'
       + '<label class="cff-label"' + labelFor + '>' + esc(field.label) + (field.required ? '<span class="cff-req" aria-hidden="true">*</span>' : '') + '</label>'
       + controlHtml(field, value, uid, opts)
+      + suggestionsHtml(field, value)
       + (field.help ? '<p class="cff-help">' + esc(field.help) + '</p>' : '')
       + '<p class="cff-error" hidden></p></div>';
   }
@@ -320,13 +345,21 @@
       read(f);
       clearError(f.id);
       apply();
+      litPhrases(f);
       if (opts.onChange) opts.onChange(values);
+    }
+    function litPhrases(f) {
+      var w = container.querySelector('[data-field="' + f.id + '"]');
+      if (!w || !Array.isArray(f.suggestions)) return;
+      Array.prototype.forEach.call(w.querySelectorAll('[data-suggest]'), function (chip) {
+        chip.setAttribute('aria-pressed', String(hasPhrase(values[f.id], f.suggestions[Number(chip.getAttribute('data-suggest'))])));
+      });
     }
     function renderFiles(f) {
       var w = container.querySelector('[data-field="' + f.id + '"] .cff-files');
       var list = Array.isArray(values[f.id]) ? values[f.id] : [];
       w.innerHTML = list.map(function (file, i) {
-        return '<li><a href="' + esc(file.url) + '" target="_blank" rel="noopener">' + esc(file.name) + '</a><button type="button" data-remove-file="' + i + '">Remove</button></li>';
+        return '<li><a href="' + esc(fileHref(file)) + '" target="_blank" rel="noopener">' + esc(file.name) + '</a><button type="button" data-remove-file="' + i + '">Remove</button></li>';
       }).join('');
     }
     function upload(f, input) {
@@ -350,6 +383,15 @@
     container.addEventListener('input', changed);
     container.addEventListener('change', changed);
     container.addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-suggest]');
+      if (chip) {
+        var sf = fieldOf(chip);
+        var input = sf && container.querySelector('[data-field="' + sf.id + '"] .cff-input');
+        if (!input) return;
+        input.value = togglePhrase(input.value, sf.suggestions[Number(chip.getAttribute('data-suggest'))] || '');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
       var rm = e.target.closest('[data-remove-file]');
       if (!rm) return;
       var f = fieldOf(rm);
@@ -413,7 +455,7 @@
     var rows = (section.fields || []).filter(function (f) { return hasInput(f) && isVisible(f, data || {}, byId); }).map(function (f) {
       var v = (data || {})[f.id];
       var body;
-      if (f.type === 'file' && Array.isArray(v)) body = v.map(function (file) { return '<a href="' + esc(file.url) + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>'; }).join('<br>');
+      if (f.type === 'file' && Array.isArray(v)) body = v.map(function (file) { return '<a href="' + esc(fileHref(file)) + '" target="_blank" rel="noopener">' + esc(file.name) + '</a>'; }).join('<br>');
       else if (f.type === 'url' && v) body = '<a href="' + esc(v) + '" target="_blank" rel="noopener">' + esc(v) + '</a>';
       else body = (answerIcon(f, v) ? '<span class="cff-answericon">' + icon(answerIcon(f, v), 16) + '</span>' : '') + esc(display(f, v));
       return '<div class="' + (f.width === 'half' ? 'cff-field--half' : '') + '"><dt>' + esc(f.label) + '</dt><dd' + (body ? '' : ' class="is-empty"') + '>' + (body || '—') + '</dd></div>';

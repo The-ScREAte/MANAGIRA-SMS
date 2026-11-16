@@ -13,6 +13,13 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  // An uploaded file opens through Managira (/files/...), which checks the person is signed in to
+  // the school; the storage address is never used as a link.
+  function fileHref(f) {
+    var key = f && f.key ? String(f.key) : '';
+    if (!/^(custom-forms|question-help|parent-resources)\/\d+\//.test(key)) return '#';
+    return '/files/' + key.split('/').map(encodeURIComponent).join('/');
+  }
   function summary(h) {
     var parts = [];
     if (h.text) parts.push('a recommendation');
@@ -53,7 +60,7 @@
     name.value = h.link.label;
     function renderFiles() {
       box.querySelector('.qh-files').innerHTML = h.files.map(function (f, i) {
-        return '<li><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a><button type="button" data-qh-remove="' + i + '">Remove</button></li>';
+        return '<li><a href="' + esc(fileHref(f)) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a><button type="button" data-qh-remove="' + i + '">Remove</button></li>';
       }).join('');
       box.querySelector('.qh-upload').hidden = h.files.length >= MAX_FILES;
       var label = summary(h);

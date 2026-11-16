@@ -310,7 +310,7 @@ body[data-page="publicDashboard"] .sw-site[data-sw-motion] { margin-top: 0; }
 .sw-pa-tagline { margin-top: 16px !important; max-width: 50ch; color: rgba(232, 237, 245, .8); font-size: clamp(1.02rem, 1.6vw, 1.3rem); }
 .sw-pa-hero .sw-actions { margin-top: 26px; }
 .sw-site--panorama .sw-btn { border-radius: 999px; min-height: 46px; padding: 10px 24px; }
-.sw-pa-hero .sw-btn--ghost { color: #fff; border-color: rgba(255, 255, 255, .5); }
+.sw-pa-hero .sw-btn--ghost, .sw-pa-close .sw-btn--ghost { color: #fff; border-color: rgba(255, 255, 255, .5); }
 .sw-pa-hint { position: absolute; z-index: 3; left: 50%; bottom: 22px; translate: -50% 0; display: grid; justify-items: center; gap: 8px; color: rgba(255, 255, 255, .78); font-size: .7rem; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; opacity: calc(1 - var(--p, 0) * 5); }
 .sw-pa-hint i { display: block; width: 2px; height: 34px; border-radius: 2px; background: linear-gradient(rgba(255, 255, 255, .9), rgba(255, 255, 255, 0)); }
 .sw-moving .sw-pa-hint i { animation: sw-pa-hint 1.8s ease-in-out infinite; transform-origin: 50% 0; }
@@ -411,4 +411,14 @@ body[data-page="publicDashboard"] .sw-site[data-sw-motion] { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) {
   .sw-pr-glow i, .sw-pa-hint i { animation: none !important; }
   .sw-pr-stack { transition: none; }
+}
+
+/* Phones: the school's name and logo sit in the header (as on every other design), so the 3D menu
+   drops its own name row and is a single strip of sections, keeping the fixed bars short. */
+@media (max-width: 768px) {
+  body:is([data-sw-layout="glide"], [data-sw-layout="prism"], [data-sw-layout="panorama"]) header#top-header .header-mobile-left .siteName { visibility: visible; }
+  .sw-site .sw-mo-nav .sw-mo-brand { display: none !important; }
+  .sw-site .sw-mo-nav .sw-mo-nav__in { flex-wrap: nowrap !important; align-items: center; gap: 8px !important; min-height: 52px !important; padding-top: 0 !important; }
+  .sw-site .sw-mo-nav .sw-mo-nav__links { order: 1 !important; flex: 1 1 auto !important; flex-basis: auto !important; min-width: 0; justify-content: flex-start; margin-inline: calc(var(--sw-gutter, 16px) * -1) 0 !important; padding: 0 0 0 var(--sw-gutter, 16px) !important; }
+  .sw-site .sw-mo-nav .sw-mo-nav__cta { order: 2 !important; flex: none; min-height: 38px !important; padding: 6px 16px !important; }
 }

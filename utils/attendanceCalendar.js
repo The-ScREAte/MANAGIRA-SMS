@@ -135,7 +135,9 @@ async function getAttendanceCalendarProfile(db, organizationId, termId) {
     result = await db.query(
       `
         SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
-               weekend_days, include_public_holidays, created_at, updated_at
+               weekend_days, include_public_holidays, created_at, updated_at,
+               -- read through the row as JSON: works before 2026-12-12_attendance_show_days_off.sql has run
+               to_jsonb(organization_attendance_calendars) ->> 'show_days_off' AS show_days_off_text
         FROM organization_attendance_calendars
         WHERE organization_id = $1::int AND term_id = $2::int
         LIMIT 1
@@ -148,7 +150,8 @@ async function getAttendanceCalendarProfile(db, organizationId, termId) {
       result = await db.query(
         `
           SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
-                 weekend_days, include_public_holidays, created_at, updated_at
+                 weekend_days, include_public_holidays, created_at, updated_at,
+                 to_jsonb(organization_attendance_calendars) ->> 'show_days_off' AS show_days_off_text
           FROM organization_attendance_calendars
           WHERE organization_id = $1::int
           ORDER BY updated_at DESC, created_at DESC
@@ -161,7 +164,9 @@ async function getAttendanceCalendarProfile(db, organizationId, termId) {
     result = await db.query(
       `
         SELECT calendar_id, organization_id, school_year_id, term_id, country_code,
-               weekend_days, include_public_holidays, created_at, updated_at
+               weekend_days, include_public_holidays, created_at, updated_at,
+               -- read through the row as JSON: works before 2026-12-12_attendance_show_days_off.sql has run
+               to_jsonb(organization_attendance_calendars) ->> 'show_days_off' AS show_days_off_text
         FROM organization_attendance_calendars
         WHERE organization_id = $1::int
         ORDER BY updated_at DESC, created_at DESC
@@ -176,7 +181,26 @@ async function getAttendanceCalendarProfile(db, organizationId, termId) {
   const profile = result.rows[0];
   const normalizedWeekendDays = normalizeWeekendDaysInput(profile.weekend_days || []);
   profile.weekend_days = normalizedWeekendDays.length > 0 ? normalizedWeekendDays : [0, 6];
+  // Days off (weekends, holidays, days turned off) show on the attendance sheet, greyed, unless the
+  // school chose to hide them in Settings › School rules.
+  profile.show_days_off = profile.show_days_off_text !== "false";
+  delete profile.show_days_off_text;
   return profile;
+}
+
+// Saves whether days off show on the attendance sheet. Before the column exists (the migration
+// 2026-12-12_attendance_show_days_off.sql hasn't run) nothing is saved: returns false.
+async function saveShowDaysOff(db, calendarId, show) {
+  try {
+    await db.query(
+      "UPDATE organization_attendance_calendars SET show_days_off = $2 WHERE calendar_id = $1 AND show_days_off IS DISTINCT FROM $2",
+      [calendarId, Boolean(show)]
+    );
+    return true;
+  } catch (error) {
+    if (error && error.code === "42703") return false;
+    throw error;
+  }
 }
 
 async function getAttendanceCalendarDays(db, calendarId, startDate, endDate) {
@@ -491,6 +515,7 @@ async function deleteManualCalendarDay(db, { calendarDayId, organizationId }) {
 }
 
 module.exports = {
+  saveShowDaysOff,
   WEEKDAY_OPTIONS,
   toDateKey,
   parseBoolean,

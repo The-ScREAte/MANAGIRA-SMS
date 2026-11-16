@@ -327,6 +327,7 @@ module.exports = (db) => {
     router.get('/employment', isAuthenticated, ensureAdmin, adminController.getEmploymentAdmin);
     router.get('/employment/applications/overview', isAuthenticated, ensureAdmin, adminController.getEmploymentApplicationsAjax);
     router.get('/employment/applications/:id/analyze', isAuthenticated, ensureAdmin, adminController.analyzeEmploymentApplication);
+    router.get('/employment/applications/:id(\\d+)/:doc(resume|cover-letter)', isAuthenticated, ensureAdmin, adminController.employmentDocumentGet);
     router.post('/employment/applications/analyze-all', isAuthenticated, ensureAdmin, adminController.analyzeAllEmploymentApplications);
     router.post('/employment', isAuthenticated, ensureAdmin, adminController.postEmployment);
     router.post('/employment/update/:id', isAuthenticated, ensureAdmin, adminController.updateEmployment);
@@ -547,8 +548,12 @@ module.exports = (db) => {
     // Mini Admins see the schools; everything else is for Admins.
     router.get('/hubs', ensureAdminOrMiniAdmin, adminPricing.organizationsGet);
     router.get('/organizations/:organizationId(\\d+)', ensureAdminOrMiniAdmin, adminPricing.schoolDetailsGet);
+    router.get('/organizations/:organizationId(\\d+)/documents/:n([12])', ensureAdminOrMiniAdmin, adminPricing.schoolDocumentGet);
     router.get('/organizations/:organizationId(\\d+)/pricing', ensureAdmin, adminPricing.schoolPricingGet);
     router.post('/organizations/:organizationId(\\d+)/pricing', ensureAdmin, adminPricing.schoolPricingPost);
+    // Only Managira cancels a school's subscription (the school asks support); utils/subscriptionCancel.js.
+    router.post('/organizations/:organizationId(\\d+)/cancel-subscription', ensureAdmin, adminPricing.schoolCancelPost);
+    router.post('/organizations/:organizationId(\\d+)/undo-cancellation', ensureAdmin, adminPricing.schoolUndoCancelPost);
     // API allowance requests from schools (Managira API).
     const apiRequests = require('../controllers/apiAllowanceAdminController');
     router.get('/api-requests', ensureAdmin, apiRequests.page);

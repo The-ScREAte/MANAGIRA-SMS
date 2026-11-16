@@ -1,10 +1,12 @@
-<%# One term of a student's portfolio (feature student_portfolio). Locals: terms, term, data, links { term, test, report }. %>
+<%# One term of a student's portfolio (feature student_portfolio). Locals: terms, term, data, links { term, test, report },
+    showReportCard (false when the child's class keeps report cards from parents: no report card stat or wording). %>
 <%
+  const _withReport = locals.showReportCard !== false;
   const _fmt = (d, year) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: year ? 'numeric' : undefined }) : '';
   const _num = (n) => Number(n).toFixed(2).replace(/\.?0+$/, '');
 %>
 <% if (!term) { %>
-  <div class="pf-empty">Nothing here yet. Each term’s marked work and report card collect here.</div>
+  <div class="pf-empty">Nothing here yet. Each term’s marked work<%= _withReport ? ' and report card' : '' %> collect<%= _withReport ? '' : 's' %> here.</div>
 <% } else { %>
   <% if (terms.length > 1) { %>
   <nav class="pf-terms" aria-label="Terms">
@@ -13,17 +15,17 @@
     <% }) %>
   </nav>
   <% } %>
-  <div class="pf-stats">
+  <div class="pf-stats<%= _withReport ? '' : ' pf-stats--3' %>">
     <div class="pf-stat"><span>Marked work</span><strong><%= data.summary.marked %><small> / <%= data.summary.total %></small></strong></div>
     <div class="pf-stat"><span>Average</span><strong><%= data.summary.average === null ? '—' : data.summary.average + '%' %></strong></div>
     <div class="pf-stat"><span>Documents</span><strong><%= data.summary.documents %></strong></div>
-    <div class="pf-stat"><span>Report card</span><strong><% if (data.reportCard && links.report) { %><a href="<%= links.report %>" target="_blank" rel="noopener">Open PDF</a><% } else if (data.reportCard) { %>Posted<% } else { %><small>Not yet</small><% } %></strong></div>
+    <% if (_withReport) { %><div class="pf-stat"><span>Report card</span><strong><% if (data.reportCard && links.report) { %><a href="<%= links.report %>" target="_blank" rel="noopener">Open PDF</a><% } else if (data.reportCard) { %>Posted<% } else { %><small>Not yet</small><% } %></strong></div><% } %>
   </div>
 
   <section class="pf-section" aria-labelledby="pf-docs">
     <h2 id="pf-docs">Documents <small><%= term.name %>, <%= term.year %></small></h2>
     <% if (!data.documents.length && !data.reportCard) { %>
-      <div class="pf-empty">Marked tests and the report card show here as PDFs.</div>
+      <div class="pf-empty">Marked tests<%= _withReport ? ' and the report card' : '' %> show here as PDFs.</div>
     <% } else { %>
     <div class="pf-docs">
       <% if (data.reportCard) { %>

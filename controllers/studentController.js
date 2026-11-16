@@ -11,6 +11,7 @@ const {
 } = require("../utils/attendanceCalendar");
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const features = require("../utils/shards/features");
+const overallLunch = require("../utils/overallLunch");
 const assessmentApproval = require("../utils/assessmentApproval");
 const questionHelp = require("../utils/questionHelp");
 const questionMedia = require("../utils/questionMedia");
@@ -185,7 +186,8 @@ function getDefaultGradeLabel(percentage) {
   if (value >= 90) return "A";
   if (value >= 80) return "B";
   if (value >= 70) return "C";
-  return "D";
+  if (value >= 60) return "D";
+  return "F";
 }
 
 async function getGradeLabelFromScoreRemark(
@@ -338,6 +340,16 @@ function evaluateResponse(question, rawResponse) {
     awardedMarks: correct ? marks : 0,
     normalizedResponse: normalizeAnswerValue(responseText),
   };
+}
+
+// What the student's class shares with its students (Class settings): { attendance, lunch,
+// reportCards, gpa, transport }, each true unless the class turned it off (and everywhere
+// class_settings is off). Nothing hidden is read for the student.
+async function studentSees(db, organizationId, studentId) {
+  const classSettings = require("../utils/classSettings");
+  const id = Number(studentId);
+  const see = await classSettings.studentsSeeFor(db, organizationId, [id]);
+  return see.get(id) || classSettings.withDefaults(null).students;
 }
 
 async function resolveStudentContext(db, organizationId, studentId) {
@@ -738,11 +750,10 @@ module.exports = {
         req.flash("error", "Student profile not found.");
         return res.redirect("/account/student-login");
       }
-      const transportationSnapshot = await getStudentTransportationSnapshot(
-        db,
-        organizationId,
-        Number(studentId)
-      ).catch(() => null);
+      const sees = await studentSees(db, organizationId, studentId);
+      const transportationSnapshot = sees.transport
+        ? await getStudentTransportationSnapshot(db, organizationId, Number(studentId), { imageUrl: res.locals.publicImageUrl }).catch(() => null)
+        : null;
 
       const availableTerms = await getStudentPortalTermOptions(db, organizationId, studentId);
 
@@ -769,6 +780,7 @@ module.exports = {
           assessmentGrades: [],
           gradeAssessmentHeaders: [],
           attendanceSummary: { totalDays: 0, present: 0, absent: 0, late: 0, attendanceRate: 0 },
+          sees,
           classSchedule: null,
           scheduleTable: { periods: [], rows: [] },
           scheduleWatermarkUrl,
@@ -784,7 +796,9 @@ module.exports = {
       const effectiveClassId = enrolledClassId || student.class_id;
       // With the assessments flow, the student sees only approved grades.
       const gradeFlow = assessmentApproval.flowOn(organizationId);
-      const [mainTeacherResult, subjectTeachersResult, subjectsResult, gradeAssessmentHeadersResult, assessmentGradesResult, assessmentPositionsResult, attendanceResult, classSchedule, openAssessments] = await Promise.all([
+      // Overall lunch (feature class_lunch), beside attendance: days with lunch out of days taken.
+      const lunchOn = sees.lunch && overallLunch.isOn(organizationId);
+      const [mainTeacherResult, subjectTeachersResult, subjectsResult, gradeAssessmentHeadersResult, assessmentGradesResult, assessmentPositionsResult, attendanceResult, classSchedule, openAssessments, lunchTotals, classTakesLunch] = await Promise.all([
         effectiveClassId
           ? db.query(
               `SELECT u.first_name, u.last_name, u.email
@@ -904,7 +918,7 @@ module.exports = {
               [studentId, organizationId, effectiveClassId, selectedTerm.term_id]
             )
           : { rows: [] },
-        effectiveClassId
+        !sees.attendance ? { rows: [] } : effectiveClassId
           ? db.query(
               `SELECT ar.date::text AS date, ar.status
                  FROM attendance_records ar
@@ -940,7 +954,17 @@ module.exports = {
         testingRoomEnabled
           ? getOpenAssessments(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id)
           : Promise.resolve([]),
+        lunchOn ? overallLunch.totalsFor(db, organizationId, selectedTerm.term_id, [studentId]) : new Map(),
+        lunchOn && effectiveClassId
+          ? require("../utils/classSettings").settingsFor(db, organizationId, effectiveClassId).then((s) => s.lunch !== false).catch(() => true)
+          : lunchOn,
       ]);
+
+      // Shown where the class takes lunch, or lunch was taken this term before it stopped.
+      const lunchTotal = lunchTotals.get(Number(studentId)) || null;
+      const lunchSummary = lunchOn && (lunchTotal || classTakesLunch)
+        ? { days: lunchTotal ? lunchTotal.days : 0, taken: lunchTotal ? lunchTotal.taken : 0, label: overallLunch.label(lunchTotal) }
+        : null;
 
       const attendanceRows = attendanceResult.rows || [];
       const attendanceByDate = new Map();
@@ -960,10 +984,11 @@ module.exports = {
 
       const termStartKey = toDateKey(selectedTerm.start_date);
       const termEndKey = toDateKey(selectedTerm.end_date);
-      const todayKey = toDateKey(new Date());
+      // Today in the student's own time zone (an evening in the US is already tomorrow in UTC).
+      const todayKey = require("../utils/localDate").todayKeyFor(req);
       const effectiveEndKey = termEndKey && termEndKey < todayKey ? termEndKey : todayKey;
 
-      if (termStartKey && effectiveEndKey && termStartKey <= effectiveEndKey) {
+      if (sees.attendance && termStartKey && effectiveEndKey && termStartKey <= effectiveEndKey) {
         await ensureAttendanceCalendarSchema(db);
         const attendanceCalendarProfile = await getAttendanceCalendarProfile(db, organizationId, selectedTerm.term_id);
         const attendanceCalendarDays = attendanceCalendarProfile
@@ -1111,13 +1136,21 @@ module.exports = {
         })
       );
 
+      // GPA (features gpa and family_gpa), unless the class keeps it from its students (Class
+      // settings): this term's, from the grades shown, and the cumulative over finished terms.
+      const gpaInfo = sees.gpa && features.isOn("family_gpa", { organizationId })
+        ? await require("../utils/gpa").familyGpa(db, organizationId, Number(studentId), {
+            termGrades: assessmentGrades.filter((g) => g.grade && g.grade !== "-").map((g) => ({ subject_id: g.subject_id, grade: g.grade })),
+          }).catch((error) => { console.error("[Student Portal] GPA:", error?.message || error); return null; })
+        : null;
       const studentActivities = features.isOn("class_activities", { organizationId })
-        ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], studentIds: [Number(studentId)].filter(Boolean), from: new Date().toISOString().slice(0, 10) })
+        ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], studentIds: [Number(studentId)].filter(Boolean), from: require("../utils/localDate").todayKeyFor(req) })
         : [];
       // Forms the school asks this student to fill in (feature custom_forms): a badge on the
       // Forms tile, and a tile for each form the school gave one of its own.
       const studentForms = await require("../utils/customForms").studentDashboard(db, organizationId, Number(studentId), { day: require("../utils/localDate").todayKeyFor(req) }).catch(() => ({ toDo: 0, tiles: [] }));
       res.render("student/dashboard", {
+        gpaInfo,
         formsToDo: studentForms.toDo,
         formTiles: studentForms.tiles,
         studentActivities,
@@ -1132,6 +1165,8 @@ module.exports = {
         assessmentGrades,
         gradeAssessmentHeaders,
         attendanceSummary,
+        lunchSummary,
+        sees,
         classSchedule,
         scheduleTable,
         scheduleWatermarkUrl,
@@ -1557,7 +1592,11 @@ module.exports = {
       if (!test || !(test.open_book || extras.students)) return back();
       const file = await require("../utils/parentResources").fileById(db, organizationId, fileId);
       if (!file || Number(file.question_set_id) !== Number(test.question_set_id)) return back();
-      return res.redirect(file.file_url);
+      // Storage is private: a link that works for a few minutes (utils/storedFiles.js).
+      const link = await require("../utils/storedFiles").signedUrl(file.file_url, { seconds: 300 });
+      if (!link) return back();
+      res.set("Cache-Control", "private, no-store");
+      return res.redirect(link);
     } catch (error) {
       console.error("[Testing room] resource:", error.message);
       return back();
@@ -2248,4 +2287,5 @@ module.exports = {
 
 module.exports.getOpenAssessments = getOpenAssessments;
 module.exports.canUseStudentTestingRoom = canUseStudentTestingRoom;
+module.exports.studentSees = studentSees;
 module.exports.resolveCurrentStudentTermContext = resolveCurrentStudentTermContext;

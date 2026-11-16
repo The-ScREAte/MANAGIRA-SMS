@@ -1,0 +1,172 @@
+/* Class settings (feature class_settings): the classroom's Class settings panel
+   (views/partials/classSettingsPanel.ejs), Management › Class settings
+   (views/common/classSettings.ejs) and their calendar summary
+   (views/partials/classSettingsCalendar.ejs). Colours come from the appearance tokens (--ap-*)
+   and the school's colour, so Light, Classic and Dark all read well. */
+
+.cset, .cset-page {
+  --cs-line: var(--ap-line, #e4e4e7);
+  --cs-surface: var(--ap-surface, #ffffff);
+  --cs-soft: var(--ap-surface-2, #f6f7f8);
+  --cs-text: var(--ap-text, #111827);
+  --cs-muted: #64748b;
+  --cs-brand: var(--org-primary-color, var(--primary, #01535b));
+  --cs-brand-text: var(--cs-brand);
+  --cs-accent: var(--cs-brand);
+  --cs-ok: #15803d;
+  --cs-bad: #b91c1c;
+  color: var(--cs-text);
+}
+/* Dark: the school's colour lightened wherever it is text or a tick, so it reads on the dark surface. */
+html[data-appearance="dark"] .cset, html[data-appearance="dark"] .cset-page {
+  --cs-muted: var(--ap-muted, #a1a1aa); --cs-ok: #4ade80; --cs-bad: #f87171;
+  --cs-brand-text: color-mix(in srgb, var(--cs-brand) 40%, white);
+  --cs-accent: color-mix(in srgb, var(--cs-brand) 60%, white);
+}
+/* The app's element rules (style.css) give every label a top margin and bold text and centre h1;
+   these pages set their own. */
+:is(.cset, .cset-page) label { margin-top: 0; }
+:is(.cset, .cset-page) :is(ul, ol) > li { margin: 0; }
+:is(.cset, .cset-page) :is(h1, h2, h3, h4) { text-align: left; }
+.cset-page .cset-search { margin: 0; }
+
+/* ---------- The on/off switch ---------- */
+.cset-switch { position: relative; display: inline-flex; flex: none; align-items: center; vertical-align: middle; cursor: pointer; }
+.cset-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.cset-switch__track { position: relative; display: block; width: 32px; height: 18px; border-radius: 999px; background: #cbd5e1; transition: background-color .18s ease; }
+.cset-switch__track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .18s ease; }
+.cset-switch input:checked + .cset-switch__track { background: var(--cs-brand); }
+.cset-switch input:checked + .cset-switch__track::after { transform: translateX(14px); }
+/* "All classes" while classes differ: half way, half coloured. */
+.cset-switch input:indeterminate + .cset-switch__track { background: color-mix(in srgb, var(--cs-brand) 45%, #cbd5e1); }
+.cset-switch input:indeterminate + .cset-switch__track::after { transform: translateX(7px); }
+.cset-switch input:focus-visible + .cset-switch__track { outline: 2px solid var(--cs-brand); outline-offset: 2px; }
+.cset-switch input[aria-busy="true"] + .cset-switch__track { opacity: .65; }
+html[data-appearance="dark"] .cset-switch__track { background: #52525b; }
+@media (prefers-reduced-motion: reduce) { .cset-switch__track, .cset-switch__track::after { transition: none; } }
+
+/* ---------- Tick boxes: who an item is shared with ---------- */
+.cset-ticks { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.cset-tick { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px 0 10px; border: 1px solid var(--cs-line); border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; user-select: none; transition: border-color .15s ease, background-color .15s ease; }
+.cset-tick:hover { border-color: color-mix(in srgb, var(--cs-brand) 50%, var(--cs-line)); }
+.cset-tick:has(input:checked) { border-color: color-mix(in srgb, var(--cs-brand) 55%, var(--cs-line)); background: color-mix(in srgb, var(--cs-brand) 8%, var(--cs-surface)); }
+.cset-tick input, .cset-box { flex: none; width: 17px; height: 17px; margin: 0; accent-color: var(--cs-accent); cursor: pointer; }
+.cset-tick:has(input[aria-busy="true"]), .cset-box[aria-busy="true"] { opacity: .65; }
+.cset-tick:has(input:focus-visible) { outline: 2px solid var(--cs-brand); outline-offset: 2px; }
+.cset-tick input:focus-visible { outline: none; }
+
+/* A quiet word beside a row: Saving…, Saved, or why it didn't. */
+.cset-msg { margin: 0; font-size: 12px; font-weight: 600; color: var(--cs-muted); }
+.cset-msg:empty { display: none; }
+.cset-msg.is-saved { color: var(--cs-ok); }
+.cset-msg.is-error { color: var(--cs-bad); }
+
+/* ---------- Cards ---------- */
+.cset { display: grid; gap: 14px; max-width: 880px; }
+.cset-card { border: 1px solid var(--cs-line); border-radius: 14px; background: var(--cs-surface); overflow: hidden; }
+.cset-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 18px 12px; }
+.cset-card__title { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
+.cset-card__sub { margin: 2px 0 0; font-size: 12.5px; color: var(--cs-muted); line-height: 1.45; }
+.cset-sub { margin: 2px 0 0; font-size: 13px; color: var(--cs-muted); }
+.cset-note { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px 14px; border: 1px dashed var(--cs-line); border-radius: 12px; background: var(--cs-soft); font-size: 13px; color: var(--cs-muted); line-height: 1.5; }
+.cset-note svg { flex: none; margin-top: 2px; }
+
+/* One row per setting: its name and what it covers, then the switch or the tick boxes. */
+.cset-list { list-style: none; margin: 0; padding: 0; }
+.cset-row { display: flex; align-items: center; gap: 16px; padding: 12px 18px; border-top: 1px solid var(--cs-line); }
+.cset-row__text { flex: 1; min-width: 0; }
+.cset-row__label { display: block; font-size: 14px; font-weight: 600; }
+label.cset-row__label { cursor: pointer; }
+.cset-row__help { margin: 2px 0 0; font-size: 12.5px; color: var(--cs-muted); line-height: 1.45; }
+.cset-row__side { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: none; }
+
+/* ---------- The school attendance calendar (read only) ---------- */
+.cset-link { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 7px 12px; border: 1px solid var(--cs-line); border-radius: 10px; background: transparent; color: var(--cs-brand-text); font-size: 12.5px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.cset-link:hover { border-color: var(--cs-brand); text-decoration: none; }
+.cset-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--cs-line); }
+.cset-facts > div { padding: 12px 18px; border-left: 1px solid var(--cs-line); min-width: 0; }
+.cset-facts > div:first-child { border-left: 0; }
+.cset-facts dt { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--cs-muted); }
+.cset-facts dd { margin: 3px 0 0; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.cset-facts dd small { display: block; margin-top: 1px; font-size: 12px; font-weight: 500; color: var(--cs-muted); }
+.cset-days-head { margin: 0; padding: 12px 18px 4px; border-top: 1px solid var(--cs-line); font-size: 12.5px; font-weight: 700; }
+.cset-days { list-style: none; margin: 0; padding: 4px 18px 14px; display: grid; gap: 6px; }
+.cset-day { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; background: var(--cs-soft); }
+.cset-day__date { flex: none; display: grid; justify-items: center; width: 52px; padding: 4px 0; border-radius: 8px; background: var(--cs-surface); border: 1px solid var(--cs-line); line-height: 1.15; }
+.cset-day__date strong { font-size: 13px; }
+.cset-day__date small { font-size: 11px; color: var(--cs-muted); }
+.cset-day__name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.cset-tag { flex: none; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--cs-brand) 12%, var(--cs-surface)); color: var(--cs-brand-text); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.cset-tag--muted { background: transparent; border: 1px solid var(--cs-line); color: var(--cs-muted); }
+.cset-empty { margin: 0; padding: 4px 18px 16px; font-size: 12.5px; color: var(--cs-muted); }
+
+@media (max-width: 640px) {
+  .cset-card__head { flex-direction: column; align-items: stretch; padding: 12px 14px 10px; }
+  .cset-link { align-self: flex-start; }
+  .cset-row { flex-wrap: wrap; padding: 12px 14px; gap: 10px 12px; }
+  /* The tick boxes go under the words (the word Saved after them); a switch stays beside them. */
+  .cset-row--share .cset-row__side { flex: 1 1 100%; flex-direction: row-reverse; justify-content: flex-end; }
+  .cset-facts { grid-template-columns: minmax(0, 1fr); }
+  .cset-facts > div { border-left: 0; border-top: 1px solid var(--cs-line); padding: 10px 14px; }
+  .cset-facts > div:first-child { border-top: 0; }
+  .cset-days, .cset-days-head, .cset-empty { padding-left: 14px; padding-right: 14px; }
+  .cset-day .cset-tag { display: none; }
+}
+
+/* ---------- Management › Class settings ---------- */
+.cset-page { box-sizing: border-box; width: 100%; max-width: 1180px; margin: 0; padding: 22px 26px 48px; display: grid; gap: 18px; }
+.cset-page *, .cset-page *::before, .cset-page *::after { box-sizing: border-box; }
+.cset-page .cset { max-width: none; }
+.cset-page__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cset-page__title { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: -.01em; }
+.cset-page .cset-card__head { padding: 16px 20px 12px; }
+.cset-page :is(.cset-facts > div, .cset-days-head, .cset-days, .cset-empty) { padding-left: 20px; padding-right: 20px; }
+.cset-status { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--cs-muted); }
+.cset-status:empty { display: none; }
+.cset-status.is-saved { color: var(--cs-ok); }
+.cset-status.is-error { color: var(--cs-bad); }
+
+.cset-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 20px 12px; }
+.cset-search { flex: 1 1 220px; max-width: 320px; height: 36px; padding: 0 12px; border: 1px solid var(--cs-line); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: 13px; }
+.cset-search:focus { outline: 2px solid color-mix(in srgb, var(--cs-brand) 35%, transparent); border-color: var(--cs-brand); }
+.cset-count { font-size: 12.5px; color: var(--cs-muted); }
+
+.cset-table-wrap { overflow-x: auto; border-top: 1px solid var(--cs-line); -webkit-overflow-scrolling: touch; }
+.cset-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; }
+.cset-table th, .cset-table td { padding: 10px 10px; border-bottom: 1px solid var(--cs-line); text-align: center; vertical-align: middle; background: var(--cs-surface); }
+.cset-table thead th { font-size: 12px; font-weight: 700; color: var(--cs-muted); white-space: nowrap; }
+/* Each item heads its pair of boxes (Parents, Students); a line sets the pairs apart. */
+.cset-table thead .cset-item-th { padding-bottom: 2px; border-bottom: 0; color: var(--cs-text); font-size: 12.5px; }
+.cset-table thead .cset-item-th span { display: block; padding-bottom: 5px; border-bottom: 2px solid color-mix(in srgb, var(--cs-brand) 40%, var(--cs-line)); }
+.cset-table thead .cset-aud-th { padding-top: 6px; font-size: 11px; font-weight: 650; letter-spacing: .02em; }
+.cset-table .cset-pair-start { border-left: 1px solid var(--cs-line); }
+.cset-table .cset-col-switch { min-width: 92px; }
+.cset-table .cset-col-class { position: sticky; left: 0; z-index: 1; text-align: left; min-width: 180px; }
+.cset-table tbody tr:last-child td { border-bottom: 0; }
+.cset-table tbody tr:hover td { background: color-mix(in srgb, var(--cs-brand) 3%, var(--cs-surface)); }
+.cset-class strong { display: block; font-weight: 650; }
+.cset-class small { display: block; margin-top: 1px; font-size: 12px; color: var(--cs-muted); }
+.cset-allrow td { background: var(--cs-soft); }
+.cset-table tbody tr.cset-allrow:hover td { background: var(--cs-soft); }
+.cset-allrow .cset-class strong { color: var(--cs-brand-text); }
+.cset-none { margin: 0; padding: 18px 20px; font-size: 13px; color: var(--cs-muted); }
+
+.cset-legend { border-top: 1px solid var(--cs-line); }
+.cset-legend summary { padding: 12px 20px; font-size: 12.5px; font-weight: 700; color: var(--cs-muted); cursor: pointer; }
+.cset-legend dl { display: grid; grid-template-columns: minmax(140px, max-content) minmax(0, 1fr); gap: 6px 18px; margin: 0; padding: 0 20px 16px; font-size: 13px; }
+.cset-legend dt { font-weight: 650; }
+.cset-legend dd { margin: 0; color: var(--cs-muted); }
+
+@media (max-width: 640px) {
+  .cset-page { padding: 16px 16px 40px; gap: 14px; }
+  .cset-page__title { font-size: 19px; }
+  .cset-page .cset-card__head, .cset-toolbar, .cset-legend summary, .cset-legend dl,
+  .cset-page :is(.cset-facts > div, .cset-days-head, .cset-days, .cset-empty) { padding-left: 14px; padding-right: 14px; }
+  .cset-search { max-width: none; }
+  .cset-table th, .cset-table td { padding: 9px 7px; }
+  .cset-table thead th { white-space: normal; line-height: 1.25; }
+  .cset-table .cset-col-switch { min-width: 70px; }
+  .cset-table .cset-col-class { min-width: 124px; max-width: 146px; box-shadow: 1px 0 0 var(--cs-line); }
+  .cset-legend dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .cset-legend dd { margin-bottom: 8px; }
+}

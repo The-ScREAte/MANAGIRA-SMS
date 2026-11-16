@@ -124,11 +124,14 @@ async function editorPage(req, res, db) {
   const isEmbedded = isEmbeddedRequest(req, "customForms");
   // The Custom editor has no page of its own: it opens inside Management Tools.
   if (!isEmbedded && String(req.get("Sec-Fetch-Dest") || "") !== "iframe") return res.redirect(`/common/management?panel=custom-forms&page=${encodeURIComponent(req.originalUrl)}&label=${encodeURIComponent("Custom editor")}`);
-  const [sections, counts, classes, channels] = await Promise.all([
+  const [sections, counts, classes, channels, remarks] = await Promise.all([
     cf.listSections(db, organizationId, { fresh: true }),
     cf.entryCounts(db, organizationId),
     classesOf(db, organizationId),
     require("../utils/guardianMessaging").getMessagingChannelStatus(db, organizationId).catch(() => ({})),
+    // Report-card remarks (feature report_remarks_forms): the remarks a field can print as, and
+    // the library's Report card remarks made from the school's remark types and ready-made remarks.
+    cf.remarksOn(organizationId) ? cf.schoolRemarks(db, organizationId).catch(() => null) : null,
   ]);
   res.render("common/customForms", {
     title: "Custom editor",
@@ -144,6 +147,7 @@ async function editorPage(req, res, db) {
       types: Object.entries(cf.FIELD_TYPES).map(([key, value]) => ({ key, label: value.label, options: Boolean(value.options), input: value.input !== false })),
       icons: cf.ICONS,
       answerIcons: cf.ANSWER_ICONS,
+      remarks: remarks ? { slots: remarks.slots, template: cf.remarksSection(remarks) } : null,
     },
   });
 }
@@ -266,6 +270,8 @@ async function entriesApi(req, res, db) {
   return res.json({
     success: true,
     student: { id: context.student.id, name: context.student.name, className: context.student.className },
+    // The form itself, for a student opened on their own (the classroom's Students list).
+    fields: context.section.fields.filter((field) => !field.retired).map(({ notes, ...field }) => field),
     entries,
     // Last term's or year's answers, to start this one from.
     previous,

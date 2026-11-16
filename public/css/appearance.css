@@ -169,3 +169,17 @@ html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow:
 .ap-card { padding: 18px 20px; }
 .ap-card__title { margin: 0; font-size: 1rem; font-weight: 700; }
 .ap-card__sub { margin: 2px 0 0; font-size: .86rem; color: #64748b; }
+
+/* A school's public website pins its section menu to the bottom of a small screen. A blurred header
+   would become that menu's containing block (it would sit inside the header, over the logo), so
+   the header on those pages isn't blurred. */
+@media (max-width: 768px) {
+  html[data-appearance] header#top-header:has(> .sticky-nav) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    /* Solid, so the page never shows through it while scrolling. */
+    background: #fff !important;
+  }
+  html[data-appearance="gray"] header#top-header:has(> .sticky-nav) { background: #f8f6ef !important; }
+  html[data-appearance="dark"] header#top-header:has(> .sticky-nav) { background: var(--ap-header, #1f242b) !important; }
+}

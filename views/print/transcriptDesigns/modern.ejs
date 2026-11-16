@@ -1,0 +1,205 @@
+<%# Modern: a band in the school's colour, a summary with GPA at a glance, each term in its own card.
+    Data: `t` (views/print/transcript.ejs). %>
+<style>
+  .td.transcript::after, .td.transcript::before { display: none !important; content: none !important; }
+  .td-modern { --accent: var(--primary, #01535b); --ink: #0f172a; --soft: #64748b; --line: #e2e8f0; --tint: color-mix(in srgb, var(--accent) 7%, #fff); position: relative; max-width: 8.5in; margin: 0 auto 32px; background: #fff; color: var(--ink); font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-size: 12px; line-height: 1.45; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12); overflow: hidden; }
+  .td-modern * { box-sizing: border-box; }
+  .td-modern .td-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+  .td-modern .td-watermark span { transform: rotate(-30deg); font-size: 100px; font-weight: 800; letter-spacing: 0.14em; color: rgba(15, 23, 42, 0.045); white-space: nowrap; }
+  .td-modern .tm-band { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 26px 0.55in 22px; background: var(--accent); color: #fff; }
+  .td-modern .tm-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .td-modern .tm-logo { flex: none; width: 58px; height: 58px; border-radius: 14px; background: #fff; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  .td-modern .tm-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .td-modern .tm-school { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+  .td-modern .tm-contact { margin-top: 3px; font-size: 10.5px; opacity: 0.85; }
+  .td-modern .tm-doc { flex: none; text-align: right; }
+  .td-modern .tm-doc__title { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.9; }
+  .td-modern .tm-doc__kind { margin-top: 4px; display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); font-size: 10.5px; font-weight: 700; }
+  .td-modern .tm-doc__date { margin-top: 4px; font-size: 10.5px; opacity: 0.85; }
+  .td-modern .tm-body { position: relative; z-index: 1; padding: 22px 0.55in 0.45in; }
+  .td-modern .tm-summary { display: grid; grid-template-columns: 1.6fr repeat(var(--tiles, 3), minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .td-modern .tm-tile { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; min-width: 0; }
+  .td-modern .tm-tile--student { background: var(--tint); border-color: transparent; }
+  .td-modern .tm-tile__label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); }
+  .td-modern .tm-tile__value { margin-top: 3px; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .td-modern .tm-tile__note { margin-top: 1px; font-size: 10.5px; color: var(--soft); }
+  .td-modern .tm-tile--gpa .tm-tile__value { color: var(--accent); font-size: 24px; }
+  .td-modern .tm-details { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0 0 18px; padding: 10px 2px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
+  .td-modern .tm-details b { font-weight: 700; }
+  .td-modern .tm-details span { color: var(--soft); }
+  .td-modern .tm-heading { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; }
+  .td-modern .tm-heading::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .td-modern .tm-heading small { font-weight: 600; color: var(--soft); letter-spacing: 0; }
+  .td-modern .tm-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .td-modern .tm-term { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; break-inside: avoid; background: #fff; }
+  .td-modern .tm-term__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 12px; background: #f8fafc; border-bottom: 1px solid var(--line); }
+  .td-modern .tm-term__name { font-weight: 800; font-size: 12.5px; }
+  .td-modern .tm-term__dates { font-size: 10.5px; color: var(--soft); }
+  .td-modern .tm-term__gpa { flex: none; padding: 3px 9px; border-radius: 999px; background: var(--tint); color: var(--accent); font-size: 10.5px; font-weight: 800; white-space: nowrap; }
+  .td-modern table { width: 100%; border-collapse: collapse; }
+  .td-modern th { padding: 6px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); text-align: left; border-bottom: 1px solid var(--line); }
+  .td-modern td { padding: 5px 12px; border-bottom: 1px solid #f1f5f9; font-size: 11.5px; }
+  .td-modern tr:last-child td { border-bottom: 0; }
+  .td-modern .num { text-align: right; font-variant-numeric: tabular-nums; width: 56px; }
+  .td-modern .grade { text-align: center; width: 58px; }
+  .td-modern .pill { display: inline-block; min-width: 28px; padding: 1px 7px; border-radius: 6px; background: var(--tint); color: var(--accent); font-weight: 800; font-size: 11px; text-align: center; }
+  .td-modern .tm-term__foot { padding: 7px 12px 8px; border-top: 1px solid var(--line); background: #f8fafc; font-size: 11px; }
+  .td-modern .tm-tot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; line-height: 1.6; color: var(--soft); }
+  .td-modern .tm-tot__k { width: 74px; font-weight: 700; color: var(--ink); }
+  .td-modern .tm-tot b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .td-modern .tm-tot--cum b { color: var(--accent); }
+  .td-modern .tm-key { margin: 14px 0 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 10.5px; line-height: 1.55; color: var(--soft); break-inside: avoid; }
+  .td-modern .tm-key b { color: var(--ink); }
+  .td-modern .tm-foot { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); break-inside: avoid; }
+  .td-modern .tm-note { font-size: 10px; color: var(--soft); line-height: 1.5; }
+  .td-modern .tm-note p { margin: 2px 0; }
+  .td-modern .tm-signature { min-width: 220px; text-align: center; }
+  .td-modern .tm-signature img { display: block; max-width: 190px; max-height: 60px; margin: 0 auto -2px; object-fit: contain; }
+  .td-modern .tm-signature__line { border-top: 1.5px solid var(--ink); padding-top: 4px; font-weight: 800; font-size: 12px; }
+  .td-modern .tm-signature__title { font-size: 10.5px; color: var(--soft); }
+  .td-modern .tm-close { break-inside: avoid; page-break-inside: avoid; }
+  .td-modern .tm-empty { padding: 14px; border: 1px dashed var(--line); border-radius: 12px; color: var(--soft); text-align: center; }
+  @media screen and (max-width: 760px) {
+    .td-modern .tm-band { flex-direction: column; align-items: flex-start; padding: 22px; }
+    .td-modern .tm-doc { text-align: left; }
+    .td-modern .tm-body { padding: 18px 18px 26px; }
+    .td-modern .tm-summary { grid-template-columns: 1fr 1fr; }
+    .td-modern .tm-tile--student { grid-column: 1 / -1; }
+    .td-modern .tm-terms { grid-template-columns: 1fr; }
+    .td-modern .tm-foot { grid-template-columns: 1fr; }
+  }
+  @media print {
+    @page { margin: 0.35in; }
+    .td-modern { max-width: none; margin: 0; box-shadow: none; font-size: 11px; }
+    .td-modern .tm-band { padding: 16px 0.35in 14px; }
+    .td-modern .tm-logo { width: 48px; height: 48px; }
+    .td-modern .tm-body { padding: 14px 0.35in 0.2in; }
+    .td-modern .tm-summary { margin-bottom: 8px; }
+    .td-modern .tm-tile { padding: 8px 10px; }
+    .td-modern .tm-tile__value { font-size: 16px; }
+    .td-modern .tm-tile--gpa .tm-tile__value { font-size: 20px; }
+    .td-modern .tm-details { margin-bottom: 10px; padding: 6px 2px; }
+    .td-modern .tm-heading { margin: 10px 0 7px; }
+    .td-modern .tm-terms { gap: 9px; }
+    .td-modern .tm-term__head { padding: 7px 10px; }
+    .td-modern th { padding: 4px 10px; }
+    .td-modern td { padding: 3px 10px; font-size: 11px; }
+    .td-modern .tm-term__foot { padding: 5px 10px 6px; font-size: 10.5px; }
+    .td-modern .tm-key { display: none; } /* the full key is on the page after the record */
+    .td-modern .tm-foot { margin-top: 14px; padding-top: 10px; }
+    .td-modern .td-watermark { position: fixed; }
+    .td-modern, .td-modern * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+<div class="transcript td td-modern">
+  <% if (!t.official) { %><div class="td-watermark" aria-hidden="true"><span>UNOFFICIAL</span></div><% } %>
+  <div class="tm-band" role="banner">
+    <div class="tm-brand">
+      <% if (t.logo) { %><div class="tm-logo"><img src="<%= t.logo %>" alt="<%= t.schoolName %> logo"></div><% } %>
+      <div>
+        <div class="tm-school"><%= t.schoolName %></div>
+        <div class="tm-contact"><%= [t.address, t.phone, t.email].filter(Boolean).join('  ·  ') %></div>
+      </div>
+    </div>
+    <div class="tm-doc">
+      <div class="tm-doc__title">Academic Transcript</div>
+      <div class="tm-doc__kind"><%= t.official ? 'Official' : 'Unofficial copy' %></div>
+      <div class="tm-doc__date"><%= t.official ? 'Issued' : 'Printed' %> <%= t.issued %></div>
+    </div>
+  </div>
+
+  <div class="tm-body">
+    <% /* Only tiles with something to say: a school that doesn't print GPA gets no empty GPA tile. */
+       const _tiles = [{ label: 'Terms completed', value: t.termCount }];
+       if (t.overall && t.overall.unweighted) _tiles.push({ label: 'Cumulative GPA', value: t.overall.unweighted, note: '4.0 scale', gpa: true });
+       if (t.overall && t.overall.weighted) _tiles.push({ label: 'Weighted GPA', value: t.overall.weighted, note: 'Honors & AP' });
+       if (t.creditsEarned) _tiles.push({ label: 'Credits earned', value: t.creditsEarned, note: t.overallCredits && t.overallCredits.attempted !== t.overallCredits.earned ? 'of ' + t.overallCredits.attempted + ' attempted' : '' });
+       const _class = (t.fields.find(([l]) => l === 'Current class') || [])[1];
+       if (_class && _tiles.length < 3) _tiles.push({ label: 'Current class', value: _class, small: true }); %>
+    <section class="tm-summary" aria-label="Summary" style="--tiles: <%= _tiles.length %>">
+      <div class="tm-tile tm-tile--student">
+        <div class="tm-tile__label">Student</div>
+        <div class="tm-tile__value"><%= t.studentName %></div>
+        <% if (t.studentId) { %><div class="tm-tile__note">Student ID <%= t.studentId %></div><% } %>
+      </div>
+      <% _tiles.forEach((tile) => { %>
+        <div class="tm-tile<%= tile.gpa ? ' tm-tile--gpa' : '' %>">
+          <div class="tm-tile__label"><%= tile.label %></div>
+          <div class="tm-tile__value"<% if (tile.small) { %> style="font-size:15px;"<% } %>><%= tile.value %></div>
+          <% if (tile.note) { %><div class="tm-tile__note"><%= tile.note %></div><% } %>
+        </div>
+      <% }) %>
+    </section>
+
+    <div class="tm-details">
+      <% t.fields.filter(([label]) => label !== 'Student' && label !== 'Student ID').forEach(([label, value]) => { %>
+        <div><span><%= label %>:</span> <b><%= value %></b></div>
+      <% }) %>
+      <% if (t.previous) { %><div><span>Previous records GPA<%= t.previous.asOf ? ' (' + t.previous.asOf + ')' : '' %>:</span> <b><%= t.previous.weighted !== null && t.previous.weighted !== undefined ? t.previous.weighted : (t.previous.unweighted !== null && t.previous.unweighted !== undefined ? t.previous.unweighted : t.previous.gpa) %></b></div><% } %>
+    </div>
+
+    <% if (!t.years.length && !t.earlier.length) { %>
+      <div class="tm-empty">No completed terms yet. Records appear here once a term has ended.</div>
+    <% } %>
+
+    <% if (t.earlier.length) { %>
+      <div class="tm-heading">Earlier records</div>
+      <div class="tm-terms">
+        <% t.earlier.forEach((section) => { %>
+          <div class="tm-term">
+            <div class="tm-term__head"><div><div class="tm-term__name"><%= section.term %></div><div class="tm-term__dates"><%= section.year %><%= section.school ? ' · ' + section.school : '' %></div></div></div>
+            <table>
+              <thead><tr><th>Course</th><th class="num">%</th><th class="grade">Grade</th><th class="num">Credits</th></tr></thead>
+              <tbody><% section.rows.forEach((row) => { %><tr><td><%= row.subject %></td><td class="num"><%= row.percent %></td><td class="grade"><% if (row.grade) { %><span class="pill"><%= row.grade %></span><% } %></td><td class="num"><%= row.credits %></td></tr><% }) %></tbody>
+            </table>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% t.years.forEach((year) => { %>
+      <div class="tm-heading">School year <%= year.label %> <small><%= year.terms.length %> term<%= year.terms.length === 1 ? '' : 's' %></small></div>
+      <div class="tm-terms">
+        <% year.terms.forEach((term) => { %>
+          <div class="tm-term">
+            <div class="tm-term__head">
+              <div><div class="tm-term__name"><%= term.name %></div><% if (term.dates) { %><div class="tm-term__dates"><%= term.dates %></div><% } %></div>
+              <% if (term.gpa) { %><div class="tm-term__gpa">GPA <%= term.gpa.unweighted %></div><% } %>
+            </div>
+            <table>
+              <thead><tr><th>Course</th><th class="num">%</th><th class="grade">Grade</th><% if (t.usesCredits) { %><th class="num">Credits</th><% } %></tr></thead>
+              <tbody><% term.rows.forEach((row) => { %><tr><td><%= row.subject %></td><td class="num"><%= row.percent %></td><td class="grade"><% if (row.grade) { %><span class="pill"><%= row.grade %></span><% } %></td><% if (t.usesCredits) { %><td class="num"><%= row.credits %></td><% } %></tr><% }) %></tbody>
+            </table>
+            <% if (term.gpa || term.cumulative || term.credits) { %>
+              <div class="tm-term__foot">
+                <% [['This term', term.gpa, term.credits, ''], ['Cumulative', term.cumulative, term.cumulativeCredits, ' tm-tot--cum']].forEach(([label, g, c, extra]) => { if (!g && !c) return; %>
+                  <div class="tm-tot<%= extra %>"><span class="tm-tot__k"><%= label %></span>
+                    <% if (g) { %><span>GPA <b><%= g.unweighted %></b></span><% if (g.weighted) { %><span>Weighted <b><%= g.weighted %></b></span><% } %><% } %>
+                    <% if (c) { %><span>Credits <b><%= c.earned %></b><%= c.attempted !== c.earned ? ' of ' + c.attempted : '' %></span><% } %>
+                  </div>
+                <% }) %>
+              </div>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% }) %>
+
+    <%# The key and closing lines stay together on paper: a signature never sits alone on a page. %>
+    <div class="tm-close">
+    <% if (t.key) { %><p class="tm-key"><b>Grading key</b> · 4.0 scale: <%= t.key.scale %>. <%= t.key.weighted %> <%= t.key.method %></p><% } %>
+
+    <div class="tm-foot" role="contentinfo">
+      <div class="tm-note">
+        <p><%= t.official ? 'This official transcript was issued by email on ' + t.issued + '.' : 'Unofficial copy. Official transcripts are sent by the school by email.' %></p>
+        <p>This document is the property of <%= t.schoolName %> and is released only with the consent of the student or guardian.</p>
+      </div>
+      <div class="tm-signature">
+        <% if (t.signature.image) { %><img src="<%= t.signature.image %>" alt="Signature"><% } %>
+        <div class="tm-signature__line"><%= t.signature.name || ' ' %></div>
+        <div class="tm-signature__title"><%= t.signature.title %></div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

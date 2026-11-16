@@ -1061,8 +1061,9 @@ const hubController = {
       return res.redirect(`/hub/setup-password?token=${token}`);
     }
 
-    if (password.length < 6) {
-      req.flash('error', 'Password must be at least 6 characters.');
+    const hubPasswordIssue = await require('../utils/passwordRules').passwordProblemAsync(password);
+    if (hubPasswordIssue) {
+      req.flash('error', hubPasswordIssue);
       return res.redirect(`/hub/setup-password?token=${token}`);
     }
 
@@ -1370,7 +1371,11 @@ const hubController = {
       const currentLogo = currentLogoResult.rows[0]?.logo_path;
 
       // Upload new logo to S3 with proper path including filename
-      const logoKey = `images/hub-logos/${hubId}/${Date.now()}_${req.file.originalname}`;
+      // A safe name with a lower-case picture extension: the bucket shows hub logos by it.
+      const logoExt = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif", "image/svg+xml": ".svg" }[req.file.mimetype]
+        || (String(req.file.originalname || "").match(/\.[a-z0-9]+$/i) || [".png"])[0].toLowerCase();
+      const logoBase = String(req.file.originalname || "logo").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-60) || "logo";
+      const logoKey = `images/hub-logos/${hubId}/${Date.now()}_${logoBase}${logoExt}`;
       const logoUrl = await uploadToS3(req.file, logoKey);
 
             // Update database with new logo

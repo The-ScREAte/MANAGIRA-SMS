@@ -1,0 +1,132 @@
+<%# Compact: everything on as few pages as possible — one header line, the student on one row,
+    terms in a three-across grid of small tables, a one-line summary. Data: `t` (views/print/transcript.ejs). %>
+<style>
+  .td.transcript::after, .td.transcript::before { display: none !important; content: none !important; }
+  .td-compact { --accent: var(--primary, #01535b); --ink: #111827; --soft: #6b7280; --line: #d1d5db; position: relative; max-width: 8.5in; margin: 0 auto 32px; padding: 0.4in 0.45in 0.35in; background: #fff; color: var(--ink); font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10.5px; line-height: 1.35; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12); overflow: hidden; }
+  .td-compact * { box-sizing: border-box; }
+  .td-compact .td-watermark { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+  .td-compact .td-watermark span { transform: rotate(-30deg); font-size: 90px; font-weight: 800; letter-spacing: 0.14em; color: rgba(17, 24, 39, 0.045); white-space: nowrap; }
+  .td-compact .tk-body { position: relative; z-index: 1; }
+  .td-compact .tk-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+  .td-compact .tk-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .td-compact .tk-logo { flex: none; width: 38px; height: 38px; object-fit: contain; }
+  .td-compact .tk-school { font-size: 14px; font-weight: 800; }
+  .td-compact .tk-contact { font-size: 9.5px; color: var(--soft); }
+  .td-compact .tk-doc { flex: none; text-align: right; }
+  .td-compact .tk-doc b { display: block; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  .td-compact .tk-doc span { font-size: 9.5px; color: var(--soft); }
+  .td-compact .tk-student { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px 14px; margin: 8px 0; padding: 6px 8px; background: #f9fafb; border: 1px solid var(--line); border-radius: 6px; }
+  .td-compact .tk-student div { min-width: 0; }
+  .td-compact .tk-student span { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); }
+  .td-compact .tk-student b { display: block; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .td-compact .tk-strip { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 10.5px; }
+  .td-compact .tk-strip b { color: var(--accent); }
+  .td-compact .tk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .td-compact .tk-term { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; break-inside: avoid; }
+  .td-compact .tk-term__head { display: flex; justify-content: space-between; gap: 6px; padding: 4px 7px; background: color-mix(in srgb, var(--accent) 8%, #fff); border-bottom: 1px solid var(--line); }
+  .td-compact .tk-term__head { flex-wrap: wrap; }
+  .td-compact .tk-term__head b { font-size: 10px; white-space: nowrap; }
+  .td-compact .tk-term__head span { font-size: 9px; color: var(--soft); white-space: nowrap; }
+  .td-compact table { width: 100%; border-collapse: collapse; }
+  .td-compact td { padding: 2px 7px; border-bottom: 1px solid #f3f4f6; font-size: 10px; }
+  .td-compact tr:last-child td { border-bottom: 0; }
+  .td-compact .num { text-align: right; width: 30px; font-variant-numeric: tabular-nums; color: var(--soft); }
+  .td-compact .grade { text-align: right; width: 26px; font-weight: 800; }
+  .td-compact .tk-term__foot { padding: 3px 7px; border-top: 1px solid var(--line); font-size: 9.5px; color: var(--soft); }
+  .td-compact .tk-term__foot div { display: flex; justify-content: space-between; gap: 6px; }
+  .td-compact .tk-term__foot b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .td-compact .cr { text-align: right; width: 30px; font-variant-numeric: tabular-nums; color: var(--soft); }
+  .td-compact .tk-year { grid-column: 1 / -1; margin-top: 4px; font-size: 10px; font-weight: 800; color: var(--accent); }
+  .td-compact .tk-key { margin: 8px 0 0; font-size: 9px; line-height: 1.45; color: var(--soft); }
+  .td-compact .tk-key b { color: var(--ink); }
+  .td-compact .tk-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); break-inside: avoid; }
+  .td-compact .tk-note { font-size: 9px; color: var(--soft); max-width: 60%; }
+  .td-compact .tk-note p { margin: 1px 0; }
+  .td-compact .tk-signature { min-width: 180px; text-align: center; }
+  .td-compact .tk-signature img { display: block; max-width: 150px; max-height: 44px; margin: 0 auto -2px; object-fit: contain; }
+  .td-compact .tk-signature__line { border-top: 1px solid var(--ink); padding-top: 2px; font-weight: 800; font-size: 10.5px; }
+  .td-compact .tk-signature__title { font-size: 9px; color: var(--soft); }
+  .td-compact .tk-close { break-inside: avoid; page-break-inside: avoid; }
+  .td-compact .tk-empty { padding: 10px; border: 1px dashed var(--line); border-radius: 6px; color: var(--soft); text-align: center; }
+  @media screen and (max-width: 760px) { .td-compact { padding: 20px 16px; } .td-compact .tk-grid { grid-template-columns: 1fr 1fr; } .td-compact .tk-head, .td-compact .tk-foot { flex-direction: column; align-items: flex-start; } .td-compact .tk-doc { text-align: left; } .td-compact .tk-note { max-width: none; } }
+  @media screen and (max-width: 480px) { .td-compact .tk-grid { grid-template-columns: 1fr; } }
+  @media print {
+    @page { margin: 0.35in; }
+    .td-compact { max-width: none; margin: 0; padding: 0; box-shadow: none; }
+    .td-compact .td-watermark { position: fixed; }
+    .td-compact .tk-key { display: none; } /* the full key is on the page after the record */
+    .td-compact, .td-compact * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+<div class="transcript td td-compact">
+  <% if (!t.official) { %><div class="td-watermark" aria-hidden="true"><span>UNOFFICIAL</span></div><% } %>
+  <div class="tk-body">
+    <div class="tk-head" role="banner">
+      <div class="tk-brand">
+        <% if (t.logo) { %><img class="tk-logo" src="<%= t.logo %>" alt="<%= t.schoolName %> logo"><% } %>
+        <div><div class="tk-school"><%= t.schoolName %></div><div class="tk-contact"><%= [t.address, t.phone, t.email].filter(Boolean).join(' · ') %></div></div>
+      </div>
+      <div class="tk-doc"><b>Academic Transcript</b><span><%= t.official ? 'Official · issued ' + t.issued : 'Unofficial copy · ' + t.issued %></span></div>
+    </div>
+
+    <section class="tk-student" aria-label="Student">
+      <% t.fields.forEach(([label, value]) => { %><div><span><%= label %></span><b title="<%= value %>"><%= value %></b></div><% }) %>
+    </section>
+
+    <div class="tk-strip">
+      <div>Terms completed <b><%= t.termCount %></b></div>
+      <% if (t.overall) { %><div>Cumulative GPA <b><%= t.overall.unweighted %></b></div><% if (t.overall.weighted) { %><div>Weighted <b><%= t.overall.weighted %></b></div><% } %><% } %>
+      <% if (t.previous) { %><div>Previous records GPA <b><%= t.previous.weighted !== null && t.previous.weighted !== undefined ? t.previous.weighted : (t.previous.unweighted !== null && t.previous.unweighted !== undefined ? t.previous.unweighted : t.previous.gpa) %></b></div><% } %>
+      <% if (t.creditsEarned) { %><div>Credits earned <b><%= t.creditsEarned %></b><%= t.overallCredits && t.overallCredits.attempted !== t.overallCredits.earned ? ' of ' + t.overallCredits.attempted : '' %></div><% } %>
+    </div>
+
+    <% if (!t.years.length && !t.earlier.length) { %>
+      <div class="tk-empty">No completed terms yet. Records appear here once a term has ended.</div>
+    <% } %>
+
+    <div class="tk-grid">
+      <% if (t.earlier.length) { %>
+        <div class="tk-year">Earlier records</div>
+        <% t.earlier.forEach((section) => { %>
+          <div class="tk-term">
+            <div class="tk-term__head"><b><%= section.term %></b><span><%= section.year %></span></div>
+            <table><tbody><% section.rows.forEach((row) => { %><tr><td><%= row.subject %></td><td class="num"><%= row.percent %></td><td class="grade"><%= row.grade %></td></tr><% }) %></tbody></table>
+            <% if (section.school) { %><div class="tk-term__foot"><%= section.school %></div><% } %>
+          </div>
+        <% }) %>
+      <% } %>
+      <% t.years.forEach((year) => { %>
+        <div class="tk-year"><%= year.label %></div>
+        <% year.terms.forEach((term) => { %>
+          <div class="tk-term">
+            <div class="tk-term__head"><b><%= term.name %></b><span><%= term.dates %></span></div>
+            <table><tbody><% term.rows.forEach((row) => { %><tr><td><%= row.subject %></td><td class="num"><%= row.percent %></td><td class="grade"><%= row.grade %></td><% if (t.usesCredits) { %><td class="cr"><%= row.credits %></td><% } %></tr><% }) %></tbody></table>
+            <% if (term.gpa || term.cumulative || term.credits) { %>
+              <div class="tk-term__foot">
+                <% [['Term', term.gpa, term.credits], ['Cumulative', term.cumulative, term.cumulativeCredits]].forEach(([label, g, c]) => { if (!g && !c) return; %>
+                  <div><span><%= label %></span><span><% if (g) { %>GPA <b><%= g.unweighted %></b><%= g.weighted ? ' · W ' + g.weighted : '' %><% } %><% if (c) { %><%= g ? ' · ' : '' %>Cr <b><%= c.earned %></b><% } %></span></div>
+                <% }) %>
+              </div>
+            <% } %>
+          </div>
+        <% }) %>
+      <% }) %>
+    </div>
+
+    <div class="tk-close">
+    <% if (t.key) { %><p class="tk-key"><b>Grading key</b> · 4.0 scale: <%= t.key.scale %>. <%= t.key.weighted ? t.key.weighted + ' W = weighted.' : '' %> <%= t.key.method %><%= t.usesCredits ? ' Cr = credits earned.' : '' %></p><% } %>
+
+    <div class="tk-foot" role="contentinfo">
+      <div class="tk-note">
+        <p><%= t.official ? 'Official transcript issued by email on ' + t.issued + '.' : 'Unofficial copy. Official transcripts are sent by the school by email.' %></p>
+        <p>Property of <%= t.schoolName %>; released only with the consent of the student or guardian.</p>
+      </div>
+      <div class="tk-signature">
+        <% if (t.signature.image) { %><img src="<%= t.signature.image %>" alt="Signature"><% } %>
+        <div class="tk-signature__line"><%= t.signature.name || ' ' %></div>
+        <div class="tk-signature__title"><%= t.signature.title %></div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

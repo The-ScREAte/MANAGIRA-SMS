@@ -276,14 +276,18 @@ function isolateReportCards() {
     control.replaceWith(replacement);
   };
 
-  root.querySelectorAll("textarea").forEach((control) => toText(control, control.value));
+  // A field the page keeps hidden (a remark carried along so saving keeps it) isn't printed: turning
+  // it into text would show it beside the one the page shows.
+  const hiddenField = (control) => control.hidden || Boolean(control.closest("[hidden]")) || window.getComputedStyle(control).display === "none";
+  root.querySelectorAll("textarea").forEach((control) => (hiddenField(control) ? control.remove() : toText(control, control.value)));
   root.querySelectorAll("select").forEach((control) => {
+    if (hiddenField(control)) return control.remove();
     const selected = control.options[control.selectedIndex];
     toText(control, selected ? selected.text : "");
   });
   root
     .querySelectorAll("input:not([type]), input[type='text'], input[type='number']")
-    .forEach((control) => toText(control, control.value));
+    .forEach((control) => (hiddenField(control) ? control.remove() : toText(control, control.value)));
 
 }
 
@@ -662,17 +666,11 @@ async function renderAppPagePdf({ baseUrl, sessionCookie, path, readyFlag, lands
   });
 }
 
-function pdfPublicUrl(bucketName, key) {
-  const regionName = String(process.env.AWS_REGION || "").trim();
-  if (!regionName || regionName === "us-east-1") {
-    return `https://${bucketName}.s3.amazonaws.com/${key}`;
-  }
-  return `https://${bucketName}.s3.${regionName}.amazonaws.com/${key}`;
-}
-
-// Uploads a generated PDF and returns its public link.
+// Uploads a generated PDF and returns its storage address. Storage is private: the address opens
+// only through a link Managira signs (utils/storedFiles.js signedUrl, a short link, a page's route).
 async function storePdf(key, buffer) {
-  const bucketName = String(process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_BUCKET_NAME || "oneplaces3").trim();
+  const bucketName = String(process.env.S3_BUCKET_NAME || "").trim();
+  if (!bucketName) throw new Error("S3_BUCKET_NAME isn't set, so the PDF can't be stored.");
   const cleanKey = String(key || "").replace(/^\/+/, "");
   await s3Client.send(
     new PutObjectCommand({
@@ -682,7 +680,7 @@ async function storePdf(key, buffer) {
       ContentType: "application/pdf",
     })
   );
-  return pdfPublicUrl(bucketName, cleanKey);
+  return require("./storedFiles").publicUrl(cleanKey);
 }
 
 // Safe file/key segment from a name, e.g. "Asare, Kojo" -> "Asare_Kojo".

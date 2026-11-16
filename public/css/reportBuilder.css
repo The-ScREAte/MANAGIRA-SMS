@@ -182,7 +182,7 @@
 .report-builder-page .rb-type-list .rb-row-link:hover { min-height: 30px; padding: 3px 0; }
 
 /* View switch: e.g. Attendance — Each mark / Per student / Per class & day */
-.rb-view-switch { display: inline-flex; align-items: center; gap: 4px; }
+.rb-view-switch { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .rb-view-switch:empty { display: none; }
 .rb-view-switch > .rb-muted { margin-right: 4px; font-size: 13px; }
 .report-builder-page .rb-view,

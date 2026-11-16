@@ -57,7 +57,10 @@ function forDisplay(value) {
   if (!value || typeof value !== "object") return null;
   const text = clean(value.text, 2000);
   const link = value.link && /^https?:\/\//i.test(String(value.link.url || "")) ? { url: String(value.link.url), label: clean(value.link.label, 120) } : null;
-  const files = (Array.isArray(value.files) ? value.files : []).filter((file) => file && file.url).map((file) => ({ name: clean(file.name, 200) || "File", url: String(file.url) }));
+  // Files open through Managira (/files/...), which checks the person is signed in to the school.
+  const files = (Array.isArray(value.files) ? value.files : [])
+    .map((file) => ({ name: clean(file && file.name, 200) || "File", url: require("./storedFiles").fileLink(file) }))
+    .filter((file) => file.url);
   return text || link || files.length ? { text, link, files } : null;
 }
 

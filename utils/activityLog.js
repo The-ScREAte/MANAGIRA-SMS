@@ -852,9 +852,24 @@ function createOrganizationActivityLogMiddleware(database = db) {
       return next();
     }
 
+    // A refused or failed request usually ends in a redirect with an error message: it isn't
+    // logged as done ("Deleted …" for a delete the person wasn't allowed to make).
+    let failed = false;
+    if (typeof req.flash === "function") {
+      const flash = req.flash;
+      req.flash = function trackedFlash(type, message) {
+        if (message !== undefined && String(type) === "error") failed = true;
+        return flash.apply(this, arguments);
+      };
+    }
+
     res.on("finish", () => {
       if (res.statusCode < 200 || res.statusCode >= 400) {
         if (debug) console.log(`[ActivityLog] skipped write status=${res.statusCode} ${method} ${path}`);
+        return;
+      }
+      if (failed) {
+        if (debug) console.log(`[ActivityLog] skipped write (refused or failed) ${method} ${path}`);
         return;
       }
 

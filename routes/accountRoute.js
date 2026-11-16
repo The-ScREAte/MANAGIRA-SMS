@@ -53,23 +53,15 @@ router.get("/confirm-password", accountController.confirmPasswordGet);
 router.post("/confirm-password", accountController.confirmPasswordPost);
 router.post("/confirm-password/json", isAuthenticated, accountController.confirmPasswordJson);
 
-// Subscription Cancellation Routes
-router.get(
-  "/cancel-subscription",
-  checkFeatureAccess,
-  isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_BILLING),
-  (req, res) => accountController.cancelSubscriptionGet(req, res)
-);
-router.post("/cancel-subscription", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
-  accountController.cancelSubscriptionPost(req, res, db)
-);
-router.post(
-  "/resume-or-cancel-cancellation",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.MANAGE_BILLING),
-  accountController.resumeOrCancelCancellationPost
-);
+// Only Managira cancels or resumes a school's subscription (Admin › Organizations,
+// utils/subscriptionCancel.js): the school asks support. Old links and forms land on Billing & Plan.
+const askSupportToCancel = (req, res) => {
+  req.flash("info", "To cancel or keep your subscription, contact Managira support at support@managira.com.");
+  return res.redirect("/account/settings?section=billing");
+};
+router.get("/cancel-subscription", isAuthenticated, askSupportToCancel);
+router.post("/cancel-subscription", isAuthenticated, askSupportToCancel);
+router.post("/resume-or-cancel-cancellation", isAuthenticated, askSupportToCancel);
 
 // Login and Logout Routes
 router.get("/login", (req, res) => accountController.loginGet(req, res, db));
@@ -77,6 +69,15 @@ router.get("/login", (req, res) => accountController.loginGet(req, res, db));
 router.post("/login/continue", (req, res) => require("../controllers/ssoController").continueWithEmail(req, res, db));
 // The verification code step, once the password was right.
 router.get("/login/code", (req, res) => loginCode.page(req, res, db));
+// Two-step sign-in with an authenticator app, each person for themselves (utils/signInMfa.js).
+{
+  const authenticator = require("../controllers/authenticatorController");
+  router.get("/authenticator", isAuthenticated, (req, res) => authenticator.page(req, res, db));
+  router.get("/authenticator/status", isAuthenticated, (req, res) => authenticator.status(req, res, db));
+  router.post("/authenticator/start", isAuthenticated, express.json(), (req, res) => authenticator.start(req, res, db));
+  router.post("/authenticator/confirm", isAuthenticated, express.json(), (req, res) => authenticator.confirm(req, res, db));
+  router.post("/authenticator/off", isAuthenticated, express.json(), (req, res) => authenticator.off(req, res, db));
+}
 // Settings, Tenant configuration: a school's sign-in rules. Managers only.
 {
   const { blockGuardians } = require("../middleware/authMiddleware");
@@ -84,6 +85,7 @@ router.get("/login/code", (req, res) => loginCode.page(req, res, db));
   const door = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SETTINGS), tenant.managersOnly, tenant.guard];
   router.get("/settings/tenant", ...door, (req, res) => tenant.get(req, res, db));
   router.post("/settings/tenant", ...door, (req, res) => tenant.save(req, res, db));
+  router.post("/settings/tenant/authenticator/reset", ...door, express.json(), (req, res) => tenant.resetAuthenticator(req, res, db));
 }
 router.post("/login/verify-code", signInGuard("login-code", { field: "email" }), (req, res) => loginCode.verify(req, res, db));
 router.post("/login/resend-code", (req, res) => loginCode.resend(req, res, db));
@@ -317,7 +319,8 @@ router.post("/settings/profile", isAuthenticated, (req, res) =>
 router.post("/settings/notifications", isAuthenticated, (req, res) =>
   accountController.updateNotificationPreferencesPost(req, res, db)
 );
-router.post("/settings/notifications/organization", isAuthenticated, (req, res) =>
+// The whole school's email choices: School Profile, as the same setting through Mira.
+router.post("/settings/notifications/organization", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
   accountController.updateOrgNotificationPreferencesPost(req, res, db)
 );
 router.post("/settings/profile-image", 
@@ -401,12 +404,9 @@ router.get(
   requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraInfoGet
 );
-router.post(
-  "/mira/permissions",
-  isAuthenticated,
-  requirePermission(PERMISSIONS.SETTINGS_MIRA),
-  accountController.miraPermissionsPost
-);
+// Use Mira is turned on or off one person at a time (POST /mira/user/:userId), under the staff
+// rules; the old all-at-once save is gone.
+router.post("/mira/permissions", isAuthenticated, (req, res) => res.redirect("/account/mira"));
 router.get(
   "/mira/user/:userId",
   isAuthenticated,
@@ -644,10 +644,10 @@ router.post("/paystack/set-primary", isAuthenticated, requirePermission(PERMISSI
 router.get("/stripe-connect/onboard", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.stripeConnectOnboardGet(req, res)
 );
-router.get("/stripe-connect/return", isAuthenticated, (req, res) =>
+router.get("/stripe-connect/return", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.stripeConnectReturnGet(req, res)
 );
-router.get("/stripe-connect/refresh", isAuthenticated, (req, res) =>
+router.get("/stripe-connect/refresh", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
   accountController.stripeConnectRefreshGet(req, res)
 );
 

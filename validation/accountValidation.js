@@ -7,14 +7,13 @@ const { deriveOrgNickname, slugifyNickname } = require("../utils/orgNicknameSlug
 const validateLogin = [
   check("email")
     .trim()
-    .escape()
     .notEmpty()
     .withMessage("Email is required.")
     .isEmail()
     .withMessage("Invalid email format"),
+  // Checked exactly as typed: trimming or escaping it would stop a password with &, ', /
+  // or a space at either end from matching (utils/passwordRules.js).
   check("password")
-    .trim()
-    .escape()
     .notEmpty()
     .withMessage("Password is required."),
 ];
@@ -35,12 +34,11 @@ const validateLoginResult = (req, res, next) => {
 const validateGuardianLogin = [
   check("identifier")
     .trim()
-    .escape()
     .notEmpty()
     .withMessage("Email or phone number is required."),
+  // Checked exactly as typed: trimming or escaping it would stop a password with &, ', /
+  // or a space at either end from matching (utils/passwordRules.js).
   check("password")
-    .trim()
-    .escape()
     .notEmpty()
     .withMessage("Password is required."),
 ];
@@ -61,14 +59,13 @@ const validateGuardianLoginResult = (req, res, next) => {
 const validateStudentLogin = [
   check("email")
     .trim()
-    .escape()
     .notEmpty()
     .withMessage("Student email is required.")
     .isEmail()
     .withMessage("Invalid email format"),
+  // Checked exactly as typed: trimming or escaping it would stop a password with &, ', /
+  // or a space at either end from matching (utils/passwordRules.js).
   check("password")
-    .trim()
-    .escape()
     .notEmpty()
     .withMessage("Password is required."),
 ];
@@ -101,13 +98,11 @@ const validateRegistration = [
     .withMessage("Last name is required"),
   check("email").isEmail().withMessage("Invalid email format"),
   check("password")
-    .escape()
-    .trim()
     .not()
     .isEmpty()
     .withMessage("Password is required")
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}$/)
-    .withMessage("Password must meet security standards"),
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/)
+    .withMessage("Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *."),
   check("confirmPassword").custom((value, { req }) => {
     if (value !== req.body.password) {
       throw new Error("Passwords do not match");
@@ -222,8 +217,8 @@ const validateAccountUpdate = [
   // Password checks only if a password is provided
   body("password")
     .optional({ checkFalsy: true })
-    .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters")
     .matches(/[A-Z]/)
     .withMessage("Password must contain an uppercase letter")
     .matches(/[a-z]/)

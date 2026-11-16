@@ -150,6 +150,12 @@
 .cf-fieldrow__main { min-width: 0; }
 .cf-fieldrow__main strong { display: block; overflow: hidden; color: var(--cf-link); text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 500; }
 .cf-fieldrow__flags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* On a phone the field's flags (Required, Prints as …) go under its name, which keeps its room. */
+@media (max-width: 560px) {
+  .cf-fieldrow { grid-template-columns: 16px 30px minmax(0, 1fr); row-gap: 6px; }
+  .cf-fieldrow__flags { grid-column: 3; justify-content: flex-start; }
+  .cf-fieldrow__flags:empty { display: none; }
+}
 .cf-order { min-width: 26px; color: var(--cf-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; }
 .cf-sec__foot { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--cf-line); }
 
@@ -258,6 +264,12 @@
 .cff-pill span { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 1px solid var(--cf-line); border-radius: 999px; background: var(--cf-surface); font-size: 13.5px; font-weight: 600; }
 .cff-pill input:checked + span { border-color: var(--cf-accent); background: var(--cf-soft); color: var(--cf-accent); }
 .cff-pill input:focus-visible + span { box-shadow: 0 0 0 3px color-mix(in srgb, var(--cf-accent) 25%, transparent); }
+/* Suggestions under a typed answer (feature report_remarks_forms): a tap adds the phrase, a lit one is in the answer. */
+.cff-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cff .cff-suggest__chip { display: inline-flex; align-items: center; width: auto; max-width: 100%; height: auto; min-height: 30px; margin: 0; padding: 5px 12px; border: 1px solid var(--cf-line); border-radius: 999px; background: var(--cf-surface); color: var(--cf-text); box-shadow: none; font: inherit; font-size: 12.5px; font-weight: 500; line-height: 1.3; text-align: left; white-space: normal; cursor: pointer; transform: none; }
+.cff .cff-suggest__chip:hover { border-color: color-mix(in srgb, var(--cf-accent) 45%, var(--cf-line)); background: var(--cf-soft-2); color: var(--cf-text); }
+.cff .cff-suggest__chip[aria-pressed="true"] { border-color: var(--cf-accent); background: var(--cf-soft); color: var(--cf-accent); font-weight: 600; }
+.cff .cff-suggest__chip:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--cf-accent) 25%, transparent); }
 .cff-checks { display: flex; flex-direction: column; gap: 7px; }
 .cff-checks label { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 13.5px; font-weight: 500; cursor: pointer; }
 .cff-checks input { width: 17px; height: 17px; margin: 0; accent-color: var(--cf-accent); }

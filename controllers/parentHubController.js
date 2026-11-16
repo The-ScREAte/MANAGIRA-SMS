@@ -7,7 +7,7 @@ const sanitizeHtml = require("../utils/sanitizeHtml");
 const features = require("../utils/shards/features");
 const { listActivities } = require("../utils/classActivities");
 const parentResources = require("../utils/parentResources");
-const { guardianHasStudentAccess } = require("./guardianController");
+const { guardianHasStudentAccess, parentsSeeChild } = require("./guardianController");
 const { getOpenAssessments, resolveCurrentStudentTermContext } = require("./studentController");
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const { getTransportationIntegrationStatus } = require("../utils/transportation");
@@ -109,13 +109,17 @@ async function childrenOf(db, organizationId, guardianId) {
 module.exports = {
   // Opens at once. The numbers on the tiles come from counts below.
   hub: guard(hubOn, withChild(async (req, res, db, child) => {
-    const integration = await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null);
+    const [integration, see] = await Promise.all([
+      getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null),
+      parentsSeeChild(db, req.session.organizationId, child.id),
+    ]);
     res.render("guardian/childHub", {
       title: child.name,
       child,
       showSchoolwork: hasQuestions(res),
       showActivities: activitiesOn(req),
-      showTransport: Boolean(integration && integration.activated),
+      // The class may keep the bus from parents (Class settings).
+      showTransport: Boolean(integration && integration.activated) && see.transport !== false,
       // Forms the school gave a tile of their own (read from the school's cached list).
       formTiles: await require("../utils/customForms").tilesFor(db, req.session.organizationId, "parent", { classId: child.classId }).catch(() => []),
     });
@@ -128,11 +132,13 @@ module.exports = {
       if (!child) return res.status(403).json({ success: false });
       const organizationId = req.session.organizationId;
       const today = new Date().toISOString().slice(0, 10);
+      const see = await parentsSeeChild(db, organizationId, child.id);
       const [work, sets, upcoming, transport] = await Promise.all([
         hasQuestions(res) ? openWorkFor(db, organizationId, child) : [],
         hasQuestions(res) ? parentResources.termSetsForChild(db, organizationId, child.id, child.classId, child.termId) : [],
         activitiesOn(req) ? listActivities(db, organizationId, { classIds: child.classId ? [child.classId] : [], from: today }) : [],
-        getStudentTransportationSnapshot(db, organizationId, child.id).catch(() => null),
+        // Not when the class keeps the bus from parents (Class settings).
+        see.transport !== false ? getStudentTransportationSnapshot(db, organizationId, child.id, { imageUrl: res.locals.publicImageUrl }).catch(() => null) : null,
       ]);
       const [files, results, forms] = await Promise.all([
         parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id))),
@@ -254,7 +260,14 @@ module.exports = {
       req.flash("error", "That document isn't available.");
       return res.redirect(`/guardian/child?studentId=${child.id}`);
     }
-    return res.redirect(file.file_url);
+    // Storage is private: a link that works for a few minutes (utils/storedFiles.js).
+    const link = await require("../utils/storedFiles").signedUrl(file.file_url, { seconds: 300 });
+    if (!link) {
+      req.flash("error", "That document isn't available.");
+      return res.redirect(`/guardian/child?studentId=${child.id}`);
+    }
+    res.set("Cache-Control", "private, no-store");
+    return res.redirect(link);
   })),
 
   childrenOf,
