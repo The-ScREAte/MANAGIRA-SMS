@@ -107,7 +107,7 @@ module.exports = [
       {
         title: "Before you start",
         list: [
-          "You'll need someone who can add an app in your provider's admin console (your IT team).",
+          "You'll need someone who can add an app in your provider's admin console (your IT team). Send them the <a href=\"/legal/user-documentation/single-sign-on-it-administrators\">Single sign-on setup guide for IT administrators</a>.",
           "Every person who signs in must already have a Managira account with the same email address. Single sign-on checks who they are; their account and permissions stay in Managira.",
         ],
       },
@@ -155,7 +155,100 @@ module.exports = [
       ["What do new staff get by email?", "Someone added to sign in with your provider gets an invitation that says to log in with it, with no password to set. Someone added with a Managira password gets a link to set it. Moving someone from your provider to a password emails them that link if they don't have a password yet."],
       ["Someone set to our provider pressed Forgot password. What happens?", "No reset email is sent: the login page tells them to continue with your provider instead."],
     ],
-    related: ["sign-in-to-managira", "tenant-configuration", "roles-and-permissions"],
+    related: ["single-sign-on-it-administrators", "sign-in-to-managira", "tenant-configuration", "roles-and-permissions"],
+  },
+  {
+    slug: "single-sign-on-it-administrators",
+    title: "Single sign-on setup guide for IT administrators",
+    topic: "Account & sign-in",
+    order: 3.5,
+    summary: "What your IT team sets up in Google Workspace, Microsoft Entra ID, Okta, ClassLink, Clever or any SAML or OpenID Connect provider, then tests and rolls out.",
+    tags: ["it administrator", "it team", "identity provider configuration", "acs url", "entity id", "redirect uri", "idp metadata", "nameid", "google admin console", "entra id", "azure ad", "signing certificate"],
+    who: "Your school's or district's IT administrator, working with a Managira manager.",
+    intro: "Managira works with any identity provider that supports <strong>SAML 2.0</strong> or <strong>OpenID Connect</strong>. Your provider proves who the person is; their account, role and permissions stay in Managira. Managira never sees their provider password, and no software is installed on your side.",
+    sections: [
+      {
+        title: "Who does what",
+        table: [
+          ["Step", "Who", "Where"],
+          ["Choose the provider and protocol, and copy the addresses", "A Managira manager", "Settings › Tenant configuration › Single sign-on › <strong>Copy all for our IT team</strong>"],
+          ["Add Managira as an application", "IT administrator", "Your provider's admin console (steps below)"],
+          ["Paste the provider's details, test, turn on", "The Managira manager", "The same Settings page"],
+          ["Move people to the provider", "The Managira manager", "<strong>Use your provider for everyone</strong>, or one person at a time on Edit user"],
+        ],
+        note: "Every person must already have a Managira account with the same email address the provider sends. Single sign-on doesn't create accounts.",
+      },
+      {
+        title: "SAML 2.0: what to configure",
+        list: [
+          "<strong>ACS URL (Reply URL)</strong> and <strong>Entity ID (Audience)</strong>: copy them from Managira's settings page; each school has its own.",
+          "<strong>NameID</strong>: the person's email address (format emailAddress), or send the email in an attribute named <code>email</code>. If your provider uses another attribute name, the manager enters it under Advanced.",
+          "<strong>Signing</strong>: sign the assertion or the whole response (SHA-256 recommended). Unsigned answers are refused.",
+          "<strong>Back to Managira</strong>: give the manager your provider's <strong>metadata address</strong> (the simplest: it fills in everything), or the metadata XML, or the Entity ID, sign-in (SSO) URL and signing certificate.",
+          "<strong>Start URL</strong> (optional): add it as the app's link in your users' app launcher.",
+        ],
+      },
+      {
+        title: "OpenID Connect: what to configure",
+        list: [
+          "Create a <strong>web application</strong> that uses the authorization code flow (Managira adds PKCE).",
+          "<strong>Redirect URI</strong>: copy it from Managira's settings page.",
+          "<strong>Scopes</strong>: <code>openid email profile</code>. The ID token must carry the person's email; an email your provider marks as unverified is refused.",
+          "<strong>Back to Managira</strong>: the issuer address, the client ID and the client secret. The secret is stored encrypted and is never shown again.",
+          "Microsoft Entra ID only: when the email claim is missing, Managira uses the user principal name, which your organization assigns.",
+        ],
+      },
+      {
+        title: "Provider by provider",
+        table: [
+          ["Provider", "SAML 2.0", "OpenID Connect"],
+          ["Google Workspace", "Admin console › Apps › Web and mobile apps › Add app › Add custom SAML app. Download the IdP metadata and give it to the manager to paste. Map Primary email to the NameID.", "Google Cloud › APIs & Services › Credentials › Create OAuth client ID (Web application). Issuer: <code>https://accounts.google.com</code>"],
+          ["Microsoft Entra ID", "Entra admin center › Enterprise applications › New application › Create your own › Single sign-on › SAML. Copy the App Federation Metadata Url.", "App registrations › New registration (Web). Issuer: <code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code>"],
+          ["Okta", "Applications › Create App Integration › SAML 2.0. Name ID format EmailAddress, application username Email. Copy the Metadata URL.", "Applications › Create App Integration › OIDC › Web Application. Issuer: your Okta address"],
+          ["ClassLink", "Management Console › Single Sign-On › SAML Console › Add. Copy the metadata address.", "Ask ClassLink support for an OpenID Connect app with Managira's redirect URI."],
+          ["Clever", "Your SAML connector settings. Clever gives the metadata address.", "Not used."],
+          ["Others (OneLogin, JumpCloud, PingOne, Auth0, AD FS, Shibboleth)", "Add a custom SAML application with the values above. AD FS metadata is at <code>https://&lt;server&gt;/FederationMetadata/2007-06/FederationMetadata.xml</code>; Shibboleth must release the mail attribute.", "Add a web application with the values above."],
+        ],
+      },
+      {
+        title: "Test, then roll out",
+        steps: [
+          "The manager saves your details and selects <strong>Test the connection</strong>, then signs in on the new tab with a test account that exists in Managira. Nothing changes for anyone until the test passes.",
+          "The manager selects <strong>Turn on</strong> and confirms with their password. Turning it on moves nobody.",
+          "Move two or three people first (Edit user › How they sign in) and check they can sign in from the login page and from your app launcher.",
+          "Then move everyone with <strong>Use your provider for everyone</strong>, and send staff the short note: enter your email on the Managira login page and choose Continue.",
+        ],
+        note: "Students sign in through the provider only if the manager ticks <strong>Students sign in this way too</strong>.",
+      },
+      {
+        title: "Security notes for your records",
+        list: [
+          "Your provider's own multi-factor authentication and password rules apply to every sign-in through it. Managira doesn't ask for its own code on top.",
+          "Each answer from your provider is checked for signature, audience, time and replay, and can only sign in an account of your school. It can never sign in a Managira platform administrator.",
+          "The school's <strong>main manager always keeps a Managira password</strong>, so someone can still get in if your provider is down. Keep that account's password and its own two-step sign-in in a safe place.",
+          "Changing the certificate, the metadata or the protocol turns single sign-on off until a new test passes. Plan certificate rollovers: paste the new certificate, test, turn on.",
+          "A session that came through your provider ends when the browser closes, and after the school's session time. Someone on hold or removed in Managira can't sign in through the provider.",
+          "<strong>Recent activity</strong> on the settings page shows the latest sign-ins and refusals, with the reason, to help with troubleshooting.",
+        ],
+      },
+      {
+        title: "Troubleshooting",
+        table: [
+          ["What you see", "What to check"],
+          ["The test says no email was sent", "Send the email as the NameID (SAML) or include the <code>email</code> scope and claim (OpenID Connect), or set the attribute name under Advanced."],
+          ["The test says no account matches", "The email your provider sends must match the person's email in Managira exactly (case doesn't matter)."],
+          ["Signature or certificate refused", "Sign the assertion or the response, and paste the current signing certificate (or read the metadata again)."],
+          ["Audience or ACS refused", "The Entity ID and ACS URL in your provider must be exactly the ones Managira shows for this school."],
+          ["It worked, then stopped", "Someone changed the provider's details: test again and turn it back on."],
+        ],
+      },
+    ],
+    faq: [
+      ["Does Managira support SCIM or automatic account creation?", "No. Add people in Managira (Users / Employees, or Admissions for students), or move your records in with a data migration. Single sign-on only checks who they are."],
+      ["Can we use two providers?", "One connection per school. Pick the provider most of your people use; anyone else keeps a Managira password."],
+      ["Where are the provider details stored?", "With the school's other settings in the United States. OpenID Connect client secrets are encrypted (AES-256-GCM)."],
+    ],
+    related: ["single-sign-on", "tenant-configuration", "two-step-sign-in"],
   },
   {
     slug: "tenant-configuration",
@@ -205,17 +298,17 @@ module.exports = [
     title: "Two-step sign-in with an authenticator app",
     topic: "Account & sign-in",
     order: 4.5,
-    summary: "Protect your account with a code from your phone. Turn it on yourself, or require it for managers, for all staff or for one person.",
+    summary: "Protect sign-ins with a code from a phone app. Managers set it up in Settings and can require it for managers, all staff or one person.",
     tags: ["two-step sign-in", "two-factor", "2fa", "mfa", "multi-factor authentication", "authenticator app", "google authenticator", "microsoft authenticator", "authy", "recovery codes", "lost phone", "require mfa", "security"],
     featured: true,
-    who: "Any member of staff can turn it on for themselves. Managers require it for others and reset it.",
+    who: "Managers and staff with Settings access set it up for themselves. Anyone the school requires it for is shown how when they sign in.",
     intro: "With two-step sign-in, signing in with your password also asks for a 6-digit code from an authenticator app on your phone. Someone who learns your password still can't open your account without your phone.",
     sections: [
       {
         title: "Turn it on for yourself",
         steps: [
           "Install an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator, 1Password or Authy.",
-          "In Managira, open the <strong>?</strong> menu at the top of the page and choose <strong>Two-step sign-in</strong>.",
+          "In Managira, open <strong>Settings</strong>, then <strong>Two-step sign-in</strong> (the <strong>?</strong> menu has a shortcut).",
           "Select <strong>Set up</strong>. In your app, add an account (usually the <strong>+</strong> button) and scan the QR code. If you can't scan it, type the key shown beside it.",
           "Enter the 6-digit code your app shows and select <strong>Turn on</strong>.",
           "Save your 10 <strong>recovery codes</strong>: print them or keep them in a password manager. They're shown only once.",
@@ -235,20 +328,20 @@ module.exports = [
         title: "Lost or replaced your phone",
         list: [
           "Type one of your recovery codes where the app's code goes (they look like <code>ab12c-34de5</code>). Each works once, and Managira tells you how many are left.",
-          "Then open <strong>Two-step sign-in</strong> again: turn it off and set it up on your new phone, or ask a manager to reset it.",
+          "Then open <strong>Settings</strong>, <strong>Two-step sign-in</strong>: turn it off and set it up on your new phone, or ask a manager to reset it.",
           "No recovery codes left? Ask a manager at your school to reset your app (below). You set it up again the next time you sign in.",
         ],
       },
       {
         title: "Turn it off",
-        text: "Open <strong>Two-step sign-in</strong>, type your password and select <strong>Turn off</strong>. If your school requires the app for you, it can't be turned off; a manager can reset it so you can move it to a new phone.",
+        text: "Open <strong>Settings</strong>, <strong>Two-step sign-in</strong>, type your password and select <strong>Turn off</strong>. If your school requires the app for you, it can't be turned off; a manager can reset it so you can move it to a new phone.",
       },
       {
         title: "Require it at your school (managers)",
         steps: [
           "Open <strong>Settings</strong>, then <strong>Tenant configuration</strong>, and find <strong>Two-step sign-in</strong>.",
           "Under <strong>Authenticator app at sign-in</strong>, choose <strong>Each person chooses</strong> (the default), <strong>Required for managers and supervisors</strong> (your school's own account too), or <strong>Required for all staff</strong>, and select <strong>Save</strong>.",
-          "Anyone required to use it who hasn't set it up is taken to the set-up page the next time they open Managira, and can't open other pages until it's on.",
+          "Anyone required to use it who hasn't set it up is taken to <strong>Settings</strong>, <strong>Two-step sign-in</strong> the next time they open Managira, and can't open other pages until it's on. This works for every member of staff, even without Settings access.",
         ],
         note: "Changes are recorded in your school's activity log.",
       },

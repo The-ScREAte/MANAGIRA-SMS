@@ -55,6 +55,7 @@ const PERMISSIONS = {
   REPORTS_TERMINAL: "reports_terminal",
   REPORTS_SETTINGS: "reports_settings",
   REPORTS_BUILDER: "reports_builder",
+  STATE_REPORTING: "state_reporting",
   EVENTS_ANNOUNCEMENTS: "events_announcements",
   EVENTS_EVENTS: "events_events",
   SETTINGS_PROFILE: "settings_profile",
@@ -139,6 +140,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_REPORTS, label: "Manage Reports/Printing", group: "Reports", description: "Reports and printing. Choose which ones below", childrenRequired: "Choose at least one report area" },
   { key: PERMISSIONS.REPORTS_TERMINAL, label: "Terminal Reports", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Open, print and send report cards and merit sheets" },
   { key: PERMISSIONS.REPORTS_BUILDER, label: "Report Builder", parent: PERMISSIONS.MANAGE_REPORTS, description: "Build reports, limited to what their other permissions allow" },
+  { key: PERMISSIONS.STATE_REPORTING, label: "State Reporting", parent: PERMISSIONS.MANAGE_REPORTS, highRisk: true, sandboxFeature: "state_reporting", description: "Make state report files from saved Report Builder reports, on the state's count dates, and download them to send to the state (needs Report Builder too)" },
   { key: PERMISSIONS.REPORTS_SETTINGS, label: "Report Settings", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Grading, remarks, signatures and report card layouts" },
   { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts", group: "Reports", description: "Open official student transcripts" },
 

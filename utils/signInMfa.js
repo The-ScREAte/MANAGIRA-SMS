@@ -54,15 +54,29 @@ async function requiredFor(db, session) {
 
 const hasApp = async (db, account) => Boolean(account && (await mfa.isSetUp(db, account)));
 
+// Who sets up an authenticator app themselves (Settings › Two-step sign-in): managers, the school's
+// own account, and people with Settings access. Anyone the school requires it for can always set
+// it up (that's how they get back in).
+async function canSelfServe(db, req) {
+  const s = (req && req.session) || {};
+  const role = roleOf(s);
+  if (role === "manager" || String(s.accountType || "").toLowerCase() === "organization") return true;
+  const { userHasPermission, sessionActor } = require("../middleware/permissionMiddleware");
+  return Boolean(await userHasPermission(db, sessionActor(req), "manage_settings").catch(() => false));
+}
+
 // Pages someone who must set up their app can still open: the set-up itself, signing out, and
 // what the page needs to draw.
 const OPEN_PATHS = /^\/(account\/(authenticator|logout|login)|health|favicon\.ico|service-worker\.js|public-image|notifications\/count)(\/|$|\?)/;
+// The set-up lives in Settings (section two-step): the Settings page itself opens, read only.
+const SETUP_PAGE = "/account/settings?section=two-step&required=1";
 
 function gate(db) {
   return async (req, res, next) => {
     try {
       const s = req.session;
       if (!s || s.signedInWith === "sso" || OPEN_PATHS.test(req.path)) return next();
+      if (req.method === "GET" && req.path === "/account/settings") return next();
       const account = accountOfSession(s);
       if (!account || !featureOn(account.organizationId)) return next();
       const mark = s.appCheck;
@@ -73,7 +87,7 @@ function gate(db) {
       if (ok) return next();
       const message = "Your school asks you to use an authenticator app to sign in. Set it up to continue.";
       if (req.xhr || /json/i.test(req.get("accept") || "") || req.method !== "GET") return res.status(403).json({ success: false, message });
-      return res.redirect("/account/authenticator?required=1");
+      return res.redirect(SETUP_PAGE);
     } catch (error) {
       // Never lock someone out because a check couldn't run; it runs again on the next page.
       console.error("[Authenticator] gate:", error.message);
@@ -87,4 +101,4 @@ async function peopleWithApp(db, organizationId) {
   return mfa.forSchool(db, organizationId).catch(() => []);
 }
 
-module.exports = { featureOn, accountOfSession, requiredFor, hasApp, gate, peopleWithApp, OPEN_PATHS };
+module.exports = { featureOn, accountOfSession, requiredFor, hasApp, canSelfServe, gate, peopleWithApp, OPEN_PATHS, SETUP_PAGE };

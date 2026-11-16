@@ -41,6 +41,7 @@ const FEATURES = {
   transcript_designs: { label: "Transcript designs: five designs chosen in Report Settings, the document-viewer transcript page, and each finished term's GPA and the cumulative GPA on every transcript (while off: the original page, with GPA only when Report Settings' GPA switch is on)", access: "selected" },
   gpa_credits: { label: "Course credits: each subject's credits (Report Settings › GPA weights) weight GPA by credit, and transcripts show credits attempted and earned each term and in total", access: "selected" },
   report_remarks_forms: { label: "Report card remarks in the Custom editor: a Report card remarks form (suggestions from the school's ready-made remarks, each field printing as a remark), forms shown beside each student in the classroom, and which Custom editor sections print chosen in Report Settings", access: "selected" },
+  state_reporting: { label: "State reporting: Report Builder reports as the state's files (CSV, tab, pipe or fixed width, the state's field names, codes and dates), checked before they go, made on count dates and kept locked until downloaded", access: "selected" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

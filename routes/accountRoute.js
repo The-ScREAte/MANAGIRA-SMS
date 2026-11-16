@@ -73,6 +73,7 @@ router.get("/login/code", (req, res) => loginCode.page(req, res, db));
 {
   const authenticator = require("../controllers/authenticatorController");
   router.get("/authenticator", isAuthenticated, (req, res) => authenticator.page(req, res, db));
+  router.get("/authenticator/status", isAuthenticated, (req, res) => authenticator.status(req, res, db));
   router.post("/authenticator/start", isAuthenticated, express.json(), (req, res) => authenticator.start(req, res, db));
   router.post("/authenticator/confirm", isAuthenticated, express.json(), (req, res) => authenticator.confirm(req, res, db));
   router.post("/authenticator/off", isAuthenticated, express.json(), (req, res) => authenticator.off(req, res, db));

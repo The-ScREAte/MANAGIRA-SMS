@@ -3261,6 +3261,12 @@
             <span>Security</span>
           </button></li>
           <% } %>
+          <% if (locals.twoStep && twoStep.show) { %>
+          <li><button class="nav-link" data-target="two-step">
+            <span class="nav-link-icon"><%- navIcon('security') %></span>
+            <span>Two-step sign-in</span>
+          </button></li>
+          <% } %>
           <% if (_canTenant) { %>
           <li><button class="nav-link" data-target="tenant">
             <span class="nav-link-icon"><%- navIcon('security') %></span>
@@ -5090,6 +5096,15 @@
         <% } %>
 
         <% if (_canSecuritySettings && !_isOnHoldRestricted) { %>
+        <% if (locals.twoStep && twoStep.show) { %>
+        <section id="two-step" class="settings-section">
+          <h1>Two-step sign-in</h1>
+          <p class="lead">Use a code from an app on your phone when you sign in with your password.</p>
+          <link rel="stylesheet" href="<%= assetUrl('/css/sso.css') %>" />
+          <div class="sso-set" id="twoStepSettings" data-required="<%= twoStep.required ? '1' : '0' %>"></div>
+          <script src="<%= assetUrl('/js/authenticatorSettings.js') %>" defer></script>
+        </section>
+        <% } %>
         <% if (_canTenant) { %><%- include('partials/tenantSettings', { withSso: _canSso }) %><% } else if (_canSso) { %><%- include('partials/ssoSettings') %><% } %>
         <section id="security" class="settings-section">
           <h1>Security</h1>

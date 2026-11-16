@@ -88,6 +88,7 @@ const ROOT_NEEDS = {
 };
 const OPTION_NEEDS = {
   reports_builder: ["Report Builder"],
+  state_reporting: ["Report Builder"],
   reports_settings: ["Custom Report Card Templates"],
 };
 

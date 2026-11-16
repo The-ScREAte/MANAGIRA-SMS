@@ -100,6 +100,29 @@ const STUDENT_COLUMNS = {
   address: { label: "Home address", expression: "s.address" },
 };
 
+// The school's own student fields (Admission Settings › Student fields: race and ethnicity,
+// Programs & Indicators, a state student ID...), each a column of the student reports, so a state
+// file can carry them. Field ids come from the database, so they're safe to name in SQL.
+async function studentFieldColumns(db, organizationId) {
+  const { rows } = await db.query(
+    "SELECT field_id, label, field_type FROM student_form_fields WHERE organization_id = $1 AND status = 'active' ORDER BY position, field_id LIMIT 200",
+    [organizationId]
+  ).catch(() => ({ rows: [] }));
+  const columns = {};
+  rows.forEach((row) => {
+    const id = Number(row.field_id);
+    if (!Number.isInteger(id) || id <= 0) return;
+    const value = `(SELECT v.value FROM student_field_values v WHERE v.field_id = ${id} AND v.student_id = s.student_id AND v.organization_id = s.organization_id)`;
+    columns[`field_${id}`] = {
+      label: String(row.label || "Student field").slice(0, 120),
+      expression: row.field_type === "yes_no" ? `INITCAP(${value})` : row.field_type === "date" ? `NULLIF(${value}, '')::date` : value,
+      group: "Student fields",
+      ...(row.field_type === "date" ? { type: "date" } : row.field_type === "number" ? { type: "number" } : {}),
+    };
+  });
+  return columns;
+}
+
 const PARENT_CRITERIA = new Set(["parent", "parent_id", "parent_contact", "parent_address"]);
 const PARENT_COLUMNS = {
   parent_name: { label: "Parent / guardian", expression: "parent.parent_name", join: "parent", permission: "manage_guardians" },
@@ -574,6 +597,9 @@ const REPORTS = {
         { value: "clear", label: "No balance", sql: "COALESCE(fees.balance, 0) = 0" },
       ], { join: "fees", permission: "paygira_org_bills", requires: "fees" }),
     ],
+    async extend(db, organizationId) {
+      return { columns: await studentFieldColumns(db, organizationId), criteria: [] };
+    },
   },
   enrollments: {
     title: "Admissions & enrollment",
@@ -609,6 +635,9 @@ const REPORTS = {
         "SELECT id::text AS value, year_label AS label FROM school_years WHERE organization_id = $1 ORDER BY year_label DESC LIMIT 50"),
       dateCriterion("Enrolled between", "e.created_at"),
     ],
+    async extend(db, organizationId) {
+      return { columns: await studentFieldColumns(db, organizationId), criteria: [] };
+    },
   },
   admissions: {
     title: "Admissions & enrollment",

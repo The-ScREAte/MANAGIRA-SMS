@@ -13,7 +13,7 @@ const FORMAT = "managira.report-template";
 const VERSION = 1;
 const EXTENSION = "mgrt";
 const CONTENT_TYPE = "application/vnd.managira.report-template+json";
-const SCHOOL_COLUMN = /^(subject|category|remark)_/; // columns made from the school's own lists
+const SCHOOL_COLUMN = /^(subject|category|remark|field)_/; // columns made from the school's own lists (field_: its student fields)
 
 const text = (value, max = 120) => String(value ?? "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, max);
 const same = (a, b) => text(a, 200).toLowerCase() === text(b, 200).toLowerCase();

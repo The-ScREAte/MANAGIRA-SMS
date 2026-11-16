@@ -591,6 +591,10 @@ function reportBuilderController(db, options = {}) {
           },
           pageSizes: PAGE_SIZES,
           isEmbeddedFrame: Boolean(res.locals.isEmbeddedFrame),
+          // State files (controllers/stateReportingController.js): released, and both permissions held.
+          stateReporting: releaseFeatures.isOn("state_reporting", { organizationId })
+            && await Promise.all(["reports_builder", "state_reporting"].map((key) => Promise.resolve(userHasPermission(db, context.identity, key)).catch(() => false)))
+              .then((held) => held.every(Boolean)),
         });
       } catch (error) {
         console.error("[reportBuilder/page]", error);
@@ -1137,6 +1141,8 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
 
 module.exports = reportBuilderController;
 module.exports.runDueReportSchedules = runDueReportSchedules;
+// Shared with State reporting (controllers/stateReportingController.js), which runs the same reports.
+module.exports.shared = { ensureReportSchema, createReportService, identityFromRequest, localParts, isElevated };
 module.exports._test = {
   ensureReportSchema,
   createReportService,

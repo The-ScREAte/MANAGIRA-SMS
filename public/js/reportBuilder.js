@@ -806,6 +806,12 @@
   function renderFinish() {
     $("[data-step-panel='5'] [data-open-modal='share']").hidden = !ownsSaved();
     $("[data-step-panel='5'] [data-open-modal='schedule']").hidden = !ownsSaved();
+    // State file (public/js/stateFile.js): a saved report, for people with State Reporting.
+    const stateButton = $("[data-step-panel='5'] [data-state-file]");
+    if (stateButton) {
+      stateButton.hidden = !(data.stateReporting && state.saved?.report_id);
+      stateButton.dataset.reportId = state.saved?.report_id || "";
+    }
     setTitles();
   }
 

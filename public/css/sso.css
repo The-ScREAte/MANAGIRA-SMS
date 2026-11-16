@@ -1,5 +1,6 @@
-/* Settings: Single sign-on. */
-.sso-set { max-width: 720px; }
+/* Settings: Single sign-on, Tenant configuration and Two-step sign-in. The cards fill the
+   settings panel beside the menu (no narrow column with empty space on the right). */
+.sso-set { width: 100%; max-width: none; }
 .sso-card { margin: 0 0 12px; padding: 16px; border: 1px solid var(--border, #e5e9ef); border-radius: 12px; background: var(--card-bg, #fff); }
 .sso-card h2 { margin: 0 0 4px; padding: 0; color: inherit; font-size: 15px; font-weight: 600; text-align: left; }
 .sso-card p { margin: 0 0 12px; color: var(--muted, #64748b); font-size: 13.5px; line-height: 1.45; }
@@ -87,3 +88,15 @@
 .tc-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .tc-reset[hidden] { display: none; }
 .tc-reset .sso-msg { flex-basis: 100%; margin: 0; }
+
+/* Settings: Two-step sign-in (public/js/authenticatorSettings.js). */
+.ts-steps { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.ts-steps ol { margin: 0; padding-left: 18px; color: var(--muted, #64748b); font-size: 13.5px; line-height: 1.6; }
+.ts-qr { width: 168px; height: 168px; border: 1px solid var(--border, #e5e9ef); border-radius: 12px; background: #fff; }
+.ts-key { display: block; margin-top: 6px; font: 600 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .04em; overflow-wrap: anywhere; }
+.sso-set .ts-code { width: 140px; height: 40px; margin: 0; padding: 0 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; font: 600 18px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .25em; text-align: center; }
+.sso-set .ts-password { flex: 1 1 220px; max-width: 320px; height: 40px; margin: 0; padding: 0 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; font: inherit; font-size: 15px; }
+.ts-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin: 10px 0 14px; padding: 12px 14px; border-radius: 10px; background: rgba(148, 163, 184, .1); font: 600 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.ts-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #fffaeb; color: #93370d; font-size: 13.5px; }
+@media (max-width: 600px) { .ts-steps { grid-template-columns: 1fr; } }
+@media print { body * { visibility: hidden; } .ts-print, .ts-print * { visibility: visible; } .ts-print { position: absolute; inset: 0 auto auto 0; } }

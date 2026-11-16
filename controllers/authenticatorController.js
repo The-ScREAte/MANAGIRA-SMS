@@ -30,31 +30,27 @@ function log(req, description) {
 async function context(req, db) {
   const account = signInMfa.accountOfSession(req.session);
   if (!account || !signInMfa.featureOn(account.organizationId)) return null;
-  const [on, required] = await Promise.all([signInMfa.hasApp(db, account), signInMfa.requiredFor(db, req.session)]);
-  return { account, on, required };
+  const [on, required, self] = await Promise.all([signInMfa.hasApp(db, account), signInMfa.requiredFor(db, req.session), signInMfa.canSelfServe(db, req)]);
+  // Managers and people with Settings access set it up themselves; anyone it's required for can too.
+  return { account, on, required, allowed: self || required };
 }
 
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 
 module.exports = {
-  page: async (req, res, db) => {
+  // The old address opens Settings › Two-step sign-in, where it lives now.
+  page: (req, res) => res.redirect(`/account/settings?section=two-step${req.query.required === "1" ? "&required=1" : ""}`),
+
+  // What Settings › Two-step sign-in shows (public/js/authenticatorSettings.js).
+  status: async (req, res, db) => {
     try {
       const ctx = await context(req, db);
-      if (!ctx) {
-        req.flash("error", "Two-step sign-in isn't available for your account.");
-        return res.redirect("/common/orgDashboard");
-      }
-      return res.render("account/authenticator", {
-        title: "Two-step sign-in",
-        on: ctx.on,
-        required: ctx.required,
-        justRequired: req.query.required === "1" && ctx.required && !ctx.on,
-        sso: req.session.signedInWith === "sso",
-      });
+      if (!ctx || !ctx.allowed) return fail(res, 404, "Not available.");
+      res.set("Cache-Control", "no-store");
+      return res.json({ success: true, on: ctx.on, required: ctx.required, sso: req.session.signedInWith === "sso", who: signInMfa.accountOfSession(req.session).kind });
     } catch (error) {
-      console.error("[Authenticator] page:", error.message);
-      req.flash("error", "That page didn't load. Try again.");
-      return res.redirect("/common/orgDashboard");
+      console.error("[Authenticator] status:", error.message);
+      return fail(res, 500, "That didn't load. Try again.");
     }
   },
 
@@ -62,7 +58,7 @@ module.exports = {
   start: async (req, res, db) => {
     try {
       const ctx = await context(req, db);
-      if (!ctx) return fail(res, 404, "Not available.");
+      if (!ctx || !ctx.allowed) return fail(res, 404, "Not available.");
       if (ctx.on) return fail(res, 400, "Your authenticator app is already on.");
       const setup = await mfa.startSetup(db, ctx.account, mfa.labelOf(req));
       if (setup.error) return fail(res, 400, setup.error);
@@ -78,7 +74,7 @@ module.exports = {
   confirm: async (req, res, db) => {
     try {
       const ctx = await context(req, db);
-      if (!ctx) return fail(res, 404, "Not available.");
+      if (!ctx || !ctx.allowed) return fail(res, 404, "Not available.");
       const result = await mfa.confirmSetup(db, ctx.account, String((req.body && req.body.code) || ""));
       if (result.error) return fail(res, 400, result.error);
       req.session.appCheck = { key: mfa.keyOf(ctx.account), ok: true, at: Date.now() };
@@ -95,7 +91,7 @@ module.exports = {
   off: async (req, res, db) => {
     try {
       const ctx = await context(req, db);
-      if (!ctx) return fail(res, 404, "Not available.");
+      if (!ctx || !ctx.allowed) return fail(res, 404, "Not available.");
       if (ctx.required) return fail(res, 403, "Your school requires an authenticator app, so it can't be turned off. To move it to a new phone, ask a manager to reset it, then set it up again.");
       try {
         await require("../utils/confirmOwnPassword").confirmOwnPassword(req, req.body && req.body.password, { purpose: "turn off the authenticator app" });

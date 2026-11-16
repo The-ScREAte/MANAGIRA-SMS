@@ -17,6 +17,7 @@ the end of the school's agreement or its written request ([DATA_DELETION.md](DAT
 | Emailed sign-in codes | 10 minutes | Expire; never stored in readable form (only a hash) |
 | Remembered browsers (skip the code) | The school's trust duration (1 to 30 days; 3 by default) | Expire; removed 7 days after; cleared on a password change |
 | Authenticator app keys and recovery codes | While the person uses the app | Turning it off, or a manager's reset |
+| State reporting files (made from Report Builder) | Content 1 year, encrypted; the record of who made, downloaded and sent it stays | Report schedule job removes the content (`state_report_files.expires_at`) |
 | Links to student files | 5 minutes (an hour on the email history page) | Expire |
 | Text-message links to report cards | 90 days | Stop working after 90 days |
 | Data-migration uploads, staging records and snapshots | 30 days after go-live | Nightly `migration-purge` |

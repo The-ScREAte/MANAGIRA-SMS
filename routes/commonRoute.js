@@ -1164,6 +1164,19 @@ module.exports = (db) => {
     reportBuilder.deleteSaved
   );
 
+  // State reporting files (feature state_reporting): Report Builder and State Reporting both.
+  {
+    const stateFiles = require("../controllers/stateReportingController").createStateReporting(db);
+    const stateDoor = [checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.REPORTS_BUILDER), requirePermission(PERMISSIONS.STATE_REPORTING)];
+    const body = express.json({ limit: "300kb" });
+    router.get("/report-builder/saved/:reportId(\\d+)/state-file", ...stateDoor, stateFiles.get);
+    router.put("/report-builder/saved/:reportId(\\d+)/state-file", ...stateDoor, body, stateFiles.save);
+    router.post("/report-builder/saved/:reportId(\\d+)/state-file/check", ...stateDoor, body, stateFiles.check);
+    router.post("/report-builder/saved/:reportId(\\d+)/state-file/make", ...stateDoor, body, stateFiles.makeNow);
+    router.post("/report-builder/state-files/:fileId(\\d+)/download", ...stateDoor, body, stateFiles.download);
+    router.post("/report-builder/state-files/:fileId(\\d+)/submitted", ...stateDoor, body, stateFiles.submitted);
+  }
+
   // Mailroom
   router.get("/mailroom", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) =>
     commonController.mailroomHub(req, res, db)

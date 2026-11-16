@@ -423,8 +423,10 @@
             <span class="help-menu-text"><strong>Your access</strong><small>Your role, classes and what you can do</small></span>
           </a>
           <% } %>
-          <% if (locals.featureOn && featureOn('sign_in_authenticator')) { %>
-          <a class="help-menu-item" role="menuitem" href="/account/authenticator" data-no-spa>
+          <%# Two-step sign-in is set up in Settings by managers and people with Settings access (utils/signInMfa.js canSelfServe). %>
+          <% const _twoStepSelf = String((session && (session.userRole || session.accountType)) || '').toLowerCase() === 'manager' || (session && session.accountType === 'Organization') || (locals.userPermissions || []).includes('manage_settings'); %>
+          <% if (locals.featureOn && featureOn('sign_in_authenticator') && _twoStepSelf) { %>
+          <a class="help-menu-item" role="menuitem" href="/account/settings?section=two-step" data-no-spa>
             <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span>
             <span class="help-menu-text"><strong>Two-step sign-in</strong><small>Use an authenticator app when you sign in</small></span>
           </a>

@@ -65,11 +65,11 @@
     if (app.available) {
       html +=
         '<div class="sso-card"><h2>Two-step sign-in</h2>' +
-        '<p class="tc-note">With an authenticator app, signing in with a password also asks for a code from the person\'s phone. Anyone can turn it on for themselves (Help menu › Two-step sign-in); here you can require it. A manager can also require it for one person on Edit user. Single sign-on is left to your provider\'s own two-step sign-in.</p>' +
+        '<p class="tc-note">Require a code from an authenticator app when people sign in with a password. Set up your own in <a href="/account/settings?section=two-step">Two-step sign-in</a>; require it for one person on Edit user.</p>' +
         row('Authenticator app at sign-in', select('mfa_required', c.mfa_required || ['off', 'admins', 'staff'], s.mfa_required || 'off', 'Authenticator app at sign-in', function (v) { return RULES[v] || v; })) +
         '<div class="tc-people">' +
         ((app.people || []).length
-          ? '<p class="tc-note"><strong>' + app.people.length + '</strong> ' + (app.people.length === 1 ? 'person uses' : 'people use') + ' an authenticator app. Reset one when someone loses their phone; they set it up again when they next sign in.</p>' +
+          ? '<p class="tc-note"><strong>' + app.people.length + '</strong> ' + (app.people.length === 1 ? 'person uses' : 'people use') + ' an app. Reset it if someone loses their phone.</p>' +
             '<ul class="tc-list">' + app.people.map(function (p) {
               return '<li><span><strong></strong><small></small></span><button type="button" class="sso-btn" data-reset-kind="' + esc(p.kind) + '" data-reset-id="' + esc(p.id) + '">Reset</button></li>';
             }).join('') + '</ul>'

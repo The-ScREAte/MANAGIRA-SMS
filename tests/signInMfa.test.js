@@ -56,7 +56,7 @@ test("someone required to use an app is sent to set it up; everything else passe
   rule = "staff"; appSetUp = false;
   let r = await run(fakeReq(staff("Teacher")));
   assert.equal(r.passed, false);
-  assert.equal(r.res.location, "/account/authenticator?required=1");
+  assert.equal(r.res.location, "/account/settings?section=two-step&required=1");
   r = await run(fakeReq(staff("Teacher"), { path: "/common/x", method: "POST", accept: "application/json" }));
   assert.equal(r.res.statusCode, 403);
   r = await run(fakeReq(staff("Teacher"), { path: "/account/authenticator" }));

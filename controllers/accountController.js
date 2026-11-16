@@ -9385,9 +9385,17 @@ const accountController = {
       const signedIn = require("../utils/confirmOwnPassword").whoIsSignedIn(req);
       const passwordWho = { name: signedIn.name, kind: signedIn.kind,
         note: ["hub", "hubUser"].includes(signedIn.kind) ? "use your hub password" : signedIn.kind === "admin" ? "use your Managira admin password" : "use your own password" };
+      // Settings › Two-step sign-in: managers and people with Settings access, and anyone the school
+      // requires it for (utils/signInMfa.js).
+      const signInMfa = require("../utils/signInMfa");
+      const twoStep = signInMfa.featureOn(req.session.organizationId) && signInMfa.accountOfSession(req.session)
+        ? await Promise.all([signInMfa.canSelfServe(db, req), signInMfa.requiredFor(db, req.session)])
+          .then(([self, required]) => ({ show: self || required, required })).catch(() => ({ show: false, required: false }))
+        : { show: false, required: false };
       res.render("account/settings", {
         title: "Settings",
         passwordWho,
+        twoStep,
         isEmbedded,
         isOnHoldRestricted,
         hideGlobalHeader: isEmbedded,

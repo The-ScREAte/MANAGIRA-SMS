@@ -44,7 +44,7 @@ module.exports = [
       },
       {
         title: "Require an authenticator app for one person",
-        text: "On someone's Edit user page, a manager can tick <strong>Require an authenticator app at sign-in</strong>. When they next sign in with a password, they set up the app and give its code from then on. To require it for everyone in a role, use <strong>Settings</strong>, <strong>Tenant configuration</strong>. See <a href=\"/legal/user-documentation/two-step-sign-in\">Two-step sign-in with an authenticator app</a>.",
+        text: "On someone's Edit user page, a manager can tick <strong>Require an authenticator app at sign-in</strong>. When they next sign in with a password, Managira takes them to Settings, Two-step sign-in to set up the app, and asks for its code from then on. To require it for everyone in a role, use <strong>Settings</strong>, <strong>Tenant configuration</strong>. See <a href=\"/legal/user-documentation/two-step-sign-in\">Two-step sign-in with an authenticator app</a>.",
       },
       {
         title: "When someone leaves",
