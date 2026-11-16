@@ -1,6 +1,6 @@
 "use strict";
 
-// State reporting (feature `state_reporting`; permission State Reporting together with Report
+// State reporting (feature `state_reporting`; permission State filing, under Report
 // Builder). A saved report is written as the state's file (utils/stateFile.js): checked before it
 // goes, made by hand or on the state's count dates, and kept locked on the server. A file never
 // travels by email: people are told it's ready and download it after confirming their own
@@ -173,7 +173,7 @@ function createStateReporting(db, { hasPermission = userHasPermission } = {}) {
       await ensureReportSchema(db);
       const identity = identityFromRequest(req);
       if (!identity.organizationId || !identity.userId) throw new StateFileError("Please sign in again.", 401);
-      if (!(await mayUse(identity))) throw new StateFileError("State files need the State Reporting and Report Builder permissions.", 403);
+      if (!(await mayUse(identity))) throw new StateFileError("State files need the State filing permission (under Report Builder). Ask a manager.", 403);
       const context = await service.getContext(identity);
       res.set("Cache-Control", "no-store");
       return await fn(req, res, context);
@@ -197,7 +197,7 @@ function createStateReporting(db, { hasPermission = userHasPermission } = {}) {
       const settings = stateFile.normalizeSettings(saved.state_file_json || {}, input.columns);
       return res.json({
         success: true,
-        report: { id: Number(saved.report_id), name: saved.report_name },
+        report: { id: Number(saved.report_id), name: saved.report_name, title: input.report.title + (input.report.variant && input.report.variant !== input.report.title ? ` · ${input.report.variant}` : "") },
         canEdit: Number(saved.created_by) === Number(context.identity.userId),
         configured: Boolean(saved.state_file_json),
         columns: columnsOf(input),
@@ -235,12 +235,16 @@ function createStateReporting(db, { hasPermission = userHasPermission } = {}) {
       const built = stateFile.build(rows, input.columns, input.report, settings);
       const text = built.content.toString(built.settings.ascii ? "latin1" : "utf8");
       const preview = text.split(/\r?\n/).slice(0, built.settings.header ? 4 : 3).join("\n");
+      const school = await schoolOf(context.organizationId);
       return res.json({
         success: true,
         rows: built.rows,
         problems: built.problems.map((p) => ({ ...p, text: stateFile.describe(p) })),
         values: valuesOf(rows, input),
         preview,
+        sample: built.sample,
+        header: built.settings.header,
+        fileName: `${stateFile.fileNameFor(built.settings.fileName, { report: saved.report_name, school: school.name, day: school.today })}.${built.settings.extension}`,
       });
     }),
 
@@ -308,10 +312,12 @@ function createStateReporting(db, { hasPermission = userHasPermission } = {}) {
 // ---------------------------------------------------------------- count dates (the job)
 // Every hour: a report whose count date is today (school time, from its chosen hour) is made as
 // its owner, with the owner's current access, and the owner and the people it's shared with who
-// hold State Reporting are told it's ready. Nothing is attached: the email has no student data.
+// hold State filing are told it's ready. Nothing is attached: the email has no student data.
 async function runDueStateFiles(db, { now = new Date(), send, hasPermission = userHasPermission } = {}) {
   const summary = { made: 0, failed: 0, purged: 0 };
   if (!(await ready(db))) return summary;
+  // Which schools have state reporting is read before deciding (a server just started hasn't yet).
+  await Promise.resolve(features.refresh && features.refresh()).catch(() => {});
   await ensureReportSchema(db);
   // Content kept past its year is removed; the record of what was made and sent stays.
   summary.purged = (await db.query("UPDATE state_report_files SET content_locked = NULL WHERE content_locked IS NOT NULL AND expires_at < NOW()")).rowCount;
@@ -345,7 +351,7 @@ async function runDueStateFiles(db, { now = new Date(), send, hasPermission = us
       if (!claim.rowCount) continue;
       const identity = { userId: Number(row.created_by), userRole: row.role, accountType: row.role, organizationId: Number(row.organization_id), userEmail: row.email, name: [row.first_name, row.last_name].filter(Boolean).join(" ") };
       try {
-        if (!(await tool.mayUse(identity))) throw new StateFileError("The report's owner no longer has State Reporting and Report Builder.");
+        if (!(await tool.mayUse(identity))) throw new StateFileError("The report's owner no longer has State filing (under Report Builder).");
         const context = await reportBuilder.shared.createReportService(db, { hasPermission }).getContext(identity);
         const saved = await tool.savedFor(context, Number(row.report_id));
         const result = await tool.make(context, saved, { automatic: true, forDate: day, school: row.organization_name });

@@ -468,9 +468,13 @@ module.exports = [
     order: 6.5,
     summary: "Turn a saved report into your state's file (CSV, tab, pipe or fixed width), check it, make it on count dates or a schedule, and record what you sent.",
     tags: ["state reporting", "state report", "state submission", "october count", "census day", "count day", "fixed width", "flat file", "state codes", "ceds", "edfacts", "sis state file", "state upload"],
-    who: "Staff given <strong>Report Builder</strong> and <strong>State Reporting</strong> (Reports permissions). Only the person who saved a report changes how its file is written.",
+    who: "Staff given <strong>Report Builder</strong> with its <strong>State filing</strong> permission (Users / Employees › Edit › Reports). Only the person who saved a report changes how its file is written.",
     intro: "Every state publishes its own file layouts for collections such as the October count, attendance and end-of-year reports. Most take a CSV or a fixed-width text file; a few take data through the Ed-Fi API instead. With State file, a saved Report Builder report is written exactly the way your state's layout asks: its field names, order, widths, date style and codes.",
     sections: [
+      {
+        title: "How it works",
+        text: "A state file is made from a <strong>saved report</strong>. The report decides what goes in the file: which students (its filters) and which columns, in which order. The state file only decides how the file is written: the file type, the state's field names and its codes. Nothing is sent anywhere until you upload the file to your state. Who can do state filing: staff with <strong>Report Builder</strong> and its <strong>State filing</strong> permission, which a manager gives in Users / Employees (Edit, Reports, Report Builder, State filing).",
+      },
       {
         title: "Build the report",
         steps: [
@@ -482,11 +486,11 @@ module.exports = [
       {
         title: "Write it the state's way",
         steps: [
-          "On the saved report, select <strong>State file</strong>.",
-          "<strong>Format</strong>: choose comma-separated (CSV), tab, pipe or fixed width, the date style (CCYYMMDD is the most common), line endings, a header row, and the file name.",
-          "<strong>Fields</strong>: give each column the state's field name. For fixed width, give each a width; numbers are padded with zeros and text with spaces unless you choose otherwise. Tick <strong>Required</strong> for fields the state requires.",
-          "Use <strong>Codes</strong> to turn your values into the state's: ready-made sets for sex (M / F / X), yes / no (Y / N or 1 / 0) and grade levels (PK, KG, 01 to 12), or your own (for example Free → 01). A field can also carry the same value in every row, such as your district or school code.",
-          "Select <strong>Check file</strong>: it lists empty required fields, values too long for their width and values without a state code, and shows the first lines of the file. Fix them, then <strong>Save</strong>.",
+          "Select <strong>State file</strong>: the building button beside the report in <strong>My reports</strong>, or the <strong>State file</strong> button on the Save / export step.",
+          "<strong>1. File type</strong>: choose CSV, tab-separated, pipe or fixed width, as your state's instructions say (CSV is the most common). Choose how dates look (CCYYMMDD is the most common) and whether the first line lists the field names.",
+          "<strong>2. Fields</strong>: type each field's name as your state's layout lists it (leave it empty to keep the report's own), and for fixed width how many characters it takes. Under <strong>State codes</strong>, pick a ready-made set: sex (M / F / X), yes / no (Y / N or 1 / 0) or grade levels (PK, KG, 01 to 12).",
+          "Select <strong>More</strong> on a field for anything else: mark it as required by the state, give your own codes (for example JHS 1 → 07), or put the same value in every row, such as your school or district number.",
+          "<strong>3. Check &amp; make</strong>: the check shows how many rows are in the file, anything to fix (an empty required field, a value too long, a value without a code), and the first rows exactly as the state will get them. Then select <strong>Make the file</strong>.",
         ],
         tip: "Keep your state's file layout open beside you. Layouts change most years, so check the field list each fall.",
       },
@@ -495,7 +499,7 @@ module.exports = [
         list: [
           "<strong>Count dates</strong>: add the days your state counts students (such as the first Wednesday in October). On each, the file is made from that day's records.",
           "<strong>Repeat</strong>: for collections sent regularly, make it every weekday, every week or every month, at the time you choose.",
-          "When a file is made, you and the people the report is shared with who have State Reporting get an email that it's ready. The email has no student data and no attachment.",
+          "When a file is made, you and the people the report is shared with who have State filing get an email that it's ready. The email has no student data and no attachment.",
           "You can also select <strong>Make file now</strong> at any time.",
         ],
       },
@@ -512,11 +516,12 @@ module.exports = [
         list: [
           "State files are never emailed. Each file is kept encrypted in Managira for a year, then its content is removed and its record stays.",
           "Downloading asks for your own password every time, and every file made, downloaded or marked as sent is in your activity log.",
-          "Each file shows only what the report's owner could see; a file made on a schedule uses the owner's access on that day, and stops if they no longer hold State Reporting.",
+          "Each file shows only what the report's owner could see; a file made on a schedule uses the owner's access on that day, and stops if they no longer have State filing.",
         ],
       },
     ],
     faq: [
+      ["Is the state file different from the report I made?", "No: it is that report, written in your state's format. Change the report to change which students or columns are in the file; use State file to change how it's written."],
       ["Can Managira send the file to the state for us?", "Today the file is made automatically and you upload it to your state's portal. Sending straight to a state's secure file server (SFTP) is the next step; ask Managira support if your state accepts it."],
       ["Does Managira support Ed-Fi?", "Not yet. States that collect through the Ed-Fi API (such as Texas, Wisconsin and Michigan) certify each vendor; contact Managira support to discuss your state."],
       ["Our state wants a code we don't keep, such as a state school number.", "Add it as the same value in every row on that field, or keep it as a student field if it differs by student."],

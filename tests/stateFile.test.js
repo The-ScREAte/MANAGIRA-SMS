@@ -125,3 +125,56 @@ test("a file is due on a count date or its repeating schedule, from the chosen h
   assert.equal(stateFile.dueToday(monthly, day("2026-11-30", 1, 30)), true); // the last day of a 30-day month
   assert.equal(stateFile.normalizeSettings({ repeat: "hourly" }, []).repeat, "none");
 });
+
+// Reads a delimited line back, honoring quotes (as a state's loader would).
+function readLine(line, delimiter) {
+  const out = []; let cell = ""; let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) { if (c === '"' && line[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') quoted = false; else cell += c; }
+    else if (c === '"') quoted = true;
+    else if (c === delimiter) { out.push(cell); cell = ""; }
+    else cell += c;
+  }
+  out.push(cell);
+  return out;
+}
+
+test("every file type reads back to the same values, tricky ones included", () => {
+  const tricky = [
+    { student_id: "A-1", last_name: 'Smith, "Jr"', first_name: "Zoë", date_of_birth: "2014-01-31", gender: "Female", class_name: "Grade 12", days_absent: 7 },
+    { student_id: "A-2", last_name: "Pipe|Name", first_name: "Tab\tby", date_of_birth: null, gender: "Male", class_name: "Pre-K", days_absent: 0 },
+  ];
+  const cols = { gender: { preset: "sex_mfx" }, class_name: { preset: "grade_federal" } };
+  for (const [layout, delimiter] of [["comma", ","], ["tab", "\t"], ["pipe", "|"]]) {
+    const out = stateFile.build(tricky, columns, report, { layout, header: true, columns: cols });
+    const lines = out.content.toString("latin1").split("\r\n").filter(Boolean);
+    assert.equal(lines.length, 3, layout);
+    assert.deepEqual(readLine(lines[0], delimiter), ["Student ID", "Last name", "First name", "Date of birth", "Gender", "Class", "Absent"], layout);
+    assert.deepEqual(readLine(lines[1], delimiter), ["A-1", 'Smith, "Jr"', "Zoe", "20140131", "F", "12", "7"], layout);
+    // A tab or newline inside a value is plain whitespace by then (control characters are never written raw).
+    assert.equal(readLine(lines[2], delimiter)[0], "A-2", layout);
+    assert.equal(readLine(lines[2], delimiter)[1], "Pipe|Name", layout);
+    assert.equal(readLine(lines[2], delimiter)[2], "Tab by", layout);
+    assert.equal(readLine(lines[2], delimiter)[5], "PK", layout);
+  }
+  const widths = { student_id: 4, last_name: 12, first_name: 6, date_of_birth: 8, gender: 1, class_name: 2, days_absent: 3 };
+  const fixedCols = Object.fromEntries(Object.entries(widths).map(([k, w]) => [k, { ...(cols[k] || {}), width: w }]));
+  const fixed = stateFile.build(tricky, columns, report, { layout: "fixed", columns: fixedCols });
+  const lines = fixed.content.toString("latin1").split("\r\n").filter(Boolean);
+  const total = Object.values(widths).reduce((a, b) => a + b, 0);
+  lines.forEach((line) => assert.equal(line.length, total));
+  let at = 0;
+  const fields = Object.keys(widths).map((key) => { const v = lines[0].slice(at, at + widths[key]); at += widths[key]; return v; });
+  assert.deepEqual(fields, ["A-1 ", 'Smith, "Jr" ', "Zoe   ", "20140131", "F", "12", "007"]);
+});
+
+test("every date style writes the same day", () => {
+  const expected = { YYYYMMDD: "20140131", "YYYY-MM-DD": "2014-01-31", "MM/DD/YYYY": "01/31/2014", MMDDYYYY: "01312014", "MM-DD-YYYY": "01-31-2014" };
+  for (const [format, text] of Object.entries(expected)) {
+    for (const value of ["2014-01-31", new Date("2014-01-31T00:00:00Z")]) {
+      const out = stateFile.build([{ date_of_birth: value }], ["date_of_birth"], report, { layout: "comma", header: false, dateFormat: format, columns: {} });
+      assert.equal(out.content.toString("latin1"), `${text}\r\n`, format);
+    }
+  }
+});

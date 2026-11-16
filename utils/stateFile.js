@@ -1,6 +1,6 @@
 "use strict";
 
-// State reporting files (feature `state_reporting`, permission State Reporting). A saved Report
+// State reporting files (feature `state_reporting`, permission State filing, under Report Builder). A saved Report
 // Builder report becomes the file a state asks for: comma-, tab- or pipe-separated, or fixed
 // width, with the state's own field names, widths, date style and codes. US states publish their
 // own layouts (no national standard): fixed-width and CSV text are the norm, with CCYYMMDD dates,
@@ -136,7 +136,8 @@ function formatValue(raw, column, type, settings) {
   if (spec.fixed) return { text: spec.fixed, issue: null };
   let value = raw;
   if (value instanceof Date || (type && /date/.test(type) && value)) value = formatDate(value, settings.dateFormat);
-  let text = value === null || value === undefined ? "" : String(value);
+  // Tabs and line breaks inside a value become spaces: a state's flat file holds one record a line.
+  let text = value === null || value === undefined ? "" : String(value).replace(/[\u0000-\u001f\u007f]+/g, " ");
   if (type === "number" || type === "money") text = text.trim();
   let issue = null;
   if (text !== "") {
@@ -208,13 +209,18 @@ function build(rows, columns, report, rawSettings) {
       return settings.layout === "fixed" ? fixedCell(name, settings.columns[key], "text") : delimitedCell(name, settings);
     }).join(settings.layout === "fixed" ? "" : DELIMITERS[settings.layout]));
   }
+  // The first rows as a table (each field as it will be written), for people to read before sending.
+  const sample = { header: columns.map(headerName), rows: [] };
   rows.forEach((row, index) => {
+    const values = [];
     const cells = columns.map((key) => {
       const type = report.columns[key].type;
       const { text, issue } = formatValue(row[key], key, type, settings);
       if (issue) note(index, key, issue);
+      values.push(text);
       return settings.layout === "fixed" ? fixedCell(text, settings.columns[key], type) : delimitedCell(text, settings);
     });
+    if (sample.rows.length < 5) sample.rows.push(values);
     lines.push(cells.join(settings.layout === "fixed" ? "" : DELIMITERS[settings.layout]));
   });
   problems.push(...counts.values());
@@ -225,6 +231,7 @@ function build(rows, columns, report, rawSettings) {
     rows: rows.length,
     problems,
     settings,
+    sample,
     contentType: settings.layout === "comma" ? "text/csv; charset=us-ascii" : "text/plain; charset=us-ascii",
     sha256: crypto.createHash("sha256").update(content).digest("hex"),
   };
