@@ -1329,6 +1329,8 @@ app.use("/print", printRoute);
 // Mira AI service, never reachable from a browser session.
 app.use("/internal/api", internalApiRoute);
 app.use("/legal", legalRoute);
+// Gov/state reports sent outside the school: a link and a separate code (no sign-in).
+app.use("/gov-report", require("./routes/govReportRoute")(db));
 // Saving interactive page captures to the product tour (utils/appDemoCapture.js).
 {
   const appDemoController = require("./controllers/appDemoController");

@@ -245,7 +245,7 @@
         iconButton("download", `Export ${name}`, { openModal: "download", reportId: id }),
       ];
       // State file (public/js/stateFile.js): this saved report written the way the state asks.
-      if (data.stateReporting) tools.push(iconButton("state", `State file from ${name}`, { stateFile: id }));
+      if (data.stateReporting) tools.push(iconButton("state", `Gov/state report from ${name}`, { stateFile: id }));
       if (saved.is_owner) {
         tools.push(iconButton("share", `Share ${name}`, { openModal: "share", reportId: id }));
         tools.push(iconButton("trash", `Delete ${name}`, { deleteSaved: id }, "is-danger"));

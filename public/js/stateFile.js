@@ -1,5 +1,5 @@
-// Report Builder › State file (controllers/stateReportingController.js, utils/stateFile.js).
-// A state file is made from a SAVED report: the report picks the students and the columns; this
+// Report Builder › Gov/state report (controllers/stateReportingController.js, utils/stateFile.js).
+// A Gov/state report is made from a SAVED report: the report picks the students and the columns; this
 // window only decides how the file is written for the state (file type, field names, codes), then
 // checks it, makes it and keeps it. Written for people who aren't technical: three plain steps,
 // with the rarely needed settings tucked under "More options". Text goes in as text, never markup.
@@ -14,7 +14,7 @@
   ];
   var DATE_LABELS = { YYYYMMDD: '20261007 (CCYYMMDD)', 'YYYY-MM-DD': '2026-10-07', 'MM/DD/YYYY': '10/07/2026', MMDDYYYY: '10072026', 'MM-DD-YYYY': '10-07-2026' };
   var WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  var STEPS = [['type', '1. File type'], ['fields', '2. Fields'], ['check', '3. Check & make'], ['schedule', 'Schedule'], ['files', 'Files made']];
+  var STEPS = [['type', '1. File type'], ['fields', '2. Fields'], ['check', '3. Check & make'], ['schedule', 'Schedule & send'], ['files', 'Files made']];
   var state = null;
 
   // ---------------------------------------------------------------- small helpers
@@ -87,10 +87,10 @@
 
   // A report that isn't saved yet: say what a state file is and how to start.
   function saveFirst() {
-    var s = shell('Save the report first', 'A state file is made from a saved report.');
+    var s = shell('Save the report first', 'A Gov/state report is made from a saved report.');
     s.dialog.appendChild(el('div', { className: 'sf-explain' }, [
-      el('p', { text: 'The report decides what goes in the file: which students and which columns. The state file then writes it the way your state asks for it (CSV or fixed width, the state’s field names and codes).' }),
-      el('p', { text: 'Save this report, then select State file again. You can also start from any report in My reports.' }),
+      el('p', { text: 'The report decides what goes in the file: which students and which columns. The Gov/state report then writes it the way your state asks for it (CSV or fixed width, the state’s field names and codes), and sends it to the people you choose.' }),
+      el('p', { text: 'Save this report, then select Gov/state report again. You can also start from any report in My reports.' }),
     ]));
     s.dialog.appendChild(el('div', { className: 'rb-dialog-actions' }, [
       el('button', { type: 'button', className: 'rb-btn rb-btn-light', text: 'Close', on: { click: close } }),
@@ -103,7 +103,7 @@
   }
 
   function open(reportId) {
-    var s = shell('State file', 'Loading…');
+    var s = shell('Gov/state report', 'Loading…');
     s.reportId = reportId;
     api(base()).then(function (data) {
       if (state !== s) return;
@@ -118,7 +118,7 @@
     var s = state;
     s.dialog.appendChild(el('div', { className: 'sf-how' }, [
       el('strong', { text: 'How it works: ' }),
-      el('span', { text: 'the report picks the students and columns. Here you choose how the file is written for your state, check it, and make it. Nothing is sent anywhere until you upload it.' }),
+      el('span', { text: 'the report picks the students and columns. Here you choose how the file is written for your state, check it, make it, and choose who it’s sent to.' }),
     ]));
     s.tabs = el('div', { className: 'sf-tabs', role: 'tablist' }, STEPS.map(function (step) {
       return el('button', { type: 'button', role: 'tab', className: 'sf-tab', 'data-tab': step[0], text: step[0] === 'files' && s.data.files.length ? step[1] + ' (' + s.data.files.length + ')' : step[1], on: { click: function () { show(step[0]); } } });
@@ -301,7 +301,8 @@
       button.disabled = true;
       return api(base() + '/make', 'POST', {}).then(function (json) {
         if (!state) return;
-        state.status.textContent = json.problems.length ? 'Made, with ' + json.problems.length + ' to look at. Download it below.' : 'Made. Download it below.';
+        var hasList = (state.settings.recipients || []).length;
+        state.status.textContent = (json.problems.length ? 'Made, with ' + json.problems.length + ' to look at. ' : 'Made. ') + (hasList ? 'Send it or download it below.' : 'Download it below.');
         return refreshFiles().then(function () { show('files'); });
       }).catch(function (error) { if (state) state.status.textContent = error.message; }).then(function () { button.disabled = false; });
     };
@@ -332,8 +333,40 @@
     }
     drawRepeat();
     var hours = Array.from({ length: 24 }, function (_, h) { return [h, (h % 12 || 12) + ':00 ' + (h < 12 ? 'AM' : 'PM')]; });
+    // Who it's sent to: email addresses, each shown with a remove button.
+    var people = el('div', { className: 'sf-people' });
+    var addInput = el('input', { className: 'rb-input', type: 'email', placeholder: 'name@state.gov', maxlength: '254', 'aria-label': 'Email address to send it to', disabled: !editable() });
+    var addMsg = el('p', { className: 'rb-modal-status' });
+    function drawPeople() {
+      people.textContent = '';
+      s.recipients.forEach(function (email, index) {
+        people.appendChild(el('span', { className: 'sf-chip' }, [
+          el('span', { text: email }),
+          editable() ? el('button', { type: 'button', className: 'sf-chip-x', 'aria-label': 'Remove ' + email, text: '×', on: { click: function () { s.recipients.splice(index, 1); changed(); drawPeople(); } } }) : null,
+        ]));
+      });
+      if (!s.recipients.length) people.appendChild(el('span', { className: 'rb-muted', text: 'Nobody yet: only you (and the people this report is shared with) are told when it’s ready.' }));
+    }
+    function addPerson() {
+      var email = addInput.value.trim().toLowerCase();
+      addMsg.textContent = '';
+      if (!/^[^@\s"<>,;]+@[^@\s"<>,;]+\.[a-z]{2,}$/i.test(email)) { addMsg.textContent = 'Type a full email address.'; return; }
+      if (s.recipients.indexOf(email) !== -1) { addInput.value = ''; return; }
+      if (s.recipients.length >= 10) { addMsg.textContent = 'Up to 10 people.'; return; }
+      s.recipients.push(email); addInput.value = ''; changed(); drawPeople();
+    }
+    addInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });
+    drawPeople();
     return el('div', { className: 'sf-step sf-schedule' }, [
-      el('p', { className: 'sf-lead', text: 'Managira can make this file for you on the days your state wants it. Each time, you get an email that it’s ready (with no student data in it), and you upload it to the state.' }),
+      el('p', { className: 'sf-lead', text: 'Choose who gets the report, and Managira can make and send it for you on the days your state wants it.' }),
+      el('h4', { text: 'Send it to' }),
+      people,
+      editable() ? el('div', { className: 'sf-inline' }, [addInput, el('button', { type: 'button', className: 'rb-btn rb-btn-light rb-btn-sm', text: 'Add', on: { click: addPerson } })]) : null,
+      addMsg,
+      el('div', { className: 'sf-callout' }, [
+        el('strong', { text: 'How each person gets it' }),
+        el('p', { text: 'The file is never attached to an email. Staff at your school get a link to sign in and download it. Anyone else, such as your state or district data office, gets a secure link that works for 7 days and a 6-digit code in a separate email. You see every download in Files made.' }),
+      ]),
       el('h4', { text: 'On these dates' }),
       el('p', { className: 'rb-muted', text: 'Such as your state’s count day (often the first Wednesday in October). The file holds that day’s records.' }),
       dates,
@@ -345,7 +378,7 @@
         repeatDetail,
       ]),
       el('label', { className: 'rb-field' }, ['At', el('select', { className: 'rb-input sf-hour', disabled: !editable(), on: { change: function (e) { s.sendHour = Number(e.target.value); changed(); } } }, options(hours, s.sendHour))]),
-      editable() ? el('p', { className: 'rb-muted', text: 'Select Save to keep the schedule.' }) : null,
+      editable() ? el('p', { className: 'rb-muted', text: 'Select Save to keep who it goes to and when.' }) : null,
     ]);
   }
 
@@ -354,7 +387,7 @@
     var files = state.data.files;
     if (!files.length) return el('div', { className: 'sf-step' }, [el('p', { className: 'sf-lead', text: 'No files yet. Go to 3. Check & make, or set dates on Schedule.' })]);
     return el('div', { className: 'sf-step' }, [
-      el('p', { className: 'sf-lead', text: 'Each file is kept safely in Managira for a year. Download it (your password is asked), upload it to your state’s portal, then mark it as sent.' }),
+      el('p', { className: 'sf-lead', text: 'Each file is kept safely in Managira for a year. Send it to the people on your list, or download it (your password is asked) and upload it to your state’s portal, then mark it as sent.' }),
       el('div', { className: 'sf-files' }, files.map(fileCard)),
     ]);
   }
@@ -364,18 +397,23 @@
     var card = el('div', { className: 'sf-file' }, [
       el('div', { className: 'sf-file-top' }, [
         el('strong', { text: file.fileName }),
-        el('span', { className: 'sf-pill' + (file.submittedAt ? ' is-sent' : ''), text: file.submittedAt ? 'Sent to the state' : 'Not sent yet' }),
+        el('span', { className: 'sf-pill' + (file.submittedAt || (file.sentTo || []).length ? ' is-sent' : ''), text: file.submittedAt ? 'Sent to the state' : (file.sentTo || []).length ? 'Emailed to ' + new Set(file.sentTo.map(function (r) { return r.email; })).size : 'Not sent yet' }),
       ]),
       el('p', { className: 'rb-muted', text: [
         file.rows.toLocaleString() + ' rows',
         file.problems ? file.problems + ' to look at' : 'nothing to fix',
         (file.automatic ? 'made on schedule' : 'made by ' + file.madeBy) + ', ' + when(file.madeAt),
-        file.downloads ? 'downloaded ' + file.downloads + (file.downloads === 1 ? ' time' : ' times') : 'not downloaded yet',
-      ].join(' · ') }),
+        file.downloads ? 'downloaded in Managira ' + file.downloads + (file.downloads === 1 ? ' time' : ' times') : '',
+      ].filter(Boolean).join(' · ') }),
       file.submittedAt ? el('p', { className: 'rb-muted', text: 'Sent ' + when(file.submittedAt) + ' by ' + file.submittedBy + (file.submittedReference ? ' · reference ' + file.submittedReference : '') }) : null,
+      (file.sentTo || []).length ? el('p', { className: 'rb-muted', text: 'Emailed to: ' + file.sentTo.map(function (r) { return r.email + (r.downloads ? ' (downloaded ' + r.downloads + (r.downloads === 1 ? ' time)' : ' times)') : r.locked ? ' (link locked)' : ' (not downloaded yet)'); }).join(', ') }) : null,
       actions,
       msg,
     ]);
+    var list = state.settings.recipients || [];
+    if (file.available && list.length) {
+      actions.appendChild(el('button', { type: 'button', className: 'rb-btn rb-btn-light rb-btn-sm', text: 'Send to ' + list.length + (list.length === 1 ? ' person' : ' people'), title: list.join(', '), on: { click: function (e) { sendFile(file, e.currentTarget, msg); } } }));
+    }
     var password = el('input', { className: 'rb-input', type: 'password', autocomplete: 'current-password', placeholder: 'Your password', 'aria-label': 'Your password' });
     var download = el('button', { type: 'button', className: 'rb-btn rb-btn-primary rb-btn-sm', text: 'Download', disabled: !file.available, on: { click: function () { downloadFile(file, password, download, msg); } } });
     if (file.available) actions.appendChild(password);
@@ -411,6 +449,16 @@
       });
     }).catch(function (error) { msg.textContent = error.message; }).then(function () { button.disabled = false; });
   }
+  function sendFile(file, button, msg) {
+    button.disabled = true;
+    msg.textContent = 'Sending…';
+    api('/common/report-builder/state-files/' + file.id + '/send', 'POST', {}).then(function (json) {
+      state.data.files = json.files;
+      show('files');
+      var count = json.sent.staff.length + json.sent.outside.length;
+      state.status.textContent = 'Sent to ' + count + (count === 1 ? ' person' : ' people') + '.';
+    }).catch(function (error) { msg.textContent = error.message; button.disabled = false; });
+  }
   function markSent(file, body, msg) {
     api('/common/report-builder/state-files/' + file.id + '/submitted', 'POST', body)
       .then(function (json) { state.data.files = json.files; show('files'); })
@@ -434,6 +482,10 @@
       state.status.textContent = 'Saved.';
     }).catch(function (error) { state.status.textContent = error.message; throw error; });
   }
+
+  // A link from an email (…/report-builder?stateFile=<id>) opens the report's window.
+  var linked = new URLSearchParams(location.search).get('stateFile');
+  if (linked && /^\d+$/.test(linked)) setTimeout(function () { open(linked); }, 300);
 
   document.addEventListener('click', function (event) {
     var button = event.target.closest('[data-state-file]');

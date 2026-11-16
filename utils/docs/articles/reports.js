@@ -463,17 +463,17 @@ module.exports = [
   },
   {
     slug: "state-reporting-files",
-    title: "State reporting files",
+    title: "Gov/state reports",
     topic: "Reports & analytics",
     order: 6.5,
-    summary: "Turn a saved report into your state's file (CSV, tab, pipe or fixed width), check it, make it on count dates or a schedule, and record what you sent.",
-    tags: ["state reporting", "state report", "state submission", "october count", "census day", "count day", "fixed width", "flat file", "state codes", "ceds", "edfacts", "sis state file", "state upload"],
-    who: "Staff given <strong>Report Builder</strong> with its <strong>State filing</strong> permission (Users / Employees › Edit › Reports). Only the person who saved a report changes how its file is written.",
-    intro: "Every state publishes its own file layouts for collections such as the October count, attendance and end-of-year reports. Most take a CSV or a fixed-width text file; a few take data through the Ed-Fi API instead. With State file, a saved Report Builder report is written exactly the way your state's layout asks: its field names, order, widths, date style and codes.",
+    summary: "Turn a saved report into your state's file (CSV, tab, pipe or fixed width), check it, schedule it, and send it securely to the people you choose.",
+    tags: ["gov/state report", "government report", "state reporting", "state report", "state submission", "state filing", "october count", "census day", "count day", "fixed width", "flat file", "state codes", "send report to state"],
+    who: "Staff given <strong>Report Builder</strong> with its <strong>Gov/state reporting</strong> permission (Users / Employees › Edit › Reports). Only the person who saved a report changes how its file is written.",
+    intro: "Every state publishes its own file layouts for collections such as the October count, attendance and end-of-year reports. Most take a CSV or a fixed-width text file. A Gov/state report writes one of your saved Report Builder reports exactly the way your state's layout asks: its field names, order, widths, date style and codes, and sends it securely to the people you choose.",
     sections: [
       {
         title: "How it works",
-        text: "A state file is made from a <strong>saved report</strong>. The report decides what goes in the file: which students (its filters) and which columns, in which order. The state file only decides how the file is written: the file type, the state's field names and its codes. Nothing is sent anywhere until you upload the file to your state. Who can do state filing: staff with <strong>Report Builder</strong> and its <strong>State filing</strong> permission, which a manager gives in Users / Employees (Edit, Reports, Report Builder, State filing).",
+        text: "A Gov/state report is made from a <strong>saved report</strong>. The report decides what goes in the file: which students (its filters) and which columns, in which order. The Gov/state report only decides how the file is written (the file type, the state's field names and codes) and who it's sent to. Who can do it: staff with <strong>Report Builder</strong> and its <strong>Gov/state reporting</strong> permission, which a manager gives in Users / Employees (Edit, Reports, Report Builder, Gov/state reporting).",
       },
       {
         title: "Build the report",
@@ -486,7 +486,7 @@ module.exports = [
       {
         title: "Write it the state's way",
         steps: [
-          "Select <strong>State file</strong>: the building button beside the report in <strong>My reports</strong>, or the <strong>State file</strong> button on the Save / export step.",
+          "Select <strong>Gov/state report</strong>: the building button beside the report in <strong>My reports</strong>, or the <strong>Gov/state report</strong> button on the Save / export step.",
           "<strong>1. File type</strong>: choose CSV, tab-separated, pipe or fixed width, as your state's instructions say (CSV is the most common). Choose how dates look (CCYYMMDD is the most common) and whether the first line lists the field names.",
           "<strong>2. Fields</strong>: type each field's name as your state's layout lists it (leave it empty to keep the report's own), and for fixed width how many characters it takes. Under <strong>State codes</strong>, pick a ready-made set: sex (M / F / X), yes / no (Y / N or 1 / 0) or grade levels (PK, KG, 01 to 12).",
           "Select <strong>More</strong> on a field for anything else: mark it as required by the state, give your own codes (for example JHS 1 → 07), or put the same value in every row, such as your school or district number.",
@@ -495,36 +495,44 @@ module.exports = [
         tip: "Keep your state's file layout open beside you. Layouts change most years, so check the field list each fall.",
       },
       {
-        title: "Make it on the state's dates",
-        list: [
-          "<strong>Count dates</strong>: add the days your state counts students (such as the first Wednesday in October). On each, the file is made from that day's records.",
-          "<strong>Repeat</strong>: for collections sent regularly, make it every weekday, every week or every month, at the time you choose.",
-          "When a file is made, you and the people the report is shared with who have State filing get an email that it's ready. The email has no student data and no attachment.",
-          "You can also select <strong>Make file now</strong> at any time.",
+        title: "Choose who gets it, and when",
+        steps: [
+          "Open <strong>Schedule &amp; send</strong>. Under <strong>Send it to</strong>, add the email addresses it goes to (up to 10), such as your state or district data office.",
+          "Add the <strong>dates</strong> your state collects it (such as the first Wednesday in October), and if it's needed regularly, <strong>repeat</strong> it every weekday, week or month, at the time you choose. Then select <strong>Save</strong>.",
+          "On each date, Managira makes the file from that day's records and sends it to everyone on the list. You (and the people the report is shared with) get an email saying it was made and who it went to.",
+          "To send a file by hand, open <strong>Files made</strong> and select <strong>Send</strong> on it.",
         ],
       },
       {
-        title: "Download, send and keep a record",
+        title: "How each person receives it",
+        list: [
+          "The file is <strong>never attached</strong> to an email.",
+          "<strong>Staff at your school</strong> with Gov/state reporting get a link to sign in and download it (their password is asked).",
+          "<strong>Anyone else</strong> gets a secure link that works for 7 days and a 6-digit code in a separate email. The link asks for the code; five wrong codes lock it, and it allows up to 5 downloads.",
+          "<strong>Files made</strong> shows who each file was sent to and whether they downloaded it. Every send and download is in your activity log.",
+          "Only add people allowed to see this information, such as your state or district education agency.",
+        ],
+      },
+      {
+        title: "Download and keep a record",
         steps: [
-          "Open <strong>Files</strong>, type your password and select <strong>Download</strong>.",
-          "Upload the file to your state's portal, as the state's instructions say.",
-          "Select <strong>Mark as sent</strong>, with the state's confirmation number if it gives one. The list shows who made, downloaded and sent each file, with its fingerprint, so you can show exactly what went to the state.",
+          "To upload it yourself, open <strong>Files made</strong>, type your password and select <strong>Download</strong>, then upload it to your state's portal.",
+          "Select <strong>Mark as sent</strong>, with the state's confirmation number if it gives one. Each file keeps its fingerprint, so you can show exactly what went to the state.",
         ],
       },
       {
         title: "How your students' data is protected",
         list: [
-          "State files are never emailed. Each file is kept encrypted in Managira for a year, then its content is removed and its record stays.",
-          "Downloading asks for your own password every time, and every file made, downloaded or marked as sent is in your activity log.",
-          "Each file shows only what the report's owner could see; a file made on a schedule uses the owner's access on that day, and stops if they no longer have State filing.",
+          "Each file is kept encrypted in Managira for a year, then its content is removed and its record stays.",
+          "Each file shows only what the report's owner could see; a file made on a schedule uses the owner's access on that day, and stops if they no longer have Gov/state reporting.",
         ],
       },
     ],
     faq: [
-      ["Is the state file different from the report I made?", "No: it is that report, written in your state's format. Change the report to change which students or columns are in the file; use State file to change how it's written."],
-      ["Can Managira send the file to the state for us?", "Today the file is made automatically and you upload it to your state's portal. Sending straight to a state's secure file server (SFTP) is the next step; ask Managira support if your state accepts it."],
+      ["Is the Gov/state report different from the report I made?", "No: it is that report, written in your state's format. Change the report to change which students or columns are in it; use Gov/state report to change how it's written and who it's sent to."],
+      ["Who will it be sent to?", "The people you add under Send it to on the Schedule & send tab. With nobody there, it isn't sent to anyone: you (and the people the report is shared with) are told it's ready, and you download it."],
+      ["Can Managira upload it to the state's website for us?", "Not yet: it's sent to the people you choose, or you download it and upload it. Sending straight to a state's secure file server (SFTP) is planned; ask Managira support if your state accepts it."],
       ["Does Managira support Ed-Fi?", "Not yet. States that collect through the Ed-Fi API (such as Texas, Wisconsin and Michigan) certify each vendor; contact Managira support to discuss your state."],
-      ["Our state wants a code we don't keep, such as a state school number.", "Add it as the same value in every row on that field, or keep it as a student field if it differs by student."],
     ],
     related: ["report-builder", "gpa-on-report-cards-and-transcripts", "edit-student-information"],
   },

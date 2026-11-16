@@ -178,3 +178,10 @@ test("every date style writes the same day", () => {
     }
   }
 });
+
+test("the people a report goes to: real addresses only, each once, ten at most", () => {
+  const s = stateFile.normalizeSettings({ recipients: ["Data@State.gov", "data@state.gov", "not an email", "a@b", "x@school.org", "<x@evil.com>", ...Array.from({ length: 12 }, (_, i) => `p${i}@d.org`)] }, []);
+  assert.deepEqual(s.recipients.slice(0, 2), ["data@state.gov", "x@school.org"]);
+  assert.equal(s.recipients.length, 10);
+  assert.equal(s.recipients.includes("not an email"), false);
+});

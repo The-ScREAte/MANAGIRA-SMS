@@ -106,6 +106,10 @@ A current list is available to schools on request. Bus maps use OpenStreetMap ti
   for 5 minutes. **In progress:** the storage policy that refuses every unsigned request
   (`docs/security/STORAGE.md`).
 - Report cards sent by text use short links with 64 random bits that expire after 90 days.
+- Gov/state reports a school sends to people outside it (a state or district data office) are
+  never attached to email: each person gets a link with 256 random bits that works for 7 days
+  and asks for a 6-digit code sent in a separate email (5 wrong codes lock it, 5 downloads at
+  most). Only hashes of the link and code are stored; every send and download is logged.
 - Uploads are size-limited, and programs and script files are refused.
 
 ## 9. Application security

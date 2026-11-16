@@ -18,6 +18,10 @@ const EXTENSIONS = ["csv", "txt", "dat"];
 const MAX_WIDTH = 500;
 const MAX_TRANSLATIONS = 300;
 const MAX_DATES = 12;
+const MAX_RECIPIENTS = 10;
+const SHARE_DAYS = 7; // a link sent to someone outside the school works this long
+const SHARE_TRIES = 5; // wrong codes before a link locks
+const SHARE_DOWNLOADS = 5;
 const KEEP_DAYS = 365; // a made file's content; its record (who, when, rows, fingerprint) stays
 
 // Ready-made translations a school can start from (each still editable).
@@ -91,6 +95,10 @@ function normalizeSettings(raw, columnKeys = []) {
     dates,
     // Besides the count dates, a file can be made on a repeating schedule: every weekday (some
     // states take attendance daily), one day a week, or one date a month.
+    // Who it goes to when it's made (or sent by hand): up to 10 email addresses.
+    recipients: [...new Set((Array.isArray(input.recipients) ? input.recipients : [])
+      .map((email) => String(email || "").trim().toLowerCase())
+      .filter((email) => email.length <= 254 && /^[^@\s"<>,;]+@[^@\s"<>,;]+\.[a-z]{2,}$/i.test(email)))].slice(0, MAX_RECIPIENTS),
     repeat: ["weekdays", "weekly", "monthly"].includes(input.repeat) ? input.repeat : "none",
     weekday: intIn(input.weekday, 0, 6, 1),
     monthDay: intIn(input.monthDay, 1, 31, 1),
@@ -270,6 +278,6 @@ function unlock(text) {
 }
 
 module.exports = {
-  LAYOUTS, DATE_FORMATS, EXTENSIONS, PRESETS, MAX_DATES, KEEP_DAYS,
+  LAYOUTS, DATE_FORMATS, EXTENSIONS, PRESETS, MAX_DATES, MAX_RECIPIENTS, SHARE_DAYS, SHARE_TRIES, SHARE_DOWNLOADS, KEEP_DAYS,
   normalizeSettings, dueToday, formatValue, formatDate, toAscii, gradeCode, build, describe, fileNameFor, lock, unlock,
 };

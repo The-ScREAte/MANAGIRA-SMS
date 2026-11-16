@@ -141,7 +141,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.REPORTS_TERMINAL, label: "Terminal Reports", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Open, print and send report cards and merit sheets" },
   { key: PERMISSIONS.REPORTS_BUILDER, label: "Report Builder", parent: PERMISSIONS.MANAGE_REPORTS, description: "Build reports, limited to what their other permissions allow" },
   // Under Report Builder: only someone who builds reports files them with the state.
-  { key: PERMISSIONS.STATE_REPORTING, label: "State filing", parent: PERMISSIONS.REPORTS_BUILDER, highRisk: true, sandboxFeature: "state_reporting", description: "Turn saved reports into the files the state asks for, schedule them on count dates, and download them to send" },
+  { key: PERMISSIONS.STATE_REPORTING, label: "Gov/state reporting", parent: PERMISSIONS.REPORTS_BUILDER, highRisk: true, sandboxFeature: "state_reporting", description: "Turn saved reports into the Gov/state reports the state asks for, schedule them, and send or download them" },
   { key: PERMISSIONS.REPORTS_SETTINGS, label: "Report Settings", parent: PERMISSIONS.MANAGE_REPORTS, features: ["Terminal Report", "Progressive Student Report", "Class Base Merit Sheet", "Class Base Merrit sheet"], description: "Grading, remarks, signatures and report card layouts" },
   { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts", group: "Reports", description: "Open official student transcripts" },
 

@@ -1175,6 +1175,7 @@ module.exports = (db) => {
     router.post("/report-builder/saved/:reportId(\\d+)/state-file/make", ...stateDoor, body, stateFiles.makeNow);
     router.post("/report-builder/state-files/:fileId(\\d+)/download", ...stateDoor, body, stateFiles.download);
     router.post("/report-builder/state-files/:fileId(\\d+)/submitted", ...stateDoor, body, stateFiles.submitted);
+    router.post("/report-builder/state-files/:fileId(\\d+)/send", ...stateDoor, body, stateFiles.sendNow);
   }
 
   // Mailroom
