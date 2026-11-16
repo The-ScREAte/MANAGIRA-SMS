@@ -2225,17 +2225,332 @@ Object.assign(REPORTS, {
 TRANSPORT_REPORT_NAMES.forEach((name) => { REPORTS[name].releaseFeature = "transport_report_builder"; });
 
 // `also` adds to a description only for people who can open that view.
+// More views: classes, subjects, assessments one per row, bills, and the emails Managira sent.
+const ACTIVE_STUDENT = `COALESCE(s.graduated, FALSE) = FALSE
+  AND NOT EXISTS (SELECT 1 FROM archived_student_info arc WHERE arc.student_id = s.student_id AND arc.organization_id = s.organization_id)`;
+const AMOUNT_OWED = "GREATEST(COALESCE(fa.amount, 0) + COALESCE(fa.late_fee_applied, 0) - COALESCE(fa.amount_paid, 0), 0)";
+const EMAIL_KIND = `CASE
+    WHEN nd.event_type = 'weekly_briefing_parent' THEN 'Weekly briefing (family)'
+    WHEN nd.event_type = 'weekly_briefing_student' THEN 'Weekly briefing (student)'
+    WHEN nd.event_type = 'weekly_parent_digest' THEN 'Weekly parent update'
+    WHEN nd.event_type IN ('weekly_teacher_digest', 'weekly_manager_digest') THEN 'Weekly staff summary'
+    WHEN nd.event_type = 'parent_absence_threshold' THEN 'Absence alert'
+    WHEN nd.event_type = 'broadcast_event' THEN 'Event'
+    WHEN nd.event_type = 'broadcast_announcement' THEN 'Announcement'
+    ELSE INITCAP(REPLACE(nd.event_type, '_', ' ')) END`;
+
+Object.assign(REPORTS, {
+  classes: {
+    releaseFeature: "report_builder_more",
+    title: "Classes & subjects",
+    variant: "Classes",
+    permission: "manage_classes_subjects",
+    organizationExpression: "c.organization_id",
+    classExpression: "c.class_id",
+    baseWhere: "c.obsolete_at IS NULL",
+    stableOrderExpressions: ["c.class_id"],
+    from: "FROM classes c",
+    joins: {
+      staff: `LEFT JOIN LATERAL (
+          SELECT STRING_AGG(${fullName("u")}, '; ' ORDER BY u.first_name) FILTER (WHERE uc.main) AS main_teacher,
+                 STRING_AGG(${fullName("u")}, '; ' ORDER BY u.first_name) FILTER (WHERE COALESCE(uc.assistant, FALSE)) AS assistants,
+                 COUNT(DISTINCT u.user_id)::int AS staff_count
+            FROM user_classes uc
+            JOIN users u ON u.user_id = uc.user_id AND u.organization_id = c.organization_id AND u.removed_at IS NULL
+           WHERE uc.class_id = c.class_id
+        ) stf ON TRUE`,
+      students: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS students,
+                 COUNT(*) FILTER (WHERE LOWER(COALESCE(s.gender, '')) IN ('male', 'm', 'boy'))::int AS boys,
+                 COUNT(*) FILTER (WHERE LOWER(COALESCE(s.gender, '')) IN ('female', 'f', 'girl'))::int AS girls
+            FROM students s
+           WHERE s.class_id = c.class_id AND s.organization_id = c.organization_id AND ${ACTIVE_STUDENT}
+        ) roll ON TRUE`,
+      subjects: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS subjects FROM subjects sub
+           WHERE sub.class_id = c.class_id AND sub.organization_id = c.organization_id AND sub.obsolete_at IS NULL
+        ) subj ON TRUE`,
+    },
+    defaultColumns: ["class_name", "main_teacher", "students", "subjects"],
+    defaultSort: { key: "class_name", dir: "asc" },
+    columns: {
+      class_name: { label: "Class", expression: "c.class_name" },
+      main_teacher: { label: "Main teacher", expression: "stf.main_teacher", join: "staff" },
+      assistants: { label: "Assistant teachers", expression: "stf.assistants", join: "staff" },
+      staff_count: { label: "Staff in the class", expression: "stf.staff_count", type: "number", join: "staff" },
+      students: { label: "Students", expression: "COALESCE(roll.students, 0)", type: "number", join: "students" },
+      boys: { label: "Boys", expression: "COALESCE(roll.boys, 0)", type: "number", join: "students" },
+      girls: { label: "Girls", expression: "COALESCE(roll.girls, 0)", type: "number", join: "students" },
+      subjects: { label: "Subjects", expression: "COALESCE(subj.subjects, 0)", type: "number", join: "subjects" },
+    },
+    criteria: [
+      classCriterion("c.class_id"),
+      {
+        key: "term",
+        label: "Has subjects in term",
+        type: "term",
+        where: (bind, value) => `EXISTS (SELECT 1 FROM subjects tsub WHERE tsub.class_id = c.class_id AND tsub.organization_id = c.organization_id AND tsub.term_id = ANY(${bind(value)}::int[]))`,
+      },
+      nameCriterion("teacher", "Teacher", fieldsMatch(["stf.main_teacher", "stf.assistants"])),
+      choiceCriterion("main", "Main teacher", [
+        { value: "none", label: "No main teacher", sql: "stf.main_teacher IS NULL" },
+        { value: "set", label: "Has a main teacher", sql: "stf.main_teacher IS NOT NULL" },
+      ], { join: "staff" }),
+    ].map((criterion) => (criterion.key === "teacher" ? { ...criterion, join: "staff" } : criterion)),
+  },
+  subjects_list: {
+    releaseFeature: "report_builder_more",
+    title: "Classes & subjects",
+    variant: "Subjects",
+    permission: "manage_classes_subjects",
+    organizationExpression: "sub.organization_id",
+    classExpression: "sub.class_id",
+    baseWhere: "sub.obsolete_at IS NULL",
+    stableOrderExpressions: ["sub.subject_id"],
+    from: `FROM subjects sub
+      LEFT JOIN classes c ON c.class_id = sub.class_id AND c.organization_id = sub.organization_id
+      LEFT JOIN terms t ON t.term_id = sub.term_id AND t.organization_id = sub.organization_id`,
+    joins: {
+      teachers: `LEFT JOIN LATERAL (
+          SELECT STRING_AGG(${fullName("u")}, '; ' ORDER BY u.first_name) AS teachers
+            FROM user_subjects us
+            JOIN users u ON u.user_id = us.user_id AND u.organization_id = sub.organization_id AND u.removed_at IS NULL
+           WHERE us.subject_id = sub.subject_id
+        ) tch ON TRUE`,
+      takers: `LEFT JOIN LATERAL (
+          SELECT COUNT(DISTINCT ss.student_id)::int AS students FROM student_subjects ss
+           WHERE ss.subject_id = sub.subject_id AND ss.organization_id = sub.organization_id
+        ) tk ON TRUE`,
+      assessments: `LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS assessments FROM assessments a
+           WHERE a.subject_id = sub.subject_id AND a.organization_id = sub.organization_id AND a.obsolete_at IS NULL
+        ) asm ON TRUE`,
+    },
+    defaultColumns: ["subject_name", "class_name", "teachers", "students"],
+    defaultSort: { key: "class_name", dir: "asc" },
+    columns: {
+      subject_name: { label: "Subject", expression: "sub.subject_name" },
+      class_name: { label: "Class", expression: "c.class_name" },
+      term_name: { label: "Term", expression: "t.term_name" },
+      teachers: { label: "Teachers", expression: "tch.teachers", join: "teachers" },
+      students: { label: "Students taking it", expression: "COALESCE(tk.students, 0)", type: "number", join: "takers" },
+      assessments: { label: "Assessments", expression: "COALESCE(asm.assessments, 0)", type: "number", join: "assessments" },
+    },
+    criteria: [
+      classCriterion("sub.class_id"),
+      termCriterion("sub.term_id"),
+      nameCriterion("subject", "Subject", fieldsMatch(["sub.subject_name"])),
+      choiceCriterion("teacher", "Teacher", [
+        { value: "none", label: "No teacher", sql: "tch.teachers IS NULL" },
+        { value: "set", label: "Has a teacher", sql: "tch.teachers IS NOT NULL" },
+      ], { join: "teachers" }),
+    ],
+  },
+  assessment_list: {
+    releaseFeature: "report_builder_more",
+    title: "Assessments",
+    variant: "Assessments list",
+    permission: "manage_assessments",
+    requires: "assessments",
+    organizationExpression: "a.organization_id",
+    classExpression: "a.class_id",
+    baseWhere: "a.obsolete_at IS NULL",
+    stableOrderExpressions: ["a.assessment_id"],
+    from: `FROM assessments a
+      LEFT JOIN classes c ON c.class_id = a.class_id AND c.organization_id = a.organization_id
+      LEFT JOIN subjects sub ON sub.subject_id = a.subject_id AND sub.organization_id = a.organization_id
+      LEFT JOIN terms t ON t.term_id = a.term_id AND t.organization_id = a.organization_id`,
+    joins: {
+      results: `LEFT JOIN LATERAL (
+          SELECT COUNT(*) FILTER (WHERE ar.score IS NOT NULL OR NULLIF(TRIM(ar.choice_label), '') IS NOT NULL)::int AS recorded,
+                 ROUND(AVG(ar.score * 100.0 / NULLIF(a.max_score, 0)) FILTER (WHERE ar.score IS NOT NULL), 1) AS average
+            FROM assessment_results ar
+           WHERE ar.assessment_id = a.assessment_id AND ar.organization_id = a.organization_id
+        ) res ON TRUE`,
+    },
+    defaultColumns: ["assessment_name", "class_name", "subject_name", "max_score", "recorded", "average"],
+    defaultSort: { key: "class_name", dir: "asc" },
+    columns: {
+      assessment_name: { label: "Assessment", expression: "a.title" },
+      class_name: { label: "Class", expression: "c.class_name" },
+      subject_name: { label: "Subject", expression: "sub.subject_name" },
+      term_name: { label: "Term", expression: "t.term_name" },
+      category: { label: "Category", expression: "a.category" },
+      max_score: { label: "Out of", expression: "a.max_score", type: "number" },
+      weight: { label: "Weight", expression: "a.weight", type: "number" },
+      opens: { label: "Opens", expression: "a.edit_window_start", type: "datetime" },
+      closes: { label: "Closes", expression: "a.edit_window_end", type: "datetime" },
+      locked: { label: "Scores", expression: "CASE WHEN COALESCE(a.is_locked, FALSE) THEN 'Locked' ELSE 'Open' END" },
+      recorded: { label: "Scores recorded", expression: "COALESCE(res.recorded, 0)", type: "number", join: "results" },
+      average: { label: "Average %", expression: "res.average", type: "number", join: "results" },
+    },
+    criteria: [
+      classCriterion("a.class_id"),
+      termCriterion("a.term_id"),
+      selectCriterion("subject", "Subject", "a.subject_id",
+        "SELECT subject_id::text AS value, subject_name AS label FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY subject_name LIMIT 200"),
+      nameCriterion("title", "Assessment", fieldsMatch(["a.title"])),
+      choiceCriterion("locked", "Scores", [
+        { value: "open", label: "Open", sql: "COALESCE(a.is_locked, FALSE) = FALSE" },
+        { value: "locked", label: "Locked", sql: "COALESCE(a.is_locked, FALSE) = TRUE" },
+      ]),
+      choiceCriterion("recorded", "Scores recorded", [
+        { value: "none", label: "None yet", sql: "COALESCE(res.recorded, 0) = 0" },
+        { value: "some", label: "At least one", sql: "COALESCE(res.recorded, 0) > 0" },
+      ], { join: "results" }),
+    ],
+  },
+  bills: {
+    releaseFeature: "report_builder_more",
+    title: "Fees & payments",
+    variant: "Bills",
+    permission: "paygira_org_bills",
+    requires: "fees",
+    orgWide: true,
+    organizationExpression: "b.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["b.bill_id"],
+    from: `FROM finance_bills b
+      LEFT JOIN terms t ON t.term_id = b.term_id AND t.organization_id = b.organization_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS students,
+               COALESCE(SUM(COALESCE(fa.amount, 0) + COALESCE(fa.late_fee_applied, 0)), 0) AS billed,
+               COALESCE(SUM(COALESCE(fa.amount_paid, 0)), 0) AS paid,
+               COALESCE(SUM(${AMOUNT_OWED}), 0) AS owed,
+               COUNT(*) FILTER (WHERE ${AMOUNT_OWED} > 0)::int AS owing
+          FROM finance_bill_assignments fa
+         WHERE fa.bill_id = b.bill_id AND fa.organization_id = b.organization_id
+      ) agg ON TRUE`,
+    defaultColumns: ["bill", "due_date", "students", "billed", "paid", "owed"],
+    defaultSort: { key: "due_date", dir: "desc" },
+    columns: {
+      bill: { label: "Bill", expression: "b.title" },
+      bill_type: { label: "Bill type", expression: initcap("b.bill_type") },
+      term_name: { label: "Term", expression: "t.term_name" },
+      repeats: { label: "Repeats", expression: initcap("COALESCE(NULLIF(b.recurrence, ''), 'once')") },
+      status: { label: "Status", expression: initcap("b.status") },
+      created_at: { label: "Created", expression: "b.created_at", type: "datetime" },
+      due_date: { label: "Due", expression: "b.due_date", type: "date" },
+      students: { label: "Students billed", expression: "agg.students", type: "number" },
+      billed: { label: "Billed", expression: "agg.billed", type: "money" },
+      paid: { label: "Paid", expression: "agg.paid", type: "money" },
+      owed: { label: "Still owed", expression: "agg.owed", type: "money" },
+      owing: { label: "Students owing", expression: "agg.owing", type: "number" },
+    },
+    criteria: [
+      termCriterion("b.term_id"),
+      nameCriterion("bill", "Bill", fieldsMatch(["b.title"])),
+      selectCriterion("status", "Status", "b.status", distinctOptions("finance_bills", "status")),
+      choiceCriterion("owed", "Balance", [
+        { value: "owing", label: "Still owed", sql: "agg.owed > 0" },
+        { value: "cleared", label: "Paid in full", sql: "agg.owed <= 0" },
+      ]),
+      dateCriterion("Due between", "b.due_date"),
+    ],
+  },
+  email_log: {
+    releaseFeature: "report_builder_more",
+    title: "Messages sent",
+    variant: "Emails from Managira",
+    permission: "mailroom",
+    orgWide: true,
+    organizationExpression: "nd.organization_id",
+    classExpression: null,
+    stableOrderExpressions: ["nd.dispatch_id"],
+    from: "FROM notification_dispatches nd",
+    defaultColumns: ["sent_at", "kind", "recipient", "subject", "status"],
+    defaultSort: { key: "sent_at", dir: "desc" },
+    columns: {
+      sent_at: { label: "Sent", expression: "COALESCE(nd.sent_at, nd.created_at)", type: "datetime" },
+      kind: { label: "Kind", expression: EMAIL_KIND },
+      recipient: { label: "To", expression: "nd.recipient_email" },
+      recipient_kind: { label: "Recipient", expression: initcap("COALESCE(nd.recipient_kind, '')") },
+      subject: { label: "Subject", expression: "nd.subject" },
+      status: { label: "Status", expression: initcap("nd.status") },
+      problem: { label: "Problem", expression: "nd.error_message" },
+    },
+    criteria: [
+      dateCriterion("Sent between", "nd.created_at"),
+      choiceCriterion("kind", "Kind", [
+        { value: "briefing", label: "Weekly briefings", sql: "nd.event_type LIKE 'weekly_briefing_%'" },
+        { value: "digest", label: "Weekly updates and summaries", sql: "nd.event_type IN ('weekly_parent_digest', 'weekly_teacher_digest', 'weekly_manager_digest')" },
+        { value: "absence", label: "Absence alerts", sql: "nd.event_type = 'parent_absence_threshold'" },
+        { value: "school", label: "Events and announcements", sql: "nd.event_type LIKE 'broadcast_%'" },
+      ]),
+      choiceCriterion("status", "Status", [
+        { value: "sent", label: "Sent", sql: "nd.status = 'sent'" },
+        { value: "failed", label: "Not delivered", sql: "nd.status = 'failed'" },
+        { value: "queued", label: "Waiting", sql: "nd.status = 'queued'" },
+      ]),
+      textCriterion("recipient", "Recipient", fieldsMatch(["nd.recipient_email"])),
+    ],
+  },
+});
+
+// "Open in Managira": a column that links each row to its page in Managira (the student's page,
+// a member of staff, a parent, a class). The page is built from record ids only, shown as an Open
+// link on screen and as the page's full address in a downloaded or emailed file. Each link column
+// carries the permission its page needs, so nobody is offered a page that would turn them away.
+const LINK_KINDS = {
+  student: { key: "student_link", label: "Student page", path: (id) => `'/common/studentDetails?studentId=' || ${id}`, permission: "manage_students" },
+  staff: { key: "staff_link", label: "Staff page", path: (id) => `'/common/employeeDetails?userId=' || ${id}`, permission: "manage_employees" },
+  parent: { key: "parent_link", label: "Parent page", path: (id) => `'/common/guardianDetails?source=profile&guardianId=' || ${id}`, permission: "manage_guardians" },
+  class: { key: "class_link", label: "Class page", path: (id) => `'/common/classDashboard/' || ${id}` },
+};
+const RECORD_LINKS = {
+  students: [["student", "s.student_id"]],
+  enrollments: [["student", "s.student_id"]],
+  assessment_results: [["student", "s.student_id"]],
+  online_tests: [["student", "s.student_id"]],
+  merit_ranking: [["student", "s.student_id"]],
+  merit_subjects: [["student", "s.student_id"]],
+  attendance: [["student", "s.student_id"]],
+  attendance_summary: [["student", "s.student_id"]],
+  class_attendance: [["class", "x.class_id"]],
+  lunch: [["student", "s.student_id"]],
+  lunch_summary: [["student", "s.student_id"]],
+  class_lunch: [["class", "x.class_id"]],
+  parents: [["parent", "gp.guardian_id"]],
+  parent_messages: [["student", "s.student_id"]],
+  staff: [["staff", "u.user_id"]],
+  custom_answers: [["student", "s.student_id"]],
+  fee_balances: [["student", "s.student_id"]],
+  payments: [["student", "s.student_id"]],
+  transport_riders: [["student", "s.student_id"]],
+  transport_requests: [["student", "s.student_id"]],
+  transport_arrivals: [["student", "s.student_id"]],
+  transport_driver_reports: [["student", "s.student_id"]],
+  transport_driver_list: [["staff", "dv.user_id"]],
+  classes: [["class", "c.class_id"]],
+  subjects_list: [["class", "sub.class_id"]],
+  assessment_list: [["class", "a.class_id"]],
+};
+Object.entries(RECORD_LINKS).forEach(([name, links]) => {
+  const report = REPORTS[name];
+  if (!report) return;
+  links.forEach(([kind, id]) => {
+    const link = LINK_KINDS[kind];
+    report.columns[link.key] = {
+      label: link.label,
+      expression: `CASE WHEN ${id} IS NULL THEN NULL ELSE ${link.path(id)} END`,
+      type: "link",
+      requires: "links",
+      ...(link.permission ? { permission: link.permission } : {}),
+    };
+  });
+});
+
 const FAMILIES = [
   { key: "students", group: "Students", title: "Students", description: "Profiles, class, parents, bus and status, current and former", also: { custom_answers: ", and answers to your custom forms" }, views: ["students", "custom_answers"] },
   { key: "admissions", group: "Students", title: "Admissions & enrollment", description: "Online applications and enrollment by term", views: ["admissions", "enrollments"] },
-  { key: "assessments", group: "Students", title: "Assessments", description: "Recorded scores and online tests", views: ["assessment_results", "online_tests"] },
+  { key: "assessments", group: "Students", title: "Assessments", description: "Recorded scores and online tests", also: { assessment_list: ", and each assessment's progress" }, views: ["assessment_results", "online_tests", "assessment_list"] },
   { key: "merit", group: "Students", title: "Merit sheet", description: "Class rankings by term: totals, averages, grades, positions and remarks", views: ["merit_ranking", "merit_subjects"] },
   { key: "attendance", group: "Students", title: "Attendance", description: "Daily marks, totals per student and class counts", also: { lunch: ", and lunch" }, views: ["attendance", "attendance_summary", "class_attendance", "lunch", "lunch_summary", "class_lunch"] },
   { key: "parents", group: "Parents & messages", title: "Parents & guardians", description: "Contacts, children and parent portal access", views: ["parents"] },
   { key: "parent_messages", group: "Parents & messages", title: "Parent messages", description: "Messages from parents and how they were handled", views: ["parent_messages"] },
-  { key: "messages", group: "Parents & messages", title: "Messages sent", description: "Emails, texts and report cards, and undelivered emails", views: ["message_delivery", "failed_emails"] },
-  { key: "staff", group: "School", title: "Staff", description: "Staff contacts, roles, classes and tasks", views: ["staff", "staff_tasks"] },
-  { key: "fees", group: "School", title: "Fees & payments", description: "Balances owed and payments received", views: ["fee_balances", "payments"] },
+  { key: "messages", group: "Parents & messages", title: "Messages sent", description: "Emails, texts and report cards, and undelivered emails", also: { email_log: ", and the emails Managira sent for the school" }, views: ["message_delivery", "email_log", "failed_emails"] },
+  { key: "staff", group: "School", title: "Staff", description: "Staff contacts, roles, classes and tasks", also: { classes: ", plus class and subject lists" }, views: ["staff", "staff_tasks", "classes", "subjects_list"] },
+  { key: "fees", group: "School", title: "Fees & payments", description: "Balances owed and payments received", also: { bills: ", and each bill's totals" }, views: ["fee_balances", "payments", "bills"] },
   { key: "school_updates", group: "School", title: "Announcements & events", description: "Posts to staff and parents, and calendar events", views: ["announcements", "events"] },
   { key: "activity_log", group: "School", title: "Activity log", description: "Who did what in the app, and when", views: ["activity_log", "activity_audit"] },
   { key: "transport_people", group: "Transportation", title: "Riders & requests", description: "Who rides which bus, and requests for a bus", views: ["transport_riders", "transport_requests"] },
@@ -2294,6 +2609,8 @@ const FEATURES = {
     && (await tableExists("class_lunch")(db))
     && planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
   website: (db, organizationId) => planHas(db, organizationId, ["School Website", "SchoolWebsite"]),
+  // Open in Managira link columns (released by report_builder_more).
+  links: async (db, organizationId) => require("./shards/features").isOn("report_builder_more", { organizationId: Number(organizationId) }),
 };
 
 const PAGE_SIZES = [25, 50, 100];

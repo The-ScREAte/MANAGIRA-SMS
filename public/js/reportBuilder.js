@@ -703,10 +703,18 @@
         el("button", { type: "button", className: `rb-sort${active ? " is-active" : ""}`, textContent: column.label + arrow, dataset: { sortKey: column.key } }),
       ]);
     })));
+    // A link column opens the record's page in Managira, in a new tab so the report stays.
+    const cellFor = (record, column) => {
+      const value = record[column.key];
+      if (column.type === "link") {
+        return /^\/[a-zA-Z]/.test(String(value || ""))
+          ? el("a", { className: "rb-cell rb-link", href: value, target: "_blank", rel: "noopener", textContent: "Open" })
+          : el("span", { className: "rb-cell", textContent: "—" });
+      }
+      return el("span", { className: "rb-cell", textContent: formatValue(value, column.type) });
+    };
     const rows = result.rows.map((record) => el("tr", {}, result.columns.map((column) =>
-      el("td", { className: numeric(column) ? "is-number" : "" }, [
-        el("span", { className: "rb-cell", textContent: formatValue(record[column.key], column.type) }),
-      ]))));
+      el("td", { className: numeric(column) ? "is-number" : "" }, [cellFor(record, column)]))));
     if (!rows.length) rows.push(el("tr", {}, [el("td", { colSpan: result.columns.length, className: "rb-no-rows", textContent: "No records match this report." })]));
     // Totals over all matching records (Summary → Totals): a footer under the
     // records, one line per class, then the overall total in a larger row.

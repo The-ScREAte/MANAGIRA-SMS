@@ -176,8 +176,13 @@ function csvCell(value) {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
+// A link column holds a Managira page ("/common/..."): files carry its full address.
+const { BASE_URL: MANAGIRA_BASE } = require("../utils/emailLinks");
+const linkUrl = (value) => (typeof value === "string" && /^\/[a-zA-Z]/.test(value) ? `${MANAGIRA_BASE}${value}` : "");
+
 function exportValue(value, type) {
   if (value === null || value === undefined) return "";
+  if (type === "link") return linkUrl(value);
   if (value instanceof Date) {
     return type === "datetime" ? value.toISOString().slice(0, 16).replace("T", " ") : value.toISOString().slice(0, 10);
   }
@@ -255,6 +260,14 @@ async function toWorkbook(rows, columns, report, { title = report.title, header 
     const row = sheet.getRow(headerRow + 1 + rowIndex);
     columns.forEach((key, index) => {
       const value = exportValue(record[key], report.columns[key].type);
+      if (report.columns[key].type === "link") {
+        // A clickable "Open in Managira" in the sheet.
+        if (value) {
+          row.getCell(index + 1).value = { text: "Open in Managira", hyperlink: value };
+          row.getCell(index + 1).font = { color: { argb: "FF0F766E" }, underline: true };
+        }
+        return;
+      }
       // Text that looks like a formula is stored as plain text.
       row.getCell(index + 1).value = typeof value === "string" && /^[\s]*[=+\-@]/.test(value) ? `'${value}` : value;
     });

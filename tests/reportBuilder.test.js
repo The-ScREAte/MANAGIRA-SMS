@@ -380,3 +380,19 @@ test("a scheduled report stops when its owner loses Report Builder", async () =>
   assert.equal(summary.failed, 1);
   assert.match(String(errors[0]), /no longer has Report Builder/);
 });
+
+test("link columns open the record's page in Managira, only for people who may open it", () => {
+  const links = Object.entries(REPORTS).flatMap(([name, report]) =>
+    Object.entries(report.columns).filter(([, column]) => column.type === "link").map(([key, column]) => ({ name, key, column })));
+  assert.ok(links.length >= 20, "most reports offer a link");
+  for (const { name, key, column } of links) {
+    assert.match(column.expression, /^CASE WHEN .+ IS NULL THEN NULL ELSE '\/common\//, `${name}.${key} builds a Managira path`);
+  }
+  assert.equal(REPORTS.students.columns.student_link.permission, "manage_students");
+  assert.deepEqual(normalizeColumns(REPORTS.students, ["student_name", "student_link"], new Set(["manage_students", "feature:links"])), ["student_name", "student_link"]);
+  assert.deepEqual(normalizeColumns(REPORTS.students, ["student_name", "student_link"], new Set(["mark_attendance", "feature:links"])), ["student_name"]);
+  assert.deepEqual(normalizeColumns(REPORTS.students, ["student_name", "student_link"], new Set(["manage_students"])), ["student_name"], "only where released");
+  for (const view of ["classes", "subjects_list", "assessment_list", "bills", "email_log"]) {
+    assert.ok(FAMILIES.some((family) => family.views.includes(view)), `${view} is listed`);
+  }
+});

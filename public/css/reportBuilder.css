@@ -393,6 +393,9 @@
 .rb-table .is-number { text-align: right; font-variant-numeric: tabular-nums; }
 /* Long values wrap (up to three lines) instead of being cut off. */
 .rb-cell { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+/* A link column: opens the record's page in Managira. */
+a.rb-link { display: inline-flex; color: var(--org-primary-color, #0f766e); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+a.rb-link:focus-visible { outline: 2px solid var(--org-primary-color, #0f766e); outline-offset: 2px; border-radius: 4px; }
 .rb-no-rows { color: var(--rb-muted); text-align: center; }
 
 
