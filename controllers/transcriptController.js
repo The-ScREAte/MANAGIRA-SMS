@@ -2,11 +2,9 @@
 // Helper to get first class for org
 const { getFirstClassForOrganization } = require("../models/classModel");
 const bcrypt = require("../utils/passwordHashing");
-const { sendEmailSafely } = require("../utils/emailHelper");
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { renderTranscriptPdf, sessionCookieFromHeader, isServerRender } = require('../utils/pdfService');
-const fs = require('fs');
-const path = require('path');
 const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
 
 // Ensure signature metadata columns exist on report_settings
@@ -443,20 +441,26 @@ const transcriptController = (db) => ({
                 studentId: student.student_id,
             });
 
-            // Read email template
-            const emailTemplatePath = path.join(__dirname, '../utils/templates/transcriptEmail.html');
-            let emailHtml = await fs.promises.readFile(emailTemplatePath, 'utf8');
-
-            // Replace placeholders
-            emailHtml = emailHtml
-                .replace(/{{studentName}}/g, `${student.first_name} ${student.last_name}`)
-                .replace(/{{organizationName}}/g, organization.organization_name)
-                .replace(/{{dateIssued}}/g, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))
-                .replace(/{{fileName}}/g, `${student.first_name}_${student.last_name}_Transcript.pdf`)
-                .replace(/{{schoolWebsiteSection}}/g, websiteInfo.websiteUrl
-                    ? `<p><strong>School Website:</strong> <a href="${websiteInfo.websiteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">${websiteInfo.websiteHost}</a></p>`
-                    : '')
-                .replace(/{{year}}/g, new Date().getFullYear());
+            // The school sends the transcript: its name on the email, the PDF attached. The
+            // reader may be a family or another school, so it says only what the document is.
+            const studentFullName = `${student.first_name || ''} ${student.last_name || ''}`.replace(/\s+/g, ' ').trim();
+            const schoolName = String(organization.organization_name || '').trim();
+            const emailHtml = renderCleanEmail({
+                title: 'Official transcript',
+                greeting: 'Hello,',
+                paragraphs: [
+                    `${schoolName ? escapeHtml(schoolName) : 'The school'} has sent you the official transcript for <strong>${escapeHtml(studentFullName)}</strong>. It is attached as a PDF.`,
+                ],
+                details: [
+                    { label: 'Student', value: escapeHtml(studentFullName) },
+                    { label: 'Date issued', value: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) },
+                ],
+                note: 'If you have questions about this transcript, please contact the school.',
+                schoolName,
+                organizationId,
+                schoolWebsiteUrl: websiteInfo.websiteUrl || '',
+                schoolWebsiteHost: websiteInfo.websiteHost || '',
+            });
 
             console.log('[emailTranscript] Sending email with PDF attachment...');
 
@@ -464,8 +468,9 @@ const transcriptController = (db) => ({
                 {
                     to: recipientEmail,
                     sender: "reports",
+                    onBehalfOf: organizationId,
                     skipMxCheck: true,
-                    subject: `Official Transcript - ${student.first_name} ${student.last_name}`,
+                    subject: `Official transcript for ${studentFullName}`,
                     html: emailHtml,
                     attachments: [
                         {

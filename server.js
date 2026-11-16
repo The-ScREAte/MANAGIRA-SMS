@@ -1004,6 +1004,9 @@ app.use(appDemoCapture.captureLocals(db));
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 // In templates, JSON.stringify writes JSON that can't end a <script> block or an attribute.
 app.locals.JSON = require("./utils/safeJson").TEMPLATE_JSON;
+// Managira's booking page (managira.com/book) and careers inbox, for pages and email templates.
+app.locals.bookingUrl = require("./utils/bookingLink").BOOKING_URL;
+app.locals.careersEmail = require("./utils/bookingLink").CAREERS_EMAIL;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
 app.locals.brandColorChoices = require("./utils/themePalette").BRAND_COLOR_OPTIONS;
 app.locals.footerPaletteFor = require("./utils/themePalette").footerPaletteFor;
@@ -1272,6 +1275,8 @@ app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>
 app.get("/calendar/family/:token([a-f0-9]{48}).ics", (req, res) =>
   require("./controllers/familyCalendarController").ics(req, res, db)
 );
+// The weekly briefing's settings and preview (feature weekly_briefing).
+app.use("/common/briefing", require("./routes/briefingRoute"));
 app.use("/common", commonRoute);
 // Service accounts, access tokens and client secrets (school admin screens).
 app.use("/api-access", require("./routes/apiAccessRoute"));
@@ -1298,6 +1303,10 @@ app.use("/print", printRoute);
 // Mira AI service, never reachable from a browser session.
 app.use("/internal/api", internalApiRoute);
 app.use("/legal", legalRoute);
+// Unsubscribe links in optional emails, and "manage your email settings".
+app.use("/email", require("./routes/emailRoute"));
+// managira.com/book: booking a call with the Managira team (utils/bookingLink.js).
+app.get("/book", (req, res) => res.redirect(302, require("./utils/bookingLink").BOOKING_TARGET));
 // Saving interactive page captures to the product tour (utils/appDemoCapture.js).
 {
   const appDemoController = require("./controllers/appDemoController");

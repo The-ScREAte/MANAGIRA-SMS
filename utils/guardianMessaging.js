@@ -6,7 +6,8 @@
 const { getSmsIntegrationStatus, getTenantSmsCredentials, sendSms } = require("./smsIntegration");
 const { getWhatsappIntegrationStatus, getWhatsappMessagingCredentials, sendWhatsappTextMessage, sendWhatsappDocumentMessage } = require("./whatsappIntegration");
 const { toInternationalPhone, INVALID_PHONE_MESSAGE } = require("./phoneNumber");
-const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("./emailHelper");
+const { isEmailEnabledForRecipient } = require("./emailPreferences");
 
 function safeString(value) {
   return String(value == null ? "" : value).trim();
@@ -38,6 +39,28 @@ function sanitizeForSms(text) {
     .replace(/[^\x00-\x7F]/g, "")           // anything else non-ASCII (emoji, etc.)
     .replace(/[ \t]+/g, " ")
     .trim();
+}
+
+// A message as email paragraphs: escaped (staff typed it), line breaks kept, web addresses as links.
+function messageParagraphs(text) {
+  const linkify = (html) => html.replace(/\bhttps?:\/\/[^\s<]+/g, (match) => {
+    // Punctuation or an escaped quote right after an address isn't part of it.
+    const url = match.replace(/(?:&(?:quot|#39|gt|lt);|[.,;:!?)\]])+$/, "");
+    return `<a href="${url}">${url}</a>${match.slice(url.length)}`;
+  });
+  return safeString(text)
+    .split(/\r?\n\s*\r?\n/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => linkify(escapeHtml(part)).replace(/\r?\n/g, "<br>"));
+}
+
+// "Hi Jordan Diaz," unless the message greets them itself or no real name is known.
+function emailGreeting(guardianName, message) {
+  if (/^\s*(hi|hello|hey|dear|greetings|good (morning|afternoon|evening))\b/i.test(safeString(message))) return "";
+  const name = safeString(guardianName);
+  if (!name || /^(parent|guardian|parents?\s*\/\s*guardians?)$/i.test(name)) return "Hello,";
+  return `Hi ${escapeHtml(name)},`;
 }
 
 function isValidEmailAddress(value) {
@@ -124,6 +147,10 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
     documentUrl,
     documentCaption,
     emailSubject,
+    // Email only: the kind of optional email a parent can turn off. A message staff write to
+    // families is the school reaching them and carries none; a caller sending report cards
+    // passes "report_card_email", and a parent who turned those off is skipped (and told so).
+    emailCategory = null,
     onResult,
   } = options;
 
@@ -182,15 +209,33 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
         continue;
       }
       try {
+        // The school's own message, in its name: the subject staff gave it, or "Message from <school>".
+        const subjectText = safeString(emailSubject).replace(/\s+/g, " ");
+        const subject = subjectText || (safeString(schoolName) ? `Message from ${safeString(schoolName)}` : "Message from your school");
         const html = renderCleanEmail({
-          title: safeString(schoolName),
-          greeting: `Dear ${recipient.guardianName || "Parent/Guardian"},`,
-          paragraphs: [message],
-          noReply: true,
+          title: subject,
+          showTitle: Boolean(subjectText),
+          greeting: emailGreeting(recipient.guardianName, message),
+          paragraphs: messageParagraphs(message),
+          schoolName: safeString(schoolName),
+          organizationId,
         });
+        // A parent who turned this kind of email off isn't sent it, and the history says so
+        // (never "sent").
+        // eslint-disable-next-line no-await-in-loop
+        if (emailCategory && !(await isEmailEnabledForRecipient(dbClient, email, emailCategory))) {
+          push({ email, guardianName: recipient.guardianName || "", success: false, skipped: true, error: "This parent turned off these emails." });
+          continue;
+        }
         // eslint-disable-next-line no-await-in-loop
         const sent = await sendEmailSafely(
-          { to: email, subject: safeString(emailSubject) || `${safeString(schoolName)}: Notification`, html },
+          {
+            to: email,
+            subject,
+            html,
+            ...(emailCategory ? { category: emailCategory, optOutChecked: true } : {}),
+            onBehalfOf: organizationId,
+          },
           "Guardian Notification Email"
         );
         push({ email, guardianName: recipient.guardianName || "", success: Boolean(sent), error: sent ? undefined : "Send failed." });

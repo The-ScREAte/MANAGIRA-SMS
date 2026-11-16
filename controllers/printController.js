@@ -16,7 +16,7 @@ const {
   safeFileSegment,
   sessionCookieFromHeader,
 } = require("../utils/pdfService");
-const { sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { formatDisplayDate, formatDisplayName } = require("../utils/organizationDisplayPreferences");
@@ -6713,6 +6713,9 @@ const printController = (db) => ({
       const classId = Number(req.body?.classId);
       const termId = Number(req.body?.termId);
       const selectedStudentIds = parsePositiveIntArray(req.body?.studentIds);
+      // False when the same request also emails each report card as a PDF (Mira's "post and
+      // email"), so families don't get two emails about one report card.
+      const emailGuardians = req.body?.emailGuardians !== false;
       const activityBatchId = `rpost_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       if (!organizationId || !classId || !termId) {
@@ -6980,7 +6983,8 @@ const printController = (db) => ({
             const postedStudentIds = Array.from(new Set(postedRecords.map((item) => Number(item.studentId)).filter((id) => Number.isFinite(id) && id > 0)));
 
             const staffRecipientsResult = await db.query(
-              `SELECT DISTINCT u.user_id, u.email, u.first_name, u.last_name
+              `SELECT DISTINCT u.user_id, u.email, u.first_name, u.last_name, u.account_type::text AS role,
+                      EXISTS (SELECT 1 FROM user_classes ucx WHERE ucx.user_id = u.user_id AND ucx.class_id = $2) AS in_class
                FROM users u
                WHERE u.organization_id = $1
                  AND COALESCE(u.on_hold, FALSE) = FALSE
@@ -6999,8 +7003,10 @@ const printController = (db) => ({
               ? await db.query(
                   `SELECT DISTINCT gs.student_id,
                           gp.guardian_id,
+                          'profile' AS source,
                           gp.email,
-                          COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name
+                          COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name,
+                          TRIM(COALESCE(gp.first_name, '')) AS guardian_first_name
                    FROM guardian_students gs
                    JOIN guardian_profiles gp
                      ON gp.guardian_id = gs.guardian_id
@@ -7011,8 +7017,10 @@ const printController = (db) => ({
 
                    SELECT DISTINCT g.student_id,
                           g.guardian_id,
+                          'legacy' AS source,
                           g.email,
-                          COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name
+                          COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name,
+                          TRIM(COALESCE(g.first_name, '')) AS guardian_first_name
                    FROM guardians g
                    WHERE g.organization_id = $1
                      AND g.student_id = ANY($2::int[])`,
@@ -7033,7 +7041,9 @@ const printController = (db) => ({
               const guardianEmail = String(row.email || '').trim().toLowerCase();
               const guardianName = String(row.guardian_name || 'Guardian').trim() || 'Guardian';
 
-              if (guardianId > 0) {
+              // The bell belongs to a parent account (guardian_profiles). An older per-student
+              // guardians row is numbered separately, so its id is never a parent's: it only gets the email.
+              if (guardianId > 0 && row.source === 'profile') {
                 guardianNotifications.push({
                   orgId: organizationId,
                   recipientType: 'guardian',
@@ -7050,7 +7060,7 @@ const printController = (db) => ({
                 const emailKey = `${guardianEmail}:${studentId}`;
                 if (!seenGuardianEmailKey.has(emailKey)) {
                   seenGuardianEmailKey.add(emailKey);
-                  guardianEmailTargets.push({ guardianEmail, guardianName, studentId, studentName });
+                  guardianEmailTargets.push({ guardianEmail, guardianName, guardianFirstName: String(row.guardian_first_name || '').trim(), studentId, studentName });
                 }
               }
             });
@@ -7144,7 +7154,16 @@ const printController = (db) => ({
 
             await notificationService.createNotifications(db, [...guardianNotifications, ...staffNotifications]);
 
-            for (const target of guardianEmailTargets) {
+            // Report card emails speak for the school: its name on them, replies to it.
+            const schoolName = (await db.query(
+              `SELECT organization_name FROM organizations WHERE organization_id = $1`,
+              [organizationId]
+            ).catch(() => ({ rows: [] }))).rows[0]?.organization_name || '';
+            // Links go to Managira's public address: a posting Mira starts runs on an internal host.
+            const siteBase = process.env.NODE_ENV === 'production' ? 'https://www.managira.com' : `${protocol}://${host}`;
+            const oneLine = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+
+            for (const target of emailGuardians ? guardianEmailTargets : []) {
               try {
                 const allowed = await isEmailEnabledForRecipient(db, target.guardianEmail, 'report_card_email');
                 if (!allowed) continue;
@@ -7152,35 +7171,41 @@ const printController = (db) => ({
                 // Ignore preference lookup failures and continue best-effort.
               }
 
+              const guardianFirstName = target.guardianFirstName;
               const guardianEmailHtml = renderCleanEmail({
-                title: 'Report Card Ready',
-                greeting: `Dear ${target.guardianName},`,
+                title: 'Report card ready',
+                greeting: guardianFirstName ? `Hi ${escapeHtml(guardianFirstName)},` : 'Hello,',
                 paragraphs: [
-                  `${target.studentName}'s report card for ${termName} is now ready to view in your parent portal.`,
-                  `Class: ${className}`,
+                  `<strong>${escapeHtml(target.studentName)}</strong>'s report card for ${escapeHtml(termName)} is ready in the parent portal.`,
                 ],
                 details: [
-                  { label: 'Student', value: target.studentName },
-                  { label: 'Term', value: termName },
-                  { label: 'Class', value: className },
+                  { label: 'Class', value: escapeHtml(className) },
+                  { label: 'Term', value: escapeHtml(termName) },
                 ],
-                note: 'Log in to the parent portal and open the report card section to view or download the PDF.',
-                noReply: true,
+                cta: { text: 'View report card', url: `${siteBase}/guardian/academic-details?studentId=${Number(target.studentId)}&termId=${Number(termId)}` },
+                schoolName,
+                organizationId,
               });
 
               sendEmailInBackground({
                 to: target.guardianEmail,
                 sender: "reports",
-                subject: `Report Card Ready - ${target.studentName} (${termName})`,
+                subject: oneLine(`Report card for ${target.studentName}`),
                 html: guardianEmailHtml,
+                category: 'report_card_email',
+                onBehalfOf: organizationId,
               }, 'Report Card Ready Guardian');
             }
 
+            // Staff hear only about their own class: the person who posted, and the class's
+            // own staff (not every teacher, manager and supervisor in the school, and never a
+            // driver). Everyone listed still gets the in-app notice above.
             const staffEmailRows = (staffRecipientsResult.rows || [])
               .filter((row) => String(row.email || '').trim())
+              .filter((row) => Number(row.user_id) === Number(postedBy) || (row.in_class && row.role !== 'Driver'))
               .map((row) => ({
                 email: String(row.email || '').trim().toLowerCase(),
-                name: String([row.first_name, row.last_name].filter(Boolean).join(' ') || 'Staff').trim(),
+                firstName: String(row.first_name || '').trim(),
               }));
 
             const staffEmailSet = new Set();
@@ -7189,27 +7214,22 @@ const printController = (db) => ({
               staffEmailSet.add(staff.email);
 
               const staffEmailHtml = renderCleanEmail({
-                title: 'Report Cards Ready',
-                greeting: `Hello ${staff.name},`,
+                title: 'Report cards posted',
+                greeting: staff.firstName ? `Hi ${escapeHtml(staff.firstName)},` : 'Hello,',
                 paragraphs: [
-                  `Report card posting for ${className} (${termName}) has completed.`,
-                  `${postedRecords.length} report card${postedRecords.length === 1 ? '' : 's'} ready${failed.length ? `, ${failed.length} failed` : ''}.`,
+                  `${postedRecords.length} report card${postedRecords.length === 1 ? '' : 's'} for ${escapeHtml(className)} (${escapeHtml(termName)}) ${postedRecords.length === 1 ? 'is' : 'are'} now in the parent portal.${failed.length ? ` ${failed.length} could not be posted; you can post ${failed.length === 1 ? 'it' : 'them'} again from the report cards page.` : ''}`,
                 ],
-                details: [
-                  { label: 'Class', value: className },
-                  { label: 'Term', value: termName },
-                  { label: 'Ready', value: String(postedRecords.length) },
-                  { label: 'Failed', value: String(failed.length) },
-                ],
-                note: `View details in the school portal: ${readyLink}`,
-                noReply: true,
+                cta: { text: 'View report cards', url: `${siteBase}${readyLink}` },
+                schoolName,
+                organizationId,
               });
 
               sendEmailInBackground({
                 to: staff.email,
                 sender: "reports",
-                subject: `Report Cards Ready - ${className} (${termName})`,
+                subject: oneLine(`Report cards posted for ${className}`),
                 html: staffEmailHtml,
+                onBehalfOf: organizationId,
               }, 'Report Card Ready Staff');
             }
           }

@@ -1,7 +1,8 @@
 const { normalizeWhatsappPhoneNumber } = require("./phoneNumber");
 const db = require("../config/db");
 const { ensureTransportationSchema, calculateDistanceKm } = require("./transportation");
-const { sendEmailInBackground, renderCleanEmail } = require("./emailHelper");
+const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("./emailHelper");
+const { activeStudentSql } = require("./activeStudents");
 const {
   getWhatsappMessagingCredentials,
   sendWhatsappTextMessage,
@@ -39,7 +40,7 @@ async function getGuardianContactsForStudent(database, organizationId, studentId
   return result.rows;
 }
 
-async function sendArrivalNotification(database, { organizationId, student, eventType, busNumber, orgCountry, whatsappCreds, whatsappActivated }) {
+async function sendArrivalNotification(database, { organizationId, organizationName, student, eventType, busNumber, orgCountry, whatsappCreds, whatsappActivated }) {
   const contacts = await getGuardianContactsForStudent(database, organizationId, student.student_id);
   if (!contacts.length) return;
 
@@ -51,23 +52,37 @@ async function sendArrivalNotification(database, { organizationId, student, even
   const message = isApproaching
     ? `The school bus${busNumber ? ` (${busNumber})` : ""} is about ${APPROACHING_ETA_MINUTES} minutes away from ${studentName}'s stop.`
     : `The school bus${busNumber ? ` (${busNumber})` : ""} has arrived at ${studentName}'s stop.`;
+  // One short email in the school's name; a parent can turn these off (bus_arrival).
+  const html = renderCleanEmail({
+    title,
+    paragraphs: [escapeHtml(message)],
+    schoolName: organizationName || "",
+    organizationId,
+  });
 
+  // A parent listed twice (two phone numbers, or on both parent lists) hears once on each channel.
+  const emailed = new Set();
+  const texted = new Set();
   for (const contact of contacts) {
     // Email is the default, always-sent channel.
-    if (contact.email) {
-      const html = renderCleanEmail({
-        title,
-        greeting: "Hello,",
-        paragraphs: [message],
-        noReply: true,
-      });
-      sendEmailInBackground({ to: contact.email, subject: title, html, sender: "reminders" }, "TransportArrival").catch(() => {});
+    const email = String(contact.email || "").trim().toLowerCase();
+    if (email && !emailed.has(email)) {
+      emailed.add(email);
+      sendEmailInBackground({
+        to: email,
+        subject: title,
+        html,
+        sender: "reminders",
+        category: "bus_arrival",
+        onBehalfOf: organizationId,
+      }, "TransportArrival").catch(() => {});
     }
 
     // WhatsApp is sent additionally, only when the organization has it active.
     if (whatsappActivated && whatsappCreds && whatsappCreds.configured && contact.phone) {
       const { normalized, valid } = normalizeWhatsappPhoneNumber(contact.phone, orgCountry);
-      if (valid) {
+      if (valid && !texted.has(normalized)) {
+        texted.add(normalized);
         sendWhatsappTextMessage(whatsappCreds.accessToken, whatsappCreds.phoneNumberId, {
           to: normalized,
           text: message,
@@ -108,7 +123,7 @@ async function runTransportArrivalSweep(database = db) {
         [trip.trip_id]
       ),
       database.query(
-        `SELECT whatsapp_activated, organization_country FROM organizations WHERE organization_id = $1`,
+        `SELECT organization_name, whatsapp_activated, organization_country FROM organizations WHERE organization_id = $1`,
         [trip.organization_id]
       ),
       trip.bus_id
@@ -119,6 +134,7 @@ async function runTransportArrivalSweep(database = db) {
     const ping = pingResult.rows[0];
     if (!ping) continue;
 
+    const organizationName = orgResult.rows[0]?.organization_name || "";
     const whatsappActivated = Boolean(orgResult.rows[0]?.whatsapp_activated);
     const orgCountry = orgResult.rows[0]?.organization_country || "";
     const busNumber = busResult.rows[0]?.bus_number || null;
@@ -135,7 +151,8 @@ async function runTransportArrivalSweep(database = db) {
          FROM transport_student_assignments tsa
          JOIN students s ON s.student_id = tsa.student_id AND s.organization_id = tsa.organization_id
          LEFT JOIN transport_stops st ON st.stop_id = tsa.stop_id AND st.organization_id = tsa.organization_id
-        WHERE tsa.organization_id = $1 AND tsa.bus_id = $2 AND tsa.active = TRUE`,
+        WHERE tsa.organization_id = $1 AND tsa.bus_id = $2 AND tsa.active = TRUE
+          AND ${activeStudentSql("s")}`,
       [trip.organization_id, trip.bus_id]
     );
 
@@ -166,6 +183,7 @@ async function runTransportArrivalSweep(database = db) {
 
       await sendArrivalNotification(database, {
         organizationId: trip.organization_id,
+        organizationName,
         student,
         eventType,
         busNumber,

@@ -11,8 +11,14 @@ const db = require("../config/db");
 const axios = require("axios");
 const { getStripeClient } = require("./stripeConfig");
 const { getPaystackSettings } = require("./paystackConfig");
-const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("./emailHelper");
 const { computeNextRunAfterExecution } = require("./payoutSchedule");
+
+// Emails here are Managira's, about the school's payments (organizationId, never on its behalf).
+const BASE_URL = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "");
+const oneLine = (text) => String(text || "").replace(/\s*[\r\n]+\s*/g, " ").trim();
+// The payment's own currency, written the way the rest of Managira writes money.
+const moneyOf = (amount, currency) => require("./currencyLocalization").formatCurrencyAmount(amount, currency || "USD");
 
 /**
  * Charge the org's saved card for one payout occurrence and record the
@@ -63,16 +69,23 @@ async function scheduleAfterFailure(dbClient, payoutRow, org, message) {
     await sendEmailSafely(
       {
         to: org.email,
-        subject: `A scheduled payment failed: ${payoutRow.name}`,
+        subject: oneLine(`Scheduled payment didn't go through: ${payoutRow.name}`),
         html: renderCleanEmail({
-          title: "A scheduled payment failed",
+          organizationId: payoutRow.organization_id,
+          title: "A scheduled payment didn't go through",
           greeting: "Hello,",
           paragraphs: [
-            `We tried three times to pay "${payoutRow.name}" and could not. The last reason given was: ${message}`,
-            nextRunAt ? "We will try again on its next scheduled date. Please check the saved card." : "There are no more scheduled dates, so we won't try again. Please check the saved card.",
+            `We tried three times to make the scheduled payment “${escapeHtml(payoutRow.name)}” with your saved card, and it didn't go through.`,
+            nextRunAt
+              ? "We'll try again on its next scheduled date. Please check the saved card before then."
+              : "It has no more scheduled dates, so we won't try again. Please check the saved card.",
           ],
+          details: [
+            { label: "Amount", value: escapeHtml(moneyOf(payoutRow.amount, payoutRow.currency)) },
+            ...(message ? [{ label: "Reason given", value: escapeHtml(message) }] : []),
+          ],
+          cta: { text: "Open Pay staff & vendors", url: `${BASE_URL}/account/settings/finance?section=payouts` },
         }),
-        text: `We tried three times to pay "${payoutRow.name}" and could not. Reason: ${message}`,
       },
       `Org Payout #${payoutRow.payout_id} failed`
     ).catch(() => {});
@@ -283,29 +296,28 @@ async function chargePaystackCard({ org, card, amountMinor, currency, payoutRow,
   }
 }
 
+// The person paid hears what was sent and by whom; the school's card stays private to the school.
 async function sendPayoutReceiptEmail(org, payoutRow, card) {
   if (!payoutRow.recipient_email) return;
-  const amountStr = `${payoutRow.currency} ${Number(payoutRow.amount).toFixed(2)}`;
+  const amount = moneyOf(payoutRow.amount, payoutRow.currency);
+  const school = org.organization_name || "Your school";
   const html = renderCleanEmail({
-    title: "Payment Notice",
-    greeting: `Hi ${payoutRow.recipient_name || "there"},`,
-    paragraphs: [
-      `${org.organization_name || "Your school"} has sent you a payment of ${amountStr} for "${payoutRow.name}".`,
-    ],
+    organizationId: payoutRow.organization_id,
+    title: `Payment from ${school}`,
+    greeting: String(payoutRow.recipient_name || "").trim() ? `Hi ${escapeHtml(String(payoutRow.recipient_name).trim())},` : "Hello,",
+    paragraphs: [`${escapeHtml(school)} sent you a payment.`],
     details: [
-      { label: "Amount", value: amountStr },
-      { label: "Description", value: payoutRow.name },
-      { label: "Card", value: `•••• ${card.last4 || "----"}` },
-      { label: "Date", value: new Date().toLocaleDateString() },
+      { label: "Amount", value: escapeHtml(amount) },
+      { label: "For", value: escapeHtml(payoutRow.name) },
+      { label: "Date", value: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
     ],
-    note: "This is an automated payment notice from Managira on behalf of your school.",
+    note: `Questions about this payment? Please contact ${escapeHtml(school)}.`,
   });
   await sendEmailSafely(
     {
       to: payoutRow.recipient_email,
-      subject: `You've been paid — ${payoutRow.name}`,
+      subject: oneLine(`Payment from ${school}`),
       html,
-      text: `${org.organization_name || "Your school"} sent you ${amountStr} for "${payoutRow.name}".`,
     },
     `Org Payout #${payoutRow.payout_id}`
   );

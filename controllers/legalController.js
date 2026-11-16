@@ -1,6 +1,5 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/db');
-const path = require('path');
 const { uploadToS3 } = require('../config/s3');
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail, escapeHtml } = require('../utils/emailHelper');
 // Public forms never mail what a visitor typed back out, and mail any one address only a few times a day (utils/humanCheck.js).
@@ -17,6 +16,13 @@ const sendWithSingleRetry = async (sendFn) => {
     return sendFn();
 };
 
+// Subjects are plain text on one line.
+const oneLine = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const PUBLIC_BASE_URL = require('../utils/emailLinks').BASE_URL;
+
+// The address was typed into a public form, so this confirmation repeats nothing the applicant
+// typed (only the job's own title and the application number) and goes out at most a few
+// times a day per address (emailAllowance).
 const sendEmploymentApplicantConfirmationEmail = async ({
     applicantFullName,
     applicantEmail,
@@ -24,35 +30,25 @@ const sendEmploymentApplicantConfirmationEmail = async ({
     selectedJob,
     applicationId,
 }) => {
-    const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
+    if (!emailAllowance(applicantEmail)) {
+        return;
+    }
+    const jobTitle = oneLine(selectedJob.title);
     const applicantConfirmationHtml = renderCleanEmail({
-        title: 'Employment Application Received',
-        greeting: `Dear <strong>${applicantFullName}</strong>,`,
+        title: 'We received your application',
+        greeting: 'Hello,',
         paragraphs: [
-            `Thank you for applying for the <strong>${selectedJob.title}</strong> role at Managira.`,
-            'Your application has been received successfully, and our team will review it.',
+            `Thank you for applying for the <strong>${escapeHtml(jobTitle)}</strong> role at Managira. We'll email you once our team has reviewed your application.`,
+            "If you didn't apply, you can ignore this email.",
         ],
-        details: [
-            { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
-            { label: 'Position', value: selectedJob.title },
-            { label: 'Location', value: location },
-        ],
-        followManagira: true,
-        linkedinUrl,
+        details: applicationId ? [{ label: 'Application number', value: `#${applicationId}` }] : [],
     });
 
     sendEmailInBackground(
         {
             to: applicantEmail,
-            subject: `Application Received: ${selectedJob.title}`,
+            subject: `Application received: ${jobTitle}`,
             html: applicantConfirmationHtml,
-            attachments: [
-                {
-                    filename: 'managira.png',
-                    path: path.join(__dirname, '../public/images/managira.png'),
-                    cid: 'managira_logo'
-                }
-            ]
         },
         'Employment Applicant Confirmation Email'
     );
@@ -72,34 +68,24 @@ const sendEmploymentInternalAlertEmail = async ({
     }
 
     const internalAlertHtml = renderCleanEmail({
-        title: 'New Employment Application Received',
-        greeting: 'Hello Team,',
-        paragraphs: [
-            'People are applying. A new employment application has been submitted.',
-            'Please review this application from the Admin Employment page.',
-        ],
+        title: 'New job application',
+        paragraphs: ['A new job application came in. Review it on the Employment page.'],
         details: [
-            { label: 'Position', value: selectedJob.title },
-            { label: 'Applicant', value: applicantFullName },
-            { label: 'Email', value: applicantEmail },
-            { label: 'Phone', value: phone },
-            { label: 'Location', value: location },
-            { label: 'Application ID', value: applicationId ? `#${applicationId}` : 'Submitted' },
+            { label: 'Position', value: escapeHtml(selectedJob.title) },
+            { label: 'Applicant', value: escapeHtml(applicantFullName) },
+            { label: 'Email', value: escapeHtml(applicantEmail) },
+            { label: 'Phone', value: escapeHtml(phone) },
+            { label: 'Location', value: escapeHtml(location) },
+            { label: 'Application number', value: applicationId ? `#${applicationId}` : '—' },
         ],
+        cta: { text: 'Review application', url: `${PUBLIC_BASE_URL}/admin/employment` },
     });
 
     sendEmailInBackground(
         {
             to: alertRecipient,
-            subject: `New Application: ${selectedJob.title}`,
+            subject: oneLine(`New application: ${selectedJob.title}`),
             html: internalAlertHtml,
-            attachments: [
-                {
-                    filename: 'managira.png',
-                    path: path.join(__dirname, '../public/images/managira.png'),
-                    cid: 'managira_logo'
-                }
-            ]
         },
         'Employment New Application Alert Email'
     );
@@ -614,28 +600,18 @@ const legalController = {
             // The confirmation says only that the ticket exists: never what was typed, so the form
             // can't carry anyone's words (or links) to someone else's inbox.
             const html = renderCleanEmail({
-                title: `Support Ticket Created (#${threadId})`,
-                greeting: `Dear <strong>${escapeHtml(String(name).slice(0, 80))}</strong>,`,
+                title: 'We received your request',
+                greeting: 'Hello,',
                 paragraphs: [
-                    'Thank you for reaching out. Your support ticket has been created and our team will respond shortly.',
+                    `Thanks for contacting Managira support. Your ticket number is #${threadId}, and we'll reply to this email address.`,
                     "If you didn't contact Managira, you can ignore this email.",
-                ],
-                details: [
-                    { label: 'Ticket Number', value: `#${threadId}` },
                 ],
             });
 
             if (emailAllowance(email)) sendEmailInBackground({
                 to: email,
-                subject: `Support Ticket Created - Ticket #${threadId}`,
+                subject: `Support ticket #${threadId} received`,
                 html,
-                attachments: [
-                  {
-                    filename: 'managira.png',
-                    path: require('path').join(__dirname, '../public/images/managira.png'),
-                    cid: 'managira_logo'
-                  }
-                ]
             }, 'Legal Help Confirmation Email');
 
             req.flash('success', 'Help request submitted successfully.');
@@ -944,32 +920,20 @@ const legalController = {
                 [threadId, name, email, composedMessage]
             );
 
+            // Like the help ticket: the confirmation repeats nothing the visitor typed.
             const html = renderCleanEmail({
-                title: `Demo Request Received (#${threadId})`,
-                greeting: `Dear <strong>${escapeHtml(String(name).slice(0, 80))}</strong>,`,
+                title: 'We received your demo request',
+                greeting: 'Hello,',
                 paragraphs: [
-                    'Thanks for requesting a Managira demo. Our team will reach out shortly to schedule a personalised walkthrough.',
-                    'In the meantime, you can explore our interactive App Demo and User Documentation from the Resources section.',
-                ],
-                details: [
-                    { label: 'Reference', value: `#${threadId}` },
-                    { label: 'Organisation', value: escapeHtml(organization || '—') },
-                    { label: 'Preferred Date', value: escapeHtml(preferred_date || 'Flexible') },
-                    { label: 'Preferred Time', value: escapeHtml(preferred_time || 'Flexible') },
+                    `Thanks for your interest in Managira. Our team will email you to schedule your demo. Your reference number is #${threadId}.`,
+                    "If you didn't request a demo, you can ignore this email.",
                 ],
             });
 
             if (emailAllowance(email)) sendEmailInBackground({
                 to: email,
-                subject: `Managira Demo Request Received - #${threadId}`,
+                subject: `Demo request received (#${threadId})`,
                 html,
-                attachments: [
-                    {
-                        filename: 'managira.png',
-                        path: path.join(__dirname, '../public/images/managira.png'),
-                        cid: 'managira_logo'
-                    }
-                ]
             }, 'Demo Request Confirmation Email');
 
             const demoAlertRecipient =
@@ -980,38 +944,27 @@ const legalController = {
 
             if (demoAlertRecipient) {
                 const internalDemoAlertHtml = renderCleanEmail({
-                    title: `New Demo Request (#${threadId})`,
-                    greeting: 'Hello Team,',
-                    paragraphs: [
-                        'A new demo request has been submitted from the public Request Demo page.',
-                        'Please follow up with the requester to schedule the walkthrough.',
-                    ],
+                    title: `New demo request (#${threadId})`,
+                    paragraphs: ['Someone asked for a demo on the Request a Demo page. Follow up to schedule it.'],
                     details: [
-                        { label: 'Reference', value: `#${threadId}` },
                         { label: 'Name', value: escapeHtml(name || '—') },
                         { label: 'Email', value: escapeHtml(email || '—') },
                         { label: 'Phone', value: escapeHtml(phone || '—') },
-                        { label: 'Organisation', value: escapeHtml(organization || '—') },
+                        { label: 'Organization', value: escapeHtml(organization || '—') },
                         { label: 'Role', value: escapeHtml(role || '—') },
                         { label: 'Country', value: escapeHtml(country || '—') },
-                        { label: 'Approx. Students', value: escapeHtml(student_count || '—') },
-                        { label: 'Preferred Date', value: escapeHtml(preferred_date || 'Flexible') },
-                        { label: 'Preferred Time', value: escapeHtml(preferred_time || 'Flexible') },
-                        { label: 'Message', value: escapeHtml(trimmedMessage || '—') },
+                        { label: 'Students (approx.)', value: escapeHtml(student_count || '—') },
+                        { label: 'Preferred date', value: escapeHtml(preferred_date || 'Flexible') },
+                        { label: 'Preferred time', value: escapeHtml(preferred_time || 'Flexible') },
+                        { label: 'Message', value: escapeHtml(trimmedMessage || '—').replace(/\r?\n/g, '<br>') },
                     ],
+                    cta: { text: 'Open help messages', url: `${PUBLIC_BASE_URL}/admin/helpMessages` },
                 });
 
                 sendEmailInBackground({
                     to: demoAlertRecipient,
-                    subject: `[DEMO REQUEST] ${organization || name} - #${threadId}`,
+                    subject: oneLine(`Demo request: ${organization || name} (#${threadId})`),
                     html: internalDemoAlertHtml,
-                    attachments: [
-                        {
-                            filename: 'managira.png',
-                            path: path.join(__dirname, '../public/images/managira.png'),
-                            cid: 'managira_logo'
-                        }
-                    ]
                 }, 'Demo Request Internal Alert Email');
             }
 

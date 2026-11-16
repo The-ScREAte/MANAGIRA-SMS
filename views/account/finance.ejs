@@ -3587,17 +3587,16 @@
             <div class="fin-modal-head"><h3>Email parents</h3><button class="fin-modal-close" type="button" onclick="closeArrearsEmailDrawer()">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/email" class="fin-form" id="arrearsEmailForm">
               <div class="fin-row">
-                <div class="fin-field"><label>Subject</label><input type="text" name="subject" value="Outstanding Balance Notice — {Student Name}" required></div>
+                <div class="fin-field"><label>Subject</label><input type="text" name="subject" value="Balance due for {Student Name}" required></div>
                 <div class="fin-field"><label>Words that fill themselves in</label><div class="arrears-note">{Guardian Name}, {Student Name}, {Outstanding Amount}, {Bill Name}, {Due Date}, {Days Overdue}, {School Name}, {Class}, {Term Name}</div></div>
               </div>
-              <div class="fin-field"><label>Message</label><textarea name="body" rows="7">Dear {Guardian Name},
+              <div class="fin-field"><label>Message</label><textarea name="body" rows="7">Hi {Guardian Name},
 
-{Student Name} currently has an outstanding balance of {Outstanding Amount}.
+This is a reminder that {Student Name}'s account has a balance of {Outstanding Amount} for {Bill Name}, due {Due Date}.
 
-Please review the account and arrange payment as soon as possible.
+If you've already paid, thank you, and please disregard this message.
 
-Regards,
-{School Name} Finance Office</textarea></div>
+{School Name}</textarea></div>
               <div class="arrears-checkbox-row">
                 <label class="arrears-checkbox"><input type="checkbox" name="include_payment_link" checked> Include a link to pay</label>
               </div>

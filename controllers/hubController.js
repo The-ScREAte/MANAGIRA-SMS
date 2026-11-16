@@ -3,7 +3,7 @@ const db = require("../config/db");
 const bcrypt = require("../utils/passwordHashing");
 const crypto = require("crypto");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const {
   getHubPreferenceMap,
   setHubPreferences,
@@ -35,29 +35,40 @@ const hubActorLabel = (req) => {
 };
 const hubActorEmail = (req) => (req.hubActor && req.hubActor.user ? req.hubActor.user.email : (req.hubInfo && req.hubInfo.hub_email)) || '';
 
+// Email wording helpers: where links point (the live site; invitation links keep APP_URL when
+// it is set), US dates, a greeting by name, and what someone typed made safe for the body.
+const emailBase = () => String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com').replace(/\/$/, '');
+const inviteBase = () => String(process.env.APP_URL || emailBase()).replace(/\/$/, '');
+const longDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+const hiName = (name) => (String(name || '').trim() ? `Hi ${escapeHtml(String(name).trim())},` : 'Hello,');
+const typedText = (text) => escapeHtml(String(text || '').trim()).replace(/\r?\n/g, '<br>');
+const oneLine = (text) => String(text || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
+
 // Tell the rest of the hub (not the person who did it) about a school change.
 function notifySchoolStatus(req, schoolName, what) {
   const hubName = (req.hubInfo && req.hubInfo.hub_name) || 'your hub';
   const who = hubActorLabel(req);
   notifyHub(db, req.session.hubId, 'hub_school_status', (r) => ({
-    subject: `${schoolName} ${what}`,
+    subject: oneLine(`${schoolName} ${what}`),
     html: renderCleanEmail({
+      hubId: req.session.hubId,
       title: `${schoolName} ${what}`,
-      greeting: `Hello ${r.firstName || ''}`.trim() + ',',
-      paragraphs: [`${schoolName} ${what} (${hubName}).`, `Done by ${who}.`],
-      cta: { text: 'Open your hub', url: `${process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com'}/hub/dashboard#schools` },
+      greeting: hiName(r.firstName),
+      paragraphs: [`${escapeHtml(who)} made this change in ${escapeHtml(hubName)}.`],
+      cta: { text: 'Open your hub', url: `${emailBase()}/hub/dashboard#schools` },
     }),
   }), { excludeEmail: hubActorEmail(req) });
 }
 
 // Helper function to send emails (fire-and-forget). Returns true once the
 // email is queued, so callers that check the result don't report a failure.
-function sendEmail({ to, subject, html }) {
+function sendEmail({ to, subject, html, sender }) {
   if (!to) return false;
   sendEmailInBackground({
     to,
-    subject,
+    subject: oneLine(subject),
     html,
+    ...(sender ? { sender } : {}),
   }, "Hub email");
   return true;
 }
@@ -87,12 +98,13 @@ function notifyInvitationSent(req, schoolName) {
   const hubName = (req.hubInfo && req.hubInfo.hub_name) || 'your hub';
   const who = hubActorLabel(req);
   notifyHub(db, req.session.hubId, 'hub_invitation_sent', (r) => ({
-    subject: `${schoolName} was invited to ${hubName}`,
+    subject: oneLine(`${schoolName} was invited to ${hubName}`),
     html: renderCleanEmail({
-      title: 'School invited',
-      greeting: `Hello ${r.firstName || ''}`.trim() + ',',
-      paragraphs: [`${who} invited ${schoolName} to join ${hubName}.`, 'You will hear from us again when they accept.'],
-      cta: { text: 'See invitations', url: `${process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com'}/hub/dashboard#invitations` },
+      hubId: req.session.hubId,
+      title: `${schoolName} was invited to your hub`,
+      greeting: hiName(r.firstName),
+      paragraphs: [`${escapeHtml(who)} invited ${escapeHtml(schoolName)} to join ${escapeHtml(hubName)}. The invitation is open for 7 days.`],
+      cta: { text: 'See invitations', url: `${emailBase()}/hub/dashboard#invitations` },
     }),
   }), { excludeEmail: hubActorEmail(req) });
 }
@@ -1483,29 +1495,30 @@ const hubController = {
       await extra.commit();
 
       // Send invitation email
-      const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitationToken}`;
-      
+      const invitationUrl = `${inviteBase()}/account/accept-hub-invitation/${invitationToken}`;
+      const hubName = escapeHtml(hub.hub_name);
+
       const emailHtml = renderCleanEmail({
-        title: `Hub Invitation from ${hub.hub_name}`,
-        greeting: `Dear ${contact_person_name},`,
+        hubId: hub.hub_id,
+        title: `Invitation to join ${hub.hub_name}`,
+        greeting: hiName(contact_person_name),
         paragraphs: [
-          `${hub.hub_name} has invited ${organization_name} to join their hub on Managira SMS.`,
-          'A hub is a parent organization that manages multiple schools or educational institutions.',
-          message ? `Message from ${hub.hub_name}: ${message}` : '',
+          `${hubName} invited ${escapeHtml(organization_name)} to join its hub on Managira. A hub brings schools together, such as a district, and takes care of their Managira plan.`,
+          message ? `${hubName} wrote: “${typedText(message)}”` : '',
+          'Accept the invitation to set up your school’s account.',
         ].filter(Boolean),
         details: [
-          { label: 'Hub', value: hub.hub_name },
-          { label: 'Organization', value: organization_name },
-          { label: 'Plan', value: (invitePlan && invitePlan.plan_name) || hub.plan_name || 'Set by your hub' },
-          { label: 'Access URL', value: `${organization_name.toLowerCase().replace(/\s+/g, '')}.${hub.hub_nickname}.managira.com` },
+          { label: 'Plan', value: escapeHtml((invitePlan && invitePlan.plan_name) || hub.plan_name || 'Chosen by your hub') },
+          { label: 'Expires', value: longDate(expiresAt) },
         ],
-        cta: { url: invitationUrl, text: 'Accept Invitation' },
-        note: `This invitation expires on ${expiresAt.toLocaleDateString()}. If you have questions, contact ${hub.hub_name} at ${hub.hub_email}.`,
+        cta: { url: invitationUrl, text: 'Accept invitation' },
+        showLink: true,
+        note: `Questions? Contact ${hubName} at ${escapeHtml(hub.hub_email)}.`,
       });
 
       const emailSent = await sendEmail({
         to: contact_person_email,
-        subject: `Action required: respond to your ${hub.hub_name} Hub invitation`,
+        subject: `Invitation to join ${hub.hub_name} on Managira`,
         html: emailHtml
       });
 
@@ -1564,24 +1577,33 @@ const hubController = {
         [newExpiresAt, invitationId]
       );
 
-      // Resend email
-      const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitation.invitation_token}`;
-      
+      // Resend email. An existing school's invitation opens its own page (it joins as it is).
+      const existingSchool = Boolean(invitation.existing_org_id);
+      const invitationUrl = `${inviteBase()}/account/accept-hub-invitation${existingSchool ? '-existing' : ''}/${invitation.invitation_token}`;
+      const hubName = escapeHtml(hub.hub_name);
+
       const emailHtml = renderCleanEmail({
-        title: `Reminder: Hub Invitation from ${hub.hub_name}`,
-        greeting: `Dear ${invitation.contact_person_name},`,
+        hubId: hub.hub_id,
+        ...(existingSchool ? { organizationId: invitation.existing_org_id } : {}),
+        title: `Invitation to join ${hub.hub_name}`,
+        greeting: existingSchool ? 'Hello,' : hiName(invitation.contact_person_name),
         paragraphs: [
-          `This is a reminder that ${hub.hub_name} invited ${invitation.organization_name} to join their hub on Managira SMS.`,
-          invitation.message ? `Message from ${hub.hub_name}: ${invitation.message}` : '',
+          `${hubName} invited ${escapeHtml(invitation.organization_name)} to join its hub on Managira, and the invitation is still open.`,
+          invitation.message ? `${hubName} wrote: “${typedText(invitation.message)}”` : '',
+          existingSchool
+            ? 'Your school keeps its own account and data, and the hub takes care of its Managira plan.'
+            : 'Accept the invitation to set up your school’s account.',
         ].filter(Boolean),
-        cta: { url: invitationUrl, text: 'Accept Invitation' },
-        note: `This invitation expires on ${newExpiresAt.toLocaleDateString()}.`,
+        details: [{ label: 'Expires', value: longDate(newExpiresAt) }],
+        cta: { url: invitationUrl, text: 'Accept invitation' },
+        showLink: true,
+        note: `Questions? Contact ${hubName} at ${escapeHtml(hub.hub_email)}.`,
       });
 
       await sendEmail({
         to: invitation.contact_person_email,
         sender: "reminders",
-        subject: `Reminder: respond to your ${hub.hub_name} Hub invitation`,
+        subject: `Reminder: invitation to join ${hub.hub_name} on Managira`,
         html: emailHtml
       });
 
@@ -1643,24 +1665,22 @@ const hubController = {
 
       // Send notification email to organization
       if (organization.email) {
+        const hubName = escapeHtml(hub.hub_name);
         const emailHtml = renderCleanEmail({
-          title: 'Hub Membership Update',
-          greeting: `Dear ${organization.organization_name} Administrator,`,
+          organizationId: organization.organization_id,
+          title: `${organization.organization_name} is no longer part of ${hub.hub_name}`,
+          greeting: hiName(organization.first_name),
           paragraphs: [
-            `Your organization has been removed from the ${hub.hub_name} hub.`,
-            `If you believe this is an error, contact ${hub.hub_name} at ${hub.hub_email}.`,
-            'Log in to your dashboard to set up your organization subscription.',
+            `${hubName} removed ${escapeHtml(organization.organization_name)} from its hub on Managira. Your school’s account and data are unchanged.`,
+            `To keep using Managira, sign in and choose a plan in Settings › Billing & Plan. Questions about this change? Contact ${hubName} at ${escapeHtml(hub.hub_email)}.`,
           ],
-          details: [
-            { label: 'Status', value: 'Organization is now independent' },
-            { label: 'New Subdomain', value: `${organization.organization_nickname}.managira.com` },
-            { label: 'Data', value: 'All existing data remains intact' },
-          ],
+          details: organization.nickname ? [{ label: 'Your web address', value: escapeHtml(`${organization.nickname}.managira.com`) }] : [],
+          cta: { text: 'Choose a plan', url: `${emailBase()}/account/settings?section=billing` },
         });
 
         await sendEmail({
           to: organization.email,
-          subject: `Hub Membership Update - ${organization.organization_name}`,
+          subject: `${organization.organization_name} is no longer part of ${hub.hub_name}`,
           html: emailHtml
         });
       }
@@ -1938,7 +1958,7 @@ const hubController = {
 
                   // Get request details
       const requestResult = await db.query(
-        `SELECT dr.*, o.organization_name, o.nickname, o.email as org_email
+        `SELECT dr.*, o.organization_name, o.nickname, o.email as org_email, o.first_name AS org_first_name
          FROM hub_detachment_requests dr
          JOIN organizations o ON dr.organization_id = o.organization_id
          WHERE dr.request_id = $1 AND dr.hub_id = $2 AND dr.status = 'pending'`,
@@ -1981,30 +2001,21 @@ const hubController = {
 
       // Send notification email to organization
       const emailHtml = renderCleanEmail({
-        title: 'Detachment Request Approved',
-        greeting: `Dear ${request.organization_name} Administrator,`,
+        organizationId: request.organization_id,
+        title: 'Your request to leave the hub was approved',
+        greeting: hiName(request.org_first_name),
         paragraphs: [
-          `Your request to detach from <strong>${hub.hub_name}</strong> has been approved. Your organization is now independent.`,
-          '<strong>What happens next:</strong>',
-          '1. Your organization data remains fully intact — nothing has been deleted.',
-          '2. You will need to set up your own subscription plan to continue using Managira.',
-          '3. Log in to your dashboard and navigate to Billing to choose a plan.',
-          '4. If you were using a custom subdomain under the hub, your new subdomain is shown below.',
-          'If you need any assistance during this transition, don\'t hesitate to reach out.',
+          `${escapeHtml(hub.hub_name)} approved your request, so ${escapeHtml(request.organization_name)} now has its own Managira account. Your school’s data is unchanged.`,
+          'To keep using Managira, sign in and choose a plan in Settings › Billing & Plan.',
         ],
-        details: [
-          { label: 'Status', value: 'Approved — Now Independent' },
-          { label: 'Previous Hub', value: hub.hub_name },
-          { label: 'Your Subdomain', value: `${request.nickname}.managira.com` },
-          { label: 'Your Data', value: 'All organization data remains intact' },
-          { label: 'Next Step', value: 'Set up your own subscription plan in Billing settings' },
-        ],
-        note: 'Need help? Contact us at info@managira.com or visit managira.com/legal/help.',
+        details: request.nickname ? [{ label: 'Your web address', value: escapeHtml(`${request.nickname}.managira.com`) }] : [],
+        cta: { text: 'Choose a plan', url: `${emailBase()}/account/settings?section=billing` },
+        note: 'Need help? Write to <a href="mailto:support@managira.com">support@managira.com</a>.',
       });
 
       await sendEmail({
         to: request.org_email,
-        subject: 'Detachment Request Approved - Managira SMS',
+        subject: `Your request to leave ${hub.hub_name} was approved`,
         html: emailHtml
       });
 
@@ -2024,7 +2035,7 @@ const hubController = {
 
                         // Get request details
       const requestResult = await db.query(
-        `SELECT dr.*, o.organization_name, o.email as org_email
+        `SELECT dr.*, o.organization_name, o.email as org_email, o.first_name AS org_first_name
          FROM hub_detachment_requests dr
          JOIN organizations o ON dr.organization_id = o.organization_id
          WHERE dr.request_id = $1 AND dr.hub_id = $2 AND dr.status = 'pending'`,
@@ -2057,28 +2068,21 @@ const hubController = {
       );
 
       // Send notification email to organization
+      const hubName = escapeHtml(hub.hub_name);
       const emailHtml = renderCleanEmail({
-        title: 'Detachment Request Update',
-        greeting: `Dear ${request.organization_name} Administrator,`,
+        organizationId: request.organization_id,
+        title: 'Update on your request to leave the hub',
+        greeting: hiName(request.org_first_name),
         paragraphs: [
-          `Your request to detach from <strong>${hub.hub_name}</strong> has been reviewed and was not approved at this time.`,
-          notes ? `<strong>Reason from ${hub.hub_name}:</strong> ${notes}` : '',
-          `If you would like to discuss this decision, you can contact ${hub.hub_name} directly at <strong>${hub.hub_email}</strong>.`,
-          'Your organization continues to operate as part of the hub with no changes to your data or access.',
-          'You may submit a new detachment request in the future if needed.',
+          `${hubName} reviewed your request to leave its hub and didn’t approve it at this time. Nothing changes for ${escapeHtml(request.organization_name)}: your account, data and access stay as they are.`,
+          notes && String(notes).trim() ? `Their note: “${typedText(notes)}”` : '',
+          `To talk it over, contact ${hubName} at ${escapeHtml(hub.hub_email)}. You can send a new request later if you need to.`,
         ].filter(Boolean),
-        details: [
-          { label: 'Status', value: 'Not Approved' },
-          { label: 'Hub', value: hub.hub_name },
-          { label: 'Hub Contact', value: hub.hub_email },
-          { label: 'Your Access', value: 'Unchanged — all services remain active' },
-        ],
-        note: 'Need help? Contact us at info@managira.com or visit managira.com/legal/help.',
       });
 
       await sendEmail({
         to: request.org_email,
-        subject: 'Detachment Request Update - Managira SMS',
+        subject: `Update on your request to leave ${hub.hub_name}`,
         html: emailHtml
       });
 
@@ -2090,33 +2094,30 @@ const hubController = {
     }
   },
 
-  // GET - Search for existing organizations
+  // GET - Find a school to invite by its exact sign-in email. A hub must already know the
+  // school's address: nothing here lists schools or shows anyone's email, and lookups are
+  // limited per hub, so Managira's schools can't be browsed or guessed.
   searchOrganizationsGet: async (req, res) => {
     try {
       const hub = req.hubInfo;
-      const { q } = req.query;
-
-                  if (!q || q.length < 2) {
-        return res.json({ organizations: [] });
+      const email = String(req.query.q || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) {
+        return res.json({ organizations: [], needEmail: true });
       }
-
-      // Search for organizations not in any hub or not in this hub
+      const { checkRateLimit } = require('../utils/rateLimiter');
+      if (!checkRateLimit(`hub-school-lookup:${hub.hub_id}`, { max: 30, windowMs: 10 * 60 * 1000 }).allowed) {
+        return res.status(429).json({ organizations: [], message: 'Too many lookups. Please try again in a few minutes.' });
+      }
       const result = await db.query(
-        `SELECT organization_id, organization_name, email, nickname, is_hub_member, hub_id
-         FROM organizations
-         WHERE (LOWER(organization_name) LIKE LOWER($1) OR LOWER(email) LIKE LOWER($1))
-         AND deleted = false
-         AND organization_id NOT IN (
-           SELECT organization_id FROM organizations WHERE hub_id = $2
-         )
-         ORDER BY organization_name
-         LIMIT 10`,
-        [`%${q}%`, hub.hub_id]
+        `SELECT organization_id, organization_name, (COALESCE(is_hub_member, false) AND hub_id IS NOT NULL) AS is_hub_member
+           FROM organizations
+          WHERE LOWER(email) = $1 AND deleted = false AND hub_id IS DISTINCT FROM $2
+          LIMIT 1`,
+        [email, hub.hub_id]
       );
-
-                  res.json({ organizations: result.rows });
+      res.json({ organizations: result.rows });
     } catch (error) {
-            res.status(500).json({ error: 'Search failed' });
+      res.status(500).json({ error: 'Search failed' });
     }
   },
 
@@ -2125,14 +2126,15 @@ const hubController = {
     try {
       const hub = req.hubInfo;
       const { organizationId } = req.body;
+      // The school is invited by the email the hub looked it up with, never by a number alone.
+      const email = String(req.body.email || '').trim().toLowerCase();
 
-                  // Check if organization exists and is not in a hub
       const orgResult = await db.query(
-        `SELECT * FROM organizations WHERE organization_id = $1 AND deleted = false`,
-        [organizationId]
+        `SELECT * FROM organizations WHERE organization_id = $1 AND deleted = false AND LOWER(email) = $2`,
+        [organizationId, email]
       );
 
-      if (orgResult.rows.length === 0) {
+      if (!email || orgResult.rows.length === 0) {
         req.flash('error', 'Organization not found.');
         return res.redirect('/hub/organizations/invite');
       }
@@ -2187,30 +2189,31 @@ const hubController = {
       notifyInvitationSent(req, org.organization_name);
 
       // Send email to organization
+      const hubName = escapeHtml(hub.hub_name);
       const emailHtml = renderCleanEmail({
-        title: 'Hub Invitation',
-        greeting: `Dear ${org.organization_name} Team,`,
+        hubId: hub.hub_id,
+        organizationId: org.organization_id,
+        title: `Invitation to join ${hub.hub_name}`,
+        greeting: hiName(org.first_name),
         paragraphs: [
-          `${hub.hub_name} has invited your organization to join their hub on Managira SMS.`,
-          'A hub allows multiple organizations to be managed under one parent organization while keeping each organization operationally independent.',
-          `If you have questions, contact ${hub.hub_name} at ${hub.hub_email}.`,
+          `${hubName} invited ${escapeHtml(org.organization_name)} to join its hub on Managira.`,
+          `In the hub, ${hubName} takes care of your Managira plan and billing. Your school keeps its own account, data and day-to-day control.`,
         ],
         details: [
-          { label: 'New Subdomain', value: `${org.nickname}.${hub.hub_nickname}.managira.com` },
-          { label: 'Subscription', value: `Managed by ${hub.hub_name}` },
-          { label: 'Data', value: 'All your data remains with your organization' },
-          { label: 'Control', value: 'You keep full control of operations' },
+          ...(org.nickname && hub.hub_nickname ? [{ label: 'Web address after joining', value: escapeHtml(`${org.nickname}.${hub.hub_nickname}.managira.com`) }] : []),
+          { label: 'Expires', value: longDate(expiresAt) },
         ],
         cta: {
-          url: `${process.env.BASE_URL || 'https://managira.com'}/account/accept-hub-invitation-existing/${token}`,
-          text: 'Accept Invitation',
+          url: `${inviteBase()}/account/accept-hub-invitation-existing/${token}`,
+          text: 'Accept invitation',
         },
-        note: `This invitation expires on ${expiresAt.toLocaleDateString()}.`,
+        showLink: true,
+        note: `Questions? Contact ${hubName} at ${escapeHtml(hub.hub_email)}.`,
       });
 
       await sendEmail({
         to: org.email,
-        subject: `Action required: respond to your ${hub.hub_name} Hub invitation`,
+        subject: `Invitation to join ${hub.hub_name} on Managira`,
         html: emailHtml
       });
 

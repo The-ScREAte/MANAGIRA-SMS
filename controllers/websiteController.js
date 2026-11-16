@@ -141,23 +141,28 @@ module.exports = {
         [organizationId, name, fromEmail || null, phone || null, subject || null, message]
       );
 
-      const school = (await db.query(`SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId])).rows[0];
+      // To the school's own inbox (not in the school's voice); a reply goes to the visitor.
       sendEmailInBackground({
         to: toEmail,
         replyTo: fromEmail || undefined,
-        subject: `Website message${subject ? `: ${subject}` : ""} - ${name}`,
+        subject: `Website message from ${name}${subject ? `: ${subject}` : ""}`.slice(0, 150),
         html: renderCleanEmail({
-          title: "New message from your school website",
-          greeting: `Hello ${school?.organization_name || ""}`.trim() + ",",
+          title: "New message from your website",
           // What the visitor typed is shown as text, never as part of the email's markup.
-          paragraphs: message.split(/\n+/).map((line) => escapeHtml(line)),
+          paragraphs: [
+            `${escapeHtml(name)} sent a message through your school website:`,
+            escapeHtml(message).replace(/\n/g, "<br>"),
+          ],
           details: [
             { label: "From", value: escapeHtml(name) },
             ...(fromEmail ? [{ label: "Email", value: escapeHtml(fromEmail) }] : []),
             ...(phone ? [{ label: "Phone", value: escapeHtml(phone) }] : []),
             ...(subject ? [{ label: "Subject", value: escapeHtml(subject) }] : []),
           ],
-          note: fromEmail ? "Reply to this email to answer them directly. All messages are also in Manage Website > Messages." : "All messages are also in Manage Website > Messages.",
+          note: fromEmail
+            ? "Reply to this email to answer them directly. Every message is also in Manage Website › Messages."
+            : "They left a phone number instead of an email address. Every message is also in Manage Website › Messages.",
+          organizationId,
         }),
       }, "Website Contact Form");
 

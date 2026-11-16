@@ -11,6 +11,7 @@ const { getOrgChargeCards } = require('../utils/orgChargeCards');
 const {
   normalizeCurrencyCode,
   getUsdRate,
+  formatCurrencyAmount,
 } = require('../utils/currencyLocalization');
 const {
   computeDynamicMonthlyPrice,
@@ -18,8 +19,47 @@ const {
   getRegionForCountry,
   getBestPlanRegionPrice,
 } = require('../utils/dynamicPricing');
-const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require('../utils/emailHelper');
 require('dotenv').config();
+
+// Billing emails: US dates, the school's Billing & Plan page, and greetings by first name.
+const BILLING_URL = `${require('../utils/emailLinks').BASE_URL}/account/settings?section=billing`;
+
+// A renewal is never charged twice for one period. Stripe keeps an idempotency key for only 24
+// hours and a retry comes a day later, so before charging, Stripe itself is asked whether this
+// school's renewal was already paid since the period fell due (a charge whose save failed, or a
+// run that stopped right after charging). Then that charge is saved instead of making another.
+async function findPaidRenewal(stripe, org) {
+  if (!stripe || !stripe.paymentIntents || typeof stripe.paymentIntents.search !== 'function') return null;
+  const due = org.next_payment_end_date ? new Date(org.next_payment_end_date) : null;
+  if (!due || Number.isNaN(due.getTime())) return null;
+  const since = Math.floor(due.getTime() / 1000) - 86400;
+  try {
+    const found = await stripe.paymentIntents.search({
+      query: `metadata['organization_id']:'${Number(org.organization_id)}' AND metadata['flow']:'recurring_renewal' AND status:'succeeded' AND created>${since}`,
+      limit: 1,
+    });
+    return (found && Array.isArray(found.data) && found.data[0]) || null;
+  } catch (error) {
+    console.warn(`[RecurringBilling] could not check earlier charges for org ${org.organization_id}: ${error.message}`);
+    return null;
+  }
+}
+
+// After a charge whose save failed: the school waits a while before the next try (which finds
+// the charge above and saves it), and the team hears about it once a day, not every minute.
+const { BoundedMap } = require('../utils/boundedMap');
+const savingPausedUntil = new BoundedMap(2000);
+const teamToldAt = new BoundedMap(2000);
+const SAVE_RETRY_MS = 30 * 60 * 1000;
+const TEAM_NOTICE_MS = 24 * 60 * 60 * 1000;
+const usDate = (value) => {
+  const date = new Date(value);
+  return value && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : '';
+};
+const hiName = (firstName) => (String(firstName || '').trim() ? `Hi ${escapeHtml(String(firstName).trim())},` : 'Hello,');
 
 // Total failed attempts allowed before hold: 1 initial failure + 3 retries.
 const MAX_FAILED_RETRY_ATTEMPTS = 4;
@@ -260,30 +300,30 @@ async function sendUpcomingInvoiceNotification({
   currency,
   chargeDate,
   cycleLabel,
+  firstName = '',
+  organizationId = null,
 }) {
   if (!email) return;
 
-  const humanChargeDate = new Date(chargeDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
   const html = renderCleanEmail({
-    title: 'Upcoming Subscription Invoice',
-    greeting: `Hello <strong>${organizationName || 'Managira User'}</strong>,`,
+    title: 'Your next invoice',
+    greeting: hiName(firstName),
     paragraphs: [
-      'Your next subscription invoice has been generated and your saved billing card will be charged automatically in about 1 day.',
-      `Invoice ${invoiceNumber}: ${currency.toUpperCase()} ${Number(amount || 0).toFixed(2)} for ${cycleLabel || 'your current billing cycle'}.`,
-      `Scheduled charge date: ${humanChargeDate}.`,
+      `Your next Managira payment for <strong>${escapeHtml(organizationName || 'your school')}</strong> is coming up. We'll charge your saved card on ${escapeHtml(usDate(chargeDate) || 'the due date')}. You don't need to do anything.`,
     ],
-    note: 'You can review invoices anytime in Settings > Billing & Plan.',
+    details: [
+      { label: 'Invoice', value: escapeHtml(invoiceNumber) },
+      { label: 'Amount', value: escapeHtml(formatCurrencyAmount(amount, currency)) },
+      cycleLabel ? { label: 'Billing cycle', value: escapeHtml(cycleLabel) } : null,
+    ].filter(Boolean),
+    note: `To review your plan or change your card, go to <a href="${BILLING_URL}">Settings › Billing &amp; Plan</a>.`,
+    organizationId,
   });
 
   await sendEmailSafely(
     {
       to: email,
-      subject: `Managira Invoice ${invoiceNumber}`,
+      subject: `Your Managira invoice ${invoiceNumber}`,
       html,
     },
     'RecurringSubscriptionInvoice'
@@ -398,23 +438,72 @@ async function getPaymentsFailureColumns() {
   };
 }
 
-async function sendRenewalFailureNotification({ email, organizationName, amount, reason }) {
+// Stripe's decline messages are written for the cardholder ("Your card has expired."); any
+// other error text is ours and stays out of the school's email.
+const CARDHOLDER_MESSAGE = /^(your card|this transaction requires authentication|an error occurred while processing your card)/i;
+
+// A renewal charge that failed. The school hears what happened and what happens next
+// (`nextRetryAt`, or `onHold` after the last try); Managira's team (`forTeam`) gets the facts,
+// including a card that was `charged` although saving the payment failed (the school isn't told).
+async function sendRenewalFailureNotification({
+  email,
+  organizationName,
+  amount,
+  reason,
+  currency = null,
+  organizationId = null,
+  firstName = '',
+  nextRetryAt = null,
+  onHold = false,
+  attempt = null,
+  forTeam = false,
+  charged = false,
+}) {
   if (!email) return;
 
+  const school = escapeHtml(organizationName || 'your school');
+  const price = escapeHtml(formatCurrencyAmount(amount, currency));
+  const retryOn = usDate(nextRetryAt);
+
+  if (forTeam) {
+    const html = renderCleanEmail({
+      title: charged ? 'A renewal payment needs checking' : 'A renewal charge failed',
+      paragraphs: [charged
+        ? `The card for <strong>${school}</strong> was charged, but saving the payment failed. Check this school's billing before the next try.`
+        : `The renewal charge for <strong>${school}</strong> didn't go through.`],
+      details: [
+        { label: 'Amount', value: price },
+        attempt ? { label: 'Attempt', value: escapeHtml(`${attempt} of ${MAX_FAILED_RETRY_ATTEMPTS}`) } : null,
+        reason ? { label: 'Reason', value: escapeHtml(reason) } : null,
+        { label: 'Next', value: escapeHtml(onHold ? 'Account put on hold' : (retryOn ? `Retry on ${retryOn}` : 'No retry scheduled')) },
+      ].filter(Boolean),
+      organizationId,
+    });
+    return sendEmailSafely(
+      { to: email, subject: `${charged ? 'Renewal payment needs checking' : 'Renewal failed'}: ${String(organizationName || 'a school').replace(/\s+/g, ' ').trim()}`, html },
+      'RecurringSubscriptionFailure'
+    );
+  }
+
+  const cardMessage = CARDHOLDER_MESSAGE.test(String(reason || '').trim()) ? String(reason).trim() : '';
+  const next = onHold
+    ? "Your school's account is on hold until the payment goes through. Sign in and go to Billing &amp; Plan to update your card or pay."
+    : `${retryOn ? `We'll try again on ${escapeHtml(retryOn)}. ` : ''}To avoid any interruption, check or update your card in Billing &amp; Plan.`;
   const html = renderCleanEmail({
-    title: 'Subscription Renewal Failed',
-    greeting: `Hello <strong>${organizationName || 'Managira User'}</strong>,`,
+    title: "Your payment didn't go through",
+    greeting: hiName(firstName),
     paragraphs: [
-      `We could not process your automatic renewal charge of ${Number(amount || 0).toFixed(2)}.`,
-      reason ? `Payment gateway response: ${reason}` : 'Your card may have insufficient funds or the authorization is no longer valid.',
-      'Please update your card details in billing settings to resume successful renewals.',
+      `We couldn't charge ${price} to your saved card for the Managira plan for <strong>${school}</strong>.${cardMessage ? ` ${escapeHtml(cardMessage)}` : ''}`,
+      next,
     ],
+    cta: { text: 'Update your card', url: BILLING_URL },
+    organizationId,
   });
 
   return sendEmailSafely(
     {
       to: email,
-      subject: 'Managira: Renewal Payment Failed',
+      subject: "Your Managira payment didn't go through",
       html,
     },
     'RecurringSubscriptionFailure'
@@ -736,7 +825,7 @@ async function chargeOrganizationNow(organizationId) {
 
 async function createAndSendPrechargeInvoices() {
   const upcomingOrgs = await db.query(`
-    SELECT o.organization_id, o.email, o.organization_name, o.plan_id, o.organization_country, o.organization_currency,
+    SELECT o.organization_id, o.email, o.organization_name, o.first_name, o.plan_id, o.organization_country, o.organization_currency,
            o.trial_active_until,
            p.next_payment_end_date,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key
@@ -790,6 +879,8 @@ async function createAndSendPrechargeInvoices() {
         currency: String(chargeCurrency || 'usd').toUpperCase(),
         chargeDate: invoiceRecord.scheduledChargeAt,
         cycleLabel: periodConfig.label || org.billing_period_key || 'Monthly',
+        firstName: org.first_name,
+        organizationId: org.organization_id,
       });
 
       await db.query(
@@ -835,7 +926,7 @@ async function runRecurringBilling() {
   // ONLY exclude if they are currently in an ACTIVE trial (trial_active_until > NOW()).
   
   const orgsDue = await db.query(`
-      SELECT o.organization_id, o.email, o.organization_name, o.plan_id, p.next_payment_end_date, o.trial_active_until,
+      SELECT o.organization_id, o.email, o.organization_name, o.first_name, o.plan_id, p.next_payment_end_date, o.trial_active_until,
         o.organization_country, o.organization_currency,
         COALESCE(o.billing_provider, 'stripe') AS billing_provider,
         o.stripe_customer_id,
@@ -863,24 +954,6 @@ async function runRecurringBilling() {
       )
   `);
 
-  
-  // Debug: Let's also check ALL organizations to see what's happening
-  const allOrgs = await db.query(`
-    SELECT o.organization_id, o.organization_name, o.trial_active_until, p.next_payment_end_date, p.status,
-           CASE 
-             WHEN o.trial_active_until IS NULL THEN 'No Trial'
-             WHEN o.trial_active_until > NOW() THEN 'Trial Active'
-             ELSE 'Trial Expired'
-           END as trial_status,
-           (p.next_payment_end_date <= NOW()) as payment_due,
-           (o.trial_active_until IS NULL OR o.trial_active_until < NOW()) as not_in_trial
-    FROM organizations o
-    LEFT JOIN payments p ON o.organization_id = p.organization_id
-    ORDER BY o.organization_id DESC LIMIT 5
-  `);
-  
-  allOrgs.rows.forEach(org => {
-  });
   
   if (orgsDue.rows.length === 0) {
     return;
@@ -915,6 +988,9 @@ async function runRecurringBilling() {
         ? new Date(latestPayment.next_payment_end_date) <= new Date()
         : false;
       if (!allowedStatus || !stillDue) {
+        continue;
+      }
+      if ((savingPausedUntil.get(org.organization_id) || 0) > Date.now()) {
         continue;
       }
     
@@ -988,8 +1064,14 @@ async function runRecurringBilling() {
           throw new Error('Stripe is not configured for recurring charges.');
         }
 
-        const orgCards = await getOrgChargeCards(db, org.organization_id, 'stripe');
-        if (!orgCards.length) {
+        const alreadyPaid = await findPaidRenewal(stripe, org);
+        if (alreadyPaid) {
+          console.warn(`[RecurringBilling] org ${org.organization_id}: this period was already charged (${alreadyPaid.id}); saving it instead of charging again.`);
+          chargeRes = { data: { status: true, message: null, paymentIntentId: alreadyPaid.id } };
+        }
+
+        const orgCards = alreadyPaid ? [] : await getOrgChargeCards(db, org.organization_id, 'stripe');
+        if (!alreadyPaid && !orgCards.length) {
           throw new Error('No active card on file for this organization.');
         }
 
@@ -1155,27 +1237,36 @@ async function runRecurringBilling() {
             paymentFailureColumns,
           });
 
-          const schoolEmailSent = await sendRenewalFailureNotification({
-            email: org.email,
-            organizationName: org.organization_name,
-            amount: amount / 100,
-            reason: failureMessage,
-          });
-
-          let adminEmailSent = null;
-          if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL !== org.email) {
-            adminEmailSent = await sendRenewalFailureNotification({
-              email: process.env.ADMIN_EMAIL,
-              organizationName: org.organization_name,
-              amount: amount / 100,
-              reason: failureMessage,
-            });
-          }
-
           const retryDelayDays = getRetryDelayDaysForAttempt(failedAttempts);
           const nextRetryAt = typeof retryDelayDays === 'number' && retryDelayDays > 0
             ? new Date(Date.now() + Number(retryDelayDays) * MS_PER_DAY)
             : null;
+
+          // Both emails say what happens next: another try, or the hold after the last one.
+          const failureFacts = {
+            organizationName: org.organization_name,
+            organizationId: org.organization_id,
+            amount: amount / 100,
+            currency: stripeChargeCurrency,
+            reason: failureMessage,
+            nextRetryAt,
+            onHold: Number(failedAttempts) >= MAX_FAILED_RETRY_ATTEMPTS,
+            attempt: failedAttempts,
+          };
+          const schoolEmailSent = await sendRenewalFailureNotification({
+            ...failureFacts,
+            email: org.email,
+            firstName: org.first_name,
+          });
+
+          let adminEmailSent = null;
+          if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.toLowerCase() !== String(org.email || '').toLowerCase()) {
+            adminEmailSent = await sendRenewalFailureNotification({
+              ...failureFacts,
+              email: process.env.ADMIN_EMAIL,
+              forTeam: true,
+            });
+          }
 
           await logBillingRetryAttempt({
             organizationId: org.organization_id,
@@ -1195,6 +1286,31 @@ async function runRecurringBilling() {
       } catch (err) {
         const failureMessage = err?.response?.data?.message || err.message || 'Charge request failed.';
 
+        // The card was charged and only saving it failed: the school paid, so it is never marked
+        // failed, put on hold or charged again. The next try (in 30 minutes) finds the charge in
+        // Stripe and saves it; the team hears once a day until it does.
+        if (chargeRes?.data?.status) {
+          savingPausedUntil.set(org.organization_id, Date.now() + SAVE_RETRY_MS);
+          console.error(`[RecurringBilling] org ${org.organization_id}: charged (${chargeRes.data.paymentIntentId || 'unknown intent'}) but saving failed: ${failureMessage}`);
+          const lastTold = teamToldAt.get(org.organization_id) || 0;
+          if (process.env.ADMIN_EMAIL && Date.now() - lastTold > TEAM_NOTICE_MS) {
+            teamToldAt.set(org.organization_id, Date.now());
+            await sendRenewalFailureNotification({
+              organizationName: org.organization_name,
+              organizationId: org.organization_id,
+              amount: amount / 100,
+              currency: stripeChargeCurrency,
+              reason: failureMessage,
+              charged: true,
+              nextRetryAt: new Date(Date.now() + SAVE_RETRY_MS),
+              onHold: false,
+              email: process.env.ADMIN_EMAIL,
+              forTeam: true,
+            }).catch(() => {});
+          }
+          continue;
+        }
+
         await db.query(
           `UPDATE billing_invoices
            SET status = 'failed',
@@ -1209,27 +1325,39 @@ async function runRecurringBilling() {
           paymentFailureColumns,
         });
 
-        const schoolEmailSent = await sendRenewalFailureNotification({
-          email: org.email,
-          organizationName: org.organization_name,
-          amount: amount / 100,
-          reason: failureMessage,
-        });
-
-        let adminEmailSent = null;
-        if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL !== org.email) {
-          adminEmailSent = await sendRenewalFailureNotification({
-            email: process.env.ADMIN_EMAIL,
-            organizationName: org.organization_name,
-            amount: amount / 100,
-            reason: failureMessage,
-          });
-        }
-
         const retryDelayDays = getRetryDelayDaysForAttempt(failedAttempts);
         const nextRetryAt = typeof retryDelayDays === 'number' && retryDelayDays > 0
           ? new Date(Date.now() + Number(retryDelayDays) * MS_PER_DAY)
           : null;
+
+        // A card that was charged before saving failed: the school is never told it wasn't.
+        const chargedAnyway = Boolean(chargeRes?.data?.status);
+        // Both emails say what happens next: another try, or the hold after the last one.
+        const failureFacts = {
+          organizationName: org.organization_name,
+          organizationId: org.organization_id,
+          amount: amount / 100,
+          currency: stripeChargeCurrency,
+          reason: failureMessage,
+          charged: chargedAnyway,
+          nextRetryAt,
+          onHold: Number(failedAttempts) >= MAX_FAILED_RETRY_ATTEMPTS,
+          attempt: failedAttempts,
+        };
+        const schoolEmailSent = chargedAnyway ? false : await sendRenewalFailureNotification({
+          ...failureFacts,
+          email: org.email,
+          firstName: org.first_name,
+        });
+
+        let adminEmailSent = null;
+        if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.toLowerCase() !== String(org.email || '').toLowerCase()) {
+          adminEmailSent = await sendRenewalFailureNotification({
+            ...failureFacts,
+            email: process.env.ADMIN_EMAIL,
+            forTeam: true,
+          });
+        }
 
         await logBillingRetryAttempt({
           organizationId: org.organization_id,

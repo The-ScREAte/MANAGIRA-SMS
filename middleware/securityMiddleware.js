@@ -54,9 +54,11 @@ function fromAnotherSite(req) {
 // A sign-on provider answers with a post from its own site. Its answer proves itself: it's
 // signed, single use, and only counts in the browser that started the sign-in.
 const SSO_ANSWER = /^\/account\/sso\/saml\/[a-f0-9]{24}\/acs$/;
+// Mail providers send one-click unsubscribes (RFC 8058) from their own sites; the signed link is the proof.
+const EMAIL_UNSUBSCRIBE = /^\/email\/unsubscribe$/;
 
 function crossSiteRequestGuard(req, res, next) {
-  if (req.method === "POST" && SSO_ANSWER.test(req.path)) return next();
+  if (req.method === "POST" && (SSO_ANSWER.test(req.path) || EMAIL_UNSUBSCRIBE.test(req.path))) return next();
   if (SAFE_METHODS.has(req.method)) {
     if (req.method === "GET" && GET_ACTIONS_THAT_CHANGE_DATA.test(req.path) && fromAnotherSite(req)) {
       console.warn(`[Security] Blocked cross-site GET ${req.originalUrl}`);

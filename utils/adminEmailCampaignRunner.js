@@ -147,6 +147,7 @@ async function processCampaign(campaign) {
   try {
     const recipients = await resolveRecipients(current);
     const sentAt = new Date();
+    const subject = String(current.subject || "").replace(/\s*[\r\n]+\s*/g, " ").trim();
     const html = buildCampaignEmailHtml(current.subject, current.content);
     const text = buildCampaignEmailText(current.content);
 
@@ -169,13 +170,16 @@ async function processCampaign(campaign) {
     let sentCount = 0;
     let failedCount = 0;
 
+    // Managira's news to schools: optional, so each email carries a working unsubscribe and
+    // anyone who turned "News from Managira" off is skipped (sendEmailSafely counts that as sent).
     for (const recipient of recipients) {
       const ok = await sendEmailSafely(
         {
           to: recipient,
-          subject: current.subject,
+          subject,
           html,
           text,
+          category: "managira_news",
         },
         `Admin Scheduled Email #${current.id}`
       );
@@ -237,11 +241,13 @@ async function resolveRecipients(campaign) {
 
   const recipientSet = new Set(manualRecipients);
 
+  // People picked from the platform who are on hold (or removed from their school) are left out.
   if (targetUserIds.length > 0) {
     const result = await db.query(
       `SELECT email
        FROM users
        WHERE user_id = ANY($1::int[])
+         AND NOT COALESCE(on_hold, FALSE)
          AND email IS NOT NULL`,
       [targetUserIds]
     );

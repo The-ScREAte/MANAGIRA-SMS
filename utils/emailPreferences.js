@@ -183,11 +183,29 @@ const STAFF_TOGGLEABLE = [
     description: 'When your account is placed on hold or reactivated.',
     roles: ['Manager', 'Supervisor', 'Teacher', 'Cashier', 'Mini Admin'],
   },
+  {
+    key: 'tasks_and_invitations',
+    label: 'Tasks, invitations and shared calendars',
+    description: 'When someone assigns you a task, replies to it, adds you to an event or shares a calendar with you.',
+    roles: ['Manager', 'Supervisor', 'Teacher', 'Cashier', 'Mini Admin'],
+  },
+  {
+    key: 'scheduled_reports',
+    label: 'Scheduled reports',
+    description: 'Report Builder reports someone scheduled to arrive in your inbox.',
+    roles: ['Manager', 'Supervisor', 'Teacher', 'Cashier', 'Mini Admin'],
+  },
+  {
+    key: 'managira_news',
+    label: 'News from Managira',
+    description: 'Occasional product news and updates from the Managira team.',
+    roles: ['Manager', 'Supervisor'],
+  },
 ];
 
 const GUARDIAN_TOGGLEABLE = [
   { key: 'parent_absence_alert', label: 'Attendance alerts', description: 'When your child is absent multiple times in a week.' },
-  { key: 'weekly_parent_digest', label: 'Weekly progress digest (Saturday)', description: 'Weekly summary of your children\u2019s progress.' },
+  { key: 'weekly_parent_digest', label: 'Weekly briefing', description: 'A short summary of your children\u2019s week, on the day your school chooses.' },
   { key: 'student_class_change', label: 'Class change notifications', description: 'When your child is moved to a different class.' },
   { key: 'staff_report_to_guardian', label: 'Reports from school staff', description: 'Reports staff send to you with the email option enabled.' },
   { key: 'staff_reply_to_guardian', label: 'Replies on your reports', description: 'When school staff reply on a report you filed.' },
@@ -195,6 +213,48 @@ const GUARDIAN_TOGGLEABLE = [
   { key: 'broadcast_event_or_announcement', label: 'Events & announcements', description: 'New school events and announcements visible to parents.' },
   { key: 'admission_application_received', label: 'Application received confirmations', description: 'Confirmation when an application is submitted for your child.' },
   { key: 'guardian_additional_student_added', label: 'Additional child added to your portal', description: 'When another child is linked to your existing parent-portal account.' },
+  { key: 'activity_reminders', label: 'Activity reminders', description: 'A reminder the day before a class activity your child takes part in.' },
+  { key: 'school_forms', label: 'Forms from the school', description: 'When the school asks you to fill in a form, and one reminder before it is due.' },
+  { key: 'bus_arrival', label: 'Bus arrival notices', description: 'When your child\u2019s bus arrives at school or at their stop.' },
+  { key: 'birthday_greetings', label: 'Birthday greetings', description: 'A birthday message from the school on your child\u2019s birthday.' },
+];
+
+// The short name each kind of email goes by in its unsubscribe line ("Don't want weekly
+// progress digests?") and on the unsubscribe page.
+const EMAIL_NOUNS = {
+  weekly_manager_digest: 'weekly leadership reports',
+  student_tier_exceeded: 'plan growth notices',
+  weekly_teacher_digest: 'weekly teaching digests',
+  teacher_reassignment: 'class and subject assignment emails',
+  assessment_control_teacher: 'assessment lock and unlock emails',
+  assessment_access_update: 'assessment access updates',
+  files_assigned_to_class: 'file assignment emails',
+  guardian_report_created_staff: 'new parent message emails',
+  guardian_report_reply_staff: 'parent reply emails',
+  broadcast_event_or_announcement: 'school events and announcements',
+  account_hold_or_resume: 'account status emails',
+  tasks_and_invitations: 'task and invitation emails',
+  scheduled_reports: 'scheduled reports',
+  managira_news: 'news from Managira',
+  parent_absence_alert: 'attendance alerts',
+  weekly_parent_digest: 'weekly briefings',
+  weekly_student_digest: 'weekly briefings',
+  student_class_change: 'class change emails',
+  staff_report_to_guardian: 'messages from school staff',
+  staff_reply_to_guardian: 'replies from school staff',
+  report_card_email: 'report cards by email',
+  admission_application_received: 'application confirmations',
+  guardian_additional_student_added: 'parent portal updates',
+  activity_reminders: 'activity reminders',
+  school_forms: 'form requests and reminders',
+  bus_arrival: 'bus arrival notices',
+  birthday_greetings: 'birthday greetings',
+  weekly_hub_digest: 'weekly hub overviews',
+};
+
+// Students have no settings page for email: the unsubscribe link in each email is their choice.
+const STUDENT_TOGGLEABLE = [
+  { key: 'weekly_student_digest', label: 'Weekly briefing', description: 'A short summary of your week, on the day your school chooses.' },
 ];
 
 const HUB_TOGGLEABLE = [
@@ -214,8 +274,16 @@ const ALL_KEYS = new Set([
   ...STAFF_TOGGLEABLE.map(e => e.key),
   ...GUARDIAN_TOGGLEABLE.map(e => e.key),
   ...HUB_TOGGLEABLE.map(e => e.key),
+  ...STUDENT_TOGGLEABLE.map(e => e.key),
   ...ORG_TOGGLEABLE.map(e => e.key),
 ]);
+
+// An optional email's kind, for sendEmailSafely: its key and the name it goes by.
+function categoryOf(key) {
+  if (!key || !ALL_KEYS.has(key)) return null;
+  const entry = [...STAFF_TOGGLEABLE, ...GUARDIAN_TOGGLEABLE, ...HUB_TOGGLEABLE, ...STUDENT_TOGGLEABLE].find((item) => item.key === key);
+  return { key, label: EMAIL_NOUNS[key] || (entry ? entry.label : 'these emails') };
+}
 
 function getStaffPreferencesForRole(accountType) {
   if (!accountType) return [];
@@ -284,6 +352,7 @@ async function setUserPreferences(db, userId, allowedKeys, submittedKeys) {
       [userId, key, enabled]
     );
   }
+  await mirrorChoices(db, `SELECT email FROM users WHERE user_id = $1`, userId, allowedKeys, enabledSet);
 }
 
 async function setGuardianPreferences(db, guardianId, allowedKeys, submittedKeys) {
@@ -307,6 +376,58 @@ async function setGuardianPreferences(db, guardianId, allowedKeys, submittedKeys
       throw err;
     }
   }
+  await mirrorChoices(db, `SELECT email FROM guardian_profiles WHERE guardian_id = $1`, guardianId, allowedKeys, enabledSet);
+}
+
+// A settings page's choices, kept by address in email_opt_outs as well, where every send
+// checks them in one read (sendEmailSafely).
+async function mirrorChoices(db, emailSql, id, allowedKeys, enabledSet) {
+  const on = allowedKeys.filter((key) => enabledSet.has(key));
+  const off = allowedKeys.filter((key) => !enabledSet.has(key));
+  const address = `(SELECT LOWER(TRIM(email)) FROM (${emailSql}) person WHERE NULLIF(TRIM(email), '') IS NOT NULL LIMIT 1)`;
+  try {
+    if (on.length) {
+      await db.query(`DELETE FROM email_opt_outs WHERE email = ${address} AND category = ANY($2::text[])`, [id, on]);
+    }
+    if (off.length) {
+      await db.query(
+        `INSERT INTO email_opt_outs (email, category)
+         SELECT ${address}, category FROM unnest($2::text[]) AS category WHERE ${address} IS NOT NULL
+         ON CONFLICT (email, category) DO NOTHING`,
+        [id, off]
+      );
+    }
+  } catch (_) { /* email_opt_outs not made yet */ }
+}
+
+// The unsubscribe link (and its "turn back on"): saved on every account with this address,
+// so their settings page shows it, and in email_opt_outs, where every send looks.
+async function setEmailChoice(db, email, key, enabled) {
+  const address = String(email || '').trim().toLowerCase();
+  if (!address || !ALL_KEYS.has(key)) return false;
+  await ensureEmailPreferencesSchema(db);
+  const on = Boolean(enabled);
+  await db.query(
+    `INSERT INTO user_email_preferences (user_id, preference_key, enabled, updated_at)
+     SELECT user_id, $2, $3, CURRENT_TIMESTAMP FROM users WHERE LOWER(email) = $1
+     ON CONFLICT (user_id, preference_key) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = CURRENT_TIMESTAMP`,
+    [address, key, on]
+  ).catch(() => ({ rowCount: 0 }));
+  await db.query(
+    `INSERT INTO guardian_email_preferences (guardian_id, preference_key, enabled, updated_at)
+     SELECT guardian_id, $2, $3, CURRENT_TIMESTAMP FROM guardian_profiles WHERE LOWER(email) = $1
+     ON CONFLICT (guardian_id, preference_key) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = CURRENT_TIMESTAMP`,
+    [address, key, on]
+  ).catch(() => ({ rowCount: 0 }));
+  if (on) {
+    await db.query(`DELETE FROM email_opt_outs WHERE email = $1 AND category = $2`, [address, key]);
+  } else {
+    await db.query(
+      `INSERT INTO email_opt_outs (email, category) VALUES ($1, $2) ON CONFLICT (email, category) DO NOTHING`,
+      [address, key]
+    );
+  }
+  return true;
 }
 
 async function getHubPreferenceMap(db, hubId) {
@@ -470,6 +591,15 @@ async function isEmailEnabledForRecipient(db, email, key) {
     await ensureEmailPreferencesSchema(db);
     const norm = String(email).trim().toLowerCase();
 
+    // An unsubscribe link used by this address (kept here when it had no account).
+    try {
+      const r = await db.query(
+        `SELECT 1 FROM email_opt_outs WHERE email = $1 AND category = $2 LIMIT 1`,
+        [norm, key]
+      );
+      if (r.rows.length) return false;
+    } catch (_) { /* email_opt_outs not made yet */ }
+
     // user side
     try {
       const r = await db.query(
@@ -546,6 +676,14 @@ async function filterEmailsByPreference(db, emails, key) {
       for (const row of r.rows) disabled.add(row.email);
     } catch (_) { /* ignore */ }
 
+    try {
+      const r = await db.query(
+        `SELECT email FROM email_opt_outs WHERE category = $1 AND email = ANY($2)`,
+        [key, lowered]
+      );
+      for (const row of r.rows) disabled.add(row.email);
+    } catch (_) { /* email_opt_outs not made yet */ }
+
     if (!disabled.size) return list;
     return list.filter(e => !disabled.has(String(e).trim().toLowerCase()));
   } catch (_) {
@@ -555,9 +693,13 @@ async function filterEmailsByPreference(db, emails, key) {
 
 module.exports = {
   ensureEmailPreferencesSchema,
+  EMAIL_NOUNS,
+  categoryOf,
+  setEmailChoice,
   STAFF_TOGGLEABLE,
   GUARDIAN_TOGGLEABLE,
   HUB_TOGGLEABLE,
+  STUDENT_TOGGLEABLE,
   ORG_TOGGLEABLE,
   getStaffPreferencesForRole,
   getGuardianPreferences,

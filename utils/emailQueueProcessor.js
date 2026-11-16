@@ -1,5 +1,5 @@
 const db = require("../config/db");
-const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("./emailHelper");
 const { isEmailEnabledForRecipient } = require("./emailPreferences");
 const { getOrganizationWebsiteInfo } = require("./schoolWebsiteAccess");
 const { renderReportCardsPerStudent, sessionCookieFromHeader } = require("./pdfService");
@@ -28,6 +28,11 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
     }
 
     const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
+    // The term the report cards are for, named in the email ("Fall 2026").
+    const termName = termId
+      ? (await db.query('SELECT term_name FROM terms WHERE term_id = $1 AND organization_id = $2', [termId, organizationId])
+          .catch(() => ({ rows: [] }))).rows[0]?.term_name || ''
+      : '';
 
     // Get pending emails for this batch
     let query = `SELECT * FROM email_history WHERE batch_id = $1 AND status = 'pending'`;
@@ -65,18 +70,16 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
         [emailRecord.id]
       );
 
+      const studentName = String(student_name || "").replace(/\s+/g, " ").trim();
       const emailHtml = renderCleanEmail({
-        title: "Student Report Card",
-        greeting: "Dear Parent/Guardian,",
+        title: studentName ? `Report card for ${studentName}` : "Report card",
+        greeting: "Hello,",
         paragraphs: [
-          `Please find attached the <strong>academic report card</strong> for <strong>${student_name}</strong>.`,
+          `${studentName ? `<strong>${escapeHtml(studentName)}</strong>'s` : "The"} report card${termName ? ` for ${escapeHtml(termName)}` : ""} is attached as a PDF.`,
         ],
-        details: [
-          { label: "Student", value: student_name },
-          { label: "School", value: org.organization_name },
-          { label: "Date", value: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) },
-        ],
-        note: "This report is confidential and intended only for the student's parent/guardian. Please do not forward or share without permission.",
+        note: "This report card is confidential and meant only for the student's family. Please don't forward it.",
+        schoolName: org.organization_name || "",
+        organizationId,
         schoolWebsiteUrl: websiteInfo.websiteUrl || "",
         schoolWebsiteHost: websiteInfo.websiteHost || "",
       });
@@ -90,8 +93,10 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
         const sent = await sendEmailSafely({
           to: email,
           sender: "reports",
-          subject: `Report Card - ${student_name} | ${org.organization_name}`,
+          subject: studentName ? `Report card for ${studentName}` : "Report card",
           html: emailHtml,
+          category: "report_card_email",
+          onBehalfOf: organizationId,
           failureNotification: {
             orgId: organizationId,
             recipientType: 'broadcast',

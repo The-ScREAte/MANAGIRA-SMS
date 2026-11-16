@@ -34,6 +34,8 @@ const FEATURES = {
   assistant_teacher: { label: "Assistant teachers: beside a class's main teacher, assistants who see and work on the whole class (chosen on the staff form)", access: "everyone" },
   school_roles: { label: "Staff roles: a school adds its own roles (Food Service, Office Clerk) on Add user, each with the permissions it gives", access: "everyone" },
   gpa: { label: "GPA: a Report Settings switch that prints each student's GPA (4.0 scale) on report cards and transcripts", access: "everyone" },
+  weekly_briefing: { label: "Weekly briefing: one short email a week to each family (and to students with a student-portal login) about attendance, new grades, the bus, daily class records like lunch, forms, payments and the week ahead. The school chooses the day, time and sections in Management Tools; a class can choose its own", access: "selected" },
+  email_refresh: { label: "Emails: the new clean design (school name at the top, a quiet footer with a working unsubscribe for optional emails), sent as \"<school> via Managira\" with replies going to the school. Managira's own emails change once released to everyone", access: "selected" },
 };
 
 const ACCESS = new Set(["off", "selected", "everyone"]);

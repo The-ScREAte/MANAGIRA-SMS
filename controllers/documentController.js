@@ -1,5 +1,5 @@
 const bcrypt = require("../utils/passwordHashing");
-const { sendEmailInBackground } = require("../utils/emailHelper");
+const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { PERMISSIONS, userHasPermission, sessionActor } = require("../middleware/permissionMiddleware");
 const notifSvc = require("../utils/notificationService");
@@ -255,6 +255,7 @@ const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docT
   if (!Array.isArray(classIds) || classIds.length === 0) return;
 
   try {
+    // Teachers of these classes who can still sign in (not on hold).
     const recipientsResult = await db.query(`
       SELECT DISTINCT
         u.email,
@@ -268,40 +269,50 @@ const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docT
         AND c.organization_id = $2
         AND u.organization_id = $2
         AND u.account_type = 'Teacher'
+        AND COALESCE(u.on_hold, FALSE) = FALSE
         AND COALESCE(u.email, '') <> ''
     `, [classIds, orgId]);
 
     if (!recipientsResult.rows.length) return;
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const schoolName = (await db.query(
+      `SELECT organization_name FROM organizations WHERE organization_id = $1`, [orgId]
+    ).catch(() => ({ rows: [] }))).rows[0]?.organization_name || '';
+    const title = String(docTitle || '').replace(/\s+/g, ' ').trim() || `File #${docId}`;
 
-    await Promise.all(recipientsResult.rows.map(async (row) => {
+    // One email per teacher, listing each of their classes the file went to (a teacher of
+    // three of those classes used to get three emails).
+    const teachers = new Map();
+    recipientsResult.rows.forEach((row) => {
+      const key = String(row.email).trim().toLowerCase();
+      if (!teachers.has(key)) teachers.set(key, { email: row.email, firstName: row.first_name, classes: [] });
+      teachers.get(key).classes.push({ id: row.class_id, name: row.class_name || 'your class' });
+    });
+
+    await Promise.all([...teachers.values()].map(async (teacher) => {
       // Honor each teacher's per-recipient files_assigned_to_class preference.
-      if (!(await isEmailEnabledForRecipient(db, row.email, 'files_assigned_to_class'))) return;
-      const openUrl = `${baseUrl}/documents?classId=${row.class_id}`;
-      const safeTeacherName = row.first_name || 'Teacher';
-      const safeClassName = row.class_name || 'your class';
-      const safeDocTitle = docTitle || `File #${docId}`;
+      if (!(await isEmailEnabledForRecipient(db, teacher.email, 'files_assigned_to_class'))) return;
+      const classList = teacher.classes.map((item) => escapeHtml(item.name)).join(', ');
+      const openUrl = teacher.classes.length === 1
+        ? `${baseUrl}/documents?classId=${teacher.classes[0].id}`
+        : `${baseUrl}/documents`;
 
-      const html = `
-        <div style="font-family:Segoe UI,Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:640px;margin:0 auto;">
-          <h2 style="color:#0f766e;">New file assigned</h2>
-          <p>Hello ${safeTeacherName},</p>
-          <p>A new file has been assigned to <strong>${safeClassName}</strong>.</p>
-          <p><strong>File:</strong> ${safeDocTitle}</p>
-          <p>
-            <a href="${openUrl}" style="display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;">
-              Open Files
-            </a>
-          </p>
-          <p style="font-size:12px;color:#64748b;">This is an automated Managira notification.</p>
-        </div>
-      `;
+      const html = renderCleanEmail({
+        title: teacher.classes.length === 1 ? 'A file was assigned to your class' : 'A file was assigned to your classes',
+        greeting: teacher.firstName ? `Hi ${escapeHtml(teacher.firstName)},` : 'Hello,',
+        paragraphs: [`<strong>${escapeHtml(title)}</strong> was assigned to ${classList}.`],
+        cta: { text: 'Open files', url: openUrl },
+        schoolName,
+        organizationId: orgId,
+      });
 
       sendEmailInBackground({
-        to: row.email,
-        subject: `New file assigned: ${safeDocTitle}`,
+        to: teacher.email,
+        subject: `New file for your ${teacher.classes.length === 1 ? 'class' : 'classes'}: ${title}`,
         html,
+        category: 'files_assigned_to_class',
+        onBehalfOf: orgId,
       }, 'Files Assignment Email');
     }));
   } catch (error) {

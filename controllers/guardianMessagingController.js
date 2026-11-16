@@ -11,6 +11,7 @@ const { ensureReportPdfLink } = require("../utils/reportPdf");
 const { recordMessageSent, getSentRecipientSet, recordDeliveryAuditRow, updateDeliveryAuditRowStatus } = require("../utils/messageDeliveryLog");
 const { MAILROOM_ALL_ACCESS_KEY, isManagerLikeRole, getUserPermissions } = require("../middleware/permissionMiddleware");
 const { ensureStudentContactMethodsSchema } = require("../utils/studentContactMethods");
+const { activeStudentSql } = require("../utils/activeStudents");
 
 function safeString(value) {
   return String(value == null ? "" : value).trim();
@@ -333,14 +334,14 @@ async function getGuardiansForClass(dbClient, organizationId, classId) {
        FROM students s
        JOIN guardian_students gs ON gs.student_id = s.student_id
        JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $2
-       WHERE s.class_id = $1 AND s.organization_id = $2 AND gp.phone IS NOT NULL AND TRIM(gp.phone) <> ''
+       WHERE s.class_id = $1 AND s.organization_id = $2 AND ${activeStudentSql("s")} AND gp.phone IS NOT NULL AND TRIM(gp.phone) <> ''
 
        UNION ALL
 
        SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name, g.phone AS phone, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
        FROM students s
        JOIN guardians g ON g.student_id = s.student_id
-       WHERE s.class_id = $1 AND s.organization_id = $2 AND g.organization_id = $2 AND g.phone IS NOT NULL AND TRIM(g.phone) <> ''
+       WHERE s.class_id = $1 AND s.organization_id = $2 AND ${activeStudentSql("s")} AND g.organization_id = $2 AND g.phone IS NOT NULL AND TRIM(g.phone) <> ''
      ) contacts
      WHERE phone IS NOT NULL AND TRIM(phone) <> ''`,
     [classId, organizationId]
@@ -361,12 +362,15 @@ async function getAllGuardianContacts(dbClient, organizationId) {
        SELECT COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name, gp.phone AS phone
        FROM guardian_profiles gp
        WHERE gp.organization_id = $1 AND gp.phone IS NOT NULL AND TRIM(gp.phone) <> ''
+         AND EXISTS (SELECT 1 FROM guardian_students gs JOIN students s ON s.student_id = gs.student_id AND s.organization_id = $1
+                      WHERE gs.guardian_id = gp.guardian_id AND ${activeStudentSql("s")})
 
        UNION ALL
 
        SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name, g.phone AS phone
        FROM guardians g
        WHERE g.organization_id = $1 AND g.phone IS NOT NULL AND TRIM(g.phone) <> ''
+         AND EXISTS (SELECT 1 FROM students s WHERE s.student_id = g.student_id AND s.organization_id = $1 AND ${activeStudentSql("s")})
      ) contacts
      WHERE phone IS NOT NULL AND TRIM(phone) <> ''`,
     [organizationId]
@@ -1209,6 +1213,8 @@ module.exports = {
           recipients: channelRecipients,
           messageTemplate: message,
           schoolName,
+          // A report card is its own kind of email: families who turned those off aren't sent it.
+          ...(context === "report" ? { emailCategory: "report_card_email" } : {}),
         }).catch((error) => channelRecipients.map(() => ({ success: false, error: error?.message || "Send failed." })));
 
         if (context === "report" && classId && termId) {
@@ -1444,6 +1450,7 @@ module.exports = {
         recipients: [recipientRow],
         messageTemplate: defaultMessage,
         schoolName,
+        emailCategory: "report_card_email",
       });
       const result = results[0] || { success: false, error: "Send failed." };
 

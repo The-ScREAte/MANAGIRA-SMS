@@ -231,7 +231,7 @@ async function notifyHub(db, hubId, key, build, options = {}) {
     const { sendEmailInBackground } = require('./emailHelper');
     recipients.forEach((recipient) => {
       const { subject, html, ...extra } = build(recipient);
-      sendEmailInBackground({ from: process.env.NOTIFY_EMAIL_USER, ...extra, to: recipient.email, subject, html }, `Hub notice: ${key}`);
+      sendEmailInBackground({ ...extra, to: recipient.email, subject, html }, `Hub notice: ${key}`);
     });
     return recipients.length;
   } catch (err) {

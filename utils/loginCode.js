@@ -47,33 +47,32 @@ function wanted(session) {
   return features.isOn("login_code", { organizationId, hubId });
 }
 
-function sendCode(email, code) {
+// `organizationId` / `hubId`: the account's school or hub (it decides the email's look).
+function sendCode(email, code, { organizationId = null, hubId = null } = {}) {
   // Local development only: show the code in the terminal so signing in never depends on mail working.
   if (process.env.NODE_ENV !== "production") console.log(`[Login code] (development) code for ${masked(email)}: ${code}`);
+  const minutes = Math.round(LIFETIME_MS / 60000);
+  // The HTML and the plain-text part say the same thing.
+  const intro = "Enter this code to finish signing in to Managira:";
+  const expiry = `The code expires in ${minutes} minutes.`;
+  const notYou = "If you didn't try to sign in, you can ignore this email, but we recommend changing your password.";
   const html = renderCleanEmail({
+    organizationId,
+    hubId,
     title: "Your verification code",
-    greeting: "Your security matters to us.",
+    preheader: `Enter it to finish signing in. ${expiry}`,
     paragraphs: [
-      "To continue your Managira log in, please verify your account with the code below.",
-      `<div style="margin:18px 0 6px;padding:16px 20px;border-radius:12px;background:#f1f5f9;text-align:center;font:700 30px/1.2 'SFMono-Regular',Menlo,Consolas,monospace;letter-spacing:8px;color:#0f172a;">${code}</div>`,
-      "This code expires in 10 minutes. If you didn't try to log in, you can ignore this email, and we recommend changing your password.",
-      "Sincerely,<br>Managira Security",
+      intro,
+      `<div style="margin:4px 0 4px;padding:16px 20px;border-radius:12px;background:#f1f5f9;text-align:center;font:700 30px/1.2 'SFMono-Regular',Menlo,Consolas,monospace;letter-spacing:8px;color:#0f172a;">${code}</div>`,
+      `${expiry} ${notYou}`,
     ],
-    noReply: true,
   });
   const text = [
-    "Your security matters to us.",
+    intro,
     "",
-    "To continue your Managira log in, please verify your account with the code below.",
+    code,
     "",
-    `Verification Code: ${code}`,
-    "",
-    "This code expires in 10 minutes. If you didn't try to log in, you can ignore this email, and we recommend changing your password.",
-    "",
-    "Sincerely,",
-    "Managira Security",
-    "",
-    "This is a no-reply email.",
+    `${expiry} ${notYou}`,
   ].join("\n");
   return sendEmailInBackground({ to: email, subject: "Your Managira verification code", html, text, sender: "reminders", senderName: "Managira Security" }, "Login code");
 }
@@ -205,7 +204,7 @@ function holdForCode(req, res, next) {
       codeHash: hashOf(code), expiresAt: Date.now() + LIFETIME_MS, tries: 0, sends: 1, sentAt: Date.now(),
     };
     await save(req);
-    sendCode(email, code).catch(() => {});
+    sendCode(email, code, { organizationId: snapshot.organizationId || null, hubId: snapshot.hubId || null }).catch(() => {});
     res.set("X-Managira-Login", "code");
     res.set("Cache-Control", "no-store");
     return require("../controllers/accountController").loginGet(req, res, req.app.get("db") || require("../config/db"), { step: "code" });
@@ -293,7 +292,8 @@ async function resend(req, res, db) {
   const code = newCode();
   Object.assign(pending, { codeHash: hashOf(code), expiresAt: Date.now() + LIFETIME_MS, tries: 0, sends: pending.sends + 1, sentAt: Date.now() });
   await save(req);
-  sendCode(pending.to, code).catch(() => {});
+  const account = pending.snapshot || {};
+  sendCode(pending.to, code, { organizationId: account.organizationId || null, hubId: account.hubId || null }).catch(() => {});
   return accountController.loginGet(req, res, db, { step: "code", codeNote: "We sent a new code." });
 }
 

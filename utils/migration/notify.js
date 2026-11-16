@@ -10,15 +10,16 @@ const GUIDE = "/legal/user-documentation/moving-to-managira";
 const teamAddress = () => process.env.MIGRATION_TEAM_EMAIL || process.env.ADMIN_EMAIL || "support@managira.com";
 const baseUrl = () => String(process.env.NODE_ENV === "production" ? process.env.BASE_URL_PRODUCTION || "https://www.managira.com" : process.env.BASE_URL_LOCAL || "").replace(/\/$/, "");
 
-// "Label: value" lines for the details box, leaving out what wasn't given.
-const line = (pairs) => pairs.filter(([, v]) => v !== null && v !== undefined && v !== "").map(([k, v]) => `${k}: ${v}`);
+// Label and value rows for the details box, leaving out what wasn't given.
+const line = (pairs) => pairs.filter(([, v]) => v !== null && v !== undefined && v !== "").map(([k, v]) => ({ label: k, value: typeof v === "number" ? v.toLocaleString("en-US") : v }));
 
 // What each stage says. `school` goes to the school's managers, `team` to Managira.
+// The school's request email doesn't repeat what was typed in the request (it can go to an
+// address someone typed); the request page shows it, and the team's email has every detail.
 const STAGES = {
   requested: {
     school: (d) => ({ subject: "We've received your data migration request", title: "We've received your request", bell: "Data migration requested",
-      paragraphs: [`Thank you. Your request to move ${d.school}'s data to Managira has reached our migration team.`, "We'll be in touch within two business days to plan your move with you. Nothing changes in your account until we open your migration together. Here is what you sent:"],
-      details: line([["Current system", d.system], ["When", d.when], ["Students", d.students], ["Staff", d.staff], ["To bring", d.bring], ["Contact", d.contactName && `${d.contactName}, ${d.contactEmail}`], ["Phone", d.phone], ["Notes", d.notes]]),
+      paragraphs: [`Thank you. Our migration team has your request to move ${d.school}'s data to Managira.`, "We'll be in touch within two business days to plan the move with you. Nothing changes in your account until we open your migration together."],
       link: GUIDE, linkText: "How a move works" }),
     team: (d) => ({ subject: `Data migration request: ${d.school}`, title: "A school asked to move its data in",
       paragraphs: [`${d.school} would like to move to Managira from ${d.system}. Get in touch, then approve the request in the Migration queue to open their migration, or decline it with a note.`],
@@ -31,31 +32,31 @@ const STAGES = {
     team: (d) => ({ subject: `Data migration request withdrawn: ${d.school}`, title: "A school withdrew its request", paragraphs: [`${d.school} withdrew its data migration request.`], link: "/admin/migrations", linkText: "Open the Migration queue" }),
   },
   declined: {
-    school: (d) => ({ subject: "About your data migration request", title: "About your data migration request", bell: "Data migration request answered",
-      paragraphs: [`Our migration team has looked at your request to move ${d.school}'s data to Managira and can't start it right now.`, d.note ? `Their note: ${d.note}` : "We'll explain why when we're in touch.", "You can send a new request from Management, Data migration, at any time."],
+    school: (d) => ({ subject: "Update on your data migration request", title: "Update on your data migration request", bell: "Data migration request answered",
+      paragraphs: [`Our migration team reviewed your request to move ${d.school}'s data to Managira and can't start the move right now.`, d.note ? `Their note: ${d.note}` : "We'll explain why when we're in touch.", "You can send a new request at any time from Management › Data migration."],
       link: SCHOOL_LINK, linkText: "Open Data migration" }),
   },
   approved: {
     school: (d) => ({ subject: "Your data migration is ready to start", title: "Your data migration is ready to start", bell: "Your data migration is open",
-      paragraphs: [`Our migration team has opened ${d.school}'s data migration.`, d.codes ? "Your managers now find Sandbox in the menu (☰) at the top right of Managira. Turning it on opens your data migration; the first time, you'll set up an authenticator app on your phone for your school's safety." : "Your managers now find Sandbox in the menu (☰) at the top right of Managira. Turn it on to open your data migration and upload your exports.", "While your sandbox is on, your live account takes no new data, so nothing is entered twice. Everyone can still sign in and look. Turn it off at any time to work as usual: what you uploaded is kept."],
+      paragraphs: [`Our migration team has opened ${d.school}'s data migration.`, d.codes ? "Your managers will find Sandbox in the menu (☰) at the top right of Managira. Turning it on opens the data migration. The first time, you'll set up an authenticator app on your phone to keep your school's data safe." : "Your managers will find Sandbox in the menu (☰) at the top right of Managira. Turn it on to open the data migration and upload your exports.", "While the sandbox is on, your live account takes no new data, so nothing is entered twice. Everyone can still sign in and look around. You can turn it off at any time to work as usual, and what you uploaded is kept."],
       link: SCHOOL_LINK, linkText: "Open your data migration" }),
   },
   notes: {
     team: (d) => ({ subject: `Data migration: ${d.school} sent notes`, title: "A school explained columns or roles", paragraphs: [`${d.school} sent notes about what its data holds. Give each a home in the Migration queue.`], link: `/admin/migrations/${d.organizationId}`, linkText: "Open their migration" }),
   },
   answered: {
-    school: (d) => ({ subject: "Your data migration questions are answered", title: "Everything you asked about has an answer", bell: "Data migration: questions answered",
-      paragraphs: ["Our migration team has answered every column and role you explained.", "Open your data migration and run the import again so the answers fill in, then continue to Review & sign."],
+    school: (d) => ({ subject: "Your data migration questions are answered", title: "Your questions are answered", bell: "Data migration: questions answered",
+      paragraphs: ["Our migration team has answered every column and role you explained.", "Open your data migration and run Check & import again so the answers fill in, then continue to Review & sign."],
       link: SCHOOL_LINK, linkText: "Open your data migration" }),
   },
   signed: {
-    school: (d) => ({ subject: "Your data migration summary is signed", title: "Signed: you can go live", bell: "Data migration signed",
-      paragraphs: [`${d.signedBy} signed ${d.school}'s migration summary.`, "Upload your latest exports, then select Go live when you're ready."], link: SCHOOL_LINK, linkText: "Open your data migration" }),
+    school: (d) => ({ subject: "Your data migration summary is signed", title: "Your migration summary is signed", bell: "Data migration signed",
+      paragraphs: [`${d.signedBy} signed ${d.school}'s migration summary, so you can go live.`, "Upload your latest exports, then select Go live when you're ready."], link: SCHOOL_LINK, linkText: "Open your data migration" }),
     team: (d) => ({ subject: `Data migration signed: ${d.school}`, title: "A school signed its migration summary", paragraphs: [`${d.school} signed its migration summary (${d.signedBy}) and can go live.`], link: `/admin/migrations/${d.organizationId}`, linkText: "Open their migration" }),
   },
   live: {
     school: (d) => ({ subject: "You're live on Managira", title: "Your data is in Managira", bell: "Data migration: you're live",
-      paragraphs: [`${d.school}'s records are now in your live account, and it's open for new work.`, "Next: check a few records you know well, then invite your staff from the Go live step. If anything doesn't look right, tell us within 30 days."],
+      paragraphs: [`${d.school}'s records are now in your live account, and it's open for new work.`, "Next, check a few records you know well, then invite your staff from the Go live step. If anything doesn't look right, tell us within 30 days."],
       details: line([["Students", d.students], ["Parent links", d.guardians], ["Staff accounts", d.staff], ["Final grades", d.courses],
         ["Already in Managira and kept", d.kept ? `${d.kept} records (${d.filled || 0} empty fields filled in, nothing replaced)` : null]]),
       link: SCHOOL_LINK, linkText: "Open your data migration" }),
@@ -67,19 +68,19 @@ const STAGES = {
   },
   rolled_back: {
     school: (d) => ({ subject: "Your go-live was rolled back", title: "Your go-live was rolled back", bell: "Data migration: go-live rolled back",
-      paragraphs: [`As agreed with you, our migration team rolled back ${d.school}'s go-live: what it loaded was removed, and your migration is open again.`, "Check, sign and go live again when you're ready."], link: SCHOOL_LINK, linkText: "Open your data migration" }),
+      paragraphs: [`As agreed with you, our migration team rolled back ${d.school}'s go-live. What it loaded was removed, and your migration is open again.`, "Check, sign and go live again when you're ready."], link: SCHOOL_LINK, linkText: "Open your data migration" }),
   },
   closed: {
     school: (d) => ({ subject: "Your data migration is complete", title: "Your data migration is complete", bell: "Data migration complete",
-      paragraphs: [`${d.school}'s data migration is complete, and Sandbox is no longer in your menu.`, "Your exports are deleted 30 days after you went live, as planned. Your records stay."] }),
+      paragraphs: [`${d.school}'s data migration is complete, and Sandbox is no longer in your menu.`, "As planned, the files you uploaded are deleted 30 days after go-live. Your records stay."] }),
   },
   paused: {
     school: (d) => ({ subject: "Your sandbox is off", title: "Your sandbox is off", bell: "Sandbox turned off",
-      paragraphs: [`Our migration team turned off ${d.school}'s sandbox. Your live account takes new data as usual.`, "Everything you uploaded is kept. When it's time to carry on, we'll turn it on again and you'll find Sandbox in your menu."], link: GUIDE, linkText: "How a move works" }),
+      paragraphs: [`Our migration team turned off ${d.school}'s sandbox. Your live account takes new data as usual.`, "Everything you uploaded is kept. When it's time to carry on, we'll turn the sandbox on again and you'll find it in your menu."], link: GUIDE, linkText: "How a move works" }),
   },
   cancelled: {
     school: (d) => ({ subject: "Your data migration was cancelled", title: "Your data migration was cancelled", bell: "Data migration cancelled",
-      paragraphs: [`${d.school}'s data migration was cancelled and its files deleted. Your live account takes new data again.`, "If you'd like to try again, send a new request from Management, Data migration."], link: SCHOOL_LINK, linkText: "Open Data migration" }),
+      paragraphs: [`${d.school}'s data migration was cancelled and its files were deleted. Your live account takes new data again.`, "If you'd like to try again, send a new request from Management › Data migration."], link: SCHOOL_LINK, linkText: "Open Data migration" }),
   },
 };
 
@@ -113,18 +114,20 @@ function tell(db, organizationId, stage, data = {}, { throttleMinutes = 0, alsoE
       const plain = { school: (org && org.organization_name) || "Your school", organizationId, ...data };
       const safe = Object.fromEntries(Object.entries(plain).map(([k, v]) => [k, typeof v === "string" ? escapeHtml(v) : v]));
       const base = baseUrl();
-      const mail = (build, to, first) => {
+      // Managira writes to the school about its move (organizationId, never on the school's behalf).
+      const mail = (build, to, first, { forSchool = true } = {}) => {
         const m = build(safe);
         return {
           to,
-          subject: build(plain).subject,
+          subject: String(build(plain).subject || "").replace(/\s*[\r\n]+\s*/g, " ").trim(),
           html: renderCleanEmail({
+            organizationId,
             title: m.title,
-            greeting: first ? `Hello ${escapeHtml(first)},` : "Hello,",
+            greeting: first ? `Hi ${escapeHtml(first)},` : "Hello,",
             paragraphs: m.paragraphs,
-            details: m.details && m.details.length ? m.details.map((line) => ({ label: "", value: line })) : [],
+            details: m.details && m.details.length ? m.details : [],
             ...(m.link && base ? { cta: { text: m.linkText || "Open", url: base + m.link } } : {}),
-            note: "Questions about your move? Reply to this email or write to support@managira.com.",
+            ...(forSchool ? { note: "Questions about your move? Reply to this email or write to support@managira.com." } : {}),
           }),
         };
       };
@@ -135,7 +138,7 @@ function tell(db, organizationId, stage, data = {}, { throttleMinutes = 0, alsoE
           orgId: organizationId, recipientType: "broadcast", type: "data_migration", title: m.bell || m.title, body: m.paragraphs[0], link: m.link === GUIDE ? GUIDE : SCHOOL_LINK,
         });
       }
-      if (spec.team) sendEmailInBackground(mail(spec.team, teamAddress(), ""), `Data migration (team): ${stage}`);
+      if (spec.team) sendEmailInBackground(mail(spec.team, teamAddress(), "", { forSchool: false }), `Data migration (team): ${stage}`);
     } catch (error) {
       console.error(`[Migration] telling ${stage}:`, error.message);
     }

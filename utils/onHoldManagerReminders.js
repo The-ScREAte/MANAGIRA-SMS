@@ -1,9 +1,13 @@
 const db = require("../config/db");
-const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("./emailHelper");
 
-const MAX_REMINDERS = 3;
+// A school put on hold because its payments didn't go through hears about it twice at most:
+// a week after the hold, then two weeks later. Only its managers who can still sign in are
+// told (they can reach Billing & Plan while the school is on hold). A school in a hub is left
+// out: its hub pays, and applyScheduledHolds already told it to contact the hub.
+const MAX_REMINDERS = 2;
 const FIRST_REMINDER_DELAY_DAYS = 7;
-const REMINDER_INTERVAL_DAYS = 5;
+const REMINDER_INTERVAL_DAYS = 14;
 
 const BASE_URL = String(
   process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com"
@@ -15,6 +19,7 @@ async function getManagerRecipients(organizationId, orgEmail) {
      FROM users
      WHERE organization_id = $1
        AND account_type = 'Manager'
+       AND NOT COALESCE(on_hold, FALSE)
        AND email IS NOT NULL`,
     [organizationId]
   );
@@ -22,36 +27,41 @@ async function getManagerRecipients(organizationId, orgEmail) {
   if (managers.rows.length > 0) {
     return managers.rows.map((row) => ({
       email: row.email,
-      name: [row.first_name, row.last_name].filter(Boolean).join(" ") || "Manager",
+      firstName: row.first_name || "",
     }));
   }
 
   if (orgEmail) {
-    return [{ email: orgEmail, name: "Manager" }];
+    return [{ email: orgEmail, firstName: "" }];
   }
 
   return [];
 }
 
-async function sendOnHoldReminderEmail({ email, name, organizationName }) {
+async function sendOnHoldReminderEmail({ email, firstName, organizationId, organizationName, onHoldAt }) {
+  const school = escapeHtml(organizationName || "Your school");
+  const since = onHoldAt && !Number.isNaN(new Date(onHoldAt).getTime())
+    ? ` since ${new Date(onHoldAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })},`
+    : "";
   const html = renderCleanEmail({
-    title: "Your Account Is Still On Hold",
-    greeting: `Dear <strong>${name}</strong>,`,
+    organizationId,
+    title: "Your school's account is still on hold",
+    greeting: String(firstName || "").trim() ? `Hi ${escapeHtml(String(firstName).trim())},` : "Hello,",
     paragraphs: [
-      `Your organization (${organizationName}) is still on hold due to a payment issue.`,
-      "Only a manager can log in to resolve this — teachers and other staff will not be able to access their accounts until it is fixed.",
-      "Please log in and update your payment method or complete the outstanding payment to restore full access for your organization.",
+      `${school}'s Managira account has been on hold${since} because a payment didn't go through.`,
+      "A manager can sign in to update the card or make the payment in Settings › Billing & Plan. Everyone else can sign in again as soon as it's done.",
     ],
     cta: {
       url: `${BASE_URL}/account/login`,
-      text: "Log In to Resolve",
+      text: "Sign in to Managira",
     },
+    note: 'Questions? Write to <a href="mailto:support@managira.com">support@managira.com</a>.',
   });
 
   return sendEmailSafely(
     {
       to: email,
-      subject: "Managira: Your Account Is Still On Hold",
+      subject: `Reminder: ${organizationName || "your school"}'s Managira account is on hold`.replace(/\s*[\r\n]+\s*/g, " "),
       sender: "reminders",
       html,
     },
@@ -64,11 +74,13 @@ async function runOnHoldManagerReminderSweep() {
 
   try {
     const dueResult = await db.query(
-      `SELECT organization_id, organization_name, email, hold_reminder_count
+      `SELECT organization_id, organization_name, email, hold_reminder_count, on_hold_at
        FROM organizations
        WHERE deleted = false
          AND on_hold = true
          AND on_hold_at IS NOT NULL
+         AND COALESCE(hold_by, '') <> 'SystemHubContract'
+         AND NOT (COALESCE(is_hub_member, false) = true AND hub_id IS NOT NULL)
          AND hold_reminder_count < $1
          AND on_hold_at + ($2 || ' days')::interval
              + (hold_reminder_count * ($3 || ' days')::interval) <= NOW()`,
@@ -83,8 +95,10 @@ async function runOnHoldManagerReminderSweep() {
         try {
           await sendOnHoldReminderEmail({
             email: recipient.email,
-            name: recipient.name,
+            firstName: recipient.firstName,
+            organizationId: org.organization_id,
             organizationName: org.organization_name,
+            onHoldAt: org.on_hold_at,
           });
           sentAny = true;
           summary.emailsSent += 1;

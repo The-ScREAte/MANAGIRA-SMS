@@ -1382,10 +1382,12 @@ async function recordInvoice(db, hubId, mode, inv) {
     await emailBilling(db, hubId, (hub) => ({
       subject: `Payment received: ${money(row.amount_paid, row.currency)} for ${hub.hub_name}`,
       title: 'Payment received',
-      paragraphs: [
-        `We received ${money(row.amount_paid, row.currency)} for ${hub.hub_name}’s Managira hub${row.number ? ` (invoice ${row.number})` : ''}. Thank you.`,
-        'You can see every bill on the Billing page of your hub.',
-      ],
+      paragraphs: [`Thank you. We received your payment for ${esc(hub.hub_name)}.`],
+      details: [
+        { label: 'Amount', value: esc(money(row.amount_paid, row.currency)) },
+        row.number ? { label: 'Invoice', value: esc(row.number) } : null,
+        row.paid_at ? { label: 'Paid on', value: longDate(row.paid_at) } : null,
+      ].filter(Boolean),
       cta: row.hosted_invoice_url ? { text: 'View receipt', url: row.hosted_invoice_url } : null,
     }));
   }
@@ -1393,13 +1395,15 @@ async function recordInvoice(db, hubId, mode, inv) {
     await db.query('UPDATE hub_billing_invoices SET notified_failed_attempt = $2 WHERE stripe_invoice_id = $1', [inv.id, row.attempt_count]);
     await logHub(db, hubId, 'BILLING_FAILED', `Payment of ${money(row.amount_due, row.currency)} failed`);
     await emailBilling(db, hubId, (hub) => ({
-      subject: `Payment failed for ${hub.hub_name} on Managira`,
-      title: 'We couldn’t take your payment',
+      subject: `Payment for ${hub.hub_name} didn't go through`,
+      title: 'Your payment didn’t go through',
       paragraphs: [
-        `Your card was declined for ${hub.hub_name}’s bill of ${money(row.amount_due, row.currency)}.`,
-        'Please pay it with the button below, or add a new card on your hub’s Billing page. We will also try the card again automatically.',
+        `We couldn’t charge the card on file for ${esc(hub.hub_name)}’s bill of ${esc(money(row.amount_due, row.currency))}.`,
+        `${row.hosted_invoice_url ? 'You can pay the bill with the button below, or add a new card on your hub’s Billing page.' : 'You can add a new card on your hub’s Billing page.'} We’ll also try the card again automatically.`,
       ],
-      cta: row.hosted_invoice_url ? { text: 'Pay this bill', url: row.hosted_invoice_url } : null,
+      cta: row.hosted_invoice_url
+        ? { text: 'Pay the bill', url: row.hosted_invoice_url }
+        : { text: 'Open Billing', url: `${appUrl()}/hub/billing` },
     }));
   }
 }
@@ -1407,6 +1411,9 @@ async function recordInvoice(db, hubId, mode, inv) {
 // ---------------------------------------------------------------- emails
 
 const appUrl = () => String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com').replace(/\/$/, '');
+// Names go into the emails' HTML escaped; dates read "November 16, 2026" (UTC, as on the Billing page).
+const esc = (value) => require('./emailHelper').escapeHtml(value == null ? '' : value);
+const longDate = (d) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : '');
 
 // Billing emails go to the hub owner, the billing email (if any) and hub
 // users who see billing and have not turned billing emails off.
@@ -1427,7 +1434,7 @@ async function billingRecipients(db, hubId) {
   return Array.from(out.values());
 }
 
-async function emailBilling(db, hubId, build, { to } = {}) {
+async function emailBilling(db, hubId, build, { to, sender } = {}) {
   try {
     const hub = await loadHub(db, hubId);
     if (!hub) return 0;
@@ -1437,12 +1444,13 @@ async function emailBilling(db, hubId, build, { to } = {}) {
     list.forEach((r) => {
       const m = build(hub, r);
       sendEmailInBackground({
-        from: process.env.NOTIFY_EMAIL_USER,
         to: r.email,
-        subject: m.subject,
+        subject: String(m.subject || '').replace(/\s*[\r\n]+\s*/g, ' ').trim(),
+        ...(sender ? { sender } : {}),
         html: renderCleanEmail({
+          hubId,
           title: m.title,
-          greeting: `Hello${r.firstName ? ` ${r.firstName}` : ''},`,
+          greeting: r.firstName ? `Hi ${esc(r.firstName)},` : 'Hello,',
           paragraphs: m.paragraphs,
           details: m.details || [],
           cta: m.cta || null,
@@ -1486,17 +1494,19 @@ async function sendSetupLink(db, hubId, { baseUrl, to, by = 'Managira' } = {}) {
   if (!billingLive(billing)) throw new BillingError('Set a price for this hub before sending the payment link.');
   const url = await setupLink(db, hubId, baseUrl || appUrl());
   const { details } = await planDetails(db, hubId);
+  // The scheduled reminders (by: 'Reminder') come from the reminders address.
+  const reminder = by === 'Reminder';
   const sent = await emailBilling(db, hubId, (hub) => ({
-    subject: `Action needed: add a card for ${hub.hub_name} on Managira`,
-    title: 'Set up your hub payment',
+    subject: `${reminder ? 'Reminder: add' : 'Add'} a payment card for ${hub.hub_name}`,
+    title: 'Add your payment card',
     paragraphs: [
-      `${hub.hub_name}’s Managira hub is ready. Please add the card we should charge, using Stripe’s secure page.`,
-      'Your card is only charged on the dates in your agreement. You can see every charge on your hub’s Billing page.',
+      `${esc(hub.hub_name)}’s hub on Managira is ready. Add the card to use for its bills on Stripe’s secure page.`,
+      'The card is charged only on the dates in your agreement, and every charge shows on your hub’s Billing page.',
     ],
     details,
     cta: { text: 'Add your card', url },
-    note: 'This link stays valid until the card is added. You can also add the card from Billing after you sign in.',
-  }), { to });
+    note: 'This link works until a card is added. You can also add the card on your hub’s Billing page after you sign in.',
+  }), { to, ...(reminder ? { sender: 'reminders' } : {}) });
   await setBilling(db, hubId, { setup_link_sent_at: new Date() });
   await logHub(db, hubId, 'BILLING_LINK_SENT', 'Payment link emailed', by);
   return { sent, url };
@@ -1529,10 +1539,10 @@ async function requestCharge(db, hubId, fields, { baseUrl, by = 'Managira' } = {
   const charge = await addCharge(db, hubId, { ...fields, status: 'pending', requestedBy: 'admin', by });
   await logHub(db, hubId, 'BILLING_CHARGE_REQUESTED', `${chargeSummary(charge, billing)} is waiting for approval`, by);
   await emailBilling(db, hubId, (hub) => ({
-    subject: `Please approve a new charge for ${hub.hub_name}`,
+    subject: `A new charge for ${hub.hub_name} needs approval`,
     title: 'A new charge needs your approval',
     paragraphs: [
-      `Managira added a charge to ${hub.hub_name}’s bill. Nothing is charged until someone in your hub approves it.`,
+      `Managira added a charge to ${esc(hub.hub_name)}’s bill. Nothing is charged until someone in your hub approves it.`,
     ],
     details: [chargeSummary(charge, billing), charge.description ? charge.description : null].filter(Boolean),
     cta: { text: 'Review the charge', url: `${(baseUrl || appUrl()).replace(/\/$/, '')}/hub/billing` },

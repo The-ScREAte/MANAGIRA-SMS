@@ -225,26 +225,25 @@ const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 async function notifyAdmins(request, current) {
   const to = process.env.ADMIN_EMAIL;
   if (!to) return;
-  const { sendEmailInBackground, renderCleanEmail } = require("./emailHelper");
+  const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("./emailHelper");
   const name = await schoolName(request.organization_id);
   const base = String(process.env.NODE_ENV === "production" ? process.env.BASE_URL_PRODUCTION || "" : process.env.BASE_URL_LOCAL || "").replace(/\/$/, "");
   sendEmailInBackground({
     to,
-    subject: `API allowance request: ${name}`,
+    subject: `API allowance request: ${name}`.replace(/\s*[\r\n]+\s*/g, " "),
     html: renderCleanEmail({
+      organizationId: request.organization_id,
       title: "A school asked for a bigger API allowance",
       paragraphs: [
-        `${name} would like their integrations to make more calls to the Managira API.`,
-        "Grant it with a monthly price, or decline it, on the API requests page.",
+        `${escapeHtml(name)} would like its integrations to make more calls to the Managira API. Grant it with a monthly price, or decline it, on the API requests page.`,
       ],
       details: [
-        `School: ${name}`,
-        `Now: ${fmt(current.perMinute)} a minute, ${fmt(current.perDay)} a day`,
-        `Asked for: ${fmt(request.requested_per_minute)} a minute, ${fmt(request.requested_per_day)} a day`,
-        `Why: ${request.reason}`,
-        `Contact: ${[request.contact_name, request.contact_email].filter(Boolean).join(", ") || "-"}`,
+        { label: "Now", value: `${fmt(current.perMinute)} a minute, ${fmt(current.perDay)} a day` },
+        { label: "Asked for", value: `${fmt(request.requested_per_minute)} a minute, ${fmt(request.requested_per_day)} a day` },
+        { label: "Why", value: escapeHtml(request.reason) },
+        { label: "Contact", value: escapeHtml([request.contact_name, request.contact_email].filter(Boolean).join(", ") || "-") },
       ],
-      ...(base ? { actionUrl: `${base}/admin/api-requests`, actionText: "Open API requests" } : {}),
+      ...(base ? { cta: { url: `${base}/admin/api-requests`, text: "Open API requests" } } : {}),
     }),
   }, "API allowance request");
 }
@@ -375,20 +374,28 @@ async function adminReset(organizationId, req) {
 
 async function notifySchool(request, { approved, perMinute, perDay, price, note }) {
   if (!request.contact_email) return;
-  const { sendEmailInBackground, renderCleanEmail } = require("./emailHelper");
-  const name = await schoolName(request.organization_id);
+  const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("./emailHelper");
+  const name = escapeHtml(await schoolName(request.organization_id));
+  const managiraNote = note ? `A note from our team: ${escapeHtml(note)}` : "";
   sendEmailInBackground({
     to: request.contact_email,
-    subject: approved ? "Your API allowance has been raised" : "About your API allowance request",
+    subject: approved ? "Your API allowance has been raised" : "Update on your API allowance request",
     html: renderCleanEmail({
-      title: approved ? "Your API allowance has been raised" : "Your API allowance request",
+      organizationId: request.organization_id,
+      title: approved ? "Your API allowance has been raised" : "Update on your API allowance request",
       paragraphs: approved
         ? [
             `${name}'s integrations can now make ${fmt(perMinute)} calls a minute and ${fmt(perDay)} a day.`,
-            `${money(price)} a month is added to your Managira bill from your next payment. You can see it in Settings → Access Tokens.`,
-            ...(note ? [note] : []),
-          ]
-        : ["We couldn't raise your API allowance this time.", ...(note ? [note] : []), "Reply to this email if you'd like to talk about it."],
+            Number(price) > 0
+              ? `${money(price)} a month is added to your Managira bill from your next payment. You can see your allowance in Settings › Access Tokens.`
+              : "There's no extra charge. You can see your allowance in Settings › Access Tokens.",
+            managiraNote,
+          ].filter(Boolean)
+        : [
+            `We can't raise ${name}'s API allowance at this time. Your current allowance stays as it is.`,
+            managiraNote,
+          ].filter(Boolean),
+      note: 'Questions? Write to <a href="mailto:support@managira.com">support@managira.com</a>.',
     }),
   }, "API allowance answer");
 }

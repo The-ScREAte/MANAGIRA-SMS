@@ -41,6 +41,10 @@ const LIVE_GUARDIAN_NOTIFICATION_KEYS = new Set([
   "broadcast_event_or_announcement",
   "admission_application_received",
   "guardian_additional_student_added",
+  "activity_reminders",
+  "school_forms",
+  "bus_arrival",
+  "birthday_greetings",
 ]);
 
 function resolveScheduleWatermarkUrl(req) {

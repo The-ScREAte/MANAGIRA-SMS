@@ -3,7 +3,7 @@
 const db = require("../config/db");
 const bcrypt = require("../utils/passwordHashing");
 const crypto = require("crypto");
-const { renderCleanEmail } = require("../utils/emailHelper");
+const { renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const {
   HUB_ROLES,
   HUB_PERMISSION_GROUPS,
@@ -70,20 +70,22 @@ async function sendInvite(req, res, user) {
     [crypto.createHash("sha256").update(token).digest("hex"), new Date(Date.now() + INVITE_DAYS * 86400000), user.hub_user_id]
   );
   const hubName = (req.hubInfo && req.hubInfo.hub_name) || "your hub";
+  const role = (HUB_ROLES[user.role] || HUB_ROLES.hub_user).label.toLowerCase();
+  const loginUrl = `${baseUrl(res)}/hub/login`;
   const { sendEmailInBackground } = require("../utils/emailHelper");
   sendEmailInBackground({
-    from: process.env.NOTIFY_EMAIL_USER,
     to: user.email,
-    subject: `You have been added to ${hubName} on Managira`,
+    subject: `You've been added to ${hubName} on Managira`.replace(/\s*[\r\n]+\s*/g, " "),
     html: renderCleanEmail({
+      hubId: req.session.hubId,
       title: `Welcome to ${hubName}`,
-      greeting: `Hello ${user.first_name},`,
+      greeting: `Hi ${escapeHtml(user.first_name)},`,
       paragraphs: [
-        `${actorName(req)} added you to ${hubName} on Managira as a ${(HUB_ROLES[user.role] || HUB_ROLES.hub_user).label.toLowerCase()}.`,
-        `Click the button to set your password. The link works for ${INVITE_DAYS} days.`,
-        `After that, sign in at ${baseUrl(res)}/hub/login with ${user.email}.`,
+        `${escapeHtml(actorName(req))} added you to ${escapeHtml(hubName)} on Managira as a ${role}. Set your password to get started. The link works for ${INVITE_DAYS} days.`,
       ],
       cta: { text: "Set your password", url: `${baseUrl(res)}/hub/setup-password?token=${token}` },
+      showLink: true,
+      note: `After that, sign in at <a href="${loginUrl}">${escapeHtml(loginUrl)}</a> with ${escapeHtml(user.email)}.`,
     }),
   }, "Hub user invite");
 }
@@ -91,11 +93,12 @@ async function sendInvite(req, res, user) {
 function tellAdmins(req, text) {
   const hubName = (req.hubInfo && req.hubInfo.hub_name) || "your hub";
   notifyHub(db, req.session.hubId, "hub_user_changes", (r) => ({
-    subject: `Hub users changed in ${hubName}`,
+    subject: `Hub users changed in ${hubName}`.replace(/\s*[\r\n]+\s*/g, " "),
     html: renderCleanEmail({
+      hubId: req.session.hubId,
       title: "Hub users changed",
-      greeting: `Hello ${r.firstName || ""}`.trim() + ",",
-      paragraphs: [text, `Done by ${actorName(req)}.`],
+      greeting: r.firstName ? `Hi ${escapeHtml(r.firstName)},` : "Hello,",
+      paragraphs: [`${escapeHtml(text)} ${escapeHtml(actorName(req))} made this change.`],
       cta: { text: "See hub users", url: `${process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com"}/hub/users` },
     }),
   }), { excludeEmail: actorEmail(req) });

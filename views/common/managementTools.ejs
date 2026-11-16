@@ -664,6 +664,14 @@
           </a>
         </li>
         <% } %>
+        <% if (menuAccess.briefing && locals.featureOn && featureOn('weekly_briefing')) { %>
+        <li>
+          <a class="nav-link" href="/common/briefing" data-no-spa data-section="weekly-briefing" data-embed-url="/common/briefing" data-embed-label="Weekly briefing">
+            <span class="nav-link-icon"><%- navIcon('mailroom') %></span>
+            <span>Weekly briefing</span>
+          </a>
+        </li>
+        <% } %>
         <% if (canSeeEmailIssues) { %>
         <li>
           <a class="nav-link" href="/common/failedEmails" data-no-spa data-section="email-issues" data-embed-url="/common/failedEmails" data-embed-label="Email Issues">
@@ -860,6 +868,17 @@
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/></svg>
             <p>Loading Service Accounts…</p>
+          </div>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (menuAccess.briefing && locals.featureOn && featureOn('weekly_briefing')) { %>
+      <section class="management-section" id="weekly-briefing">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <p>Loading Weekly briefing…</p>
           </div>
         </div>
       </section>

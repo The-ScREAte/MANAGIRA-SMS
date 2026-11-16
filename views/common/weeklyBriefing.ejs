@@ -1,0 +1,261 @@
+<%# The weekly briefing's settings (routes/briefingRoute.js, utils/weeklyBriefing.js): the school's
+    page in Management Tools, or one class's tab on the class dashboard (classRoom set). %>
+<link rel="stylesheet" href="/css/manage.css" />
+<style>
+  .wb-stack { display: grid; gap: 16px; max-width: 920px; }
+  .wb-card-body { padding: 16px 18px; }
+  .wb-note { margin: 0; color: var(--ws-muted); font-size: .85rem; line-height: 1.5; }
+  .wb-schedule { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; color: var(--ws-text); font-size: .9rem; }
+  /* The app styles every label and select as a full-width block: these sit in a sentence. */
+  .ws-root .wb-schedule label, .ws-root .wb-preview label { display: inline; width: auto; margin: 0; padding: 0; font-weight: 500; color: var(--ws-text); font-size: .9rem; }
+  .ws-root .wb-schedule select, .ws-root .wb-preview select { display: inline-block; width: auto; min-width: 0; max-width: 100%; margin: 0; }
+  .wb-schedule select { height: 36px; padding: 0 10px; border: 1px solid var(--ws-line); border-radius: 8px; background: #fff; color: var(--ws-ink); font: inherit; font-size: .9rem; }
+  .wb-schedule select:focus-visible { outline: 2px solid var(--ws-brand); outline-offset: 1px; }
+  .wb-modes { display: grid; gap: 10px; }
+  .wb-mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--ws-line); border-radius: 10px; cursor: pointer; }
+  .wb-mode:has(input:checked) { border-color: var(--ws-brand); background: var(--ws-brand-soft); }
+  .wb-mode input { margin-top: 3px; accent-color: var(--ws-brand); }
+  .ws-root .wb-mode { font-weight: 400; margin: 0; }
+  .wb-mode strong { display: block; color: var(--ws-ink); font-size: .9rem; font-weight: 600; }
+  .ws-root .wb-mode span span { display: block; margin-top: 2px; color: var(--ws-muted); font-size: .84rem; font-weight: 400; }
+  body .ws-table.wb-table td { vertical-align: middle; }
+  body .ws-table.wb-table th.wb-col, body .ws-table.wb-table td.wb-col { width: 112px; text-align: center; }
+  .wb-section strong { display: block; font-size: .9rem; }
+  .wb-section small { display: block; margin-top: 2px; color: var(--ws-muted); font-size: .8rem; line-height: 1.45; }
+  .wb-master td { background: var(--ws-soft) !important; }
+  .wb-na { color: #cbd5e1; font-size: .85rem; }
+  /* A switch: a real checkbox, so the form works without scripts. */
+  .wb-switch { position: relative; display: inline-flex; width: 40px; height: 22px; cursor: pointer; }
+  .wb-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
+  .wb-switch span { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background-color .15s ease; pointer-events: none; }
+  .wb-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .15s ease; }
+  .wb-switch input:checked + span { background: var(--ws-brand); }
+  .wb-switch input:checked + span::after { transform: translateX(18px); }
+  .wb-switch input:focus-visible + span { outline: 2px solid var(--ws-brand); outline-offset: 2px; }
+  .wb-switch input:disabled { cursor: not-allowed; }
+  .wb-off .wb-switch, .wb-readonly .wb-switch { opacity: .45; }
+  .wb-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .wb-preview select { height: 36px; min-width: 0; max-width: 100%; padding: 0 10px; border: 1px solid var(--ws-line); border-radius: 8px; background: #fff; color: var(--ws-ink); font: inherit; font-size: .9rem; }
+  .wb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .wb-saved { color: var(--ws-muted); font-size: .82rem; }
+  .wb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  @media (prefers-reduced-motion: reduce) { .wb-switch span, .wb-switch span::after { transition: none; } }
+  @media (max-width: 640px) {
+    body .ws-table.wb-table th.wb-col, body .ws-table.wb-table td.wb-col { width: 72px; }
+    .wb-section small { display: none; }
+  }
+</style>
+
+<%- include('../partials/flash') %>
+
+<% const forClass = Boolean(classRoom); %>
+<% const followsSchool = forClass && !own; %>
+<div class="ws-root">
+  <header class="ws-head">
+    <div class="ws-head__text">
+      <h1 class="ws-head__title">Weekly briefing<%= forClass ? ` · ${classRoom.name}` : '' %></h1>
+      <p class="ws-head__sub">
+        A short email every week: how each child's week went and what's coming up.
+        <%= forClass ? 'Choose what families and students in this class get.' : 'Choose who gets it and what it includes. Everything starts on.' %>
+      </p>
+    </div>
+  </header>
+
+  <details class="ws-info">
+    <summary>How this works</summary>
+    <div class="ws-info__body">
+      <p>Families get one email covering all their children, sent <strong><%= days[schedule.day] %> at <%= hourLabel(schedule.hour) %></strong>. Students get their own only if they have a student-portal login.</p>
+      <p>It only includes what families already see in the portal: grades once teachers post them, events shared with families, and forms and daily class records the school shows them. Anything with nothing to report is left out, and nobody gets an empty email.</p>
+      <p>Anyone can unsubscribe with the link at the bottom of the email.</p>
+    </div>
+  </details>
+
+  <form method="post" action="<%= action %><%= isEmbedded ? '?embed=workspace' : '' %>" class="wb-stack" id="wb-form">
+    <% if (forClass) { %>
+      <section class="ws-card">
+        <div class="ws-card__head"><h2 class="ws-card__title">This class</h2></div>
+        <div class="wb-card-body wb-modes">
+          <label class="wb-mode">
+            <input type="radio" name="mode" value="school" <%= followsSchool ? 'checked' : '' %>>
+            <span><strong>Use the school's choices</strong><span>Changes the school makes in Management Tools apply here too.</span></span>
+          </label>
+          <label class="wb-mode">
+            <input type="radio" name="mode" value="own" <%= followsSchool ? '' : 'checked' %>>
+            <span><strong>Choose for this class</strong><span>This class keeps its own choices below.</span></span>
+          </label>
+        </div>
+      </section>
+    <% } else { %>
+      <section class="ws-card">
+        <div class="ws-card__head"><h2 class="ws-card__title">When it's sent</h2></div>
+        <div class="wb-card-body">
+          <div class="wb-schedule">
+            <label for="wb-day">Every</label>
+            <select id="wb-day" name="day">
+              <% days.forEach((label, index) => { %><option value="<%= index %>" <%= schedule.day === index ? 'selected' : '' %>><%= label %></option><% }) %>
+            </select>
+            <label for="wb-hour">at</label>
+            <select id="wb-hour" name="hour">
+              <% for (let hour = 6; hour <= 21; hour += 1) { %><option value="<%= hour %>" <%= schedule.hour === hour ? 'selected' : '' %>><%= hourLabel(hour) %></option><% } %>
+            </select>
+            <label for="wb-zone" class="ws-sr">Time zone</label>
+            <select id="wb-zone" name="timeZone">
+              <% const zoneKnown = timeZones.some(([zone]) => zone === schedule.timeZone); %>
+              <% if (!zoneKnown) { %><option value="<%= schedule.timeZone %>" selected><%= schedule.timeZone %></option><% } %>
+              <% timeZones.forEach(([zone, label]) => { %><option value="<%= zone %>" <%= schedule.timeZone === zone ? 'selected' : '' %>><%= label %> time</option><% }) %>
+            </select>
+          </div>
+          <p class="wb-note" style="margin-top:10px;">Each briefing covers the seven days up to then, and the seven days ahead.</p>
+          <% if (ownClasses.length) { %>
+            <p class="wb-note" style="margin-top:10px;">These classes keep their own choices (change them on each class's Weekly briefing tab):</p>
+            <div class="wb-chips"><% ownClasses.forEach((item) => { %><span class="ws-pill"><%= item.name %></span><% }) %></div>
+          <% } %>
+        </div>
+      </section>
+    <% } %>
+
+    <section class="ws-card<%= followsSchool ? ' wb-readonly' : '' %>" id="wb-choices">
+      <div class="ws-card__head">
+        <h2 class="ws-card__title">What it includes</h2>
+        <% if (followsSchool) { %><span class="ws-pill">The school's choices</span><% } %>
+      </div>
+      <div class="ws-table-wrap" style="border:0;border-radius:0 0 var(--ws-radius) var(--ws-radius);">
+        <table class="ws-table wb-table" data-no-global-sort>
+          <thead>
+            <tr><th scope="col">Section</th><th scope="col" class="wb-col">Parents</th><th scope="col" class="wb-col">Students</th></tr>
+          </thead>
+          <tbody>
+            <tr class="wb-master">
+              <td class="wb-section"><strong>Send the weekly briefing</strong><small>Students get it only if they have a student-portal login.</small></td>
+              <% ['parents', 'students'].forEach((audience) => { %>
+                <td class="wb-col">
+                  <label class="wb-switch" title="<%= audience === 'parents' ? 'Send to parents' : 'Send to students' %>">
+                    <input type="checkbox" role="switch" name="<%= audience %>_on" data-master="<%= audience %>" aria-label="Send to <%= audience %>" <%= settings[audience].on ? 'checked' : '' %>>
+                    <span></span>
+                  </label>
+                </td>
+              <% }) %>
+            </tr>
+            <% sections.forEach((section) => { %>
+              <tr>
+                <td class="wb-section"><strong><%= section.label %></strong><small><%= section.hint %></small></td>
+                <% ['parents', 'students'].forEach((audience) => { %>
+                  <td class="wb-col" data-column="<%= audience %>">
+                    <% if (section.audiences.includes(audience)) { %>
+                      <label class="wb-switch">
+                        <input type="checkbox" role="switch" name="<%= audience %>_<%= section.key %>" aria-label="<%= section.label %> for <%= audience %>" <%= settings[audience].sections[section.key] ? 'checked' : '' %>>
+                        <span></span>
+                      </label>
+                    <% } else { %>
+                      <span class="wb-na" aria-label="Not sent to <%= audience %>">—</span>
+                    <% } %>
+                  </td>
+                <% }) %>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="ws-card">
+      <div class="ws-card__head"><h2 class="ws-card__title">Preview</h2></div>
+      <div class="wb-card-body">
+        <p class="wb-note" style="margin-bottom:10px;">See the email a family or student would get this week, from your school's real records. Nothing is sent. Save first to preview new choices.</p>
+        <div class="wb-preview">
+          <% if (!forClass) { %>
+            <label for="wb-preview-class" class="ws-sr">Class</label>
+            <select id="wb-preview-class">
+              <option value="">Choose a class</option>
+              <% classes.forEach((item) => { %><option value="<%= item.id %>"><%= item.name %></option><% }) %>
+            </select>
+          <% } %>
+          <label for="wb-preview-student" class="ws-sr">Student</label>
+          <select id="wb-preview-student" <%= forClass ? '' : 'disabled' %>>
+            <option value=""><%= forClass ? 'Choose a student' : 'Choose a class first' %></option>
+            <% students.forEach((student) => { %><option value="<%= student.id %>"><%= student.name %></option><% }) %>
+          </select>
+          <label for="wb-preview-audience" class="ws-sr">For</label>
+          <select id="wb-preview-audience">
+            <option value="parents">Family's email</option>
+            <option value="students">Student's email</option>
+          </select>
+          <a class="ws-btn" id="wb-preview-open" href="#" target="_blank" rel="noopener" aria-disabled="true">Open preview</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="wb-actions">
+      <button type="submit" class="ws-btn ws-btn--primary">Save</button>
+      <% if (savedBy && savedBy.at) { %>
+        <span class="wb-saved">Last saved<%= savedBy.name ? ` by ${savedBy.name}` : '' %> on <%= new Date(savedBy.at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %></span>
+      <% } %>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('wb-form');
+  if (!form) return;
+  // A column whose "Send" is off dims its sections (their choices are kept for later).
+  function paintColumns() {
+    form.querySelectorAll('[data-master]').forEach(function (master) {
+      form.querySelectorAll('[data-column="' + master.getAttribute('data-master') + '"]').forEach(function (cell) {
+        cell.classList.toggle('wb-off', !master.checked);
+      });
+    });
+  }
+  var card = document.getElementById('wb-choices');
+  var ownMode = form.querySelector('input[name="mode"][value="own"]');
+  form.addEventListener('change', function (event) {
+    if (event.target.matches('[data-master]')) paintColumns();
+    if (event.target.name === 'mode') card.classList.toggle('wb-readonly', event.target.value !== 'own');
+    // Changing a switch while the class follows the school starts the class's own choices.
+    if (ownMode && event.target.type === 'checkbox' && !ownMode.checked) {
+      ownMode.checked = true;
+      card.classList.remove('wb-readonly');
+    }
+  });
+  paintColumns();
+
+  var classSelect = document.getElementById('wb-preview-class');
+  var studentSelect = document.getElementById('wb-preview-student');
+  var audienceSelect = document.getElementById('wb-preview-audience');
+  var open = document.getElementById('wb-preview-open');
+  function paintPreview() {
+    var id = studentSelect.value;
+    open.setAttribute('aria-disabled', id ? 'false' : 'true');
+    open.href = id ? '/common/briefing/preview?studentId=' + encodeURIComponent(id) + '&audience=' + encodeURIComponent(audienceSelect.value) : '#';
+  }
+  open.addEventListener('click', function (event) { if (!studentSelect.value) event.preventDefault(); });
+  studentSelect.addEventListener('change', paintPreview);
+  audienceSelect.addEventListener('change', paintPreview);
+  if (classSelect) {
+    classSelect.addEventListener('change', function () {
+      studentSelect.disabled = true;
+      studentSelect.innerHTML = '';
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = classSelect.value ? 'Loading…' : 'Choose a class first';
+      studentSelect.appendChild(placeholder);
+      paintPreview();
+      if (!classSelect.value) return;
+      fetch('/common/briefing/students?classId=' + encodeURIComponent(classSelect.value), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then(function (response) { return response.ok ? response.json() : { students: [] }; })
+        .then(function (data) {
+          placeholder.textContent = data.students && data.students.length ? 'Choose a student' : 'No students in this class';
+          (data.students || []).forEach(function (student) {
+            var option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = student.name;
+            studentSelect.appendChild(option);
+          });
+          studentSelect.disabled = !(data.students && data.students.length);
+        })
+        .catch(function () { placeholder.textContent = 'Could not load students'; });
+    });
+  }
+  paintPreview();
+})();
+</script>

@@ -3,13 +3,11 @@ const nodemailer = require("nodemailer");
 const bcrypt = require("../utils/passwordHashing");
 const { Parser } = require("json2csv");
 const crypto = require("crypto");
-const path = require("path");
 const fs = require("fs");
 const PDFDocument = require("pdfkit");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
-const he = require("he");
 const cacheManager = require("../utils/cacheManager");
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const { pingSearchEngines } = require("../utils/sitemapPing");
 const { activeStudentSql } = require("../utils/activeStudents");
 const {
@@ -73,7 +71,39 @@ const {
 } = require("../utils/dynamicPricing");
 const { COUNTRIES_BY_CONTINENT, COUNTRY_NAME_LOOKUP } = require("../utils/countries");
 
-const EMPLOYMENT_INTERVIEW_INVITE_URL = "https://calendly.com/managirasms/managira-team-review-meeting";
+const { BOOKING_URL: EMPLOYMENT_INTERVIEW_INVITE_URL, CAREERS_EMAIL } = require("../utils/bookingLink");
+
+// Email helpers: links to the public site, one-line subjects, greetings, and typed text
+// (a reply, a note, a reason) as escaped HTML with its line breaks kept.
+const PUBLIC_BASE_URL = require("../utils/emailLinks").BASE_URL;
+const SUPPORT_LINK = '<a href="mailto:support@managira.com">support@managira.com</a>';
+const oneLine = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+const hiName = (firstName) => (oneLine(firstName) ? `Hi ${escapeHtml(oneLine(firstName))},` : "Hello,");
+// A full name someone typed ("Maria Diaz") greets by its first word, unless that is a title ("Dr.").
+const firstNameOf = (name) => { const full = oneLine(name).slice(0, 80); const first = full.split(" ")[0]; return /\.$/.test(first) ? full : first; };
+const textToHtml = (value) => escapeHtml(String(value ?? "").trim()).replace(/\r?\n/g, "<br>");
+
+// The "not moving forward" email to a job applicant, after applying or after interviews
+// (`stageLabel`). `rejectionReason` is the optional note the reviewer typed for them.
+function employmentDecisionHtml({ application, rejectionReason = "", stageLabel = "" }) {
+  const role = escapeHtml(String(application.job_title || ""));
+  const note = String(rejectionReason || "").trim();
+  return renderCleanEmail({
+    title: "Update on your application",
+    greeting: hiName(application.first_name),
+    paragraphs: [
+      stageLabel
+        ? `Thank you for interviewing with us for the ${role} role at Managira, and for the time and thought you gave us through the ${escapeHtml(stageLabel)} stage.`
+        : `Thank you for applying for the ${role} role at Managira, and for the time you put into your application.`,
+      stageLabel
+        ? "After careful consideration, we've decided not to move forward with your application. We truly enjoyed getting to know you, and this was not an easy decision."
+        : "After careful consideration, we've decided not to move forward with your application for this role. We know this isn't the news you hoped for, and we're grateful for your interest in joining us.",
+      ...(note ? [`A note from our team: ${textToHtml(note)}`] : []),
+      `You're welcome to apply for future openings on our <a href="${PUBLIC_BASE_URL}/legal/employment">jobs page</a>. We wish you every success.`,
+    ],
+    signoff: "The Managira team",
+  });
+}
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
@@ -1007,6 +1037,7 @@ const adminController = {
           `SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.email
            FROM users u
            WHERE u.email IS NOT NULL
+             AND COALESCE(u.on_hold, false) = false
              AND u.user_id != $1
              AND (
                u.user_id = $2
@@ -1025,48 +1056,33 @@ const adminController = {
             [id]
           );
           const contactName = contactRow.rows[0]?.contact_name || `Contact #${id}`;
-          const appBaseUrl = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'http://localhost:4000').replace(/\/$/, '');
-          const respondUrl = `${appBaseUrl}/admin#contactsListWidget`;
+          const respondUrl = `${PUBLIC_BASE_URL}/admin#contactsListWidget`;
 
           for (const recipient of recipientRows.rows) {
-            const recipientName = `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() || recipient.email;
             const isCreator = creatorId && Number(recipient.user_id) === Number(creatorId);
             const isAssignee = assigneeId && Number(recipient.user_id) === Number(assigneeId);
             const roleNote = isCreator
-              ? 'You are receiving this because you own this contact.'
+              ? "You're getting this because you own this contact."
               : (isAssignee
-                ? 'You are receiving this because this contact is assigned to you.'
-                : 'You are receiving this because you previously contributed a note on this contact.');
+                ? "You're getting this because this contact is assigned to you."
+                : "You're getting this because you added a note to this contact before.");
 
             const html = renderCleanEmail({
-              title: "New Note on Your Contact",
-              greeting: `Hi <strong>${recipientName}</strong>,`,
+              title: "New note on a contact",
+              greeting: hiName(recipient.first_name),
               paragraphs: [
-                `A new note has been added to contact <strong>${contactName}</strong> by <strong>${authorLabel}</strong>.`,
+                `${escapeHtml(authorLabel)} added a note to <strong>${escapeHtml(contactName)}</strong>.`,
               ],
-              details: [
-                { label: "Contact", value: contactName },
-                { label: "Note", value: newNote },
-                { label: "Added by", value: authorLabel },
-                { label: "Date", value: stamp },
-              ],
-              cta: { url: respondUrl, text: 'Respond to This Note' },
-              note: `${roleNote} Log in to Managira to view the full note history.`,
+              details: [{ label: "Note", value: textToHtml(newNote) }],
+              cta: { url: respondUrl, text: "Open contacts" },
+              note: roleNote,
             });
 
             const mailOptions = {
-              from: process.env.NOTIFY_EMAIL_USER,
               to: recipient.email,
-              subject: `New note on contact: ${contactName}`,
+              subject: oneLine(`New note on ${contactName}`),
               html,
               skipMxCheck: true,
-              attachments: [
-                {
-                  filename: "managira.png",
-                  path: require("path").join(__dirname, "../public/images/managira.png"),
-                  cid: "managira_logo",
-                },
-              ],
             };
 
             sendEmailInBackground(mailOptions, "Contact Note Notification");
@@ -1545,8 +1561,9 @@ const adminController = {
       // Send email notification to the organization
       await sendEmailNotification(
         organization.email,
-        "Your organization has been put on hold",
-        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization's activities have been temporarily put on hold. Please contact us at info@managira.com for further information.\n\nBest regards,\nAdmin Team`
+        "Your Managira account is on hold",
+        "Your school's Managira account is on hold for now.\n\nTo find out more, email support@managira.com.",
+        { firstName: organization.first_name, organizationId: orgId }
       );
 
       res.redirect("/admin/hubs");
@@ -1580,8 +1597,9 @@ const adminController = {
 
       await sendEmailNotification(
         organization.email,
-        "Your organization has been resumed",
-        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization's activities have been resumed. You can continue using the platform.\n\nBest regards,\nAdmin Team`
+        "Your Managira account is active again",
+        "Your school's Managira account is active again, and everyone can sign in as usual.",
+        { firstName: organization.first_name, organizationId: orgId }
       );
 
       res.redirect("/admin/hubs");
@@ -1637,8 +1655,9 @@ const adminController = {
 
       await sendEmailNotification(
         organization.email,
-        "Your organization has been deleted",
-        `Dear ${organization.first_name} ${organization.last_name},\n\nYour organization has been deleted from our records. If you believe this is a mistake, please contact us at info@managira.com.\n\nBest regards,\nAdmin Team`
+        "Your Managira account has been closed",
+        "Your school's Managira account has been closed.\n\nIf you think this is a mistake, email support@managira.com.",
+        { firstName: organization.first_name, organizationId: orgId }
       );
 
       res.redirect("/admin/hubs");
@@ -2626,8 +2645,9 @@ const adminController = {
 
       await sendEmailNotification(
         organization.email,
-        "Your organization has been restored",
-        `Dear ${organization.first_name} ${organization.last_name},\n\nWe apologize for any inconvenience caused. Your organization has been restored.\n\nBest regards,\nAdmin Team`
+        "Your Managira account has been restored",
+        "Your school's Managira account has been restored, and you can sign in again.",
+        { firstName: organization.first_name, organizationId: orgId }
       );
 
       res.redirect("/admin/superDashboard");
@@ -2795,31 +2815,26 @@ const adminController = {
         [threadIdInt, "Admin", process.env.EMAIL_USER, response]
       );
 
+      // The reply, as typed by our team: each blank-line-separated part is a paragraph.
+      const replyParagraphs = String(response || "")
+        .split(/\r?\n\s*\r?\n/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map(textToHtml);
       const html = renderCleanEmail({
-        title: "Support Ticket Response",
-        greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
+        title: `Our reply to your request #${threadIdInt}`,
+        greeting: hiName(firstNameOf(thread.name)),
         paragraphs: [
-          `Our team has responded to your support ticket (#${threadIdInt}).`,
+          ...replyParagraphs,
+          `If you have more to add, email ${SUPPORT_LINK} and mention request #${threadIdInt}.`,
         ],
-        details: [
-          { label: "Ticket Number", value: `#${threadIdInt}` },
-          { label: "Response", value: response },
-        ],
-        note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+        signoff: "The Managira support team",
       });
 
       const mailOptions = {
-        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
-        subject: `Response to Support Ticket #${threadIdInt}`,
+        subject: `Reply to your Managira request #${threadIdInt}`,
         html,
-        attachments: [
-          {
-            filename: 'managira.png',
-            path: require('path').join(__dirname, '../public/images/managira.png'),
-            cid: 'managira_logo'
-          }
-        ]
       };
 
       sendEmailInBackground(mailOptions, "Admin Support Response Email");
@@ -2862,27 +2877,18 @@ const adminController = {
       );
 
       const html = renderCleanEmail({
-        title: "Support Ticket Resolved",
-        greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
+        title: "Your request is resolved",
+        greeting: hiName(firstNameOf(thread.name)),
         paragraphs: [
-          `We are pleased to inform you that your support ticket (#${threadIdInt}) has been resolved.`,
-          "If you have any further questions, please reach out to us.",
+          `We've marked your request #${threadIdInt} as resolved. If you still need help, email ${SUPPORT_LINK} and mention #${threadIdInt}.`,
         ],
-        note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+        signoff: "The Managira support team",
       });
 
       const mailOptions = {
-        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
-        subject: `Your Support Ticket #${threadIdInt} Has Been Resolved`,
+        subject: `Your Managira request #${threadIdInt} is resolved`,
         html,
-        attachments: [
-          {
-            filename: 'managira.png',
-            path: require('path').join(__dirname, '../public/images/managira.png'),
-            cid: 'managira_logo'
-          }
-        ]
       };
 
       sendEmailInBackground(mailOptions, "Admin Ticket Resolved Email");
@@ -2947,26 +2953,18 @@ const adminController = {
       );
 
       const html = renderCleanEmail({
-        title: "Support Ticket Reopened",
-        greeting: `Dear <strong>${he.encode(thread.name)}</strong>,`,
+        title: "Your request is open again",
+        greeting: hiName(firstNameOf(thread.name)),
         paragraphs: [
-          `Your support ticket (#${threadIdInt}) has been reopened. Our team is actively working on your concern and will update you shortly.`,
+          `We've reopened your request #${threadIdInt}, and our team will follow up by email.`,
         ],
-        note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+        signoff: "The Managira support team",
       });
 
       const mailOptions = {
-        from: process.env.NOTIFY_EMAIL_USER,
         to: thread.email,
-        subject: `Your Support Ticket #${threadIdInt} Has Been Reopened`,
+        subject: `Your Managira request #${threadIdInt} is open again`,
         html,
-        attachments: [
-          {
-            filename: 'managira.png',
-            path: require('path').join(__dirname, '../public/images/managira.png'),
-            cid: 'managira_logo'
-          }
-        ]
       };
 
       sendEmailInBackground(mailOptions, "Admin Ticket Reopened Email");
@@ -3783,31 +3781,22 @@ const adminController = {
       }
 
       const interviewInviteUrl = EMPLOYMENT_INTERVIEW_INVITE_URL;
-      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
       const html = renderCleanEmail({
-        title: "Employment Application Approved",
-        greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
+        title: "Let's schedule an interview",
+        greeting: hiName(application.first_name),
         paragraphs: [
-          `Thank you for applying for the ${he.encode(application.job_title)} position at Managira.`,
-          "We are pleased to inform you that your application has been approved for the next stage of the selection process.",
-          `As a next step, please schedule an interview at a time that works for you using the link below:`,
-          `<a href="${interviewInviteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${interviewInviteUrl}</a>`,
-          "If you have any questions in the meantime, please feel free to reply to this email.",
+          `Thank you for applying for the ${escapeHtml(application.job_title)} role at Managira. We'd like to invite you to an interview.`,
+          "Please choose a time that works for you. If you have any questions, just reply to this email.",
         ],
-        details: [
-          { label: "Position", value: he.encode(application.job_title) },
-          { label: "Application Status", value: "Approved for Next Stage" },
-        ],
-        cta: { url: interviewInviteUrl, text: "Open Interview Link" },
-        followManagira: true,
-        linkedinUrl,
-        noReply: false,
+        cta: { url: interviewInviteUrl, text: "Schedule your interview" },
+        showLink: true,
+        signoff: "The Managira team",
       });
 
       sendEmailInBackground(
         {
           to: application.email,
-          subject: `Your ${application.job_title} application has been approved`,
+          subject: oneLine(`Interview invitation: ${application.job_title}`),
           html,
         },
         "Employment Approval Email"
@@ -3853,49 +3842,11 @@ const adminController = {
       }
 
       const application = applicationResult.rows[0];
-
-      const details = [
-        { label: "Position", value: application.job_title },
-        { label: "Application Status", value: "Rejected" },
-      ];
-      if (rejectionReason) {
-        details.push({ label: "Reason", value: rejectionReason });
+      // A second press (or a resent form) must not mail the applicant the same news twice.
+      if (application.status === "rejected") {
+        req.flash("error", "This application was already rejected.");
+        return res.redirect("/admin/employment");
       }
-
-      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
-      const html = renderCleanEmail({
-        title: "Employment Application Update",
-        greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
-        paragraphs: [
-          `Thank you for your interest in the ${he.encode(application.job_title)} position at Managira and for the time you took to apply.`,
-          "We received a high volume of applications for this role, and after careful consideration we are sorry to share that we will not be moving forward with your application at this stage. This decision is in no way a reflection of your abilities, and we genuinely appreciate the effort you put into your submission.",
-          "Please be assured that Managira is continuously hiring as we grow. New openings are posted on our LinkedIn page as soon as they become available, and we would be glad to consider you for future roles that match your experience.",
-          `You can follow Managira on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
-          "We wish you the very best in your job search and thank you again for considering Managira.",
-        ],
-        details,
-        noReply: true,
-      });
-
-      sendEmailInBackground(
-        {
-          to: application.email,
-          subject: `Update on your ${application.job_title} application`,
-          html,
-          headers: {
-            'X-Managira-Category': 'employment-decision',
-            'X-Managira-Transactional': 'true',
-          },
-          attachments: [
-            {
-              filename: "managira.png",
-              path: path.join(__dirname, "../public/images/managira.png"),
-              cid: "managira_logo",
-            },
-          ],
-        },
-        "Employment Rejection Email"
-      );
 
       await db.query(
         `UPDATE employment_applications
@@ -3904,6 +3855,20 @@ const adminController = {
              reviewed_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [applicationId, rejectionReason || null]
+      );
+
+      // Sent once the decision is saved, so a failed save never mails a decision.
+      sendEmailInBackground(
+        {
+          to: application.email,
+          subject: oneLine(`Update on your ${application.job_title} application`),
+          html: employmentDecisionHtml({ application, rejectionReason }),
+          headers: {
+            'X-Managira-Category': 'employment-decision',
+            'X-Managira-Transactional': 'true',
+          },
+        },
+        "Employment Rejection Email"
       );
 
       req.flash("success", "Application rejected and notification email queued.");
@@ -3949,37 +3914,6 @@ const adminController = {
         return res.redirect("/admin/employment");
       }
 
-      const html = renderCleanEmail({
-        title: "Update on Your Employment Application",
-        greeting: `Dear <strong>${he.encode(application.first_name)} ${he.encode(application.last_name)}</strong>,`,
-        paragraphs: [
-          `Please disregard the previous email regarding your application for the ${application.job_title} position.`,
-          "Following an additional review, we are pleased to inform you that your application has been reopened and is currently under consideration.",
-          "Our team will share a further update with you shortly regarding next steps.",
-        ],
-        details: [
-          { label: "Position", value: application.job_title },
-          { label: "Application Status", value: "Reopened for Review" },
-        ],
-        noReply: true,
-      });
-
-      sendEmailInBackground(
-        {
-          to: application.email,
-          subject: `Update: ${application.job_title} application reconsideration`,
-          html,
-          attachments: [
-            {
-              filename: "managira.png",
-              path: path.join(__dirname, "../public/images/managira.png"),
-              cid: "managira_logo",
-            },
-          ],
-        },
-        "Employment Reversal Email"
-      );
-
       await db.query(
         `UPDATE employment_applications
          SET status = 'pending',
@@ -3989,6 +3923,25 @@ const adminController = {
              stage_updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [applicationId]
+      );
+
+      const html = renderCleanEmail({
+        title: "Your application is under review again",
+        greeting: hiName(application.first_name),
+        paragraphs: [
+          `Please disregard our earlier email about your application for the ${escapeHtml(application.job_title)} role at Managira.`,
+          "We've taken another look, and your application is under consideration again. We'll be in touch about next steps.",
+        ],
+        signoff: "The Managira team",
+      });
+
+      sendEmailInBackground(
+        {
+          to: application.email,
+          subject: oneLine(`Your ${application.job_title} application is open again`),
+          html,
+        },
+        "Employment Reversal Email"
       );
 
       req.flash("success", "Rejection reversed and applicant notified by email.");
@@ -4057,38 +4010,34 @@ const adminController = {
       }
 
       const interviewInviteUrl = EMPLOYMENT_INTERVIEW_INVITE_URL;
-      const proposalEmail = "managirasms@gmail.com";
-      const templateMessage = `Congratulations on moving forward to the second interview! As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve. Email your proposal to <a href="mailto:${proposalEmail}" style="color:#0f766e;">${proposalEmail}</a> before your second interview. When joining the interview, please include a note that this is your second interview.`;
+      const proposalEmail = CAREERS_EMAIL;
+      const templateMessage = `Before the interview, please prepare a short written proposal on how you would help grow Managira in your area over the next six months: your strategy, the activities you would lead and the results you expect. Email it to <a href="mailto:${proposalEmail}">${proposalEmail}</a> before your interview.`;
 
       const messageHtml = useTemplate
         ? templateMessage
-        : (customMessage ? he.encode(customMessage).replace(/\n/g, '<br>') : templateMessage);
-
-      const html = renderCleanEmail({
-        title: "Invitation to Your Second Interview",
-        greeting: `Dear <strong>${he.encode(app.first_name)} ${he.encode(app.last_name)}</strong>,`,
-        paragraphs: [
-          `Congratulations! We are pleased to invite you to the second interview stage for the ${he.encode(app.job_title)} position at Managira.`,
-          messageHtml,
-          `Please schedule your second interview using the link below and include <strong>"Second Interview"</strong> in your message/note:`,
-          `<a href="${interviewInviteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${interviewInviteUrl}</a>`,
-        ],
-        details: [
-          { label: "Position", value: he.encode(app.job_title) },
-          { label: "Stage", value: "Second Interview" },
-        ],
-        cta: { url: interviewInviteUrl, text: "Open Interview Link" },
-        noReply: false,
-      });
-
-      sendEmailInBackground(
-        { to: app.email, subject: `Second interview invitation — ${app.job_title}`, html },
-        "Second Interview Invite Email"
-      );
+        : (customMessage ? textToHtml(customMessage) : templateMessage);
 
       await db.query(
         `UPDATE employment_applications SET interview_stage = 'second', second_interview_message = $2, stage_updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
         [applicationId, useTemplate ? templateMessage : (customMessage || templateMessage)]
+      );
+
+      const html = renderCleanEmail({
+        title: "Invitation to a second interview",
+        greeting: hiName(app.first_name),
+        paragraphs: [
+          `Congratulations: we'd like to invite you to a second interview for the ${escapeHtml(app.job_title)} role at Managira.`,
+          messageHtml,
+          'When you book a time, please write "Second interview" in the notes.',
+        ],
+        cta: { url: interviewInviteUrl, text: "Schedule your interview" },
+        showLink: true,
+        signoff: "The Managira team",
+      });
+
+      sendEmailInBackground(
+        { to: app.email, subject: oneLine(`Second interview: ${app.job_title}`), html },
+        "Second Interview Invite Email"
       );
 
       req.flash("success", "Second interview invitation sent.");
@@ -4124,34 +4073,30 @@ const adminController = {
       }
 
       const interviewInviteUrl = EMPLOYMENT_INTERVIEW_INVITE_URL;
-      const defaultMsg = `This is the final stage — a conversation with the wider Managira team. Please come prepared to discuss your proposal and how you envision working with us long term.`;
-      const messageHtml = customMessage ? he.encode(customMessage).replace(/\n/g, '<br>') : defaultMsg;
-
-      const html = renderCleanEmail({
-        title: "Final Interview with the Managira Team",
-        greeting: `Dear <strong>${he.encode(app.first_name)} ${he.encode(app.last_name)}</strong>,`,
-        paragraphs: [
-          `Congratulations on reaching the final stage of our hiring process for the ${he.encode(app.job_title)} position!`,
-          messageHtml,
-          `Please join your final interview using the link below and include <strong>"Final Interview"</strong> in your message/note:`,
-          `<a href="${interviewInviteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${interviewInviteUrl}</a>`,
-        ],
-        details: [
-          { label: "Position", value: he.encode(app.job_title) },
-          { label: "Stage", value: "Final Interview with Team" },
-        ],
-        cta: { url: interviewInviteUrl, text: "Open Interview Link" },
-        noReply: false,
-      });
-
-      sendEmailInBackground(
-        { to: app.email, subject: `Final interview invitation — ${app.job_title}`, html },
-        "Final Interview Invite Email"
-      );
+      const defaultMsg = `It's a conversation with the wider Managira team. Please come ready to discuss your proposal and how you see yourself working with us in the long term.`;
+      const messageHtml = customMessage ? textToHtml(customMessage) : defaultMsg;
 
       await db.query(
         `UPDATE employment_applications SET interview_stage = 'final', final_interview_message = $2, stage_updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
         [applicationId, customMessage || defaultMsg]
+      );
+
+      const html = renderCleanEmail({
+        title: "Invitation to a final interview",
+        greeting: hiName(app.first_name),
+        paragraphs: [
+          `Congratulations on reaching the final stage for the ${escapeHtml(app.job_title)} role at Managira.`,
+          messageHtml,
+          'When you book a time, please write "Final interview" in the notes.',
+        ],
+        cta: { url: interviewInviteUrl, text: "Schedule your interview" },
+        showLink: true,
+        signoff: "The Managira team",
+      });
+
+      sendEmailInBackground(
+        { to: app.email, subject: oneLine(`Final interview: ${app.job_title}`), html },
+        "Final Interview Invite Email"
       );
 
       req.flash("success", "Final interview invitation sent.");
@@ -4175,37 +4120,22 @@ const adminController = {
       );
       if (!r.rows.length) { req.flash("error","Application not found."); return res.redirect("/admin/employment"); }
       const app = r.rows[0];
+      // A second press (or a resent form) must not mail the applicant the same news twice.
+      if (app.status === 'rejected') { req.flash("error", "This application was already rejected."); return res.redirect("/admin/employment"); }
       const stageLabel = app.interview_stage === 'second' ? 'second interview' : (app.interview_stage === 'final' ? 'final interview' : 'interview');
-
-      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
-      const details = [
-        { label: "Position", value: app.job_title },
-        { label: "Application Status", value: `Not Moving Forward After ${stageLabel.charAt(0).toUpperCase() + stageLabel.slice(1)}` },
-      ];
-      if (rejectionReason) details.push({ label: "Reason", value: rejectionReason });
-
-      const html = renderCleanEmail({
-        title: "Update on Your Application",
-        greeting: `Dear <strong>${he.encode(app.first_name)} ${he.encode(app.last_name)}</strong>,`,
-        paragraphs: [
-          `Thank you for taking the time to interview with us for the ${he.encode(app.job_title)} position at Managira and for engaging with us through the ${stageLabel} stage.`,
-          "We truly appreciated learning more about you. After careful consideration, we regret to inform you that we will not be moving forward with your application at this time. This decision was difficult given the strength of the candidates we have spoken with.",
-          "We would love to keep in touch — Managira continues to grow, and new openings are posted regularly on our LinkedIn page.",
-          `Follow Managira on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
-          "We wish you every success in the next steps of your career.",
-        ],
-        details,
-        noReply: true,
-      });
-
-      sendEmailInBackground(
-        { to: app.email, subject: `Update on your ${app.job_title} application`, html },
-        "Employment Stage Rejection Email"
-      );
 
       await db.query(
         `UPDATE employment_applications SET status='rejected', rejection_reason=$2, reviewed_at=CURRENT_TIMESTAMP, stage_updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
         [applicationId, rejectionReason || null]
+      );
+
+      sendEmailInBackground(
+        {
+          to: app.email,
+          subject: oneLine(`Update on your ${app.job_title} application`),
+          html: employmentDecisionHtml({ application: app, rejectionReason, stageLabel }),
+        },
+        "Employment Stage Rejection Email"
       );
 
       req.flash("success", "Applicant notified of decision.");
@@ -4991,112 +4921,53 @@ const adminController = {
 
 };
 
-async function sendEmailNotification(to, subject, text) {
-  const rawText = String(text || "").trim();
-  const chunks = rawText
-    ? rawText
-        .split(/\n\s*\n/)
-        .map((part) => part.trim())
-        .filter(Boolean)
-    : [];
-
-  let greeting = "Hello,";
-  const paragraphs = [];
-
-  chunks.forEach((part, index) => {
-    if (index === 0 && /^dear\s+/i.test(part)) {
-      greeting = he.encode(part.replace(/\s*,$/, "")) + ",";
-      return;
-    }
-
-    if (/^best regards/i.test(part)) {
-      return;
-    }
-
-    paragraphs.push(he.encode(part));
-  });
-
-  if (paragraphs.length === 0) {
-    paragraphs.push("Please review this administrative update from Managira.");
-  }
+// A short account notice from Managira to a school's or hub's owner. `text` is plain text,
+// paragraphs split by blank lines (support@managira.com becomes a link); `options` gives
+// the person's first name and the school or hub it concerns.
+async function sendEmailNotification(to, subject, text, { firstName = "", organizationId = null, hubId = null } = {}) {
+  const paragraphs = String(text || "")
+    .trim()
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => textToHtml(part).replace(/support@managira\.com/g, SUPPORT_LINK));
 
   const html = renderCleanEmail({
-    title: he.encode(subject || "Account Update"),
-    greeting,
+    title: oneLine(subject) || "Account update",
+    greeting: hiName(firstName),
     paragraphs,
-    note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    organizationId,
+    hubId,
   });
 
-  sendEmailInBackground(
-    {
-      to,
-      subject,
-      html,
-      attachments: [
-        {
-          filename: 'managira.png',
-          path: path.join(__dirname, '../public/images/managira.png'),
-          cid: 'managira_logo',
-        },
-      ],
-    },
-    "Admin Email Notification"
-  );
+  sendEmailInBackground({ to, subject: oneLine(subject), html }, "Admin Email Notification");
 }
 
+// An invitation to Managira's own admin team; the link sets their password (24 hours).
 async function sendAdminInviteEmail(email, firstName, lastName, link) {
-  const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
   const html = renderCleanEmail({
-    title: "You're Invited to Join as Admin",
-    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    title: "Set up your admin account",
+    greeting: hiName(firstName),
     paragraphs: [
-      "Managira is inviting you to join as an admin. Use the button below to set your password.",
-      `For company updates and other activities from Managira, you can also follow us on LinkedIn here: <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">linkedin.com/company/managira</a>.`,
+      "You've been added to Managira's admin team. Choose a password to get started. The link expires in 24 hours.",
     ],
-    cta: { text: "Accept Invite & Set Password", url: he.encode(link) },
-    note: 'This link will expire in 24 hours. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    cta: { text: "Set your password", url: link },
+    showLink: true,
   });
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-    to: email,
-    subject: "Action required: set your Managira account password",
-    html,
-    attachments: [
-      {
-        filename: 'managira.png',
-        path: require('path').join(__dirname, '../public/images/managira.png'),
-        cid: 'managira_logo'
-      }
-    ]
-  };
-  sendEmailInBackground(mailOptions, "Admin Invite Email");
+  sendEmailInBackground({ to: email, subject: "Set up your Managira admin account", html }, "Admin Invite Email");
 }
 
 async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
   const html = renderCleanEmail({
-    title: "Password Set Successfully",
-    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    title: "Your password is set",
+    greeting: hiName(firstName),
     paragraphs: [
-      "Your password has been set successfully. You can now log in to Managira using your email and new password.",
-      "If you did not perform this action, please contact your administrator immediately.",
+      "Your Managira password is set. You can now sign in with your email address and new password.",
+      `If you didn't do this, email ${SUPPORT_LINK} right away.`,
     ],
-    cta: { text: "Log in to Managira", url: "https://www.managira.com/account/login" },
-    note: 'If you have any questions, please visit our <a href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?tab=t.o84y9ldsnqto#heading=h.o10u93e8wqgq" target="_blank" rel="noopener">User Documentation Guide</a>, <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a>, or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    cta: { text: "Sign in to Managira", url: `${PUBLIC_BASE_URL}/account/login` },
   });
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-    to: email,
-    subject: "Your Password Has Been Set Successfully",
-    html,
-    attachments: [
-      {
-        filename: 'managira.png',
-        path: require('path').join(__dirname, '../public/images/managira.png'),
-        cid: 'managira_logo'
-      }
-    ]
-  };
-  sendEmailInBackground(mailOptions, "Admin Password Success Email");
+  sendEmailInBackground({ to: email, subject: "Your Managira password is set", html }, "Admin Password Success Email");
 }
 
 // =====================================================
@@ -5206,29 +5077,39 @@ adminController.hubCreatePost = async (req, res) => {
     const baseUrl = String(res.locals.BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
     const setupUrl = `${baseUrl}/hub/setup-password?token=${token}`;
 
+    // Contract days are stored as YYYY-MM-DD: shown US style, without a time-zone shift.
+    const usDay = (iso) => {
+      const day = iso ? new Date(`${iso}T00:00:00Z`) : null;
+      return day && !Number.isNaN(day.getTime())
+        ? day.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+        : '';
+    };
+    const contractStart = usDay(terms.values.contract_start_date);
+    const contractEnd = usDay(terms.values.contract_end_date);
+    const contractDates = contractStart && contractEnd
+      ? `${contractStart} to ${contractEnd}`
+      : (contractStart ? `Starts ${contractStart}` : (contractEnd ? `Ends ${contractEnd}` : ''));
+    const hubLoginUrl = `${baseUrl}/hub/login`;
     const emailHtml = renderCleanEmail({
-      title: 'Welcome to Managira Hub',
-      greeting: `Dear ${firstName} ${lastName},`,
-      intro: `Your Managira Hub ${hubName} has been created successfully.`,
-      message: 'To get started, please set up your password using the button below.',
-      actionUrl: setupUrl,
-      actionText: 'Set Up Password',
-      details: [
-        `Hub Name: ${hubName}`,
-        `Hub Nickname: ${hubNickname}`,
-        `Hub Login: ${baseUrl}/hub/login`,
-        `Email: ${hubEmail}`,
-        `Schools included: ${terms.values.max_organizations}`,
-        `Contract Start: ${terms.values.contract_start_date || 'Not set'}`,
-        `Contract End: ${terms.values.contract_end_date || 'Not set'}`,
+      title: 'Your Managira hub is ready',
+      greeting: hiName(firstName),
+      paragraphs: [
+        `Your hub, <strong>${escapeHtml(String(hubName))}</strong>, is set up on Managira. Choose a password to sign in. The link expires in 7 days.`,
       ],
-      note: 'This setup link expires in 7 days. Please complete setup before then.',
-      closing: 'This is a no-reply message. Please do not reply to this email.',
+      details: [
+        { label: 'Sign-in email', value: escapeHtml(hubEmail) },
+        { label: 'Hub sign-in page', value: `<a href="${escapeHtml(hubLoginUrl)}">${escapeHtml(hubLoginUrl)}</a>` },
+        { label: 'Schools included', value: escapeHtml(String(terms.values.max_organizations)) },
+        contractDates ? { label: 'Contract', value: escapeHtml(contractDates) } : null,
+      ].filter(Boolean),
+      cta: { text: 'Set your password', url: setupUrl },
+      showLink: true,
+      hubId,
     });
 
     sendEmailInBackground({
       to: hubEmail,
-      subject: 'Action required: set your Managira Hub password',
+      subject: 'Set up your Managira hub account',
       html: emailHtml,
     }, 'Hub Setup Email');
 
@@ -5396,13 +5277,17 @@ adminController.hubDeletePost = async (req, res) => {
     const hub = result.rows[0];
 
     const memberOrganizations = await txClient.query(
-      `UPDATE organizations
+      `WITH before AS (
+         SELECT organization_id, COALESCE(on_hold, false) AS was_on_hold
+           FROM organizations WHERE hub_id = $1 AND deleted = false FOR UPDATE
+       )
+       UPDATE organizations o
        SET on_hold = true,
            hold_by = 'Hub',
            updated_at = NOW()
-       WHERE hub_id = $1
-         AND deleted = false
-       RETURNING organization_name, email, first_name, last_name`,
+       FROM before b
+       WHERE o.organization_id = b.organization_id
+       RETURNING o.organization_id, o.organization_name, o.email, o.first_name, o.last_name, b.was_on_hold`,
       [hubId]
     );
 
@@ -5411,17 +5296,20 @@ adminController.hubDeletePost = async (req, res) => {
     if (hub && hub.hub_email) {
       await sendEmailNotification(
         hub.hub_email,
-        'Your hub has been placed on hold and moved to deleted review',
-        `Dear ${hub.first_name || ''} ${hub.last_name || ''},\n\nYour hub "${hub.hub_name}" has been placed on hold and moved to deleted review by an administrator. Your data is retained and can be restored by the Super Admin.\n\nIf you believe this is a mistake, please contact info@managira.com.\n\nBest regards,\nAdmin Team`
+        'Your Managira hub is on hold',
+        `Your hub, ${hub.hub_name}, and its schools are on hold for now. Your hub's records are kept.\n\nIf you think this is a mistake, email support@managira.com.`,
+        { firstName: hub.first_name, hubId }
       );
     }
 
     for (const org of memberOrganizations.rows) {
-      if (!org.email) continue;
+      // A school already on hold heard about it then; this doesn't change anything for it.
+      if (!org.email || org.was_on_hold) continue;
       await sendEmailNotification(
         org.email,
-        'Your organization has been put on hold',
-        `Dear ${org.first_name || ''} ${org.last_name || ''},\n\nYour organization "${org.organization_name}" has been placed on hold because your hub was temporarily deleted by an administrator.\n\nYour data remains safe and can be restored when the hub is restored.\n\nBest regards,\nAdmin Team`
+        'Your Managira account is on hold',
+        `Your school's Managira account is on hold for now because its hub${hub && hub.hub_name ? `, ${hub.hub_name},` : ''} is on hold. Your school's records are kept.\n\nFor help, contact your hub or email support@managira.com.`,
+        { firstName: org.first_name, organizationId: org.organization_id }
       );
     }
 
@@ -5456,8 +5344,9 @@ adminController.restoreHub = async (req, res) => {
     if (hub && hub.hub_email) {
       await sendEmailNotification(
         hub.hub_email,
-        'Your hub has been restored',
-        `Dear ${hub.first_name || ''} ${hub.last_name || ''},\n\nYour hub "${hub.hub_name}" has been restored and reactivated. You can now continue using Managira Hub services.\n\nBest regards,\nAdmin Team`
+        'Your Managira hub has been restored',
+        `Your hub, ${hub.hub_name}, has been restored, and you can sign in again.`,
+        { firstName: hub.first_name, hubId }
       );
     }
 
@@ -5823,18 +5712,19 @@ adminController.hubSendResetPost = async (req, res) => {
     const baseUrl = String(res.locals.BASE_URL || process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com').replace(/\/$/, '');
     const resetLink = `${baseUrl}/account/reset-password?token=${token}`;
     sendEmailInBackground({
-      from: process.env.NOTIFY_EMAIL_USER,
       to: hub.hub_email,
       subject: 'Set a new password for your Managira hub',
       html: renderCleanEmail({
         title: 'Set a new password',
-        greeting: `Hello ${hub.first_name || ''}`.trim() + ',',
+        greeting: hiName(hub.first_name),
         paragraphs: [
-          `Managira support has sent you a link to set a new password for ${he.encode(hub.hub_name || 'your hub')}.`,
-          'Click the button below to choose your new password. The link works for 24 hours.',
-          'Once it is set, sign in at the hub login page with your email and the new password.',
+          `Managira support sent you this link to set a new password for ${escapeHtml(hub.hub_name || 'your hub')}. It works for 24 hours.`,
+          'Once your new password is set, sign in on the hub sign-in page with your email address and new password.',
         ],
-        cta: { text: 'Set new password', url: resetLink },
+        cta: { text: 'Set a new password', url: resetLink },
+        showLink: true,
+        note: "If you weren't expecting this, you can ignore it. Your current password still works.",
+        hubId: hub.hub_id,
       }),
     }, 'Hub Password Reset (admin)');
 

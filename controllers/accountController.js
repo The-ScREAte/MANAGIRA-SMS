@@ -368,7 +368,6 @@ const nodemailer = require("nodemailer");
 
 const { upload, uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 
-const fs = require("fs");
 
 const { renderInvoicePdf } = require("../utils/invoicePdf");
 
@@ -376,9 +375,10 @@ const axios = require("axios");
 // Loaded on first use: this library alone is over 100 MB of memory.
 const googleLib = () => require("googleapis").google;
 
-const he = require("he");
 
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
+// Links in Managira's own emails point at the public site, never a local address.
+const { BASE_URL: PUBLIC_BASE_URL } = require("../utils/emailLinks");
 const {
   getCurrencyProfileForRequest,
   getCurrencyForCountry,
@@ -1366,143 +1366,116 @@ function ensureProfileImageColumns(db) {
   return profileImageColumnsReady;
 }
 
+// Email helpers: the help and support links, one-line subjects and US dates.
+const HELP_CENTER_URL = `${PUBLIC_BASE_URL}/legal/user-documentation`;
+const SUPPORT_LINK = '<a href="mailto:support@managira.com">support@managira.com</a>';
+const oneLine = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+function usDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return value && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : "";
+}
+const hiName = (firstName) => (oneLine(firstName) ? `Hi ${escapeHtml(oneLine(firstName))},` : "Hello,");
+// A full name ("Maria Diaz") greets by its first word, unless that is a title ("Dr.").
+const firstNameOf = (name) => { const full = oneLine(name).slice(0, 80); const first = full.split(" ")[0]; return /\.$/.test(first) ? full : first; };
+
+// What a hub's people hear when a school accepts its invitation: notifyHub's `build`, so
+// each person is greeted by name.
+function schoolJoinedHubNotice({ hubId, hubName, schoolName, details = [] }) {
+  const school = String(schoolName || "A school");
+  return (recipient) => ({
+    subject: oneLine(`${school} joined your hub`),
+    html: renderCleanEmail({
+      title: "A school joined your hub",
+      greeting: hiName(recipient?.firstName),
+      paragraphs: [
+        `<strong>${escapeHtml(school)}</strong> accepted your invitation and is now part of ${escapeHtml(String(hubName || "your hub"))}.`,
+      ],
+      details,
+      hubId,
+    }),
+  });
+}
+
+// A receipt for a payment to Managira. `amount` is in the payment's own `currency`
+// (major units: 59 for $59.00), printed with that currency's formatter.
 async function sendBrandedReceiptEmail({
   to,
-
   name,
-
   amount,
-
+  currency,
   reference,
-
   organization,
-
   email,
   date,
+  organizationId = null,
 }) {
-  try {
-    const templatePath = path.join(
-      __dirname,
-      "../utils/templates/receiptEmail.html"
-    );
-    let html = await fs.promises.readFile(templatePath, "utf8");
-    const year = new Date().getFullYear();
+  const paidOn = usDate(date) || oneLine(date);
+  const html = renderCleanEmail({
+    title: "Payment receipt",
+    greeting: hiName(firstNameOf(name)),
+    paragraphs: ["Thank you for your payment. Keep this email for your records."],
+    details: [
+      { label: "Amount paid", value: escapeHtml(formatCurrencyAmount(amount, currency)) },
+      paidOn ? { label: "Date", value: escapeHtml(paidOn) } : null,
+      reference ? { label: "Reference", value: escapeHtml(String(reference)) } : null,
+      organization ? { label: "School", value: escapeHtml(String(organization)) } : null,
+      email ? { label: "Account email", value: escapeHtml(String(email)) } : null,
+    ].filter(Boolean),
+    note: `Questions about this payment? Email ${SUPPORT_LINK}.`,
+    organizationId,
+  });
 
-    html = html
-
-      .replace(/{{name}}/g, name)
-
-      .replace(/{{amount}}/g, amount)
-
-      .replace(/{{reference}}/g, reference)
-
-      .replace(/{{organization}}/g, organization)
-
-      .replace(/{{email}}/g, email)
-
-      .replace(/{{date}}/g, date)
-
-      .replace(/{{year}}/g, year);
-
-    sendEmailInBackground(
-      {
-        to,
-        subject: "Payment Receipt - Managira",
-        html,
-        attachments: [
-          {
-            filename: "managira.png",
-            path: path.join(__dirname, "../public/images/managira.png"),
-            cid: "managira_logo",
-          },
-        ],
-      },
-      "ReceiptEmail"
-    );
-  } catch (error) {
-        throw new Error("Failed to send receipt email.");
-  }
+  sendEmailInBackground({ to, subject: "Your Managira payment receipt", html }, "ReceiptEmail");
 }
 
+// A Stripe invoice for a school's plan, in the invoice's own currency.
 async function sendInvoiceEmail(email, orgName, invoice) {
-  try {
-    const invoiceUrl = invoice.hosted_invoice_url || "No URL available";
+  const invoiceUrl = /^https:\/\//i.test(String(invoice?.hosted_invoice_url || "")) ? invoice.hosted_invoice_url : null;
+  const dueDate = invoice?.due_date ? usDate(new Date(invoice.due_date * 1000)) : "";
+  const amountDue = formatCurrencyAmount((Number(invoice?.amount_due) || 0) / 100, invoice?.currency);
 
-    const dueDate = new Date(invoice.due_date * 1000).toLocaleDateString();
+  const html = renderCleanEmail({
+    title: "Your invoice is ready",
+    greeting: "Hello,",
+    paragraphs: [`Your Managira invoice for <strong>${escapeHtml(String(orgName || "your school"))}</strong> is ready.`],
+    details: [
+      { label: "Amount due", value: escapeHtml(amountDue) },
+      dueDate ? { label: "Due date", value: escapeHtml(dueDate) } : null,
+    ].filter(Boolean),
+    cta: invoiceUrl ? { text: "View invoice", url: invoiceUrl } : null,
+    note: `Questions about this invoice? Email ${SUPPORT_LINK}.`,
+  });
 
-    const amountDue = (invoice.amount_due / 100).toFixed(2);
-
-    const html = renderCleanEmail({
-      title: "New Invoice from Managira",
-      greeting: "Hello,",
-      paragraphs: ["A new invoice has been generated for your subscription."],
-      details: [
-        { label: "Organization Name", value: he.encode(orgName) },
-        { label: "Amount Due", value: `$${he.encode(amountDue)}` },
-        { label: "Due Date", value: he.encode(dueDate) },
-      ],
-      cta: invoiceUrl !== "No URL available" ? { text: "View Invoice", url: invoiceUrl } : null,
-      note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
-    });
-
-    const mailOptions = {
-      from: process.env.NOTIFY_EMAIL_USER,
-
-      to: email,
-
-      subject: "New Invoice from Managira",
-
-      html,
-
-      attachments: [
-        {
-          filename: "managira.png",
-          path: path.join(__dirname, "../public/images/managira.png"),
-          cid: "managira_logo",
-        },
-      ],
-    };
-
-    sendEmailInBackground(mailOptions, "Invoice Email");
-  } catch (error) {
-        throw new Error("Failed to send invoice email.");
-  }
+  sendEmailInBackground({ to: email, subject: "Your Managira invoice is ready", html }, "Invoice Email");
 }
 
-async function sendCancellationEmail(orgName, firstName, email) {
+// `accessUntil`: the end of the paid period when the hold waits for it; otherwise the
+// account went on hold at once (a trial, or nothing paid).
+async function sendCancellationEmail(orgName, firstName, email, accessUntil = null, organizationId = null) {
   if (!email) {
     throw new Error("Recipient email is not defined.");
   }
 
+  const school = escapeHtml(String(orgName || "your school"));
+  const until = accessUntil && new Date(accessUntil) > new Date() ? usDate(accessUntil) : "";
   const html = renderCleanEmail({
-    title: "Subscription Cancellation Confirmation",
-    greeting: `Dear <strong>${he.encode(firstName)}</strong>,`,
-    paragraphs: [
-      `We wanted to confirm that your subscription for <strong>${he.encode(orgName)}</strong> has been successfully canceled.`,
-      "You will continue to have full access until the end of your current billing cycle, after which your subscription will be fully deactivated.",
-      "If you decide to reactivate before the billing cycle ends, you can do so from your account settings.",
-      "If you need any assistance, our support team is always available.",
-    ],
-    note: 'If you have questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    title: "Your subscription is canceled",
+    greeting: hiName(firstName),
+    paragraphs: until
+      ? [
+          `The Managira subscription for <strong>${school}</strong> is canceled, and you won't be charged again. You can keep using Managira until ${escapeHtml(until)}.`,
+          `Changed your mind? You can resume the subscription from your <a href="${PUBLIC_BASE_URL}/account/update">account page</a> before then.`,
+        ]
+      : [
+          `The Managira subscription for <strong>${school}</strong> is canceled, and you won't be charged again. The account is now on hold.`,
+        ],
+    note: `Questions? Email ${SUPPORT_LINK}.`,
+    organizationId,
   });
 
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-
-    to: email,
-
-    subject: "Subscription Cancellation Confirmation",
-
-    html,
-    attachments: [
-      {
-        filename: "managira.png",
-        path: path.join(__dirname, "../public/images/managira.png"),
-        cid: "managira_logo",
-      },
-    ],
-  };
-  sendEmailInBackground(mailOptions, "Cancellation Email");
+  sendEmailInBackground({ to: email, subject: "Your Managira subscription is canceled", html }, "Cancellation Email");
 }
 
 async function sendRegistrationSuccessEmail(
@@ -1510,54 +1483,27 @@ async function sendRegistrationSuccessEmail(
 
   firstName,
 
-  lastName
+  lastName,
+
+  organizationId = null
 ) {
-  try {
-    const html = renderCleanEmail({
-      title: "Welcome to Managira",
-      greeting: `Hi <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
-      paragraphs: [
-        "Your organization account has been successfully registered and is now active.",
-        "You can now log in and start using all the features of Managira.",
-      ],
-      cta: { text: "Log In to Your Account", url: "https://www.managira.com/account/login" },
-      note: 'To get onboarded fast, open the attached Managira Starter Pack (PDF). You can also review our <a href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?tab=t.o84y9ldsnqto#heading=h.o10u93e8wqgq" target="_blank" rel="noopener">User Documentation Guide</a> and watch our <a href="https://youtu.be/D8da4yiDBWc?si=NMJKd9PCmMq98IzJ" target="_blank" rel="noopener">Walkthrough Video</a>.',
-    });
+  const html = renderCleanEmail({
+    title: "Welcome to Managira",
+    greeting: hiName(firstName),
+    paragraphs: [
+      "Your school's Managira account is ready. Sign in to start setting it up.",
+      `The <a href="${HELP_CENTER_URL}">help center</a> has step-by-step guides to get you started.`,
+    ],
+    cta: { text: "Sign in to Managira", url: `${PUBLIC_BASE_URL}/account/login` },
+    note: `Questions? Email ${SUPPORT_LINK}.`,
+    organizationId,
+  });
 
-    const mailOptions = {
-      from: process.env.NOTIFY_EMAIL_USER,
-
-      to: email,
-
-      subject: "Account Registration Confirmation",
-
-      html,
-
-      attachments: [
-        {
-          filename: "managira.png",
-          path: path.join(__dirname, "../public/images/managira.png"),
-          cid: "managira_logo",
-        },
-
-        {
-          // Attach the starter pack PDF for new users
-          filename: "Managira Starter Pack.pdf",
-          path: path.join(
-            __dirname,
-            "../public/managira pdf/Managira Starter Pack.pdf"
-          ),
-        },
-      ],
-    };
-
-    sendEmailInBackground(mailOptions, "Registration Success Email");
-  } catch (error) {
-        throw new Error("Failed to send registration success email.");
-  }
+  sendEmailInBackground({ to: email, subject: "Welcome to Managira", html }, "Registration Success Email");
 }
 
 // Helper function to send password reset email
+const PORTAL_NAMES = { guardian: "parent portal", student: "student portal" };
 
 async function sendPasswordResetEmail(email, token, baseUrl, options = {}) {
   const origin = String(baseUrl || "").replace(/\/+$/, "");
@@ -1565,55 +1511,38 @@ async function sendPasswordResetEmail(email, token, baseUrl, options = {}) {
   const type = options.type ? `&type=${encodeURIComponent(options.type)}` : "";
   const resetLink = `${origin}${path}?token=${encodeURIComponent(token)}${type}`;
   const expiryMinutes = Number(options.expiryMinutes) || 15;
+  // A parent or student with both kinds of account gets one email for each: say which.
+  const portal = PORTAL_NAMES[options.type] || "";
 
   const html = renderCleanEmail({
-    title: "Password Reset Request",
+    title: "Reset your password",
     greeting: "Hello,",
     paragraphs: [
-      "You requested to reset your password.",
-      `Click the button below to continue. This link will expire in ${expiryMinutes} minutes.`,
-      "If you did not request this, you can safely ignore this email.",
+      `We received a request to reset the password for your ${portal ? `${portal} account` : "Managira account"}. Choose a new one with the button below. The link expires in ${expiryMinutes} minutes.`,
     ],
-    cta: { text: "Reset Password", url: resetLink },
+    cta: { text: "Reset your password", url: resetLink },
+    showLink: true,
+    note: "If you didn't ask for this, you can ignore this email. Your password won't change.",
   });
 
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-
+  sendEmailInBackground({
     to: email,
-
-    subject: "Password Reset Request",
-
+    subject: portal ? `Reset your ${portal} password` : "Reset your Managira password",
     html,
-  };
-
-  sendEmailInBackground(mailOptions, "Password Reset Request Email");
+  }, "Password Reset Request Email");
 }
 
 async function sendPasswordResetConfirmationEmail(email) {
   const html = renderCleanEmail({
-    title: "Password Reset Successful",
-    greeting: "Dear User,",
+    title: "Your password was changed",
+    greeting: "Hello,",
     paragraphs: [
-      "Your password has been successfully reset.",
-      "If you did not request this change, please contact support immediately.",
+      "The password for your Managira account was just reset.",
+      `If this was you, there's nothing else to do. If it wasn't, <a href="${PUBLIC_BASE_URL}/account/forget-password">reset your password</a> right away and email ${SUPPORT_LINK}.`,
     ],
   });
 
-  const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
-
-    to: email,
-
-    subject: "Password Reset Successful",
-
-    html,
-  };
-
-  try {
-    sendEmailInBackground(mailOptions, "Password Reset Confirmation Email");
-  } catch (error) {
-      }
+  sendEmailInBackground({ to: email, subject: "Your Managira password was changed", html }, "Password Reset Confirmation Email");
 }
 
 async function notifyAdminOfRegistration(
@@ -1629,8 +1558,8 @@ async function notifyAdminOfRegistration(
 ) {
   sendEmailInBackground({
     to: process.env.ADMIN_EMAIL,
-    subject: "New Account Registration",
-    text: `A new account has been registered:\n\nName: ${firstName} ${lastName}\nOrganization: ${orgName}\nEmail: ${email}\nPhone: ${orgPhone}\n\nPlease review the registration details.`,
+    subject: oneLine(`New school sign-up: ${orgName || "unnamed school"}`),
+    text: `A new school signed up.\n\nSchool: ${orgName}\nName: ${firstName} ${lastName}\nEmail: ${email}\nPhone: ${orgPhone}`,
   }, "Admin Registration Notification");
 }
 
@@ -2229,24 +2158,14 @@ async function completeStripeRegistrationPayment(
       await sendRegistrationSuccessEmail(
         registrationDetails.email,
         registrationDetails.firstName,
-        registrationDetails.lastName
+        registrationDetails.lastName,
+        organizationId
       );
     } catch (_) {
     }
 
-    if ((paymentIntent.amount_received || paymentIntent.amount || 0) > 0) {
-      try {
-        await sendReceiptEmail(
-          registrationDetails.email,
-          {
-            amount: paymentIntent.amount_received || paymentIntent.amount,
-            paymentReference: paymentIntent.id,
-          },
-          registrationDetails.orgName
-        );
-      } catch (_) {
-      }
-    }
+    // The receipt for a paid sign-up comes from Stripe (`receipt_email` on the PaymentIntent),
+    // so no second one is sent here.
 
     console.log("[Stripe][complete] done", { organizationId });
     return {
@@ -4314,7 +4233,7 @@ const accountController = {
           const rd = registrationDetails || {};
           sendEmailInBackground({
             to: process.env.ADMIN_EMAIL || "info@managira.com",
-            subject: `Sign-up needs attention: ${rd.orgName || "a new school"}`,
+            subject: oneLine(`Sign-up needs attention: ${rd.orgName || "a new school"}`),
             html: renderCleanEmail({
               title: "A sign-up didn't finish",
               paragraphs: [
@@ -9797,7 +9716,7 @@ const accountController = {
       // Step 1: Fetch organization details (trial status, name, email)
 
       const orgResult = await db.query(
-        `SELECT trial_active_until, organization_name, email FROM organizations WHERE organization_id = $1`,
+        `SELECT trial_active_until, organization_name, email, first_name FROM organizations WHERE organization_id = $1`,
 
         [orgId]
       );
@@ -9807,7 +9726,8 @@ const accountController = {
 
         return res.redirect("/account/update");
       }
-      const { trial_active_until, organization_name, email } =
+      // first_name: the account holder the confirmation goes to (not whoever pressed Cancel).
+      const { trial_active_until, organization_name, email, first_name: ownerFirstName } =
         orgResult.rows[0];
 
       // The form asks for the school's name and the person's password: both are checked here,
@@ -9921,11 +9841,13 @@ const accountController = {
         await sendCancellationEmail(
           organization_name,
 
-          req.session.firstName,
+          ownerFirstName,
 
           email,
 
-          scheduledHoldDate
+          immediateHold ? null : scheduledHoldDate,
+
+          orgId
         );
       } catch (e) {
         // Ignore email errors
@@ -13147,65 +13069,37 @@ const accountController = {
       if (invitation.hub_assigned_plan_id) {
         await client.query('UPDATE organizations SET hub_assigned_plan_id = $1 WHERE organization_id = $2', [invitation.hub_assigned_plan_id, organizationId]).catch(() => {});
       }
-                  // Send welcome email to organization admin
+      // The welcome and the hub's notice go out only once the school is saved (after COMMIT).
+      const appUrl = String(process.env.APP_URL || PUBLIC_BASE_URL).replace(/\/+$/, '');
       const welcomeEmailHtml = renderCleanEmail({
-        title: 'Welcome to Managira SMS',
-        greeting: `Dear ${admin_first_name},`,
-        intro: `Your organization ${invitation.organization_name} has successfully joined the ${invitation.hub_name} hub.`,
-        message: 'You can now log in and start using your dashboard.',
-        actionUrl: `${process.env.APP_URL || 'http://localhost:4000'}/account/login`,
-        actionText: 'Go to Dashboard',
-        details: [
-          `Organization: ${invitation.organization_name}`,
-          `Subdomain: ${hubMemberSlug}.${invitation.hub_nickname}.managira.com`,
-          `Admin Email: ${admin_email}`,
-          `Hub: ${invitation.hub_name}`,
+        title: 'Welcome to Managira',
+        greeting: hiName(admin_first_name),
+        paragraphs: [
+          `<strong>${escapeHtml(String(invitation.organization_name || 'Your school'))}</strong> is now set up on Managira as part of ${escapeHtml(String(invitation.hub_name || 'your hub'))}. Sign in with your email address and the password you chose.`,
         ],
-        note: `If you have questions, contact your hub administrator at ${invitation.hub_email}.`,
-        closing: 'Welcome aboard!',
+        cta: { text: 'Sign in to Managira', url: `${appUrl}/account/login` },
+        note: invitation.hub_email
+          ? `Questions? Contact ${escapeHtml(String(invitation.hub_name || 'your hub'))} at ${escapeHtml(invitation.hub_email)}.`
+          : '',
+        organizationId,
+      });
+      const hubNotice = schoolJoinedHubNotice({
+        hubId: invitation.hub_id,
+        hubName: invitation.hub_name,
+        schoolName: invitation.organization_name,
+        details: [
+          { label: 'School contact', value: escapeHtml(`${admin_first_name} ${admin_last_name}`.trim()) },
+          { label: 'Email', value: escapeHtml(admin_email) },
+        ],
       });
 
-      const smtpConfig = {
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.ADMIN_NOTIFY_EMAIL_USER,
-          pass: process.env.ADMIN_NOTIFY_EMAIL_PASSWORD,
-        },
-      };
-
-      sendEmailInBackground({
-        to: admin_email,
-        subject: `Your ${invitation.hub_name} Hub account is ready`,
-        html: welcomeEmailHtml,
-      }, 'HubWelcomeEmail');
-
-      // Notify hub
-      const hubNotificationHtml = renderCleanEmail({
-        title: 'New Organization Joined',
-        greeting: 'Good news,',
-        intro: `${invitation.organization_name} has accepted your invitation and joined your hub.`,
-        details: [
-          `Name: ${invitation.organization_name}`,
-          `Subdomain: ${hubMemberSlug}.${invitation.hub_nickname}.managira.com`,
-          `Admin: ${admin_first_name} ${admin_last_name}`,
-          `Email: ${admin_email}`,
-          `Joined: ${new Date().toLocaleDateString()}`,
-        ],
-        closing: 'You can now manage this organization from your hub dashboard.',
-      });
-
-      // Everyone in the hub who wants to hear about new schools.
-      require("../utils/hubAccess").notifyHub(db, invitation.hub_id, "hub_school_joined", () => ({
-        subject: `${invitation.organization_name} Joined Your Hub`,
-        html: hubNotificationHtml,
-      }));
-
-                  
       await client.query('COMMIT');
       client.release();
-      
+
+      sendEmailInBackground({ to: admin_email, subject: 'Welcome to Managira', html: welcomeEmailHtml }, 'HubWelcomeEmail');
+      // Everyone in the hub who wants to hear about new schools.
+      require("../utils/hubAccess").notifyHub(db, invitation.hub_id, "hub_school_joined", hubNotice);
+
             req.flash('success', `Welcome! Your organization has been set up successfully. Please log in with your credentials.`);
       res.redirect('/account/login');
     } catch (error) {
@@ -13288,30 +13182,23 @@ const accountController = {
       if (hubResult.rows.length > 0) {
         const hub = hubResult.rows[0];
 
-        const emailHtml = renderCleanEmail({
-          title: "Detachment Request",
-          greeting: `Dear <strong>${he.encode(hub.hub_name)} Administrator</strong>,`,
-          paragraphs: [
-            `<strong>${he.encode(organization.organization_name)}</strong> has requested to detach from your hub.`,
-            "Please log in to your hub dashboard to review and approve/reject this request.",
-          ],
-          details: [
-            { label: "Organization", value: he.encode(organization.organization_name) },
-            { label: "Subdomain", value: `${he.encode(organization.nickname)}.${he.encode(hub.hub_nickname)}.managira.com` },
-            { label: "Contact", value: he.encode(organization.email) },
-            { label: "Requested by", value: he.encode(req.session.email || '') },
-            { label: "Date", value: new Date().toLocaleDateString() },
-            { label: "Reason", value: he.encode(reason) },
-          ],
-          cta: {
-            text: "Review Request",
-            url: `${process.env.APP_URL || 'http://localhost:4000'}/hub/dashboard`,
-          },
-        });
-
-        await require("../utils/hubAccess").notifyHub(db, organization.hub_id, "hub_leave_request", () => ({
-          subject: `Detachment Request from ${organization.organization_name}`,
-          html: emailHtml,
+        const appUrl = String(process.env.APP_URL || PUBLIC_BASE_URL).replace(/\/+$/, '');
+        const school = String(organization.organization_name || 'A school');
+        await require("../utils/hubAccess").notifyHub(db, organization.hub_id, "hub_leave_request", (recipient) => ({
+          subject: oneLine(`${school} asked to leave your hub`),
+          html: renderCleanEmail({
+            title: "A school asked to leave your hub",
+            greeting: hiName(recipient?.firstName),
+            paragraphs: [
+              `<strong>${escapeHtml(school)}</strong> asked to leave ${escapeHtml(String(hub.hub_name || 'your hub'))}. You can approve or decline the request from your hub dashboard.`,
+            ],
+            details: [
+              { label: "Requested by", value: escapeHtml(req.session.email || organization.email || '') },
+              { label: "Reason", value: escapeHtml(String(reason).trim()).replace(/\r?\n/g, '<br>') },
+            ],
+            cta: { text: "Review request", url: `${appUrl}/hub/dashboard` },
+            hubId: organization.hub_id,
+          }),
         }));
 
               }
@@ -13462,53 +13349,32 @@ const accountController = {
       client.release();
 
             // Send confirmation emails
-      const hubEmailHtml = renderCleanEmail({
-        title: "Organization Joined Your Hub",
-        greeting: `Good news, <strong>${he.encode(invitation.hub_name)} Team</strong>,`,
-        paragraphs: [
-          `<strong>${he.encode(organization.organization_name)}</strong> accepted your invitation and is now part of your hub.`,
-        ],
-        details: [
-          { label: "Organization", value: he.encode(organization.organization_name) },
-          { label: "Email", value: he.encode(organization.email) },
-          { label: "Subdomain", value: `${he.encode(organization.nickname)}.${he.encode(invitation.hub_nickname)}.managira.com` },
-        ],
-      });
+      const hubName = String(invitation.hub_name || 'your hub');
+      // Everyone in the hub who wants to hear about new schools.
+      require("../utils/hubAccess").notifyHub(db, invitation.hub_id, "hub_school_joined", schoolJoinedHubNotice({
+        hubId: invitation.hub_id,
+        hubName,
+        schoolName: organization.organization_name,
+        details: [{ label: "School email", value: escapeHtml(organization.email || '') }],
+      }));
 
       const orgEmailHtml = renderCleanEmail({
-        title: `Welcome to ${he.encode(invitation.hub_name)}`,
-        greeting: `Dear <strong>${he.encode(organization.organization_name)} Team</strong>,`,
+        title: `You've joined ${hubName}`,
+        greeting: hiName(organization.first_name),
         paragraphs: [
-          `Your organization is now part of <strong>${he.encode(invitation.hub_name)}</strong>.`,
-          `You can continue using Managira as usual. For questions, contact ${he.encode(invitation.hub_name)} at ${he.encode(invitation.hub_email)}.`,
+          `<strong>${escapeHtml(String(organization.organization_name || 'Your school'))}</strong> is now part of ${escapeHtml(hubName)}. Keep using Managira as usual: your school's records haven't changed, and your plan is now billed to ${escapeHtml(hubName)}.`,
         ],
         details: [
-          { label: "New Subdomain", value: `${he.encode(organization.nickname)}.${he.encode(invitation.hub_nickname)}.managira.com` },
-          { label: "Subscription", value: `Managed by ${he.encode(invitation.hub_name)}` },
-          { label: "Data", value: "All your data remains intact" },
+          { label: "School website address", value: escapeHtml(`${organization.nickname}.${invitation.hub_nickname}.managira.com`) },
         ],
+        note: invitation.hub_email ? `Questions? Contact ${escapeHtml(hubName)} at ${escapeHtml(invitation.hub_email)}.` : '',
+        organizationId: invitation.existing_org_id,
       });
-
-      // Send emails
-      require("../utils/hubAccess").notifyHub(db, invitation.hub_id, "hub_school_joined", () => ({
-        subject: `${organization.organization_name} Joined Your Hub`,
-        html: hubEmailHtml,
-        attachments: [{
-          filename: 'managira.png',
-          path: path.join(__dirname, '../public/images/managira.png'),
-          cid: 'managira_logo'
-        }]
-      }));
 
       sendEmailInBackground({
         to: organization.email,
-        subject: `Your ${invitation.hub_name} Hub access is ready`,
+        subject: oneLine(`${organization.organization_name || 'Your school'} is now part of ${hubName}`),
         html: orgEmailHtml,
-        attachments: [{
-          filename: 'managira.png',
-          path: path.join(__dirname, '../public/images/managira.png'),
-          cid: 'managira_logo'
-        }]
       }, 'OrgWelcomeToHub');
 
       req.flash('success', `Successfully joined ${invitation.hub_name}! You can now log in with your existing credentials.`);

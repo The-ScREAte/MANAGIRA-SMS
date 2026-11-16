@@ -55,6 +55,7 @@ function createHarness(options = {}) {
   const queries = [];
   const emails = [];
   const charges = [];
+  const searches = [];
   const orgsDueRows = options.orgsDueRows || [];
   const upcomingOrgsRows = options.upcomingOrgsRows || [];
   const allOrgsRows = options.allOrgsRows || [];
@@ -209,6 +210,12 @@ function createHarness(options = {}) {
             }
             return { id: `pi_${charges.length}`, status: 'succeeded' };
           },
+          ...(options.paidRenewal !== undefined ? {
+            search: async (params) => {
+              searches.push(params);
+              return { data: options.paidRenewal ? [options.paidRenewal] : [] };
+            },
+          } : {}),
         },
       };
     },
@@ -274,6 +281,7 @@ function createHarness(options = {}) {
     renderCleanEmail(payload) {
       return JSON.stringify(payload);
     },
+    escapeHtml: require('../utils/emailHelper').escapeHtml,
     async sendEmailSafely(payload, tag) {
       emails.push({ payload, tag });
     },
@@ -283,6 +291,7 @@ function createHarness(options = {}) {
     queries,
     emails,
     charges,
+    searches,
     db,
     stripeConfig,
     orgChargeCards,
@@ -730,4 +739,42 @@ test('recurring billing creates upcoming precharge invoice and sends invoice ema
   assert.equal(harness.emails.length, 1);
   assert.equal(harness.emails[0].tag, 'RecurringSubscriptionInvoice');
   assert.equal(harness.emails[0].payload.to, 'finance@example.com');
+});
+test('recurring billing never charges a period twice: a renewal already paid in Stripe is saved instead', async () => {
+  const harness = createHarness({
+    studentCount: 120,
+    planTotalCost: 100,
+    prechargeEmailSentAt: new Date(),
+    orgsDueRows: [
+      {
+        organization_id: 45,
+        email: 'paid@example.com',
+        organization_name: 'Paid School',
+        plan_id: 2,
+        stripe_customer_id: 'cus_paid_45',
+        authorization_code: 'pm_paid_45',
+        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
+        trial_active_until: null,
+        billing_period_key: 'monthly',
+        pending_plan_id: null,
+        pending_plan_effective_date: null,
+      },
+    ],
+    paidRenewal: { id: 'pi_already_paid', status: 'succeeded' },
+  });
+
+  const loader = withMockedModules(harness);
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+  }
+
+  assert.equal(harness.searches.length, 1);
+  assert.match(harness.searches[0].query, /metadata\['organization_id'\]:'45'/);
+  assert.equal(harness.charges.length, 0, 'no second charge');
+  const saved = harness.queries.find((entry) => entry.sql.includes('failed_attempts = 0'));
+  assert.ok(saved, 'the earlier charge is saved');
+  const invoicePaid = harness.queries.find((entry) => entry.sql.includes("SET status = 'paid'"));
+  assert.ok(invoicePaid && invoicePaid.params.includes('pi_already_paid'));
 });

@@ -4,6 +4,7 @@ const { BoundedMap } = require("./boundedMap");
 const { renderCleanEmail, sendEmailInBackground, escapeHtml } = require('./emailHelper');
 const { timeZoneOf, dateKeyIn } = require('./localDate');
 const { broadcastAudience, broadcastCondition } = require('./notificationAudience');
+const { activeStudentSql } = require('./activeStudents');
 
 let schemaReady = false;
 let birthdaySchemaReady = false;
@@ -87,19 +88,22 @@ function chooseBirthdayMessage(kind, seedValue) {
   return pool[total % pool.length];
 }
 
-function buildBirthdayEmailHtml({ greetingName, celebrantName, subtitle, kind, seedValue, organizationName }) {
-  const schoolName = String(organizationName || 'Your School').trim() || 'Your School';
+// A birthday greeting from the school to a parent: on their child's birthday (kind "student",
+// `celebrantName` is the child's first name) or on their own. Warm and short.
+function buildBirthdayEmailHtml({ greetingName, celebrantName, kind, organizationName, organizationId }) {
+  const schoolName = String(organizationName || '').trim();
+  const everyone = schoolName ? `Everyone at ${escapeHtml(schoolName)}` : 'Everyone at school';
+  const name = String(celebrantName || '').trim();
+  const greeting = String(greetingName || '').trim();
+  const forChild = kind === 'student';
   return renderCleanEmail({
-    title: `Happy Birthday from ${schoolName}`,
-    greeting: `Dear ${escapeHtml(greetingName || celebrantName || 'Friend')},`,
-    paragraphs: [
-      `Happy Birthday from ${escapeHtml(schoolName)}. Today we are celebrating ${escapeHtml(celebrantName || greetingName || 'you')}, and we are sending this note with love.`,
-      chooseBirthdayMessage(kind, seedValue),
-      'We wish your family joy, good health, peace, and beautiful moments in the year ahead.',
-      escapeHtml(subtitle || `We love you both. Best regards from ${schoolName}.`),
-    ],
-    note: `Best regards from ${schoolName}.`,
-    noReply: true,
+    title: forChild && name ? `Happy birthday to ${name}` : 'Happy birthday',
+    greeting: greeting ? `Hi ${escapeHtml(greeting)},` : 'Hello,',
+    paragraphs: forChild
+      ? [`${everyone} wishes ${escapeHtml(name || 'your child')} a very happy birthday. We hope it's a wonderful day.`]
+      : [`${everyone} wishes you a very happy birthday. Thank you for being part of our school community.`],
+    schoolName,
+    organizationId: Number(organizationId) || null,
   });
 }
 
@@ -306,7 +310,14 @@ async function queueBirthdayEmailIfNeeded(db, opts) {
   );
   birthdayEmailState.set(key, Date.now());
   if (!inserted.rows.length) return;
-  sendEmailInBackground({ to: normalizedEmail, subject, html, sender: "reminders" }, `Birthday:${emailKind}`);
+  sendEmailInBackground({
+    to: normalizedEmail,
+    subject,
+    html,
+    sender: "reminders",
+    category: "birthday_greetings",
+    onBehalfOf: Number(orgId) || undefined,
+  }, `Birthday:${emailKind}`);
 }
 
 async function getStaffBirthdayContext(db, { recipientId, orgId }) {
@@ -386,6 +397,7 @@ async function getDynamicBirthdayItems(db, context) {
        LEFT JOIN classes c ON c.class_id = s.class_id
        WHERE gp.organization_id = $1
          AND gp.date_of_birth IS NOT NULL
+         AND ${activeStudentSql('s')}
        ORDER BY gp.first_name, gp.last_name, s.first_name, s.last_name`,
       [orgId]
     ).catch(async () => {
@@ -405,6 +417,7 @@ async function getDynamicBirthdayItems(db, context) {
          LEFT JOIN classes c ON c.class_id = s.class_id
          WHERE g.organization_id = $1
            AND g.date_of_birth IS NOT NULL
+           AND ${activeStudentSql('s')}
          ORDER BY g.first_name, g.last_name, s.first_name, s.last_name`,
         [orgId]
       );
@@ -436,22 +449,26 @@ async function getDynamicBirthdayItems(db, context) {
       });
     }
 
+    // The child's parents, once per address, and only while the child is at the school.
     const studentGuardians = await db.query(
-      `SELECT DISTINCT email
+      `SELECT DISTINCT ON (LOWER(TRIM(email))) TRIM(email) AS email, first_name
        FROM (
-         SELECT gp.email
+         SELECT gp.email, gp.first_name
          FROM guardian_profiles gp
          JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
          WHERE gs.student_id = $1 AND gp.organization_id = $2
-         UNION
-         SELECT g.email
+         UNION ALL
+         SELECT g.email, g.first_name
          FROM guardians g
          WHERE g.student_id = $1 AND g.organization_id = $2
        ) guardian_emails
-       WHERE email IS NOT NULL AND TRIM(email) <> ''`,
+       WHERE email IS NOT NULL AND TRIM(email) <> ''
+         AND EXISTS (SELECT 1 FROM students s WHERE s.student_id = $1 AND s.organization_id = $2 AND ${activeStudentSql('s')})
+       ORDER BY LOWER(TRIM(email))`,
       [student.student_id, orgId]
     ).catch(() => ({ rows: [] }));
 
+    const childName = String(student.first_name || '').trim() || studentName;
     for (const row of studentGuardians.rows) {
       await queueBirthdayEmailIfNeeded(db, {
         orgId,
@@ -460,14 +477,13 @@ async function getDynamicBirthdayItems(db, context) {
         recipientEmail: row.email,
         birthdayYear: info.birthdayYear,
         emailKind: 'student_birthday',
-        subject: `Happy Birthday to ${studentName} from ${organizationName}`,
+        subject: `Happy birthday to ${childName}`.replace(/\s+/g, ' ').trim(),
         html: buildBirthdayEmailHtml({
-          greetingName: 'Parent/Guardian',
-          celebrantName: studentName,
-          subtitle: `Thank you for having your beautiful child be part of us. We appreciate your child's contribution, and we love you both. Best regards from ${organizationName}.`,
+          greetingName: row.first_name,
+          celebrantName: childName,
           kind: 'student',
-          seedValue: `${student.student_id}`,
           organizationName,
+          organizationId: orgId,
         }),
       });
     }
@@ -516,7 +532,6 @@ async function getDynamicBirthdayItems(db, context) {
     }
 
     for (const guardian of guardianMap.values()) {
-      const guardianName = [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim();
       if (guardian.email) {
         await queueBirthdayEmailIfNeeded(db, {
           orgId,
@@ -525,14 +540,12 @@ async function getDynamicBirthdayItems(db, context) {
           recipientEmail: guardian.email,
           birthdayYear: guardian.birthdayInfo.birthdayYear,
           emailKind: 'guardian_birthday',
-          subject: `Happy Birthday from ${organizationName}`,
+          subject: guardian.first_name ? `Happy birthday, ${String(guardian.first_name).replace(/\s+/g, ' ').trim()}` : 'Happy birthday',
           html: buildBirthdayEmailHtml({
-            greetingName: guardian.first_name || guardianName,
-            celebrantName: guardianName,
-            subtitle: `Thank you for having your beautiful child be part of us. We appreciate your child's contribution, and we love you both. Best regards from ${organizationName}.`,
+            greetingName: guardian.first_name,
             kind: 'guardian',
-            seedValue: `${guardian.guardian_id}`,
             organizationName,
+            organizationId: orgId,
           }),
         });
       }

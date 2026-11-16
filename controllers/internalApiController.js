@@ -9199,14 +9199,14 @@ function availableChannelList(channelStatus) {
 // Starts the website's own Post Report Cards action as the caller. Posting
 // runs in the background there; the short-lived session it renders with is
 // removed once the job finishes.
-async function startReportCardPosting(identity, { classId, termId, studentIds }) {
+async function startReportCardPosting(identity, { classId, termId, studentIds, emailGuardians = true }) {
   const { protocol, host } = internalBaseUrlParts();
   const { sid, cookieValue } = await mintPuppeteerSession(identity);
   let statusCode = 200;
   let payload = null;
   const fakeReq = {
     session: { organizationId: identity.organizationId, userId: identity.userId, user: { user_id: identity.userId } },
-    body: { classId, termId, studentIds },
+    body: { classId, termId, studentIds, emailGuardians },
     protocol,
     get: (header) => (String(header).toLowerCase() === "host" ? host : undefined),
     headers: { cookie: `connect.sid=${cookieValue}` },
@@ -9317,7 +9317,8 @@ async function sendReportCardsApi(req, res) {
     const result = { className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, studentCount: targets.length };
 
     if (post) {
-      const { statusCode, payload } = await startReportCardPosting(identity, { classId: cls.class_id, termId: term.term_id, studentIds: targetIds });
+      // Emailing the PDF below tells the family already: the posting doesn't email them too.
+      const { statusCode, payload } = await startReportCardPosting(identity, { classId: cls.class_id, termId: term.term_id, studentIds: targetIds, emailGuardians: !channels.includes("email") });
       result.posting = statusCode < 400 && payload?.success !== false
         ? { started: true, message: payload?.message || "Posting started." }
         : { started: false, message: payload?.message || "Posting could not be started." };
@@ -9330,7 +9331,7 @@ async function sendReportCardsApi(req, res) {
       const actorName = await guardianMessaging.getActorName(organizationId, identity.userId);
       const batchId = `mira_${Date.now()}`;
       const { protocol: publicProtocol, host: publicHost } = publicBaseUrlParts();
-      const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+      const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
       result.sent = {};
       result.failed = {};
       result.notGenerated = rendered.filter((r) => !r.pdfUrl).map((r) => r.studentName);
@@ -9355,23 +9356,24 @@ async function sendReportCardsApi(req, res) {
             for (const email of emails) {
               const allowed = await isEmailEnabledForRecipient(db, email, "report_card_email").catch(() => true);
               if (!allowed) { failures.push(`${email} (turned off report card emails)`); continue; }
+              // The school sends it (its name on the email); parents can turn these off.
               const html = renderCleanEmail({
-                title: "Report Card",
-                greeting: "Dear Parent/Guardian,",
-                paragraphs: [`Please find attached ${studentName(student)}'s report card for ${term.term_name} (${term.year_label}), ${cls.class_name}.`],
+                title: "Report card",
+                greeting: "Hello,",
+                paragraphs: [`<strong>${escapeHtml(studentName(student))}</strong>'s report card for ${escapeHtml(term.term_name)} is attached as a PDF.`],
                 details: [
-                  { label: "Student", value: studentName(student) },
-                  { label: "Class", value: cls.class_name },
-                  { label: "Term", value: `${term.term_name} (${term.year_label})` },
-                  { label: "School", value: schoolName },
+                  { label: "Class", value: escapeHtml(cls.class_name) },
+                  { label: "Term", value: escapeHtml(`${term.term_name} (${term.year_label})`) },
                 ],
-                note: "This report is confidential and intended only for the student's parent/guardian.",
-                noReply: true,
+                schoolName: schoolName === "Your School" ? "" : schoolName,
+                organizationId,
               });
               const ok = await sendEmailSafely({
                 to: email,
                 sender: "reports",
-                subject: `Report Card - ${studentName(student)} | ${schoolName}`,
+                category: "report_card_email",
+                onBehalfOf: organizationId,
+                subject: `Report card for ${studentName(student)}`.replace(/\s+/g, " ").trim(),
                 html,
                 attachments: [{ filename: `${safeFileNameSegment(studentName(student), "report")}_Report.pdf`, content: pdf.buffer, contentType: "application/pdf" }],
               }, "Mira-ReportCardEmail");

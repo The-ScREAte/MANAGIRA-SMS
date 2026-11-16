@@ -6,7 +6,7 @@ const db = require('../config/db');
 const billing = require('../utils/hubBilling');
 const { ensureHubAccessSchema, HUB_ROLES, actorCan } = require('../utils/hubAccess');
 const { parseLimit, hubLicense } = require('../utils/licenses');
-const { renderCleanEmail, sendEmailInBackground } = require('../utils/emailHelper');
+const { renderCleanEmail, sendEmailInBackground, escapeHtml } = require('../utils/emailHelper');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const INVITE_DAYS = 7;
@@ -40,19 +40,23 @@ async function inviteHubPerson(hubId, person, { baseUrl, by }) {
   );
   const hub = (await db.query('SELECT hub_name FROM managira_hubs WHERE hub_id = $1', [hubId])).rows[0] || {};
   const role = person.role === 'hub_admin' ? HUB_ROLES.hub_admin.label.toLowerCase() : 'billing contact';
+  const hubName = escapeHtml(hub.hub_name || 'the hub');
+  const loginUrl = `${baseUrl}/hub/login`;
+  // `by` (the Managira admin) stays in the hub's activity log; the email speaks for Managira.
   sendEmailInBackground({
-    from: process.env.NOTIFY_EMAIL_USER,
     to: person.email,
-    subject: `You have been added to ${hub.hub_name || 'a hub'} on Managira`,
+    subject: `You've been added to ${hub.hub_name || 'a hub'} on Managira`.replace(/\s*[\r\n]+\s*/g, ' '),
     html: renderCleanEmail({
+      hubId,
       title: `Welcome to ${hub.hub_name || 'your hub'}`,
-      greeting: `Hello ${person.first_name},`,
+      greeting: person.first_name ? `Hi ${escapeHtml(person.first_name)},` : 'Hello,',
       paragraphs: [
-        `${by} added you to ${hub.hub_name || 'the hub'} on Managira as a ${role}.`,
-        `Set your password with the button below (the link works for ${INVITE_DAYS} days). Then sign in at ${baseUrl}/hub/login with ${person.email}.`,
-        person.role === 'hub_admin' ? 'You will see everything in the hub, including Billing.' : 'You will see the hub’s Billing page, its reports and schools.',
+        `Managira added you to ${hubName} as a ${role}. ${person.role === 'hub_admin' ? 'You’ll see everything in the hub, including Billing.' : 'You’ll see the hub’s Billing page, its reports and its schools.'}`,
+        `Set your password to get started. The link works for ${INVITE_DAYS} days.`,
       ],
       cta: { text: 'Set your password', url: `${baseUrl}/hub/setup-password?token=${token}` },
+      showLink: true,
+      note: `After that, sign in at <a href="${loginUrl}">${escapeHtml(loginUrl)}</a> with ${escapeHtml(person.email)}.`,
     }),
   }, 'Hub person invite');
 }

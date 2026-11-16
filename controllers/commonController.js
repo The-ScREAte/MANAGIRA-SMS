@@ -74,7 +74,7 @@ const {
 } = require("../utils/classScheduleService");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const { getStripeClient, getStripePlatformClient, getStripePlatformCredentials, getStripeChargeCurrency, getStripeSettings, getActiveStripePublicKey, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
-const { getUsdRate, normalizeCurrencyCode } = require("../utils/currencyLocalization");
+const { getUsdRate, normalizeCurrencyCode, formatCurrencyAmount } = require("../utils/currencyLocalization");
 const {
   getPlatformFeeSettings,
   getOrgPlatformFeeBearer,
@@ -3311,71 +3311,108 @@ async function notifyTeachersForAssessmentControl({
   activeState,
   editWindowStart,
   editWindowEnd,
+  subjectIds = null,
 }) {
   if (!database || !organizationId || !Array.isArray(classIds) || classIds.length === 0) {
     return;
   }
+  const subjectList = (Array.isArray(subjectIds) ? subjectIds : []).map(Number).filter((id) => Number.isInteger(id) && id > 0);
+  const subjects = subjectList.length ? subjectList : null;
 
+  // Teachers of these classes who can still sign in (not on hold), one email each, and only
+  // those who teach the assessment's subject (as the bell's classStaff does).
   const teacherResult = await database.query(
     `
-      SELECT DISTINCT u.email, u.first_name, u.last_name
+      SELECT u.email, u.first_name, uc.class_id
       FROM user_classes uc
       JOIN users u ON u.user_id = uc.user_id
       WHERE uc.class_id = ANY($1::int[])
         AND u.organization_id = $2
         AND u.account_type = 'Teacher'
+        AND COALESCE(u.on_hold, FALSE) = FALSE
         AND u.email IS NOT NULL
         AND u.email <> ''
+        AND ($3::int[] IS NULL OR EXISTS (
+              SELECT 1 FROM user_subjects us JOIN subjects sub ON sub.subject_id = us.subject_id
+               WHERE us.user_id = u.user_id AND sub.class_id = uc.class_id AND us.subject_id = ANY($3::int[])))
     `,
-    [classIds, organizationId]
+    [classIds, organizationId, subjects]
   );
 
   if (teacherResult.rows.length === 0) return;
 
-  const classResult = await database.query(
-    `SELECT class_name
-       FROM classes
-      WHERE class_id = ANY($1::int[])
-        AND organization_id = $2
-      ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
-    [classIds, organizationId]
-  );
+  const [classResult, orgResult] = await Promise.all([
+    database.query(
+      `SELECT class_id, class_name
+         FROM classes
+        WHERE class_id = ANY($1::int[])
+          AND organization_id = $2
+        ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+      [classIds, organizationId]
+    ),
+    database.query(`SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId]).catch(() => ({ rows: [] })),
+  ]);
+  const schoolName = orgResult.rows[0]?.organization_name || "";
+  const classOrder = classResult.rows.map((row) => Number(row.class_id));
+  const classNameById = new Map(classResult.rows.map((row) => [Number(row.class_id), row.class_name]));
 
-  const classNames = classResult.rows.map((row) => row.class_name).join(", ");
-  const lockText = lockState ? "Locked" : "Unlocked";
-  const activeText = activeState ? "Activated" : "Not activated";
-  const startText = editWindowStart ? new Date(editWindowStart).toLocaleString() : "Not set";
-  const endText = editWindowEnd ? new Date(editWindowEnd).toLocaleString() : "Not set";
+  // Each teacher hears about their own classes only.
+  const teachers = new Map();
+  teacherResult.rows.forEach((row) => {
+    const key = String(row.email).trim().toLowerCase();
+    if (!teachers.has(key)) teachers.set(key, { email: row.email, firstName: row.first_name, classIds: new Set() });
+    teachers.get(key).classIds.add(Number(row.class_id));
+  });
+
+  const title = String(testTitle || "").trim();
+  // The window is read in the server's time, as it was saved, so it reads back as entered.
+  const when = (value) => new Date(value).toLocaleString("en-US", {
+    month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+  let status;
+  if (lockState) {
+    status = "It is locked, so scores can't be entered or changed.";
+  } else if (!activeState) {
+    status = "It isn't active yet, so scores can't be entered.";
+  } else if (editWindowStart && editWindowEnd) {
+    status = `You can enter scores from ${when(editWindowStart)} to ${when(editWindowEnd)}.`;
+  } else if (editWindowEnd) {
+    status = `You can enter scores until ${when(editWindowEnd)}.`;
+  } else if (editWindowStart) {
+    status = `You can enter scores from ${when(editWindowStart)}.`;
+  } else {
+    status = "You can enter scores now.";
+  }
 
   await Promise.all(
-    teacherResult.rows.map(async (teacher) => {
+    [...teachers.values()].map(async (teacher) => {
       // Respect each teacher's per-recipient assessment_access_update preference.
       if (!(await isEmailEnabledForRecipient(database, teacher.email, 'assessment_access_update'))) return;
-      const fullName = [teacher.first_name, teacher.last_name].filter(Boolean).join(" ") || "Teacher";
+      const classNames = classOrder.filter((id) => teacher.classIds.has(id)).map((id) => classNameById.get(id)).filter(Boolean);
       const html = renderCleanEmail({
-        title: "Assessment Access Update",
-        greeting: `Hello ${fullName},`,
+        title: "Assessment access updated",
+        greeting: teacher.firstName ? `Hi ${he.encode(String(teacher.firstName))},` : "Hello,",
         paragraphs: [
-          `An assessment access setting has been updated for: <strong>${he.encode(String(testTitle || "Assessment"))}</strong>.`,
-          `This affects class(es): <strong>${he.encode(String(classNames || "N/A"))}</strong>.`,
+          `The score entry settings for ${title ? `<strong>${he.encode(title)}</strong>` : "an assessment"} have changed. ${status}`,
         ],
         details: [
-          { label: "Term", value: he.encode(String(termName || "Current Term")) },
-          { label: "Lock status", value: lockText },
-          { label: "Activation", value: activeText },
-          { label: "Edit window start", value: he.encode(startText) },
-          { label: "Edit window end", value: he.encode(endText) },
+          ...(classNames.length ? [{ label: classNames.length === 1 ? "Class" : "Classes", value: he.encode(classNames.join(", ")) }] : []),
+          ...(termName && termName !== "Unknown Term" ? [{ label: "Term", value: he.encode(String(termName)) }] : []),
         ],
+        schoolName,
+        organizationId,
       });
 
       sendEmailInBackground(
         {
           to: teacher.email,
-          subject: `Assessment Access Update: ${testTitle || "Assessment"}`,
+          subject: plainSubject(title ? `Assessment access updated: ${title}` : "Assessment access updated"),
           html,
+          category: "assessment_access_update",
+          onBehalfOf: organizationId,
           failureNotification: buildFailureNotification(organizationId, {
             title: "Assessment access email failed",
-            body: `The assessment access email for ${testTitle || "Assessment"} could not be delivered to ${teacher.email}.`,
+            body: `The assessment access email for ${title || "an assessment"} could not be delivered to ${teacher.email}.`,
           }),
         },
         "Assessment Access Notification"
@@ -6389,10 +6426,12 @@ const commonController = {
       req.session.pendingStudentId = pendingStudentId;
       req.session.publicRegistrationExistingGuardianId = existingGuardianId;
 
-      // Send admission received confirmation to guardian
+      // Send admission received confirmation to guardian. An application with a fee is
+      // confirmed once it's paid (paymentCallback): until then it isn't kept, so saying
+      // "received" now would be wrong, and the family would get two confirmations.
       const guardianEmail = body.guardianEmail0 || body.existingGuardianEmail || null;
       const guardianFirstName = body.guardianFirstName0 || "Parent/Guardian";
-      if (guardianEmail) {
+      if (guardianEmail && isFreeRegistration) {
         notifyGuardianAdmissionReceived(db, {
           organizationId,
           guardianEmail,
@@ -6811,7 +6850,6 @@ const commonController = {
         );
         const orgDetails = orgLookup.rows[0] || null;
         organizationId = orgDetails?.organization_id || organizationId;
-        const orgName = orgDetails?.organization_name || 'School';
 
         const registrationRedirect =
           process.env.NODE_ENV === 'production' && orgDetails?.nickname
@@ -6886,35 +6924,21 @@ const commonController = {
           } catch (_) { /* non-critical */ }
         }
 
-        // Send confirmation email
+        // Send confirmation email (once: opening this page again doesn't send another)
         const guardianResult = await db.query(
           `SELECT email, first_name FROM pending_guardians WHERE pending_id = $1 LIMIT 1`,
           [recordPendingId]
         );
         const primaryGuardian = guardianResult.rows[0] || null;
-        if (primaryGuardian?.email) {
-          const html = renderCleanEmail({
-            title: 'Student Registration & Payment Confirmation',
-            greeting: `Hello <strong>${he.encode(primaryGuardian.first_name || 'Guardian')}</strong>,`,
-            paragraphs: [
-              `We are pleased to confirm that the student's registration and payment have been successfully processed for <strong>${he.encode(orgName)}</strong>.`,
-              'The admissions team has received the details and will be in touch. Thank you for choosing us!',
-            ],
-            note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a>.',
+        // Only for a payment record seen for the first time: without one, a reload would send it again.
+        if (paymentRecord && primaryGuardian?.email && String(paymentRecord.status || '').toLowerCase() !== 'success') {
+          sendRegistrationPaidEmail(db, {
+            to: primaryGuardian.email,
+            organizationId: paymentRecord?.organization_id || organizationId,
+            schoolName: orgDetails?.organization_name,
+            amount: paymentRecord?.amount,
+            currency: paymentRecord?.currency,
           });
-          sendEmailInBackground(
-            {
-              to: primaryGuardian.email,
-              subject: `Student Registration & Payment Confirmation - ${orgName}`,
-              html,
-              failureNotification: buildFailureNotification(organizationId, {
-                title: 'Registration payment confirmation email failed',
-                body: `The registration payment confirmation email could not be delivered to ${primaryGuardian.email}.`,
-              }),
-              attachments: [{ filename: 'managira.png', path: require('path').join(__dirname, '../public/images/managira.png'), cid: 'managira_logo' }],
-            },
-            'Payment Confirmation Email'
-          );
         }
 
         req.session.pendingStudentId = null;
@@ -7112,27 +7136,12 @@ const commonController = {
         );
 
         if (primaryGuardian && primaryGuardian.email) {
-          const html = renderCleanEmail({
-            title: 'Student Registration & Payment Confirmation',
-            greeting: `Hello <strong>${he.encode(primaryGuardian.first_name || 'Guardian')}</strong>,`,
-            paragraphs: [
-              `We are pleased to confirm that the student's registration and payment have been successfully processed for <strong>${he.encode(orgDetails?.organization_name || 'the school')}</strong>.`,
-              `The admissions team at <strong>${he.encode(orgDetails?.organization_name || 'the school')}</strong> has received the details. You may hear from them soon, or you can reach out directly if you have any questions.`,
-              'Thank you for choosing us!',
-            ],
-            note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
-          });
-
-          sendEmailInBackground({
+          sendRegistrationPaidEmail(db, {
             to: primaryGuardian.email,
-            subject: `Student Registration & Payment Confirmation - ${orgDetails?.organization_name || 'School'}`,
-            html,
-            failureNotification: buildFailureNotification(organizationId, {
-              title: 'Registration payment confirmation email failed',
-              body: `The registration payment confirmation email could not be delivered to ${primaryGuardian.email}.`,
-            }),
-          }, 'Public Registration Payment Confirmation').catch((err) => {
-            console.error('[Payment Callback] Stripe confirmation email failed:', err.message);
+            organizationId,
+            schoolName: orgDetails?.organization_name,
+            amount: paymentRecord.amount,
+            currency: paymentRecord.currency,
           });
         }
 
@@ -7215,9 +7224,12 @@ const commonController = {
           [paystackPendingStudentId]
         );
 
-        // Update payment record
-        await db.query(
-          `UPDATE public_registration_payments SET status = 'success' WHERE paystack_reference = $1`,
+        // Update payment record (a row comes back only the first time, so the family is
+        // emailed once however often this page is opened)
+        const newlyPaid = await db.query(
+          `UPDATE public_registration_payments SET status = 'success'
+            WHERE paystack_reference = $1 AND status IS DISTINCT FROM 'success'
+            RETURNING amount, currency`,
           [reference]
         );
 
@@ -7248,44 +7260,19 @@ const commonController = {
           [paystackPendingStudentId]
         );
         const orgDetails = orgResult.rows[0];
-        const orgName = orgDetails?.organization_name || "the school";
         const organizationId = orgDetails?.organization_id;
 
         console.log('[Payment Callback] Organization ID:', organizationId);
 
         // ✅ Send email if primary guardian email exists
-        if (primaryGuardian && primaryGuardian.email) {
-          const html = renderCleanEmail({
-            title: "Student Registration & Payment Confirmation",
-            greeting: `Hello <strong>${he.encode(primaryGuardian.first_name || "Guardian")}</strong>,`,
-            paragraphs: [
-              `We are pleased to confirm that the student's registration and payment have been successfully processed for <strong>${he.encode(orgName)}</strong>.`,
-              `The admissions team at <strong>${he.encode(orgName)}</strong> has received the details. You may hear from them soon, or you can reach out directly if you have any questions.`,
-              "Thank you for choosing us!",
-            ],
-            note: 'For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+        if (primaryGuardian && primaryGuardian.email && newlyPaid.rows.length) {
+          sendRegistrationPaidEmail(db, {
+            to: primaryGuardian.email,
+            organizationId,
+            schoolName: orgDetails?.organization_name,
+            amount: newlyPaid.rows[0].amount,
+            currency: newlyPaid.rows[0].currency,
           });
-
-          try {
-            sendEmailInBackground({
-              to: primaryGuardian.email,
-              subject: `Student Registration & Payment Confirmation - ${orgName}`,
-              html,
-              failureNotification: buildFailureNotification(organizationId, {
-                title: 'Registration payment confirmation email failed',
-                body: `The registration payment confirmation email could not be delivered to ${primaryGuardian.email}.`,
-              }),
-              attachments: [
-                {
-                  filename: "managira.png",
-                  path: require("path").join(__dirname, "../public/images/managira.png"),
-                  cid: "managira_logo",
-                },
-              ],
-            }, "Payment Confirmation Email");
-          } catch (error) {
-            // ...removed error log for clean background operation...
-          }
         }
 
         req.flash(
@@ -7699,7 +7686,6 @@ const commonController = {
         `SELECT organization_name FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
-      const orgName = orgResult.rows[0]?.organization_name || "Our School";
 
       // ✅ Create student
       const inserted = await client.query(
@@ -7820,44 +7806,16 @@ const commonController = {
         id,
       ]);
 
-      // ✅ Notify guardians
-      const guardianEmails = guardians.rows.map((g) => g.email).filter(Boolean);
-      if (guardianEmails.length) {
-        const html = renderCleanEmail({
-          title: "Admission Approved",
-          greeting: "Dear Guardian,",
-          paragraphs: [
-            `We are pleased to inform you that the admission application for <strong>${he.encode(student.first_name)} ${he.encode(student.last_name)}</strong> has been approved by <strong>${he.encode(orgName)}</strong>.`,
-            "Thank you for choosing our school.",
-          ],
-          note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
-        });
-        const mailOptions = {
-          from: process.env.NOTIFY_EMAIL_USER,
-          to: guardianEmails.join(","),
-          subject: `Admission Approved: ${he.encode(
-            student.first_name
-          )} ${he.encode(student.last_name)}`,
-          html,
-          failureNotification: buildFailureNotification(organizationId, {
-            title: "Admission approval email failed",
-            body: `The admission approval email for ${student.first_name} ${student.last_name} could not be delivered to one or more guardian email addresses.`,
-          }),
-          attachments: [
-            {
-              filename: "managira.png",
-              path: require("path").join(
-                __dirname,
-                "../public/images/managira.png"
-              ),
-              cid: "managira_logo",
-            },
-          ],
-        };
-        sendEmailInBackground(mailOptions, "Admission Approved Email");
-      }
-
       await client.query("COMMIT");
+
+      // ✅ Notify guardians, now that the student is really in: each their own email.
+      sendAdmissionDecisionEmails({
+        approved: true,
+        organizationId,
+        schoolName: orgResult.rows[0]?.organization_name,
+        studentName: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+        guardians: guardians.rows,
+      });
 
       // F2 — notify guardian(s) in-app that admission was approved
       // guardians.rows holds pending_guardians; if guardian portal profile exists, notify there
@@ -7947,41 +7905,16 @@ const commonController = {
       req.flash("info", `Application rejected. It stays under Rejected for ${REJECTED_KEEP_DAYS} days, where you can reverse the decision.`);
 
       if (guardians.rows.length && pending.rows.length) {
-        const guardianEmails = guardians.rows
-          .map((g) => g.email)
-          .filter((e) => e);
         const student = pending.rows[0];
 
-        const html = renderCleanEmail({
-          title: "Admission Rejected",
-          greeting: "Dear Guardian,",
-          paragraphs: [
-            `We regret to inform you that the admission application for <strong>${he.encode(student.first_name)} ${he.encode(student.last_name)}</strong> has been rejected by <strong>${he.encode(orgName)}</strong>.`,
-            "We appreciate your interest in our school.",
-          ],
-          note: 'If you have any questions, please visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+        // Each parent gets their own email, worded gently.
+        sendAdmissionDecisionEmails({
+          approved: false,
+          organizationId: orgId,
+          schoolName: orgName,
+          studentName: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+          guardians: guardians.rows,
         });
-        const mailOptions = {
-          from: process.env.NOTIFY_EMAIL_USER,
-          to: guardianEmails.join(","),
-          subject: `Admission Rejected: ${student.first_name} ${student.last_name}`,
-          html,
-          failureNotification: buildFailureNotification(orgId, {
-            title: "Admission rejection email failed",
-            body: `The admission rejection email for ${student.first_name} ${student.last_name} could not be delivered to one or more guardian email addresses.`,
-          }),
-          attachments: [
-            {
-              filename: "managira.png",
-              path: require("path").join(
-                __dirname,
-                "../public/images/managira.png"
-              ),
-              cid: "managira_logo",
-            },
-          ],
-        };
-        sendEmailInBackground(mailOptions, "Admission Rejected Email");
 
         // F3 — notify guardian(s) in-app that admission was rejected
         const rejectedName = `${pending.rows[0]?.first_name || ''} ${pending.rows[0]?.last_name || ''}`.trim();
@@ -16211,7 +16144,8 @@ NUMBERING:
           }
 
           if (shouldNotifyTeachers && normalizedClassIds.length > 0) {
-            notifyTeachersForAssessmentControl({
+            db.query("SELECT DISTINCT subject_id FROM assessments WHERE group_id = $1 AND organization_id = $2", [groupId, organizationId])
+              .then(({ rows }) => notifyTeachersForAssessmentControl({
               database: db,
               organizationId: Number(organizationId),
               classIds: normalizedClassIds,
@@ -16221,7 +16155,8 @@ NUMBERING:
               activeState: active,
               editWindowStart: parsedWindowStart,
               editWindowEnd: parsedWindowEnd,
-            }).catch((notifyErr) => {
+              subjectIds: rows.map((r) => Number(r.subject_id)),
+            })).catch((notifyErr) => {
               console.error("[Notify] modifyAssessment teacher email failed:", notifyErr.message);
             });
           }
@@ -16672,6 +16607,7 @@ NUMBERING:
         if (notifyTeachers) {
           pendingTeacherNotifications.push({
             classIds: selectedClasses.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0),
+            subjectIds: [...new Set(createdAssessments.filter((item) => item.title === test.testName).map((item) => item.subjectId))],
             testTitle: test.testName,
             lockState: locked,
             activeState: active,
@@ -16733,6 +16669,7 @@ NUMBERING:
           activeState: notification.activeState,
           editWindowStart: notification.editWindowStart,
           editWindowEnd: notification.editWindowEnd,
+          subjectIds: notification.subjectIds,
         });
       }
 
@@ -17359,6 +17296,8 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'assessment-questions', itemId: '' };
       } else if (routePanel === 'paygira') {
         initialWorkspaceRoute = { panel: 'paygira', itemId: '' };
+      } else if (routePanel === 'briefing') {
+        initialWorkspaceRoute = { panel: 'briefing', itemId: '' };
       } else if (routePanel === 'student' && routeItemId) {
         initialWorkspaceRoute = { panel: 'student', itemId: routeItemId };
       } else if (routePanel === 'subject' && routeItemId) {
@@ -18938,8 +18877,8 @@ NUMBERING:
       }
 
       req.flash("success", notifyByEmail
-        ? "Event/Announcement created and email notifications are being sent."
-        : "Event/Announcement created successfully.");
+        ? "Saved. People who get school emails are being told by email."
+        : "Saved.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       // Log the error to understand what went wrong
@@ -19042,8 +18981,8 @@ NUMBERING:
         }).catch((err) => console.error('[Broadcast] Event update notification failed:', err.message));
       }
       req.flash("success", notifyByEmail
-        ? "Event updated and email notifications are being sent."
-        : "Event updated successfully.");
+        ? "Event updated. Anyone not yet emailed about it is being told; people already emailed aren't sent it again."
+        : "Event updated.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error updating event.");
@@ -19073,8 +19012,8 @@ NUMBERING:
         }).catch((err) => console.error('[Broadcast] Announcement update notification failed:', err.message));
       }
       req.flash("success", notifyByEmail
-        ? "Announcement updated and email notifications are being sent."
-        : "Announcement updated successfully.");
+        ? "Announcement updated. Anyone not yet emailed about it is being told; people already emailed aren't sent it again."
+        : "Announcement updated.");
       res.redirect("/common/manageEventsAnnouncements");
     } catch (err) {
       req.flash("error", "Error updating announcement.");
@@ -19847,10 +19786,11 @@ NUMBERING:
   // ── Email Issues ────────────────────────────────────────────────────────────
 
   getFailedEmails: async (req, res, db) => {
+    // Read before the try: the fallback page below needs it too.
+    const isEmbedded = isEmbeddedRequest(req, "failedEmails");
     try {
       const orgId = req.session.organizationId;
       if (!orgId) return res.status(401).send('Unauthorized');
-      const isEmbedded = isEmbeddedRequest(req, "failedEmails");
 
       // Only managers and supervisors may access this page
       const role = String(
@@ -20139,33 +20079,39 @@ NUMBERING:
       await unsuppressEmail(db, failure.failed_email);
 
       // Get user's name for the test email
-      let displayName = 'User';
+      let firstName = '';
       if (failure.user_type === 'staff') {
-        const nameRes = await db.query(`SELECT first_name, last_name FROM users WHERE user_id = $1`, [failure.user_id]);
-        if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
+        const nameRes = await db.query(`SELECT first_name FROM users WHERE user_id = $1`, [failure.user_id]);
+        if (nameRes.rows.length > 0) firstName = String(nameRes.rows[0].first_name || '').trim();
       } else if (failure.user_type === 'student') {
-        const nameRes = await db.query(`SELECT first_name, last_name FROM students WHERE student_id = $1`, [failure.user_id]);
-        if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
+        const nameRes = await db.query(`SELECT first_name FROM students WHERE student_id = $1`, [failure.user_id]);
+        if (nameRes.rows.length > 0) firstName = String(nameRes.rows[0].first_name || '').trim();
       } else {
-        const nameRes = await db.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id = $1`, [failure.user_id]);
-        if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
+        const nameRes = await db.query(`SELECT first_name FROM guardians WHERE guardian_id = $1`, [failure.user_id]);
+        if (nameRes.rows.length > 0) firstName = String(nameRes.rows[0].first_name || '').trim();
       }
+      const schoolName = (await db.query(`SELECT organization_name FROM organizations WHERE organization_id = $1`, [orgId]).catch(() => ({ rows: [] }))).rows[0]?.organization_name || '';
 
-      // Send a test email — no failureNotification to avoid recursion
+      // Send a test email — no failureNotification to avoid recursion. It isn't just a
+      // confirmation: the person didn't make this change (the school did), and whether it
+      // arrives decides if the address is cleared on the Email issues page.
+      const signsInWithIt = failure.user_type === 'staff' || failure.user_type === 'student';
       const html = renderCleanEmail({
-        title: 'Email Address Verified',
-        greeting: `Hello ${displayName},`,
+        title: 'Your email address was updated',
+        greeting: firstName ? `Hi ${he.encode(firstName)},` : 'Hello,',
         paragraphs: [
-          'Your email address has been successfully updated in Managira.',
-          'This message confirms that your new address is working correctly.',
+          `${schoolName ? he.encode(schoolName) : 'Your school'} updated the email address it has for you to this one.${signsInWithIt ? ' Use it the next time you sign in to Managira.' : ''}`,
         ],
-        noReply: true,
+        note: "If you weren't expecting this, please contact the school.",
+        schoolName,
+        organizationId: orgId,
       });
 
       const sent = await sendEmailSafely({
         to: newEmail,
-        subject: 'Managira — Email Address Verified',
+        subject: 'Your email address was updated',
         html,
+        onBehalfOf: orgId,
         skipMxCheck: false,
         // No failureNotification — test failure stays silent
       }, 'EmailIssues-Test');
@@ -22498,48 +22444,43 @@ NUMBERING:
       // Send email to guardian if requested
       let emailSent = false;
       const emailRecipient = guardianProfile?.email || guardian?.email || null;
-      const guardianFirstName = guardianProfile?.first_name || guardian?.first_name || 'Parent/Guardian';
+      const guardianFirstName = String(guardianProfile?.first_name || guardian?.first_name || '').trim();
       if (sendEmailRequested && emailRecipient) {
         // Honor guardian preference for staff-report emails.
         const guardianAllows = await isEmailEnabledForRecipient(db, emailRecipient, 'staff_report_to_guardian');
         if (!guardianAllows) {
           // Skip email but the report still gets stored in-app.
         } else {
-        const { buildFailureNotification, renderCleanEmail, sendEmailInBackground } = require("../utils/emailHelper");
-        const path = require("path");
-
         const orgResult = await db.query(
           `SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId]
         );
-        const orgName = orgResult.rows[0]?.organization_name || 'School';
+        const orgName = orgResult.rows[0]?.organization_name || '';
+        // The message is read (and answered) in the parent portal, where the school has one.
+        const portalOn = await hasGuardianPortalFeature(db, organizationId).catch(() => false);
 
         const html = renderCleanEmail({
-          title: `Report Filed for ${studentName}`,
-          greeting: `Dear ${guardianFirstName},`,
+          title: subject,
+          greeting: guardianFirstName ? `Hi ${he.encode(guardianFirstName)},` : 'Hello,',
           paragraphs: [
-            `A report has been filed regarding your child <strong>${studentName}</strong> by <strong>${staff.first_name} ${staff.last_name}</strong> (${staff.role}).`,
+            `${he.encode(staffFullName || 'A staff member')} sent you an update about <strong>${he.encode(studentName)}</strong>:`,
+            he.encode(trimmedMessage).replace(/\n/g, '<br>'),
           ],
-          details: [
-            { label: 'Report Type', value: reportTypeLabel },
-            { label: 'Student', value: studentName },
-            { label: 'Message', value: trimmedMessage },
-          ],
-          note: `This report is also available in your Parent Portal under "My Reports". If you have questions, please contact the school directly.`,
+          cta: portalOn ? { text: 'Open the parent portal', url: `${EMAIL_LINK_BASE}/guardian/reports` } : null,
+          note: portalOn ? 'You can reply in the parent portal.' : 'If you have questions, please contact the school.',
+          schoolName: orgName,
+          organizationId,
         });
 
         sendEmailInBackground({
           to: emailRecipient,
-          subject: `[${orgName}] Report for ${studentName}`,
+          subject: plainSubject(subject),
           html,
+          category: 'staff_report_to_guardian',
+          onBehalfOf: organizationId,
           failureNotification: buildFailureNotification(organizationId, {
             title: 'Staff report email failed',
             body: `The staff report email for ${studentName} could not be delivered to ${emailRecipient}.`,
           }),
-          attachments: [{
-            filename: 'managira_logo.png',
-            path: path.join(__dirname, '..', 'public', 'images', 'managira.png'),
-            cid: 'managira_logo'
-          }]
         }, 'Staff Report Email');
         emailSent = true; // Queued in background
         }
@@ -23188,48 +23129,44 @@ NUMBERING:
         ? `https://www.managira.com/common/set-password?token=${token}&type=guardian`
         : `http://localhost:4000/common/set-password?token=${token}&type=guardian`;
 
-      const emailTitle = isNewAccount ? 'Parent Portal Access Setup' : 'Password Reset Request';
-      const emailHeading = isNewAccount ? 'Welcome to Parent Portal!' : 'Password Reset Request';
-      const emailMessage = isNewAccount 
-        ? `You have been invited to access the Parent Portal at ${he.encode(organizationName)}. Click the button below to set your password and access your children's progress.`
-        : `A password reset has been requested for your Parent Portal account at ${he.encode(organizationName)}. Click the button below to set a new password.`;
-      const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
+      const school = knownSchoolName(organizationName);
+      const schoolText = school ? he.encode(school) : 'Your school';
+      const greeting = guardian.first_name ? `Hi ${he.encode(guardian.first_name)},` : 'Hello,';
+      const html = renderCleanEmail(isNewAccount
+        ? {
+            title: 'Set up your parent portal account',
+            greeting,
+            paragraphs: [
+              `${schoolText} invited you to its parent portal, where you can follow your child's progress.`,
+              `Set your password to get started. After that, sign in with this email address${contactPhone ? ' or your phone number' : ''}.`,
+            ],
+            cta: { text: 'Set your password', url: resetLink },
+            showLink: true,
+            note: 'This link expires in 24 hours.',
+            schoolName: school,
+            organizationId,
+          }
+        : {
+            title: 'Reset your parent portal password',
+            greeting,
+            paragraphs: [`${schoolText} sent you a link to set a new password for its parent portal.`],
+            cta: { text: 'Set a new password', url: resetLink },
+            showLink: true,
+            note: "This link expires in 24 hours. If you didn't ask the school for this, you can ignore this email.",
+            schoolName: school,
+            organizationId,
+          });
 
-      const html = renderCleanEmail({
-        title: emailHeading,
-        greeting: `Hello <strong>${he.encode(guardian.first_name)} ${he.encode(guardian.last_name)}</strong>,`,
-        paragraphs: [
-          emailMessage,
-          ...(isNewAccount
-            ? [`You can log in using your email <strong>${he.encode(contactEmail)}</strong> or phone number <strong>${he.encode(contactPhone)}</strong> with your new password.`]
-            : []),
-          ...(!isNewAccount ? ["If you did not request this reset, please ignore this email."] : []),
-        ],
-        cta: {
-          text: isNewAccount ? 'Set Password' : 'Reset Password',
-          url: he.encode(resetLink),
-        },
-        followManagira: isNewAccount,
-        linkedinUrl,
-        note: 'This link will expire in 24 hours.',
-      });
-
+      const portalName = school ? `${school} parent portal` : 'parent portal';
       const mailOptions = {
-        from: process.env.ADMIN_NOTIFY_EMAIL_USER,
         to: contactEmail,
-        subject: `${emailTitle} - ${organizationName} Parent Portal`,
+        subject: plainSubject(isNewAccount ? `Set up your ${portalName} account` : `Reset your ${portalName} password`),
         html,
+        onBehalfOf: organizationId,
         failureNotification: buildFailureNotification(organizationId, {
           title: 'Guardian password email failed',
           body: `The guardian password email for ${contactEmail} could not be delivered.`,
         }),
-        attachments: [
-          {
-            filename: 'managira.png',
-            path: require('path').join(__dirname, '../public/images/managira.png'),
-            cid: 'managira_logo'
-          }
-        ]
       };
 
       sendEmailInBackground(mailOptions, "Guardian Password Email");
@@ -23357,45 +23294,24 @@ NUMBERING:
         ? `https://www.managira.com/common/set-password?token=${token}&type=student`
         : `http://localhost:4000/common/set-password?token=${token}&type=student`;
 
-      const emailTitle = isSetupInvite ? "Student Portal Access Setup" : "Student Password Reset Request";
-      const emailHeading = isSetupInvite ? "Welcome to Student Portal" : "Password Reset Request";
-      const emailMessage = isSetupInvite
-        ? `You have been invited to access the Student Portal at ${he.encode(organizationName)}.`
-        : `A password reset has been requested for your Student Portal account at ${he.encode(organizationName)}.`;
-
-      const html = renderCleanEmail({
-        title: emailHeading,
-        greeting: `Hello <strong>${he.encode(student.first_name || "Student")} ${he.encode(student.last_name || "")}</strong>,`,
-        paragraphs: [
-          emailMessage,
-          `Use your student email <strong>${he.encode(studentEmail)}</strong> to sign in after setting your password.`,
-          ...(student.class_name ? [`Class: <strong>${he.encode(student.class_name)}</strong>`] : []),
-          ...(!isSetupInvite ? ["If you did not request this reset, please ignore this email."] : []),
-        ],
-        cta: {
-          text: isSetupInvite ? "Set Password" : "Reset Password",
-          url: he.encode(resetLink),
-        },
-        note: "This link will expire in 24 hours.",
+      const { subject, html } = studentPortalPasswordEmail({
+        organizationId,
+        organizationName,
+        firstName: student.first_name,
+        link: resetLink,
+        isSetupInvite,
       });
 
       sendEmailInBackground(
         {
-          from: process.env.ADMIN_NOTIFY_EMAIL_USER,
           to: studentEmail,
-          subject: `${emailTitle} - ${organizationName}`,
+          subject,
           html,
+          onBehalfOf: organizationId,
           failureNotification: buildFailureNotification(organizationId, {
             title: "Student password email failed",
             body: `The student password email for ${studentEmail} could not be delivered.`,
           }),
-          attachments: [
-            {
-              filename: "managira.png",
-              path: path.join(__dirname, "../public/images/managira.png"),
-              cid: "managira_logo",
-            },
-          ],
         },
         "Student Password Email"
       );
@@ -23535,45 +23451,24 @@ NUMBERING:
           ? `https://www.managira.com/common/set-password?token=${token}&type=student`
           : `http://localhost:4000/common/set-password?token=${token}&type=student`;
 
-        const emailTitle = isSetupInvite ? "Student Portal Access Setup" : "Student Password Reset Request";
-        const emailHeading = isSetupInvite ? "Welcome to Student Portal" : "Password Reset Request";
-        const emailMessage = isSetupInvite
-          ? `You have been invited to access the Student Portal at ${he.encode(organizationName)}.`
-          : `A password reset has been requested for your Student Portal account at ${he.encode(organizationName)}.`;
-
-        const html = renderCleanEmail({
-          title: emailHeading,
-          greeting: `Hello <strong>${he.encode(student.first_name || "Student")} ${he.encode(student.last_name || "")}</strong>,`,
-          paragraphs: [
-            emailMessage,
-            `Use your student email <strong>${he.encode(studentEmail)}</strong> to sign in after setting your password.`,
-            ...(student.class_name ? [`Class: <strong>${he.encode(student.class_name)}</strong>`] : []),
-            ...(!isSetupInvite ? ["If you did not request this reset, please ignore this email."] : []),
-          ],
-          cta: {
-            text: isSetupInvite ? "Set Password" : "Reset Password",
-            url: he.encode(resetLink),
-          },
-          note: "This link will expire in 24 hours.",
+        const { subject, html } = studentPortalPasswordEmail({
+          organizationId,
+          organizationName,
+          firstName: student.first_name,
+          link: resetLink,
+          isSetupInvite,
         });
 
         sendEmailInBackground(
           {
-            from: process.env.ADMIN_NOTIFY_EMAIL_USER,
             to: studentEmail,
-            subject: `${emailTitle} - ${organizationName}`,
+            subject,
             html,
+            onBehalfOf: organizationId,
             failureNotification: buildFailureNotification(organizationId, {
               title: "Student password email failed",
               body: `The student password email for ${studentEmail} could not be delivered.`,
             }),
-            attachments: [
-              {
-                filename: "managira.png",
-                path: path.join(__dirname, "../public/images/managira.png"),
-                cid: "managira_logo",
-              },
-            ],
           },
           "Student Password Email"
         );
@@ -25004,79 +24899,68 @@ async function sendInviteEmail(
   subjectNames = [],
   { sso = null } = {}
 ) {
-  const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
+  const school = knownSchoolName(organizationName);
+  const schoolText = school ? he.encode(school) : "Your school";
   const assignmentDetails = [];
   if (classNames.length) {
-    assignmentDetails.push({ label: "Assigned Classes", value: classNames.map(n => he.encode(n)).join(", ") });
+    assignmentDetails.push({ label: classNames.length === 1 ? "Your class" : "Your classes", value: classNames.map(n => he.encode(n)).join(", ") });
   }
   if (subjectNames.length) {
-    assignmentDetails.push({ label: "Assigned Subjects", value: subjectNames.map(n => he.encode(n)).join(", ") });
+    assignmentDetails.push({ label: subjectNames.length === 1 ? "Your subject" : "Your subjects", value: subjectNames.map(n => he.encode(n)).join(", ") });
   }
 
+  // A school that signs in only through its own provider has no password to set.
+  const ssoOnly = Boolean(sso && sso.only);
+  const provider = sso ? he.encode(sso.name) : "";
   const html = renderCleanEmail({
-    title: `You're Invited to Join ${he.encode(organizationName)}`,
-    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
-    // A school that signs in only through its own provider has no password to set.
+    title: "You're invited to Managira",
+    greeting: firstName ? `Hi ${he.encode(firstName)},` : "Hello,",
     paragraphs: [
-      sso && sso.only
-        ? `${he.encode(organizationName)} is inviting you to join their institution. You log in with ${he.encode(sso.name)}: enter this email on the login page and continue with ${he.encode(sso.name)}. There's no password to set.`
-        : `${he.encode(organizationName)} is inviting you to join their institution. Accept this invitation to set your password.${sso ? ` You can also log in with ${he.encode(sso.name)}.` : ""}`,
-      ...(assignmentDetails.length ? ["Here are your initial assignments:"] : []),
+      ssoOnly
+        ? `${schoolText} added you to Managira, its student information system. You log in with ${provider}: enter this email address on the login page, then choose ${provider}. There's no password to set.`
+        : `${schoolText} added you to Managira, its student information system. Set your password to log in.${sso ? ` You can also log in with ${provider}.` : ""}`,
     ],
-    details: assignmentDetails.length ? assignmentDetails : undefined,
-    cta: sso && sso.only
-      ? { text: `Log in with ${he.encode(sso.name)}`, url: he.encode(`${new URL(link).origin}/account/login`) }
-      : { text: "Accept Invite & Set Password", url: he.encode(link) },
-    followManagira: true,
-    linkedinUrl,
-    note: 'This link will expire in 3 days. For help, visit our <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a> or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    details: assignmentDetails,
+    cta: ssoOnly
+      ? { text: `Log in with ${sso.name}`, url: `${new URL(link).origin}/account/login` }
+      : { text: "Set your password", url: link },
+    showLink: !ssoOnly,
+    note: ssoOnly ? "" : "This link expires in 3 days.",
+    schoolName: school,
+    organizationId,
   });
   const mailOptions = {
-    from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: email,
-    subject: sso && sso.only ? `You're invited to ${organizationName} - Managira` : "Set Your Password - Managira",
+    subject: plainSubject(school ? `${school} invited you to Managira` : "You're invited to Managira"),
     html,
+    onBehalfOf: organizationId,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Employee invite email failed',
       body: `The employee invite email for ${firstName} ${lastName} could not be delivered to ${email}.`,
     }),
-    attachments: [
-      {
-        filename: "managira.png",
-        path: require("path").join(__dirname, "../public/images/managira.png"),
-        cid: "managira_logo",
-      },
-    ],
   };
   sendEmailInBackground(mailOptions, "Employee Invite Email");
 }
 
+// A security notice (Managira's own voice): the password on this account was just set.
 async function sendPasswordSetSuccessEmail(email, firstName, lastName, organizationId = null) {
   const html = renderCleanEmail({
-    title: "Password Set Successfully",
-    greeting: `Hello <strong>${he.encode(firstName)} ${he.encode(lastName)}</strong>,`,
+    title: "Your password is set",
+    greeting: firstName ? `Hi ${he.encode(firstName)},` : "Hello,",
     paragraphs: [
-      "Your password has been set successfully. You can now log in with your email and new password.",
-      "If you did not perform this action, please contact your administrator immediately.",
+      "Your Managira password was set. You can now sign in with your email address and new password.",
+      "If you didn't do this, contact your school's administrator right away.",
     ],
-    note: 'If you have any questions, please visit our <a href="https://docs.google.com/document/d/1bgFP5cCQyr-9jdaYZTsWO8ONAnAuNUKqKQ2if_4TBOM/edit?tab=t.o84y9ldsnqto#heading=h.o10u93e8wqgq" target="_blank" rel="noopener">User Documentation Guide</a>, <a href="https://www.managira.com/legal/help" target="_blank" rel="noopener">Help Center</a>, or <a href="https://www.managira.com/legal/faq" target="_blank" rel="noopener">FAQ page</a>.',
+    organizationId,
   });
   const mailOptions = {
-    from: process.env.NOTIFY_EMAIL_USER,
     to: email,
-    subject: "Your Password Has Been Set Successfully",
+    subject: "Your Managira password was set",
     html,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Password set success email failed',
       body: `The password set confirmation email for ${firstName} ${lastName} could not be delivered to ${email}.`,
     }),
-    attachments: [
-      {
-        filename: "managira.png",
-        path: require("path").join(__dirname, "../public/images/managira.png"),
-        cid: "managira_logo",
-      },
-    ],
   };
   sendEmailInBackground(mailOptions, "Password Set Success Email");
 }
@@ -25094,7 +24978,6 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
     const autoInviteEnabled = await isOrgEmailEnabled(db, organizationId, 'guardian_auto_invite_on_student_add');
     if (!autoInviteEnabled) return;
 
-    const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
     // Generate token for password setup
     const token = crypto.randomBytes(32).toString("hex");
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -25111,38 +24994,30 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
       ? `https://www.managira.com/common/set-password?token=${token}&type=guardian`
       : `http://localhost:4000/common/set-password?token=${token}&type=guardian`;
 
+    const school = knownSchoolName(organizationName);
     const html = renderCleanEmail({
-      title: `Welcome to ${he.encode(organizationName)} Parent Portal`,
-      greeting: `Hello <strong>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</strong>,`,
+      title: "Set up your parent portal account",
+      greeting: guardianFirstName ? `Hi ${he.encode(guardianFirstName)},` : "Hello,",
       paragraphs: [
-        `Great news! <strong>${he.encode(studentName)}</strong> has been registered at ${he.encode(organizationName)}, and you've been added as their guardian.`,
-        "To monitor your child's academic progress, grades, and connect with teachers, please set up your Parent Portal password.",
+        `${school ? he.encode(school) : "Your school"} added you as a parent or guardian of <strong>${he.encode(studentName)}</strong>.`,
+        "Set your password to use the parent portal, where you can follow your child's progress. After that, sign in with this email address.",
       ],
-      details: [
-        { label: "Login Email", value: he.encode(guardianEmail) },
-      ],
-      cta: { text: "Set My Password", url: he.encode(setupLink) },
-      followManagira: true,
-      linkedinUrl,
-      note: `This password setup link will expire in 24 hours. If you have any questions, please contact ${he.encode(organizationName)} directly.`,
+      cta: { text: "Set your password", url: setupLink },
+      showLink: true,
+      note: "This link expires in 24 hours. If you have questions, please contact the school.",
+      schoolName: school,
+      organizationId,
     });
 
     const mailOptions = {
-      from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       to: guardianEmail,
-      subject: `Action required: set your ${organizationName} parent portal password`,
+      subject: plainSubject(school ? `Set up your ${school} parent portal account` : "Set up your parent portal account"),
       html,
+      onBehalfOf: organizationId,
       failureNotification: buildFailureNotification(organizationId, {
         title: 'Guardian welcome email failed',
         body: `The guardian welcome email for ${studentName} could not be delivered to ${guardianEmail}.`,
       }),
-      attachments: [
-        {
-          filename: 'managira.png',
-          path: require('path').join(__dirname, '../public/images/managira.png'),
-          cid: 'managira_logo'
-        }
-      ]
     };
 
     sendEmailInBackground(mailOptions, "Guardian Welcome Email");
@@ -25156,42 +25031,178 @@ const sendGuardianStudentAddedEmail = async (guardianEmail, guardianFirstName, g
     // Honor guardian preference for "additional child added" notifications.
     const _db = require("../config/db");
     if (!(await isEmailEnabledForRecipient(_db, guardianEmail, 'guardian_additional_student_added'))) return;
+    const school = knownSchoolName(organizationName);
     const html = renderCleanEmail({
-      title: "New Student Added to Your Account",
-      greeting: `Hello <strong>${he.encode(guardianFirstName)} ${he.encode(guardianLastName)}</strong>,`,
+      title: `${studentName} was added to your parent portal`,
+      greeting: guardianFirstName ? `Hi ${he.encode(guardianFirstName)},` : "Hello,",
       paragraphs: [
-        `<strong>${he.encode(studentName)}</strong> has been added to your Parent Portal account at ${he.encode(organizationName)}.`,
-        "You can now view their academic progress, grades, and teacher information by logging in to your Parent Portal.",
+        `${school ? he.encode(school) : "Your school"} added <strong>${he.encode(studentName)}</strong> to your parent portal account. Sign in to follow their progress.`,
       ],
-      details: [{ label: "Login Email", value: he.encode(guardianEmail) }],
-      cta: {
-        text: "Login to Parent Portal",
-        url: process.env.NODE_ENV === 'production' ? 'https://www.managira.com/account/login' : 'http://localhost:4000/account/login'
-      },
+      cta: { text: "Open the parent portal", url: `${EMAIL_LINK_BASE}/account/login` },
+      schoolName: school,
+      organizationId,
     });
 
     const mailOptions = {
-      from: process.env.ADMIN_NOTIFY_EMAIL_USER,
       to: guardianEmail,
-      subject: `New Student Added - ${organizationName} Parent Portal`,
+      subject: plainSubject(`${studentName} was added to your parent portal`),
       html,
+      category: "guardian_additional_student_added",
+      onBehalfOf: organizationId,
       failureNotification: buildFailureNotification(organizationId, {
         title: 'Guardian student-added email failed',
         body: `The student-added email for ${studentName} could not be delivered to ${guardianEmail}.`,
       }),
-      attachments: [
-        {
-          filename: 'managira.png',
-          path: require('path').join(__dirname, '../public/images/managira.png'),
-          cid: 'managira_logo'
-        }
-      ]
     };
 
     sendEmailInBackground(mailOptions, "Guardian Student Added Email");
       } catch (error) {
       }
 };
+
+// ---- Email helpers --------------------------------------------------------------------
+
+// Links in emails to families go to Managira's own address (the local copy's in development).
+const EMAIL_LINK_BASE = process.env.NODE_ENV === "production" ? "https://www.managira.com" : "http://localhost:4000";
+
+// An email subject is one plain line: no markup, no line breaks.
+function plainSubject(text) {
+  return String(text == null ? "" : text).replace(/\s*[\r\n]+\s*/g, " ").trim();
+}
+
+// The school's name, or "" when only a stand-in ("Your school", "School") is known.
+function knownSchoolName(name) {
+  const value = String(name || "").trim();
+  return ["school", "your school", "our school", "the school"].includes(value.toLowerCase()) ? "" : value;
+}
+
+// Once an online application's fee is paid, the family gets one confirmation, whichever way
+// it was paid. It goes to an address the visitor typed, so it never repeats what they typed.
+async function sendRegistrationPaidEmail(db, { to, organizationId, schoolName, amount, currency }) {
+  try {
+    if (!to) return;
+    let school = knownSchoolName(schoolName);
+    if (!school && organizationId) {
+      const { rows } = await db.query(`SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId]).catch(() => ({ rows: [] }));
+      school = knownSchoolName(rows[0]?.organization_name);
+    }
+    const paid = Number(amount) > 0 ? formatCurrencyAmount(amount, currency) : "";
+    const html = renderCleanEmail({
+      title: "Application and payment received",
+      greeting: "Hello,",
+      paragraphs: [
+        `Thank you. ${school ? he.encode(school) : "The school"} has received your application and payment.`,
+        "You'll get an email when the school has reviewed the application.",
+      ],
+      details: paid ? [{ label: "Amount paid", value: he.encode(paid) }] : [],
+      schoolName: school,
+      organizationId,
+    });
+    sendEmailInBackground({
+      to,
+      subject: plainSubject(school ? `Application and payment received by ${school}` : "Application and payment received"),
+      html,
+      onBehalfOf: organizationId,
+      failureNotification: buildFailureNotification(organizationId, {
+        title: 'Registration payment confirmation email failed',
+        body: `The registration payment confirmation email could not be delivered to ${to}.`,
+      }),
+    }, "Registration Payment Confirmation");
+  } catch (error) {
+    console.error("[Payment Callback] confirmation email:", error.message);
+  }
+}
+
+// The school's decision on an online application, once it is saved: each parent their own
+// email (a parent listed twice gets one). A decline is worded gently.
+function sendAdmissionDecisionEmails(options) {
+  try {
+    admissionDecisionEmails(options);
+  } catch (error) {
+    // The decision is saved either way; an email problem never undoes it.
+    console.error("[Admission] decision email:", error.message);
+  }
+}
+
+function admissionDecisionEmails({ approved, organizationId, schoolName, studentName, guardians }) {
+  const school = knownSchoolName(schoolName);
+  const schoolText = school ? he.encode(school) : "the school";
+  const student = String(studentName || "").trim() || "your child";
+  const seen = new Set();
+  for (const guardian of guardians || []) {
+    const to = String(guardian?.email || "").trim();
+    if (!to || seen.has(to.toLowerCase())) continue;
+    seen.add(to.toLowerCase());
+    const firstName = String(guardian.first_name || "").trim();
+    const html = renderCleanEmail(approved
+      ? {
+          title: "Application approved",
+          greeting: firstName ? `Hi ${he.encode(firstName)},` : "Hello,",
+          paragraphs: [`${school ? he.encode(school) : "The school"} has approved the application for <strong>${he.encode(student)}</strong>. Welcome to the school.`],
+          note: "If you have any questions, please contact the school.",
+          schoolName: school,
+          organizationId,
+        }
+      : {
+          title: "Update on your application",
+          greeting: "Hello,",
+          paragraphs: [
+            `Thank you for applying to ${schoolText}. After reviewing the application for <strong>${he.encode(student)}</strong>, the school is unable to offer a place at this time.`,
+          ],
+          note: "If you have any questions, please contact the school.",
+          schoolName: school,
+          organizationId,
+        });
+    sendEmailInBackground({
+      to,
+      subject: plainSubject(approved ? `Application approved for ${student}` : `Update on ${student}'s application`),
+      html,
+      onBehalfOf: organizationId,
+      failureNotification: buildFailureNotification(organizationId, approved
+        ? {
+            title: "Admission approval email failed",
+            body: `The admission approval email for ${student} could not be delivered to ${to}.`,
+          }
+        : {
+            title: "Admission rejection email failed",
+            body: `The admission rejection email for ${student} could not be delivered to ${to}.`,
+          }),
+    }, approved ? "Admission Approved Email" : "Admission Rejected Email");
+  }
+}
+
+// A student's invitation to the student portal, or a link to set a new password.
+function studentPortalPasswordEmail({ organizationId, organizationName, firstName, link, isSetupInvite }) {
+  const school = knownSchoolName(organizationName);
+  const schoolText = school ? he.encode(school) : "Your school";
+  const greeting = firstName ? `Hi ${he.encode(String(firstName))},` : "Hello,";
+  const portal = school ? `${school} student portal` : "student portal";
+  const html = renderCleanEmail(isSetupInvite
+    ? {
+        title: "Set up your student portal account",
+        greeting,
+        paragraphs: [`${schoolText} invited you to its student portal. Set your password, then sign in with this email address.`],
+        cta: { text: "Set your password", url: link },
+        showLink: true,
+        note: "This link expires in 24 hours.",
+        schoolName: school,
+        organizationId,
+      }
+    : {
+        title: "Reset your student portal password",
+        greeting,
+        paragraphs: [`${schoolText} sent you a link to set a new password for its student portal.`],
+        cta: { text: "Set a new password", url: link },
+        showLink: true,
+        note: "This link expires in 24 hours. If you didn't ask your school for this, you can ignore this email.",
+        schoolName: school,
+        organizationId,
+      });
+  return {
+    subject: plainSubject(isSetupInvite ? `Set up your ${portal} account` : `Reset your ${portal} password`),
+    html,
+  };
+}
 
 module.exports = {
   isAuthenticated,

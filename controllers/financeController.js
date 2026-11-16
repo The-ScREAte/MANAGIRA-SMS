@@ -22,7 +22,7 @@ const {
   buildCalendarDayMap,
   isAttendanceCountableForDate,
 } = require("../utils/attendanceCalendar");
-const { buildFailureNotification, sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+const { buildFailureNotification, sendEmailSafely, renderCleanEmail, escapeHtml } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
   getCurrencyForCountry,
@@ -1367,16 +1367,21 @@ async function emailPaymentRequests(req, orgId, { billId = null, studentId = nul
   const owing = rows.map((row) => ({ ...row, owed: Number(row.amount) + Number(row.late_fee) - Number(row.amount_paid) })).filter((row) => row.owed > 0);
   const first = owing[0] || rows[0] || {};
   const studentName = [first.first_name, first.last_name].filter(Boolean).join(" ");
+  // The school asks its families (its name on the email, replies to the school).
+  const schoolName = first.organization_name || "";
+  const schoolText = schoolName ? escapeHtml(schoolName) : "The school";
+  const oneLine = (text) => String(text || "").replace(/\s+/g, " ").trim();
   const send = (emails, subject, paragraphs, details) => {
     const html = renderCleanEmail({
       title: "Payment request",
       greeting: "Hello,",
-      paragraphs: [...paragraphs, "If you've already paid, thank you, and please ignore this message."],
+      paragraphs: [...paragraphs, "If you've already paid, thank you. You can ignore this email."],
       details,
       cta: { url: parentPayUrl(req, first.nickname), text: "View and pay" },
-      noReply: true,
+      schoolName,
+      organizationId: orgId,
     });
-    emails.forEach((to) => sendEmailInBackground({ to, subject, html, sender: "reminders" }, "PayGira payment request").catch(() => {}));
+    emails.forEach((to) => sendEmailInBackground({ to, subject: oneLine(subject), html, sender: "reminders", onBehalfOf: orgId }, "PayGira payment request").catch(() => {}));
   };
   let families = 0;
   if (studentId) {
@@ -1387,11 +1392,11 @@ async function emailPaymentRequests(req, orgId, { billId = null, studentId = nul
       send(
         emails,
         `Payment request for ${studentName}`,
-        [`${first.organization_name} is asking for payment: ${total} is due for ${studentName}.`],
+        [`${schoolText} is asking for payment of <strong>${escapeHtml(total)}</strong> for ${escapeHtml(studentName)}.`],
         [
-          { label: "Student", value: studentName },
-          ...owing.map((row) => ({ label: row.title + (dueOf(row) ? ` (due ${dueOf(row)})` : ""), value: money(row.owed, row.organization_currency) })),
-          ...(owing.length > 1 ? [{ label: "Total due", value: total }] : []),
+          { label: "Student", value: escapeHtml(studentName) },
+          ...owing.map((row) => ({ label: row.title + (dueOf(row) ? ` (due ${dueOf(row)})` : ""), value: escapeHtml(money(row.owed, row.organization_currency)) })),
+          ...(owing.length > 1 ? [{ label: "Total due", value: escapeHtml(total) }] : []),
         ]
       );
       families = 1;
@@ -1405,12 +1410,12 @@ async function emailPaymentRequests(req, orgId, { billId = null, studentId = nul
       send(
         row.emails,
         `Payment request: ${row.title} for ${name}`,
-        [`${row.organization_name} is asking for payment: ${amount} is due for ${row.title} for ${name}.`],
+        [`${schoolText} is asking for payment of <strong>${escapeHtml(amount)}</strong> for ${escapeHtml(row.title)} (${escapeHtml(name)}).`],
         [
-          { label: "Student", value: name },
-          { label: "For", value: row.title },
-          { label: "Amount due", value: amount },
-          ...(due ? [{ label: "Due date", value: due }] : []),
+          { label: "Student", value: escapeHtml(name) },
+          { label: "For", value: escapeHtml(row.title) },
+          { label: "Amount due", value: escapeHtml(amount) },
+          ...(due ? [{ label: "Due date", value: escapeHtml(due) }] : []),
         ]
       );
       families += 1;
@@ -3593,38 +3598,46 @@ async function notifyGuardiansOfStaffCollection(display, result) {
     )).rows;
     if (!guardians.length) return;
 
-    const orgName = orgRow?.organization_name || "Your School";
+    // A receipt from the school: no unsubscribe, the school's name on it.
+    const orgName = orgRow?.organization_name || "";
     const amtFmt = display.formatMoney(result.amountCollected);
-    const occText = result.occurrenceDate
-      ? ` for ${new Date(`${result.occurrenceDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+    const forDate = result.occurrenceDate
+      ? new Date(`${result.occurrenceDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
       : "";
-    const statusText = result.status === "paid"
-      ? "fully paid"
-      : `partially paid (${display.formatMoney(result.amountPaid)} of ${display.formatMoney(result.totalDue)})`;
+    const methodLabel = { cash: "Cash", bank_transfer: "Bank transfer", mobile_money: "Mobile money", card: "Card", stripe: "Card", other: "Other" }[String(result.method || "").toLowerCase()] || "";
+    const balanceText = result.status === "paid"
+      ? "Paid in full"
+      : `${display.formatMoney(result.balance)} still due`;
+    const studentName = escapeHtml(result.studentName);
+    const sent = new Set();
 
     for (const guardian of guardians) {
+      const to = String(guardian.email || "").trim();
+      if (!to || sent.has(to.toLowerCase())) continue;
+      sent.add(to.toLowerCase());
       const html = renderCleanEmail({
-        title: `Payment Recorded — ${result.billTitle}`,
-        greeting: `Hello ${guardian.first_name},`,
+        title: "Payment received",
+        greeting: guardian.first_name ? `Hi ${escapeHtml(guardian.first_name)},` : "Hello,",
         paragraphs: [
-          `A payment of <strong>${amtFmt}</strong> has been recorded for <strong>${result.studentName}</strong> on the bill <strong>${result.billTitle}</strong>${occText}.`,
-          `This bill is now <strong>${statusText}</strong>.`,
+          `${orgName ? escapeHtml(orgName) : "The school"} recorded a payment of <strong>${escapeHtml(amtFmt)}</strong> for ${studentName}. Thank you.`,
         ],
         details: [
-          { label: "Student", value: result.studentName },
-          { label: "Bill", value: result.billTitle },
-          ...(result.occurrenceDate ? [{ label: "For date", value: new Date(`${result.occurrenceDate}T00:00:00`).toLocaleDateString() }] : []),
-          { label: "Amount paid", value: amtFmt },
-          { label: "Method", value: result.method },
-          { label: "Status", value: result.status },
+          { label: "Student", value: studentName },
+          { label: "Bill", value: escapeHtml(result.billTitle) },
+          ...(forDate ? [{ label: "For", value: escapeHtml(forDate) }] : []),
+          { label: "Amount paid", value: escapeHtml(amtFmt) },
+          ...(methodLabel ? [{ label: "Paid by", value: methodLabel }] : []),
+          ...(result.reference ? [{ label: "Reference", value: escapeHtml(result.reference) }] : []),
+          { label: "Balance", value: escapeHtml(balanceText) },
         ],
-        note: `This is an automated notification from ${orgName}. You can log in to the guardian portal to view your ward's full payment history.`,
+        schoolName: orgName,
+        organizationId: result.orgId,
       });
       await sendEmailSafely({
-        from: process.env.ADMIN_NOTIFY_EMAIL_USER,
-        to: guardian.email,
-        subject: `[${orgName}] Payment Recorded — ${result.billTitle}`,
+        to,
+        subject: `Payment received for ${String(result.studentName || "").replace(/\s+/g, " ").trim()}`,
         html,
+        onBehalfOf: result.orgId,
         failureNotification: buildFailureNotification(result.orgId, {
           title: 'Payment notification email failed',
           body: `The payment recorded email for ${result.studentName} could not be delivered to ${guardian.email}.`,
@@ -4132,7 +4145,7 @@ module.exports = {
             outstanding_display: display.formatMoney(student.outstanding),
           };
         });
-      const subjectTemplate = String(req.body.subject || "Outstanding Balance Notice — {Student Name}").trim();
+      const subjectTemplate = String(req.body.subject || "Balance due for {Student Name}").trim();
       const bodyTemplate = String(req.body.body || "Dear {Guardian Name},\n\n{Student Name} currently has an outstanding balance of {Outstanding Amount}.\n\nPlease review and settle this balance as soon as possible.\n\nRegards,\n{School Name} Finance Office").trim();
       const paymentLink = buildStudentPaymentLink(req);
       const userName = [req.session.user?.first_name, req.session.user?.last_name].filter(Boolean).join(" ").trim() || req.session.userName || "Finance User";
@@ -4151,24 +4164,26 @@ module.exports = {
           ).catch(() => null);
           continue;
         }
-        const subject = personalizeArrearsTemplate(subjectTemplate, student, orgProfile.organization_name || "Your School");
+        const subject = personalizeArrearsTemplate(subjectTemplate, student, orgProfile.organization_name || "Your School").replace(/\s+/g, " ").trim();
         const bodyText = personalizeArrearsTemplate(bodyTemplate, student, orgProfile.organization_name || "Your School");
         const details = [
-          { label: "Student", value: student.student_name },
-          { label: "Class", value: student.class_name || "—" },
-          { label: "Outstanding Balance", value: student.outstanding_display },
-          { label: "Days Overdue", value: String(student.max_days_overdue || 0) },
+          { label: "Student", value: escapeHtml(student.student_name) },
+          { label: "Class", value: escapeHtml(student.class_name || "—") },
+          { label: "Outstanding balance", value: escapeHtml(student.outstanding_display) },
+          { label: "Days overdue", value: String(student.max_days_overdue || 0) },
         ];
+        // The message is the school's own words (its greeting included), shown as text.
         const html = renderCleanEmail({
           title: subject,
-          greeting: `Dear ${student.guardian_name},`,
-          paragraphs: bodyText.split(/\n\n+/).filter(Boolean).map((paragraph) => paragraph.replace(/\n/g, '<br>')),
+          paragraphs: bodyText.replace(/\r\n?/g, "\n").split(/\n\s*\n+/).filter((paragraph) => paragraph.trim()).map((paragraph) => escapeHtml(paragraph.trim()).replace(/\n/g, '<br>')),
           details,
-          cta: req.body.include_payment_link ? { url: paymentLink, text: "Pay Now" } : null,
-          note: "This message was sent from PayGira.",
+          cta: req.body.include_payment_link ? { url: paymentLink, text: "Pay now" } : null,
+          schoolName: orgProfile.organization_name || "",
+          organizationId: orgId,
         });
         const ok = await sendEmailSafely({
           sender: "reminders",
+          onBehalfOf: orgId,
           to: recipientEmail,
           subject,
           html,
@@ -7137,7 +7152,8 @@ module.exports = {
           platform_fee_percentage: Number.isFinite(metadataFeePercentage) ? metadataFeePercentage : undefined,
         };
 
-        return financeController.guardianPaygiraPayPost(req, res, dbArg);
+        // This file's handlers live on module.exports (there is no `financeController` here).
+        return module.exports.guardianPaygiraPayPost(req, res, dbArg);
       } catch (error) {
         console.error('[guardianPaygiraStripeReturnGet][paystack]', error);
         req.flash && req.flash('error', 'Paystack payment could not be finalized.');

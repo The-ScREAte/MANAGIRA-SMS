@@ -1,7 +1,7 @@
 const db = require("../config/db");
-const path = require("path");
-const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
+const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("./emailHelper");
 const HUB_CONTRACT_HOLD_BY = "SystemHubContract";
+const BASE_URL = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "");
 
 async function enforceHubContractAccess() {
   const hubColumnResult = await db.query(
@@ -33,7 +33,7 @@ async function enforceHubContractAccess() {
   const resumeContractClause = resumeContractChecks.length ? ` AND ${resumeContractChecks.join(" AND ")}` : "";
 
   const dueForHoldResult = await db.query(
-    `SELECT o.organization_id, o.organization_name, o.email
+    `SELECT o.organization_id, o.organization_name, o.email, o.first_name, h.hub_name, h.hub_email
      FROM organizations o
      JOIN managira_hubs h ON h.hub_id = o.hub_id
      WHERE o.deleted = false
@@ -59,11 +59,11 @@ async function enforceHubContractAccess() {
       [org.organization_id, HUB_CONTRACT_HOLD_BY]
     );
 
-    await sendHoldNotificationEmail(
-      org.email,
-      org.organization_name,
-      "Your hub contract period is not currently active."
-    );
+    await sendHoldNotificationEmail(org.email, org.organization_name, {
+      organizationId: org.organization_id,
+      firstName: org.first_name,
+      hub: { name: org.hub_name, email: org.hub_email },
+    });
   }
 
   const dueForResumeResult = await db.query(
@@ -103,7 +103,7 @@ async function applyScheduledHolds() {
 
     // ✅ 1️⃣ Find organizations that have a scheduled hold date and are NOT already on hold.
     const result = await db.query(
-      `SELECT organization_id, organization_name, email, scheduled_hold_date
+      `SELECT organization_id, organization_name, email, first_name, scheduled_hold_date
        FROM organizations
        WHERE scheduled_hold_date IS NOT NULL 
        AND scheduled_hold_date <= CURRENT_DATE
@@ -115,7 +115,7 @@ async function applyScheduledHolds() {
     }
 
     for (const org of result.rows) {
-      const { organization_id, organization_name, email, scheduled_hold_date } = org;
+      const { organization_id, organization_name, email, first_name } = org;
 
       // ✅ 2️⃣ Place the organization on hold
       await db.query(
@@ -127,7 +127,7 @@ async function applyScheduledHolds() {
 
 
       // ✅ 3️⃣ Send an email notification
-      await sendHoldNotificationEmail(email, organization_name);
+      await sendHoldNotificationEmail(email, organization_name, { organizationId: organization_id, firstName: first_name });
     }
 
   } catch (error) {
@@ -136,31 +136,32 @@ async function applyScheduledHolds() {
 }
 
 /**
- * Send an email notification to the organization when their account is placed on hold.
+ * Send an email notification to the organization when their account is placed on hold:
+ * its subscription ended, or (`hub`) its hub's Managira plan isn't active.
  */
-async function sendHoldNotificationEmail(toEmail, orgName, customReason = null) {
+async function sendHoldNotificationEmail(toEmail, orgName, { organizationId = null, firstName = "", hub = null } = {}) {
+  const school = escapeHtml(orgName || "Your school");
+  const hubName = hub && hub.name ? escapeHtml(hub.name) : "your hub";
   const html = renderCleanEmail({
-    title: "Organization Account Placed on Hold",
-    greeting: `Dear <strong>${orgName} Admin</strong>,`,
-    paragraphs: [
-      customReason || "Your organization's subscription has ended, and your account has now been placed on hold.",
-      "Users will no longer be able to log in until the subscription is resumed.",
-      "To reactivate your account, log in and update your payment details.",
-    ],
+    organizationId,
+    title: "Your school's account is on hold",
+    greeting: String(firstName || "").trim() ? `Hi ${escapeHtml(String(firstName).trim())},` : "Hello,",
+    paragraphs: hub
+      ? [
+          `${school}'s Managira account is on hold because ${hubName}'s plan with Managira isn't active right now. Your school's data is safe, and managers can still sign in.`,
+          `${hubName === "your hub" ? "Your hub" : hubName} takes care of your plan, so please contact ${hub.email ? `them at ${escapeHtml(hub.email)}` : "them"} to turn the account back on.`,
+        ]
+      : [
+          `${school}'s Managira subscription has ended, so the account is now on hold. Your school's data is safe.`,
+          "To turn it back on, a manager can sign in and choose a plan in Settings › Billing & Plan. Until then, other staff, parents and students can't sign in.",
+        ],
+    ...(hub ? {} : { cta: { text: "Sign in to Managira", url: `${BASE_URL}/account/login` } }),
   });
 
   const mailOptions = {
-    from: process.env.ADMIN_NOTIFY_EMAIL_USER,
     to: toEmail,
-    subject: `Your Organization (${orgName}) Has Been Placed on Hold`,
+    subject: `${orgName || "Your school"}'s Managira account is on hold`.replace(/\s*[\r\n]+\s*/g, " "),
     html,
-    attachments: [
-      {
-        filename: "managira.png",
-        path: path.join(__dirname, "../public/images/managira.png"),
-        cid: "managira_logo",
-      },
-    ],
   };
 
   try {

@@ -352,10 +352,10 @@
     if (inv && !inv.disabled) {
       if (!(await confirmBox({ title: `Invite ${inv.dataset.inviteName}?`, text: 'They get an email to join your hub.', ok: 'Send invitation' }))) return;
       inv.disabled = true;
-      let json = await ajaxPost('/hub/organizations/invite-existing', { organizationId: inv.dataset.inviteId }).catch(() => ({ success: false }));
+      let json = await ajaxPost('/hub/organizations/invite-existing', { organizationId: inv.dataset.inviteId, email: inv.dataset.inviteEmail }).catch(() => ({ success: false }));
       if (!json.success && json.needsApproval && json.approval) {
         if (!(await confirmBox(json.approval))) { inv.disabled = false; return; }
-        json = await ajaxPost('/hub/organizations/invite-existing', { organizationId: inv.dataset.inviteId, approve_extra: '1' }).catch(() => ({ success: false }));
+        json = await ajaxPost('/hub/organizations/invite-existing', { organizationId: inv.dataset.inviteId, email: inv.dataset.inviteEmail, approve_extra: '1' }).catch(() => ({ success: false }));
       }
       if (!json.success) { inv.disabled = false; drawerFail(json.message || 'The invitation could not be sent.'); return; }
       closeDrawer();
@@ -368,21 +368,22 @@
     const results = input.closest('[data-step]').querySelector('[data-org-results]');
     clearTimeout(searchTimer);
     const q = input.value.trim();
-    if (q.length < 2) { results.innerHTML = '<div class="hub-empty"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Type at least 2 letters to search.</div>'; return; }
-    results.innerHTML = '<div class="hub-loading">Searching…</div>';
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(q)) { results.innerHTML = '<div class="hub-empty"><i class="fa-regular fa-envelope" aria-hidden="true"></i>Enter the school\u2019s full email address: the one it signs in to Managira with.</div>'; return; }
+    results.innerHTML = '<div class="hub-loading">Looking…</div>';
     searchTimer = setTimeout(async () => {
       try {
         const r = await fetch(`/hub/organizations/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-        const orgs = (await r.json()).organizations || [];
+        const body = await r.json();
+        const orgs = body.organizations || [];
         results.innerHTML = orgs.length
           ? orgs.map((o) => `<div class="hub-result">
-              <div><div class="hub-result__name">${esc(o.organization_name)}</div><div class="hub-result__meta">${esc(o.email || '')}${o.nickname ? ' · ' + esc(o.nickname) + '.managira.com' : ''}</div>
+              <div><div class="hub-result__name">${esc(o.organization_name)}</div>
               ${o.is_hub_member ? '<span class="hub-tag hub-tag--amber" style="margin-top:6px">Already in a hub</span>' : ''}</div>
-              <button type="button" class="hub-btn hub-btn--primary hub-btn--sm" data-invite-id="${esc(o.organization_id)}" data-invite-name="${esc(o.organization_name)}" ${o.is_hub_member ? 'disabled' : ''}>Invite</button>
+              <button type="button" class="hub-btn hub-btn--primary hub-btn--sm" data-invite-id="${esc(o.organization_id)}" data-invite-email="${esc(q)}" data-invite-name="${esc(o.organization_name)}" ${o.is_hub_member ? 'disabled' : ''}>Invite</button>
             </div>`).join('')
-          : '<div class="hub-empty"><i class="fa-regular fa-face-meh" aria-hidden="true"></i>No schools found. Try another name, or invite them as a new school.</div>';
+          : `<div class="hub-empty"><i class="fa-regular fa-face-meh" aria-hidden="true"></i>${esc(body.message || 'No school uses that email on Managira. Check it, or invite them as a new school.')}</div>`;
       } catch (_e) {
-        results.innerHTML = '<div class="hub-empty">Search didn’t work. Please try again.</div>';
+        results.innerHTML = '<div class="hub-empty">That didn’t work. Please try again.</div>';
       }
     }, 300);
   });

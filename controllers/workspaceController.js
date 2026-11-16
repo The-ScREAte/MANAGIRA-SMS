@@ -65,26 +65,53 @@ async function currentYearTerm(db, organizationId) {
   return r.rows[0] || { school_year_id: null, term_id: null };
 }
 
-async function staffByIds(db, ids) {
+// Staff of this school who can still sign in: someone removed from the school or put on
+// hold hears nothing more about its tasks.
+async function staffByIds(db, ids, organizationId) {
   if (!ids.length) return [];
-  const r = await db.query(`SELECT user_id, first_name, last_name, email FROM users WHERE user_id = ANY($1::int[])`, [ids]);
+  const r = await db.query(
+    `SELECT user_id, first_name, last_name, email FROM users
+      WHERE user_id = ANY($1::int[]) AND organization_id = $2 AND NOT COALESCE(on_hold, FALSE)`,
+    [ids, organizationId]
+  );
   return r.rows;
 }
 
-// Fire-and-forget email to staff; never blocks or fails the request.
-function emailStaff(people, { subject, title, context, paragraphs, details, ctaUrl, ctaText }) {
-  people.forEach((person) => {
-    if (!person.email) return;
-    const html = renderCleanEmail({
-      title,
-      greeting: `Hi ${escapeHtml(person.first_name || "there")},`,
-      paragraphs,
-      details: details || [],
-      cta: ctaUrl ? { url: ctaUrl, text: ctaText || "Open Managira" } : null,
-      noReply: true,
-    });
-    sendEmailSafely({ to: person.email, subject, html }, context || "Workspace").catch(() => {});
-  });
+// The school's name for these emails (read only when there is someone to email).
+async function schoolNameFor(db, organizationId) {
+  const r = await db.query(`SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId]).catch(() => ({ rows: [] }));
+  return (r.rows[0] && r.rows[0].organization_name) || "";
+}
+
+// Fire-and-forget email to staff; never blocks or fails the request. These are colleagues
+// writing to each other inside a school: the school's name is on them, and each person can
+// turn them off (tasks_and_invitations).
+function emailStaff(people, { db, organizationId, subject, title, context, paragraphs, details, ctaUrl, ctaText }) {
+  const list = (people || []).filter((person) => person && person.email);
+  if (!list.length) return;
+  (db && organizationId ? schoolNameFor(db, organizationId) : Promise.resolve(""))
+    .catch(() => "")
+    .then((schoolName) => {
+      list.forEach((person) => {
+        const html = renderCleanEmail({
+          title,
+          greeting: person.first_name ? `Hi ${escapeHtml(person.first_name)},` : "Hello,",
+          paragraphs,
+          details: details || [],
+          cta: ctaUrl ? { url: ctaUrl, text: ctaText || "Open Managira" } : null,
+          schoolName,
+          organizationId,
+        });
+        sendEmailSafely({
+          to: person.email,
+          subject: String(subject || "").replace(/\s+/g, " ").trim(),
+          html,
+          category: "tasks_and_invitations",
+          ...(organizationId ? { onBehalfOf: organizationId } : {}),
+        }, context || "Workspace").catch(() => {});
+      });
+    })
+    .catch((error) => console.error(`[${context || "Workspace"}] email:`, error.message));
 }
 
 // People who shared their calendar with this viewer.
@@ -140,7 +167,9 @@ async function setTags(db, { req, table, organizationId, eventId, event, tagIds,
     title: `${actor.name} added you to ${event.title}`, body: when, link, refId: eventId,
   })));
   emailStaff(added, {
-    subject: `${actor.name} added you to "${event.title}" · ${fmtDay(event.date)}`,
+    db,
+    organizationId,
+    subject: `${actor.name} added you to ${event.title}`,
     title: "You've been added to an event",
     context: "Calendar tag",
     paragraphs: [
@@ -910,10 +939,12 @@ module.exports = {
           title: `${actor.name} shared their calendar with you`, body: "Open the calendar to see it.", link,
         })));
         emailStaff(added, {
+          db,
+          organizationId,
           subject: `${actor.name} shared their calendar with you`,
           title: "A calendar was shared with you",
           context: "Calendar share",
-          paragraphs: [`${escapeHtml(actor.name)} shared their Managira calendar with you. You'll now see their personal events and tasks in your calendar.`],
+          paragraphs: [`${escapeHtml(actor.name)} shared their Managira calendar with you. Their personal events and tasks now show on your calendar.`],
           ctaUrl: baseUrl(req) + link,
           ctaText: "Open calendar",
         });
@@ -1046,12 +1077,13 @@ module.exports = {
         title: `${actor.name} assigned you: ${title}`, body: due ? `Due ${due}` : (details || "").slice(0, 140), link, refId: taskId,
       })));
       emailStaff(others, {
-        subject: `${actor.name} assigned you a task: ${title}`,
+        db,
+        organizationId,
+        subject: `New task from ${actor.name}: ${title}`,
         title: "You have a new task",
         context: "Task assigned",
         paragraphs: [
-          `${escapeHtml(actor.name)} assigned you a task:`,
-          `<strong>${escapeHtml(title)}</strong>`,
+          `${escapeHtml(actor.name)} assigned you a task: <strong>${escapeHtml(title)}</strong>`,
           ...(details && details !== title ? [escapeHtml(details).replace(/\n/g, "<br>")] : []),
         ],
         details: [
@@ -1099,8 +1131,10 @@ module.exports = {
           orgId: organizationId, recipientType: "staff", recipientId: task.created_by, type: "task_done",
           title: `${actor.name} completed: ${task.title}`, body: "", link, refId: taskId,
         }).catch(() => {});
-        emailStaff(await staffByIds(db, [task.created_by]), {
-          subject: `${actor.name} completed: ${task.title}`,
+        emailStaff(await staffByIds(db, [task.created_by], organizationId), {
+          db,
+          organizationId,
+          subject: `Task completed: ${task.title}`,
           title: "A task was completed",
           context: "Task done",
           paragraphs: [`${escapeHtml(actor.name)} marked <strong>${escapeHtml(task.title)}</strong> as done.`],
@@ -1159,8 +1193,10 @@ module.exports = {
         orgId: organizationId, recipientType: "staff", recipientId: userId, type: "task_reply",
         title: `${actor.name} replied on: ${task.title}`, body: body.slice(0, 140), link, refId: taskId,
       })));
-      emailStaff(await staffByIds(db, [...participants]), {
-        subject: `${actor.name} replied: ${task.title}`,
+      emailStaff(await staffByIds(db, [...participants], organizationId), {
+        db,
+        organizationId,
+        subject: `New reply from ${actor.name}: ${task.title}`,
         title: "New reply on a task",
         context: "Task reply",
         paragraphs: [

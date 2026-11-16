@@ -236,7 +236,8 @@ async function sendActivityReminders(db, { today = new Date() } = {}) {
       WHERE a.remind_families AND a.reminded_at IS NULL AND a.activity_date = $1::date`,
     [tomorrow]
   ).catch((error) => { if (error.code === TABLE_MISSING) return { rows: [] }; throw error; })).rows;
-  const { sendEmailInBackground, renderCleanEmail } = require("./emailHelper");
+  const { sendEmailInBackground, renderCleanEmail, escapeHtml } = require("./emailHelper");
+  const { activeStudentSql } = require("./activeStudents");
   const base = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "");
   let activitiesSent = 0;
   let emails = 0;
@@ -253,7 +254,7 @@ async function sendActivityReminders(db, { today = new Date() } = {}) {
     const [school, families] = await Promise.all([
       db.query("SELECT organization_name FROM organizations WHERE organization_id = $1", [a.organization_id]),
       db.query(
-        `SELECT DISTINCT ON (LOWER(x.email)) x.email, x.first_name, s.first_name AS child
+        `SELECT DISTINCT ON (LOWER(TRIM(x.email))) TRIM(x.email) AS email, x.first_name, s.first_name AS child
            FROM (
              SELECT gp.email, gp.first_name, gs.student_id FROM guardian_students gs
                JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $1
@@ -261,34 +262,44 @@ async function sendActivityReminders(db, { today = new Date() } = {}) {
              SELECT g.email, g.first_name, g.student_id FROM guardians g WHERE g.organization_id = $1
            ) x
            JOIN students s ON s.student_id = x.student_id AND s.organization_id = $1
-          WHERE COALESCE(TRIM(x.email), '') <> '' AND COALESCE(s.graduated, FALSE) = FALSE
+          WHERE COALESCE(TRIM(x.email), '') <> '' AND ${activeStudentSql("s")}
             AND ($3::int IS NOT NULL AND s.student_id = $3 OR $3::int IS NULL AND ($2::int IS NULL OR s.class_id = $2))
-          ORDER BY LOWER(x.email)`,
+          ORDER BY LOWER(TRIM(x.email))`,
         [a.organization_id, a.class_id, a.student_id]
       ),
     ]);
-    const schoolName = (school.rows[0] && school.rows[0].organization_name) || "Your school";
+    const schoolName = (school.rows[0] && school.rows[0].organization_name) || "";
     const day = new Date(`${a.day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
     const clock = (t) => (t ? new Date(`2000-01-01T${String(t).slice(0, 5)}:00Z`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }) : "");
     const time = a.start_time ? `${clock(a.start_time)}${a.end_time ? ` – ${clock(a.end_time)}` : ""}` : "All day";
+    const title = String(a.title || "").replace(/\s+/g, " ").trim() || "School activity";
+    const subject = title.length > 60 ? `Tomorrow: ${title.slice(0, 59).replace(/\s+\S*$/, "")}…` : `Tomorrow: ${title}`;
+    // What the school typed is escaped; each line of the details is a paragraph.
+    const detailLines = a.details ? String(a.details).split(/\n+/).map((line) => line.trim()).filter(Boolean).map(escapeHtml) : [];
     families.rows.forEach((family) => {
       emails += 1;
       sendEmailInBackground({
         sender: "reminders",
         to: family.email,
-        subject: `Tomorrow: ${a.title}`,
+        subject,
+        category: "activity_reminders",
+        onBehalfOf: a.organization_id,
         html: renderCleanEmail({
-          title: `Tomorrow: ${a.title}`,
-          greeting: `Hello${family.first_name ? ` ${family.first_name}` : ""},`,
+          title: `Tomorrow: ${title}`,
+          greeting: family.first_name ? `Hi ${escapeHtml(family.first_name)},` : "Hello,",
           paragraphs: [
-            `A reminder from ${schoolName}${family.child ? ` about ${family.child}` : ""}.`,
-            ...(a.details ? String(a.details).split(/\n+/) : []),
+            family.child
+              ? `A reminder for ${escapeHtml(family.child)}: <strong>${escapeHtml(title)}</strong> is tomorrow.`
+              : `A reminder: <strong>${escapeHtml(title)}</strong> is tomorrow.`,
+            ...detailLines,
           ],
           details: [
-            { label: "When", value: `${day}, ${time}` },
-            ...(a.location ? [{ label: "Where", value: a.location }] : []),
+            { label: "When", value: escapeHtml(`${day}, ${time}`) },
+            ...(a.location ? [{ label: "Where", value: escapeHtml(a.location) }] : []),
           ],
-          note: `See it on your calendar: ${base}/guardian/calendar?date=${a.day}`,
+          cta: { text: "View in calendar", url: `${base}/guardian/calendar?date=${a.day}` },
+          schoolName,
+          organizationId: a.organization_id,
         }),
       }, "Activity reminder");
     });

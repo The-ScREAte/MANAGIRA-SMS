@@ -6,10 +6,12 @@ const {
   escapeHtml,
 } = require("./emailHelper");
 
+const APP_URL = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "");
+const LOGIN_URL = `${APP_URL}/account/login`;
+
 // Staff open a parent conversation through one link: Mail Room users land in
 // its inbox, teachers in the class's Parent Messages (see /common/parent-messages/:id).
-const parentMessageUrl = (reportId) =>
-  `${String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "")}/common/parent-messages/${Number(reportId)}`;
+const parentMessageUrl = (reportId) => `${APP_URL}/common/parent-messages/${Number(reportId)}`;
 const {
   isUserEmailEnabled,
   isGuardianEmailEnabled,
@@ -18,6 +20,7 @@ const {
   filterEmailsByPreference,
 } = require("./emailPreferences");
 const { getOrganizationWebsiteInfo } = require("./schoolWebsiteAccess");
+const { activeStudentSql } = require("./activeStudents");
 
 const DEFAULT_POLICY = {
   timezone: "UTC",
@@ -44,6 +47,10 @@ function toNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
+
+// A figure the database may not have (an average with nothing graded is NULL): NaN when
+// missing, never 0, so an email never shows "0.0%" for "nothing yet".
+const figureOrNaN = (value) => (value === null || value === undefined || value === "" ? NaN : Number(value));
 
 function normalizeWeekday(value, fallback = GLOBAL_DIGEST_WEEKDAY) {
   const parsed = Number.parseInt(value, 10);
@@ -137,6 +144,90 @@ function scoreBand(score, goodThreshold) {
   if (s >= goodThreshold) return "Fair";
   if (s >= Math.max(45, goodThreshold - 15)) return "Needs Attention";
   return "Critical";
+}
+
+// ── Email wording ────────────────────────────────────────────────────────────────────────
+// A subject line: plain text on one line (never HTML), cut at a word near `max` characters.
+function subjectLine(text, max = 70) {
+  const line = String(text || "").replace(/\s+/g, " ").trim();
+  if (line.length <= max) return line;
+  return `${line.slice(0, max - 1).replace(/\s+\S*$/, "")}…`;
+}
+
+// "Hi Maria," when a first name is known, "Hello," otherwise. Names are typed by people: escaped.
+function greetingFor(firstName) {
+  const name = String(firstName || "").trim();
+  return name ? `Hi ${escapeHtml(name)},` : "Hello,";
+}
+
+const plural = (count, word, words = `${word}s`) => `${Number(count).toLocaleString("en-US")} ${Number(count) === 1 ? word : words}`;
+
+// "2026-11-16" as "November 16, 2026" (US style); `weekday` adds "Monday, ". Anything that isn't
+// a date is returned as it was.
+function formatDay(value, { weekday = false, year = true } = {}) {
+  const key = value instanceof Date && !Number.isNaN(value.getTime())
+    ? value.toISOString().slice(0, 10)
+    : String(value || "").trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return String(value || "").trim();
+  return new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", {
+    ...(weekday ? { weekday: "long" } : {}),
+    month: "long",
+    day: "numeric",
+    ...(year ? { year: "numeric" } : {}),
+    timeZone: "UTC",
+  });
+}
+
+// "the week of November 9", for the weekly emails.
+const weekOf = (weekStartKey) => `the week of ${formatDay(weekStartKey, { year: false })}`;
+
+// Text someone typed (an event's details, an announcement) as escaped paragraphs, line breaks kept.
+function textParagraphs(text) {
+  return String(text || "")
+    .split(/\r?\n\s*\r?\n/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => escapeHtml(part).replace(/\r?\n/g, "<br>"));
+}
+
+// A message someone wrote, quoted in the email (escaped, line breaks kept).
+function quoteHtml(text) {
+  const body = escapeHtml(String(text || "").trim()).replace(/\r?\n/g, "<br>");
+  return body
+    ? `<blockquote style="margin:0;padding:2px 0 2px 14px;border-left:3px solid #cbd5e1;">${body}</blockquote>`
+    : "";
+}
+
+// One child, class or school in the weekly emails: a small box that reads well on a phone, in
+// light or dark mode. `heading`, `aside` and `lines` are HTML (escape what people typed).
+function cardHtml(heading, aside, lines) {
+  const head = `<p class="t-strong" style="margin:0 0 6px;font-size:15px;line-height:1.4;font-weight:600;color:#0f172a;">${heading}${aside ? ` <span class="t-muted" style="font-weight:400;color:#64748b;">&middot; ${aside}</span>` : ""}</p>`;
+  const body = lines
+    .filter(Boolean)
+    .map((line) => (/^\s*<ul\b/i.test(line) ? line : `<p style="margin:0;font-size:14px;line-height:1.6;">${line}</p>`))
+    .join("");
+  return `<div class="bg-soft" style="margin:0 0 12px;padding:14px 16px;background:#f8fafc;border:1px solid #eef2f6;border-radius:10px;">${head}${body}</div>`;
+}
+
+const listHtml = (items) => `<ul style="margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.6;">${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+
+// A child's attendance this week: "present all 5 days" or "present 3 of 5 days, absent 2".
+// Attendance is taken once a day, so each mark is a day.
+function attendanceInWords({ marksCount, presentCount, absentCount, lateCount }) {
+  const parts = [presentCount === marksCount && marksCount > 1
+    ? `present all ${plural(marksCount, "day")}`
+    : `present ${presentCount} of ${plural(marksCount, "day")}`];
+  if (absentCount > 0) parts.push(`absent ${absentCount}`);
+  if (lateCount > 0) parts.push(`late ${lateCount}`);
+  return parts.join(", ");
+}
+
+// How a child's grades are going this term, from the school's own thresholds. Families get a
+// word, never a score, by email. Null until something has been graded and posted.
+function gradesInWords(avgScore, goodThreshold) {
+  if (!Number.isFinite(Number(avgScore))) return null;
+  const band = scoreBand(avgScore, goodThreshold);
+  return { Excellent: "excellent", Good: "good", Fair: "fair" }[band] || "needs some support";
 }
 
 async function ensureNotificationSchema(database = db) {
@@ -317,6 +408,10 @@ async function sendLoggedEmail(database, params) {
     payload,
     context,
     background,
+    category,
+    onBehalfOf,
+    // The caller already filtered its list by preference (filterEmailsByPreference).
+    optOutChecked,
   } = params;
 
   const dispatchId = await reserveDispatch(database, {
@@ -331,14 +426,26 @@ async function sendLoggedEmail(database, params) {
 
   if (!dispatchId) return false;
 
-  const failureNotification = buildFailureNotification(organizationId, {
+  // A hub's own address failing is nothing a member school's staff can fix: no bell for them.
+  const failureNotification = recipientKind === "hub" ? null : buildFailureNotification(organizationId, {
     title: 'Email delivery failed',
     body: `An email for ${recipientKind || 'a recipient'} could not be delivered to ${recipientEmail}.`,
   });
 
   // Weekly digests and the daily absence alert are reminders; a reply to a parent's message isn't.
+  // `category` is the kind of optional email (one-click unsubscribe); `onBehalfOf` the school it
+  // speaks for.
   const sender = /digest|absence|reminder/.test(String(eventType || "")) ? "reminders" : undefined;
-  const sendOptions = { to: recipientEmail, subject, html, failureNotification, ...(sender ? { sender } : {}) };
+  const sendOptions = {
+    to: recipientEmail,
+    subject,
+    html,
+    failureNotification,
+    ...(sender ? { sender } : {}),
+    ...(category ? { category } : {}),
+    ...(category && optOutChecked ? { optOutChecked: true } : {}),
+    ...(onBehalfOf ? { onBehalfOf } : {}),
+  };
 
   if (background) {
     sendEmailSafely(sendOptions, context || eventType)
@@ -429,64 +536,7 @@ async function getStudentAttendanceWeekly(database, organizationId, weekStartKey
   return out;
 }
 
-function describeStandingFromPercentile(percentileRank) {
-  const p = Number(percentileRank);
-  if (!Number.isFinite(p)) return "Assessment profile is still being built";
-  if (p <= 0.2) return "Top-performing group in class assessments";
-  if (p <= 0.5) return "Strong position in class assessments";
-  if (p <= 0.8) return "Steady progress in class assessments";
-  return "Building momentum in class assessments";
-}
 
-async function getStudentClassStandingMap(database, organizationId, termId, studentIds) {
-  if (!termId || !studentIds.length) return new Map();
-
-  const result = await database.query(
-    `WITH class_scores AS (
-       SELECT s.student_id,
-              s.class_id,
-              AVG(ar.total_percentage) AS avg_score
-       FROM students s
-       JOIN assessment_results ar
-         ON ar.student_id = s.student_id
-        AND ar.organization_id = $1
-       JOIN assessments a
-         ON a.assessment_id = ar.assessment_id
-       WHERE s.organization_id = $1
-         AND a.term_id = $2
-         AND ar.total_percentage IS NOT NULL
-         ${require("./assessmentApproval").flowOn(organizationId)
-           ? `AND NOT EXISTS (SELECT 1 FROM assessment_results w WHERE w.student_id = ar.student_id AND w.subject_id = ar.subject_id
-                                AND w.term_id = ar.term_id AND w.pending_since IS NOT NULL)`
-           : ""}
-       GROUP BY s.student_id, s.class_id
-     ),
-     ranked AS (
-       SELECT student_id,
-              class_id,
-              avg_score,
-              PERCENT_RANK() OVER (PARTITION BY class_id ORDER BY avg_score DESC) AS percentile_rank
-       FROM class_scores
-     )
-     SELECT student_id, class_id, percentile_rank
-     FROM ranked
-     WHERE student_id = ANY($3::int[])`,
-    [organizationId, termId, studentIds]
-  );
-
-  const out = new Map();
-  for (const row of result.rows) {
-    const studentId = Number(row.student_id);
-    const percentileRank = Number(row.percentile_rank);
-    out.set(studentId, {
-      classId: Number(row.class_id),
-      percentileRank,
-      standingLabel: describeStandingFromPercentile(percentileRank),
-    });
-  }
-
-  return out;
-}
 
 async function getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey) {
   try {
@@ -546,7 +596,9 @@ async function resolveGuardianLinks(database, organizationId) {
          AND g.email IS NOT NULL
          AND TRIM(g.email) <> ''
      ) src
-     WHERE src.student_id IS NOT NULL`,
+     JOIN students s ON s.student_id = src.student_id AND s.organization_id = $1
+     WHERE src.student_id IS NOT NULL
+       AND ${activeStudentSql("s")}`,
     [organizationId]
   );
 
@@ -557,7 +609,7 @@ async function resolveGuardianLinks(database, organizationId) {
     if (!guardianMap.has(email)) {
       guardianMap.set(email, {
         email,
-        firstName: row.first_name || "Parent",
+        firstName: String(row.first_name || "").trim(),
         lastName: row.last_name || "",
         studentIds: new Set(),
       });
@@ -585,59 +637,10 @@ async function getStudentBasics(database, organizationId, studentIds) {
       studentId: Number(row.student_id),
       firstName: row.first_name || "Student",
       lastName: row.last_name || "",
-      className: row.class_name || "Unassigned class",
+      className: row.class_name || "",
     });
   }
   return out;
-}
-
-function buildChildrenTableRows(children) {
-  if (!children.length) return "<p>No child records were found for this period.</p>";
-
-  const rows = children
-    .map((item) => {
-      return `<tr>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.name)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.attendanceSummary || "No attendance marks yet")}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.academicStanding || "Assessment profile is still being built")}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.weeklyFocus || "Steady routines support progress")}</td>
-      </tr>`;
-    })
-    .join("");
-
-  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
-    <thead>
-      <tr>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Child</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance Snapshot</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Academic Update</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-}
-
-function buildDigestHighlights(items) {
-  const lines = Array.isArray(items)
-    ? items.filter((item) => typeof item === "string" && item.trim() !== "")
-    : [];
-
-  if (!lines.length) return "";
-
-  return `<ul style="margin:8px 0 0;padding-left:18px;color:#1f2937;font-size:14px;line-height:1.6;">${lines
-    .map((line) => `<li>${escapeHtml(line)}</li>`)
-    .join("")}</ul>`;
-}
-
-function buildWeeklyDigestFooterNote() {
-  return `<div style="text-align:center;">
-    We will update you every step of the way.<br>
-    Follow <a href="https://www.linkedin.com/company/managira" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">Managira</a> for more updates. LinkedIn.<br>
-    <strong style="color:#b91c1c;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</strong>
-  </div>`;
 }
 
 async function sendParentAbsenceAlertsForOrganization(database, organizationId, options = {}) {
@@ -698,29 +701,27 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
     const enabledEmails = await filterEmailsByPreference(database, emails, 'parent_absence_alert');
     if (!enabledEmails.length) continue;
 
+    const studentName = `${info.firstName} ${info.lastName}`.trim();
+    const absences = toNumber(row.absent_count, 0);
+    const attendancePct = Number(row.attendance_pct);
+
     for (const email of enabledEmails) {
       const eventKey = `${weekStartKey}:${studentId}`;
       const html = renderCleanEmail({
-        title: `${organizationName} Attendance Alert`,
-        greeting: `Dear Parent/Guardian,`,
+        title: `Attendance update for ${studentName}`,
+        greeting: greetingFor(guardianMap.get(email)?.firstName),
         paragraphs: [
-          `<strong>${escapeHtml(`${info.firstName} ${info.lastName}`)}</strong> has been marked absent ${toNumber(row.absent_count, 0)} times this week.`,
-          `Please contact the school if there is any issue affecting your child's attendance and progress.`,
+          `<strong>${escapeHtml(studentName)}</strong> was marked absent on ${plural(absences, "day")} during ${weekOf(weekStartKey)}.`,
+          `If something is keeping ${escapeHtml(info.firstName)} from school, please let the school know.`,
         ],
         details: [
-          { label: "School", value: escapeHtml(organizationName) },
-          { label: "Student", value: escapeHtml(`${info.firstName} ${info.lastName}`) },
-          { label: "Class", value: escapeHtml(info.className) },
-          { label: "Week", value: `${weekStartKey} to ${weekEndKey}` },
-          { label: "Absences", value: String(toNumber(row.absent_count, 0)) },
-          {
-            label: "Attendance",
-            value: Number.isFinite(Number(row.attendance_pct))
-              ? `${Number(row.attendance_pct).toFixed(1)}%`
-              : "N/A",
-          },
+          ...(info.className ? [{ label: "Class", value: escapeHtml(info.className) }] : []),
+          ...(Number.isFinite(attendancePct) ? [{ label: "Attendance this week", value: `${attendancePct.toFixed(1)}%` }] : []),
         ],
-        note: "This message is from Managira on behalf of your school.",
+        schoolName: organizationName,
+        organizationId,
+        schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+        schoolWebsiteHost: websiteInfo.websiteHost || "",
       });
 
       const ok = await sendLoggedEmail(database, {
@@ -729,7 +730,9 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
         eventKey,
         recipientEmail: email,
         recipientKind: "guardian",
-        subject: `${organizationName}: Attendance alert for ${info.firstName} ${info.lastName}`,
+        subject: subjectLine(`${studentName} was absent ${plural(absences, "day")} this week`),
+        category: "parent_absence_alert",
+        onBehalfOf: organizationId,
         html,
         payload: {
           studentId,
@@ -781,104 +784,6 @@ async function markDigestRun(database, organizationId, digestType, weekStartKey)
   );
 }
 
-// After this many consecutive weeks with nothing to report, send one simple
-// well-wishes email instead of staying silent forever.
-const QUIET_CHECKIN_THRESHOLD_WEEKS = 4;
-
-// Bumps a recipient's consecutive quiet-week counter (once per distinct week)
-// and returns the resulting count. Runs at most once per week per recipient
-// because callers only reach this when the whole digest run - itself gated to
-// once per week - had nothing to send that recipient.
-async function bumpQuietStreak(database, organizationId, digestType, recipientEmail, weekStartKey) {
-  const email = normalizeEmail(recipientEmail);
-  const result = await database.query(
-    `INSERT INTO notification_quiet_streaks (organization_id, digest_type, recipient_email, quiet_weeks, last_week_start_date)
-     VALUES ($1, $2, $3, 1, $4::date)
-     ON CONFLICT (organization_id, digest_type, recipient_email) DO UPDATE
-     SET quiet_weeks = CASE
-           WHEN notification_quiet_streaks.last_week_start_date = $4::date
-             THEN notification_quiet_streaks.quiet_weeks
-           ELSE notification_quiet_streaks.quiet_weeks + 1
-         END,
-         last_week_start_date = $4::date,
-         updated_at = NOW()
-     RETURNING quiet_weeks`,
-    [organizationId, digestType, email, weekStartKey]
-  );
-  return toNumber(result.rows[0]?.quiet_weeks, 0);
-}
-
-async function resetQuietStreak(database, organizationId, digestType, recipientEmail, weekStartKey) {
-  const email = normalizeEmail(recipientEmail);
-  await database.query(
-    `INSERT INTO notification_quiet_streaks (organization_id, digest_type, recipient_email, quiet_weeks, last_week_start_date)
-     VALUES ($1, $2, $3, 0, $4::date)
-     ON CONFLICT (organization_id, digest_type, recipient_email) DO UPDATE
-     SET quiet_weeks = 0, last_week_start_date = $4::date, updated_at = NOW()`,
-    [organizationId, digestType, email, weekStartKey]
-  );
-}
-
-function buildQuietCheckInHtml({ organizationName, greetingName, audienceLine, websiteInfo }) {
-  return renderCleanEmail({
-    title: `${organizationName} - A Quick Hello from Managira`,
-    showTitle: false,
-    greeting: `Hello ${escapeHtml(greetingName)},`,
-    paragraphs: [
-      `It's been a quiet few weeks with no new activity to summarize, so there's no digest to send this time.`,
-      `We just wanted to check in and say hello - wishing you continued success in ${audienceLine}.`,
-      `We'll be back with your next update as soon as there's fresh activity to share.`,
-    ],
-    followManagira: false,
-    note: buildWeeklyDigestFooterNote(),
-    noReply: false,
-    schoolWebsiteUrl: websiteInfo?.websiteUrl || "",
-    schoolWebsiteHost: websiteInfo?.websiteHost || "",
-  });
-}
-
-// Checks whether a recipient has crossed the quiet-week threshold and, if so,
-// sends a one-off well-wishes email and resets the streak. Returns whether an
-// email was sent. Always bumps the streak first, so callers should invoke
-// this only along the "nothing to report" path for a given week.
-async function maybeSendQuietCheckIn(database, {
-  organizationId,
-  streakType,
-  checkinEventType,
-  eventKey,
-  recipientEmail,
-  recipientKind,
-  weekStartKey,
-  weekEndKey,
-  organizationName,
-  greetingName,
-  audienceLine,
-  websiteInfo,
-}) {
-  const quietWeeks = await bumpQuietStreak(database, organizationId, streakType, recipientEmail, weekStartKey);
-  if (quietWeeks < QUIET_CHECKIN_THRESHOLD_WEEKS) return { sent: false };
-
-  const html = buildQuietCheckInHtml({ organizationName, greetingName, audienceLine, websiteInfo });
-
-  const ok = await sendLoggedEmail(database, {
-    organizationId,
-    eventType: checkinEventType,
-    eventKey,
-    recipientEmail,
-    recipientKind,
-    subject: `${organizationName}: Just checking in`,
-    html,
-    payload: { weekStartKey, weekEndKey, quietWeeks },
-    context: "Quiet Week Check-in",
-  });
-
-  // Reset regardless of delivery outcome so the next check-in is another
-  // full quiet cycle away, rather than retrying every subsequent week.
-  await resetQuietStreak(database, organizationId, streakType, recipientEmail, weekStartKey);
-
-  return { sent: ok };
-}
-
 async function sendWeeklyParentDigestForOrganization(database, organizationId, options = {}) {
   await ensureNotificationSchema(database);
   const policy = await getPolicy(database, organizationId);
@@ -925,10 +830,9 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
   );
   const currentTermId = await getCurrentTermId(database, organizationId);
   const averageMap = await getStudentTermAverages(database, organizationId, currentTermId, studentIds);
-  const classStandingMap = await getStudentClassStandingMap(database, organizationId, currentTermId, studentIds);
-  const weeklySignals = await getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
   const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
+  const goodThreshold = toNumber(policy.good_score_threshold, 60);
 
   let sent = 0;
   for (const guardian of guardianMap.values()) {
@@ -937,44 +841,23 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       const basic = studentBasics.get(sid);
       if (!basic) continue;
       const attendance = attendanceMap.get(sid) || {};
-      const avgScore = averageMap.get(sid);
-      const standing = classStandingMap.get(sid);
       const marksCount = toNumber(attendance.marksCount, 0);
 
       // Only report children with real attendance activity this week; stale
       // data from prior weeks is never reused to pad out an empty digest.
       if (marksCount === 0) continue;
 
-      const absentCount = toNumber(attendance.absentCount, 0);
-      const presentCount = toNumber(attendance.presentCount, 0);
-      const lateCount = toNumber(attendance.lateCount, 0);
-
-      const attendanceSummary = Number.isFinite(Number(attendance.attendancePct))
-        ? `${Number(attendance.attendancePct).toFixed(1)}% this week (${presentCount} present, ${absentCount} absent${lateCount > 0 ? `, ${lateCount} late` : ""})`
-        : "Attendance marks recorded this week";
-
-      const academicStanding = standing?.standingLabel
-        || (Number.isFinite(Number(avgScore))
-          ? `${scoreBand(avgScore, toNumber(policy.good_score_threshold, 60))} assessment trend`
-          : "Assessment profile is still being built");
-
-      let weeklyFocus = "Attendance routines stayed active this week.";
-      if (standing && Number.isFinite(standing.percentileRank) && standing.percentileRank <= 0.2) {
-        weeklyFocus = "Recent classroom entries place your child in a top-performing group.";
-      } else if (weeklySignals.assessmentUpdates > 0) {
-        weeklyFocus = "Assessment updates were recorded this week without exposing exact scores.";
-      }
-
       children.push({
-        name: `${basic.firstName} ${basic.lastName}`,
+        firstName: basic.firstName,
+        name: `${basic.firstName} ${basic.lastName}`.trim(),
         className: basic.className,
-        marksCount,
-        absentCount,
-        attendancePct: Number(attendance.attendancePct),
-        avgScore: Number(avgScore),
-        attendanceSummary,
-        academicStanding,
-        weeklyFocus,
+        attendance: attendanceInWords({
+          marksCount,
+          presentCount: toNumber(attendance.presentCount, 0),
+          absentCount: toNumber(attendance.absentCount, 0),
+          lateCount: toNumber(attendance.lateCount, 0),
+        }),
+        grades: gradesInWords(averageMap.get(sid), goodThreshold),
       });
     }
 
@@ -982,65 +865,36 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     const guardianEnabled = await isEmailEnabledForRecipient(database, guardian.email, 'weekly_parent_digest');
     if (!guardianEnabled) continue;
 
-    // Nothing happened for this guardian's children this week - skip the
-    // digest itself, but track how long it's been quiet so we can still
-    // send a simple hello after a few weeks of silence.
-    if (!children.length) {
-      const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
-        organizationId,
-        streakType: "weekly_parent_digest",
-        checkinEventType: "weekly_parent_checkin",
-        eventKey: weekStartKey,
-        recipientEmail: guardian.email,
-        recipientKind: "guardian",
-        weekStartKey,
-        weekEndKey,
-        organizationName,
-        greetingName: `${guardian.firstName} ${guardian.lastName}`.trim(),
-        audienceLine: "everything you do to support your child's learning and growth",
-        websiteInfo,
-      });
-      if (checkinSent) sent += 1;
-      continue;
-    }
-
-    await resetQuietStreak(database, organizationId, "weekly_parent_digest", guardian.email, weekStartKey);
+    // Nothing happened for this guardian's children this week: no email at all.
+    if (!children.length) continue;
 
     children.sort((a, b) => a.name.localeCompare(b.name));
 
-    const digestHighlights = [];
-    if (weeklySignals.assessmentUpdates > 0) {
-      digestHighlights.push("Assessment activity was recorded this week and reflected in classroom progress insights.");
-    }
-    if (weeklySignals.communicationUpdates > 0) {
-      digestHighlights.push("School communication updates were shared this week.");
-    }
-    if (!digestHighlights.length) {
-      digestHighlights.push("No disruptive alerts this week. Continue your current home support routine.");
-    }
-
-    const highlightsHtml = `<ul style=\"margin:8px 0 0;padding-left:18px;color:#1f2937;font-size:14px;line-height:1.6;\">${digestHighlights
-      .map((line) => `<li>${escapeHtml(line)}</li>`)
-      .join("")}</ul>`;
+    // One short summary per child: attendance this week, and how grades are going this term.
+    const cards = children.map((child) => cardHtml(
+      escapeHtml(child.name),
+      child.className ? escapeHtml(child.className) : "",
+      [
+        `Attendance: ${escapeHtml(child.attendance)}`,
+        child.grades ? `Grades this term: ${escapeHtml(child.grades)}` : "",
+      ]
+    ));
+    const subjectNames = children.length === 1
+      ? children[0].name
+      : children.length === 2 ? `${children[0].firstName} and ${children[1].firstName}` : "your children";
 
     const html = renderCleanEmail({
-      title: `${organizationName} Weekly Parent Digest`,
-      greeting: `Hello ${escapeHtml(`${guardian.firstName} ${guardian.lastName}`.trim())},`,
+      title: children.length === 1 ? `${children[0].firstName}'s week` : "Your children's week",
+      greeting: greetingFor(guardian.firstName),
       paragraphs: [
-        `Here is your weekly summary for all linked children (${weekStartKey} to ${weekEndKey}).`,
-        highlightsHtml,
-        buildChildrenTableRows(children),
+        `Here's a summary of ${weekOf(weekStartKey)}.`,
+        cards.join(""),
       ],
-      details: [
-        { label: "School", value: escapeHtml(organizationName) },
-        { label: "Children in digest", value: String(children.length) },
-        { label: "Assessment updates this week", value: String(weeklySignals.assessmentUpdates) },
-        { label: "Messages/announcements this week", value: String(weeklySignals.communicationUpdates) },
-        { label: "Digest basis", value: "Current-week updates" },
-      ],
-      followManagira: false,
-      note: buildWeeklyDigestFooterNote(),
-      noReply: false,
+      preheader: children
+        .map((child) => `${child.firstName}: ${child.attendance}${child.grades ? `; grades this term: ${child.grades}` : ""}.`)
+        .join(" "),
+      schoolName: organizationName,
+      organizationId,
       schoolWebsiteUrl: websiteInfo.websiteUrl || "",
       schoolWebsiteHost: websiteInfo.websiteHost || "",
     });
@@ -1051,14 +905,14 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       eventKey: weekStartKey,
       recipientEmail: guardian.email,
       recipientKind: "guardian",
-      subject: `${organizationName} Parent Update`,
+      subject: subjectLine(`Weekly update for ${subjectNames}`),
+      category: "weekly_parent_digest",
+      onBehalfOf: organizationId,
       html,
       payload: {
         weekStartKey,
         weekEndKey,
         childrenCount: children.length,
-        assessmentUpdates: weeklySignals.assessmentUpdates,
-        communicationUpdates: weeklySignals.communicationUpdates,
       },
       context: "Weekly Parent Digest",
     });
@@ -1175,7 +1029,7 @@ async function getClassSubjectPerformance(database, organizationId, termId, clas
       className: row.class_name,
       subjectId: Number(row.subject_id),
       subjectName: row.subject_name,
-      avgScore: Number(row.avg_score),
+      avgScore: figureOrNaN(row.avg_score),
     }));
   }
 
@@ -1208,90 +1062,51 @@ async function getClassSubjectPerformance(database, organizationId, termId, clas
     className: row.class_name,
     subjectId: Number(row.subject_id),
     subjectName: row.subject_name,
-    avgScore: Number(row.avg_score),
+    avgScore: figureOrNaN(row.avg_score),
   }));
 }
 
-function buildTeachingUpdateRows(rows) {
-  if (!rows.length) {
-    return "<p>No subject-level updates were recorded this week.</p>";
+// A teacher's or supervisor's classes for the weekly email: each class once, with its attendance
+// this week and its subjects' averages this term. Rows are subject rows (classId, className,
+// subjectName, avgScore, band); `mainClassIds` are the classes the person is main teacher of.
+function classCards(rows, attendanceMap, mainClassIds = new Set()) {
+  const byClass = new Map();
+  for (const row of rows) {
+    if (!byClass.has(row.classId)) {
+      byClass.set(row.classId, {
+        className: row.className || "",
+        main: mainClassIds.has(row.classId),
+        attendance: attendanceMap.get(row.classId) || {},
+        subjects: [],
+      });
+    }
+    byClass.get(row.classId).subjects.push(row);
   }
-
-  const htmlRows = rows
-    .map((row) => {
-      const attendanceText = row.marksCount > 0 && Number.isFinite(row.attendancePct)
-        ? `${row.attendancePct.toFixed(1)}% (${row.presentCount} present, ${row.absentCount} absent${row.lateCount > 0 ? `, ${row.lateCount} late` : ""})`
-        : "No attendance marks this week";
-      const performanceText = Number.isFinite(row.avgScore)
-        ? `${row.avgScore.toFixed(1)}% average, ${row.band}`
-        : `${row.band}`;
-      const weeklyFocus = row.absentCount > 0
-        ? `${row.absentCount} absence${row.absentCount === 1 ? "" : "s"} recorded this week${row.lateCount > 0 ? `, plus ${row.lateCount} late mark${row.lateCount === 1 ? "" : "s"}` : ""}.`
-        : `Steady attendance this week${row.lateCount > 0 ? ` with ${row.lateCount} late mark${row.lateCount === 1 ? "" : "s"}` : ""}.`;
-
-      return `<tr>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.subjectName)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendanceText}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(performanceText)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(weeklyFocus)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
-    <thead>
-      <tr>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Subject</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance Snapshot</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Academic Update</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
-      </tr>
-    </thead>
-    <tbody>${htmlRows}</tbody>
-  </table>`;
+  return [...byClass.values()].sort((a, b) => a.className.localeCompare(b.className));
 }
 
-function buildClassSubjectFeedRows(rows) {
-  if (!rows.length) {
-    return "<p>No class-wide updates were recorded this week.</p>";
-  }
+function classCardHtml(card) {
+  const attendance = card.attendance;
+  const pct = Number(attendance.attendancePct);
+  const absences = toNumber(attendance.absentCount, 0);
+  const late = toNumber(attendance.lateCount, 0);
+  const extra = [absences ? plural(absences, "absence") : "no absences", late ? `${late} late` : ""].filter(Boolean).join(", ");
+  const attendanceText = Number.isFinite(pct) ? `${pct.toFixed(1)}% this week (${extra})` : "taken this week";
+  const subjects = card.subjects.map((subject) => `${escapeHtml(subject.subjectName)}: ${Number.isFinite(subject.avgScore)
+    ? `${subject.avgScore.toFixed(1)}% average (${escapeHtml(String(subject.band || "").toLowerCase())})`
+    : "no grades yet this term"}`);
+  return cardHtml(
+    escapeHtml(card.className),
+    card.main ? "main teacher" : "",
+    [`Attendance: ${attendanceText}`, subjects.length ? listHtml(subjects) : ""]
+  );
+}
 
-  const htmlRows = rows
-    .map((row) => {
-      const attendanceText = row.classMarksCount > 0 && Number.isFinite(row.classAttendancePct)
-        ? `${row.classAttendancePct.toFixed(1)}% (${row.classPresentCount} present, ${row.classAbsentCount} absent${row.classLateCount > 0 ? `, ${row.classLateCount} late` : ""})`
-        : "No attendance marks this week";
-      const performanceText = Number.isFinite(row.avgScore)
-        ? `${row.avgScore.toFixed(1)}% average, ${row.band}`
-        : `${row.band}`;
-      const weeklyFocus = row.classAbsentCount > 0
-        ? `${row.classAbsentCount} absence${row.classAbsentCount === 1 ? "" : "s"} recorded across the class this week${row.classLateCount > 0 ? `, plus ${row.classLateCount} late mark${row.classLateCount === 1 ? "" : "s"}` : ""}.`
-        : `Steady class attendance this week${row.classLateCount > 0 ? ` with ${row.classLateCount} late mark${row.classLateCount === 1 ? "" : "s"}` : ""}.`;
-
-      return `<tr>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.subjectName)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendanceText}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(performanceText)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(weeklyFocus)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
-    <thead>
-      <tr>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Subject</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance Snapshot</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Academic Update</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
-      </tr>
-    </thead>
-    <tbody>${htmlRows}</tbody>
-  </table>`;
+// "Weekly summary for Grade 5 A and Grade 6 B", or "for your 4 classes".
+function classesSubject(cards) {
+  const names = cards.map((card) => card.className).filter(Boolean);
+  const what = names.length && names.length <= 2 ? names.join(" and ") : `your ${plural(cards.length, "class", "classes")}`;
+  return subjectLine(`Weekly summary for ${what}`);
 }
 
 async function sendWeeklyTeacherDigestForOrganization(database, organizationId, options = {}) {
@@ -1415,82 +1230,26 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
       })
       .filter((row) => row.classMarksCount > 0);
 
-    if (!teachingRows.length && !mainClassRows.length) {
-      const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
-        organizationId,
-        streakType: "weekly_teacher_digest",
-        checkinEventType: "weekly_teacher_checkin",
-        eventKey: weekStartKey,
-        recipientEmail: teacher.email,
-        recipientKind: "teacher",
-        weekStartKey,
-        weekEndKey,
-        organizationName,
-        greetingName: `${teacher.first_name || ""} ${teacher.last_name || ""}`.trim() || "Teacher",
-        audienceLine: "all your work in the classroom and everything you do for your students",
-        websiteInfo,
-      });
-      if (checkinSent) sent += 1;
-      continue;
-    }
+    // Nothing to report for this teacher this week: no email at all.
+    if (!teachingRows.length && !mainClassRows.length) continue;
 
-    await resetQuietStreak(database, organizationId, "weekly_teacher_digest", teacher.email, weekStartKey);
-
-    const mainClassesWithUpdates = new Set(mainClassRows.map((row) => row.classId)).size;
-    const teacherHighlights = [];
-
-    if (teachingRows.length) {
-      teacherHighlights.push(`${teachingRows.length} subject update${teachingRows.length === 1 ? "" : "s"} were recorded across your classes this week.`);
-    }
-    if (mainClassRows.length) {
-      teacherHighlights.push(`${mainClassesWithUpdates} main class${mainClassesWithUpdates === 1 ? "" : "es"} had class-wide updates ready for review.`);
-    }
-
-    const highestAbsenceRow = [...teachingRows, ...mainClassRows]
-      .sort((a, b) => {
-        const aAbsences = toNumber(a.absentCount, toNumber(a.classAbsentCount, 0));
-        const bAbsences = toNumber(b.absentCount, toNumber(b.classAbsentCount, 0));
-        return bAbsences - aAbsences;
-      })[0];
-
-    if (highestAbsenceRow) {
-      const absenceCount = toNumber(highestAbsenceRow.absentCount, toNumber(highestAbsenceRow.classAbsentCount, 0));
-      if (absenceCount > 0) {
-        teacherHighlights.push(`${highestAbsenceRow.className} ${highestAbsenceRow.subjectName ? `(${highestAbsenceRow.subjectName}) ` : ""}recorded ${absenceCount} absence${absenceCount === 1 ? "" : "s"} and may need a follow-up.`);
-      }
-    }
-
-    if (!teacherHighlights.length) {
-      teacherHighlights.push("Steady classroom activity was recorded this week.");
-    }
-
-    const paragraphs = [
-      `Here is your weekly teaching summary (${weekStartKey} to ${weekEndKey}).`,
-      buildDigestHighlights(teacherHighlights),
-    ];
-
-    if (teachingRows.length) {
-      paragraphs.push(`<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">Your subject updates</h3>${buildTeachingUpdateRows(teachingRows)}`);
-    }
-
-    if (mainClassRows.length) {
-      paragraphs.push(`<h3 style="margin:20px 0 6px;font-size:15px;color:#0f172a;">Main teacher class feed</h3>${buildClassSubjectFeedRows(mainClassRows)}`);
-    }
+    // Each class once: a main teacher's classes list every subject, others the subjects they teach.
+    const cards = classCards(
+      [...mainClassRows, ...teachingRows.filter((row) => !mainClassIds.has(row.classId))],
+      classAttendanceMap,
+      mainClassIds
+    );
 
     const html = renderCleanEmail({
-      title: `${organizationName} Weekly Teacher Digest`,
-      showTitle: false,
-      greeting: `Hello ${escapeHtml(`${teacher.first_name || ""} ${teacher.last_name || ""}`.trim() || "Teacher")},`,
-      paragraphs,
-      details: [
-        { label: "School", value: escapeHtml(organizationName) },
-        { label: "Assigned classes", value: String(classIds.length) },
-        { label: "Subject updates this week", value: String(teachingRows.length) },
-        { label: "Main classes with updates", value: String(mainClassesWithUpdates) },
+      title: "Your classes this week",
+      greeting: greetingFor(teacher.first_name),
+      paragraphs: [
+        `Here's a summary of ${weekOf(weekStartKey)}.`,
+        cards.map(classCardHtml).join(""),
       ],
-      followManagira: false,
-      note: buildWeeklyDigestFooterNote(),
-      noReply: false,
+      cta: { text: "Open Managira", url: LOGIN_URL },
+      schoolName: organizationName,
+      organizationId,
       schoolWebsiteUrl: websiteInfo.websiteUrl || "",
       schoolWebsiteHost: websiteInfo.websiteHost || "",
     });
@@ -1501,7 +1260,9 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
       eventKey: `${weekStartKey}:${teacher.user_id}`,
       recipientEmail: teacher.email,
       recipientKind: "teacher",
-      subject: `${organizationName} Teachers Update`,
+      subject: classesSubject(cards),
+      category: "weekly_teacher_digest",
+      onBehalfOf: organizationId,
       html,
       payload: {
         weekStartKey,
@@ -1521,57 +1282,17 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
   return { sent };
 }
 
-function buildRiskRows(risks) {
-  if (!risks.length) return "<p>No underperforming students were identified this week.</p>";
-
-  const rows = risks
-    .map((risk) => {
-      const attendance = Number.isFinite(risk.attendancePct)
-        ? `${risk.attendancePct.toFixed(1)}%`
-        : "N/A";
-      const avgScore = Number.isFinite(risk.avgScore)
-        ? `${risk.avgScore.toFixed(1)}%`
-        : "N/A";
-      const focus = `${risk.reason}. Attendance: ${attendance}. Score: ${avgScore}.`;
-      return `<tr>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(risk.studentName)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(risk.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(focus)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
-    <thead>
-      <tr>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Student</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-}
-
-function buildSchoolSummaryRows(metrics) {
-  if (!metrics.length) return "<p>No school-level metrics were available for this week.</p>";
-
-  const rows = metrics
-    .map((metric) => `<tr>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(metric.label)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${metric.value}</td>
-      </tr>`)
-    .join("");
-
-  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
-    <thead>
-      <tr>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Metric</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+// Students who may need attention, for the leadership summary: name, class and what put them on
+// the list (this week's attendance, the term average). `total` counts everyone on the list.
+function riskListHtml(risks, total) {
+  const items = risks.map((risk) => {
+    const facts = [];
+    if (Number.isFinite(risk.attendancePct)) facts.push(`attendance ${risk.attendancePct.toFixed(1)}% this week`);
+    if (Number.isFinite(risk.avgScore)) facts.push(`term average ${risk.avgScore.toFixed(1)}%`);
+    return `<strong>${escapeHtml(risk.studentName)}</strong>${risk.className ? `, ${escapeHtml(risk.className)}` : ""}: ${facts.join(", ")}`;
+  });
+  const more = total > risks.length ? `<p style="margin:6px 0 0;font-size:14px;">And ${plural(total - risks.length, "more student")} in Managira.</p>` : "";
+  return `<p class="t-strong" style="margin:0 0 4px;font-size:15px;font-weight:600;color:#0f172a;">Students who may need attention</p>${listHtml(items)}${more}`;
 }
 
 async function sendWeeklyManagerDigestForOrganization(database, organizationId, options = {}) {
@@ -1617,11 +1338,13 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
     return { sent: 0 };
   }
 
+  // Current students only: those who graduated or left are no one's follow-up.
   const studentsResult = await database.query(
     `SELECT s.student_id, s.first_name, s.last_name, c.class_name
      FROM students s
      LEFT JOIN classes c ON c.class_id = s.class_id
-     WHERE s.organization_id = $1`,
+     WHERE s.organization_id = $1
+       AND ${activeStudentSql("s")}`,
     [organizationId]
   );
 
@@ -1659,10 +1382,9 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
   );
 
   const weeklyAttendanceMarks = toNumber(weeklyAttendanceRes.rows[0]?.marks_count, 0);
-  const weeklyPresentMarks = toNumber(weeklyAttendanceRes.rows[0]?.present_count, 0);
   const weeklyAbsentMarks = toNumber(weeklyAttendanceRes.rows[0]?.absent_count, 0);
   const weeklyClassesWithMarks = toNumber(weeklyAttendanceRes.rows[0]?.classes_with_marks, 0);
-  const weeklyAttendancePct = toNumber(weeklyAttendanceRes.rows[0]?.attendance_pct, NaN);
+  const weeklyAttendancePct = figureOrNaN(weeklyAttendanceRes.rows[0]?.attendance_pct);
   const totalClasses = Math.max(0, toNumber(totalClassesRes.rows[0]?.total_classes, 0));
   const weeklySignals = await getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey);
 
@@ -1680,21 +1402,11 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
     const scoreRisk = Number.isFinite(avgScore) && avgScore < scoreThreshold;
     if (!attendanceRisk && !scoreRisk) continue;
 
-    let reason = "";
-    if (attendanceRisk && scoreRisk) {
-      reason = `Attendance < ${attendanceThreshold}% and score < ${scoreThreshold}%`;
-    } else if (attendanceRisk) {
-      reason = `Attendance < ${attendanceThreshold}%`;
-    } else {
-      reason = `Score < ${scoreThreshold}%`;
-    }
-
     risks.push({
       studentName: `${row.first_name || "Student"} ${row.last_name || ""}`.trim(),
-      className: row.class_name || "Unassigned class",
+      className: row.class_name || "",
       attendancePct,
       avgScore: Number(avgScore),
-      reason,
     });
   }
 
@@ -1702,35 +1414,14 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
 
   // Only send when something actually happened this week. Risks derived from
   // term-wide averages can persist for weeks with no new activity, so they
-  // are not on their own a reason to send a digest. When the whole org was
-  // quiet, no individual recipient can have anything to report either, so
-  // just track quiet streaks / send check-ins and stop.
+  // are not on their own a reason to send a digest. A quiet week sends nothing.
   const hasWeeklyActivity =
     weeklyAttendanceMarks > 0
     || weeklySignals.assessmentUpdates > 0
     || weeklySignals.communicationUpdates > 0;
   if (!hasWeeklyActivity) {
-    let checkinSent = 0;
-    for (const recipient of recipientsResult.rows) {
-      if (!(await isUserEmailEnabled(database, recipient.user_id, 'weekly_manager_digest'))) continue;
-      const { sent: didSend } = await maybeSendQuietCheckIn(database, {
-        organizationId,
-        streakType: "weekly_manager_digest",
-        checkinEventType: "weekly_manager_checkin",
-        eventKey: `${weekStartKey}:${recipient.user_id}`,
-        recipientEmail: recipient.email,
-        recipientKind: String(recipient.account_type || "Manager"),
-        weekStartKey,
-        weekEndKey,
-        organizationName,
-        greetingName: `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() || recipient.account_type,
-        audienceLine: `all you do leading and supporting ${organizationName}`,
-        websiteInfo,
-      });
-      if (didSend) checkinSent += 1;
-    }
     await markDigestRun(database, organizationId, "weekly_manager_digest", weekStartKey);
-    return { sent: checkinSent, skipped: true };
+    return { sent: 0, skipped: true };
   }
 
   let sent = 0;
@@ -1740,7 +1431,6 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
 
     const normalizedRole = String(recipient.account_type || '').trim().toLowerCase();
     const isSupervisor = normalizedRole === 'supervisor' || normalizedRole === 'superviser';
-    const fullName = `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() || recipient.account_type;
 
     if (isSupervisor) {
       const classAssignments = await getUserClassAssignments(database, organizationId, recipient.user_id);
@@ -1812,82 +1502,26 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
         })
         .filter((row) => row.classMarksCount > 0);
 
-      if (!teachingRows.length && !classFeedRows.length) {
-        const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
-          organizationId,
-          streakType: "weekly_manager_digest",
-          checkinEventType: "weekly_manager_checkin",
-          eventKey: `${weekStartKey}:${recipient.user_id}`,
-          recipientEmail: recipient.email,
-          recipientKind: "Supervisor",
-          weekStartKey,
-          weekEndKey,
-          organizationName,
-          greetingName: fullName,
-          audienceLine: `all you do leading and supporting ${organizationName}`,
-          websiteInfo,
-        });
-        if (checkinSent) sent += 1;
-        continue;
-      }
+      // Nothing to report for this supervisor this week: no email at all.
+      if (!teachingRows.length && !classFeedRows.length) continue;
 
-      await resetQuietStreak(database, organizationId, "weekly_manager_digest", recipient.email, weekStartKey);
-
-      const classesWithFeedUpdates = new Set(classFeedRows.map((row) => row.classId)).size;
-      const supervisorHighlights = [];
-
-      if (teachingRows.length) {
-        supervisorHighlights.push(`${teachingRows.length} subject update${teachingRows.length === 1 ? "" : "s"} were captured in your teaching areas.`);
-      }
-      if (classFeedRows.length) {
-        supervisorHighlights.push(`${classesWithFeedUpdates} assigned class${classesWithFeedUpdates === 1 ? "" : "es"} had wider class-feed updates this week.`);
-      }
-
-      const supervisorPeakAbsence = [...teachingRows, ...classFeedRows]
-        .sort((a, b) => {
-          const aAbsences = toNumber(a.absentCount, toNumber(a.classAbsentCount, 0));
-          const bAbsences = toNumber(b.absentCount, toNumber(b.classAbsentCount, 0));
-          return bAbsences - aAbsences;
-        })[0];
-
-      if (supervisorPeakAbsence) {
-        const absenceCount = toNumber(supervisorPeakAbsence.absentCount, toNumber(supervisorPeakAbsence.classAbsentCount, 0));
-        if (absenceCount > 0) {
-          supervisorHighlights.push(`${supervisorPeakAbsence.className} ${supervisorPeakAbsence.subjectName ? `(${supervisorPeakAbsence.subjectName}) ` : ""}logged ${absenceCount} absence${absenceCount === 1 ? "" : "s"} and is worth checking.`);
-        }
-      }
-
-      if (!supervisorHighlights.length) {
-        supervisorHighlights.push("Fresh class updates were available across your assigned sections this week.");
-      }
-
-      const supervisorParagraphs = [
-        `Here is your weekly supervisor summary (${weekStartKey} to ${weekEndKey}).`,
-        buildDigestHighlights(supervisorHighlights),
-      ];
-
-      if (teachingRows.length) {
-        supervisorParagraphs.push(`<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">Your subject updates</h3>${buildTeachingUpdateRows(teachingRows)}`);
-      }
-
-      if (classFeedRows.length) {
-        supervisorParagraphs.push(`<h3 style="margin:20px 0 6px;font-size:15px;color:#0f172a;">Assigned class feed</h3>${buildClassSubjectFeedRows(classFeedRows)}`);
-      }
+      // Each class once, with every subject (a supervisor follows the whole class).
+      const feedClassIds = new Set(classFeedRows.map((row) => row.classId));
+      const cards = classCards(
+        [...classFeedRows, ...teachingRows.filter((row) => !feedClassIds.has(row.classId))],
+        classAttendanceMap
+      );
 
       const supervisorHtml = renderCleanEmail({
-        title: `${organizationName} Weekly Supervisor Digest`,
-        showTitle: false,
-        greeting: `Hello ${escapeHtml(fullName)},`,
-        paragraphs: supervisorParagraphs,
-        details: [
-          { label: "School", value: escapeHtml(organizationName) },
-          { label: "Assigned classes", value: String(classIds.length) },
-          { label: "Subject updates this week", value: String(teachingRows.length) },
-          { label: "Classes with feed updates", value: String(classesWithFeedUpdates) },
+        title: "Your classes this week",
+        greeting: greetingFor(recipient.first_name),
+        paragraphs: [
+          `Here's a summary of ${weekOf(weekStartKey)}.`,
+          cards.map(classCardHtml).join(""),
         ],
-        followManagira: false,
-        note: buildWeeklyDigestFooterNote(),
-        noReply: false,
+        cta: { text: "Open Managira", url: LOGIN_URL },
+        schoolName: organizationName,
+        organizationId,
         schoolWebsiteUrl: websiteInfo.websiteUrl || "",
         schoolWebsiteHost: websiteInfo.websiteHost || "",
       });
@@ -1898,7 +1532,9 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
         eventKey: `${weekStartKey}:${recipient.user_id}`,
         recipientEmail: recipient.email,
         recipientKind: "Supervisor",
-        subject: `${organizationName} School Update`,
+        subject: classesSubject(cards),
+        category: "weekly_manager_digest",
+        onBehalfOf: organizationId,
         html: supervisorHtml,
         payload: {
           weekStartKey,
@@ -1915,74 +1551,35 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
       continue;
     }
 
-    // Managers always get the org-wide snapshot when hasWeeklyActivity is true.
-    await resetQuietStreak(database, organizationId, "weekly_manager_digest", recipient.email, weekStartKey);
-
     const totalStudents = studentIds.length;
-    const studentsAtRiskPct = totalStudents > 0 ? (risks.length / totalStudents) * 100 : 0;
-    const classCoveragePct = totalClasses > 0 ? (weeklyClassesWithMarks / totalClasses) * 100 : 0;
     const scoredStudents = studentIds.reduce(
       (count, sid) => count + (Number.isFinite(Number(averageMap.get(sid))) ? 1 : 0),
       0
     );
-    const scoredCoveragePct = totalStudents > 0 ? (scoredStudents / totalStudents) * 100 : 0;
     const topRisks = risks.slice(0, 25);
+    const num = (n) => Number(n).toLocaleString("en-US");
 
-    const managerHighlights = [
-      `${weeklyAttendanceMarks} attendance mark${weeklyAttendanceMarks === 1 ? "" : "s"} were logged across ${weeklyClassesWithMarks} class${weeklyClassesWithMarks === 1 ? "" : "es"}.`,
-      Number.isFinite(weeklyAttendancePct)
-        ? `Overall attendance held at ${weeklyAttendancePct.toFixed(1)}% this week.`
-        : "Attendance rate could not be calculated from this week's entries.",
-      risks.length > 0
-        ? `${risks.length} student${risks.length === 1 ? "" : "s"} crossed the attention threshold and need follow-up.`
-        : "No students crossed the attention threshold this week.",
-    ];
-
-    const managerParagraphs = [
-      `Here is your weekly school summary (${weekStartKey} to ${weekEndKey}).`,
-      buildDigestHighlights(managerHighlights),
-      `<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">School snapshot</h3>${buildSchoolSummaryRows([
-        { label: "Attendance entered", value: `${weeklyAttendanceMarks} marks` },
-        {
-          label: "Attendance rate",
-          value: Number.isFinite(weeklyAttendancePct)
-            ? `${weeklyAttendancePct.toFixed(1)}% (${weeklyPresentMarks} present, ${weeklyAbsentMarks} absent)`
-            : "N/A",
-        },
-        {
-          label: "Class coverage",
-          value: `${weeklyClassesWithMarks}/${totalClasses} classes (${classCoveragePct.toFixed(1)}%)`,
-        },
-        {
-          label: "Students at risk",
-          value: `${risks.length}/${totalStudents} (${studentsAtRiskPct.toFixed(1)}%)`,
-        },
-        {
-          label: "Students with scored profile",
-          value: `${scoredStudents}/${totalStudents} (${scoredCoveragePct.toFixed(1)}%)`,
-        },
-      ])}`,
-    ];
-
-    if (topRisks.length) {
-      managerParagraphs.push(`<h3 style="margin:20px 0 6px;font-size:15px;color:#0f172a;">Students needing attention</h3>${buildRiskRows(topRisks)}`);
-    } else {
-      managerParagraphs.push("No at-risk students were identified this week.");
-    }
+    const snapshot = cardHtml("This week", "", [
+      `Attendance: ${Number.isFinite(weeklyAttendancePct)
+        ? `${weeklyAttendancePct.toFixed(1)}% (${plural(weeklyAbsentMarks, "absence")})`
+        : "not taken this week"}`,
+      `Classes that took attendance: ${num(weeklyClassesWithMarks)} of ${num(totalClasses)}`,
+      `Students with grades this term: ${num(scoredStudents)} of ${num(totalStudents)}`,
+      `Students who may need attention: ${num(risks.length)}`,
+    ]);
 
     const html = renderCleanEmail({
-      title: `${organizationName} Weekly Manager Digest`,
-      showTitle: false,
-      greeting: `Hello ${escapeHtml(fullName)},`,
-      paragraphs: managerParagraphs,
-      details: [
-        { label: "School", value: escapeHtml(organizationName) },
-        { label: "Attendance risk threshold", value: `${attendanceThreshold}%` },
-        { label: "Score risk threshold", value: `${scoreThreshold}%` },
+      title: "Your school this week",
+      greeting: greetingFor(recipient.first_name),
+      paragraphs: [
+        `Here's a summary of ${escapeHtml(organizationName)} for ${weekOf(weekStartKey)}.`,
+        snapshot,
+        ...(topRisks.length ? [riskListHtml(topRisks, risks.length)] : []),
       ],
-      followManagira: false,
-      note: buildWeeklyDigestFooterNote(),
-      noReply: false,
+      cta: { text: "Open Managira", url: LOGIN_URL },
+      note: `A student is listed when their attendance this week is under ${attendanceThreshold}% or their term average is under ${scoreThreshold}%.`,
+      schoolName: organizationName,
+      organizationId,
       schoolWebsiteUrl: websiteInfo.websiteUrl || "",
       schoolWebsiteHost: websiteInfo.websiteHost || "",
     });
@@ -1993,7 +1590,9 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
       eventKey: `${weekStartKey}:${recipient.user_id}`,
       recipientEmail: recipient.email,
       recipientKind: String(recipient.account_type || "Manager"),
-      subject: `${organizationName} School Update`,
+      subject: subjectLine(`Weekly summary for ${organizationName}`),
+      category: "weekly_manager_digest",
+      onBehalfOf: organizationId,
       html,
       payload: {
         weekStartKey,
@@ -2041,9 +1640,22 @@ async function runWeeklyDigestSweep(options = {}) {
     managerSent: 0,
   };
 
+  const { isOn } = require("./shards/features");
   for (const row of orgResult.rows) {
     const orgId = row.organization_id;
-    const parent = await sendWeeklyParentDigestForOrganization(db, orgId, options);
+    // A school with the weekly briefing (utils/weeklyBriefing.js) sends that to families and
+    // students, on its own day and time, instead of the weekly parent digest.
+    let parent = { sent: 0 };
+    if (isOn("weekly_briefing", { organizationId: orgId })) {
+      parent = await require("./weeklyBriefing")
+        .sendForOrganization(db, orgId, { now: options.referenceDate instanceof Date ? options.referenceDate : new Date(), force: Boolean(options.force) })
+        .catch((error) => {
+          console.error(`[Weekly briefing] organization ${orgId}:`, error.message);
+          return { sent: 0 };
+        });
+    } else {
+      parent = await sendWeeklyParentDigestForOrganization(db, orgId, options);
+    }
     const teacher = await sendWeeklyTeacherDigestForOrganization(db, orgId, options);
     const manager = await sendWeeklyManagerDigestForOrganization(db, orgId, options);
     summary.parentSent += toNumber(parent.sent, 0);
@@ -2058,42 +1670,15 @@ async function runWeeklyDigestSweep(options = {}) {
   return summary;
 }
 
-function buildHubOrgRows(orgSummaries) {
-  if (!orgSummaries.length) return "<p>No member school data available for this week.</p>";
-
-  const rows = orgSummaries
-    .map((org) => {
-      const attendance = Number.isFinite(org.attendancePct)
-        ? `${org.attendancePct.toFixed(1)}% attendance`
-        : "N/A";
-      const avgScore = Number.isFinite(org.avgScore)
-        ? `${org.avgScore.toFixed(1)}% average`
-        : "N/A";
-      const focus = org.riskCount > 0
-        ? `${org.riskCount} at-risk student${org.riskCount === 1 ? "" : "s"} flagged.`
-        : "No students flagged this week.";
-      return `<tr>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(org.orgName)}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${org.studentCount}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${attendance}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${avgScore}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(focus)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  return `<table style="width:100%;border-collapse:collapse;font-size:14px;">
-    <thead>
-      <tr>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">School</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Students</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Attendance Snapshot</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Academic Update</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">This Week</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+// One member school in the hub's weekly email.
+function schoolCardHtml(org) {
+  const num = (n) => Number(n).toLocaleString("en-US");
+  return cardHtml(escapeHtml(org.orgName), "", [
+    `${plural(org.studentCount, "student")} &middot; ${num(org.staffCount)} staff`,
+    `Attendance: ${Number.isFinite(org.attendancePct) ? `${org.attendancePct.toFixed(1)}% this week` : "not taken this week"}`,
+    Number.isFinite(org.avgScore) ? `Term average: ${org.avgScore.toFixed(1)}%` : "",
+    `Students who may need attention: ${num(org.riskCount)}`,
+  ]);
 }
 
 async function sendWeeklyHubDigest(database, options = {}) {
@@ -2119,7 +1704,6 @@ async function sendWeeklyHubDigest(database, options = {}) {
     // Owner + hub users who can see reports and kept the weekly overview on.
     const digestRecipients = await require("./hubAccess").getHubRecipients(database, hub.hub_id, 'weekly_hub_digest');
     if (!digestRecipients.length) continue;
-    const ownerGetsDigest = digestRecipients.some((r) => String(r.email).toLowerCase() === String(hub.hub_email).toLowerCase());
 
     // Get all member orgs for this hub
     const orgsResult = await database.query(
@@ -2163,7 +1747,7 @@ async function sendWeeklyHubDigest(database, options = {}) {
 
       // Student count
       const studentCountRes = await database.query(
-        `SELECT COUNT(*) AS cnt FROM students WHERE organization_id = $1`,
+        `SELECT COUNT(*) AS cnt FROM students s WHERE s.organization_id = $1 AND ${activeStudentSql("s")}`,
         [org.organization_id]
       );
       const studentCount = toNumber(studentCountRes.rows[0]?.cnt, 0);
@@ -2189,7 +1773,7 @@ async function sendWeeklyHubDigest(database, options = {}) {
         [org.organization_id, weekStartKey, weekEndKey]
       );
       const attendanceMarks = toNumber(attendanceRes.rows[0]?.marks_count, 0);
-      const attendancePct = toNumber(attendanceRes.rows[0]?.attendance_pct, NaN);
+      const attendancePct = figureOrNaN(attendanceRes.rows[0]?.attendance_pct);
 
       // Org-wide average score this term
       const termId = await getCurrentTermId(database, org.organization_id);
@@ -2204,7 +1788,7 @@ async function sendWeeklyHubDigest(database, options = {}) {
              AND ar.total_percentage IS NOT NULL`,
           [org.organization_id, termId]
         );
-        avgScore = toNumber(scoreRes.rows[0]?.avg_score, NaN);
+        avgScore = figureOrNaN(scoreRes.rows[0]?.avg_score);
       }
 
       // At-risk student count (attendance < threshold OR score < threshold)
@@ -2213,7 +1797,7 @@ async function sendWeeklyHubDigest(database, options = {}) {
       let riskCount = 0;
 
       const allStudentsRes = await database.query(
-        `SELECT student_id FROM students WHERE organization_id = $1`,
+        `SELECT s.student_id FROM students s WHERE s.organization_id = $1 AND ${activeStudentSql("s")}`,
         [org.organization_id]
       );
       const allStudentIds = allStudentsRes.rows.map((r) => Number(r.student_id));
@@ -2269,105 +1853,63 @@ async function sendWeeklyHubDigest(database, options = {}) {
       || orgSummary.assessmentUpdates > 0
       || orgSummary.communicationUpdates > 0
     );
+    // A quiet week across the hub sends nothing.
     if (!hasHubWeeklyActivity) {
-      if (!ownerGetsDigest) {
-        await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
-        continue;
-      }
-      const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
-        organizationId: digestRunOrganizationId,
-        streakType: hubDigestType,
-        checkinEventType: "weekly_hub_checkin",
-        eventKey: `${hub.hub_id}:${weekStartKey}`,
-        recipientEmail: hub.hub_email,
-        recipientKind: "hub",
-        weekStartKey,
-        weekEndKey,
-        organizationName: hub.hub_name || "Hub",
-        greetingName: `${hub.first_name || ""} ${hub.last_name || ""}`.trim() || hub.hub_name || "Hub",
-        audienceLine: "all you do supporting your member schools",
-        websiteInfo: {},
-      });
-      if (checkinSent) sent += 1;
       await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
       continue;
     }
 
-    await resetQuietStreak(database, digestRunOrganizationId, hubDigestType, hub.hub_email, weekStartKey);
-
     const totalStudents = orgSummaries.reduce((sum, o) => sum + o.studentCount, 0);
     const totalStaff = orgSummaries.reduce((sum, o) => sum + o.staffCount, 0);
     const totalRisk = orgSummaries.reduce((sum, o) => sum + o.riskCount, 0);
+    const hubName = hub.hub_name || "your hub";
 
-    const hubName = hub.hub_name || "Hub";
-    const fullName = `${hub.first_name || ""} ${hub.last_name || ""}`.trim() || hubName;
-
-    const highestRiskOrg = [...orgSummaries].sort((a, b) => b.riskCount - a.riskCount)[0];
-    const strongestAttendanceOrg = [...orgSummaries]
-      .filter((orgSummary) => Number.isFinite(orgSummary.attendancePct))
-      .sort((a, b) => b.attendancePct - a.attendancePct)[0];
-
-    const hubHighlights = [
-      `${orgSummaries.length} member school${orgSummaries.length === 1 ? "" : "s"} contributed data to this week's hub summary.`,
-      `${totalStudents} students and ${totalStaff} staff are represented across the hub.`,
-      totalRisk > 0
-        ? `${totalRisk} student${totalRisk === 1 ? "" : "s"} were flagged across member schools and may need local follow-up.`
-        : "No students were flagged across the hub this week.",
-    ];
-
-    if (strongestAttendanceOrg) {
-      hubHighlights.push(`${strongestAttendanceOrg.orgName} led attendance at ${strongestAttendanceOrg.attendancePct.toFixed(1)}% this week.`);
-    }
-    if (highestRiskOrg && highestRiskOrg.riskCount > 0) {
-      hubHighlights.push(`${highestRiskOrg.orgName} had the highest watch count with ${highestRiskOrg.riskCount} flagged student${highestRiskOrg.riskCount === 1 ? "" : "s"}.`);
-    }
+    const cards = [
+      cardHtml("All schools", "", [
+        `${plural(totalStudents, "student")} &middot; ${totalStaff.toLocaleString("en-US")} staff`,
+        `Students who may need attention: ${totalRisk.toLocaleString("en-US")}`,
+      ]),
+      ...orgSummaries.map(schoolCardHtml),
+    ].join("");
 
     let anySent = false;
     for (const recipient of digestRecipients) {
-    const isOwner = String(recipient.email).toLowerCase() === String(hub.hub_email).toLowerCase();
-    const html = renderCleanEmail({
-      title: `${hubName} Weekly Hub Digest`,
-      greeting: `Hello ${escapeHtml(isOwner ? fullName : (recipient.firstName || fullName))},`,
-      paragraphs: [
-        `Here is your weekly overview across all member schools (${weekStartKey} to ${weekEndKey}).`,
-        buildDigestHighlights(hubHighlights),
-        `<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">Member schools</h3>${buildHubOrgRows(orgSummaries)}`,
-      ],
-      details: [
-        { label: "Hub", value: escapeHtml(hubName) },
-        { label: "Member schools", value: String(orgSummaries.length) },
-        { label: "Total students", value: String(totalStudents) },
-        { label: "Total staff", value: String(totalStaff) },
-        { label: "At-risk students (across all schools)", value: String(totalRisk) },
-      ],
-      followManagira: false,
-      note: buildWeeklyDigestFooterNote(),
-      noReply: false,
-    });
-
-    const ok = await sendLoggedEmail(database, {
-      organizationId: digestRunOrganizationId,
-      eventType: "weekly_hub_digest",
-      eventKey: isOwner ? `${hub.hub_id}:${weekStartKey}` : `${hub.hub_id}:${weekStartKey}:${String(recipient.email).toLowerCase()}`,
-      recipientEmail: recipient.email,
-      recipientKind: "hub",
-      subject: `${hubName} Hub Update`,
-      html,
-      payload: {
-        weekStartKey,
-        weekEndKey,
+      const isOwner = String(recipient.email).toLowerCase() === String(hub.hub_email).toLowerCase();
+      const html = renderCleanEmail({
+        title: "Your schools this week",
+        greeting: greetingFor(isOwner ? hub.first_name : recipient.firstName),
+        paragraphs: [
+          `Here's a summary of ${escapeHtml(hubName)}'s ${plural(orgSummaries.length, "school")} for ${weekOf(weekStartKey)}.`,
+          cards,
+        ],
+        cta: { text: "Open your hub", url: `${APP_URL}/hub/dashboard` },
         hubId: hub.hub_id,
-        orgCount: orgSummaries.length,
-        totalStudents,
-        totalRisk,
-      },
-      context: "Weekly Hub Digest",
-    });
+      });
 
-    if (ok) {
-      sent += 1;
-      anySent = true;
-    }
+      const ok = await sendLoggedEmail(database, {
+        organizationId: digestRunOrganizationId,
+        eventType: "weekly_hub_digest",
+        eventKey: isOwner ? `${hub.hub_id}:${weekStartKey}` : `${hub.hub_id}:${weekStartKey}:${String(recipient.email).toLowerCase()}`,
+        recipientEmail: recipient.email,
+        recipientKind: "hub",
+        subject: subjectLine(`Weekly summary for ${hubName}`),
+        category: "weekly_hub_digest",
+        html,
+        payload: {
+          weekStartKey,
+          weekEndKey,
+          hubId: hub.hub_id,
+          orgCount: orgSummaries.length,
+          totalStudents,
+          totalRisk,
+        },
+        context: "Weekly Hub Digest",
+      });
+
+      if (ok) {
+        sent += 1;
+        anySent = true;
+      }
     }
     if (anySent) await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
   }
@@ -2409,14 +1951,17 @@ async function notifyStaffOnGuardianReportCreated(database, {
   if (!reportRes.rows.length) return { sent: 0 };
   const report = reportRes.rows[0];
 
+  // Staff on hold, or no longer at this school, aren't told (as in the fallback below).
   const recipientsRes = await database.query(
     `SELECT u.user_id, u.email, u.first_name, u.last_name, u.account_type
      FROM guardian_report_recipients grr
      JOIN users u ON u.user_id = grr.user_id
      WHERE grr.report_id = $1
+       AND u.organization_id = $2
+       AND COALESCE(u.on_hold, FALSE) = FALSE
        AND u.email IS NOT NULL
        AND TRIM(u.email) <> ''`,
-    [reportId]
+    [reportId, organizationId]
   );
 
   let recipientRows = recipientsRes.rows;
@@ -2449,22 +1994,24 @@ async function notifyStaffOnGuardianReportCreated(database, {
   if (!optedIn.length) return { sent: 0 };
 
   const { organizationName } = await getOrganizationSummary(database, organizationId);
+  const firstNames = new Map(recipientRows.map((row) => [normalizeEmail(row.email), row.first_name]));
+  const guardianName = `${report.guardian_first_name || ""} ${report.guardian_last_name || ""}`.trim();
+  const studentName = `${report.student_first_name || ""} ${report.student_last_name || ""}`.trim();
+  const topic = String(report.subject || "").trim();
   let sent = 0;
 
   for (const email of optedIn) {
-    const guardianDisplayName = escapeHtml(`${report.guardian_first_name || "Parent"} ${report.guardian_last_name || ""}`.trim());
     const html = renderCleanEmail({
-      title: `New message from ${guardianDisplayName}`,
-      greeting: "Hello,",
+      title: guardianName ? `New message from ${guardianName}` : "New message from a parent",
+      greeting: greetingFor(firstNames.get(normalizeEmail(email))),
       paragraphs: [
-        `${guardianDisplayName} sent a message about ${escapeHtml(`${report.student_first_name || "their child"} ${report.student_last_name || ""}`.trim())}. Reply in Managira so the whole conversation stays in one place.`,
-      ],
-      details: [
-        { label: "Subject", value: escapeHtml(report.subject || "Message") },
-        { label: "Message", value: escapeHtml(report.message || "") },
-      ],
+        `${guardianName ? escapeHtml(guardianName) : "A parent"} sent a message${studentName ? ` about ${escapeHtml(studentName)}` : ""}${topic ? `: “${escapeHtml(topic)}”` : "."}`,
+        quoteHtml(report.message),
+      ].filter(Boolean),
       cta: { url: parentMessageUrl(report.report_id), text: "Open conversation" },
-      note: "You receive this because you are in charge of this student or were copied on the message.",
+      note: "Please reply in Managira so the whole conversation stays in one place.",
+      schoolName: organizationName,
+      organizationId,
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -2473,7 +2020,9 @@ async function notifyStaffOnGuardianReportCreated(database, {
       eventKey: String(report.report_id),
       recipientEmail: email,
       recipientKind: "staff",
-      subject: `New message from ${`${report.guardian_first_name || "a parent"} ${report.guardian_last_name || ""}`.trim()}: ${report.subject || "Message"}`,
+      subject: subjectLine(`New message from ${guardianName || "a parent"}${topic ? `: ${topic}` : ""}`),
+      category: "guardian_report_created_staff",
+      onBehalfOf: organizationId,
       html,
       payload: { reportId: report.report_id },
       context: "Guardian Report Created",
@@ -2506,25 +2055,31 @@ async function notifyStaffOnGuardianReply(database, {
   }
 
   const reportRes = await database.query(
-    `SELECT report_id, subject, student_id FROM guardian_reports WHERE organization_id = $1 AND report_id = $2 LIMIT 1`,
+    `SELECT r.report_id, r.subject, r.student_id, g.first_name AS guardian_first_name, g.last_name AS guardian_last_name
+     FROM guardian_reports r
+     LEFT JOIN guardian_profiles g ON g.guardian_id = r.guardian_id
+     WHERE r.organization_id = $1 AND r.report_id = $2 LIMIT 1`,
     [organizationId, reportId]
   );
   if (!reportRes.rows.length) return { sent: 0 };
 
+  // Staff on hold, or no longer at this school, aren't told (as in the fallback below).
   const recipientsRes = await database.query(
-    `SELECT DISTINCT u.email
+    `SELECT DISTINCT u.email, u.first_name
      FROM guardian_report_recipients grr
      JOIN users u ON u.user_id = grr.user_id
      WHERE grr.report_id = $1
+       AND u.organization_id = $2
+       AND COALESCE(u.on_hold, FALSE) = FALSE
        AND u.email IS NOT NULL
        AND TRIM(u.email) <> ''`,
-    [reportId]
+    [reportId, organizationId]
   );
 
   let recipientRows = recipientsRes.rows;
   if (!recipientRows.length) {
     const fallbackRes = await database.query(
-      `SELECT DISTINCT u.email
+      `SELECT DISTINCT u.email, u.first_name
        FROM guardian_reports r
        JOIN students s ON s.student_id = r.student_id
        LEFT JOIN user_classes uc ON uc.class_id = s.class_id
@@ -2550,20 +2105,24 @@ async function notifyStaffOnGuardianReply(database, {
   if (!optedIn.length) return { sent: 0 };
 
   const { organizationName } = await getOrganizationSummary(database, organizationId);
+  const report = reportRes.rows[0];
+  const firstNames = new Map(recipientRows.map((row) => [normalizeEmail(row.email), row.first_name]));
+  const guardianName = `${report.guardian_first_name || ""} ${report.guardian_last_name || ""}`.trim();
+  const topic = String(report.subject || "").trim();
 
   let sent = 0;
   for (const email of optedIn) {
     const html = renderCleanEmail({
-      title: "A parent replied",
-      greeting: "Hello,",
+      title: guardianName ? `${guardianName} replied` : "A parent replied",
+      greeting: greetingFor(firstNames.get(normalizeEmail(email))),
       paragraphs: [
-        `There is a new reply in the conversation “${escapeHtml(reportRes.rows[0].subject || "Message")}”.`,
-      ],
-      details: [
-        { label: "Reply", value: escapeHtml(replyMessage || "") },
-      ],
+        `${guardianName ? escapeHtml(guardianName) : "A parent"} replied${topic ? ` to “${escapeHtml(topic)}”` : ""}:`,
+        quoteHtml(replyMessage),
+      ].filter(Boolean),
       cta: { url: parentMessageUrl(reportId), text: "Open conversation" },
-      note: "You receive this because you are part of this conversation.",
+      note: "Please reply in Managira so the whole conversation stays in one place.",
+      schoolName: organizationName,
+      organizationId,
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -2572,7 +2131,9 @@ async function notifyStaffOnGuardianReply(database, {
       eventKey: String(reportId),
       recipientEmail: email,
       recipientKind: "staff",
-      subject: `New reply: ${reportRes.rows[0].subject || "Message"}`,
+      subject: subjectLine(`New reply: ${topic || `message from ${guardianName || "a parent"}`}`),
+      category: "guardian_report_reply_staff",
+      onBehalfOf: organizationId,
       html,
       payload: { reportId },
       context: "Guardian Report Reply",
@@ -2620,10 +2181,12 @@ async function broadcastEventAnnouncement(database, params) {
   const includeStaff    = visibility === "org" || visibility === "both";
   const includeParents  = visibility === "public" || visibility === "both";
 
+  // First names for the greeting, by address.
+  const firstNames = new Map();
   let staffEmails = [];
   if (includeStaff) {
     const staffResult = await database.query(
-      `SELECT DISTINCT LOWER(TRIM(email)) AS email
+      `SELECT LOWER(TRIM(email)) AS email, first_name
        FROM users
        WHERE organization_id = $1
          AND COALESCE(on_hold, FALSE) = FALSE
@@ -2633,13 +2196,16 @@ async function broadcastEventAnnouncement(database, params) {
       [organizationId]
     );
     staffEmails = staffResult.rows.map((r) => r.email);
+    staffResult.rows.forEach((r) => { if (!firstNames.has(r.email)) firstNames.set(r.email, r.first_name); });
   }
 
   let guardianEmails = [];
   if (includeParents) {
     const guardianMap = await resolveGuardianLinks(database, organizationId);
     for (const guardian of guardianMap.values()) {
-      if (guardian.email) guardianEmails.push(guardian.email);
+      if (!guardian.email) continue;
+      guardianEmails.push(guardian.email);
+      if (!firstNames.has(guardian.email)) firstNames.set(guardian.email, guardian.firstName);
     }
   }
 
@@ -2649,52 +2215,50 @@ async function broadcastEventAnnouncement(database, params) {
   if (!optedIn.length) return { sent: 0, recipientCount: 0 };
 
   // --- Build email ---
+  // An event is named by its own name and date. An announcement has no title of its own: its
+  // first line is the subject, and the email is the announcement itself.
   const isEvent = contentType === "event";
-  const emailTitle = isEvent
-    ? `${organizationName}: New Event — ${title}`
-    : `${organizationName}: Announcement`;
-
-  const details = [{ label: "School", value: escapeHtml(organizationName) }];
-  if (isEvent) {
-    details.push({ label: "Event", value: escapeHtml(title || "") });
-    if (eventDate) details.push({ label: "Date", value: escapeHtml(eventDate) });
-  }
-  const audienceLabel = visibility === "org" ? "Internal staff"
-    : visibility === "public" ? "Parents / Guardians"
-    : "Everyone (staff & parents)";
-  details.push({ label: "Audience", value: audienceLabel });
-
-  const greetingText = visibility === "org" ? "Hello Team,"
-    : visibility === "public" ? "Dear Parent / Guardian,"
-    : "Hello,";
-
-  const html = renderCleanEmail({
-    title: isEvent
-      ? `${organizationName} Event Notification`
-      : `${organizationName} Announcement`,
-    greeting: greetingText,
-    paragraphs: [
-      isEvent
-        ? `A new event has been published: <strong>${escapeHtml(title || "")}</strong>.`
-        : `A new announcement has been posted by ${escapeHtml(organizationName)}.`,
-      escapeHtml(body || ""),
-    ],
-    details,
-    note: "This notification was sent by Managira on behalf of your school.",
-  });
+  const eventName = String(title || "").replace(/\s+/g, " ").trim();
+  const day = isEvent && eventDate ? formatDay(eventDate, { weekday: true }) : "";
+  const firstLine = String(body || title || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+  const subject = isEvent
+    ? subjectLine(day ? `${eventName || "New event"} on ${formatDay(eventDate, { weekday: true, year: false })}` : eventName || "New event")
+    : subjectLine(firstLine || `Announcement from ${organizationName}`);
+  const staffSet = new Set(staffEmails);
 
   // --- Send ---
   const eventKey = `${contentType}:${contentId || Date.now()}`;
   let sent = 0;
 
   for (const email of optedIn) {
+    const html = renderCleanEmail(isEvent
+      ? {
+          title: eventName || "New event",
+          greeting: greetingFor(firstNames.get(email)),
+          paragraphs: textParagraphs(body),
+          details: day ? [{ label: "Date", value: escapeHtml(day) }] : [],
+          schoolName: organizationName,
+          organizationId,
+        }
+      : {
+          title: subject,
+          showTitle: false,
+          greeting: greetingFor(firstNames.get(email)),
+          paragraphs: textParagraphs(body || title),
+          schoolName: organizationName,
+          organizationId,
+        });
+
     const ok = await sendLoggedEmail(database, {
       organizationId,
       eventType: `broadcast_${contentType}`,
       eventKey,
       recipientEmail: email,
-      recipientKind: staffEmails.includes(email) ? "staff" : "guardian",
-      subject: emailTitle,
+      recipientKind: staffSet.has(email) ? "staff" : "guardian",
+      subject,
+      category: "broadcast_event_or_announcement",
+      optOutChecked: true,
+      onBehalfOf: organizationId,
       html,
       payload: { contentType, contentId, visibility },
       context: `Broadcast ${contentType}`,
@@ -2717,9 +2281,10 @@ async function notifyGuardiansOnClassChange(database, { organizationId, studentI
   if (!oldClassName || !newClassName || oldClassName === newClassName) return;
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
-  // Gather guardian emails for this student
+  // The student's parents, once per address (a parent on both lists is emailed once), and only
+  // while the student is still at the school.
   const guardiansResult = await database.query(
-    `SELECT DISTINCT LOWER(TRIM(email)) AS email, first_name
+    `SELECT DISTINCT ON (LOWER(TRIM(src.email))) LOWER(TRIM(src.email)) AS email, src.first_name
      FROM (
        SELECT gp.email, gp.first_name
        FROM guardian_profiles gp
@@ -2731,7 +2296,9 @@ async function notifyGuardiansOnClassChange(database, { organizationId, studentI
        FROM guardians g
        WHERE g.student_id = $1 AND g.organization_id = $2
          AND g.email IS NOT NULL AND TRIM(g.email) <> ''
-     ) src`,
+     ) src
+     JOIN students s ON s.student_id = $1 AND s.organization_id = $2 AND ${activeStudentSql("s")}
+     ORDER BY LOWER(TRIM(src.email))`,
     [studentId, organizationId]
   );
 
@@ -2739,22 +2306,21 @@ async function notifyGuardiansOnClassChange(database, { organizationId, studentI
     if (!row.email) continue;
     if (!(await isEmailEnabledForRecipient(database, row.email, 'student_class_change'))) continue;
     const html = renderCleanEmail({
-      title: `${organizationName}: Class Change Notification`,
-      greeting: `Dear ${row.first_name || "Parent/Guardian"},`,
+      title: `New class for ${studentName}`,
+      greeting: greetingFor(row.first_name),
       paragraphs: [
-        `This is to inform you that <strong>${escapeHtml(studentName)}</strong> has been moved to a new class.`,
+        `<strong>${escapeHtml(studentName)}</strong> has moved from ${escapeHtml(oldClassName)} to <strong>${escapeHtml(newClassName)}</strong>.`,
+        "If you have any questions, please contact the school.",
       ],
-      details: [
-        { label: "Student", value: escapeHtml(studentName) },
-        { label: "Previous Class", value: escapeHtml(oldClassName) },
-        { label: "New Class", value: escapeHtml(newClassName) },
-      ],
-      note: "If you have questions, please contact the school directly.",
+      schoolName: organizationName,
+      organizationId,
     });
     sendEmailInBackground({
       to: row.email,
-      subject: `[${organizationName}] Class Change: ${studentName}`,
+      subject: subjectLine(`${studentName} has moved to ${newClassName}`),
       html,
+      category: "student_class_change",
+      onBehalfOf: organizationId,
       failureNotification: buildFailureNotification(organizationId, {
         title: 'Class change email failed',
         body: `The class change email for ${studentName} could not be delivered to ${row.email}.`,
@@ -2779,28 +2345,32 @@ async function notifyTeacherOnReassignment(database, { organizationId, userId, t
   if (!addedClasses.length && !removedClasses.length && !addedSubjects.length && !removedSubjects.length) return;
 
   const changes = [];
-  if (addedClasses.length) changes.push(`<strong>Classes added:</strong> ${addedClasses.map(escapeHtml).join(", ")}`);
-  if (removedClasses.length) changes.push(`<strong>Classes removed:</strong> ${removedClasses.map(escapeHtml).join(", ")}`);
-  if (addedSubjects.length) changes.push(`<strong>Subjects added:</strong> ${addedSubjects.map(escapeHtml).join(", ")}`);
-  if (removedSubjects.length) changes.push(`<strong>Subjects removed:</strong> ${removedSubjects.map(escapeHtml).join(", ")}`);
+  if (addedClasses.length) changes.push(`Classes added: ${addedClasses.map(escapeHtml).join(", ")}`);
+  if (removedClasses.length) changes.push(`Classes removed: ${removedClasses.map(escapeHtml).join(", ")}`);
+  if (addedSubjects.length) changes.push(`Subjects added: ${addedSubjects.map(escapeHtml).join(", ")}`);
+  if (removedSubjects.length) changes.push(`Subjects removed: ${removedSubjects.map(escapeHtml).join(", ")}`);
 
   const html = renderCleanEmail({
-    title: `${organizationName}: Assignment Update`,
-    greeting: `Hello ${escapeHtml(teacherName)},`,
+    title: "Your classes and subjects were updated",
+    greeting: greetingFor(teacherName),
     paragraphs: [
-      "Your class and/or subject assignments have been updated. Here is a summary of the changes:",
-      changes.join("<br/>"),
+      `Your teaching assignments at ${escapeHtml(organizationName)} have changed:`,
+      listHtml(changes),
     ],
     details: [
-      { label: "Current Classes", value: newClasses.length ? newClasses.map(escapeHtml).join(", ") : "None" },
-      { label: "Current Subjects", value: newSubjects.length ? newSubjects.map(escapeHtml).join(", ") : "None" },
+      { label: "Your classes", value: newClasses.length ? newClasses.map(escapeHtml).join(", ") : "None" },
+      { label: "Your subjects", value: newSubjects.length ? newSubjects.map(escapeHtml).join(", ") : "None" },
     ],
-    note: "If you have questions about these changes, please contact your administrator.",
+    note: "Questions about these changes? Please contact your school administrator.",
+    schoolName: organizationName,
+    organizationId,
   });
   sendEmailInBackground({
     to: teacherEmail,
-    subject: `[${organizationName}] Your Assignments Have Changed`,
+    subject: "Your classes and subjects were updated",
     html,
+    category: "teacher_reassignment",
+    onBehalfOf: organizationId,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Teacher reassignment email failed',
       body: `The reassignment email for ${teacherName || 'a teacher'} could not be delivered to ${teacherEmail}.`,
@@ -2826,15 +2396,15 @@ async function notifyTeachersOnAssessmentControl(database, { organizationId, gro
     `SELECT term_name FROM terms WHERE term_id = $1`,
     [termId]
   );
-  const termName = termResult.rows[0]?.term_name || "Current Term";
+  const termName = termResult.rows[0]?.term_name || "";
 
   const actionMessages = {
-    lock: { verb: "locked", detail: "Scoring is now closed. You can no longer enter or edit scores for this assessment." },
-    unlock: { verb: "unlocked", detail: "Scoring is now open. You can enter or update scores for this assessment." },
-    activate: { verb: "activated", detail: "This assessment is now active and visible." },
-    deactivate: { verb: "deactivated", detail: "This assessment has been deactivated and is no longer visible to staff." },
+    lock: { verb: "locked", detail: "Scores can no longer be entered or changed." },
+    unlock: { verb: "unlocked", detail: "You can enter and change scores again." },
+    activate: { verb: "activated", detail: "It is now visible to staff." },
+    deactivate: { verb: "deactivated", detail: "It is no longer visible to staff." },
   };
-  const msg = actionMessages[action] || { verb: action, detail: "" };
+  const msg = actionMessages[action] || { verb: String(action || "updated"), detail: "" };
 
   // Find teachers assigned to classes that have this assessment group
   const teachersResult = await database.query(
@@ -2853,23 +2423,20 @@ async function notifyTeachersOnAssessmentControl(database, { organizationId, gro
   for (const teacher of teachersResult.rows) {
     if (!(await isEmailEnabledForRecipient(database, teacher.email, 'assessment_control_teacher'))) continue;
     const html = renderCleanEmail({
-      title: `${organizationName}: Assessment ${msg.verb.charAt(0).toUpperCase() + msg.verb.slice(1)}`,
-      greeting: `Hello ${escapeHtml(teacher.first_name || "Teacher")},`,
+      title: `Assessment ${msg.verb}: ${groupName}`,
+      greeting: greetingFor(teacher.first_name),
       paragraphs: [
-        `The assessment <strong>${escapeHtml(groupName)}</strong> for <strong>${escapeHtml(termName)}</strong> has been <strong>${msg.verb}</strong>.`,
-        msg.detail,
+        `The assessment <strong>${escapeHtml(groupName)}</strong>${termName ? ` for ${escapeHtml(termName)}` : ""} was ${escapeHtml(msg.verb)}. ${msg.detail}`.trim(),
       ],
-      details: [
-        { label: "Assessment", value: escapeHtml(groupName) },
-        { label: "Term", value: escapeHtml(termName) },
-        { label: "Status", value: msg.verb.charAt(0).toUpperCase() + msg.verb.slice(1) },
-      ],
-      note: "Log in to your Managira dashboard for more details.",
+      schoolName: organizationName,
+      organizationId,
     });
     sendEmailInBackground({
       to: teacher.email,
-      subject: `[${organizationName}] Assessment ${msg.verb}: ${groupName}`,
+      subject: subjectLine(`Assessment ${msg.verb}: ${groupName}`),
       html,
+      category: "assessment_control_teacher",
+      onBehalfOf: organizationId,
       failureNotification: buildFailureNotification(organizationId, {
         title: 'Assessment update email failed',
         body: `The assessment ${msg.verb} email for ${groupName} could not be delivered to ${teacher.email}.`,
@@ -2917,29 +2484,26 @@ async function notifyEmployeeOnHoldChange(database, { organizationId, userId, on
   if (!(await isUserEmailEnabled(database, userId, 'account_hold_or_resume'))) return;
 
   const status = onHold ? "suspended" : "reactivated";
+  const heading = onHold ? "Your account is on hold" : "Your account is active again";
   const html = renderCleanEmail({
-    title: `${organizationName}: Account ${onHold ? "Suspended" : "Reactivated"}`,
-    greeting: `Hello ${escapeHtml(user.first_name || "Staff")},`,
+    title: heading,
+    greeting: greetingFor(user.first_name),
     paragraphs: onHold
       ? [
-          `Your account at <strong>${escapeHtml(organizationName)}</strong> has been placed on hold.`,
-          "While on hold, you will not be able to log in or access the system. If you believe this is an error, please contact your administrator.",
+          `Your Managira account at ${escapeHtml(organizationName)} has been put on hold, so you can't sign in for now.`,
+          "If you think this is a mistake, please contact your school administrator.",
         ]
-      : [
-          `Your account at <strong>${escapeHtml(organizationName)}</strong> has been reactivated.`,
-          "You can now log in and access the system as usual.",
-        ],
-    details: [
-      { label: "Account Status", value: onHold ? "On Hold" : "Active" },
-    ],
-    note: onHold
-      ? "Contact your school administrator if you need assistance."
-      : "Welcome back! Log in to your Managira dashboard to continue.",
+      : [`Your Managira account at ${escapeHtml(organizationName)} is active again. You can sign in as usual.`],
+    ...(onHold ? {} : { cta: { text: "Sign in", url: LOGIN_URL } }),
+    schoolName: organizationName,
+    organizationId,
   });
   sendEmailInBackground({
     to: user.email,
-    subject: `[${organizationName}] Account ${status}`,
+    subject: heading,
     html,
+    category: "account_hold_or_resume",
+    onBehalfOf: organizationId,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Account status email failed',
       body: `The account ${status} email for ${user.first_name || 'a staff member'} could not be delivered to ${user.email}.`,
@@ -2953,26 +2517,26 @@ async function notifyEmployeeOnHoldChange(database, { organizationId, userId, on
 async function notifyGuardianAdmissionReceived(database, { organizationId, guardianEmail, guardianFirstName, studentName }) {
   if (!guardianEmail) return;
   if (!(await isEmailEnabledForRecipient(database, guardianEmail, 'admission_application_received'))) return;
+  // The address was typed on a public form: at most a few confirmations a day reach it, and the
+  // email never repeats what was typed (no names), so the form can't be used to mail anyone else.
+  if (!require("./humanCheck").emailAllowance(guardianEmail)) return;
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
   const html = renderCleanEmail({
-    title: `${organizationName}: Application Received`,
-    greeting: `Dear ${escapeHtml(guardianFirstName || "Parent/Guardian")},`,
+    title: "Application received",
+    greeting: "Hello,",
     paragraphs: [
-      `Thank you for submitting an application for <strong>${escapeHtml(studentName)}</strong> to <strong>${escapeHtml(organizationName)}</strong>.`,
-      "Your application has been received and is now under review. The school will contact you once a decision has been made.",
+      `Thank you for applying to ${escapeHtml(organizationName)}. We received your application, and the school will review it and let you know its decision.`,
     ],
-    details: [
-      { label: "Student", value: escapeHtml(studentName) },
-      { label: "School", value: escapeHtml(organizationName) },
-      { label: "Status", value: "Under Review" },
-    ],
-    note: "You will receive another email when your application is approved or if additional information is needed.",
+    schoolName: organizationName,
+    organizationId,
   });
   sendEmailInBackground({
     to: guardianEmail,
-    subject: `[${organizationName}] Application Received for ${studentName}`,
+    subject: subjectLine(`Your application to ${organizationName} was received`),
     html,
+    category: "admission_application_received",
+    onBehalfOf: organizationId,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Admission confirmation email failed',
       body: `The admission confirmation email for ${studentName} could not be delivered to ${guardianEmail}.`,
@@ -2999,23 +2563,27 @@ async function notifyGuardianOnStaffReply(database, { organizationId, reportId, 
 
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
+  // The member of staff who replied ("Staff" is what the caller says when it has no name).
+  const named = String(staffName || "").trim();
+  const sender = named && !/^staff$/i.test(named) ? named : "";
+  const topic = String(reportSubject || "").trim();
   const html = renderCleanEmail({
-    title: `${organizationName}: New Reply on Your Report`,
-    greeting: `Dear ${escapeHtml(guardianFirstName || "Parent/Guardian")},`,
+    title: sender ? `New reply from ${sender}` : "New reply from the school",
+    greeting: greetingFor(guardianFirstName),
     paragraphs: [
-      `<strong>${escapeHtml(staffName)}</strong> has replied to your report${studentName ? ` regarding <strong>${escapeHtml(studentName)}</strong>` : ""}.`,
-      `<em>"${escapeHtml(replyMessage)}"</em>`,
-    ],
-    details: [
-      { label: "Report", value: escapeHtml(reportSubject || `Report #${reportId}`) },
-      { label: "Reply From", value: escapeHtml(staffName) },
-    ],
-    note: "Log in to your Parent Portal to view the full conversation and respond.",
+      `${sender ? `<strong>${escapeHtml(sender)}</strong>` : "The school"} replied to your message${topic ? ` “${escapeHtml(topic)}”` : ""}${studentName ? ` about ${escapeHtml(studentName)}` : ""}:`,
+      quoteHtml(replyMessage),
+    ].filter(Boolean),
+    cta: { text: "View conversation", url: `${APP_URL}/guardian/reports/${Number(reportId)}` },
+    schoolName: organizationName,
+    organizationId,
   });
   sendEmailInBackground({
     to: guardianEmail,
-    subject: `[${organizationName}] Reply on report: ${reportSubject || "Your Report"}`,
+    subject: subjectLine(topic ? `New reply: ${topic}` : `New reply from ${sender || "the school"}`),
     html,
+    category: "staff_reply_to_guardian",
+    onBehalfOf: organizationId,
     failureNotification: buildFailureNotification(organizationId, {
       title: 'Guardian reply email failed',
       body: `The report reply email${studentName ? ` for ${studentName}` : ''} could not be delivered to ${guardianEmail}.`,

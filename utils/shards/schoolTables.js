@@ -96,7 +96,7 @@ const PLATFORM = new Set([
   ...REFERENCE,
   // The control shard's own work.
   "admin_email_campaigns", "admin_users", "birthday_email_log", "documentation_article_feedback",
-  "email_suppression_list", "employment_applications", "help_messages", "help_responses", "help_threads",
+  "email_suppression_list", "email_opt_outs", "employment_applications", "help_messages", "help_responses", "help_threads",
   "internal_contacts", "internal_contact_note_contributors", "login_ad_receipts", "plan_region_prices_audit",
   // Sign-ins and one-time links: people sign in again on the new shard.
   "user_sessions", "hub_sessions", "password_reset_tokens",

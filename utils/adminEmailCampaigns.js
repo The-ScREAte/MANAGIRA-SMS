@@ -434,8 +434,10 @@ function formatDateOnly(date) {
   return `${year}-${month}-${day}`;
 }
 
+// Managira's own news to the people chosen (sent with category "managira_news", so each email
+// carries a working unsubscribe). The title is plain text: renderCleanEmail escapes it once.
 function buildCampaignEmailHtml(subject, content) {
-  const safeSubject = escapeHtml(String(subject || "").trim());
+  const title = String(subject || "").replace(/\s*[\r\n]+\s*/g, " ").trim();
   const paragraphs = String(content || "")
     .split(/\n{2,}/)
     .map((section) => section.trim())
@@ -443,7 +445,7 @@ function buildCampaignEmailHtml(subject, content) {
     .map((section) => linkifyContent(section).replace(/\n/g, "<br>"));
 
   return renderCleanEmail({
-    title: safeSubject,
+    title,
     paragraphs: paragraphs.length > 0 ? paragraphs : [linkifyContent(String(content || ""))],
   });
 }

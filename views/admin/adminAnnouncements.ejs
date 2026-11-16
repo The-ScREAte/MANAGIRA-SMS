@@ -1161,9 +1161,7 @@
           <label class="field-label" for="campaign-frequency">Schedule</label>
           <select id="campaign-frequency" class="automation-select">
             <option value="once">One time</option>
-            <option value="every_1_minute">Every 1 minute</option>
-            <option value="every_5_minutes">Every 5 minutes</option>
-            <option value="every_10_minutes">Every 10 minutes</option>
+            <%# No repeats every few minutes: the same people would get an email each time. %>
             <option value="daily">Daily</option>
             <option value="every_2_days">Every 2 days</option>
             <option value="weekly">Weekly</option>

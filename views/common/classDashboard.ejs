@@ -3441,6 +3441,17 @@ main {
   background: #080d1a;
 }
 
+#panel-frame-briefing {
+  padding: 0;
+}
+
+#panel-frame-briefing .workspace-frame-shell,
+#panel-frame-briefing .workspace-frame {
+  display: block;
+  min-height: calc(100vh - 238px);
+  background: transparent;
+}
+
 #panel-frame-attendance {
   padding: 0;
 }
@@ -3994,6 +4005,15 @@ main {
                 <% } %>
               </button>
             </li>
+
+            <% if (locals.featureOn && featureOn('weekly_briefing') && locals.workspaceAccess && workspaceAccess().management.briefing) { %>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="briefing" onclick="openWorkspaceTabByKey('briefing')">
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('mailroom') %></span>
+                <span class="nav-link-label">Weekly briefing</span>
+              </button>
+            </li>
+            <% } %>
 
             <li class="nav-section-label">Tools</li>
             <li>
@@ -4837,6 +4857,7 @@ main {
         assessmentQuestionsUrl: <%- JSON.stringify(`/common/allClassAssessmentExams?classId=${classId}&schoolYearId=${schoolYear.id}&termId=${currentTerm.term_id}&embed=workspace`) %>,
         docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&embed=workspace`) %>,
         paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace&classId=${classId}`) %>,
+        briefingUrl: <%- JSON.stringify(`/common/briefing/class/${classId}?embed=workspace`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
         canOpenAttendance: <%= _offerAttendance ? 'true' : 'false' %>,
@@ -5350,6 +5371,21 @@ main {
         };
       }
 
+      // The weekly briefing's choices for this class (routes/briefingRoute.js).
+      function getWorkspaceBriefingTab() {
+        return {
+          id: 'briefing',
+          title: 'Weekly briefing',
+          panelId: 'panel-frame-briefing',
+          routePath: workspaceContext.basePath + '/briefing',
+          sidebarKey: 'briefing',
+          type: 'iframe',
+          noFrameHeader: true,
+          iframeSrc: workspaceContext.briefingUrl,
+          panelDescription: 'What families and students in this class get in the weekly briefing.',
+        };
+      }
+
       function getWorkspacePaygiraTab() {
         return {
           id: 'paygira',
@@ -5414,6 +5450,7 @@ main {
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
         if (tabKey === 'paygira') return openWorkspaceTab(getWorkspacePaygiraTab(), options || {});
+        if (tabKey === 'briefing' && document.querySelector('[data-nav-key="briefing"]')) return openWorkspaceTab(getWorkspaceBriefingTab(), options || {});
         return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
       }
 
@@ -6170,6 +6207,7 @@ main {
         if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
         if (safeRoute.panel === 'paygira') return openWorkspaceTabByKey('paygira', safeOptions);
+        if (safeRoute.panel === 'briefing') return openWorkspaceTabByKey('briefing', safeOptions);
         if (safeRoute.panel === 'student' && safeRoute.itemId) return openStudentWorkspaceTab(safeRoute.itemId, safeOptions);
         if (safeRoute.panel === 'subject' && safeRoute.itemId) return openSubjectWorkspaceTab(safeRoute.itemId, safeOptions);
         if (safeRoute.panel === 'docs') return openWorkspaceTabByKey('docs', safeOptions);

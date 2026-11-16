@@ -874,6 +874,47 @@ async function portalForms(db, organizationId, student, audience, { day = null }
   }).filter(Boolean);
 }
 
+// The forms many students (or their families) still have to fill in, in one read: what
+// portalForms marks `todo`, for a whole school at once (the weekly briefing). One row per
+// section and student says whether it has an answer in today's, this week's, this term's or
+// this year's period, so no answer is read.
+async function toDoMany(db, organizationId, students, audience, { day = null } = {}) {
+  const out = new Map();
+  const people = (students || []).filter((student) => student && student.id && student.classId);
+  if (!people.length) return out;
+  const sections = (await liveFor(db, organizationId, audience)).filter((section) => section.filledBy === audience);
+  if (!sections.length) return out;
+  const period = { ...(await currentPeriod(db, organizationId)), day };
+  const today = dayOf(period);
+  const { rows } = await db.query(
+    `SELECT section_id, student_id,
+            BOOL_OR(entry_date = $4::date) AS today,
+            BOOL_OR(entry_date >= $5::date AND entry_date < $5::date + 7) AS this_week,
+            BOOL_OR(term_id = $6) AS this_term,
+            BOOL_OR(school_year_id = $7) AS this_year
+       FROM custom_section_entries
+      WHERE organization_id = $1 AND section_id = ANY($2::int[]) AND student_id = ANY($3::int[])
+      GROUP BY section_id, student_id`,
+    [organizationId, sections.map((section) => section.id), people.map((student) => student.id), today, weekStart(today), period.termId || 0, period.yearId || 0]
+  );
+  const answered = new Map(rows.map((row) => [`${row.section_id}:${row.student_id}`, row]));
+  const has = (section, row) => {
+    if (!row) return false;
+    if (section.repeat === "day") return row.today === true;
+    if (section.repeat === "week") return row.this_week === true;
+    if (section.repeat === "term") return row.this_term === true;
+    if (section.repeat === "year") return row.this_year === true;
+    return true;
+  };
+  for (const student of people) {
+    const list = sections
+      .filter((section) => inSection(section, student.classId) && !has(section, answered.get(`${section.id}:${student.id}`)))
+      .map((section) => ({ id: section.id, name: section.name, dueDate: section.dueDate, required: section.required }));
+    if (list.length) out.set(Number(student.id), list);
+  }
+  return out;
+}
+
 // ── What happens on its own ─────────────────────────────────────────────────────────────
 const addDays = (key, days) => {
   const d = new Date(`${key}T00:00:00Z`);
@@ -896,28 +937,40 @@ async function mainTeachersOf(db, organizationId, classId) {
 }
 
 // Emails leave one after another in the background, so a whole school's families never open
-// hundreds of mail connections at once or hold up the request.
-function emailPeople(people, { subject, title, paragraphs, ctaUrl, ctaText, reminder = false }) {
+// hundreds of mail connections at once or hold up the request. They speak for the school, and
+// a parent can turn them off (school_forms). `paragraphs` are plain text.
+function emailPeople(db, organizationId, people, { subject, title, paragraphs, ctaUrl, ctaText, reminder = false }) {
   const { sendEmailSafely, renderCleanEmail, escapeHtml } = require("./emailHelper");
   const list = people.filter((person) => person.email);
   (async () => {
     // Start after the request that asked has been answered.
     await new Promise((resolve) => setImmediate(resolve));
+    const school = await db.query("SELECT organization_name FROM organizations WHERE organization_id = $1", [organizationId]).catch(() => ({ rows: [] }));
+    const schoolName = school.rows[0] ? String(school.rows[0].organization_name || "") : "";
+    const line = String(subject || "").replace(/\s+/g, " ").trim();
+    const subjectLine = line.length > 70 ? `${line.slice(0, 69).replace(/\s+\S*$/, "")}…` : line;
     for (const person of list) {
       const lines = typeof paragraphs === "function" ? paragraphs(person) : paragraphs;
       const html = renderCleanEmail({
         title,
-        greeting: `Hi ${escapeHtml(person.first_name || "there")},`,
-        paragraphs: lines.map((line) => escapeHtml(line)),
-        details: [],
-        cta: ctaUrl ? { url: typeof ctaUrl === "function" ? ctaUrl(person) : ctaUrl, text: ctaText || "Open Managira" } : null,
-        noReply: true,
+        greeting: person.first_name ? `Hi ${escapeHtml(person.first_name)},` : "Hello,",
+        paragraphs: lines.map((text) => escapeHtml(text)),
+        cta: ctaUrl ? { url: typeof ctaUrl === "function" ? ctaUrl(person) : ctaUrl, text: ctaText || "Open the form" } : null,
+        schoolName,
+        organizationId,
       });
-      await sendEmailSafely({ to: person.email, subject, html, ...(reminder ? { sender: "reminders" } : {}) }, "Custom forms").catch(() => {});
+      await sendEmailSafely({
+        to: person.email,
+        subject: subjectLine,
+        html,
+        category: "school_forms",
+        onBehalfOf: organizationId,
+        ...(reminder ? { sender: "reminders" } : {}),
+      }, "Custom forms").catch(() => {});
       // Let the server answer everyone else between two emails, however fast the sender is.
       await new Promise((resolve) => setImmediate(resolve));
     }
-  })();
+  })().catch((error) => console.error("[Custom forms] email:", error.message));
 }
 
 // Opens where the person works on it: the classroom, the driver portal or the Custom editor.
@@ -1016,17 +1069,25 @@ async function tellFamilies(db, { organizationId, section, studentIds, title, bo
   if (email || via.email) {
     // One email per parent, about their first child on the list.
     const seen = new Set();
-    emailPeople(parents.filter((p) => p.email && !seen.has(p.guardian_id) && seen.add(p.guardian_id)), {
+    const due = section.dueDate ? ` by ${dueDay(section.dueDate)}` : "";
+    emailPeople(db, organizationId, parents.filter((p) => p.email && !seen.has(p.guardian_id) && seen.add(p.guardian_id)), {
       subject: title, title: section.name, reminder,
-      paragraphs: (p) => [bodyFor(p.child || "your child")],
+      paragraphs: (p) => [reminder
+        ? `A reminder to fill in ${section.name} for ${p.child || "your child"}${due}.`
+        : `Please fill in ${section.name} for ${p.child || "your child"}${due}.`],
       ctaUrl: siteUrl ? (p) => siteUrl + parentLink(p.student_id) : "",
-      ctaText: "Fill it in",
+      ctaText: "Fill in the form",
     });
   }
   return ids.length;
 }
 
 const dueWords = (section) => (section.dueDate ? ` by ${display({ type: "date" }, section.dueDate)}` : "");
+// A deadline in an email, US style: "November 20, 2026".
+function dueDay(value) {
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
 
 // A parent form went live: the families of its classes hear of it. (Students see theirs on
 // their portal and bell.)
@@ -1190,7 +1251,7 @@ module.exports = {
   ready, readySync, featureOn, staffReach, sectionsForStaff, inSection, liveFor, tilesFor, ownTile,
   listSections, getSection, saveSection, deleteSection, saveOrder, entryCounts, forget,
   currentPeriod, periodFor,
-  studentsFor, studentInfo, entriesFor, saveEntry, deleteEntry, portalForms,
+  studentsFor, studentInfo, entriesFor, saveEntry, deleteEntry, portalForms, toDoMany,
   afterSave, announce, runReminders, remindMissing, exportRows, reportCardSections, studentToDo, studentDashboard,
   quickFields, attendanceColumns, REPEATS, ANSWER_ICONS,
 };

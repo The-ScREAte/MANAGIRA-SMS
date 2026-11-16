@@ -1,7 +1,6 @@
 const { BoundedMap } = require("./boundedMap");
 const nodemailer = require("nodemailer");
 const dns = require("dns");
-const path = require("path");
 require("dotenv").config();
 
 // Lazy db reference so this module can still be required even if config/db
@@ -23,8 +22,14 @@ const {
   suppressEmail,
   isHardAddressFailure,
 } = require("./emailSuppression");
+const {
+  renderModernEmail,
+  htmlToPlainText,
+  unsubscribeLine,
+  UNSUBSCRIBE_SLOT,
+} = require("./emailLayout");
+const { unsubscribeUrl, SETTINGS_URL } = require("./emailLinks");
 
-const MANAGIRA_LOGO_PATH = path.join(__dirname, "../public/images/managira.png");
 
 // Public HTTPS URL for the logo — used as the PRIMARY <img src> so mail clients
 // that strip inline cid: attachments (Outlook web, some Yahoo flows, forwards,
@@ -50,26 +55,8 @@ const SENDER_ADDRESSES = {
 const senderAddress = (sender) => (SENDER_ADDRESSES[sender] && EMAIL_ADDRESS_PATTERN.test(SENDER_ADDRESSES[sender]) ? SENDER_ADDRESSES[sender] : null);
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
-// Strip HTML to a clean plain-text body. Gmail/Outlook flag HTML-only mail as
-// promotional more often than multipart/alternative mail.
-function htmlToPlainText(html) {
-  if (!html || typeof html !== "string") return "";
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<\/(p|div|h[1-6]|li|tr|br)>/gi, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
+// The plain-text part (htmlToPlainText, utils/emailLayout.js) goes with every email:
+// Gmail/Outlook flag HTML-only mail as promotional more often than multipart/alternative mail.
 
 // Cache verified domains to avoid repeated DNS lookups
 const _domainCache = new BoundedMap(2000);
@@ -491,7 +478,26 @@ async function _recordAndFanOutEmailFailure(db, orgId, email, reason, notificati
   }
 }
 
-function renderCleanEmail({
+// The new look (utils/emailLayout.js) goes where `email_refresh` is released; everyone else
+// gets the classic one below (delete it once the feature is released to everyone). Pass
+// `organizationId` (or `hubId`) for a school's or hub's email; Managira's own emails get the
+// new look only once it is released to everyone. EMAIL_LOOK=modern|classic forces one locally.
+function modernLook({ organizationId = null, hubId = null } = {}) {
+  const forced = String(process.env.EMAIL_LOOK || "").trim().toLowerCase();
+  if (forced === "modern") return true;
+  if (forced === "classic") return false;
+  try {
+    return require("./shards/features").isOn("email_refresh", { organizationId, hubId });
+  } catch (_) {
+    return false;
+  }
+}
+
+function renderCleanEmail(options = {}) {
+  return modernLook(options) ? renderModernEmail(options) : renderClassicEmail(options);
+}
+
+function renderClassicEmail({
   title,
   showTitle = true,
   greeting,
@@ -506,7 +512,9 @@ function renderCleanEmail({
   closing = "",
   actionUrl = "",
   actionText = "",
-  noReply = true,
+  noReply = false,
+  showLink = false,
+  signoff = "",
   followManagira = false,
   linkedinUrl = "https://www.linkedin.com/company/managira",
   year = new Date().getFullYear(),
@@ -550,7 +558,7 @@ function renderCleanEmail({
          <a href="${normalizedCta.url}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:8px;font-size:14px;font-weight:600;">${escapeHtml(
            normalizedCta.text
          )}</a>
-       </div>`
+       </div>${showLink ? `<p style="margin:0 0 12px;font-size:13px;color:#475569;">If the button doesn't work, copy this link into your browser:<br><a href="${normalizedCta.url}" style="color:#0f766e;word-break:break-all;">${escapeHtml(normalizedCta.url)}</a></p>` : ""}`
     : "";
 
   const followManagiraHtml = followManagira
@@ -583,8 +591,9 @@ function renderCleanEmail({
           ${ctaHtml}
           ${followManagiraHtml}
           ${note ? `<p style="margin:14px 0 0;font-size:13px;color:#475569;">${note}</p>` : ""}
+          ${signoff ? `<p style="margin:16px 0 0;font-size:15px;color:#1f2937;">${escapeHtml(signoff).replace(/\n/g, "<br>")}</p>` : ""}
           ${schoolWebsiteHtml}
-          ${noReply ? `<p style="margin:18px 0 0;font-size:12px;color:#b91c1c;font-weight:700;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</p>` : ""}
+          ${noReply ? `<p style="margin:18px 0 0;font-size:12px;color:#64748b;">This is an automated message from Managira.</p>` : ""}
         </div>
         <div style="border-top:1px solid #e5e7eb;background:#f8fafc;padding:12px 18px;text-align:center;font-size:12px;color:#64748b;">&copy; ${year} Managira. All rights reserved.</div>
       </div>
@@ -659,27 +668,76 @@ function getTransporter() {
   return _transporter;
 }
 
+// The school an email speaks for (`onBehalfOf`): its name goes in the From line ("Lincoln
+// High via Managira") and replies reach the school's own address. Read once a minute.
+const _schoolSenders = new BoundedMap(500);
+async function schoolSender(db, organizationId) {
+  const orgId = Number.parseInt(organizationId, 10);
+  if (!db || !Number.isInteger(orgId) || orgId <= 0 || !modernLook({ organizationId: orgId })) return null;
+  const cached = _schoolSenders.get(orgId);
+  if (cached && cached.at > Date.now() - 60000) return cached.value;
+  let value = null;
+  try {
+    const { rows } = await db.query(
+      "SELECT organization_name, email FROM organizations WHERE organization_id = $1",
+      [orgId]
+    );
+    if (rows[0]) {
+      const name = String(rows[0].organization_name || "").replace(/[\r\n"<>]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+      const email = String(rows[0].email || "").trim().toLowerCase();
+      value = { name, replyTo: EMAIL_ADDRESS_PATTERN.test(email) ? email : null };
+    }
+  } catch (_) {
+    value = null;
+  }
+  _schoolSenders.set(orgId, { at: Date.now(), value });
+  return value;
+}
+
+// An optional email's kind (a key from utils/emailPreferences.js), with its label.
+function emailCategory(key) {
+  if (!key) return null;
+  try {
+    return require("./emailPreferences").categoryOf(key);
+  } catch (_) {
+    return null;
+  }
+}
+
+// Who on this list turned this kind of email off. Every choice (an unsubscribe link or a
+// settings page) is kept in email_opt_outs, so this is one indexed read for the whole list.
+async function optedOutOf(db, recipients, category) {
+  if (!db || !category || !recipients.length) return new Set();
+  try {
+    const { rows } = await db.query(
+      "SELECT email FROM email_opt_outs WHERE category = $1 AND email = ANY($2::text[])",
+      [category.key, recipients]
+    );
+    return new Set(rows.map((row) => row.email));
+  } catch (_) {
+    return new Set(); // email_opt_outs not made yet
+  }
+}
+
 /**
  * Safely send email with proper error handling.
  * Always uses ADMIN_NOTIFY_EMAIL_USER as the from address (ignores caller's from).
+ *
+ * Each recipient gets a message of their own, so nobody sees anyone else's address.
+ * - `category`: an optional email's kind (a key in utils/emailPreferences.js). Anyone who
+ *   turned it off is skipped, and each message carries a one-click unsubscribe (header and
+ *   footer). Leave it out for security codes, passwords, receipts and account notices.
+ * - `onBehalfOf`: the school the email speaks for (its organization id): its name in the
+ *   From line and replies to its address, where the new email look is released.
+ * - `sender`: "reminders" or "reports" for those addresses; `senderName` overrides the name.
  */
 async function sendEmailSafely(mailOptions, context = "Email") {
   const sendStart = Date.now();
-  let attemptedRecipients = [];
   try {
     const { user, pass } = resolveSmtpConfig();
+    const outbox = process.env.EMAIL_TEST_OUTBOX && process.env.RENDER === undefined;
 
-    // The local test copy writes emails to a file instead of sending them. Never on the real site.
-    if (process.env.EMAIL_TEST_OUTBOX && process.env.RENDER === undefined) {
-      const fromAddress = senderAddress(mailOptions.sender) || user || "info@managira.com";
-      require("fs").appendFileSync(process.env.EMAIL_TEST_OUTBOX, JSON.stringify({
-        at: new Date().toISOString(), context, from: `"${mailOptions.senderName || MANAGIRA_FROM_NAME}" <${fromAddress}>`,
-        to: mailOptions.to, subject: mailOptions.subject, html: mailOptions.html, text: mailOptions.text || htmlToPlainText(mailOptions.html || ""),
-      }) + "\n");
-      return true;
-    }
-
-    if (!user || !pass) {
+    if (!outbox && (!user || !pass)) {
       console.warn(`[Email][${context}] SMTP credentials not configured — skipping.`);
       return false;
     }
@@ -689,7 +747,7 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     if (invalidRecipients.length > 0) {
       console.warn(`[Email][${context}] Invalid recipient address(es) "${formatRecipientList(invalidRecipients)}" — skipping those recipients.`);
-      if (db) {
+      if (db && !outbox) {
         for (const invalidRecipient of invalidRecipients) {
           suppressEmail(db, invalidRecipient, "invalid_format", "Malformed address").catch(() => {});
           await notifyEmailFailure(db, {
@@ -705,10 +763,18 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       return false;
     }
 
-    let deliverableRecipients = [...validRecipients];
+    // People who turned this kind of email off are skipped quietly. A caller that already
+    // filtered its whole list (filterEmailsByPreference) passes optOutChecked. A caller that
+    // must know (a send history) checks first; for everyone else this isn't a failure.
+    const category = emailCategory(mailOptions.category);
+    const unsubscribed = category && !mailOptions.optOutChecked ? await optedOutOf(db, validRecipients, category) : new Set();
+    let deliverableRecipients = validRecipients.filter((recipient) => !unsubscribed.has(recipient));
+    if (!deliverableRecipients.length) {
+      return true;
+    }
 
     // Skip recipients that have previously failed permanently.
-    if (db) {
+    if (db && !outbox) {
       const filteredRecipients = [];
       for (const recipient of deliverableRecipients) {
         try {
@@ -733,10 +799,8 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       return false;
     }
 
-    const skipMxCheck = Boolean(mailOptions.skipMxCheck);
-
     // Verify the domain can receive email (has MX records) unless explicitly bypassed.
-    if (!skipMxCheck) {
+    if (!mailOptions.skipMxCheck && !outbox) {
       const filteredRecipients = [];
       for (const recipient of deliverableRecipients) {
         const domainOk = await hasMxRecords(recipient);
@@ -761,131 +825,137 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       return false;
     }
 
-    attemptedRecipients = deliverableRecipients;
+    const school = mailOptions.onBehalfOf ? await schoolSender(db, mailOptions.onBehalfOf) : null;
+    const fromAddress = senderAddress(mailOptions.sender) || user || "info@managira.com";
+    const fromName = String(mailOptions.senderName || (school?.name ? `${school.name} via Managira` : MANAGIRA_FROM_NAME))
+      .replace(/[\r\n"]+/g, " ")
+      .trim();
+    const from = { name: fromName, address: fromAddress };
 
-    const transporter = getTransporter();
-
-    // Build a friendly From header (“Managira <notify@…>”). Mail clients penalize
-    // bare-address senders in their Promotions classifier.
-    const fromAddress = senderAddress(mailOptions.sender) || user;
-    const from = `"${mailOptions.senderName || MANAGIRA_FROM_NAME}" <${fromAddress}>`;
-
-    // Strip smtpConfig if caller passed it (we ignore custom transporter configs)
+    // Strip options that only steer this function (and any custom transporter config).
     const {
-      smtpConfig,
+      smtpConfig: _smtpConfig,
       from: _ignoredFrom,
       skipMxCheck: _skipMxCheck,
       failureNotification: _failureNotification,
       sender: _sender,
       senderName: _senderName,
+      category: _category,
+      optOutChecked: _optOutChecked,
+      onBehalfOf: _onBehalfOf,
+      to: _to,
       ...restOptions
     } = mailOptions;
 
-    // Strip any caller-provided "managira_logo" inline attachment. The logo is
-    // now rendered via a public HTTPS <img src> in renderCleanEmail, so adding
-    // it as an inline attachment caused mail clients (Gmail/Outlook) to show
-    // the logo as a downloadable file alongside the message — which we do not
-    // want. Real file attachments (PDF reports, resumes, etc.) are kept.
+    // The logo is a public HTTPS <img src>; an inline "managira_logo" attachment only made
+    // mail clients show it as a file. Real attachments (PDF reports, resumes) are kept.
     const mergedAttachments = (Array.isArray(restOptions.attachments) ? restOptions.attachments : [])
-      .filter((item) => !(item && item.cid === 'managira_logo'));
-    const envelope = buildEnvelopeConfig(restOptions.envelope, user, deliverableRecipients);
-
-    // Provide a plain-text fallback whenever one wasn’t supplied. multipart/
-    // alternative mail is a strong Primary-tab signal.
-    const textBody = restOptions.text
-      || (restOptions.html ? htmlToPlainText(restOptions.html) : "");
-
-    const recipientHeader = formatRecipientList(deliverableRecipients);
-
-    const messageIdDomain = (fromAddress.split('@')[1] || 'managira.com').trim();
-    const messageId = `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`;
-
+      .filter((item) => !(item && item.cid === "managira_logo"));
+    const replyTo = restOptions.replyTo || school?.replyTo || undefined;
+    const messageIdDomain = (fromAddress.split("@")[1] || "managira.com").trim();
     const { withShardLinks } = require("./shards/routing");
-    const info = await transporter.sendMail({
-      from,
-      replyTo: restOptions.replyTo || fromAddress,
-      ...restOptions,
-      ...(restOptions.html ? { html: withShardLinks(restOptions.html) } : {}),
-      to: recipientHeader,
-      text: withShardLinks(textBody),
-      attachments: mergedAttachments,
-      envelope,
-      messageId,
-      headers: {
-        // Standard transactional-mail headers. We deliberately do NOT set
-        // X-Priority / Importance / Priority — those are spam/Promotions
-        // signals on Gmail and Outlook even when the mail is legitimate.
-        'X-Entity-Ref-ID': `managira-${Date.now()}`,
-        'List-Unsubscribe': `<mailto:${fromAddress}?subject=unsubscribe>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Auto-Response-Suppress': 'All',
-        'Auto-Submitted': 'auto-generated',
-        ...restOptions.headers,
-      },
-    });
 
-    // transporter.sendMail() above already succeeded — the message is on
-    // its way. Everything below is just bookkeeping (bounce suppression,
-    // in-app failure notices); a bug here must never flip an actually-sent
-    // message to "failed", so it gets its own try/catch instead of sharing
-    // the outer one.
-    try {
-      const rejectedRecipients = toRecipientList(info?.rejected || []).validRecipients;
-      if (rejectedRecipients.length > 0 && db) {
-        for (const recipient of rejectedRecipients) {
-          suppressEmail(
-            db,
-            recipient,
-            "smtp_hard_bounce",
-            info?.response || info?.messageId || "Recipient rejected"
-          ).catch(() => {});
-          await notifyEmailFailure(db, {
-            recipient,
-            reason: "smtp_hard_bounce",
-            failureNotification: mailOptions.failureNotification,
-          });
+    const messageFor = (recipient) => {
+      let html = restOptions.html || "";
+      let text = restOptions.text || "";
+      const headers = {
+        // Standard transactional-mail headers. We deliberately do NOT set X-Priority /
+        // Importance / Priority: those are spam/Promotions signals on Gmail and Outlook.
+        "X-Entity-Ref-ID": `managira-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        "X-Auto-Response-Suppress": "All",
+        "Auto-Submitted": "auto-generated",
+      };
+      // Only optional emails offer an unsubscribe, and it really works (RFC 8058 one-click).
+      const link = category ? unsubscribeUrl(recipient, category.key) : null;
+      if (link) {
+        // withShardLinks (here, and on the body below): the one-click POST reaches this school's shard.
+        headers["List-Unsubscribe"] = `<${withShardLinks(link)}>`;
+        headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+        if (html.includes(UNSUBSCRIBE_SLOT)) {
+          html = html.replace(UNSUBSCRIBE_SLOT, unsubscribeLine({ url: link, settingsUrl: SETTINGS_URL, label: category.label }));
         }
+        if (text) text = `${text}\n\nUnsubscribe: ${link}`;
       }
+      if (!text && html) text = htmlToPlainText(html);
+      return {
+        ...restOptions,
+        from,
+        ...(replyTo ? { replyTo } : {}),
+        to: recipient,
+        ...(html ? { html: withShardLinks(html) } : {}),
+        text: withShardLinks(text),
+        attachments: mergedAttachments,
+        envelope: buildEnvelopeConfig(restOptions.envelope, user || fromAddress, [recipient]),
+        messageId: `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`,
+        headers: { ...headers, ...(restOptions.headers || {}) },
+      };
+    };
 
-      const acceptedRecipients = toRecipientList(info?.accepted || []).validRecipients;
-      return acceptedRecipients.length > 0 || rejectedRecipients.length === 0;
-    } catch (bookkeepingError) {
-      console.error(`[Email][${context}] Post-send bookkeeping failed (message was already sent):`, bookkeepingError);
+    // The local test copy writes emails to a file instead of sending them. Never on the real site.
+    if (outbox) {
+      for (const recipient of deliverableRecipients) {
+        const message = messageFor(recipient);
+        require("fs").appendFileSync(process.env.EMAIL_TEST_OUTBOX, JSON.stringify({
+          at: new Date().toISOString(), context, from: `"${from.name}" <${from.address}>`, replyTo: message.replyTo || null,
+          to: recipient, subject: message.subject, category: category?.key || null, headers: message.headers,
+          html: message.html, text: message.text,
+        }) + "\n");
+      }
       return true;
     }
-  } catch (error) {
-    _transporter = null;
-    _transporterConfig = null;
-    console.error(`[Email][${context}] SMTP FAILED after ${Date.now() - sendStart}ms:`, error.message);
-    if (error.code === 'EAUTH') {
-      console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_*, NOTIFY_EMAIL_*, EMAIL_* or SMTP_* credentials.`);
-    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
-      const smtp = resolveSmtpConfig();
-      console.error(`[Email][${context}] SMTP connection failed — SMTP_HOST=${smtp.host} SMTP_PORT=${smtp.port}`);
-    }
-    // If this looks like a permanent recipient problem, add to the suppression
-    // list so we never burn another SMTP attempt on it.
-    if (isHardAddressFailure(error)) {
-      const db = _getDb();
-      if (db) {
-        const recipientsToFlag = attemptedRecipients.length > 0
-          ? attemptedRecipients
-          : toRecipientList(mailOptions.to).validRecipients;
-        for (const recipient of recipientsToFlag) {
-          suppressEmail(
-            db,
-            recipient,
-            "smtp_hard_bounce",
-            error.response || error.message
-          ).catch(() => {});
+
+    let anyAccepted = false;
+    for (const recipient of deliverableRecipients) {
+      try {
+        const info = await getTransporter().sendMail(messageFor(recipient));
+
+        // sendMail() already succeeded: the message is on its way. Bookkeeping below must
+        // never flip an actually-sent message to "failed".
+        try {
+          const rejected = toRecipientList(info?.rejected || []).validRecipients;
+          if (rejected.length > 0 && db) {
+            for (const address of rejected) {
+              suppressEmail(db, address, "smtp_hard_bounce", info?.response || info?.messageId || "Recipient rejected").catch(() => {});
+              await notifyEmailFailure(db, {
+                recipient: address,
+                reason: "smtp_hard_bounce",
+                failureNotification: mailOptions.failureNotification,
+              });
+            }
+          }
+          const accepted = toRecipientList(info?.accepted || []).validRecipients;
+          if (accepted.length > 0 || rejected.length === 0) anyAccepted = true;
+        } catch (bookkeepingError) {
+          console.error(`[Email][${context}] Post-send bookkeeping failed (message was already sent):`, bookkeepingError);
+          anyAccepted = true;
+        }
+      } catch (error) {
+        _transporter = null;
+        _transporterConfig = null;
+        console.error(`[Email][${context}] SMTP FAILED after ${Date.now() - sendStart}ms:`, error.message);
+        if (error.code === "EAUTH") {
+          console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_*, NOTIFY_EMAIL_*, EMAIL_* or SMTP_* credentials.`);
+        } else if (error.code === "ECONNECTION" || error.code === "ETIMEDOUT" || error.code === "ESOCKET") {
+          const smtp = resolveSmtpConfig();
+          console.error(`[Email][${context}] SMTP connection failed — SMTP_HOST=${smtp.host} SMTP_PORT=${smtp.port}`);
+        }
+        // A permanent recipient problem goes on the suppression list, so we never burn
+        // another SMTP attempt on it.
+        if (isHardAddressFailure(error) && db) {
+          suppressEmail(db, recipient, "smtp_hard_bounce", error.response || error.message).catch(() => {});
           await notifyEmailFailure(db, {
             recipient,
             reason: "smtp_hard_bounce",
             failureNotification: mailOptions.failureNotification,
           });
         }
+        // The server or our login is down: the others would fail the same way.
+        if (["EAUTH", "ECONNECTION", "ETIMEDOUT", "ESOCKET"].includes(error.code)) break;
       }
     }
+    return anyAccepted;
+  } catch (error) {
+    console.error(`[Email][${context}] Send failed after ${Date.now() - sendStart}ms:`, error.message);
     return false;
   }
 }
@@ -908,6 +978,8 @@ module.exports = {
   sendEmailSafely,
   sendEmailInBackground,
   renderCleanEmail,
+  modernLook,
+  htmlToPlainText,
   escapeHtml,
   recordEmailDeliveryFailure,
   isEmailSuppressed: (email) => {

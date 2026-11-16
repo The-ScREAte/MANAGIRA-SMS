@@ -943,7 +943,7 @@
         <div class="email-editor-toggle-row">
           <label class="email-editor-radio">
             <input type="radio" name="emailEditorMode" value="template" checked>
-            <span><strong>Use standard template</strong><br><small>Asks for a 6-month growth proposal to <code>managirasms@gmail.com</code> + interview link.</small></span>
+            <span><strong>Use standard template</strong><br><small>Asks for a 6-month growth proposal to <code><%= careersEmail %></code> + interview link.</small></span>
           </label>
           <label class="email-editor-radio">
             <input type="radio" name="emailEditorMode" value="custom">
@@ -956,7 +956,7 @@
 
         <div class="email-editor-meta">
           <p><strong>Subject:</strong> <span id="emailEditorSubject">—</span></p>
-          <p><strong>CTA button:</strong> <a id="emailEditorCta" href="https://calendly.com/managirasms/managira-team-review-meeting" target="_blank" rel="noopener">Open Interview Link</a></p>
+          <p><strong>CTA button:</strong> <a id="emailEditorCta" href="<%= bookingUrl %>" target="_blank" rel="noopener">Open Interview Link</a></p>
           <p class="email-editor-note">The body is wrapped in the Managira-branded email shell. Line breaks and basic HTML are preserved.</p>
         </div>
       </div>
@@ -1144,7 +1144,7 @@
                               <form method="POST" action="/admin/employment/applications/<%= application.id %>/second-interview" onsubmit="return confirm('Send second interview invitation?');" style="margin: 0; display: grid; gap: 6px; padding: 8px; border: 1px dashed #0f766e; border-radius: 8px;">
                                 <label style="font-size: 0.8rem; font-weight: 600; color: #0f766e;">2nd Interview Message (leave empty or check Use Template)</label>
                                 <textarea name="custom_message" placeholder="Optional custom message" style="width:100%; min-height:60px; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box;"></textarea>
-                                <label style="display:flex; gap:6px; align-items:center; font-size:0.8rem;"><input type="checkbox" name="use_template" value="true" checked /> Use template (proposal request to managirasms@gmail.com)</label>
+                                <label style="display:flex; gap:6px; align-items:center; font-size:0.8rem;"><input type="checkbox" name="use_template" value="true" checked /> Use template (proposal request to <%= careersEmail %>)</label>
                                 <button type="submit" class="admin-btn admin-btn-sm" style="justify-self:start; background:#0f766e; color:#fff; border:1px solid #115e59;">Send 2nd Interview Invite</button>
                               </form>
                               <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after first interview?');" style="margin: 0;">
@@ -1644,7 +1644,7 @@
 
     let emailEditorContext = null;
     let emailEditorTemplateText = '';
-    const interviewInviteUrl = 'https://calendly.com/managirasms/managira-team-review-meeting';
+    const interviewInviteUrl = <%- JSON.stringify(bookingUrl) %>;
 
     function emailEditorMode() {
       const checked = document.querySelector('input[name="emailEditorMode"]:checked');
@@ -1652,26 +1652,18 @@
     }
     function emailEditorBody() { return emailEditorTextarea ? emailEditorTextarea.value : ''; }
 
+    // The same words the server sends with "Use template" (adminController); the email adds the
+    // greeting, the interview button and the sign-off itself.
     function defaultSecondInterviewTemplate(name) {
-      const greet = (name || 'there').split(' ')[0];
       return (
-        `Dear ${greet},\n\n` +
-        `Congratulations on moving forward to the second interview!\n\n` +
-        `As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve.\n\n` +
-        `Email your proposal to managirasms@gmail.com before your second interview.\n\n` +
-        `When joining, please include a note that this is your second interview.\n\n` +
-        `Thank you,\nThe Managira Team`
+        `Before the interview, please prepare a short written proposal on how you would help grow Managira in your area over the next six months: your strategy, the activities you would lead and the results you expect.\n\n` +
+        `Email it to ${<%- JSON.stringify(careersEmail) %>} before your interview.`
       );
     }
+    // The middle of the final interview email (adminController); the email adds the greeting,
+    // the congratulations, the booking button and the sign-off itself.
     function defaultFinalInterviewTemplate(name) {
-      const greet = (name || 'there').split(' ')[0];
-      return (
-        `Dear ${greet},\n\n` +
-        `Thank you for the strong showing in your second interview. We would like to invite you to a final interview with the wider Managira team.\n\n` +
-        `Please join using the interview link below and include "Final Interview" in your message/note.\n\n` +
-        `We look forward to meeting you again.\n\n` +
-        `Warm regards,\nThe Managira Team`
-      );
+      return `It's a conversation with the wider Managira team. Please come ready to discuss your proposal and how you see yourself working with us in the long term.`;
     }
 
     function syncEmailEditorMode() {

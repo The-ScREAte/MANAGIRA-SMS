@@ -1042,6 +1042,7 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
   const schedules = await db.query(
     `SELECT sch.*, r.report_name, r.report_type, r.columns_json, r.criteria_json, r.branding_json, r.created_by,
             u.email AS owner_email, u.first_name AS owner_first_name, u.account_type::text AS owner_role,
+            COALESCE(u.on_hold, FALSE) AS owner_on_hold,
             o.organization_name, o.whatsapp_timezone
        FROM custom_report_schedules sch
        JOIN custom_report_definitions r ON r.report_id = sch.report_id
@@ -1055,16 +1056,17 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
     try {
       // The owner must still hold the report; each person it is shared with gets
       // only what their own permissions and classes allow, or no copy at all.
-      const recipients = [{ userId: row.created_by, role: row.owner_role, email: row.owner_email, isOwner: true }];
+      // Nobody on hold gets a copy: they can't sign in, so the school's data stays put.
+      const recipients = [{ userId: row.created_by, role: row.owner_role, email: row.owner_email, firstName: row.owner_first_name, onHold: row.owner_on_hold === true, isOwner: true }];
       if (row.include_shared) {
         const shared = await db.query(
-          `SELECT u.user_id, u.email, u.account_type::text AS role FROM custom_report_shares sh
+          `SELECT u.user_id, u.email, u.first_name, u.account_type::text AS role FROM custom_report_shares sh
              JOIN users u ON u.user_id = sh.user_id AND u.organization_id = $2 AND u.removed_at IS NULL
-            WHERE sh.report_id = $1 AND u.email IS NOT NULL`,
+            WHERE sh.report_id = $1 AND u.email IS NOT NULL AND COALESCE(u.on_hold, FALSE) = FALSE`,
           [row.report_id, row.organization_id]
         );
         shared.rows.forEach((recipient) => {
-          if (recipient.user_id !== row.created_by) recipients.push({ userId: recipient.user_id, role: recipient.role, email: recipient.email });
+          if (recipient.user_id !== row.created_by) recipients.push({ userId: recipient.user_id, role: recipient.role, email: recipient.email, firstName: recipient.first_name });
         });
       }
       const header = row.file_format === "csv" ? null : await loadReportHeader(db, row.organization_id, row.branding_json);
@@ -1085,26 +1087,30 @@ async function runDueReportSchedules(db, { now = new Date(), send, hasPermission
           if (recipient.isOwner) throw new Error(input.error);
           continue;
         }
-        if (!recipient.email) continue;
+        if (!recipient.email || recipient.onHold) continue;
         const most = exportRowsFor(row.file_format);
         const { rows, total } = await service.loadData(context, input, { limit: most });
         const file = await buildFile(rows, input.columns, input.report, row.file_format, row.report_name, header);
-        const note = total > most
-          ? `This report has ${total.toLocaleString()} rows; the first ${most.toLocaleString()} are attached.`
-          : `${total.toLocaleString()} ${total === 1 ? "row" : "rows"}.`;
+        const size = total > most
+          ? `It has ${total.toLocaleString("en-US")} rows; the first ${most.toLocaleString("en-US")} are attached.`
+          : `It has ${total.toLocaleString("en-US")} ${total === 1 ? "row" : "rows"}.`;
+        const frequency = ["daily", "weekly", "monthly"].includes(row.frequency) ? row.frequency : "scheduled";
+        const reportName = String(row.report_name || "").replace(/\s+/g, " ").trim() || "Report";
         const email = recipient.email;
         await deliver({
           to: email,
           sender: "reports",
-          subject: `${row.report_name} · ${row.organization_name}`,
+          category: "scheduled_reports",
+          subject: `Your ${frequency} report: ${reportName}`,
           html: renderCleanEmail({
-            title: escapeHtml(row.report_name),
-            greeting: "Hello,",
+            title: reportName,
+            greeting: recipient.firstName ? `Hi ${escapeHtml(recipient.firstName)},` : "Hello,",
             paragraphs: [
-              `Here is your ${escapeHtml(row.frequency)} report <strong>${escapeHtml(row.report_name)}</strong> (${escapeHtml(input.report.title)}) from ${escapeHtml(row.organization_name)}.`,
-              escapeHtml(note),
+              `Your ${frequency} report <strong>${escapeHtml(reportName)}</strong> from ${escapeHtml(row.organization_name)} is attached. ${escapeHtml(size)}`,
             ],
-            note: "To change or stop this email, open Reports → Report Builder and edit the report's schedule.",
+            // The person who set the schedule can change it; anyone else can unsubscribe.
+            note: recipient.isOwner ? "To change or stop this schedule, edit the report in Reports › Report Builder." : "",
+            organizationId: row.organization_id,
           }),
           attachments: [{ filename: `${fileNameFor(row.report_name)}.${file.extension}`, content: file.content, contentType: file.contentType }],
         }, "Scheduled report");

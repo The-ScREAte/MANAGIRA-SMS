@@ -63,6 +63,8 @@ function workspaceAccess({ permissions, features, role } = {}) {
     integrations: can("settings_integrations"),
     serviceAccounts: can("settings_service_accounts"),
     emailIssues: fullMenuRole,
+    // The weekly briefing's settings (routes/briefingRoute.js; the page also needs weekly_briefing).
+    briefing: fullMenuRole,
     // The page itself also needs the custom_forms feature (customFormsController).
     customForms: can("custom_forms"),
   };
