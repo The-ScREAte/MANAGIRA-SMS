@@ -148,6 +148,8 @@ async function editorPage(req, res, db) {
       icons: cf.ICONS,
       answerIcons: cf.ANSWER_ICONS,
       remarks: remarks ? { slots: remarks.slots, template: cf.remarksSection(remarks) } : null,
+      // Lunch is built into attendance (feature class_lunch): the library doesn't offer a lunch count then.
+      builtInLunch: require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) }),
     },
   });
 }

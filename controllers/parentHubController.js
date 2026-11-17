@@ -75,6 +75,16 @@ async function openWorkFor(db, organizationId, child) {
   }));
 }
 
+// Documents the school shared with the child's parents (feature student_documents).
+const studentDocs = require("../utils/studentDocuments");
+const familyDocsOn = (req) => studentDocs.isOn(req.session.organizationId);
+// Only while the child's class shares student files with parents (Class settings).
+async function familyDocsFor(req, db, child) {
+  if (!familyDocsOn(req)) return [];
+  if ((await parentsSeeChild(db, req.session.organizationId, child.id)).files === false) return [];
+  return studentDocs.listFor(db, req.session.organizationId, child.id, { family: true }).catch(() => []);
+}
+
 const guard = (allowed, handler) => async (req, res, db) => {
   if (!allowed(req)) return backToDashboard(req, res);
   try {
@@ -117,6 +127,9 @@ module.exports = {
       title: child.name,
       child,
       showSchoolwork: hasQuestions(res),
+      showSchoolDocs: familyDocsOn(req) && see.files !== false,
+      // The class may keep the portfolio from parents (Class settings).
+      showPortfolio: see.portfolio !== false,
       showActivities: activitiesOn(req),
       // The class may keep the bus from parents (Class settings).
       showTransport: Boolean(integration && integration.activated) && see.transport !== false,
@@ -140,11 +153,12 @@ module.exports = {
         // Not when the class keeps the bus from parents (Class settings).
         see.transport !== false ? getStudentTransportationSnapshot(db, organizationId, child.id, { imageUrl: res.locals.publicImageUrl }).catch(() => null) : null,
       ]);
-      const [files, results, forms] = await Promise.all([
+      const [files, results, forms, schoolDocs] = await Promise.all([
         parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id))),
         hasQuestions(res) ? resultsFor(req, db, child) : [],
         // Forms the school asks this family to fill in (feature custom_forms).
         require("./customFormsController").guardianToDo(db, req, child).catch(() => ({ forms: 0, tiles: {}, gone: [] })),
+        familyDocsFor(req, db, child),
       ]);
       return res.json({
         success: true,
@@ -153,7 +167,7 @@ module.exports = {
           activities: upcoming.length,
           homework: work.filter((row) => row.homework).length,
           testing: work.filter((row) => !row.homework).length,
-          documents: files.length + results.length,
+          documents: files.length + results.length + schoolDocs.length,
           forms: forms.forms,
           ...forms.tiles,
         },
@@ -216,12 +230,13 @@ module.exports = {
     const sets = await parentResources.termSetsForChild(db, organizationId, child.id, child.classId, child.termId);
     const files = await parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id)));
     const setById = new Map(sets.map((row) => [Number(row.question_set_id), row]));
-    const results = await resultsFor(req, db, child);
+    const [results, schoolDocs] = await Promise.all([resultsFor(req, db, child), familyDocsFor(req, db, child)]);
     res.render("guardian/childList", {
-      title: results.length ? "Documents & results" : "Assessment documents",
+      title: results.length ? "Documents & results" : (schoolDocs.length || familyDocsOn(req) ? "Documents" : "Assessment documents"),
       child,
       mode: "documents",
       results,
+      schoolDocs,
       files: files.map((file) => ({ ...file, title: setById.get(file.setId)?.title || "", subject: setById.get(file.setId)?.subject_name || "" })),
     });
   })),
@@ -268,6 +283,17 @@ module.exports = {
     }
     res.set("Cache-Control", "private, no-store");
     return res.redirect(link);
+  })),
+
+  // A document the school shared with this child's parents: a link that works for a few minutes.
+  studentFile: guard(familyDocsOn, withChild(async (req, res, db, child) => {
+    const doc = await studentDocs.findOne(db, req.session.organizationId, toId(req.params.documentId)).catch(() => null);
+    const shown = doc && (await parentsSeeChild(db, req.session.organizationId, child.id)).files !== false;
+    if (!shown || Number(doc.student_id) !== Number(child.id) || doc.shared_with !== "family") {
+      req.flash("error", "That document isn't available.");
+      return res.redirect(`/guardian/child/documents?studentId=${child.id}`);
+    }
+    return require("../utils/storedFiles").redirectToFile(res, doc.storage_key, { downloadName: doc.file_name });
   })),
 
   childrenOf,

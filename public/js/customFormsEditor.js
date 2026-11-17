@@ -248,6 +248,12 @@
   // uses, each printing as that remark in its usual place, with the school's ready-made remarks to
   // tap (made on the server from its remark types and ready-made remarks, so it matches what
   // teachers had in the classroom's remark pop-up).
+  // Lunch is built into attendance where the school has it (a plate beside each checkbox), so the
+  // library doesn't offer a second lunch count; Lunch order (parents, weekly) stays for schools that want more.
+  if (boot.builtInLunch) {
+    LIBRARY.forEach(function (g) { g.items = g.items.filter(function (item) { return item.name !== 'Lunch count'; }); });
+    EVERY.forEach(function (r) { if (r.key === 'day') r.text = 'One answer per student each day, like a daily check-in.'; });
+  }
   if (REMARKS && REMARKS.template) {
     LIBRARY[0].items.unshift({ name: 'Report card remarks', icon: REMARKS.template.icon || 'pencil', filledBy: 'staff', repeat: 'term', reportCard: true, beside: true, build: function () {
       return (REMARKS.template.fields || []).map(function (f) { return Object.assign(clone(f), { id: uid('f') }); });

@@ -1032,6 +1032,8 @@
       document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
       let lit = document.querySelectorAll(`[data-embed-url="${CSS.escape(url)}"]`);
       if (!lit.length && String(url).includes('?')) lit = document.querySelectorAll(`[data-embed-url="${CSS.escape(String(url).split('?')[0])}"]`);
+      // A page opened inside a panel (a person's details in Users / Employees) lights its panel's item.
+      if (!lit.length && activeGroup) lit = document.querySelectorAll(`.nav-link[data-section="${CSS.escape(activeGroup)}"]`);
       lit.forEach(l => l.classList.add('active'));
     }
 

@@ -2376,6 +2376,7 @@
 
 
       
+      <% if (locals.studentFiles) { %><link rel="stylesheet" href="<%= assetUrl('/css/studentFilesFields.css') %>" /><script src="<%= assetUrl('/js/studentFilesFields.js') %>" defer></script><% } %>
       <form id="addStudentFormMain" action="/common/addStudent" method="post" enctype="multipart/form-data" onsubmit="confirmAddStudent(event)">
         <div class="student-forms-grid" id="studentFormsContainer"></div>
       </form>
@@ -2596,6 +2597,17 @@
                 <input type="file" class="form-input" name="studentImage___INDEX__" accept="image/*">
               </div>
             </div>
+
+            <% if (locals.studentFiles) { %>
+            <!-- ── Section: Files (feature student_documents) ─── -->
+            <div class="form-section">
+              <div class="form-section-header">
+                <h3 class="form-section-title">Files</h3>
+                <span class="form-section-hint"><%= studentFiles.required ? 'Required' : 'Optional' %></span>
+              </div>
+              <%- include('../partials/studentFilesFields', { sf: studentFiles, keyPrefix: '__INDEX___' }) %>
+            </div>
+            <% } %>
 
             <!-- ── Section: Guardian ────────────────────────────── -->
             <div class="form-section">

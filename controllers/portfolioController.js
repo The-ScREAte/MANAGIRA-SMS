@@ -1,7 +1,8 @@
 "use strict";
 // Student portfolios (feature student_portfolio, utils/portfolio.js): one folder per term, for
-// the parent (/guardian/child/portfolio) and the student (/student/portfolio). Staff have the
-// gradebook and report cards, so there is no staff page.
+// the parent (/guardian/child/portfolio) and the student (/student/portfolio), with the files the
+// school shared with the family (utils/studentDocuments.js). Staff see it in the student page's
+// Portfolio tab (routes/studentDocumentsRoute.js), with every marked test as a document.
 // A marked test opens as a document and downloads as a PDF drawn from that same page.
 const portfolio = require("../utils/portfolio");
 
@@ -41,8 +42,8 @@ async function folder(db, req, student) {
 }
 
 // The marked test as a document page, or as a PDF of that page (?download=1).
-async function testPage(req, res, db, student, { back, selfPath }) {
-  const doc = await portfolio.testDocument(db, orgOf(req), student.id, toId(req.params.attemptId), res.locals.publicImageUrl);
+async function testPage(req, res, db, student, { back, selfPath, staff = false }) {
+  const doc = await portfolio.testDocument(db, orgOf(req), student.id, toId(req.params.attemptId), res.locals.publicImageUrl, { staff });
   if (!doc) {
     req.flash("error", "That test isn't in the portfolio.");
     return res.redirect(back);
@@ -64,6 +65,24 @@ async function testPage(req, res, db, student, { back, selfPath }) {
   return res.render("print/portfolioTest", { layout: false, doc, back, download: `${selfPath}${selfPath.includes("?") ? "&" : "?"}download=1` });
 }
 
+// Files the school shared with the family (feature student_documents), and the documented /
+// undocumented labels that come with it.
+const studentDocs = require("../utils/studentDocuments");
+// audience: "parents" or "students"; the class may keep files from either (Class settings).
+async function familyFiles(db, req, studentId, audience) {
+  if (!studentDocs.isOn(orgOf(req))) return { files: null, labels: false };
+  const classSettings = require("../utils/classSettings");
+  const shown = await (audience === "students" ? classSettings.studentsSee : classSettings.parentsSee)(db, orgOf(req), studentId, "files");
+  if (!shown) return { files: null, labels: true };
+  return { files: await studentDocs.listFor(db, orgOf(req), studentId, { family: true }).catch(() => []), labels: true };
+}
+
+// The class may keep the portfolio itself from parents or students (Class settings).
+const portfolioShared = (db, req, studentId, audience) => {
+  const classSettings = require("../utils/classSettings");
+  return (audience === "students" ? classSettings.studentsSee : classSettings.parentsSee)(db, orgOf(req), studentId, "portfolio");
+};
+
 // ── Parents ─────────────────────────────────────────────────────────────────────────────
 async function guardianChild(db, req) {
   const { guardianHasStudentAccess } = require("./guardianController");
@@ -79,15 +98,21 @@ async function guardianPage(req, res, db) {
     req.flash("error", "You do not have access to that student.");
     return res.redirect("/guardian/dashboard");
   }
+  if (!(await portfolioShared(db, req, child.id, "parents"))) {
+    req.flash("error", "The school doesn't share the portfolio for this class.");
+    return res.redirect(`/guardian/child?studentId=${child.id}`);
+  }
   const { terms, term, data } = await folder(db, req, child);
   // The class may keep report cards from parents (Class settings): then the folder has none.
   const showReportCard = await require("../utils/classSettings").parentsSee(db, orgOf(req), child.id, "reportCards");
   withoutReportCard(data, showReportCard);
   const q = `studentId=${child.id}`;
+  const { files, labels } = await familyFiles(db, req, child.id, "parents");
   res.render("guardian/childPortfolio", {
     title: `${child.firstName}'s portfolio`,
-    child, terms, term, data, showReportCard,
+    child, terms, term, data, showReportCard, files, labels,
     links: {
+      file: `/guardian/child/student-file/{id}?${q}`,
       term: `/guardian/child/portfolio?${q}&termId=`,
       test: `/guardian/child/portfolio/test/{id}?${q}`,
       report: data && data.reportCard ? `/guardian/student-report-cards/${data.reportCard.id}/pdf` : null,
@@ -99,6 +124,7 @@ async function guardianTest(req, res, db) {
   if (!portfolio.featureOn(orgOf(req))) return res.redirect("/guardian/dashboard");
   const child = await guardianChild(db, req);
   if (!child) return res.redirect("/guardian/dashboard");
+  if (!(await portfolioShared(db, req, child.id, "parents"))) return res.redirect(`/guardian/child?studentId=${child.id}`);
   return testPage(req, res, db, child, {
     back: `/guardian/child/portfolio?studentId=${child.id}`,
     selfPath: `/guardian/child/portfolio/test/${toId(req.params.attemptId)}?studentId=${child.id}`,
@@ -110,14 +136,19 @@ async function studentPage(req, res, db) {
   if (!portfolio.featureOn(orgOf(req))) return res.redirect("/student/dashboard");
   const me = await studentRow(db, orgOf(req), Number(req.session.studentId));
   if (!me) return res.redirect("/student/dashboard");
+  if (!(await portfolioShared(db, req, me.id, "students"))) {
+    req.flash("error", "Your school doesn't share the portfolio for your class.");
+    return res.redirect("/student/dashboard");
+  }
   const { terms, term, data } = await folder(db, req, me);
   // The class may keep report cards from its students (Class settings): then the folder has none.
   const showReportCard = await require("../utils/classSettings").studentsSee(db, orgOf(req), me.id, "reportCards");
   withoutReportCard(data, showReportCard);
+  const { files, labels } = await familyFiles(db, req, me.id, "students");
   res.render("student/portfolio", {
     title: "My portfolio",
-    child: me, terms, term, data, showReportCard,
-    links: { term: "/student/portfolio?termId=", test: "/student/portfolio/test/{id}", report: data && data.reportCard ? `/student/portfolio/report-card/${data.reportCard.id}` : null },
+    child: me, terms, term, data, showReportCard, files, labels,
+    links: { file: "/student/portfolio/file/{id}", term: "/student/portfolio?termId=", test: "/student/portfolio/test/{id}", report: data && data.reportCard ? `/student/portfolio/report-card/${data.reportCard.id}` : null },
   });
 }
 
@@ -135,10 +166,34 @@ async function studentReportCard(req, res, db) {
   return require("../utils/storedFiles").redirectToFile(res, rows[0].pdf_s3_key || rows[0].pdf_url);
 }
 
+// GET /student/portfolio/file/:id: a file the school shared with the family, the student's own.
+async function studentFile(req, res, db) {
+  if (!studentDocs.isOn(orgOf(req))) return res.redirect("/student/dashboard");
+  const doc = await studentDocs.findOne(db, orgOf(req), toId(req.params.id)).catch(() => null);
+  const shown = doc && (await require("../utils/classSettings").studentsSee(db, orgOf(req), Number(req.session.studentId), "files"));
+  if (!shown || Number(doc.student_id) !== Number(req.session.studentId) || doc.shared_with !== "family") {
+    req.flash("error", "That file isn't available.");
+    return res.redirect("/student/portfolio");
+  }
+  return require("../utils/storedFiles").redirectToFile(res, doc.storage_key, { downloadName: doc.file_name });
+}
+
+// Staff: a marked test from the student page's Portfolio tab (checked by the route).
+async function staffTest(req, res, db, studentId) {
+  const student = await studentRow(db, orgOf(req), studentId);
+  if (!student) return res.status(404).send("That student wasn't found.");
+  return testPage(req, res, db, student, {
+    staff: true,
+    back: `/common/studentDetails?studentId=${student.id}#student-portfolio`,
+    selfPath: `/common/student-documents/${student.id}/portfolio/test/${toId(req.params.attemptId)}`,
+  });
+}
+
 async function studentTest(req, res, db) {
   if (!portfolio.featureOn(orgOf(req))) return res.redirect("/student/dashboard");
   const me = await studentRow(db, orgOf(req), Number(req.session.studentId));
   if (!me) return res.redirect("/student/dashboard");
+  if (!(await portfolioShared(db, req, me.id, "students"))) return res.redirect("/student/dashboard");
   return testPage(req, res, db, me, { back: "/student/portfolio", selfPath: `/student/portfolio/test/${toId(req.params.attemptId)}` });
 }
 
@@ -158,4 +213,6 @@ module.exports = {
   studentPage: wrap(studentPage, "/student/dashboard"),
   studentTest: wrap(studentTest, "/student/dashboard"),
   studentReportCard: wrap(studentReportCard, "/student/portfolio"),
+  studentFile: wrap(studentFile, "/student/portfolio"),
+  staffTest: wrap((req, res, db) => staffTest(req, res, db, req.params.studentId), "/common/orgDashboard"),
 };

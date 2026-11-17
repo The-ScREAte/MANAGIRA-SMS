@@ -1086,6 +1086,15 @@
     <% } %>
 
     <!-- Subjects -->
+    <% if (locals.studentFiles) { %>
+    <link rel="stylesheet" href="<%= assetUrl('/css/studentFilesFields.css') %>" />
+    <script src="<%= assetUrl('/js/studentFilesFields.js') %>" defer></script>
+    <div class="es-card" id="student-files">
+      <h3 class="es-section-title">Files</h3>
+      <%- include('../partials/studentFilesFields', { sf: studentFiles, keyPrefix: 'new' }) %>
+    </div>
+    <% } %>
+
     <div class="es-card">
       <h3 class="es-section-title">Subjects</h3>
       <div class="es-subject-note" id="esSubjectChangeNote"></div>

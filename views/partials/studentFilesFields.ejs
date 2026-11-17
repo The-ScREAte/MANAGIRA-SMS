@@ -1,0 +1,55 @@
+<%# A student's files on Add student and Edit student (feature student_documents, utils/studentDocuments.js).
+    Locals: sf { types, sharing, manager, maxMb, list (Edit student: the files already there) },
+    keyPrefix (Add student: "__INDEX___", replaced with the form's number; Edit student: "new"). Each new file is
+    studentDoc_<key> with docType_<key>, docTitle_<key>, docSharing_<key>; a file already there is docEdit…_<id>,
+    and removeDoc lists the ones to remove. Expiry dates and notes are set from the student page's drawer. Styles: public/css/studentFilesFields.css. %>
+<%
+  const _sfTypes = sf.types || [];
+  const _sfSharing = (sf.sharing || []).filter((o) => o.key !== 'managers' || sf.manager);
+  const _sfShareLabel = { staff: 'Staff', managers: 'Managers only', family: 'Staff, parents and student' };
+%>
+<%
+  // One new-file row. required: the school asks for a file (the first row can't be taken away).
+  const _sfRow = (key, required) => {
+    const opt = (list, attr) => list.map((o) => '<option value="' + o.key + '"' + (attr ? ' data-sharing="' + o.sharing + '"' : '') + '>' + escapeFn(o.label) + '</option>').join('');
+    const shareOpts = _sfSharing.map((o) => '<option value="' + o.key + '">' + escapeFn(_sfShareLabel[o.key] || o.label) + '</option>').join('');
+    return '<div class="sff__row" data-sff-new>'
+      + '<label class="sff__field sff__field--file"><span>File' + (required ? ' <em class="sff__req">required</em>' : '') + '</span>'
+      + '<input type="file" name="studentDoc_' + key + '"' + (required ? ' required' : '') + ' accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.doc,.docx,application/pdf,image/*"></label>'
+      + '<label class="sff__field"><span>Type</span><select name="docType_' + key + '" data-sff-type>' + opt(_sfTypes, true) + '</select></label>'
+      + '<label class="sff__field"><span>Title</span><input type="text" name="docTitle_' + key + '" maxlength="140" placeholder="e.g. Blue Cross card"></label>'
+      + '<label class="sff__field"><span>Who can see it</span><select name="docSharing_' + key + '" data-sff-sharing>' + shareOpts + '</select></label>'
+      + (required ? '' : '<button type="button" class="sff__remove" data-sff-remove aria-label="Remove this file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>')
+      + '</div>';
+  };
+  function escapeFn(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+%>
+<div class="sff" data-sff data-sff-prefix="<%= keyPrefix %>">
+  <% if (Array.isArray(sf.list) && sf.list.length) { %>
+  <div class="sff__saved">
+    <% sf.list.forEach(function (d) { %>
+    <div class="sff__row sff__row--saved" data-sff-saved>
+      <div class="sff__file">
+        <span class="sff__icon" aria-hidden="true"><%= (String(d.fileName).split('.').pop() || 'FILE').toUpperCase().slice(0, 4) %></span>
+        <a href="/common/student-documents/file/<%= d.id %>" target="_blank" rel="noopener" data-no-spa title="Open <%= d.fileName %>"><%= d.fileName %></a>
+      </div>
+      <label class="sff__field"><span>Type</span>
+        <select name="docEditType_<%= d.id %>"><% _sfTypes.forEach(function (t) { %><option value="<%= t.key %>" <%= t.key === d.docType ? 'selected' : '' %>><%= t.label %></option><% }) %></select></label>
+      <label class="sff__field"><span>Title</span><input type="text" name="docEditTitle_<%= d.id %>" maxlength="140" value="<%= d.title %>"></label>
+      <label class="sff__field"><span>Who can see it</span>
+        <select name="docEditSharing_<%= d.id %>"><% _sfSharing.forEach(function (o) { %><option value="<%= o.key %>" <%= o.key === d.sharing ? 'selected' : '' %>><%= _sfShareLabel[o.key] || o.label %></option><% }) %></select></label>
+      <label class="sff__remove-tick"><input type="checkbox" name="removeDoc" value="<%= d.id %>"> Remove</label>
+    </div>
+    <% }) %>
+  </div>
+  <% } %>
+  <div class="sff__rows" data-sff-rows><% if (sf.required) { %><%- _sfRow(keyPrefix + '0', true) %><% } %></div>
+  <div class="sff__foot">
+    <button type="button" class="sff__add" data-sff-add>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Add a file
+    </button>
+    <span class="sff__hint">PDF, picture or Word, up to <%= sf.maxMb %> MB each.</span>
+  </div>
+  <template data-sff-row><%- _sfRow('{{KEY}}', false) %></template>
+</div>

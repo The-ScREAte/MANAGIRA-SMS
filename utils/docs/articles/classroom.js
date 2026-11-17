@@ -168,8 +168,8 @@ module.exports = [
     title: "Class settings",
     topic: "Classroom & attendance",
     order: 3,
-    summary: "Class settings turn lunch on or off for a class and choose who sees its attendance, lunch, report cards and bus: parents, students or both.",
-    tags: ["class settings", "lunch", "turn off lunch", "share with", "parents see", "what parents see", "what students see", "hide from parents", "hide from students", "every class"],
+    summary: "Turn lunch on or off for a class, and choose whether parents and students see its attendance, lunch, report cards, bus, files and portfolio.",
+    tags: ["class settings", "lunch", "turn off lunch", "share with", "hide portfolio", "share files with parents", "parents see", "what parents see", "what students see", "hide from parents", "hide from students", "every class"],
     who: "Staff given <strong>Class Settings</strong>, for the classes they lead as main or assistant teacher (teachers have it by default). With its follow-up <strong>Every Class</strong>, every class, from Management (managers have it).",
     intro: "If your school has Class settings, each class chooses whether it takes lunch, and who sees its attendance, lunch, report cards and bus in their portal. Everything is on, for parents and students, until someone turns it off.",
     sections: [
@@ -187,6 +187,8 @@ module.exports = [
           ["<strong>Report cards</strong>", "Report cards, as soon as they're published. Parents also get the report card notice and email."],
           ["<strong>GPA</strong>", "This term's GPA and the cumulative GPA over finished terms, from letter grades. See <a href=\"/legal/user-documentation/gpa-on-report-cards-and-transcripts\">GPA on report cards and transcripts</a>."],
           ["<strong>Bus &amp; transport</strong>", "The bus tracker, boarding, and driver reports shared about the student."],
+          ["<strong>Student files</strong>", "Files set to <em>Family</em> on the student's record. See <a href=\"/legal/user-documentation/student-files\">Student files</a>."],
+          ["<strong>Portfolio</strong>", "Each term's marked work and documented tests. See <a href=\"/legal/user-documentation/student-portfolio\">A student's portfolio</a>."],
         ],
         note: "Unticking a box hides that item from that class's parents or students only; staff still see everything. Turning lunch off doesn't remove lunch already taken: it stays in reports.",
       },
@@ -213,7 +215,7 @@ module.exports = [
       },
     ],
     faq: [
-      ["How do I stop parents or students seeing attendance, lunch, report cards or the bus?", "Open the class's Class settings and, under <strong>Share with</strong>, untick <strong>Parents</strong> or <strong>Students</strong> for that item. Staff still see it."],
+      ["How do I stop parents or students seeing attendance, lunch, report cards, the bus, files or the portfolio?", "Open the class's Class settings and, under <strong>Share with</strong>, untick <strong>Parents</strong> or <strong>Students</strong> for that item. Staff still see it."],
       ["A parent can't see their child's attendance or report cards.", "Check the child's class settings: the <strong>Parents</strong> box for that item may be unticked. For a student, check the <strong>Students</strong> box."],
       ["Can one class take lunch and another not?", "Yes. Take lunch is set for each class."],
       ["Can students see their report cards?", "Yes, in their Portfolio as soon as report cards are published, unless the class's <strong>Students</strong> box for report cards is unticked."],

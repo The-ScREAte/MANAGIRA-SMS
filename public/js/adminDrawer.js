@@ -10,6 +10,7 @@
        title: 'New Announcement',
        subtitle: 'Compose a modal or banner broadcast',
        listPagePath: '/common/manageAnnouncements', // reload if the iframe navigates here
+       belowHeader: true, // optional: open under the app header instead of over it
      });
      document.getElementById('newAnnouncementBtn').addEventListener('click', function () {
        drawer.open('/common/announcementComposer?embed=workspace');
@@ -91,6 +92,13 @@
         iframe.style.display = "block";
       }
 
+      // belowHeader: start where the app header ends (measured now; the header's height changes
+      // with the screen), so the drawer never covers it. Inside a hub panel there is no header.
+      if (options.belowHeader) {
+        const header = document.getElementById("top-header");
+        const rect = header ? header.getBoundingClientRect() : null;
+        overlay.style.top = rect && rect.height ? Math.max(0, Math.round(rect.bottom)) + "px" : "0px";
+      }
       overlay.classList.add("is-open");
       overlay.setAttribute("aria-hidden", "false");
       document.body.style.overflow = "hidden";

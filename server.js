@@ -1306,8 +1306,12 @@ app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>
 app.get("/calendar/family/:token([a-f0-9]{48}).ics", (req, res) =>
   require("./controllers/familyCalendarController").ics(req, res, db)
 );
+// A student's documents on the student page (feature student_documents).
+app.use("/common/student-documents", require("./routes/studentDocumentsRoute"));
 // The weekly briefing's settings and preview (feature weekly_briefing).
 app.use("/common/briefing", require("./routes/briefingRoute"));
+// Pages that belong inside a workspace open there, never on their own (middleware/workspaceOnly.js).
+app.use(require("./middleware/workspaceOnly")(db));
 app.use("/common", commonRoute);
 // Service accounts, access tokens and client secrets (school admin screens).
 app.use("/api-access", require("./routes/apiAccessRoute"));

@@ -1151,6 +1151,8 @@ module.exports = {
       const studentForms = await require("../utils/customForms").studentDashboard(db, organizationId, Number(studentId), { day: require("../utils/localDate").todayKeyFor(req) }).catch(() => ({ toDo: 0, tiles: [] }));
       res.render("student/dashboard", {
         gpaInfo,
+        // The class may keep the portfolio from its students (Class settings).
+        portfolioShared: sees.portfolio !== false,
         formsToDo: studentForms.toDo,
         formTiles: studentForms.tiles,
         studentActivities,

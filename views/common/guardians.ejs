@@ -362,5 +362,13 @@
       if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr.ux-row')) { e.preventDefault(); open(e.target.dataset.key); }
     });
   }
+  // Opened from a person card (?open=<profile|legacy>:<id>, &edit=1 for the edit form).
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var wanted = params.get('open');
+    if (!wanted || !/^(profile|legacy):\d+$/.test(wanted)) return;
+    open(wanted);
+    if (current && params.get('edit') === '1') showEdit(current);
+  })();
 })();
 </script>

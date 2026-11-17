@@ -284,6 +284,43 @@
       </div>
     </details>
 
+    <% if (locals.filesSettings) { %>
+    <%# Student files on Add student (feature student_documents, utils/studentDocuments.js settingsFor). %>
+    <div class="as-card" id="asFilesCard">
+      <div class="as-card__head">
+        <div>
+          <h2>Student files</h2>
+          <p>The Files section on Add student.</p>
+        </div>
+      </div>
+      <div class="as-card__body">
+        <label class="as-switch">
+          <span class="as-toggle"><input type="checkbox" id="asFilesRequired" <%= filesSettings.requiredOnAdd ? 'checked' : '' %> /><i></i></span>
+          <span><strong>Require a file for each new student</strong><span id="asFilesState"><%= filesSettings.requiredOnAdd ? 'Required' : 'Optional' %></span></span>
+        </label>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var box = document.getElementById('asFilesRequired');
+        if (!box || box.dataset.bound) return;
+        box.dataset.bound = '1';
+        var state = document.getElementById('asFilesState');
+        var text = function (on) { return on ? 'Required' : 'Optional'; };
+        box.addEventListener('change', function () {
+          var wanted = box.checked;
+          box.disabled = true;
+          state.textContent = 'Saving…';
+          fetch('/common/admissionSettings/files', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ requiredOnAdd: wanted }) })
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.success) throw new Error(j.error || 'Not saved'); return j; }); })
+            .then(function (j) { box.checked = j.requiredOnAdd; state.textContent = text(j.requiredOnAdd) + ' · Saved'; })
+            .catch(function (e) { box.checked = !wanted; state.textContent = (e.message || 'Not saved') + '. ' + text(!wanted); })
+            .then(function () { box.disabled = false; });
+        });
+      })();
+    </script>
+    <% } %>
+
     <div class="as-card">
       <div class="as-card__head">
         <div>

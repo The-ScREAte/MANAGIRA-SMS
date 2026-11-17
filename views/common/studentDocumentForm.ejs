@@ -1,0 +1,163 @@
+<%# Add or edit one of a student's files, opened in the student page's right-side drawer
+    (routes/studentDocumentsRoute.js, feature student_documents). Locals: student, doc (null for a new file),
+    types, sharing, maxMb, drawerId, messages. %>
+<%
+  const _isNew = !doc;
+  const _action = _isNew ? '/common/student-documents/' + student.student_id : '/common/student-documents/' + student.student_id + '/' + doc.id + '/edit';
+  const _shareHelp = { staff: 'Staff who can open this student', managers: 'Managers and supervisors only', family: 'Staff, the parents and the student' };
+  const _shareName = { staff: 'Staff', managers: 'Managers only', family: 'Family' };
+  const _current = doc ? doc.sharing : 'staff';
+%>
+<style>
+  html, body { background: #fff !important; }
+  .sdf { --sdf-accent: var(--org-primary-color, #0f766e); max-width: 640px; margin: 0 auto; padding: 18px 20px 96px; color: #0f172a; font-size: 14px; }
+  .sdf * { box-sizing: border-box; }
+  .sdf h1 { margin: 0 0 2px; font-size: 18px; font-weight: 750; text-align: left; }
+  .sdf__sub { margin: 0 0 18px; color: #64748b; font-size: 13px; }
+  .sdf__field { display: grid; gap: 6px; margin: 0 0 16px; }
+  .sdf__label { font-size: 13px; font-weight: 650; color: #334155; }
+  .sdf__label small { font-weight: 500; color: #94a3b8; }
+  .sdf input[type="text"], .sdf input[type="date"], .sdf select, .sdf textarea { width: 100%; height: 40px; margin: 0; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #0f172a; font: inherit; font-size: 14px; }
+  .sdf textarea { height: auto; min-height: 76px; resize: vertical; }
+  .sdf input, .sdf select, .sdf textarea, .sdf__opt span, .sdf__drop span, .sdf__file small { font-weight: 400 !important; }
+  .sdf__opt strong { font-weight: 650; }
+  .sdf input:focus, .sdf select:focus, .sdf textarea:focus { outline: none; border-color: var(--sdf-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sdf-accent) 18%, transparent); }
+  .sdf__row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .sdf__drop { position: relative; display: grid; place-items: center; gap: 4px; min-height: 120px; padding: 18px; border: 1.5px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .sdf__drop:hover, .sdf__drop.is-over { border-color: var(--sdf-accent); background: color-mix(in srgb, var(--sdf-accent) 5%, #fff); }
+  .sdf__drop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .sdf__drop strong { font-size: 14px; }
+  .sdf__drop span { color: #64748b; font-size: 12.5px; }
+  .sdf__drop svg { color: var(--sdf-accent); }
+  .sdf__drop.has-file { border-style: solid; border-color: var(--sdf-accent); background: #fff; }
+  .sdf__file { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; }
+  .sdf__ext { display: grid; place-items: center; flex: none; width: 38px; height: 46px; border-radius: 7px; background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 800; letter-spacing: .03em; }
+  .sdf__file div { min-width: 0; flex: 1; }
+  .sdf__file strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sdf__file small { color: #64748b; font-size: 12.5px; }
+  .sdf a { color: var(--sdf-accent); font-weight: 650; text-decoration: none; }
+  .sdf__share { display: grid; gap: 8px; }
+  .sdf__opt { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer; }
+  .sdf__opt input { width: 16px; height: 16px; margin: 0; accent-color: var(--sdf-accent); }
+  .sdf__opt strong { font-size: 13.5px; }
+  .sdf__opt span { display: block; color: #64748b; font-size: 12.5px; }
+  .sdf__opt:has(input:checked) { border-color: var(--sdf-accent); background: color-mix(in srgb, var(--sdf-accent) 6%, #fff); }
+  .sdf__bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid #e2e8f0; background: #fff; }
+  .sdf__bar .sdf__spacer { flex: 1; }
+  .sdf .sdf__btn { display: inline-flex; align-items: center; justify-content: center; width: auto; height: 40px; margin: 0; padding: 0 18px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; box-shadow: none; color: #0f172a; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+  .sdf .sdf__btn--primary { border-color: transparent; background: var(--sdf-accent); color: #fff; }
+  .sdf .sdf__btn--danger { border: 0; padding: 0; background: none; color: #b91c1c; font-size: 13.5px; }
+  .sdf .sdf__btn[disabled] { opacity: .6; cursor: default; }
+  @media (max-width: 520px) { .sdf__row { grid-template-columns: 1fr; } }
+</style>
+<div class="sdf">
+  <%- include('../partials/flash') %>
+  <h1><%= _isNew ? 'Add a file' : 'File details' %></h1>
+
+  <form id="sdfForm" method="post" action="<%= _action %>" <%- _isNew ? 'enctype="multipart/form-data"' : '' %>>
+    <input type="hidden" name="drawerId" value="<%= drawerId %>">
+    <% if (_isNew) { %>
+    <div class="sdf__field">
+      <span class="sdf__label">File</span>
+      <label class="sdf__drop" id="sdfDrop">
+        <input type="file" name="document" id="sdfFile" required accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.doc,.docx,application/pdf,image/*">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <strong id="sdfDropTitle">Choose a file or drop it here</strong>
+        <span id="sdfDropHint">PDF, picture or Word document, up to <%= maxMb %> MB</span>
+      </label>
+    </div>
+    <% } else { %>
+    <div class="sdf__field">
+      <span class="sdf__label">File</span>
+      <div class="sdf__file">
+        <span class="sdf__ext"><%= (String(doc.fileName).split('.').pop() || 'FILE').toUpperCase().slice(0, 4) %></span>
+        <div><strong><%= doc.fileName %></strong><small>Added <%= new Date(doc.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %><% if (doc.uploadedBy) { %> by <%= doc.uploadedBy %><% } %></small></div>
+        <a href="/common/student-documents/file/<%= doc.id %>" target="_blank" rel="noopener">Open</a>
+      </div>
+    </div>
+    <% } %>
+
+    <div class="sdf__row">
+      <label class="sdf__field"><span class="sdf__label">Type</span>
+        <select name="docType" id="sdfType">
+          <% types.forEach(function (t) { %><option value="<%= t.key %>" data-sharing="<%= t.sharing %>" <%= doc && doc.docType === t.key ? 'selected' : '' %>><%= t.label %></option><% }) %>
+        </select>
+      </label>
+      <label class="sdf__field"><span class="sdf__label">Expires on <small>optional</small></span>
+        <input type="date" name="expiresOn" value="<%= doc ? (doc.expiresOn || '') : '' %>">
+      </label>
+    </div>
+
+    <label class="sdf__field"><span class="sdf__label">Title</span>
+      <input type="text" name="title" id="sdfTitle" maxlength="140" value="<%= doc ? doc.title : '' %>" placeholder="e.g. Blue Cross card" <%= doc ? 'required' : '' %>>
+    </label>
+
+    <div class="sdf__field">
+      <span class="sdf__label">Who can see it</span>
+      <div class="sdf__share" id="sdfShare">
+        <% sharing.forEach(function (o) { %>
+        <label class="sdf__opt"><input type="radio" name="sharing" value="<%= o.key %>" <%= _current === o.key ? 'checked' : '' %>><div><strong><%= _shareName[o.key] || o.label %></strong><span><%= _shareHelp[o.key] || o.label %></span></div></label>
+        <% }) %>
+      </div>
+    </div>
+
+    <label class="sdf__field"><span class="sdf__label">Note <small>optional</small></span>
+      <textarea name="note" maxlength="1000" placeholder="e.g. policy number"><%= doc ? doc.note : '' %></textarea>
+    </label>
+
+    <div class="sdf__bar">
+      <% if (!_isNew) { %><button class="sdf__btn sdf__btn--danger" form="sdfRemove">Remove file</button><% } %>
+      <span class="sdf__spacer"></span>
+      <button type="button" class="sdf__btn" id="sdfCancel">Cancel</button>
+      <button type="submit" class="sdf__btn sdf__btn--primary" id="sdfSave"><%= _isNew ? 'Upload' : 'Save' %></button>
+    </div>
+  </form>
+  <% if (!_isNew) { %>
+  <form id="sdfRemove" method="post" action="/common/student-documents/<%= student.student_id %>/<%= doc.id %>/delete" onsubmit="return confirm('Remove this file? It is deleted for everyone.');">
+    <input type="hidden" name="drawerId" value="<%= drawerId %>">
+  </form>
+  <% } %>
+</div>
+<script>
+  (function () {
+    var drawerId = <%- JSON.stringify(drawerId || '') %>;
+    var form = document.getElementById('sdfForm');
+    document.getElementById('sdfCancel').addEventListener('click', function () {
+      if (window.parent !== window && drawerId) window.parent.postMessage({ managiraDrawerCancel: true, drawerId: drawerId }, location.origin);
+      else history.back();
+    });
+    form.addEventListener('submit', function () {
+      var save = document.getElementById('sdfSave');
+      save.disabled = true;
+      save.textContent = <%- JSON.stringify(_isNew ? 'Uploading…' : 'Saving…') %>;
+    });
+    // A medical or legal type starts private; sharing follows the type until chosen by hand.
+    var type = document.getElementById('sdfType');
+    var share = document.getElementById('sdfShare');
+    var touched = <%- JSON.stringify(!_isNew) %>;
+    share.addEventListener('change', function () { touched = true; });
+    function follow() {
+      if (touched) return;
+      var wanted = type.options[type.selectedIndex].getAttribute('data-sharing');
+      var radio = share.querySelector('input[value="' + wanted + '"]') || share.querySelector('input[value="staff"]');
+      if (radio) radio.checked = true;
+    }
+    type.addEventListener('change', follow);
+    follow();
+    // The chosen file shows in the drop box and names the file until a title is typed.
+    var input = document.getElementById('sdfFile');
+    if (input) {
+      var drop = document.getElementById('sdfDrop');
+      var title = document.getElementById('sdfTitle');
+      ['dragenter', 'dragover'].forEach(function (e) { drop.addEventListener(e, function () { drop.classList.add('is-over'); }); });
+      ['dragleave', 'drop'].forEach(function (e) { drop.addEventListener(e, function () { drop.classList.remove('is-over'); }); });
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        drop.classList.toggle('has-file', Boolean(file));
+        document.getElementById('sdfDropTitle').textContent = file ? file.name : 'Choose a file or drop it here';
+        document.getElementById('sdfDropHint').textContent = file ? (Math.max(1, Math.round(file.size / 1024)) + ' KB · choose another to replace it') : 'PDF, picture or Word document, up to <%= maxMb %> MB';
+        if (file && !title.value) title.placeholder = file.name.replace(/\.[^.]+$/, '');
+      });
+    }
+  })();
+</script>

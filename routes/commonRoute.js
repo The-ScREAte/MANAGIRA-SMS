@@ -325,6 +325,7 @@ module.exports = (db) => {
   // Permission (Manage Settings) is checked in the controller.
   router.get("/admissionSettings", checkFeatureAccess, isAuthenticated, blockGuardians, admissionSettingsController.page);
   router.post("/admissionSettings/fields", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("create"));
+  router.post("/admissionSettings/files", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.filesApi);
   router.post("/admissionSettings/fields/order", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("order"));
   router.post("/admissionSettings/fields/indicators", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("indicators"));
   router.post("/admissionSettings/fields/:id(\\d+)", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("update"));
@@ -363,7 +364,13 @@ module.exports = (db) => {
   );
   router.post(
     "/editStudent/:studentId",
-    upload.single("studentImage"),
+    // The photo, and any files for the student's record (studentDoc_new…, feature student_documents).
+    upload.any(),
+    (req, _res, next) => {
+      const files = Array.isArray(req.files) ? req.files : [];
+      req.file = files.find((file) => file.fieldname === "studentImage");
+      next();
+    },
     isAuthenticated,
     requirePermission(PERMISSIONS.STUDENTS_EDIT),
     commonValidation.validatePublicRegister,
@@ -956,6 +963,13 @@ module.exports = (db) => {
     requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
     (req, res) => commonController.manageEventsAnnouncementsGet(req, res, db)
   );
+
+  // A person's card in the right-side drawer: each field and action follows who is looking
+  // (controllers/personCardController.js).
+  const personCard = require("../controllers/personCardController");
+  router.get("/person-card/student/:id(\\d+)", isAuthenticated, (req, res) => personCard.student(req, res, db));
+  router.get("/person-card/staff/:id(\\d+)", isAuthenticated, (req, res) => personCard.staff(req, res, db));
+  router.get("/person-card/guardian/:id(\\d+)", isAuthenticated, (req, res) => personCard.guardian(req, res, db));
 
   router.get("/employeeDetails", isAuthenticated, (req, res) =>
     commonController.getEmployeeDetails(req, res, db)

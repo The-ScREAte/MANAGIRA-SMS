@@ -28,6 +28,7 @@ module.exports = (db) => {
   router.get("/child/documents", isGuardianAuthenticated, (req, res) => parentHub.documents(req, res, db));
   router.get("/child/work/:setId", isGuardianAuthenticated, (req, res) => parentHub.work(req, res, db));
   router.get("/child/file/:fileId", isGuardianAuthenticated, (req, res) => parentHub.file(req, res, db));
+  router.get("/child/student-file/:documentId(\\d+)", isGuardianAuthenticated, (req, res) => parentHub.studentFile(req, res, db));
   // Forms the school asks the family to fill in, and ones it shares (feature custom_forms).
   const customForms = require("../controllers/customFormsController");
   router.get("/child/forms", isGuardianAuthenticated, (req, res) => customForms.guardianPage(req, res, db));

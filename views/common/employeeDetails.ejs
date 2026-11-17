@@ -107,6 +107,22 @@
     margin: 10px 0;
   }
 
+  /* In a drawer or a hub panel the frame already names the page: no heading, everything left-aligned. */
+  .emp-embedded h1 { display: none; }
+  main.emp-embedded { max-width: 680px !important; margin: 0 !important; padding: 22px 26px !important; box-sizing: border-box; text-align: left; }
+  .emp-embedded .employee-info-container { gap: 16px; }
+  .emp-embedded td ul { margin: 0; padding: 0; list-style: none; }
+  .emp-embedded .link-to-next-back, .emp-embedded td, .emp-embedded th { text-align: left !important; }
+  .emp-embedded .employee-info-container { justify-content: flex-start; }
+  .emp-embedded .employee-image-container img { width: 84px; height: 84px; border: 1px solid #e2e8f0; }
+  .emp-embedded .employee-details p { margin: 3px 0; color: #475569; }
+  .emp-embedded .employee-details strong { color: #0f172a; font-weight: 600; }
+  .emp-embedded .table-container { margin: 18px 0; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+  .emp-embedded table th, .emp-embedded table td { border: 0; border-bottom: 1px solid #eef0f3; padding: 10px 12px; font-size: 13.5px; }
+  .emp-embedded table tr:last-child td { border-bottom: 0; }
+  .emp-embedded table th { background: #f8fafc; color: #475569; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+  .emp-embedded .link-to-next-back { margin: 0; }
+  .emp-embedded .btn { margin: 0; padding: 9px 18px; border-radius: 9px; font-weight: 600; }
   .modify-button {
     text-align: center;
     margin-top: 20px;
@@ -115,20 +131,15 @@
 
 </head>
 <body>
-  <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-    <div class="link-to-next-back">
-      <a href="/common/manageEmployees" class="btn btn-secondary">← Back to Manage Employees</a>
-    </div>
-  <% } %>
 
   <%- include('../partials/flash') %>
 
-  <main>
+  <main class="<%= locals.isEmbedded ? 'emp-embedded' : '' %>">
     <h1>Employee Information</h1>
 
     <% if (loggedInUserId && loggedInUserId === employee.user_id) { %>
       <div class="link-to-next-back">
-        <a href="/account/update" class="btn btn-secondary">Account Profile Settings</a>
+        <a href="/account/update" class="btn btn-secondary" target="_top">Account Profile Settings</a>
       </div>
     <% } %>
 
@@ -152,19 +163,19 @@
         <% if (isManager) { %>
           <p>
             <strong>Organization Name:</strong> <%= employee.organization_name %>
-            <a href="/account/personalization" class="btn btn-secondary" style="padding: 2px 8px; font-size: 12px; margin-left: 10px;">Edit</a>
+            <a href="/account/personalization" target="_top" class="btn btn-secondary" style="padding: 2px 8px; font-size: 12px; margin-left: 10px;">Edit</a>
           </p>
           <p><strong>Nickname:</strong> <%= employee.nickname %></p>
           <p>
             <strong>Plan Name:</strong> <%= employee.plan_name %>
-            <a href="/account/update-plan" class="btn btn-secondary" style="padding: 2px 8px; font-size: 12px; margin-left: 10px;">Edit</a>
+            <a href="/account/update-plan" target="_top" class="btn btn-secondary" style="padding: 2px 8px; font-size: 12px; margin-left: 10px;">Edit</a>
           </p>
           <% if (employee.motto) { %>
             <p><strong>Motto:</strong> <%= employee.motto %></p>
           <% } %>
         <% } %>
       </div>
-      
+    </div>
 
     <% if (employee.classes && employee.classes.length > 0) { %>
       <div class="table-container">
@@ -195,7 +206,7 @@
 
     <% if (!isManager && req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
       <div class="link-to-next-back">
-        <a href="/common/modifyEmployee?userId=<%= employee.user_id %>" class="btn btn-secondary">Modify</a>
+        <a href="/common/modifyEmployee?userId=<%= employee.user_id %><%= locals.isEmbedded ? '&embed=workspace' : '' %>" class="btn btn-secondary">Modify</a>
       </div>
     <% } %>
   </main>

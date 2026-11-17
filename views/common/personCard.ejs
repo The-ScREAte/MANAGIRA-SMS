@@ -1,0 +1,125 @@
+<%# A person's card in the right-side drawer (controllers/personCardController.js decides every field and
+    action from who is looking). Locals: card { kind, name, image, tags, facts [[label, value, href?]],
+    people { title, rows [{ name, sub, phone, email, open: { person } }] }, classes [{ name, role, subjects }],
+    classesTitle, actions [{ label, href, primary, top (opens the full page), drawer (stays in the drawer) }] } or null. %>
+<%
+  const _initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+%>
+<style>
+  html, body { background: #fff !important; }
+  .pc { --pc-accent: var(--org-primary-color, #0f766e); max-width: 720px; padding: 22px 24px 96px; color: #0f172a; font-size: 14px; text-align: left; }
+  .pc * { box-sizing: border-box; }
+  .pc-head { display: flex; align-items: center; gap: 16px; margin: 0 0 18px; }
+  .pc-avatar { display: grid; place-items: center; flex: none; width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--pc-accent) 12%, #fff); color: var(--pc-accent); font-size: 24px; font-weight: 750; }
+  .pc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .pc-head h1 { margin: 0 0 6px; font-size: 20px; font-weight: 750; line-height: 1.2; text-align: left; }
+  .pc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pc-tag { padding: 2px 10px; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: 12px; font-weight: 650; }
+  .pc-section { margin: 0 0 18px; }
+  .pc .pc-section h2 { margin: 0 0 8px !important; color: #64748b !important; font-size: 11.5px !important; font-weight: 700 !important; letter-spacing: .04em; text-transform: uppercase; text-align: left; line-height: 1.4; }
+  .pc .pc-head h1 { font-size: 20px !important; }
+  .pc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 0; padding: 14px 16px; border: 1px solid #eef0f3; border-radius: 12px; }
+  .pc-facts dt { color: #64748b; font-size: 12px; font-weight: 600; }
+  .pc-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; font-size: 14px; }
+  .pc a { color: var(--pc-accent); font-weight: 600; text-decoration: none; }
+  .pc a:hover { text-decoration: underline; }
+  .pc-list { margin: 0; padding: 0; list-style: none; border: 1px solid #eef0f3; border-radius: 12px; }
+  .pc-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+  .pc-row + .pc-row { border-top: 1px solid #eef0f3; }
+  .pc-row__dot { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 700; }
+  .pc-row__main { min-width: 0; flex: 1; }
+  .pc-row__name { display: block; font-weight: 650; }
+  .pc-row__sub { display: block; color: #64748b; font-size: 12.5px; }
+  .pc-row__links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; }
+  .pc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .pc-chip { padding: 2px 9px; border-radius: 999px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-size: 12px; }
+  .pc-role { margin-left: 6px; color: var(--pc-accent); font-size: 12px; font-weight: 650; }
+  .pc-bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 12px 24px; border-top: 1px solid #e2e8f0; background: #fff; }
+  .pc .pc-btn { display: inline-flex; align-items: center; height: 40px; padding: 0 18px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #0f172a; font-size: 14px; font-weight: 650; text-decoration: none; }
+  .pc .pc-btn:hover { text-decoration: none; border-color: var(--pc-accent); color: var(--pc-accent); }
+  .pc .pc-btn--primary { border-color: transparent; background: var(--pc-accent); color: #fff; }
+  .pc .pc-btn--primary:hover { color: #fff; filter: brightness(1.05); }
+  .pc-none { padding: 40px 24px; color: #64748b; text-align: center; }
+  @media (max-width: 520px) { .pc-facts { grid-template-columns: 1fr; } .pc { padding: 18px 16px 96px; } }
+</style>
+<% if (!card) { %>
+  <div class="pc"><p class="pc-none">This person's details aren't available to you.</p></div>
+<% } else { %>
+<div class="pc">
+  <div class="pc-head">
+    <span class="pc-avatar"><% if (card.image) { %><img src="<%= card.image %>" alt=""><% } else { %><%= _initials(card.name) %><% } %></span>
+    <div>
+      <h1><%= card.name %></h1>
+      <div class="pc-tags"><% (card.tags || []).forEach((t) => { %><span class="pc-tag"><%= t %></span><% }) %></div>
+    </div>
+  </div>
+
+  <% if (card.facts && card.facts.length) { %>
+  <section class="pc-section">
+    <dl class="pc-facts">
+      <% card.facts.forEach((f) => { %>
+      <div><dt><%= f[0] %></dt><dd><% if (f[2]) { %><a href="<%= f[2] %>"><%= f[1] %></a><% } else { %><%= f[1] %><% } %></dd></div>
+      <% }) %>
+    </dl>
+  </section>
+  <% } %>
+
+  <% if (card.classes && card.classes.length) { %>
+  <section class="pc-section">
+    <h2><%= card.classesTitle || 'Classes' %></h2>
+    <ul class="pc-list">
+      <% card.classes.forEach((c) => { %>
+      <li class="pc-row">
+        <div class="pc-row__main">
+          <span class="pc-row__name"><%= c.name %><% if (c.role) { %><span class="pc-role"><%= c.role %></span><% } %></span>
+          <% if (c.subjects && c.subjects.length) { %><div class="pc-chips"><% c.subjects.forEach((s) => { %><span class="pc-chip"><%= s %></span><% }) %></div><% } %>
+        </div>
+      </li>
+      <% }) %>
+    </ul>
+  </section>
+  <% } %>
+
+  <% if (card.people && card.people.rows.length) { %>
+  <section class="pc-section">
+    <h2><%= card.people.title %></h2>
+    <ul class="pc-list">
+      <% card.people.rows.forEach((p) => { %>
+      <li class="pc-row">
+        <span class="pc-row__dot" aria-hidden="true"><%= _initials(p.name) %></span>
+        <div class="pc-row__main">
+          <% if (p.open) { %><a class="pc-row__name" href="#" data-person-in-drawer="<%= p.open.person %>"><%= p.name %></a><% } else { %><span class="pc-row__name"><%= p.name %></span><% } %>
+          <% if (p.sub) { %><span class="pc-row__sub"><%= p.sub %></span><% } %>
+        </div>
+        <span class="pc-row__links">
+          <% if (p.phone) { %><a href="tel:<%= p.phone %>"><%= p.phone %></a><% } %>
+          <% if (p.email) { %><a href="mailto:<%= p.email %>">Email</a><% } %>
+        </span>
+      </li>
+      <% }) %>
+    </ul>
+  </section>
+  <% } %>
+
+  <% const _actions = (card.actions || []).filter(Boolean); %>
+  <% if (_actions.length) { %>
+  <div class="pc-bar">
+    <% _actions.slice().sort((a, b) => (a.primary ? 1 : 0) - (b.primary ? 1 : 0)).forEach((a) => { %>
+    <a class="pc-btn<%= a.primary ? ' pc-btn--primary' : '' %>" href="<%= a.drawer && drawerId ? a.href + (a.href.includes('?') ? '&' : '?') + 'drawerId=' + drawerId : a.href %>"<%- a.top ? ' target="_top"' : '' %>><%= a.label %></a>
+    <% }) %>
+  </div>
+  <% } %>
+</div>
+<script>
+  // Another person on this card (a parent, a child) opens in this same drawer.
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest('[data-person-in-drawer]');
+    if (!link) return;
+    event.preventDefault();
+    var parts = link.getAttribute('data-person-in-drawer').split(':');
+    var url = '/common/person-card/' + parts[0] + '/' + parts[1] + (parts[2] ? '?source=' + parts[2] : '');
+    if (window.parent !== window && window.parent.ManagiraPersonCard) window.parent.ManagiraPersonCard.open(link.getAttribute('data-person-in-drawer'), link.textContent.trim());
+    else window.location.href = url + (url.includes('?') ? '&' : '?') + 'embed=workspace';
+  });
+</script>
+<% } %>

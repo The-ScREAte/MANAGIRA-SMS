@@ -98,6 +98,7 @@ module.exports = [
         steps: [
           ["Update the details you need. Each section saves on its own.", "edit-student.webp", "A student's page: details, class, parents and your school's own fields."],
           "Parents and guardians are listed under the student. Staff with the parents permission can edit them, add another, or invite them to the parent portal.",
+          "Under <strong>Files</strong>, add, rename or remove the student's files. See <a href=\"/legal/user-documentation/student-files\">Student files</a>.",
           "Select <strong>Save</strong>.",
         ],
       },
@@ -108,6 +109,118 @@ module.exports = [
       ["How do I remove or delete a student who left?", "Open <strong>Admissions</strong>, then <strong>Graduate &amp; Withdraw</strong>, choose the students and archive them as graduated or as having left. They come off the register and their records are kept; find them again in <strong>Graduates &amp; Alumni</strong>. <strong>Delete student</strong>, on the student's page, is only for a student added by mistake who has no scores, attendance, report cards or payments."],
     ],
     related: ["find-students", "transfer-a-student-between-classes-and-subject-matching", "create-manage-parent"],
+  },
+  {
+    slug: "student-files",
+    title: "Student files: insurance cards, plans and other papers",
+    topic: "Students & admissions",
+    order: 3.1,
+    summary: "Keep a student's papers on their record, such as an insurance card or a birth certificate, and choose who can see each one.",
+    tags: ["student files", "student documents", "upload document", "insurance card", "birth certificate", "immunization record", "IEP", "504 plan", "custody papers", "proof of address", "attach file to student", "expiry date"],
+    who: "Staff who can open the student (<strong>Manage Students</strong>). Teachers, for students in their classes.",
+    intro: "Every student has <strong>Files</strong> at the top of their page. Files are private: only the people you choose can open them.",
+    sections: [
+      {
+        title: "Add a file",
+        steps: [
+          ["Open the student. <strong>Files</strong> is under their name.", "student-files.webp", "Files at the top of the student's page."],
+          "Select <strong>Add file</strong>.",
+          ["Choose the file, its type and who can see it. A title, expiry date and note are optional.", "student-files-add.webp", "Add a file opens on the right."],
+          "Select <strong>Upload</strong>.",
+        ],
+        note: "PDFs, pictures and Word documents, up to 15 MB each.",
+      },
+      {
+        title: "Who can see it",
+        table: [
+          ["Choice", "Who can open it"],
+          ["<strong>Staff</strong>", "Staff who can open the student"],
+          ["<strong>Managers only</strong>", "Managers and supervisors"],
+          ["<strong>Family</strong>", "Staff, the student's parents and the student"],
+        ],
+        tip: "Custody papers and IEP or 504 plans start as <strong>Managers only</strong>.",
+      },
+      {
+        title: "Change or remove a file",
+        steps: [
+          "Select <strong>Edit</strong> beside the file.",
+          "Change what you need and select <strong>Save</strong>, or select <strong>Remove file</strong>.",
+        ],
+        note: "A file close to its expiry date shows in orange; an expired one shows in red.",
+      },
+      {
+        title: "Add files with a new student",
+        steps: [
+          ["On <strong>Add student</strong>, under <strong>Files</strong>, select <strong>Add a file</strong>.", "add-student-files.webp", "Files on Add student."],
+          "Choose the file, its type and who can see it. Add more if you need to.",
+          "Save the student as usual.",
+        ],
+        note: "<strong>Edit student</strong> has the same <strong>Files</strong> section, to add, rename or remove files.",
+      },
+      {
+        title: "Require a file for every new student",
+        steps: [
+          ["Open <strong>Admissions</strong>, <strong>Admission Settings</strong>, then <strong>Student fields</strong>.", "admission-settings-files.webp", "Student files: optional unless you turn this on."],
+          "Turn on <strong>Require a file for each new student</strong>.",
+        ],
+        note: "It's off unless you turn it on.",
+      },
+      {
+        title: "What families see",
+        text: "Files set to <strong>Family</strong> show on the parent's <strong>Documents</strong> and <strong>Portfolio</strong>, and on the student's <strong>Portfolio</strong>. To keep them from a class, untick <strong>Student files</strong> in <a href=\"/legal/user-documentation/class-settings\">Class settings</a>.",
+      },
+    ],
+    faq: [
+      ["Who can see a file set to Managers only?", "Managers and supervisors. Teachers and families don't see it in the list."],
+      ["Can I replace a file?", "Remove it and add the new one."],
+      ["Where are files kept?", "Privately, on the student's record. Opening one gives a link that works for a few minutes."],
+    ],
+    related: ["edit-student-information", "student-portfolio", "class-settings", "admission-settings"],
+  },
+  {
+    slug: "student-portfolio",
+    title: "A student's portfolio: documented and undocumented work",
+    topic: "Students & admissions",
+    order: 3.2,
+    summary: "See each term's marked work for a student. Testing Room work is documented, with a PDF of the test; marks entered by hand are undocumented.",
+    tags: ["portfolio", "student portfolio", "documented", "undocumented", "testing room", "marked tests", "test PDF", "student work"],
+    who: "Staff who can open the student. Parents and students see their own portfolio.",
+    sections: [
+      {
+        title: "Open a student's portfolio",
+        steps: [
+          ["Open the student and select <strong>Portfolio</strong>.", "student-portfolio.webp", "A term's portfolio: totals, documented tests, then each subject."],
+          "Choose a term at the top, if there's more than one.",
+          "Select a subject to see its work and marks.",
+        ],
+      },
+      {
+        title: "Documented and undocumented",
+        table: [
+          ["Label", "Means", "You can"],
+          ["<strong>Documented</strong>", "Taken in the Testing Room.", "<strong>View test</strong> or download its <strong>PDF</strong>."],
+          ["<strong>Undocumented</strong>", "The teacher entered the mark.", "See the mark."],
+        ],
+        note: "<em>Waiting for approval</em> means the teacher hasn't approved the mark yet. Only staff see it.",
+      },
+      {
+        title: "What families see",
+        steps: [
+          ["Parents open their child's page and select <strong>Portfolio</strong>. Students select <strong>Portfolio</strong> on their dashboard.", "parent-portfolio.webp", "A parent's view: shared files first, then the term's work."],
+        ],
+        list: [
+          "Files the school shared with the family come first.",
+          "Marks show once the teacher posts them.",
+          "A documented test opens in full only when the teacher shares it.",
+          "To hide the portfolio from a class, untick <strong>Portfolio</strong> in <a href=\"/legal/user-documentation/class-settings\">Class settings</a>.",
+        ],
+      },
+    ],
+    faq: [
+      ["Why is a test documented but a parent can't open it?", "The teacher hasn't shared the full test with families. They still see the mark once it's posted."],
+      ["How does work become documented?", "Students take it in the Testing Room. See <a href=\"/legal/user-documentation/student-testing-room\">Take a test</a>."],
+    ],
+    related: ["student-files", "parent-forms-and-portfolio", "class-settings", "student-testing-room"],
   },
   {
     slug: "admission-settings",
@@ -144,6 +257,7 @@ module.exports = [
           "Drag fields to arrange them. Changes appear on the forms straight away.",
         ],
         example: "A school adds <em>Allergies</em> (text), <em>Has an IEP or 504 plan</em> (yes or no) and <em>Previous school</em> (text) to both forms.",
+        note: "<strong>Student files</strong>, on the same tab, makes a file required on Add student. See <a href=\"/legal/user-documentation/student-files\">Student files</a>.",
       },
       {
         title: "Parents & guardians",

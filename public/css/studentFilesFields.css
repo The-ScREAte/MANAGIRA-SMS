@@ -1,0 +1,30 @@
+/* Files on Add student and Edit student (views/partials/studentFilesFields.ejs). Scoped to .sff. */
+.sff { display: grid; gap: 10px; container-type: inline-size; }
+.sff__saved, .sff__rows { display: grid; gap: 10px; }
+.sff__rows:empty { display: none; }
+.sff__row { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 10px 12px; padding: 12px 44px 12px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.sff__row--saved { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)) auto; padding-right: 12px; background: #fff; }
+.sff__field { display: grid; gap: 4px; margin: 0; min-width: 0; font-size: 12px; font-weight: 600; color: #475569; }
+.sff__field--wide { grid-column: span 3; }
+.sff__field--file { grid-column: auto; }
+.sff__row--saved .sff__field--wide { grid-column: 2 / span 2; }
+.sff .sff__field input, .sff .sff__field select { width: 100%; box-sizing: border-box; height: 36px; margin: 0; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-size: 13.5px; font-weight: 400; }
+.sff .sff__field input[type="file"] { height: auto; padding: 6px; }
+.sff__file { display: flex; align-items: center; gap: 10px; min-width: 0; align-self: end; height: 36px; }
+.sff__file a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #0f172a; font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.sff__file a:hover { text-decoration: underline; }
+.sff__icon { display: grid; place-items: center; flex: none; width: 34px; height: 40px; border-radius: 6px; background: #e0f2fe; color: #0369a1; font-size: 9.5px; font-weight: 800; letter-spacing: .03em; }
+.sff__remove-tick { display: inline-flex; align-items: center; gap: 6px; align-self: end; height: 36px; margin: 0; color: #b91c1c; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sff__remove-tick input { width: 16px; height: 16px; margin: 0; accent-color: #b91c1c; }
+.sff .sff__remove { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 26px; height: 26px; margin: 0; padding: 0; border: 0; border-radius: 6px; background: transparent; box-shadow: none; color: #64748b; cursor: pointer; }
+.sff .sff__remove:hover { background: #fee2e2; color: #b91c1c; }
+.sff__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.sff .sff__add { display: inline-flex; align-items: center; gap: 6px; width: auto; height: 36px; margin: 0; padding: 0 14px; border: 1px dashed var(--org-primary-color, #0f766e); border-radius: 8px; background: #fff; box-shadow: none; color: var(--org-primary-color, #0f766e); font: inherit; font-size: 13.5px; font-weight: 650; cursor: pointer; }
+.sff .sff__add:hover { background: color-mix(in srgb, var(--org-primary-color, #0f766e) 7%, #fff); }
+.sff__req { margin-left: 4px; color: #b91c1c; font-style: normal; font-weight: 600; font-size: 11.5px; }
+.sff__hint { color: #64748b; font-size: 12.5px; }
+@container (max-width: 720px) {
+  .sff__row, .sff__row--saved { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sff__field--wide, .sff__field--file, .sff__row--saved .sff__field--wide { grid-column: 1 / -1; }
+  .sff__file { grid-column: 1 / -1; grid-row: auto; }
+}

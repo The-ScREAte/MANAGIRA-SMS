@@ -61,6 +61,9 @@ module.exports = (db) => {
   router.get("/portfolio", isStudentAuthenticated, (req, res) => portfolioController.studentPage(req, res, db));
   router.get("/portfolio/test/:attemptId(\\d+)", isStudentAuthenticated, (req, res) => portfolioController.studentTest(req, res, db));
   router.get("/portfolio/report-card/:id(\\d+)", isStudentAuthenticated, (req, res) => portfolioController.studentReportCard(req, res, db));
+  router.get("/portfolio/file/:id(\\d+)", isStudentAuthenticated, (req, res) => portfolioController.studentFile(req, res, db));
+  // One of the student's teachers, as a card in the drawer (their subjects and email only).
+  router.get("/person-card/teacher/:id(\\d+)", isStudentAuthenticated, (req, res) => require("../controllers/personCardController").teacherForStudent(req, res, db));
   router.get("/calendar", isStudentAuthenticated, (req, res) => familyCalendar.studentPage(req, res, db));
   router.get("/calendar/feed", isStudentAuthenticated, (req, res) => familyCalendar.studentFeed(req, res, db));
   router.get("/calendar/sync", isStudentAuthenticated, (req, res) => familyCalendar.studentSync(req, res, db));

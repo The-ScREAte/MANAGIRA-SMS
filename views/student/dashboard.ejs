@@ -969,7 +969,7 @@
           <a class="sp-action-tile app-tile" href="/student/forms?form=<%= form.id %>"><span class="app-tile__icon"><%- formIcon(form.icon) %></span><span class="app-tile__name"><%= form.name %></span><% if (form.todo) { %><span class="app-tile__badge">1</span><% } %></a>
           <% }) %>
           <% } %>
-          <% if (featureOn('student_portfolio')) { %>
+          <% if (featureOn('student_portfolio') && locals.portfolioShared !== false) { %>
           <a class="sp-action-tile app-tile" href="/student/portfolio"><span class="app-tile__icon"><%- navIcon('portfolio') %></span><span class="app-tile__name">Portfolio</span></a>
           <% } %>
         </div>

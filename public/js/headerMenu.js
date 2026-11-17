@@ -543,6 +543,16 @@ function initHeaderMenu() {
           default: return "#";
         }
       };
+      // People open as a card in the drawer (see ManagiraPersonCard below); everything else opens its page.
+      const personOf = (item) => {
+        const id = Number(item.id);
+        if (!(id > 0)) return "";
+        if (item.type === "student") return `student:${id}`;
+        if (item.type === "employee") return `staff:${id}`;
+        if (item.type === "guardian") return `guardian:${id}:legacy`;
+        if (item.type === "teacher") return `teacher:${id}`;
+        return "";
+      };
       const searchSubtitle = (item) => {
         if (item.type === "student") return [item.class_name, item.graduated ? "Graduated / left" : ""].filter(Boolean).join(" · ") || "Student";
         if (item.type === "employee") return item.account_type || "Staff";
@@ -570,7 +580,7 @@ function initHeaderMenu() {
               const avatar = hasPhoto
                 ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;sr-avatar&quot;>${escapeHtml(initials)}</span>'">`
                 : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon"><i class="fa-solid ${group.icon}" aria-hidden="true"></i></span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
-              return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}">${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
+              return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}"${personOf(item) ? ` data-person="${personOf(item)}"` : ""}>${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
             }).join("") + "</div>";
         }).join("");
         searchResults.innerHTML = html;
@@ -584,7 +594,8 @@ function initHeaderMenu() {
         let index = options.findIndex((o) => o.classList.contains("is-active"));
         if (event.key === "Enter") {
           const target = options[index >= 0 ? index : 0];
-          if (target) { event.preventDefault(); window.location.href = target.href; }
+          // A click, so a staff result opens in its drawer like a pointer click does.
+          if (target) { event.preventDefault(); target.click(); }
           return;
         }
         event.preventDefault();
@@ -689,6 +700,93 @@ function initHeaderMenu() {
       }
     });
   }
+
+  // A person's card opens in the right-side drawer (public/js/adminDrawer.js, loaded the first time
+  // it's needed) over the page the link was on: header search results, the dashboard's teachers,
+  // a class's teacher chips (anything with data-person="student:ID", "staff:ID", "guardian:ID:source"
+  // or, for a student, "teacher:ID"; and any link to a staff page). What the card shows follows who
+  // is looking (controllers/personCardController.js). Runs before the page-switcher (window, capture).
+  // A typed address or a new tab still opens the full page.
+  (function () {
+    if (window.ManagiraPersonCard) return;
+    var TITLES = { student: "Student", staff: "Staff member", guardian: "Parent / guardian", teacher: "Teacher" };
+    var ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>';
+    var drawer = null;
+    var assets = null;
+    function loadDrawer() {
+      if (window.ManagiraDrawer) return Promise.resolve();
+      if (assets) return assets;
+      assets = new Promise(function (resolve, reject) {
+        if (!document.querySelector('link[href*="/css/adminDrawer.css"]')) {
+          var css = document.createElement("link");
+          css.rel = "stylesheet";
+          css.href = "/css/adminDrawer.css";
+          document.head.appendChild(css);
+        }
+        var script = document.createElement("script");
+        script.src = "/js/adminDrawer.js";
+        script.onload = resolve;
+        script.onerror = function () { assets = null; reject(new Error("drawer")); };
+        document.head.appendChild(script);
+      });
+      return assets;
+    }
+    function urlFor(spec) {
+      var parts = String(spec || "").split(":");
+      var type = parts[0];
+      var id = Number(parts[1]);
+      if (!TITLES[type] || !(id > 0)) return null;
+      if (type === "teacher") return "/student/person-card/teacher/" + id;
+      return "/common/person-card/" + type + "/" + id + (parts[2] === "legacy" ? "?source=legacy" : "");
+    }
+    function open(spec, name) {
+      var url = urlFor(spec);
+      if (!url) return Promise.resolve(false);
+      var type = String(spec).split(":")[0];
+      return loadDrawer().then(function () {
+        if (!drawer) {
+          drawer = window.ManagiraDrawer.create({
+            id: "personCard", icon: ICON, title: "", subtitle: "", width: 720, belowHeader: true,
+            // Modify sends a saved change back to the staff list: then this page refreshes.
+            listPagePath: "/common/manageEmployees",
+          });
+          // Edit student, saved inside the drawer, asks the page to refresh.
+          window.addEventListener("message", function (event) {
+            if (event.origin !== window.location.origin || !event.data || event.data.drawerId !== "personCard") return;
+            if (event.data.managiraDrawerClose) window.location.reload();
+          });
+        }
+        var title = drawer.overlay.querySelector(".mgr-drawer-header h2");
+        var sub = drawer.overlay.querySelector(".mgr-drawer-header p");
+        if (title) title.textContent = TITLES[type];
+        if (sub) sub.textContent = name || "";
+        drawer.open(url + (url.indexOf("?") === -1 ? "?" : "&") + "embed=workspace", { forceReload: true });
+        return true;
+      });
+    }
+    window.ManagiraPersonCard = { open: open };
+    window.addEventListener("click", function (event) {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      var el = event.target && event.target.closest ? event.target.closest("[data-person], a[href*='/common/employeeDetails']") : null;
+      if (!el || el.target === "_blank" || el.hasAttribute("download")) return;
+      var spec = el.getAttribute("data-person");
+      if (!spec) {
+        var url;
+        try { url = new URL(el.getAttribute("href"), window.location.href); } catch (err) { return; }
+        if (url.origin !== window.location.origin || url.pathname !== "/common/employeeDetails" || !url.searchParams.get("userId")) return;
+        spec = "staff:" + url.searchParams.get("userId");
+      }
+      if (!urlFor(spec)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var results = el.closest("#search-results");
+      if (results) results.style.display = "none";
+      var titleEl = el.querySelector(".sr-title, .teacher-name");
+      var name = String((titleEl || el).textContent || "").replace(/\s+/g, " ").trim();
+      var fallback = el.getAttribute("href");
+      open(spec, name).catch(function () { if (fallback && fallback !== "#") window.location.href = fallback; });
+    }, true);
+  })();
 
   // Initialize logo SPA navigation
   if (document.readyState === "loading") {

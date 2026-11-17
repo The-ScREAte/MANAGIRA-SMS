@@ -89,6 +89,22 @@
   <% } %>
 
   <% if (mode === 'documents') { %>
+    <% if (locals.schoolDocs && schoolDocs.length) { %>
+      <h2 class="ph-section">From the school</h2>
+      <div class="ph-list">
+        <% schoolDocs.forEach((doc) => { %>
+          <a class="ph-row ph-row--link" href="/guardian/child/student-file/<%= doc.id %>?<%= _q %>" target="_blank" rel="noopener" data-no-spa>
+            <span class="ph-file"><%- navIcon('docs') %></span>
+            <div class="ph-row__text">
+              <strong><%= doc.title %></strong>
+              <small><%= [doc.typeLabel, doc.expiresOn ? ((doc.expired ? 'Expired ' : 'Expires ') + new Date(doc.expiresOn + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })) : ''].filter(Boolean).join(' · ') %></small>
+              <% if (doc.note) { %><small><%= doc.note %></small><% } %>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+      <% if (files.length || (locals.results && results.length)) { %><h2 class="ph-section">Schoolwork</h2><% } %>
+    <% } %>
     <% if (locals.results && results.length) { %>
       <h2 class="ph-section">Test results</h2>
       <% _results(results); %>
@@ -106,7 +122,7 @@
           </a>
         <% }) %>
       </div>
-    <% } else { %>
+    <% } else if (!(locals.schoolDocs && schoolDocs.length)) { %>
       <p class="ph-empty">No documents yet.</p>
     <% } %>
   <% } %>

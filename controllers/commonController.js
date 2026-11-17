@@ -4871,6 +4871,7 @@ const commonController = {
       const customFields = await studentFormFields.formFields(db, req.session.organizationId, "student").catch(() => []);
       res.render("common/addStudent", {
         title: "Add New Student",
+        studentFiles: await studentDocsForm(db, req),
         customFields,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -4936,6 +4937,21 @@ const commonController = {
       });
     }
 
+    // A school that requires files on Add student (Admission Settings › Student files): each student
+    // filled in needs at least one, checked before anything is saved.
+    const studentDocsModule = require("../utils/studentDocuments");
+    if (studentDocsModule.isOn(organizationId) && (await studentDocsModule.settingsFor(db, organizationId)).requiredOnAdd) {
+      const missing = indexes.filter((index) => {
+        if (index === "single") return !uploadedFiles.some((file) => String(file.fieldname || "").startsWith("studentDoc_"));
+        const named = String(body[`firstName_${index}`] || body[`firstName___${index}`] || body[`lastName_${index}`] || body[`lastName___${index}`] || "").trim();
+        return named && !uploadedFiles.some((file) => String(file.fieldname || "").startsWith(`studentDoc_${index}_`));
+      });
+      if (missing.length) {
+        req.flash("error", `Add at least one file for ${missing.length === 1 && indexes.length === 1 ? "the student" : `student ${missing.map((index) => Number(index) + 1).filter(Number.isFinite).join(", ")}`}. Your school asks for one with every new student.`);
+        return res.redirect("/common/addStudent");
+      }
+    }
+
     const client = await db.connect();
     const uploadedFileByField = new Map((uploadedFiles || []).map((file) => [String(file.fieldname || ''), file]));
     const guardianCache = new Map();
@@ -4945,6 +4961,7 @@ const commonController = {
     let currentIndexForLog = null;
     let currentPhaseForLog = 'begin';
     let studentsSavedCount = 0;
+    const savedStudentIdByIndex = new Map();
     let emptyFormsSkippedCount = 0;
     let guardiansCreatedCount = 0;
     let guardiansReusedCount = 0;
@@ -5273,6 +5290,7 @@ const commonController = {
           throw new Error("Student insert failed.");
         const studentId = studentInsert.rows[0].student_id;
         studentsSavedCount += 1;
+        savedStudentIdByIndex.set(String(index), Number(studentId));
 
         if (customFields.length) {
           const answers = studentFormFields.readAnswers(customFields, getStudentField);
@@ -5659,7 +5677,22 @@ const commonController = {
       const skipSummaryMessage = emptyFormsSkippedCount > 0
         ? ` ${emptyFormsSkippedCount} empty form(s) were skipped.`
         : '';
-      req.flash("success", `${saveSummaryMessage}${skipSummaryMessage}`);
+      // Files sent with each student (feature student_documents), saved once the students are.
+      let filesMessage = "";
+      const fileProblems = [];
+      let filesAdded = 0;
+      for (const [formIndex, newStudentId] of savedStudentIdByIndex) {
+        const result = await saveStudentDocsFromForm(db, req, { studentId: newStudentId, prefix: `studentDoc_${formIndex}_` }).catch((error) => {
+          console.error("[AddStudent] files:", error.message);
+          return { added: 0, problems: ["Some files couldn't be saved. Add them from the student's page."] };
+        });
+        if (!result) break;
+        filesAdded += result.added;
+        fileProblems.push(...result.problems);
+      }
+      if (filesAdded) filesMessage = ` ${filesAdded} file${filesAdded === 1 ? "" : "s"} added.`;
+      if (fileProblems.length) req.flash("error", `Not saved: ${fileProblems.slice(0, 3).join(" ")}`);
+      req.flash("success", `${saveSummaryMessage}${skipSummaryMessage}${filesMessage}`);
       res.redirect("/common/addStudent");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -8040,6 +8073,15 @@ const commonController = {
       return res.status(400).send("Student ID and Term ID are required.");
     }
 
+    // Opened on its own (a link, a bookmark, a typed address): the student opens inside their class's
+    // workspace as a tab, or in Admissions › All Students (utils/studentHome.js). Inside a workspace
+    // (an iframe or an embedded request) the page renders as it always has.
+    const fetchDest = String(req.get("Sec-Fetch-Dest") || "").toLowerCase();
+    if (!isEmbedded && fetchDest !== "iframe" && !req.session.guardianId && !isEmbeddedRequest(req, "studentDetails")) {
+      const home = await require("../utils/studentHome").studentHome(db, req, Number(studentId), { termId, classId: requestedClassId }).catch(() => null);
+      if (home) return res.redirect(home);
+    }
+
     try {
       if (!organizationId) {
         req.flash("error", "Organization ID is missing.");
@@ -8393,8 +8435,14 @@ const commonController = {
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
       const studentIdSettings = sidSettingsResult.rows[0] || {};
 
+      // The student's documents (feature student_documents): what this person may see.
+      const studentDocs = require("../utils/studentDocuments");
+      const documentsOn = studentDocs.isOn(req.session.organizationId) && (await studentDocs.ready(db).catch(() => false));
       res.render("common/studentDetails", {
         isEmbedded,
+        studentDocuments: documentsOn
+          ? { portfolio: require("../utils/portfolio").featureOn(req.session.organizationId), list: await studentDocs.listFor(db, req.session.organizationId, student.student_id, { req }).catch(() => []), types: studentDocs.TYPES, sharing: studentDocs.SHARING, manager: studentDocs.isManagerRole(req), maxMb: studentDocs.MAX_MB }
+          : null,
         // From a data migration: alerts (custody), extra fields and read-only archives.
         oldSystem: await require("./dataMigrationController").studentOldSystem(db, req, student.student_id).catch(() => null),
         archiveStatus: await getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
@@ -8546,8 +8594,11 @@ const commonController = {
       // The school's own fields, with this student's answers.
       const customAnswers = await studentFormFields.answersFor(db, organizationId, { studentId: Number(studentId) }, "student").catch(() => []);
 
+      // Files on the student's record (feature student_documents).
+      const filesConfig = await studentDocsForm(db, req, { studentId: Number(studentId) });
       res.render("common/editStudent", {
         title: "Edit Student",
+        studentFiles: filesConfig,
         customFields: customAnswers.filter((f) => f.status === "active"),
         customValues: Object.fromEntries(customAnswers.map((f) => [f.id, f.value])),
         hideGlobalHeader: true,
@@ -8925,6 +8976,19 @@ const commonController = {
       }
 
       const successMessages = ["Student updated successfully."];
+      // Files on the student's record (feature student_documents): new ones, changes and removals.
+      const filesResult = await saveStudentDocsFromForm(db, req, { studentId: Number(studentId), prefix: "studentDoc_new", edits: true }).catch((error) => {
+        console.error("[EditStudent] files:", error.message);
+        return { added: 0, problems: ["Some files couldn't be saved. Try again from the student's page."], changed: 0, removed: 0 };
+      });
+      if (filesResult) {
+        const parts = [];
+        if (filesResult.added) parts.push(`${filesResult.added} file${filesResult.added === 1 ? "" : "s"} added`);
+        if (filesResult.changed) parts.push(`${filesResult.changed} updated`);
+        if (filesResult.removed) parts.push(`${filesResult.removed} removed`);
+        if (parts.length) successMessages.push(`Files: ${parts.join(", ")}.`);
+        if (filesResult.problems && filesResult.problems.length) req.flash("error", `Not saved: ${filesResult.problems.slice(0, 3).join(" ")}`);
+      }
       if (subjectCarryoverNotice.message) successMessages.push(subjectCarryoverNotice.message);
       if (subjectCarryoverNotice.skippedMessage) successMessages.push(subjectCarryoverNotice.skippedMessage);
       req.flash("success", successMessages.join(' '));
@@ -10311,6 +10375,13 @@ const commonController = {
         return res.redirect("/common/orgDashboard");
       }
 
+      // A member of staff's page opens inside Management › Users / Employees, not on its own.
+      const isEmbedded = isEmbeddedRequest(req, "employeeDetails");
+      if (canManageEmployees && !isEmbedded && String(req.get("Sec-Fetch-Dest") || "") !== "iframe") {
+        const page = `/common/employeeDetails?userId=${encodeURIComponent(userId)}`;
+        return res.redirect(`/common/management?panel=employees&page=${encodeURIComponent(page)}&label=${encodeURIComponent("Users / Employees")}`);
+      }
+
       // Basic employee info
       let employeeResult = await db.query(
         `SELECT user_id, first_name, last_name, email, account_type
@@ -10394,6 +10465,10 @@ const commonController = {
       res.render("common/employeeDetails", {
         employee,
         isManager,
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         title: "Employee Details",
         messages: {
           success: req.flash("success"),
@@ -25477,6 +25552,39 @@ function studentPortalPasswordEmail({ organizationId, organizationName, firstNam
     subject: plainSubject(isSetupInvite ? `Set up your ${portal} account` : `Reset your ${portal} password`),
     html,
   };
+}
+
+// What the Add student and Edit student forms need for a student's files (feature student_documents),
+// or null when the feature is off or its table isn't there yet.
+async function studentDocsForm(db, req, { studentId = null } = {}) {
+  const studentDocs = require("../utils/studentDocuments");
+  if (!studentDocs.isOn(req.session.organizationId) || !(await studentDocs.ready(db).catch(() => false))) return null;
+  return {
+    types: studentDocs.TYPES,
+    sharing: studentDocs.SHARING,
+    manager: studentDocs.isManagerRole(req),
+    maxMb: studentDocs.MAX_MB,
+    list: studentId ? await studentDocs.listFor(db, req.session.organizationId, studentId, { req }).catch(() => []) : [],
+    // Add student asks for at least one file only when the school requires it (Admission Settings).
+    required: studentId ? false : (await studentDocs.settingsFor(db, req.session.organizationId)).requiredOnAdd,
+  };
+}
+
+// Saves the files sent with Add student or Edit student; a flash note says what was added or refused.
+async function saveStudentDocsFromForm(db, req, { studentId, prefix, edits = false }) {
+  const studentDocs = require("../utils/studentDocuments");
+  if (!studentDocs.isOn(req.session.organizationId)) return null;
+  const user = req.session.user || {};
+  const actor = { id: Number(user.user_id || req.session.userId) || null, name: [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || String(req.session.organizationName || "") };
+  const manager = studentDocs.isManagerRole(req);
+  const organizationId = req.session.organizationId;
+  const files = (Array.isArray(req.files) ? req.files : []).filter((file) => String(file.fieldname || "").startsWith(prefix));
+  const saved = files.length ? await studentDocs.saveFromForm(db, { organizationId, studentId, files, body: req.body || {}, prefix, actor, manager }) : { added: 0, problems: [] };
+  const changed = edits ? await studentDocs.applyFormEdits(db, { organizationId, studentId, body: req.body || {}, manager }).catch((error) => {
+    console.error("[Student documents] edit form:", error.message);
+    return { changed: 0, removed: 0, failed: true };
+  }) : { changed: 0, removed: 0 };
+  return { ...saved, ...changed };
 }
 
 module.exports = {

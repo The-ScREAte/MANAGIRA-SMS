@@ -4,7 +4,8 @@
 // about it. One row per class in class_settings (database/migrations/2026-12-09_class_settings.sql);
 // a class without a row, or a key missing from its row, uses DEFAULTS. Read through here only.
 //
-// "Share with": each item (attendance, lunch, report cards, GPA, bus & transport) has a switch for
+// "Share with": each item (attendance, lunch, report cards, GPA, bus & transport, student files,
+// portfolio) has a switch for
 // parents and one for students. Everything is on until a school turns it off.
 //
 // Who may change them (permission Class Settings, follow-up Every Class):
@@ -25,6 +26,8 @@ const SHARE_ITEMS = [
   { key: "reportCards", label: "Report cards", help: "Report cards, as soon as they're published." },
   { key: "gpa", label: "GPA", help: "This term's GPA and the cumulative GPA over finished terms (letter grades only)." },
   { key: "transport", label: "Bus & transport", help: "The bus tracker, boarding and driver reports about the student." },
+  { key: "files", label: "Student files", help: "Files on the student's record set to Family." },
+  { key: "portfolio", label: "Portfolio", help: "Marked work and documented tests, term by term." },
 ];
 const AUDIENCES = [
   { key: "parents", label: "Parents" },

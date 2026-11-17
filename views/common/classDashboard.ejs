@@ -2024,6 +2024,8 @@ main {
   border-radius: 999px;
   background: #fff;
 }
+a.teacher-chip { color: inherit; text-decoration: none; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 3px rgba(15, 23, 42, .08); }
 .teacher-chip.is-main {
   border-color: rgba(1, 83, 91, 0.28);
   background: rgba(1, 83, 91, 0.04);
@@ -3505,6 +3507,13 @@ main {
   border-radius: 0 0 12px 12px;
 }
 .workspace-stage.card { min-height: var(--stage-fill, calc(100vh - 238px)); }
+/* Desktop: the panel card is exactly as tall as the window allows and ends with the menu card;
+   a long panel scrolls inside it, so both cards always fit on the screen. */
+@media (min-width: 961px) {
+  .workspace-stage.card { height: var(--stage-fill, calc(100vh - 238px)); }
+  .workspace-stage.card > .workspace-panels { height: 100%; min-height: 0; }
+  .workspace-stage.card .workspace-panel.is-active { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+}
 .workspace-stage .workspace-frame,
 .workspace-stage .workspace-frame-shell,
 #panel-frame-paygira .workspace-frame,
@@ -4316,13 +4325,14 @@ main {
                   <div class="teachers-chip-row" id="teachers-chip-row">
                     <% employees.forEach(function(employee) { %>
                       <% var initials = (employee.name || '?').trim().split(/\s+/).slice(0,2).map(function(p){return p[0];}).join('').toUpperCase(); %>
-                      <div class="teacher-chip <% if (employee.main) { %>is-main<% } %>">
+                      <%# A teacher opens as a card in the drawer (public/js/headerMenu.js, ManagiraPersonCard). %>
+                      <a class="teacher-chip <% if (employee.main) { %>is-main<% } %>" href="/common/employeeDetails?userId=<%= employee.user_id %>" data-person="staff:<%= employee.user_id %>">
                         <span class="teacher-avatar"><%= initials %></span>
                         <span class="teacher-info">
                           <span class="teacher-name"><%= employee.name %></span>
                           <% if (employee.main) { %><span class="teacher-role">Main Teacher</span><% } else if (employee.assistant) { %><span class="teacher-role">Assistant Teacher</span><% } else { %><span class="teacher-role">Teacher</span><% } %>
                         </span>
-                      </div>
+                      </a>
                     <% }); %>
                     <% if (!employees.length) { %><span class="section-subtext">No teachers assigned yet.</span><% } %>
                   </div>
@@ -5516,6 +5526,18 @@ main {
         };
       }
 
+      // A person card's Edit student opens the student here with Edit student up (?edit=1): used once,
+      // then dropped from the address so a refresh doesn't open it again.
+      function takeEditFlag() {
+        try {
+          var url = new URL(window.location.href);
+          if (url.searchParams.get('edit') !== '1') return '';
+          url.searchParams.delete('edit');
+          history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+          return '&edit=1';
+        } catch (err) { return ''; }
+      }
+
       function buildStudentWorkspaceTab(studentId) {
         var match = workspaceContext.students.find(function(student) {
           return String(student.id) === String(studentId);
@@ -5528,7 +5550,7 @@ main {
           routePath: workspaceContext.basePath + '/student/' + match.id,
           sidebarKey: 'students',
           type: 'iframe',
-          iframeSrc: '/common/studentDetails?studentId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&classId=' + encodeURIComponent(workspaceContext.classId) + '&embed=workspace',
+          iframeSrc: '/common/studentDetails?studentId=' + encodeURIComponent(match.id) + '&termId=' + encodeURIComponent(workspaceContext.termId) + '&classId=' + encodeURIComponent(workspaceContext.classId) + '&embed=workspace' + takeEditFlag(),
           noFrameHeader: true,
           panelDescription: 'Student workspace for ' + match.name + '.',
         };
@@ -6918,12 +6940,26 @@ main {
         var grid = document.querySelector('.workspace-grid');
         if (!side || !grid) return;
         if (window.matchMedia('(min-width: 961px)').matches) {
+          // The menu sticks just under the header. Sticky offsets count from where the scrolling
+          // box's content starts, and that box may already leave room for the header (the body
+          // does, with its top padding): measure, so the menu never sits a header-height too low.
+          var scroller = side.parentElement;
+          while (scroller && scroller !== document.documentElement && !/(auto|scroll|overlay)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+          var contentTop = 0;
+          if (scroller && scroller !== document.documentElement && scroller !== document.scrollingElement) {
+            contentTop = scroller.getBoundingClientRect().top + (parseFloat(getComputedStyle(scroller).paddingTop) || 0) * zoom;
+          }
+          var headerEl = document.getElementById('top-header');
+          var headerBottom = headerEl ? Math.max(0, headerEl.getBoundingClientRect().bottom) : 0;
+          var stickTop = Math.max(0, Math.round((headerBottom + 8 - contentTop) / zoom)) + 'px';
+          if (side.style.top !== stickTop) side.style.top = stickTop;
           // From the grid's top (the menu is sticky, so its own position moves when the page scrolls).
           var sideTop = grid.getBoundingClientRect().top + window.scrollY;
           var sideFill = Math.max(240, Math.floor((window.innerHeight - sideTop - gap) / zoom)) + 'px';
           if (side.style.getPropertyValue('--side-fill') !== sideFill) side.style.setProperty('--side-fill', sideFill);
-        } else if (side.style.getPropertyValue('--side-fill')) {
-          side.style.removeProperty('--side-fill'); // a drawer below 961px
+        } else {
+          if (side.style.getPropertyValue('--side-fill')) side.style.removeProperty('--side-fill'); // a drawer below 961px
+          if (side.style.top) side.style.top = '';
         }
       }
       fitWorkspaceStage();

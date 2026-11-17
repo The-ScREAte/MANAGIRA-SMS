@@ -64,15 +64,23 @@ async function classFor(db, organizationId, studentId, termId) {
 const pct = (score, max) => (Number.isFinite(score) && Number(max) > 0 ? Math.round((score / Number(max)) * 1000) / 10 : null);
 
 // One term's folder, as the family sees it.
-async function build(db, organizationId, studentId, termId) {
+// staff: the student page's view: actual scores (marked "waiting" until the teacher's approval) and
+// every test taken in the Testing Room, shared with the family or not.
+// An assessment is documented when the student took it in the Testing Room (the marked test is
+// kept as a document with a PDF copy) and undocumented when its mark was entered by hand.
+async function build(db, organizationId, studentId, termId, { staff = false } = {}) {
   const flow = assessmentApproval.flowOn(organizationId);
   const klass = await classFor(db, organizationId, studentId, termId);
-  const scoreSql = assessmentApproval.visibleScore("ar", flow);
-  const choiceSql = assessmentApproval.visibleChoice("ar", flow);
+  const scoreSql = staff ? "ar.score" : assessmentApproval.visibleScore("ar", flow);
+  const choiceSql = staff ? "ar.choice_label" : assessmentApproval.visibleChoice("ar", flow);
   const [assessments, shared, reports] = await Promise.all([
     klass ? db.query(
       `SELECT a.assessment_id, a.title, a.category, a.max_score, a.edit_window_end, s.subject_id, s.subject_name,
-              ${scoreSql} AS score, ${choiceSql} AS choice
+              ${scoreSql} AS score, ${choiceSql} AS choice,
+              ${staff ? "(to_jsonb(ar)->>'pending_since') IS NOT NULL" : "FALSE"} AS pending,
+              EXISTS (SELECT 1 FROM student_assessment_attempts saa
+                       WHERE saa.organization_id = $1 AND saa.assessment_id = a.assessment_id AND saa.student_id = $2
+                         AND saa.status = 'submitted') AS online
          FROM assessments a
          JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
          LEFT JOIN assessment_results ar ON ar.assessment_id = a.assessment_id AND ar.student_id = $2
@@ -83,7 +91,7 @@ async function build(db, organizationId, studentId, termId) {
         ORDER BY LOWER(s.subject_name), a.assessment_id`,
       [organizationId, studentId, termId, klass.id]
     ) : { rows: [] },
-    flow ? testResults.sharedResults(db, organizationId, studentId, { termId }).catch(() => []) : [],
+    flow || staff ? testResults.sharedResults(db, organizationId, studentId, { termId, staff }).catch(() => []) : [],
     db.query(
       `SELECT posted_report_card_id, pdf_url, pdf_s3_key, posted_at FROM posted_report_cards
         WHERE organization_id = $1 AND student_id = $2 AND term_id = $3 ORDER BY posted_at DESC LIMIT 1`,
@@ -93,6 +101,7 @@ async function build(db, organizationId, studentId, termId) {
   const testByAssessment = new Map(shared.map((row) => [row.assessmentId, row]));
   const subjects = new Map();
   let marked = 0;
+  let documented = 0;
   let pctSum = 0;
   let pctCount = 0;
   assessments.rows.forEach((row) => {
@@ -100,6 +109,7 @@ async function build(db, organizationId, studentId, termId) {
     const choice = row.choice || "";
     const done = score !== null || Boolean(choice);
     if (done) marked += 1;
+    if (done && row.online) documented += 1;
     const percent = score !== null ? pct(score, row.max_score) : null;
     if (percent !== null) { pctSum += percent; pctCount += 1; }
     const test = testByAssessment.get(Number(row.assessment_id));
@@ -116,6 +126,9 @@ async function build(db, organizationId, studentId, termId) {
       percent,
       due: row.edit_window_end,
       attemptId: test ? test.attemptId : null,
+      // Taken in the Testing Room (documented) or marked by hand (undocumented); nothing until marked.
+      record: done ? (row.online ? "documented" : "undocumented") : null,
+      pending: row.pending === true,
     });
   });
   const documents = shared.map((row) => ({
@@ -125,6 +138,7 @@ async function build(db, organizationId, studentId, termId) {
     submittedAt: row.submittedAt,
     grade: row.choice || (row.score !== null ? `${Number(row.score.toFixed(2))} / ${row.maxScore}` : ""),
     full: row.full,
+    pending: row.pending === true,
   }));
   const report = reports.rows[0];
   return {
@@ -134,6 +148,8 @@ async function build(db, organizationId, studentId, termId) {
       marked,
       average: pctCount ? Math.round((pctSum / pctCount) * 10) / 10 : null,
       documents: documents.length + (report ? 1 : 0),
+      documented,
+      undocumented: marked - documented,
     },
     subjects: [...subjects.values()],
     documents,
@@ -143,10 +159,10 @@ async function build(db, organizationId, studentId, termId) {
 
 // The marked test as a document: the grade, and the questions with answers when the teacher
 // shared them in full. Null when it isn't shared or posted (or isn't this student's).
-async function testDocument(db, organizationId, studentId, attemptId, imageUrl) {
-  const shared = (await testResults.sharedResults(db, organizationId, studentId)).find((row) => row.attemptId === Number(attemptId));
+async function testDocument(db, organizationId, studentId, attemptId, imageUrl, { staff = false } = {}) {
+  const shared = (await testResults.sharedResults(db, organizationId, studentId, { staff })).find((row) => row.attemptId === Number(attemptId));
   if (!shared) return null;
-  const full = shared.full ? await testResults.review(db, organizationId, studentId, attemptId, imageUrl) : null;
+  const full = shared.full ? await testResults.review(db, organizationId, studentId, attemptId, imageUrl, { staff }) : null;
   const { rows } = await db.query(
     `SELECT s.first_name, s.last_name, c.class_name, t.term_name, sy.year_label, o.organization_name
        FROM student_assessment_attempts saa

@@ -1025,6 +1025,12 @@
       };
       frame.src = '/common/modifyEmployee?userId=' + encodeURIComponent(userId) + '&embed=workspace';
     }
+    // Opened from a person card's Modify (?user=<id>&edit=1): that person's panel, at their edit form.
+    setTimeout(function () {
+      var params = new URLSearchParams(window.location.search);
+      var wanted = params.get('user');
+      if (wanted && /^\d+$/.test(wanted)) openUserPanel(wanted, params.get('edit') === '1');
+    }, 0);
     function openUserPanel(userId, edit) {
       var user = uxUsers.find(function (u) { return String(u.id) === String(userId); });
       if (!user) return;
