@@ -10352,135 +10352,24 @@ const commonController = {
         }
   },
 
+  // The old staff page is retired: a member of staff is a card in the drawer (personCardController)
+  // and is managed in Management › Users / Employees. An old link (a bookmark, Report Builder,
+  // an email) opens that person there; someone without Manage Employees opening their own goes to
+  // their profile.
   getEmployeeDetails: async (req, res, db) => {
-    try {
-      const requesterId = req.session.user?.user_id || req.session.userId || null;
-      const userId = req.query.userId || requesterId;
-      const organizationId = req.session.organizationId;
-      const requesterRole = req.session.userRole;
-
-      if (!userId) {
-        req.flash("error", "Employee ID is required.");
-        return res.redirect("/common/orgDashboard");
-      }
-
-      const canManageEmployees = await userHasPermission(
-        db,
-        sessionActor(req, { organizationId }),
-        PERMISSIONS.MANAGE_EMPLOYEES
-      );
-
-      if (!canManageEmployees && String(userId) !== String(requesterId)) {
-        req.flash("error", "You do not have permission to view this employee.");
-        return res.redirect("/common/orgDashboard");
-      }
-
-      // A member of staff's page opens inside Management › Users / Employees, not on its own.
-      const isEmbedded = isEmbeddedRequest(req, "employeeDetails");
-      if (canManageEmployees && !isEmbedded && String(req.get("Sec-Fetch-Dest") || "") !== "iframe") {
-        const page = `/common/employeeDetails?userId=${encodeURIComponent(userId)}`;
-        return res.redirect(`/common/management?panel=employees&page=${encodeURIComponent(page)}&label=${encodeURIComponent("Users / Employees")}`);
-      }
-
-      // Basic employee info
-      let employeeResult = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type
-         FROM users 
-         WHERE user_id = $1 AND organization_id = $2`,
-        [userId, organizationId]
-      );
-
-      let employee;
-      let isManager = false;
-
-      if (employeeResult.rows.length > 0) {
-        employee = employeeResult.rows[0];
-        employee.image_url = "/images/profilePlaceholder.png";
-
-        // 🔥 Fetch classes and subjects assigned to this user
-        const classSubjectsResult = await db.query(
-          `
-          SELECT c.class_id, c.class_name, s.subject_id, s.subject_name
-          FROM user_classes uc
-          JOIN classes c ON uc.class_id = c.class_id
-          JOIN subjects s ON s.class_id = c.class_id
-          JOIN user_subjects us ON us.subject_id = s.subject_id AND us.user_id = uc.user_id
-          WHERE uc.user_id = $1
-          ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC, s.subject_name
-          `,
-          [userId]
-        );
-
-        // 🔥 Group by classes and subjects
-        const classesMap = {};
-        classSubjectsResult.rows.forEach((row) => {
-          if (!classesMap[row.class_id]) {
-            classesMap[row.class_id] = {
-              class_id: row.class_id,
-              class_name: row.class_name,
-              subjects: [],
-            };
-          }
-          classesMap[row.class_id].subjects.push({
-            subject_id: row.subject_id,
-            subject_name: row.subject_name,
-          });
-        });
-
-        employee.classes = Object.values(classesMap);
-      } else {
-        // The school's own account (its session's user id is the school's id). Any other id that
-        // isn't one of this school's staff is not found: never another school's owner.
-        if (Number(userId) !== Number(organizationId)) {
-          req.flash("error", "Employee not found.");
-          return res.redirect("/common/manageEmployees");
-        }
-        const orgResult = await db.query(
-          `SELECT 
-             o.organization_id AS user_id,
-             o.first_name,
-             o.last_name,
-             o.email,
-             'Manager' AS account_type,
-             o.organization_name,
-             o.nickname,
-             p.plan_name
-           FROM organizations o
-           LEFT JOIN plans p ON o.plan_id = p.id
-           WHERE o.organization_id = $1`,
-          [userId]
-        );
-
-        if (orgResult.rows.length === 0) {
-          req.flash("error", "Employee not found.");
-          return res.redirect("/common/manageEmployees");
-        }
-
-        employee = orgResult.rows[0];
-        employee.image_url = "/images/profilePlaceholder.png";
-        employee.classes = [];
-        isManager = true;
-      }
-
-      res.render("common/employeeDetails", {
-        employee,
-        isManager,
-        isEmbedded,
-        hideGlobalHeader: isEmbedded,
-        hideGlobalFooter: isEmbedded,
-        hideGlobalChatbot: isEmbedded,
-        title: "Employee Details",
-        messages: {
-          success: req.flash("success"),
-          error: req.flash("error"),
-        },
-        loggedInUserId: requesterId,
-      });
-    } catch (error) {
-      // ...removed error log for clean background operation...
-      req.flash("error", "Could not load employee details.");
-      res.redirect("/common/manageEmployees");
+    const requesterId = req.session.user?.user_id || req.session.userId || null;
+    const userId = Number.parseInt(req.query.userId || requesterId, 10);
+    if (!Number.isInteger(userId) || userId <= 0) return res.redirect("/common/orgDashboard");
+    const canManageEmployees = await userHasPermission(db, sessionActor(req, { organizationId: req.session.organizationId }), PERMISSIONS.MANAGE_EMPLOYEES).catch(() => false);
+    if (canManageEmployees) {
+      const list = `/common/manageEmployees?user=${userId}`;
+      const embedded = String(req.query.embed || "") === "workspace" || String(req.get("Sec-Fetch-Dest") || "").toLowerCase() === "iframe";
+      if (embedded) return res.redirect(`${list}&embed=workspace`);
+      return res.redirect(`/common/management?panel=employees&page=${encodeURIComponent(list)}&label=${encodeURIComponent("Users / Employees")}`);
     }
+    if (String(userId) === String(requesterId)) return res.redirect("/account/update");
+    req.flash("error", "You do not have permission to view this employee.");
+    return res.redirect("/common/orgDashboard");
   },
 
   manageEmployees: async (req, res, db) => {

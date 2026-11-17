@@ -12,7 +12,7 @@ const hub = (base, panel, label) => (req) => `${base}?panel=${panel}&page=${enco
 const management = (panel, label) => hub("/common/management", panel, label);
 const roleOf = (req) => String(req.session?.userRole || req.session?.accountType || "").trim().toLowerCase();
 // Teachers work on assessments, documents and the like from their class; Management isn't theirs.
-const notTeacher = (fn) => (req) => (["teacher", "driver"].includes(roleOf(req)) ? null : fn(req));
+const notTeacher = (fn) => (req, db) => (["teacher", "driver"].includes(roleOf(req)) ? null : fn(req, db));
 const classOf = (value) => (/^\d+$/.test(String(value || "")) ? String(value) : null);
 
 const RULES = {
@@ -32,6 +32,17 @@ const RULES = {
   "/common/addClassSubject": notTeacher(management("graduation", "Classes & subjects")),
   "/documents": notTeacher(management("documents", "Docs & sheets")),
   "/common/transcripts": hub("/common/reports", "transcripts", "Transcripts"),
+  // A parent's page opens at that parent in Management › Parents & guardians (the list's own record).
+  "/common/guardianDetails": notTeacher(async (req, db) => {
+    const id = Number.parseInt(req.query.guardianId, 10);
+    if (!Number.isInteger(id) || id <= 0) return null;
+    let key = `${req.query.source === "profile" ? "profile" : "legacy"}:${id}`;
+    if (key.startsWith("legacy:")) {
+      const listed = await require("../controllers/personCardController").listedParent(db, Number(req.session.organizationId), id).catch(() => null);
+      if (listed) key = `${listed.source}:${listed.id}`;
+    }
+    return `/common/management?panel=guardians&page=${encodeURIComponent(`/common/guardians?open=${key}`)}&label=${encodeURIComponent("Guardians")}`;
+  }),
 };
 
 module.exports = (db) => async (req, res, next) => {

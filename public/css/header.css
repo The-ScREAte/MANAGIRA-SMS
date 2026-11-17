@@ -925,14 +925,6 @@
 
   
 
-  /* Appearance row (partials/appearanceToggle.ejs) lines up with the links above it. */
-  header#top-header .nav-menu .ap-dots-row { padding: 5px 4px 5px 0; }
-  header#top-header .nav-menu .ap-dots-label { font-size: 0.88rem; gap: 11px; }
-  header#top-header .nav-menu .ap-dots-label svg {
-    width: 32px !important; height: 32px !important; padding: 6.5px; box-sizing: border-box; flex: 0 0 auto;
-    border-radius: 9px; background: color-mix(in srgb, currentColor 9%, transparent);
-  }
-
   /* Menu icons sit on a soft tile, same as the workspace sidebars (utils/navIcons.js). */
   header#top-header .nav-menu .menu-icon {
     display: inline-flex;

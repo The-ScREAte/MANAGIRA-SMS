@@ -339,4 +339,4 @@ const wrap = (handler) => async (req, res, db) => {
   }
 };
 
-module.exports = { student: wrap(student), staff: wrap(staff), guardian: wrap(guardian), teacherForStudent: wrap(teacherForStudent) };
+module.exports = { student: wrap(student), staff: wrap(staff), guardian: wrap(guardian), teacherForStudent: wrap(teacherForStudent), listedParent };
