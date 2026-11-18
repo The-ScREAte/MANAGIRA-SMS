@@ -1,0 +1,153 @@
+/* Mira beside the page (public/js/miraPanel.js): a panel on the right, under the app header.
+   On wide screens the page makes room for it; on phones it covers the page. */
+:root { --mira-panel-w: 420px; }
+
+.mira-panel {
+  position: fixed;
+  top: var(--header-height, 64px);
+  right: 0;
+  bottom: 0;
+  z-index: 12990; /* just below the app header (13001) */
+  display: flex;
+  flex-direction: column;
+  width: var(--mira-panel-w);
+  max-width: 100%;
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -10px 0 30px rgba(16, 24, 40, 0.08);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.24s;
+}
+.mira-panel.is-open {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+}
+.mira-panel.no-motion { transition: none !important; }
+
+.mira-panel-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.mira-panel-frame[hidden] { display: none; }
+
+/* The panel's own bar and message, whenever Mira itself isn't showing. */
+.mira-panel-cover { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.mira-panel-cover[hidden] { display: none; }
+.mira-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.mira-panel-name { display: inline-flex; align-items: center; gap: 10px; color: #111827; font-size: 1rem; font-weight: 700; }
+.mira-panel-name img { width: 26px; height: 26px; border-radius: 50%; }
+.mira-panel .mira-panel-x {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  box-shadow: none;
+  cursor: pointer;
+}
+.mira-panel .mira-panel-x:hover { background: #f1f5f9; color: #0f172a; }
+.mira-panel .mira-panel-x:focus-visible,
+.mira-panel .mira-panel-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); outline-offset: 2px; }
+.mira-panel .mira-panel-x svg { width: 16px; height: 16px; }
+
+.mira-panel-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 28px;
+  text-align: center;
+}
+.mira-panel-body p { margin: 0; }
+.mira-panel-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #ffffff);
+  color: var(--org-primary-color, #01535b);
+}
+.mira-panel-icon svg { width: 26px; height: 26px; }
+.mira-panel-title { color: #111827; font-size: 1.05rem; font-weight: 650; line-height: 1.35; }
+.mira-panel-text { max-width: 300px; color: #64748b; font-size: 0.92rem; line-height: 1.55; }
+.mira-panel-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.mira-panel-actions:empty { display: none; }
+.mira-panel .mira-panel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 40px;
+  margin: 0;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--org-primary-color, #01535b);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+.mira-panel .mira-panel-btn:hover { filter: brightness(0.94); }
+.mira-panel .mira-panel-btn.quiet { border: 1px solid #d1d5db; background: #ffffff; color: #374151; }
+.mira-panel .mira-panel-btn.quiet:hover { filter: none; background: #f9fafb; }
+.mira-panel-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--org-primary-color, #01535b);
+  border-radius: 50%;
+  animation: mira-panel-spin 0.8s linear infinite;
+}
+@keyframes mira-panel-spin { to { transform: rotate(360deg); } }
+
+/* The header button shows when the panel is open. */
+.header-mira-btn.is-active { background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent); box-shadow: inset 0 0 0 2px var(--org-primary-color, #01535b); }
+
+/* Wide screens: the page makes room, so both stay usable side by side. */
+@media (min-width: 1100px) {
+  body { transition: padding-right 0.24s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  html.mira-panel-open body { padding-right: var(--mira-panel-w); }
+  html.mira-panel-no-motion body { transition: none; }
+}
+/* Phones: the whole width under the header. */
+@media (max-width: 760px) {
+  .mira-panel { width: 100%; border-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mira-panel, .mira-panel.is-open, body { transition: none !important; }
+  .mira-panel-spinner { animation-duration: 2s; }
+}
+
+html[data-appearance="dark"] .mira-panel { background: #111827; border-left-color: #1f2937; }
+html[data-appearance="dark"] .mira-panel-bar { border-bottom-color: #1f2937; }
+html[data-appearance="dark"] .mira-panel-name,
+html[data-appearance="dark"] .mira-panel-title { color: #f9fafb; }
+html[data-appearance="dark"] .mira-panel-text { color: #9ca3af; }
+html[data-appearance="dark"] .mira-panel-icon { background: #1f2937; }
+html[data-appearance="dark"] .mira-panel .mira-panel-x:hover { background: #1f2937; color: #f9fafb; }
+html[data-appearance="dark"] .mira-panel .mira-panel-btn.quiet { background: #111827; border-color: #374151; color: #e5e7eb; }

@@ -16,6 +16,17 @@ function isOwnHost(hostname, requestHost) {
   return false;
 }
 
+// Mira's address, for the side panel opened from the header (public/js/miraPanel.js).
+const MIRA_ORIGIN = (() => {
+  try {
+    const url = process.env.MIRA_PUBLIC_URL || (isProduction ? "" : require("../utils/miraIntegration").miraPublicUrl());
+    const origin = url ? new URL(url).origin : "";
+    return /^https?:\/\/[a-z0-9.:-]+$/i.test(origin) ? origin : "";
+  } catch (_) {
+    return "";
+  }
+})();
+
 function securityHeaders(req, res, next) {
   // Browsers must not guess file types (stops uploaded files running as scripts).
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -24,8 +35,9 @@ function securityHeaders(req, res, next) {
   res.setHeader("X-Frame-Options", "SAMEORIGIN"); // older browsers; CSP above wins in modern ones
   // Don't leak full page addresses (which can hold IDs) to other sites.
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  // Camera, microphone and location only for our own pages, never embedded sites.
-  res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(self), payment=(self)");
+  // Camera, microphone and location only for our own pages, never embedded sites; Mira's
+  // panel (its own address) may use the microphone for voice input.
+  res.setHeader("Permissions-Policy", `camera=(self), microphone=(self${MIRA_ORIGIN ? ` "${MIRA_ORIGIN}"` : ""}), geolocation=(self), payment=(self)`);
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   if (isProduction) {
     // Always use HTTPS for managira.com for the next 180 days.

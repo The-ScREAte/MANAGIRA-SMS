@@ -25,6 +25,19 @@ app.set("layout", "layout");
 // data URL (a 5MB upload inflates to ~6.7MB base64) - raised to cover
 // that with headroom. File uploads themselves go through multer's own
 // memory storage (routes/uploadRoute.js), not this parser.
+// Only Managira's own pages may show Mira in a frame: the side panel opened from the header
+// (?embed=panel, public/js/miraPanel.js in the main app).
+const FRAME_ANCESTORS = (() => {
+  const list = ["'self'", "https://managira.com", "https://*.managira.com"];
+  try { list.push(new URL(MAIN_APP_PUBLIC_URL).origin); } catch (_) {}
+  if (process.env.NODE_ENV !== "production") list.push("http://localhost:*", "http://127.0.0.1:*");
+  return [...new Set(list)].join(" ");
+})();
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${FRAME_ANCESTORS}`);
+  next();
+});
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -56,6 +69,8 @@ app.get("/", pageAuth, tenantScope, requireMiraActivated, async (req, res) => {
   const access = accessSummary(req.tenant, fullAccess);
   res.render("index", {
     title: "Mira",
+    // Inside Managira's side panel: one compact top bar, and Managira links open behind it.
+    embed: req.query.embed === "panel",
     tenant: req.tenant,
     access,
     miraSteps: Boolean(fullAccess.features && fullAccess.features.mira_steps),

@@ -278,6 +278,10 @@
     window.MANAGIRA_SCHOOL_COUNTRY = <%- JSON.stringify(/^[A-Z]{2}$/.test(locals.schoolCountry || '') ? locals.schoolCountry : '') %>;
   </script>
   
+  <% if (!locals.isPrintRender && session && (session.userId || session.user || session.guardianId || session.studentId || session.hubId)) { %>
+  <%# A sign-in that times out takes the page to the login page at once (public/js/sessionWatch.js). %>
+  <script src="<%= assetUrl('/js/sessionWatch.js') %>" data-idle-left="<%= locals.sessionClock ? locals.sessionClock.idleLeftMs : '' %>" data-ends-in="<%= locals.sessionClock && locals.sessionClock.endsInMs !== null ? locals.sessionClock.endsInMs : '' %>"></script>
+  <% } %>
   <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>
   <script src="<%= assetUrl('/js/pageLoading.js') %>" defer></script>
   <script src="<%= assetUrl('/js/spa-router.js') %>" defer></script>

@@ -818,8 +818,22 @@ const IDLE_SKIP_PATHS = new Set([
   '/health',
 ]);
 const tenantSettings = require("./utils/tenantSettings");
+const sessionTimeout = require("./utils/sessionTimeout");
+// The open page asks here how long its sign-in has left (public/js/sessionWatch.js); asking
+// isn't activity.
+const SESSION_STATUS_PATH = "/account/session-status";
+const signedInSession = sessionTimeout.signedIn;
+// An open page whose sign-in is gone: why (the banner), and where to sign in again.
+const endedStatus = (req) => ({ signedIn: false, reason: sessionTimeout.endedReason(req) || null, redirect: sessionTimeout.endedLoginUrl(req) });
 app.use(async (req, res, next) => {
-  if (!req.session || !req.session.organizationId) return next();
+  const isStatus = req.path === SESSION_STATUS_PATH && req.method === "GET";
+  if (isStatus) res.set("Cache-Control", "no-store");
+  // A new sign-in drops the note an ended one left for the login page.
+  if (signedInSession(req.session)) sessionTimeout.forget(req, res);
+  if (!req.session || !req.session.organizationId) {
+    if (isStatus) return res.json(signedInSession(req.session) ? { signedIn: true, idleLeftMs: null, endsInMs: null } : endedStatus(req));
+    return next();
+  }
   if (IDLE_SKIP_PATHS.has(req.path)) return next();
 
   const now = Date.now();
@@ -830,24 +844,45 @@ app.use(async (req, res, next) => {
   if (!req.session.signedInAt) req.session.signedInAt = now;
   // Schools get it with Tenant configuration (sandbox first, then everyone once released in admin).
   let tooOld = false;
+  let limitMs = null;
   if (require("./utils/shards/features").isOn("tenant_config", { organizationId: req.session.organizationId })) {
     try {
       const settings = await tenantSettings.settingsFor(db, req.session.organizationId);
-      tooOld = now - req.session.signedInAt > tenantSettings.sessionLimitMs(settings, req.session.keepSignedIn);
+      limitMs = tenantSettings.sessionLimitMs(settings, req.session.keepSignedIn);
+      tooOld = now - req.session.signedInAt > limitMs;
     } catch (_error) {
       tooOld = false;
+      limitMs = null;
     }
   }
 
   // Someone who ticked Keep me logged in isn't timed out for a quiet spell.
-  if (tooOld || now - lastActivity > require("./utils/keepSignedIn").idleLimitFor(req.session, IDLE_TIMEOUT_MS)) {
+  const idleLimitMs = require("./utils/keepSignedIn").idleLimitFor(req.session, IDLE_TIMEOUT_MS);
+  if (tooOld || now - lastActivity > idleLimitMs) {
+    const reason = tooOld ? "expired" : "idle";
+    // Leave the login page a note of why.
+    sessionTimeout.remember(res, reason);
     return req.session.destroy(() => {
+      const redirect = sessionTimeout.loginUrl(reason);
+      res.set("X-Managira-Signed-Out", reason);
+      if (isStatus) return res.json({ signedIn: false, reason, redirect });
       if (req.xhr || (req.headers.accept || '').includes('application/json')) {
-        return res.status(401).json({ error: 'Your sign-in has ended. Please log in again.' });
+        return res.status(401).json({ error: 'Your session timed out. Sign in again to continue.', signedOut: true, reason, redirect });
       }
-      return res.redirect(`/account/login?reason=${tooOld ? 'expired' : 'idle'}`);
+      return res.redirect(redirect);
     });
   }
+
+  const clock = {
+    idleLeftMs: Math.max(0, idleLimitMs - (now - lastActivity)),
+    endsInMs: limitMs !== null ? Math.max(0, limitMs - (now - req.session.signedInAt)) : null,
+  };
+  if (isStatus) {
+    if (!signedInSession(req.session)) return res.json(endedStatus(req));
+    return res.json({ signedIn: true, idleLeftMs: clock.idleLeftMs, endsInMs: clock.endsInMs });
+  }
+  // The page's own copy, so it knows when to look again (views/partials/head.ejs).
+  res.locals.sessionClock = clock;
 
   // Only touch (and re-save) the session when lastActivity is meaningfully
   // stale. Writing it on every single request — including background

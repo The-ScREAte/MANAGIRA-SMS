@@ -8,6 +8,10 @@
   <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
   <link rel="preload" as="image" href="/images/managira-logo-sm.png" />
+  <script>
+    // A panel inside the app (a workspace pane) that lost its sign-in: the whole window comes here.
+    (function () { try { if (window.top !== window.self && window.top.location.origin === window.location.origin) window.top.location.replace(window.location.href); } catch (_) {} })();
+  </script>
   <style>
     /* One page with nothing else to load: the login is the first thing everyone waits for. */
     :root {
@@ -143,6 +147,11 @@
     .after { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 0.925rem; color: var(--muted); text-align: center; }
     .after a { color: var(--brand); font-weight: 500; text-decoration: none; }
     .after a:hover { text-decoration: underline; }
+    /* A sign-in that timed out says so above the form. */
+    .timeout-note { display: flex; gap: 12px; margin: -8px 0 20px; padding: 16px 18px; border: 1px solid #b9d3e8; border-radius: 12px; background: #f3f8fc; }
+    .timeout-note svg { flex: none; width: 22px; height: 22px; margin-top: 1px; color: #2463a6; }
+    .timeout-note strong { display: block; color: var(--text); font-size: 1rem; font-weight: 650; line-height: 1.35; }
+    .timeout-note span { display: block; margin-top: 3px; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
     .brand { display: flex; align-items: center; justify-content: center; gap: 8px; width: fit-content; margin: 30px auto 0; color: #6b7280; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.06em; text-decoration: none; text-transform: uppercase; }
     .brand img { width: 26px; height: 26px; }
     .brand:hover { color: #374151; }
@@ -200,6 +209,12 @@
         const _sso = _step === 'sso' && locals.sso ? sso : null;
         const _password = _step === 'password' || Boolean(_sso && locals.passwordToo);
       %>
+      <% if (_step === 'email' && locals.timeoutNotice) { %>
+      <div class="timeout-note" role="status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <div><strong><%= timeoutNotice.title %></strong><span><%= timeoutNotice.text %></span></div>
+      </div>
+      <% } %>
       <form id="loginForm" action="<%= _step === 'email' ? '/account/login/continue' : '/account/login' %>" method="post" novalidate data-step="<%= _step %>">
         <% if (locals.next) { %><input type="hidden" name="next" value="<%= next %>" /><% } %>
         <div class="field">

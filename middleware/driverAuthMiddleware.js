@@ -13,6 +13,12 @@ async function isDriverAuthenticated(req, res, next) {
   try {
     const userId = req.session && (req.session.userId || (req.session.user && req.session.user.user_id));
     if (!req.session || !userId || req.session.userRole !== "Driver") {
+      // Nobody signed in any more: the login page says the session timed out.
+      const ended = require("../utils/sessionTimeout");
+      if (!ended.signedIn(req.session)) {
+        res.set("X-Managira-Signed-Out", ended.endedReason(req) || "signed-out");
+        return res.redirect(ended.endedLoginUrl(req));
+      }
       safeFlash("error", "Please log in as a driver.");
       return res.redirect("/account/login");
     }

@@ -386,18 +386,28 @@
         >Hello, <%= session.firstName %>!</a
       >
       <% if (typeof miraActivated !== 'undefined' && miraActivated && typeof miraPublicUrl !== 'undefined' && miraPublicUrl) { %>
-      <%# ── Mira (AI Assistant) launcher ───────────────────── %>
+      <%# ── Mira (AI Assistant): opens beside the page (public/js/miraPanel.js) for someone with
+           their own Use Mira, and says how to get it otherwise (utils/miraAccess.js); Ctrl/Cmd-click
+           opens the full page for those who can use it. ── %>
+      <% const _miraCanUse = typeof miraCanUse !== 'undefined' && miraCanUse; %>
+      <link rel="stylesheet" href="<%= assetUrl('/css/miraPanel.css') %>">
       <a
-        href="<%= miraPublicUrl %>"
-        target="_blank"
+        href="<%= _miraCanUse ? miraPublicUrl : '#' %>"
+        <% if (_miraCanUse) { %>target="_blank"<% } %>
         rel="noopener"
         class="header-mira-btn"
         id="header-mira-btn"
-        title="Open Mira"
+        data-mira-panel="<%= String(miraPublicUrl).replace(/\/$/, '') %>/?embed=panel"
+        data-mira-can-use="<%= _miraCanUse ? '1' : '0' %>"
+        <% if (typeof miraCanManage !== 'undefined' && miraCanManage) { %>data-mira-manage="1"<% } %>
+        aria-controls="mira-panel"
+        aria-expanded="false"
+        title="Mira"
         aria-label="Open Mira, your AI assistant"
       >
         <img src="/images/icons/miralogo-256.png" alt="" aria-hidden="true" />
       </a>
+      <script src="<%= assetUrl('/js/miraPanel.js') %>" defer></script>
       <% } %>
       <%# ── Help: the guides, and feedback for staff ──────────── %>
       <%# Send feedback opens Settings: staff who can reach it (never parents, students or drivers). %>

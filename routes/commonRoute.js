@@ -90,10 +90,26 @@ function requireSetAssessmentQuestionsFeature(req, res, next) {
 module.exports = (db) => {
   const reportBuilder = reportBuilderController(db);
   router.get("/orgDashboard", isAuthenticated, blockGuardians, async (req, res) => {
+    // A school that hasn't personalized yet sets up its basics first (utils/firstSetup.js).
+    if (await require("../utils/firstSetup").sendToSetup(req, res, db)) return;
     // Imported staff see their access first, once (controllers/staffAccessController.js).
     if (await require("../controllers/staffAccessController").firstVisit(req, res, db)) return;
     return commonController.orgDashboard(req, res, db);
   });
+  // First-time setup: colour, logo, details, school year and website look (utils/firstSetup.js).
+  {
+    const setup = require("../controllers/firstSetupController");
+    const json = express.json({ limit: "32kb" });
+    router.get("/first-setup", isAuthenticated, blockGuardians, (req, res) => setup.page(req, res, db));
+    router.post("/first-setup/color", isAuthenticated, blockGuardians, json, (req, res) => setup.color(req, res, db));
+    router.post("/first-setup/logo", isAuthenticated, blockGuardians, upload.single("logo"), (req, res) => setup.logo(req, res, db));
+    router.post("/first-setup/details", isAuthenticated, blockGuardians, json, (req, res) => setup.details(req, res, db));
+    router.post("/first-setup/year", isAuthenticated, blockGuardians, json, (req, res) => setup.year(req, res, db));
+    router.post("/first-setup/calendar", isAuthenticated, blockGuardians, json, (req, res) => setup.calendar(req, res, db));
+    router.get("/first-setup/holidays", isAuthenticated, blockGuardians, (req, res) => setup.holidays(req, res, db));
+    router.post("/first-setup/website", isAuthenticated, blockGuardians, json, (req, res) => setup.website(req, res, db));
+    router.post("/first-setup/finish", isAuthenticated, blockGuardians, json, (req, res) => setup.finish(req, res, db));
+  }
   // "Your access": a member of staff's role, classes and what they can do; admins open anyone's.
   router.get("/my-access", isAuthenticated, blockGuardians, (req, res) => require("../controllers/staffAccessController").page(req, res, db));
   router.get("/my-access/:userId(\\d+)", isAuthenticated, blockGuardians, (req, res) => require("../controllers/staffAccessController").page(req, res, db));

@@ -11,6 +11,11 @@
   function miraFetch(url, options) {
     return fetch(url, options).then(function (response) {
       if (response.status === 401) {
+        // In Managira's side panel, Managira's page takes the whole window to its login page.
+        if (window.MIRA_EMBED) {
+          try { window.parent.postMessage({ type: "mira:signed-out" }, "*"); } catch (_) {}
+          return new Promise(function () {});
+        }
         window.location.href = "/login";
         return new Promise(function () {});
       }
@@ -80,6 +85,36 @@
   }
   if (mobileMenuBtn) mobileMenuBtn.addEventListener("click", openDrawer);
   if (backdrop) backdrop.addEventListener("click", closeDrawer);
+
+  // ---- Inside Managira's side panel (?embed=panel, public/js/miraPanel.js there) ----
+  // The panel's own buttons tell the page around it; Managira links open on that page, so
+  // the conversation stays open beside it.
+  if (window.MIRA_EMBED) {
+    var tell = function (message) { try { window.parent.postMessage(message, "*"); } catch (_) {} };
+    var closeBtn = document.getElementById("miraEmbedClose");
+    if (closeBtn) closeBtn.addEventListener("click", function () { tell({ type: "mira:close" }); });
+    document.addEventListener("click", function (event) {
+      var link = event.target.closest && event.target.closest("a[data-managira-path]");
+      if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      tell({ type: "mira:navigate", path: link.getAttribute("data-managira-path") });
+    });
+    // Escape closes the panel when nothing of Mira's own is open.
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector(".mira-sidebar.is-open, .mira-modal-overlay:not([hidden]), [role='menu']:not([hidden])")) return;
+      tell({ type: "mira:close" });
+    });
+    window.addEventListener("message", function (event) {
+      if (event.source !== window.parent || !event.data) return;
+      if (event.data.type === "mira:focus") {
+        var view = document.getElementById("miraChatView");
+        var box = document.getElementById(view && view.classList.contains("is-active") ? "miraInputDocked" : "miraInput");
+        if (box) box.focus();
+      }
+    });
+    tell({ type: "mira:ready" });
+  }
 
   // ---- New chat ----
   // Shared by the sidebar's "New chat" button and its mobile-topbar

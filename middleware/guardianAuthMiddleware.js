@@ -13,6 +13,12 @@ const isGuardianAuthenticated = async (req, res, next) => {
 
   try {
     if (!req.session || !req.session.guardianId || req.session.userRole !== "Guardian") {
+      // Nobody signed in any more: the login page says the session timed out.
+      const ended = require("../utils/sessionTimeout");
+      if (!ended.signedIn(req.session)) {
+        res.set("X-Managira-Signed-Out", ended.endedReason(req) || "signed-out");
+        return res.redirect(ended.endedLoginUrl(req));
+      }
       safeFlashError("Please login as a parent/guardian.");
       return res.redirect("/account/login");
     }

@@ -1753,3 +1753,25 @@ button { font-family: inherit; }
 .mira-step-plan .mira-step-label { color: var(--mira-text-secondary); font-weight: 600; }
 .mira-plan { margin: 4px 0 0; padding-left: 18px; color: var(--mira-text-secondary); font-size: 0.82rem; }
 .mira-plan li { margin: 2px 0; }
+
+/* ------------------------------------------------ Managira's side panel */
+/* ?embed=panel: Mira beside a Managira page. One compact top bar (history, Mira, new chat,
+   open in a new tab, close); the phone layout below it whatever the panel's width. */
+.mira-embed body { background: var(--mira-bg-elevated); }
+.mira-embed .mira-shell { height: 100vh; height: 100dvh; }
+.mira-embed .mira-mobile-topbar {
+  display: flex;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 8px 8px 10px;
+  background: var(--mira-bg-elevated);
+}
+.mira-embed .mira-mobile-topbar > span { font-size: 1rem; letter-spacing: -0.01em; }
+.mira-embed .mira-mobile-topbar-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.mira-embed .mira-mobile-topbar-actions [hidden] { display: none; }
+.mira-embed .mira-mobile-topbar .mira-icon-btn { width: 32px; height: 32px; border-radius: 8px; text-decoration: none; }
+.mira-embed .mira-icon-btn:focus-visible { outline: 2px solid var(--mira-primary); outline-offset: 1px; }
+.mira-embed-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--mira-border); }
+.mira-embed .mira-chat-topbar { display: none; }
+.mira-embed .mira-empty-heading { font-size: 1.3rem; }
+.mira-embed .mira-ai-disclaimer { font-size: 0.72rem; }

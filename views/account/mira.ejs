@@ -438,6 +438,8 @@
         if (!response.ok || !data.success) throw new Error(data.error || 'That could not be saved.');
         accessStatus.textContent = name + (turnedOn ? ' can now open Mira.' : ' can no longer open Mira.');
         accessStatus.className = 'mira-access-status is-ok';
+        // The header's Mira panel checks again: given to yourself, Mira opens there (public/js/miraPanel.js).
+        window.dispatchEvent(new CustomEvent('managira:mira-access-changed'));
       } catch (error) {
         box.checked = !turnedOn;
         accessStatus.textContent = error.message || 'That could not be saved. Try again.';

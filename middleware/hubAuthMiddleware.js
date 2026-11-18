@@ -5,6 +5,13 @@ const isHubAuthenticated = async (req, res, next) => {
   try {
     // Check if hub session exists
     if (!req.session.hubId || req.session.accountType !== 'Hub') {
+      // Nobody signed in any more: the hub login page says the session timed out.
+      const ended = require('../utils/sessionTimeout');
+      if (!ended.signedIn(req.session)) {
+        const reason = ended.endedReason(req);
+        res.set('X-Managira-Signed-Out', reason || 'signed-out');
+        return res.redirect(reason ? `/hub/login?reason=${reason}` : '/hub/login');
+      }
       req.flash('error', 'Please login to access the hub dashboard.');
       return res.redirect('/hub/login');
     }
@@ -70,6 +77,12 @@ const fetchHubInfo = async (req, res, next) => {
 // Middleware to block non-hub users from accessing hub routes
 const ensureHub = (req, res, next) => {
   if (req.session.accountType !== 'Hub') {
+    // Nobody signed in any more: the login page says the session timed out.
+    const ended = require('../utils/sessionTimeout');
+    if (!ended.signedIn(req.session)) {
+      res.set('X-Managira-Signed-Out', ended.endedReason(req) || 'signed-out');
+      return res.redirect(ended.endedLoginUrl(req));
+    }
     req.flash('error', 'Access denied. Hub access only.');
     return res.redirect('/account/login');
   }

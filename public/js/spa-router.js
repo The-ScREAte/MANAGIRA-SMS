@@ -455,6 +455,7 @@
           window.scrollTo({ top: savedScroll, behavior: CONFIG.SCROLL_BEHAVIOR });
         }
       }).catch(() => {
+        if (window.__managiraSignedOut) return;
         // Fallback: full page reload
         window.location.reload();
       });
@@ -521,6 +522,8 @@
             window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
           }
         } catch (err) {
+          // Signed out: public/js/sessionWatch.js is already taking the page to the login page.
+          if (window.__managiraSignedOut) return;
           // Fallback to full navigation
           window.location.href = path;
         } finally {

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Set up your school - Managira</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
+  <%
+    const _colorHex = (colors.find((c) => c.key === school.color) || colors[0]).hex;
+    const _labels = { color: 'Colour', logo: 'Logo', details: 'Details', year: 'School year', calendar: 'Calendar', website: 'Website' };
+  %>
+  <style>
+    /* First-time setup (utils/firstSetup.js): one step at a time, in the school's colour. */
+    :root {
+      --brand: <%= _colorHex %>;
+      --text: #111827;
+      --muted: #4b5563;
+      --soft: #6b7280;
+      --line: #e5e7eb;
+      --field: #d1d5db;
+      --card: #ffffff;
+      --bg: #f4f6f8;
+      --error: #b42318;
+      --error-bg: #fef2f2;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font: inherit; }
+    .fs-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1040px; margin: 0 auto; padding: 18px 20px; }
+    .fs-brand { display: inline-flex; align-items: center; gap: 8px; color: #374151; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none; }
+    .fs-brand img { width: 24px; height: 24px; }
+    .fs-out { color: var(--muted); font-size: 0.9rem; text-decoration: none; }
+    .fs-out:hover { color: var(--text); text-decoration: underline; }
+
+    .fs-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; max-width: 1040px; margin: 0 auto; padding: 4px 20px 48px; align-items: start; }
+    .fs-card { padding: 30px 32px 26px; border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px rgba(16, 24, 40, 0.06); }
+
+    .fs-progress { display: flex; gap: 6px; margin-bottom: 10px; }
+    .fs-progress span { flex: 1; height: 5px; border-radius: 999px; background: #e5e7eb; transition: background 0.2s ease; }
+    .fs-progress span.is-done, .fs-progress span.is-now { background: var(--brand); }
+    .fs-progress span.is-now { opacity: 0.55; }
+    .fs-count { margin: 0 0 22px; color: var(--soft); font-size: 0.85rem; font-weight: 600; }
+
+    .fs-step[hidden] { display: none; }
+    .fs-step h1:focus { outline: none; }
+    .fs-step h1 { margin: 0 0 6px; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+    .fs-lead { margin: 0 0 24px; color: var(--muted); font-size: 0.98rem; line-height: 1.55; }
+
+    /* Colour */
+    .fs-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; margin: 0; padding: 0; border: 0; }
+    .fs-color { position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 6px 10px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+    .fs-color input { position: absolute; opacity: 0; pointer-events: none; }
+    .fs-color i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+    .fs-color i svg { width: 16px; height: 16px; color: #fff; opacity: 0; }
+    .fs-color span { color: var(--muted); font-size: 0.78rem; text-align: center; line-height: 1.25; }
+    .fs-color:hover { border-color: #c7cdd4; }
+    .fs-color:has(input:checked) { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 25%, transparent); }
+    .fs-color:has(input:checked) i svg { opacity: 1; }
+    .fs-color:has(input:checked) span { color: var(--text); font-weight: 600; }
+    .fs-color:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--c) 35%, transparent); outline-offset: 2px; }
+
+    /* Logo */
+    .fs-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 210px; padding: 24px; border: 2px dashed var(--field); border-radius: 16px; background: #fafbfc; color: var(--muted); text-align: center; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+    .fs-drop:hover, .fs-drop.is-over { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 5%, #fff); }
+    .fs-drop:focus-within { outline: 3px solid color-mix(in srgb, var(--brand) 30%, transparent); outline-offset: 2px; }
+    .fs-drop svg { width: 32px; height: 32px; color: var(--brand); }
+    .fs-drop strong { color: var(--text); }
+    .fs-drop small { color: var(--soft); }
+    .fs-drop img { max-width: 160px; max-height: 120px; object-fit: contain; }
+    .fs-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+    /* Fields */
+    .fs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .fs-field { display: flex; flex-direction: column; gap: 6px; }
+    .fs-field.wide { grid-column: 1 / -1; }
+    .fs-field label { color: var(--muted); font-size: 0.875rem; font-weight: 600; }
+    .fs-field label em { color: var(--soft); font-style: normal; font-weight: 400; }
+    .fs-field input, .fs-field select { width: 100%; height: 46px; padding: 0 13px; border: 1px solid var(--field); border-radius: 10px; background: #fff; color: var(--text); font-size: 1rem; }
+    .fs-field input:focus, .fs-field select:focus { border-color: var(--brand); outline: 3px solid color-mix(in srgb, var(--brand) 20%, transparent); }
+    .fs-hint { margin: 0; color: var(--soft); font-size: 0.82rem; }
+
+    /* School year */
+    .fs-choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; padding: 0; border: 0; }
+    .fs-choice { display: flex; flex-direction: column; gap: 2px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+    .fs-choice input { position: absolute; opacity: 0; pointer-events: none; }
+    .fs-choice strong { font-size: 0.95rem; }
+    .fs-choice span { color: var(--soft); font-size: 0.8rem; }
+    .fs-choice:has(input:checked) { border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 20%, transparent); }
+    .fs-choice:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--brand) 30%, transparent); outline-offset: 2px; }
+    .fs-terms { margin: 18px 0 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 12px; }
+    .fs-terms li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 14px; font-size: 0.92rem; }
+    .fs-terms li + li { border-top: 1px solid var(--line); }
+    .fs-terms li span { color: var(--soft); }
+    .fs-terms li b { font-weight: 600; }
+    .fs-terms li em { margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); font-size: 0.75rem; font-style: normal; font-weight: 600; }
+    .fs-label { margin: 22px 0 10px; color: var(--muted); font-size: 0.875rem; font-weight: 600; }
+
+    /* Calendar */
+    .fs-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .fs-day { position: relative; cursor: pointer; }
+    .fs-day input { position: absolute; opacity: 0; pointer-events: none; }
+    .fs-day span { display: grid; place-items: center; height: 44px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 0.9rem; font-weight: 600; }
+    .fs-day input:checked + span { border-color: var(--brand); background: var(--brand); color: #fff; }
+    .fs-day input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--brand) 30%, transparent); outline-offset: 2px; }
+    .fs-switch { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 22px; cursor: pointer; }
+    .fs-switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .fs-switch-ui { flex: none; position: relative; width: 40px; height: 24px; margin-top: 1px; border-radius: 999px; background: #d1d5db; transition: background 0.15s ease; }
+    .fs-switch-ui::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.15s ease; }
+    .fs-switch input:checked + .fs-switch-ui { background: var(--brand); }
+    .fs-switch input:checked + .fs-switch-ui::after { transform: translateX(16px); }
+    .fs-switch input:focus-visible + .fs-switch-ui { outline: 3px solid color-mix(in srgb, var(--brand) 30%, transparent); outline-offset: 2px; }
+    .fs-switch strong { display: block; font-size: 0.95rem; }
+    .fs-switch small { display: block; margin-top: 2px; color: var(--soft); font-size: 0.84rem; }
+    .fs-holidays { max-height: 180px; overflow: auto; margin: 10px 0 0 52px; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; }
+    .fs-holidays[hidden] { display: none; }
+    .fs-holidays li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 12px; font-size: 0.86rem; }
+    .fs-holidays li + li { border-top: 1px solid var(--line); }
+    .fs-holidays li span { color: var(--soft); white-space: nowrap; }
+    .fs-daysoff { display: grid; gap: 8px; }
+    .fs-dayoff { display: grid; grid-template-columns: 170px minmax(0, 1fr) 36px; gap: 8px; }
+    .fs-dayoff input { height: 42px; padding: 0 11px; border: 1px solid var(--field); border-radius: 10px; color: var(--text); }
+    .fs-dayoff input:focus { border-color: var(--brand); outline: 3px solid color-mix(in srgb, var(--brand) 20%, transparent); }
+    .fs-dayoff button { border: 0; border-radius: 10px; background: transparent; color: var(--soft); font-size: 1.2rem; cursor: pointer; }
+    .fs-dayoff button:hover { background: #f3f4f6; color: var(--text); }
+    .fs-add { margin-top: 8px; padding: 8px 0; border: 0; background: none; color: var(--brand); font-size: 0.92rem; font-weight: 600; cursor: pointer; }
+    .fs-add:hover { text-decoration: underline; }
+
+    /* Website */
+    .fs-designs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin: 0; padding: 0; border: 0; }
+    .fs-design { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }
+    .fs-design input { position: absolute; opacity: 0; pointer-events: none; }
+    .fs-design strong { display: flex; align-items: center; gap: 8px; font-size: 0.98rem; }
+    .fs-design strong small { padding: 2px 7px; border-radius: 999px; background: #f3f4f6; color: var(--muted); font-size: 0.7rem; font-weight: 600; }
+    .fs-design span { color: var(--soft); font-size: 0.84rem; line-height: 1.45; }
+    .fs-design:has(input:checked) { border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 20%, transparent); }
+    .fs-design:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--brand) 30%, transparent); outline-offset: 2px; }
+
+    /* Actions */
+    .fs-error { margin: 18px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--error-bg); color: var(--error); font-size: 0.9rem; }
+    .fs-error[hidden] { display: none; }
+    .fs-actions { display: flex; align-items: center; gap: 10px; margin-top: 26px; }
+    .fs-actions[hidden] { display: none; }
+    .fs-actions .fs-spacer { flex: 1; }
+    .fs-btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 22px; border: 0; border-radius: 10px; background: var(--brand); color: #fff; font-size: 1rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: filter 0.15s ease; }
+    .fs-btn:hover { filter: brightness(0.93); }
+    .fs-btn[disabled] { opacity: 0.6; cursor: wait; }
+    .fs-btn:focus-visible, .fs-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 35%, transparent); outline-offset: 2px; }
+    .fs-link { padding: 0 6px; border: 0; background: none; color: var(--muted); font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+    .fs-link:hover { color: var(--text); text-decoration: underline; }
+    .fs-link[hidden], .fs-btn[hidden] { display: none; }
+
+    /* Done */
+    .fs-done { text-align: center; padding: 18px 0 6px; }
+    .fs-done-mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%; background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); }
+    .fs-done-mark svg { width: 30px; height: 30px; }
+    .fs-summary { max-width: 360px; margin: 6px auto 24px; padding: 0; list-style: none; text-align: left; }
+    .fs-summary li { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--muted); font-size: 0.95rem; }
+    .fs-summary li svg { flex: none; width: 18px; height: 18px; color: var(--brand); }
+    .fs-summary li.is-skipped { color: var(--soft); }
+    .fs-summary li.is-skipped svg { color: #c4c9d0; }
+
+    /* Preview */
+    .fs-preview { position: sticky; top: 20px; }
+    .fs-preview-label { margin: 0 0 10px; color: var(--soft); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .fs-window { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, 0.08); }
+    .fs-window-bar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: var(--brand); color: #fff; transition: background 0.2s ease; }
+    .fs-window-logo { display: grid; place-items: center; width: 34px; height: 34px; overflow: hidden; border-radius: 9px; background: rgba(255, 255, 255, 0.95); color: var(--brand); font-weight: 800; }
+    .fs-window-logo img { width: 100%; height: 100%; object-fit: contain; }
+    .fs-window-name { min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .fs-window-body { display: grid; gap: 10px; padding: 16px; }
+    .fs-window-row { height: 10px; border-radius: 999px; background: #eef0f3; }
+    .fs-window-row.short { width: 60%; }
+    .fs-window-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    .fs-window-tiles div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+    .fs-window-tiles b { display: block; color: var(--brand); font-size: 1.1rem; }
+    .fs-window-tiles span { color: var(--soft); font-size: 0.72rem; }
+    .fs-window-btn { justify-self: start; margin-top: 4px; padding: 8px 14px; border-radius: 8px; background: var(--brand); color: #fff; font-size: 0.8rem; font-weight: 700; }
+    .fs-preview-note { margin: 12px 2px 0; color: var(--soft); font-size: 0.82rem; line-height: 1.5; }
+
+    @media (max-width: 900px) {
+      .fs-wrap { grid-template-columns: 1fr; }
+      .fs-preview { position: static; order: -1; }
+      .fs-window-body { display: none; }
+      .fs-preview-note { display: none; }
+    }
+    @media (max-width: 560px) {
+      .fs-days { grid-template-columns: repeat(4, 1fr); }
+      .fs-dayoff { grid-template-columns: 1fr 36px; }
+      .fs-dayoff input[type="text"] { grid-column: 1 / -1; grid-row: 2; }
+      .fs-holidays { margin-left: 0; }
+      .fs-top { padding: 14px 16px; }
+      .fs-wrap { padding: 0 16px 32px; gap: 14px; }
+      .fs-card { padding: 22px 18px 20px; border-radius: 16px; }
+      .fs-step h1 { font-size: 1.35rem; }
+      .fs-grid { grid-template-columns: 1fr; }
+      .fs-choices { grid-template-columns: 1fr 1fr; }
+      .fs-actions { flex-wrap: wrap; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="fs-top">
+    <span class="fs-brand"><img src="/images/managira-logo-sm.png" alt="" />Managira</span>
+    <a class="fs-out" href="/account/logout">Log out</a>
+  </header>
+
+  <div class="fs-wrap">
+    <main class="fs-card" aria-labelledby="fsTitle">
+      <div class="fs-progress" aria-hidden="true">
+        <% steps.forEach(() => { %><span></span><% }) %>
+      </div>
+      <p class="fs-count" id="fsCount" aria-live="polite"></p>
+
+      <%# 1. Colour %>
+      <section class="fs-step" data-step="color">
+        <h1 id="fsTitle">Welcome! Pick your school's colour</h1>
+        <p class="fs-lead">Let's set up the basics so Managira feels like your school. It takes a couple of minutes. Your colour is used for buttons, headers and your website.</p>
+        <fieldset class="fs-colors">
+          <legend class="fs-label" style="position:absolute;left:-9999px">School colour</legend>
+          <% colors.forEach((c) => { %>
+            <label class="fs-color" style="--c: <%= c.hex %>">
+              <input type="radio" name="color" value="<%= c.key %>" data-hex="<%= c.hex %>"<%= c.key === school.color ? ' checked' : '' %> />
+              <i><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i>
+              <span><%= c.name %></span>
+            </label>
+          <% }) %>
+        </fieldset>
+      </section>
+
+      <%# 2. Logo %>
+      <section class="fs-step" data-step="logo" hidden>
+        <h1>Add your logo</h1>
+        <p class="fs-lead">It shows in the header, on report cards and on your website. A square picture with a clear background looks best.</p>
+        <label class="fs-drop" id="fsDrop">
+          <input type="file" id="fsLogo" accept="image/png,image/jpeg,image/webp,image/gif" />
+          <span id="fsDropBody">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <br /><strong>Choose a picture</strong> or drop it here<br /><small>PNG, JPG, WebP or GIF, up to 5 MB</small>
+          </span>
+        </label>
+      </section>
+
+      <%# 3. Details %>
+      <section class="fs-step" data-step="details" hidden>
+        <h1>Tell us about your school</h1>
+        <p class="fs-lead">These details appear on report cards, transcripts, emails to families and your website.</p>
+        <form class="fs-grid" id="fsDetails" novalidate>
+          <div class="fs-field wide">
+            <label for="fsName">School name</label>
+            <input id="fsName" name="name" value="<%= school.name %>" maxlength="150" autocomplete="organization" required />
+          </div>
+          <div class="fs-field">
+            <label for="fsShort">Short name <em>(optional)</em></label>
+            <input id="fsShort" name="shortName" value="<%= school.shortName %>" maxlength="60" placeholder="e.g. Lincoln High" aria-describedby="fsShortHint" />
+            <p class="fs-hint" id="fsShortHint">Shown at the top of your website. Empty uses the full name.</p>
+          </div>
+          <div class="fs-field">
+            <label for="fsPhone">Phone <em>(optional)</em></label>
+            <input id="fsPhone" name="phone" type="tel" value="<%= school.phone %>" maxlength="30" autocomplete="tel" />
+          </div>
+          <div class="fs-field wide">
+            <label for="fsAddress">Street address <em>(optional)</em></label>
+            <input id="fsAddress" name="address" value="<%= school.address %>" maxlength="250" autocomplete="street-address" />
+          </div>
+          <div class="fs-field">
+            <label for="fsState">State <em>(optional)</em></label>
+            <input id="fsState" name="state" value="<%= school.state %>" maxlength="100" list="fsStates" autocomplete="address-level1" />
+            <datalist id="fsStates"><% usStates.forEach((s) => { %><option value="<%= s %>"></option><% }) %></datalist>
+          </div>
+          <div class="fs-field">
+            <label for="fsCountry">Country</label>
+            <select id="fsCountry" name="country" autocomplete="country">
+              <% countries.forEach((c) => { %><option value="<%= c.code %>"<%= c.code === school.country ? ' selected' : '' %>><%= c.name %></option><% }) %>
+            </select>
+          </div>
+        </form>
+      </section>
+
+      <% if (steps.includes('year')) { %>
+      <%# 4. School year %>
+      <section class="fs-step" data-step="year" hidden>
+        <h1>Set up your school year</h1>
+        <p class="fs-lead">Attendance, grades and report cards are kept by term. You can rename terms or change dates later in School years &amp; terms.</p>
+        <div class="fs-grid">
+          <div class="fs-field wide">
+            <label for="fsYearLabel">School year</label>
+            <input id="fsYearLabel" value="<%= year.label %>" maxlength="9" placeholder="2026-2027" inputmode="numeric" />
+          </div>
+          <div class="fs-field">
+            <label for="fsYearStart">First day</label>
+            <input id="fsYearStart" type="date" value="<%= year.start %>" />
+          </div>
+          <div class="fs-field">
+            <label for="fsYearEnd">Last day</label>
+            <input id="fsYearEnd" type="date" value="<%= year.end %>" />
+          </div>
+        </div>
+        <p class="fs-label">How is the year divided?</p>
+        <fieldset class="fs-choices">
+          <legend style="position:absolute;left:-9999px">How the year is divided</legend>
+          <% const _structureText = { semesters: ['Semesters', '2 terms'], trimesters: ['Trimesters', '3 terms'], quarters: ['Quarters', '4 terms'], year: ['Full year', '1 term'] }; %>
+          <% structures.forEach((s, i) => { %>
+            <label class="fs-choice">
+              <input type="radio" name="structure" value="<%= s.key %>"<%= i === 0 ? ' checked' : '' %> />
+              <strong><%= _structureText[s.key][0] %></strong><span><%= _structureText[s.key][1] %></span>
+            </label>
+          <% }) %>
+        </fieldset>
+        <ul class="fs-terms" id="fsTerms" aria-live="polite"></ul>
+      </section>
+      <% } %>
+
+      <% if (steps.includes('calendar')) { %>
+      <%# 5. Calendar: school days, public holidays, days off %>
+      <section class="fs-step" data-step="calendar" hidden>
+        <h1>Set your school calendar</h1>
+        <p class="fs-lead">Attendance is only taken on school days, and days off don't count against anyone. You can add more days off any time in Settings › School rules.</p>
+        <p class="fs-label" id="fsDaysLabel">School days</p>
+        <div class="fs-days" role="group" aria-labelledby="fsDaysLabel">
+          <% [['1','Mon'],['2','Tue'],['3','Wed'],['4','Thu'],['5','Fri'],['6','Sat'],['0','Sun']].forEach(([value, label]) => { %>
+            <label class="fs-day"><input type="checkbox" name="schoolDay" value="<%= value %>"<%= ['1','2','3','4','5'].includes(value) ? ' checked' : '' %> /><span><%= label %></span></label>
+          <% }) %>
+        </div>
+        <label class="fs-switch">
+          <input type="checkbox" id="fsHolidays" checked />
+          <span class="fs-switch-ui" aria-hidden="true"></span>
+          <span><strong>Public holidays are days off</strong><small id="fsHolidaysNote">Loading this year's holidays…</small></span>
+        </label>
+        <ul class="fs-holidays" id="fsHolidayList" hidden></ul>
+        <p class="fs-label">Other days off <em class="fs-hint" style="display:inline">(breaks, teacher work days; optional)</em></p>
+        <div id="fsDaysOff" class="fs-daysoff"></div>
+        <button type="button" class="fs-add" id="fsAddDayOff">+ Add a day off</button>
+      </section>
+      <% } %>
+
+      <% if (steps.includes('website')) { %>
+      <%# 6. Website %>
+      <section class="fs-step" data-step="website" hidden>
+        <h1>Choose your website's look</h1>
+        <p class="fs-lead">Your school gets a public website in your colour. Pick a design to start with; you can add photos and news, or change the design, any time in Website settings.</p>
+        <fieldset class="fs-designs">
+          <legend style="position:absolute;left:-9999px">Website design</legend>
+          <% layouts.forEach((l) => { %>
+            <label class="fs-design">
+              <input type="radio" name="layout" value="<%= l.value %>"<%= l.value === school.layout ? ' checked' : '' %> />
+              <strong><%= l.name %><% if (l.style) { %><small><%= l.style %></small><% } %></strong>
+              <span><%= l.description %></span>
+            </label>
+          <% }) %>
+        </fieldset>
+      </section>
+      <% } %>
+
+      <%# Done %>
+      <section class="fs-step" data-step="done" hidden>
+        <div class="fs-done">
+          <div class="fs-done-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h1>Your school is ready</h1>
+          <p class="fs-lead">Next, the setup steps on your dashboard walk you through classes, students and staff.</p>
+          <ul class="fs-summary" id="fsSummary"></ul>
+          <a class="fs-btn" id="fsGo" href="/common/orgDashboard">Go to your dashboard</a>
+        </div>
+      </section>
+
+      <p class="fs-error" id="fsError" role="alert" hidden></p>
+      <div class="fs-actions" id="fsActions">
+        <button type="button" class="fs-link" id="fsBack" hidden>Back</button>
+        <span class="fs-spacer"></span>
+        <button type="button" class="fs-link" id="fsSkip" hidden>Skip for now</button>
+        <button type="button" class="fs-btn" id="fsNext">Continue</button>
+      </div>
+    </main>
+
+    <aside class="fs-preview" aria-label="Preview">
+      <p class="fs-preview-label">Preview</p>
+      <div class="fs-window" aria-hidden="true">
+        <div class="fs-window-bar">
+          <span class="fs-window-logo" id="fsPreviewLogo"><% if (school.logo) { %><img src="<%= school.logo %>" alt="" /><% } else { %><%= (school.name || 'S').charAt(0).toUpperCase() %><% } %></span>
+          <span class="fs-window-name" id="fsPreviewName"><%= school.shortName || school.name || 'Your school' %></span>
+        </div>
+        <div class="fs-window-body">
+          <div class="fs-window-row"></div>
+          <div class="fs-window-row short"></div>
+          <div class="fs-window-tiles"><div><b>412</b><span>Students</span></div><div><b>96%</b><span>Attendance</span></div></div>
+          <span class="fs-window-btn">Take attendance</span>
+        </div>
+      </div>
+      <p class="fs-preview-note">This is how your colour and logo look to your staff. Families and visitors see them too.</p>
+    </aside>
+  </div>
+
+  <script>
+    window.FIRST_SETUP = <%- JSON.stringify({ steps, labels: _labels, hasTerms }) %>;
+  </script>
+  <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/firstSetup.js') : '/js/firstSetup.js' %>" defer></script>
+</body>
+</html>

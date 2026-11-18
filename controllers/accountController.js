@@ -5213,11 +5213,25 @@ const accountController = {
     const pending = step === "code" ? loginCode.pendingOf(req) : null;
     if (step === "code" && (!pending || pending.expired)) step = "email";
     const schoolLogo = school && school.logo ? res.locals.publicImageUrl(school.logo, { public: true, width: 128 }) : "";
+    // A sign-in that timed out: say so, and go back to the page the person was on once
+    // they're in (utils/sessionTimeout.js, public/js/sessionWatch.js).
+    const sessionTimeout = require("../utils/sessionTimeout");
+    const timeoutReason = step === "email" && sessionTimeout.REASONS.has(String(req.query.reason || "")) ? String(req.query.reason) : "";
+    const backTo = timeoutReason ? normalizeLoginReturnPath(String(req.query.from || "")) : "";
+    if (backTo && !/^\/account\/(login|logout|[a-z-]*-login)\b/.test(backTo) && req.session && !req.session.returnTo) {
+      req.session.returnTo = backTo;
+    }
     res.render("account/login", {
       layout: false,
       title: "Login",
       url: req.url,
-      messages: req.flash(),
+      timeoutNotice: timeoutReason ? sessionTimeout.NOTICES[timeoutReason] : null,
+      // The notice already says it: no second "session expired" message under it.
+      messages: (() => {
+        const all = req.flash();
+        if (timeoutReason && Array.isArray(all.error)) all.error = all.error.filter((m) => !/session (has )?expired|sign-in has ended/i.test(String(m)));
+        return all;
+      })(),
       step: ["password", "code"].includes(step) || (step === "sso" && sso) ? step : "email",
       codeTo: pending && !pending.expired ? pending.email : "",
       // "app": the code comes from the person's authenticator app (utils/signInMfa.js).
@@ -6079,6 +6093,8 @@ const accountController = {
 
       // Clear client-side cookies
 
+      // Other open tabs go to a plain login page, not "your session timed out".
+      require("../utils/sessionTimeout").rememberLogout(res);
       res.clearCookie("connect.sid", { path: "/" });
       res.clearCookie("connect.sid", { path: "/", domain: (process.env.SESSION_COOKIE_DOMAIN === undefined ? ".managira.com" : process.env.SESSION_COOKIE_DOMAIN || undefined) });
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");

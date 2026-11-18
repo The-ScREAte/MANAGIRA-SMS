@@ -407,6 +407,16 @@ router.get(
 // Use Mira is turned on or off one person at a time (POST /mira/user/:userId), under the staff
 // rules; the old all-at-once save is gone.
 router.post("/mira/permissions", isAuthenticated, (req, res) => res.redirect("/account/mira"));
+// Whether this person may open Mira now (the header's panel asks before showing "no access").
+router.get("/mira/access", isAuthenticated, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    return res.json(await require("../utils/miraAccess").accessFor(req));
+  } catch (error) {
+    console.error("[mira/access]", error);
+    return res.status(503).json({ error: "Unable to check Mira access right now." });
+  }
+});
 router.get(
   "/mira/user/:userId",
   isAuthenticated,

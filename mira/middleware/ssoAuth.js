@@ -121,15 +121,20 @@ async function ssoAuth(req, res, next) {
 // where the right response to "not authenticated" is a redirect to Mira's
 // own login page, not a raw JSON error.
 async function pageAuth(req, res, next) {
+  // In Managira's side panel the sign-in page never opens inside the panel: the panel says so,
+  // and Managira's own page takes the whole window to its login page.
+  const inPanel = req.query.embed === "panel";
   try {
     const { identity, reason } = await resolveIdentity(req);
     if (!identity) {
+      if (inPanel) return res.status(401).render("embedNotice", { layout: false, kind: "signed-out" });
       return res.redirect(`/login${reason ? `?reason=${reason}` : ""}`);
     }
     req.identity = identity;
     next();
   } catch (error) {
     console.error("[mira/pageAuth]", error);
+    if (inPanel) return res.status(503).render("embedNotice", { layout: false, kind: "unavailable" });
     return res.redirect("/login?reason=error");
   }
 }

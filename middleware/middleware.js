@@ -98,10 +98,13 @@ async function isAuthenticated(req, res, next) {
         // Someone really signed in (session.user or session.userId): a school id alone is not a
         // sign-in (a failed sign-in elsewhere can leave one behind).
         if (!req.session || (!req.session.userId && !req.session.user)) {
+            const ended = require('../utils/sessionTimeout');
+            const loginUrl = ended.endedLoginUrl(req);
+            res.set('X-Managira-Signed-Out', ended.endedReason(req) || 'signed-out');
             if (expectsJsonResponse(req)) {
-                return res.status(401).json({ success: false, message: 'Your session has expired. Please log in again.' });
+                return res.status(401).json({ success: false, signedOut: true, message: 'Your session has expired. Please log in again.', redirect: loginUrl });
             }
-            return res.redirect('/account/login');
+            return res.redirect(loginUrl);
         }
 
         const schoolKey = req.session.organizationId || 'none';

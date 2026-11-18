@@ -137,8 +137,11 @@ const hubController = {
     if (req.session.hubId) {
       return res.redirect('/hub/dashboard');
     }
+    const sessionTimeout = require('../utils/sessionTimeout');
+    const reason = String(req.query.reason || '');
     res.render('hub/login', {
       title: 'Hub Login - Managira',
+      timeoutNotice: sessionTimeout.REASONS.has(reason) ? sessionTimeout.NOTICES[reason] : null,
       messages: req.flash(),
       showFooterTopSection: true
     });

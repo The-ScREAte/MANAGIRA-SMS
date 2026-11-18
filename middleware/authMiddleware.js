@@ -95,16 +95,19 @@ const isAuthenticated = async (req, res, next) => {
         // visitor's session can carry one, and the page would draw without anyone signed in.
         if (!req.session.userId && !req.session.user) {
             console.warn(`[isAuthenticated] Not signed in: ${req.method} ${req.originalUrl}`);
+            // The login page says the session timed out (utils/sessionTimeout.js), unless they logged out.
+            const ended = require('../utils/sessionTimeout');
+            const loginUrl = ended.endedLoginUrl(req);
+            res.set('X-Managira-Signed-Out', ended.endedReason(req) || 'signed-out');
             if (wantsJson(req)) {
-                return res.status(401).json({ success: false, signedOut: true, message: 'Your session has ended. Sign in again to continue.', redirect: '/account/login' });
+                return res.status(401).json({ success: false, signedOut: true, message: 'Your session has ended. Sign in again to continue.', redirect: loginUrl });
             }
 
             if (!req.session.returnTo && req.method === 'GET') {
                 req.session.returnTo = req.originalUrl;
             }
 
-            safeFlash(req, 'error', 'Session expired. Please log in again.');
-            return res.redirect('/account/login');
+            return res.redirect(loginUrl);
         }
 
         // 2-3. Organization and user status, looked up at once (each is a

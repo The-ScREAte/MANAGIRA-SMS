@@ -23,5 +23,9 @@
       </p>
     </div>
   </div>
+  <script>
+    // In Managira's side panel: the panel keeps its own bar (with Close) above this notice.
+    try { if (window.parent !== window) window.parent.postMessage({ type: "mira:notice" }, "*"); } catch (_) {}
+  </script>
 </body>
 </html>

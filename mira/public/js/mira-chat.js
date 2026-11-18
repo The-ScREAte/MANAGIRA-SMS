@@ -96,7 +96,9 @@
     // Quotes can't end the attribute early.
     escaped = escaped.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?!\/)[^\s)]*)\)/g, function (match, label, url) {
       var href = url.charAt(0) === "/" ? String(window.MIRA_MAIN_URL || "").replace(/\/$/, "") + url : url;
-      return '<a href="' + href.replace(/"/g, "%22") + '" target="_blank" rel="noopener noreferrer">' + label + "</a>";
+      // In Managira's side panel a Managira page opens in the page beside it (mira-app.js).
+      var inPanel = window.MIRA_EMBED && url.charAt(0) === "/" ? ' data-managira-path="' + url.replace(/"/g, "%22") + '"' : "";
+      return '<a href="' + href.replace(/"/g, "%22") + '" target="_blank" rel="noopener noreferrer"' + inPanel + ">" + label + "</a>";
     });
     escaped = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     escaped = escaped.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");

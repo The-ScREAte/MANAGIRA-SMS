@@ -23,6 +23,12 @@ async function isStudentAuthenticated(req, res, next) {
     };
 
     if (!req.session || !req.session.studentId || req.session.userRole !== "Student") {
+      // Nobody signed in any more: the login page says the session timed out.
+      const ended = require("../utils/sessionTimeout");
+      if (!ended.signedIn(req.session)) {
+        res.set("X-Managira-Signed-Out", ended.endedReason(req) || "signed-out");
+        return res.redirect(ended.endedLoginUrl(req));
+      }
       safeFlash("error", "Please log in as a student.");
       return res.redirect("/account/student-login");
     }
