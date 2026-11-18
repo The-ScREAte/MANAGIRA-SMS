@@ -1,8 +1,9 @@
 /* One Bus button on each child's card (parent dashboard, feature portal_requests):
  *   <button data-bus-menu="123" data-bus-menu-name="Ama" data-bus-snapshot="{...}" [data-bus-boarding]>
- * opens a small menu: Track the bus (public/js/busTracker.js), and where the school has boarding
- * (public/js/busBoarding.js, window.BusBoarding) Not coming today / Riding today after all and Stop
- * using the bus. The driver's screen and the class see "Not coming" (transport_not_riding).
+ * opens a small menu: Track the bus (public/js/busTracker.js) and, where the school has boarding
+ * (public/js/busBoarding.js, window.BusBoarding), Not coming today / Riding today after all.
+ * Stopping the bus altogether is on the child's page (Transportation tile, busTracker's
+ * data-bus-stop-using). The driver's screen and the class see "Not coming" (transport_not_riding).
  */
 (function () {
   'use strict';
@@ -46,7 +47,7 @@
       } else {
         menu.appendChild(item('Not coming today', 'away', 'The driver and teacher will see it'));
       }
-      menu.appendChild(item('Stop using the bus', 'stop', 'Asks the transport team'));
+      // Stop using the bus lives on the child's page (Transportation tile), not here.
     }
     // On the page itself, so the next child's card can't cover it.
     document.body.appendChild(menu);
@@ -76,7 +77,6 @@
         if (window.BusTracker && window.BusTracker.open) window.BusTracker.open(id, { name: name, snapshot: snapshot });
       } else if (what === 'away') window.BusBoarding.notComing(id, name);
       else if (what === 'coming') window.BusBoarding.comingAfterAll(id, name);
-      else if (what === 'stop') window.BusBoarding.stop(id);
     });
     var first = menu.querySelector('button');
     if (first) first.focus();

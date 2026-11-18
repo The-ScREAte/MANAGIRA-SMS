@@ -120,6 +120,15 @@
     '.trk-eta-label{font-size:.92rem;color:#475467}',
     '.trk-overlay .trk-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 20px;margin:14px 0 0;padding:14px 0 0;border-top:1px solid #eef1f5}',
     '.trk-facts:empty{display:none}',
+    '.trk-stop{margin-top:12px;padding-top:10px;border-top:1px solid #eef1f5;text-align:center}',
+    '.trk-overlay .trk-stop-link{width:auto;height:auto;margin:0;padding:4px 6px;border:0;background:none;box-shadow:none;color:#94a3b8;font:inherit;font-size:12.5px;font-weight:500;text-decoration:underline;text-underline-offset:2px;cursor:pointer}',
+    '.trk-overlay .trk-stop-link:hover{color:#b42318}',
+    '.trk-stop-q,.trk-stop-done{margin:0 0 10px;color:#334155;font-size:13px;line-height:1.45}',
+    '.trk-stop-done{margin:0;color:#12683a;font-weight:600}',
+    '.trk-stop-btns{display:flex;gap:8px;justify-content:center}',
+    '.trk-overlay .trk-stop-btns button{width:auto;height:36px;margin:0;padding:0 14px;border-radius:10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;box-shadow:none}',
+    '.trk-overlay .trk-stop-no{border:1px solid #d7dee7;background:#fff;color:#0f172a}',
+    '.trk-overlay .trk-stop-yes{border:0;background:#b42318;color:#fff}',
     '.trk-fact{min-width:0;margin:0}',
     '.trk-overlay .trk-fact dt{margin:0;font-size:.78rem;font-weight:600;color:#5b6b7f}',
     '.trk-overlay .trk-fact dd{margin:2px 0 0;font-size:.95rem;font-weight:600;color:#0f172a;overflow-wrap:anywhere}',
@@ -463,6 +472,28 @@
     return merge(snapshot, { live: null });
   }
 
+  // "Stop using the bus": asks once, then tells the transport team (they follow up).
+  function stopUsing(s, act) {
+    var box = s.root && s.root.querySelector('[data-trk-stop]');
+    if (!box) return;
+    var who = s.name || 'your child';
+    if (act === 'stop-cancel') {
+      box.innerHTML = '<button type="button" class="trk-stop-link" data-trk="stop-ask" data-ap-skip>Stop using the bus</button>';
+      return;
+    }
+    if (act === 'stop-ask') {
+      box.innerHTML = '<p class="trk-stop-q"></p><div class="trk-stop-btns"><button type="button" class="trk-stop-no" data-trk="stop-cancel" data-ap-skip>Keep the bus</button><button type="button" class="trk-stop-yes" data-trk="stop-send" data-ap-skip>Send request</button></div>';
+      box.querySelector('.trk-stop-q').textContent = 'Ask the transport team to take ' + who + ' off the bus? They’ll follow up with you.';
+      return;
+    }
+    var yes = box.querySelector('.trk-stop-yes');
+    if (yes) yes.disabled = true;
+    fetch('/transportation/riding/mine/stop', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ studentId: Number(s.id) }) })
+      .then(function (res) { return res.json().catch(function () { return null; }).then(function (body) { if (!res.ok || !body || body.success === false) throw new Error((body && body.message) || 'That didn’t send. Try again.'); }); })
+      .then(function () { box.innerHTML = '<p class="trk-stop-done"></p>'; box.firstChild.textContent = 'Request sent. The transport team will follow up.'; })
+      .catch(function (error) { if (yes) yes.disabled = false; var q = box.querySelector('.trk-stop-q'); if (q) q.textContent = error.message; });
+  }
+
   function open(studentId, options) {
     if (studentId === null || studentId === undefined || String(studentId).trim() === '') return;
     var opts = typeof options === 'string' ? { name: options } : (options || {});
@@ -479,7 +510,9 @@
       following: true, cameraAt: 0, frameMode: '',
       liveKey: '', liveChangedAt: 0, changesSeen: 0, lastFix: null, jumpHold: null, speedEma: null,
       minDist: Infinity, trend: [], awayTrend: false, passed: false,
-      approach: null, approachPending: false, trip: null
+      approach: null, approachPending: false, trip: null,
+      // A parent's child page (Transportation tile): a quiet "Stop using the bus" at the bottom.
+      stopUsing: opts.stopUsing === true
     };
     s.data = normalize(s.raw);
 
@@ -589,6 +622,7 @@
         '<section class="trk-panel" aria-label="Trip details">' +
           '<div class="trk-eta"><strong class="trk-eta-value"></strong><span class="trk-eta-label"></span></div>' +
           '<dl class="trk-facts"></dl>' +
+          (s.stopUsing ? '<div class="trk-stop" data-trk-stop><button type="button" class="trk-stop-link" data-trk="stop-ask" data-ap-skip>Stop using the bus</button></div>' : '') +
         '</section>' +
       '</div>';
 
@@ -612,6 +646,7 @@
       var btn = e.target.closest ? e.target.closest('[data-trk]') : null;
       if (!btn) return;
       var act = btn.getAttribute('data-trk');
+      if (act === 'stop-ask' || act === 'stop-cancel' || act === 'stop-send') { stopUsing(s, act); return; }
       if (act === 'close') close();
       else if (act === 'driver-close') { s.driverOpen = false; updateDriverCard(s); }
       else if (act === 'expand') {
@@ -1349,7 +1384,8 @@
     open(trigger.getAttribute('data-bus-tracker'), {
       name: trigger.getAttribute('data-bus-tracker-name') || '',
       unit: trigger.getAttribute('data-bus-tracker-unit') || '',
-      snapshot: snapshot
+      snapshot: snapshot,
+      stopUsing: trigger.hasAttribute('data-bus-stop-using')
     });
   });
 

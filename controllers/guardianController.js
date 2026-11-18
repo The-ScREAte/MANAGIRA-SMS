@@ -312,6 +312,20 @@ async function resolveEffectiveClassForStudentTerm(db, organizationId, studentId
 
 module.exports = {
   dashboardGet: async (req, res, db) => {
+    // My children is always the school the parent signed in with: back from another school's
+    // child (feature family_link) before anything is read.
+    if (req.session.familyHome) {
+      // A background warm-up of this page never switches schools (only a real visit does).
+      if (require("../utils/familyLink").isWarmUp(req)) return res.status(204).end();
+      try {
+        await require("../utils/familyLink").switchHome(db, req);
+      } catch (error) {
+        return req.session.regenerate(() => {
+          req.flash("error", "Sign in again to continue.");
+          res.redirect("/account/guardian-login");
+        });
+      }
+    }
     const organizationId = req.session.organizationId;
     const guardianId = req.session.guardianId;
 
@@ -370,10 +384,17 @@ module.exports = {
         })
       );
 
+      // Children at other Managira schools on the same sign-in (feature family_link).
+      const family = await require("../utils/familyLink").familyFor(db, req.session).catch((error) => {
+        console.error("[Family link] dashboard:", error.message);
+        return null;
+      });
+
             return res.render("guardian/dashboard", {
         title: "Parent Portal",
         guardian: guardian,
         children: allChildren,
+        family,
         childTransportationMap,
         transportHiddenIds,
         transportationActive: Boolean(transportationIntegration && transportationIntegration.activated),

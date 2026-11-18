@@ -102,6 +102,17 @@ const withChild = (handler) => async (req, res, db) => {
 };
 
 // Children of this parent in this school, for the calendar.
+// Whether a child's lunch shows to parents: the school has lunch (class_lunch), the child's class
+// takes it, and the class shares lunch with parents (Class settings).
+async function lunchShownFor(db, organizationId, child) {
+  const overallLunch = require("../utils/overallLunch");
+  if (!overallLunch.isOn(organizationId) || !child.classId) return false;
+  const classSettings = require("../utils/classSettings");
+  const settings = await classSettings.settingsFor(db, organizationId, child.classId).catch(() => null);
+  if (!settings) return true;
+  return settings.lunch !== false && settings.parents.lunch !== false;
+}
+
 async function childrenOf(db, organizationId, guardianId) {
   const { rows } = await db.query(
     `SELECT s.student_id, s.first_name, s.last_name, s.class_id
@@ -136,6 +147,11 @@ module.exports = {
       // Forms the school gave a tile of their own (read from the school's cached list).
       formTiles: await require("../utils/customForms").tilesFor(db, req.session.organizationId, "parent", { classId: child.classId }).catch(() => []),
       showTeachers: require("../utils/teacherCards").isOn(req.session.organizationId),
+      showLunch: await lunchShownFor(db, req.session.organizationId, child).catch(() => false),
+      // Opened from the parent's sign-in at another school (feature family_link): which school this is.
+      childSchool: req.session.familyHome
+        ? { name: (req.session.orgNickNameDisplay && req.session.orgNickNameDisplay !== req.session.orgNickName ? req.session.orgNickNameDisplay : req.session.organizationName) || "", logo: req.session.logo || null }
+        : null,
       // Messages opened from a child's page show only that child's (feature portal_requests).
       messagesHref: features.isOn("portal_requests", { organizationId: req.session.organizationId }) ? `/guardian/reports?studentId=${child.id}` : "/guardian/reports",
     });
@@ -199,6 +215,33 @@ module.exports = {
     const { teachers } = await require("../utils/teacherCards").forChild(db, req.session.organizationId, child, "parents");
     res.set("Cache-Control", "private, no-store");
     res.render("guardian/childTeachers", { title: "Teachers", child, teachers });
+  })),
+
+  // Lunch on its own page (feature class_lunch): this term's overall lunch and each day taken,
+  // only while the child's class takes lunch and shares it with parents (Class settings).
+  lunch: guard(hubOn, withChild(async (req, res, db, child) => {
+    const organizationId = req.session.organizationId;
+    if (!(await lunchShownFor(db, organizationId, child))) return backToDashboard(req, res);
+    const overallLunch = require("../utils/overallLunch");
+    const [totals, days] = await Promise.all([
+      child.termId ? overallLunch.totalsFor(db, organizationId, child.termId, [child.id]) : new Map(),
+      child.termId
+        ? db.query(
+            `SELECT lunch_date::text AS day, had_lunch FROM class_lunch
+              WHERE organization_id = $1 AND term_id = $2 AND student_id = $3
+              ORDER BY lunch_date DESC LIMIT 60`,
+            [organizationId, child.termId, child.id]
+          ).then((r) => r.rows).catch(() => [])
+        : [],
+    ]);
+    const total = totals.get(child.id) || null;
+    res.set("Cache-Control", "private, no-store");
+    res.render("guardian/childLunch", {
+      title: "Lunch",
+      child,
+      total: { days: total ? total.days : 0, taken: total ? total.taken : 0, label: overallLunch.label(total) },
+      days: days.map((row) => ({ day: row.day, had: row.had_lunch === true })),
+    });
   })),
 
   activities: guard(activitiesOn, withChild(async (req, res, db, child) => {

@@ -8,6 +8,9 @@ const { hasPaygiraFeature } = require("../utils/paygiraAccess");
 const parentHub = require("../controllers/parentHubController");
 
 module.exports = (db) => {
+  // A linked child at another school opens in that school (feature family_link).
+  const followChild = require("../utils/familyLink").followChild(db);
+  router.use(["/child", "/academic-details", "/calendar", "/reports"], followChild);
   router.get("/dashboard", isGuardianAuthenticated, (req, res) =>
     guardianController.dashboardGet(req, res, db)
   );
@@ -23,6 +26,12 @@ module.exports = (db) => {
   router.get("/child/schedule", isGuardianAuthenticated, (req, res) => parentHub.schedule(req, res, db));
   router.get("/child/activities", isGuardianAuthenticated, (req, res) => parentHub.activities(req, res, db));
   router.get("/child/teachers", isGuardianAuthenticated, (req, res) => parentHub.teachers(req, res, db));
+  router.get("/child/lunch", isGuardianAuthenticated, (req, res) => parentHub.lunch(req, res, db));
+  // One sign-in for children at several schools (feature family_link, utils/familyLink.js).
+  const familyLinkController = require("../controllers/familyLinkController");
+  router.post("/family/open", isGuardianAuthenticated, express.urlencoded({ extended: false, limit: "4kb" }), (req, res) => familyLinkController.open(req, res, db));
+  router.post("/family/confirm/send", isGuardianAuthenticated, express.json({ limit: "2kb" }), (req, res) => familyLinkController.sendCode(req, res, db));
+  router.post("/family/confirm", isGuardianAuthenticated, express.json({ limit: "2kb" }), (req, res) => familyLinkController.confirm(req, res, db));
   // Requests: forms the school asks the family to fill in, new and sent (feature portal_requests).
   router.get("/requests", isGuardianAuthenticated, (req, res) => require("../controllers/portalRequestsController").guardian(req, res, db));
   router.get("/child/homework", isGuardianAuthenticated, (req, res) => parentHub.homework(req, res, db));

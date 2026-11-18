@@ -321,6 +321,11 @@ async function verify(req, res, db) {
   else req.session.cookie.expires = false;
   req.session.lastActivity = Date.now();
   req.session.verifiedBy = appResult ? "authenticator" : "email-code";
+  // A parent who accepted a code sent to their sign-in email has proven they own it: their
+  // children at other Managira schools with that email can show (utils/familyLink.js).
+  if (!appResult && snapshot.guardianId && pending.to) {
+    await require("./familyLink").markProven(db, snapshot.guardianId, snapshot.organizationId, pending.to).catch(() => {});
+  }
   if (appResult && appResult.recoveryLeft !== undefined) {
     req.flash("success", `You used a recovery code. ${appResult.recoveryLeft} left. Set up your authenticator again if you no longer have your phone.`);
   }

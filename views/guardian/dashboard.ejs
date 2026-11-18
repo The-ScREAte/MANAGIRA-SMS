@@ -609,19 +609,43 @@
     </section>
   <% } %>
   <div class="children-section" data-gdr-panel="children">
-    <% if (!children.length) { %>
+    <% if (!children.length && !(locals.family && family.schools && family.schools.length)) { %>
       <div class="no-students-message">
         <div class="no-students-icon">📚</div>
         <h3>No Linked Students Found</h3>
         <p>Please contact your school administrator to link your children to your account.</p>
       </div>
     <% } else { %>
+      <%# Children at other Managira schools on this sign-in (feature family_link, utils/familyLink.js). %>
+      <% const _family = locals.family || null; %>
+      <% const _otherKids = _family ? _family.schools.reduce((n, s) => n + s.children.length, 0) : 0; %>
+      <% const _multiSchool = _otherKids > 0; %>
+      <% const _homeLogo = req && req.session && req.session.logo ? publicImageUrl(req.session.logo, { width: 64 }) : ''; %>
+      <% const _hs = (req && req.session) || {}; %>
+      <% const _homeName = (_hs.orgNickNameDisplay && _hs.orgNickNameDisplay !== _hs.orgNickName ? _hs.orgNickNameDisplay : _hs.organizationName) || ''; %>
+      <% const _initials = (name) => String(name || '').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(); %>
       <div class="section-header">
         <h2 class="section-title">My Children</h2>
-        <% if (children.length > 0) { %>
-          <span class="student-count-badge"><%= children.length %> Student<%= children.length !== 1 ? 's' : '' %></span>
+        <% if (children.length + _otherKids > 0) { %>
+          <span class="student-count-badge"><%= children.length + _otherKids %> Student<%= children.length + _otherKids !== 1 ? 's' : '' %><%= _multiSchool ? ' · ' + (_family.schools.length + 1) + ' schools' : '' %></span>
         <% } %>
       </div>
+      <% if (_family && _family.waiting) { %>
+      <div class="fl-confirm" data-family-confirm>
+        <div class="fl-confirm__text">
+          <strong>Children at another school?</strong>
+          <span>Another Managira school has a parent account for your email. Confirm the email is yours to see those children here, with this same sign-in.</span>
+        </div>
+        <div class="fl-confirm__actions" data-fl-step="send">
+          <button type="button" class="fl-btn" data-fl-send>Send a code</button>
+        </div>
+        <form class="fl-confirm__actions" data-fl-step="code" hidden>
+          <input type="text" inputmode="text" autocomplete="one-time-code" maxlength="8" placeholder="Code" aria-label="Code from the email" data-fl-code required />
+          <button class="fl-btn">Confirm</button>
+        </form>
+        <p class="fl-confirm__note" data-fl-note aria-live="polite"></p>
+      </div>
+      <% } %>
 
       <div class="children-grid">
         <% children.forEach((child) => { %>
@@ -632,11 +656,14 @@
             <a class="child-view" href="<%= featureOn('parent_student_hub') ? '/guardian/child?studentId=' + child.student_id : '/guardian/academic-details?studentId=' + child.student_id + '&termId=' + (currentTermId || '') %>" aria-label="View <%= childDisplayName %>">View<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
             <% } %>
             <div class="child-header">
+              <span class="child-avatar-wrap">
               <img 
                 src="<%= publicImageUrl(child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png', { width: 256 }) %>"
                 alt="<%= childDisplayName %>"
                 class="child-avatar"
               />
+              <% if (_multiSchool) { %><% if (_homeLogo) { %><img class="child-school-badge" src="<%= _homeLogo %>" alt="" title="<%= _homeName %>" /><% } else { %><span class="child-school-badge child-school-badge--initials" title="<%= _homeName %>"><%= _initials(_homeName) %></span><% } %><% } %>
+              </span>
               <div class="child-info">
                 <% if (locals.featureOn && featureOn('parent_student_hub') && child.status !== 'pending') { %>
                 <h3><a class="child-open-link" href="/guardian/child?studentId=<%= child.student_id %>"><%= childDisplayName %></a></h3>
@@ -744,10 +771,34 @@
             <% } %>
           </div>
         <% }) %>
+        <% if (_multiSchool) { _family.schools.forEach((entry) => { entry.children.forEach((kid) => { %>
+          <div class="child-card child-card--corner child-card--other">
+            <form method="POST" action="/guardian/family/open" class="child-view-form">
+              <input type="hidden" name="organizationId" value="<%= entry.school.id %>" />
+              <input type="hidden" name="studentId" value="<%= kid.id %>" />
+              <button class="child-view" aria-label="View <%= kid.name %> at <%= entry.school.name %>">View<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </form>
+            <div class="child-header">
+              <span class="child-avatar-wrap">
+                <img src="<%= publicImageUrl(kid.imageUrl && kid.imageUrl !== 'profilePlaceholder.png' ? kid.imageUrl : '/images/profilePlaceholder.png', { width: 256 }) %>" alt="<%= kid.name %>" class="child-avatar" />
+                <% if (entry.school.logo) { %><img class="child-school-badge" src="<%= publicImageUrl(entry.school.logo, { width: 64 }) %>" alt="" title="<%= entry.school.name %>" /><% } else { %><span class="child-school-badge child-school-badge--initials" title="<%= entry.school.name %>"><%= _initials(entry.school.name) %></span><% } %>
+              </span>
+              <div class="child-info">
+                <h3><%= kid.name %></h3>
+                <div><span class="class-badge"><%= kid.className || 'No class assigned' %></span></div>
+                <p class="child-school-name"><%= entry.school.name %></p>
+              </div>
+            </div>
+          </div>
+        <% }) }) } %>
       </div>
     <% } %>
   </div>
 </div>
+<% if (locals.family && (family.waiting || family.schools.length)) { %>
+<link rel="stylesheet" href="<%= assetUrl('/css/familyLink.css') %>" />
+<% if (family.waiting) { %><script src="<%= assetUrl('/js/familyLink.js') %>" defer></script><% } %>
+<% } %>
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <% if (locals.featureOn && (featureOn('parent_student_hub') || featureOn('bus_boarding'))) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" /><% } %>
 <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>

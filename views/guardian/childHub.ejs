@@ -3,6 +3,7 @@
   const _tiles = [{ href: '/guardian/academic-details?' + _q + (child.termId ? '&termId=' + child.termId : ''), icon: 'stats', name: 'Academic info' }];
   _tiles.push({ href: '/guardian/child/schedule?' + _q, icon: 'schedule', name: 'Schedule' });
   if (locals.showTeachers) _tiles.push({ href: '/guardian/child/teachers?' + _q, icon: 'staff', name: 'Teachers' });
+  if (locals.showLunch) _tiles.push({ href: '/guardian/child/lunch?' + _q, icon: 'lunch', name: 'Lunch' });
   if (showActivities) {
     _tiles.push({ href: '/guardian/calendar?' + _q, icon: 'calendar', name: 'Calendar' });
     _tiles.push({ href: '/guardian/child/activities?' + _q, icon: 'activities', name: 'Activities', count: 'activities' });
@@ -25,12 +26,15 @@
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<% if (locals.childSchool) { %><style>.ph-school{display:inline-flex;align-items:center;gap:6px;margin:6px 0 0!important;padding:3px 10px 3px 4px;border:1px solid #e5e9ef;border-radius:999px;background:#fff;color:#334155!important;font-size:12.5px;font-weight:600}.ph-school img{width:20px;height:20px;border-radius:50%;object-fit:contain;background:#fff}</style><% } %>
 <div class="ph" data-hub-counts="<%= child.id %>">
   <%- include('../partials/flash') %>
   <a class="ph-back" href="/guardian/dashboard">My children</a>
   <header class="ph-child">
     <img class="ph-child__img" src="<%= publicImageUrl(child.imageUrl && child.imageUrl !== 'profilePlaceholder.png' ? child.imageUrl : '/images/profilePlaceholder.png', { width: 256 }) %>" alt="" />
-    <div><h1><%= child.name %></h1><p><%= child.className || 'No class assigned' %></p></div>
+    <div><h1><%= child.name %></h1><p><%= child.className || 'No class assigned' %></p>
+      <% if (locals.childSchool && childSchool.name) { %><p class="ph-school"><% if (childSchool.logo) { %><img src="<%= publicImageUrl(childSchool.logo, { width: 48 }) %>" alt="" /><% } %><span><%= childSchool.name %></span></p><% } %>
+    </div>
   </header>
   <div class="app-tiles">
     <% _tiles.forEach((tile) => { %>
@@ -41,7 +45,7 @@
       </a>
     <% }) %>
     <% if (showTransport) { %>
-      <button type="button" class="app-tile" data-transport-tile data-bus-tracker-name="<%= child.firstName %>">
+      <button type="button" class="app-tile" data-transport-tile data-bus-tracker-name="<%= child.firstName %>"<% if (locals.featureOn && featureOn('bus_boarding')) { %> data-bus-stop-using<% } %>>
         <span class="app-tile__icon"><%- navIcon('transportation') %></span>
         <span class="app-tile__name">Transportation</span>
       </button>

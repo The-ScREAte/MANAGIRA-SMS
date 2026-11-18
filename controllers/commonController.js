@@ -25229,6 +25229,15 @@ const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardi
     const autoInviteEnabled = await isOrgEmailEnabled(db, organizationId, 'guardian_auto_invite_on_student_add');
     if (!autoInviteEnabled) return;
 
+    // Already a parent with a Managira sign-in at another school (feature family_link): no new
+    // password. The child shows on the sign-in they already have, and the email says so.
+    const familyLink = require("../utils/familyLink");
+    const homeSchool = await familyLink.existingSignIn(db, guardianEmail, organizationId).catch(() => null);
+    if (homeSchool) {
+      familyLink.sendLinkedNotice({ to: guardianEmail, firstName: guardianFirstName, studentName, schoolName: organizationName, organizationId, homeSchool });
+      return;
+    }
+
     // Generate token for password setup
     const token = crypto.randomBytes(32).toString("hex");
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours

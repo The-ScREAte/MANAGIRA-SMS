@@ -1267,7 +1267,13 @@
     </div>
   </div>
 
+  <%# With the child's page (parent_student_hub), Schedule, Lunch and (with teacher_cards) Teachers are
+      tiles of their own: Academic info keeps to grades, attendance and report cards. %>
+  <% const _tiled = !!(locals.featureOn && featureOn('parent_student_hub')); %>
+  <% const _teachersTiled = _tiled && featureOn('teacher_cards'); %>
+  <% if (!_tiled || !_teachersTiled) { %>
   <div class="staff-schedule-grid">
+    <% if (!_teachersTiled) { %>
     <!-- Teacher Information -->
     <details class="section-details teacher-section">
       <summary class="section-summary">
@@ -1319,7 +1325,9 @@
         <% } %>
       </div>
     </details>
+    <% } %>
 
+    <% if (!_tiled) { %>
     <details class="section-details">
       <summary class="section-summary">
         <span class="summary-label"><span class="ad-ico" aria-hidden="true"><%- navIcon('schedule') %></span>Class schedule</span>
@@ -1412,12 +1420,15 @@
         <% } %>
       </div>
     </details>
+    <% } %>
   </div>
+  <% } %>
 
   <!-- Attendance Summary (and overall lunch). The class may keep either from parents (Class settings). -->
   <%
     const _showAttendance = locals.showAttendance !== false;
-    const _lunch = locals.lunch || null;
+    // Lunch has its own tile on the child's page; here only where there are no tiles.
+    const _lunch = _tiled ? null : (locals.lunch || null);
     const _hasAttendance = _showAttendance && attendance && attendance.length > 0;
   %>
   <% if (_showAttendance || _lunch) { %>

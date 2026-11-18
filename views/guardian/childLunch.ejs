@@ -1,0 +1,65 @@
+<%# A child's lunch this term (feature class_lunch): overall lunch and each day it was taken.
+    Shown only while the class takes lunch and shares it with parents (Class settings). %>
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<div class="ph">
+  <%- include('../partials/flash') %>
+  <%- include('../partials/portalHead', { title: 'Lunch', icon: 'lunch', sub: (child.firstName ? child.firstName + '’s' : 'Your child’s') + ' lunch this term', back: { href: '/guardian/child?studentId=' + child.id, label: child.name } }) %>
+  <% const _pct = total.taken ? Math.round((total.days / total.taken) * 100) : null; %>
+  <div class="lu-stats">
+    <div class="lu-stat">
+      <span class="lu-stat__label">Days with lunch</span>
+      <strong><%= total.taken ? total.days : '—' %></strong>
+      <small><%= total.taken ? 'of ' + total.taken + (total.taken === 1 ? ' day' : ' days') + ' taken' : 'Not taken yet this term' %></small>
+    </div>
+    <div class="lu-stat">
+      <span class="lu-stat__label">Overall lunch</span>
+      <strong><%= _pct === null ? '—' : _pct + '%' %></strong>
+      <small><%= total.label %></small>
+    </div>
+    <div class="lu-stat">
+      <span class="lu-stat__label">Days without</span>
+      <strong><%= total.taken ? total.taken - total.days : '—' %></strong>
+      <small>This term</small>
+    </div>
+  </div>
+  <% if (days.length) { %>
+  <h2 class="lu-title">Each day</h2>
+  <ul class="lu-days">
+    <% days.forEach((d) => { const _date = new Date(d.day + 'T12:00:00Z'); %>
+    <li class="<%= d.had ? 'is-yes' : 'is-no' %>">
+      <span class="lu-date"><small><%= _date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) %></small><strong><%= _date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) %></strong></span>
+      <span class="lu-mark" aria-hidden="true"><% if (d.had) { %><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><% } else { %><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><% } %></span>
+      <span class="lu-text"><%= d.had ? 'Had lunch' : 'No lunch' %></span>
+    </li>
+    <% }) %>
+  </ul>
+  <% } else { %>
+  <p class="lu-empty">Lunch hasn’t been taken for <%= child.firstName || 'your child' %> this term yet.</p>
+  <% } %>
+</div>
+<style>
+  .lu-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 22px; }
+  .lu-stat { display: grid; gap: 3px; padding: 16px; border: 1px solid #e5e9ef; border-radius: 14px; background: #fff; }
+  .lu-stat__label { color: #64748b; font-size: .78rem; font-weight: 600; }
+  .lu-stat strong { color: #0f172a; font-size: 1.5rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .lu-stat small { color: #64748b; font-size: .8rem; }
+  .lu-title { margin: 0 0 10px; color: #0f172a; font-size: 1rem; font-weight: 700; }
+  .lu-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .lu-days li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #e5e9ef; border-radius: 12px; background: #fff; }
+  .lu-date { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; height: 48px; border-radius: 10px; background: #f1f5f9; }
+  .lu-date small { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  .lu-date strong { color: #0f172a; font-size: 13px; font-weight: 700; }
+  .lu-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; }
+  .lu-mark svg { width: 16px; height: 16px; }
+  .is-yes .lu-mark { color: #fff; background: var(--org-primary-color, #0f766e); }
+  .is-no .lu-mark { color: #94a3b8; background: #f1f5f9; }
+  .lu-text { color: #334155; font-size: .9rem; font-weight: 600; }
+  .is-no .lu-text { color: #64748b; font-weight: 500; }
+  .lu-empty { margin: 0; padding: 22px; border: 1px dashed #d7dee7; border-radius: 14px; color: #64748b; text-align: center; }
+  @media (max-width: 520px) {
+    .lu-stats { gap: 8px; }
+    .lu-stat { padding: 12px; }
+    .lu-stat strong { font-size: 1.2rem; }
+    .lu-days { grid-template-columns: 1fr; }
+  }
+</style>

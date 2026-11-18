@@ -5729,8 +5729,8 @@ const accountController = {
           (ga.login_phone IS NOT NULL
             AND regexp_replace(ga.login_phone, '[^\\d+]', '', 'g') = $2
             AND $2 <> '')
-        ORDER BY (ga.password_hash IS NOT NULL) DESC
-        LIMIT 1
+        ORDER BY (ga.password_hash IS NOT NULL) DESC, COALESCE(ga.must_reset_password, FALSE) ASC, ga.updated_at DESC NULLS LAST, ga.id
+        LIMIT 5
         `,
         [identifier, cleanedPhone]
       );
@@ -5741,9 +5741,7 @@ const accountController = {
         return res.redirect("/account/guardian-login");
       }
 
-      const ga = guardianAcc.rows[0];
-
-      if (!ga.password_hash) {
+      if (!guardianAcc.rows[0].password_hash) {
         req.flash(
           "error",
           "Your account password has not been set up yet. Please contact your school administrator to receive a password setup email."
@@ -5751,8 +5749,16 @@ const accountController = {
         return res.redirect("/account/guardian-login");
       }
 
-      const match = await require("../utils/passwordRules").passwordMatches(password, ga.password_hash);
-      if (!match) {
+      // A parent can have an account at several schools with one email (a school that adds them
+      // gives its account a placeholder password until they set one): the password signs in to
+      // the account whose password it is, the one they set first.
+      const { passwordMatches } = require("../utils/passwordRules");
+      let ga = null;
+      for (const row of guardianAcc.rows) {
+        if (!row.password_hash) continue;
+        if (await passwordMatches(password, row.password_hash)) { ga = row; break; }
+      }
+      if (!ga) {
         req.flash("error", "Invalid email/phone or password.");
         return res.redirect("/account/guardian-login");
       }
