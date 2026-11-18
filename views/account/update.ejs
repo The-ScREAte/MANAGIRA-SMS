@@ -121,6 +121,36 @@
       <button type="submit" class="btn-primary">Update</button>
     </form>
   </div>
+  <% if (locals.about) { %>
+  <%# About me (feature teacher_cards): what families see on a child's Teachers page, where the class shares it. %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/staffAbout.css') %>" />
+  <section class="account-update-card sa-card" data-staff-about data-ap-skip>
+    <div class="sa-head">
+      <h2>About me</h2>
+      <p>A fun fact and up to two photos. Families see them on their child’s Teachers page when your school shares them.</p>
+    </div>
+    <label class="sa-label" for="saFact">Something fun about you</label>
+    <textarea id="saFact" class="sa-fact" maxlength="280" rows="3" placeholder="e.g. I have a golden retriever called Maple and I bake bread every Sunday."><%= about.funFact %></textarea>
+    <div class="sa-row">
+      <span class="sa-count" data-sa-count><%= about.funFact.length %>/280</span>
+      <span class="sa-status" data-sa-status aria-live="polite"></span>
+      <button type="button" class="sa-save" data-sa-save disabled>Save</button>
+    </div>
+    <span class="sa-label">Photos</span>
+    <div class="sa-photos" data-sa-photos>
+      <% about.photos.forEach((p) => { %>
+      <figure class="sa-photo"><img src="<%= p.url %>" alt="" /><button type="button" class="sa-remove" data-sa-remove="<%= p.key %>" aria-label="Remove this photo">×</button></figure>
+      <% }) %>
+      <label class="sa-add" data-sa-add<%= about.photos.length >= 2 ? ' hidden' : '' %>>
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" data-sa-file hidden />
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Add a photo</span>
+      </label>
+    </div>
+    <p class="sa-note">JPG, PNG, WebP or HEIC, up to 8 MB. Only people signed in to your school can open them.</p>
+  </section>
+  <script src="<%= assetUrl('/js/staffAbout.js') %>" defer></script>
+  <% } %>
 </div>
 
 <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole

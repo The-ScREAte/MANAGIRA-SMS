@@ -1179,6 +1179,10 @@ module.exports = {
         enrolledClassName,
         mainTeacher: mainTeacherResult.rows[0] || null,
         subjectTeachers: subjectTeachersResult.rows || [],
+        // Teachers as cards, with what the class shares with students (feature teacher_cards).
+        teacherCards: require("../utils/teacherCards").isOn(organizationId) && effectiveClassId
+          ? (await require("../utils/teacherCards").forChild(db, organizationId, { id: Number(studentId), classId: Number(effectiveClassId) }, "students").catch(() => ({ teachers: [] }))).teachers
+          : null,
         subjects: subjectsResult.rows || [],
         assessmentGrades,
         gradeAssessmentHeaders,

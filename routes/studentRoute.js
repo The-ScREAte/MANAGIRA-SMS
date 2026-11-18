@@ -54,6 +54,9 @@ module.exports = (db) => {
   const customForms = require("../controllers/customFormsController");
   const { upload } = require("../middleware/s3Upload");
   router.get("/forms", isStudentAuthenticated, (req, res) => customForms.studentPage(req, res, db));
+  // The dashboard's Requests and Bus reports tabs (feature portal_requests).
+  router.get("/requests", isStudentAuthenticated, (req, res) => require("../controllers/portalRequestsController").student(req, res, db));
+  router.get("/bus-reports", isStudentAuthenticated, (req, res) => require("../controllers/portalRequestsController").studentBusReports(req, res, db));
   router.post("/forms/:sectionId(\\d+)", isStudentAuthenticated, express.json({ limit: "512kb" }), (req, res) => customForms.studentSave(req, res, db));
   router.post("/forms/:sectionId(\\d+)/upload", isStudentAuthenticated, upload.single("file"), (req, res) => customForms.studentUpload(req, res, db));
   // The student's own portfolio, a folder per term (feature student_portfolio).

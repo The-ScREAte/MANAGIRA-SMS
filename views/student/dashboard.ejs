@@ -913,6 +913,32 @@
         </div>
 
         <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
+        <%# My tiles / Requests / Bus reports (feature portal_requests, public/js/portalRequests.js). %>
+        <% const _portalReq = !!(locals.featureOn && featureOn('portal_requests')); %>
+        <% const _busReports = _portalReq && _sees.transport !== false && !!transportationSnapshot; %>
+        <% if (_portalReq) { %>
+        <link rel="stylesheet" href="<%= assetUrl('/css/busRequest.css') %>" />
+        <link rel="stylesheet" href="<%= assetUrl('/css/portalRequests.css') %>" />
+        <div data-pr-scope>
+        <div class="gdr-tabs sp-pr-tabs" role="tablist" aria-label="Sections" data-gdr-tabs data-portal-requests="student">
+          <button type="button" class="gdr-tab is-on" role="tab" aria-selected="true" data-gdr-tab="tiles">My tiles</button>
+          <button type="button" class="gdr-tab" role="tab" aria-selected="false" data-gdr-tab="requests">Requests <span class="gdr-badge" data-gdr-count hidden></span></button>
+          <% if (_busReports) { %><button type="button" class="gdr-tab" role="tab" aria-selected="false" data-gdr-tab="reports">Bus reports</button><% } %>
+        </div>
+        <section class="gdr" data-gdr-panel="requests" hidden>
+          <div class="gdr-segment" role="tablist" aria-label="Requests">
+            <button type="button" class="is-on" role="tab" aria-selected="true" data-gdr-bucket="new">New</button>
+            <button type="button" role="tab" aria-selected="false" data-gdr-bucket="old">Old</button>
+          </div>
+          <div data-gdr-list aria-live="polite"><p class="gdr-empty">Loading…</p></div>
+        </section>
+        <% if (_busReports) { %>
+        <section class="gdr" data-gdr-panel="reports" hidden>
+          <div data-gdr-reports aria-live="polite"><p class="gdr-empty">Loading…</p></div>
+        </section>
+        <% } %>
+        <div data-gdr-panel="tiles">
+        <% } %>
         <div class="app-tiles sp-app-tiles">
           <button class="sp-action-tile app-tile" type="button" data-panel="schedule"><span class="app-tile__icon"><%- navIcon('schedule') %></span><span class="app-tile__name">Schedule</span></button>
           <a class="sp-action-tile app-tile" href="/student/calendar"><span class="app-tile__icon"><%- navIcon('calendar') %></span><span class="app-tile__name">Calendar</span></a>
@@ -937,6 +963,12 @@
           <a class="sp-action-tile app-tile" href="/student/settings"><span class="app-tile__icon"><%- navIcon('settings') %></span><span class="app-tile__name">Settings</span></a>
         </div>
         <%- include('../partials/familyDetailsCard', { mode: 'student' }) %>
+        <% if (_portalReq) { %>
+        </div>
+        </div>
+        <script src="<%= assetUrl('/js/portalRequests.js') %>" defer></script>
+        <style>.sp-pr-tabs { margin-top: 14px; }</style>
+        <% } %>
       </section>
 
       <% if (locals.featureOn && featureOn('class_activities')) { %>
@@ -993,6 +1025,10 @@
       <% } %>
 
       <section class="sp-panel" id="panel-teachers" hidden>
+        <% if (Array.isArray(locals.teacherCards)) { %>
+        <h3 class="sp-section-title">My teachers</h3>
+        <%- include('../partials/teacherCards', { teachers: teacherCards, emptyText: 'No teachers have been assigned to your class yet.' }) %>
+        <% } else { %>
         <h3 class="sp-section-title">Teachers (Current Term)</h3>
         <div class="sp-table-wrap">
           <table class="sp-table">
@@ -1022,6 +1058,7 @@
             </tbody>
           </table>
         </div>
+        <% } %>
       </section>
 
       <section class="sp-panel" id="panel-schedule" hidden>

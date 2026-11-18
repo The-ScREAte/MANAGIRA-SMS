@@ -120,6 +120,19 @@
         : (off ? 'Not coming today' : 'Not coming');
       button.setAttribute('aria-pressed', String(off));
     });
+    // The one Bus button on a child's card (public/js/busMenu.js) shows today's word under its name.
+    document.querySelectorAll('[data-bus-menu]').forEach(function (button) {
+      var id = button.getAttribute('data-bus-menu');
+      var event = parent.latest[id];
+      var off = Boolean(parent.notRiding[id]);
+      var note = button.querySelector('[data-bus-note]');
+      if (!note) return;
+      note.textContent = event ? (event.boarded ? 'Boarded ' + clock(event.at) : 'Did not board') : (off ? 'Not coming today' : '');
+      note.hidden = !note.textContent;
+      button.classList.toggle('is-off', off && !event);
+      button.classList.toggle('is-boarded', Boolean(event && event.boarded));
+      button.classList.toggle('is-missed', Boolean(event && !event.boarded));
+    });
   }
   function applyParent(result) {
     parent.notRiding = {};
@@ -239,6 +252,23 @@
       });
     });
   }
+
+  // For the Bus button's menu (public/js/busMenu.js): today's state and the same actions.
+  window.BusBoarding = {
+    state: function (studentId) {
+      var event = parent.latest[studentId];
+      return { off: Boolean(parent.notRiding[studentId]), boarded: Boolean(event && event.boarded), missed: Boolean(event && !event.boarded), at: event ? clock(event.at) : '' };
+    },
+    notComing: function (studentId, name) {
+      return setParentRiding(studentId, false).then(function () { popup((name || 'Your child') + ' isn’t coming today', 'The driver and teacher can see this.'); }).catch(function (error) { popup(error.message, '', 'no'); });
+    },
+    comingAfterAll: function (studentId, name) {
+      return setParentRiding(studentId, true).then(function () { popup((name || 'Your child') + ' is riding today', 'The driver and teacher can see this.'); }).catch(function (error) { popup(error.message, '', 'no'); });
+    },
+    stop: function (studentId) {
+      return send('/transportation/riding/mine/stop', { studentId: Number(studentId) }).then(function () { popup('Request sent', 'The transport team will follow up.'); }).catch(function (error) { popup(error.message, '', 'no'); });
+    }
+  };
 
   /* ---------- begin ---------- */
   function begin() {

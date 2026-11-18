@@ -155,6 +155,18 @@ router.get("/logout", (req, res) =>
   accountController.logoutGet(req, res, db)
 );
 
+// About me on the person's own profile (utils/staffAbout.js, feature teacher_cards).
+const staffAboutController = require("../controllers/staffAboutController");
+const aboutPhotoUpload = require("multer")({ storage: require("multer").memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1 } });
+const aboutPhoto = (req, res, next) => aboutPhotoUpload.single("photo")(req, res, (error) => {
+  if (!error) return next();
+  const message = error.code === "LIMIT_FILE_SIZE" ? "That photo is too large. Choose one under 8 MB." : "That photo could not be read. Try another.";
+  return res.status(400).json({ success: false, message });
+});
+router.post("/about", isAuthenticated, express.json({ limit: "16kb" }), (req, res) => staffAboutController.saveFact(req, res, db));
+router.post("/about/photo", isAuthenticated, aboutPhoto, (req, res) => staffAboutController.addPhoto(req, res, db));
+router.post("/about/photo/remove", isAuthenticated, express.json({ limit: "4kb" }), (req, res) => staffAboutController.removePhoto(req, res, db));
+
 router.get("/update", isAuthenticated, (req, res) =>
   accountController.updateGet(req, res, db)
 );

@@ -345,6 +345,8 @@
     var tabs = document.querySelector('[data-gdr-tabs]');
     var panel = document.querySelector('[data-gdr-panel="requests"]');
     if (!tabs || !panel || tabs.dataset.bound === '1') return;
+    // Requests with the school's forms too (public/js/portalRequests.js) draws the tabs itself.
+    if (tabs.hasAttribute('data-portal-requests')) { if (tabs.dataset.arrivals !== '1') { tabs.dataset.arrivals = '1'; loadArrivalChecks(); } return; }
     tabs.dataset.bound = '1';
     var list = panel.querySelector('[data-gdr-list]');
     var badge = tabs.querySelector('[data-gdr-count]');

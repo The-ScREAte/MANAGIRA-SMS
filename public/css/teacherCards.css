@@ -1,0 +1,34 @@
+/* A child's teachers (views/partials/teacherCards.ejs): one card each, in the school's colour. */
+.tc-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.tc-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px; border: 1px solid #e5e9ef; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+.tc-card.is-main { border-color: color-mix(in srgb, var(--org-primary-color, #0f766e) 35%, #e5e9ef); }
+.tc-top { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.tc-avatar { flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #f1f5f9; }
+.tc-avatar--initials { display: grid; place-items: center; color: var(--org-primary-color, #0f766e); background: color-mix(in srgb, var(--org-primary-color, #0f766e) 12%, #fff); font-weight: 700; font-size: 1.05rem; }
+.tc-who { min-width: 0; }
+.tc-who h3 { margin: 0; color: #0f172a; font-size: 1.02rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.tc-who p { margin: 3px 0 0; color: #64748b; font-size: .85rem; line-height: 1.4; }
+.tc-role { color: var(--org-primary-color, #0f766e); font-weight: 600; }
+.tc-contact { display: grid; gap: 6px; }
+.tc-contact a { display: flex; align-items: center; gap: 8px; min-width: 0; color: #334155; font-size: .88rem; text-decoration: none; }
+.tc-contact a:hover span { text-decoration: underline; }
+.tc-contact svg { flex: none; width: 17px; height: 17px; color: #94a3b8; }
+.tc-contact span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-about { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 6%, #f8fafc); }
+.tc-about__label { color: var(--org-primary-color, #0f766e); font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.tc-about p { margin: 0; color: #1e293b; font-size: .92rem; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+.tc-photos { display: grid; gap: 8px; }
+.tc-photos--2 { grid-template-columns: 1fr 1fr; }
+.tc-photos a { display: block; overflow: hidden; border-radius: 10px; aspect-ratio: 4 / 3; background: #e2e8f0; }
+.tc-photos--1 a { aspect-ratio: 16 / 9; }
+.tc-photos img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+.tc-photos a:hover img { transform: scale(1.03); }
+.tc-message { display: inline-flex; align-items: center; justify-content: center; gap: 7px; align-self: flex-start; height: 38px; margin-top: auto; padding: 0 16px; border: 1px solid #d7dee7; border-radius: 10px; color: #0f172a; background: #fff; font-size: .88rem; font-weight: 600; text-decoration: none; }
+.tc-message:hover { border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); }
+.tc-message svg { width: 16px; height: 16px; }
+.tc-empty { margin: 0; padding: 22px; border: 1px dashed #d7dee7; border-radius: 14px; color: #64748b; text-align: center; }
+@media (max-width: 520px) {
+  .tc-list { grid-template-columns: 1fr; }
+  .tc-card { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .tc-photos img { transition: none; } }

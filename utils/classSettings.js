@@ -5,8 +5,8 @@
 // a class without a row, or a key missing from its row, uses DEFAULTS. Read through here only.
 //
 // "Share with": each item (attendance, lunch, report cards, GPA, bus & transport, student files,
-// portfolio) has a switch for
-// parents and one for students. Everything is on until a school turns it off.
+// portfolio, and a teacher's email, phone and About me) has a switch for parents and one for
+// students. Everything is on until a school turns it off, except a teacher's phone (off until on).
 //
 // Who may change them (permission Class Settings, follow-up Every Class):
 //  - Every Class: every class, from Management › Class settings and in any classroom;
@@ -28,12 +28,18 @@ const SHARE_ITEMS = [
   { key: "transport", label: "Bus & transport", help: "The bus tracker, boarding and driver reports about the student." },
   { key: "files", label: "Student files", help: "Files on the student's record set to Family." },
   { key: "portfolio", label: "Portfolio", help: "Marked work and documented tests, term by term." },
+  // About the child's teachers (feature teacher_cards; their names always show on the Teachers page).
+  { key: "teacherEmail", label: "Teacher's email", help: "Each teacher's email on the Teachers page." },
+  { key: "teacherPhone", label: "Teacher's phone", help: "Each teacher's phone number on the Teachers page. Off until a school turns it on." },
+  { key: "teacherAbout", label: "Teacher's About me", help: "The fun fact and photos each teacher adds to their profile." },
 ];
+// Off until a school turns it on: a teacher's phone is often their own.
+const OFF_BY_DEFAULT = new Set(["teacherPhone"]);
 const AUDIENCES = [
   { key: "parents", label: "Parents" },
   { key: "students", label: "Students" },
 ];
-const shareDefaults = () => Object.freeze(Object.fromEntries(SHARE_ITEMS.map((item) => [item.key, true])));
+const shareDefaults = () => Object.freeze(Object.fromEntries(SHARE_ITEMS.map((item) => [item.key, !OFF_BY_DEFAULT.has(item.key)])));
 
 const DEFAULTS = Object.freeze({
   // Take lunch beside attendance on the class attendance page (also needs the class_lunch feature).

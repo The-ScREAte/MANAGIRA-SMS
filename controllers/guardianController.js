@@ -1370,6 +1370,13 @@ module.exports = {
 
       await ensureGuardianReportReadSchema(db);
 
+      // Opened from a child's page (feature portal_requests): only that child's messages. Only
+      // one of this parent's own children; anything else shows them all.
+      const askedId = Number.parseInt(req.query.studentId, 10);
+      const onlyChild = require("../utils/shards/features").isOn("portal_requests", { organizationId })
+        ? students.find((row) => Number(row.student_id) === askedId) || null
+        : null;
+
       const reports = await db.query(
         `SELECT r.*, s.first_name || ' ' || s.last_name as student_name,
                 COUNT(rr.reply_id) as reply_count,
@@ -1393,9 +1400,10 @@ module.exports = {
            GROUP BY r2.report_id
          ) unread ON unread.report_id = r.report_id
          WHERE r.guardian_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL
+           AND ($3::int IS NULL OR r.student_id = $3)
          GROUP BY r.report_id, s.first_name, s.last_name, unread.unread_count
          ORDER BY r.created_at DESC`,
-        [guardianId, organizationId]
+        [guardianId, organizationId, onlyChild ? Number(onlyChild.student_id) : null]
       );
 
       const reportUnreadTotal = reports.rows.reduce((sum, row) => {
@@ -1408,6 +1416,9 @@ module.exports = {
         title: 'Messages',
         reports: reports.rows,
         students,
+        onlyChild: onlyChild
+          ? { id: Number(onlyChild.student_id), name: [onlyChild.first_name, onlyChild.last_name].filter(Boolean).join(' ').trim() || 'your child', firstName: onlyChild.first_name || '' }
+          : null,
         reportUnreadTotal,
         notifUnreadCount: mergedNotifUnread,
         messages: req.flash(),

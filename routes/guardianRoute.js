@@ -22,6 +22,9 @@ module.exports = (db) => {
   router.get("/child/counts", isGuardianAuthenticated, (req, res) => parentHub.counts(req, res, db));
   router.get("/child/schedule", isGuardianAuthenticated, (req, res) => parentHub.schedule(req, res, db));
   router.get("/child/activities", isGuardianAuthenticated, (req, res) => parentHub.activities(req, res, db));
+  router.get("/child/teachers", isGuardianAuthenticated, (req, res) => parentHub.teachers(req, res, db));
+  // Requests: forms the school asks the family to fill in, new and sent (feature portal_requests).
+  router.get("/requests", isGuardianAuthenticated, (req, res) => require("../controllers/portalRequestsController").guardian(req, res, db));
   router.get("/child/homework", isGuardianAuthenticated, (req, res) => parentHub.homework(req, res, db));
   router.get("/child/testing-room", isGuardianAuthenticated, (req, res) => parentHub.testingRoom(req, res, db));
   router.get("/child/result/:attemptId(\\d+)", isGuardianAuthenticated, (req, res) => parentHub.result(req, res, db));

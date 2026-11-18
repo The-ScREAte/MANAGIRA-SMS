@@ -1,0 +1,49 @@
+<%# A child's teachers as cards (utils/teacherCards.js, feature teacher_cards), for a family's
+    Teachers page and the student portal. Locals: teachers, messageHref (optional: the address of
+    a message about this child, parents only), emptyText. Styles: public/css/teacherCards.css. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/teacherCards.css') %>" />
+<% if (!teachers.length) { %>
+  <p class="tc-empty"><%= locals.emptyText || 'No teachers have been assigned yet.' %></p>
+<% } else { %>
+<ul class="tc-list">
+  <% teachers.forEach((t) => { const _initials = t.name.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(); %>
+  <li class="tc-card<%= t.main ? ' is-main' : '' %>">
+    <div class="tc-top">
+      <% if (t.photo && t.photo !== 'profilePlaceholder.png') { %>
+        <img class="tc-avatar" src="<%= publicImageUrl(t.photo, { width: 160 }) %>" alt="" loading="lazy" />
+      <% } else { %>
+        <span class="tc-avatar tc-avatar--initials" aria-hidden="true"><%= _initials %></span>
+      <% } %>
+      <div class="tc-who">
+        <h3><%= t.name %></h3>
+        <p><span class="tc-role"><%= t.role %></span><% if (t.subjects.length) { %> · <%= t.subjects.join(', ') %><% } %></p>
+      </div>
+    </div>
+    <% if (t.email || t.phone) { %>
+    <div class="tc-contact">
+      <% if (t.email) { %>
+      <a href="mailto:<%= t.email %>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><%= t.email %></span></a>
+      <% } %>
+      <% if (t.phone) { %>
+      <a href="tel:<%= t.phone.replace(/[^\d+]/g, '') %>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3h2.6l1.4 4-2 1.3a11 11 0 0 0 5.1 5.1l1.3-2 4 1.4v2.6A1.6 1.6 0 0 1 17.4 17 14.4 14.4 0 0 1 5 4.6 1.6 1.6 0 0 1 6.6 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span><%= t.phone %></span></a>
+      <% } %>
+    </div>
+    <% } %>
+    <% if (t.funFact || t.photos.length) { %>
+    <div class="tc-about">
+      <span class="tc-about__label">About me</span>
+      <% if (t.funFact) { %><p><%= t.funFact %></p><% } %>
+      <% if (t.photos.length) { %>
+      <div class="tc-photos tc-photos--<%= t.photos.length %>">
+        <% t.photos.forEach((p) => { %><a href="<%= p.url %>" target="_blank" rel="noopener"><img src="<%= p.url %>" alt="A photo <%= t.name %> shared" loading="lazy" /></a><% }) %>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+    <% if (locals.messageHref) { %>
+    <a class="tc-message" href="<%= messageHref %>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Message</a>
+    <% } %>
+  </li>
+  <% }) %>
+</ul>
+<% } %>

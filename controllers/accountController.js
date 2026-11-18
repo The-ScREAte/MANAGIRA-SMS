@@ -6189,6 +6189,9 @@ const accountController = {
       res.render("account/update", {
         title: "Update Account Information",
 
+        // About me (feature teacher_cards): only for a member of staff on their own profile.
+        about: await require("./staffAboutController").forProfile(req, db),
+
         userDetails,
 
         orgDetails,

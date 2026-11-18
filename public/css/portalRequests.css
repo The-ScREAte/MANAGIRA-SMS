@@ -1,0 +1,50 @@
+/* Requests in the parent and student portals (public/js/portalRequests.js), the child card's View
+   corner and Bus button (views/guardian/dashboard.ejs, public/js/busMenu.js). Over busRequest.css. */
+.pr-item { display: flex; align-items: center; gap: 14px; }
+.pr-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--org-primary-color, #0f766e); background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); }
+.pr-icon svg { width: 20px; height: 20px; }
+.pr-body { flex: 1; min-width: 0; }
+.pr-body .gdr-item__top strong { overflow-wrap: anywhere; }
+.pr-meta { margin: 3px 0 0 !important; color: #64748b; font-size: .85rem; }
+.pr-pill--todo { background: #fff7e6; color: #9a5b00; }
+.pr-pill--todo.is-late { background: #fdecea; color: #b42318; }
+.pr-go { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px; border: 1px solid #d7dee7; border-radius: 10px; color: #0f172a; background: #fff; font: inherit; font-size: .88rem; font-weight: 600; text-decoration: none; cursor: pointer; box-shadow: none; width: auto; margin: 0; }
+.pr-go:hover { border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); }
+.pr-go.is-primary { border-color: transparent; color: #fff; background: var(--org-primary-color, #0f766e); }
+.pr-go.is-primary:hover { color: #fff; filter: brightness(.95); }
+.pr-group { margin: 18px 0 8px; color: #64748b; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.pr-group:first-child { margin-top: 4px; }
+.pr-empty { display: grid; gap: 4px; padding: 28px 18px; border: 1px dashed #d7dee7; border-radius: 14px; text-align: center; }
+.pr-empty strong { color: #0f172a; font-size: .98rem; }
+.pr-empty span { color: #64748b; font-size: .88rem; }
+@media (max-width: 520px) {
+  .pr-item { flex-wrap: wrap; }
+  .pr-item .pr-body { flex-basis: calc(100% - 54px); }
+  .pr-item .pr-go { width: 100%; }
+}
+
+/* The child card: View in the top-right corner. */
+.child-card.child-card--corner { position: relative; }
+.child-card--corner .child-header { padding-right: 76px; }
+.child-view { position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 10px 0 12px; border-radius: 999px; color: #fff; background: var(--org-primary-color, #0f5a66); font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+.child-view:hover { filter: brightness(.95); color: #fff; }
+.child-view svg { width: 16px; height: 16px; }
+
+/* One Bus button, opening Track the bus / Not coming today. */
+.child-card--corner .child-actions-row { margin-top: 14px; }
+.child-bus-btn { display: inline-flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; margin: 0; padding: 6px 14px; border: 1px solid #cfe0eb; border-radius: 12px; color: var(--org-primary-color, #0f5a66); background: #f8fbff; font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; box-shadow: none; transition: background-color .15s ease, border-color .15s ease; }
+.child-bus-btn:hover { background: #eef4f7; border-color: #b7cbd7; }
+.child-bus-btn:focus-visible { outline: 2px solid var(--org-primary-color, #0f5a66); outline-offset: 2px; }
+.child-bus-btn__text { flex: 1; display: grid; gap: 1px; min-width: 0; }
+.child-bus-btn__text small { color: inherit; font-size: 12px; font-weight: 600; opacity: .9; }
+.child-bus-btn__text small[hidden] { display: none; }
+.child-bus-btn__chev { flex: none; opacity: .7; }
+.child-bus-btn.is-off, .child-bus-btn.is-missed { background: #fdecea; border-color: #f7c9c4; color: #b42318; }
+.child-bus-btn.is-boarded { background: #e7f6ec; border-color: #bfe6cb; color: #12683a; }
+
+.bm-menu { position: fixed; z-index: 11000; min-width: 230px; max-width: calc(100vw - 16px); padding: 5px; border: 1px solid #e5e9ef; border-radius: 12px; background: #fff; box-shadow: 0 10px 30px rgba(15, 23, 42, .16); }
+.bm-menu button { display: grid; gap: 2px; width: 100% !important; margin: 0 !important; padding: 10px 12px !important; border: 0; border-radius: 8px; color: #111827; background: none; box-shadow: none; font: inherit; text-align: left; cursor: pointer; }
+.bm-menu button:hover, .bm-menu button:focus-visible { outline: none; background: #f1f4f8; }
+.bm-menu .bm-label { font-size: 14px; font-weight: 600; }
+.bm-menu small { color: #64748b; font-size: 12px; }
+.bm-menu .bm-state { margin: 0; padding: 10px 12px; color: #12683a; font-size: 13px; font-weight: 600; }

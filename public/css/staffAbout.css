@@ -1,0 +1,25 @@
+/* About me on a member of staff's profile (views/account/update.ejs). */
+.sa-card { display: grid; gap: 10px; margin-top: 20px; }
+.sa-head h2 { margin: 0; color: #0f172a; font-size: 1.15rem; font-weight: 700; }
+.sa-head p { margin: 4px 0 6px; color: #64748b; font-size: .9rem; line-height: 1.5; }
+.sa-label { color: #334155; font-size: .85rem; font-weight: 600; }
+.sa-card .sa-fact { width: 100%; min-height: 84px; padding: 12px 14px; border: 1px solid #d7dee7; border-radius: 12px; color: #0f172a; background: #fff; font: inherit; font-size: .95rem; line-height: 1.5; resize: vertical; box-sizing: border-box; }
+.sa-card .sa-fact:focus { outline: none; border-color: var(--org-primary-color, #0f766e); box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-primary-color, #0f766e) 18%, transparent); }
+.sa-row { display: flex; align-items: center; gap: 12px; }
+.sa-count { color: #94a3b8; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.sa-status { flex: 1; color: #64748b; font-size: .85rem; text-align: right; }
+.sa-status.is-error { color: #b91c1c; }
+.sa-card .sa-save { width: auto; height: 38px; margin: 0; padding: 0 18px; border: 0; border-radius: 10px; color: #fff; background: var(--org-primary-color, #0f766e); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; box-shadow: none; }
+.sa-card .sa-save[disabled] { opacity: .45; cursor: default; }
+.sa-photos { display: grid; grid-template-columns: repeat(2, minmax(0, 180px)); gap: 12px; }
+.sa-photo { position: relative; margin: 0; overflow: hidden; border-radius: 12px; aspect-ratio: 4 / 3; background: #e2e8f0; }
+.sa-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sa-card .sa-remove { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 28px; height: 28px; margin: 0; padding: 0; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .65); font-size: 18px; line-height: 1; cursor: pointer; box-shadow: none; }
+.sa-card .sa-remove:hover { background: rgba(185, 28, 28, .85); }
+.sa-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; aspect-ratio: 4 / 3; border: 1.5px dashed #cbd5e1; border-radius: 12px; color: #64748b; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.sa-add:hover { border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); }
+.sa-add[hidden] { display: none; }
+.sa-add.is-busy { opacity: .6; pointer-events: none; }
+.sa-add svg { width: 22px; height: 22px; }
+.sa-note { margin: 0; color: #94a3b8; font-size: .8rem; }
+@media (max-width: 480px) { .sa-photos { grid-template-columns: 1fr 1fr; } }

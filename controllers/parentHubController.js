@@ -135,6 +135,9 @@ module.exports = {
       showTransport: Boolean(integration && integration.activated) && see.transport !== false,
       // Forms the school gave a tile of their own (read from the school's cached list).
       formTiles: await require("../utils/customForms").tilesFor(db, req.session.organizationId, "parent", { classId: child.classId }).catch(() => []),
+      showTeachers: require("../utils/teacherCards").isOn(req.session.organizationId),
+      // Messages opened from a child's page show only that child's (feature portal_requests).
+      messagesHref: features.isOn("portal_requests", { organizationId: req.session.organizationId }) ? `/guardian/reports?studentId=${child.id}` : "/guardian/reports",
     });
   })),
 
@@ -189,6 +192,13 @@ module.exports = {
       mode: "schedule",
       days: schedule ? schedule.groupedByDay.filter((day) => day.items.length) : [],
     });
+  })),
+
+  // The child's teachers: main, assistant and subject teachers, with what the class shares.
+  teachers: guard((req) => hubOn(req) && require("../utils/teacherCards").isOn(req.session.organizationId), withChild(async (req, res, db, child) => {
+    const { teachers } = await require("../utils/teacherCards").forChild(db, req.session.organizationId, child, "parents");
+    res.set("Cache-Control", "private, no-store");
+    res.render("guardian/childTeachers", { title: "Teachers", child, teachers });
   })),
 
   activities: guard(activitiesOn, withChild(async (req, res, db, child) => {

@@ -411,7 +411,14 @@
 
 <div class="reports-container">
   <% const _unread = Number((typeof reportUnreadTotal !== 'undefined' ? reportUnreadTotal : statusTotals.unread)) || 0; %>
+  <% const _only = locals.onlyChild || null; %>
+  <% if (_only) { %>
+  <%# Opened from a child's page: only that child's messages, and a way back to all of them. %>
+  <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: 'About ' + _only.name + (_unread ? ' · ' + _unread + ' unread' : ''), back: { href: '/guardian/child?studentId=' + _only.id, label: _only.name }, extraHtml: '<a class="pt-quiet" href="/guardian/reports">All messages</a><button type="button" class="pt-primary" onclick="openModal()">+ New message</button>' }) %>
+  <style>.pt-quiet{display:inline-flex;align-items:center;height:38px;padding:0 14px;margin-right:8px;border:1px solid #d7dee7;border-radius:10px;color:#0f172a;background:#fff;font-size:.88rem;font-weight:600;text-decoration:none}.pt-quiet:hover{border-color:var(--org-primary-color,#0f766e)}</style>
+  <% } else { %>
   <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: _unread ? _unread + ' unread' : 'Your conversations with the school.', back: { href: '/guardian/dashboard', label: 'Dashboard' }, extraHtml: '<button type="button" class="pt-primary" onclick="openModal()">+ New message</button>' }) %>
+  <% } %>
 
   <details class="mobile-collapse">
     <summary class="mobile-collapse-summary" style="color:#0f172a; background:#fff; border-bottom:1px solid #e2e8f0;">Search & Filter</summary>
@@ -470,7 +477,7 @@
     <div class="empty-state">
       <span class="empty-state-icon">📋</span>
       <h3>No messages yet.</h3>
-      <p>Send a message to start a conversation with your child's teachers.</p>
+      <p><% if (locals.onlyChild) { %>Send a message to start a conversation with <%= onlyChild.firstName || onlyChild.name %>’s teachers.<% } else { %>Send a message to start a conversation with your child's teachers.<% } %></p>
     </div>
   <% } %>
 </div>
@@ -485,7 +492,7 @@
         <select name="student_id" id="modalStudentId" required>
           <option value="">-- Choose student --</option>
           <% students.forEach(function(s) { %>
-            <option value="<%= s.student_id %>"><%= (s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim())) %><% if (s.class_name) { %> (<%= s.class_name %>)<% } %></option>
+            <option value="<%= s.student_id %>"<%= locals.onlyChild && Number(onlyChild.id) === Number(s.student_id) ? ' selected' : '' %>><%= (s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim())) %><% if (s.class_name) { %> (<%= s.class_name %>)<% } %></option>
           <% }); %>
         </select>
       </div>
@@ -522,7 +529,13 @@
 </div>
 
 <script>
-  function openModal() { document.getElementById('reportModal').classList.add('active'); }
+  function openModal() {
+    document.getElementById('reportModal').classList.add('active');
+    // The child already chosen (a child's own messages): show their staff straight away.
+    var pick = document.getElementById('modalStudentId');
+    var list = document.getElementById('modalStaffList');
+    if (pick && pick.value && list && !list.querySelector('.staff-item')) pick.dispatchEvent(new Event('change'));
+  }
   function closeModal() { document.getElementById('reportModal').classList.remove('active'); }
   document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
@@ -548,12 +561,24 @@
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (!d.success || !d.staff || !d.staff.length) { list.innerHTML = '<div class="staff-loading">No staff available for this student.</div>'; return; }
-        var h = '';
+        // Names go in as text, never as HTML.
+        list.innerHTML = '';
         d.staff.forEach(function(p) {
-          var badge = p.is_class_teacher ? '<span class="staff-badge">Class Teacher</span>' : '';
-          h += '<div class="staff-item"><input type="checkbox" name="cc_recipients" value="' + p.user_id + '" id="ms_' + p.user_id + '"' + (p.is_class_teacher ? ' checked' : '') + '><label for="ms_' + p.user_id + '">' + p.first_name + ' ' + p.last_name + ' <span class="staff-role">(' + p.role + ')</span>' + badge + '</label></div>';
+          var id = 'ms_' + String(Number(p.user_id) || 0);
+          var item = document.createElement('div');
+          item.className = 'staff-item';
+          var box = document.createElement('input');
+          box.type = 'checkbox'; box.name = 'cc_recipients'; box.value = String(Number(p.user_id) || ''); box.id = id; box.checked = Boolean(p.is_class_teacher);
+          var label = document.createElement('label');
+          label.htmlFor = id;
+          label.appendChild(document.createTextNode([p.first_name, p.last_name].filter(Boolean).join(' ') + ' '));
+          var role = document.createElement('span');
+          role.className = 'staff-role'; role.textContent = '(' + (p.role || '') + ')';
+          label.appendChild(role);
+          if (p.is_class_teacher) { var badge = document.createElement('span'); badge.className = 'staff-badge'; badge.textContent = 'Class Teacher'; label.appendChild(badge); }
+          item.appendChild(box); item.appendChild(label);
+          list.appendChild(item);
         });
-        list.innerHTML = h;
       })
       .catch(function() { list.innerHTML = '<div class="staff-loading" style="color:#e74c3c;">Failed to load staff</div>'; });
   });

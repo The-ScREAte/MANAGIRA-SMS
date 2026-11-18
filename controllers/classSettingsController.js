@@ -40,8 +40,11 @@ const gpaOn = (organizationId) => features.isOn("gpa", { organizationId }) && fe
 // Student files and the portfolio only where the school has them (student_documents, student_portfolio).
 const filesOn = (organizationId) => features.isOn("student_documents", { organizationId: Number(organizationId) });
 const portfolioOn = (organizationId) => features.isOn("student_portfolio", { organizationId: Number(organizationId) });
+// A teacher's email, phone and About me only where the school has the Teachers page (teacher_cards).
+const teacherCardsOn = (organizationId) => features.isOn("teacher_cards", { organizationId: Number(organizationId) });
 const offered = (organizationId, key) => (key !== "lunch" || lunchOn(organizationId)) && (key !== "gpa" || gpaOn(organizationId))
-  && (key !== "files" || filesOn(organizationId)) && (key !== "portfolio" || portfolioOn(organizationId));
+  && (key !== "files" || filesOn(organizationId)) && (key !== "portfolio" || portfolioOn(organizationId))
+  && (!String(key).startsWith("teacher") || teacherCardsOn(organizationId));
 const switchesFor = (organizationId) => classSettings.SWITCHES.filter((s) => offered(organizationId, s.item || s.key));
 const shareItemsFor = (organizationId) => classSettings.SHARE_ITEMS.filter((item) => offered(organizationId, item.key));
 // A switch's value in a settings object ("lunch", "parents.attendance", "students.lunch").

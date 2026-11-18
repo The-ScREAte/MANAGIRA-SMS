@@ -33,7 +33,7 @@ const PUBLIC_EXTENSIONS = Object.freeze(["png", "jpg", "jpeg", "jfif", "gif", "w
 
 // Prefixes whose second part is the school, for files a signed-in person of that school opens
 // through /files/... (form answers, help on a question, parent resources).
-const SCHOOL_FILE_PREFIXES = Object.freeze(["custom-forms/", "question-help/", "parent-resources/"]);
+const SCHOOL_FILE_PREFIXES = Object.freeze(["custom-forms/", "question-help/", "parent-resources/", "staff-about/"]);
 
 const bucketName = () => String(process.env.S3_BUCKET_NAME || "").trim();
 const regionName = () => String(process.env.AWS_REGION || "").trim();
