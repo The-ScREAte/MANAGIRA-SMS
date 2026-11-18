@@ -594,7 +594,7 @@
         <% if (menuAccess.integrations && (!hasTransportationIntegration || !hasMiraIntegration)) { %>
         <% [!hasTransportationIntegration && { name: 'Transportation', icon: 'transportation' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: 'mira' }].filter(Boolean).forEach(function (off) { %>
         <li>
-          <a class="nav-link nav-link--off" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations" title="<%= off.name %> isn't turned on. Turn it on in Integrations.">
+          <a class="nav-link nav-link--off" href="/account/integrations" data-no-spa data-section="integrations" data-embed-url="/account/integrations" data-embed-label="Integrations" title="<%= off.name %> isn't turned on. Turn it on in Integrations.">
             <span class="nav-link-icon"><%- navIcon(off.icon) %></span>
             <span><%= off.name %> <span class="nav-turn-on">Turn on</span></span>
           </a>
@@ -660,7 +660,7 @@
         <% } %>
         <% if (menuAccess.integrations) { %>
         <li>
-          <a class="nav-link" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations">
+          <a class="nav-link" href="/account/integrations" data-no-spa data-section="integrations" data-embed-url="/account/integrations" data-embed-label="Integrations">
             <span class="nav-link-icon"><%- navIcon('integrations') %></span>
             <span>Integrations</span>
           </a>
@@ -1014,7 +1014,9 @@
 
     function activateSectionOnly(sectionId) {
       activeGroup = sectionId;
-      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+      // The item itself, not a "Turn on" shortcut to the same panel.
+      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]:not(.nav-link--off)`)
+        || document.querySelector(`.nav-link[data-section="${sectionId}"]`);
 
       navLinks.forEach(l => l.classList.remove('active'));
       if (navLink) navLink.classList.add('active');
@@ -1034,7 +1036,9 @@
       if (!lit.length && String(url).includes('?')) lit = document.querySelectorAll(`[data-embed-url="${CSS.escape(String(url).split('?')[0])}"]`);
       // A page opened inside a panel (a person's details in Users / Employees) lights its panel's item.
       if (!lit.length && activeGroup) lit = document.querySelectorAll(`.nav-link[data-section="${CSS.escape(activeGroup)}"]`);
-      lit.forEach(l => l.classList.add('active'));
+      // "Turn on" shortcuts (Transportation, Mira) open Integrations too; the Integrations item is the one lit.
+      const items = Array.from(lit).filter((l) => !l.classList.contains('nav-link--off'));
+      (items.length ? items : Array.from(lit)).forEach(l => l.classList.add('active'));
     }
 
     // Each destination is its own full standalone page with its own <head>

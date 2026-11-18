@@ -18203,6 +18203,8 @@ NUMBERING:
   },
 
   registerSchoolYear: async (req, res, db) => {
+    // Everything inside one guard: a check that fails never leaves the request hanging.
+    try {
     const { schoolYear, terms } = req.body;
     const trimmedSchoolYear = String(schoolYear || "").trim();
     const yearMatch = trimmedSchoolYear.match(/^(\d{4})\s*-\s*(\d{4})$/);
@@ -18253,7 +18255,10 @@ NUMBERING:
       );
       // reload classes for the form
       const classesResult = await db.query(
-        "SELECT class_id, class_name FROM classes WHERE organization_id= ORDER BY ",
+        `SELECT class_id, class_name
+           FROM classes
+          WHERE organization_id = $1 AND obsolete_at IS NULL
+          ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       return res.render("common/registerSchoolYear", {
@@ -18267,7 +18272,15 @@ NUMBERING:
       });
     }
     // ——— Backend overlap validation ———
-    const termsArr = Array.isArray(terms) ? terms : [];
+    const termsArr = (Array.isArray(terms) ? terms : Object.values(terms || {})).filter(Boolean);
+    for (const term of termsArr) {
+      const name = String(term.termName || "").trim();
+      if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(String(term.startDate || "")) || !/^\d{4}-\d{2}-\d{2}$/.test(String(term.endDate || ""))) {
+        req.flash("error", "Give every term a name, a start date and an end date.");
+        return res.redirect("/common/registerSchoolYear");
+      }
+      term.termName = name.slice(0, 100);
+    }
     for (let i = 0; i < termsArr.length; i++) {
       const s = new Date(termsArr[i].startDate);
       const e = new Date(termsArr[i].endDate);
@@ -18303,52 +18316,51 @@ NUMBERING:
       }
     }
 
+    // The year, its terms and their classes in one transaction: a failure leaves nothing half made.
+    const client = await db.connect();
     try {
-      // Insert the new school year into the database
-      const yearResult = await db.query(
+      await client.query("BEGIN");
+      const yearResult = await client.query(
         "INSERT INTO school_years (year_label, organization_id) VALUES ($1, $2) RETURNING id",
         [trimmedSchoolYear, req.session.organizationId]
       );
       const schoolYearId = yearResult.rows[0].id;
 
-      // Loop through each term to insert into the database
-      for (const term of terms) {
-        const termResult = await db.query(
+      for (const term of termsArr) {
+        const termResult = await client.query(
           "INSERT INTO terms (term_name, start_date, end_date, school_year_id, organization_id) VALUES ($1, $2, $3, $4, $5) RETURNING term_id",
-          [
-            term.termName,
-            term.startDate,
-            term.endDate,
-            schoolYearId,
-            req.session.organizationId,
-          ]
+          [term.termName, term.startDate, term.endDate, schoolYearId, req.session.organizationId]
         );
         const termId = termResult.rows[0].term_id;
-
-        // Check if selectedClasses exists and is an array
-        if (Array.isArray(term.selectedClasses)) {
-          // Insert each selected class for the term
-          for (const classId of term.selectedClasses) {
-            await db.query(
-              "INSERT INTO term_classes (term_id, class_id, organization_id) VALUES ($1, $2, $3)",
-              [termId, classId, req.session.organizationId]
-            );
-          }
-        } else {
-                  }
+        // Classes chosen for the term, only the school's own.
+        const classIds = (Array.isArray(term.selectedClasses) ? term.selectedClasses : [])
+          .map(Number).filter((id) => Number.isInteger(id) && id > 0);
+        if (classIds.length) {
+          await client.query(
+            `INSERT INTO term_classes (term_id, class_id, organization_id)
+             SELECT $1, c.class_id, $3 FROM classes c
+              WHERE c.class_id = ANY($2::int[]) AND c.organization_id = $3`,
+            [termId, classIds, req.session.organizationId]
+          );
+        }
       }
+      await client.query("COMMIT");
+    } catch (saveError) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw saveError;
+    } finally {
+      client.release();
+    }
 
-      // Add success flash message
-      req.flash(
-        "success",
-        'School year saved successfully. To make this the active current school year, select "Set as Current" beside the school year and one of its terms to activate it.'
-      );
-
-      // Redirect to the manageRecords page upon successful insertion
-      res.redirect("/common/manageRecords");
+    req.flash(
+      "success",
+      'School year saved successfully. To make this the active current school year, select "Set as Current" beside the school year and one of its terms to activate it.'
+    );
+    return res.redirect("/common/manageRecords");
     } catch (error) {
-            req.flash("error", "Error registering school year.");
-      res.redirect("/common/manageRecords");
+      console.error("[registerSchoolYear]", error.message);
+      req.flash("error", "Error registering school year.");
+      return res.redirect("/common/manageRecords");
     }
   },
 

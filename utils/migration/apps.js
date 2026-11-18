@@ -7,14 +7,14 @@
 // Everything in the lists is kept either way (read-only, on each student or for the school).
 
 // `has`: what Managira already offers (null: nothing like it), `where`: where to find it,
-// `integration`: switched on in Settings › Integrations. `connect`: the API areas an app of this
+// `integration`: switched on in Management Tools › Integrations. `connect`: the API areas an app of this
 // kind needs (keys of API_AREAS), and what it would do with them.
 const t = (words) => new RegExp(`(^|_)(${words})`);
 // Lists that are records, not an app's (counseling, safety, legal): kept restricted, no suggestion.
 const NOT_AN_APP = t("suicide|threat|title_?ix|counsel|safety_plan|subpoena|ferpa|court|homeless|foster|retention|sensitive_data|bullying|investigation");
 const AREAS = [
   { key: "transport", label: "Transportation", match: t("bus(es)?(_|$)|transport|routes?(_|$)|stops?(_|$)|drivers?(_|$)|gps|ridership|mileage|pretrip"),
-    has: "Buses, routes, stops, riders and live tracking.", where: "In Settings › Integrations › Transportation", integration: true,
+    has: "Buses, routes, stops, riders and live tracking.", where: "In Management Tools › Integrations › Transportation", integration: true,
     connect: ["students", "transport"], about: "A routing app reads riders and stops." },
   { key: "special", label: "Special education", match: t("iep|sped|504|special_?ed|evaluation|learning_support|medicaid"),
     has: "IEP, 504 and other indicators on each student.", partly: true, where: "Plans and evaluations stay in your special education app",
@@ -51,7 +51,7 @@ const AREAS = [
     has: "Single sign-on and student and parent portals.", where: "In Settings › Tenant configuration › Single sign-on",
     connect: null },
   { key: "learning", label: "Classroom apps", match: t("canvas|schoology|google_classroom|lms|assignment_sync"),
-    has: "Google Classroom, both ways.", where: "In Settings › Integrations › Google Classroom", integration: true,
+    has: "Google Classroom, both ways.", where: "In Management Tools › Integrations › Google Classroom", integration: true,
     connect: ["students", "classes", "grades"], about: "Another learning app reads students and classes." },
 ];
 

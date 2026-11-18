@@ -18,7 +18,7 @@
 <% if (apps.some((a) => a.connectLabels.length && !(a.has && !a.partly))) { %>
 <p class="mg-actions" style="margin-top:10px">
   <a class="mg-btn mg-btn--sm" href="/common/management?panel=service-accounts&page=<%= encodeURIComponent('/api-access/service-accounts') %>&label=<%= encodeURIComponent('Service Accounts') %>" target="_top" data-no-spa>Connect an app</a>
-  <% if (apps.some((a) => a.integration)) { %><a class="mg-btn mg-btn--sm" href="/common/management?panel=integrations&page=<%= encodeURIComponent('/account/settings?section=integrations') %>&label=<%= encodeURIComponent('Integrations') %>" target="_top" data-no-spa>Integrations</a><% } %>
+  <% if (apps.some((a) => a.integration)) { %><a class="mg-btn mg-btn--sm" href="/common/management?panel=integrations&page=<%= encodeURIComponent('/account/integrations') %>&label=<%= encodeURIComponent('Integrations') %>" target="_top" data-no-spa>Integrations</a><% } %>
 </p>
 <% } %>
 <% } %>

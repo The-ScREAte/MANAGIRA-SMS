@@ -859,3 +859,35 @@ body[data-sw-layout="academy"] header#top-header .header-mobile-left .siteName {
 
 /* A hidden gallery photo (past the first ones, until "See more") stays hidden: the grid's display would otherwise show it. */
 .sw-site .sw-gallery__item[hidden] { display: none !important; }
+
+
+/* ---------------------------------------------------------------------------------------------
+   Words over photos (Academy, Story, Panorama openings): public/js/schoolSiteTone.js reads how
+   light the photo is right behind the words and sets data-sw-tone. Dark photos: white words over
+   a soft dark shade (the designs' own look). Light photos: dark words over a soft light shade.
+   data-sw-busy: a busy photo gets a stronger shade. Without the script, the dark look stays.
+   --------------------------------------------------------------------------------------------- */
+.sw-site [data-sw-tone-host] :is(.sw-hero__title, .sw-ac-hero__title, .sw-pa-title) { text-shadow: 0 2px 22px rgba(0, 0, 0, .38); }
+.sw-site [data-sw-tone-host] :is(.sw-hero__kicker, .sw-hero__tagline, .sw-ac-kicker, .sw-ac-hero__tagline, .sw-pa-kicker, .sw-pa-tagline) { text-shadow: 0 1px 12px rgba(0, 0, 0, .45); }
+.sw-site [data-sw-tone-host] :is(.sw-hero__kicker, .sw-hero__title, .sw-hero__tagline, .sw-ac-hero__title, .sw-ac-hero__tagline, .sw-pa-title) { color: #fff; }
+
+/* A busy photo: more shade under the words. */
+.sw-hero--story[data-sw-busy] .sw-slider::after { background: linear-gradient(180deg, rgba(0,0,0,.12) 0%, rgba(0,0,0,.28) 35%, rgba(0,0,0,.78) 100%); }
+.sw-ac-hero[data-sw-busy] .sw-ac-hero__shade { background: linear-gradient(180deg, rgba(0,0,0,.22) 0%, rgba(0,0,0,.18) 30%, rgba(0,0,0,.48) 58%, rgba(0,0,0,.8) 100%); }
+
+/* A light photo: dark words over a soft light shade. */
+.sw-site [data-sw-tone-host][data-sw-tone="light"] :is(.sw-hero__kicker, .sw-hero__title, .sw-hero__tagline, .sw-ac-kicker, .sw-ac-hero__title, .sw-ac-hero__tagline, .sw-pa-kicker, .sw-pa-title, .sw-pa-tagline) {
+  color: #0f172a;
+  text-shadow: 0 1px 16px rgba(255, 255, 255, .55);
+}
+.sw-site [data-sw-tone-host][data-sw-tone="light"] :is(.sw-hero__kicker, .sw-ac-kicker, .sw-pa-kicker) { color: color-mix(in srgb, var(--sw-accent, #0f172a) 70%, #0f172a); }
+.sw-site [data-sw-tone-host][data-sw-tone="light"] :is(.sw-btn--ghost, .sw-btn--light) { color: #0f172a; border-color: rgba(15, 23, 42, .55); background: rgba(255, 255, 255, .6); }
+.sw-hero--story[data-sw-tone="light"] .sw-slider::after { background: linear-gradient(180deg, transparent 40%, rgba(255,255,255,.55) 70%, rgba(255,255,255,.88) 100%); }
+.sw-hero--story[data-sw-tone="light"][data-sw-busy] .sw-slider::after { background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.4) 40%, rgba(255,255,255,.92) 100%); }
+.sw-ac-hero[data-sw-tone="light"] .sw-ac-hero__shade { background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.5) 58%, rgba(255,255,255,.9) 100%); }
+.sw-pa-hero[data-sw-tone="light"] .sw-pa-hero__shade { background: linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.78) 26%, rgba(255,255,255,0) 52%); }
+.sw-slider .sw-slider__dots, .sw-slider .sw-slider__pause { filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .35)); }
+/* Dots over a light photo (any design): dark dots. */
+.sw-slider[data-sw-dots="dark"] .sw-slider__dot { background: rgba(15, 23, 42, .28); }
+.sw-slider[data-sw-dots="dark"] .sw-slider__dot.is-active { background: #0f172a; }
+.sw-slider[data-sw-dots="dark"] .sw-slider__dots { filter: none; }

@@ -385,7 +385,7 @@
       <a href="#" title="Go to management page" class="header-welcome"
         >Hello, <%= session.firstName %>!</a
       >
-      <% if (typeof miraActivated !== 'undefined' && miraActivated && typeof miraPublicUrl !== 'undefined' && miraPublicUrl) { %>
+      <% if (typeof miraOffered !== 'undefined' && miraOffered && typeof miraPublicUrl !== 'undefined' && miraPublicUrl) { %>
       <%# ── Mira (AI Assistant): opens beside the page (public/js/miraPanel.js) for someone with
            their own Use Mira, and says how to get it otherwise (utils/miraAccess.js); Ctrl/Cmd-click
            opens the full page for those who can use it. ── %>
@@ -399,7 +399,10 @@
         id="header-mira-btn"
         data-mira-panel="<%= String(miraPublicUrl).replace(/\/$/, '') %>/?embed=panel"
         data-mira-can-use="<%= _miraCanUse ? '1' : '0' %>"
+        data-mira-on="<%= typeof miraActivated !== 'undefined' && miraActivated ? '1' : '0' %>"
+        data-mira-school="<%= (typeof miraSchoolName !== 'undefined' && miraSchoolName) || (session && session.organizationName) || '' %>"
         <% if (typeof miraCanManage !== 'undefined' && miraCanManage) { %>data-mira-manage="1"<% } %>
+        <% if (typeof miraCanTurnOn !== 'undefined' && miraCanTurnOn) { %>data-mira-turn-on="1"<% } %>
         aria-controls="mira-panel"
         aria-expanded="false"
         title="Mira"

@@ -334,6 +334,14 @@
       .settings-section.is-default {
         display: block;
       }
+      /* Integrations lives on its own page (in Management), never among Settings. */
+      #settings-layout-root.is-settings-page #integrations,
+      #settings-layout-root.is-integrations-page .settings-section:not(#integrations) { display: none !important; }
+      /* No Settings menu on the Integrations page or inside a hub's panel, at any width: the
+         shared workspace style shows .settings-nav on narrow screens (public/css/workspace-shell.css),
+         which is right for Settings on a phone, never for a page in Management. */
+      #settings-layout-root.is-integrations-page .settings-nav,
+      #settings-layout-root.is-embedded-hub .settings-nav { display: none !important; }
 
       .card {
         border: 1px solid var(--border);
@@ -3199,7 +3207,10 @@
       // genuine full page load. That was the real cause of the sidebar
       // going missing after navigating here via a normal in-app link.
     %>
-    <main class="settings-layout<%= _isEmbeddedSettings ? ' is-embedded-hub' : '' %>" id="settings-layout-root">
+    <%# Integrations is a page of its own (/account/integrations, opened in Management): there it
+        shows alone; on Settings it never shows. %>
+    <% const _integrationsPage = typeof integrationsPage !== 'undefined' && integrationsPage; %>
+    <main class="settings-layout<%= _isEmbeddedSettings ? ' is-embedded-hub' : '' %><%= _integrationsPage ? ' is-integrations-page' : ' is-settings-page' %>" id="settings-layout-root">
       <%
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
@@ -3212,9 +3223,9 @@
         const _canProfileSettings = _canCustomizeSettings && _settingsAccess.profile;
         const _canIntegrationSettings = _canCustomizeSettings && _settingsAccess.integrations;
         const _canTokenSettings = _canCustomizeSettings && _settingsAccess.serviceAccounts;
-        const _defaultSettingsSectionId = _isOnHoldRestricted ? 'billing' : (_canProfileSettings ? 'customize' : 'profile');
+        const _defaultSettingsSectionId = _integrationsPage ? 'integrations' : (_isOnHoldRestricted ? 'billing' : (_canProfileSettings ? 'customize' : 'profile'));
       %>
-      <aside class="settings-nav" id="settings-nav-panel" style="<%= (_isEmbeddedSettings || _isOnHoldRestricted) ? 'display:none;' : '' %>">
+      <aside class="settings-nav" id="settings-nav-panel" style="<%= (_isEmbeddedSettings || _isOnHoldRestricted || _integrationsPage) ? 'display:none;' : '' %>">
         <% 
           const navCountryCode = (org && org.organization_country ? String(org.organization_country).toUpperCase() : '');
           const navCountry = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find((country) => String(country.code || '').toUpperCase() === navCountryCode) || null;
@@ -4274,7 +4285,7 @@
         <% } %>
 
         <% if (_canIntegrationSettings && !_isOnHoldRestricted) { %>
-        <section id="integrations" class="settings-section">
+        <section id="integrations" class="settings-section<%= _integrationsPage ? ' is-default' : '' %>"<%= _integrationsPage ? '' : ' hidden' %>>
           <h1><i class="fa-solid fa-plug settings-h1-icon" aria-hidden="true"></i> Integrations</h1>
           <p class="lead">Connect the services your school uses.</p>
           <% if (settingsEncryptionKeyConfigured === false) { %>
@@ -6362,7 +6373,9 @@
                   if (!res.ok) throw new Error("save failed");
                 }
                 const section = group.closest(".settings-section");
-                window.location.href = "/account/settings?section=" + encodeURIComponent(section ? section.id : "customize");
+                window.location.href = section && section.id === "integrations"
+                  ? "/account/integrations"
+                  : "/account/settings?section=" + encodeURIComponent(section ? section.id : "customize");
               } catch (_e) {
                 btn.disabled = false;
                 note.textContent = "Some changes could not be saved. Please try again.";
@@ -7758,7 +7771,7 @@
             const integration = result.integration || {};
             setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
             setWhatsappInlineError("");
-            const redirectUrl = "/account/settings?section=integrations&whatsappConnected=1";
+            const redirectUrl = "/account/integrations?whatsappConnected=1";
             window.location.assign(redirectUrl);
             return;
           } catch (error) {

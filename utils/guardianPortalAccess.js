@@ -23,7 +23,7 @@ const getEffectivePlanId = async (db, organizationId) => {
   return org.is_hub_member && org.hub_plan_id ? org.hub_plan_id : org.plan_id;
 };
 
-// The parent portal is an add-on: the school's own switch (Settings › Integrations) decides.
+// The parent portal is an add-on: the school's own switch (Management Tools › Integrations) decides.
 // A school that hasn't chosen (empty) follows its plan, as before. Before the migration that
 // adds the switch has run, the plan decides.
 const getParentPortalSwitch = async (db, organizationId) => {

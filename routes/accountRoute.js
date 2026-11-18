@@ -303,10 +303,24 @@ router.post("/reset-password", authRateLimit("reset-password", { field: "token",
   accountController.resetPasswordPost(req, res, db)
 );
 
-// Settings overview (new)
-router.get("/settings", isAuthenticated, (req, res) =>
-  accountController.settingsGet(req, res, db)
-);
+// Settings overview (new). Integrations isn't part of it: an old link to its section goes to
+// the Integrations page (keeping anything else the link carried).
+router.get("/settings", isAuthenticated, (req, res) => {
+  if (String(req.query.section || "").trim().toLowerCase() === "integrations") {
+    const rest = new URLSearchParams(req.query);
+    rest.delete("section");
+    const query = rest.toString();
+    return res.redirect(`/account/integrations${query ? `?${query}` : ""}`);
+  }
+  return accountController.settingsGet(req, res, db);
+});
+// Integrations: a page of its own, opened in Management (middleware/workspaceOnly.js), built
+// from the same data and checks as Settings, showing only its section.
+router.get("/integrations", isAuthenticated, (req, res) => {
+  req.query.section = "integrations";
+  res.locals.integrationsPage = true;
+  return accountController.settingsGet(req, res, db);
+});
 router.get(
   "/invoices/:invoiceId/pdf",
   isAuthenticated,

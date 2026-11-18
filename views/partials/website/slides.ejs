@@ -7,7 +7,8 @@
   stage; "card" sits in a rounded frame.  locals: site, variant
 %>
 <% const hasVideo = site.slides.some((s) => s.type === 'video'); const withBlur = variant !== 'fill' || site.wholePhotos; %>
-<div class="sw-slider sw-slider--<%= variant %>" data-sw-slider aria-roledescription="carousel" aria-label="School photos and videos">
+<%# data-ap-skip: captions and controls over photos keep their designed colours (the app's light/dark recolouring can't see the photo behind them). %>
+<div class="sw-slider sw-slider--<%= variant %>" data-sw-slider data-ap-skip aria-roledescription="carousel" aria-label="School photos and videos">
   <% site.slides.forEach((s, i) => { %>
     <figure class="sw-slide<%= i === 0 ? ' is-active' : '' %><%= s.type === 'video' ? ' sw-slide--video' : '' %>" aria-roledescription="slide" aria-label="<%= i + 1 %> of <%= site.slides.length %>"<% if (site.wholePhotos) { %> data-sw-photo="<%= variant === 'card' ? 'photo' : 'hero' %>"<% } %>>
       <% if (s.type === 'video') { %>
@@ -17,7 +18,7 @@
         </video>
       <% } else { %>
         <% if (withBlur) { %><img class="sw-slide__backdrop" src="<%= publicImageUrl(s.url, { public: true }) %>" alt="" aria-hidden="true"<%= i === 0 ? '' : ' loading="lazy"' %>><% } %>
-        <img class="sw-slide__img" src="<%= publicImageUrl(s.url, { public: true }) %>" alt="<%= s.caption || site.school.name %>"<%= i === 0 ? ' fetchpriority="high"' : ' loading="lazy"' %>>
+        <img class="sw-slide__img" src="<%= publicImageUrl(s.url, { public: true }) %>" alt="<%= s.caption || site.school.name %>"<%- i === 0 ? ' fetchpriority="high"' : ' loading="lazy"' %>>
       <% } %>
       <% if (s.caption && variant !== 'fill') { %><figcaption class="sw-slide__caption"><%= s.caption %></figcaption><% } %>
     </figure>

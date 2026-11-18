@@ -219,7 +219,7 @@ async function resolveCurrentTerm(dbClient, organizationId) {
 }
 
 // ---------------------------------------------------------------------------
-// What a school chose (Settings, Integrations, Google Classroom). Saved on the school in
+// What a school chose (Management Tools, Integrations, Google Classroom). Saved on the school in
 // google_classroom_options (database/migrations/2026-11-19_google_classroom_choices.sql);
 // until that has run on a database every school gets the defaults and grades only fill
 // empty cells, never overwrite one.

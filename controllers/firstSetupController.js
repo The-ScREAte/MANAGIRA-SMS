@@ -19,6 +19,7 @@ async function page(req, res, db) {
   const colors = BRAND_COLOR_OPTIONS.map((o) => ({ key: o.key, name: o.name, hex: (THEME_PALETTE[o.key] || THEME_PALETTE.teal).primary }));
   const logoRaw = school.logo || school.logo_path || "";
   const order = firstSetup.orderDataOf(school.order_data);
+  const yearMode = steps.includes("year") ? firstSetup.yearMode(school) : null;
   return res.render("common/firstSetup", {
     layout: false,
     title: "Set up your school",
@@ -41,8 +42,13 @@ async function page(req, res, db) {
     year: firstSetup.defaultYear(),
     // Without a term the calendar has nothing to hang on: the page skips it if the year step is skipped.
     hasTerms: Boolean(school.terms),
+    // Only the details the school hasn't given are asked.
+    missingDetails: firstSetup.missingDetails(school),
+    // School year: "create" (none yet) or "current" (terms, none current: pick one).
+    yearMode,
+    termsToChoose: yearMode === "current" ? await firstSetup.termsToChoose(db, req.session.organizationId) : [],
     structures: Object.keys(firstSetup.STRUCTURES).map((key) => ({ key, names: firstSetup.STRUCTURES[key] })),
-    layouts: steps.includes("website") ? firstSetup.websiteLayouts(req.session.organizationId).map((l) => ({ value: l.value, key: l.key, name: l.name, description: l.description, style: l.group !== "standard" ? l.style : "" })) : [],
+    layouts: steps.includes("website") ? firstSetup.websiteLayouts(req.session.organizationId).map((l) => ({ value: l.value, key: l.key, base: l.base || l.key, name: l.name, description: l.description, style: l.group !== "standard" ? l.style : "", emblem: Boolean(l.emblem), motion: Boolean(l.motion) })) : [],
   });
 }
 
@@ -80,6 +86,7 @@ module.exports = {
   logo: save((P) => P.SETTINGS_PROFILE, (db, req) => firstSetup.saveLogo(db, req, req.file)),
   details: save((P) => P.SETTINGS_PROFILE, (db, req) => firstSetup.saveDetails(db, req, req.body || {})),
   year: save((P) => P.MANAGE_SCHOOL_YEAR_TERMS, (db, req) => firstSetup.saveYear(db, req, req.body || {})),
+  currentTerm: save((P) => P.MANAGE_SCHOOL_YEAR_TERMS, (db, req) => firstSetup.setCurrentTerm(db, req, req.body && req.body.termId)),
   calendar: save((P) => P.SETTINGS_PROFILE, (db, req) => firstSetup.saveCalendar(db, req, req.body || {})),
   holidays: save((P) => P.SETTINGS_PROFILE, (db, req) => firstSetup.holidaysFor(db, req)),
   website: save((P) => P.SETTINGS_WEBSITE, (db, req) => firstSetup.saveWebsite(db, req, String((req.body && req.body.layout) || ""))),

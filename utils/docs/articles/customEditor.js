@@ -249,7 +249,7 @@ module.exports = [
       ["Who can see the answers?", "People who build forms see every answer. Teachers see their own classes, and drivers their own riders. Parents and students see what they sent, and what you choose to share. A protected section opens only for people who build forms."],
       ["Does a new term clear the answers?", "No. An Every term section starts a fresh answer each term. Earlier terms keep theirs, and you can still download or report on them. The same is true of each day and each week."],
       ["Can parents and teachers both fill in the same form?", "A form lives in one place. For a parent form, a teacher can enter an answer that came on paper. Lunch is taken on the attendance page; for parents to order ahead, use Lunch order."],
-      ["Why don't I see Text message or WhatsApp?", "They show only when your school has that channel switched on in Settings, Integrations. Email and notifications are always there."],
+      ["Why don't I see Text message or WhatsApp?", "They show only when your school has that channel switched on in Management Tools, Integrations. Email and notifications are always there."],
       ["What happens when I remove a section?", "Its answers are removed with it. To keep the answers, switch Live off instead: the section is hidden and nothing is lost."],
       ["How many forms can a school have?", "Up to 200 sections, each with up to 80 fields."],
       ["Where did the remarks card in Report Settings go?", "If your school has remarks in the Custom editor, they're set up with the Report card remarks form instead. The remark pencil beside a student then asks only for remarks no form covers, and goes away once forms cover them all."],

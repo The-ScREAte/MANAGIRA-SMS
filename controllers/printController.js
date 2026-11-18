@@ -8451,7 +8451,7 @@ const printController = (db) => ({
       if (!activeProvider || !smsStatus.providers?.[activeProvider]?.configured) {
         return res.status(400).json({
           success: false,
-          message: "SMS is not set up for this school yet. Configure a provider in Settings → Integrations.",
+          message: "SMS is not set up for this school yet. Configure a provider in Management Tools → Integrations.",
         });
       }
       const tenant = await getTenantSmsCredentials(db, organizationId);

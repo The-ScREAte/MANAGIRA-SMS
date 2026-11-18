@@ -2,7 +2,9 @@
  * header, so staff work with Mira and the page together. On wide screens the page makes room
  * for it; on phones it covers the page.
  *
- * Someone with their own "Use Mira" gets Mira itself (MIRA_PUBLIC_URL/?embed=panel), whose
+ * Every member of staff sees the button. Where the school hasn't turned Mira on, the panel says
+ * so, with Turn on Mira (Management Tools › Integrations) for those who can. Someone with their own
+ * "Use Mira" gets Mira itself (MIRA_PUBLIC_URL/?embed=panel), whose
  * bar has history, new chat, open in a new tab (the full page, same conversation) and close.
  * Anyone else gets the same panel saying they need access, with Manage Mira access for those
  * who can give it (utils/miraAccess.js); Mira isn't loaded for them. Before saying so, the
@@ -40,6 +42,14 @@
 
   function button() { return document.getElementById('header-mira-btn'); }
   function canUse(btn) { return Boolean(btn && btn.getAttribute('data-mira-can-use') === '1'); }
+  // What the button knew when the page was drawn, for when the server can't be asked.
+  function knownAccess(btn) {
+    return {
+      activated: Boolean(btn && btn.getAttribute('data-mira-on') === '1'),
+      canManage: Boolean(btn && btn.getAttribute('data-mira-manage')),
+      canTurnOn: Boolean(btn && btn.getAttribute('data-mira-turn-on')),
+    };
+  }
   function fullPageUrl(btn) {
     return String((btn && btn.getAttribute('data-mira-panel')) || '').replace(/\/?\?embed=panel$/, '') || '/';
   }
@@ -54,6 +64,7 @@
   var ICONS = {
     close: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     lock: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></svg>',
+    mira: '<img src="/images/icons/miralogo-256.png" alt="" />',
     cloud: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 18.5h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 10a4.25 4.25 0 0 0 0 8.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 11.5v3M12 16.8v.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
   };
 
@@ -110,7 +121,9 @@
     }
     var icon = document.createElement('span');
     icon.className = 'mira-panel-icon';
-    icon.innerHTML = state === 'no-access' ? ICONS.lock : ICONS.cloud;
+    var off = state === 'no-access' && details && details.activated === false;
+    icon.innerHTML = off ? ICONS.mira : (state === 'no-access' ? ICONS.lock : ICONS.cloud);
+    if (off) icon.className += ' is-mira';
     var title = document.createElement('p');
     title.className = 'mira-panel-title';
     var text = document.createElement('p');
@@ -122,13 +135,36 @@
     body.appendChild(text);
     body.appendChild(actions);
 
+    if (off) {
+      // The school hasn't turned Mira on. Turn on Mira only for someone who can do it there: Mira
+      // Settings and Management › Integrations (utils/miraAccess.js canTurnOn); others ask.
+      // Named, so nobody mistakes one school's Mira for another's.
+      var schoolName = (button() && button().getAttribute('data-mira-school')) || 'your school';
+      title.textContent = 'Mira isn’t turned on for ' + schoolName;
+      if (details.canTurnOn) {
+        text.textContent = 'Mira is your school’s AI assistant. It finds records, drafts messages and plans the week, using each person’s own permissions. Turn it on in Integrations, then choose who can use it.';
+        var turnOn = document.createElement('a');
+        turnOn.className = 'mira-panel-btn';
+        // Integrations inside Management (a hub panel link: the page-switcher stays out).
+        turnOn.href = '/common/management?panel=integrations&page=' + encodeURIComponent('/account/integrations') + '&label=Integrations';
+        turnOn.setAttribute('data-no-spa', '');
+        turnOn.setAttribute('data-manage', '');
+        turnOn.textContent = 'Turn on Mira';
+        actions.appendChild(turnOn);
+      } else {
+        text.textContent = 'Mira is your school’s AI assistant. Ask your school’s manager to turn it on.';
+      }
+      return;
+    }
     if (state === 'no-access') {
       title.textContent = 'You don’t have access to Mira yet';
       if (details && details.canManage) {
         text.textContent = 'Mira works with each person’s own permissions. Turn on Use Mira for yourself, or for anyone on your staff, on the Mira page.';
         var manage = document.createElement('a');
         manage.className = 'mira-panel-btn';
-        manage.href = '/account/mira';
+        // The Mira page inside Management (a hub panel link: the page-switcher stays out).
+        manage.href = '/common/management?panel=mira&page=' + encodeURIComponent('/account/mira') + '&label=Mira';
+        manage.setAttribute('data-no-spa', '');
         manage.setAttribute('data-manage', '');
         manage.textContent = 'Manage Mira access';
         actions.appendChild(manage);
@@ -230,7 +266,7 @@
     if (isOpen()) { close(); return; }
     var btn = button();
     if (canUse(btn)) { openMira(); return; }
-    var fallback = { canManage: Boolean(btn && btn.getAttribute('data-mira-manage')) };
+    var fallback = knownAccess(btn);
     fetch('/account/mira/access', { credentials: 'same-origin', headers: { Accept: 'application/json' }, cache: 'no-store' })
       .then(function (res) { return res.ok ? res.json() : null; })
       .catch(function () { return null; })
@@ -279,7 +315,7 @@
       var btn = button();
       if (btn) btn.setAttribute('data-mira-can-use', '0');
       frame.removeAttribute('src');
-      show('no-access', { canManage: Boolean(btn && btn.getAttribute('data-mira-manage')) });
+      show('no-access', knownAccess(btn));
       remember('no-access');
     } else if (data.type === 'mira:signed-out') {
       clearTimeout(readyTimer);
@@ -317,10 +353,15 @@
         checking = false;
         if (!access) return;
         btn.setAttribute('data-mira-can-use', access.canUse ? '1' : '0');
+        btn.setAttribute('data-mira-on', access.activated ? '1' : '0');
         if (access.canManage) btn.setAttribute('data-mira-manage', '1'); else btn.removeAttribute('data-mira-manage');
+        if (access.canTurnOn) btn.setAttribute('data-mira-turn-on', '1'); else btn.removeAttribute('data-mira-turn-on');
         if (access.canUse) { btn.href = fullPageUrl(btn); btn.target = '_blank'; }
         else { btn.setAttribute('href', '#'); btn.removeAttribute('target'); }
-        if (isOpen() && panel.getAttribute('data-state') === 'no-access' && access.canUse) openMira();
+        if (isOpen() && panel.getAttribute('data-state') === 'no-access') {
+          if (access.canUse) openMira();
+          else show('no-access', access);
+        }
       });
   }
   window.addEventListener('managira:mira-access-changed', recheck);
@@ -337,7 +378,7 @@
     if (!btn || !was || !btn.getAttribute('data-mira-panel')) return;
     returnFocus = btn;
     if (canUse(btn)) openMira({ instant: true });
-    else openNoAccess({ canManage: Boolean(btn.getAttribute('data-mira-manage')) }, { instant: true });
+    else openNoAccess(knownAccess(btn), { instant: true });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
   else restore();

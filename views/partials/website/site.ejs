@@ -75,10 +75,12 @@
       <% if (R.open) { %><a class="sw-btn sw-btn--primary sw-ac-nav__cta" href="<%= R.url %>">Apply</a><% } else if (hasContact) { %><a class="sw-btn sw-btn--primary sw-ac-nav__cta" href="#contact">Contact us</a><% } %>
     </div>
   </nav>
-  <header class="sw-ac-hero<%= site.slides.length ? '' : ' sw-ac-hero--plain' %>" id="top">
+  <%# Words over photos: their colour follows the photo (public/js/schoolSiteTone.js), and the
+      app's light/dark recolouring leaves them alone (data-ap-skip). %>
+  <header class="sw-ac-hero<%= site.slides.length ? '' : ' sw-ac-hero--plain' %>" id="top"<%- site.slides.length ? ' data-sw-tone-host data-ap-skip' : '' %>>
     <% if (site.slides.length) { %><%- slidesHtml('fill') %><% } %>
     <div class="sw-ac-hero__shade" aria-hidden="true"></div>
-    <div class="sw-wrap sw-ac-hero__content">
+    <div class="sw-wrap sw-ac-hero__content" data-sw-tone-text>
       <% if (B.show) { %>
         <p class="sw-ac-kicker"><%= B.kicker %></p>
         <h1 class="sw-ac-hero__title"><%= S.name %></h1>
@@ -229,9 +231,9 @@
 
 <% } else if (L === 'story') { %>
   <!-- STORY: large opening photo, numbered chapters, events timeline -->
-  <header class="sw-hero sw-hero--story<%= site.slides.length ? '' : ' sw-hero--plain' %>">
+  <header class="sw-hero sw-hero--story<%= site.slides.length ? '' : ' sw-hero--plain' %>"<%- site.slides.length ? ' data-sw-tone-host data-ap-skip' : '' %>>
     <%- site.slides.length ? slidesHtml('cover') : '' %>
-    <div class="sw-hero__overlay">
+    <div class="sw-hero__overlay" data-sw-tone-text>
       <% if (B.show) { %>
         <p class="sw-hero__kicker"><%= B.kicker %></p>
         <h1 class="sw-hero__title"><%= S.name %></h1>
@@ -412,11 +414,11 @@
   const dotKeys = site.blocks.filter((k) => k !== 'quickFacts');
 %>
   <%- include('./motionNav', { site, variant: 'dark' }) %>
-  <section class="sw-pa-hero<%= site.slides.length ? '' : ' sw-pa-hero--plain' %>" id="top"<%- site.slides.length ? ' data-mp="pin"' : '' %>>
+  <section class="sw-pa-hero<%= site.slides.length ? '' : ' sw-pa-hero--plain' %>" id="top"<%- site.slides.length ? ' data-mp="pin" data-sw-tone-host data-ap-skip' : '' %>>
     <div class="sw-pa-hero__stage">
       <% if (site.slides.length) { %><div class="sw-pa-hero__frame"><%- slidesHtml('cover') %></div><% } %>
       <div class="sw-pa-hero__shade" aria-hidden="true"></div>
-      <div class="sw-wrap sw-pa-hero__copy">
+      <div class="sw-wrap sw-pa-hero__copy" data-sw-tone-text>
         <% if (B.show) { %>
           <p class="sw-pa-kicker"><%= B.kicker %></p>
           <h1 class="sw-pa-title"><%= S.name %></h1>
@@ -752,3 +754,4 @@
 </script>
 <script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>
 <% if (site.motion) { %><script src="<%= assetUrl('/js/schoolSiteMotion.js') %>"></script><% } %>
+<% if (site.slides.length) { %><script src="<%= assetUrl('/js/schoolSiteTone.js') %>" defer></script><% } %>

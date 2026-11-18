@@ -9,7 +9,7 @@
 //   rows in `features` (what the pages check), `aliases` older spellings. `tier` is the standard
 //   plan that first includes it (Starter, then Pro, then Premium): the form groups by it, the
 //   database decides. `addon` means the plan includes that add-on, so a school on the plan
-//   switches it on in Settings › Integrations at no charge; without it, the add-on is bought at
+//   switches it on in Management Tools › Integrations at no charge; without it, the add-on is bought at
 //   the price in Admin › Pricing › Add-ons.
 // - NOT_IN_PLANS: old rows kept on plans but never offered or shown.
 //

@@ -293,117 +293,107 @@
   // zero; this corrects it within ~100 ms without blocking page load.
   refreshCount();
 
-  const ensureHeaderPopupConfettiStyles = () => {
-    if (document.getElementById('header-popup-confetti-styles')) return;
+  // Celebration and welcome popups (a new term, finishing the first-time setup, a student's
+  // birthday): one light card, a short confetti burst in the school's colours, still for anyone
+  // who asks their device for less motion. Under the app header, as every pop-up.
+  // The shared confetti, loaded the first time a celebration needs it (same version as this file).
+  const ownQuery = (() => { try { return (document.currentScript && new URL(document.currentScript.src).search) || ''; } catch (_) { return ''; } })();
+  let confettiLoading = null;
+  const loadConfetti = () => {
+    if (window.ManagiraConfetti) return Promise.resolve(window.ManagiraConfetti);
+    if (!confettiLoading) {
+      confettiLoading = new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = `/js/confetti.js${ownQuery}`;
+        script.onload = () => resolve(window.ManagiraConfetti || null);
+        script.onerror = () => resolve(null);
+        document.head.appendChild(script);
+      });
+    }
+    return confettiLoading;
+  };
+
+  const ensureHeaderPopupStyles = () => {
+    if (document.getElementById('header-popup-styles')) return;
     const style = document.createElement('style');
-    style.id = 'header-popup-confetti-styles';
+    style.id = 'header-popup-styles';
     style.textContent = `
-      @keyframes headerPopupConfettiDrop {
-        0% {
-          opacity: 0;
-          transform: translate3d(0, -8vh, 0) rotate(0deg);
-        }
-        8% {
-          opacity: 1;
-        }
-        100% {
-          opacity: 0.95;
-          transform: translate3d(var(--drift, 0px), 118vh, 0) rotate(var(--spin, 720deg));
-        }
-      }
+      .mg-pop { position: fixed; inset: 0; z-index: 12050; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, 0.38); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; transition: opacity .22s ease; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+      .mg-pop.is-in { opacity: 1; }
+      .mg-pop-card { position: relative; z-index: 1; width: min(100%, 400px); padding: 30px 28px 24px; border-radius: 22px; background: #fff; color: #0f172a; text-align: center; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.06); transform: translateY(10px) scale(.97); transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+      .mg-pop.is-in .mg-pop-card { transform: none; }
+      .mg-pop-badge { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 20px; background: color-mix(in srgb, var(--pop-brand, #01535b) 14%, #fff); color: var(--pop-brand, #01535b); }
+      .mg-pop-badge svg { width: 30px; height: 30px; }
+      .mg-pop-card h3 { margin: 0 0 8px; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; color: #0f172a; }
+      .mg-pop-card p { margin: 0 0 22px; color: #475569; font-size: .95rem; line-height: 1.55; }
+      .mg-pop-card button.mg-pop-ok { display: block; width: 100%; height: 46px; margin: 0; padding: 0 18px; border: 0; border-radius: 12px; background: var(--pop-brand, #01535b); color: #fff; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: none; transition: filter .15s ease; }
+      .mg-pop-card button.mg-pop-ok:hover { filter: brightness(.93); }
+      .mg-pop-card button.mg-pop-ok:focus-visible { outline: 2px solid color-mix(in srgb, var(--pop-brand, #01535b) 35%, transparent); outline-offset: 3px; }
+      html[data-appearance="dark"] .mg-pop-card { background: #111827; color: #f9fafb; }
+      html[data-appearance="dark"] .mg-pop-card h3 { color: #f9fafb; }
+      html[data-appearance="dark"] .mg-pop-card p { color: #cbd5e1; }
+      html[data-appearance="dark"] .mg-pop-badge { background: #1f2937; }
+      @media (prefers-reduced-motion: reduce) { .mg-pop, .mg-pop-card { transition: none; } }
     `;
     document.head.appendChild(style);
   };
 
-  const showHeaderInfoPopup = ({ overlayId, title, message, buttonLabel, celebratory = false }) => {
+  const POPUP_ICONS = {
+    setup: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    term: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12.6l.9 1.8 2 .3-1.45 1.4.35 2-1.8-.95-1.8.95.35-2-1.45-1.4 2-.3z" fill="currentColor"/></svg>',
+    birthday: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h16M5 20v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 16c1.2 1 2.3 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12 12V8.5M12 5.2c.8.8.8 1.8 0 2.3-.8-.5-.8-1.5 0-2.3z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
+
+  const showHeaderInfoPopup = ({ overlayId, title, message, buttonLabel, celebratory = false, kind = 'term' }) => {
     const existing = document.getElementById(overlayId);
     if (existing) existing.remove();
+    ensureHeaderPopupStyles();
 
     const overlay = document.createElement('div');
     overlay.id = overlayId;
-    overlay.style.position = 'fixed';
-    overlay.style.inset = '0';
-    overlay.style.background = 'rgba(15,23,42,0.48)';
-    overlay.style.zIndex = '12050';
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
+    overlay.className = 'mg-pop';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', `${overlayId}-title`);
 
-    if (celebratory) {
-      ensureHeaderPopupConfettiStyles();
-      const confettiLayer = document.createElement('div');
-      confettiLayer.style.position = 'absolute';
-      confettiLayer.style.inset = '0';
-      confettiLayer.style.overflow = 'hidden';
-      confettiLayer.style.pointerEvents = 'none';
-
-      const colors = ['#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#06b6d4', '#22c55e', '#fde047'];
-      const shapes = ['square', 'circle', 'ribbon'];
-      const fragment = document.createDocumentFragment();
-      const totalParticles = window.innerWidth < 640 ? 270 : 420;
-
-      for (let i = 0; i < totalParticles; i += 1) {
-        const particle = document.createElement('span');
-        const shape = shapes[Math.floor(Math.random() * shapes.length)];
-        particle.style.position = 'absolute';
-        particle.style.top = '-8vh';
-        particle.style.left = `${Math.random() * 100}%`;
-        particle.style.opacity = '0';
-        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-        particle.style.animationName = 'headerPopupConfettiDrop';
-        particle.style.animationTimingFunction = 'linear';
-        particle.style.animationFillMode = 'forwards';
-        particle.style.animationDuration = `${8.5 + Math.random() * 3.5}s`;
-        particle.style.animationDelay = `${Math.random() * 0.8}s`;
-        particle.style.setProperty('--drift', `${-120 + Math.random() * 240}px`);
-        particle.style.setProperty('--spin', `${360 + Math.random() * 1080}deg`);
-
-        if (shape === 'circle') {
-          particle.style.width = '8px';
-          particle.style.height = '8px';
-          particle.style.borderRadius = '50%';
-        } else if (shape === 'ribbon') {
-          particle.style.width = '6px';
-          particle.style.height = '24px';
-          particle.style.borderRadius = '999px';
-        } else {
-          particle.style.width = '10px';
-          particle.style.height = '20px';
-          particle.style.borderRadius = '2px';
-        }
-
-        fragment.appendChild(particle);
-      }
-
-      confettiLayer.appendChild(fragment);
-      overlay.appendChild(confettiLayer);
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The school's colour, read where the app sets it (the header's buttons use it).
+    const headerEl = document.getElementById('top-header') || document.body;
+    const brand = getComputedStyle(headerEl).getPropertyValue('--org-primary-color').trim()
+      || getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color').trim() || '#01535b';
+    overlay.style.setProperty('--pop-brand', brand);
+    if (celebratory && !reduceMotion) {
+      // The shared confetti (public/js/confetti.js), in the school's colour, once the card is in.
+      loadConfetti().then((confetti) => { if (confetti && overlay.isConnected) setTimeout(() => confetti.celebrate({ colors: [brand], container: overlay }), 120); });
     }
 
     const card = document.createElement('div');
-    card.style.position = 'relative';
-    card.style.zIndex = '1';
-    card.style.width = 'min(92vw, 390px)';
-    card.style.background = '#fff';
-    card.style.borderRadius = '12px';
-    card.style.padding = '16px';
-    card.style.boxShadow = '0 14px 35px rgba(15,23,42,0.22)';
+    card.className = 'mg-pop-card';
     card.innerHTML = `
-      <h3 style="margin:0 0 8px;color:#0f172a;font-size:1.05rem;">${escapeHtml(title || 'Notice')}</h3>
-      <p style="margin:0 0 12px;color:#334155;font-size:.9rem;line-height:1.5;">${escapeHtml(message || '')}</p>
-      <div style="display:flex;justify-content:flex-end;">
-        <button type="button" data-popup-ok="1" style="background:var(--org-primary-color,#01535b);color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600;">${escapeHtml(buttonLabel || 'Okay')}</button>
-      </div>
+      <div class="mg-pop-badge">${POPUP_ICONS[kind] || POPUP_ICONS.term}</div>
+      <h3 id="${overlayId}-title">${escapeHtml(title || 'Notice')}</h3>
+      <p>${escapeHtml(message || '')}</p>
+      <button type="button" class="mg-pop-ok" data-popup-ok="1">${escapeHtml(buttonLabel || 'Okay')}</button>
     `;
-
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('is-in'));
 
-    const close = () => overlay.remove();
+    const close = () => {
+      document.removeEventListener('keydown', onKey);
+      overlay.classList.remove('is-in');
+      setTimeout(() => overlay.remove(), reduceMotion ? 0 : 220);
+    };
+    const onKey = (event) => { if (event.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', (event) => {
       if (event.target === overlay) close();
     });
     const okBtn = card.querySelector('[data-popup-ok="1"]');
-    if (okBtn) okBtn.addEventListener('click', close);
+    if (okBtn) {
+      okBtn.addEventListener('click', close);
+      setTimeout(() => okBtn.focus(), 60);
+    }
   };
 
   // Student-only birthday popup (simple modal via AJAX)
@@ -419,6 +409,7 @@
             message: payload.message,
             buttonLabel: 'Thank you',
             celebratory: true,
+            kind: 'birthday',
           });
         }
       })
@@ -435,8 +426,9 @@
             overlayId: 'staff-new-term-popup-overlay',
             title: payload.title,
             message: payload.message,
-            buttonLabel: 'Okay',
+            buttonLabel: payload.kind === 'setup' ? 'Let\u2019s go' : 'Thanks',
             celebratory: true,
+            kind: payload.kind === 'setup' ? 'setup' : 'term',
           });
         }
       })

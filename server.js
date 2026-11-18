@@ -1198,6 +1198,14 @@ app.get("/.well-known/security.txt", (req, res) => {
   ].join("\n"));
 });
 
+// Microsoft's publisher domain check: managira.com names the Microsoft app (Outlook calendar sync)
+// as its own. The app's ID is public; MICROSOFT_CLIENT_ID wins once it's set on the server.
+const MICROSOFT_APP_ID = "6e469770-6ed9-4ebe-aab5-0cca75fdd004";
+app.get("/.well-known/microsoft-identity-association.json", (req, res) => {
+  const applicationId = String(process.env.MICROSOFT_CLIENT_ID || MICROSOFT_APP_ID).trim();
+  res.type("application/json").set("Cache-Control", "public, max-age=3600").send(JSON.stringify({ associatedApplications: [{ applicationId }] }));
+});
+
 // A school's own files (form answers, help on a question, parent resources), for someone signed in
 // to that school (utils/storedFiles.js).
 app.get("/files/*", (req, res) => require("./utils/storedFiles").serveSchoolFile(req, res));
@@ -1328,6 +1336,9 @@ app.use("/account/settings", payoutRoute);
 const ssoRoutes = require("./routes/ssoRoute")(db);
 app.use("/account/sso", ssoRoutes.signIn);
 app.use("/account/settings/sso", ssoRoutes.settings);
+// Pages that belong inside a workspace open there, never on their own (middleware/workspaceOnly.js).
+// Before every page's routes (Integrations is an account page).
+app.use(require("./middleware/workspaceOnly")(db));
 app.use("/account", accountRoute);
 app.use("/admin/shards", require("./routes/shardAdminRoute"));
 app.use("/admin/migrations", require("./routes/migrationAdminRoute"));
@@ -1345,8 +1356,6 @@ app.get("/calendar/family/:token([a-f0-9]{48}).ics", (req, res) =>
 app.use("/common/student-documents", require("./routes/studentDocumentsRoute"));
 // The weekly briefing's settings and preview (feature weekly_briefing).
 app.use("/common/briefing", require("./routes/briefingRoute"));
-// Pages that belong inside a workspace open there, never on their own (middleware/workspaceOnly.js).
-app.use(require("./middleware/workspaceOnly")(db));
 app.use("/common", commonRoute);
 // Service accounts, access tokens and client secrets (school admin screens).
 app.use("/api-access", require("./routes/apiAccessRoute"));

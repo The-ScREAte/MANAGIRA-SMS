@@ -64,7 +64,7 @@
 }
 .mira-panel .mira-panel-x:hover { background: #f1f5f9; color: #0f172a; }
 .mira-panel .mira-panel-x:focus-visible,
-.mira-panel .mira-panel-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); outline-offset: 2px; }
+.mira-panel .mira-panel-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent); outline-offset: 3px; }
 .mira-panel .mira-panel-x svg { width: 16px; height: 16px; }
 
 .mira-panel-body {
@@ -89,6 +89,8 @@
   color: var(--org-primary-color, #01535b);
 }
 .mira-panel-icon svg { width: 26px; height: 26px; }
+.mira-panel-icon.is-mira { width: 64px; height: 64px; background: transparent; }
+.mira-panel-icon.is-mira img { width: 64px; height: 64px; border-radius: 50%; }
 .mira-panel-title { color: #111827; font-size: 1.05rem; font-weight: 650; line-height: 1.35; }
 .mira-panel-text { max-width: 300px; color: #64748b; font-size: 0.92rem; line-height: 1.55; }
 .mira-panel-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }

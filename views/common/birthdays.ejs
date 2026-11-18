@@ -20,71 +20,6 @@
     gap: 12px;
   }
 
-  .birthday-celebration-overlay {
-    position: fixed;
-    inset: 0;
-    background: transparent;
-    z-index: 12000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
-
-  .birthday-celebration-overlay.is-visible {
-    opacity: 1;
-    pointer-events: none;
-  }
-
-  .birthday-confetti-layer {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .birthday-confetti {
-    position: absolute;
-    top: -8vh;
-    width: 10px;
-    height: 20px;
-    border-radius: 2px;
-    opacity: 0;
-    animation-name: confettiDrop;
-    animation-timing-function: linear;
-    animation-fill-mode: forwards;
-    will-change: transform, opacity;
-  }
-
-  .birthday-confetti.square {
-    border-radius: 1px;
-  }
-
-  .birthday-confetti.circle {
-    border-radius: 50%;
-    width: 8px;
-    height: 8px;
-  }
-
-  .birthday-confetti.ribbon {
-    width: 6px;
-    height: 24px;
-    border-radius: 999px;
-  }
-
-  @keyframes confettiDrop {
-    0% {
-      opacity: 0;
-      transform: translate3d(0, -8vh, 0) rotate(0deg);
-    }
-    8% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0.95;
-      transform: translate3d(var(--drift, 0px), 118vh, 0) rotate(var(--spin, 720deg));
-    }
-  }
-
   .birthdays-hero {
     position: relative;
     overflow: hidden;
@@ -332,9 +267,7 @@
 </style>
 
 <body>
-  <div class="birthday-celebration-overlay" id="birthdayCelebrationOverlay" aria-hidden="true">
-    <div class="birthday-confetti-layer" id="birthdayConfettiLayer"></div>
-  </div>
+  <script src="<%= assetUrl('/js/confetti.js') %>"></script>
 
   <div class="birthdays-page">
     <%- include('../partials/flash') %>
@@ -400,13 +333,10 @@
   <script>
     (function () {
       const todayBirthdayCards = Array.from(document.querySelectorAll('.birthday-person-card.is-celebrating'));
-      const celebrationOverlay = document.getElementById('birthdayCelebrationOverlay');
-      const confettiLayer = document.getElementById('birthdayConfettiLayer');
       const todayKey = new Date().toISOString().slice(0, 10);
       const viewerCelebrationKey = <%- JSON.stringify(String(viewerCelebrationKey || 'guest')) %>;
       const storageKey = `managira:birthdays:celebration-seen:v6:${todayKey}:${viewerCelebrationKey}`;
 
-      if (!celebrationOverlay || !confettiLayer) return;
       if (todayBirthdayCards.length === 0) return;
 
       window.setTimeout(() => {
@@ -423,36 +353,11 @@
         return;
       }
 
-      celebrationOverlay.classList.add('is-visible');
       if (window.sessionStorage) {
         sessionStorage.setItem(storageKey, '1');
       }
-
-      const confettiColors = ['#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#06b6d4', '#22c55e', '#fde047'];
-      const confettiShapes = ['square', 'circle', 'ribbon'];
-      const isCompactScreen = window.matchMedia('(max-width: 720px)').matches;
-      const lowMemoryDevice = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
-      const totalParticles = (isCompactScreen || lowMemoryDevice) ? 110 : 170;
-      const fragment = document.createDocumentFragment();
-
-      for (let i = 0; i < totalParticles; i += 1) {
-        const particle = document.createElement('span');
-        const shape = confettiShapes[Math.floor(Math.random() * confettiShapes.length)];
-        particle.className = `birthday-confetti ${shape}`;
-        particle.style.left = `${Math.random() * 100}%`;
-        particle.style.background = confettiColors[Math.floor(Math.random() * confettiColors.length)];
-        particle.style.animationDuration = `${4.8 + Math.random() * 2.2}s`;
-        particle.style.animationDelay = `${Math.random() * 5.0}s`;
-        particle.style.setProperty('--drift', `${-120 + Math.random() * 240}px`);
-        particle.style.setProperty('--spin', `${360 + Math.random() * 1080}deg`);
-        fragment.appendChild(particle);
-      }
-      confettiLayer.appendChild(fragment);
-
-      window.setTimeout(() => {
-        celebrationOverlay.classList.remove('is-visible');
-        confettiLayer.innerHTML = '';
-      }, 12200);
+      // The shared confetti (public/js/confetti.js), as every celebration has it.
+      if (window.ManagiraConfetti) window.ManagiraConfetti.celebrate();
     })();
   </script>
 </body>

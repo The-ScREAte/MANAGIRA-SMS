@@ -551,6 +551,30 @@ router.get('/new-term-popup', requireAuth, async (req, res) => {
     );
 
     const currentTerm = currentTermResult.rows[0];
+
+    // Just finished the first-time setup (utils/firstSetup.js): one celebration, which also
+    // welcomes them to the term, instead of two popups.
+    if (req.session && req.session.firstSetupCelebrate) {
+      delete req.session.firstSetupCelebrate;
+      if (currentTerm) {
+        await db.query(
+          `INSERT INTO staff_term_popup_views (organization_id, user_id, term_id, popup_type)
+           VALUES ($1, $2, $3, 'new_term_welcome')
+           ON CONFLICT (organization_id, user_id, term_id, popup_type) DO NOTHING`,
+          [req._notifCtx.orgId, req._notifCtx.recipientId, Number(currentTerm.term_id)]
+        );
+      }
+      return res.json({
+        success: true,
+        shouldShow: true,
+        kind: 'setup',
+        title: "You're ready to go",
+        message: currentTerm
+          ? `Your school's basics are set, and your current term is ${currentTerm.term_name} ${currentTerm.year_label}. Next, the setup steps help you add classes, students and staff.`
+          : "Your school's basics are set. Next, the setup steps help you add your school year, classes, students and staff.",
+      });
+    }
+
     if (!currentTerm) {
       return res.json({ success: true, shouldShow: false });
     }
@@ -581,8 +605,9 @@ router.get('/new-term-popup', requireAuth, async (req, res) => {
     return res.json({
       success: true,
       shouldShow: true,
+      kind: 'term',
       title: `Welcome to ${currentTerm.term_name}`,
-      message: `Welcome to ${currentTerm.term_name} in ${currentTerm.year_label}. May this new term bring fresh energy, smooth progress, meaningful achievements, and many beautiful moments for you and your school community. We wish you a joyful, successful, and rewarding term ahead.`,
+      message: `A fresh start for ${currentTerm.year_label}. Here's to a smooth, rewarding term for you, your staff and your students.`,
     });
   } catch (_err) {
     return res.json({ success: true, shouldShow: false });

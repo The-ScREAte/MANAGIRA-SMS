@@ -536,7 +536,7 @@
       <% if (_feat.length) { %>
       <h3>Also in Managira's own features</h3>
       <ul class="mg-feat"><% _feat.forEach(([what, text]) => { %><li><strong><%= what %></strong><span><%= text %></span></li><% }) %></ul>
-      <% if (_t.routes && !locals.transportOn) { %><p class="mg-notice">Your buses and routes are in Managira. Turn Transportation on in Settings › Integrations to use them.</p><% } %>
+      <% if (_t.routes && !locals.transportOn) { %><p class="mg-notice">Your buses and routes are in Managira. Turn Transportation on in Management Tools › Integrations to use them.</p><% } %>
       <% } %>
       <%- include('partials/apps', { apps }) %>
       <h3>Your files beside Managira</h3>

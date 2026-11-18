@@ -331,7 +331,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
 
   const provider = safeString(row.sms_active_provider).toLowerCase();
   if (!isValidProvider(provider)) {
-    throw new Error("No SMS provider is configured for this school yet. Set one up under Settings → Integrations.");
+    throw new Error("No SMS provider is configured for this school yet. Set one up under Management Tools → Integrations.");
   }
 
   if (provider === "twilio" && !isTwilioAvailableForCountry(row.organization_country)) {

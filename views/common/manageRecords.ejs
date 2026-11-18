@@ -959,6 +959,21 @@
         color: var(--muted);
       }
 
+      /* How the year divides (Register School Year) */
+      .rsy-structures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+      .rsy-structure { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 2px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+      .rsy-structure input { position: absolute; opacity: 0; pointer-events: none; }
+      .rsy-structure strong { font-size: 0.9rem; color: #1e293b; }
+      .rsy-structure span { font-size: 0.76rem; color: var(--muted); }
+      .rsy-structure:hover { border-color: #cbd5e1; }
+      .rsy-structure:has(input:checked) { border-color: var(--org-primary-color, #01535b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent); }
+      .rsy-structure:has(input:focus-visible) { outline: 2px solid color-mix(in srgb, var(--org-primary-color, #01535b) 40%, transparent); outline-offset: 2px; }
+      .rsy-year-dates { margin-bottom: 8px; }
+      .rsy-year-dates[hidden] { display: none; }
+      .rsy-plan-hint { margin: 0 0 14px; }
+      .rsy-plan-hint[hidden] { display: none; }
+      @media (max-width: 640px) { .rsy-structures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
       .rsy-term-card {
         background: #f8fafc;
         border: 1px solid var(--border);
@@ -1372,6 +1387,7 @@
       <% } %>
       <%# The school's term library, for the term name fields (outside the redrawn list). %>
       <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
+      <script src="<%= assetUrl('/js/termPlanner.js') %>" defer></script>
       <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
       <div class="container">
         <fieldset class="collapsible-block ws-plain" id="schoolYearsBlock">
@@ -1608,6 +1624,32 @@
               <input type="text" id="rsySchoolYear" name="schoolYear" class="rsy-form-input" placeholder="e.g., 2026-2027" required>
               <div class="rsy-form-hint">Use format YYYY-YYYY, for example 2026-2027.</div>
             </div>
+
+            <%# How the year divides: a choice fills the terms below with suggested names and dates
+                (public/js/termPlanner.js), each still editable; Custom leaves them to the school. %>
+            <div class="rsy-form-group">
+              <span class="rsy-form-label" id="rsyStructureLabel">How is the year divided?</span>
+              <div class="rsy-structures" role="radiogroup" aria-labelledby="rsyStructureLabel"
+                   data-year-labels="<%= JSON.stringify((typeof schoolYears !== 'undefined' ? schoolYears : []).map(function (y) { return y.year_label; })) %>">
+                <% [['semesters','Semesters','2 terms'],['trimesters','Trimesters','3 terms'],['quarters','Quarters','4 terms'],['year','Full year','1 term'],['custom','Custom','Your own terms']].forEach(function (s, i) { %>
+                  <label class="rsy-structure">
+                    <input type="radio" name="rsyStructure" value="<%= s[0] %>"<%= i === 0 ? ' checked' : '' %> />
+                    <strong><%= s[1] %></strong><span><%= s[2] %></span>
+                  </label>
+                <% }) %>
+              </div>
+            </div>
+            <div class="rsy-date-row rsy-year-dates" id="rsyYearDates">
+              <div class="rsy-form-group" style="margin-bottom:0;">
+                <label class="rsy-form-label" for="rsyYearStart">First day</label>
+                <input type="date" id="rsyYearStart" class="rsy-form-input" />
+              </div>
+              <div class="rsy-form-group" style="margin-bottom:0;">
+                <label class="rsy-form-label" for="rsyYearEnd">Last day</label>
+                <input type="date" id="rsyYearEnd" class="rsy-form-input" />
+              </div>
+            </div>
+            <p class="rsy-form-hint rsy-plan-hint" id="rsyPlanHint">We've suggested the terms below. Change any name or date before you save.</p>
 
             <div id="rsyTermsContainer"></div>
           </form>
@@ -2673,7 +2715,7 @@
         if (termsContainer) termsContainer.innerHTML = '';
         if (status) status.classList.remove('show');
         rsyTermCount = 0;
-        addRsyTerm();
+        startRsyPlan();
         overlay.classList.add('is-open');
         document.body.style.overflow = 'hidden';
         const yearInput = document.getElementById('rsySchoolYear');
@@ -2775,7 +2817,85 @@
         if (nameInput) nameInput.addEventListener('blur', () => smartSortRsyTermCards());
       }
 
-      function addRsyTerm() {
+      // ── How the year divides: suggestions that fill the term cards (public/js/termPlanner.js) ──
+      let rsyPlanEdited = false;   // a term card changed by hand: the structure is now Custom
+      let rsyDatesEdited = false;  // first or last day changed by hand: the label no longer moves them
+      function rsyPlanner() { return window.ManagiraTerms || null; }
+      function rsyStructure() {
+        const picked = document.querySelector('input[name="rsyStructure"]:checked');
+        return picked ? picked.value : 'custom';
+      }
+      function setRsyStructure(value) {
+        const input = document.querySelector('input[name="rsyStructure"][value="' + value + '"]');
+        if (input) input.checked = true;
+        const custom = value === 'custom';
+        document.getElementById('rsyYearDates').hidden = custom;
+        document.getElementById('rsyPlanHint').hidden = custom;
+      }
+      function fillRsyTerms() {
+        const planner = rsyPlanner();
+        const structure = rsyStructure();
+        if (!planner || structure === 'custom') return;
+        const terms = planner.termsFor(structure, document.getElementById('rsyYearStart').value, document.getElementById('rsyYearEnd').value);
+        const container = document.getElementById('rsyTermsContainer');
+        // A term name being typed loses focus first, so its suggestions list closes with it.
+        if (document.activeElement && container.contains(document.activeElement)) document.activeElement.blur();
+        document.querySelectorAll('.lib-pick').forEach((list) => { list.hidden = true; });
+        container.innerHTML = '';
+        rsyTermCount = 0;
+        if (!terms) { addRsyTerm(); return; }
+        terms.forEach((term) => addRsyTerm(term));
+        rsyPlanEdited = false;
+      }
+      function startRsyPlan() {
+        const planner = rsyPlanner();
+        rsyPlanEdited = false;
+        rsyDatesEdited = false;
+        if (!planner) { setRsyStructure('custom'); addRsyTerm(); return; }
+        let labels = [];
+        try { labels = JSON.parse(document.querySelector('.rsy-structures').getAttribute('data-year-labels') || '[]'); } catch (_) {}
+        const suggestion = planner.suggestYear(labels);
+        document.getElementById('rsySchoolYear').value = suggestion.label;
+        document.getElementById('rsyYearStart').value = suggestion.start;
+        document.getElementById('rsyYearEnd').value = suggestion.end;
+        setRsyStructure('semesters');
+        fillRsyTerms();
+      }
+      function initRsyPlan() {
+        // Once per modal (the page-switcher can bring a fresh one; the body stays).
+        const host = document.querySelector('.rsy-structures');
+        if (!host || host.dataset.planInit === '1') return;
+        host.dataset.planInit = '1';
+        document.querySelectorAll('input[name="rsyStructure"]').forEach((input) => {
+          input.addEventListener('change', () => {
+            if (rsyPlanEdited && input.value !== 'custom' && !window.confirm('Replace the terms below with ' + input.closest('label').querySelector('strong').textContent.toLowerCase() + '?')) {
+              setRsyStructure('custom');
+              return;
+            }
+            setRsyStructure(input.value);
+            fillRsyTerms();
+          });
+        });
+        ['rsyYearStart', 'rsyYearEnd'].forEach((id) => {
+          document.getElementById(id).addEventListener('change', () => { rsyDatesEdited = true; if (!rsyPlanEdited) fillRsyTerms(); });
+        });
+        // A new label moves the suggested dates with it, until the dates are chosen by hand.
+        document.getElementById('rsySchoolYear').addEventListener('input', (event) => {
+          const planner = rsyPlanner();
+          const dates = planner && planner.datesForLabel(event.target.value);
+          if (!dates || rsyDatesEdited) return;
+          document.getElementById('rsyYearStart').value = dates.start;
+          document.getElementById('rsyYearEnd').value = dates.end;
+          if (!rsyPlanEdited) fillRsyTerms();
+        });
+        // Changing a term by hand makes the plan Custom (nothing is replaced without asking).
+        document.getElementById('rsyTermsContainer').addEventListener('input', () => {
+          if (rsyStructure() === 'custom') return;
+          rsyPlanEdited = true;
+        });
+      }
+
+      function addRsyTerm(values) {
         const termsContainer = document.getElementById('rsyTermsContainer');
         const termIndex = rsyTermCount++;
         const termDiv = document.createElement('div');
@@ -2805,6 +2925,11 @@
             </div>
           </div>
         `;
+        if (values) {
+          termDiv.querySelector('input[name$="[termName]"]').value = values.name || '';
+          termDiv.querySelector('input[name$="[startDate]"]').value = values.start || '';
+          termDiv.querySelector('input[name$="[endDate]"]').value = values.end || '';
+        }
         termsContainer.appendChild(termDiv);
         attachRsyTermListeners(termDiv);
         applyRsyTermDateConstraints();
@@ -2929,6 +3054,7 @@
       }
 
       function initRsyModal() {
+        initRsyPlan();
         if (document.body.dataset.rsyModalInitDone === '1') return;
         document.body.dataset.rsyModalInitDone = '1';
 

@@ -7387,7 +7387,7 @@ async function deleteDocumentApi(req, res) {
 }
 
 // ============================================================
-// Integrations - /account/settings?section=integrations. VIEW-ONLY by
+// Integrations - /account/integrations (in Management). VIEW-ONLY by
 // design (explicit user requirement) - every function called below is a
 // pure `get*IntegrationStatus(db, orgId)` status getter with no writes.
 // Deliberately does NOT import any of the activate/connect/disconnect/

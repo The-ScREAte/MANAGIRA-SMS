@@ -57,7 +57,9 @@ async function schoolRow(db, organizationId) {
             (SELECT d.order_data FROM organization_dashboard d WHERE d.organization_id = o.organization_id LIMIT 1) AS order_data,
             (SELECT COUNT(*)::int FROM school_years y WHERE y.organization_id = o.organization_id) AS school_years,
             (SELECT COUNT(*)::int FROM terms t JOIN school_years y ON y.id = t.school_year_id WHERE y.organization_id = o.organization_id) AS terms,
-            (SELECT COUNT(*)::int FROM organization_attendance_calendars c WHERE c.organization_id = o.organization_id) AS calendars
+            (SELECT COUNT(*)::int FROM organization_attendance_calendars c WHERE c.organization_id = o.organization_id) AS calendars,
+            EXISTS (SELECT 1 FROM terms t JOIN school_years y ON y.id = t.school_year_id
+                     WHERE y.organization_id = o.organization_id AND y.current = TRUE AND t.current = TRUE) AS has_current_term
        FROM organizations o
       WHERE o.organization_id = $1`,
     [organizationId]
@@ -107,19 +109,84 @@ async function sendToSetup(req, res, db) {
 }
 
 // The steps this person gets, in order.
+// The details a school still hasn't given (the name always comes with sign-up).
+function missingDetails(school) {
+  const missing = [];
+  if (!school.nickname_display || school.nickname_display === school.nickname) missing.push("shortName");
+  if (!String(school.organization_phone || "").trim()) missing.push("phone");
+  if (!String(school.organization_address || "").trim()) missing.push("address");
+  if (!String(school.organization_province || "").trim()) missing.push("state");
+  if (!String(school.organization_country || "").trim()) missing.push("country");
+  return missing;
+}
+
+// How the school year step looks: "create" (no school year yet), "current" (terms, none
+// current: pick one), or null (a current term is set, or nothing the step can do).
+function yearMode(school) {
+  if (school.has_current_term) return null;
+  if (!school.school_years) return "create";
+  return school.terms ? "current" : null;
+}
+
+// Only what the school hasn't set yet, each to someone who may set it. A step done before a
+// reload isn't asked again.
 async function stepsFor(db, req, school) {
   const { PERMISSIONS } = perm();
   const [year, website] = await Promise.all([
     can(db, req, PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS),
     can(db, req, PERMISSIONS.SETTINGS_WEBSITE),
   ]);
-  const steps = ["color", "logo", "details"];
-  if (year && !school.school_years) steps.push("year");
+  const order = orderDataOf(school.order_data);
+  const steps = [];
+  if (!order.theme && (!school.theme_color || school.theme_color === DEFAULT_COLOR)) steps.push("color");
+  if (!String(school.logo || "").trim() && !String(school.logo_path || "").trim()) steps.push("logo");
+  if (missingDetails(school).length) steps.push("details");
+  if (year && yearMode(school)) steps.push("year");
   // School days and days off belong to a term: offered when the school has one, or makes one
   // on the step before; never over a calendar the school already set.
   if (!school.calendars && (school.terms || steps.includes("year"))) steps.push("calendar");
-  if (website) steps.push("website");
+  if (website && !(typeof order.layout === "string" && order.layout.trim())) steps.push("website");
   return steps;
+}
+
+// The school's terms, for choosing the current one.
+async function termsToChoose(db, organizationId) {
+  const { rows } = await db.query(
+    `SELECT t.term_id, t.term_name, t.start_date::text AS start, t.end_date::text AS end, y.id AS year_id, y.year_label
+       FROM terms t JOIN school_years y ON y.id = t.school_year_id
+      WHERE y.organization_id = $1
+      ORDER BY t.start_date DESC NULLS LAST, t.term_id DESC
+      LIMIT 24`,
+    [organizationId]
+  );
+  return rows;
+}
+
+// Make one of the school's terms (and its year) current, as School years & terms does.
+async function setCurrentTerm(db, req, termId) {
+  const organizationId = req.session.organizationId;
+  const id = Number(termId);
+  if (!Number.isInteger(id) || id <= 0) throw new SetupError("Choose the term you're in now.");
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const term = await client.query(
+      `SELECT t.term_id, t.term_name, y.id AS year_id, y.year_label FROM terms t JOIN school_years y ON y.id = t.school_year_id
+        WHERE t.term_id = $1 AND y.organization_id = $2`,
+      [id, organizationId]
+    );
+    if (!term.rows[0]) throw new SetupError("Choose one of your school's terms.", 404);
+    await client.query("UPDATE school_years SET current = (id = $2) WHERE organization_id = $1", [organizationId, term.rows[0].year_id]);
+    await client.query("UPDATE terms SET current = (term_id = $2) WHERE organization_id = $1", [organizationId, id]);
+    await client.query("COMMIT");
+    try { require("./setupChecklist").forget(organizationId); } catch (_) {}
+    return { label: term.rows[0].year_label, current: term.rows[0].term_name };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // ── Saving ───────────────────────────────────────────────────────────────────────────────
@@ -191,45 +258,64 @@ function previousKey(url) {
 
 const clean = (value, max) => String(value == null ? "" : value).replace(/\s+/g, " ").trim().slice(0, max);
 
+// Saves only the details the step asked for (it shows just the missing ones); the rest stays.
 async function saveDetails(db, req, body) {
   const { COUNTRY_NAME_LOOKUP } = require("./countries");
-  const name = clean(body.name, 150);
-  const shortName = clean(body.shortName, 60);
-  const phone = clean(body.phone, 30);
-  const address = clean(body.address, 250);
-  const state = clean(body.state, 100);
-  const country = clean(body.country, 2).toUpperCase();
-  if (!name) throw new SetupError("Enter your school's name.");
-  if (shortName && shortName.length < 3) throw new SetupError("A short name needs at least 3 characters.");
-  if (phone && !/^[+()0-9.\-\s]{7,30}$/.test(phone)) throw new SetupError("Enter the phone number with digits only (spaces, dashes and + are fine).");
-  if (!/^[A-Z]{2}$/.test(country) || !COUNTRY_NAME_LOOKUP[country]) throw new SetupError("Choose your country.");
-  const { getCurrencyForCountry, normalizeCurrencyCode } = require("./currencyLocalization");
-  const currency = normalizeCurrencyCode(getCurrencyForCountry(country)) || null;
+  const has = (key) => Object.prototype.hasOwnProperty.call(body || {}, key);
   const organizationId = req.session.organizationId;
-  // The website's header shows nickname_display, which starts as the web address ("cedar-grove").
-  // Left empty here, it becomes the school's name (when that fits Settings' 3 to 60 characters).
-  const fallbackShort = name.length >= 3 ? name.slice(0, 60) : null;
-  await db.query(
-    `UPDATE organizations
-        SET organization_name = $1,
-            nickname_display = CASE
-              WHEN $2::text IS NOT NULL THEN $2
-              WHEN (nickname_display IS NULL OR nickname_display = nickname) AND $9::text IS NOT NULL THEN $9
-              ELSE nickname_display END,
-            organization_phone = $3,
-            organization_address = $4,
-            organization_province = $5,
-            organization_country = $6,
-            organization_currency = COALESCE($7, organization_currency)
-      WHERE organization_id = $8`,
-    // The address column never holds NULL (an empty one is ""), as on sign-up.
-    [name, shortName || null, phone || null, address, state || null, country, currency, organizationId, fallbackShort]
-  );
-  req.session.organizationName = name;
-  require("./schoolCountry").forgetSchoolCountry(organizationId);
-  // The map pin follows the address, in the background (as Settings does).
-  Promise.resolve().then(() => require("./geocode").autoGeocodeOrg(db, organizationId, address || null, state || null, country)).catch(() => {});
-  return { name };
+  const sets = [];
+  const values = [];
+  const set = (column, value) => { values.push(value); sets.push(`${column} = $${values.length}`); };
+
+  let name = null;
+  if (has("name")) {
+    name = clean(body.name, 150);
+    if (!name) throw new SetupError("Enter your school's name.");
+    set("organization_name", name);
+  }
+  if (has("shortName")) {
+    // The school nickname, exactly as Settings › Customize saves it (organizations.nickname_display,
+    // 3 to 60 characters; the web address itself never changes).
+    const shortName = require("./orgNicknameSlug").normalizeDisplayName(body.shortName);
+    if (shortName && shortName.length < 3) throw new SetupError("A nickname needs at least 3 characters.");
+    if (shortName.length > 60) throw new SetupError("A nickname is at most 60 characters.");
+    // The website's header shows nickname_display, which starts as the web address
+    // ("cedar-grove"). Left empty, it becomes the school's name (Settings allows 3 to 60 characters).
+    const current = (await db.query("SELECT organization_name, nickname, nickname_display FROM organizations WHERE organization_id = $1", [organizationId])).rows[0] || {};
+    const fullName = name || current.organization_name || "";
+    const fallback = fullName.length >= 3 ? fullName.slice(0, 60) : null;
+    if (shortName) set("nickname_display", shortName);
+    else if (fallback && (!current.nickname_display || current.nickname_display === current.nickname)) set("nickname_display", fallback);
+  }
+  if (has("phone")) {
+    const phone = clean(body.phone, 30);
+    if (phone && !/^[+()0-9.\-\s]{7,30}$/.test(phone)) throw new SetupError("Enter the phone number with digits only (spaces, dashes and + are fine).");
+    set("organization_phone", phone || null);
+  }
+  // The address column never holds NULL (an empty one is ""), as on sign-up.
+  if (has("address")) set("organization_address", clean(body.address, 250));
+  if (has("state")) set("organization_province", clean(body.state, 100) || null);
+  let country = null;
+  if (has("country")) {
+    country = clean(body.country, 2).toUpperCase();
+    if (!/^[A-Z]{2}$/.test(country) || !COUNTRY_NAME_LOOKUP[country]) throw new SetupError("Choose your country.");
+    const { getCurrencyForCountry, normalizeCurrencyCode } = require("./currencyLocalization");
+    set("organization_country", country);
+    const currency = normalizeCurrencyCode(getCurrencyForCountry(country));
+    if (currency) set("organization_currency", currency);
+  }
+  if (sets.length) {
+    values.push(organizationId);
+    await db.query(`UPDATE organizations SET ${sets.join(", ")} WHERE organization_id = $${values.length}`, values);
+  }
+  if (name) req.session.organizationName = name;
+  if (country) require("./schoolCountry").forgetSchoolCountry(organizationId);
+  if (has("address") || has("state") || country) {
+    // The map pin follows the address, in the background (as Settings does).
+    const row = (await db.query("SELECT organization_address, organization_province, organization_country FROM organizations WHERE organization_id = $1", [organizationId])).rows[0] || {};
+    Promise.resolve().then(() => require("./geocode").autoGeocodeOrg(db, organizationId, row.organization_address || null, row.organization_province || null, row.organization_country || "US")).catch(() => {});
+  }
+  return { saved: sets.length };
 }
 
 // The school year as US schools usually start it: August to June.
@@ -285,33 +371,69 @@ async function saveYear(db, req, body) {
   if (!terms) throw new SetupError("Choose how the year is divided.");
   const organizationId = req.session.organizationId;
   const today = isoDay(new Date());
-  const currentIndex = Math.max(0, terms.findIndex((t) => t.end >= today));
+  // The term they say they're in now; else the one holding today.
+  const chosen = Number(body.currentIndex);
+  const currentIndex = Number.isInteger(chosen) && chosen >= 0 && chosen < terms.length
+    ? chosen
+    : Math.max(0, terms.findIndex((t) => t.end >= today));
+  const structure = String(body.structure || "");
+  // The year this setup made earlier in the session (Back, then Continue again).
+  const made = req.session.firstSetupYear && Number(req.session.firstSetupYear.id) ? req.session.firstSetupYear : null;
+  let replaced = false;
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    // Only for a school with no school year yet; a second look (two tabs) changes nothing.
+    // One at a time per school (two tabs): a second look changes nothing it shouldn't.
     await client.query("SELECT pg_advisory_xact_lock(hashtext('first-setup-year:' || $1::text))", [organizationId]);
-    const existing = await client.query("SELECT COUNT(*)::int AS n FROM school_years WHERE organization_id = $1", [organizationId]);
-    if (existing.rows[0].n > 0) throw new SetupError("Your school already has a school year. Change it in School years & terms.", 409);
-    const year = await client.query(
-      "INSERT INTO school_years (year_label, organization_id, current) VALUES ($1, $2, TRUE) RETURNING id",
-      [label, organizationId]
-    );
-    await client.query(
-      `INSERT INTO terms (term_name, start_date, end_date, school_year_id, organization_id, current)
-       SELECT name, start_date, end_date, $5, $6, ord = $7
-         FROM unnest($1::text[], $2::date[], $3::date[], $4::int[]) AS t(name, start_date, end_date, ord)`,
-      [terms.map((t) => t.name), terms.map((t) => t.start), terms.map((t) => t.end), terms.map((_, i) => i), year.rows[0].id, organizationId, currentIndex]
-    );
+    const existing = await client.query("SELECT id FROM school_years WHERE organization_id = $1", [organizationId]);
+    const ownYear = made && existing.rows.length === 1 && Number(existing.rows[0].id) === Number(made.id) ? Number(made.id) : null;
+    if (existing.rows.length && !ownYear) {
+      throw new SetupError("Your school already has a school year. Change it in School years & terms, or skip this for now.", 409);
+    }
+    const same = ownYear && made.label === label && made.start === body.start && made.end === body.end && made.structure === structure;
+    if (same) {
+      // Nothing changed: only which term is current.
+      await client.query(
+        `WITH ordered AS (SELECT term_id, ROW_NUMBER() OVER (ORDER BY start_date, term_id) - 1 AS ord FROM terms WHERE school_year_id = $1)
+         UPDATE terms t SET current = (o.ord = $2) FROM ordered o WHERE o.term_id = t.term_id`,
+        [ownYear, currentIndex]
+      );
+      await client.query("UPDATE school_years SET current = (id = $2) WHERE organization_id = $1", [organizationId, ownYear]);
+    } else {
+      let yearId = ownYear;
+      if (ownYear) {
+        // Changed: this setup's own year takes the new dates and terms (a calendar set on the
+        // step after it goes with its terms; that step asks again).
+        await client.query("DELETE FROM organization_attendance_calendars WHERE organization_id = $1 AND school_year_id = $2", [organizationId, ownYear]);
+        await client.query("DELETE FROM terms WHERE school_year_id = $1", [ownYear]);
+        await client.query("UPDATE school_years SET year_label = $2, current = TRUE WHERE id = $1", [ownYear, label]);
+        replaced = true;
+      } else {
+        const year = await client.query(
+          "INSERT INTO school_years (year_label, organization_id, current) VALUES ($1, $2, TRUE) RETURNING id",
+          [label, organizationId]
+        );
+        yearId = year.rows[0].id;
+      }
+      await client.query(
+        `INSERT INTO terms (term_name, start_date, end_date, school_year_id, organization_id, current)
+         SELECT name, start_date, end_date, $5, $6, ord = $7
+           FROM unnest($1::text[], $2::date[], $3::date[], $4::int[]) AS t(name, start_date, end_date, ord)`,
+        [terms.map((t) => t.name), terms.map((t) => t.start), terms.map((t) => t.end), terms.map((_, i) => i), yearId, organizationId, currentIndex]
+      );
+      req.session.firstSetupYear = { id: yearId, label, start: body.start, end: body.end, structure };
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
+    // Something else already uses that year (another page added to it): leave it be.
+    if (error && error.code === "23503") throw new SetupError("Your school year is in use now. Change it in School years & terms, or skip this for now.", 409);
     throw error;
   } finally {
     client.release();
   }
   try { require("./setupChecklist").forget(organizationId); } catch (_) {}
-  return { label, terms, current: terms[currentIndex].name };
+  return { label, terms, current: terms[currentIndex].name, replaced };
 }
 
 // ── School calendar: school days, public holidays and days off (Settings › School rules) ──
@@ -429,6 +551,8 @@ async function finish(db, req) {
   const organizationId = req.session.organizationId;
   await db.query("UPDATE organizations SET first_setup_done_at = COALESCE(first_setup_done_at, NOW()) WHERE organization_id = $1", [organizationId]);
   req.session.firstSetupClear = true;
+  // The dashboard celebrates once (notificationsRoute /new-term-popup).
+  req.session.firstSetupCelebrate = true;
   try { require("./setupChecklist").forget(organizationId); } catch (_) {}
 }
 
@@ -452,6 +576,10 @@ module.exports = {
   saveWebsite,
   saveCalendar,
   holidaysFor,
+  missingDetails,
+  yearMode,
+  termsToChoose,
+  setCurrentTerm,
   finish,
   ready,
 };

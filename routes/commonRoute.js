@@ -105,6 +105,7 @@ module.exports = (db) => {
     router.post("/first-setup/logo", isAuthenticated, blockGuardians, upload.single("logo"), (req, res) => setup.logo(req, res, db));
     router.post("/first-setup/details", isAuthenticated, blockGuardians, json, (req, res) => setup.details(req, res, db));
     router.post("/first-setup/year", isAuthenticated, blockGuardians, json, (req, res) => setup.year(req, res, db));
+    router.post("/first-setup/current-term", isAuthenticated, blockGuardians, json, (req, res) => setup.currentTerm(req, res, db));
     router.post("/first-setup/calendar", isAuthenticated, blockGuardians, json, (req, res) => setup.calendar(req, res, db));
     router.get("/first-setup/holidays", isAuthenticated, blockGuardians, (req, res) => setup.holidays(req, res, db));
     router.post("/first-setup/website", isAuthenticated, blockGuardians, json, (req, res) => setup.website(req, res, db));

@@ -280,6 +280,9 @@
   
   <% if (!locals.isPrintRender && session && (session.userId || session.user || session.guardianId || session.studentId || session.hubId)) { %>
   <%# A sign-in that times out takes the page to the login page at once (public/js/sessionWatch.js). %>
+  <%# Log out asks first, on every page (public/js/logoutConfirm.js). %>
+  <%# Not deferred: it must catch a Log out click from the page's first moment. %>
+  <script src="<%= assetUrl('/js/logoutConfirm.js') %>"></script>
   <script src="<%= assetUrl('/js/sessionWatch.js') %>" data-idle-left="<%= locals.sessionClock ? locals.sessionClock.idleLeftMs : '' %>" data-ends-in="<%= locals.sessionClock && locals.sessionClock.endsInMs !== null ? locals.sessionClock.endsInMs : '' %>"></script>
   <% } %>
   <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>

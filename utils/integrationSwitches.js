@@ -45,7 +45,7 @@ function forget(organizationId) {
 
 const labelOf = (integration) => LABELS[integration] || integration;
 // What a person is told when they reach for something of an integration that is off.
-const offMessage = (integration) => `${labelOf(integration)} is turned off for this school. A manager can turn it on in Settings, Integrations.`;
+const offMessage = (integration) => `${labelOf(integration)} is turned off for this school. A manager can turn it on in Management Tools, Integrations.`;
 
 const HOMES = { guardian: "/guardian/dashboard", student: "/student/dashboard", driver: "/driver/dashboard" };
 

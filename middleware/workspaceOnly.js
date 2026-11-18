@@ -16,6 +16,8 @@ const notTeacher = (fn) => (req, db) => (["teacher", "driver"].includes(roleOf(r
 const classOf = (value) => (/^\d+$/.test(String(value || "")) ? String(value) : null);
 
 const RULES = {
+  // Integrations lives in Management (routes/accountRoute.js).
+  "/account/integrations": management("integrations", "Integrations"),
   "/common/editStudent": async (req, db) => {
     const home = await studentHome(db, req, Number(req.query.studentId), { termId: req.query.termId || null, classId: req.query.classId || null });
     if (home && home.startsWith("/common/classDashboard/")) return `${home}${home.includes("?") ? "&" : "?"}edit=1`;

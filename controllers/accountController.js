@@ -2183,7 +2183,7 @@ function buildExternalNavActivationHandler(provider, label) {
       } else if (payload.success && payload.message) {
         req.flash("success", payload.message);
       }
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
 
     try {
@@ -2251,7 +2251,7 @@ function logIntegrationActivation(req, recordLabel, activated) {
     userRole: actorRole,
     actionType: activated ? "Activated" : "Deactivated",
     moduleName: "Integrations",
-    pagePath: "/account/settings?section=integrations",
+    pagePath: "/account/integrations",
     recordType: "Integration",
     recordLabel,
     description: `${actorName} ${activated ? "activated" : "deactivated"} the ${recordLabel} integration.`,
@@ -9337,7 +9337,7 @@ const accountController = {
           .then(([self, required]) => ({ show: self || required, required })).catch(() => ({ show: false, required: false }))
         : { show: false, required: false };
       res.render("account/settings", {
-        title: "Settings",
+        title: res.locals.integrationsPage ? "Integrations" : "Settings",
         passwordWho,
         twoStep,
         isEmbedded,
@@ -11275,7 +11275,7 @@ const accountController = {
             ? "Enter your password to activate Google Classroom integration."
             : "Enter your password to deactivate Google Classroom integration."
         );
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       const isPasswordValid = await verifySessionPassword(integrationPassword, req, `turn Google Classroom ${shouldActivate ? "on" : "off"}`);
@@ -11286,7 +11286,7 @@ const accountController = {
             ? `${passwordWord(req)} Google Classroom integration was not activated.`
             : `${passwordWord(req)} Google Classroom integration was not deactivated.`
         );
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       await setGoogleIntegrationActivation(db, orgId, shouldActivate);
@@ -11297,10 +11297,10 @@ const accountController = {
       } else {
         req.flash("success", "Google Classroom integration has been deactivated.");
       }
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     } catch (error) {
       req.flash("error", "Unable to update Google Classroom activation right now.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     }
   },
 
@@ -11325,7 +11325,7 @@ const accountController = {
         req.flash("success", payload.message);
       }
 
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
 
     try {
@@ -11463,13 +11463,13 @@ const accountController = {
         return res.json({ success: true, message: "WhatsApp disconnected." });
       }
       req.flash("success", "WhatsApp disconnected.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     } catch (error) {
       if (wantsJson) {
         return res.status(500).json({ success: false, message: "Unable to disconnect WhatsApp right now." });
       }
       req.flash("error", "Unable to disconnect WhatsApp right now.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     }
   },
 
@@ -11714,7 +11714,7 @@ const accountController = {
       } else if (payload.success && payload.message) {
         req.flash("success", payload.message);
       }
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
 
     try {
@@ -12015,7 +12015,7 @@ const accountController = {
         req.flash("success", payload.message);
       }
 
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
 
     try {
@@ -12074,7 +12074,7 @@ const accountController = {
     const respond = (statusCode, payload) => {
       if (wantsJson) return res.status(statusCode).json(payload);
       req.flash(payload.success ? "success" : "error", payload.message);
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
     try {
       if (!require("../utils/planCatalog").catalogOn(orgId)) {
@@ -12122,7 +12122,7 @@ const accountController = {
         req.flash("success", payload.message);
       }
 
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
 
     try {
@@ -12378,7 +12378,7 @@ const accountController = {
         req.flash("success", payload.message);
       }
 
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
 
     try {
@@ -12436,19 +12436,19 @@ const accountController = {
     try {
       if (!hasGoogleOauthConfig()) {
         req.flash("error", "Google OAuth is not configured on this server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
       if (!integrationStatus.activated) {
         req.flash("error", "Activate Google Classroom integration before connecting an account.");
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       const oauthClient = createGoogleOauthClient();
       const state = createOauthState({
         organizationId: Number(orgId),
-        redirectTo: "/account/settings?section=integrations",
+        redirectTo: "/account/integrations",
       });
       req.session.googleOauthState = state;
 
@@ -12462,7 +12462,7 @@ const accountController = {
       return res.redirect(authUrl);
     } catch (error) {
       req.flash("error", "Unable to start Google Classroom connection.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     }
   },
 
@@ -12480,19 +12480,19 @@ const accountController = {
       const stateFromQuery = String(req.query.state || "").trim();
       if (!expectedState || !stateFromQuery || expectedState !== stateFromQuery) {
         req.flash("error", "Google authorization state mismatch. Please try connecting again.");
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       const parsedState = parseOauthState(stateFromQuery);
       if (!parsedState || Number(parsedState.organizationId) !== Number(orgId)) {
         req.flash("error", "Google authorization could not be validated for this organization.");
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       const authCode = String(req.query.code || "").trim();
       if (!authCode) {
         req.flash("error", "Google did not return an authorization code.");
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
 
       const oauthClient = createGoogleOauthClient();
@@ -12526,10 +12526,10 @@ const accountController = {
 
       req.session.googleOauthState = null;
       req.flash("success", "Google Classroom connected successfully.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     } catch (error) {
       req.flash("error", "Google Classroom connection failed. Please try again.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     }
   },
 
@@ -12542,7 +12542,7 @@ const accountController = {
     const answer = (ok, message, status = ok ? 200 : 400) => {
       if (wantsJson) return res.status(status).json({ success: ok, message, error: ok ? undefined : message });
       req.flash(ok ? "success" : "error", message);
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     };
     try {
       const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
@@ -12573,7 +12573,7 @@ const accountController = {
       });
       if (!saved) {
         req.flash("error", "These choices can be saved once this server's database is updated. Google Classroom keeps working as before.");
-        return res.redirect("/account/settings?section=integrations");
+        return res.redirect("/account/integrations");
       }
       const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
       if (integrationStatus.shouldShowFeatures && JSON.stringify(before) !== JSON.stringify(saved)) {
@@ -12583,7 +12583,7 @@ const accountController = {
     } catch (error) {
       req.flash("error", "Those choices couldn't be saved right now. Try again in a minute.");
     }
-    return res.redirect("/account/settings?section=integrations");
+    return res.redirect("/account/integrations");
   },
 
   googleClassroomDisconnectPost: async (req, res) => {
@@ -12593,10 +12593,10 @@ const accountController = {
     try {
       await disconnectGoogleIntegration(db, orgId);
       req.flash("success", "Google Classroom disconnected.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     } catch (error) {
       req.flash("error", "Unable to disconnect Google Classroom right now.");
-      return res.redirect("/account/settings?section=integrations");
+      return res.redirect("/account/integrations");
     }
   },
 
