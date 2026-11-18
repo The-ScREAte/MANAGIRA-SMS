@@ -2168,3 +2168,19 @@ header#top-header .nav-menu .sbx-item a.sbx__open {
   text-decoration: none;
 }
 header#top-header .nav-menu .sbx-item a.sbx__open:hover { text-decoration: underline; }
+
+/* A parent with children at several schools: each school's logo in a circle, overlapping like a
+   figure eight on its side, the school being viewed in front (views/partials/header.ejs). */
+header#top-header .siteName .fam-logos { display: inline-flex; align-items: center; flex: none; padding-left: 2px; text-decoration: none; }
+header#top-header .siteName .fam-logo { position: relative; display: block; width: 48px; height: 48px; padding: 4px; border: 2px solid #fff; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px rgba(15, 23, 42, .18); object-fit: contain; box-sizing: border-box; transition: transform .18s ease; }
+header#top-header .siteName .fam-logo + .fam-logo { margin-left: -16px; }
+header#top-header .siteName .fam-logo--initials { display: grid; place-items: center; padding: 0; color: #fff; background: #475569; font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+header#top-header .siteName .fam-logo--more { display: grid; place-items: center; padding: 0; color: #334155; background: #f1f5f9; font-size: 13px; font-weight: 700; }
+header#top-header .siteName .fam-logos:hover .fam-logo + .fam-logo { transform: translateX(6px); }
+@media (max-width: 768px) {
+  header#top-header .siteName .fam-logo { width: 38px; height: 38px; padding: 3px; }
+  header#top-header .siteName .fam-logo + .fam-logo { margin-left: -13px; }
+  header#top-header .siteName .fam-logo--initials { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { header#top-header .siteName .fam-logo { transition: none; } }
+

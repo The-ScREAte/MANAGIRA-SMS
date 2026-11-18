@@ -23,6 +23,8 @@ const {
   blockedIntents,
 } = require("./toolSelector");
 
+const skills = require("./skills");
+
 const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: you find records, explain data, draft communications and make changes through your tools. Only ever act within the current user's own school. Be warm, clear and professional.
 
 ## Scope
@@ -161,13 +163,16 @@ function comingDays(from = new Date()) {
 // code, once). A how-to question gets the part of the guide that answers it.
 const HOW_TO = /^\s*(how|where|what (is|are|does)|what's|whats|why (can't|cant|doesn't|does|is|isn't)|can (i|we|you|parents|teachers|students|staff)|is (it|there) (possible|a way)|explain|steps to|help me (to )?(set|add|find|change|turn|connect|use))\b|\bhow (do|can|to|does)\b/i;
 let helpGuides = null;
+// Any question gets a look in the guides (read from code, in memory: no wait). A how-to question
+// takes a likely match; anything else only a sure one, so data questions stay with the tools.
 function helpGuideFor(userText) {
   const question = stripAttachmentBlocks(userText).trim();
-  if (!question || question.length > 300 || !HOW_TO.test(question)) return null;
+  if (!question || question.length > 300) return null;
+  const howTo = HOW_TO.test(question);
   try {
     if (!helpGuides) helpGuides = require("../../utils/docs/catalog").syncRows();
     const result = require("../../utils/docs/askDocs").ask(question, helpGuides);
-    if (result.type !== "answer" || !["sure", "likely"].includes(result.confidence)) return null;
+    if (result.type !== "answer" || !(result.confidence === "sure" || (howTo && result.confidence === "likely"))) return null;
     if (!String(result.source.url || "").startsWith("/legal/user-documentation/")) return null;
     return result;
   } catch (error) {
@@ -455,7 +460,7 @@ async function releaseAnswer(sse, text) {
 
 // sse: { send(event, data) } - a thin wrapper the route layer provides so
 // this module has no direct knowledge of Express's response object.
-async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
+async function runTurn({ tenant, chatId, userText, sse, classScope, images, skillIds = [] }) {
   const budget = await checkBudget(tenant.organizationId);
   if (!budget.allowed) {
     sse.send("error", { message: budget.reason });
@@ -481,10 +486,31 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   };
   const planning = showSteps && needsPlan(userText);
   if (planning) step("understand", "Understanding your request", "active");
-  const [contextMessages, plan] = await Promise.all([
+  // The plan helps, but never holds the answer up: Mira waits at most PLAN_WAIT_MS for it, then
+  // works without it (the steps still show as Mira works).
+  const PLAN_WAIT_MS = 1500;
+  const planning$ = planning ? planTurn({ userText, history: history.summary, tenant, classScope, onUsage: (pass) => usageOf(tenant, pass) }).catch(() => null) : null;
+  let planTimer;
+  const [contextMessages, plan, skillList] = await Promise.all([
     buildContextMessages({ tenant, userText, history: history.summary, classScope, access, digest: history.digest }),
-    planning ? planTurn({ userText, history: history.summary, tenant, classScope, onUsage: (pass) => usageOf(tenant, pass) }) : null,
+    planning$ ? Promise.race([planning$, new Promise((resolve) => { planTimer = setTimeout(() => resolve(null), PLAN_WAIT_MS); })]).finally(() => clearTimeout(planTimer)) : null,
+    // Skills (feature mira_skills): the school's and this person's, read every turn (cached briefly).
+    skills.isOn(access) ? skills.listFor(tenant).catch((error) => {
+      console.error("[mira/orchestrator] skills unavailable, continuing without them:", error.message);
+      return null;
+    }) : null,
   ]);
+  if (skillList) {
+    // This message, and the one before, so a follow-up ("make them shorter") keeps the skill.
+    const priorUser = [...(history.summary || [])].reverse().find((message) => message.role === "user");
+    const applied = skills.selectFor(skillList, `${priorUser ? `${priorUser.content}\n` : ""}${stripAttachmentBlocks(userText)}`, skillIds);
+    const forModel = skills.forModel(applied);
+    if (forModel) {
+      contextMessages.push({ role: "system", content: forModel });
+      sse.send("skills", { skills: applied.map(({ skill, why }) => ({ id: skill.id, name: skill.name, scope: skill.scope, why })) });
+      step("skills", applied.length === 1 ? `Following the skill "${applied[0].skill.name}"` : `Following ${applied.length} skills`, "done", applied.map(({ skill }) => skill.name).join(", "));
+    }
+  }
   if (planning) {
     if (plan) {
       step("understand", "Understood your request", "done", plan.understanding);

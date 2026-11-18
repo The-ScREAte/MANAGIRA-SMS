@@ -385,10 +385,13 @@ module.exports = {
       );
 
       // Children at other Managira schools on the same sign-in (feature family_link).
-      const family = await require("../utils/familyLink").familyFor(db, req.session).catch((error) => {
+      const familyLink = require("../utils/familyLink");
+      const family = await familyLink.familyFor(db, req.session).catch((error) => {
         console.error("[Family link] dashboard:", error.message);
         return null;
       });
+      // The header shows every school on this sign-in (read from the session, no extra query).
+      familyLink.rememberSchools(req.session, family);
 
             return res.render("guardian/dashboard", {
         title: "Parent Portal",

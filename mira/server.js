@@ -74,6 +74,8 @@ app.get("/", pageAuth, tenantScope, requireMiraActivated, async (req, res) => {
     tenant: req.tenant,
     access,
     miraSteps: Boolean(fullAccess.features && fullAccess.features.mira_steps),
+    // Skills (feature mira_skills, services/skills.js).
+    miraSkills: Boolean(fullAccess.features && fullAccess.features.mira_skills),
     mainAppUrl: MAIN_APP_PUBLIC_URL,
   });
 });
@@ -83,6 +85,7 @@ app.use("/api/chat", ssoAuth, tenantScope, requireMiraActivated, require("./rout
 app.use("/api/classes", ssoAuth, tenantScope, requireMiraActivated, require("./routes/classesRoute"));
 app.use("/api/upload", ssoAuth, tenantScope, requireMiraActivated, require("./routes/uploadRoute"));
 app.use("/api/preferences", ssoAuth, tenantScope, requireMiraActivated, require("./routes/preferencesRoute"));
+app.use("/api/skills", ssoAuth, tenantScope, requireMiraActivated, require("./routes/skillsRoute"));
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });

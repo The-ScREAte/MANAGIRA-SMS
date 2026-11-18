@@ -57,7 +57,9 @@ async function postChat(req, res) {
   req.on("close", () => res.end());
 
   try {
-    await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null, images });
+    // Skills picked in the composer for this message (services/skills.js checks they're this person's).
+    const skillIds = (Array.isArray(req.body?.skillIds) ? req.body.skillIds : []).map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 5);
+    await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null, images, skillIds });
   } catch (error) {
     console.error("[mira/chatController]", error);
     sse.send("error", { message: "Something went wrong generating a response." });

@@ -73,6 +73,12 @@
 
       <div class="mira-user-menu-divider"></div>
 
+      <% if (locals.miraSkills) { %>
+      <button type="button" class="mira-user-menu-item mira-user-menu-action" id="miraSkillsBtn">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.6l1.55 3.6 3.85.35-2.9 2.55.85 3.8L8 9.9l-3.35 2l.85-3.8L2.6 5.55l3.85-.35L8 1.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        Skills
+      </button>
+      <% } %>
       <button type="button" class="mira-user-menu-item mira-user-menu-action" id="miraSettingsBtn">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.3M8 12.9v1.3M14.2 8h-1.3M3.1 8H1.8M12.2 3.8l-.9.9M4.7 11.3l-.9.9M12.2 12.2l-.9-.9M4.7 4.7l-.9-.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         Settings

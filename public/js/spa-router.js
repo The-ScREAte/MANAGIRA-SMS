@@ -600,6 +600,14 @@
       if (!doc.getElementById('app-scale-root') || !currentMain || !newMain) {
         throw new Error('Not a page of the app frame');
       }
+      // Drawn for another school than this page (a parent's child at another school): the whole
+      // page loads, so the header, logo and menus are that school's.
+      const nowSchool = (document.getElementById('app-scale-root') || {}).getAttribute ? document.getElementById('app-scale-root').getAttribute('data-school') : null;
+      const newSchool = doc.getElementById('app-scale-root').getAttribute('data-school');
+      if (nowSchool !== null && newSchool !== null && nowSchool !== newSchool) {
+        this.cache.clear && this.cache.clear();
+        throw new Error('Another school');
+      }
 
       // 0. Run any cleanup callbacks registered by the outgoing page.
       //    Page scripts can push disposers into window.__spaCleanup to dispose

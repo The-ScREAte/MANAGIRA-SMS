@@ -620,9 +620,10 @@
       <% const _family = locals.family || null; %>
       <% const _otherKids = _family ? _family.schools.reduce((n, s) => n + s.children.length, 0) : 0; %>
       <% const _multiSchool = _otherKids > 0; %>
-      <% const _homeLogo = req && req.session && req.session.logo ? publicImageUrl(req.session.logo, { width: 64 }) : ''; %>
+      <% const _homeLogoPath = (_family && _family.homeSchool && _family.homeSchool.logo) || (req && req.session && req.session.logo) || ''; %>
+      <% const _homeLogo = _homeLogoPath ? publicImageUrl(_homeLogoPath, { width: 64 }) : ''; %>
       <% const _hs = (req && req.session) || {}; %>
-      <% const _homeName = (_hs.orgNickNameDisplay && _hs.orgNickNameDisplay !== _hs.orgNickName ? _hs.orgNickNameDisplay : _hs.organizationName) || ''; %>
+      <% const _homeName = (_family && _family.homeSchool && _family.homeSchool.name) || (_hs.orgNickNameDisplay && _hs.orgNickNameDisplay !== _hs.orgNickName ? _hs.orgNickNameDisplay : _hs.organizationName) || ''; %>
       <% const _initials = (name) => String(name || '').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(); %>
       <div class="section-header">
         <h2 class="section-title">My Children</h2>
@@ -630,6 +631,20 @@
           <span class="student-count-badge"><%= children.length + _otherKids %> Student<%= children.length + _otherKids !== 1 ? 's' : '' %><%= _multiSchool ? ' · ' + (_family.schools.length + 1) + ' schools' : '' %></span>
         <% } %>
       </div>
+      <% if (_family && _family.invites && _family.invites.length) { _family.invites.forEach((inv) => { const _names = inv.children.map((c) => c.name); %>
+      <div class="fl-invite" data-family-invite="<%= inv.school.id %>">
+        <span class="fl-invite__logo"><% if (inv.school.logo) { %><img src="<%= publicImageUrl(inv.school.logo, { width: 96 }) %>" alt="" /><% } else { %><span><%= _initials(inv.school.name) %></span><% } %></span>
+        <div class="fl-invite__text">
+          <strong><%= inv.school.name %> added you as a parent</strong>
+          <span>Of <%= _names.length > 1 ? _names.slice(0, -1).join(', ') + ' and ' + _names[_names.length - 1] : _names[0] %>. Accept to see <%= _names.length > 1 ? 'them' : (inv.children[0].firstName || 'them') %> here with this same sign-in.</span>
+        </div>
+        <div class="fl-invite__actions">
+          <button type="button" class="fl-btn fl-btn--quiet" data-fl-answer="no">Not me</button>
+          <button type="button" class="fl-btn" data-fl-answer="yes">Accept</button>
+        </div>
+        <p class="fl-confirm__note" data-fl-note aria-live="polite"></p>
+      </div>
+      <% }) } %>
       <% if (_family && _family.waiting) { %>
       <div class="fl-confirm" data-family-confirm>
         <div class="fl-confirm__text">
@@ -795,9 +810,9 @@
     <% } %>
   </div>
 </div>
-<% if (locals.family && (family.waiting || family.schools.length)) { %>
+<% if (locals.family && (family.waiting || family.schools.length || (family.invites && family.invites.length))) { %>
 <link rel="stylesheet" href="<%= assetUrl('/css/familyLink.css') %>" />
-<% if (family.waiting) { %><script src="<%= assetUrl('/js/familyLink.js') %>" defer></script><% } %>
+<% if (family.waiting || (family.invites && family.invites.length)) { %><script src="<%= assetUrl('/js/familyLink.js') %>" defer></script><% } %>
 <% } %>
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <% if (locals.featureOn && (featureOn('parent_student_hub') || featureOn('bus_boarding'))) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" /><% } %>

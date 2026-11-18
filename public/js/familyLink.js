@@ -11,7 +11,32 @@
         });
       });
   }
+  // Accept or Not me on another school's invitation, then the page loads again (the header shows
+  // both schools once accepted).
+  function mountInvites() {
+    document.querySelectorAll('[data-family-invite]').forEach(function (card) {
+      if (card.dataset.bound === '1') return;
+      card.dataset.bound = '1';
+      var note = card.querySelector('[data-fl-note]');
+      card.addEventListener('click', function (event) {
+        var btn = event.target.closest('[data-fl-answer]');
+        if (!btn) return;
+        var accept = btn.getAttribute('data-fl-answer') === 'yes';
+        card.querySelectorAll('[data-fl-answer]').forEach(function (b) { b.disabled = true; });
+        note.classList.remove('is-error');
+        note.textContent = accept ? 'Adding\u2026' : 'Saving\u2026';
+        post('/guardian/family/answer', { organizationId: Number(card.getAttribute('data-family-invite')), accept: accept }).then(function () {
+          window.location.reload();
+        }).catch(function (error) {
+          card.querySelectorAll('[data-fl-answer]').forEach(function (b) { b.disabled = false; });
+          note.classList.add('is-error');
+          note.textContent = error.message;
+        });
+      });
+    });
+  }
   function mount() {
+    mountInvites();
     var box = document.querySelector('[data-family-confirm]');
     if (!box || box.dataset.bound === '1') return;
     box.dataset.bound = '1';

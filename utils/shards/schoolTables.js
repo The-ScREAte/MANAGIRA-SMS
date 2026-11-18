@@ -38,6 +38,7 @@ const LINKED = {
   mira_chat_messages: via("chat_id", "mira_chats", "id", "tenant_id"),
   mira_chats: tenant,
   mira_embeddings: tenant,
+  mira_skills: tenant,
   mira_tenant_limits: tenant,
   mira_tool_call_log: tenant,
   mira_usage_ledger: tenant,

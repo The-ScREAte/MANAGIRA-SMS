@@ -214,7 +214,19 @@
   <div class="header-mobile-row">
     <div class="header-mobile-left">
       <span class="siteName">
-        <% if (isLoggedIn && typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
+        <%# A parent with children at several schools (feature family_link): every school's logo,
+            overlapping, the school they're looking at in front. Read from the session (no query). %>
+        <% const _famSchools = isLoggedIn && session && session.userRole === 'Guardian' && Array.isArray(session.familySchools) && session.familySchools.length > 1
+             ? session.familySchools.slice().sort((a, b) => (Number(b.id) === Number(session.organizationId)) - (Number(a.id) === Number(session.organizationId))) : null; %>
+        <% if (_famSchools) { %>
+          <% const _famShown = _famSchools.slice(0, 4); const _famMore = _famSchools.length - _famShown.length; %>
+          <a href="<%= dashboardHref %>" class="fam-logos" title="<%= 'Your schools: ' + _famSchools.map((s) => s.name).join(', ') %>" aria-label="My children at <%= _famSchools.map((s) => s.name).join(', ') %>">
+            <% _famShown.forEach((s, i) => { %>
+              <% if (s.logo) { %><img src="<%= publicImageUrl(normalizeLogoSrc(s.logo), { public: true, width: 128 }) %>" alt="" class="fam-logo" style="z-index:<%= 10 - i %>" /><% } else { %><span class="fam-logo fam-logo--initials" style="z-index:<%= 10 - i %>"><%= String(s.name || '').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() %></span><% } %>
+            <% }) %>
+            <% if (_famMore > 0) { %><span class="fam-logo fam-logo--more" style="z-index:1">+<%= _famMore %></span><% } %>
+          </a>
+        <% } else if (isLoggedIn && typeof orgHeaderLogo !== 'undefined' && orgHeaderLogo) { %>
           <a href="<%= dashboardHref %>" title="Go to dashboard">
             <img src="<%= publicImageUrl(normalizeLogoSrc(orgHeaderLogo), { public: true, width: 256 }) %>" alt="Organization Logo" class="logo" />
           </a>
@@ -240,7 +252,8 @@
           <!-- Hub without logo - show nothing or hub name only -->
         <% } %>
         <!-- Move org name/nickname outside <a> for better flex and visibility -->
-        <% if (isLoggedIn || showPublicOrgIdentity) { %>
+        <%# Two schools or more: just their logos, no name (the logos say which schools). %>
+        <% if ((isLoggedIn || showPublicOrgIdentity) && !_famSchools) { %>
           <div class="org-names">
             <a href="<%= showPublicOrgIdentity ? headerHomeHref : dashboardHref %>" title="<%= showPublicOrgIdentity ? 'Return to home page' : 'Go to dashboard' %>">
               <h3 class="org-full-name">

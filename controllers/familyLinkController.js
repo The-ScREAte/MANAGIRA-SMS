@@ -24,6 +24,18 @@ module.exports = {
     }
   },
 
+  // POST /guardian/family/answer { organizationId, accept }: Accept or Not me on another school's invitation.
+  answer: async (req, res, db) => {
+    try {
+      const accept = req.body && (req.body.accept === true || req.body.accept === "true");
+      const school = await familyLink.answerInvite(db, req, req.body && req.body.organizationId, accept);
+      return json(res, 200, { success: true, accepted: accept, school: school.name });
+    } catch (error) {
+      if (!(error instanceof familyLink.LinkError)) console.error("[Family link] answer:", error.message);
+      return json(res, error.status || 500, { success: false, message: error instanceof familyLink.LinkError ? error.message : "That didn't work. Try again." });
+    }
+  },
+
   sendCode: async (req, res, db) => {
     try {
       const to = await familyLink.sendConfirmCode(db, req);

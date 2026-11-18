@@ -105,7 +105,10 @@
 </script>
 </head>
 <body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= _isStudentPortal ? 'student-portal' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
-    <div id="app-scale-root">
+    <%# Which school (and which parent account) this page was drawn for: the page-switcher loads the
+        whole page when it changes (a parent opening a child at another school), so the header, logo
+        and menus never stay those of the school before. %>
+    <div id="app-scale-root" data-school="<%= (typeof session !== 'undefined' && session && session.organizationId) || '' %>:<%= (typeof session !== 'undefined' && session && session.guardianId) || '' %>">
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
             <%

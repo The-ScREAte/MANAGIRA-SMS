@@ -751,6 +751,8 @@
           images: images && images.length ? images : [],
           classId: selectedClass && selectedClass !== "all" ? selectedClass.class_id : null,
           className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
+          // Skills picked in the message box (public/js/mira-skills.js, feature mira_skills).
+          skillIds: window.MiraSkills ? window.MiraSkills.takePicked() : [],
         }),
       });
     } catch (err) {
@@ -807,6 +809,7 @@
           else if (eventName === "revise") handlers.onRevise?.(data);
           else if (eventName === "step") handlers.onStep?.(data);
           else if (eventName === "plan") handlers.onPlan?.(data);
+          else if (eventName === "skills") handlers.onSkills?.(data);
           else if (eventName === "tool_call") handlers.onToolCall?.(data);
           else if (eventName === "tool_result") handlers.onToolResult?.(data);
           else if (eventName === "error") handlers.onError?.(data.message);
@@ -909,6 +912,7 @@
       },
       onStep: function (data) { if (STEPS_ON) stepsPanel().step(data); },
       onPlan: function (data) { if (STEPS_ON) stepsPanel().plan(data && data.steps); },
+      onSkills: function (data) { if (window.MiraSkills) window.MiraSkills.showUsed(bubble, data && data.skills); },
       onToolCall: function (data) {
         if (STEPS_ON) stepsPanel().toolStarted((data && data.label) || describeTool(data && data.name).replace(/\u2026$/, ""));
         else setThinkingLabel(describeTool(data && data.name));

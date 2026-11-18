@@ -24,14 +24,15 @@ const isOn = (organizationId) => features().isOn(FEATURE, { organizationId: Numb
 const lower = (value) => String(value || "").trim().toLowerCase();
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-// Whether the column exists yet (2026-12-20_family_link.sql). A failed check keeps its last answer.
+// Whether the columns exist yet (2026-12-20_family_link.sql, 2026-12-21_family_accept.sql). A failed
+// check keeps its last answer.
 let known = null;
 let checkedAt = 0;
 async function ready(db) {
   if (known === true || (known === false && Date.now() - checkedAt < 60000)) return known;
   try {
     const { rows } = await db.query(
-      "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'guardian_accounts' AND column_name = 'email_proven'"
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'guardian_accounts' AND column_name = 'family_status'"
     );
     known = rows.length > 0;
     checkedAt = Date.now();
@@ -73,24 +74,30 @@ async function markProven(db, guardianId, organizationId, email) {
   return rowCount > 0;
 }
 
+// Whether a school has the parent portal, read at most every 30 seconds per school.
+const { createShortCache } = require("./shortCache");
+const portals = createShortCache({ ttlMs: 30000 });
+const portalOpen = (db, organizationId) => portals.get(Number(organizationId), "portal", () => require("./guardianPortalAccess").hasGuardianPortalFeature(db, organizationId).catch(() => false));
+
 // Other schools' parent accounts for this email, where those schools are open, have the parent
-// portal and have the feature. Never the home school itself.
+// portal and have the feature. Never the home school itself, never one the parent said isn't
+// theirs ("Not me"). `family_status`: 'accepted', or null while the invitation waits.
 async function otherAccounts(db, email, homeOrganizationId) {
   if (!EMAIL.test(lower(email))) return [];
   const { rows } = await db.query(
     `SELECT DISTINCT ON (ga.organization_id)
-            ga.guardian_id, ga.organization_id, gp.first_name, gp.last_name,
+            ga.guardian_id, ga.organization_id, ga.family_status, gp.first_name, gp.last_name,
             o.organization_name, o.nickname, o.nickname_display, o.logo, o.font_style, o.theme_color
        FROM guardian_accounts ga
        JOIN guardian_profiles gp ON gp.guardian_id = ga.guardian_id AND gp.organization_id = ga.organization_id
        JOIN organizations o ON o.organization_id = ga.organization_id
       WHERE LOWER(ga.login_email) = $1 AND ga.organization_id <> $2
+        AND ga.family_status IS DISTINCT FROM 'declined'
         AND COALESCE(o.deleted, FALSE) = FALSE AND COALESCE(o.on_hold, FALSE) = FALSE
       ORDER BY ga.organization_id, ga.guardian_id`,
     [lower(email), Number(homeOrganizationId)]
   );
-  const { hasGuardianPortalFeature } = require("./guardianPortalAccess");
-  const open = await Promise.all(rows.map(async (row) => isOn(row.organization_id) && (await hasGuardianPortalFeature(db, row.organization_id).catch(() => false))));
+  const open = await Promise.all(rows.map(async (row) => isOn(row.organization_id) && (await portalOpen(db, row.organization_id))));
   return rows.filter((_row, i) => open[i]);
 }
 
@@ -102,16 +109,19 @@ const schoolOf = (row) => ({
 });
 
 // The family across schools for the dashboard: { home, proven, schools: [{ school, guardianId,
-// children }] }, or null where it doesn't apply. `waiting` = other schools exist but the email
-// isn't proven yet (nothing about them is shown, only that confirming would add them).
+// children }], invites: [same, not answered yet] }, or null where it doesn't apply. `waiting` =
+// other schools exist but the email isn't proven yet (nothing about them is shown, only that
+// confirming would add them). A school's children show once its invitation is accepted.
 async function familyFor(db, session) {
   const home = homeOf(session);
   if (!home || !isOn(home.organizationId) || !(await ready(db))) return null;
   const account = await accountOf(db, home.guardianId, home.organizationId);
   if (!account || !EMAIL.test(lower(account.login_email))) return null;
   const others = await otherAccounts(db, account.login_email, home.organizationId);
-  if (!others.length) return { home, proven: proven(account), schools: [], waiting: false, email: account.login_email };
-  if (!proven(account)) return { home, proven: false, schools: [], waiting: true, email: account.login_email };
+  if (!others.length) return { home, proven: proven(account), schools: [], invites: [], waiting: false, email: account.login_email };
+  const homeRow = (await db.query("SELECT organization_id, organization_name, nickname, nickname_display, logo FROM organizations WHERE organization_id = $1", [home.organizationId])).rows[0];
+  const homeSchool = homeRow ? schoolOf(homeRow) : null;
+  if (!proven(account)) return { home, homeSchool, proven: false, schools: [], invites: [], waiting: true, email: account.login_email };
   const { rows } = await db.query(
     `SELECT gs.guardian_id, s.student_id, s.first_name, s.last_name, s.image_url, s.organization_id, c.class_name
        FROM guardian_students gs
@@ -123,14 +133,19 @@ async function familyFor(db, session) {
       ORDER BY LOWER(s.first_name), s.student_id`,
     [others.map((o) => Number(o.guardian_id)), others.map((o) => Number(o.organization_id))]
   );
-  const schools = others.map((o) => ({
+  const all = others.map((o) => ({
     school: schoolOf(o),
     guardianId: Number(o.guardian_id),
+    accepted: o.family_status === "accepted",
     children: rows
       .filter((r) => Number(r.guardian_id) === Number(o.guardian_id) && Number(r.organization_id) === Number(o.organization_id))
       .map((r) => ({ id: Number(r.student_id), firstName: r.first_name || "", name: [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "Your child", imageUrl: r.image_url, className: r.class_name || "" })),
   })).filter((s) => s.children.length);
-  return { home, proven: true, schools, waiting: false, email: account.login_email };
+  return {
+    home, homeSchool, proven: true, waiting: false, email: account.login_email,
+    schools: all.filter((s) => s.accepted),
+    invites: all.filter((s) => !s.accepted),
+  };
 }
 
 // Points the session at a parent account (its school's look and its guardian id), as sign-in does.
@@ -169,6 +184,7 @@ async function switchToChild(db, req, organizationId, studentId) {
   if (!proven(account)) throw new LinkError("Confirm your email first.");
   const target = (await otherAccounts(db, account.login_email, home.organizationId)).find((row) => Number(row.organization_id) === orgId);
   if (!target) throw new LinkError("That child isn't on your sign-in.");
+  if (target.family_status !== "accepted") throw new LinkError("Accept the school's invitation on My children first.");
   const { rows } = await db.query(
     `SELECT 1 FROM guardian_students gs JOIN students s ON s.student_id = gs.student_id
       WHERE gs.guardian_id = $1 AND s.student_id = $2 AND s.organization_id = $3 AND COALESCE(s.graduated, FALSE) = FALSE`,
@@ -178,6 +194,40 @@ async function switchToChild(db, req, organizationId, studentId) {
   if (!session.familyHome) session.familyHome = { guardianId: home.guardianId, organizationId: home.organizationId };
   applyAccount(session, target, account.login_email);
   logSwitch(req, target, `Opened from the parent's sign-in at another school.`);
+}
+
+// The parent's answer to another school's invitation: 'accepted' or 'declined' ("Not me"). Only
+// while the email is proven, only that school's account for this email, logged in that school.
+async function answerInvite(db, req, organizationId, accept) {
+  const home = homeOf(req.session);
+  if (!home || !isOn(home.organizationId) || !(await ready(db))) throw new LinkError("That isn't available.");
+  const orgId = Number(organizationId);
+  if (!Number.isInteger(orgId) || orgId <= 0 || orgId === home.organizationId) throw new LinkError("That isn't available.", 400);
+  const account = await accountOf(db, home.guardianId, home.organizationId);
+  if (!proven(account)) throw new LinkError("Confirm your email first.");
+  const target = (await otherAccounts(db, account.login_email, home.organizationId)).find((row) => Number(row.organization_id) === orgId);
+  if (!target) throw new LinkError("That invitation isn't open any more.", 404);
+  await db.query(
+    `UPDATE guardian_accounts SET family_status = $4, family_decided_at = NOW()
+      WHERE guardian_id = $1 AND organization_id = $2 AND LOWER(login_email) = $3`,
+    [Number(target.guardian_id), orgId, lower(account.login_email), accept ? "accepted" : "declined"]
+  );
+  logSwitch(req, target, accept
+    ? "The parent accepted the invitation: this school's children are on the sign-in they already use."
+    : "The parent said this invitation isn't theirs (Not me). Check the parent's email address.");
+  return schoolOf(target);
+}
+
+// The schools on this sign-in for the header's logos (home first): kept on the session when the
+// dashboard is drawn, so the header reads nothing. Only with two schools or more.
+function rememberSchools(session, family) {
+  if (!session) return;
+  const homeSchool = family && family.homeSchool;
+  const schools = family && family.schools && family.schools.length
+    ? [homeSchool, ...family.schools.map((s) => s.school)].filter(Boolean).slice(0, 12).map((s) => ({ id: Number(s.id), name: String(s.name || ""), logo: s.logo || null }))
+    : null;
+  if (schools && schools.length > 1) session.familySchools = schools;
+  else delete session.familySchools;
 }
 
 // A background warm-up (the page-switcher's X-SPA-Preload, a browser prefetch): never switches.
@@ -317,10 +367,10 @@ function sendLinkedNotice({ to, firstName, studentName, schoolName, organization
     greeting: firstName ? `Hi ${he.encode(String(firstName).trim())},` : "Hello,",
     paragraphs: [
       `${school ? he.encode(school) : "A school"} added you as a parent or guardian of <strong>${he.encode(studentName)}</strong>.`,
-      `You don't need a new account. Sign in with the email and password you already use for ${he.encode(homeSchool)}: ${he.encode(studentName)} is under <strong>My children</strong>, with ${school ? he.encode(school) + "'s" : "their school's"} logo.`,
+      `You don't need a new account. Sign in with the email and password you already use for ${he.encode(homeSchool)}, then select <strong>Accept</strong> on <strong>My children</strong>: ${he.encode(studentName)} then shows there, with ${school ? he.encode(school) + "'s" : "their school's"} logo.`,
     ],
-    cta: { text: "Sign in", url: signInUrl },
-    note: "If you don't know this school, contact it before signing in.",
+    cta: { text: "Sign in to accept", url: signInUrl },
+    note: "If this isn't your child, select Not me instead, or contact the school.",
     schoolName: school,
     organizationId,
   });
@@ -340,4 +390,5 @@ module.exports = {
   sendLinkedNotice,
   FEATURE, LinkError, isOn, ready, homeOf, proven, markProven, otherAccounts, familyFor,
   switchToChild, switchHome, sendConfirmCode, confirmCode, existingSignIn, followChild, isWarmUp,
+  answerInvite, rememberSchools,
 };

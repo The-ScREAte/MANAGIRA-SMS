@@ -23,12 +23,34 @@ async function listFor(req, res, db, people, audience, linkFor) {
 }
 
 module.exports = {
+  // A parent's requests from every school on their sign-in (feature family_link): the school they
+  // signed in at, and each other school whose invitation they accepted. Each school's forms are read
+  // with that school's own id; a link opens the form in its school (familyLink.followChild).
   guardian: async (req, res, db) => {
-    const organizationId = Number(req.session.organizationId);
-    if (!portalRequests.isOn(organizationId)) return fail(res, 404, "Requests aren't available.");
+    const familyLink = require("../utils/familyLink");
+    const home = familyLink.homeOf(req.session) || { guardianId: Number(req.session.guardianId), organizationId: Number(req.session.organizationId) };
+    if (!portalRequests.isOn(home.organizationId)) return fail(res, 404, "Requests aren't available.");
     try {
-      const children = await portalRequests.childrenOfGuardian(db, organizationId, Number(req.session.guardianId));
-      return await listFor(req, res, db, children, "parent", (child, formId) => `/guardian/child/forms?studentId=${child.id}&form=${formId}`);
+      const family = await familyLink.familyFor(db, req.session).catch(() => null);
+      const schools = [{ organizationId: home.organizationId, guardianId: home.guardianId, name: family && family.homeSchool ? family.homeSchool.name : "" }]
+        .concat(((family && family.schools) || []).map((s) => ({ organizationId: s.school.id, guardianId: s.guardianId, name: s.school.name })));
+      const bucket = bucketOf(req);
+      const day = todayKeyFor(req);
+      const linkFor = (child, formId) => `/guardian/child/forms?studentId=${child.id}&form=${formId}`;
+      const lists = await Promise.all(schools.map(async (school) => {
+        const children = await portalRequests.childrenOfGuardian(db, school.organizationId, school.guardianId);
+        const [items, waiting] = await Promise.all([
+          portalRequests.forms(db, school.organizationId, children, "parent", { bucket, day, linkFor }),
+          bucket === "new" ? null : portalRequests.forms(db, school.organizationId, children, "parent", { bucket: "new", day, linkFor }),
+        ]);
+        const named = (list) => (schools.length > 1 ? list.map((item) => ({ ...item, schoolName: school.name })) : list);
+        return { items: named(items), newCount: (waiting || items).length };
+      }));
+      const requests = lists.flatMap((l) => l.items);
+      if (bucket === "new") requests.sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")) || Number(b.required) - Number(a.required));
+      else requests.sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+      noStore(res);
+      return res.json({ success: true, bucket, requests, newCount: lists.reduce((n, l) => n + l.newCount, 0) });
     } catch (error) {
       console.error("[Requests] parent:", error.message);
       return fail(res, 500, "Requests could not load. Try again.");

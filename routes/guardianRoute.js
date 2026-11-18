@@ -30,6 +30,7 @@ module.exports = (db) => {
   // One sign-in for children at several schools (feature family_link, utils/familyLink.js).
   const familyLinkController = require("../controllers/familyLinkController");
   router.post("/family/open", isGuardianAuthenticated, express.urlencoded({ extended: false, limit: "4kb" }), (req, res) => familyLinkController.open(req, res, db));
+  router.post("/family/answer", isGuardianAuthenticated, express.json({ limit: "2kb" }), (req, res) => familyLinkController.answer(req, res, db));
   router.post("/family/confirm/send", isGuardianAuthenticated, express.json({ limit: "2kb" }), (req, res) => familyLinkController.sendCode(req, res, db));
   router.post("/family/confirm", isGuardianAuthenticated, express.json({ limit: "2kb" }), (req, res) => familyLinkController.confirm(req, res, db));
   // Requests: forms the school asks the family to fill in, new and sent (feature portal_requests).

@@ -1,0 +1,20 @@
+<%# Mira skills (feature mira_skills): the Skills window (public/js/mira-skills.js, services/skills.js). %>
+<div class="mira-modal-overlay" id="miraSkillsOverlay" hidden>
+  <div class="mira-modal mira-skills-modal" role="dialog" aria-modal="true" aria-labelledby="miraSkillsTitle">
+    <div class="mira-modal-header">
+      <h2 id="miraSkillsTitle">Skills</h2>
+      <button type="button" class="mira-icon-btn" id="miraSkillsClose" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="mira-modal-body mira-skills-body">
+      <p class="mira-skills-intro">Playbooks Mira follows. <strong>School skills</strong> apply to everyone, <strong>yours</strong> only to you.</p>
+      <div class="mira-skills-tabs" role="tablist">
+        <button type="button" role="tab" class="is-on" aria-selected="true" data-sk-tab="mine">Yours</button>
+        <button type="button" role="tab" aria-selected="false" data-sk-tab="school">School</button>
+        <button type="button" role="tab" aria-selected="false" data-sk-tab="library">Library</button>
+      </div>
+      <div class="mira-skills-pane" data-sk-pane aria-live="polite"><p class="mira-skills-empty">Loading…</p></div>
+    </div>
+  </div>
+</div>

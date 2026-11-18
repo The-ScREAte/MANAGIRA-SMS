@@ -51,7 +51,7 @@
 
   function formItem(r, audience) {
     var meta = [];
-    if (audience === 'parent' && r.studentName) meta.push('For ' + r.studentName);
+    if (audience === 'parent' && r.studentName) meta.push('For ' + r.studentName + (r.schoolName ? ' at ' + r.schoolName : ''));
     if (r.status === 'new') {
       var due = dueText(r.dueDate);
       if (due) meta.push(due);

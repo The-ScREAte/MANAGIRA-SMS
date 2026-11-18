@@ -22,3 +22,22 @@
   .fl-confirm { grid-template-columns: 1fr; }
   .fl-confirm__actions input { flex: 1; width: auto; }
 }
+
+.fl-invite { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px 16px; margin: 0 0 14px; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #0f5a66) 28%, #e5e9ef); border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .05); }
+.fl-invite__logo { display: grid; place-items: center; width: 52px; height: 52px; overflow: hidden; border: 1px solid #e5e9ef; border-radius: 50%; background: #fff; }
+.fl-invite__logo img { width: 100%; height: 100%; padding: 5px; object-fit: contain; box-sizing: border-box; }
+.fl-invite__logo span { color: #475569; font-weight: 700; }
+.fl-invite__text { display: grid; gap: 3px; min-width: 0; }
+.fl-invite__text strong { color: #0f172a; font-size: 15px; }
+.fl-invite__text span { color: #475569; font-size: 13.5px; line-height: 1.5; }
+.fl-invite__actions { display: flex; gap: 8px; }
+.fl-invite .fl-btn { width: auto; height: 40px; margin: 0; padding: 0 18px; border: 0; border-radius: 10px; color: #fff; background: var(--org-primary-color, #0f5a66); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: none; white-space: nowrap; }
+.fl-invite .fl-btn--quiet { border: 1px solid #d7dee7; color: #334155; background: #fff; }
+.fl-invite .fl-btn[disabled] { opacity: .6; cursor: wait; }
+.fl-invite .fl-confirm__note { grid-column: 1 / -1; }
+@media (max-width: 560px) {
+  .fl-invite { grid-template-columns: auto 1fr; }
+  .fl-invite__actions { grid-column: 1 / -1; }
+  .fl-invite__actions .fl-btn { flex: 1; }
+}
+
