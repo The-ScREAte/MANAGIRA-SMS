@@ -2,8 +2,6 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/portfolio.css') %>" />
 <div class="ph pf">
   <%- include('../partials/flash') %>
-  <a class="ph-back" href="/guardian/child?studentId=<%= child.id %>"><%= child.name %></a>
-  <h1 class="ph-title">Portfolio</h1>
-  <p style="margin:-6px 0 14px;color:var(--pf-muted);font-size:13.5px"><% if (locals.labels) { %>Files and marked work, term by term.<% } else { %><%= child.firstName %>’s work, term by term: marked tests<%= locals.showReportCard === false ? ' and assignments' : ', assignments and the report card' %>.<% } %></p>
+  <%- include('../partials/portalHead', { title: 'Portfolio', icon: 'portfolio', sub: 'Files and marked work, the last three terms.', back: { href: '/guardian/child?studentId=' + child.id, label: child.name } }) %>
   <%- include('../partials/portfolioFolder') %>
 </div>

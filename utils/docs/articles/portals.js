@@ -257,7 +257,7 @@ module.exports = [
         steps: [
           ["On your child's page, select <strong>Portfolio</strong>.", "parent-portfolio.webp", "The portfolio: files from the school, then each term's work."],
           "<strong>Student files</strong> holds papers the school shared, such as an insurance card. Select <strong>Open</strong>.",
-          "Choose a term. <strong>Documented assessments</strong> are tests taken in the Testing Room: select <strong>Open</strong> or <strong>Download PDF</strong>.",
+          "Choose one of the last three terms. <strong>Documented assessments</strong> are tests taken in the Testing Room: select <strong>Open</strong> or <strong>Download PDF</strong>.",
           "<strong>Assessments &amp; assignments</strong> lists each subject's work with its mark. <em>Undocumented</em> means the teacher entered the mark.",
         ],
         note: "You see marks once the teacher has posted them, the same as on " + link("parent-grades-and-report-cards", "Grades and report cards") + ".",
@@ -293,7 +293,7 @@ module.exports = [
       },
       {
         title: "What students see",
-        text: "The dashboard shows the student's class, attendance this term (with overall lunch beside it, if your school takes lunch), your GPA where grades are letters, and how many tests are open, then a tile for each area.",
+        text: "The dashboard shows the student's class and term, then attendance, GPA (where grades are letters) and the days left in the term (select it for the term's details), then a tile for each area. A number on a tile means something is waiting, such as tests to take.",
         image: "student-portal.webp",
         caption: "The student dashboard: attendance, open tests and a tile for each area.",
         table: [
@@ -301,13 +301,13 @@ module.exports = [
           ["<strong>Schedule</strong>", "Classes for each day of the week.", ""],
           ["<strong>Calendar</strong> and <strong>Activities</strong>", "Classes, activities and school events.", link("student-calendar-and-activities", "Calendar and activities")],
           ["<strong>Grades</strong>", "Each subject's posted grades.", ""],
-          ["<strong>Subject Teachers</strong>", "Who teaches each subject.", ""],
-          ["<strong>Transportation</strong>", "Your bus and stop, if your school uses it.", link("live-bus-tracking", "Live bus tracking")],
+          ["<strong>Teachers</strong>", "Who teaches each subject. Search a teacher's name to see their email.", ""],
+          ["<strong>Bus</strong>", "Your bus and stop, if your school uses it.", link("live-bus-tracking", "Live bus tracking")],
           ["<strong>Testing Room</strong>", "Tests to take, and finished ones with the grade.", link("student-testing-room", "Take a test") + ", " + link("student-results", "Your results")],
           ["<strong>Forms</strong>", "Forms your school asks you to fill in. Answer the questions and select <strong>Send</strong>.", ""],
-          ["<strong>Portfolio</strong>", "Your files from the school, and a folder for each term: marked work, tests and your report card.", ""],
+          ["<strong>Portfolio</strong>", "Each subject's percentage and how steady your marks are, your tests and your report card, term by term.", ""],
+          ["<strong>Settings</strong>", "Light, Classic or Dark.", ""],
         ],
-        note: "<strong>Settings</strong> (in the menu) sets Light, Classic or Dark.",
       },
       {
         title: "See your report cards",

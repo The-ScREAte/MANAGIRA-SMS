@@ -410,36 +410,8 @@
 %>
 
 <div class="reports-container">
-  <div class="reports-hero" data-ap-skip>
-    <div class="reports-header">
-      <div>
-        <h1>Messages</h1>
-        <p class="reports-subtitle">Your conversations with the school, all in one place.</p>
-      </div>
-      <div class="reports-header-actions">
-        <a href="/guardian/reports" class="btn-email-indicator" title="Unread messages">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
-            <path d="M3 7l9 6 9-6"></path>
-          </svg>
-          Messages
-          <span class="btn-email-count"><%= (typeof reportUnreadTotal !== 'undefined' ? reportUnreadTotal : statusTotals.unread) %></span>
-        </a>
-        <button class="btn-new-report" onclick="openModal()">+ New message</button>
-      </div>
-    </div>
-
-    <details class="mobile-collapse">
-      <summary class="mobile-collapse-summary">Quick Overview</summary>
-      <div class="mobile-collapse-content">
-        <div class="reports-summary">
-          <div class="summary-pill"><strong><%= statusTotals.total %></strong><span>Total</span></div>
-          <div class="summary-pill"><strong><%= statusTotals.resolved %></strong><span>Resolved</span></div>
-          <div class="summary-pill"><strong><%= statusTotals.unread %></strong><span>Unread</span></div>
-        </div>
-      </div>
-    </details>
-  </div>
+  <% const _unread = Number((typeof reportUnreadTotal !== 'undefined' ? reportUnreadTotal : statusTotals.unread)) || 0; %>
+  <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: _unread ? _unread + ' unread' : 'Your conversations with the school.', back: { href: '/guardian/dashboard', label: 'Dashboard' }, extraHtml: '<button type="button" class="pt-primary" onclick="openModal()">+ New message</button>' }) %>
 
   <details class="mobile-collapse">
     <summary class="mobile-collapse-summary" style="color:#0f172a; background:#fff; border-bottom:1px solid #e2e8f0;">Search & Filter</summary>

@@ -14,9 +14,6 @@
 .tr *, .tr *::before, .tr *::after { box-sizing: border-box; }
 .tr :is(h1, h2, p) { text-align: left; color: inherit; }
 
-.tr-head { margin: 0 0 22px; }
-.tr-head h1 { margin: 0; color: var(--tr-ink); font-size: 1.6rem; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
-.tr-head p { margin: 4px 0 0; color: var(--tr-muted) !important; font-size: .9rem; }
 
 .tr-section { margin: 0 0 26px; }
 .tr-section__head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }

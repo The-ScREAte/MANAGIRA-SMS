@@ -61,6 +61,16 @@ async function classFor(db, organizationId, studentId, termId) {
   return now[0] ? { id: Number(now[0].class_id), name: now[0].class_name } : null;
 }
 
+// How steady a set of percentages is: their spread (standard deviation), in plain words.
+function consistencyOf(percents) {
+  if (percents.length < 2) return { key: "early", label: "Not enough marks yet" };
+  const mean = percents.reduce((a, b) => a + b, 0) / percents.length;
+  const spread = Math.sqrt(percents.reduce((sum, p) => sum + (p - mean) ** 2, 0) / percents.length);
+  if (spread <= 8) return { key: "steady", label: "Steady" };
+  if (spread <= 16) return { key: "mostly", label: "Mostly steady" };
+  return { key: "varied", label: "Up and down" };
+}
+
 const pct = (score, max) => (Number.isFinite(score) && Number(max) > 0 ? Math.round((score / Number(max)) * 1000) / 10 : null);
 
 // One term's folder, as the family sees it.
@@ -141,6 +151,19 @@ async function build(db, organizationId, studentId, termId, { staff = false } = 
     pending: row.pending === true,
   }));
   const report = reports.rows[0];
+  // Each subject's average and how consistent its marks are (for the student's own view).
+  const subjectSummary = [...subjects.values()].map((subject) => {
+    const percents = subject.items.map((item) => item.percent).filter((value) => value !== null);
+    const marked = subject.items.filter((item) => item.score !== null || item.choice).length;
+    return {
+      name: subject.name,
+      average: percents.length ? Math.round((percents.reduce((a, b) => a + b, 0) / percents.length) * 10) / 10 : null,
+      marked,
+      total: subject.items.length,
+      consistency: consistencyOf(percents),
+    };
+  });
+  const allPercents = [...subjects.values()].flatMap((subject) => subject.items.map((item) => item.percent).filter((value) => value !== null));
   return {
     className: klass ? klass.name : "",
     summary: {
@@ -150,7 +173,9 @@ async function build(db, organizationId, studentId, termId, { staff = false } = 
       documents: documents.length + (report ? 1 : 0),
       documented,
       undocumented: marked - documented,
+      consistency: consistencyOf(allPercents),
     },
+    subjectSummary,
     subjects: [...subjects.values()],
     documents,
     reportCard: report ? { id: Number(report.posted_report_card_id), url: report.pdf_url || null, postedAt: report.posted_at } : null,
@@ -194,4 +219,4 @@ async function testDocument(db, organizationId, studentId, attemptId, imageUrl, 
   };
 }
 
-module.exports = { featureOn, termsFor, build, testDocument };
+module.exports = { featureOn, termsFor, build, testDocument, consistencyOf };

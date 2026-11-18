@@ -33,8 +33,8 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
 <div class="ph">
   <%- include('../partials/flash') %>
-  <a class="ph-back" href="/guardian/child?<%= _q %>"><%= child.name %></a>
-  <h1 class="ph-title"><%= title %></h1>
+  <% const _icon = mode === 'schedule' ? 'schedule' : mode === 'activities' ? 'activities' : mode === 'documents' ? 'docs' : (/home/i.test(title) ? 'homework' : 'questions'); %>
+  <%- include('../partials/portalHead', { title: title, icon: _icon, sub: child.firstName ? child.firstName + '’s ' + String(title).toLowerCase() : '', back: { href: '/guardian/child?studentId=' + child.id, label: child.name } }) %>
 
   <% if (mode === 'schedule') { %>
     <% if (days.length) { %>

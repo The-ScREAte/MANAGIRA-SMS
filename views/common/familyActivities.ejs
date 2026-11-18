@@ -17,58 +17,64 @@
   };
 %>
 <style>
-  .fa-wrap { max-width: 860px; margin: 0 auto; padding: 8px 16px 40px; }
-  .fa-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 16px; }
-  .fa-head h1 { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; text-align: left; }
-  .fa-head p { margin: 2px 0 0; font-size: .88rem; color: #64748b; }
-  .fa-btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--primary, #0f5a66) 40%, #fff); border-radius: 10px; color: var(--primary, #0f5a66); background: #fff; font-size: .86rem; font-weight: 700; text-decoration: none; }
-  .fa-day { margin: 18px 0 8px; display: flex; align-items: baseline; gap: 8px; }
-  .fa-day strong { font-size: .95rem; color: #0f172a; }
-  .fa-day span { font-size: .82rem; color: #64748b; }
-  .fa-list { display: grid; gap: 8px; }
-  .fa-item { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 12px 14px; border: 1px solid #e5e9ef; border-radius: 14px; background: #fff; }
-  .fa-date { display: grid; place-items: center; align-content: center; height: 52px; border-radius: 12px; background: color-mix(in srgb, var(--primary, #0f5a66) 10%, #fff); color: var(--primary, #0f5a66); }
-  .fa-date small { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-  .fa-date b { font-size: 1.25rem; line-height: 1; }
-  .fa-main h2 { margin: 0; font-size: .98rem; font-weight: 800; color: #0f172a; text-align: left; }
-  .fa-meta { margin: 3px 0 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .82rem; color: #475569; }
-  .fa-who { display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 999px; background: #f1f4f7; color: #334155; font-size: .74rem; font-weight: 700; }
-  .fa-details { margin-top: 6px; font-size: .86rem; color: #334155; }
-  .fa-details summary { cursor: pointer; color: var(--primary, #0f5a66); font-weight: 700; list-style: none; }
-  .fa-details summary::-webkit-details-marker { display: none; }
-  .fa-details p { margin: 6px 0 0; white-space: pre-line; }
-  .fa-empty { margin: 30px 0; padding: 28px 18px; border: 1px dashed #d5dce4; border-radius: 16px; text-align: center; color: #64748b; }
-  .fa-empty strong { display: block; color: #0f172a; font-size: 1rem; margin-bottom: 4px; }
-  @media (max-width: 560px) { .fa-item { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 10px 12px; } .fa-date { height: 44px; } .fa-date b { font-size: 1.05rem; } }
+  .act-wrap { max-width: 860px; margin: 0 auto; padding: 8px 16px 40px; }
+  .act-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 16px; }
+  .act-head h1 { margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .act-head p { margin: 2px 0 0; font-size: .88rem; color: #64748b; }
+  .act-btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--primary, #0f5a66) 40%, #fff); border-radius: 10px; color: var(--primary, #0f5a66); background: #fff; font-size: .86rem; font-weight: 700; text-decoration: none; }
+  .act-day { margin: 18px 0 8px; display: flex; align-items: baseline; gap: 8px; }
+  .act-day strong { font-size: .95rem; color: #0f172a; }
+  .act-day span { font-size: .82rem; color: #64748b; }
+  .act-list { display: grid; gap: 8px; }
+  .act-item { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 12px 14px; border: 1px solid #e5e9ef; border-radius: 14px; background: #fff; }
+  .act-date { display: grid; place-items: center; align-content: center; height: 52px; border-radius: 12px; background: color-mix(in srgb, var(--primary, #0f5a66) 10%, #fff); color: var(--primary, #0f5a66); }
+  .act-date small { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .act-date b { font-size: 1.25rem; line-height: 1; }
+  .act-main h2 { margin: 0; font-size: .98rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .act-meta { margin: 3px 0 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .82rem; color: #475569; }
+  .act-who { display: inline-block; margin-top: 6px; padding: 2px 9px; border-radius: 999px; background: #f1f4f7; color: #334155; font-size: .74rem; font-weight: 700; }
+  .act-details { margin-top: 6px; font-size: .86rem; color: #334155; }
+  .act-details summary { cursor: pointer; color: var(--primary, #0f5a66); font-weight: 700; list-style: none; }
+  .act-details summary::-webkit-details-marker { display: none; }
+  .act-details p { margin: 6px 0 0; white-space: pre-line; }
+  .act-empty { margin: 30px 0; padding: 28px 18px; border: 1px dashed #d5dce4; border-radius: 16px; text-align: center; color: #64748b; }
+  .act-empty strong { display: block; color: #0f172a; font-size: 1rem; margin-bottom: 4px; }
+  @media (max-width: 560px) { .act-item { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; padding: 10px 12px; } .act-date { height: 44px; } .act-date b { font-size: 1.05rem; } }
 </style>
-<div class="fa-wrap">
-  <div class="fa-head">
+<div class="act-wrap">
+  <% if (viewer === 'student') { %>
+  <%- include('../partials/portalHead', { title: 'Activities', icon: 'activities', sub: 'What’s coming up for you.', action: { href: calendarHref, label: 'Calendar', icon: 'calendar' } }) %>
+  <% } else if (viewer === 'guardian' || viewer === 'parent') { %>
+  <%- include('../partials/portalHead', { title: 'Activities', icon: 'activities', sub: 'What’s coming up for your children.', back: { href: '/guardian/dashboard', label: 'Dashboard' }, action: { href: calendarHref, label: 'Calendar', icon: 'calendar' } }) %>
+  <% } else { %>
+  <div class="act-head">
     <div>
       <h1>Activities</h1>
       <p><%= viewer === 'student' ? 'What’s coming up for you.' : 'What’s coming up for your children.' %></p>
     </div>
-    <a class="fa-btn" href="<%= calendarHref %>">
+    <a class="act-btn" href="<%= calendarHref %>">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       Calendar
     </a>
   </div>
+  <% } %>
   <% if (!faDays.length) { %>
-    <div class="fa-empty"><strong>Nothing coming up</strong>New activities show here, and on your calendar.</div>
+    <div class="act-empty"><strong>Nothing coming up</strong>New activities show here, and on your calendar.</div>
   <% } %>
   <% faDays.forEach((day) => { const lbl = faLabel(day.date); %>
-    <div class="fa-day"><strong><%= lbl.named || lbl.full %></strong><% if (lbl.named) { %><span><%= lbl.full %></span><% } %></div>
-    <div class="fa-list">
+    <div class="act-day"><strong><%= lbl.named || lbl.full %></strong><% if (lbl.named) { %><span><%= lbl.full %></span><% } %></div>
+    <div class="act-list">
       <% day.items.forEach((a) => { const d = new Date(a.date + 'T12:00:00Z'); %>
-        <article class="fa-item">
-          <span class="fa-date" aria-hidden="true"><small><%= d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><b><%= d.getUTCDate() %></b></span>
-          <div class="fa-main">
+        <article class="act-item">
+          <span class="act-date" aria-hidden="true"><small><%= d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) %></small><b><%= d.getUTCDate() %></b></span>
+          <div class="act-main">
             <h2><%= a.title %></h2>
-            <p class="fa-meta"><span><%= faWhen(a) %></span><% if (a.location) { %><span><%= a.location %></span><% } %></p>
-            <% if (a.who) { %><span class="fa-who"><%= a.who %></span><% } %>
+            <p class="act-meta"><span><%= faWhen(a) %></span><% if (a.location) { %><span><%= a.location %></span><% } %></p>
+            <% if (a.who) { %><span class="act-who"><%= a.who %></span><% } %>
             <% if (a.details) { %>
               <% if (a.details.length > 140) { %>
-                <details class="fa-details"><summary>Details</summary><p><%= a.details %></p></details>
-              <% } else { %><p class="fa-details"><%= a.details %></p><% } %>
+                <details class="act-details"><summary>Details</summary><p><%= a.details %></p></details>
+              <% } else { %><p class="act-details"><%= a.details %></p><% } %>
             <% } %>
           </div>
         </article>

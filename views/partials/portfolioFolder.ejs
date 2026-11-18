@@ -6,12 +6,14 @@
   const _withReport = locals.showReportCard !== false;
   const _labels = Boolean(locals.labels);
   const _staff = Boolean(locals.staff);
+  // The student's own view: percentages and how steady they are, not every piece of work.
+  const _child = Boolean(locals.childView) && data && data.subjectSummary;
   const _files = Array.isArray(locals.files) ? locals.files : null;
   const _fileDate = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : '';
   const _fmt = (d, year) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: year ? 'numeric' : undefined }) : '';
   const _num = (n) => Number(n).toFixed(2).replace(/\.?0+$/, '');
 %>
-<% if (_files) { %>
+<% if (_files && _files.length) { %>
   <section class="pf-section pf-section--files" aria-labelledby="pf-files">
     <h2 id="pf-files">Student files <small>From the school</small></h2>
     <% if (!_files.length) { %>
@@ -40,6 +42,31 @@
     <% }) %>
   </nav>
   <% } %>
+  <% if (_child) { %>
+  <div class="pf-stats<%= _withReport ? '' : ' pf-stats--3' %>">
+    <div class="pf-stat"><span>Average</span><strong><%= data.summary.average === null ? '—' : data.summary.average + '%' %></strong></div>
+    <div class="pf-stat"><span>Consistency</span><strong class="pf-cons pf-cons--<%= data.summary.consistency.key %>"><%= data.summary.consistency.label %></strong></div>
+    <div class="pf-stat"><span>Marked work</span><strong><%= data.summary.marked %><small> / <%= data.summary.total %></small></strong></div>
+    <% if (_withReport) { %><div class="pf-stat"><span>Report card</span><strong><% if (data.reportCard && links.report) { %><a href="<%= links.report %>" target="_blank" rel="noopener">Open PDF</a><% } else if (data.reportCard) { %>Posted<% } else { %><small>Not yet</small><% } %></strong></div><% } %>
+  </div>
+
+  <section class="pf-section" aria-labelledby="pf-subjects">
+    <h2 id="pf-subjects">Subjects <small><%= term.name %>, <%= term.year %></small></h2>
+    <% if (!data.subjectSummary.length) { %>
+      <div class="pf-empty">No marked work this term yet.</div>
+    <% } else { %>
+    <div class="pf-subcards">
+      <% data.subjectSummary.forEach((sub) => { %>
+      <article class="pf-subcard">
+        <div class="pf-subcard__head"><strong><%= sub.name %></strong><span class="pf-subcard__pct"><%= sub.average === null ? '—' : sub.average + '%' %></span></div>
+        <div class="pf-bar" aria-hidden="true"><span style="width:<%= sub.average === null ? 0 : Math.max(2, Math.min(100, sub.average)) %>%"></span></div>
+        <div class="pf-subcard__foot"><span class="pf-cons pf-cons--<%= sub.consistency.key %>"><%= sub.consistency.label %></span><small><%= sub.marked %> of <%= sub.total %> marked</small></div>
+      </article>
+      <% }) %>
+    </div>
+    <% } %>
+  </section>
+  <% } else { %>
   <div class="pf-stats<%= _withReport ? '' : ' pf-stats--3' %>">
     <div class="pf-stat"><span>Marked work</span><strong><%= data.summary.marked %><small> / <%= data.summary.total %></small></strong></div>
     <div class="pf-stat"><span>Average</span><strong><%= data.summary.average === null ? '—' : data.summary.average + '%' %></strong></div>
@@ -50,6 +77,7 @@
     <% } %>
     <% if (_withReport) { %><div class="pf-stat"><span>Report card</span><strong><% if (data.reportCard && links.report) { %><a href="<%= links.report %>" target="_blank" rel="noopener">Open PDF</a><% } else if (data.reportCard) { %>Posted<% } else { %><small>Not yet</small><% } %></strong></div><% } %>
   </div>
+  <% } %>
 
   <section class="pf-section" aria-labelledby="pf-docs">
     <h2 id="pf-docs"><%= _labels ? 'Documented assessments' : 'Documents' %> <small><%= term.name %>, <%= term.year %></small></h2>
@@ -76,6 +104,7 @@
     <% } %>
   </section>
 
+  <% if (!_child) { %>
   <section class="pf-section" aria-labelledby="pf-work">
     <h2 id="pf-work">Assessments &amp; assignments</h2>
     <% if (_labels) { %><p class="pf-key"><span class="pf-key__item"><span class="pf-tag pf-tag--doc">Documented</span> Testing Room, with PDF</span><span class="pf-key__item"><span class="pf-tag pf-tag--undoc">Undocumented</span> entered by the teacher</span></p><% } %>
@@ -107,4 +136,5 @@
     <% if (_staff) { %></details><% } else { %></div><% } %>
     <% }) %>
   </section>
+  <% } %>
 <% } %>

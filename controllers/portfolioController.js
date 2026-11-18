@@ -7,6 +7,8 @@
 const portfolio = require("../utils/portfolio");
 
 const orgOf = (req) => Number(req.session.organizationId);
+// Parents see the portfolio of the three most recent terms.
+const PARENT_TERMS = 3;
 const toId = (value) => {
   const id = Number.parseInt(value, 10);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -32,9 +34,11 @@ function withoutReportCard(data, shown) {
 }
 
 // The folder for the term asked for (or the current one), with the term list.
-async function folder(db, req, student) {
+async function folder(db, req, student, { recent = null } = {}) {
   const organizationId = orgOf(req);
-  const terms = await portfolio.termsFor(db, organizationId, student.id);
+  // Newest first; parents see the most recent few terms only.
+  const all = await portfolio.termsFor(db, organizationId, student.id);
+  const terms = recent ? all.slice(0, recent) : all;
   const wanted = toId(req.query.termId);
   const term = terms.find((t) => t.id === wanted) || terms.find((t) => t.current) || terms[0] || null;
   const data = term ? await portfolio.build(db, organizationId, student.id, term.id) : null;
@@ -102,7 +106,7 @@ async function guardianPage(req, res, db) {
     req.flash("error", "The school doesn't share the portfolio for this class.");
     return res.redirect(`/guardian/child?studentId=${child.id}`);
   }
-  const { terms, term, data } = await folder(db, req, child);
+  const { terms, term, data } = await folder(db, req, child, { recent: PARENT_TERMS });
   // The class may keep report cards from parents (Class settings): then the folder has none.
   const showReportCard = await require("../utils/classSettings").parentsSee(db, orgOf(req), child.id, "reportCards");
   withoutReportCard(data, showReportCard);
@@ -147,6 +151,8 @@ async function studentPage(req, res, db) {
   const { files, labels } = await familyFiles(db, req, me.id, "students");
   res.render("student/portfolio", {
     title: "My portfolio",
+    // The student sees percentages and how steady they are, not every piece of work.
+    childView: true,
     child: me, terms, term, data, showReportCard, files, labels,
     links: { file: "/student/portfolio/file/{id}", term: "/student/portfolio?termId=", test: "/student/portfolio/test/{id}", report: data && data.reportCard ? `/student/portfolio/report-card/${data.reportCard.id}` : null },
   });

@@ -1,7 +1,11 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
 <div class="ph ph--calendar">
   <%- include('../partials/flash') %>
-  <h1 class="ph-title">Calendar</h1>
+  <% if (String(locals.calendarBase || '').startsWith('/student')) { %>
+  <%- include('../partials/portalHead', { title: 'Calendar', icon: 'calendar', sub: 'Classes, activities and school events.' }) %>
+  <% } else { %>
+  <%- include('../partials/portalHead', { title: 'Calendar', icon: 'calendar', sub: 'Your children’s classes, activities and school events.', back: { href: '/guardian/dashboard', label: 'Dashboard' } }) %>
+  <% } %>
   <div id="parentCalendar" data-children="<%= JSON.stringify(children) %>" data-date="<%= initialDate %>" data-child="<%= initialChild %>" data-base="<%= locals.calendarBase || '/guardian/calendar' %>"></div>
 </div>
 <script src="<%= assetUrl('/js/parentCalendar.js') %>" defer></script>

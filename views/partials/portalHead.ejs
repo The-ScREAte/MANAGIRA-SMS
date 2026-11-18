@@ -1,0 +1,23 @@
+<%# A portal page's header (students and parents): a back link, the page's icon, its title and one line.
+    Locals: title, icon (a navIcon name), sub, back { href, label } (default: the student dashboard),
+    action { href, label, icon } and/or extraHtml (buttons written by the page, already escaped).
+    Styles: public/css/portalHead.css. %>
+<% const _back = locals.back || { href: '/student/dashboard', label: 'Dashboard' }; %>
+<link rel="stylesheet" href="<%= assetUrl('/css/portalHead.css') %>" />
+<header class="pt-head">
+  <a class="pt-back" href="<%= _back.href %>">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    <%= _back.label %>
+  </a>
+  <div class="pt-row">
+    <span class="pt-icon" aria-hidden="true"><%- navIcon(icon) %></span>
+    <div class="pt-text">
+      <h1><%= title %></h1>
+      <% if (locals.sub) { %><p><%= sub %></p><% } %>
+    </div>
+    <% if (locals.action) { %>
+    <a class="pt-action" href="<%= action.href %>"><% if (action.icon) { %><%- navIcon(action.icon) %><% } %><%= action.label %></a>
+    <% } %>
+    <% if (locals.extraHtml) { %><div class="pt-extra"><%- extraHtml %></div><% } %>
+  </div>
+</header>

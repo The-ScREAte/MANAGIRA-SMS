@@ -2,6 +2,6 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
 <div class="ph">
   <%- include('../partials/flash') %>
-  <a class="ph-back" href="/guardian/child/testing-room?studentId=<%= child.id %>">Testing Room</a>
+  <%- include('../partials/portalHead', { title: result.title || 'Result', icon: 'questions', sub: child.firstName || '', back: { href: '/guardian/child/testing-room?studentId=' + child.id, label: 'Testing Room' } }) %>
   <%- include('../partials/testReview', { result: result, reviewer: 'parent' }) %>
 </div>

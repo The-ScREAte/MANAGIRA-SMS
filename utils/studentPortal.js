@@ -7,6 +7,16 @@ function normalizeStudentEmail(value) {
 
 async function ensureStudentPortalSchema(dbClient) {
   if (studentPortalSchemaReady) return;
+  // Read first; change tables only when something is missing (utils/schemaHas.js): altering
+  // organizations and the attempts table on every new server waited on locks and failed pages.
+  if (await require("./schemaHas").alreadyThere(dbClient, {
+    tables: ["student_accounts", "student_assessment_attempts", "student_assessment_responses"],
+    columns: [["organizations", "student_portal_activated"], ["student_assessment_attempts", "posted_at"]],
+    nullable: [["student_assessment_attempts", "started_at"]],
+  })) {
+    studentPortalSchemaReady = true;
+    return;
+  }
 
   await dbClient.query(`
     ALTER TABLE organizations

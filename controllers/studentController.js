@@ -65,8 +65,16 @@ let studentAssessmentAttemptIntegrityReady = false;
 let assessmentQuestionSetRetakeSchemaReady = false;
 let assessmentModeSchemaReady = false;
 
+// Each check below reads first and changes a table only when something is missing (utils/schemaHas.js):
+// on a shared database the table changes waited on locks and failed the page.
+const { alreadyThere } = require("../utils/schemaHas");
+
 async function ensureAssessmentModeSchema(dbClient) {
   if (assessmentModeSchemaReady) return;
+  if (await alreadyThere(dbClient, { columns: [["assessments", "open_book"], ["assessments", "time_limit_minutes"], ["assessments", "max_attempts"]] })) {
+    assessmentModeSchemaReady = true;
+    return;
+  }
   await dbClient.query(`
     ALTER TABLE assessments
       ADD COLUMN IF NOT EXISTS open_book BOOLEAN DEFAULT FALSE,
@@ -78,6 +86,10 @@ async function ensureAssessmentModeSchema(dbClient) {
 
 async function ensureStudentAssessmentLockSchema(dbClient) {
   if (studentAssessmentLockSchemaReady) return;
+  if (await alreadyThere(dbClient, { tables: ["student_assessment_lock_overrides"], triggers: ["trg_validate_student_assessment_lock_override_set"] })) {
+    studentAssessmentLockSchemaReady = true;
+    return;
+  }
   await dbClient.query(`
     CREATE TABLE IF NOT EXISTS student_assessment_lock_overrides (
       id SERIAL PRIMARY KEY,
@@ -134,6 +146,10 @@ async function ensureStudentAssessmentLockSchema(dbClient) {
 
 async function ensureAssessmentQuestionSetRetakeSchema(dbClient) {
   if (assessmentQuestionSetRetakeSchemaReady) return;
+  if (await alreadyThere(dbClient, { columns: [["assessment_question_sets", "retake_student_id"]] })) {
+    assessmentQuestionSetRetakeSchemaReady = true;
+    return;
+  }
   await dbClient.query(`
     ALTER TABLE assessment_question_sets
       ADD COLUMN IF NOT EXISTS retake_student_id INTEGER REFERENCES students(student_id) ON DELETE SET NULL
@@ -1195,10 +1211,10 @@ module.exports = {
     }
 
     try {
-      await ensureStudentPortalSchema(db);
-      await ensureAssessmentModeSchema(db);
-      await ensureStudentAssessmentLockSchema(db);
-      await ensureAssessmentQuestionSetRetakeSchema(db);
+      // Table checks never keep a student out of the Testing Room: what it reads is already there.
+      await Promise.all([
+        ensureStudentPortalSchema(db), ensureAssessmentModeSchema(db), ensureStudentAssessmentLockSchema(db), ensureAssessmentQuestionSetRetakeSchema(db),
+      ]).catch((error) => console.warn("[TestingRoom] table check:", error.message));
 
       const student = await resolveStudentContext(db, organizationId, studentId);
       if (!student) {

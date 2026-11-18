@@ -828,6 +828,28 @@
   @media (prefers-reduced-motion: reduce) {
     .sp-bus-track { transition: none; }
   }
+
+  /* The dashboard's header and stat tiles (one place for who, class and term). */
+  .sx .sp-body { padding-top: 6px; }
+  .sx-hero { display: flex; align-items: center; gap: 16px; margin: 4px 0 16px; text-align: left; }
+  .sx-avatar { flex: none; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(15, 23, 42, .12); }
+  .sx-name { margin: 0; font-size: 1.35rem; font-weight: 750; line-height: 1.2; text-align: left; }
+  .sx-sub { margin: 3px 0 0; color: #64748b; font-size: .92rem; }
+  .sx-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0 0 16px; }
+  .sx .sx-stat { display: flex; align-items: center; gap: 12px; min-width: 0; width: 100%; margin: 0; padding: 14px; border: 1px solid #e8ecf1; border-radius: 14px; background: #fff; box-shadow: none; color: inherit; font: inherit; text-align: left; text-decoration: none; }
+  .sx .sx-stat--link { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+  .sx .sx-stat--link:hover { border-color: var(--org-primary-color, #0f766e); box-shadow: 0 2px 8px rgba(15, 23, 42, .06); }
+  .sx-stat__icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 11px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); color: var(--org-primary-color, #0f766e); }
+  .sx-stat__icon svg { width: 20px; height: 20px; }
+  .sx-stat__text { display: grid; min-width: 0; }
+  .sx-stat__label { color: #64748b; font-size: .78rem; font-weight: 650; }
+  .sx-stat strong { color: #0f172a; font-size: 1.2rem; font-weight: 750; line-height: 1.25; }
+  .sx-stat small { overflow: hidden; color: #64748b; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 560px) {
+    .sx-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sx .sx-stat { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+    .sx-avatar { width: 52px; height: 52px; }
+  }
 </style>
 
 <div class="sp-shell">
@@ -835,133 +857,73 @@
   <% const _sees = locals.sees || { attendance: true, lunch: true, reportCards: true, transport: true }; %>
   <%- include('../partials/flash') %>
 
-  <section class="sp-header">
-    <div class="sp-header-top">
-      <div class="sp-header-titleblock">
-        <p class="sp-title-tag">Student Workspace</p>
-        <h1 class="sp-title">
-          <%= enrolledClassName || student.class_name || 'Student Portal' %>
-        </h1>
-      </div>
-
-      <div class="sp-header-meta">
-        <span class="sp-header-brief">
-          <span class="k">Current</span>
-          <%= selectedTerm ? selectedTerm.term_name : 'Term not set' %>
-        </span>
-        <button type="button" class="sp-term-popup-btn" id="sp-term-popup-btn">
-          Term Info
-        </button>
-      </div>
-    </div>
-
+  <section class="sp-header sx">
     <div class="sp-body">
       <section class="sp-panel" id="panel-overview">
-        <div class="sp-summary">
-          <img
-            class="sp-avatar"
-            src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png', { width: 256 }) %>"
-            alt="Student photo"
-          />
-
-          <div>
-            <h2 class="sp-name">
-              <%= typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim() %>
-            </h2>
-            <p class="sp-sub">Class: <strong><%= enrolledClassName || student.class_name || 'Not assigned' %></strong></p>
-            <p class="sp-sub">Email: <strong><%= student.email || 'Not available' %></strong></p>
-          </div>
-
-          <div class="sp-term-countdown">
-            <% const today = new Date(); %>
-            <% if (selectedTerm) { %>
-              <% const termStart = new Date(selectedTerm.start_date); %>
-              <% const termEnd   = new Date(selectedTerm.end_date); %>
-              <% const daysUntilStart = Math.ceil((termStart - today) / 86400000); %>
-              <% const daysUntilEnd   = Math.ceil((termEnd   - today) / 86400000); %>
-
-              <div class="line">
-                <% if (daysUntilStart > 0) { %>
-                  <strong><%= selectedTerm.term_name %> starts in <%= daysUntilStart %> day<%= daysUntilStart === 1 ? '' : 's' %>.</strong>
-                <% } else if (daysUntilEnd >= 0) { %>
-                  <strong>Days until <%= selectedTerm.term_name %> ends: <%= daysUntilEnd %>.</strong>
-                <% } else { %>
-                  <strong><%= selectedTerm.term_name %> has ended.</strong>
-                  <span class="meta"><%= Math.abs(daysUntilEnd) %> day<%= Math.abs(daysUntilEnd) === 1 ? '' : 's' %> ago.</span>
-                <% } %>
-              </div>
-
-              <div class="line meta">
-                <%= today.toLocaleDateString(undefined, { weekday: 'long' }) %>
-              </div>
-            <% } else { %>
-              <div class="line">No active term set.</div>
-            <% } %>
-          </div>
-        </div>
-
         <%
           const _showAttendance = _sees.attendance !== false;
           const _lunch = locals.lunchSummary || null;
           const _gpa = locals.gpaInfo || null;
-          const _tileCount = (_showAttendance ? 3 : 0) + (_lunch ? 1 : 0) + (_gpa ? 1 : 0) + (testingRoomEnabled ? 1 : 0);
+          const _today = new Date();
+          let _termValue = '—', _termNote = 'No term set';
+          if (selectedTerm) {
+            const _start = new Date(selectedTerm.start_date), _end = new Date(selectedTerm.end_date);
+            const _toStart = Math.ceil((_start - _today) / 86400000), _toEnd = Math.ceil((_end - _today) / 86400000);
+            const _endDay = _end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            if (_toStart > 0) { _termValue = _toStart + ' day' + (_toStart === 1 ? '' : 's'); _termNote = 'Until it starts'; }
+            else if (_toEnd >= 0) { _termValue = _toEnd + ' day' + (_toEnd === 1 ? '' : 's') + ' left'; _termNote = 'Ends ' + _endDay; }
+            else { _termValue = 'Ended'; _termNote = 'Ended ' + _endDay; }
+          }
+          const _sub = [enrolledClassName || student.class_name, selectedTerm && selectedTerm.term_name, selectedTerm && selectedTerm.year_label].filter(Boolean).join(' · ');
         %>
-        <% if (_tileCount) { %>
-        <div class="sp-tiles sp-tiles--n<%= _tileCount %>">
+        <%# One header: who, which class, which term. %>
+        <div class="sx-hero">
+          <img class="sx-avatar" src="<%= publicImageUrl(student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png', { width: 256 }) %>" alt="" />
+          <div class="sx-hero__text">
+            <h1 class="sx-name"><%= typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim() %></h1>
+            <p class="sx-sub"><%= _sub || 'Student portal' %></p>
+          </div>
+        </div>
+
+        <%# The few numbers that matter, each a tile; the term opens its details. %>
+        <div class="sx-stats">
           <% if (_showAttendance) { %>
-          <article class="sp-tile">
-            <div class="l">Attendance Rate</div>
-            <div class="v"><%= attendanceSummary.attendanceRate %>%</div>
-            <div class="sp-tile-note"><%= attendanceSummary.present %>/<%= attendanceSummary.totalDays %> term days</div>
-          </article>
-          <article class="sp-tile">
-            <div class="l">Present</div>
-            <div class="v"><%= attendanceSummary.present %></div>
-          </article>
-          <article class="sp-tile">
-            <div class="l">Absent</div>
-            <div class="v"><%= attendanceSummary.absent %></div>
-          </article>
-          <% } %>
-          <% if (_lunch) { %>
-          <%# Overall lunch (feature class_lunch): days with lunch out of the days it was taken this term. %>
-          <article class="sp-tile">
-            <div class="l">Lunch</div>
-            <div class="v"><%= _lunch.label %></div>
-            <div class="sp-tile-note"><%= _lunch.taken ? 'Days with lunch this term' : 'Not taken this term yet' %></div>
-          </article>
+          <div class="sx-stat">
+            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('attendance') %></span>
+            <span class="sx-stat__text"><span class="sx-stat__label">Attendance</span><strong><%= attendanceSummary.attendanceRate %>%</strong><small><%= attendanceSummary.present %> present · <%= attendanceSummary.absent %> absent</small></span>
+          </div>
           <% } %>
           <% if (_gpa) { %>
-          <%# GPA (feature gpa) unless the class keeps it from students (Class settings): the cumulative
-              over finished terms when there is one, else this term's so far. %>
-          <article class="sp-tile sp-tile--gpa">
-            <div class="l"><%= _gpa.cumulative ? 'Cumulative GPA' : 'GPA this term' %></div>
-            <div class="v"><%= (_gpa.cumulative || _gpa.term).unweighted %></div>
-            <div class="sp-tile-note"><%= _gpa.cumulative && _gpa.term ? 'This term ' + _gpa.term.unweighted : (_gpa.cumulative ? _gpa.terms + ' finished term' + (_gpa.terms === 1 ? '' : 's') : 'So far, 4.0 scale') %></div>
-          </article>
+          <div class="sx-stat">
+            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('stats') %></span>
+            <span class="sx-stat__text"><span class="sx-stat__label"><%= _gpa.cumulative ? 'Cumulative GPA' : 'GPA' %></span><strong><%= (_gpa.cumulative || _gpa.term).unweighted %></strong><small><%= _gpa.cumulative && _gpa.term ? 'This term ' + _gpa.term.unweighted : '4.0 scale' %></small></span>
+          </div>
           <% } %>
-          <% if (testingRoomEnabled) { %>
-          <article class="sp-tile">
-            <div class="l">Open Testing Room</div>
-            <div class="v"><%= openAssessmentsCount %></div>
-          </article>
+          <button type="button" class="sx-stat sx-stat--link" id="sp-term-popup-btn">
+            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('calendar') %></span>
+            <span class="sx-stat__text"><span class="sx-stat__label">Term</span><strong><%= _termValue %></strong><small><%= _termNote %></small></span>
+          </button>
+          <% if (_lunch && _lunch.taken) { %>
+          <%# Overall lunch (feature class_lunch), once lunch has been taken this term. %>
+          <div class="sx-stat">
+            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('dashboard') %></span>
+            <span class="sx-stat__text"><span class="sx-stat__label">Lunch</span><strong><%= _lunch.label %></strong><small>Days with lunch</small></span>
+          </div>
           <% } %>
         </div>
-        <% } %>
 
-        <% if (locals.featureOn && featureOn('class_activities')) { %>
         <link rel="stylesheet" href="<%= assetUrl('/css/appTiles.css') %>" />
         <div class="app-tiles sp-app-tiles">
           <button class="sp-action-tile app-tile" type="button" data-panel="schedule"><span class="app-tile__icon"><%- navIcon('schedule') %></span><span class="app-tile__name">Schedule</span></button>
           <a class="sp-action-tile app-tile" href="/student/calendar"><span class="app-tile__icon"><%- navIcon('calendar') %></span><span class="app-tile__name">Calendar</span></a>
           <button class="sp-action-tile app-tile" type="button" data-panel="activities"><span class="app-tile__icon"><%- navIcon('activities') %></span><span class="app-tile__name">Activities</span><% if (studentActivities && studentActivities.length) { %><span class="app-tile__badge"><%= studentActivities.length > 99 ? '99+' : studentActivities.length %></span><% } %></button>
-          <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('stats') %></span><span class="app-tile__name">Grades</span></button>
-          <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('staff') %></span><span class="app-tile__name">Subject Teachers</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('grading') %></span><span class="app-tile__name">Grades</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('staff') %></span><span class="app-tile__name">Teachers</span></button>
           <% if (_sees.transport !== false) { %>
-          <button class="sp-action-tile app-tile" type="button" data-panel="transport"><span class="app-tile__icon"><%- navIcon('transportation') %></span><span class="app-tile__name">Transportation</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="transport"><span class="app-tile__icon"><%- navIcon('transportation') %></span><span class="app-tile__name">Bus</span></button>
           <% } %>
           <% if (testingRoomEnabled) { %>
-          <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span></a>
+          <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span><% if (openAssessmentsCount) { %><span class="app-tile__badge"><%= openAssessmentsCount > 99 ? '99+' : openAssessmentsCount %></span><% } %></a>
           <% } %>
           <% if (featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
           <a class="sp-action-tile app-tile" href="/student/forms"><span class="app-tile__icon"><%- navIcon('forms') %></span><span class="app-tile__name">Forms</span><% if (locals.formsToDo) { %><span class="app-tile__badge"><%= formsToDo > 99 ? '99+' : formsToDo %></span><% } %></a>
@@ -972,35 +934,8 @@
           <% if (featureOn('student_portfolio') && locals.portfolioShared !== false) { %>
           <a class="sp-action-tile app-tile" href="/student/portfolio"><span class="app-tile__icon"><%- navIcon('portfolio') %></span><span class="app-tile__name">Portfolio</span></a>
           <% } %>
+          <a class="sp-action-tile app-tile" href="/student/settings"><span class="app-tile__icon"><%- navIcon('settings') %></span><span class="app-tile__name">Settings</span></a>
         </div>
-        <% } else { %>
-        <div class="sp-action-tiles <%= testingRoomEnabled ? '' : 'sp-action-tiles-no-testing' %>">
-          <button class="sp-action-tile" type="button" data-panel="teachers">
-            <h4 class="sp-action-title">Subject Teachers</h4>
-            <p class="sp-action-copy">Open your teacher list for current term.</p>
-          </button>
-          <button class="sp-action-tile" type="button" data-panel="schedule">
-            <h4 class="sp-action-title">Class Schedule</h4>
-            <p class="sp-action-copy">Open your class timetable workspace.</p>
-          </button>
-          <button class="sp-action-tile" type="button" data-panel="grades">
-            <h4 class="sp-action-title">Grades</h4>
-            <p class="sp-action-copy">Open current-term subject grades.</p>
-          </button>
-          <% if (_sees.transport !== false) { %>
-          <button class="sp-action-tile" type="button" data-panel="transport">
-            <h4 class="sp-action-title">Transportation</h4>
-            <p class="sp-action-copy"><%= transportationSnapshot && transportationSnapshot.bus && transportationSnapshot.bus.busNumber ? transportationSnapshot.bus.busNumber : 'Not assigned' %><%= transportationSnapshot && transportationSnapshot.route && transportationSnapshot.route.routeName ? ' • ' + transportationSnapshot.route.routeName : '' %></p>
-          </button>
-          <% } %>
-          <% if (testingRoomEnabled) { %>
-          <a class="sp-action-tile sp-testing" href="/student/testing-room">
-            <h4 class="sp-action-title">Testing Room</h4>
-            <p class="sp-action-copy">Open assessments and exam room.</p>
-          </a>
-          <% } %>
-        </div>
-        <% } %>
         <%- include('../partials/familyDetailsCard', { mode: 'student' }) %>
       </section>
 

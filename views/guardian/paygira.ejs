@@ -1347,19 +1347,7 @@
 <div class="pg-wrap">
   <div class="pg-container">
 
-    <div class="pg-head">
-      <div>
-        <h1>Pay<span class="accent">Gira</span></h1>
-        <p>Welcome <%= (_guardianNameFormat(guardian) || guardian.first_name || 'Parent') %>. Pay school bills for all your children from one place.</p>
-      </div>
-      <span class="paygira-secure-badge" title="Bank-grade encrypted payments">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
-          <path d="M9 12l2 2 4-4" stroke="#f6f7f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span class="paygira-secure-text">Secure</span>
-      </span>
-    </div>
+    <%- include('../partials/portalHead', { title: 'PayGira', icon: 'paygira', sub: 'Pay school bills for all your children.', back: { href: '/guardian/dashboard', label: 'Dashboard' }, extraHtml: '<span class="pt-chip" title="Encrypted payments"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Secure</span>' }) %>
 
     <% if (messages && messages.success && messages.success.length) { %>
       <div class="pg-flash success"><%= messages.success[0] %></div>

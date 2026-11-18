@@ -78,6 +78,23 @@
 .pf-key__item { display: inline-flex; align-items: center; gap: 6px; }
 .pf-section--files { margin-top: 4px; margin-bottom: 22px; }
 .pf-section > h2 { flex-wrap: wrap; row-gap: 2px; }
+/* The student's own view: each subject's average and how steady it is. */
+.pf-subcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.pf-subcard { padding: 14px; border: 1px solid var(--pf-line); border-radius: 12px; background: var(--pf-surface); }
+.pf-subcard__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.pf-subcard__head strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.pf-subcard__pct { color: var(--pf-text); font-size: 20px; font-weight: 750; }
+.pf-bar { height: 6px; margin: 10px 0; border-radius: 999px; background: var(--pf-soft-2); overflow: hidden; }
+.pf-bar span { display: block; height: 100%; border-radius: inherit; background: var(--pf-accent); }
+.pf-subcard__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pf-subcard__foot small { color: var(--pf-muted); font-size: 12px; }
+.pf-cons { font-weight: 700; }
+span.pf-cons { padding: 2px 9px; border-radius: 999px; font-size: 12px; }
+.pf-cons--steady { color: #15803d; } span.pf-cons--steady { background: color-mix(in srgb, #16a34a 12%, var(--pf-surface)); }
+.pf-cons--mostly { color: #0369a1; } span.pf-cons--mostly { background: color-mix(in srgb, #0ea5e9 12%, var(--pf-surface)); }
+.pf-cons--varied { color: #b45309; } span.pf-cons--varied { background: color-mix(in srgb, #f59e0b 14%, var(--pf-surface)); }
+.pf-cons--early { color: var(--pf-muted); } span.pf-cons--early { background: var(--pf-soft-2); }
+.pf-stat strong.pf-cons { font-size: 17px; }
 .pf-empty { padding: 26px 18px; border: 1px dashed var(--pf-line); border-radius: 12px; color: var(--pf-muted); text-align: center; font-size: 13.5px; }
 @media (max-width: 860px) {
   .pf-stats, .pf-stats.pf-stats--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }

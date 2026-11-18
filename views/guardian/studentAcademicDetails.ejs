@@ -1175,9 +1175,26 @@
       grid-template-columns: 1fr;
     }
   }
+
+  /* The portals' light header look (the banner was a heavy gradient). */
+  .academic-container .student-header { background: #fff !important; color: #0f172a !important; border: 1px solid #e8ecf1 !important; box-shadow: none !important; }
+  .academic-container .student-header h1 { color: #0f172a !important; }
+  .academic-container .student-subtitle { display: none !important; }
+  .academic-container .student-term-context, .academic-container .student-header .student-meta-summary,
+  .academic-container .student-header label, .academic-container .student-header .student-meta-label { color: #64748b !important; }
+  .academic-container .student-term-context strong, .academic-container .student-header .student-meta-value { color: #0f172a !important; }
+  .academic-container .student-header .student-meta-chip { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+  .academic-container .student-avatar-large { border-color: #fff !important; box-shadow: 0 1px 4px rgba(15, 23, 42, .12) !important; }
+  .academic-container .student-header .report-cards-trigger { background: var(--org-primary-color, #0f766e) !important; border-color: transparent !important; color: #fff !important; }
+  .academic-container .student-header select { background-color: #fff !important; border: 1px solid #d5dce4 !important; color: #0f172a !important; }
+  .ad-ico { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 8px; border-radius: 8px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); color: var(--org-primary-color, #0f766e); vertical-align: middle; }
+  .ad-ico svg { width: 15px; height: 15px; }
 </style>
 
+<link rel="stylesheet" href="<%= assetUrl('/css/portalHead.css') %>" />
 <div class="academic-container">
+  <%# Back to the child's page, as on every other parent page. %>
+  <div class="pt-head" style="margin:0 0 10px"><a class="pt-back" href="/guardian/child?studentId=<%= student.student_id %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()) %></a></div>
   <!-- Student Header -->
   <div class="student-header">
     <div class="student-header-content">
@@ -1254,7 +1271,7 @@
     <!-- Teacher Information -->
     <details class="section-details teacher-section">
       <summary class="section-summary">
-        <span class="summary-label">👨‍🏫 Teaching Staff</span>
+        <span class="summary-label"><span class="ad-ico" aria-hidden="true"><%- navIcon('staff') %></span>Teaching staff</span>
         <span class="summary-chevron">›</span>
       </summary>
       <div class="section-body">
@@ -1305,7 +1322,7 @@
 
     <details class="section-details">
       <summary class="section-summary">
-        <span class="summary-label">🗓️ Class Schedule</span>
+        <span class="summary-label"><span class="ad-ico" aria-hidden="true"><%- navIcon('schedule') %></span>Class schedule</span>
         <span class="summary-chevron">›</span>
       </summary>
       <div class="section-body">
@@ -1405,7 +1422,7 @@
   %>
   <% if (_showAttendance || _lunch) { %>
   <div class="section-card">
-    <h2>📅 <%= _showAttendance ? (_lunch ? 'Attendance & Lunch' : 'Attendance Summary') : 'Lunch' %></h2>
+    <h2><span class="ad-ico" aria-hidden="true"><%- navIcon('attendance') %></span><%= _showAttendance ? (_lunch ? 'Attendance & lunch' : 'Attendance') : 'Lunch' %></h2>
     <% if (_hasAttendance || _lunch) { %>
       <div class="info-grid<%= _hasAttendance && _lunch ? ' info-grid--five' : '' %>">
         <% if (_hasAttendance) { %>

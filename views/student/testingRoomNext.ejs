@@ -21,10 +21,7 @@
 <div class="tr" data-ap-skip>
   <%- include('../partials/flash') %>
 
-  <header class="tr-head">
-    <h1>Testing Room</h1>
-    <% if (_term) { %><p><%= _term %></p><% } %>
-  </header>
+  <%- include('../partials/portalHead', { title: 'Testing Room', icon: 'questions', sub: _term || '' }) %>
 
   <section class="tr-section" aria-labelledby="tr-available">
     <div class="tr-section__head">

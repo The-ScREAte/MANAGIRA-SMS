@@ -775,17 +775,15 @@
       width: auto;
     }
   }
+  .accordion-badge svg { width: 18px; height: 18px; }
+  .accordion-badge { color: var(--org-primary-color, #0f766e); }
 </style>
 
 <% const _cards = (typeof cards !== 'undefined' && Array.isArray(cards)) ? cards : []; %>
 <% const _myChildren = (typeof children !== 'undefined' && Array.isArray(children)) ? children : []; %>
 
 <div class="settings-page">
-  <div class="settings-intro">
-    <div class="settings-kicker">Guardian Account</div>
-    <h1 class="settings-page-title">Settings &amp; Billing</h1>
-    <p class="settings-page-subtitle">Manage your profile, update student images, control notification preferences, and handle PayGira billing from one responsive dashboard.</p>
-  </div>
+  <%- include('../partials/portalHead', { title: 'Settings', icon: 'settings', sub: 'Your profile, emails and saved cards.', back: { href: '/guardian/dashboard', label: 'Dashboard' } }) %>
 
   <div class="settings-grid">
     <div class="settings-column">
@@ -796,10 +794,10 @@
       </section>
       <details class="settings-card settings-accordion profile-settings-shell">
         <summary class="accordion-summary">
-          <span class="accordion-badge">⚙️</span>
+          <span class="accordion-badge"><%- navIcon('profile') %></span>
           <span class="accordion-copy">
-            <span class="accordion-title">Profile Settings</span>
-            <span class="accordion-subtitle">Open this section to manage your photo, student images, and all personal details.</span>
+            <span class="accordion-title">Profile</span>
+            <span class="accordion-subtitle">Your photo, your children’s photos and your details.</span>
           </span>
           <span class="accordion-chevron" aria-hidden="true">⌄</span>
         </summary>
@@ -941,10 +939,10 @@
            const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
       <details class="settings-card settings-accordion">
         <summary class="accordion-summary">
-          <span class="accordion-badge">📬</span>
+          <span class="accordion-badge"><%- navIcon('notifications') %></span>
           <span class="accordion-copy">
-            <span class="accordion-title">Email Notifications</span>
-            <span class="accordion-subtitle">Choose which alerts you want to receive about your child(ren).</span>
+            <span class="accordion-title">Emails</span>
+            <span class="accordion-subtitle">Choose which emails you get.</span>
           </span>
           <span class="accordion-chevron" aria-hidden="true">⌄</span>
         </summary>
@@ -975,10 +973,10 @@
 
       <details id="cards" class="settings-card settings-accordion">
         <summary class="accordion-summary">
-          <span class="accordion-badge">💳</span>
+          <span class="accordion-badge"><%- navIcon('billing') %></span>
           <span class="accordion-copy">
-            <span class="accordion-title">PayGira Cards &amp; Billing</span>
-            <span class="accordion-subtitle">Manage saved cards and billing tools in one secure place.</span>
+            <span class="accordion-title">Saved cards</span>
+            <span class="accordion-subtitle">Cards you pay school bills with.</span>
           </span>
           <span class="accordion-chevron" aria-hidden="true">⌄</span>
         </summary>
