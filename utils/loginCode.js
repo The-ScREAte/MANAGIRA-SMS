@@ -33,6 +33,23 @@ function emailOf(session) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value).trim()) ? String(value).trim().toLowerCase() : "";
 }
 
+// Managira's own test parent and student (made-up addresses that can't receive a code) go
+// straight in after their password. Only as a parent or a student, only in the test school:
+// the same address anywhere else, or on any staff, school or hub account, still gets the code.
+const PORTAL_TEST_ACCOUNTS = [
+  { email: "managiraparent@gmail.com", role: "guardian", organizationId: 63 },
+  { email: "managirastudent@gmail.com", role: "student", organizationId: 63 },
+];
+function isPortalTestAccount(session) {
+  if (!session || session.userId || session.hubId || session.hubUserId) return false;
+  const role = String(session.userRole || session.accountType || "").trim().toLowerCase();
+  const holds = role === "guardian" ? Boolean(session.guardianId) && !session.studentId
+    : role === "student" ? Boolean(session.studentId) && !session.guardianId : false;
+  if (!holds) return false;
+  const email = emailOf(session);
+  return PORTAL_TEST_ACCOUNTS.some((a) => a.email === email && a.role === role && a.organizationId === Number(session.organizationId));
+}
+
 function masked(email) {
   const [name, domain] = email.split("@");
   return `${name.slice(0, 1)}${"•".repeat(Math.max(2, Math.min(6, name.length - 1)))}@${domain}`;
@@ -194,7 +211,7 @@ function holdForCode(req, res, next) {
     const signInMfa = require("./signInMfa");
     const appAccount = signInMfa.accountOfSession(session);
     const appOn = Boolean(appAccount && signInMfa.featureOn(appAccount.organizationId) && await signInMfa.hasApp(db, appAccount));
-    const codeOn = wanted(session) && Boolean(emailOf(session));
+    const codeOn = wanted(session) && Boolean(emailOf(session)) && !isPortalTestAccount(session);
     if (!appOn && !codeOn) return original(...args);
     // A school can turn the emailed code off (never the app); a recognized browser skips either.
     if ((!appOn && session.organizationId && !settings.login_code_required) || await isTrusted(req, db, session, settings)) {
@@ -343,4 +360,4 @@ function page(req, res, db) {
   return require("../controllers/accountController").loginGet(req, res, db, { step: "code" });
 }
 
-module.exports = { holdForCode, verify, resend, page, pendingOf, sendCode, forgetDevices, accountKeyOf, deviceFamilyOf, DEVICE_COOKIE, newCode, tidy, hashOf, masked, CODE_LENGTH, LETTERS };
+module.exports = { holdForCode, isPortalTestAccount, verify, resend, page, pendingOf, sendCode, forgetDevices, accountKeyOf, deviceFamilyOf, DEVICE_COOKIE, newCode, tidy, hashOf, masked, CODE_LENGTH, LETTERS };
