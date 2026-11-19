@@ -6,7 +6,7 @@
   const logoSize = typeof size !== 'undefined' ? size : 'hero';
   const animated = typeof animate !== 'undefined' ? animate : false;
   const logoMark = typeof mark !== 'undefined' ? mark : 'mira';
-  const logoSrc = logoMark === 'managira' ? '/images/managira.png' : '/images/miralogo.png';
+  const logoSrc = logoMark === 'managira' ? '/images/managira-240.webp' : '/images/miralogo-240.webp';
   const logoAlt = logoMark === 'managira' ? 'Managira' : 'Mira';
 %>
 <div class="mira-logo <%= logoSize === 'sidebar' ? 'mira-logo-sidebar' : '' %> <%= animated ? 'mira-logo-entrance' : '' %>" data-mira-logo <%= animated ? 'data-mira-logo-idle-after-entrance' : '' %>>

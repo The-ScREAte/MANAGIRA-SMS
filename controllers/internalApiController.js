@@ -440,7 +440,8 @@ async function getMiraActivationStatusApi(req, res) {
 // Mira offers only the tools they can use and tells them plainly what they
 // can't do, and why: not given to them, or not in the school's plan.
 // Parents and students hold no staff permission.
-const MIRA_FEATURES = ["mira_outreach", "mira_steps", "mira_skills"];
+// The features Mira needs to know about (its own, and the ones some of its read tools depend on).
+const MIRA_FEATURES = ["mira_outreach", "mira_steps", "mira_skills", "mira_forms", "mira_read_more", "gpa", "class_lunch", "custom_forms", "weekly_briefing", "student_documents", "student_portfolio", "class_settings"];
 async function getMiraAccessApi(req, res) {
   try {
     const organizationId = parseInt(req.query.organizationId, 10);
@@ -9439,6 +9440,7 @@ async function sendReportCardsApi(req, res) {
 // Uses the Mailroom's own directory, access rules (class-restricted staff
 // only reach their classes' guardians) and sending, so messages appear in
 // Mailroom history. Preview first; nothing is sent until confirm=true.
+const MIRA_MAX_RECIPIENTS = 500;
 async function sendMessagesApi(req, res) {
   try {
     const organizationId = await assertHasPermission(req, PERMISSIONS.MAILROOM, "You don't have permission to send messages (Mailroom).");
@@ -9481,6 +9483,14 @@ async function sendMessagesApi(req, res) {
         error: restrictedClassIds !== null
           ? "No guardian contacts match that within your Mailroom access (you can only message the guardians of your assigned classes)."
           : "No guardian contacts match that.",
+      });
+    }
+
+    // Mira sends to at most 500 families at once; the Mail Room page has no such limit.
+    if (contacts.length > MIRA_MAX_RECIPIENTS) {
+      return res.status(413).json({
+        code: "TOO_MANY",
+        error: `That's ${contacts.length} guardians, and Mira sends to at most ${MIRA_MAX_RECIPIENTS} at once. Send it from the Mail Room, or ask me for one class or grade at a time.`,
       });
     }
 

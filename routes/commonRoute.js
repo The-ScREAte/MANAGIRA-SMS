@@ -717,13 +717,13 @@ module.exports = (db) => {
   router.get("/manageClassSubjectAndGradYr", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.manageClassSubjectAndGradYr(req, res, db)
   );
-  router.get("/deleteGraduationYearGroup", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
+  router.post("/deleteGraduationYearGroup", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.deleteGraduationYearGroup(req, res, db)
   );
   router.post("/editGraduationYearGroup", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.editGraduationYearGroup(req, res, db)
   );
-  router.get("/deleteClass", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
+  router.post("/deleteClass", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.deleteClass(req, res, db)
   );
   // Setup steps: what the school still has to set up (bottom bar).
@@ -813,7 +813,7 @@ module.exports = (db) => {
     commonController.deleteStudentImage(req, res, db)
   );
 
-  router.get("/deleteSubject", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
+  router.post("/deleteSubject", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.deleteSubject(req, res, db)
   );
   router.post("/editSubject", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>

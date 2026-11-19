@@ -10,7 +10,10 @@
 // don't declare a third parameter are unaffected; JS simply ignores it.
 const { runAsCaller } = require("../internalApiClient");
 const { checkTool } = require("../services/access");
+const { scrub } = require("../services/secrets");
 const findStudent = require("./findStudent");
+const getFormRequests = require("./getFormRequests");
+const remindFormOutstanding = require("./remindFormOutstanding");
 const getMyCalendar = require("./getMyCalendar");
 const getCalendarSyncStatus = require("./getCalendarSyncStatus");
 const addToMyCalendar = require("./addToMyCalendar");
@@ -192,6 +195,8 @@ const reportBuilderTools = require("./reportBuilder");
 const ALL_TOOLS = [
   ...reportBuilderTools,
   findStudent,
+  getFormRequests,
+  remindFormOutstanding,
   getMyCalendar,
   getCalendarSyncStatus,
   addToMyCalendar,
@@ -369,7 +374,10 @@ const ALL_TOOLS = [
   setStudentIdSettings,
 ];
 
-const REGISTRY = Object.fromEntries(ALL_TOOLS.map((t) => [t.name, t]));
+// Read tools in one shape (tools/read/: utils/miraRead on the main app).
+const READ_TOOLS = require("./read").tools;
+const REGISTRY = Object.fromEntries([...ALL_TOOLS, ...READ_TOOLS].map((t) => [t.name, t]));
+if (Object.keys(REGISTRY).length !== ALL_TOOLS.length + READ_TOOLS.length) throw new Error("A Mira tool name is registered twice.");
 
 function listToolSchemas() {
   return Object.values(REGISTRY).map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }));
@@ -379,6 +387,11 @@ function listToolSchemas() {
 // tools that need no permission run: unknown access is no access.
 const NO_ACCESS = { ok: false, held: new Set(), notInPlan: new Set(), labels: new Map(), permissions: [], classes: null, features: {} };
 
+const MAX_RECORDS = 200;
+const READ_TOOL = /^(get_|list_|find_|check_|compare_|whats_|search_)/;
+// A person's own sheet may take more cells than that.
+const OWN_WORK = new Set(["set_sheet_cells", "insert_class_data_into_sheet", "set_document_text"]);
+
 async function runTool(name, args, tenant, context) {
   const tool = REGISTRY[name];
   if (!tool) {
@@ -387,11 +400,20 @@ async function runTool(name, args, tenant, context) {
   // The person's own permissions decide, before anything is read or changed.
   const gate = checkTool(name, tenant, context?.access || NO_ACCESS);
   if (!gate.allowed) return { status: "denied", result: gate.reason };
+  // One action changes at most MAX_RECORDS records (a list of 200 students, rows, cells ...).
+  const tooMany = Object.entries(args || {}).find(([, value]) => Array.isArray(value) && value.length > MAX_RECORDS);
+  if (tooMany && !READ_TOOL.test(name) && !OWN_WORK.has(name)) {
+    return { status: "denied", result: `Not done: ${tooMany[1].length} ${tooMany[0]} is more than Mira changes at once (${MAX_RECORDS}). Offer to do it in parts, or point to the page in Managira.` };
+  }
   try {
     // Every internal API call this tool makes carries the caller's identity
     // (see internalApiClient.js), so the main app applies its own
     // permission checks to reads as well as writes.
-    const result = await runAsCaller(tenant, () => tool.handler(args, tenant, context));
+    const raw = await runAsCaller(tenant, () => tool.handler(args, tenant, context));
+    // Nothing secret leaves a tool: tokens, signed or storage links, keys, password data.
+    const found = [];
+    const result = scrub(raw, found);
+    if (found.length) console.warn(`[mira/tools] ${name}: hid ${found.length} secret value(s) from the result`);
     return { status: "ok", result };
   } catch (error) {
     if (error.denied) {

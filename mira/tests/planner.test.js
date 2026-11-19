@@ -46,14 +46,14 @@ test("an enhanced draft loses labels and quotes, and a runaway answer is refused
   assert.equal(tidyDraft("can i see fees"), "Can I see fees?");
 });
 
-test("each step is said in plain words, with what it's about", () => {
-  assert.equal(toolStepLabel("get_attendance", {}), "Checking attendance");
-  assert.equal(toolStepLabel("find_student", { query: "Ama Mensah" }), "Finding the student: Ama Mensah");
-  assert.equal(toolStepLabel("create_event", {}), "Adding the event");
-  assert.equal(toolStepLabel("rename_class", {}), "Getting the change ready");
-  assert.equal(toolStepLabel("list_transport_routes", {}), "Checking transport routes");
-  assert.equal(toolStepLabel("delete_test", {}), "Checking what this would change");
-  assert.equal(toolStepLabel("something_new", null), "Looking it up");
+test("each step is named professionally, with what it's about", () => {
+  assert.equal(toolStepLabel("get_attendance", {}), "Analyzing attendance records");
+  assert.equal(toolStepLabel("find_student", { query: "Ama Mensah" }), "Searching student records: Ama Mensah");
+  assert.equal(toolStepLabel("create_event", {}), "Creating the event");
+  assert.equal(toolStepLabel("rename_class", {}), "Staging the change");
+  assert.equal(toolStepLabel("list_transport_routes", {}), "Retrieving transport routes");
+  assert.equal(toolStepLabel("delete_test", {}), "Assessing what this would change");
+  assert.equal(toolStepLabel("something_new", null), "Searching school records");
 });
 
 test("an answer's dates and weekdays are checked against what the tools gave", () => {

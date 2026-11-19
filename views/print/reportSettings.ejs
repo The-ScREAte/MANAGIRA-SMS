@@ -4849,10 +4849,17 @@
       const deleteLink = event.target.closest('a[href*="/print/deleteScoreRemark/"], a[href*="/print/deleteRemark/"]');
       if (!deleteLink) return;
       const confirmMessage = String(deleteLink.getAttribute('data-confirm-message') || 'Delete this item? This action cannot be undone.');
-      if (!confirmDestructiveAction(confirmMessage)) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (!confirmDestructiveAction(confirmMessage)) return;
+      // Deleting is a POST (never a GET), to the same address.
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = deleteLink.getAttribute('href');
+      form.setAttribute('data-no-spa', '');
+      form.hidden = true;
+      document.body.appendChild(form);
+      form.submit();
     });
 
     function loadClassSettings(classId){
@@ -7100,7 +7107,7 @@
       showLoading();
       try {
         const res = await fetch(`/print/deleteSignatureForClass?classId=${classId}&termId=${termId}`, {
-          method: 'GET',
+          method: 'POST',
           credentials: 'same-origin'
         });
         if (!res.ok) throw new Error('Delete failed');
@@ -7127,7 +7134,7 @@
       showLoading();
       try {
         const res = await fetch(`/print/deleteEntireSignature?signaturePath=${signaturePath}&termId=${termId}`, {
-          method: 'GET',
+          method: 'POST',
           headers: { Accept: 'application/json' },
           credentials: 'same-origin'
         });
@@ -7146,7 +7153,7 @@
       showLoading();
       try {
         const res = await fetch(`/print/deleteTranscriptSignatureForClass?classId=${classId}`, {
-          method: 'GET',
+          method: 'POST',
           credentials: 'same-origin'
         });
         if (!res.ok) throw new Error('Delete failed');
@@ -7164,7 +7171,7 @@
       showLoading();
       try {
         const res = await fetch(`/print/deleteEntireTranscriptSignature?signaturePath=${signaturePath}`, {
-          method: 'GET',
+          method: 'POST',
           headers: { Accept: 'application/json' },
           credentials: 'same-origin'
         });

@@ -267,6 +267,17 @@ function mockDecide({ messages, tools }) {
 
   const available = new Set((tools || []).map((t) => t.name));
 
+  // Tests only (mock mode never runs with a real provider): "[mira-test-call] tool {json}"
+  // calls that tool, so a browser test can drive previews and confirmations end to end.
+  const forced = rawText.match(/^\s*\[mira-test-call\]\s+([a-z_]+)\s+(\{[\s\S]*\})\s*$/);
+  if (forced) {
+    try {
+      return { type: "tool_call", toolName: forced[1], arguments: JSON.parse(forced[2]) };
+    } catch (_) {
+      return { type: "text", content: "That test call's details aren't valid JSON." };
+    }
+  }
+
   // Class/grade counts and rosters - checked before student search so
   // "how many students in JSS" routes here (class counts) instead of a
   // broken name search on "in jss".

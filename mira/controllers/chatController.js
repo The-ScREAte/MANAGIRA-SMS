@@ -59,7 +59,22 @@ async function postChat(req, res) {
   try {
     // Skills picked in the composer for this message (services/skills.js checks they're this person's).
     const skillIds = (Array.isArray(req.body?.skillIds) ? req.body.skillIds : []).map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 5);
-    await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null, images, skillIds });
+    const pageIn = req.body && req.body.page && typeof req.body.page === "object" ? req.body.page : null;
+    const pagePath = pageIn && typeof pageIn.path === "string" && /^\/[^\s<>"]*$/.test(pageIn.path) ? pageIn.path.slice(0, 300) : null;
+    const page = pagePath ? { path: pagePath, title: String(pageIn.title || "").replace(/[\r\n<>]+/g, " ").slice(0, 120) } : null;
+    // The Confirm / Cancel buttons on a preview (services/confirmGate.js checks every id).
+    const idOk = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{8,40}\.[A-Za-z0-9_-]{10,40}$/.test(v);
+    const confirmIn = req.body && req.body.confirmPreview;
+    const confirmPreview = Array.isArray(confirmIn) ? confirmIn.filter(idOk).slice(0, 25) : idOk(confirmIn) ? confirmIn : null;
+    const typedIn = req.body && req.body.typed;
+    const typed = typeof typedIn === "string" ? typedIn.slice(0, 200)
+      : typedIn && typeof typedIn === "object" ? Object.fromEntries(Object.entries(typedIn).filter(([k, v]) => idOk(k) && typeof v === "string").slice(0, 25).map(([k, v]) => [k, v.slice(0, 200)])) : null;
+    const cancelPreview = idOk(req.body && req.body.cancelPreview) ? req.body.cancelPreview : null;
+    await runTurn({
+      tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null, images, skillIds, page,
+      confirmPreview: Array.isArray(confirmPreview) && !confirmPreview.length ? null : confirmPreview, typed, cancelPreview,
+      timeZone: typeof (req.body && req.body.timeZone) === "string" ? req.body.timeZone.slice(0, 64) : null,
+    });
   } catch (error) {
     console.error("[mira/chatController]", error);
     sse.send("error", { message: "Something went wrong generating a response." });

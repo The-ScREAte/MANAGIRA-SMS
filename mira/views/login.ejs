@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
   <title><%= typeof title !== 'undefined' ? title : 'Sign in - Mira' %></title>
-  <link rel="icon" type="image/png" href="/images/miralogo.png" />
+  <link rel="icon" type="image/png" href="/images/miralogo-64.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/mira.css" />
+  <link rel="stylesheet" href="/css/mira.css?v=<%= assetV %>" />
   <script>
     (function () {
       try {
@@ -32,6 +32,5 @@
       <a class="mira-btn mira-auth-btn mira-auth-sso" href="<%= signInUrl %>">Go to Managira sign-in</a>
     </div>
   </main>
-  <script src="/js/mira-logo.js" defer></script>
 </body>
 </html>

@@ -39,7 +39,20 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: "10mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+// Light to load: files are compressed (never the chat's live stream), and scripts and styles are
+// cached for a year under a version that changes with every deploy (?v= in the views).
+const compression = require("compression");
+app.use(compression({
+  filter: (req, res) => !req.path.startsWith("/api/chat") && !/text\/event-stream/.test(String(res.getHeader("Content-Type") || "")) && compression.filter(req, res),
+}));
+app.locals.assetV = String(process.env.RENDER_GIT_COMMIT || "").slice(0, 10) || Date.now().toString(36);
+app.use((req, res, next) => {
+  if (req.method === "GET" && /\.(?:js|css|png|svg|webp|ico|woff2?)$/.test(req.path)) {
+    res.setHeader("Cache-Control", req.query.v ? "public, max-age=31536000, immutable" : "public, max-age=3600");
+  }
+  next();
+});
+app.use(express.static(path.join(__dirname, "public"), { cacheControl: false }));
 
 // No auth - used by the deploy platform / uptime checks. `providers` is
 // boolean-only (never keys/values) - just enough to diagnose "which LLM

@@ -1,0 +1,477 @@
+{
+  "about": "What Mira can reach in each area of Managira: read tools, change tools (levels in services/levels.js) or why it's left out. tests/coverage.test.js fails when an area has neither, a tool or feature isn't placed, or a named tool doesn't exist.",
+  "areas": {
+    "students": {
+      "read": [
+        "find_student",
+        "list_students",
+        "search_records",
+        "get_student_profile",
+        "list_archived_students",
+        "get_upcoming_birthdays",
+        "check_student_duplicates",
+        "find_students"
+      ],
+      "change": [
+        "create_students",
+        "unarchive_students"
+      ],
+      "never": "Permanently deleting a student",
+      "features": [
+        "student_documents",
+        "student_portfolio"
+      ]
+    },
+    "families": {
+      "read": [
+        "find_contact",
+        "get_guardian_details",
+        "get_family",
+        "list_family_invitations"
+      ],
+      "change": [],
+      "never": "Unlinking or merging parents (done on the Parents & guardians page)",
+      "features": [
+        "family_sharing",
+        "family_link",
+        "family_gpa",
+        "teacher_cards",
+        "parent_student_hub",
+        "portal_requests"
+      ]
+    },
+    "staff": {
+      "read": [
+        "list_employees",
+        "get_staff_profile",
+        "get_class_staff"
+      ],
+      "change": [
+        "create_employee",
+        "set_employee_hold"
+      ],
+      "never": "Staff permissions, roles and sign-in",
+      "features": [
+        "assistant_teacher",
+        "school_roles"
+      ]
+    },
+    "classes_and_subjects": {
+      "read": [
+        "get_class",
+        "list_subjects",
+        "list_graduation_year_groups",
+        "get_class_schedule",
+        "get_close_group_candidates"
+      ],
+      "change": [
+        "create_classes",
+        "rename_class",
+        "reorder_classes",
+        "delete_class",
+        "create_subject",
+        "assign_subject_to_classes",
+        "rename_subject",
+        "delete_subject",
+        "create_graduation_year_group",
+        "rename_graduation_year_group",
+        "delete_graduation_year_group",
+        "close_graduation_year_group"
+      ],
+      "features": [
+        "teacher_class_scope"
+      ]
+    },
+    "years_and_terms": {
+      "read": [
+        "get_term",
+        "list_school_years"
+      ],
+      "change": [
+        "create_school_year",
+        "rename_school_year",
+        "add_term_to_school_year",
+        "delete_school_year",
+        "delete_term"
+      ]
+    },
+    "enrollment_and_promotions": {
+      "read": [
+        "list_enrollments",
+        "get_enrollment_roster",
+        "list_promotion_schedules",
+        "get_promotion_preview"
+      ],
+      "change": [
+        "set_enrollment_roster",
+        "delete_enrollment",
+        "schedule_promotion",
+        "apply_scheduled_promotion",
+        "cancel_scheduled_promotion",
+        "reverse_promotion",
+        "delete_reversed_promotion"
+      ]
+    },
+    "admissions": {
+      "read": [
+        "list_pending_admissions",
+        "get_pending_admission_details"
+      ],
+      "change": [
+        "update_pending_admission",
+        "approve_pending_admission",
+        "reject_pending_admission"
+      ]
+    },
+    "attendance_and_lunch": {
+      "read": [
+        "get_attendance",
+        "find_low_attendance",
+        "get_attendance_summary",
+        "get_lunch"
+      ],
+      "change": [],
+      "never": "Marking attendance is done on the class attendance page",
+      "features": [
+        "class_lunch"
+      ]
+    },
+    "assessments_and_tests": {
+      "read": [
+        "list_assessments",
+        "get_scores",
+        "list_question_sets",
+        "list_question_set_students",
+        "get_attempt_for_grading"
+      ],
+      "change": [
+        "create_test",
+        "modify_test",
+        "set_test_status",
+        "set_test_date_window",
+        "set_test_questions",
+        "review_question_set",
+        "reuse_question_set",
+        "set_student_assessment_status",
+        "save_attempt_grade",
+        "post_question_set_scores",
+        "unpost_question_set_scores",
+        "show_work_to_parents",
+        "delete_test",
+        "delete_question_set"
+      ],
+      "features": [
+        "assessment_flow",
+        "learning_resources"
+      ]
+    },
+    "reports_and_transcripts": {
+      "read": [
+        "get_report_card_status",
+        "get_merit_sheet",
+        "get_transcript",
+        "get_gpa",
+        "get_report_settings",
+        "list_remarks",
+        "generate_report_pdf",
+        "generate_merit_sheet_pdf",
+        "generate_report_card_summary",
+        "get_class_readiness"
+      ],
+      "change": [
+        "post_or_send_report_cards",
+        "set_report_card_display_options",
+        "set_grading_scale_band",
+        "delete_grading_scale_band",
+        "set_promotion_settings",
+        "add_remark",
+        "delete_remark"
+      ],
+      "features": [
+        "gpa",
+        "gpa_credits",
+        "transcript_designs",
+        "report_remarks_forms"
+      ]
+    },
+    "forms_and_requests": {
+      "read": [
+        "get_form_requests",
+        "list_custom_forms",
+        "get_form_answers"
+      ],
+      "change": [
+        "remind_form_outstanding"
+      ],
+      "never": "Building or changing forms (done in the Custom editor)",
+      "features": [
+        "custom_forms",
+        "mira_forms"
+      ]
+    },
+    "calendar_events_tasks": {
+      "read": [
+        "get_my_calendar",
+        "get_calendar",
+        "get_availability",
+        "find_free_time",
+        "list_events",
+        "list_activities",
+        "get_tasks",
+        "get_calendar_sync_status"
+      ],
+      "change": [
+        "create_event",
+        "update_event",
+        "delete_event",
+        "create_activity",
+        "add_to_my_calendar"
+      ],
+      "features": [
+        "class_activities"
+      ]
+    },
+    "announcements": {
+      "read": [
+        "list_school_announcements",
+        "get_announcement_reads"
+      ],
+      "change": [
+        "create_announcement",
+        "create_school_announcement",
+        "update_school_announcement",
+        "delete_school_announcement"
+      ]
+    },
+    "messages": {
+      "read": [
+        "list_sent_messages",
+        "get_parent_messages",
+        "get_briefing",
+        "list_failed_emails",
+        "check_email_availability",
+        "get_notifications",
+        "get_notification_preferences"
+      ],
+      "change": [
+        "draft_message",
+        "draft_family_messages",
+        "send_message",
+        "fix_failed_email",
+        "set_notification_preferences",
+        "set_organization_notification_preferences"
+      ],
+      "features": [
+        "weekly_briefing",
+        "email_refresh"
+      ]
+    },
+    "documents_and_sheets": {
+      "read": [
+        "list_documents",
+        "get_document"
+      ],
+      "change": [
+        "create_document",
+        "set_document_title",
+        "set_document_text",
+        "set_sheet_cells",
+        "resize_sheet",
+        "insert_class_data_into_sheet",
+        "share_document_with_user",
+        "remove_document_share",
+        "assign_document_to_class",
+        "unassign_document_from_class",
+        "delete_document"
+      ]
+    },
+    "report_builder": {
+      "read": [
+        "report_builder_catalog",
+        "run_report",
+        "list_saved_reports",
+        "export_report"
+      ],
+      "change": [
+        "save_report",
+        "favorite_saved_report",
+        "import_report_template",
+        "share_saved_report",
+        "schedule_saved_report",
+        "delete_saved_report"
+      ],
+      "features": [
+        "report_builder_more",
+        "transport_report_builder"
+      ]
+    },
+    "statistics": {
+      "read": [
+        "get_organization_statistics",
+        "compare_classes"
+      ],
+      "change": []
+    },
+    "transportation": {
+      "read": [
+        "list_transport_buses",
+        "list_transport_drivers",
+        "list_transport_routes",
+        "list_transport_stops",
+        "list_transport_schedules",
+        "get_student_transportation",
+        "get_transportation_live_status",
+        "get_bus_riding_today",
+        "get_driver_reports",
+        "get_bus_requests",
+        "get_trips"
+      ],
+      "change": [
+        "create_transport_bus",
+        "set_transport_bus_status",
+        "delete_transport_bus",
+        "create_transport_route",
+        "set_transport_route_status",
+        "delete_transport_route",
+        "create_transport_stop",
+        "delete_transport_stop",
+        "create_transport_driver",
+        "set_transport_driver_status",
+        "delete_transport_driver",
+        "create_transport_schedule",
+        "set_transport_schedule_status",
+        "delete_transport_schedule",
+        "assign_student_transportation",
+        "remove_student_transportation"
+      ],
+      "features": [
+        "bus_boarding"
+      ]
+    },
+    "paygira": {
+      "read": [
+        "get_fees",
+        "get_student_ledger",
+        "get_overdue_balances",
+        "list_bills"
+      ],
+      "change": [],
+      "never": "Payments, refunds, payouts, recording or correcting payments, payment settings"
+    },
+    "website": {
+      "read": [
+        "get_website_settings",
+        "get_website_about_us",
+        "list_website_articles",
+        "list_website_gallery_images",
+        "list_website_messages"
+      ],
+      "change": [
+        "upload_website_image",
+        "update_website_image",
+        "delete_website_image",
+        "create_website_article",
+        "update_website_article",
+        "delete_website_article",
+        "update_website_about_us",
+        "update_website_section",
+        "set_website_layout",
+        "set_website_theme",
+        "set_website_self_enrollment"
+      ],
+      "features": [
+        "website_designs"
+      ]
+    },
+    "class_settings": {
+      "read": [
+        "get_class_settings"
+      ],
+      "change": [],
+      "never": "Changing what classes share is done in Class settings",
+      "features": [
+        "class_settings"
+      ]
+    },
+    "school_profile_and_settings": {
+      "read": [
+        "get_school_customization",
+        "get_integrations_status",
+        "get_sso_status",
+        "get_activity_log"
+      ],
+      "change": [
+        "update_school_profile",
+        "set_school_font",
+        "set_display_preferences",
+        "set_school_nickname",
+        "set_student_id_settings"
+      ],
+      "never": "Integrations, single sign-on, API and Mira settings: status only",
+      "features": [
+        "sso",
+        "tenant_config"
+      ]
+    },
+    "help_and_whats_new": {
+      "read": [
+        "whats_new",
+        "list_projects"
+      ],
+      "change": [
+        "submit_feedback"
+      ]
+    },
+    "mira_itself": {
+      "read": [],
+      "change": [],
+      "excluded": "Mira's own features",
+      "features": [
+        "mira_outreach",
+        "mira_steps",
+        "mira_skills",
+        "mira_read_more"
+      ]
+    },
+    "billing": {
+      "excluded": "Plan, renewal and payment changes are never made from Mira; the Billing & Plan page shows them",
+      "features": [
+        "addon_pricing",
+        "plan_page",
+        "plan_catalog"
+      ]
+    },
+    "sign_in_and_security": {
+      "excluded": "Passwords, sign-in, verification codes and authenticator settings are never touched from Mira",
+      "features": [
+        "smart_login",
+        "login_code",
+        "sign_in_authenticator"
+      ]
+    },
+    "parent_and_student_portals": {
+      "excluded": "Mira is for staff; parents and students use their own portals",
+      "features": []
+    },
+    "hubs_admin_migration_backups": {
+      "excluded": "Outside the school: hubs, other schools, platform admin, data migration and backups",
+      "features": [
+        "data_migration",
+        "migration_codes"
+      ]
+    },
+    "first_time_setup_and_public_site": {
+      "excluded": "One-time setup and Managira's public pages aren't school records",
+      "features": [
+        "first_setup",
+        "new_landing"
+      ]
+    },
+    "state_reporting": {
+      "excluded": "Gov/state files are made and sent from Report Builder's Gov/state window, which asks for the person's own password",
+      "features": [
+        "state_reporting"
+      ]
+    }
+  }
+}

@@ -256,7 +256,7 @@ router.post("/website/messages/:id", isAuthenticated, requirePermission(PERMISSI
 router.post("/updateImage", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.updateImagePost(req, res, db)
 );
-router.get("/deleteImage/:imageId", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
+router.post("/deleteImage/:imageId", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.deleteImageGet(req, res, db)
 );
 router.post(
@@ -267,7 +267,7 @@ router.post(
   accountValidation.validateTextSectionResult,
   (req, res) => accountController.updateTextPost(req, res, db)
 );
-router.get("/deleteText/:textId", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
+router.post("/deleteText/:textId", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>
   accountController.deleteTextGet(req, res, db)
 );
 router.post("/update-about-us", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_WEBSITE), (req, res) =>

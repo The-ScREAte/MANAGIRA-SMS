@@ -470,7 +470,7 @@ async function getDynamicBirthdayItems(db, context) {
 
     const childName = String(student.first_name || '').trim() || studentName;
     for (const row of studentGuardians.rows) {
-      await queueBirthdayEmailIfNeeded(db, {
+      if (!context.readOnly) await queueBirthdayEmailIfNeeded(db, {
         orgId,
         entityType: 'student',
         entityId: Number(student.student_id),
@@ -533,7 +533,7 @@ async function getDynamicBirthdayItems(db, context) {
 
     for (const guardian of guardianMap.values()) {
       if (guardian.email) {
-        await queueBirthdayEmailIfNeeded(db, {
+        if (!context.readOnly) await queueBirthdayEmailIfNeeded(db, {
           orgId,
           entityType: 'guardian',
           entityId: guardian.guardian_id,

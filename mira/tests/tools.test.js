@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { REGISTRY, runTool, listToolSchemas } = require("../tools");
+const { TOOL_ACCESS } = require("../services/access");
 
 test("runTool: unknown tool name is denied, not silently ignored", async () => {
   const result = await runTool("delete_everything", {}, { organizationId: 63 });
@@ -20,6 +21,7 @@ test("listToolSchemas: every registered tool has name/description/parameters", (
 
 test("runTool: the tenant object is passed through to the tool handler unmodified", async () => {
   const seenTenants = [];
+  TOOL_ACCESS.__test_probe__ = { open: true };
   REGISTRY.__test_probe__ = {
     name: "__test_probe__",
     description: "test-only",
@@ -36,10 +38,12 @@ test("runTool: the tenant object is passed through to the tool handler unmodifie
     assert.deepEqual(seenTenants[0], tenant);
   } finally {
     delete REGISTRY.__test_probe__;
+    delete TOOL_ACCESS.__test_probe__;
   }
 });
 
 test("runTool: a handler throwing with .denied=true reports status 'denied', not 'error'", async () => {
+  TOOL_ACCESS.__test_denied__ = { open: true };
   REGISTRY.__test_denied__ = {
     name: "__test_denied__",
     description: "test-only",
@@ -56,10 +60,12 @@ test("runTool: a handler throwing with .denied=true reports status 'denied', not
     assert.equal(result.result, "not allowed");
   } finally {
     delete REGISTRY.__test_denied__;
+    delete TOOL_ACCESS.__test_denied__;
   }
 });
 
 test("runTool: a handler throwing a normal error reports status 'error'", async () => {
+  TOOL_ACCESS.__test_error__ = { open: true };
   REGISTRY.__test_error__ = {
     name: "__test_error__",
     description: "test-only",
@@ -73,5 +79,18 @@ test("runTool: a handler throwing a normal error reports status 'error'", async 
     assert.equal(result.status, "error");
   } finally {
     delete REGISTRY.__test_error__;
+    delete TOOL_ACCESS.__test_error__;
+  }
+});
+
+test("runTool: a registered tool with no access rule is refused before it runs", async () => {
+  let ran = false;
+  REGISTRY.__test_unruled__ = { name: "__test_unruled__", description: "test-only", parameters: {}, async handler() { ran = true; return {}; } };
+  try {
+    const result = await runTool("__test_unruled__", {}, { organizationId: 63, viewerType: "staff" });
+    assert.equal(result.status, "denied");
+    assert.equal(ran, false);
+  } finally {
+    delete REGISTRY.__test_unruled__;
   }
 });

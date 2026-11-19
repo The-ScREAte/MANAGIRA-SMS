@@ -1193,7 +1193,14 @@
           "Delete this permanently?\n\nIf it already has records (students, scores, report cards, attendance) it can't be deleted. Make it obsolete instead: it stays on those records and is no longer offered for new work."
         );
         if (confirmation) {
-          window.location.href = url;
+          // Deleting is a POST (never a GET), to the same address.
+          const form = document.createElement('form');
+          form.method = 'post';
+          form.action = url;
+          form.setAttribute('data-no-spa', '');
+          form.hidden = true;
+          document.body.appendChild(form);
+          form.submit();
         }
       }
 

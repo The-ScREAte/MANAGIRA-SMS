@@ -5,14 +5,19 @@
 // loaded, so a short follow-up ("yes", "the first one") keeps the tools it
 // needs. The model can always ask for another area with load_tools.
 
-const CORE_TOOLS = ["whats_new", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
+const CORE_TOOLS = ["search_records", "whats_new", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
 
 // name -> { label (shown to the model), keywords (matched against the
 // conversation), tools }
 const AREAS = {
+  forms: {
+    label: "Forms & requests: forms, permission slips, consent and sign-ups asked of parents or students, who hasn't completed them, and reminders",
+    keywords: /\b(tasks?|requests?|requested|forms?|permission slips?|slips?|consent|sign[- ]?ups?|to[- ]?dos?|outstanding|pending|not (?:yet )?(?:completed|complete|submitted|filled|signed|done)|incomplete|haven'?t (?:completed|filled|signed|submitted|returned)|hasn'?t (?:completed|filled|signed|submitted|returned)|overdue|remind\w*|fill(?:ed)? in|returned)\b/,
+    tools: ["get_form_requests", "remind_form_outstanding"],
+  },
   report_builder: {
     label: "Report Builder: any list or count (students, attendance, fees, scores, staff, parents, messages, activity), saved reports, sharing, email schedules, Excel/CSV/Word exports, Managira templates (.mgrt)",
-    keywords: /\b(report builder|custom reports?|saved reports?|my reports|reports?|lists?|roster|how many|count|total|export\w*|excel|xlsx|csv|spreadsheet|word|docx|download|template|mgrt|columns?|filters?|schedul\w*|share\w*|favou?rite|star)\b/,
+    keywords: /\b(report builder|custom reports?|saved reports?|my reports|reports?(?! cards?)|lists?|roster|how many|count|total|export\w*|excel|xlsx|csv|spreadsheet|word (document|file|doc)|docx|download|templates?|mgrt|columns?|filters?|(schedul\w*|shar\w*|email\w*|star\w*|favou?rit\w*) (a |the |this |that |my )?(saved )?report)\b/,
     tools: [
       "report_builder_catalog", "run_report", "list_saved_reports", "save_report", "delete_saved_report", "share_saved_report",
       "schedule_saved_report", "favorite_saved_report", "export_report", "import_report_template",
@@ -47,7 +52,7 @@ const AREAS = {
   },
   reports: {
     label: "Report cards (download, post to parent portal, send to guardians), merit sheets, report settings, grading scale, remarks",
-    keywords: /\b(reports?|report cards?|merit|rank\w*|positions?|pdf|print\w*|grading|grade bands?|grades?|remarks?|results?|terminal|transcripts?|download|post(ed|ing)?|publish\w*)\b/,
+    keywords: /\b(reports?|report cards?|merit|rank\w*|positions?|top( \d+)?|best|highest|first in|pdf|print\w*|grading|grade bands?|grades\b(?!\s*\d)|remarks?|results?|terminal|transcripts?|download|post(ed|ing)?|publish\w*)\b/,
     tools: [
       "generate_report_pdf", "post_or_send_report_cards", "get_merit_sheet", "generate_merit_sheet_pdf", "generate_report_card_summary",
       "get_report_settings", "set_report_card_display_options", "set_grading_scale_band", "delete_grading_scale_band",
@@ -135,6 +140,19 @@ const AREAS = {
   },
 };
 
+// Read tools (tools/read/) bring their own areas and say which areas they belong to.
+{
+  const read = require("../tools/read");
+  Object.entries(read.areas).forEach(([key, area]) => {
+    if (AREAS[key]) throw new Error(`area ${key} already exists`);
+    AREAS[key] = { label: area.label, keywords: area.keywords, tools: [] };
+  });
+  read.tools.forEach((tool) => tool.areas.forEach((key) => {
+    if (!AREAS[key]) throw new Error(`${tool.name}: no area ${key}`);
+    if (!AREAS[key].tools.includes(tool.name)) AREAS[key].tools.push(tool.name);
+  }));
+}
+
 const AREA_NAMES = Object.keys(AREAS);
 const AREA_BY_TOOL = new Map();
 AREA_NAMES.forEach((area) => AREAS[area].tools.forEach((tool) => {
@@ -191,7 +209,7 @@ function selectAreas({ userText, history }) {
     });
   });
 
-  if (!areas.size) DEFAULT_AREAS.forEach((area) => areas.add(area));
+  if (!areas.size && !SMALL_TALK.test(stripAttachments(userText))) DEFAULT_AREAS.forEach((area) => areas.add(area));
   return areas;
 }
 
@@ -205,10 +223,49 @@ function toolNamesForAreas(areas) {
 // load_tools so the model can reach anything else.
 // `allowed(name)` (the person's own permissions, services/access.js) drops
 // tools they can't use, so Mira is never offered them.
-function selectToolSchemas(allSchemas, areas, allowed = () => true) {
+// Light per message: a question gets only the read tools of its areas; tools that change
+// something come only when the person asks for an action (or loads an area with load_tools).
+// The model can always load more with load_tools.
+function selectToolSchemas(allSchemas, areas, allowed = () => true, { writes = true, writeAreas = null } = {}) {
   const names = toolNamesForAreas(areas);
-  return [...allSchemas.filter((schema) => names.has(schema.name) && allowed(schema.name)), LOAD_TOOLS_SCHEMA];
+  const writeNames = writeAreas ? toolNamesForAreas(writeAreas) : null;
+  const { LEVELS } = require("./levels");
+  const offered = (name) => writes || !((LEVELS[name] || 0) >= 1) || (writeNames && writeNames.has(name));
+  return [...allSchemas.filter((schema) => names.has(schema.name) && allowed(schema.name) && offered(schema.name)), LOAD_TOOLS_SCHEMA];
 }
+
+// Whether the person asks Mira to change something. A word counts as a request only where it's
+// used as one: starting a sentence ("Send report cards..."), after a request ("can you add...",
+// "I need to email..."), or as a verb followed by what it acts on ("remind them", "post a notice").
+// "Their invite" or "parent messages" are things, not requests. The model can still load_tools.
+const ACTION_VERBS = "add|create|make|send|resend|email|text|sms|whatsapp|message|notify|remind|post|repost|publish|unpost|share|unshare|schedule|reschedule|book|invite|assign|unassign|enrol|enroll|unenroll|promote|reverse|approve|reject|decline|admit|delete|remove|cancel|close|archive|unarchive|restore|hold|resume|mark|grade|save|upload|import|export|draft|write|fix|lock|unlock|put|place|register|record|reorder|attach|insert|resize|replace|apply|move|rename|update|change|edit|set|turn|enable|disable|link|unlink|reset|merge|retry|open|reopen|graduate|withdraw|transfer|assign|swap";
+const ACTION_WORD = new RegExp(`\\b(${ACTION_VERBS})\\b`, "gi");
+const REQUEST_BEFORE = /(^|\b)(please|pls|kindly|can you|could you|would you|will you|can we|could we|i want to|i'd like to|i would like to|i need to|we need to|need to|help me|let'?s|go ahead and|and then|then|also|and|now|just|quickly|mira,?|ok,?|okay,?|yes,?|so)\s*$/i;
+const OBJECT_AFTER = /^(it|them|this|that|these|those|a|an|the|my|our|his|her|their|every|everyone|everybody|all|each|both|him|her|me|us|[A-Z][a-z]+'s)\b/;
+function sentenceAsks(sentence) {
+  const text = sentence.replace(/^\s*(hey |hi |hello )?mira[,:]?\s*/i, "").trim();
+  if (!text) return false;
+  ACTION_WORD.lastIndex = 0;
+  let match;
+  while ((match = ACTION_WORD.exec(text))) {
+    const before = text.slice(0, match.index).trim();
+    const after = text.slice(match.index + match[0].length).trim();
+    if (!before || REQUEST_BEFORE.test(before)) return true;
+    if (OBJECT_AFTER.test(after) && !/\b(who|what|which|whose|whom|how many|how much|when|where|did|has|have|had|was|were|is|are)\b[^.?!]*$/i.test(before)) return true;
+  }
+  return false;
+}
+function asksForAction(userText, history = []) {
+  const text = stripAttachments(userText);
+  if (text.split(/[.?!\n;]+/).some(sentenceAsks)) return true;
+  // A short follow-up to an action ("yes", "do it", "the first one") keeps the action's tools.
+  const short = text.trim().length <= 60;
+  const priorUser = [...history].reverse().find((m) => m.role === "user");
+  return short && Boolean(priorUser && stripAttachments(priorUser.content || "").split(/[.?!\n;]+/).some(sentenceAsks));
+}
+
+// Greetings and thanks need no areas at all (the core tools still come).
+const SMALL_TALK = /^\s*(hi|hello|hey|hiya|good (morning|afternoon|evening|night)|thanks?|thank you|thx|ok|okay|cool|great|nice|perfect|bye|goodbye|see you)\b[\s!.,?]*(mira)?[\s!.,?]*$/i;
 
 function normalizeRequestedAreas(args) {
   const requested = Array.isArray(args?.areas) ? args.areas : args?.area ? [args.area] : [];
@@ -254,6 +311,8 @@ module.exports = {
   CORE_TOOLS,
   LOAD_TOOLS_NAME,
   selectAreas,
+  areasMentioned,
+  asksForAction,
   selectToolSchemas,
   normalizeRequestedAreas,
   toolNamesForAreas,

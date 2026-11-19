@@ -1207,78 +1207,19 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .mira-logo.mira-logo-entrance {
-    opacity: 0;
-    transform: scale(0.6) rotate(0deg);
-    animation: miraLogoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  /* Idle state: a small, slow left-right wag - a subtle sign of life, not
-     an attention-grabbing spin. Always on, not just while something is
-     loading. */
-  .mira-logo.mira-logo-idle { animation: miraLogoWag 3s ease-in-out infinite; }
-  /* ...except the persistent thread logo below the last message: it
-     stays stable at rest and only wags on hover, since it's visible
-     continuously (not just briefly like the hero logo) and constant
-     motion there read as distracting. More specific (3 classes) than
-     the rule above, so it wins regardless of source order. */
-  .mira-logo.mira-logo-thread.mira-logo-idle { animation: none; }
-  /* A single up-down bob per hover, not a continuous loop - re-triggers
-     each time the pointer re-enters (mouse leaves + comes back), but
-     sitting there hovering plays it exactly once and then holds still. */
-  .mira-logo.mira-logo-thread.mira-logo-idle:hover { animation: miraLogoHoverBob 0.6s ease-in-out 1; }
-  /* Loading state: while Mira is generating a reply. Same motion, just a
-     little brisker to read as "working" - always animated here,
-     regardless of hover, on the thread logo too. */
-  .mira-logo.mira-logo-spinning { animation: miraLogoWag 1.8s ease-in-out infinite; }
-  .mira-thinking-dots span { animation: miraThinkingBounce 1.2s ease-in-out infinite; }
-  .mira-thinking-dots span:nth-child(1) { animation-delay: 0s; }
-  .mira-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-  .mira-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes miraThinkingBounce {
-    0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
-    40%           { opacity: 1; transform: translateY(-4px); }
-  }
-  @keyframes miraLogoEntrance {
-    0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }
-    60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
-    100% { opacity: 1; transform: scale(1) rotate(360deg); }
-  }
-  /* Asymmetric swing, left leg first (20deg left, 10deg right) - keyframe
-     timing spaced proportionally to each leg's angular distance so every
-     leg moves at the same average speed: 20/60=33%, 40/60=67% (back to
-     center), 50/60=83% (out to the right), 60/60=100% (back to center).
-     A previous version had the second keyframe at 50% instead of 67%,
-     which squeezed the return-from-left leg into half its correct time
-     and stretched the swing-to-right leg to double its correct time -
-     that mismatch was the visible stutter ("breaks in the middle"). */
-  @keyframes miraLogoWag {
-    0%   { transform: rotate(0deg); }
-    33%  { transform: rotate(-20deg); }
-    67%  { transform: rotate(0deg); }
-    83%  { transform: rotate(10deg); }
-    100% { transform: rotate(0deg); }
-  }
-  @keyframes miraLogoHoverBob {
-    0%   { transform: translateY(0); }
-    35%  { transform: translateY(-6px); }
-    70%  { transform: translateY(1px); }
-    100% { transform: translateY(0); }
-  }
+/* Motion is kept to almost nothing, so Mira stays light on every device: the logo sits still,
+   and while Mira works it only fades gently (opacity, drawn by the compositor). */
+.mira-logo.mira-logo-entrance, .mira-logo.mira-logo-idle { opacity: 1; transform: none; animation: none; }
+.mira-logo.mira-logo-spinning { animation: miraLogoPulse 1.6s ease-in-out infinite; }
+.mira-thinking-dots span { opacity: 0.35; animation: miraLogoPulse 1.4s ease-in-out infinite; }
+.mira-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.mira-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes miraLogoPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mira-logo.mira-logo-entrance { opacity: 1; transform: none; }
-  /* Loading state still needs *some* signal without motion - a soft pulse
-     instead of a spin. */
-  .mira-logo.mira-logo-spinning { animation: miraLogoPulseReduced 1.4s ease-in-out infinite; }
-  .mira-thinking-dots span { animation: miraLogoPulseReduced 1.4s ease-in-out infinite; opacity: 0.35; }
-  .mira-thinking-dots span:nth-child(1) { animation-delay: 0s; }
-  .mira-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-  .mira-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes miraLogoPulseReduced {
-    0%, 100% { opacity: 1; }
-    50%      { opacity: 0.45; }
-  }
+  .mira-logo.mira-logo-spinning, .mira-thinking-dots span { animation: none; }
 }
 
 /* ----------------------------------------------------- settings modal */
@@ -1740,9 +1681,8 @@ button { font-family: inherit; }
   border-bottom: 1.6px solid var(--mira-bg-elevated);
   transform: rotate(-45deg) translate(1px, -1px);
 }
-.mira-step.is-active .mira-step-icon { border-color: var(--mira-primary-border); border-top-color: var(--mira-step-done); }
+.mira-step.is-active .mira-step-icon { border-color: var(--mira-step-done); background: var(--mira-primary-soft-strong); }
 @media (prefers-reduced-motion: no-preference) {
-  .mira-step.is-active .mira-step-icon { animation: miraStepSpin 0.8s linear infinite; }
 }
 .mira-step.is-active .mira-step-label { color: var(--mira-text-primary); font-weight: 600; }
 .mira-step.is-failed .mira-step-icon { border-color: var(--mira-step-failed); }
@@ -1886,12 +1826,45 @@ button { font-family: inherit; }
 .mira-steps-list { margin: 4px 0 2px 5px; padding: 2px 0 2px 14px; border-left: 1.5px solid var(--mira-border); gap: 6px; }
 .mira-step { font-size: 0.81rem; color: var(--mira-text-secondary); }
 .mira-step.is-active .mira-step-label { color: var(--mira-text-primary); }
-@media (prefers-reduced-motion: no-preference) {
-  .mira-steps.is-working .mira-steps-title {
-    background: linear-gradient(90deg, var(--mira-text-tertiary) 0%, var(--mira-text-primary) 50%, var(--mira-text-tertiary) 100%);
-    background-size: 200% 100%;
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: miraStepsShimmer 1.6s linear infinite;
-  }
+
+/* Message box: left-aligned text everywhere (the welcome area is centred), one line when empty,
+   and on narrow screens tighter buttons so the placeholder never wraps. */
+.mira-input-box textarea { text-align: left; min-width: 0; }
+.mira-empty-state .mira-input-box { width: 100%; box-sizing: border-box; }
+@media (max-width: 480px) {
+  .mira-input-box { gap: 2px; padding: 6px 6px 6px 8px; min-height: 50px; }
+  .mira-input-box .mira-icon-btn { width: 32px; height: 32px; }
+  .mira-input-box .mira-send-btn { width: 36px; height: 36px; }
+  .mira-input-box textarea { padding: 0 4px; }
+  .mira-quick-actions { gap: 6px; }
 }
-@keyframes miraStepsShimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.mira-embed .mira-input-box { gap: 2px; padding: 6px 6px 6px 8px; }
+.mira-embed .mira-input-box .mira-icon-btn { width: 32px; height: 32px; }
+.mira-embed .mira-input-box .mira-send-btn { width: 36px; height: 36px; }
+
+/* Steps: folded until opened; opened, the list scrolls in a fixed height with no box around it. */
+.mira-steps-list { max-height: 128px; overflow-y: auto; overscroll-behavior: contain; margin: 4px 0 2px 2px; padding: 2px 6px 2px 4px; border-left: 0; scrollbar-width: thin; scrollbar-color: var(--mira-border) transparent; }
+.mira-steps-list::-webkit-scrollbar { width: 6px; }
+.mira-steps-list::-webkit-scrollbar-thumb { background: var(--mira-border); border-radius: 3px; }
+.mira-steps-list::-webkit-scrollbar-track { background: transparent; }
+.mira-plan { margin: 4px 0 0; padding-left: 18px; color: var(--mira-text-secondary); }
+.mira-steps-list { -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent); mask-image: linear-gradient(to bottom, #000 80%, transparent); }
+
+/* A change waiting for the person's Confirm (services/confirmGate.js). */
+.mira-previews { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 2px; }
+.mira-preview-card { border: 1px solid var(--mira-primary-border); background: var(--mira-primary-soft); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+.mira-preview-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.mira-preview-title { font-weight: 600; font-size: 0.9rem; color: var(--mira-text-primary); overflow-wrap: anywhere; }
+.mira-preview-status { font-size: 0.75rem; color: var(--mira-text-secondary); white-space: nowrap; }
+.mira-preview-card[data-state="done"] .mira-preview-status { color: var(--mira-primary); font-weight: 600; }
+.mira-preview-card[data-state="failed"] .mira-preview-status { color: #b42318; font-weight: 600; }
+.mira-preview-card:not([data-state="waiting"]) { background: var(--mira-bg-elevated); border-color: var(--mira-border); }
+.mira-preview-card:not([data-state="waiting"]) .mira-preview-actions, .mira-preview-card:not([data-state="waiting"]) .mira-preview-type { display: none; }
+.mira-preview-type { width: 100%; box-sizing: border-box; border: 1px solid var(--mira-border); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 0.85rem; background: var(--mira-bg-elevated); color: var(--mira-text-primary); }
+.mira-preview-actions { display: flex; gap: 8px; }
+.mira-preview-confirm, .mira-preview-cancel, .mira-preview-all { font: inherit; font-size: 0.82rem; font-weight: 600; border-radius: 999px; padding: 6px 14px; cursor: pointer; border: 1px solid transparent; }
+.mira-preview-confirm { background: var(--mira-primary); color: #fff; }
+.mira-preview-confirm:hover:not(:disabled) { background: var(--mira-primary-hover); }
+.mira-preview-confirm:disabled { opacity: 0.45; cursor: not-allowed; }
+.mira-preview-cancel { background: transparent; color: var(--mira-text-secondary); border-color: var(--mira-border); }
+.mira-preview-all { align-self: flex-start; background: var(--mira-bg-elevated); color: var(--mira-primary); border-color: var(--mira-primary-border); }

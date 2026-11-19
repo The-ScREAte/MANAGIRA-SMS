@@ -97,17 +97,17 @@ module.exports = (db) => {
     // Route to upload a signature image using multer's memory storage
     router.post('/uploadSignatureImage', isAuthenticated, canManageReports, upload.single('signatureImage'), printController.uploadSignatureImage);
 
-    router.get('/deleteSignatureForClass', isAuthenticated, canManageReports, printController.deleteSignatureForClass);
-    router.get('/deleteEntireSignature', isAuthenticated, canManageReports, printController.deleteEntireSignature);
+    router.post('/deleteSignatureForClass', isAuthenticated, canManageReports, printController.deleteSignatureForClass);
+    router.post('/deleteEntireSignature', isAuthenticated, canManageReports, printController.deleteEntireSignature);
     router.post('/addClassesToSignature', isAuthenticated, canManageReports, printController.addClassesToSignature);
 
     // Transcript signature routes
     router.post('/uploadTranscriptSignature', isAuthenticated, canManageReports, upload.single('signatureImage'), printController.uploadTranscriptSignature);
-    router.get('/deleteTranscriptSignatureForClass', isAuthenticated, canManageReports, printController.deleteTranscriptSignatureForClass);
-    router.get('/deleteEntireTranscriptSignature', isAuthenticated, canManageReports, printController.deleteEntireTranscriptSignature);
+    router.post('/deleteTranscriptSignatureForClass', isAuthenticated, canManageReports, printController.deleteTranscriptSignatureForClass);
+    router.post('/deleteEntireTranscriptSignature', isAuthenticated, canManageReports, printController.deleteEntireTranscriptSignature);
     router.post('/addClassesToTranscriptSignature', isAuthenticated, canManageReports, printController.addClassesToTranscriptSignature);
 
-    router.get('/deleteRemark/:id', isAuthenticated, canManageReports, printController.deleteRemark);
+    router.post('/deleteRemark/:id', isAuthenticated, canManageReports, printController.deleteRemark);
 
     // Make obsolete / restore: remarks and remark types stay on the report
     // cards that use them; obsolete signatures stay on their classes.
@@ -135,7 +135,7 @@ module.exports = (db) => {
             return res.status(500).json({ success: false, message: "That couldn't be saved. Please try again." });
         }
     });
-    router.get('/deleteScoreRemark/:id', isAuthenticated, canManageReports, printController.deleteScoreRemark);
+    router.post('/deleteScoreRemark/:id', isAuthenticated, canManageReports, printController.deleteScoreRemark);
     router.post('/saveReportChanges', isAuthenticated, canOpenReportCards, printController.saveReportChanges);
     router.post('/savePaygiraReportOverrides', isAuthenticated, canOpenReportCards, express.json(), printController.savePaygiraReportOverrides);
     router.post('/saveDisplaySettings', isAuthenticated, canManageReports, express.json(), printController.saveDisplaySettings);

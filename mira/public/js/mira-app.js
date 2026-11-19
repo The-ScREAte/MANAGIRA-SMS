@@ -107,6 +107,11 @@
     });
     window.addEventListener("message", function (event) {
       if (event.source !== window.parent || !event.data) return;
+      if (event.data.type === "mira:page") {
+        var path = String(event.data.path || "");
+        window.MIRA_PAGE = /^\/[^\s]*$/.test(path) ? { path: path.slice(0, 300), title: String(event.data.title || "").slice(0, 120) } : null;
+        return;
+      }
       if (event.data.type === "mira:focus") {
         var view = document.getElementById("miraChatView");
         var box = document.getElementById(view && view.classList.contains("is-active") ? "miraInputDocked" : "miraInput");
@@ -146,14 +151,34 @@
       // until it's actually laid out; showChatView() re-runs this once
       // the docked composer becomes visible.
       if (textarea.offsetParent === null) return;
-      textarea.style.height = "auto";
-      textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
+      // Empty: one line, never measured (a narrow moment, like the side panel opening, or the
+      // placeholder wrapping, used to leave a tall empty box).
+      if (!textarea.value) {
+        textarea.style.height = "";
+      } else {
+        textarea.style.height = "auto";
+        textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
+      }
+      // A short placeholder when the box is narrow, so it never wraps.
+      var full = textarea.getAttribute("data-placeholder") || textarea.getAttribute("placeholder") || "";
+      if (!textarea.hasAttribute("data-placeholder")) textarea.setAttribute("data-placeholder", full);
+      textarea.setAttribute("placeholder", textarea.clientWidth && textarea.clientWidth < 170 ? "Ask Mira\u2026" : full);
       // While a reply is streaming, the button is a stop button and must
       // stay clickable regardless of what's in the textarea - mira-chat.js
       // sets this flag for the duration of a request.
       if (!window.miraIsSending) sendBtn.disabled = textarea.value.trim().length === 0;
     }
     textarea.addEventListener("input", sync);
+    // Measured again whenever the box changes width (the panel opening, a phone turning).
+    if (window.ResizeObserver) {
+      var lastWidth = 0;
+      new ResizeObserver(function (entries) {
+        var width = Math.round(entries[0].contentRect.width);
+        if (width !== lastWidth) { lastWidth = width; sync(); }
+      }).observe(textarea);
+    } else {
+      window.addEventListener("resize", sync);
+    }
     textarea.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -548,7 +573,19 @@
   var chatFontSelect = document.getElementById("miraChatFontSelect");
   var preferencesLoaded = false;
 
+  // A font loads only once someone chooses it (views/layout.ejs loads Inter alone).
+  var FONT_FAMILY = window.MIRA_FONT_FAMILY || { professional: "Poppins:wght@400;500;600", modern: "Manrope:wght@400;500;600;700", friendly: "Nunito:wght@400;600;700", corporate: "Roboto:wght@400;500;700", executive: "IBM+Plex+Sans:wght@400;500;600", clean: "Work+Sans:wght@400;500;600", precise: "Space+Grotesk:wght@400;500;600", neutral: "DM+Sans:wght@400;500;600", elegant: "Playfair+Display:wght@500;600;700", refined: "Lora:wght@400;500;600", editorial: "Source+Serif+4:wght@400;500;600", code: "JetBrains+Mono:wght@400;500" };
+  function loadFont(font) {
+    if (!FONT_FAMILY[font] || document.querySelector('link[data-mira-font="' + font + '"]')) return;
+    var link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + FONT_FAMILY[font] + "&display=swap";
+    link.setAttribute("data-mira-font", font);
+    document.head.appendChild(link);
+  }
+
   function applyChatFont(font) {
+    loadFont(font);
     document.documentElement.setAttribute("data-chat-font", font || "default");
     window.localStorage.setItem(CHAT_FONT_STORAGE_KEY, font || "default");
   }

@@ -50,6 +50,17 @@ function callerIdentityFields() {
 // tools already send the caller's identity, and some write endpoints use the
 // same field names for someone else (e.g. userEmail = the person a document
 // is shared with), so filling them in there could act on the wrong person.
+const LOCKED = new Set(["organizationId", "viewerType"]);
+
+// A write's body always names the caller's own school: a tool can never act on another.
+function lockBody(body) {
+  const tenant = callerContext.getStore();
+  if (!tenant || !body || typeof body !== "object" || Array.isArray(body)) return body;
+  const locked = { ...body, organizationId: tenant.organizationId };
+  ["organization_id", "orgId", "tenantId", "tenant_id"].forEach((key) => { if (key in locked) locked[key] = tenant.organizationId; });
+  return locked;
+}
+
 function withCallerIdentity(path, method) {
   if (method !== "GET") return path;
   const entries = Object.entries(callerIdentityFields()).filter(([, value]) => value !== undefined && value !== null && value !== "");
@@ -57,7 +68,10 @@ function withCallerIdentity(path, method) {
 
   const url = new URL(path, "http://internal");
   entries.forEach(([key, value]) => {
-    if (!url.searchParams.has(key) || url.searchParams.get(key) === "") url.searchParams.set(key, String(value));
+    // The school and who is asking are always the caller's own, whatever a tool put there.
+    // On Mira's read tools (/internal/api/read/) every identity field is the caller's, always.
+    const locked = LOCKED.has(key) || url.pathname.startsWith("/internal/api/read/");
+    if (locked || !url.searchParams.has(key) || url.searchParams.get(key) === "") url.searchParams.set(key, String(value));
   });
   return `${url.pathname}${url.search}`;
 }
@@ -73,13 +87,14 @@ async function callInternalApi(path, { method = "GET", body } = {}) {
       "Content-Type": "application/json",
       "X-Internal-Token": MIRA_SERVICE_TOKEN,
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? JSON.stringify(method === "GET" ? body : lockBody(body)) : undefined,
   });
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const error = new Error(json.error || `Internal API call to ${path} failed with ${res.status}`);
     error.status = res.status;
+    if (json.code) error.code = json.code;
     throw error;
   }
   return json;

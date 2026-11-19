@@ -15,6 +15,11 @@ router.get("/students/search", internalApiController.searchStudents);
 router.get("/guardians/search", internalApiController.searchGuardians);
 router.get("/students/:studentId/fees", internalApiController.getStudentFees);
 router.get("/students/:studentId/attendance", internalApiController.getStudentAttendance);
+// Forms & requests: who still has which form to fill in, and a reminder to only those families.
+router.get("/forms/status", require("../controllers/miraFormsApi").status);
+// Mira's read tools, one shape (utils/miraRead/<group>.js).
+router.get("/read/:tool", require("../utils/miraRead").handle);
+router.post("/forms/remind", require("../controllers/miraFormsApi").remind);
 router.get("/classes", internalApiController.listClasses);
 router.get("/terms", internalApiController.listTerms);
 router.get("/organizations/:organizationId", internalApiController.getOrganization);

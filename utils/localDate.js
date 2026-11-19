@@ -23,10 +23,16 @@ function validZone(zone) {
   return formatterFor(zone) ? zone : null;
 }
 
+// A request made for someone without their browser (Mira's read tools, utils/miraRead) carries
+// their time zone here for the length of that request.
+const { AsyncLocalStorage } = require("node:async_hooks");
+const requestZone = new AsyncLocalStorage();
+const inTimeZone = (zone, fn) => requestZone.run(validZone(zone) || null, fn);
+
 function timeZoneOf(req) {
   const raw = String((req && req.headers && req.headers.cookie) || "").split(/;\s*/).find((c) => c.startsWith(`${COOKIE}=`));
   const fromCookie = raw ? decodeURIComponent(raw.slice(COOKIE.length + 1)) : "";
-  return validZone(fromCookie) || validZone(process.env.DEFAULT_TIME_ZONE) || "UTC";
+  return validZone(fromCookie) || requestZone.getStore() || validZone(process.env.DEFAULT_TIME_ZONE) || "UTC";
 }
 
 // YYYY-MM-DD for a moment in a time zone.
@@ -38,4 +44,4 @@ function dateKeyIn(timeZone, date = new Date()) {
 
 const todayKeyFor = (req) => dateKeyIn(timeZoneOf(req));
 
-module.exports = { COOKIE, timeZoneOf, dateKeyIn, todayKeyFor };
+module.exports = { COOKIE, timeZoneOf, dateKeyIn, todayKeyFor, inTimeZone };

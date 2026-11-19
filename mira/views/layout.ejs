@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= typeof title !== 'undefined' ? title : 'Mira' %></title>
-  <link rel="icon" type="image/png" href="/images/miralogo.png" />
+  <link rel="icon" type="image/png" href="/images/miralogo-64.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Lora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=Work+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=Source+Serif+4:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/mira.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/mira.css?v=<%= assetV %>" />
   <script>
     // Applied before first paint to avoid a light/dark and font flash on
     // load - the chat font now drives the whole app's font (not just chat
@@ -22,6 +22,16 @@
         var savedFont = localStorage.getItem("mira:chatFont");
         if (savedFont) {
           document.documentElement.setAttribute("data-chat-font", savedFont);
+          // Only Inter loads by default; a chosen font loads just itself.
+          var FAMILY = { professional: "Poppins:wght@400;500;600", modern: "Manrope:wght@400;500;600;700", friendly: "Nunito:wght@400;600;700", corporate: "Roboto:wght@400;500;700", executive: "IBM+Plex+Sans:wght@400;500;600", clean: "Work+Sans:wght@400;500;600", precise: "Space+Grotesk:wght@400;500;600", neutral: "DM+Sans:wght@400;500;600", elegant: "Playfair+Display:wght@500;600;700", refined: "Lora:wght@400;500;600", editorial: "Source+Serif+4:wght@400;500;600", code: "JetBrains+Mono:wght@400;500" };
+          window.MIRA_FONT_FAMILY = FAMILY;
+          if (FAMILY[savedFont]) {
+            var fontLink = document.createElement("link");
+            fontLink.rel = "stylesheet";
+            fontLink.href = "https://fonts.googleapis.com/css2?family=" + FAMILY[savedFont] + "&display=swap";
+            fontLink.setAttribute("data-mira-font", savedFont);
+            document.head.appendChild(fontLink);
+          }
         }
       } catch (e) {}
     })();

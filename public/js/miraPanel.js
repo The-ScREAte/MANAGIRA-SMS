@@ -216,6 +216,15 @@
     if (btn) { btn.setAttribute('aria-expanded', 'true'); btn.classList.add('is-active'); }
   }
 
+  // The page beside Mira (its title and address only), so "these students" can mean this page's.
+  function sendPage() {
+    if (!ready || !frame || !frame.contentWindow) return;
+    var heading = document.querySelector('#app-scale-root h1, main h1, h1');
+    var title = (heading && heading.textContent || document.title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    frame.contentWindow.postMessage({ type: 'mira:page', path: location.pathname + location.search, title: title }, origin || '*');
+  }
+  window.addEventListener('spa:pageLoaded', function () { setTimeout(sendPage, 50); });
+
   function focusMira() {
     if (!ready || !frame || frame.hidden) return;
     frame.focus();
@@ -301,6 +310,7 @@
     var data = event.data || {};
     if (data.type === 'mira:ready') {
       ready = true;
+      sendPage();
       clearTimeout(readyTimer);
       show('mira');
       if (isOpen()) focusMira();

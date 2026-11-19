@@ -2517,7 +2517,7 @@
                                     </select>
                                     <div class="form-action-row">
                                       <button type="submit">Save</button>
-                                      <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link delete-inline" onclick="return confirm('You are deleting this image and its caption. Are you sure?');">Delete</a>
+                                      <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link delete-inline" data-no-spa data-post-delete="You are deleting this image and its caption. Are you sure?">Delete</a>
                                     </div>
                                 </form>
                         <% }); %>
@@ -2541,7 +2541,7 @@
                       
                             <div class="form-action-row">
                               <button type="submit">Save</button>
-                              <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link delete-inline" onclick="return confirm('You are deleting this image and its caption. Are you sure?');">Delete</a>
+                              <a href="/account/deleteImage/<%= image.image_id %>" class="delete-link delete-inline" data-no-spa data-post-delete="You are deleting this image and its caption. Are you sure?">Delete</a>
                             </div>
                           </form>
                         <% }); %>
@@ -2594,7 +2594,7 @@
                                 <textarea name="paragraph" style="display: none;" required><%= text.paragraph %></textarea>
                                 <div class="form-action-row">
                                   <button type="submit">Save</button>
-                                  <a href="/account/deleteText/<%= text.text_id %>" class="delete-link delete-inline" onclick="return confirm('You are deleting this article. Are you sure?');">Delete</a>
+                                  <a href="/account/deleteText/<%= text.text_id %>" class="delete-link delete-inline" data-no-spa data-post-delete="You are deleting this article. Are you sure?">Delete</a>
                                 </div>
                             </form>
                     <% }) %>
@@ -2630,6 +2630,24 @@
     </div>
 
     <script>
+        // Deleting a photo or article is a POST (never a GET), after a confirm. Bound once.
+        if (!window.__mgPostDeleteBound) {
+          window.__mgPostDeleteBound = true;
+          document.addEventListener("click", function (event) {
+            const link = event.target.closest && event.target.closest("a[data-post-delete]");
+            if (!link) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (!confirm(link.getAttribute("data-post-delete"))) return;
+            const form = document.createElement("form");
+            form.method = "post";
+            form.action = link.getAttribute("href");
+            form.setAttribute("data-no-spa", "");
+            form.hidden = true;
+            document.body.appendChild(form);
+            form.submit();
+          }, true);
+        }
         document.addEventListener("DOMContentLoaded", function () {
           const dialog = document.getElementById("websiteSettingsDialog");
           const openButton = document.getElementById("openWebsiteSettings");

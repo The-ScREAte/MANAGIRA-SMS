@@ -600,14 +600,15 @@
     var head = document.createElement("button");
     head.type = "button";
     head.className = "mira-steps-head";
-    head.setAttribute("aria-expanded", options.done ? "false" : "true");
+    // Folded by default, even while working: one line says what Mira is doing now.
+    head.setAttribute("aria-expanded", "false");
     var spinner = document.createElement("span");
     spinner.className = "mira-steps-spinner";
     spinner.setAttribute("aria-hidden", "true");
     var title = document.createElement("span");
     title.className = "mira-steps-title";
     title.setAttribute("aria-live", "polite");
-    title.textContent = "Working on it\u2026";
+    title.textContent = "Analyzing your request\u2026";
     var chevron = document.createElement("span");
     chevron.className = "mira-steps-chevron";
     chevron.innerHTML = CHEVRON;
@@ -644,7 +645,8 @@
       if (id) byId[id] = row;
       count += 1;
       setRow(row, label, status, detail);
-      scrollToBottom();
+      // Opened while working: the list follows the newest step inside its own scroll.
+      list.scrollTop = list.scrollHeight;
       return row;
     }
 
@@ -659,7 +661,7 @@
         if (finished || !steps || !steps.length) return;
         var row = document.createElement("li");
         row.className = "mira-step mira-step-plan";
-        row.innerHTML = '<span class="mira-step-icon" aria-hidden="true"></span><div class="mira-step-body"><div class="mira-step-label">Plan</div><ol class="mira-plan"></ol></div>';
+        row.innerHTML = '<span class="mira-step-icon" aria-hidden="true"></span><div class="mira-step-body"><div class="mira-step-label">Execution plan</div><ol class="mira-plan"></ol></div>';
         var planList = row.querySelector(".mira-plan");
         steps.forEach(function (text) {
           var item = document.createElement("li");
@@ -737,7 +739,7 @@
 
   // Minimal text/event-stream parser over a fetch() ReadableStream - used
   // instead of EventSource because EventSource can't send a POST body.
-  async function streamChat(message, images, handlers, signal) {
+  async function streamChat(message, images, handlers, signal, extra) {
     var selectedClass = window.MIRA_SELECTED_CLASS;
     var response;
     try {
@@ -753,6 +755,14 @@
           className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
           // Skills picked in the message box (public/js/mira-skills.js, feature mira_skills).
           skillIds: window.MiraSkills ? window.MiraSkills.takePicked() : [],
+          // The Managira page open beside Mira's panel, if any (public/js/miraPanel.js).
+          page: window.MIRA_PAGE || null,
+          // A preview's Confirm / Cancel (services/confirmGate.js on the server checks them).
+          confirmPreview: extra && extra.confirmPreview || null,
+          typed: extra && extra.typed || null,
+          cancelPreview: extra && extra.cancelPreview || null,
+          // Their own day and time: "Friday 4pm" means theirs.
+          timeZone: (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (_) { return null; } })(),
         }),
       });
     } catch (err) {
@@ -812,6 +822,8 @@
           else if (eventName === "skills") handlers.onSkills?.(data);
           else if (eventName === "tool_call") handlers.onToolCall?.(data);
           else if (eventName === "tool_result") handlers.onToolResult?.(data);
+          else if (eventName === "preview") handlers.onPreview?.(data);
+          else if (eventName === "preview_done") previewDone(data);
           else if (eventName === "error") handlers.onError?.(data.message);
           else if (eventName === "done") handlers.onDone?.(data);
         } catch (handlerError) {
@@ -842,7 +854,108 @@
     });
   }
 
-  function sendMessage(text) {
+  // ---- Previews: a change waits for the person's Confirm (never the model's) ----
+  // Each card carries its preview id; a Level 3 change asks for what it's about to be typed.
+  function previewDone(data) {
+    if (!data || !data.id) return;
+    document.querySelectorAll(".mira-preview-card").forEach(function (card) {
+      if (card.getAttribute("data-preview-id") !== data.id) return;
+      card.setAttribute("data-state", data.state);
+      var status = card.querySelector(".mira-preview-status");
+      if (status) status.textContent = data.state === "done" ? "Done" : data.state === "cancelled" ? "Cancelled" : "Didn't go through";
+      card.querySelectorAll("button, input").forEach(function (el) { el.disabled = true; });
+    });
+    document.querySelectorAll(".mira-preview-all").forEach(function (bar) {
+      var holder = bar.parentNode;
+      if (holder && !holder.querySelector(".mira-preview-card[data-state='waiting']")) bar.remove();
+    });
+  }
+
+  function addPreviewCard(holder, data) {
+    if (!data || !data.id || !holder) return;
+    var card = document.createElement("div");
+    card.className = "mira-preview-card";
+    card.setAttribute("data-preview-id", data.id);
+    card.setAttribute("data-state", "waiting");
+    card.setAttribute("data-level", String(data.level || 1));
+    var head = document.createElement("div");
+    head.className = "mira-preview-head";
+    var title = document.createElement("span");
+    title.className = "mira-preview-title";
+    title.textContent = data.title || "Change";
+    var status = document.createElement("span");
+    status.className = "mira-preview-status";
+    status.textContent = "Waiting for your OK";
+    head.appendChild(title);
+    head.appendChild(status);
+    card.appendChild(head);
+    var input = null;
+    if (Number(data.level) >= 3 && data.keyDetail) {
+      input = document.createElement("input");
+      input.type = "text";
+      input.className = "mira-preview-type";
+      input.setAttribute("aria-label", "Type " + data.keyDetail + " to confirm");
+      input.placeholder = "Type \u201c" + data.keyDetail + "\u201d to confirm";
+      card.appendChild(input);
+    }
+    var row = document.createElement("div");
+    row.className = "mira-preview-actions";
+    var confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "mira-preview-confirm";
+    confirmBtn.textContent = Number(data.level) >= 3 ? "Confirm" : "Confirm";
+    var cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "mira-preview-cancel";
+    cancelBtn.textContent = "Cancel";
+    row.appendChild(confirmBtn);
+    row.appendChild(cancelBtn);
+    card.appendChild(row);
+    if (input) {
+      var want = String(data.keyDetail).toLowerCase().replace(/\s+/g, " ");
+      var sync = function () { confirmBtn.disabled = input.value.toLowerCase().replace(/\s+/g, " ").indexOf(want) === -1; };
+      input.addEventListener("input", sync);
+      sync();
+    }
+    confirmBtn.addEventListener("click", function () {
+      if (isSending) return;
+      sendMessage(input ? "Confirm: " + input.value : "Confirm", { confirmPreview: data.id, typed: input ? input.value : null });
+    });
+    cancelBtn.addEventListener("click", function () {
+      if (isSending) return;
+      sendMessage("Cancel", { cancelPreview: data.id });
+    });
+    if (data.expiresAt) {
+      var left = Number(data.expiresAt) - Date.now();
+      if (left > 0) setTimeout(function () {
+        if (card.getAttribute("data-state") !== "waiting") return;
+        card.setAttribute("data-state", "expired");
+        status.textContent = "Expired: ask Mira again";
+        card.querySelectorAll("button, input").forEach(function (el) { el.disabled = true; });
+      }, Math.min(left, 2147483000));
+    }
+    holder.appendChild(card);
+    // Several waiting in one reply (none needing typing): one Confirm all.
+    var waitingCards = holder.querySelectorAll(".mira-preview-card[data-state='waiting']");
+    var bar = holder.querySelector(".mira-preview-all");
+    var typedNeeded = holder.querySelector(".mira-preview-card[data-level='3']");
+    if (waitingCards.length > 1 && !typedNeeded) {
+      if (!bar) {
+        bar = document.createElement("button");
+        bar.type = "button";
+        bar.className = "mira-preview-all";
+        bar.addEventListener("click", function () {
+          if (isSending) return;
+          var ids = Array.prototype.map.call(holder.querySelectorAll(".mira-preview-card[data-state='waiting']"), function (c) { return c.getAttribute("data-preview-id"); });
+          sendMessage("Confirm all", { confirmPreview: ids });
+        });
+      }
+      bar.textContent = "Confirm all " + waitingCards.length;
+      holder.appendChild(bar);
+    } else if (bar && typedNeeded) bar.remove();
+  }
+
+  function sendMessage(text, extra) {
     if (!text.trim() || isSending) return;
     if (window.miraShowChatView) window.miraShowChatView();
 
@@ -869,6 +982,18 @@
     var assistant = appendAssistantMessage();
     var bubble = assistant.bubble;
     var rawText = ""; // markdown source, kept separate from the rendered HTML so copy/download get real markdown back
+    // The answer is drawn at most once a frame, however fast the words arrive (light on phones).
+    var renderQueued = false;
+    function renderNow() {
+      renderQueued = false;
+      bubble.innerHTML = renderMarkdown(rawText);
+      scrollToBottom();
+    }
+    function renderSoon() {
+      if (renderQueued) return;
+      renderQueued = true;
+      (window.requestAnimationFrame || setTimeout)(renderNow);
+    }
     var receivedFirstToken = false;
     var messageIdRef = { id: null, feedback: null };
     var steps = null;
@@ -899,8 +1024,7 @@
         }
         rawText += data.text;
         setThinkingLabel("");
-        bubble.innerHTML = renderMarkdown(rawText);
-        scrollToBottom();
+        renderSoon();
       },
       // Mira is correcting a reply before it stands (a figure it couldn't
       // back up): clear what was shown and wait for the corrected one.
@@ -918,6 +1042,15 @@
         else setThinkingLabel(describeTool(data && data.name));
       },
       onToolResult: function (data) { if (steps) steps.toolFinished(data && data.status); },
+      onPreview: function (data) {
+        var holder = assistant.el.querySelector(".mira-previews");
+        if (!holder) {
+          holder = document.createElement("div");
+          holder.className = "mira-previews";
+          bubble.insertAdjacentElement("afterend", holder);
+        }
+        addPreviewCard(holder, data);
+      },
       onError: function (message) {
         if (steps) steps.finish("stopped");
         bubble.textContent = message || "Something went wrong.";
@@ -942,6 +1075,7 @@
         refreshHistory();
       },
       onDone: function (data) {
+        if (renderQueued) renderNow();
         if (steps) steps.finish("done");
         setThreadLogoWorking(false);
         messageIdRef.id = data.messageId || null;
@@ -955,7 +1089,7 @@
         refreshHistory();
         finishSending();
       },
-    }, currentAbortController.signal);
+    }, currentAbortController.signal, extra);
   }
 
   function wireComposerSubmit(formId, inputId) {

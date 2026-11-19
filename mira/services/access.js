@@ -20,15 +20,15 @@ const P = {
   schedules: "transport_schedules", riders: "transport_students", riderRoutes: "transport_student_routes",
   orgBills: "paygira_org_bills", payments: "paygira_payments",
   profile: "settings_profile", website: "settings_website", integrations: "settings_integrations", sso: "manage_sso",
+  customForms: "custom_forms",
 };
 
 const ELEVATED_ROLES = new Set(["organization", "manager", "supervisor", "admin", "mini admin"]);
 
 // tool -> { anyOf?: [permission], allOf?: [permission], roles?: "elevated", feature?: key }
 // Mira is for staff only (parents and students are refused before any of
-// this, see middleware/requireMiraActivated.js). A tool not listed here
-// needs no particular permission (school structure, their own calendar,
-// docs and settings, feedback).
+// this, see middleware/requireMiraActivated.js). Every tool is listed: one
+// with no rule here is refused (tests/actions.test.js checks each has one).
 const rules = {};
 const need = (permissions, tools, extra = {}) => tools.forEach((tool) => { rules[tool] = { anyOf: [].concat(permissions), ...extra }; });
 
@@ -43,6 +43,8 @@ need([P.mailroom, P.guardians, P.contacts], ["draft_message"]);
 need(P.mailroom, ["draft_family_messages"], { feature: "mira_outreach" });
 need(P.alumni, ["list_archived_students", "unarchive_students"]);
 rules.find_low_attendance = { allOf: [P.reportBuilder, P.attendance], feature: "mira_outreach" };
+// Forms & requests: the same people as the staff Forms page (the server keeps teachers to their classes).
+need([P.customForms, P.students], ["get_form_requests", "remind_form_outstanding"], { feature: "mira_forms" });
 // Admissions
 need(P.admissions, ["list_pending_admissions", "get_pending_admission_details", "update_pending_admission", "approve_pending_admission", "reject_pending_admission"]);
 // Assessments
@@ -87,6 +89,40 @@ need(P.website, ["list_website_gallery_images", "list_website_articles", "get_we
 need(P.profile, ["get_school_customization", "update_school_profile", "set_school_font", "set_display_preferences", "set_school_nickname", "set_student_id_settings"]);
 need(P.integrations, ["get_integrations_status"]);
 need(P.sso, ["get_sso_status"]);
+
+// Open to every member of staff: their own calendar, documents, notification choices and
+// feedback, and school structure; the page each one calls keeps teachers to their classes.
+[
+  "get_my_calendar", "get_calendar_sync_status", "add_to_my_calendar", "find_free_time", "whats_new",
+  "list_activities", "create_activity", "get_bus_riding_today", "get_class", "get_term", "list_projects",
+  "list_school_years", "list_subjects", "list_graduation_year_groups", "list_documents", "get_document",
+  "create_document", "set_document_title", "set_document_text", "set_sheet_cells", "resize_sheet",
+  "insert_class_data_into_sheet", "share_document_with_user", "remove_document_share", "assign_document_to_class",
+  "unassign_document_from_class", "delete_document", "get_upcoming_birthdays", "get_notification_preferences",
+  "set_notification_preferences", "submit_feedback",
+].forEach((tool) => { if (!rules[tool]) rules[tool] = { open: true }; });
+
+// Read tools that belong to a feature of their own (hidden where it's off).
+const READ_TOOL_FEATURES = {
+  get_gpa: ["gpa"], get_lunch: ["class_lunch"], list_custom_forms: ["custom_forms"], get_form_answers: ["custom_forms"],
+  get_briefing: ["weekly_briefing"], get_class_settings: ["class_settings"],
+};
+// Read tools whose pages a driver never opens (the server refuses them too).
+const NOT_FOR_DRIVERS = new Set([
+  "search_records", "get_student_profile", "get_staff_profile", "get_class_staff", "get_family", "list_family_invitations",
+  "get_scores", "get_report_card_status", "get_transcript", "get_gpa", "get_lunch", "get_attendance_summary",
+  "list_custom_forms", "get_form_answers", "get_tasks", "get_activity_log", "get_class_settings", "get_parent_messages",
+  "get_briefing", "get_announcement_reads", "get_student_ledger", "get_overdue_balances", "list_bills", "find_students", "get_class_readiness",
+]);
+// Read tools (tools/read/) carry their own rule: the page's permissions.
+require("../tools/read").tools.forEach((tool) => {
+  if (rules[tool.name]) throw new Error(`${tool.name} has two access rules`);
+  rules[tool.name] = tool.access;
+  // The read tools are released together (mira_read_more), each also needing its own area's feature.
+  const own = READ_TOOL_FEATURES[tool.name] || [];
+  rules[tool.name] = { ...tool.access, notDrivers: NOT_FOR_DRIVERS.has(tool.name) || tool.access.notDrivers, features: [...new Set(["mira_read_more", ...own, ...[].concat(tool.access.features || [], tool.access.feature || [])])] };
+  delete rules[tool.name].feature;
+});
 
 const TOOL_ACCESS = rules;
 
@@ -141,19 +177,27 @@ const listOf = (names) => (names.length <= 1 ? names.join("") : `${names.slice(0
 
 // { allowed: true } or { allowed: false, reason } - the reason is said to the person as is.
 function checkTool(name, tenant, access) {
-  const rule = TOOL_ACCESS[name] || {};
+  const rule = TOOL_ACCESS[name];
   if ((tenant.viewerType || "staff") !== "staff") {
     return { allowed: false, reason: "Mira is available to school staff only." };
   }
-  if (rule.feature && !access.features?.[rule.feature]) {
+  // Unknown access refuses: a tool without a rule never runs.
+  if (!rule) return { allowed: false, reason: "I can't do that from Mira yet." };
+  // Every feature the rule names must be on for the school (rule.feature, rule.features).
+  const needs = [].concat(rule.features || [], rule.feature || []);
+  if (needs.some((key) => !access.features?.[key])) {
     return { allowed: false, reason: "This isn't available for your school yet." };
+  }
+  // Drivers hold only driving: tools that never serve a driver aren't offered to one.
+  if (rule.notDrivers && String(tenant.userRole || tenant.accountType || "").trim().toLowerCase() === "driver") {
+    return { allowed: false, reason: rule.reason || "Drivers can see their own routes and riders in Mira, not this." };
   }
   if (!rule.anyOf && !rule.allOf && !rule.roles) return { allowed: true };
   if (!access.ok) {
     return { allowed: false, reason: "I couldn't check your permissions just now, so I haven't done this. Please try again in a moment." };
   }
   if (rule.roles === "elevated" && !isElevated(tenant)) {
-    return { allowed: false, reason: "Only managers and supervisors can see or fix email delivery problems." };
+    return { allowed: false, reason: rule.reason || "Only managers and supervisors can see or fix email delivery problems." };
   }
   const missingAll = (rule.allOf || []).filter((key) => !access.held.has(key));
   const anyOk = !rule.anyOf || rule.anyOf.some((key) => access.held.has(key));

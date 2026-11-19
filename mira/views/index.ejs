@@ -124,7 +124,7 @@
         <div class="mira-chat-thread" id="miraChatThread"></div>
         <div class="mira-thread-logo">
           <span class="mira-logo mira-logo-thread mira-logo-idle" id="miraThreadLogoMark">
-            <img src="/images/miralogo.png" alt="Mira" />
+            <img src="/images/miralogo-240.webp" alt="Mira" />
           </span>
           <span class="mira-thinking-dots" id="miraThinkingDots" hidden>
             <span></span><span></span><span></span>
@@ -164,7 +164,6 @@
   window.MIRA_MAIN_URL = <%- JSON.stringify(mainAppUrl || "") %>;
   window.MIRA_EMBED = <%- JSON.stringify(typeof embed !== 'undefined' && Boolean(embed)) %>;
 </script>
-<script src="/js/mira-logo.js" defer></script>
-<script src="/js/mira-app.js" defer></script>
-<script src="/js/mira-chat.js" defer></script>
-<% if (locals.miraSkills) { %><%- include('partials/skills') %><script src="/js/mira-skills.js" defer></script><% } %>
+<script src="/js/mira-app.js?v=<%= assetV %>" defer></script>
+<script src="/js/mira-chat.js?v=<%= assetV %>" defer></script>
+<% if (locals.miraSkills) { %><%- include('partials/skills') %><script src="/js/mira-skills.js?v=<%= assetV %>" defer></script><% } %>
