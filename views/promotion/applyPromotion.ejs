@@ -638,16 +638,6 @@
       margin: 0;
     }
 
-    .promo-suggest { display: grid; gap: 8px; margin: 14px 0 18px; }
-    .promo-suggest__title { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #64748b); }
-    .promo-suggest__item { display: grid; gap: 2px; text-align: left; width: 100%; padding: 10px 12px; border: 1px solid var(--border, #d7dee8); border-radius: 10px; background: transparent; font: inherit; color: inherit; cursor: pointer; margin: 0; }
-    .promo-suggest__item:hover:not(:disabled), .promo-suggest__item.is-chosen { border-color: var(--org-primary-color, #01535b); background: color-mix(in srgb, var(--org-primary-color, #01535b) 7%, transparent); }
-    .promo-suggest__item:disabled { opacity: .6; cursor: default; }
-    .promo-suggest__name { font-weight: 600; }
-    .promo-suggest__meta { font-size: 12px; color: var(--muted, #64748b); }
-    .promo-suggest__msg { font-size: 13px; }
-    .promo-suggest__item--applied .promo-suggest__msg { color: #15803d; }
-    .promo-suggest__item--empty .promo-suggest__msg, .promo-suggest__item--no-target .promo-suggest__msg { color: #b45309; }
     .muted-text {
       font-size: 12px;
       color: #64748b;
@@ -852,21 +842,6 @@
     </div>
 
     <input type="hidden" name="applyMode" id="applyModeInput" value="scheduleLater">
-
-    <% const _sug = Array.isArray(typeof suggestions !== 'undefined' ? suggestions : null) ? suggestions : []; %>
-    <% if (_sug.length) { %>
-    <div class="promo-suggest" id="promoSuggest">
-      <p class="promo-suggest__title">Suggested from your last <%= _sug.length === 1 ? 'term' : 'two terms' %></p>
-      <% _sug.forEach(function (sg, i) { %>
-      <button type="button" class="promo-suggest__item promo-suggest__item--<%= sg.kind %>" <%= (sg.kind === 'empty' || sg.kind === 'no-target') ? 'disabled' : '' %>
-        data-from-year="<%= sg.fromYearId %>" data-from-term="<%= sg.fromTermId %>" data-target-year="<%= sg.targetYearId || '' %>" data-target-term="<%= sg.targetTermId || '' %>" data-recommended="<%= i === 0 || (_sug[0].kind === 'empty' || _sug[0].kind === 'applied') && i === 1 ? '1' : '0' %>">
-        <span class="promo-suggest__name"><%= sg.fromLabel %><% if (sg.targetLabel) { %> <span aria-hidden="true">&rarr;</span> <%= sg.targetLabel %><% } %></span>
-        <span class="promo-suggest__meta"><%= sg.students %> student<%= sg.students === 1 ? '' : 's' %> enrolled<%= sg.ended ? ' · ended' : ' · current' %></span>
-        <span class="promo-suggest__msg"><%= sg.message %></span>
-      </button>
-      <% }) %>
-    </div>
-    <% } %>
 
     <div class="form-grid">
       <div class="form-group">
@@ -1650,23 +1625,7 @@
     syncTermOptions('fromSchoolYearId', 'fromTermId');
     syncTermOptions('targetYearId', 'targetTermId');
 
-    // Suggestions: one tap fills in the source and target.
-    function chooseSuggestion(button) {
-      const targetTermSel = document.getElementById('targetTermId');
-      fromSchoolYearSelect.value = button.dataset.fromYear;
-      syncTermOptions('fromSchoolYearId', 'fromTermId');
-      fromTermSelect.value = button.dataset.fromTerm;
-      targetYearSelect.value = button.dataset.targetYear;
-      syncTermOptions('targetYearId', 'targetTermId');
-      if (targetTermSel) targetTermSel.value = button.dataset.targetTerm;
-      document.querySelectorAll('.promo-suggest__item').forEach((el) => el.classList.toggle('is-chosen', el === button));
-      loadPromotionPreview();
-    }
-    document.querySelectorAll('.promo-suggest__item').forEach((button) => button.addEventListener('click', () => chooseSuggestion(button)));
-    const recommended = Array.from(document.querySelectorAll('.promo-suggest__item')).find((el) => el.dataset.recommended === '1' && !el.disabled && !el.classList.contains('promo-suggest__item--applied'));
-    if (recommended) chooseSuggestion(recommended);
-
-    if (!recommended && currentTermId && fromTermSelect) {
+    if (currentTermId && fromTermSelect) {
       const currentTermOption = Array.from(fromTermSelect.options).find((option) => Number(option.value) === Number(currentTermId) && !option.hidden);
       if (currentTermOption) {
         fromTermSelect.value = String(currentTermId);

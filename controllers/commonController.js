@@ -18919,6 +18919,11 @@ NUMBERING:
 
       await txClient.query("COMMIT");
 
+      // Promotion settings carry on into the new current term (only where it has none of its own).
+      await db.query("SELECT term_id FROM terms WHERE organization_id = $1 AND current = TRUE", [organizationId])
+        .then((r) => Promise.all(r.rows.map((row) => require("../utils/promotionSettings").carryForwardQuietly(db, organizationId, row.term_id))))
+        .catch(() => {});
+
       // Whatever the setup choice was, every active student belongs to the school's current term.
       await require("../utils/enrollmentKeeper").ensureCurrentTermEnrollment(db, organizationId).catch((error) => {
         console.error("[enrollmentKeeper] after term switch:", error.message);

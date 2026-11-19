@@ -1091,7 +1091,6 @@ module.exports = {
 
       res.render("promotion/applyPromotion", {
         title: "Promotion Scheduler",
-        suggestions,
         termStudentCounts,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -1586,6 +1585,7 @@ module.exports = {
     const client = await db.connect();
     try {
       await client.query('BEGIN');
+      await require('../utils/promotionSettings').carryForward(client, organization_id, current_term_id);
 
       // 1️⃣ Get class filter from promotion_schedule_classes
       const classFilterResult = await client.query(
@@ -1767,7 +1767,15 @@ module.exports = {
         SELECT $1, t.student_id, t.class_id, TRUE
           FROM unnest($2::int[], $3::int[]) WITH ORDINALITY AS t(student_id, class_id, n)
          ORDER BY t.n
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (enrollment_id, student_id) DO UPDATE SET class_id = EXCLUDED.class_id, added_by_promotion = TRUE
+          -- A student already placed in this term (the term-start enrollment keeps everyone in their
+          -- old class) moves to the class the promotion chose, unless the term already holds a record
+          -- of theirs (attendance, scores or a report card) or someone placed them here by hand.
+          WHERE enrolled_students.added_by_promotion IS NOT TRUE
+            AND enrolled_students.class_id IS DISTINCT FROM EXCLUDED.class_id
+            AND NOT EXISTS (SELECT 1 FROM attendance_records x WHERE x.student_id = EXCLUDED.student_id AND x.term_id = (SELECT term_id FROM enrollments WHERE enrollment_id = $1))
+            AND NOT EXISTS (SELECT 1 FROM student_reports x WHERE x.student_id = EXCLUDED.student_id AND x.term_id = (SELECT term_id FROM enrollments WHERE enrollment_id = $1))
+            AND NOT EXISTS (SELECT 1 FROM assessment_results x WHERE x.student_id = EXCLUDED.student_id AND x.term_id = (SELECT term_id FROM enrollments WHERE enrollment_id = $1))
         RETURNING enrolled_student_id, student_id, class_id
       `, [enrollmentId, finalEnrollments.map((row) => row.student_id), finalEnrollments.map((row) => row.target_class_id)]);
       enrolledCount += result.rowCount;

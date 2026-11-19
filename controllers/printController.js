@@ -1542,6 +1542,9 @@ const printController = (db) => ({
         return res.status(404).send("Term not found for the given term ID.");
       }
 
+      // A term with no promotion settings yet starts from the term before it.
+      await require("../utils/promotionSettings").carryForwardQuietly(db, organizationId, parsedTermId);
+
       // Fetch status settings
       const statusSettingsResult = await db.query(
         `SELECT cut_off_point, promoted_class, repeated_class, school_reopen_date, activate_promotion, term_end_date, promotion_basis
@@ -2699,6 +2702,9 @@ const printController = (db) => ({
     await ensureOrganizationCustomRemarkTypesTable(db);
 
     try {
+      if (Number.isInteger(Number(termId)) && Number(termId) > 0) {
+        await require("../utils/promotionSettings").carryForwardQuietly(db, organizationId, Number(termId));
+      }
       // Obsolete classes only show when they already have report settings.
       const organizationClassesResult = await db.query(
         `SELECT class_id, class_name, obsolete_at FROM classes c
