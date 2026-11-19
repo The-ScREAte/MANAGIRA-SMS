@@ -93,7 +93,7 @@ need(P.sso, ["get_sso_status"]);
 // Open to every member of staff: their own calendar, documents, notification choices and
 // feedback, and school structure; the page each one calls keeps teachers to their classes.
 [
-  "get_my_calendar", "get_calendar_sync_status", "add_to_my_calendar", "find_free_time", "whats_new",
+  "work_out_date", "get_my_calendar", "get_calendar_sync_status", "add_to_my_calendar", "find_free_time", "whats_new",
   "list_activities", "create_activity", "get_bus_riding_today", "get_class", "get_term", "list_projects",
   "list_school_years", "list_subjects", "list_graduation_year_groups", "list_documents", "get_document",
   "create_document", "set_document_title", "set_document_text", "set_sheet_cells", "resize_sheet",

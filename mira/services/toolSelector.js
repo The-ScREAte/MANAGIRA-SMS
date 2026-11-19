@@ -5,7 +5,7 @@
 // loaded, so a short follow-up ("yes", "the first one") keeps the tools it
 // needs. The model can always ask for another area with load_tools.
 
-const CORE_TOOLS = ["search_records", "whats_new", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
+const CORE_TOOLS = ["work_out_date", "search_records", "whats_new", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
 
 // name -> { label (shown to the model), keywords (matched against the
 // conversation), tools }
@@ -238,7 +238,7 @@ function selectToolSchemas(allSchemas, areas, allowed = () => true, { writes = t
 // used as one: starting a sentence ("Send report cards..."), after a request ("can you add...",
 // "I need to email..."), or as a verb followed by what it acts on ("remind them", "post a notice").
 // "Their invite" or "parent messages" are things, not requests. The model can still load_tools.
-const ACTION_VERBS = "add|create|make|send|resend|email|text|sms|whatsapp|message|notify|remind|post|repost|publish|unpost|share|unshare|schedule|reschedule|book|invite|assign|unassign|enrol|enroll|unenroll|promote|reverse|approve|reject|decline|admit|delete|remove|cancel|close|archive|unarchive|restore|hold|resume|mark|grade|save|upload|import|export|draft|write|fix|lock|unlock|put|place|register|record|reorder|attach|insert|resize|replace|apply|move|rename|update|change|edit|set|turn|enable|disable|link|unlink|reset|merge|retry|open|reopen|graduate|withdraw|transfer|assign|swap";
+const ACTION_VERBS = "add|create|make|send|resend|email|text|sms|whatsapp|message|notify|remind|post|repost|publish|unpost|share|unshare|schedule|reschedule|book|invite|assign|unassign|enrol|enroll|unenroll|promote|reverse|approve|reject|decline|admit|delete|remove|cancel|close|archive|unarchive|restore|hold|resume|mark|grade|save|upload|import|export|draft|write|fix|lock|unlock|put|place|register|record|reorder|attach|insert|resize|replace|apply|move|rename|update|change|edit|set|turn|enable|disable|link|unlink|reset|merge|retry|open|reopen|graduate|withdraw|transfer|assign|swap|use|pick|choose|go with|make it|change it|move it";
 const ACTION_WORD = new RegExp(`\\b(${ACTION_VERBS})\\b`, "gi");
 const REQUEST_BEFORE = /(^|\b)(please|pls|kindly|can you|could you|would you|will you|can we|could we|i want to|i'd like to|i would like to|i need to|we need to|need to|help me|let'?s|go ahead and|and then|then|also|and|now|just|quickly|mira,?|ok,?|okay,?|yes,?|so)\s*$/i;
 const OBJECT_AFTER = /^(it|them|this|that|these|those|a|an|the|my|our|his|her|their|every|everyone|everybody|all|each|both|him|her|me|us|[A-Z][a-z]+'s)\b/;
@@ -255,13 +255,15 @@ function sentenceAsks(sentence) {
   }
   return false;
 }
+// A fresh question ("Who's absent today?") starts something new; anything else in a conversation
+// about a change ("yes", "the first one", "oh, midterm is December 2, 4pm") keeps working on it.
+const FRESH_QUESTION = /^\s*(who|whom|whose|what|which|how many|how much|where|when|why|is|are|was|were|do|does|did|has|have|can i see|show me|list|tell me)\b/i;
 function asksForAction(userText, history = []) {
   const text = stripAttachments(userText);
   if (text.split(/[.?!\n;]+/).some(sentenceAsks)) return true;
-  // A short follow-up to an action ("yes", "do it", "the first one") keeps the action's tools.
-  const short = text.trim().length <= 60;
-  const priorUser = [...history].reverse().find((m) => m.role === "user");
-  return short && Boolean(priorUser && stripAttachments(priorUser.content || "").split(/[.?!\n;]+/).some(sentenceAsks));
+  if (FRESH_QUESTION.test(text) && text.trim().length > 40) return false;
+  const recentUser = [...history].filter((m) => m.role === "user").slice(-3);
+  return recentUser.some((m) => stripAttachments(m.content || "").split(/[.?!\n;]+/).some(sentenceAsks));
 }
 
 // Greetings and thanks need no areas at all (the core tools still come).

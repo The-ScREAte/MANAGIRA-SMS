@@ -191,6 +191,7 @@ async function enhanceDraft({ draft, history, classScope, onUsage }) {
 // ---- Steps, in plain words ----
 
 const TOOL_STEPS = {
+  work_out_date: "Working out the exact date",
   find_students: "Cross-checking students across records",
   get_class_readiness: "Auditing report card readiness across classes",
   search_records: "Searching across school records",

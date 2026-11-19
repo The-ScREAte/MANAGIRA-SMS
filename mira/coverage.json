@@ -218,7 +218,8 @@
         "list_events",
         "list_activities",
         "get_tasks",
-        "get_calendar_sync_status"
+        "get_calendar_sync_status",
+        "work_out_date"
       ],
       "change": [
         "create_event",

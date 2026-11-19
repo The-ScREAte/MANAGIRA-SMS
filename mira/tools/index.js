@@ -12,6 +12,7 @@ const { runAsCaller } = require("../internalApiClient");
 const { checkTool } = require("../services/access");
 const { scrub } = require("../services/secrets");
 const findStudent = require("./findStudent");
+const workOutDate = require("./workOutDate");
 const getFormRequests = require("./getFormRequests");
 const remindFormOutstanding = require("./remindFormOutstanding");
 const getMyCalendar = require("./getMyCalendar");
@@ -193,6 +194,7 @@ const setStudentIdSettings = require("./setStudentIdSettings");
 const reportBuilderTools = require("./reportBuilder");
 
 const ALL_TOOLS = [
+  workOutDate,
   ...reportBuilderTools,
   findStudent,
   getFormRequests,

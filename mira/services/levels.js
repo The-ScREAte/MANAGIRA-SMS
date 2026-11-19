@@ -9,6 +9,7 @@
 // Every tool has a level: a new tool without one fails tests/actions.test.js. Read tools in
 // tools/read/ are level 0 by construction.
 const L0 = [
+  "work_out_date",
   "report_builder_catalog", "run_report", "export_report", "draft_message", "draft_family_messages",
   "generate_report_card_summary", "generate_report_pdf", "generate_merit_sheet_pdf",
 ];

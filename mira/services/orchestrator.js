@@ -28,6 +28,7 @@ const {
 const skills = require("./skills");
 const confirmGate = require("./confirmGate");
 const { levelOf } = require("./levels");
+const requestSense = require("./requestSense");
 
 const SYSTEM_PROMPT = `You are Mira, the AI assistant inside Managira, a school management platform.
 You help school staff with their whole job: find anything they are allowed to see, answer from live records, and draft, schedule, post, invite, remind and update. You work like a careful senior school administrator: accurate, brief, calm and professional. You work only for the signed-in person's own school: nothing about any other school, district, hub or Managira itself is yours to see or change.
@@ -110,7 +111,11 @@ Always:
 - After acting, say what was done, how many, where to see it, and how to undo it if that's possible.
 
 # 5. Everyday tasks
-- Scheduling: give the date, weekday, time and time zone. Check for clashes, holidays and term dates. If a date is unclear, ask.
+- Vague requests: be independent. First work out everything you can yourself with your tools (the people, classes, dates, the calendar; "next Thursday" from Coming days). Then ask only what only the person can decide, in one short question with the options and what each means: where something goes (school event, announcement, activity, or just their own calendar, and who sees each), who it's for, a time they didn't give. Never pick one of those for them and never fill a gap with your own guess.
+- Dates: use work_out_date for any date or weekday you'd otherwise work out ("the first Thursday after October 16", "3 weeks from Friday") and say if it's already past. Never do date arithmetic yourself.
+- A date the school names ("midterm", "exams week", "sports day", "end of term"): find it on the calendar (get_calendar, list_events, the term dates). If the calendar doesn't name it, say what you found (for example the term's dates) and ask which date they mean; never work it out yourself.
+- Scheduling: give the date, weekday, time and time zone. When they ask that it not clash, look up the calendar for those dates first and say what's already on. Check holidays and term dates. If a date is unclear, ask.
+- A preview isn't done: say "Here's the preview" and ask them to confirm; never say it's scheduled, created or sent until Managira has done it.
 - Drafting: the school's voice; short, warm, plain words. Use the names you have. One draft unless asked for options. A draft is never sent.
 - Posting: say who will see it and when it goes live.
 - Inviting: check for an existing account or pending invitation first, and resend rather than duplicate.
@@ -751,8 +756,10 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   // in a reply.
   // A question that combines several kinds of records goes to the stronger model (accuracy over a
   // second of speed); everything else stays on the fast one.
+  // So does a request to change something (a preview the person will act on), and its follow-ups.
   const compound = topicsAsked(userText).length >= 2 && !asksForAction(userText, history.summary);
-  const modelTask = compound ? (process.env.MIRA_COMPOUND_TASK || "reasoning") : "default";
+  const changing = asksForAction(userText, history.summary) || confirmGate.waiting(tenant, chat.id).length > 0;
+  const modelTask = compound ? (process.env.MIRA_COMPOUND_TASK || "reasoning") : changing ? (process.env.MIRA_ACTION_TASK || "reasoning") : "default";
   const MAX_TOOL_ROUNDS = 8;
   const MAX_TOOL_CALLS_PER_TURN = 12;
   // Skills sit right before the person's message, so they shape this answer however long the chat.
@@ -766,6 +773,22 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   const evidence = [userText, ...contextMessages.map((m) => String(m.content || "")), JSON.stringify(history.forModel)];
   let revised = false;
   let uncheckedBefore = [];
+  let previewsThisTurn = 0;
+  // Changes Mira tried this turn and how each ended (a preview, or what it still needs).
+  const changeAttempts = [];
+  // What tools returned this turn (not Mira's own context): with the person's words, the only
+  // sources of a detail in a change.
+  const toolTexts = [];
+  let roundStartCalls = [];
+  const knownText = () => [...(history.summary || []).filter((m) => m.role === "user").map((m) => m.content), stripAttachmentBlocks(userText), ...toolTexts].join("\n");
+  const senseOf = (name, args) => {
+    const where = requestSense.whereItGoes(name, userText, history.summary);
+    if (where) return where;
+    const invented = requestSense.inventedDetails(name, args, knownText());
+    if (invented.length) return requestSense.inventedReply(invented);
+    // The calendar must have been looked at (its results seen) before the change is prepared.
+    return requestSense.needsCalendarFirst(userText, history.summary, roundStartCalls);
+  };
   const callsThisTurn = new Set();
   // Row counts of lists a tool cut short: never an answer's count (the totals are).
   const shortListCounts = new Map();
@@ -876,9 +899,15 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       const partsChecked = checking && !asksForAction(userText, history.summary) && !HOW_TO.test(stripAttachmentBlocks(userText)) && !decision.run.length;
       const lastCalls = followUp(userText) ? [...(history.summary || [])].reverse().find((m) => m.role === "assistant" && (m.toolCalls || []).length)?.toolCalls || [] : [];
       const unchecked = partsChecked ? uncheckedTopics(userText, assistantText, [...toolCallsThisTurn, ...lastCalls]) : [];
+      const triedChange = previewsThisTurn > 0 || changeAttempts.length > 0;
+      const saidDone = checking && triedChange && !decision.run.length && requestSense.claimsDone(assistantText);
+      // A preview written by Mira when Managira made none (the change still needs something).
+      const notPrepared = changeAttempts.filter((a) => a.outcome !== "preview");
+      const fakePreview = checking && !saidDone && previewsThisTurn === 0 && (notPrepared.length > 0 || changing) && requestSense.presentsPreview(assistantText);
+      const namedDates = checking ? requestSense.unresolvedNamedDates(userText, history.summary || [], toolTexts, assistantText) : [];
       if (shortListed.length) unsupported.push(...shortListed.map((n) => `${n} (only the rows shown from a list that was cut short: give the total from the tool's totals instead)`));
       if (writing) step(`write-${round}`, revised ? "Rebuilt the answer from verified school records" : "Composed the answer", "done");
-      if (!unsupported.length && !wrongDays.length && !unsupportedDays.length && !unchecked.length) {
+      if (!unsupported.length && !wrongDays.length && !unsupportedDays.length && !unchecked.length && !saidDone && !fakePreview && !namedDates.length) {
         if (checking) step("check", "Verified every figure against your school's records", "done");
         break;
       }
@@ -886,12 +915,15 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       console.warn(`[mira/orchestrator] reply needs a correction: ${[...unsupported, ...unsupportedDays, ...wrongDays, ...unchecked.map((t) => `not looked up: ${t}`)].join(", ")}`);
       // Mira's own accuracy check caught something in its draft (a figure or date no record gave,
       // or a wrong weekday): it is rebuilt from the records before anyone sees it.
-      if (showSteps) step("check", unchecked.length ? "Looking up every part of the question" : unsupported.length ? "Cross-checking figures against school records" : "Cross-checking dates against the school calendar", "done");
+      if (showSteps) step("check", unchecked.length ? "Looking up every part of the question" : namedDates.length ? "Checking the calendar names that date" : (saidDone || fakePreview) ? "Keeping it a preview until you confirm" : unsupported.length ? "Cross-checking figures against school records" : "Cross-checking dates against the school calendar", "done");
       else sse.send("revise", {});
       const problems = [
         unsupported.length ? `these figures in your reply don't appear in any tool result or message in this conversation: ${unsupported.join(", ")}. Either call the tool that gives them, or leave them out and say plainly what you couldn't find in Managira.` : "",
         unsupportedDays.length ? `these dates in your reply don't appear in any tool result or message: ${unsupportedDays.join(", ")}. Read each date again from the tool results (a date of birth like 2011-05-09 is May 9), or leave it out.` : "",
         wrongDays.length ? `these weekdays don't match their dates: ${wrongDays.join("; ")}. Use the right weekday (see "Coming days") or leave the weekday out.` : "",
+        fakePreview ? `no preview exists: ${notPrepared.length ? `Managira didn't prepare the change yet (${notPrepared.map((a) => `${a.name}: ${a.outcome}`).join("; ")})` : "you haven't called the tool that makes the change"}. Do what that answer asked, or call the change tool now with only the details the person gave, so Managira makes the preview and its Confirm button. Otherwise: ask the person the question, or, now that you've seen the lookups, call the tool again with the corrected details so Managira makes the preview. Don't write a preview yourself.` : "",
+        namedDates.length ? `"${namedDates.join('", "')}" isn't named on the school's calendar and the person didn't say which date they mean. Don't work it out yourself (a term's end isn't its midterm): say what you found (for example the term's dates) and ask which date they mean.` : "",
+        saidDone ? "nothing has been done yet: only a preview exists, waiting for the person's Confirm. Present it as a preview (\"Here's the preview\") and ask them to confirm; never say it's scheduled, created, sent or done." : "",
         unchecked.length ? `the question asks about ${unchecked.join(" and ")}, but no tool looked ${unchecked.length === 1 ? "it" : "them"} up, so your reply can't say anything about ${unchecked.length === 1 ? "it" : "them"}. Call the tool now (find_students checks class, bus, fees, absences and forms together, as ALL of the conditions), or say plainly that you couldn't check ${unchecked.join(" or ")}.` : "",
       ].filter(Boolean).join(" Also, ");
       // The draft is quoted inside the note, never left as the last message: some models
@@ -913,6 +945,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     }
 
     const results = [];
+    roundStartCalls = toolCallsThisTurn.slice();
     for (const toolCallInfo of toolCallsInfo) {
       // The same call twice in one message is answered from the first, and
       // a message has a ceiling on tool calls: Mira never keeps trying.
@@ -961,19 +994,25 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args, label });
       let status;
       let result;
-      if (level >= 1 && !confirmGate.NATIVE_PREVIEW.has(toolCallInfo.name)) {
+      // Before any preview: where it goes, nothing invented, the calendar checked when asked.
+      const sense = level >= 1 ? senseOf(toolCallInfo.name, toolCallInfo.args) : null;
+      if (sense) {
+        status = "ok";
+        result = sense;
+      } else if (level >= 1 && !confirmGate.NATIVE_PREVIEW.has(toolCallInfo.name)) {
         // Nothing runs: Managira previews the exact details, after the same access check.
         const gate = checkTool(toolCallInfo.name, tenant, access);
         status = gate.allowed ? "ok" : "denied";
         result = gate.allowed
-          ? { status: "confirm", nothing_changed_yet: true, action: actionLabel(toolCallInfo.name), details: confirmGate.detailsOf(toolCallInfo.args) }
+          ? { status: "confirm", nothing_changed_yet: true, action: actionLabel(toolCallInfo.name), details: confirmGate.detailsOf(toolCallInfo.args), ...(requestSense.WHO_SEES[toolCallInfo.name] ? { who_sees_it: requestSense.WHO_SEES[toolCallInfo.name] } : {}) }
           : gate.reason;
       } else {
         // Images attached to this turn reach tools through `context`, never
         // as model-typed arguments (see tools/index.js runTool).
         ({ status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images: toolImages, classScope, access, timeZone }));
       }
-      if (level >= 1 && status === "ok" && confirmGate.looksLikePreview(result)) {
+      if (level >= 1) changeAttempts.push({ name: toolCallInfo.name, outcome: status === "ok" && confirmGate.looksLikePreview(result) && !sense ? "preview" : (result && result.status) || status });
+      if (level >= 1 && status === "ok" && !sense && confirmGate.looksLikePreview(result)) {
         const preview = confirmGate.create({ tenant, chatId: chat.id, turn: userMessage.id, tool: toolCallInfo.name, args: toolCallInfo.args, level, label: previewTitle(toolCallInfo.name, toolCallInfo.args) });
         result = {
           ...result,
@@ -984,6 +1023,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
             : "Nothing has changed. Show this preview in full (what, who and how many, when, whether it can be undone) and ask the person to confirm. It runs only when they press Confirm or reply yes.",
         };
         sse.send("preview", { id: preview.id, title: preview.label, level, keyDetail: preview.keyDetail, expiresAt: preview.expiresAt });
+        previewsThisTurn += 1;
       }
       const summary = summarizeToolResult(toolCallInfo.name, result);
       await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
@@ -997,6 +1037,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       const content = compactToolResult(result, 24000);
       // What Mira asked a tool for (the dates it chose, the class) is known too.
       evidence.push(content, JSON.stringify(toolCallInfo.args || {}));
+      if (level === 0) toolTexts.push(content);
       noteShortLists(result, shortListCounts);
       results.push({ toolCallId: toolCallInfo.id, content });
     }
