@@ -70,6 +70,17 @@ if (shouldRunScheduler) {
     }
   });
 
+  // Every student belongs to a term: add anyone with no enrollment at all, or with attendance, scores
+  // or a report card in a term they aren't enrolled in. Add-only (never removes or moves anyone).
+  cron.schedule('30 1 * * *', 'keep-students-enrolled', async () => {
+    try {
+      const repaired = await require('../utils/enrollmentKeeper').keepEveryoneEnrolled(require('../config/db'));
+      repaired.forEach((row) => console.log(`[Enrollment] School ${row.organizationId}: enrolled ${row.currentTerm} student(s) in the current term and ${row.withRecords} in terms that hold their records.`));
+    } catch (error) {
+      console.error('[Enrollment] Keeping students enrolled failed:', error.message);
+    }
+  });
+
   // Bus positions older than a month.
   cron.schedule('50 2 * * *', 'live-location-purge', async () => {
     try {

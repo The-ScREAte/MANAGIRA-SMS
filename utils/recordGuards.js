@@ -214,4 +214,27 @@ async function clearTermSetup(client, organizationId, termIds) {
   }
 }
 
-module.exports = { savedRecords, savedRecordsMessage, clearTermSetup };
+// Which of these students already have saved records in this term (attendance, scores, report
+// cards): taking them out of the term's enrollment would cut them off from those records.
+async function studentsWithTermRecords(db, organizationId, termId, studentIds) {
+  const ids = (studentIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0);
+  const term = Number(termId);
+  if (!ids.length || !Number.isInteger(term)) return [];
+  const { rows } = await db.query(
+    `SELECT DISTINCT student_id FROM (
+       SELECT student_id FROM attendance_records WHERE organization_id = $1 AND term_id = $2 AND student_id = ANY($3::int[])
+       UNION SELECT student_id FROM student_reports WHERE organization_id = $1 AND term_id = $2 AND student_id = ANY($3::int[])
+       UNION SELECT ar.student_id FROM assessment_results ar JOIN assessments a ON a.assessment_id = ar.assessment_id
+              WHERE a.organization_id = $1 AND a.term_id = $2 AND ar.student_id = ANY($3::int[])
+     ) x`,
+    [organizationId, term, ids]
+  );
+  return rows.map((r) => Number(r.student_id));
+}
+
+function studentsWithRecordsMessage(count) {
+  return `${count} of the students you are taking out of this term already have saved attendance, scores or report cards in it, so they stay enrolled. ` +
+    "Move them to another class instead, or leave them where they are. Their records are kept so past report cards and transcripts stay as they were.";
+}
+
+module.exports = { savedRecords, savedRecordsMessage, clearTermSetup, studentsWithTermRecords, studentsWithRecordsMessage };

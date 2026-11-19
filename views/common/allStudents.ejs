@@ -226,7 +226,7 @@
   .as-table .col-class   { width: 130px; }
   .as-table .col-gender  { width: 80px; }
   .as-table .col-email   { width: 220px; }
-  .as-table .col-syear   { width: 130px; }
+  .as-table .col-syear   { width: 210px; }
   .as-table .col-status  { width: 96px; }
   .as-table .col-actions { width: 138px; }
 
@@ -358,6 +358,13 @@
 
   /* ── School year text ────────────────────── */
   .as-syear-none { color: #94a3b8; font-size: 12.5px; font-style: italic; }
+  .col-syear, .as-year-td { min-width: 210px; }
+  .as-year-td { line-height: 1.3; white-space: normal; }
+  .as-year-td > span, .as-year-card > span { display: block; }
+  .as-syear-old { color: #475569; font-weight: 500; }
+  .as-syear-warn { margin-top: 2px; font-size: 11.5px; font-weight: 600; color: #b45309; }
+  .as-term-notice { margin: 0 0 12px; padding: 9px 12px; border-radius: 9px; border: 1px solid #fcd9a8; background: #fff7ed; color: #9a3412; font-size: 13px; }
+  @media (prefers-color-scheme: dark) { .as-term-notice { background: rgba(251, 146, 60, .12); border-color: rgba(251, 146, 60, .35); color: #fdba74; } .as-syear-warn { color: #fdba74; } .as-syear-old { color: #cbd5e1; } }
   .as-syear-curr {
     font-weight: 600;
     color: #0f172a;
@@ -1377,6 +1384,7 @@
   </div>
 
   <!-- Table / Card list -->
+  <p class="as-term-notice" id="asTermNotice" role="status" hidden></p>
   <div class="as-table-wrap">
 
     <%- /* ─── Desktop Table ─────────────────────────────────────────────── */ '' %>
@@ -1423,13 +1431,15 @@
           yi: s.last_school_year_id || '',
           y: s.last_school_year || '',
           yc: s.in_current_year ? 1 : 0,
+          tn: s.last_term_name || '',
+          tc: s.in_current_term ? 1 : 0,
           ed: s.editable_student_id || '',
           im: hasImage ? s.image_url : '',
           iu: hasImage ? publicImageUrl(s.image_url) : '',
         };
       });
     %>
-    <script type="application/json" id="asStudentsData"><%- JSON.stringify({ portal: !!studentPortalIntegrationActive, reset: !!canSendStudentPortalRequest, students: _asStudents }).replace(/</g, '\\u003c') %></script>
+    <script type="application/json" id="asStudentsData"><%- JSON.stringify({ portal: !!studentPortalIntegrationActive, reset: !!canSendStudentPortalRequest, current: (typeof currentTermRow !== 'undefined' && currentTermRow) ? { year: currentTermRow.year_label, term: currentTermRow.term_name } : null, students: _asStudents }).replace(/</g, '\\u003c') %></script>
     <script>
       (function () {
         var data = JSON.parse(document.getElementById('asStudentsData').textContent);
@@ -1457,6 +1467,20 @@
           }
           return html;
         };
+        // Every student shows where they stand in the school's current year and term.
+        var nowLabel = data.current ? (data.current.year + ' \u00b7 ' + data.current.term) : '';
+        var yearCell = function (s) {
+          var last = s.y ? esc(s.y) + (s.tn ? ' \u00b7 ' + esc(s.tn) : '') : '';
+          if (s.tc) return '<span class="js-student-year-value as-syear-curr">' + last + CURRENT + '</span>';
+          if (s.y) return '<span class="js-student-year-value as-syear-old">' + last + '</span>' + (nowLabel ? '<span class="as-syear-warn">Not enrolled in ' + esc(nowLabel) + '</span>' : '');
+          return '<span class="js-student-year-value as-syear-none">Not enrolled</span>' + (nowLabel ? '<span class="as-syear-warn">in ' + esc(nowLabel) + '</span>' : '');
+        };
+        var notInNow = data.students.filter(function (s) { return !s.g && !s.tc; }).length;
+        var noticeEl = document.getElementById('asTermNotice');
+        if (noticeEl && nowLabel && notInNow) {
+          noticeEl.hidden = false;
+          noticeEl.textContent = notInNow + (notInNow === 1 ? " student isn't" : " students aren't") + ' enrolled in ' + nowLabel + ". They won't show in that term's class lists or in promotion until they are enrolled.";
+        }
         var rows = [];
         var cards = [];
         data.students.forEach(function (s) {
@@ -1467,7 +1491,7 @@
             + '<td> <span class="js-student-class-value ' + (s.cn ? '' : 'as-class-blank') + '">' + esc(s.cn || '—') + '</span> </td>'
             + '<td>' + esc(s.ge || '—') + '</td>'
             + '<td> <div class="as-email-cell"> <span class="as-email-text">' + esc(s.e || '—') + '</span>' + portalBadge(s) + ' </div> </td>'
-            + '<td> <span class="js-student-year-value ' + (s.y ? 'as-syear-curr' : 'as-syear-none') + '">' + (s.y ? esc(s.y) + (s.yc ? CURRENT : '') : '—') + '</span> </td>'
+            + '<td class="as-year-td">' + yearCell(s) + '</td>'
             + '<td> ' + badge(s) + ' </td>'
             + '<td> <div class="as-actions"> ' + actions(s) + ' </div> </td>'
             + '</tr>');
@@ -1477,7 +1501,7 @@
             + badge(s, ' style="flex-shrink:0"') + ' </div>'
             + ' <div class="as-card-meta">'
             + ' <div class="as-card-meta-item"> ' + ICON_CLASS + ' <span class="js-student-class-value">' + esc(s.cn || 'No class') + '</span> </div>'
-            + ' <div class="as-card-meta-item"> ' + ICON_YEAR + ' <span class="js-student-year-value">' + (s.y ? esc(s.y) + (s.yc ? ' ' + CURRENT : '') : 'No year') + '</span> </div>'
+            + ' <div class="as-card-meta-item"> ' + ICON_YEAR + ' <span class="as-year-card">' + yearCell(s) + '</span> </div>'
             + ' <div class="as-card-meta-item"> ' + ICON_MAIL + ' <span class="as-email-cell"> <span class="as-email-text">' + esc(s.e || 'No email') + '</span>' + portalBadge(s) + ' </span> </div>'
             + ' </div>'
             + ' <div class="as-card-actions"> ' + actions(s) + ' </div>'

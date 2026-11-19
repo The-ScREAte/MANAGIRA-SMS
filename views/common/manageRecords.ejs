@@ -238,34 +238,8 @@
         padding: 4px 10px;
       }
 
-      .school-year-completed-watermark {
-        position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-        z-index: 1;
-      }
 
-      .school-year-completed-watermark span {
-        transform: rotate(-14deg);
-        font-size: clamp(20px, 2.6vw, 28px);
-        font-weight: 800;
-        letter-spacing: 1px;
-        color: rgba(1, 83, 91, 0.16);
-        text-transform: uppercase;
-        white-space: normal;
-        text-align: center;
-        line-height: 1.15;
-        max-width: min(94%, 540px);
-        overflow-wrap: anywhere;
-        padding: 0 8px;
-      }
 
-      .school-year-completed.is-readonly .school-year-completed-watermark {
-        display: flex;
-      }
 
       .school-year-completed.is-readonly .school-year-header input[type="text"],
       .school-year-completed.is-readonly .school-year-header input[type="radio"],
@@ -273,6 +247,13 @@
       .school-year-completed.is-readonly .add-term-link {
         pointer-events: none;
         opacity: 0.6;
+      }
+
+      /* Renaming a completed year: only the name and Save come back to life. */
+      .school-year-completed.name-unlocked .school-year-header input[type="text"],
+      .school-year-completed.name-unlocked .save-button {
+        pointer-events: auto;
+        opacity: 1;
       }
 
       .school-year-ended-current-note {
@@ -518,34 +499,8 @@
         margin-left: 8px;
       }
 
-      .term-completed-watermark {
-        position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-        z-index: 2;
-      }
 
-      .term-completed-watermark span {
-        transform: rotate(-18deg);
-        font-size: clamp(16px, 2.2vw, 22px);
-        font-weight: 800;
-        letter-spacing: 0.8px;
-        color: rgba(1, 83, 91, 0.16);
-        text-transform: uppercase;
-        white-space: normal;
-        text-align: center;
-        line-height: 1.15;
-        max-width: min(92%, 420px);
-        overflow-wrap: anywhere;
-        padding: 0 6px;
-      }
 
-      .term-completed.is-readonly .term-completed-watermark {
-        display: flex;
-      }
 
       .term-completed.is-readonly input[type="text"],
       .term-completed.is-readonly input[type="date"],
@@ -1313,7 +1268,7 @@
         <summary>How this works</summary>
         <div class="ws-info__body">
           <p>Open a school year to see its terms. Use <strong>Current</strong> to set the school year and term everyone works in.</p>
-          <p>Use the <strong>⋮</strong> menu to edit or delete a school year. Completed years and terms are read-only until you choose to edit them.</p>
+          <p>A term that has ended is marked <strong>Completed</strong> and can't be edited. Use <strong>⋮</strong> to delete a term or school year, or to rename a completed school year.</p>
         </div>
       </details>
 
@@ -1403,9 +1358,6 @@
             id="yearWrapper<%= year.id %>"
             data-school-year-completed="<%= schoolYearIsCompleted ? 'true' : 'false' %>"
           >
-            <div class="school-year-completed-watermark">
-              <span>School Year Successfully Completed</span>
-            </div>
             <form
               action="/common/updateSchoolYearAndTerms"
               method="post"
@@ -1464,13 +1416,15 @@
                       ⋮
                     </button>
                     <div class="term-menu-dropdown">
+                      <% if (schoolYearIsCompleted) { %>
                       <button
                         type="button"
                         class="term-menu-item edit"
                         onclick="enableSchoolYearEdit(this)"
                       >
-                        Edit School Year
+                        Rename school year
                       </button>
+                      <% } %>
                       <button
                         type="button"
                         class="term-menu-item delete"
@@ -1494,13 +1448,9 @@
                 <% const termIsCompleted = termEndKey < todayKey; %>
                 <fieldset class="term-fieldset <%= termIsCompleted ? 'term-completed is-readonly' : '' %>" data-term-completed="<%= termIsCompleted ? 'true' : 'false' %>" style="position: relative">
                   <legend>Term / Semester</legend>
-                  <% if (termIsCompleted) { %>
+                  <% if (termIsCompleted && !schoolYearIsCompleted) { %>
                   <span class="term-completed-badge">Completed</span>
                   <% } %>
-
-                  <div class="term-completed-watermark">
-                    <span>Semester Successfully Completed</span>
-                  </div>
 
                   <input
                     type="hidden"
@@ -1530,13 +1480,6 @@
                         ⋮
                       </button>
                       <div class="term-menu-dropdown">
-                        <button
-                          type="button"
-                          class="term-menu-item edit"
-                          onclick="enableTermEdit(this)"
-                        >
-                            Edit Term / Semester
-                        </button>
                         <button
                           type="button"
                           class="term-menu-item delete"
@@ -1569,9 +1512,9 @@
                       />
                     </div>
                   </div>
-                  <% if (termIsCompleted && term.current) { %>
+                  <% if (termIsCompleted && term.current && !schoolYearIsCompleted) { %>
                   <div class="term-ended-current-note">
-                    This term / semester has ended. Select Current on the next term / semester or in a different school year to start that term / semester.
+                    This term has ended. Choose the next term as Current to keep working.
                   </div>
                   <% } %>
                 </fieldset>
@@ -1588,7 +1531,7 @@
 
               <% if (schoolYearIsCompleted && year.current) { %>
               <div class="school-year-ended-current-note">
-                This school year has ended. Select Current on the next term / semester or in another school year to continue activities.
+                This school year has ended. Choose a term in the next school year as Current to keep working.
               </div>
               <% } %>
             </form>
@@ -2350,33 +2293,18 @@
         root.querySelectorAll('input[readonly]').forEach((input) => { input.readOnly = false; });
       }
 
+      // A completed school year keeps its terms and dates as they were; only its name can change.
       function enableSchoolYearEdit(button) {
         const wrapper = button.closest('.school-year-wrapper');
         if (!wrapper) return;
-
-        wrapper.classList.remove('is-readonly');
-        wrapper.querySelectorAll('.term-completed.is-readonly').forEach((fieldset) => {
-          fieldset.classList.remove('is-readonly');
-        });
-        unlockFields(wrapper);
-        wrapper.querySelectorAll('details.term-group--completed').forEach((box) => { box.open = true; });
-
-        const termSection = wrapper.querySelector('.term-section, [id^="termSection"]');
-        if (termSection && window.getComputedStyle(termSection).display === 'none') {
-          const yearId = termSection.id.replace('termSection', '');
-          toggleTerms(yearId);
-        }
-
-        alert('Editing has been enabled for this completed school year. Please save your changes when done.');
-      }
-
-      function enableTermEdit(button) {
-        const fieldset = button.closest('fieldset');
-        if (!fieldset) return;
-
-        fieldset.classList.remove('is-readonly');
-        unlockFields(fieldset);
-        alert('Editing has been enabled for this completed term. Please save your changes when done.');
+        const name = wrapper.querySelector('input[name="year_label"]');
+        if (!name) return;
+        name.removeAttribute('readonly');
+        wrapper.classList.add('name-unlocked');
+        name.focus();
+        name.select();
+        const menu = button.closest('.term-menu-dropdown');
+        if (menu) menu.classList.remove('open', 'show', 'active');
       }
 
       // Delete school year function

@@ -930,6 +930,78 @@ async function applyPromotionOverrides({ organizationId, termId, overrides }) {
   return result.rowCount || 0;
 }
 
+// The last two terms (by start date, never one that hasn't started), each with who is enrolled,
+// the saved promotion decisions, the term that follows it, and whether a promotion already ran
+// into that term: the page suggests the best source and target from this.
+async function termPromotionSuggestions(organizationId, terms, years, schedules) {
+  const today = new Date().toISOString().slice(0, 10);
+  const day = (value) => (value ? new Date(value).toISOString().slice(0, 10) : "");
+  const byStart = [...terms].sort((a, b) => day(a.start_date).localeCompare(day(b.start_date)));
+  const started = byStart.filter((t) => day(t.start_date) && day(t.start_date) <= today);
+  const lastTwo = started.slice(-2).reverse();
+  if (!lastTwo.length) return { suggestions: [], counts: {} };
+
+  const ids = byStart.map((t) => Number(t.term_id));
+  const { rows } = await db.query(
+    `SELECT e.term_id,
+            COUNT(DISTINCT es.student_id)::int AS students,
+            COUNT(DISTINCT es.class_id)::int AS classes_with_students
+       FROM enrollments e
+       LEFT JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+      WHERE e.organization_id = $1 AND e.term_id = ANY($2::int[])
+      GROUP BY e.term_id`,
+    [organizationId, ids]
+  );
+  const decisions = await db.query(
+    `SELECT sr.term_id, COUNT(DISTINCT sr.student_id)::int AS decided
+       FROM student_reports sr
+      WHERE sr.organization_id = $1 AND sr.term_id = ANY($2::int[])
+        AND sr.promotion_status IN ('Promoted', 'Repeated') AND sr.promotion_class_id IS NOT NULL
+      GROUP BY sr.term_id`,
+    [organizationId, ids]
+  );
+  const stat = new Map(rows.map((r) => [Number(r.term_id), r]));
+  const decided = new Map(decisions.rows.map((r) => [Number(r.term_id), Number(r.decided)]));
+  const yearLabel = new Map(years.map((y) => [Number(y.school_year_id), y.label]));
+  const label = (t) => `${yearLabel.get(Number(t.school_year_id)) || ""} · ${t.term_name}`.replace(/^ · /, "");
+
+  const counts = Object.fromEntries(rows.map((r) => [Number(r.term_id), Number(r.students)]));
+  const suggestions = lastTwo.map((term) => {
+    const index = byStart.findIndex((t) => Number(t.term_id) === Number(term.term_id));
+    const next = byStart[index + 1] || null;
+    const students = Number((stat.get(Number(term.term_id)) || {}).students || 0);
+    const decisionCount = decided.get(Number(term.term_id)) || 0;
+    const nextStudents = next ? Number((stat.get(Number(next.term_id)) || {}).students || 0) : 0;
+    const ran = next && schedules.some((s) =>
+      Number(s.current_term_id) === Number(term.term_id) && Number(s.target_term_id) === Number(next.term_id)
+      && String(s.status || "").toLowerCase() === "completed");
+    const ended = day(term.end_date) && day(term.end_date) < today;
+    let kind = "ready";
+    let message;
+    if (!students) {
+      kind = "empty";
+      message = "No students are enrolled in this term, so there is nobody to promote from it.";
+    } else if (!next) {
+      kind = "no-target";
+      message = "There is no later term yet. Create the next term in School years first.";
+    } else if (ran && nextStudents >= students) {
+      kind = "applied";
+      message = `Already promoted into ${label(next)} (${nextStudents} students there).`;
+    } else if (nextStudents > 0) {
+      kind = "partial";
+      message = `${label(next)} already has ${nextStudents} of these ${students} students. Promoting adds the rest.`;
+    } else {
+      message = `${students} student${students === 1 ? "" : "s"} can move into ${label(next)}${decisionCount ? ` (${decisionCount} promotion decision${decisionCount === 1 ? "" : "s"} saved)` : ". Save promotion decisions on the report cards first, or choose each student's class in the preview"}.`;
+    }
+    return {
+      fromTermId: Number(term.term_id), fromYearId: Number(term.school_year_id), fromLabel: label(term),
+      targetTermId: next ? Number(next.term_id) : null, targetYearId: next ? Number(next.school_year_id) : null, targetLabel: next ? label(next) : "",
+      students, decisions: decisionCount, targetStudents: nextStudents, ended: Boolean(ended), kind, message,
+    };
+  });
+  return { suggestions, counts };
+}
+
 module.exports = {
   // Page to view and schedule promotions
   applyPromotionPage: async (req, res) => {
@@ -950,7 +1022,7 @@ module.exports = {
       );
 
       const allTermsResult = await db.query(
-        `SELECT term_id, school_year_id, term_name FROM terms WHERE organization_id = $1 ORDER BY start_date`,
+        `SELECT term_id, school_year_id, term_name, start_date, end_date FROM terms WHERE organization_id = $1 ORDER BY start_date`,
         [organizationId]
       );
 
@@ -1012,8 +1084,15 @@ module.exports = {
         };
       });
 
+      const { suggestions, counts: termStudentCounts } = await termPromotionSuggestions(organizationId, allTermsResult.rows, allYearsResult.rows, scheduleResult.rows).catch((error) => {
+        console.error("[promotion] suggestions unavailable:", error.message);
+        return { suggestions: [], counts: {} };
+      });
+
       res.render("promotion/applyPromotion", {
         title: "Promotion Scheduler",
+        suggestions,
+        termStudentCounts,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -1842,6 +1921,11 @@ module.exports = {
     `, [scheduleId]);
 
       await client.query('COMMIT');
+
+      // A student with no saved decision isn't left out of the term they are moving into.
+      require('../utils/enrollmentKeeper').ensureCurrentTermEnrollment(db, organization_id).catch((error) => {
+        console.error('[Promotion] keeping students enrolled failed:', error.message || error);
+      });
 
       notifyPromotionManagersAndSupervisors({
         orgId: organization_id,

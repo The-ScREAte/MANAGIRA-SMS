@@ -264,6 +264,55 @@ const ENROLLMENT_CLASS_SQL = `
     FOR EACH ROW EXECUTE FUNCTION current_term_keeps_classes();
 `;
 
+// A student with attendance, scores or a report card in a term stays enrolled in that term, whatever
+// code runs: checked when the change is saved (so "clear the list, then add everyone again" in one
+// save is fine). Not checked while the student, the term or the whole school is itself being deleted
+// (those deletes are refused elsewhere while records exist).
+const ENROLLMENT_KEEPS_RECORDS_SQL = `
+  CREATE OR REPLACE FUNCTION enrollment_keeps_records() RETURNS trigger AS $$
+  DECLARE
+    v_term INTEGER;
+  BEGIN
+    SELECT term_id INTO v_term FROM enrollments WHERE enrollment_id = OLD.enrollment_id;
+    IF v_term IS NULL THEN RETURN NULL; END IF;
+    IF NOT EXISTS (SELECT 1 FROM students WHERE student_id = OLD.student_id) THEN RETURN NULL; END IF;
+    IF EXISTS (SELECT 1 FROM enrolled_students es JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+                WHERE es.student_id = OLD.student_id AND e.term_id = v_term) THEN RETURN NULL; END IF;
+    IF EXISTS (SELECT 1 FROM attendance_records WHERE student_id = OLD.student_id AND term_id = v_term)
+       OR EXISTS (SELECT 1 FROM student_reports WHERE student_id = OLD.student_id AND term_id = v_term)
+       OR EXISTS (SELECT 1 FROM assessment_results ar JOIN assessments a ON a.assessment_id = ar.assessment_id
+                   WHERE ar.student_id = OLD.student_id AND a.term_id = v_term) THEN
+      RAISE EXCEPTION 'A student with saved attendance, scores or report cards in a term stays enrolled in that term. Move them to another class instead.'
+        USING ERRCODE = '23503';
+    END IF;
+    RETURN NULL;
+  END $$ LANGUAGE plpgsql;
+
+  DROP TRIGGER IF EXISTS enrolled_students_keep_records ON enrolled_students;
+  CREATE CONSTRAINT TRIGGER enrolled_students_keep_records AFTER DELETE ON enrolled_students
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION enrollment_keeps_records();
+
+  -- The same for the term's enrollment itself: it can't be deleted while the term still exists and
+  -- holds records (unless another enrollment row of the term remains).
+  CREATE OR REPLACE FUNCTION term_enrollment_keeps_records() RETURNS trigger AS $$
+  BEGIN
+    IF OLD.term_id IS NULL THEN RETURN NULL; END IF;
+    IF NOT EXISTS (SELECT 1 FROM terms WHERE term_id = OLD.term_id) THEN RETURN NULL; END IF;
+    IF EXISTS (SELECT 1 FROM enrollments WHERE term_id = OLD.term_id) THEN RETURN NULL; END IF;
+    IF EXISTS (SELECT 1 FROM attendance_records WHERE term_id = OLD.term_id)
+       OR EXISTS (SELECT 1 FROM student_reports WHERE term_id = OLD.term_id)
+       OR EXISTS (SELECT 1 FROM assessments WHERE term_id = OLD.term_id) THEN
+      RAISE EXCEPTION 'A term that holds attendance, scores or report cards keeps its enrollment.'
+        USING ERRCODE = '23503';
+    END IF;
+    RETURN NULL;
+  END $$ LANGUAGE plpgsql;
+
+  DROP TRIGGER IF EXISTS enrollments_keep_records ON enrollments;
+  CREATE CONSTRAINT TRIGGER enrollments_keep_records AFTER DELETE ON enrollments
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION term_enrollment_keeps_records();
+`;
+
 const ENROLLMENT_CLASS_BACKFILL_SQL = `
   INSERT INTO enrolled_classes (enrollment_id, class_id)
   SELECT DISTINCT es.enrollment_id, es.class_id
@@ -409,6 +458,8 @@ async function applyRules(client) {
   await runSafely(client, "CREATE INDEX IF NOT EXISTS guardians_org_student_idx ON guardians (organization_id, student_id)");
   await client.query(ENROLLMENT_CLASS_SQL);
   await client.query(ENROLLMENT_CLASS_BACKFILL_SQL);
+  // Safe to fail on its own: a problem here must never stop the app from starting.
+  await runSafely(client, ENROLLMENT_KEEPS_RECORDS_SQL);
 }
 
 async function ensureRecordSafetySchema(db) {

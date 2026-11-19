@@ -487,6 +487,21 @@ const enrollmentController = {
             });
           }
       
+          // Students who already have attendance, scores or report cards in this term can't be
+          // taken out of its enrollment (they can be moved to another class).
+          {
+            const guards = require('../utils/recordGuards');
+            const termRow = await txClient.query(`SELECT term_id FROM enrollments WHERE enrollment_id = $1 AND organization_id = $2`, [enrollmentId, organizationId]);
+            const currentlyIn = await txClient.query(`SELECT student_id FROM enrolled_students WHERE enrollment_id = $1`, [enrollmentId]);
+            const staying = new Set([...ownedStudentIds]);
+            const leaving = currentlyIn.rows.map((r) => Number(r.student_id)).filter((id) => !staying.has(id));
+            const withRecords = termRow.rows[0] ? await guards.studentsWithTermRecords(txClient, organizationId, termRow.rows[0].term_id, leaving) : [];
+            if (withRecords.length) {
+              await txClient.query('ROLLBACK').catch(() => {});
+              return res.status(409).json({ success: false, message: guards.studentsWithRecordsMessage(withRecords.length) });
+            }
+          }
+
           // No conflicts or confirmed to move. Clear existing data and re-insert.
           // Org-bound: the enrollment is already validated above, and the
           // class/student ids being reinserted have all been validated to
@@ -552,6 +567,18 @@ const enrollmentController = {
             if (!ownership.rows.length) {
                 req.flash('error', 'Enrollment does not belong to your organization.');
                 return res.redirect('/enrollment/manageEnrollment');
+            }
+
+            // A term's enrollment holds who was in which class: once students are enrolled in it or
+            // the term has saved records, it stays (the term's records depend on it).
+            const guards = require('../utils/recordGuards');
+            const enrollmentTerm = await db.query(`SELECT term_id FROM enrollments WHERE enrollment_id = $1 AND organization_id = $2`, [enrollmentId, organizationId]);
+            const held = enrollmentTerm.rows[0] && enrollmentTerm.rows[0].term_id
+              ? await guards.savedRecords(db, 'term', [enrollmentTerm.rows[0].term_id], organizationId)
+              : [];
+            if (held.length) {
+              req.flash('error', guards.savedRecordsMessage('This enrollment', held).replace("can't be deleted because it already has", "can't be deleted because it holds"));
+              return res.redirect('/enrollment/modifyEnrollment/' + enrollmentId);
             }
 
             txClient = await db.connect();

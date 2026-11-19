@@ -18919,6 +18919,11 @@ NUMBERING:
 
       await txClient.query("COMMIT");
 
+      // Whatever the setup choice was, every active student belongs to the school's current term.
+      await require("../utils/enrollmentKeeper").ensureCurrentTermEnrollment(db, organizationId).catch((error) => {
+        console.error("[enrollmentKeeper] after term switch:", error.message);
+      });
+
       const activeTermResult = await db.query(
         `SELECT t.term_id, t.term_name, sy.year_label
          FROM terms t
@@ -23804,18 +23809,21 @@ NUMBERING:
               g.name AS grad_year_group_name,
               last_sy.id AS last_school_year_id,
               last_sy.year_label AS last_school_year,
-              last_sy.is_current AS in_current_year
+              last_sy.is_current AS in_current_year,
+              last_sy.term_name AS last_term_name,
+              COALESCE(last_sy.term_is_current, false) AS in_current_term
             FROM students s
             LEFT JOIN classes c ON s.class_id = c.class_id
             LEFT JOIN graduation_year_groups g ON s.graduation_year_group_id = g.id
             LEFT JOIN LATERAL (
-              SELECT sy.id, sy.year_label, sy.current AS is_current
+              SELECT sy.id, sy.year_label, sy.current AS is_current, t.term_name, t.current AS term_is_current
               FROM enrolled_students es
               JOIN enrollments e ON es.enrollment_id = e.enrollment_id
               JOIN school_years sy ON e.school_year_id = sy.id
+              LEFT JOIN terms t ON t.term_id = e.term_id AND t.organization_id = e.organization_id
               WHERE es.student_id = s.student_id
                 AND e.organization_id = $1
-              ORDER BY sy.id DESC
+              ORDER BY COALESCE(t.current, false) DESC, sy.id DESC, t.start_date DESC NULLS LAST, e.enrollment_id DESC
               LIMIT 1
             ) last_sy ON true
             WHERE s.organization_id = $1
@@ -23844,6 +23852,14 @@ NUMBERING:
               PERMISSIONS.MANAGE_STUDENTS
             ),
       ]);
+
+      // The school's current year and term: every student's row says which one they are in.
+      const currentTermRow = (await db.query(
+        `SELECT t.term_name, sy.year_label
+           FROM terms t JOIN school_years sy ON sy.id = t.school_year_id
+          WHERE t.organization_id = $1 AND t.current = true LIMIT 1`,
+        [organizationId]
+      ).catch(() => ({ rows: [] }))).rows[0] || null;
 
       const studentPortalIntegrationActive = Boolean(studentPortalIntegration && studentPortalIntegration.activated);
       const canSendStudentPortalRequest = Boolean(studentPortalIntegrationActive && hasManageStudentsPermission);
@@ -23874,6 +23890,7 @@ NUMBERING:
         hideGlobalChatbot: isEmbedded,
         students,
         classes: classesResult.rows,
+        currentTermRow,
         schoolYears: schoolYearsResult.rows,
         studentIdSettings,
         nextAvailableStudentIdNumber,
@@ -23925,18 +23942,8 @@ NUMBERING:
         [classId, studentId, organizationId]
       );
 
-      // Also sync enrolled_students.class_id for the current school year so class rosters stay in sync
-      await client.query(
-        `UPDATE enrolled_students es
-         SET class_id = $1
-         FROM enrollments e
-         INNER JOIN school_years sy ON e.school_year_id = sy.id
-         WHERE es.enrollment_id = e.enrollment_id
-           AND es.student_id = $2
-           AND e.organization_id = $3
-           AND sy.current = TRUE`,
-        [classId, studentId, organizationId]
-      );
+      // The class changes in the school's current term only: earlier terms keep the class they had.
+      await require("../utils/enrollmentKeeper").moveStudentsToClassInCurrentTerm(client, { organizationId, studentIds: [Number(studentId)], classId: Number(classId) });
 
       const carryoverResult = await carryStudentSubjectsToClass(client, {
         organizationId,
@@ -24036,17 +24043,8 @@ NUMBERING:
           [safeClassId, studentId, organizationId]
         );
 
-        await client.query(
-          `UPDATE enrolled_students es
-              SET class_id = $1
-             FROM enrollments e
-             INNER JOIN school_years sy ON e.school_year_id = sy.id
-            WHERE es.enrollment_id = e.enrollment_id
-              AND es.student_id = $2
-              AND e.organization_id = $3
-              AND sy.current = TRUE`,
-          [safeClassId, studentId, organizationId]
-        );
+        // The class changes in the school's current term only: earlier terms keep the class they had.
+        await require("../utils/enrollmentKeeper").moveStudentsToClassInCurrentTerm(client, { organizationId, studentIds: [Number(studentId)], classId: Number(safeClassId) });
 
         const carryoverResult = await carryStudentSubjectsToClass(client, {
           organizationId,
@@ -24076,44 +24074,19 @@ NUMBERING:
         newYearLabel = schoolYearCheck.rows[0].year_label;
         newYearIsCurrent = Boolean(schoolYearCheck.rows[0].current);
 
-        let enrollmentId;
-        const enrollmentResult = await client.query(
-          `SELECT enrollment_id
-             FROM enrollments
-            WHERE school_year_id = $1 AND organization_id = $2
-            ORDER BY enrollment_id DESC
-            LIMIT 1`,
-          [safeSchoolYearId, organizationId]
-        );
-
-        if (enrollmentResult.rows.length) {
-          enrollmentId = enrollmentResult.rows[0].enrollment_id;
-        } else {
-          const newEnrollmentResult = await client.query(
-            `INSERT INTO enrollments (school_year_id, organization_id)
-             VALUES ($1, $2)
-             RETURNING enrollment_id`,
-            [safeSchoolYearId, organizationId]
-          );
-          enrollmentId = newEnrollmentResult.rows[0].enrollment_id;
+        // Add-only: the student joins that school year's term (the current term of the current year,
+        // otherwise the year's first term). Nothing they are already enrolled in is removed or moved.
+        try {
+          await require("../utils/enrollmentKeeper").enrollStudentsInYear(client, {
+            organizationId, yearId: safeSchoolYearId, studentIds: [Number(studentId)], classId: hasClassChange ? Number(safeClassId) : null,
+          });
+        } catch (enrollError) {
+          if (enrollError.userFacing) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ success: false, error: enrollError.message });
+          }
+          throw enrollError;
         }
-
-        await client.query(
-          `DELETE FROM enrolled_students es
-            USING enrollments e
-           WHERE es.enrollment_id = e.enrollment_id
-             AND e.school_year_id = $1
-             AND e.organization_id = $2
-             AND es.student_id = $3`,
-          [safeSchoolYearId, organizationId, studentId]
-        );
-
-        const effectiveClassId = hasClassChange ? safeClassId : (studentRow.class_id || null);
-        await client.query(
-          `INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
-           VALUES ($1, $2, $3)`,
-          [enrollmentId, studentId, effectiveClassId]
-        );
       }
 
       if (hasStudentIdChange && idSettings.use_custom_student_id) {
@@ -24532,18 +24505,8 @@ NUMBERING:
             [safeClassId, safeIds, organizationId]
           );
 
-          // Also sync enrolled_students.class_id for the current school year so class rosters stay in sync
-          await client.query(
-            `UPDATE enrolled_students es
-             SET class_id = $1
-             FROM enrollments e
-             INNER JOIN school_years sy ON e.school_year_id = sy.id
-             WHERE es.enrollment_id = e.enrollment_id
-               AND es.student_id = ANY($2::int[])
-               AND e.organization_id = $3
-               AND sy.current = TRUE`,
-            [safeClassId, safeIds, organizationId]
-          );
+          // The class changes in the school's current term only: earlier terms keep the class they had.
+          await require("../utils/enrollmentKeeper").moveStudentsToClassInCurrentTerm(client, { organizationId, studentIds: safeIds, classId: Number(safeClassId) });
 
           const carryoverResults = [];
           for (const currentStudentId of safeIds) {
@@ -24570,47 +24533,11 @@ NUMBERING:
           newYearLabel = syCheck.rows[0].year_label;
           newYearIsCurrent = Boolean(syCheck.rows[0].current);
 
-          // Find or create a single enrollment record for this school year + org
-          let enrollmentId;
-          const enrollRes = await client.query(
-            `SELECT enrollment_id FROM enrollments WHERE school_year_id = $1 AND organization_id = $2 ORDER BY enrollment_id DESC LIMIT 1`,
-            [safeSyId, organizationId]
-          );
-          if (enrollRes.rows.length) {
-            enrollmentId = enrollRes.rows[0].enrollment_id;
-          } else {
-            const newEnroll = await client.query(
-              `INSERT INTO enrollments (school_year_id, organization_id) VALUES ($1, $2) RETURNING enrollment_id`,
-              [safeSyId, organizationId]
-            );
-            enrollmentId = newEnroll.rows[0].enrollment_id;
-          }
-
-          // For each student: remove old enrolled_students for this school year, then insert fresh
-          for (const studentId of safeIds) {
-            // Remove any existing entry for this student in this school year (across all enrollments of this year)
-            await client.query(
-              `DELETE FROM enrolled_students es
-               USING enrollments e
-               WHERE es.enrollment_id = e.enrollment_id
-                 AND e.school_year_id = $1
-                 AND e.organization_id = $2
-                 AND es.student_id = $3`,
-              [safeSyId, organizationId, studentId]
-            );
-
-            // Get effective class_id (may have just been updated above)
-            const studentRow = await client.query(
-              `SELECT class_id FROM students WHERE student_id = $1`,
-              [studentId]
-            );
-            const effectiveClassId = safeClassId || studentRow.rows[0]?.class_id || null;
-
-            await client.query(
-              `INSERT INTO enrolled_students (enrollment_id, student_id, class_id) VALUES ($1, $2, $3)`,
-              [enrollmentId, studentId, effectiveClassId]
-            );
-          }
+          // Add-only: each student joins that school year's term (the current term of the current
+          // year, otherwise the year's first term); no enrollment they already have is removed or moved.
+          await require("../utils/enrollmentKeeper").enrollStudentsInYear(client, {
+            organizationId, yearId: safeSyId, studentIds: safeIds, classId: safeClassId ? Number(safeClassId) : null,
+          });
         }
 
         await client.query("COMMIT");

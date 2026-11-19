@@ -2044,6 +2044,12 @@ async function setEnrollmentRosterApi(req, res) {
       });
     }
 
+    if (studentsRemoved.length) {
+      const guards = require("../utils/recordGuards");
+      const withRecords = await guards.studentsWithTermRecords(client, organizationId, term.term_id, studentsRemoved.map((s) => s.studentId));
+      if (withRecords.length) return res.status(409).json({ error: guards.studentsWithRecordsMessage(withRecords.length) });
+    }
+
     await client.query("BEGIN");
     let enrollmentId = existingEnrollment?.enrollment_id;
     if (!enrollmentId) {
@@ -2140,6 +2146,14 @@ async function deleteEnrollmentApi(req, res) {
           `Attendance, scores, and other records are unaffected (they don't depend on enrollment). ` +
           `Ask the user to explicitly confirm before calling again with confirm=true.`,
       });
+    }
+
+    {
+      const guards = require("../utils/recordGuards");
+      const held = await guards.savedRecords(client, "term", [term.term_id], organizationId);
+      if (held.length) {
+        return res.status(409).json({ error: guards.savedRecordsMessage(`The enrollment for ${term.year_label} - ${term.term_name}`, held).replace("can't be deleted because it already has", "can't be deleted because it holds") });
+      }
     }
 
     await client.query("BEGIN");
