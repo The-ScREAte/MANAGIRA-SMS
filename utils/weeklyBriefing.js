@@ -648,7 +648,7 @@ function studentHeading(student) {
 }
 
 // One family's email, or null when nothing in it is worth sending.
-function parentEmail({ parent, children, week, all, windows, school }) {
+function parentEmail({ parent, children, week, all, windows, school, alerts = null }) {
   const blocks = [];
   let anyEvents = false;
   const kept = [];
@@ -662,6 +662,8 @@ function parentEmail({ parent, children, week, all, windows, school }) {
     blocks.push(`${studentHeading(child)}${detailsBlock(rows)}`);
   }
   const events = anyEvents && week.events.length ? `<p class="t-strong" style="margin:24px 0 8px;font-size:16px;line-height:1.4;font-weight:700;color:#0f172a;">Coming up at school</p>${detailsBlock([eventsRow(week.events)])}` : "";
+  const alertRow = alerts ? require("./alertRules").digestRows(alerts) : null;
+  if (alertRow) blocks.push(`<p class="t-strong" style="margin:24px 0 8px;font-size:16px;line-height:1.4;font-weight:700;color:#0f172a;">Alerts you asked for</p>${detailsBlock([{ label: "This week", value: alertRow.value }])}`);
   if (!blocks.length && !events) return null;
   const who = childNames(kept.length ? kept : children);
   const range = rangeLabel(windows.past.from, windows.past.to);
@@ -683,8 +685,10 @@ function parentEmail({ parent, children, week, all, windows, school }) {
   return { subject, html };
 }
 
-function studentEmail({ student, week, settings, windows, school }) {
+function studentEmail({ student, week, settings, windows, school, alerts = null }) {
   const rows = rowsFor(student, week, settings, "students", { withEvents: true });
+  const alertRow = alerts ? require("./alertRules").digestRows(alerts) : null;
+  if (alertRow) rows.push(alertRow);
   if (!rows.length) return null;
   const range = rangeLabel(windows.past.from, windows.past.to);
   const html = renderModernEmail({
@@ -811,6 +815,7 @@ async function sendBatch(db, organizationId, kind, dayKey, items) {
   const { sendEmailSafely } = require("./emailHelper");
   const sent = [];
   const failed = [];
+  const alertsSent = [];
   for (const item of items) {
     const dispatchId = reserved.get(item.to);
     if (!dispatchId) continue;
@@ -820,7 +825,9 @@ async function sendBatch(db, organizationId, kind, dayKey, items) {
       optOutChecked: true, onBehalfOf: organizationId, sender: "reminders",
     }, kind === "parent" ? "Weekly briefing" : "Weekly briefing (student)");
     (ok ? sent : failed).push(dispatchId);
+    if (ok && item.alertIds) alertsSent.push(...item.alertIds);
   }
+  await require("./alertRules").markDigested(db, alertsSent);
   const record = (sql, ids) => (ids.length ? db.query(sql, [ids]).catch((error) => console.warn("[Weekly briefing] could not record sends:", error.message)) : null);
   await record(`UPDATE notification_dispatches SET status = 'sent', sent_at = NOW(), error_message = NULL WHERE dispatch_id = ANY($1::int[])`, sent);
   await record(`UPDATE notification_dispatches SET status = 'failed', error_message = 'Not delivered' WHERE dispatch_id = ANY($1::int[])`, failed);
@@ -864,6 +871,7 @@ async function sendForOrganization(db, organizationId, { now = new Date(), force
     studentLogins(db, organizationId, students.map((student) => student.id)),
   ]);
   const byId = new Map(students.map((student) => [student.id, student]));
+  const digest = await require("./alertRules").digestFor(db, organizationId);
   const { filterEmailsByPreference } = require("./emailPreferences");
   let sent = 0;
 
@@ -878,9 +886,10 @@ async function sendForOrganization(db, organizationId, { now = new Date(), force
     if (!wanted.has(family.email)) continue;
     const children = [...family.studentIds].map((id) => byId.get(id)).filter(Boolean)
       .sort((a, b) => a.firstName.localeCompare(b.firstName));
-    const email = parentEmail({ parent: family, children, week, all, windows, school });
+    const alerts = digest.get(family.email) || null;
+    const email = parentEmail({ parent: family, children, week, all, windows, school, alerts });
     if (!email) continue;
-    batch.push({ to: family.email, ...email });
+    batch.push({ to: family.email, ...email, alertIds: alerts ? alerts.map((a) => a.id) : null });
     if (batch.length >= BATCH) await flush("parent");
   }
   await flush("parent");
@@ -891,9 +900,10 @@ async function sendForOrganization(db, organizationId, { now = new Date(), force
     if (!student || !studentWanted.has(address)) continue;
     const settings = settingsForClass(all, student.classId).students;
     if (!settings.on) continue;
-    const email = studentEmail({ student, week, settings, windows, school });
+    const alerts = digest.get(address) || null;
+    const email = studentEmail({ student, week, settings, windows, school, alerts });
     if (!email) continue;
-    batch.push({ to: address, ...email });
+    batch.push({ to: address, ...email, alertIds: alerts ? alerts.map((a) => a.id) : null });
     if (batch.length >= BATCH) await flush("student");
   }
   await flush("student");

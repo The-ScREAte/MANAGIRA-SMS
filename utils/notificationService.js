@@ -983,6 +983,7 @@ async function notifyReportRecipients(db, { orgId, reportId, type, title, body, 
 
 module.exports = {
   ensureSchema,
+  classStaff,
   createNotification,
   createNotifications,
   syncBirthdayNotifications,

@@ -943,6 +943,7 @@
 </script>
 
 <script>window.__mgDisplayPrefs = <%- JSON.stringify(typeof displayPreferences !== 'undefined' && displayPreferences ? displayPreferences : {}).replace(/</g, '\\u003c') %>;</script>
+<script>window.MG_ASSETS = Object.assign(window.MG_ASSETS || {}, <%- JSON.stringify({ deepSearchJs: assetUrl('/js/deepSearch.js'), deepSearchCss: assetUrl('/css/deepSearch.css') }) %>);</script>
 <script src="<%= assetUrl('/js/headerMenu.js') %>"></script>
 
 <%# ── Mira launcher CSS ───────────────────────────────────────────────────── %>

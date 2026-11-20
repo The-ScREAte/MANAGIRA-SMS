@@ -1,0 +1,11 @@
+<%# A child's alerts (feature alert_rules): how this child is doing, told the way the parent chooses.
+    Their own choices for this child, or the alerts they set for all their children. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
+<div class="ph">
+  <%- include('../partials/flash') %>
+  <%- include('../partials/portalHead', { title: 'Alerts', icon: 'notifications', sub: 'Get told how ' + (child.firstName || 'your child') + ' is doing.', back: { href: '/guardian/child?studentId=' + child.id, label: child.name } }) %>
+  <div style="max-width:880px" data-ns-scope>
+    <%- include('../partials/alertRules', { bare: true, studentId: child.id, alertIntro: 'Choose what you want to know about ' + (child.firstName || 'your child') + ', and how you want to hear it.' }) %>
+    <%- include('../partials/notificationSaveBar') %>
+  </div>
+</div>

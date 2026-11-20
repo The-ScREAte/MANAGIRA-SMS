@@ -24,14 +24,14 @@ async function reserveNotificationEvent(database, { organizationId, tripId, stud
 
 async function getGuardianContactsForStudent(database, organizationId, studentId) {
   const result = await database.query(
-    `SELECT DISTINCT email, phone FROM (
-       SELECT gp.email, gp.phone
+    `SELECT DISTINCT email, phone, guardian_id FROM (
+       SELECT gp.email, gp.phone, gp.guardian_id
        FROM guardian_profiles gp
        JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
        WHERE gs.student_id = $1 AND gp.organization_id = $2
        UNION
        -- The older per-student rows only add email addresses (a parent is a guardian_profiles row).
-       SELECT g.email, NULL::text AS phone
+       SELECT g.email, NULL::text AS phone, NULL::int AS guardian_id
        FROM guardians g
        WHERE g.student_id = $1 AND g.organization_id = $2
      ) guardian_contacts
@@ -61,13 +61,30 @@ async function sendArrivalNotification(database, { organizationId, organizationN
     organizationId,
   });
 
+  // A parent who chose how to hear about the bus (Settings › Notifications, feature alert_rules)
+  // gets it that way; everyone else gets what the school has always sent.
+  const alertRules = require("./alertRules");
+  const choices = await alertRules.choicesFor(database, organizationId, isApproaching ? "bus_near" : "bus_arrived",
+    contacts.filter((c) => c.guardian_id).map((c) => ({ id: Number(c.guardian_id), studentId: Number(student.student_id) })));
+  // The student, if they chose to hear about the bus too (Settings › Notifications).
+  require("./alertRules").onBus(database, organizationId, student.student_id, isApproaching ? "bus_near" : "bus_arrived", title, message);
   // A parent listed twice (two phone numbers, or on both parent lists) hears once on each channel.
   const emailed = new Set();
   const texted = new Set();
   for (const contact of contacts) {
+    const choice = contact.guardian_id ? choices.get(`${contact.guardian_id}:${student.student_id}`) : null;
+    if (choice && !choice.enabled) continue;
+    if (choice && choice.channels.includes("bell")) {
+      require("./notificationService").createNotifications(database, [{
+        orgId: organizationId, recipientType: "guardian", recipientId: Number(contact.guardian_id), type: "alert", title, body: message,
+        link: `/guardian/child?studentId=${student.student_id}`, refId: Number(student.student_id),
+      }]).catch(() => {});
+    }
+    const wantsEmail = !choice || choice.channels.includes("email");
+    const wantsText = !choice || choice.channels.includes("sms");
     // Email is the default, always-sent channel.
     const email = String(contact.email || "").trim().toLowerCase();
-    if (email && !emailed.has(email)) {
+    if (wantsEmail && email && !emailed.has(email)) {
       emailed.add(email);
       sendEmailInBackground({
         to: email,
@@ -80,7 +97,7 @@ async function sendArrivalNotification(database, { organizationId, organizationN
     }
 
     // WhatsApp is sent additionally, only when the organization has it active.
-    if (whatsappActivated && whatsappCreds && whatsappCreds.configured && contact.phone) {
+    if (wantsText && whatsappActivated && whatsappCreds && whatsappCreds.configured && contact.phone) {
       const { normalized, valid } = normalizeWhatsappPhoneNumber(contact.phone, orgCountry);
       if (valid && !texted.has(normalized)) {
         texted.add(normalized);
@@ -95,6 +112,17 @@ async function sendArrivalNotification(database, { organizationId, organizationN
             error: err?.message || err,
           });
         });
+      }
+    }
+
+    // A parent who asked for a text message and the school texts by SMS (not WhatsApp).
+    if (choice && wantsText && contact.phone && !(whatsappActivated && whatsappCreds && whatsappCreds.configured) && !texted.has(`sms:${contact.phone}`)) {
+      texted.add(`sms:${contact.phone}`);
+      try {
+        const sms = require("./smsIntegration");
+        await sms.sendSms(await sms.getTenantSmsCredentials(database, organizationId), `${organizationName ? `${organizationName}: ` : ""}${message}`.slice(0, 300), [contact.phone]);
+      } catch (error) {
+        console.warn("[TransportArrival] text not sent:", error.message);
       }
     }
   }

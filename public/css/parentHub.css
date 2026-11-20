@@ -1,5 +1,5 @@
 /* The parent's student tiles, schoolwork pages and family calendar. */
-.ph { box-sizing: border-box; width: 100%; max-width: 760px; margin: 0 auto; padding: 16px 16px 48px; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; text-align: left; }
+.ph { box-sizing: border-box; width: 100%; max-width: 1240px; margin: 0 auto; padding: 20px 24px 56px; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; text-align: left; }
 .ph *, .ph *::before, .ph *::after { box-sizing: border-box; }
 .ph-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 12px; color: #667085; font-size: 13px; font-weight: 600; text-decoration: none; }
 .ph-back::before { content: "‹"; font-size: 18px; line-height: 1; }
@@ -112,3 +112,27 @@
 .ph-section { margin: 22px 0 10px; font-size: .78rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
 .ph-grade { flex: none; margin-left: auto; padding: 4px 10px; border-radius: 999px; background: #ecfdf5; color: #065f46; font-size: .82rem; font-weight: 800; white-space: nowrap; }
 .ph-grade:empty { display: none; }
+
+.pc-root.is-loading .pc-grid,#parentCalendar.is-loading .pc-grid { opacity: .55; transition: opacity .15s ease; }
+
+/* A child's tile page stays a narrow column; every other portal page uses the full width. */
+.ph.ph--tiles { max-width: 760px; padding: 16px 16px 48px; }
+@media (max-width: 600px) { .ph { padding-left: 16px; padding-right: 16px; } }
+@media (min-width: 1000px) {
+  .ph-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+  .ph-week { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start; }
+  .ph-card { padding: 18px; }
+  /* The calendar: the month on the left, the chosen day beside it. */
+  .ph--calendar #parentCalendar { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); column-gap: 28px; align-items: start; }
+  .ph--calendar .pc-bar, .ph--calendar .pc-chips, .ph--calendar .pc-grid, .ph--calendar .pc-add { grid-column: 1; }
+  .ph--calendar .pc-day { grid-column: 2; grid-row: 1 / span 12; margin-top: 0; padding: 4px 0 0; }
+  .ph--calendar .pc-grid { padding: 12px; gap: 4px; }
+  .ph .pc-cell { height: 76px; font-size: 15px; }
+  .pc-dow { font-size: 12.5px; padding-bottom: 8px; }
+  .ph--calendar .pc-add { max-width: 280px; }
+}
+@media (min-width: 1500px) {
+  .ph { max-width: 1500px; }
+  .ph-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1900px) { .ph.ph:not(.ph--tiles) { max-width: 1680px; } .ph .pc-cell { height: 88px; font-size: 16px; } .ph-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

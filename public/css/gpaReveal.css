@@ -1,0 +1,19 @@
+/* The hidden GPA tile (views/partials/gpaStat.ejs). */
+.gpa-stat { position: relative; }
+.gpa-stat__value { letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.gpa-stat.is-shown .gpa-stat__value { letter-spacing: 0; }
+.gpa-stat__eye { flex: none; display: grid; place-items: center; width: 34px; height: 34px; margin: 0 0 0 auto; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #64748b; cursor: pointer; box-shadow: none; }
+.gpa-stat__eye:hover { background: #f1f5f9; color: #0f172a; }
+.gpa-stat__eye:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
+.gpa-stat .gpa-eye-shut { display: none; }
+.gpa-stat.is-shown .gpa-eye-shut { display: block; }
+.gpa-stat.is-shown .gpa-eye-open { display: none; }
+/* On a child's page for a parent. */
+.ph-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.ph-stats .gpa-stat { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px 14px; border: 1px solid #e5e9ef; border-radius: 14px; background: #fff; }
+.ph-stats .sx-stat__icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 11px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); }
+.ph-stats .sx-stat__icon svg { width: 20px; height: 20px; }
+.ph-stats .sx-stat__text { display: grid; min-width: 0; }
+.ph-stats .sx-stat__label { color: #64748b; font-size: .78rem; font-weight: 650; }
+.ph-stats strong { color: #0f172a; font-size: 1.2rem; font-weight: 750; }
+.ph-stats small { color: #64748b; font-size: .76rem; }

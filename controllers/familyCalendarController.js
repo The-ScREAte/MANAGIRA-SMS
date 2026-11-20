@@ -7,7 +7,23 @@ const { baseUrl } = require("../utils/workspace");
 const { getOpenAssessments, resolveCurrentStudentTermContext } = require("./studentController");
 const { childrenOf, openWorkFor } = require("./parentHubController");
 
+const { BoundedMap } = require("../utils/boundedMap");
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+// A feed answered a moment ago is answered again from memory: paging through months and the
+// calendar's three-month windows ask for the same days within seconds, and the work behind them
+// (current term, open assessments) is the slow part. Kept per person, for 20 seconds.
+const recentFeeds = new BoundedMap(400);
+const FEED_SECONDS = 20;
+function recent(key, load) {
+  const hit = recentFeeds.get(key);
+  if (hit && Date.now() - hit.at < FEED_SECONDS * 1000) return hit.promise;
+  const promise = load();
+  recentFeeds.set(key, { at: Date.now(), promise });
+  promise.catch(() => { if (recentFeeds.get(key) && recentFeeds.get(key).promise === promise) recentFeeds.delete(key); });
+  return promise;
+}
 const toId = (value) => {
   const id = Number.parseInt(value, 10);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -25,7 +41,7 @@ const allowsTestingRoom = (list) => (list || []).some((name) => /testing room|se
 function datesFrom(req, res) {
   const from = DAY.test(String(req.query.from || "")) ? req.query.from : null;
   const to = DAY.test(String(req.query.to || "")) ? req.query.to : null;
-  if (!from || !to) {
+  if (!from || !to || to < from || (Date.parse(to) - Date.parse(from)) / 86400000 > 200) {
     res.status(400).json({ success: false, message: "Choose dates." });
     return null;
   }
@@ -143,11 +159,16 @@ module.exports = {
     const dates = datesFrom(req, res);
     if (!dates) return undefined;
     try {
-      const children = await childrenOf(db, organizationId, req.session.guardianId);
-      const items = await familyCalendar.itemsFor(db, organizationId, children, dates);
-      if (hubOn(organizationId) && allowsQuestions(res.locals.allowedFeatures)) {
-        items.push(...await workForChildren(db, organizationId, children, dates.from, dates.to));
-      }
+      const withWork = hubOn(organizationId) && allowsQuestions(res.locals.allowedFeatures);
+      const items = await recent(`g:${organizationId}:${req.session.guardianId}:${dates.from}:${dates.to}:${withWork}`, async () => {
+        const children = await childrenOf(db, organizationId, req.session.guardianId);
+        // What's on the calendar and the work closing don't depend on each other.
+        const [list, work] = await Promise.all([
+          familyCalendar.itemsFor(db, organizationId, children, dates),
+          withWork ? workForChildren(db, organizationId, children, dates.from, dates.to) : [],
+        ]);
+        return [...list, ...work];
+      });
       return res.json({ success: true, items });
     } catch (error) {
       return answer(res, "feed", error);
@@ -174,12 +195,16 @@ module.exports = {
     const dates = datesFrom(req, res);
     if (!dates) return undefined;
     try {
-      const person = await studentPerson(db, organizationId, req.session.studentId);
-      if (!person) return res.json({ success: true, items: [] });
-      const items = await familyCalendar.itemsFor(db, organizationId, [person], dates);
-      if (allowsTestingRoom(req.session.allowedFeatures)) {
-        items.push(...await workForStudent(db, organizationId, person.id, person.classId, person.termId, dates.from, dates.to));
-      }
+      const withWork = allowsTestingRoom(req.session.allowedFeatures);
+      const items = await recent(`s:${organizationId}:${req.session.studentId}:${dates.from}:${dates.to}:${withWork}`, async () => {
+        const person = await studentPerson(db, organizationId, req.session.studentId);
+        if (!person) return [];
+        const [list, work] = await Promise.all([
+          familyCalendar.itemsFor(db, organizationId, [person], dates),
+          withWork ? workForStudent(db, organizationId, person.id, person.classId, person.termId, dates.from, dates.to) : [],
+        ]);
+        return [...list, ...work];
+      });
       return res.json({ success: true, items });
     } catch (error) {
       return answer(res, "student feed", error);

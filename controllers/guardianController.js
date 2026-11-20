@@ -563,7 +563,7 @@ module.exports = {
       let guardianImageUrl = null;
       if (req.files && req.files['guardianImage']) {
         const guardianImageFile = req.files['guardianImage'][0];
-        const s3Key = `images/guardians/${organizationId}/${Date.now()}_${guardianImageFile.originalname}`;
+        const s3Key = `images/guardians/${organizationId}/${require("../utils/storedFiles").safeName(guardianImageFile.originalname, "parent")}`;
         guardianImageUrl = await uploadToS3(guardianImageFile, s3Key);
         
         // Update guardian profile image
@@ -584,7 +584,7 @@ module.exports = {
           return res.redirect('/guardian/settings');
         }
         const studentImageFile = req.files['studentImage'][0];
-        const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${studentImageFile.originalname}`;
+        const s3Key = `images/studentimages/${organizationId}/${require("../utils/storedFiles").safeName(studentImageFile.originalname, "student")}`;
         const studentImageUrl = await uploadToS3(studentImageFile, s3Key);
         
         // Update student image
@@ -2005,7 +2005,7 @@ module.exports = {
       // Handle image upload if provided
       let imageUrl = null;
       if (req.file) {
-        const s3Key = `images/pending-students/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        const s3Key = `images/pending-students/${organizationId}/${require("../utils/storedFiles").safeName(req.file.originalname, "student")}`;
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 

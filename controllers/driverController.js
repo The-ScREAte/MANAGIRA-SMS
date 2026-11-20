@@ -274,7 +274,7 @@ const driverController = {
 
       let imageUrl = null;
       if (req.file) {
-        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        const key = `images/transportation/drivers/${organizationId}/${require("../utils/storedFiles").safeName(req.file.originalname, "driver")}`;
         imageUrl = await uploadToS3(req.file, key);
       }
 

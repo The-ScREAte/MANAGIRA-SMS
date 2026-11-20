@@ -7148,17 +7148,27 @@ const printController = (db) => ({
               .parentsSeeFor(db, organizationId, (guardianRecipientsResult.rows || []).map((row) => row.student_id))
               .catch(() => new Map());
 
+            // A parent who chose how to hear about report cards (Settings › Notifications, feature
+            // alert_rules) gets them that way; everyone else gets the bell and the email as always.
+            const reportChoices = await require("../utils/alertRules").choicesFor(
+              db, organizationId, "report_card",
+              (guardianRecipientsResult.rows || []).filter((row) => row.source === "profile" && Number(row.guardian_id) > 0)
+                .map((row) => ({ id: Number(row.guardian_id), studentId: Number(row.student_id) }))
+            );
+
             (guardianRecipientsResult.rows || []).forEach((row) => {
               const guardianId = Number(row.guardian_id);
               const studentId = Number(row.student_id);
               if ((parentsShare.get(studentId) || {}).reportCards === false) return;
+              const choice = row.source === "profile" && guardianId > 0 ? reportChoices.get(`${guardianId}:${studentId}`) : null;
+              if (choice && !choice.enabled) return;
               const studentName = studentNameById.get(studentId) || `Student ${studentId}`;
               const guardianEmail = String(row.email || '').trim().toLowerCase();
               const guardianName = String(row.guardian_name || 'Guardian').trim() || 'Guardian';
 
               // The bell belongs to a parent account (guardian_profiles). An older per-student
               // guardians row is numbered separately, so its id is never a parent's: it only gets the email.
-              if (guardianId > 0 && row.source === 'profile') {
+              if (guardianId > 0 && row.source === 'profile' && (!choice || choice.channels.includes('bell'))) {
                 guardianNotifications.push({
                   orgId: organizationId,
                   recipientType: 'guardian',
@@ -7171,7 +7181,7 @@ const printController = (db) => ({
                 });
               }
 
-              if (guardianEmail) {
+              if (guardianEmail && (!choice || choice.channels.includes('email'))) {
                 const emailKey = `${guardianEmail}:${studentId}`;
                 if (!seenGuardianEmailKey.has(emailKey)) {
                   seenGuardianEmailKey.add(emailKey);

@@ -3273,6 +3273,8 @@ const adminController = {
       }
 
       await txClient.query("COMMIT");
+      // The school's pictures, PDFs and uploads go with it (in the background).
+      require("../utils/schoolFiles").removeSchool(orgId);
 
       req.flash("success", "Organization permanently deleted successfully.");
       res.redirect("/admin/superDashboard");
@@ -5449,7 +5451,7 @@ adminController.bulkPermanentlyDeleteOrganizations = async (req, res) => {
         await txClient.query(`DELETE FROM organization_texts WHERE organization_id = $1`, [orgId]);
         const r = await txClient.query('DELETE FROM organizations WHERE organization_id = $1', [orgId]);
         await txClient.query('COMMIT');
-        if (r.rowCount > 0) deleted += 1; else failures.push(orgId);
+        if (r.rowCount > 0) { deleted += 1; require("../utils/schoolFiles").removeSchool(orgId); } else failures.push(orgId);
       } catch (err) {
         await txClient.query('ROLLBACK').catch(() => {});
         failures.push(orgId);

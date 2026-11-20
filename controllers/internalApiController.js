@@ -473,9 +473,14 @@ async function getMiraAccessApi(req, res) {
       )).rows.map((row) => row.class_name);
     }
 
+    // Managers (and the school's own account) always manage the school's Mira skills; anyone else only
+    // with the permission a manager gave them.
+    const roleName = String(req.query.userRole || req.query.accountType || "").trim().toLowerCase();
+    const heldKeys = options.filter((_, index) => held[index]).map((option) => option.key);
+    if (viewerType === "staff" && (roleName === "manager" || String(req.query.accountType || "").toLowerCase() === "organization") && !heldKeys.includes(PERMISSIONS.MIRA_SCHOOL_SKILLS)) heldKeys.push(PERMISSIONS.MIRA_SCHOOL_SKILLS);
     return res.json({
       viewerType,
-      held: options.filter((_, index) => held[index]).map((option) => option.key),
+      held: heldKeys,
       notInPlan: options.filter((_, index) => !inPlan[index]).map((option) => option.key),
       permissions: options.map((option) => ({ key: option.key, label: permissionFullLabel(option), description: option.description || "", parent: option.parent || null, group: option.group || null })),
       classes,

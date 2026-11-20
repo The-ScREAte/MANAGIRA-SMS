@@ -42,7 +42,8 @@ const filesOn = (organizationId) => features.isOn("student_documents", { organiz
 const portfolioOn = (organizationId) => features.isOn("student_portfolio", { organizationId: Number(organizationId) });
 // A teacher's email, phone and About me only where the school has the Teachers page (teacher_cards).
 const teacherCardsOn = (organizationId) => features.isOn("teacher_cards", { organizationId: Number(organizationId) });
-const offered = (organizationId, key) => (key !== "lunch" || lunchOn(organizationId)) && (key !== "gpa" || gpaOn(organizationId))
+const alertsOn = (organizationId) => features.isOn("alert_rules", { organizationId: Number(organizationId) });
+const offered = (organizationId, key) => (key !== "lunch" || lunchOn(organizationId)) && (key !== "alerts" || alertsOn(organizationId)) && (key !== "gpa" || gpaOn(organizationId))
   && (key !== "files" || filesOn(organizationId)) && (key !== "portfolio" || portfolioOn(organizationId))
   && (!String(key).startsWith("teacher") || teacherCardsOn(organizationId));
 const switchesFor = (organizationId) => classSettings.SWITCHES.filter((s) => offered(organizationId, s.item || s.key));

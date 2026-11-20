@@ -562,31 +562,89 @@ function initHeaderMenu() {
         if (item.type === "class") return "Class";
         return "";
       };
+      // "Include past records" (graduated and archived students) is remembered for the tab.
+      const readPast = () => { try { return sessionStorage.getItem("mg_search_past") === "1"; } catch (_) { return false; } };
+      let includePast = readPast();
+      const toolsRow = () => `<div class="sr-tools"><label class="sr-past"><input type="checkbox" data-search-past${includePast ? " checked" : ""}><span>Include past records</span></label><button type="button" class="sr-deeper" data-search-deeper>Search deeper</button></div>`;
+      const itemHtml = (item, group) => {
+        const title = item.display_name || formatHeaderSearchName(item) || item.subject_name || item.class_name || "";
+        const hasPhoto = item.image_url && item.image_url !== "profilePlaceholder.png" && ["student", "guardian", "employee", "organization_profile"].includes(item.type);
+        const initials = String(title).split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
+        const avatar = hasPhoto
+          ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;sr-avatar&quot;>${escapeHtml(initials)}</span>'">`
+          : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon"><i class="fa-solid ${group.icon}" aria-hidden="true"></i></span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
+        return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}"${personOf(item) ? ` data-person="${personOf(item)}"` : ""}>${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query_)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
+      };
+      let query_ = "";
       function renderSearchResults(items, query) {
+        query_ = query;
         if (!items.length) {
-          searchResults.innerHTML = `<div class="sr-state">No results for “${escapeHtml(query)}”</div>`;
+          searchResults.innerHTML = toolsRow() + `<div class="sr-state">No results for “${escapeHtml(query)}”${includePast ? "" : "<br><small>Past students are left out. Tick “Include past records” to add them.</small>"}</div>`;
           searchResults.style.display = "block";
           return;
         }
-        const html = SEARCH_GROUPS.map((group) => {
-          const list = items.filter((item) => item.type === group.key)
+        // An exact match first, the related ones below, each kind under its own heading.
+        const groupOf = (key) => SEARCH_GROUPS.find((g) => g.key === key) || SEARCH_GROUPS[0];
+        const exact = items.filter((item) => item.exact);
+        const rest = items.filter((item) => !item.exact);
+        const best = exact.length
+          ? `<div class="sr-group" role="group" aria-label="Best match"><div class="sr-head">Best match<span>${exact.length}</span></div>${exact.map((item) => itemHtml(item, groupOf(item.type))).join("")}</div>`
+          : "";
+        const html = best + SEARCH_GROUPS.map((group) => {
+          const list = rest.filter((item) => item.type === group.key)
             .sort((a, b) => (a.graduated ? 1 : 0) - (b.graduated ? 1 : 0));
           if (!list.length) return "";
-          return `<div class="sr-group" role="group" aria-label="${group.label}"><div class="sr-head">${group.label}<span>${list.length}</span></div>` +
-            list.map((item) => {
-              const title = item.display_name || formatHeaderSearchName(item) || item.subject_name || item.class_name || "";
-              const hasPhoto = item.image_url && item.image_url !== "profilePlaceholder.png" && ["student", "guardian", "employee", "organization_profile"].includes(item.type);
-              const initials = String(title).split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
-              const avatar = hasPhoto
-                ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;sr-avatar&quot;>${escapeHtml(initials)}</span>'">`
-                : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon"><i class="fa-solid ${group.icon}" aria-hidden="true"></i></span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
-              return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}"${personOf(item) ? ` data-person="${personOf(item)}"` : ""}>${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
-            }).join("") + "</div>";
+          return `<div class="sr-group" role="group" aria-label="${group.label}"><div class="sr-head">${exact.length ? "Related · " : ""}${group.label}<span>${list.length}</span></div>` +
+            list.map((item) => itemHtml(item, group)).join("") + "</div>";
         }).join("");
-        searchResults.innerHTML = html;
+        searchResults.innerHTML = toolsRow() + html;
         searchResults.style.display = "block";
         searchInput.setAttribute("aria-expanded", "true");
       }
+      const runSearch = (query) => {
+        if (_searchAbortController) _searchAbortController.abort();
+        searchResults.innerHTML = toolsRow() + '<div class="sr-state"><span class="sr-spinner" aria-hidden="true"></span>Searching…</div>';
+        searchResults.style.display = "block";
+        _searchAbortController = new AbortController();
+        return fetch(`/enrollment/searchUsers?query=${encodeURIComponent(query)}${includePast ? "&includePast=1" : ""}`, { signal: _searchAbortController.signal })
+          .then((response) => response.json())
+          .then((payload) => renderSearchResults(Array.isArray(payload.results) ? payload.results : [], query))
+          .catch((error) => { if (error.name !== "AbortError") console.error("Error fetching search results:", error); });
+      };
+      // As soon as the field is used, before anything is typed: just the two tools.
+      const showSearchTools = () => {
+        searchResults.innerHTML = toolsRow();
+        searchResults.style.display = "block";
+        searchInput.setAttribute("aria-expanded", "true");
+      };
+      searchInput.addEventListener("focus", () => { if (searchInput.value.trim().length < 2) showSearchTools(); });
+      searchInput.addEventListener("click", () => { if (searchResults.style.display !== "block" && searchInput.value.trim().length < 2) showSearchTools(); });
+      // The two tools at the top of the list: the checkbox searches again, the link opens the pop-up.
+      searchResults.addEventListener("change", (event) => {
+        if (!event.target.matches("[data-search-past]")) return;
+        includePast = event.target.checked;
+        try { sessionStorage.setItem("mg_search_past", includePast ? "1" : "0"); } catch (_) { /* not remembered */ }
+        const query = searchInput.value.trim();
+        if (query.length >= 2) runSearch(query);
+      });
+      searchResults.addEventListener("click", (event) => {
+        const link = event.target.closest("[data-search-deeper]");
+        if (!link) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const query = searchInput.value.trim();
+        clearHeaderSearch();
+        if (window.ManagiraDeepSearch) { window.ManagiraDeepSearch.open({ query, includePast }); return; }
+        // Versioned addresses (assetUrl in the header), so a browser never runs an older copy.
+        const assets = window.MG_ASSETS || {};
+        if (!document.querySelector('link[href*="/css/deepSearch.css"]')) {
+          const css = document.createElement("link"); css.rel = "stylesheet"; css.href = assets.deepSearchCss || "/css/deepSearch.css"; document.head.appendChild(css);
+        }
+        const script = document.createElement("script");
+        script.src = assets.deepSearchJs || "/js/deepSearch.js";
+        script.onload = () => window.ManagiraDeepSearch && window.ManagiraDeepSearch.open({ query, includePast });
+        document.head.appendChild(script);
+      });
       // Arrow keys move through results, Enter opens one.
       searchInput.addEventListener("keydown", (event) => {
         const options = Array.from(searchResults.querySelectorAll(".sr-item"));
@@ -615,30 +673,14 @@ function initHeaderMenu() {
         }
 
         if (query.length < 2) {
-          searchResults.innerHTML = "";
-          searchResults.style.display = "none";
+          showSearchTools();
           return;
         }
 
-        searchResults.innerHTML = '<div class="sr-state"><span class="sr-spinner" aria-hidden="true"></span>Searching…</div>';
+        searchResults.innerHTML = toolsRow() + '<div class="sr-state"><span class="sr-spinner" aria-hidden="true"></span>Searching…</div>';
         searchResults.style.display = "block";
         searchInput.setAttribute("aria-expanded", "true");
-        _searchDebounceTimer = setTimeout(async () => {
-          _searchAbortController = new AbortController();
-          try {
-            const response = await fetch(
-              `/enrollment/searchUsers?query=${encodeURIComponent(query)}`,
-              { signal: _searchAbortController.signal }
-            );
-            const payload = await response.json();
-            const items = Array.isArray(payload.results) ? payload.results : [];
-            renderSearchResults(items, query);
-          } catch (error) {
-            if (error.name !== "AbortError") {
-              console.error("Error fetching search results:", error);
-            }
-          }
-        }, 260);
+        _searchDebounceTimer = setTimeout(() => runSearch(query), 260);
       });
 
       document.addEventListener("click", (e) => {

@@ -65,6 +65,17 @@ function keyOf(value) {
   return text;
 }
 
+// The last part of a new upload's name: the original name made safe (no spaces, accents or
+// symbols, at most 60 characters) with a random part, so two people's `photo.jpg` never replace each
+// other and a name can't change a key's folder. Build keys as `<area>/<school id>/<safeName(...)>`.
+function safeName(originalName, fallback = "file") {
+  const text = String(originalName || "").split(/[\\/]/).pop();
+  const dot = text.lastIndexOf(".");
+  const ext = dot > 0 ? text.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) : "";
+  const base = (dot > 0 ? text.slice(0, dot) : text).normalize("NFKD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || fallback;
+  return `${Date.now()}-${require("crypto").randomBytes(4).toString("hex")}-${base}${ext ? `.${ext}` : ""}`;
+}
+
 const isSafeKey = (key) => Boolean(key) && !String(key).split("/").some((part) => part === "." || part === "..");
 const extensionOf = (key) => (String(key || "").match(/\.([a-z0-9]+)$/i) || [])[1] || "";
 const isPublicKey = (key) => {
@@ -149,4 +160,4 @@ async function redirectToFile(res, value, { downloadName = null } = {}) {
   }
 }
 
-module.exports = { PUBLIC_PREFIXES, PUBLIC_EXTENSIONS, SCHOOL_FILE_PREFIXES, keyOf, isPublicKey, isSafeKey, publicUrl, signedUrl, schoolOfKey, fileRoute, fileLink, serveSchoolFile, redirectToFile };
+module.exports = { safeName, PUBLIC_PREFIXES, PUBLIC_EXTENSIONS, SCHOOL_FILE_PREFIXES, keyOf, isPublicKey, isSafeKey, publicUrl, signedUrl, schoolOfKey, fileRoute, fileLink, serveSchoolFile, redirectToFile };

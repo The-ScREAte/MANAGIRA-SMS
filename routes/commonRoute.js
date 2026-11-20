@@ -281,6 +281,19 @@ module.exports = (db) => {
   // switch saves from it and from each classroom (controllers/classSettingsController.js checks
   // the feature and who may manage which class).
   const classSettingsPages = require("../controllers/classSettingsController");
+  // Search deeper (the header search's pop-up): one school's records, each kind only for people who can
+  // open its page (utils/deepSearch.js).
+  router.get("/search/deep", isAuthenticated, blockGuardians, async (req, res) => {
+    try {
+      const types = String(req.query.types || "").split(",").map((t) => t.trim()).filter(Boolean);
+      const answer = await require("../utils/deepSearch").search(db, req, { query: req.query.q, types, includePast: String(req.query.includePast || "") === "1", meta: req.query.meta === "1" });
+      res.set("Cache-Control", "private, no-store");
+      return answer.status === 200 ? res.json(answer.body) : res.status(answer.status).json({ success: false, message: answer.error });
+    } catch (error) {
+      console.error("[Deep search]", error.message);
+      return res.status(500).json({ success: false, message: "Search deeper couldn't finish. Try again." });
+    }
+  });
   router.get("/class-settings", isAuthenticated, blockGuardians, (req, res) => classSettingsPages.managementPage(req, res, db));
   router.post("/class-settings/save", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.save(req, res, db));
   router.get("/failedEmails", checkFeatureAccess, isAuthenticated, (req, res) =>

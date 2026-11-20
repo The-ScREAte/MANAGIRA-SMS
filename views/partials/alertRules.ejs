@@ -1,0 +1,13 @@
+<%#
+  The Alerts rows: what this person is told about and how (feature alert_rules). Hidden by its script
+  while the feature isn't released to the school. Locals (all optional): hideTitle, alertIntro, studentId,
+  bare (no section wrapper: the page already has its own card).
+%>
+<link rel="stylesheet" href="/css/alertRules.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
+<% const _bare = typeof bare !== 'undefined' && bare; %>
+<% if (!_bare) { %><section class="ar-card" data-alert-card id="alerts"><% } %>
+  <% if (!_bare && (typeof hideTitle === 'undefined' || !hideTitle)) { %><h2 style="margin:0 0 4px;font-size:1.05rem;font-weight:800;color:#0f172a;">Alerts</h2><% } %>
+  <% if (typeof alertIntro !== 'undefined' && alertIntro) { %><p style="margin:0 0 12px;font-size:.86rem;color:#64748b;"><%= alertIntro %></p><% } %>
+  <div data-alert-rules<% if (typeof studentId !== 'undefined' && studentId) { %> data-student-id="<%= studentId %>"<% } %>></div>
+<% if (!_bare) { %></section><% } %>
+<script src="/js/alertRules.js?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>" defer></script>

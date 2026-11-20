@@ -1410,6 +1410,7 @@ app.use("/transcript", transcriptRoutes(db));
 app.use("/stats", statsRoutes);
 app.use("/promotion", promotionRoute);
 app.use("/api/chatbot", chatbotRoute);
+app.use("/alerts", require("./routes/alertRulesRoute")(db));
 app.use("/guardian", guardianRoute);
 app.use("/student", studentRoute);
 app.use("/documents", documentRoute);

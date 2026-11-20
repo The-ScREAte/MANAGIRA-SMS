@@ -1,8 +1,8 @@
 <style>
   .settings-page {
-    max-width: 1160px;
+    max-width: 1560px;
     margin: 0 auto;
-    padding: 24px 20px 34px;
+    padding: 24px 28px 40px;
   }
 
   .settings-intro {
@@ -935,41 +935,32 @@
     </div>
 
     <div class="settings-column">
-      <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) {
-           const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
-      <details class="settings-card settings-accordion">
+      <%# Notifications: alerts and emails, one switch each (alerts need the feature; emails need the list). %>
+      <% const _hasEmails = (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length);
+         const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
+      <link rel="stylesheet" href="/css/alertRules.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
+      <details id="notifications" class="settings-card settings-accordion">
         <summary class="accordion-summary">
           <span class="accordion-badge"><%- navIcon('notifications') %></span>
           <span class="accordion-copy">
-            <span class="accordion-title">Emails</span>
-            <span class="accordion-subtitle">Choose which emails you get.</span>
+            <span class="accordion-title">Notifications</span>
+            <span class="accordion-subtitle">Alerts about your children, and the emails you get.</span>
           </span>
           <span class="accordion-chevron" aria-hidden="true">⌄</span>
         </summary>
-        <div class="accordion-body">
-          <p class="helper-text" style="margin-bottom:16px;">Only parent notifications currently sent by the system are listed here. Account-security and admission decision emails are always sent.</p>
-
-          <form action="/guardian/settings/notifications" method="POST" autocomplete="off">
-            <ul class="notification-list">
-              <% notificationPrefs.forEach(function(p) {
-                   const checked = (p.key in _saved) ? !!_saved[p.key] : true; %>
-                <li class="notification-item">
-                  <input type="checkbox" name="preferences" id="g-pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> />
-                  <label for="g-pref-<%= p.key %>" class="notification-label">
-                    <strong><%= p.label %></strong>
-                    <% if (p.description) { %><span><%= p.description %></span><% } %>
-                  </label>
-                </li>
-              <% }); %>
-            </ul>
-
-            <div class="form-actions">
-              <button type="submit" class="btn-primary">💾 Save Preferences</button>
-            </div>
-          </form>
+        <div class="accordion-body" data-ns-scope>
+          <div data-alert-rules-wrap>
+            <h3 class="ns-group__title" style="margin:0 0 8px;">Alerts</h3>
+            <%- include('../partials/alertRules', { hideTitle: true, bare: true }) %>
+          </div>
+          <% if (_hasEmails) { %>
+          <h3 class="ns-group__title" style="margin:18px 0 8px;">Emails</h3>
+          <%- include('../partials/notificationSwitches', { prefs: notificationPrefs, saved: _saved, action: '/guardian/settings/notifications', name: 'preferences', idPrefix: 'g' }) %>
+          <% } %>
+          <%- include('../partials/notificationSaveBar') %>
         </div>
       </details>
-      <% } %>
+
 
       <details id="cards" class="settings-card settings-accordion">
         <summary class="accordion-summary">

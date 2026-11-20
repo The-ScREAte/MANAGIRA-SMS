@@ -5329,7 +5329,7 @@ const commonController = {
 
           let guardianImageUrl = null;
           if (guardianImageFile) {
-            const s3Key = `images/guardianimages/${organizationId}/${Date.now()}_${guardianImageFile.originalname}`;
+            const s3Key = `images/guardianimages/${organizationId}/${require("../utils/storedFiles").safeName(guardianImageFile.originalname, "parent")}`;
             guardianImageUrl = await uploadToS3(guardianImageFile, s3Key);
           }
 
@@ -7631,7 +7631,7 @@ const commonController = {
         let imageUrl = null;
         if (req.file) {
           console.log('[Approve Pending Student] Uploading image...');
-          const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${req.file.originalname}`;
+          const s3Key = `images/studentimages/${organizationId}/${require("../utils/storedFiles").safeName(req.file.originalname, "student")}`;
           imageUrl = await uploadToS3(req.file, s3Key);
           console.log('[Approve Pending Student] Image uploaded:', imageUrl);
         }
@@ -9178,11 +9178,12 @@ const commonController = {
           return res.redirect(`/common/editStudent?studentId=${studentId}`);
         }
 
-        // Delete the student's image from S3, if applicable
-        if (imageUrl && imageUrl !== "profilePlaceholder.png") {
-          const imageKey = path.basename(imageUrl);
-          await deleteFromS3(`images/${imageKey}`);
-        }
+        // Their files (the picture and any student files) are removed from storage once the
+        // student is gone, so nothing is left behind; read their names now.
+        const studentFileKeys = [];
+        if (imageUrl && imageUrl !== "profilePlaceholder.png") studentFileKeys.push(String(imageUrl).replace(/^\//, ""));
+        await client.query("SELECT storage_key FROM student_documents WHERE student_id = $1 AND organization_id = $2", [studentId, sessionOrganizationId])
+          .then((r) => r.rows.forEach((row) => row.storage_key && studentFileKeys.push(row.storage_key))).catch(() => {});
 
         // Delete all references to the student in other tables
         await client.query("DELETE FROM guardians WHERE student_id = $1", [
@@ -9208,6 +9209,7 @@ const commonController = {
         );
 
         await client.query("COMMIT"); // Commit the transaction
+        studentFileKeys.forEach((key) => deleteFromS3(key).catch(() => {}));
         req.flash("success", "Student deleted successfully.");
         res.redirect(`/common/classDashboard?classId=${classId}`);
       } else {
@@ -9731,6 +9733,7 @@ const commonController = {
           triggerAbsenceAlertsForStudents(db, organizationId, touchedStudentIds).catch((notifyError) => {
             console.error("[Attendance] Absence-threshold notification trigger failed:", notifyError.message);
           });
+          require("../utils/alertRules").onAbsent(db, organizationId, touchedStudentIds, date);
         });
       }
 
@@ -22171,7 +22174,7 @@ NUMBERING:
       const { firstName, lastName, email, phone, address, hometown, dateOfBirth } = req.body;
       let imageUrl = null;
       if (req.file) {
-        const s3Key = `images/guardianimages/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        const s3Key = `images/guardianimages/${organizationId}/${require("../utils/storedFiles").safeName(req.file.originalname, "parent")}`;
         imageUrl = await uploadToS3(req.file, s3Key);
       }
 
@@ -24845,7 +24848,7 @@ NUMBERING:
       let imageUrl = null;
       if (file) {
         console.log('[Save Pending Student Changes] Uploading image to S3...');
-        const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${file.originalname}`;
+        const s3Key = `images/studentimages/${organizationId}/${require("../utils/storedFiles").safeName(file.originalname, "student")}`;
         imageUrl = await uploadToS3(file, s3Key);
         console.log('[Save Pending Student Changes] Image uploaded:', imageUrl);
       }

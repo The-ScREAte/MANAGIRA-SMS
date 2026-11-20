@@ -1,0 +1,17 @@
+<%# A list of emails a person can turn on or off, as rows with a small switch (the same look as
+    Alerts and Class settings). The section's one Save button saves it (public/js/alertRules.js; without scripts it posts as a normal form).
+    Locals: prefs [{ key, label, description }], saved { key: boolean }, action, name (the field name),
+    idPrefix. A missing saved value means on. %>
+<form class="ns-form" action="<%= action %>" method="POST" autocomplete="off" data-ns-form>
+  <div class="ns-rows">
+    <% prefs.forEach(function (p) { const on = (p.key in saved) ? !!saved[p.key] : true; %>
+    <div class="ns-row">
+      <div class="ns-main">
+        <div class="ns-copy"><strong><%= p.label %></strong><% if (p.description) { %><span><%= p.description %></span><% } %></div>
+        <label class="ns-switch"><input type="checkbox" role="switch" name="<%= name %>" value="<%= p.key %>" aria-label="<%= p.label %>" <%= on ? 'checked' : '' %>><span class="ns-track"></span></label>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <noscript><button type="submit" class="btn-primary">Save</button></noscript>
+</form>

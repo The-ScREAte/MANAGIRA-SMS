@@ -426,10 +426,12 @@ async function uploadImage(req, res) {
   try {
     if (!req.file) return res.status(400).json({ error: "No image uploaded." });
     if (!/^image\/(jpeg|png|webp|gif)$/.test(req.file.mimetype)) return res.status(400).json({ error: "Use a JPG, PNG, WebP or GIF image." });
+    const organizationId = Number(req.session && req.session.organizationId);
+    if (!organizationId) return res.status(401).json({ error: "Sign in again to upload." });
     // A lower-case extension from the file's type: the bucket shows announcement pictures by it.
     const safeName = String(req.file.originalname || "image").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-60);
     const ext = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif" }[req.file.mimetype];
-    const result = await uploadToS3(req.file, `images/announcements/${Date.now()}_${safeName}${ext}`);
+    const result = await uploadToS3(req.file, `images/announcements/${organizationId}/${Date.now()}_${safeName}${ext}`);
     const imageUrl = typeof result === "string" ? result : result?.Location;
     if (!imageUrl) return res.status(500).json({ error: "Unable to upload image." });
     return res.json({ image_url: imageUrl });

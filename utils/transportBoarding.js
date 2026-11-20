@@ -84,6 +84,7 @@ async function setRiding(db, organizationId, studentId, day, coming, who) {
         [organizationId, studentId, day, who.by, who.name || null]
       )));
   days.delete(`${organizationId}:${day}`);
+  if (!coming) require("./alertRules").onRiderNotComing(db, organizationId, studentId, day);
 }
 
 // Parents hear about each change once: only new or changed rows come back from the save.

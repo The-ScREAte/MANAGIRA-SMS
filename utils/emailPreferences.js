@@ -238,6 +238,7 @@ const EMAIL_NOUNS = {
   managira_news: 'news from Managira',
   parent_absence_alert: 'attendance alerts',
   weekly_parent_digest: 'weekly briefings',
+  alert_rules: 'the alerts you set up',
   weekly_student_digest: 'weekly briefings',
   student_class_change: 'class change emails',
   staff_report_to_guardian: 'messages from school staff',

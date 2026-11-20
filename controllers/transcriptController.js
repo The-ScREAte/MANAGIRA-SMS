@@ -504,7 +504,7 @@ const transcriptController = (db) => ({
 
             // Upload to S3 using memory upload helper
             const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
-            const signatureKey = `images/transcript_signature/${organizationId}/${file.originalname}`;
+            const signatureKey = `images/transcriptsignature/${organizationId}/${require("../utils/storedFiles").safeName(file.originalname, "signature")}`;
             const s3Url = await uploadToS3(file, signatureKey);
 
             // Save to report_settings (upsert for this class/term)
@@ -570,7 +570,7 @@ const transcriptController = (db) => ({
 
             // Upload to S3
             const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
-            const signatureKey = `images/transcript_signature/${organizationId}/${file.originalname}`;
+            const signatureKey = `images/transcriptsignature/${organizationId}/${require("../utils/storedFiles").safeName(file.originalname, "signature")}`;
             const s3Url = await uploadToS3(file, signatureKey);
 
             // Save to report_settings (upsert)

@@ -894,10 +894,7 @@
           </div>
           <% } %>
           <% if (_gpa) { %>
-          <div class="sx-stat">
-            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('stats') %></span>
-            <span class="sx-stat__text"><span class="sx-stat__label"><%= _gpa.cumulative ? 'Cumulative GPA' : 'GPA' %></span><strong><%= (_gpa.cumulative || _gpa.term).unweighted %></strong><small><%= _gpa.cumulative && _gpa.term ? 'This term ' + _gpa.term.unweighted : '4.0 scale' %></small></span>
-          </div>
+          <%- include('../partials/gpaStat', { label: _gpa.cumulative ? 'Cumulative GPA' : 'GPA', value: (_gpa.cumulative || _gpa.term).unweighted, detail: _gpa.cumulative && _gpa.term ? 'This term ' + _gpa.term.unweighted : '4.0 scale' }) %>
           <% } %>
           <button type="button" class="sx-stat sx-stat--link" id="sp-term-popup-btn">
             <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('calendar') %></span>

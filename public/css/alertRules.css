@@ -1,0 +1,47 @@
+/* Notifications (Settings): alerts and emails as a list of rows with a small switch, the way Class
+   settings turns things on. Scoped to .ns* so it never touches the page around it. */
+.ns { --ns-brand: var(--org-primary-color, #01535b); display: flex; flex-direction: column; gap: 14px; text-align: left; }
+.ns-list { display: flex; flex-direction: column; gap: 14px; }
+.ns-group__title { margin: 0 0 6px; font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.ns-rows { border: 1px solid #e5e9ef; border-radius: 12px; background: #fff; overflow: hidden; }
+.ns-row { padding: 11px 14px; border-top: 1px solid #eef1f5; }
+.ns-row:first-child { border-top: 0; }
+.ns-main { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.ns-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ns-copy strong { font-size: .92rem; font-weight: 600; color: #0f172a; }
+.ns-copy span { font-size: .82rem; color: #64748b; font-weight: 400; }
+.ns-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 9px; }
+.ns-more[hidden] { display: none; }
+.ns-threshold { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-size: .84rem; color: #334155; font-weight: 500; }
+.ns-number { width: 62px; padding: 5px 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; text-align: center; }
+.ns-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ns-chip { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 4px 10px; border: 1px solid #d9dee6; border-radius: 999px; font-size: .78rem; font-weight: 500; color: #475569; cursor: pointer; background: #fff; }
+.ns-chip:has(input:checked) { border-color: var(--ns-brand); background: color-mix(in srgb, var(--ns-brand) 9%, #fff); color: #0f172a; }
+.ns-chip input { width: 13px; height: 13px; margin: 0; accent-color: var(--ns-brand); }
+.ns-note { margin: 0; font-size: .8rem; color: #64748b; }
+.ns-same { border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; }
+.ns.is-same .ns-list { opacity: .55; }
+.ns-bar { min-height: 18px; }
+.ns-status { font-size: .8rem; color: #475569; }
+.ns-status.is-bad { color: #b91c1c; }
+
+/* The switch: the same small one Class settings uses. */
+.ns-switch { position: relative; display: inline-flex; flex: none; align-items: center; margin: 0; cursor: pointer; }
+.ns-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.ns-track { position: relative; display: block; width: 32px; height: 18px; border-radius: 999px; background: #cbd5e1; transition: background-color .18s ease; }
+.ns-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .18s ease; }
+.ns-switch input:checked + .ns-track { background: var(--ns-brand, #01535b); }
+.ns-switch input:checked + .ns-track::after { transform: translateX(14px); }
+.ns-switch input:focus-visible + .ns-track { outline: 2px solid var(--ns-brand, #01535b); outline-offset: 2px; }
+.ns-switch input:disabled + .ns-track { opacity: .6; }
+html[data-appearance="dark"] .ns-track { background: #52525b; }
+@media (prefers-reduced-motion: reduce) { .ns-track, .ns-track::after { transition: none; } }
+
+/* The emails list uses the same rows. */
+.ns-form { --ns-brand: var(--org-primary-color, #01535b); }
+.ns-form .ns-rows { margin-bottom: 8px; }
+
+/* The one Save button under a Notifications section. */
+.ns-savebar { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #eef1f5; }
+.ns-save { width: auto; margin: 0; padding: 9px 22px; border: 0; border-radius: 10px; background: var(--org-primary-color, #01535b); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: none; }
+.ns-save:disabled { opacity: .45; cursor: default; }

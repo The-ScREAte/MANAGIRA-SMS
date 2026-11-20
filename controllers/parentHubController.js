@@ -134,13 +134,21 @@ module.exports = {
       getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null),
       parentsSeeChild(db, req.session.organizationId, child.id),
     ]);
+    // GPA over finished terms (features gpa and family_gpa), unless the class keeps it from parents
+    // (Class settings). It stays hidden behind an eye until the parent taps it.
+    const gpaInfo = see.gpa !== false && features.isOn("family_gpa", { organizationId: req.session.organizationId })
+      ? await require("../utils/gpa").familyGpa(db, req.session.organizationId, child.id, { termGrades: [] }).catch(() => null)
+      : null;
     res.render("guardian/childHub", {
       title: child.name,
       child,
+      gpaInfo,
       showSchoolwork: hasQuestions(res),
       showSchoolDocs: familyDocsOn(req) && see.files !== false,
       // The class may keep the portfolio from parents (Class settings).
       showPortfolio: see.portfolio !== false,
+      // Alerts about this child, unless the class keeps them from parents (Class settings).
+      showAlerts: require("../utils/alertRules").featureOn(req.session.organizationId) && see.alerts !== false,
       showActivities: activitiesOn(req),
       // The class may keep the bus from parents (Class settings).
       showTransport: Boolean(integration && integration.activated) && see.transport !== false,
@@ -242,6 +250,14 @@ module.exports = {
       total: { days: total ? total.days : 0, taken: total ? total.taken : 0, label: overallLunch.label(total) },
       days: days.map((row) => ({ day: row.day, had: row.had_lunch === true })),
     });
+  })),
+
+  // Alerts for one child (feature alert_rules): a score below or above a percentage, absences.
+  alerts: guard(hubOn, withChild(async (req, res, db, child) => {
+    const see = await parentsSeeChild(db, req.session.organizationId, child.id);
+    if (!require("../utils/alertRules").featureOn(req.session.organizationId) || see.alerts === false) return backToDashboard(req, res);
+    res.set("Cache-Control", "private, no-store");
+    res.render("guardian/childAlerts", { title: "Alerts", child });
   })),
 
   activities: guard(activitiesOn, withChild(async (req, res, db, child) => {

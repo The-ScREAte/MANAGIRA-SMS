@@ -3295,7 +3295,7 @@
             <span>Access Tokens</span>
           </button></li>
           <% } %>
-          <% if ((typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) || (typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length)) { %>
+          <% if ((typeof alertRulesOn !== 'undefined' && alertRulesOn) || (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) || (typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length)) { %>
           <li><button class="nav-link" data-target="notifications">
             <span class="nav-link-icon"><%- navIcon('notifications') %></span>
             <span>Notifications</span>
@@ -5244,57 +5244,35 @@
           })();
         </script>
         <% } %>
-        <section id="notifications" class="settings-section">
-          <h1>Email Notifications</h1>
-          <p class="lead">Choose which non-essential emails you want to receive. Security, billing, and other transactional emails are always sent.</p>
+        <section id="notifications" class="settings-section" data-ns-scope>
+          <h1>Notifications</h1>
+          <p class="lead">Choose what you're told about and which non-essential emails you get. Security, billing and other account emails are always sent.</p>
+
+          <% if (typeof alertRulesOn !== 'undefined' && alertRulesOn) { %>
+          <div class="card" data-alert-card>
+            <h4>Alerts</h4>
+            <small>Choose what you want to be told about, and how.</small>
+            <div style="margin-top:12px;"><%- include('../partials/alertRules', { bare: true }) %></div>
+          </div>
+          <% } %>
 
           <% if (_hasOrgNotificationPrefs) { %>
           <div class="card">
-            <h4>Organization Notifications</h4>
+            <h4>School emails</h4>
             <small>These apply to the whole school, not just your account.</small>
-            <form action="/account/settings/notifications/organization" method="POST" autocomplete="off">
-              <ul class="notif-list" style="display:flex;flex-direction:column;gap:10px;margin:14px 0 16px;padding:0;list-style:none;">
-                <% orgNotificationPrefs.forEach(function(p) {
-                     const checked = (p.key in _orgSaved) ? !!_orgSaved[p.key] : true; %>
-                  <li style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;">
-                    <input type="checkbox" name="orgPreferences" id="org-pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> style="margin-top:4px;width:18px;height:18px;accent-color:#01535b;flex-shrink:0;cursor:pointer;" />
-                    <label for="org-pref-<%= p.key %>" style="flex:1;cursor:pointer;">
-                      <span style="font-weight:600;color:#0f172a;font-size:0.93rem;display:block;"><%= p.label %></span>
-                      <% if (p.description) { %><span style="font-size:0.83rem;color:#64748b;margin-top:2px;line-height:1.4;display:block;"><%= p.description %></span><% } %>
-                    </label>
-                  </li>
-                <% }); %>
-              </ul>
-              <div class="content-row" style="justify-content:flex-end;">
-                <button type="submit" class="btn-primary btn-link">Save organization preferences</button>
-              </div>
-            </form>
+            <%- include('../partials/notificationSwitches', { prefs: orgNotificationPrefs, saved: _orgSaved, action: '/account/settings/notifications/organization', name: 'orgPreferences', idPrefix: 'org' }) %>
           </div>
           <% } %>
 
           <% if (_hasUserNotificationPrefs) { %>
           <div class="card">
-            <h4>Your preferences</h4>
-            <small>These options are based on your role. Unchecked items will not be emailed to you.</small>
-            <form action="/account/settings/notifications" method="POST" autocomplete="off">
-              <ul class="notif-list" style="display:flex;flex-direction:column;gap:10px;margin:14px 0 16px;padding:0;list-style:none;">
-                <% notificationPrefs.forEach(function(p) {
-                     const checked = (p.key in _saved) ? !!_saved[p.key] : true; %>
-                  <li style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;">
-                    <input type="checkbox" name="preferences" id="acc-pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> style="margin-top:4px;width:18px;height:18px;accent-color:#01535b;flex-shrink:0;cursor:pointer;" />
-                    <label for="acc-pref-<%= p.key %>" style="flex:1;cursor:pointer;">
-                      <span style="font-weight:600;color:#0f172a;font-size:0.93rem;display:block;"><%= p.label %></span>
-                      <% if (p.description) { %><span style="font-size:0.83rem;color:#64748b;margin-top:2px;line-height:1.4;display:block;"><%= p.description %></span><% } %>
-                    </label>
-                  </li>
-                <% }); %>
-              </ul>
-              <div class="content-row" style="justify-content:flex-end;">
-                <button type="submit" class="btn-primary btn-link">Save preferences</button>
-              </div>
-            </form>
+            <h4>Your emails</h4>
+            <small>These options are based on your role. Items that are off will not be emailed to you.</small>
+            <%- include('../partials/notificationSwitches', { prefs: notificationPrefs, saved: _saved, action: '/account/settings/notifications', name: 'preferences', idPrefix: 'acc' }) %>
           </div>
           <% } %>
+
+                  <%- include('../partials/notificationSaveBar') %>
         </section>
         <% } %>
 

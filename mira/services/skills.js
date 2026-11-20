@@ -3,7 +3,7 @@
 // Mira skills (feature mira_skills): playbooks Mira follows when it works.
 //
 //  - A personal skill belongs to one member of staff; a school skill is made by someone with
-//    Mira Settings (`settings_mira`, managers and the owner hold it) and applies to everyone.
+//    Manage Mira's school skills (`mira_school_skills`: managers always, anyone else when a manager gives it) and applies to everyone.
 //  - Each has a use mode: "auto" (Mira uses it when the request matches its name, its "when to
 //    use it" line or its trigger words), "always" (every chat) or "manual" (only when picked).
 //  - Every turn, `selectFor` picks the skills that apply and `forModel` puts them in front of the
@@ -260,7 +260,8 @@ async function ready() {
 }
 
 const isOn = (access) => Boolean(access && access.features && access.features.mira_skills);
-const canManageSchool = (access) => Boolean(access && access.held && access.held.has("settings_mira"));
+// Managers (the access check adds it for them) and anyone a manager gave it to: Mira Settings alone is not enough.
+const canManageSchool = (access) => Boolean(access && access.held && access.held.has("mira_school_skills"));
 const staffOnly = (tenant) => tenant && tenant.viewerType === "staff" && Number.isInteger(Number(tenant.userId)) && Number(tenant.userId) > 0;
 
 // ── Reading (cached for a few seconds per person; dropped on every change) ───────────────
@@ -326,7 +327,7 @@ function normalize(input) {
 
 function scopeFor(tenant, access, wanted) {
   if (wanted === "school") {
-    if (!canManageSchool(access)) throw new SkillError("Only people with the Mira Settings permission can manage school skills.", 403);
+    if (!canManageSchool(access)) throw new SkillError("Only managers, or people a manager has allowed on the Mira page, can manage school skills.", 403);
     return "school";
   }
   return "personal";
@@ -359,7 +360,7 @@ async function editable(tenant, access, id) {
   const { rows } = await db.query("SELECT * FROM mira_skills WHERE id = $1 AND tenant_id = $2", [skillId, Number(tenant.organizationId)]);
   const row = rows[0];
   if (!row || (row.scope === "personal" && Number(row.owner_user_id) !== Number(tenant.userId))) throw new SkillError("That skill doesn't exist.", 404);
-  if (row.scope === "school" && !canManageSchool(access)) throw new SkillError("Only people with the Mira Settings permission can change school skills.", 403);
+  if (row.scope === "school" && !canManageSchool(access)) throw new SkillError("Only managers, or people a manager has allowed on the Mira page, can change school skills.", 403);
   return row;
 }
 

@@ -94,6 +94,8 @@ async function waitingCounts(db, organizationId, assessmentIds) {
 // A bell for each family whose child just got a grade: one per child and assessment.
 async function tellFamilies(db, organizationId, approved) {
   if (!approved.length) return;
+  // People who set their own score alerts (feature alert_rules) hear in the way they chose; never throws.
+  require("./alertRules").onGradesPosted(db, organizationId, approved);
   const assessmentIds = [...new Set(approved.map((row) => row.assessmentId))];
   const studentIds = [...new Set(approved.map((row) => row.studentId))];
   const [tests, families] = await Promise.all([

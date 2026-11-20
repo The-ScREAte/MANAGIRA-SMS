@@ -1,0 +1,17 @@
+<%# A GPA tile that stays hidden until the person taps the eye (feature gpa; shown only where the
+    school has it on and the class shares it). Locals: label, value, detail, cls (the tile's class).
+    The number is only in the page as an attribute, never as visible text, until revealed. %>
+<link rel="stylesheet" href="/css/gpaReveal.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
+<div class="<%= locals.cls || 'sx-stat' %> gpa-stat" data-gpa-stat>
+  <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('stats') %></span>
+  <span class="sx-stat__text">
+    <span class="sx-stat__label"><%= label %></span>
+    <strong class="gpa-stat__value" data-gpa-value data-value="<%= value %>" aria-live="polite">••••</strong>
+    <small class="gpa-stat__detail" data-gpa-detail data-detail="<%= locals.detail || '' %>"><%= locals.detail ? 'Tap the eye to show' : '' %></small>
+  </span>
+  <button type="button" class="gpa-stat__eye" data-gpa-eye aria-pressed="false" aria-label="Show GPA" title="Show GPA">
+    <svg class="gpa-eye-open" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+    <svg class="gpa-eye-shut" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.2-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+  </button>
+</div>
+<script src="/js/gpaReveal.js?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>" defer></script>

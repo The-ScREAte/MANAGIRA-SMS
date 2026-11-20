@@ -89,28 +89,60 @@
       }).join('') : '<p class="ph-empty">Nothing on this day.</p>');
     }
     function renderAll() { renderChips(); renderGrid(); renderDay(); }
-    function load() {
-      var from = new Date(month.getFullYear(), month.getMonth(), -6);
-      var to = new Date(month.getFullYear(), month.getMonth() + 1, 7);
-      var ticket = ++asked;
-      return fetch(base + '/feed?from=' + key(from) + '&to=' + key(to), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-        .then(function (res) {
-          if (!res.ok) throw new Error('feed');
-          return res.json();
-        })
+    // Months are fetched three at a time and kept, so paging to the next or the last month is
+    // instant (nothing waits on the network); the months after it are fetched quietly while the
+    // person reads this one. A kept window older than a minute is refreshed in the background.
+    var windows = [];
+    var inflight = {};
+    function winFor(m) { return { from: key(new Date(m.getFullYear(), m.getMonth() - 1, -6)), to: key(new Date(m.getFullYear(), m.getMonth() + 2, 7)) }; }
+    function gridOf(m) { return { from: key(new Date(m.getFullYear(), m.getMonth(), -6)), to: key(new Date(m.getFullYear(), m.getMonth() + 1, 7)) }; }
+    function covers(m, maxAge) {
+      var g = gridOf(m);
+      return windows.some(function (w) { return w.from <= g.from && w.to >= g.to && Date.now() - w.at < maxAge; });
+    }
+    function rebuild() {
+      var seen = {};
+      items = [];
+      windows.forEach(function (w) { w.items.forEach(function (item) { if (!seen[item.id]) { seen[item.id] = true; items.push(item); } }); });
+    }
+    function fetchWindow(m, quiet) {
+      var win = winFor(m);
+      var id = win.from + '|' + win.to;
+      if (inflight[id]) return inflight[id];
+      if (!quiet) root.classList.add('is-loading');
+      inflight[id] = fetch(base + '/feed?from=' + win.from + '&to=' + win.to, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (res) { if (!res.ok) throw new Error('feed'); return res.json(); })
         .then(function (result) {
-          if (ticket !== asked) return;
           retried = false;
-          items = result && result.success ? result.items : [];
-          renderAll();
+          windows = windows.filter(function (w) { return !(w.from === win.from && w.to === win.to); });
+          windows.push({ from: win.from, to: win.to, at: Date.now(), items: result && result.success ? result.items : [] });
+          if (windows.length > 6) windows.shift();
+          rebuild();
         })
         .catch(function () {
           // A brief failure gets one more try before the calendar shows as empty.
-          if (ticket !== asked) return;
-          if (!retried) { retried = true; setTimeout(load, 800); return; }
-          items = [];
-          renderAll();
+          if (!quiet && !retried) { retried = true; delete inflight[id]; return new Promise(function (r) { setTimeout(r, 800); }).then(function () { return fetchWindow(m, quiet); }); }
+          if (!quiet) { windows = []; rebuild(); }
+        })
+        .then(function () { delete inflight[id]; if (!quiet) root.classList.remove('is-loading'); });
+      return inflight[id];
+    }
+    // Show this month now when it is kept, then make sure it and its neighbours are fresh.
+    function load() {
+      var here = month;
+      var needNow = !covers(here, 60000);
+      var work = needNow ? fetchWindow(here, covers(here, Infinity)) : Promise.resolve();
+      return work.then(function () {
+        if (here !== month) return;
+        if (needNow) renderAll();
+        var next = new Date(here.getFullYear(), here.getMonth() + 1, 1);
+        var last = new Date(here.getFullYear(), here.getMonth() - 1, 1);
+        var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 250); };
+        idle(function () {
+          if (!covers(next, 60000)) fetchWindow(next, true).then(function () { if (!root.classList.contains('is-loading')) { asked += 1; } });
+          if (!covers(last, 60000)) fetchWindow(last, true);
         });
+      });
     }
     function renderLinks() {
       var apps = [['google', 'Google Calendar'], ['outlook', 'Outlook'], ['outlookPersonal', 'Outlook.com'], ['apple', 'Apple Calendar']];

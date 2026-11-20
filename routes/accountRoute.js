@@ -324,6 +324,7 @@ router.get("/settings", isAuthenticated, (req, res) => {
     const query = rest.toString();
     return res.redirect(`/account/integrations${query ? `?${query}` : ""}`);
   }
+  res.locals.alertRulesOn = require("../utils/alertRules").featureOn(req.session && req.session.organizationId);
   return accountController.settingsGet(req, res, db);
 });
 // Integrations: a page of its own, opened in Management (middleware/workspaceOnly.js), built
@@ -342,11 +343,11 @@ router.get(
 router.post("/settings/profile", isAuthenticated, (req, res) =>
   accountController.updateProfileNamePost(req, res, db)
 );
-router.post("/settings/notifications", isAuthenticated, (req, res) =>
+router.post("/settings/notifications", isAuthenticated, require("../utils/jsonSaves"), (req, res) =>
   accountController.updateNotificationPreferencesPost(req, res, db)
 );
 // The whole school's email choices: School Profile, as the same setting through Mira.
-router.post("/settings/notifications/organization", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), (req, res) =>
+router.post("/settings/notifications/organization", isAuthenticated, requirePermission(PERMISSIONS.SETTINGS_PROFILE), require("../utils/jsonSaves"), (req, res) =>
   accountController.updateOrgNotificationPreferencesPost(req, res, db)
 );
 router.post("/settings/profile-image", 

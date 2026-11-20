@@ -2,6 +2,7 @@ const notifSvc = require("../utils/notificationService");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { userHasPermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
 const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
+const { activeStudentSql } = require("../utils/activeStudents");
 
 let classDashboardLayoutSchemaReady = false;
 const CLASS_DASHBOARD_ORDER_SQL = `
@@ -615,6 +616,8 @@ const enrollmentController = {
           }
 
           const query = String(req.query.query || "").trim();
+          // Past students (graduated, archived) show only when asked for ("Include past records").
+          const includePast = String(req.query.includePast || "") === "1";
 
           // Enforce minimum length server-side (cannot be bypassed like the frontend check)
           if (query.length < 2) {
@@ -820,6 +823,7 @@ const enrollmentController = {
                             LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
                             WHERE s.organization_id = $2
                               AND s.class_id = ANY($3::int[])
+                              AND ($4::boolean OR ${activeStudentSql("s")})
                               AND (
                                 s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
@@ -829,7 +833,7 @@ const enrollmentController = {
                               )
                             LIMIT 20
                           `,
-                          [likeQuery, orgId, classIds]
+                          [likeQuery, orgId, classIds, includePast]
                         )
                       : db.query(
                           `
@@ -838,6 +842,7 @@ const enrollmentController = {
                             FROM students s
                             LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
                             WHERE s.organization_id = $2
+                              AND ($3::boolean OR ${activeStudentSql("s")})
                               AND (
                                 s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
@@ -847,7 +852,7 @@ const enrollmentController = {
                               )
                             LIMIT 20
                           `,
-                          [likeQuery, orgId]
+                          [likeQuery, orgId, includePast]
                         )
                   )
                 : empty,
@@ -1027,6 +1032,14 @@ const enrollmentController = {
                 item.class_name ||
                 "",
             }));
+            // An exact match first, then names that start with it, then the rest (rank 0 is exact).
+            const { rankOf } = require("../utils/deepSearch");
+            results.forEach((item) => {
+              const own = [item.first_name, item.last_name].filter(Boolean).join(" ");
+              item.rank = rankOf(own || item.display_name, query, `${item.last_name || ""}, ${item.first_name || ""}`, item.display_name, String(item.id));
+              item.exact = item.rank === 0;
+            });
+            results.sort((a, b) => a.rank - b.rank);
 
             res.status(200).json({ results });
           } catch (error) {

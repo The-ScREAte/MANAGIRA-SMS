@@ -28,6 +28,9 @@ const SHARE_ITEMS = [
   { key: "transport", label: "Bus & transport", help: "The bus tracker, boarding and driver reports about the student." },
   { key: "files", label: "Student files", help: "Files on the student's record set to Family." },
   { key: "portfolio", label: "Portfolio", help: "Marked work and documented tests, term by term." },
+  // Feature alert_rules. The school decides whether families can set alerts about this class's students;
+  // an alert about attendance, the bus or report cards also follows that item's own switch.
+  { key: "alerts", label: "Alerts", help: "Whether they can set alerts about scores, absences and the bus. Each alert also follows its own item (attendance, bus & transport, report cards)." },
   // About the child's teachers (feature teacher_cards; their names always show on the Teachers page).
   { key: "teacherEmail", label: "Teacher's email", help: "Each teacher's email on the Teachers page." },
   { key: "teacherPhone", label: "Teacher's phone", help: "Each teacher's phone number on the Teachers page. Off until a school turns it on." },

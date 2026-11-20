@@ -143,6 +143,12 @@
       </form>
     </div>
   </div>
+  <div class="drv-settings-card" style="margin-top:16px;padding:22px 24px;" data-alert-card data-ns-scope>
+    <h2 style="margin:0 0 4px;font-size:1.05rem;font-weight:800;color:#0f172a;">Notifications</h2>
+    <p style="margin:0 0 12px;font-size:.86rem;color:#64748b;">Choose what you want to be told about your riders and routes.</p>
+    <%- include('../partials/alertRules', { bare: true }) %>
+    <%- include('../partials/notificationSaveBar') %>
+  </div>
 </div>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>

@@ -37,7 +37,8 @@
         "family_gpa",
         "teacher_cards",
         "parent_student_hub",
-        "portal_requests"
+        "portal_requests",
+        "alert_rules"
       ]
     },
     "staff": {

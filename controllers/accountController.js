@@ -6602,7 +6602,7 @@ const accountController = {
       }
 
       // Upload image to S3
-      const s3Key = `images/profiles/${orgId}/${Date.now()}_${req.file.originalname}`;
+      const s3Key = `images/profiles/${orgId}/${require("../utils/storedFiles").safeName(req.file.originalname, "profile")}`;
       const imageUrl = await uploadToS3(req.file, s3Key);
 
       if (isUserRow) {
@@ -12226,13 +12226,18 @@ const accountController = {
             accountType: employee.account_type,
             isOwner,
             canUseMira: permissions.includes(PERMISSIONS.USE_MIRA),
+            // Managers always manage the school's skills; anyone else only when given it here.
+            canManageSchoolSkills: String(employee.account_type || "").toLowerCase() === "manager" || permissions.includes(PERMISSIONS.MIRA_SCHOOL_SKILLS),
           };
         })
       );
 
       const seatCount = employees.filter((employee) => employee.canUseMira).length;
 
+      const _grantorRole = String(req.session.userRole || req.session.accountType || "").toLowerCase();
       res.render("account/mira", {
+        // Only a manager gives or takes "manage Mira's school skills".
+        canGrantSchoolSkills: _grantorRole === "manager" || String(req.session.accountType || "").toLowerCase() === "organization",
         title: "Mira",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -12302,7 +12307,8 @@ const accountController = {
         accountType: employee.account_type,
         isOwner,
         canUseMira: permissions.includes(PERMISSIONS.USE_MIRA),
-        permissions: permissions.filter((key) => key !== PERMISSIONS.USE_MIRA),
+        canManageSchoolSkills: String(employee.account_type || "").toLowerCase() === "manager" || permissions.includes(PERMISSIONS.MIRA_SCHOOL_SKILLS),
+        permissions: permissions.filter((key) => key !== PERMISSIONS.USE_MIRA && key !== PERMISSIONS.MIRA_SCHOOL_SKILLS),
         permissionOptions: modalOptions,
       });
     } catch (error) {
@@ -12331,14 +12337,28 @@ const accountController = {
       const refusal = await require("../utils/staffChangeGuard").staffChangeRefusal(db, req, userId);
       if (refusal) return res.status(403).json({ error: refusal });
 
+      // Each switch on the Mira page sends only its own value; what isn't sent stays as it was.
+      const sentUse = Object.prototype.hasOwnProperty.call(req.body, "canUseMira");
+      const sentSkills = Object.prototype.hasOwnProperty.call(req.body, "canManageSchoolSkills");
       const canUseMira = String(req.body.canUseMira || "").trim() === "1";
+      const canManageSchoolSkills = String(req.body.canManageSchoolSkills || "").trim() === "1";
+      if (sentSkills) {
+        // School-wide skills change what Mira does for everyone: only a manager (or the school's own
+        // account) gives or takes this, and a manager always has it.
+        const grantorRole = String(req.session.userRole || req.session.accountType || "").toLowerCase();
+        if (grantorRole !== "manager" && String(req.session.accountType || "").toLowerCase() !== "organization") return res.status(403).json({ error: "Only a manager can allow someone to manage Mira's school skills." });
+        const targetRole = String((await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role || "").toLowerCase();
+        if (targetRole === "manager") return res.status(400).json({ error: "Managers can always manage Mira's school skills." });
+      }
       const grantorId = req.session.user?.user_id || req.session.userId || null;
       // What they can do now (role defaults included for someone never saved), with only Mira
       // changed, saved as their own list; markers that aren't permissions (mailroom scope) stay.
       const staffRole = (await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role;
       const existing = await getUserPermissions(db, userId, orgId);
-      const next = new Set(effectivePermissionsForRole(staffRole, existing).filter((key) => key !== PERMISSIONS.USE_MIRA));
-      if (canUseMira) next.add(PERMISSIONS.USE_MIRA);
+      const current = new Set(effectivePermissionsForRole(staffRole, existing));
+      const next = new Set([...current].filter((key) => key !== PERMISSIONS.USE_MIRA && key !== PERMISSIONS.MIRA_SCHOOL_SKILLS));
+      if (sentUse ? canUseMira : current.has(PERMISSIONS.USE_MIRA)) next.add(PERMISSIONS.USE_MIRA);
+      if (sentSkills ? canManageSchoolSkills : current.has(PERMISSIONS.MIRA_SCHOOL_SKILLS)) next.add(PERMISSIONS.MIRA_SCHOOL_SKILLS);
       const optionKeys = new Set(PERMISSION_OPTIONS.map((option) => option.key));
       const markers = existing.filter((key) => !optionKeys.has(key) && key !== PERMISSIONS_SAVED_KEY);
       const rows = [...new Set([...markers, ...next, PERMISSIONS_SAVED_KEY])];
@@ -12359,7 +12379,7 @@ const accountController = {
         client.release();
       }
       invalidateUserPermissionCache(orgId, userId);
-      return res.json({ success: true, canUseMira });
+      return res.json({ success: true, canUseMira: sentUse ? canUseMira : current.has(PERMISSIONS.USE_MIRA), canManageSchoolSkills: sentSkills ? canManageSchoolSkills : current.has(PERMISSIONS.MIRA_SCHOOL_SKILLS) });
     } catch (error) {
       console.error("[accountController/miraUserPermissionsPost]", error);
       return res.status(500).json({ error: "Unable to save this employee's Mira access." });
