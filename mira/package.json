@@ -20,7 +20,7 @@
     "express-ejs-layouts": "^2.5.1",
     "mammoth": "^1.12.1",
     "multer": "^2.2.0",
-    "openai": "^4.77.0",
+    "openai": "^7.57.0",
     "pdf-parse": "^1.1.4",
     "pg": "^8.23.1",
     "redis": "^6.3.1"
