@@ -2397,7 +2397,7 @@
     <header class="gp-head gp-scope">
       <div>
         <h1 class="gp-title">Report Settings</h1>
-        <p class="gp-sub">Promotion, grades, what prints on report cards, layouts and signatures.</p>
+        <p class="gp-sub">Promotion rules, grades, what prints on report cards, layouts and signatures. To move students up, use <a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Promotion</a>.</p>
       </div>
     </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
@@ -2470,18 +2470,16 @@
                       <input type="hidden" name="statusRowClassId[]" value="<%= classItem.class_id %>" />
                       <div class="status-row-class"><%= classItem.class_name %></div>
 
-                      <select class="status-row-field" name="statusRowPromotedClass[]">
+                      <select class="status-row-field" name="statusRowPromotedClass[]" data-lazy-classes>
                         <option value="">Select class</option>
-                        <% enrolledClasses.forEach(optionClass=>{ %>
-                          <option value="<%= optionClass.class_id %>" <%= rowPromoted === Number(optionClass.class_id) ? 'selected' : '' %>><%= optionClass.class_name %></option>
-                        <% }); %>
+                        <% const _picked = enrolledClasses.find((optionClass) => rowPromoted === Number(optionClass.class_id)); %>
+                        <% if (_picked) { %><option value="<%= _picked.class_id %>" selected><%= _picked.class_name %></option><% } %>
                       </select>
 
-                      <select class="status-row-field" name="statusRowRepeatedClass[]">
+                      <select class="status-row-field" name="statusRowRepeatedClass[]" data-lazy-classes>
                         <option value="">Select class</option>
-                        <% enrolledClasses.forEach(optionClass=>{ %>
-                          <option value="<%= optionClass.class_id %>" <%= rowRepeated === Number(optionClass.class_id) ? 'selected' : '' %>><%= optionClass.class_name %></option>
-                        <% }); %>
+                        <% const _pickedRepeated = enrolledClasses.find((optionClass) => rowRepeated === Number(optionClass.class_id)); %>
+                        <% if (_pickedRepeated) { %><option value="<%= _pickedRepeated.class_id %>" selected><%= _picked.class_name %></option><% } %>
                       </select>
 
                       <div class="status-row-cutoff-cell">
@@ -3876,8 +3874,8 @@
         const cutOffField = row.querySelector('input[name="statusRowCutOffPoint[]"]');
         const reopenField = row.querySelector('input[name="statusRowSchoolReopenDate[]"]');
         const promotionBasis = normalizePromotionBasisValue(savedRow.promotion_basis);
-        if (promotedField) promotedField.value = savedRow.promoted_class ? String(savedRow.promoted_class) : '';
-        if (repeatedField) repeatedField.value = savedRow.repeated_class ? String(savedRow.repeated_class) : '';
+        if (promotedField) { window.fillClassPicker && window.fillClassPicker(promotedField); promotedField.value = savedRow.promoted_class ? String(savedRow.promoted_class) : ''; }
+        if (repeatedField) { window.fillClassPicker && window.fillClassPicker(repeatedField); repeatedField.value = savedRow.repeated_class ? String(savedRow.repeated_class) : ''; }
         if (promotionBasisField) promotionBasisField.value = promotionBasis;
         if (cutOffField) cutOffField.value = savedRow.cut_off_point ?? '';
         if (reopenField) reopenField.value = normalizeStatusInputDate(savedRow.school_reopen_date);
@@ -8834,5 +8832,27 @@
 
   </script>
   <% } %>
+<script>
+// 80 classes x 2 pickers x 80 options was most of this page. Each picker holds only its chosen class until it's
+// opened; the shared list below fills the rest then.
+window.__rsClassList = <%- JSON.stringify((enrolledClasses || []).map(function (c) { return { id: String(c.class_id), name: c.class_name }; })) %>;
+(function () {
+  function fill(select) {
+    if (!select || select.dataset.filled) return;
+    select.dataset.filled = '1';
+    var current = select.value, frag = document.createDocumentFragment();
+    Array.prototype.slice.call(select.querySelectorAll('option')).forEach(function (o) { if (o.value) o.remove(); });
+    window.__rsClassList.forEach(function (c) { var o = document.createElement('option'); o.value = c.id; o.textContent = c.name; if (c.id === current) o.selected = true; frag.appendChild(o); });
+    select.appendChild(frag);
+    select.value = current;
+  }
+  ['mousedown', 'focusin', 'keydown', 'touchstart'].forEach(function (type) {
+    document.addEventListener(type, function (e) { var t = e.target; if (t && t.matches && t.matches('select[data-lazy-classes]')) fill(t); }, true);
+  });
+  // Anything that reads every picker (a save, a copy to all) gets the full lists first.
+  window.fillClassPicker = fill;
+  window.fillAllClassPickers = function () { document.querySelectorAll('select[data-lazy-classes]').forEach(fill); };
+})();
+</script>
 </body>
 </html>

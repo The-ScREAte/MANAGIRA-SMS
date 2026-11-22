@@ -146,9 +146,15 @@ body.manage-records-page .date-fields > div { flex: 0 1 200px; min-width: 150px;
 body.manage-records-page .date-fields label { display: block; margin: 0 0 4px; color: var(--ws-muted); font-size: .75rem; font-weight: 600; }
 body.manage-records-page .date-fields input[type="date"] { width: 100%; height: 36px; margin: 0; padding: 0 10px; border: 1px solid var(--ws-line); border-radius: 8px; background: #fff; font: inherit; font-size: .875rem; box-sizing: border-box; }
 @media (max-width: 640px) {
+  /* The dot, the name and the menu share one line; Current sits under it; the two dates sit side by side. */
+  body.manage-records-page .school-year-header, body.manage-records-page .term-section-header { gap: 8px 10px; }
   body.manage-records-page .school-year-header input[type="text"],
-  body.manage-records-page .term-section-header input[type="text"] { flex: 1 1 100%; width: 100%; }
-  body.manage-records-page .date-fields > div { flex: 1 1 140px; }
+  body.manage-records-page .term-section-header input[type="text"] { flex: 1 1 0; width: auto; min-width: 0; }
+  body.manage-records-page .school-year-header .current-label, body.manage-records-page .term-section-header > label:not(.year-label) { order: 3; }
+  body.manage-records-page .date-fields { gap: 10px; }
+  body.manage-records-page .date-fields input[type="date"] { padding: 0 6px; font-size: .8rem; }
+  body.manage-records-page .date-fields > div { flex: 1 1 calc(50% - 5px); min-width: 0; }
+  body.manage-records-page .year-form-actions { flex-wrap: wrap; }
   body.manage-records-page .term-fieldset .term-completed-badge { position: static; margin: 0 0 8px; }
 }
 
@@ -169,6 +175,12 @@ body.class-subject-page .dashboard-layout-panel__header h3 { margin: 0 0 4px; fo
 body.class-subject-page .dashboard-layout-panel__header p { margin: 0; color: var(--ws-muted); font-size: .82rem; line-height: 1.5; }
 body.class-subject-page .dashboard-layout-panel__toggle { height: 30px; padding: 0 12px; border: 1px solid var(--ws-line); border-radius: 8px; background: #fff; color: var(--ws-ink); font: inherit; font-size: .8rem; font-weight: 600; box-shadow: none; width: auto; }
 body.class-subject-page .page-shell > .container > fieldset.graduation-fieldset { grid-column: auto; }
+/* On a phone each card folds: its title and the Expand button share one line. */
+@media (max-width: 768px) {
+  body.class-subject-page .page-shell > .container > fieldset { position: relative; }
+  body.class-subject-page .page-shell > .container > fieldset > .section-collapse-toggle { position: absolute; top: 16px; right: 16px; margin: 0; }
+  body.class-subject-page .page-shell > .container > fieldset.is-collapsed > legend { margin-bottom: 0; }
+}
 
 /* ---------- Assessments ---------- */
 body .page-wrap.ws-root { --text-main: #334155; --text-soft: #64748b; --shadow-soft: transparent; --table-head-bg: #f8fafc; --row-even-bg: #fff; --row-hover-bg: #fbfcfd; --border-soft: var(--ws-line); }

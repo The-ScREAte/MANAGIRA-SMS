@@ -73,6 +73,8 @@ module.exports = (db) => {
       if (studentId < 0) return res.status(404).json({ success: false, message: "That child isn't on your account." });
       await alertRules.saveRules(db, organizationId, { type, id, audience }, req.body, studentId);
       const settings = await alertRules.settingsFor(db, organizationId, { type, id, audience }, studentId);
+      // A parent's report card and bus emails follow what they chose here (their own alerts, not a child's alone).
+      if (!studentId) await alertRules.syncCoveredEmails(db, organizationId, { type, id, audience }, settings.alerts).catch((error) => console.error("[Alerts] email sync:", error.message));
       return res.json({ success: true, message: "Your alerts are saved.", audience, ...settings });
     } catch (error) {
       console.error("[Alerts] save:", error.message);

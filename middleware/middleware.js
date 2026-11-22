@@ -49,6 +49,7 @@ const DRIVER_PAGES = [
 function driverMayOpen(req, res) {
     const held = res.locals?.userPermissions || [];
     const url = req.originalUrl || '';
+    if (/^\/common\/page-finder\.json/.test(url)) return true;
     if (/^\/common\/(calendar|ui-preferences)/.test(url) && features.isOn('class_activities', { organizationId: req.session?.organizationId })) return true;
     return DRIVER_PAGES.some(({ permission, pages }) => held.includes(permission) && pages.test(url));
 }

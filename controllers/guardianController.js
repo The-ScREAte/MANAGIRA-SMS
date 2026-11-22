@@ -456,7 +456,7 @@ module.exports = {
       let savedNotificationPrefs = {};
       try {
         await ensureEmailPreferencesSchema(db);
-        notificationPrefs = getGuardianPreferences().filter((pref) => LIVE_GUARDIAN_NOTIFICATION_KEYS.has(pref.key));
+        notificationPrefs = require("../utils/alertRules").withoutCovered(getGuardianPreferences().filter((pref) => LIVE_GUARDIAN_NOTIFICATION_KEYS.has(pref.key)), req.session.organizationId);
         savedNotificationPrefs = await getGuardianPreferenceMap(db, guardianId);
       } catch (_) {
         notificationPrefs = [];
@@ -669,9 +669,11 @@ module.exports = {
 
     try {
       await ensureEmailPreferencesSchema(db);
-      const allowed = getGuardianPreferences()
-        .filter((pref) => LIVE_GUARDIAN_NOTIFICATION_KEYS.has(pref.key))
-        .map((p) => p.key);
+      // The report card and bus emails follow the parent's alerts (utils/alertRules.js COVERED_EMAILS).
+      const allowed = require("../utils/alertRules").withoutCovered(
+        getGuardianPreferences().filter((pref) => LIVE_GUARDIAN_NOTIFICATION_KEYS.has(pref.key)),
+        req.session.organizationId
+      ).map((p) => p.key);
 
       const submittedRaw = req.body.preferences;
       const submitted = Array.isArray(submittedRaw)

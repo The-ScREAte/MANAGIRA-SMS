@@ -4,838 +4,319 @@
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
     <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
-    <title>Add Classes and Subjects</title>
+    <title>Add classes, subjects and graduation years</title>
     <style>
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-        --border: #e5e7eb;
-        --muted: #6b7280;
-        --bg: #f9fafb;
-      }
+      :root { --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif; }
+      body.add-class-page { --acs-brand: var(--org-primary-color, #01535b); --acs-line: #e2e8f0; --acs-muted: #64748b; --acs-soft: #f8fafc;
+        font-family: var(--font-family); background: #fff; color: #0f172a; margin: 0; padding: 0; }
+      .add-class-page *, .add-class-page *::before, .add-class-page *::after { box-sizing: border-box; }
+      .acs { max-width: 760px; margin: 0 auto; padding: 18px 22px 40px; }
 
-      body.add-class-page {
-        font-family: var(--font-family);
-        background: var(--bg);
-        margin: 0;
-        padding: 0;
-        min-height: 100%;
-      }
+      /* One thing at a time: three tabs instead of three stacked forms. */
+      .acs-tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--acs-line); border-radius: 12px; background: var(--acs-soft); }
+      .add-class-page .acs-tab { flex: 1; width: auto; height: 40px; margin: 0; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--acs-muted); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; box-shadow: none; transition: background .15s, color .15s; }
+      .add-class-page .acs-tab:hover { color: #0f172a; }
+      .add-class-page .acs-tab[aria-selected="true"] { background: #fff; color: var(--acs-brand); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+      .acs-panel[hidden] { display: none; }
+      .acs-lead { margin: 18px 0 14px; color: var(--acs-muted); font-size: .92rem; line-height: 1.5; }
 
-      .add-class-page .page-shell {
-        width: 100%;
-        max-width: none;
-        margin: 0 auto;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-      }
+      .acs-label { display: block; margin: 0 0 6px; font-size: .82rem; font-weight: 600; color: #334155; }
+      .add-class-page input[type="text"], .add-class-page input[type="number"], .add-class-page input[type="search"], .add-class-page select { display: block; width: 100%; height: 44px; margin: 0; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; font-size: .95rem; box-shadow: none; transition: border-color .15s, box-shadow .15s; }
+      .add-class-page input:focus, .add-class-page select:focus { outline: 0; border-color: var(--acs-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acs-brand) 18%, transparent); }
+      .add-class-page input::placeholder { color: #94a3b8; }
 
-      .add-class-page .notice {
-        background: #eff6ff;
-        color: #1e40af;
-        border-left: 4px solid #3b82f6;
-        border-radius: 0 8px 8px 0;
-        padding: 14px 18px;
-        margin-bottom: 16px;
-      }
+      .acs-rows { display: grid; gap: 10px; }
+      .acs-row { display: flex; align-items: center; gap: 8px; }
+      .acs-row input { flex: 1; min-width: 0; }
+      .add-class-page .acs-x { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin: 0; padding: 0; border: 0; border-radius: 9px; background: transparent; color: #94a3b8; font-size: 1.3rem; line-height: 1; cursor: pointer; box-shadow: none; }
+      .add-class-page .acs-x:hover { background: #fee2e2; color: #dc2626; }
+      .add-class-page .acs-add { display: inline-flex; align-items: center; gap: 6px; width: auto; height: 36px; margin: 12px 0 0; padding: 0 12px 0 8px; border: 1px dashed #94a3b8; border-radius: 9px; background: transparent; color: var(--acs-brand); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; box-shadow: none; }
+      .add-class-page .acs-add:hover { background: color-mix(in srgb, var(--acs-brand) 7%, #fff); border-color: var(--acs-brand); }
 
-      .add-class-page .notice h2 {
-        font-size: 15.5px;
-        margin: 0 0 6px;
-        font-weight: 700;
-      }
+      /* A subject and the classes it belongs to. */
+      .acs-card { padding: 14px; border: 1px solid var(--acs-line); border-radius: 12px; background: var(--acs-soft); }
+      .acs-card + .acs-card { margin-top: 12px; }
+      .acs-card__head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+      .acs-card__head input { flex: 1; }
+      .acs-pick { margin-top: 2px; }
+      .acs-pick__bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+      .acs-pick__bar input { height: 36px; font-size: .88rem; }
+      .add-class-page .acs-link { flex: none; width: auto; height: auto; margin: 0; padding: 4px 2px; border: 0; background: none; color: var(--acs-brand); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; box-shadow: none; white-space: nowrap; }
+      .add-class-page .acs-link:hover { text-decoration: underline; }
+      .acs-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 176px; padding: 2px; overflow-y: auto; overscroll-behavior: contain; }
+      .acs-chip { position: relative; display: inline-flex; margin: 0; cursor: pointer; }
+      .acs-chip input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+      .acs-chip span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #334155; font-size: .84rem; font-weight: 500; transition: background .12s, border-color .12s, color .12s; user-select: none; }
+      .acs-chip:hover span { border-color: var(--acs-brand); }
+      .acs-chip input:focus-visible + span { outline: 2px solid var(--acs-brand); outline-offset: 2px; }
+      .acs-chip input:checked + span { border-color: var(--acs-brand); background: color-mix(in srgb, var(--acs-brand) 12%, #fff); color: var(--acs-brand); font-weight: 600; }
+      .acs-chip input:checked + span::before { content: ""; width: 10px; height: 10px; background: var(--acs-brand); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12l5 5L20 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12l5 5L20 6'/%3E%3C/svg%3E") center / contain no-repeat; }
+      .acs-chip[hidden], .acs-link[hidden], .add-class-page input[hidden] { display: none; }
+      .acs-count { margin-top: 8px; color: var(--acs-muted); font-size: .8rem; }
+      .acs-none { padding: 14px; border: 1px dashed #cbd5e1; border-radius: 10px; color: var(--acs-muted); font-size: .88rem; text-align: center; }
 
-      .add-class-page .notice p {
-        margin: 0;
-        font-size: 14.5px;
-        line-height: 1.5;
-      }
+      .acs-switch { display: inline-flex; flex-wrap: wrap; gap: 4px; margin: 0 0 16px; padding: 3px; border-radius: 999px; background: #eef2f6; }
+      .add-class-page .acs-switch button { width: auto; height: 32px; margin: 0; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--acs-muted); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; box-shadow: none; }
+      .add-class-page .acs-switch button[aria-pressed="true"] { background: #fff; color: var(--acs-brand); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+      .acs-mode[hidden] { display: none; }
 
-      .add-class-page .container {
-        max-width: none;
-        width: 100%;
-        margin: 24px 0 40px;
-        padding: 0 24px 70px;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-        gap: 24px;
-        align-items: start;
-      }
+      .acs-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; color: var(--acs-muted); font-size: .82rem; }
+      .add-class-page .acs-suggest button { width: auto; height: 30px; margin: 0; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #334155; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; box-shadow: none; }
+      .add-class-page .acs-suggest button:hover { border-color: var(--acs-brand); color: var(--acs-brand); }
 
-      .add-class-page fieldset {
-        background: #ffffff;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        padding: 28px;
-        height: 100%;
-        box-sizing: border-box;
-        margin: 0;
-      }
-
-      .add-class-page legend {
-        font-weight: 700;
-        font-size: 21px;
-        color: #111827;
-        padding: 0 8px;
-        text-align: center;
-        width: 100%;
-      }
-
-      .add-class-page h1 {
-        text-align: center;
-        margin: 0 0 12px;
-        color: #111827;
-        font-size: 20px;
-      }
-
-      .add-class-page button:not(.field-menu-button):not(.chatbot-toggle):not(.chatbot-send):not(.chatbot-minimize):not(.chatbot-close),
-      .add-class-page input:not([type="checkbox"]):not([type="radio"]):not(.chatbot-input),
-      .add-class-page textarea,
-      .add-class-page select {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 13px 16px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        font-size: 16.5px;
-        font-family: var(--font-family);
-      }
-
-      .add-class-page button[type="submit"] {
-        border-radius: 8px;
-        padding: 10px 18px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        margin-top: 16px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: auto;
-        white-space: nowrap;
-      }
-
-      /* buttons.css (loaded globally) sets button[type="submit"] colors with
-         !important, which otherwise beats this rule regardless of specificity
-         — match it with !important so these render white with a visible
-         border instead of the site-wide solid theme-color submit style. */
-      .add-class-page button[type="submit"] {
-        background: #fff !important;
-        color: #1e293b !important;
-        border: 2px solid #94a3b8 !important;
-      }
-
-      
-
-      .add-class-page button[type="submit"].is-saving {
-        color: transparent !important;
-        pointer-events: none;
-        position: relative;
-      }
-
-      .add-class-page button[type="submit"].is-saving::after {
-        content: '';
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 18px;
-        height: 18px;
-        margin: -9px 0 0 -9px;
-        border: 2px solid rgba(30, 41, 59, 0.2);
-        border-top-color: #1e293b;
-        border-radius: 50%;
-        animation: acsBtnSpin 0.7s linear infinite;
-      }
-
-      @keyframes acsBtnSpin {
-        to { transform: rotate(360deg); }
-      }
-
-      .add-button {
-        cursor: pointer;
-        color: #10b981;
-        font-weight: bold;
-        font-size: 24px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: #d1fae5;
-        transition: all 0.2s;
-        margin-top: 8px;
-        border: none;
-      }
-
-      
-
-      /* Three-dot menu styles */
-      .input-with-menu {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 10px;
-      }
-
-      .input-with-menu label {
-        font-size: 14.5px;
-        white-space: nowrap;
-        min-width: fit-content;
-      }
-
-      .input-with-menu input {
-        flex: 1;
-      }
-
-      .field-menu-container {
-        position: relative;
-        display: inline-block;
-      }
-
-      .field-menu-button {
-        background: none;
-        border: none;
-        font-size: 24px;
-        cursor: pointer;
-        padding: 5px 10px;
-        color: #666;
-        line-height: 1;
-        width: auto;
-        min-width: auto;
-      }
-
-      
-
-      .field-menu-dropdown {
-        display: none;
-        position: absolute;
-        right: 0;
-        top: 100%;
-        background-color: white;
-        min-width: 150px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        border-radius: 6px;
-        z-index: 1000;
-        overflow: hidden;
-      }
-
-      .field-menu-dropdown.show {
-        display: block;
-      }
-
-      .field-menu-item {
-        padding: 12px 16px;
-        cursor: pointer;
-        border: none;
-        background: none;
-        width: 100%;
-        text-align: left;
-        font-size: 15px;
-        color: #333;
-        transition: background-color 0.2s;
-      }
-
-      
-
-      .field-menu-item.delete {
-        color: #dc3545;
-      }
-
-      
-
-      .select-all-checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 15.5px;
-        margin-bottom: 10px;
-      }
-
-      .class-checkbox-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px 18px;
-      }
-
-      .class-checkbox-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        font-size: 15.5px;
-        color: #1f2937;
-        white-space: nowrap;
-      }
-
-      .class-checkbox-item input[type="checkbox"],
-      .select-all-checkbox-label input[type="checkbox"] {
-        width: 17px;
-        height: 17px;
-        flex: 0 0 auto;
-        margin: 0;
-      }
-
-      .section-collapse-toggle {
-        display: none;
-        margin: 8px 0 0 auto;
-        border: 1px solid var(--border);
-        background: #f8fafc;
-        color: #334155;
-        border-radius: 999px;
-        padding: 5px 10px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        line-height: 1.2;
-        min-width: 74px;
-        width: auto;
-        flex: 0 0 auto;
-      }
-
-      
-
-      .fieldset-collapsible.is-collapsed > .fieldset-content {
-        display: none !important;
-      }
-
-      @media (max-width: 768px) {
-        .add-class-page .container {
-          padding: 0 16px 40px;
-          grid-template-columns: minmax(0, 760px);
-          justify-content: center;
-        }
-
-        .add-class-page .action-bar {
-          justify-content: flex-start;
-          padding: 0 16px;
-        }
-        
-        .add-class-page fieldset {
-          width: 100%;
-          margin: 0 auto;
-          padding: 16px;
-        }
-
-        .section-collapse-toggle {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-left: auto;
-          margin-right: 0;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .add-class-page .container {
-          grid-template-columns: minmax(0, 1fr);
-          justify-content: center;
-        }
-
-        .add-class-page button[type="submit"] {
-          padding: 10px 14px;
-          font-size: 14px;
-        }
-
-        .add-class-page .back-btn {
-          padding: 8px 14px;
-          font-size: 13px;
-        }
-      }
+      .acs-foot { display: flex; justify-content: flex-end; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--acs-line); }
+      .add-class-page button.acs-save[type="submit"] { position: relative; display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 150px; height: 44px; margin: 0; padding: 0 22px; border: 0 !important; border-radius: 10px; background: var(--acs-brand) !important; color: #fff !important; font: inherit; font-size: .95rem; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, .15); transition: filter .15s; }
+      .add-class-page button.acs-save[type="submit"]:hover { filter: brightness(1.08); }
+      .add-class-page button.acs-save[type="submit"]:disabled { opacity: .55; cursor: default; }
+      .add-class-page button.acs-save.is-saving { color: transparent !important; pointer-events: none; }
+      .add-class-page button.acs-save.is-saving::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(255, 255, 255, .4); border-top-color: #fff; border-radius: 50%; animation: acsSpin .7s linear infinite; }
+      @keyframes acsSpin { to { transform: rotate(360deg); } }
+      .acs-error { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; background: #fef2f2; color: #b91c1c; font-size: .86rem; }
+      .acs-error[hidden] { display: none; }
+      @media (max-width: 560px) { .acs { padding: 14px 14px 32px; } .acs-tab { font-size: .85rem; } .acs-foot { justify-content: stretch; } .add-class-page button.acs-save[type="submit"] { width: 100%; } }
     </style>
   </head>
   <body class="add-class-page">
     <%- include('../partials/flash') %>
+    <script>document.body.classList.add('add-class-page');</script>
+    <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
+    <datalist id="subject-library"><% (typeof subjectNames !== 'undefined' ? subjectNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }); %></datalist>
 
-    <script>
-      // Ensure scoped styles apply on SPA navigation
-      document.body.classList.add('add-class-page');
-    </script>
+    <div class="acs">
+      <div class="acs-tabs" role="tablist" aria-label="What to add">
+        <button type="button" class="acs-tab" role="tab" id="tab-class" aria-controls="panel-class" aria-selected="true" data-tab="class">Class</button>
+        <button type="button" class="acs-tab" role="tab" id="tab-subject" aria-controls="panel-subject" aria-selected="false" data-tab="subject">Subject</button>
+        <button type="button" class="acs-tab" role="tab" id="tab-grad" aria-controls="panel-grad" aria-selected="false" data-tab="grad">Graduation year</button>
+      </div>
 
-    <div class="page-shell">
-    <div class="container">
-      <!-- Add Class Section -->
-      <fieldset>
-        <h1>New Class</h1>
-        <div class="notice">
-          <h2>Tip</h2>
-          <p>Add classes first, then assign subjects.</p>
-        </div>
-        <legend>Class</legend>
-        <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
-        <datalist id="subject-library"><% (typeof subjectNames !== 'undefined' ? subjectNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
-<form action="/common/addClass" method="post" id="classForm">
-          <div id="class-fields">
-            <div class="input-with-menu">
-              <label>Class<br>Name</label>
-              <input
-                type="text"
-                name="className[]"
-                required
-                placeholder="Eg: Grade 1"
-              />
-            </div>
+      <!-- Classes -->
+      <section class="acs-panel" id="panel-class" role="tabpanel" aria-labelledby="tab-class">
+        <p class="acs-lead">Add one or several classes. Paste a column of names to fill them in at once. Add classes first, then give them subjects.</p>
+        <form action="/common/addClass" method="post" id="classForm" novalidate>
+          <label class="acs-label" for="firstClass">Class names</label>
+          <div class="acs-rows" id="class-fields">
+            <div class="acs-row"><input type="text" id="firstClass" name="className[]" required maxlength="120" placeholder="For example: Grade 1" autocomplete="off"><button type="button" class="acs-x" aria-label="Remove">×</button></div>
           </div>
-          <span class="add-button" onclick="addClassField()">+</span>
-
-          <button type="submit">Save Class</button>
+          <button type="button" class="acs-add" id="addClassRow"><span aria-hidden="true">＋</span> Add another class</button>
+          <div class="acs-error" hidden></div>
+          <div class="acs-foot"><button type="submit" class="acs-save">Save classes</button></div>
         </form>
-      </fieldset>
+      </section>
 
-      <!-- Add Subject Section -->
-      <fieldset>
-        <h1>New Subject</h1>
-        <div class="notice">
-          <h2>Tip</h2>
-          <p>Add a subject, then choose classes.</p>
+      <!-- Subjects -->
+      <section class="acs-panel" id="panel-subject" role="tabpanel" aria-labelledby="tab-subject" hidden>
+        <div class="acs-switch" role="group" aria-label="Subject action">
+          <button type="button" data-mode="new" aria-pressed="true">New subject</button>
+          <% if ((assignableSubjects || []).length) { %><button type="button" data-mode="existing" aria-pressed="false">Add an existing subject to more classes</button><% } %>
         </div>
-        <legend>Subject</legend>
-        <form action="/common/addSubject" method="post" id="subjectForm">
-          <div id="subject-fields">
-            <div data-subject-index="0">
-              <div class="input-with-menu">
-                <label>Subject<br>Name</label>
-                <input
-                  type="text"
-                  name="subjectName[]" list="subject-library" autocomplete="off"
-                  required
-                  placeholder="Eg: Mathematics"
-                />
-              </div>
-              <label>Classes</label>
-              <div>
-                <label class="select-all-checkbox-label">
-                  <input type="checkbox" class="select-all-checkbox" /> Select all
-                </label>
-                <div class="class-checkbox-grid">
-                  <% classes.forEach(function(cls) { %>
-                    <label class="class-checkbox-item">
-                      <input
-                        type="checkbox"
-                        class="class-checkbox"
-                        name="classId[0][]"
-                        value="<%= cls.class_id %>"
-                      />
-                      <span><%= cls.class_name %></span>
-                    </label>
-                  <% }); %>
-                </div>
-              </div>
-            </div>
-          </div>
-              <span class="add-button" onclick="addSubjectField()">+</span>
 
-          <button type="submit">Save Subject</button>
-        </form>
+        <div class="acs-mode" id="mode-new">
+          <% if (!(classes || []).length) { %>
+            <div class="acs-none">Add a class first, then give it subjects.</div>
+          <% } else { %>
+          <form action="/common/addSubject" method="post" id="subjectForm" novalidate>
+            <div id="subject-fields"></div>
+            <button type="button" class="acs-add" id="addSubjectRow"><span aria-hidden="true">＋</span> Add another subject</button>
+            <div class="acs-error" hidden></div>
+            <div class="acs-foot"><button type="submit" class="acs-save">Save subjects</button></div>
+          </form>
+          <% } %>
+        </div>
 
-        <hr style="margin: 22px 0; border: none; border-top: 1px solid #e2e8f0;" />
-
-        <h2 style="font-size: 1.05rem; margin: 0 0 10px 0; color: #0f172a;">Assign Existing Subject</h2>
-        <p style="margin: 0 0 14px 0; color: #475569; font-size: 0.93rem; line-height: 1.45;">
-          Choose a subject, then select classes.
-        </p>
-        <form action="/common/assignExistingSubject" method="post" id="assignExistingSubjectForm">
-          <div class="input-with-menu" style="margin-bottom: 12px;">
-            <label for="existingSubjectSelect">Existing<br>Subject</label>
+        <div class="acs-mode" id="mode-existing" hidden>
+          <form action="/common/assignExistingSubject" method="post" id="assignExistingSubjectForm" novalidate>
+            <label class="acs-label" for="existingSubjectSelect">Subject</label>
             <select id="existingSubjectSelect" name="subjectKey" required>
-              <option value="">Choose subject</option>
-              <% assignableSubjects.forEach(function(item) { %>
+              <option value="">Choose a subject</option>
+              <% (assignableSubjects || []).forEach(function (item) { %>
                 <option value="<%= item.subject_key %>"><%= item.subject_name %></option>
               <% }); %>
             </select>
-          </div>
-
-          <label>Classes</label>
-          <div id="existingSubjectClassContainer" style="margin-bottom: 14px;">
-            <span style="color:#64748b; font-size:0.9rem;">Choose a subject to load classes.</span>
-          </div>
-
-          <button type="submit">Assign to Classes</button>
-        </form>
-      </fieldset>
-
-      <!-- Add Graduation Year Group Section -->
-      <fieldset>
-        <h1>New Graduation Group</h1>
-        <div class="notice">
-          <h2>Tip</h2>
-          <p>Add expected graduation years.</p>
+            <div style="height:14px"></div>
+            <div id="existingSubjectClassContainer"><div class="acs-none">Choose a subject to see the classes it can still be added to.</div></div>
+            <div class="acs-error" hidden></div>
+            <div class="acs-foot"><button type="submit" class="acs-save">Add to classes</button></div>
+          </form>
         </div>
-        <legend>Graduation Year Group</legend>
-        <form
-          action="/common/addGraduationYearGroup"
-          method="post"
-          id="graduationYearGroupForm"
-        >
-          <div id="graduationYear-fields">
-            <div class="input-with-menu">
-              <label>Graduation<br>Year</label>
-              <input
-                type="number"
-                name="graduationYear[]"
-                min="2000"
-                max="2100"
-                required
-                placeholder="Eg: 2028"
-              />
-            </div>
+      </section>
+
+      <!-- Graduation years -->
+      <section class="acs-panel" id="panel-grad" role="tabpanel" aria-labelledby="tab-grad" hidden>
+        <p class="acs-lead">A graduation year group holds the students who finish in the same year. Add the years you expect.</p>
+        <form action="/common/addGraduationYearGroup" method="post" id="graduationYearGroupForm" novalidate>
+          <label class="acs-label" for="firstYear">Graduation years</label>
+          <div class="acs-rows" id="graduationYear-fields">
+            <div class="acs-row"><input type="number" id="firstYear" name="graduationYear[]" min="2000" max="2100" required placeholder="For example: 2028" inputmode="numeric"><button type="button" class="acs-x" aria-label="Remove">×</button></div>
           </div>
-          <span class="add-button" onclick="addGraduationYearField()">+</span>
-          <button type="submit">Save Graduation Group</button>
+          <div class="acs-suggest" id="yearSuggest"><span>Quick add:</span></div>
+          <button type="button" class="acs-add" id="addYearRow"><span aria-hidden="true">＋</span> Add another year</button>
+          <div class="acs-error" hidden></div>
+          <div class="acs-foot"><button type="submit" class="acs-save">Save graduation years</button></div>
         </form>
-      </fieldset>
+      </section>
     </div>
 
     <script>
-      function toggleFieldMenu(event, button) {
-        event.stopPropagation();
-        const dropdown = button.nextElementSibling;
-        const isCurrentlyShown = dropdown.classList.contains('show');
-        
-        // Close all other open menus
-        document.querySelectorAll('.field-menu-dropdown.show').forEach(menu => {
-          menu.classList.remove('show');
-        });
-        
-        // Toggle current menu
-        if (!isCurrentlyShown) {
-          dropdown.classList.add('show');
-        }
-      }
+      (function () {
+        var CLASSES = <%- JSON.stringify((classes || []).map(function (c) { return { id: c.class_id, name: c.class_name }; })) %>;
+        var ASSIGNABLE = <%- JSON.stringify(assignableSubjects || []) %>;
+        var $ = function (sel, root) { return (root || document).querySelector(sel); };
+        var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+        function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+        function remember(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+        function recall(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
 
-      // Close dropdown when clicking outside
-      document.addEventListener('click', function(event) {
-        if (!event.target.closest('.field-menu-container')) {
-          document.querySelectorAll('.field-menu-dropdown.show').forEach(menu => {
-            menu.classList.remove('show');
+        // Tabs: the last one used is kept, so a save reopens where the person was.
+        function showTab(name) {
+          $$('.acs-tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'); });
+          $$('.acs-panel').forEach(function (p) { p.hidden = p.id !== 'panel-' + name; });
+          remember('acs-tab', name);
+          var first = $('#panel-' + name + ' input:not([type=checkbox]):not([type=search]), #panel-' + name + ' select');
+          if (first && window.matchMedia('(min-width: 561px)').matches) { try { first.focus({ preventScroll: true }); } catch (e) {} }
+        }
+        $$('.acs-tab').forEach(function (t) { t.addEventListener('click', function () { showTab(t.dataset.tab); }); });
+        $('.acs-tabs').addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+          var tabs = $$('.acs-tab'), i = tabs.findIndex(function (t) { return t.getAttribute('aria-selected') === 'true'; });
+          var next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; next.focus(); showTab(next.dataset.tab);
+        });
+        var startTab = recall('acs-tab'); showTab(['class', 'subject', 'grad'].indexOf(startTab) > -1 ? startTab : 'class');
+
+        function showError(form, text) { var b = $('.acs-error', form); if (!b) return; b.textContent = text || ''; b.hidden = !text; if (text) b.scrollIntoView({ block: 'nearest' }); }
+
+        // A simple list of one-line fields (classes, graduation years).
+        function rowList(containerSel, addSel, make) {
+          var box = $(containerSel), add = $(addSel);
+          // The last row is cleared rather than taken out, so there is always a field to type in.
+          function wire(row) {
+            var x = $('.acs-x', row), input = $('input', row);
+            x.addEventListener('click', function () { if ($$('.acs-row', box).length > 1) row.remove(); else { input.value = ''; input.focus(); } });
+          }
+          function addRow(value) {
+            var row = el('div', 'acs-row'), input = make();
+            if (value != null) input.value = value;
+            var x = el('button', 'acs-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Remove');
+            row.appendChild(input); row.appendChild(x); box.appendChild(row); wire(row); return input;
+          }
+          $$('.acs-row', box).forEach(wire);
+          add.addEventListener('click', function () { addRow().focus(); });
+          box.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+            e.preventDefault();
+            var rows = $$('input', box), i = rows.indexOf(e.target);
+            if (i === rows.length - 1 && e.target.value.trim()) addRow().focus(); else if (rows[i + 1]) rows[i + 1].focus();
           });
+          return { addRow: addRow, box: box };
         }
-      });
 
-      function addClassField() {
-        const classFields = document.getElementById("class-fields");
-        const newField = document.createElement("div");
-        newField.innerHTML = `
-            <div class="input-with-menu">
-                <label>Class<br>Name</label>
-                <input type="text" name="className[]" required placeholder="Eg: Grade 1">
-                <div class="field-menu-container">
-                    <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
-                        ⋮
-                    </button>
-                    <div class="field-menu-dropdown">
-                        <button type="button" class="field-menu-item delete" onclick="removeField(this)">
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        classFields.appendChild(newField);
-      }
-
-      function addSubjectField() {
-        const subjectFields = document.getElementById("subject-fields");
-        const subjectIndex = subjectFields.children.length;
-        const newField = document.createElement("div");
-        newField.setAttribute('data-subject-index', subjectIndex);
-        newField.innerHTML = `
-            <div class="input-with-menu">
-                <label>Subject<br>Name</label>
-                <input type="text" name="subjectName[]" list="subject-library" autocomplete="off" required placeholder="Eg: Mathematics">
-                <div class="field-menu-container">
-                    <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
-                        ⋮
-                    </button>
-                    <div class="field-menu-dropdown">
-                        <button type="button" class="field-menu-item delete" onclick="removeField(this)">
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <label>Classes</label>
-            <div>
-              <label class="select-all-checkbox-label">
-                <input type="checkbox" class="select-all-checkbox"> Select all
-              </label>
-              <div class="class-checkbox-grid">
-                <% classes.forEach(function(cls) { %>
-                  <label class="class-checkbox-item">
-                    <input type="checkbox" class="class-checkbox" name="classId[${subjectIndex}][]" value="<%= cls.class_id %>">
-                    <span><%= cls.class_name %></span>
-                  </label>
-                <% }); %>
-              </div>
-            </div>
-        `;
-        subjectFields.appendChild(newField);
-
-        const newSelectAllCheckbox = newField.querySelector(
-          ".select-all-checkbox"
-        );
-        newSelectAllCheckbox.addEventListener("change", handleSelectAll);
-      }
-
-      function addGraduationYearField() {
-        const graduationYearFields = document.getElementById(
-          "graduationYear-fields"
-        );
-        const newField = document.createElement("div");
-        newField.innerHTML = `
-            <div class="input-with-menu">
-                <label>Graduation<br>Year</label>
-                <input type="number" name="graduationYear[]" min="2000" max="2100" required placeholder="Eg: 2028">
-                <div class="field-menu-container">
-                    <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
-                        ⋮
-                    </button>
-                    <div class="field-menu-dropdown">
-                        <button type="button" class="field-menu-item delete" onclick="removeField(this)">
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        graduationYearFields.appendChild(newField);
-      }
-
-
-
-      // Collapsible toggle logic
-      document.querySelectorAll('.collapsible-toggle').forEach(function(toggle) {
-        toggle.addEventListener('click', function() {
-          var content = toggle.nextElementSibling;
-          if (content) content.classList.toggle('show');
+        var classes = rowList('#class-fields', '#addClassRow', function () { var i = el('input'); i.type = 'text'; i.name = 'className[]'; i.required = true; i.maxLength = 120; i.placeholder = 'Class name'; i.autocomplete = 'off'; return i; });
+        // Paste a column of names (one per line) into the first box and each becomes a class.
+        $('#firstClass').addEventListener('paste', function (e) {
+          var text = (e.clipboardData || window.clipboardData).getData('text') || '';
+          var lines = text.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+          if (lines.length < 2) return;
+          e.preventDefault(); this.value = lines[0]; lines.slice(1, 60).forEach(function (l) { classes.addRow(l); });
         });
-      });
 
-
-      function handleSelectAll(event) {
-        const selectAllCheckbox = event.target;
-        // Find the parent div and then get all class-checkbox within it
-        const container = selectAllCheckbox.closest('div');
-        const checkboxes = container.querySelectorAll('.class-checkbox');
-        checkboxes.forEach((checkbox) => {
-          checkbox.checked = selectAllCheckbox.checked;
-        });
-      }
-
-      document.querySelectorAll('.select-all-checkbox').forEach((checkbox) => {
-        checkbox.addEventListener('change', handleSelectAll);
-      });
-
-
-      document.getElementById("subjectForm").addEventListener("submit", function (e) {
-        // Only checkboxes in visible dropdowns
-        const checkboxes = document.querySelectorAll('.class-checkbox');
-        const isChecked = Array.from(checkboxes).some((checkbox) => checkbox.checked);
-        if (!isChecked) {
-          e.preventDefault();
-          alert("Select at least one class.");
-        }
-      });
-
-    // CSS for collapsible
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .class-collapsible-container { position: relative; display: inline-block; }
-      .collapsible-toggle {
-        background: #01535b;
-        color: #fff;
-        border: none;
-        border-radius: 5px;
-        padding: 6px 16px;
-        cursor: pointer;
-        font-size: 15px;
-        margin-bottom: 5px;
-      }
-      .collapsible-content {
-        display: none;
-        position: relative;
-        background: #fff;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        min-width: 220px;
-        max-height: 220px;
-        overflow-y: auto;
-        z-index: 10;
-        padding: 8px 0;
-        margin-top: 5px;
-      }
-      .collapsible-content.show { display: block; }
-      .collapsible-item {
-        display: flex;
-        align-items: center;
-        padding: 6px 16px;
-        cursor: pointer;
-        font-size: 15px;
-      }
-      .collapsible-item input[type="checkbox"] {
-        margin-right: 8px;
-      }
-    `;
-    document.head.appendChild(style);
-
-      function removeField(button) {
-        // Find the parent container div that holds the entire field
-        const fieldContainer = button.closest('#class-fields > div, #subject-fields > div, #graduationYear-fields > div');
-        if (fieldContainer) {
-          fieldContainer.remove();
-        }
-      }
-
-      const assignableSubjects = <%- JSON.stringify(assignableSubjects || []) %>;
-      const assignableMap = assignableSubjects.reduce((acc, item) => {
-        acc[item.subject_key] = item;
-        return acc;
-      }, {});
-
-      const existingSubjectSelect = document.getElementById('existingSubjectSelect');
-      const existingSubjectClassContainer = document.getElementById('existingSubjectClassContainer');
-      const assignExistingSubjectForm = document.getElementById('assignExistingSubjectForm');
-
-      function renderAssignableClasses(subjectKey) {
-        if (!existingSubjectClassContainer) return;
-
-        const selected = assignableMap[subjectKey];
-        if (!selected) {
-          existingSubjectClassContainer.innerHTML = '<span style="color:#64748b; font-size:0.9rem;">Choose a subject to load classes.</span>';
-          return;
-        }
-
-        const availableClasses = selected.available_classes || [];
-        if (availableClasses.length === 0) {
-          existingSubjectClassContainer.innerHTML = '<span style="color:#64748b; font-size:0.9rem;">This subject is already assigned to all classes.</span>';
-          return;
-        }
-
-        const checkboxRows = availableClasses
-          .map((cls) => `
-            <label class="class-checkbox-item">
-              <input type="checkbox" class="existing-class-checkbox" name="classId" value="${cls.class_id}">
-              <span>${cls.class_name}</span>
-            </label>
-          `)
-          .join('');
-
-        existingSubjectClassContainer.innerHTML = `
-          <label class="select-all-checkbox-label">
-            <input type="checkbox" id="existingSelectAll"> Select all
-          </label>
-          <div class="class-checkbox-grid">${checkboxRows}</div>
-        `;
-
-        const selectAll = document.getElementById('existingSelectAll');
-        const classCheckboxes = existingSubjectClassContainer.querySelectorAll('.existing-class-checkbox');
-        if (selectAll) {
-          selectAll.addEventListener('change', function () {
-            classCheckboxes.forEach((checkbox) => {
-              checkbox.checked = selectAll.checked;
+        var years = rowList('#graduationYear-fields', '#addYearRow', function () { var i = el('input'); i.type = 'number'; i.name = 'graduationYear[]'; i.min = 2000; i.max = 2100; i.required = true; i.placeholder = 'Year'; i.inputMode = 'numeric'; return i; });
+        (function suggest() {
+          var box = $('#yearSuggest'), y = new Date().getFullYear();
+          for (var k = 0; k < 6; k++) (function (year) {
+            var b = el('button', '', String(year)); b.type = 'button';
+            b.addEventListener('click', function () {
+              var inputs = $$('#graduationYear-fields input');
+              if (inputs.some(function (i) { return i.value === String(year); })) return;
+              var empty = inputs.find(function (i) { return !i.value; });
+              (empty || years.addRow()).value = year;
             });
+            box.appendChild(b);
+          })(y + k);
+        })();
+
+        // A group of class chips with search, Select all and a count.
+        function picker(list, nameFor) {
+          var wrap = el('div', 'acs-pick');
+          var bar = el('div', 'acs-pick__bar'), search = el('input'); search.type = 'search'; search.placeholder = 'Search classes'; search.setAttribute('aria-label', 'Search classes');
+          var all = el('button', 'acs-link', 'Select all'); all.type = 'button'; var clear = el('button', 'acs-link', 'Clear'); clear.type = 'button';
+          bar.appendChild(search); bar.appendChild(all); bar.appendChild(clear);
+          var chips = el('div', 'acs-chips'), count = el('div', 'acs-count');
+          var boxes = list.map(function (c) {
+            var lab = el('label', 'acs-chip'), cb = el('input'); cb.type = 'checkbox'; cb.value = c.id; cb.name = nameFor();
+            lab.appendChild(cb); lab.appendChild(el('span', '', c.name)); lab.dataset.name = String(c.name).toLowerCase(); chips.appendChild(lab); return { lab: lab, cb: cb };
           });
+          function refresh() { var n = boxes.filter(function (b) { return b.cb.checked; }).length; count.textContent = n ? n + ' of ' + boxes.length + ' classes selected' : 'No classes selected'; }
+          chips.addEventListener('change', refresh);
+          search.addEventListener('input', function () { var q = search.value.trim().toLowerCase(); boxes.forEach(function (b) { b.lab.hidden = Boolean(q) && b.lab.dataset.name.indexOf(q) === -1; }); });
+          search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+          // Select all applies to what the search shows.
+          all.addEventListener('click', function () { boxes.forEach(function (b) { if (!b.lab.hidden) b.cb.checked = true; }); refresh(); });
+          clear.addEventListener('click', function () { boxes.forEach(function (b) { b.cb.checked = false; }); refresh(); });
+          if (list.length < 8) search.hidden = true;
+          wrap.appendChild(bar); wrap.appendChild(chips); wrap.appendChild(count); refresh();
+          return wrap;
         }
-      }
 
-      if (existingSubjectSelect) {
-        existingSubjectSelect.addEventListener('change', function () {
-          renderAssignableClasses(this.value);
-        });
-      }
-
-      if (assignExistingSubjectForm) {
-        assignExistingSubjectForm.addEventListener('submit', function (event) {
-          const checked = assignExistingSubjectForm.querySelectorAll('.existing-class-checkbox:checked');
-          if (checked.length === 0) {
-            event.preventDefault();
-            alert('Select at least one class.');
-          }
-        });
-      }
-
-      // Mobile-only collapsible sections (same pattern as account settings)
-      document.addEventListener('DOMContentLoaded', function () {
-        const mediaQuery = window.matchMedia('(max-width: 768px)');
-        const fieldsets = document.querySelectorAll('.add-class-page .container fieldset');
-
-        fieldsets.forEach((fieldset) => {
-          if (fieldset.dataset.collapseReady === '1') return;
-
-          const legend = fieldset.querySelector(':scope > legend');
-          if (!legend) return;
-
-          const content = document.createElement('div');
-          content.className = 'fieldset-content';
-
-          const movableNodes = Array.from(fieldset.children).filter((node) => node !== legend);
-          movableNodes.forEach((node) => content.appendChild(node));
-          fieldset.appendChild(content);
-
-          const toggle = document.createElement('button');
-          toggle.type = 'button';
-          toggle.className = 'section-collapse-toggle';
-          legend.insertAdjacentElement('afterend', toggle);
-
-          const setCollapsed = (collapsed) => {
-            fieldset.classList.toggle('is-collapsed', collapsed);
-            toggle.textContent = collapsed ? 'Expand' : 'Collapse';
-            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-          };
-
-          const applyByViewport = () => {
-            if (mediaQuery.matches) {
-              setCollapsed(true);
-            } else {
-              setCollapsed(false);
-            }
-          };
-
-          applyByViewport();
-          toggle.addEventListener('click', function () {
-            if (!mediaQuery.matches) return;
-            const collapsed = fieldset.classList.contains('is-collapsed');
-            setCollapsed(!collapsed);
-          });
-
-          if (typeof mediaQuery.addEventListener === 'function') {
-            mediaQuery.addEventListener('change', applyByViewport);
-          } else if (typeof mediaQuery.addListener === 'function') {
-            mediaQuery.addListener(applyByViewport);
-          }
-
-          fieldset.classList.add('fieldset-collapsible');
-          fieldset.dataset.collapseReady = '1';
-        });
-      });
-
-      // Spin the submit button the moment a form actually goes through
-      // (skip it if an earlier validation handler already cancelled the
-      // submit — e.g. "select at least one class").
-      document.addEventListener('submit', function (event) {
-        if (event.defaultPrevented) return;
-        const form = event.target;
-        if (!(form instanceof HTMLFormElement)) return;
-        const btn = form.querySelector('button[type="submit"]');
-        if (btn) {
-          btn.disabled = true;
-          btn.classList.add('is-saving');
+        // New subjects: each with its own classes.
+        var subjectBox = $('#subject-fields');
+        function addSubject() {
+          var card = el('div', 'acs-card'), head = el('div', 'acs-card__head'), input = el('input');
+          input.type = 'text'; input.name = 'subjectName[]'; input.required = true; input.maxLength = 120; input.placeholder = 'Subject name, for example Mathematics'; input.autocomplete = 'off'; input.setAttribute('list', 'subject-library'); input.setAttribute('aria-label', 'Subject name');
+          var x = el('button', 'acs-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Remove subject');
+          x.addEventListener('click', function () { if ($$('.acs-card', subjectBox).length > 1) card.remove(); else { input.value = ''; $$('input[type=checkbox]', card).forEach(function (c) { c.checked = false; }); } });
+          head.appendChild(input); head.appendChild(x);
+          card.appendChild(head); card.appendChild(el('label', 'acs-label', 'Classes that have this subject'));
+          card.appendChild(picker(CLASSES, function () { return 'classId[0][]'; }));
+          subjectBox.appendChild(card); return input;
         }
-      }, false);
+        if (subjectBox) { addSubject(); $('#addSubjectRow').addEventListener('click', function () { addSubject().focus(); }); }
+        // Subjects are numbered in the order shown, whatever was removed along the way.
+        function renumber() { $$('.acs-card', subjectBox).forEach(function (card, i) { $$('input[type=checkbox]', card).forEach(function (c) { c.name = 'classId[' + i + '][]'; }); }); }
 
-      // Let the parent drawer know a save actually went through (as
-      // opposed to just being closed/cancelled) so it only refreshes the
-      // list behind it when something really changed.
-      if (window.parent && window.parent !== window && document.querySelector('.flash-message.success')) {
-        try {
-          window.parent.postMessage({ managiraDrawerSaved: true }, window.location.origin);
-        } catch (err) { /* ignore */ }
-      }
+        var subjectForm = $('#subjectForm');
+        if (subjectForm) subjectForm.addEventListener('submit', function (e) {
+          renumber();
+          var bad = $$('.acs-card', subjectBox).find(function (c) { return !$$('input[type=checkbox]:checked', c).length; });
+          if (bad) { e.preventDefault(); showError(subjectForm, 'Choose at least one class for each subject.'); bad.scrollIntoView({ block: 'center' }); } else showError(subjectForm, '');
+        });
+
+        // Existing subject: only the classes it isn't in yet.
+        var modes = { new: $('#mode-new'), existing: $('#mode-existing') };
+        $$('.acs-switch button').forEach(function (b) { b.addEventListener('click', function () {
+          $$('.acs-switch button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+          Object.keys(modes).forEach(function (k) { modes[k].hidden = k !== b.dataset.mode; });
+        }); });
+        var sel = $('#existingSubjectSelect'), exBox = $('#existingSubjectClassContainer'), exForm = $('#assignExistingSubjectForm');
+        if (sel) sel.addEventListener('change', function () {
+          exBox.textContent = '';
+          var item = ASSIGNABLE.find(function (a) { return String(a.subject_key) === sel.value; });
+          if (!item) { exBox.appendChild(el('div', 'acs-none', 'Choose a subject to see the classes it can still be added to.')); return; }
+          var avail = (item.available_classes || []).map(function (c) { return { id: c.class_id, name: c.class_name }; });
+          if (!avail.length) { exBox.appendChild(el('div', 'acs-none', 'This subject is already in every class.')); return; }
+          exBox.appendChild(el('label', 'acs-label', 'Add it to'));
+          exBox.appendChild(picker(avail, function () { return 'classId'; }));
+        });
+        if (exForm) exForm.addEventListener('submit', function (e) {
+          if (!sel.value) { e.preventDefault(); showError(exForm, 'Choose a subject.'); return; }
+          if (!$$('input[type=checkbox]:checked', exBox).length) { e.preventDefault(); showError(exForm, 'Choose at least one class.'); } else showError(exForm, '');
+        });
+
+        // Say what's missing, then spin the button once a form really goes through.
+        $$('form').forEach(function (f) { f.addEventListener('submit', function (e) {
+          if (e.defaultPrevented) return;
+          var empty = $$('input[required]', f).find(function (i) { return !i.value.trim(); });
+          if (empty) { e.preventDefault(); showError(f, 'Fill in or remove the empty field.'); empty.focus(); }
+        }); });
+        document.addEventListener('submit', function (event) {
+          if (event.defaultPrevented) return;
+          var btn = event.target.querySelector && event.target.querySelector('button[type="submit"]');
+          if (btn) { btn.disabled = true; btn.classList.add('is-saving'); }
+        }, false);
+
+        // Tell the drawer a save went through, so the list behind it refreshes.
+        if (window.parent && window.parent !== window && document.querySelector('.flash-message.success')) {
+          try { window.parent.postMessage({ managiraDrawerSaved: true }, window.location.origin); } catch (err) {}
+        }
+      })();
     </script>
-    </div>
   </body>
 </html>

@@ -1234,6 +1234,100 @@
     })();
   </script>
 <% } %>
+<style>
+  /* Simple first: the few things every test needs, then "More options" and a class list you can search. */
+  .ct-more { width: 100%; align-self: stretch; box-sizing: border-box; margin: 14px 0 0; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+  .ct-more > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; font-weight: 600; font-size: .92rem; color: #334155; }
+  .ct-more > summary::-webkit-details-marker { display: none; }
+  .ct-more > summary small { font-weight: 500; color: #64748b; font-size: .8rem; }
+  .ct-more > summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid #64748b; border-bottom: 2px solid #64748b; transform: rotate(45deg); transition: transform .15s; margin-left: auto; }
+  .ct-more[open] > summary::after { transform: rotate(-135deg); }
+  .ct-more > .form-grid { padding: 4px 14px 14px; }
+  .ct-hint { display: block; margin: 3px 0 0; color: #64748b; font-size: .78rem; font-weight: 400; line-height: 1.35; }
+  .ct-pick-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+  .ct-pick-tools input[type="search"] { flex: 1 1 200px; min-width: 0; height: 38px; margin: 0; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; font-size: .9rem; background: #fff; box-shadow: none; }
+  .ct-pick-tools input[type="search"]:focus { outline: 0; border-color: var(--org-primary-color, #01535b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-primary-color, #01535b) 18%, transparent); }
+  .ct-pick-count { color: #64748b; font-size: .82rem; white-space: nowrap; }
+  .ct-hide { display: none !important; }
+  .collapsible-content.ct-open { display: block !important; max-height: 320px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #fff; }
+  .ct-adv-hidden { display: none !important; }
+</style>
+<script>
+  // Tidies each test form as it appears (the first one and every "Add Form"), without changing a field name.
+  (function () {
+    var WORDS = [
+      ['Scale Base (scaled score out of):', 'Show the score out of:', 'Reports show the score out of this number. Usually 100.'],
+      ['Edit Window Start:', 'Scores can be entered from:', 'Leave empty for no start date.'],
+      ['Edit Window End:', 'Scores can be entered until:', 'Leave empty for no end date.'],
+      ['Lock this assessment', 'Lock scores (no more changes)', ''],
+      ['Activate now', 'Open for scores now', ''],
+      ['Email affected class teachers', 'Email the teachers of these classes', ''],
+      ['Test Weight (%):', 'Weight in the subject total (%):', 'How much this test counts toward the subject. The tests of a subject usually add up to 100.'],
+      ['Score Out Of:', 'Marked out of:', 'The highest score a student can get.']
+    ];
+    function groupOf(card, selector) { var el = card.querySelector(selector); return el ? el.closest('.form-group') : null; }
+    function tidy(card) {
+      if (!card || card.dataset.ctTidy) return;
+      card.dataset.ctTidy = '1';
+      // plain words
+      Array.prototype.forEach.call(card.querySelectorAll('label'), function (l) {
+        WORDS.forEach(function (w) {
+          if (l.textContent.trim() === w[0]) {
+            l.textContent = w[1];
+            if (w[2]) { var h = document.createElement('small'); h.className = 'ct-hint'; h.textContent = w[2]; l.parentNode.insertBefore(h, l.nextSibling); }
+          }
+        });
+      });
+      var grid = card.querySelector('.form-grid');
+      if (!grid) return;
+      // the less used fields go under "More options"
+      var adv = ['input[name="scaleBase[]"]', 'input[name^="editWindowStart"]', 'input[name^="editWindowEnd"]', 'input[name^="isLocked"]', 'input[name^="isActive"]', 'input[name^="notifyTeachers"]', 'input[name^="showQuestionSetOnDashboard"]']
+        .map(function (sel) { return groupOf(card, sel); }).filter(Boolean);
+      if (adv.length) {
+        var det = document.createElement('details'); det.className = 'ct-more';
+        det.innerHTML = '<summary>More options <small>score scale, dates, lock, email</small></summary>';
+        var inner = document.createElement('div'); inner.className = 'form-grid';
+        adv.forEach(function (g) { inner.appendChild(g); });
+        det.appendChild(inner);
+        grid.parentNode.insertBefore(det, grid.nextSibling);
+      }
+      // class and subject list: open, searchable, with a count
+      var btn = card.querySelector('.collapsible-btn'), list = card.querySelector('.collapsible-content');
+      if (btn && list) {
+        btn.classList.add('ct-adv-hidden');
+        list.classList.add('ct-open'); list.style.display = 'block';
+        var tools = document.createElement('div'); tools.className = 'ct-pick-tools';
+        var search = document.createElement('input'); search.type = 'search'; search.placeholder = 'Search classes'; search.setAttribute('aria-label', 'Search classes');
+        var count = document.createElement('span'); count.className = 'ct-pick-count'; count.textContent = 'Nothing chosen yet';
+        tools.appendChild(search); tools.appendChild(count);
+        btn.parentNode.insertBefore(tools, btn);
+        var rows = function () { return Array.prototype.slice.call(list.querySelectorAll('.class-container > .class-checkbox')); };
+        function refresh() {
+          var classes = list.querySelectorAll('.class-container > .class-checkbox input[type=checkbox]:checked').length;
+          var subjects = list.querySelectorAll('.subject-container input[type=checkbox]:checked').length;
+          count.textContent = classes ? classes + (classes === 1 ? ' class' : ' classes') + ', ' + subjects + (subjects === 1 ? ' subject' : ' subjects') + ' chosen' : 'Nothing chosen yet';
+        }
+        list.addEventListener('change', refresh);
+        search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        search.addEventListener('input', function () {
+          var q = search.value.trim().toLowerCase();
+          rows().forEach(function (row) {
+            var name = (row.textContent || '').trim().toLowerCase();
+            var show = !q || name.indexOf(q) !== -1;
+            row.classList.toggle('ct-hide', !show);
+            var sub = row.nextElementSibling;
+            if (sub && sub.classList.contains('subject-container')) sub.classList.toggle('ct-hide', !show);
+          });
+        });
+        refresh();
+      }
+    }
+    function run() { Array.prototype.forEach.call(document.querySelectorAll('#test-forms .test-form'), tidy); }
+    var box = document.getElementById('test-forms');
+    if (box && window.MutationObserver) new MutationObserver(run).observe(box, { childList: true });
+    run();
+  })();
+</script>
 </body>
 </html>
 

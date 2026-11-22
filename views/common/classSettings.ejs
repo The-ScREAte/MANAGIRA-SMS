@@ -4,31 +4,37 @@
     (read only: it's changed in Settings). controllers/classSettingsController.js managementPage;
     public/js/classSettings.js saves. %>
 <link rel="stylesheet" href="<%= assetUrl('/css/classSettings.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+<script src="<%= assetUrl('/js/listPager.js') %>"></script>
 <%
   const _totalText = rows.length === 1 ? '1 class' : rows.length + ' classes';
   const _what = (item, audience) => 'shares ' + item.label.toLowerCase() + ' with ' + audience.label.toLowerCase();
   const _lunchWhat = 'takes lunch';
+  // "All classes": on / locked only when every class is. Each class's own rows load when its row opens, so the
+  // switches' state travels as compact data (the page's "All classes" boxes read it, not the rows).
+  const _keys = rows.length ? Object.keys(rows[0].on) : [];
+  const _allRow = { id: null, name: 'All classes', on: Object.fromEntries(_keys.map((k) => [k, rows.every((x) => x.on[k])])), locked: Object.fromEntries(_keys.map((k) => [k, rows.every((x) => x.locked[k])])) };
+  // "All classes" shows the notices only where every class agrees; changing it sets every class.
+  const _agree = (kind, field) => (rows.length && rows.every((x) => x.notices && x.notices[kind][field] === rows[0].notices[kind][field]) ? rows[0].notices[kind][field] : (field === 'on' ? true : 3));
+  _allRow.notices = { absent: { on: _agree('absent', 'on'), count: _agree('absent', 'count') }, late: { on: _agree('late', 'on'), count: _agree('late', 'count') } };
+  const _state = Object.fromEntries(rows.map((x) => [x.id, { on: x.on, locked: x.locked }]));
 %>
-<div class="cset-page" data-class-settings data-save-url="<%= saveUrl %>" data-from="management">
+<div class="cset-page" data-class-settings data-save-url="<%= saveUrl %>" data-from="management" data-rows-url="/common/class-settings/rows">
   <div class="cset-page__head">
     <div>
       <h1 class="cset-page__title">Class settings</h1>
-      <p class="cset-sub">Choose what each class uses and who sees what about its students. Changes save as you make them.</p>
     </div>
     <p class="cset-status" data-cs-status role="status" aria-live="polite"></p>
   </div>
 
   <div class="cset-card">
     <div class="cset-card__head">
-      <div>
-        <h2 class="cset-card__title">Classes</h2>
-        <p class="cset-card__sub">Under each item, tick who it's shared with. Teachers can also change these for the classes they lead, in their classroom's Class Tools.</p>
-      </div>
+      <h2 class="cset-card__title">Classes</h2>
     </div>
     <% if (!ready) { %>
       <p class="cset-note" style="margin: 0 20px 18px;" role="status">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        <span>Class settings are still being set up for your school. Every class keeps everything on and shared until then; the choices show here once setup has finished.</span>
+        <span>Class settings are still being set up for your school. Every class keeps everything on and shared until then.</span>
       </p>
     <% } else if (!rows.length) { %>
       <p class="cset-none">Your school has no classes yet. Add them in Management › Classes &amp; subjects.</p>
@@ -39,84 +45,45 @@
         <span class="cset-count" data-cs-count data-total="<%= rows.length %>" data-total-text="<%= _totalText %>"><%= _totalText %></span>
       </div>
       <% } %>
-      <div class="cset-table-wrap">
-        <table class="cset-table">
-          <thead>
-            <tr>
-              <th scope="col" rowspan="2" class="cset-col-class">Class</th>
-              <% classSwitches.forEach((s) => { %>
-              <th scope="col" rowspan="2" class="cset-col-switch" title="<%= s.help %>"><%= s.label %></th>
-              <% }) %>
-              <% shareItems.forEach((item) => { %>
-              <th scope="colgroup" colspan="<%= audiences.length %>" class="cset-item-th cset-pair-start" title="<%= item.help %>"><span><%= item.label %></span></th>
-              <% }) %>
-            </tr>
-            <tr>
-              <% shareItems.forEach((item) => { audiences.forEach((a, i) => { %>
-              <th scope="col" class="cset-aud-th<%= i === 0 ? ' cset-pair-start' : '' %>"><%= a.label %></th>
-              <% }) }) %>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="cset-allrow">
-              <td class="cset-class cset-col-class"><strong>All classes</strong><small>Sets every class at once</small></td>
-              <% classSwitches.forEach((s) => { %>
-              <td class="cset-col-switch">
-                <span class="cset-switch">
-                  <input type="checkbox" data-cs-key="<%= s.key %>" data-cs-all data-cs-what="<%= _lunchWhat %>" aria-label="<%= s.label %>, all classes" <%= rows.every((r) => r.on[s.key]) ? 'checked' : '' %> />
-                  <span class="cset-switch__track" aria-hidden="true"></span>
-                </span>
-              </td>
-              <% }) %>
-              <% shareItems.forEach((item) => { audiences.forEach((a, i) => { const _key = a.key + '.' + item.key; %>
-              <td class="<%= i === 0 ? 'cset-pair-start' : '' %>">
-                <input type="checkbox" class="cset-box" data-cs-key="<%= _key %>" data-cs-all data-cs-what="<%= _what(item, a) %>" aria-label="Share <%= item.label.toLowerCase() %> with <%= a.label.toLowerCase() %>, all classes" <%= rows.every((r) => r.on[_key]) ? 'checked' : '' %> />
-              </td>
-              <% }) }) %>
-            </tr>
-            <% rows.forEach((r) => { %>
-            <tr data-cs-name="<%= r.name %>" data-cs-find="<%= [r.name, r.lead, r.cohort].join(' ').toLowerCase() %>">
-              <td class="cset-class cset-col-class">
-                <strong><%= r.name %></strong>
-                <small><%= r.lead ? r.lead : 'No main teacher' %><%= r.cohort ? ' · ' + r.cohort : '' %></small>
-              </td>
-              <% classSwitches.forEach((s) => { %>
-              <td class="cset-col-switch">
-                <span class="cset-switch">
-                  <input type="checkbox" role="switch" data-cs-key="<%= s.key %>" data-cs-class="<%= r.id %>" data-cs-what="<%= _lunchWhat %>" aria-label="<%= s.label %>, <%= r.name %>" <%= r.on[s.key] ? 'checked' : '' %> />
-                  <span class="cset-switch__track" aria-hidden="true"></span>
-                </span>
-              </td>
-              <% }) %>
-              <% shareItems.forEach((item) => { audiences.forEach((a, i) => { const _key = a.key + '.' + item.key; %>
-              <td class="<%= i === 0 ? 'cset-pair-start' : '' %>">
-                <input type="checkbox" class="cset-box" data-cs-key="<%= _key %>" data-cs-class="<%= r.id %>" data-cs-what="<%= _what(item, a) %>" aria-label="Share <%= item.label.toLowerCase() %> with <%= a.label.toLowerCase() %>, <%= r.name %>" <%= r.on[_key] ? 'checked' : '' %> />
-              </td>
-              <% }) }) %>
-            </tr>
+      <div class="cset-classes">
+        <% [{ all: true }].concat(rows).forEach((r, _i) => { const isAll = Boolean(r.all); const _on = (key) => isAll ? rows.every((x) => x.on[key]) : r.on[key]; const _locked = (key) => isAll ? rows.every((x) => x.locked[key]) : r.locked[key]; const _lockArgs = (keys) => ({ locked: keys.every(_locked), keys: keys, canLock: Boolean(locals.canLock), classId: isAll ? null : r.id, isAll: isAll }); const _label = isAll ? 'All classes' : r.name; %>
+        <div class="cset-crow" <% if (!isAll) { %>data-cs-name="<%= r.name %>" data-cs-find="<%= [r.name, r.lead, r.cohort].join(' ').toLowerCase() %>" data-cs-i="<%= _i - 1 %>"<%= _i - 1 >= 20 ? ' hidden' : '' %><% } %>>
+          <div class="cset-crow__head">
+            <div class="cset-crow__name">
+              <strong><%= _label %></strong>
+              <small><%= isAll ? 'Sets every class at once' : ((r.lead ? r.lead : 'No main teacher') + (r.cohort ? ' · ' + r.cohort : '')) %></small>
+            </div>
+            <% classSwitches.forEach((s) => { %>
+            <div class="cset-hcell">
+              <label class="cset-hcell__label" for="cs-<%= isAll ? 'all' : r.id %>-<%= s.key %>"><%= s.label %></label>
+              <span class="cset-switch">
+                <input type="checkbox" role="switch" id="cs-<%= isAll ? 'all' : r.id %>-<%= s.key %>" data-cs-key="<%= s.key %>" <%- isAll ? 'data-cs-all' : 'data-cs-class="' + Number(r.id) + '"' %> data-cs-what="<%= s.key === 'portal' ? 'lets students use the student portal' : _lunchWhat %>" aria-label="<%= s.label %>, <%= _label %>" <%= _on(s.key) ? 'checked' : '' %> />
+                <span class="cset-switch__track" aria-hidden="true"></span>
+              </span>
+              <%- include('../partials/classSettingsLock', _lockArgs([s.key])) %>
+            </div>
             <% }) %>
-          </tbody>
-        </table>
+            <button type="button" class="cset-crow__toggle" data-cs-toggle aria-expanded="false" aria-label="Sharing for <%= _label %>">
+              <svg class="cset-crow__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div class="cset-crow__body" hidden<%- isAll ? '' : ' data-cs-lazy="' + Number(r.id) + '"' %>>
+            <% if (isAll) { %>
+              <%- include('../partials/classSettingsRows', { r: _allRow, isAll: true, canLock: Boolean(locals.canLock), shareItems: shareItems, audiences: audiences, noticesOn: Boolean(locals.noticesOn) }) %>
+            <% } else { %>
+              <p class="cset-none" data-cs-lazy-note>Loading…</p>
+            <% } %>
+          </div>
+        </div>
+        <% }) %>
         <p class="cset-none" data-cs-none hidden>No class matches.</p>
+        <% if (rows.length > 10) { %><div data-cs-pager></div><% } %>
       </div>
-      <details class="cset-legend">
-        <summary>What each one covers</summary>
-        <dl>
-          <% classSwitches.forEach((s) => { %>
-          <dt><%= s.label %></dt>
-          <dd><%= s.help %></dd>
-          <% }) %>
-          <% shareItems.forEach((item) => { %>
-          <dt><%= item.label %></dt>
-          <dd><%= item.help %></dd>
-          <% }) %>
-          <dt><%= audiences.map((a) => a.label).join(' and ') %></dt>
-          <dd>Ticked: the class's parents see it in the parent portal, and its students in the student portal.</dd>
-        </dl>
-      </details>
     <% } %>
   </div>
 
   <%- include('../partials/classSettingsCalendar', { calendar, fromHub: true }) %>
 </div>
+<script type="application/json" data-cs-state><%- JSON.stringify(_state).replace(/</g, '\\u003c') %></script>
 <script src="<%= assetUrl('/js/classSettings.js') %>" defer></script>
+<script src="<%= assetUrl('/js/classNotices.js') %>" defer></script>

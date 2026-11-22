@@ -295,6 +295,8 @@ module.exports = (db) => {
     }
   });
   router.get("/class-settings", isAuthenticated, blockGuardians, (req, res) => classSettingsPages.managementPage(req, res, db));
+  router.get("/class-settings/rows", isAuthenticated, blockGuardians, (req, res) => classSettingsPages.managementRows(req, res, db));
+  router.post("/class-settings/notices", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.saveNotices(req, res, db));
   router.post("/class-settings/save", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.save(req, res, db));
   router.get("/failedEmails", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.getFailedEmails(req, res, db)
@@ -349,6 +351,8 @@ module.exports = (db) => {
   // Parent messages: one link for notifications, Mail Room's inbox, and status.
   router.get("/parent-messages/:id(\\d+)", isAuthenticated, (req, res) => commonController.parentMessageOpen(req, res, db));
   router.post("/parent-messages/:id(\\d+)/status", isAuthenticated, express.json(), (req, res) => commonController.parentMessageStatus(req, res, db));
+  router.get("/student-attendance", isAuthenticated, (req, res) => commonController.studentAttendance(req, res, db));
+  router.get("/student-messages", isAuthenticated, (req, res) => commonController.studentMessages(req, res, db));
   router.get("/mailroom/inbox", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) => commonController.mailroomInbox(req, res, db));
 
   // Admissions > Admission Settings (online admission + student form fields).
@@ -927,6 +931,13 @@ module.exports = (db) => {
     commonController.termDetails(req, res, db)
   );
   router.get(
+    "/closeGraduationYearGroup/rows",
+    checkFeatureAccess,
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS),
+    (req, res) => commonController.closeGraduationYearGroupRows(req, res, db)
+  );
+  router.get(
     "/closeGraduationYearGroup",
     checkFeatureAccess,
     isAuthenticated,
@@ -1264,6 +1275,37 @@ module.exports = (db) => {
     }
   };
   router.get("/calendar", isAuthenticated, staffOnly, ws("calendarPage"));
+  // Page finder (Ctrl+K): the pages this person can open, decided by the same rules as the menus
+  // (utils/pageFinder.js). Staff only; released by page_finder.
+  router.get("/page-finder.json", isAuthenticated, staffOnly, async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!res.locals.featureOn("page_finder")) return res.json({ pages: [] });
+    try {
+      const access = res.locals.workspaceAccess();
+      const canSetup = require("../utils/setupChecklist").canSeeSetupSteps(req.session);
+      const role = String(req.session?.userRole || req.session?.accountType || "").trim().toLowerCase();
+      // A teacher's or supervisor's classes (null for everyone else) become pages of their own.
+      let classes = [];
+      try {
+        const scope = await require("../utils/classScope").assignedClasses(db, req);
+        if (scope && scope.size) {
+          const { rows } = await db.query("SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND class_id = ANY($2::int[]) ORDER BY class_name", [req.session.organizationId, [...scope]]);
+          classes = rows.map((row) => ({ id: row.class_id, name: row.class_name }));
+        }
+      } catch (error) { classes = []; }
+      return res.json({
+        school: String(req.session.organizationId || ""),
+        search: role !== "driver",
+        pages: require("../utils/pageFinder").pagesFor(access, res.locals.featureOn, {
+          canSetup, twoStep: canSetup && res.locals.featureOn("sign_in_authenticator"),
+          driver: role === "driver", owner: String(req.session?.accountType || "").toLowerCase() === "organization", perms: res.locals.userPermissions || [], classes,
+        }),
+      });
+    } catch (error) {
+      console.error("[page-finder]", error.message);
+      return res.json({ pages: [] });
+    }
+  });
   router.get("/calendar/feed", isAuthenticated, staffOnly, ws("calendarFeed"));
   router.get("/calendar/feed/outside", isAuthenticated, staffOnly, ws("calendarOutsideFeed"));
   router.post("/calendar/sync/reset", isAuthenticated, staffOnly, orgMemberOnly, ws("resetFeedLink"));

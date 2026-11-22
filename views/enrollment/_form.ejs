@@ -41,7 +41,7 @@
         </select>
         <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
       </div>
-      <p class="ef-note" id="efTermNote" hidden>This term already has an enrollment. <a href="#" id="efOpenExisting">Edit it instead</a> to see who is in it.</p>
+      <p class="ef-note" id="efTermNote" hidden><span>This term already has classes and students. To change who is in it, open its enrollment.</span> <a href="#" id="efOpenExisting" class="ef-note__btn">Open this term's enrollment</a></p>
     <% } %>
   </section>
 
@@ -188,6 +188,9 @@
   
   .ef-class__body { padding: 4px 14px 14px; border-top: 1px solid var(--ef-line); }
   .ef-filter, .ef-add input { width: 100%; margin: 10px 0 0; padding: 9px 12px; border: 1px solid var(--ef-line); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: .9rem; }
+  .ef-note { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .ef-note[hidden] { display: none; }
+  .ef-note__btn { flex: none; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border-radius: 8px; background: var(--org-primary-color, #01535b); color: #fff !important; font-size: .82rem; font-weight: 600; text-decoration: none !important; }
   .ef-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-top: 10px; }
   .ef-st { display: flex; align-items: center; gap: 9px; margin: 0; padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; font-size: .9rem; transition: background .12s ease, border-color .12s ease; }
   

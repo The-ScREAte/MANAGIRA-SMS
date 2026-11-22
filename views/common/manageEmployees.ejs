@@ -519,6 +519,16 @@
       signIn: _signIn(e).long,
       lastSso: e.last_sso && !e.last_login_sso ? _fmtWhen(e.last_sso) : '',
       classes: (e.classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).map((x) => x.subject_name) })),
+      // What the list's row shows (the table is drawn in the browser, 50 at a time).
+      account: e.account_type || '',
+      roleName: e.role_name || '',
+      when: _fmtWhen(e.last_login),
+      withSso: Boolean(e.last_login && e.last_login_sso),
+      lastDay: _isoDay(e.last_login),
+      perms: (e.permissions || []).filter((k) => _mainPermKeys.has(k)).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k),
+      signKey: e.sign_in || 'password',
+      usedSso: Boolean(e.last_sso),
+      way: _sso ? { short: _signIn(e).short, long: _signIn(e).long, pill: _signIn(e).pill } : null,
     }));
   %>
   <header class="ws-head">
@@ -683,80 +693,10 @@
           <th>Subjects</th>
         </tr>
       </thead>
-      <tbody>
-        <% employees.forEach((employee, idx) => { %>
-        <tr class="ux-row<%= employee.is_removed ? ' is-removed' : '' %>" tabindex="0" data-user-id="<%= employee.user_id %>"
-            data-name="<%= _name(employee).toLowerCase() %>" data-email="<%= String(employee.email || '').toLowerCase() %>"
-            data-status="<%= employee.status %>" data-role="<%= employee.role_name || employee.account_type %>"
-            data-perms="<%= (employee.permissions || []).filter((k) => _mainPermKeys.has(k)).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k).join('|') %>"
-            data-last-login="<%= _isoDay(employee.last_login) %>" data-sign-in="<%= employee.sign_in || 'password' %>" data-used-sso="<%= employee.last_sso ? '1' : '' %>">
-          <td data-label="Status">
-            <% /* A leftover invite token doesn't mean the employee is still
-                  pending — if they already have a password set (e.g. via
-                  Account Settings' own "change password" flow, which
-                  doesn't clear the original invite token), they're active
-                  regardless of stray token bookkeeping. */ %>
-            <% if (employee.status === 'Invite sent') { %>
-              <span class="ws-pill ws-pill--amber">Invite sent</span>
-            <% } else if (employee.status === 'On hold') { %>
-              <span class="ws-pill ws-pill--amber">On hold</span>
-            <% } else if (employee.status === 'Removed') { %>
-              <span class="ws-pill ws-pill--red">Removed</span>
-            <% } else { %>
-              <span class="ws-pill ws-pill--green">Active</span>
-            <% } %>
-          </td>
-          <td data-label="Name" class="ws-card-title"><strong><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></strong></td>
-          <td data-label="Email" class="ws-card-wide"><%= employee.email %></td>
-          <td data-label="Role"><%= employee.role_name || employee.account_type %><% if (employee.role_name) { %> <small class="ux-via"><%= employee.account_type %></small><% } %><% if (employee.is_owner) { %> <span class="ux-owner">Main</span><% } %></td>
-          <td data-label="Last sign-in" class="ux-when"><%= _fmtWhen(employee.last_login) %><% if (employee.last_login && employee.last_login_sso) { %><small class="ux-via">with <%= _ssoName || 'single sign-on' %></small><% } %></td>
-          <% if (_sso) { const _way = _signIn(employee); %><td data-label="Sign-in"><span class="ws-pill <%= _way.pill %>" title="<%= _way.long %>"><%= _way.short %></span></td><% } %>
-          <td data-label="Classes">
-            <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('classes', '<%= idx %>')">
-              <%= (employee.classes || []).length %> <span class="arrow" id="arrow-classes-<%= idx %>">▸</span>
-            </button>
-            <div class="collapsible-content" id="collapse-classes-<%= idx %>" style="display:none;">
-              <% if ((employee.classes || []).length > 0) { %>
-                <ul>
-                  <% (employee.classes || []).forEach(cls => { %>
-                  <li><%= cls.class_name %></li>
-                  <% }); %>
-                </ul>
-              <% } else { %>
-                <span>None</span>
-              <% } %>
-            </div>
-          </td>
-          <td data-label="Subjects">
-            <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('subjects', '<%= idx %>')">
-              <%= new Set((employee.classes || []).flatMap((c) => (c.subjects || []).map((x) => x.subject_name))).size %> <span class="arrow" id="arrow-subjects-<%= idx %>">▸</span>
-            </button>
-            <div class="collapsible-content" id="collapse-subjects-<%= idx %>" style="display:none;">
-              <% if ((employee.classes || []).length > 0) { %>
-                <% (employee.classes || []).forEach(cls => { %>
-                  <div style="margin-bottom:8px;">
-                    <strong><%= cls.class_name %>:</strong>
-                    <% if ((cls.subjects || []).length > 0) { %>
-                      <ul>
-                        <% (cls.subjects || []).forEach(sub => { %>
-                        <li><%= sub.subject_name %></li>
-                        <% }); %>
-                      </ul>
-                    <% } else { %>
-                      <div>None</div>
-                    <% } %>
-                  </div>
-                <% }); %>
-              <% } else { %>
-                <span>None</span>
-              <% } %>
-            </div>
-          </td>
-        </tr>
-        <% }); %>
-      </tbody>
+      <tbody id="employeeTableBody"><tr class="ux-skeleton"><td colspan="8" style="padding:28px 12px;text-align:center;color:#64748b;">Loading…</td></tr></tbody>
     </table>
     <p class="ux-empty" id="uxEmpty" hidden>No one matches these filters.</p>
+    <div id="uxPager"></div>
   </div>
   </div>
 
@@ -772,6 +712,9 @@
       <iframe id="uxEditFrame" title="Edit user"></iframe>
     </div>
   </aside>
+  <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+  <script src="<%= assetUrl('/js/listPager.js') %>"></script>
+  <script>window.UX_SSO = <%- JSON.stringify({ on: Boolean(_sso), name: _ssoName }) %>;</script>
   <script type="application/json" id="uxUsers"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
   <div class="emp-modal-overlay" id="empModalOverlay" aria-hidden="true">
@@ -902,8 +845,46 @@
 
     /* ---- Filters ---- */
     (function () {
-      var rows = Array.prototype.slice.call(document.querySelectorAll('tr.ux-row'));
       var get = function (id) { return document.getElementById(id); };
+      var people = [];
+      try { people = JSON.parse(get('uxUsers').textContent) || []; } catch (e) { people = []; }
+      // The table is drawn here, a page at a time (Rows per page: 10 to 200): the school's staff are sent once as compact data.
+      var matches = people.slice(), tbody = get('employeeTableBody'), SSO = window.UX_SSO || {};
+      function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+      function statusPill(st) { return st === 'Invite sent' ? '<span class="ws-pill ws-pill--amber">Invite sent</span>' : st === 'On hold' ? '<span class="ws-pill ws-pill--amber">On hold</span>' : st === 'Removed' ? '<span class="ws-pill ws-pill--red">Removed</span>' : '<span class="ws-pill ws-pill--green">Active</span>'; }
+      function collapse(kind, idx, count, inner) {
+        return '<button type="button" class="collapsible-btn" data-collapse="' + kind + '-' + idx + '">' + count + ' <span class="arrow">▸</span></button><div class="collapsible-content" id="collapse-' + kind + '-' + idx + '" style="display:none;">' + inner + '</div>';
+      }
+      function rowHtml(u, idx) {
+        var classes = u.classes || [];
+        var subjectNames = {}; classes.forEach(function (c) { (c.subjects || []).forEach(function (n) { subjectNames[n] = 1; }); });
+        var classInner = classes.length ? '<ul>' + classes.map(function (c) { return '<li>' + esc(c.name) + '</li>'; }).join('') + '</ul>' : '<span>None</span>';
+        var subjInner = classes.length ? classes.map(function (c) { return '<div style="margin-bottom:8px;"><strong>' + esc(c.name) + ':</strong>' + ((c.subjects || []).length ? '<ul>' + c.subjects.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '<div>None</div>') + '</div>'; }).join('') : '<span>None</span>';
+        return '<tr class="ux-row' + (u.removed ? ' is-removed' : '') + '" tabindex="0" data-user-id="' + esc(u.id) + '">'
+          + '<td data-label="Status">' + statusPill(u.status) + '</td>'
+          + '<td data-label="Name" class="ws-card-title"><strong>' + esc(u.name) + '</strong></td>'
+          + '<td data-label="Email" class="ws-card-wide">' + esc(u.email) + '</td>'
+          + '<td data-label="Role">' + esc(u.roleName || u.account) + (u.roleName ? ' <small class="ux-via">' + esc(u.account) + '</small>' : '') + (u.owner ? ' <span class="ux-owner">Main</span>' : '') + '</td>'
+          + '<td data-label="Last sign-in" class="ux-when">' + esc(u.when) + (u.withSso ? '<small class="ux-via">with ' + esc(SSO.name || 'single sign-on') + '</small>' : '') + '</td>'
+          + (SSO.on && u.way ? '<td data-label="Sign-in"><span class="ws-pill ' + esc(u.way.pill) + '" title="' + esc(u.way.long) + '">' + esc(u.way.short) + '</span></td>' : '')
+          + '<td data-label="Classes">' + collapse('classes', idx, classes.length, classInner) + '</td>'
+          + '<td data-label="Subjects">' + collapse('subjects', idx, Object.keys(subjectNames).length, subjInner) + '</td></tr>';
+      }
+      var pager = ManagiraPager.create({ mount: get('uxPager'), key: 'staff', total: people.length, onChange: function (st) {
+        var html = '';
+        matches.slice(Math.max(0, st.from - 1), st.to).forEach(function (u, i) { html += rowHtml(u, st.from - 1 + i); });
+        tbody.innerHTML = html;
+      } });
+      function redraw() { pager.setTotal(matches.length); }
+      tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('[data-collapse]');
+        if (!btn) return;
+        e.stopPropagation();
+        var box = document.getElementById('collapse-' + btn.getAttribute('data-collapse')), arrow = btn.querySelector('.arrow');
+        var open = box.style.display === 'none';
+        box.style.display = open ? 'block' : 'none';
+        arrow.textContent = open ? '▾' : '▸';
+      });
       var fields = ['uxName', 'uxEmail', 'uxStatus', 'uxRole', 'uxSignIn', 'uxPermission', 'uxAfter', 'uxBefore', 'uxNever'].filter(function (id) { return get(id); });
       function apply() {
         var name = get('uxName').value.trim().toLowerCase();
@@ -915,24 +896,22 @@
         var after = get('uxAfter').value;
         var before = get('uxBefore').value;
         var never = get('uxNever').checked;
-        var shown = 0;
-        rows.forEach(function (row) {
-          var d = row.dataset;
-          var last = d.lastLogin || '';
-          var ok = (!name || d.name.indexOf(name) !== -1)
-            && (!email || d.email.indexOf(email) !== -1)
-            && (status ? d.status === status : d.status !== 'Removed')
-            && (!role || d.role === role)
-            && (!way || (way === 'used' ? d.usedSso === '1' : d.signIn === way || d.signIn === 'both'))
-            && (!perm || ('|' + d.perms + '|').indexOf('|' + perm + '|') !== -1)
+        matches = people.filter(function (u) {
+          var last = u.lastDay || '';
+          return (!name || u.name.toLowerCase().indexOf(name) !== -1)
+            && (!email || u.email.toLowerCase().indexOf(email) !== -1)
+            && (status ? u.status === status : u.status !== 'Removed')
+            && (!role || (u.roleName || u.account) === role)
+            && (!way || (way === 'used' ? u.usedSso : u.signKey === way || u.signKey === 'both'))
+            && (!perm || (u.perms || []).indexOf(perm) !== -1)
             && (!never || !last)
             && (!after || (last && last >= after))
             && (!before || (last && last <= before));
-          row.hidden = !ok;
-          if (ok) shown += 1;
         });
+        var shown = matches.length;
+        redraw();
         var active = fields.filter(function (id) { var el = get(id); return el.type === 'checkbox' ? el.checked : el.value; }).length;
-        var pool = rows.filter(function (r) { return status === 'Removed' ? r.dataset.status === 'Removed' : r.dataset.status !== 'Removed'; }).length;
+        var pool = people.filter(function (u) { return status === 'Removed' ? u.status === 'Removed' : u.status !== 'Removed'; }).length;
         get('uxShown').textContent = 'Showing ' + shown + ' of ' + pool + (status === 'Removed' ? ' removed users' : ' users');
         get('uxEmpty').hidden = shown !== 0;
         get('uxEmpty').textContent = status === 'Removed' && !pool ? 'No removed users. People you remove are kept here so you can enable them again.' : 'No one matches these filters.';

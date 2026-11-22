@@ -47,3 +47,28 @@
     <% } %>
   </section>
 </div>
+<style>
+  /* Generate report: the button says it is working until the report opens. */
+  .gp-btn.is-loading { pointer-events: none; opacity: .9; position: relative; }
+  .gp-btn.is-loading > i { display: none; }
+  .gp-btn.is-loading::before { content: ""; width: 14px; height: 14px; margin-right: 8px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; border-radius: 50%; animation: gpSpin .7s linear infinite; display: inline-block; vertical-align: -2px; }
+  @keyframes gpSpin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .gp-btn.is-loading::before { animation-duration: 2s; } }
+</style>
+<script>
+  (function () {
+    var undo = [];
+    function reset() { undo.forEach(function (fn) { fn(); }); undo = []; }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a.gp-btn--primary[href*="printStudentReport"]');
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || a.classList.contains('is-loading')) return;
+      var label = a.lastChild, was = label && label.nodeType === 3 ? label.textContent : null;
+      a.classList.add('is-loading'); a.setAttribute('aria-busy', 'true');
+      if (was) label.textContent = ' Generating\u2026';
+      var timer = setTimeout(reset, 20000); // a report that takes longer than this still opens; the button is simply usable again
+      undo.push(function () { clearTimeout(timer); a.classList.remove('is-loading'); a.removeAttribute('aria-busy'); if (was) label.textContent = was; });
+    });
+    window.addEventListener('pageshow', reset);
+  })();
+</script>
+

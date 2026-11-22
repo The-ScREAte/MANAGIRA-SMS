@@ -887,7 +887,8 @@
     <div class="container">
       <% if (classes.length > 0 || _obsClasses.length) { %>
       <fieldset>
-        <legend>Classes</legend>
+        <legend>Classes <span class="cs-count" data-cs-count="classes"><%= classes.length %></span></legend>
+        <% if (classes.length > 8) { %><div class="cs-search"><input type="search" id="csClassSearch" placeholder="Search <%= classes.length %> classes" aria-label="Search classes" autocomplete="off"></div><div class="cs-none" id="csClassNone" hidden>No class matches.</div><% } %>
         <div class="collapsible-wrapper">
           <button type="button" class="collapsible-btn" onclick="toggleAllClassesCollapse()">
             Show/Hide All Classes
@@ -1010,7 +1011,8 @@
       </fieldset>
       <% } %> <% if (classes.length > 0 || _obsSubjects.length) { %>
       <fieldset>
-        <legend>Subjects</legend>
+        <legend>Subjects <span class="cs-count" data-cs-count="subjects"><%= (subjectGroups || []).length %></span></legend>
+        <% if ((subjectGroups || []).length > 6) { %><div class="cs-search"><input type="search" id="csSubjectSearch" placeholder="Search <%= subjectGroups.length %> subjects" aria-label="Search subjects" autocomplete="off"></div><div class="cs-none" id="csSubjectNone" hidden>No subject matches.</div><% } %>
         <% if (!subjectGroups || subjectGroups.length === 0) { %>
           <div class="subject-empty">No subjects yet. Add subjects first.</div>
         <% } else { %>
@@ -1556,6 +1558,39 @@
       if (document.readyState !== 'loading') {
         initAcsModal();
       }
+    </script>
+    <style>
+      .cs-count { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #fff); color: var(--org-primary-color, #01535b); font-size: .72rem; font-weight: 700; vertical-align: middle; }
+      .cs-search { margin: 0 0 12px; }
+      .cs-search input { display: block; width: 100%; height: 40px; margin: 0; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; font-size: .9rem; box-shadow: none; }
+      .cs-search input:focus { outline: 0; border-color: var(--org-primary-color, #01535b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-primary-color, #01535b) 18%, transparent); }
+      .cs-none { padding: 14px; border: 1px dashed #cbd5e1; border-radius: 10px; color: #64748b; font-size: .88rem; text-align: center; }
+      .cs-none[hidden], .regular-class-list .form-container[hidden], .subject-group-card[hidden] { display: none !important; }
+    </style>
+    <script>
+      // Search over a long list of classes or subjects: hides what doesn't match, keeps every row in the form.
+      (function () {
+        function wire(inputId, noneId, rowsSel, textOf) {
+          var input = document.getElementById(inputId), none = document.getElementById(noneId);
+          if (!input || input.dataset.wired) return;
+          input.dataset.wired = '1';
+          input.addEventListener('input', function () {
+            var q = input.value.trim().toLowerCase(), shown = 0;
+            Array.prototype.forEach.call(document.querySelectorAll(rowsSel), function (row) {
+              var hit = !q || textOf(row).toLowerCase().indexOf(q) > -1;
+              row.hidden = !hit; if (hit) shown++;
+            });
+            if (none) none.hidden = shown > 0;
+          });
+          input.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        }
+        function init() {
+          wire('csClassSearch', 'csClassNone', '.regular-class-list .form-container', function (row) { var i = row.querySelector('input[type=text]'); return i ? i.value : ''; });
+          wire('csSubjectSearch', 'csSubjectNone', '.subject-group-card', function (row) { return row.getAttribute('data-subject-name') || (row.querySelector('.subject-group-toggle span') || {}).textContent || ''; });
+        }
+        window.addEventListener('spa:pageLoaded', init);
+        if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
+      })();
     </script>
     </div>
   </body>

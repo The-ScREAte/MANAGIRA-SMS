@@ -44,9 +44,28 @@ const AUDIENCES = [
 ];
 const shareDefaults = () => Object.freeze(Object.fromEntries(SHARE_ITEMS.map((item) => [item.key, !OFF_BY_DEFAULT.has(item.key)])));
 
+// Tell parents when a student is absent or late several times in a week (feature attendance_notices): on, after 3.
+const NOTICE_DEFAULTS = Object.freeze({ absent: Object.freeze({ on: true, count: 3 }), late: Object.freeze({ on: true, count: 3 }) });
+const NOTICE_KINDS = ["absent", "late"];
+const NOTICE_MAX = 10;
+function normalizeNotices(raw) {
+  const given = raw && typeof raw === "object" ? raw : {};
+  return Object.fromEntries(NOTICE_KINDS.map((kind) => {
+    const row = given[kind] && typeof given[kind] === "object" ? given[kind] : {};
+    const count = Math.round(Number(row.count));
+    return [kind, {
+      on: typeof row.on === "boolean" ? row.on : NOTICE_DEFAULTS[kind].on,
+      count: Number.isFinite(count) ? Math.min(NOTICE_MAX, Math.max(1, count)) : NOTICE_DEFAULTS[kind].count,
+    }];
+  }));
+}
+
 const DEFAULTS = Object.freeze({
   // Take lunch beside attendance on the class attendance page (also needs the class_lunch feature).
   lunch: true,
+  // Whether this class's students may use the student portal: on, and management or the class can
+  // turn it off (the invite on a student's page and its endpoints follow it).
+  portal: true,
   parents: shareDefaults(),
   students: shareDefaults(),
 });
@@ -54,6 +73,7 @@ const DEFAULTS = Object.freeze({
 // Every switch, with its stored key ("lunch", "parents.attendance", "students.lunch", ...).
 const SWITCHES = [
   { key: "lunch", group: "class", label: "Take lunch", help: "A plate beside each student's checkbox on the attendance page, saved with attendance." },
+  { key: "portal", group: "class", label: "Student portal", help: "Lets this class's students use the student portal; it decides who can be invited." },
   ...SHARE_ITEMS.flatMap((item) => AUDIENCES.map((audience) => ({
     key: `${audience.key}.${item.key}`, group: "share", item: item.key, audience: audience.key,
     label: `${item.label} · ${audience.label}`, help: item.help,
@@ -71,11 +91,15 @@ function withDefaults(stored) {
     const given = raw[audience] && typeof raw[audience] === "object" ? raw[audience] : {};
     return Object.fromEntries(SHARE_ITEMS.map((item) => [item.key, bool(given[item.key], DEFAULTS[audience][item.key])]));
   };
-  return { lunch: bool(raw.lunch, DEFAULTS.lunch), parents: share("parents"), students: share("students") };
+  // Settings management has locked: the class's own teachers can't change them (only Every Class can).
+  const locks = {};
+  if (raw.locks && typeof raw.locks === "object") Object.keys(raw.locks).forEach((key) => { if (SWITCH_KEYS.has(key) && raw.locks[key] === true) locks[key] = true; });
+  return { lunch: bool(raw.lunch, DEFAULTS.lunch), portal: bool(raw.portal, DEFAULTS.portal), parents: share("parents"), students: share("students"), notices: normalizeNotices(raw.notices), locks };
 }
 
 // Where the feature is off for a school, every class behaves as before: everything on.
-const everythingOn = () => withDefaults(null);
+const everythingOn = () => ({ ...withDefaults(null), portal: true });
+const isLocked = (settings, key) => Boolean(settings && settings.locks && settings.locks[key] === true);
 
 // A school's rows, read at most every few seconds (pages ask once per class or student).
 const CACHE_MS = 5000;
@@ -156,6 +180,13 @@ async function sharedFor(db, organizationId, studentIds, audience) {
   return out;
 }
 
+// Whether a class's students may use the student portal (every class, while the feature is off).
+async function portalOn(db, organizationId, classId) {
+  if (!isOn(organizationId)) return true;
+  if (!classId) return DEFAULTS.portal;
+  return Boolean((await settingsFor(db, organizationId, classId)).portal);
+}
+
 const parentsSee = (db, organizationId, studentId, key) => shared(db, organizationId, studentId, "parents", key);
 const parentsSeeFor = (db, organizationId, studentIds) => sharedFor(db, organizationId, studentIds, "parents");
 const studentsSee = (db, organizationId, studentId, key) => shared(db, organizationId, studentId, "students", key);
@@ -166,8 +197,20 @@ const studentsSeeFor = (db, organizationId, studentIds) => sharedFor(db, organiz
 function applyChanges(current, changes) {
   const next = withDefaults(current);
   Object.entries(changes || {}).forEach(([key, value]) => {
-    if (!SWITCH_KEYS.has(key)) return;
+    // "notices": { absent: { on, count }, late: { on, count } }, any part of it.
+    if (key === "notices") {
+      if (value && typeof value === "object") NOTICE_KINDS.forEach((kind) => { if (value[kind] && typeof value[kind] === "object") next.notices[kind] = normalizeNotices({ [kind]: { ...next.notices[kind], ...value[kind] } })[kind]; });
+      return;
+    }
     const on = value === true || value === "true" || value === "on" || value === 1 || value === "1";
+    // "lock:<switch>": management locks (or unlocks) a switch for the class.
+    if (key.startsWith("lock:")) {
+      const target = key.slice(5);
+      if (!SWITCH_KEYS.has(target)) return;
+      if (on) next.locks[target] = true; else delete next.locks[target];
+      return;
+    }
+    if (!SWITCH_KEYS.has(key)) return;
     const [first, second] = key.split(".");
     if (second) next[first][second] = on;
     else next[first] = on;
@@ -241,5 +284,6 @@ const canManage = (granted, classId) => Boolean(granted && granted.on && (grante
 
 module.exports = {
   FEATURE, DEFAULTS, SHARE_ITEMS, AUDIENCES, SWITCHES, isOn, ready, withDefaults, settingsFor, settingsForClasses,
-  shared, sharedFor, parentsSee, parentsSeeFor, studentsSee, studentsSeeFor, applyChanges, save, access, canManage, forget,
+  isLocked, portalOn, shared, sharedFor, parentsSee, parentsSeeFor, studentsSee, studentsSeeFor, applyChanges, save, access, canManage, forget,
+  NOTICE_DEFAULTS, NOTICE_MAX, normalizeNotices,
 };

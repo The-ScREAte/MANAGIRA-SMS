@@ -376,12 +376,14 @@ main { padding: 0 !important; max-width: none !important; }
   .doc-report-badge { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 6px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; font-size: .72rem; font-weight: 700; }
   .docs-header h1 { margin-left: 0 !important; padding-left: 0 !important; }
 </style>
+<link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+<script src="<%= assetUrl('/js/listPager.js') %>"></script>
 <div class="docs-wrapper" data-can-create="<%= canCreate ? 'true' : 'false' %>" data-auto-create="<%= autoCreate ? 'true' : 'false' %>">
   <div class="docs-header">
-    <div>
+    <% if (!classId) { %><div>
       <h1>Docs &amp; Sheets</h1>
-      <p class="docs-subtitle"><%= classId ? 'Documents and sheets for this class.' : 'Documents, spreadsheets and report card layouts.' %></p>
-    </div>
+      <p class="docs-subtitle">Documents, spreadsheets and report card layouts.</p>
+    </div><% } else { %><div></div><% } %>
     <div class="docs-actions">
       <% if (canCreate) { %>
       <button class="btn btn-primary" onclick="openCreateModal()">
@@ -399,7 +401,6 @@ main { padding: 0 !important; max-width: none !important; }
       <button type="submit" class="btn">Search</button>
       <% if (documentSearch) { %><a href="/documents<%= classId ? '?classId=' + classId : '' %>">Clear</a><% } %>
     </form>
-    <% if (documentsCapped && !documentSearch) { %><p class="docs-note">Showing the 300 most recently changed. Search to find older ones.</p><% } %>
   <% } %>
 
   <% if (documents.length === 0) { %>
@@ -434,6 +435,10 @@ main { padding: 0 !important; max-width: none !important; }
         </div>
       <% }); %>
     </div>
+    <% if ((locals.documentsTotal || 0) > 10) { %>
+    <div id="docsPager" data-total="<%= documentsTotal %>" data-size="<%= pageLimit %>" data-page="<%= pageNumber %>"></div>
+    <% if (documentsCapped) { %><p class="docs-note" style="text-align:center;">Showing the 300 most recently changed. Search to find older ones.</p><% } %>
+    <% } %>
   <% } %>
 </div>
 
@@ -594,4 +599,17 @@ if (document.readyState === 'loading') {
   initDocumentsPage();
 }
 })();
+</script>
+<script>
+  // Docs & Sheets lists a page at a time; asking for another page or size loads it (the server cuts the page).
+  (function () {
+    var host = document.getElementById('docsPager'); if (!host || !window.ManagiraPager) return;
+    var size = Number(host.dataset.size), page = Number(host.dataset.page);
+    function go(s, p) { var u = new URL(location.href); u.searchParams.set('limit', s); u.searchParams.set('page', p); location.assign(u.toString()); }
+    var pager = ManagiraPager.create({ mount: host, key: 'docs', total: Number(host.dataset.total), defaultSize: size, label: 'Docs and sheets', onChange: function (st) {
+      if (st.size !== size || st.page !== page) go(st.size, st.page);
+    } });
+    if (pager.state.size !== size) { go(pager.state.size, 1); return; }
+    pager.goTo(page);
+  })();
 </script>

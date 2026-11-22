@@ -330,6 +330,10 @@ const documentController = {
     // A school's documents can run to thousands: the page lists the 300 most recently changed,
     // and a search reaches the rest. Drawing every one of them took a third of the server's time.
     const search = String(req.query.q || "").trim().slice(0, 100) || null;
+    // A page of files at a time (Rows per page: 10, 20, 50, 100 or 200): the newest 300 are looked at, the page is cut from them.
+    const askedSize = Number.parseInt(req.query.limit, 10);
+    const pageLimit = [10, 20, 50, 100, 200].includes(askedSize) ? askedSize : 20;
+    const pageNumber = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const classId = req.query.classId ? Number(req.query.classId) : null;
     const canManageRecords = await userHasPermission(
       db,
@@ -508,9 +512,14 @@ const documentController = {
         ORDER BY u.first_name
       `, [orgId]);
 
+      const documentsTotal = documentRows.length;
+      documentRows = documentRows.slice((pageNumber - 1) * pageLimit, pageNumber * pageLimit);
       res.render("common/documents", {
         documentSearch: search || "",
-        documentsCapped: documentRows.length >= 300,
+        documentsCapped: documentsTotal >= 300,
+        documentsTotal,
+        pageLimit,
+        pageNumber,
         title: "Docs/Sheets",
         documents: documentRows,
         classes: classes.rows,

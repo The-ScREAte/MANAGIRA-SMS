@@ -1,154 +1,75 @@
 <%- include('../partials/flash') %>
-
+<%# A driver's own settings, the same page as a student's or a parent's: header, then one card each for
+    appearance, details and notifications. Built for a phone first. %>
 <style>
-  .drv-settings-page {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 24px 16px 60px;
-  }
-
-  .drv-settings-card {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e2e8f0;
-    overflow: hidden;
-  }
-
-  .drv-settings-head {
-    background: linear-gradient(135deg, var(--org-primary-color, #01535b) 0%, var(--org-primary-hover, #014a51) 100%);
-    color: #fff;
-    padding: 26px 28px;
-  }
-
-  .drv-settings-head h1 { margin: 0 0 4px; font-size: 1.35rem; font-weight: 700; }
-  .drv-settings-head p { margin: 0; opacity: 0.9; font-size: 0.88rem; }
-
-  .drv-settings-body { padding: 26px 28px; }
-
-  .drv-avatar-row {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    margin-bottom: 22px;
-  }
-
-  .drv-avatar {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #e2e8f0;
-    background: #f1f5f9;
-  }
-
-  .drv-field { margin-bottom: 18px; }
-
-  .drv-field label {
-    display: block;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 8px;
-    font-size: 0.88rem;
-  }
-
-  .drv-field input {
-    width: 100%;
-    padding: 12px 14px;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 0.95rem;
-    box-sizing: border-box;
-  }
-
-  .drv-field input[readonly] {
-    background: #f8fafc;
-    color: #64748b;
-  }
-
-  .drv-field-note { font-size: 0.78rem; color: #94a3b8; margin-top: 6px; }
-
-  .drv-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 13px 16px;
-    border-radius: 10px;
-    border: none;
-    background: var(--org-primary-color, #01535b);
-    color: #fff;
-    font-weight: 700;
-    font-size: 0.95rem;
-    cursor: pointer;
-  }
-
-  .drv-back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 16px;
-    color: var(--org-primary-color, #01535b);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.88rem;
+  .drv-set { max-width: 1000px; margin: 0 auto; padding: 18px 16px 48px; }
+  .drv-card { margin-top: 14px; padding: 18px 20px; border: 1px solid #e5e9ef; border-radius: 16px; background: #fff; }
+  .drv-card h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .drv-who { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .drv-avatar { flex: none; width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, #fff); background: #f1f5f9; }
+  .drv-who__name { display: grid; gap: 6px; min-width: 0; }
+  .drv-who__name strong { font-size: 1.05rem; color: #0f172a; overflow-wrap: anywhere; }
+  .drv-photo { display: inline-flex; align-items: center; width: auto; height: 34px; margin: 0; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, #dbe3e7); border-radius: 10px; background: #fff; color: var(--org-primary-color, #01535b); font-size: .84rem; font-weight: 700; cursor: pointer; }
+  .drv-photo:hover, .drv-photo:focus-within { background: color-mix(in srgb, var(--org-primary-color, #01535b) 8%, #fff); }
+  .drv-photo input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+  .drv-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 20px; }
+  .drv-field { display: grid; gap: 6px; min-width: 0; }
+  .drv-field label { margin: 0; color: #475569; font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .drv-field input { width: 100%; height: 42px; margin: 0; padding: 0 12px; box-sizing: border-box; border: 1px solid #dbe3e7; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; font-size: .95rem; }
+  .drv-field input[readonly] { background: #f8fafc; color: #64748b; }
+  .drv-field input:focus { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 1px; }
+  .drv-field .phone-combo { display: flex; gap: 8px; }
+  .drv-field .phone-combo select { height: 42px; max-width: 46%; border: 1px solid #dbe3e7; border-radius: 10px; background: #fff; font: inherit; }
+  .drv-save { display: flex; justify-content: flex-end; margin-top: 16px; }
+  .drv-save button { width: auto; margin: 0; padding: 0 22px; height: 40px; border: 0; border-radius: 10px; background: var(--org-primary-color, #01535b); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: none; }
+  @media (max-width: 560px) {
+    .drv-set { padding: 12px 12px 40px; }
+    .drv-card { padding: 16px 14px; }
+    .drv-who { gap: 12px; }
+    .drv-save button { width: 100%; }
   }
 </style>
 
-<div class="drv-settings-page">
-  <a class="drv-back-link" href="/driver/dashboard">&larr; Back to Dashboard</a>
+<div class="drv-set">
+  <%- include('../partials/portalHead', { title: 'Settings', icon: 'settings', sub: 'Just for you.', back: { href: '/driver/dashboard', label: 'Dashboard' } }) %>
 
-  <div class="drv-settings-card">
-    <div class="drv-settings-head">
-      <h1>Driver Settings</h1>
-      <p>Manage your photo and contact details.</p>
-    </div>
+  <section class="drv-card" aria-labelledby="drvAppearance">
+    <h2 id="drvAppearance">Appearance</h2>
+    <%- include('../partials/appearancePicker') %>
+  </section>
 
-    <div class="drv-settings-body">
-      <div class="ap-card" style="margin-bottom:18px;">
-        <h2 class="ap-card__title">Appearance</h2>
-        <p class="ap-card__sub">Light, Classic or Dark, just for you.</p>
-        <%- include('../partials/appearancePicker') %>
+  <section class="drv-card" aria-labelledby="drvDetails">
+    <h2 id="drvDetails">Your details</h2>
+    <form action="/driver/settings" method="post" enctype="multipart/form-data" id="driverSettingsForm" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+      <div class="drv-who">
+        <img class="drv-avatar" src="<%= publicImageUrl(user.profile_image_url || '/images/profilePlaceholder.png') %>" alt="Your photo" />
+        <div class="drv-who__name">
+          <strong><%= [user.first_name, user.last_name].filter(Boolean).join(' ') %></strong>
+          <label class="drv-photo"><input type="file" name="photo" accept="image/*" aria-label="Change photo" />Change photo</label>
+        </div>
       </div>
-      <form action="/driver/settings" method="post" enctype="multipart/form-data" id="driverSettingsForm" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
-        <div class="drv-avatar-row">
-          <img class="drv-avatar" src="<%= publicImageUrl(user.profile_image_url || '/images/profilePlaceholder.png') %>" alt="Your photo" />
-          <div style="flex:1;">
-            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:6px;">Profile Photo</label>
-            <input type="file" name="photo" accept="image/*" />
-          </div>
-        </div>
-
+      <div class="drv-fields">
         <div class="drv-field">
-          <label>Full Name</label>
-          <input type="text" value="<%= [user.first_name, user.last_name].filter(Boolean).join(' ') %>" readonly />
-          <div class="drv-field-note">To change your name, contact your school administrator via Manage Employees.</div>
+          <label for="drvEmail">Email</label>
+          <input id="drvEmail" type="email" value="<%= user.email || '' %>" readonly />
         </div>
-
         <div class="drv-field">
-          <label>Email Address</label>
-          <input type="email" value="<%= user.email || '' %>" readonly />
-          <div class="drv-field-note">Your login email. Contact your administrator to change it.</div>
-        </div>
-
-        <div class="drv-field">
-          <label for="phone">Phone Number</label>
+          <label for="phone">Phone</label>
           <div class="phone-combo" data-default-iso2="US">
             <select class="phone-dial-select"></select>
             <input type="tel" id="phone" class="phone-local-input" name="phone" value="<%= driverProfile && driverProfile.phone ? driverProfile.phone : '' %>" />
           </div>
         </div>
+      </div>
+      <div class="drv-save"><button type="submit">Save</button></div>
+    </form>
+  </section>
 
-        <button type="submit" class="drv-btn-primary">Save Changes</button>
-      </form>
-    </div>
-  </div>
-  <div class="drv-settings-card" style="margin-top:16px;padding:22px 24px;" data-alert-card data-ns-scope>
-    <h2 style="margin:0 0 4px;font-size:1.05rem;font-weight:800;color:#0f172a;">Notifications</h2>
-    <p style="margin:0 0 12px;font-size:.86rem;color:#64748b;">Choose what you want to be told about your riders and routes.</p>
+  <section class="drv-card" id="notifications" aria-labelledby="drvNotifications" data-alert-card data-ns-scope>
+    <h2 id="drvNotifications">Notifications</h2>
     <%- include('../partials/alertRules', { bare: true }) %>
     <%- include('../partials/notificationSaveBar') %>
-  </div>
+  </section>
 </div>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>

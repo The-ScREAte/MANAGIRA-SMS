@@ -119,7 +119,7 @@ const enrollmentController = {
           title: 'Enroll students',
           mode: 'add',
           termYears,
-          selectedTermId: Number(req.query.termId) || currentTerm.term_id,
+          selectedTermId: Number(req.query.termId) || (allTerms.find((t) => !t.enrollment_id) || currentTerm).term_id,
           classes,
           enrollmentId: null,
           messages: req.flash(),

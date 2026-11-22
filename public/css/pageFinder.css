@@ -1,0 +1,30 @@
+/* Page finder (Ctrl/Cmd+K). Starts where the app header ends, like the other pop-ups. */
+.pf-overlay { --pf-brand: var(--org-primary-color, #01535b); --pf-surface: #fff; --pf-text: #0f172a; --pf-muted: #64748b; --pf-line: #e2e8f0; --pf-soft: #f8fafc;
+  position: fixed; left: 0; right: 0; bottom: 0; top: var(--pf-top, 64px); z-index: 12990; display: flex; justify-content: center; align-items: flex-start; padding: 9vh 16px 16px; background: rgba(15, 23, 42, .4); backdrop-filter: blur(2px); font-family: inherit; }
+.pf-overlay[hidden] { display: none; }
+.pf-overlay *, .pf-overlay *::before, .pf-overlay *::after { box-sizing: border-box; }
+html[data-appearance="dark"] .pf-overlay { --pf-surface: #1f242b; --pf-text: #e5e7eb; --pf-muted: #9aa6b6; --pf-line: #343b45; --pf-soft: #262c34; }
+html[data-appearance="gray"] .pf-overlay { --pf-surface: #f2f3f4; --pf-line: #d1d5db; --pf-soft: #e8eaec; }
+.pf-box { width: min(640px, 100%); max-height: min(580px, 100%); display: flex; flex-direction: column; border: 1px solid var(--pf-line); border-radius: 16px; background: var(--pf-surface); color: var(--pf-text); box-shadow: 0 28px 70px rgba(15, 23, 42, .32); overflow: hidden; animation: pf-in .14s ease-out; }
+@keyframes pf-in { from { opacity: 0; transform: translateY(-6px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pf-box { animation: none; } }
+.pf-bar { display: flex; align-items: center; gap: 10px; padding: 0 14px 0 16px; border-bottom: 1px solid var(--pf-line); }
+.pf-mag { flex: none; width: 19px; height: 19px; fill: none; stroke: var(--pf-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pf-overlay .pf-input { flex: 1; min-width: 0; width: auto; height: 56px; margin: 0; padding: 0; border: 0; outline: 0; box-shadow: none; background: transparent; color: inherit; font: inherit; font-size: 1.02rem; }
+.pf-overlay .pf-input::placeholder { color: var(--pf-muted); }
+.pf-box kbd { padding: 2px 6px; border: 1px solid var(--pf-line); border-radius: 5px; background: var(--pf-soft); color: var(--pf-muted); font: inherit; font-size: .72rem; font-weight: 600; line-height: 1.3; }
+.pf-esc { cursor: pointer; }
+.pf-list { margin: 0; padding: 6px 8px 8px; list-style: none; overflow-y: auto; overscroll-behavior: contain; }
+.pf-group { padding: 12px 10px 5px; color: var(--pf-muted); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.pf-item { display: flex; align-items: center; gap: 12px; margin: 0; padding: 9px 10px; border-radius: 10px; cursor: pointer; font-size: .92rem; }
+.pf-icon { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--pf-soft); color: var(--pf-muted); }
+.pf-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pf-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-name mark { padding: 0; background: transparent; color: var(--pf-brand); font-weight: 700; }
+.pf-item small { flex: none; color: var(--pf-muted); font-size: .74rem; }
+.pf-item.is-active { background: color-mix(in srgb, var(--pf-brand) 10%, var(--pf-surface)); }
+.pf-item.is-active .pf-icon { background: var(--pf-brand); color: #fff; }
+.pf-item.is-active .pf-name { color: var(--pf-brand); font-weight: 600; }
+.pf-empty { padding: 22px 18px; color: var(--pf-muted); font-size: .9rem; text-align: center; }
+.pf-foot { display: flex; gap: 16px; padding: 9px 16px; border-top: 1px solid var(--pf-line); background: var(--pf-soft); color: var(--pf-muted); font-size: .75rem; }
+@media (max-width: 600px) { .pf-overlay { padding: 8px; } .pf-foot, .pf-esc, .pf-enter, .pf-item small { display: none; } .pf-item { padding: 11px 10px; } }

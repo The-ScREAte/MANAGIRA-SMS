@@ -1481,10 +1481,10 @@
           noticeEl.hidden = false;
           noticeEl.textContent = notInNow + (notInNow === 1 ? " student isn't" : " students aren't") + ' enrolled in ' + nowLabel + ". They won't show in that term's class lists or in promotion until they are enrolled.";
         }
-        var rows = [];
-        var cards = [];
-        data.students.forEach(function (s) {
-          rows.push('<tr data-id="' + esc(s.i) + '" data-name="' + esc(lower(s.n)) + '" data-search-id="' + esc(lower(s.sid)) + '" data-class-id="' + esc(s.ci) + '" data-class-name="' + esc(lower(s.cn)) + '" data-gender="' + esc(lower(s.ge)) + '" data-email="' + esc(lower(s.e)) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-school-year-id="' + esc(s.yi) + '" data-school-year-label="' + esc(lower(s.y)) + '" data-display-id="' + esc(lower(s.sid)) + '" data-status="' + (s.g ? 'graduated' : 'active') + '">'
+        // The school's students are kept as small records. A row's markup is made only when its page is shown
+        // (a school of 2,400 students used to build 12,000 table cells and 180,000 page elements up front).
+        var rowHtml = function (s) {
+          return '<tr data-id="' + esc(s.i) + '" data-name="' + esc(lower(s.n)) + '" data-search-id="' + esc(lower(s.sid)) + '" data-class-id="' + esc(s.ci) + '" data-class-name="' + esc(lower(s.cn)) + '" data-gender="' + esc(lower(s.ge)) + '" data-email="' + esc(lower(s.e)) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-school-year-id="' + esc(s.yi) + '" data-school-year-label="' + esc(lower(s.y)) + '" data-display-id="' + esc(lower(s.sid)) + '" data-status="' + (s.g ? 'graduated' : 'active') + '">'
             + '<td style="padding:11px 6px 11px 14px;"> <input type="checkbox" class="as-cb as-row-cb" data-id="' + esc(s.i) + '"> </td>'
             + '<td> <div class="as-student-cell"> ' + avatar(s) + ' <a href="' + esc(s.h) + '" class="as-name-link">' + esc(s.n) + '</a> </div> </td>'
             + '<td><span class="as-id-badge js-student-display-id">' + esc(s.d) + '</span></td>'
@@ -1494,8 +1494,10 @@
             + '<td class="as-year-td">' + yearCell(s) + '</td>'
             + '<td> ' + badge(s) + ' </td>'
             + '<td> <div class="as-actions"> ' + actions(s) + ' </div> </td>'
-            + '</tr>');
-          cards.push('<div class="as-card" data-id="' + esc(s.i) + '" data-name="' + esc(lower(s.n)) + '" data-search-id="' + esc(lower(s.sid)) + '" data-class-id="' + esc(s.ci) + '" data-gender="' + esc(s.ge) + '" data-email="' + esc(lower(s.e)) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-school-year-id="' + esc(s.yi) + '" data-display-id="' + esc(s.sid) + '" data-status="' + (s.g ? 'graduated' : 'active') + '">'
+            + '</tr>';
+        };
+        var cardHtml = function (s) {
+          return '<div class="as-card" data-id="' + esc(s.i) + '" data-name="' + esc(lower(s.n)) + '" data-search-id="' + esc(lower(s.sid)) + '" data-class-id="' + esc(s.ci) + '" data-gender="' + esc(s.ge) + '" data-email="' + esc(lower(s.e)) + '" data-has-portal-access="' + (s.pa ? 'true' : 'false') + '" data-school-year-id="' + esc(s.yi) + '" data-display-id="' + esc(s.sid) + '" data-status="' + (s.g ? 'graduated' : 'active') + '">'
             + '<div class="as-card-top"> <input type="checkbox" class="as-cb as-card-cb" data-id="' + esc(s.i) + '" style="margin-right:2px;"> ' + avatar(s)
             + ' <div class="as-card-info"> <a href="' + esc(s.h) + '" class="as-card-name">' + esc(s.n) + '</a> <div class="as-card-sub">ID: <span class="js-student-display-id">' + esc(s.d) + '</span> &nbsp;·&nbsp; ' + esc(s.ge || 'N/A') + '</div> </div> '
             + badge(s, ' style="flex-shrink:0"') + ' </div>'
@@ -1505,10 +1507,26 @@
             + ' <div class="as-card-meta-item"> ' + ICON_MAIL + ' <span class="as-email-cell"> <span class="as-email-text">' + esc(s.e || 'No email') + '</span>' + portalBadge(s) + ' </span> </div>'
             + ' </div>'
             + ' <div class="as-card-actions"> ' + actions(s) + ' </div>'
-            + '</div>');
+            + '</div>';
+        };
+        var store = { list: [], byId: Object.create(null) };
+        var toEl = function (html) { var t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+        data.students.forEach(function (s) {
+          var rec = { id: String(s.i), s: s, row: null, card: null, ds: {
+            id: String(s.i), name: lower(s.n), searchId: lower(s.sid), classId: s.ci == null ? '' : String(s.ci), className: lower(s.cn), gender: lower(s.ge),
+            email: lower(s.e), hasPortalAccess: s.pa ? 'true' : 'false', schoolYearId: s.yi == null ? '' : String(s.yi), schoolYearLabel: lower(s.y),
+            displayId: lower(s.sid), status: s.g ? 'graduated' : 'active' } };
+          rec.dataset = rec.ds; // filtering and sorting read a record the way they read a row
+          store.list.push(rec); store.byId[rec.id] = rec;
         });
-        document.getElementById('asTableBody').innerHTML = rows.join('');
-        document.getElementById('asCardList').innerHTML = cards.join('');
+        store.row = function (id) { var r = store.byId[String(id)]; if (!r) return null; if (!r.row) r.row = toEl(rowHtml(r.s)); return r.row; };
+        store.card = function (id) { var r = store.byId[String(id)]; if (!r) return null; if (!r.card) r.card = toEl(cardHtml(r.s)); return r.card; };
+        // After a change made on a row, the record follows it (search, sort and filters read the record).
+        store.sync = function (id) {
+          var r = store.byId[String(id)]; var el = r && (r.row || r.card); if (!el) return;
+          ['searchId', 'classId', 'className', 'email', 'schoolYearId', 'schoolYearLabel', 'displayId', 'hasPortalAccess'].forEach(function (k) { if (el.dataset[k] !== undefined) r.ds[k] = el.dataset[k]; });
+        };
+        window.__asStore = store;
       })();
     </script>
 
@@ -1753,6 +1771,7 @@
 (function () {
   'use strict';
 
+  var AS = window.__asStore;
   var canSendStudentPortalRequest = <%- JSON.stringify(Boolean(canSendStudentPortalRequest)) %>;
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
@@ -1786,8 +1805,8 @@
     return studentIdConfig.prefix + systemIdText.padStart(Math.max(3, systemIdText.length), '0');
   }
   function setStudentDisplayId(studentId, displayId, editableId) {
-    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
-    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    var row = AS.row(studentId);
+    var card = AS.card(studentId);
     [row, card].forEach(function(node) {
       if (!node) return;
       node.dataset.searchId = String(displayId || '').toLowerCase();
@@ -1802,12 +1821,14 @@
         }
       }
     });
+    AS.sync(studentId);
   }
   function setStudentClassValue(studentId, classId, className) {
-    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
-    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    var row = AS.row(studentId);
+    var card = AS.card(studentId);
     if (row) {
       row.dataset.classId = classId || '';
+      row.dataset.className = String(className || '').toLowerCase();
       var rowValue = row.querySelector('.js-student-class-value');
       if (rowValue) {
         rowValue.textContent = className || '—';
@@ -1831,10 +1852,11 @@
         cardBtn.dataset.className = className || '';
       }
     }
+    AS.sync(studentId);
   }
   function setStudentYearValue(studentId, schoolYearId, yearLabel, yearIsCurrent) {
-    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
-    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    var row = AS.row(studentId);
+    var card = AS.card(studentId);
     if (row) {
       row.dataset.schoolYearId = schoolYearId || '';
       var rowValue = row.querySelector('.js-student-year-value');
@@ -1866,12 +1888,13 @@
         cardBtn.dataset.yearCurrent = yearIsCurrent ? 'true' : 'false';
       }
     }
+    AS.sync(studentId);
   }
 
   function setStudentEmailValue(studentId, emailValue) {
     var normalizedEmail = String(emailValue || '').trim().toLowerCase();
-    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
-    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+    var row = AS.row(studentId);
+    var card = AS.card(studentId);
 
     function apply(node, placeholderText) {
       if (!node) return;
@@ -1894,6 +1917,7 @@
 
     apply(row, '—');
     apply(card, 'No email');
+    AS.sync(studentId);
   }
 
   function updateModalHeaderOffset() {
@@ -1959,8 +1983,8 @@
     if (filterToggle) filterToggle.classList.toggle('is-active', n > 0);
   }
 
-  function getVisibleRows()  { return Array.from(document.querySelectorAll('#asTableBody tr:not(.as-row-hidden)')); }
-  function getVisibleCards() { return Array.from(document.querySelectorAll('#asCardList .as-card:not(.as-row-hidden)')); }
+  function getVisibleRows()  { return Array.from(document.querySelectorAll('#asTableBody tr')); }
+  function getVisibleCards() { return Array.from(document.querySelectorAll('#asCardList .as-card')); }
 
   function syncAllStudentsSortToggle() {
     studentSortButtons.forEach(function(button) {
@@ -2018,22 +2042,20 @@
     var start = (pagination.currentPage - 1) * pagination.pageSize;
     var end = start + pagination.pageSize;
     var pageRows = filteredRows.slice(start, end);
-    var pageIds = new Set(pageRows.map(function(tr){ return String(tr.dataset.id || ''); }));
     var tableBody = document.getElementById('asTableBody');
     var cardList = document.getElementById('asCardList');
+    var rowFrag = document.createDocumentFragment();
+    var cardFrag = document.createDocumentFragment();
 
-    pageRows.forEach(function(tr) {
-      if (tableBody) tableBody.appendChild(tr);
-      var card = cardList ? cardList.querySelector('.as-card[data-id="' + String(tr.dataset.id || '') + '"]') : null;
-      if (card && cardList) cardList.appendChild(card);
+    // Only this page's rows exist in the page; the rest are made when their page is shown.
+    pageRows.forEach(function(rec) {
+      var picked = selectedIds.has(rec.id);
+      var tr = AS.row(rec.id), card = AS.card(rec.id);
+      if (tr) { tr.classList.toggle('as-row-selected', picked); var cb = tr.querySelector('.as-row-cb'); if (cb) cb.checked = picked; rowFrag.appendChild(tr); }
+      if (card) { card.classList.toggle('as-card-selected', picked); var cc = card.querySelector('.as-card-cb'); if (cc) cc.checked = picked; cardFrag.appendChild(card); }
     });
-
-    Array.from(document.querySelectorAll('#asTableBody tr')).forEach(function(tr){
-      tr.classList.toggle('as-row-hidden', !pageIds.has(String(tr.dataset.id || '')));
-    });
-    Array.from(document.querySelectorAll('#asCardList .as-card')).forEach(function(card){
-      card.classList.toggle('as-row-hidden', !pageIds.has(String(card.dataset.id || '')));
-    });
+    if (tableBody) { tableBody.textContent = ''; tableBody.appendChild(rowFrag); }
+    if (cardList) { cardList.textContent = ''; cardList.appendChild(cardFrag); }
 
     var pageCount = pageRows.length;
     visibleCount.textContent = pageCount;
@@ -2059,7 +2081,7 @@
       return true;
     }
 
-    var filteredRows = Array.from(document.querySelectorAll('#asTableBody tr')).filter(function(tr){ return match(tr); }).sort(compareStudentNodes);
+    var filteredRows = AS.list.filter(function(rec){ return match(rec); }).sort(compareStudentNodes);
     renderCurrentPage(filteredRows);
     syncSelectAll();
   }
@@ -2134,8 +2156,8 @@
   }
   function setRowSelected(id, checked) {
     id = String(id);
-    var row  = document.querySelector('#asTableBody tr[data-id="'+id+'"]');
-    var card = document.querySelector('#asCardList .as-card[data-id="'+id+'"]');
+    var row  = AS.row(id);
+    var card = AS.card(id);
     if (row)  { row.classList.toggle('as-row-selected',checked);   var cb=row.querySelector('.as-row-cb');   if(cb)  cb.checked=checked; }
     if (card) { card.classList.toggle('as-card-selected',checked); var cb=card.querySelector('.as-card-cb'); if(cb)  cb.checked=checked; }
     if (checked) selectedIds.add(id); else selectedIds.delete(id);
@@ -2173,7 +2195,7 @@
 
   function buildPortalSendSelection() {
     return Array.from(selectedIds).reduce(function(acc, id) {
-      var row = document.querySelector('#asTableBody tr[data-id="' + String(id) + '"]');
+      var row = AS.row(String(id));
       if (!row) {
         acc.missing += 1;
         return acc;
@@ -2384,8 +2406,8 @@
     _oldEditableId=editableId||'';
     _carryExistingSubjects = null;
     _carryExistingSubjectsClassId = '';
-    _row  = document.querySelector('#asTableBody tr[data-id="'+_sid+'"]');
-    _card = document.querySelector('#asCardList .as-card[data-id="'+_sid+'"]');
+    _row  = AS.row(_sid);
+    _card = AS.card(_sid);
     var avatarHtml = img
       ? '<img class="as-avatar" src="'+escHtml(img)+'" alt="'+escHtml(name)+'" style="width:38px;height:38px">'
       : '<div class="as-avatar-placeholder" style="width:38px;height:38px;font-size:13px">'+escHtml(initials)+'</div>';
@@ -2851,7 +2873,7 @@
     if (!bulkEmailList) return;
     var selectedRows = Array.from(selectedIds)
       .map(function(id) {
-        var row = document.querySelector('#asTableBody tr[data-id="' + id + '"]');
+        var row = AS.row(id);
         if (!row) return null;
         var editBtn = row.querySelector('.js-edit-class');
         var existingEmail = String(row.dataset.email || '').trim().toLowerCase();
@@ -2899,7 +2921,7 @@
     if (!bulkStudentIdList) return;
     var selectedRows = Array.from(selectedIds)
       .map(function(id) {
-        var row = document.querySelector('#asTableBody tr[data-id="' + id + '"]');
+        var row = AS.row(id);
         if (!row) return null;
         var editBtn = row.querySelector('.js-edit-class');
         return {

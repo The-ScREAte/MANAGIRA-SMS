@@ -11,6 +11,8 @@
   const _initials = (s) => ((s.first_name || '').charAt(0) + (s.last_name || '').charAt(0)).toUpperCase() || '?';
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+<script src="<%= assetUrl('/js/listPager.js') %>"></script>
 
 <div class="gp-page gp-page--graduation">
   <header class="gp-head">
@@ -32,7 +34,7 @@
       <a class="gp-btn gp-btn--primary" href="/common/manageClassSubjectAndGradYr<%= _embedQs %>">Manage graduation groups</a>
     </div>
   <% } else { %>
-    <form action="/common/closeGraduationYearGroupPost" method="POST" data-gp-form data-gp-noun="student">
+    <form action="/common/closeGraduationYearGroupPost" method="POST" data-gp-form data-gp-noun="student" data-gp-lazy="/common/closeGraduationYearGroup/rows<%= _embedQs %>">
       <input type="hidden" name="action" value="archive" />
       <input type="hidden" name="embed" value="<%= _embedded ? 'workspace' : '' %>" />
 
@@ -45,7 +47,7 @@
 
       <div class="gp-groups">
         <% _groups.forEach((group, gi) => { %>
-          <details class="gp-group"<%= gi === 0 && group.activeCount ? ' open' : '' %>>
+          <details class="gp-group" data-gp-group="<%= group.id %>"<%= gi === 0 && group.activeCount ? ' open' : '' %>>
             <summary>
               <i class="fa-solid fa-chevron-right gp-group__chev" aria-hidden="true"></i>
               <span class="gp-group__name"><%= group.name %><% if (group.isClass) { %> <span class="gp-group__hint">· no graduation group</span><% } %></span>
@@ -56,30 +58,11 @@
             </summary>
             <% if (!group.students.length) { %>
               <div class="gp-group__empty"><%= group.archivedCount ? 'Everyone in this group has graduated or left. See Graduates & Alumni.' : 'No students are assigned to this group yet.' %></div>
+            <% } else if (gi === 0) { %>
+              <div data-gp-body data-gp-loaded="1"><%- include('../partials/graduationRows', { group: group, students: group.students.slice(0, 20), total: group.students.length, _initials: _initials }) %></div>
             <% } else { %>
-              <table class="gp-table">
-                <thead>
-                  <tr>
-                    <th class="gp-col-check"><input type="checkbox" class="gp-pick-all" aria-label="Select all active students in <%= group.name %>" /></th>
-                    <th>Student</th>
-                    <th class="gp-col-class">Class</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% group.students.forEach((s) => { const name = [s.first_name, s.last_name].filter(Boolean).join(' '); %>
-                    <tr class="<%= s.is_archived ? 'is-archived' : '' %>" data-search="<%= (name + ' ' + (s.custom_student_id || '')).toLowerCase() %>">
-                      <td class="gp-col-check"><input type="checkbox" class="gp-pick" name="students" value="<%= s.student_id %>" aria-label="Select <%= name %>"<%= s.is_archived ? ' disabled' : '' %> /></td>
-                      <td>
-                        <span class="gp-person">
-                          <span class="gp-avatar" data-initials="<%= _initials(s) %>"><% if (s.image_url) { %><img src="<%= publicImageUrl(s.image_url) %>" alt="" loading="lazy" /><% } else { %><%= _initials(s) %><% } %></span>
-                          <span><span class="gp-person__name"><%= name %></span><% if (s.custom_student_id) { %><span class="gp-person__id"><%= s.custom_student_id %></span><% } %></span>
-                        </span>
-                      </td>
-                      <td class="gp-col-class"><%= s.class_name || '—' %></td>
-                    </tr>
-                  <% }) %>
-                </tbody>
-              </table>
+              <%# Opened later: the rows come when the group is opened (or when a search finds someone in it). %>
+              <div data-gp-body><div class="gp-group__empty" data-gp-placeholder>Open to see the <%= group.activeCount %> active student<%= group.activeCount === 1 ? '' : 's' %>…</div></div>
             <% } %>
           </details>
         <% }) %>

@@ -208,6 +208,8 @@ module.exports = [
         title: "The bell",
         list: [
           "<strong>New grade</strong>: a teacher posted a grade for your child.",
+          "<strong>Alerts you chose</strong>: a low or high score, an absence, a report card, or the bus. See " + link("notifications-and-alerts", "Your notifications and alerts") + ".",
+          "<strong>Attendance notices</strong>: your child was absent or late several times this week, if your school sends them.",
           "<strong>New activity</strong>: a trip, club or event was added.",
           "Bus, payment and message notices, when your school uses them.",
           "Tap a notice to open it. <strong>Mark all read</strong> and <strong>Clear all</strong> are at the top.",
@@ -221,12 +223,12 @@ module.exports = [
           ["Section", "What you can do"],
           ["<strong>Appearance</strong>", "Light, Classic or Dark."],
           ["<strong>Profile Settings</strong>", "Your photo, your children's photos and your details."],
-          ["<strong>Email Notifications</strong>", "Choose which emails you get about your children. Security and admission emails always come."],
+          ["<strong>Notifications</strong>", "One list for alerts and emails. Each alert has a switch for In Managira, Email, Text message (where your school has texting) and Weekly briefing; one <strong>Save</strong> saves everything. A row marked <em>Set by your school</em> is locked. For one child, open that child's <strong>Alerts</strong> tile. See " + link("notifications-and-alerts", "Your notifications and alerts") + "."],
           ["<strong>PayGira Cards &amp; Billing</strong>", "Saved cards for paying school bills. See " + link("set-up-paygira-bills-collections-and-guardian-payments", "PayGira") + "."],
         ],
       },
     ],
-    related: ["parent-portal", "emergency-and-pickup-details"],
+    related: ["parent-portal", "notifications-and-alerts", "weekly-briefing", "emergency-and-pickup-details"],
   },
   {
     slug: "parent-forms-and-portfolio",

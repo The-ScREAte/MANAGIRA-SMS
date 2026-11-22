@@ -178,7 +178,25 @@ async function keepEveryoneEnrolled(db) {
   return repaired;
 }
 
+// New classes join the current term's enrollment (add-only), so a class made today shows on the
+// dashboard and offers its students and assessments today. Nothing happens without a current term.
+async function enrollNewClasses(db, organizationId, classIds) {
+  const ids = (classIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0);
+  if (!ids.length) return { added: 0 };
+  const term = await currentTerm(db, organizationId);
+  if (!term) return { added: 0 };
+  const enrollmentId = await enrollmentFor(db, organizationId, term);
+  const result = await db.query(
+    `INSERT INTO enrolled_classes (enrollment_id, class_id)
+     SELECT $1, c.class_id FROM classes c
+      WHERE c.organization_id = $2 AND c.class_id = ANY($3::int[])
+        AND NOT EXISTS (SELECT 1 FROM enrolled_classes ec WHERE ec.enrollment_id = $1 AND ec.class_id = c.class_id)`,
+    [enrollmentId, organizationId, ids]
+  );
+  return { added: result.rowCount || 0, termId: term.term_id };
+}
+
 module.exports = {
-  currentTerm, termForYear, enrollStudentsInYear, moveStudentsToClassInCurrentTerm,
+  enrollNewClasses, currentTerm, termForYear, enrollStudentsInYear, moveStudentsToClassInCurrentTerm,
   ensureCurrentTermEnrollment, ensureEnrollmentWhereRecordsExist, keepEveryoneEnrolled,
 };

@@ -36,7 +36,7 @@ const STEPS = [
     required: true,
     title: "Create the school year and its current term",
     hint: "Everything (classes, scores, attendance, fees) belongs to a term.",
-    href: management("school-year", "/common/manageRecords", "School Years"),
+    href: management("school-year", "/common/manageRecords", "School years & terms"),
     sql: `SELECT EXISTS (SELECT 1 FROM school_years sy JOIN terms t ON t.school_year_id = sy.id
                           WHERE sy.organization_id = $1 AND sy.current AND t.current) AS done`,
   },
@@ -60,7 +60,7 @@ const STEPS = [
     key: "term-classes",
     required: true,
     title: "Put your classes into the current term",
-    hint: "Only classes in the term show on the dashboard.",
+    hint: "Classes you add join the current term by themselves. Use Enrollment for a coming term.",
     href: management("enrollment", "/enrollment/manageEnrollment", "Enrollment"),
     needsTerm: true,
     sql: `SELECT EXISTS (SELECT 1 FROM enrolled_classes ec JOIN enrollments e ON e.enrollment_id = ec.enrollment_id

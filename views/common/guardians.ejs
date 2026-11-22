@@ -1,5 +1,7 @@
 <link rel="stylesheet" href="/css/manage.css" />
 <link rel="stylesheet" href="/css/peoplePanel.css" />
+<link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+<script src="<%= assetUrl('/js/listPager.js') %>"></script>
 <link rel="stylesheet" href="<%= assetUrl('/css/contactCard.css') %>" />
 <script src="<%= assetUrl('/js/contactCard.js') %>"></script>
 <script src="/js/manage.js" defer></script>
@@ -9,6 +11,7 @@
   const _fmtWhen = (v) => (v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never');
   const _classes = Array.from(new Set(guardians.flatMap((g) => (g.children || []).map((c) => c.className)).filter(Boolean))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const _photo = (g) => (g.image_url && g.image_url !== 'profilePlaceholder.png' ? publicImageUrl(g.image_url) : '');
+  const _placeholder = publicImageUrl('/images/profilePlaceholder.png');
   const _panelData = guardians.map((g) => ({
     key: g.source + ':' + g.guardian_id,
     id: g.guardian_id,
@@ -25,6 +28,8 @@
     loginEmail: g.login_email || '',
     loginPhone: g.login_phone || '',
     lastLogin: _fmtWhen(g.last_login),
+    lastDay: _isoDay(g.last_login),
+    count: (g.children || []).length || g.student_count || 0,
     children: g.children || [],
   }));
 %>
@@ -81,35 +86,10 @@
             <th>Last sign-in</th>
           </tr>
         </thead>
-        <tbody id="guardianTableBody">
-          <% guardians.forEach((g) => { const name = _name(g); const kids = g.children || []; %>
-            <tr class="ux-row" tabindex="0" data-key="<%= g.source + ':' + g.guardian_id %>"
-                data-name="<%= name.toLowerCase() %>"
-                data-contact="<%= [g.email, g.phone, g.login_email, g.login_phone].filter(Boolean).join(' ').toLowerCase() %>"
-                data-status="<%= g.portal_status %>"
-                data-classes="<%= kids.map((c) => c.className).join('|') %>"
-                data-kids="<%= kids.length %>"
-                data-last-login="<%= _isoDay(g.last_login) %>">
-              <td class="ws-card-title">
-                <span class="ws-person">
-                  <img src="<%= publicImageUrl(_photo(g) || '/images/profilePlaceholder.png') %>" alt="" loading="lazy" />
-                  <strong><%= name %></strong>
-                </span>
-              </td>
-              <td class="ws-card-wide"><%= g.email || '—' %></td>
-              <td><%= g.phone || '—' %></td>
-              <td><span class="ws-pill"><%= kids.length || g.student_count || 0 %></span></td>
-              <td>
-                <% if (g.portal_status === 'Active') { %><span class="ws-pill ws-pill--green">Active</span>
-                <% } else if (g.portal_status === 'Setup pending') { %><span class="ws-pill ws-pill--amber">Setup pending</span>
-                <% } else { %><span class="ws-pill">No login</span><% } %>
-              </td>
-              <td class="ux-when"><%= _fmtWhen(g.last_login) %></td>
-            </tr>
-          <% }) %>
-        </tbody>
+        <tbody id="guardianTableBody"><tr class="ux-skeleton"><td colspan="6" style="padding:28px 12px;text-align:center;color:#64748b;">Loading…</td></tr></tbody>
       </table>
       <p class="ux-empty" id="uxEmpty" hidden>No one matches these filters.</p>
+      <div id="uxPager"></div>
     </div>
   </div>
   <% } %>
@@ -130,6 +110,7 @@
   </div>
 </aside>
 <script type="application/json" id="uxPeople"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
+<script>window.UX_PLACEHOLDER = <%- JSON.stringify(_placeholder) %>;</script>
 
 <style>
   .ws-guardians .ws-person img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
@@ -153,9 +134,24 @@
 <script>
 (function () {
   var get = function (id) { return document.getElementById(id); };
-  var rows = Array.prototype.slice.call(document.querySelectorAll('tr.ux-row'));
   var people = [];
   try { people = JSON.parse(get('uxPeople').textContent) || []; } catch (e) { people = []; }
+  // The list is drawn here, a page at a time (Rows per page: 10 to 200): the school's parents are sent once as compact
+  // data, and the table only holds the page being looked at.
+  var matches = people.slice(), selectedKey = '';
+  var tbody = get('guardianTableBody');
+  function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+  function pill(status) { return status === 'Active' ? '<span class="ws-pill ws-pill--green">Active</span>' : status === 'Setup pending' ? '<span class="ws-pill ws-pill--amber">Setup pending</span>' : '<span class="ws-pill">No login</span>'; }
+  function rowHtml(g) {
+    return '<tr class="ux-row' + (g.key === selectedKey ? ' is-selected' : '') + '" tabindex="0" data-key="' + esc(g.key) + '">'
+      + '<td class="ws-card-title"><span class="ws-person"><img src="' + esc(g.photo || window.UX_PLACEHOLDER) + '" alt="" loading="lazy" /><strong>' + esc(g.name) + '</strong></span></td>'
+      + '<td class="ws-card-wide">' + (esc(g.email) || '—') + '</td><td>' + (esc(g.phone) || '—') + '</td>'
+      + '<td><span class="ws-pill">' + g.count + '</span></td><td>' + pill(g.status) + '</td><td class="ux-when">' + esc(g.lastLogin) + '</td></tr>';
+  }
+  var pager = ManagiraPager.create({ mount: get('uxPager'), key: 'guardians', total: people.length, onChange: function (s) {
+    tbody.innerHTML = matches.slice(Math.max(0, s.from - 1), s.to).map(rowHtml).join('');
+  } });
+  function redraw() { pager.setTotal(matches.length); }
   var dirty = false;
 
   /* ---- Filters ---- */
@@ -166,27 +162,29 @@
     var contact = get('uxContact').value.trim().toLowerCase().replace(/\s+/g, '');
     var status = get('uxStatus').value, cls = get('uxClass').value, kids = get('uxKids').value;
     var after = get('uxAfter').value, before = get('uxBefore').value, never = get('uxNever').checked;
-    var shown = 0;
-    rows.forEach(function (row) {
-      var d = row.dataset, last = d.lastLogin || '';
-      var ok = (!name || d.name.indexOf(name) !== -1)
-        && (!contact || d.contact.replace(/\s+/g, '').indexOf(contact) !== -1)
-        && (!status || d.status === status)
-        && (!cls || ('|' + d.classes + '|').indexOf('|' + cls + '|') !== -1)
-        && (!kids || (kids === 'none' ? d.kids === '0' : d.kids !== '0'))
+    matches = people.filter(function (g) {
+      var last = g.lastDay || '';
+      var haystack = (g.email + ' ' + g.phone + ' ' + g.loginEmail + ' ' + g.loginPhone).toLowerCase().replace(/\s+/g, '');
+      var classes = (g.children || []).map(function (c) { return c.className; });
+      return (!name || g.name.toLowerCase().indexOf(name) !== -1)
+        && (!contact || haystack.indexOf(contact) !== -1)
+        && (!status || g.status === status)
+        && (!cls || classes.indexOf(cls) !== -1)
+        && (!kids || (kids === 'none' ? (g.children || []).length === 0 : (g.children || []).length !== 0))
         && (!never || !last)
         && (!after || (last && last >= after))
         && (!before || (last && last <= before));
-      row.hidden = !ok;
-      if (ok) shown += 1;
     });
+    var shown = matches.length;
+    redraw();
     var active = fields.filter(function (id) { var el = get(id); return el.type === 'checkbox' ? el.checked : el.value; }).length;
-    get('uxShown').textContent = 'Showing ' + shown + ' of ' + rows.length;
+    get('uxShown').textContent = 'Showing ' + shown + ' of ' + people.length;
     get('uxEmpty').hidden = shown !== 0;
     get('uxFilterCount').hidden = !active;
     get('uxFilterCount').textContent = active;
   }
   if (get('uxName')) {
+    apply();
     fields.forEach(function (id) { var el = get(id); el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'date' ? 'change' : 'input', apply); });
     get('uxClear').addEventListener('click', function () {
       fields.forEach(function (id) { var el = get(id); if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
@@ -323,7 +321,8 @@
     get('uxBackdrop').hidden = false;
     get('uxPanel').classList.add('is-open');
     get('uxPanel').setAttribute('aria-hidden', 'false');
-    rows.forEach(function (r) { r.classList.toggle('is-selected', r.dataset.key === key); });
+    selectedKey = key;
+    Array.prototype.forEach.call(document.querySelectorAll('tr.ux-row'), function (r) { r.classList.toggle('is-selected', r.dataset.key === key); });
     get('uxClose').focus();
   }
   function close() {
@@ -333,7 +332,8 @@
     get('uxPanel').setAttribute('aria-hidden', 'true');
     get('uxBackdrop').hidden = true;
     get('uxEditFrame').removeAttribute('src');
-    rows.forEach(function (r) { r.classList.remove('is-selected'); });
+    selectedKey = '';
+    Array.prototype.forEach.call(document.querySelectorAll('tr.ux-row'), function (r) { r.classList.remove('is-selected'); });
     // Changes saved in the details view show once the panel closes.
     if (dirty) { dirty = false; window.location.reload(); return; }
     var row = current && document.querySelector('tr.ux-row[data-key="' + current.key + '"]');

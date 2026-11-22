@@ -34,6 +34,8 @@
       }
 
       <% if (locals.isEmbedded) { %>
+      /* Inside a frame the page never draws an edge of its own. */
+      html, body { border: 0 !important; outline: 0 !important; box-shadow: none !important; background: transparent !important; }
       /* Embedded inside the class-dashboard workspace iframe: the shell
          around the iframe already provides the card chrome (header, border,
          background), so this page fills it edge-to-edge instead of nesting
@@ -42,9 +44,12 @@
         width: 100%;
         max-width: none;
         margin: 0;
-        border: none;
+        border: 0 !important;
         border-radius: 0;
-        padding: 18px 22px 22px;
+        padding: 0;
+        min-height: 100vh;
+        box-sizing: border-box;
+        background: transparent;
       }
       <% } %>
 
@@ -633,6 +638,7 @@
       .sd-bus__more dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin: 10px 0 0; padding: 12px; border-radius: 10px; background: #fafbfc; text-align: left; }
       .sd-bus__more dt { color: #64748b; font-size: 11.5px; font-weight: 600; }
       .sd-bus__more dd { margin: 1px 0 0; color: #0f172a; font-size: 13.5px; }
+      .sd-card a.sd-track { text-decoration: none; }
       .sd-card .sd-track { display: inline-flex; align-items: center; gap: 6px; width: auto; height: 32px; margin: 0; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; box-shadow: none; color: #0f172a; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
       .sd-card .sd-track:hover { border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); }
       @media (max-width: 760px) {
@@ -687,6 +693,117 @@
         .sd-profile .student-extra-details p strong { font-size: 0.68rem; color: #64748b; font-weight: 600; }
       }
       
+
+      /* The student's page: a clean header, one row of things to do, and tabs. */
+      /* A SaaS record page: header, actions and tabs are flat bands across the full width; only the content below them sits in cards. */
+      .sd-head { display: flex; align-items: center; gap: 18px; margin: 0; padding: 16px 24px; border: 0; border-bottom: 1px solid #e5e9ef; border-radius: 0; background: #fff; }
+      .sd-head__photo { flex: none; }
+      .sd-head__photo img { display: block; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 3px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, #fff); background: #f1f5f9; }
+      .sd-head__main { flex: 1; min-width: 0; }
+      .sd-head__titlerow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+      .sd-head .sd-head__name { margin: 0; padding: 0; color: #0f172a; font-size: 1.55rem; font-weight: 800; line-height: 1.2; text-align: left; overflow-wrap: anywhere; }
+      .sd-head__sub { margin: 4px 0 0; color: #64748b; font-size: .95rem; }
+      .sd-head__edit { flex: none; display: flex; align-items: center; gap: 8px; }
+      /* The header's buttons (Edit student, portal invite / reset) are one design. */
+      .sd-head .sd-head__edit .sd-btn { display: inline-flex; align-items: center; gap: 7px; width: auto; height: 36px; margin: 0; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, #dbe3e7); border-radius: 10px; background: #fff; color: var(--org-primary-color, #01535b); font: inherit; font-size: .84rem !important; font-weight: 700; line-height: 1; white-space: nowrap; text-decoration: none; cursor: pointer; box-shadow: none; }
+      .sd-head .sd-head__edit .sd-btn:hover, .sd-head .sd-head__edit .sd-btn:focus-visible { background: color-mix(in srgb, var(--org-primary-color, #01535b) 8%, #fff); border-color: var(--org-primary-color, #01535b); outline: none; }
+      .sd-head .sd-head__edit .sd-btn[disabled] { opacity: .6; cursor: default; }
+      .sd-tabs { display: flex; gap: 2px; margin: 0; padding: 0 18px; background: #fff; border-bottom: 1px solid #e5e9ef; overflow-x: auto; scrollbar-width: none; }
+      .sd-tabs::-webkit-scrollbar { display: none; }
+      .sd-tabs .sd-tab { position: relative; display: inline-flex; flex: none; align-items: center; gap: 7px; width: auto; height: 42px; margin: 0; padding: 0 16px; border: 0; border-radius: 0; background: transparent; color: #64748b; font-size: .92rem; font-weight: 600; cursor: pointer; box-shadow: none; white-space: nowrap; }
+      .sd-tabs .sd-tab:hover { color: #0f172a; }
+      .sd-tabs .sd-tab[aria-selected="true"] { color: var(--org-primary-color, #01535b); }
+      .sd-tabs .sd-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--org-primary-color, #01535b); }
+      .sd-tabs .sd-tab:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: -2px; }
+      .sd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 0 0 14px; }
+      .sd-stat { padding: 12px 14px; border: 1px solid #e5e9ef; border-radius: 10px; background: #fff; }
+      .sd-stat span { display: block; font-size: .74rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+      .sd-stat strong { display: block; margin-top: 4px; font-size: 1.35rem; line-height: 1.15; color: #0f172a; }
+      .sd-stat small { display: block; margin-top: 2px; font-size: .78rem; color: #64748b; }
+      .sd-stat--warn strong { color: #b91c1c; }
+      .sd-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+      .sd-days li { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 52px; padding: 6px 8px; border: 1px solid #e5e9ef; border-radius: 8px; font-size: .72rem; color: #64748b; }
+      .sd-days b { font-size: .78rem; color: #334155; }
+      .sd-days .is-present b { color: #166534; } .sd-days .is-late b { color: #92400e; } .sd-days .is-absent b { color: #b91c1c; }
+      .sd-days li.has-note { position: relative; border-color: var(--org-primary-color, #0f766e); }
+      .sd-days li.has-note::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--org-primary-color, #0f766e); }
+      .sd-notes { margin: 0 0 12px; padding: 0; list-style: none; border: 1px solid #e5e9ef; border-radius: 10px; overflow: hidden; }
+      .sd-note { display: grid; gap: 2px; padding: 9px 12px; border-top: 1px solid #eef1f4; font-size: .86rem; color: #334155; overflow-wrap: anywhere; }
+      .sd-note:first-child { border-top: 0; }
+      .sd-note b { font-size: .78rem; color: #0f172a; }
+      .sd-sub { margin: 0 0 6px; font-size: .8rem; font-weight: 700; color: #475569; }
+      .sd-billrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid #eef1f4; font-size: .88rem; }
+      .sd-billrow:first-of-type { border-top: 0; }
+      .sd-billrow strong { color: #0f172a; overflow-wrap: anywhere; }
+      .sd-billrow span { color: #64748b; font-size: .8rem; }
+      .sd-billrow .sd-amt { grid-row: 1 / span 2; grid-column: 2; align-self: center; text-align: right; font-weight: 700; color: #0f172a; font-size: .92rem; }
+      .sd-loading { display: flex; justify-content: center; padding: 34px 0; }
+      .sd-spin { width: 26px; height: 26px; border: 3px solid color-mix(in srgb, var(--org-primary-color, #0f766e) 18%, transparent); border-top-color: var(--org-primary-color, #0f766e); border-radius: 50%; animation: sd-spin .7s linear infinite; }
+      @keyframes sd-spin { to { transform: rotate(360deg); } }
+      .sd-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; margin: 0 0 14px; }
+      .sd-bar__note { color: #64748b; font-size: .84rem; font-weight: 600; }
+      .sd-bar .sd-msgs__filters { margin: 0; }
+      .sd-tab__n--alert { background: #fee2e2; color: #b91c1c; }
+      .sd-msgs__filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+      .sd-chip { width: auto; height: 30px; margin: 0; padding: 0 12px; border: 1px solid #dbe3e7; border-radius: 999px; background: #fff; box-shadow: none; color: #475569; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+      .sd-chip.is-on { border-color: var(--org-primary-color, #0f766e); background: color-mix(in srgb, var(--org-primary-color, #0f766e) 9%, #fff); color: var(--org-primary-color, #0f766e); }
+      .sd-more { width: 100%; height: 40px; margin: 0; border: 0; border-top: 1px solid #eef1f4; border-radius: 0; background: #fff; color: var(--org-primary-color, #0f766e); font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; box-shadow: none; }
+      .sd-more:hover { background: #f8fafc; }
+      .sd-msgs__list { display: flex; flex-direction: column; border: 1px solid #e5e9ef; border-radius: 10px; overflow: hidden; }
+      .sd-msgs__list > .sd-empty { margin: 0; padding: 28px 12px; }
+      .sd-msg { border-top: 1px solid #eef1f4; background: #fff; }
+      .sd-msg:first-child { border-top: 0; }
+      .sd-msg__row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: start; width: 100%; margin: 0; padding: 12px 14px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; font: inherit; color: inherit; cursor: default; }
+      button.sd-msg__row { cursor: pointer; }
+      button.sd-msg__row:hover { background: #f8fafc; }
+      .sd-msg__ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #eef2f6; color: #475569; }
+      .sd-msg--thread .sd-msg__ico { background: color-mix(in srgb, var(--org-primary-color, #0f766e) 12%, #fff); color: var(--org-primary-color, #0f766e); }
+      .sd-msg__main { min-width: 0; }
+      .sd-msg__top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+      .sd-msg__title { font-size: .9rem; font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
+      .sd-msg__who { font-size: .8rem; color: #64748b; }
+      .sd-msg__text { margin: 3px 0 0; font-size: .86rem; color: #334155; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; white-space: pre-line; }
+      .sd-msg.is-open .sd-msg__text { display: none; }
+      .sd-msg__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: .78rem; color: #64748b; white-space: nowrap; }
+      .sd-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; background: #eef2f6; color: #475569; font-size: .72rem; font-weight: 700; }
+      .sd-pill--warn { background: #fee2e2; color: #b91c1c; }
+      .sd-pill--ok { background: #dcfce7; color: #166534; }
+      .sd-pill--wait { background: #fef3c7; color: #92400e; }
+      .sd-thread { padding: 0 14px 14px 60px; display: none; }
+      .sd-msg.is-open .sd-thread { display: block; }
+      .sd-bubble { max-width: 560px; margin: 0 0 8px; padding: 8px 12px; border-radius: 12px; background: #f1f5f9; font-size: .86rem; color: #1e293b; overflow-wrap: anywhere; }
+      .sd-bubble.is-staff { margin-left: auto; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); }
+      .sd-bubble small { display: block; margin-top: 3px; color: #64748b; font-size: .72rem; }
+      .sd-bubble p { margin: 0; white-space: pre-wrap; }
+      .sd-reply { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
+      .sd-reply textarea { flex: 1; min-height: 40px; max-height: 140px; margin: 0; padding: 9px 12px; border: 1px solid #dbe3e7; border-radius: 10px; font: inherit; font-size: .88rem; resize: vertical; }
+      .sd-reply button { width: auto; height: 40px; margin: 0; padding: 0 16px; border: 0; border-radius: 10px; background: var(--org-primary-color, #0f766e); color: #fff; font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; box-shadow: none; }
+      .sd-reply button:disabled { opacity: .55; cursor: default; }
+      @media (max-width: 640px) {
+        .sd-msg__row { grid-template-columns: 30px minmax(0, 1fr); padding: 12px; }
+        .sd-msg__ico { width: 30px; height: 30px; }
+        .sd-msg__side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
+        .sd-thread { padding: 0 12px 12px; }
+        .sd-bubble { max-width: 100%; }
+        .sd-reply { flex-direction: column; align-items: stretch; }
+      }
+      .sd-tab__n { padding: 0 7px; border-radius: 999px; background: #eef2f6; color: #475569; font-size: .74rem; font-weight: 700; }
+      .sd-panel[hidden] { display: none; }
+      .sd-panel { padding: 18px 24px 24px; }
+      .sd-panel > .sd-card + .sd-card { margin-top: 14px; }
+      .sd-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px 24px; margin: 0; }
+      .sd-facts dt { color: #64748b; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+      .sd-facts dd { margin: 3px 0 0; color: #0f172a; font-weight: 600; overflow-wrap: break-word; word-break: normal; }
+      .sd-facts__wide { grid-column: span 2; }
+      @media (max-width: 720px) {
+        .sd-head { flex-wrap: wrap; padding: 14px 16px; gap: 12px; }
+        .sd-tabs { padding: 0 8px; }
+        .sd-panel { padding: 14px 16px 20px; }
+        .sd-head__photo img { width: 64px; height: 64px; }
+        .sd-head__edit { width: 100%; }
+        .sd-head .sd-head__name { font-size: 1.25rem; }
+        .sd-facts__wide { grid-column: auto; }
+      }
     </style>
     <%- include('../partials/flash') %>
 
@@ -709,91 +826,227 @@
           <% oldSystem.alerts.forEach(function (a) { %><p style="margin:2px 0"><strong><%= a.label %>:</strong> <%= a.text %></p><% }) %>
         </div>
         <% } %>
-      <section class="sd-card sd-profile">
-      <div class="student-info-container">
-        <!-- Student Image -->
-        <div class="student-image-container">
-          <% if (student.image_url && student.image_url !==
-          'profilePlaceholder.png') { %>
+      <%
+        var _isStaff = !(req.session && req.session.guardianId);
+        var _name = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name));
+        var _studentDisplayId = '';
+        if (studentIdSettings && studentIdSettings.use_custom_student_id) {
+          var _studentPrefix = studentIdSettings.student_id_prefix || '';
+          _studentDisplayId = student.custom_student_id || (_studentPrefix ? _studentPrefix + String(student.student_id).padStart(3, '0') : String(student.student_id).padStart(3, '0'));
+        }
+        var _perms = locals.userPermissions || [];
+        var _cid = student.class_id || '';
+        var _active = !locals.archiveStatus;
+        var _canMessage = _isStaff && _perms.includes('mailroom');
+        var _messageHref = '/common/mailroom?student=' + encodeURIComponent((student.first_name || '') + ' ' + (student.last_name || '')).replace(/%20/g, '+');
+        var _reportHref = (_isStaff && _cid && workspaceAccess().reports.terminal) ? ('/print/printStudentReport?classId=' + _cid + '&termId=' + currentTerm + '&studentIds=' + student.student_id) : '';
+        // Messages: Mail Room people, and a class's own staff (a teacher sees their classes' parents' conversations).
+        var _hasMessages = _isStaff && _active && (_canMessage || ['Teacher', 'Supervisor'].includes(req.session.userRole));
+        var _hasAttendance = _isStaff && _perms.includes('mark_attendance');
+        var _attendanceHref = (_active && _cid) ? ('/common/classDashboard/' + _cid + '/attendance') : '';
+        var _hasBills = _isStaff && !!workspaceAccess().paygira.students;
+        var _billsHref = '/account/settings/finance?section=students&openStudent=' + student.student_id;
+        var _hasFiles = !!locals.studentDocuments;
+        var _hasPortfolio = !!(locals.studentDocuments && studentDocuments.portfolio);
+        var _hasRecords = !!(locals.oldSystem && ((oldSystem.history.length || oldSystem.attendance.length || oldSystem.sourceGpa) || (oldSystem.forms.length || oldSystem.archives.length || (oldSystem.documents || []).length || (oldSystem.extras || []).length)));
+      %>
+      <header class="sd-head">
+        <div class="sd-head__photo">
+          <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
           <% const studentImageUrl = publicImageUrl(student.image_url); %>
-          <img
-            src="<%= studentImageUrl %><%= studentImageUrl.includes('?') ? '&' : '?' %>v=<%= new Date().getTime() %>"
-            alt="Student Image"
-          />
+          <img src="<%= studentImageUrl %><%= studentImageUrl.includes('?') ? '&' : '?' %>v=<%= new Date().getTime() %>" alt="<%= _name %>" />
           <% } else { %>
-          <img src="/images/profilePlaceholder.png" alt="Placeholder Image" />
+          <img src="/images/profilePlaceholder.png" alt="" />
           <% } %>
         </div>
-
-
-        <!-- Student Details -->
-        <div class="student-details">
-          <%
-            var _studentDisplayId = '';
-            if (studentIdSettings && studentIdSettings.use_custom_student_id) {
-              var _studentPrefix = studentIdSettings.student_id_prefix || '';
-              _studentDisplayId = student.custom_student_id ||
-                (_studentPrefix
-                  ? _studentPrefix + String(student.student_id).padStart(3, '0')
-                  : String(student.student_id).padStart(3, '0'));
-            }
-          %>
-          <div class="student-heading-row">
-            <div class="sd-name">
-              <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %></h2>
-              <p class="sd-sub"><%= [enrolledClassForTerm, termNameForPage].filter(Boolean).join(' · ') %></p>
-            </div>
-            <%- include('../partials/studentArchiveBanner') %>
-            <div class="student-heading-actions">
-              <% if (_studentDisplayId) { %>
-              <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
-              <% } %>
-              <% if (req.session && !req.session.guardianId && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor' && !locals.archiveStatus) { %>
-              <% if (workspaceAccess().students.canEdit) { %><a class="student-edit-link" id="studentEditLink" data-no-spa href="/common/editStudent?studentId=<%= student.student_id %>&termId=<%= currentTerm %>&classId=<%= student.class_id %>">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                Edit student
-              </a><% } %>
-              <% } %>
-              <% if (locals.studentPortalIntegrationActive && locals.studentPortalSetupComplete) { %>
-              <span class="student-portal-status"><span class="student-portal-check" aria-hidden="true">✓</span> Portal</span>
-              <% } %>
-              <% if (locals.studentPortalIntegrationActive && locals.canSendStudentPortalRequest) { %>
-              <button
-                type="button"
-                class="btn btn-primary student-portal-request-btn"
-                id="student-password-reset-btn"
-                data-student-id="<%= student.student_id %>"
-                data-portal-action="<%= studentPortalSetupComplete ? 'reset' : 'setup' %>"
-                data-student-name="<%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %>">
-                <%= studentPortalSetupComplete ? 'Reset Pass' : 'Send Setup' %>
-              </button>
-              <% } %>
-            </div>
+        <div class="sd-head__main">
+          <div class="sd-head__titlerow">
+            <h1 class="sd-head__name"><%= _name %></h1>
+            <% if (_studentDisplayId) { %><span class="student-id-chip">ID: <%= _studentDisplayId %></span><% } %>
+            <% if (locals.studentPortalIntegrationActive && locals.studentPortalSetupComplete) { %><span class="student-portal-status"><span class="student-portal-check" aria-hidden="true">✓</span> Portal</span><% } %>
           </div>
-          <button class="student-details-toggle" type="button" id="student-details-toggle" aria-expanded="false" aria-controls="student-extra-details">More details</button>
-          <div class="student-extra-details" id="student-extra-details">
-          <% if (student.gender) { %><p><strong>Gender</strong> <%= student.gender %></p><% } %>
-          <% if (student.date_of_birth) { %>
-          <p><strong>Date of birth</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %></p>
-          <% } %>
-          <% if (gradYearGroupName && !/^no /i.test(String(gradYearGroupName))) { %><p><strong>Graduation class</strong> <%= gradYearGroupName %></p><% } %>
-          <% if (student.hometown) { %><p><strong>Hometown</strong> <%= student.hometown %></p><% } %>
-          <% if (student.address) { %>
-          <p><strong>Address</strong> <%= student.address %></p>
-          <% } %>
-          <% if (student.email) { %>
-          <p><strong>Email</strong> <%= student.email %></p>
-          <% } %>
-          <% (locals.customAnswers || []).forEach(function (f) { %>
-          <p><strong><%= f.label %></strong> <span style="white-space: pre-wrap"><%= f.display %></span></p>
-          <% }) %>
-          <% if (locals.oldSystem) { %>
-            <% oldSystem.extras.forEach(function (x) { %><p><strong><%= x.label %></strong> <span style="white-space: pre-wrap"><%= x.value %></span><% if (x.sensitive) { %> <small style="color:#b91c1c">(restricted)</small><% } %></p><% }) %>
-          <% } %>
-          </div>
+          <%- include('../partials/studentArchiveBanner') %>
         </div>
+        <div class="sd-head__edit">
+          <% if (_isStaff && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor' && !locals.archiveStatus && workspaceAccess().students.canEdit) { %>
+          <a class="sd-btn" id="studentEditLink" data-no-spa href="/common/editStudent?studentId=<%= student.student_id %>&termId=<%= currentTerm %>&classId=<%= student.class_id %>">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            Edit student
+          </a>
+          <% } %>
+          <% if (locals.studentPortalIntegrationActive && locals.canSendStudentPortalRequest) { %>
+          <button type="button" class="sd-btn" id="student-password-reset-btn" data-student-id="<%= student.student_id %>" data-portal-action="<%= studentPortalSetupComplete ? 'reset' : 'setup' %>" data-student-name="<%= _name %>" data-has-email="<%= locals.studentPortalHasEmail ? '1' : '' %>" data-edit-url="/common/editStudent?studentId=<%= student.student_id %>&termId=<%= currentTerm %>&classId=<%= student.class_id %>">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><% if (studentPortalSetupComplete) { %><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><% } else { %><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/><% } %></svg>
+            <span><%= studentPortalSetupComplete ? 'Reset portal password' : 'Invite to student portal' %></span>
+          </button>
+          <% } %>
+        </div>
+      </header>
+
+      <div class="sd-tabs" role="tablist" aria-label="Student sections" id="sd-tabs">
+        <button type="button" role="tab" class="sd-tab" id="sd-tab-overview" data-sd-tab="overview" aria-controls="sd-panel-overview" aria-selected="true">Overview</button>
+        <button type="button" role="tab" class="sd-tab" id="sd-tab-grades" data-sd-tab="grades" aria-controls="sd-panel-grades" aria-selected="false" tabindex="-1">Grades</button>
+        <% if (_hasAttendance) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-attendance" data-sd-tab="attendance" aria-controls="sd-panel-attendance" aria-selected="false" tabindex="-1">Attendance</button><% } %>
+        <% if (_hasMessages) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-messages" data-sd-tab="messages" aria-controls="sd-panel-messages" aria-selected="false" tabindex="-1">Messages <span class="sd-tab__n sd-tab__n--alert" id="sdMsgBadge" hidden></span></button><% } %>
+        <% if (_hasBills) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-bills" data-sd-tab="bills" aria-controls="sd-panel-bills" aria-selected="false" tabindex="-1">Bills</button><% } %>
+        <% if (_hasFiles) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-files" data-sd-tab="files" aria-controls="sd-panel-files" aria-selected="false" tabindex="-1">Files <span class="sd-tab__n"><%= studentDocuments.list.length %></span></button><% } %>
+        <% if (_hasPortfolio) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-portfolio" data-sd-tab="portfolio" aria-controls="sd-panel-portfolio" aria-selected="false" tabindex="-1">Portfolio</button><% } %>
+        <% if (locals.transportationSnapshot) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-transport" data-sd-tab="transport" aria-controls="sd-panel-transport" aria-selected="false" tabindex="-1">Transport</button><% } %>
+        <% if (_hasRecords) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-records" data-sd-tab="records" aria-controls="sd-panel-records" aria-selected="false" tabindex="-1">Old records</button><% } %>
+      </div>
+
+      <div class="sd-panel" id="sd-panel-overview" role="tabpanel" aria-labelledby="sd-tab-overview" data-sd-panel="overview">
+        <section class="sd-card">
+          <h3 class="sd-card__title">About <%= student.first_name %></h3>
+          <dl class="sd-facts">
+            <% if (student.gender) { %><div><dt>Gender</dt><dd><%= student.gender %></dd></div><% } %>
+            <% if (student.date_of_birth) { %><div><dt>Date of birth</dt><dd><%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %></dd></div><% } %>
+            <% if (gradYearGroupName && !/^no /i.test(String(gradYearGroupName))) { %><div><dt>Graduation class</dt><dd><%= gradYearGroupName %></dd></div><% } %>
+            <% if (student.hometown) { %><div><dt>Hometown</dt><dd><%= student.hometown %></dd></div><% } %>
+            <% if (student.address) { %><div class="sd-facts__wide"><dt>Address</dt><dd><%= student.address %></dd></div><% } %>
+            <% if (student.email) { %><div><dt>Email</dt><dd><%= student.email %></dd></div><% } %>
+            <% (locals.customAnswers || []).forEach(function (f) { %><div><dt><%= f.label %></dt><dd style="white-space: pre-wrap"><%= f.display %></dd></div><% }) %>
+            <% if (locals.oldSystem) { oldSystem.extras.forEach(function (x) { %><div><dt><%= x.label %></dt><dd style="white-space: pre-wrap"><%= x.value %><% if (x.sensitive) { %> <small style="color:#b91c1c">(restricted)</small><% } %></dd></div><% }); } %>
+          </dl>
+        </section>
+      <% if (req.session && !req.session.guardianId) { %>
+      <section class="sd-card">
+      <h3 class="sd-card__title">Parents &amp; guardians</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th class="sd-col-action"><span class="sd-sr">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% guardians.forEach(guardian => { %>
+            <% const _gName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
+            <tr>
+              <td><%= _gName %></td>
+              <td><%= guardian.phone || '—' %></td>
+              <td><%= guardian.email || '—' %></td>
+              <td><%= [guardian.address, guardian.hometown].filter(Boolean).join(' · ') || '—' %></td>
+              <td class="sd-col-action">
+                <a href="/common/person-card/guardian/<%= guardian.guardian_id %>?source=legacy" class="sd-view" data-guardian-view data-guardian-name="<%= _gName %>" data-no-spa aria-label="View <%= _gName %>">View</a>
+              </td>
+            </tr>
+            <% }) %>
+            <% if (!guardians.length) { %>
+            <tr><td colspan="5" class="sd-empty">No parent or guardian linked yet.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
       </div>
       </section>
+      <% } %>
+      </div>
+      <div class="sd-panel" id="sd-panel-grades" role="tabpanel" aria-labelledby="sd-tab-grades" data-sd-panel="grades" hidden>
+      <section class="sd-card">
+      <div class="sd-bar">
+        <span class="sd-bar__note">This term</span>
+        <% if (_reportHref) { %><a class="sd-track" href="<%= _reportHref %>" target="_blank" rel="noopener" data-no-spa title="Report card (opens in a new tab)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/></svg>Report card</a><% } %>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <% uniqueAssessments.forEach(assessment => { %>
+              <th>
+                <%= assessment.title %> (<%= assessment.weight %>%)<br />
+                <small><%= [assessment.category, assessment.max_score !== null && assessment.max_score !== undefined ? 'out of ' + Number(assessment.max_score) : ''].filter(Boolean).join(' · ') %></small>
+              </th>
+              <% }) %>
+              <th style="white-space:normal;min-width:80px;">Total<br><small>raw score</small></th>
+              <th style="white-space:normal;min-width:80px;">Scaled<br><small>of scale base</small></th>
+              <th style="white-space:normal;min-width:70px;">Percent</th>
+              <th>Grade</th>
+              <th>Position</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% subjects.forEach(subject => { %>
+            <tr>
+              <td><%= subject.subject_name %></td>
+              <% uniqueAssessments.forEach(assessmentTitle => { %> <% const
+              assessment = subject.assessments.find(a => a.title ===
+              assessmentTitle.title); %>
+              <td>
+                <%= assessment && assessment.choice_label ? assessment.choice_label : assessment ? (typeof assessment.score === 'number' ?
+                assessment.score.toFixed(2) : (assessment.score !== null &&
+                assessment.score !== undefined ? assessment.score : '-')) : ''
+                %>
+              </td>
+              <% }) %>
+              <td>
+                <%= subject.totalScore !== null && subject.totalScore !==
+                undefined ? subject.totalScore.toFixed(2) : '-' %>
+              </td>
+              <td>
+                <% if (subject.totalPercentage !== null && subject.totalPercentage !== undefined) { %>
+                  <% const _scaleBase = Number(subject.scaleBase) || 100; %><%= (subject.totalPercentage / 100 * _scaleBase).toFixed(2) %> / <%= _scaleBase %>
+                <% } else { %>-<% } %>
+              </td>
+              <td>
+                <%= subject.totalPercentage !== null && subject.totalPercentage
+                !== undefined ? subject.totalPercentage.toFixed(2) : '-' %> %
+              </td>
+              <td><%= subject.grade ? subject.grade : '-' %></td>
+              <td>
+                <%= subject.position !== '-' ? subject.position +
+                getOrdinalSuffix(subject.position) : '-' %>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      </section>
+      </div>
+      <% if (_hasAttendance) { %>
+      <div class="sd-panel" id="sd-panel-attendance" role="tabpanel" aria-labelledby="sd-tab-attendance" data-sd-panel="attendance" hidden>
+      <section class="sd-card" id="sdAtt" data-student="<%= student.student_id %>" data-term="<%= currentTerm %>">
+        <div class="sd-bar">
+          <span class="sd-bar__note">This term</span>
+          <% if (_attendanceHref) { %><a class="sd-track" href="<%= _attendanceHref %>" target="_blank" rel="noopener" data-no-spa title="Open the class attendance (opens in a new tab)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h9"/></svg>Take attendance</a><% } %>
+        </div>
+        <div id="sdAttBody" aria-live="polite"><div class="sd-loading" role="status" aria-label="Loading"><span class="sd-spin"></span></div></div>
+      </section>
+      </div>
+      <% } %>
+      <% if (_hasBills) { %>
+      <div class="sd-panel" id="sd-panel-bills" role="tabpanel" aria-labelledby="sd-tab-bills" data-sd-panel="bills" hidden>
+      <section class="sd-card" id="sdBills" data-student="<%= student.student_id %>">
+        <div class="sd-bar">
+          <span class="sd-bar__note">Balance across all terms</span>
+          <a class="sd-track" href="<%= _billsHref %>" target="_blank" rel="noopener" data-no-spa title="Open bills and payments (opens in a new tab)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Bills &amp; payments</a>
+        </div>
+        <div id="sdBillsBody" aria-live="polite"><div class="sd-loading" role="status" aria-label="Loading"><span class="sd-spin"></span></div></div>
+      </section>
+      </div>
+      <% } %>
+      <% if (_hasMessages) { %>
+      <div class="sd-panel" id="sd-panel-messages" role="tabpanel" aria-labelledby="sd-tab-messages" data-sd-panel="messages" hidden>
+      <section class="sd-card sd-msgs" id="sdMsgs" data-student="<%= student.student_id %>" data-term="<%= currentTerm %>" data-can-send="<%= _canMessage ? '1' : '' %>">
+        <div class="sd-bar">
+          <div class="sd-msgs__filters" role="group" aria-label="Show">
+            <button type="button" class="sd-chip is-on" data-msg-filter="all">All</button>
+            <button type="button" class="sd-chip" data-msg-filter="thread">Conversations</button>
+            <% if (_canMessage) { %><button type="button" class="sd-chip" data-msg-filter="sent">Sent by the school</button><% } %>
+          </div>
+          <% if (_canMessage) { %><a class="sd-track" href="<%= _messageHref %>" target="_blank" rel="noopener" data-no-spa title="Message the family (opens in a new tab)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>New message</a><% } %>
+        </div>
+        <div class="sd-msgs__list" id="sdMsgList" aria-live="polite"><div class="sd-loading" role="status" aria-label="Loading"><span class="sd-spin"></span></div></div>
+      </section>
+      </div>
+      <% } %>
+      <% if (locals.studentDocuments) { %>
+      <div class="sd-panel" id="sd-panel-files" role="tabpanel" aria-labelledby="sd-tab-files" data-sd-panel="files" hidden>
       <% if (locals.studentDocuments) { const _sd = studentDocuments;
            const _shareShort = { staff: 'Staff', managers: 'Managers only', family: 'Family' };
            const _day = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : ''; %>
@@ -801,14 +1054,7 @@
           file opens the right-side drawer (views/common/studentDocumentForm.ejs); saving reloads the page. %>
       <section class="sd-card sd-files" id="student-documents">
         <div class="sd-files__bar">
-          <div class="sd-files__tabs" role="tablist" aria-label="Files and portfolio">
-            <button type="button" role="tab" class="sd-files__tab" id="sd-tab-files" aria-controls="sd-pane-files" aria-selected="true" data-files-tab="files">
-              Files <span class="sd-files__count"><%= _sd.list.length %></span>
-            </button>
-            <% if (_sd.portfolio) { %>
-            <button type="button" role="tab" class="sd-files__tab" id="sd-tab-portfolio" aria-controls="sd-pane-portfolio" aria-selected="false" data-files-tab="portfolio">Portfolio</button>
-            <% } %>
-          </div>
+          <h3 class="sd-card__title sd-files__title">Files <span class="sd-files__count"><%= _sd.list.length %></span></h3>
           <button type="button" class="sd-files__add" data-file-drawer="/common/student-documents/<%= student.student_id %>/new">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Add file
@@ -838,45 +1084,14 @@
           <% } %>
         </div>
 
-        <% if (_sd.portfolio) { %>
-        <link rel="stylesheet" href="<%= assetUrl('/css/portfolio.css') %>" />
-        <div class="sd-files__pane pf" id="sd-pane-portfolio" role="tabpanel" aria-labelledby="sd-tab-portfolio" hidden data-portfolio-src="/common/student-documents/<%= student.student_id %>/portfolio">
-          <div data-portfolio-body><div class="pf-empty">Loading…</div></div>
-        </div>
-        <% } %>
         <script>
+          // Add file and Edit open in the right-side drawer; a save there reloads this page.
           (function () {
             var card = document.getElementById('student-documents');
             if (!card || card.dataset.bound) return;
             card.dataset.bound = '1';
-            var pane = document.getElementById('sd-pane-portfolio');
-            var body = pane && pane.querySelector('[data-portfolio-body]');
-            var loaded = false;
-            // The portfolio loads the first time it's opened (or from #student-portfolio); another term loads in place.
-            function load(url) {
-              body.setAttribute('aria-busy', 'true');
-              fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
-                .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
-                .then(function (html) {
-                  body.innerHTML = html;
-                  body.querySelectorAll('a[href*="/portfolio/test/"]').forEach(function (a) { a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('data-no-spa', ''); });
-                })
-                .catch(function () { body.innerHTML = '<div class="pf-empty">The portfolio could not load. Try again.</div>'; })
-                .then(function () { body.removeAttribute('aria-busy'); });
-            }
-            function show(which) {
-              card.querySelectorAll('[data-files-tab]').forEach(function (tab) {
-                var on = tab.getAttribute('data-files-tab') === which;
-                tab.setAttribute('aria-selected', on ? 'true' : 'false');
-                var target = document.getElementById(tab.getAttribute('aria-controls'));
-                if (target) target.hidden = !on;
-              });
-              card.classList.toggle('is-portfolio', which === 'portfolio');
-              if (which === 'portfolio' && pane && !loaded) { loaded = true; load(pane.getAttribute('data-portfolio-src')); }
-            }
-            // Add file and Edit open in the right-side drawer; a save there reloads this page.
             var drawer = null;
-            function openDrawer(url, editing) {
+            function openDrawer(url) {
               if (!window.ManagiraDrawer) { window.location.href = url; return; }
               if (!drawer) {
                 drawer = window.ManagiraDrawer.create({ id: 'studentFile', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>', title: 'Student file', subtitle: <%- JSON.stringify((typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) || '') %>, width: 600, belowHeader: true });
@@ -889,18 +1104,93 @@
               drawer.open(url, { forceReload: true });
             }
             card.addEventListener('click', function (event) {
-              var tab = event.target.closest('[data-files-tab]');
-              if (tab) { show(tab.getAttribute('data-files-tab')); return; }
               var opener = event.target.closest('[data-file-drawer]');
-              if (opener) { event.preventDefault(); openDrawer(opener.getAttribute('data-file-drawer')); return; }
-              var term = event.target.closest('#sd-pane-portfolio a.pf-term');
-              if (term) { event.preventDefault(); load(term.getAttribute('href')); }
+              if (opener) { event.preventDefault(); openDrawer(opener.getAttribute('data-file-drawer')); }
             });
-            if (pane && location.hash === '#student-portfolio') { show('portfolio'); card.scrollIntoView({ block: 'start' }); }
           })();
+        </script>
         </script>
       </section>
       <% } %>
+      </div>
+      <% } %>
+      <% if (_hasPortfolio) { const _sd = studentDocuments; %>
+      <div class="sd-panel" id="sd-panel-portfolio" role="tabpanel" aria-labelledby="sd-tab-portfolio" data-sd-panel="portfolio" hidden>
+        <% if (_sd.portfolio) { %>
+        <link rel="stylesheet" href="<%= assetUrl('/css/portfolio.css') %>" />
+        <div class="sd-card pf" id="sd-pane-portfolio" data-portfolio-src="/common/student-documents/<%= student.student_id %>/portfolio">
+          <div data-portfolio-body><div class="pf-empty">Loading…</div></div>
+        </div>
+        <script>
+          (function () {
+            var pane = document.getElementById('sd-pane-portfolio');
+            if (!pane || pane.dataset.bound) return;
+            pane.dataset.bound = '1';
+            var body = pane.querySelector('[data-portfolio-body]');
+            var loaded = false;
+            // The portfolio loads the first time its tab is opened; another term loads in place.
+            function load(url) {
+              body.setAttribute('aria-busy', 'true');
+              fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+                .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+                .then(function (html) {
+                  body.innerHTML = html;
+                  body.querySelectorAll('a[href*="/portfolio/test/"]').forEach(function (a) { a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('data-no-spa', ''); });
+                })
+                .catch(function () { body.innerHTML = '<div class="pf-empty">The portfolio could not load. Try again.</div>'; })
+                .then(function () { body.removeAttribute('aria-busy'); });
+            }
+            window.addEventListener('sd:tab', function (event) {
+              if (event.detail === 'portfolio' && !loaded) { loaded = true; load(pane.getAttribute('data-portfolio-src')); }
+            });
+            pane.addEventListener('click', function (event) {
+              var term = event.target.closest('a.pf-term');
+              if (term) { event.preventDefault(); load(term.getAttribute('href')); }
+            });
+          })();
+        </script>
+        <% } %>
+      </div>
+      <% } %>
+      <% if (locals.transportationSnapshot) { %>
+      <div class="sd-panel" id="sd-panel-transport" role="tabpanel" aria-labelledby="sd-tab-transport" data-sd-panel="transport" hidden>
+      <% if (locals.transportationSnapshot) { const _ts = transportationSnapshot;
+           // "07:37:00" reads as "7:37 AM"; distances in miles.
+           const _clock = (v) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(v || '')); if (!m) return v || '—'; const h = Number(m[1]); return ((h % 12) || 12) + ':' + m[2] + (h < 12 ? ' AM' : ' PM'); };
+           const _miles = (km) => (km !== null && km !== undefined && Number.isFinite(Number(km))) ? (Number(km) * 0.621371).toFixed(2) + ' mi' : '—'; %>
+      <section class="sd-card">
+        <div class="sd-bar" style="justify-content:flex-end">
+          <button
+            type="button"
+            class="sd-track"
+            data-bus-tracker="<%= student.student_id %>"
+            data-bus-tracker-name="<%= typeof formatDisplayName === 'function' ? formatDisplayName(student) : student.first_name + ' ' + student.last_name %>"
+            data-transport-snapshot="<%= JSON.stringify(_ts) %>">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            Track bus
+          </button>
+        </div>
+        <div class="sd-bus__summary">
+          <div class="sd-bus__item"><span>Bus</span><strong><%= _ts.bus && _ts.bus.busNumber ? _ts.bus.busNumber : '—' %></strong></div>
+          <div class="sd-bus__item"><span>Route</span><strong><%= _ts.route && _ts.route.routeName ? _ts.route.routeName : '—' %></strong></div>
+          <div class="sd-bus__item"><span>Stop</span><strong title="<%= _ts.stop && _ts.stop.stopName ? _ts.stop.stopName : '' %>"><%= _ts.stop && _ts.stop.stopName ? _ts.stop.stopName : '—' %></strong></div>
+          <div class="sd-bus__item"><span>Pickup · Drop-off</span><strong><%= _clock(_ts.pickupTime) %> · <%= _clock(_ts.dropoffTime) %></strong></div>
+        </div>
+        <details class="sd-bus__more">
+          <summary>More details</summary>
+          <dl>
+            <div><dt>Stop address</dt><dd><%= _ts.stop && _ts.stop.stopAddress ? _ts.stop.stopAddress : '—' %></dd></div>
+            <div><dt>Distance to stop</dt><dd><%= _miles(_ts.distanceKm) %></dd></div>
+            <div><dt>Live status</dt><dd><%= _ts.live && _ts.live.recordedAt ? ('Last bus update ' + new Date(_ts.live.recordedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : 'No trip running now' %></dd></div>
+            <% if (_ts.homeAddress && _ts.homeAddress !== student.address) { %><div><dt>Home address</dt><dd><%= _ts.homeAddress %></dd></div><% } %>
+          </dl>
+        </details>
+      </section>
+      <% } %>
+      </div>
+      <% } %>
+      <% if (_hasRecords) { %>
+      <div class="sd-panel" id="sd-panel-records" role="tabpanel" aria-labelledby="sd-tab-records" data-sd-panel="records" hidden>
       <% if (locals.oldSystem && (oldSystem.history.length || oldSystem.attendance.length || oldSystem.sourceGpa)) { %>
       <%# Final grades and attendance totals from the school's old system (data migration). %>
       <section class="sd-card">
@@ -991,132 +1281,271 @@
         })();
       </script>
       <% } %>
-      <% if (locals.transportationSnapshot) { const _ts = transportationSnapshot;
-           // "07:37:00" reads as "7:37 AM"; distances in miles.
-           const _clock = (v) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(v || '')); if (!m) return v || '—'; const h = Number(m[1]); return ((h % 12) || 12) + ':' + m[2] + (h < 12 ? ' AM' : ' PM'); };
-           const _miles = (km) => (km !== null && km !== undefined && Number.isFinite(Number(km))) ? (Number(km) * 0.621371).toFixed(2) + ' mi' : '—'; %>
-      <section class="sd-card">
-        <div class="sd-card__head">
-          <h3 class="sd-card__title">Transportation</h3>
-          <button
-            type="button"
-            class="sd-track"
-            data-bus-tracker="<%= student.student_id %>"
-            data-bus-tracker-name="<%= typeof formatDisplayName === 'function' ? formatDisplayName(student) : student.first_name + ' ' + student.last_name %>"
-            data-transport-snapshot="<%= JSON.stringify(_ts) %>">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-            Track bus
-          </button>
-        </div>
-        <div class="sd-bus__summary">
-          <div class="sd-bus__item"><span>Bus</span><strong><%= _ts.bus && _ts.bus.busNumber ? _ts.bus.busNumber : '—' %></strong></div>
-          <div class="sd-bus__item"><span>Route</span><strong><%= _ts.route && _ts.route.routeName ? _ts.route.routeName : '—' %></strong></div>
-          <div class="sd-bus__item"><span>Stop</span><strong title="<%= _ts.stop && _ts.stop.stopName ? _ts.stop.stopName : '' %>"><%= _ts.stop && _ts.stop.stopName ? _ts.stop.stopName : '—' %></strong></div>
-          <div class="sd-bus__item"><span>Pickup · Drop-off</span><strong><%= _clock(_ts.pickupTime) %> · <%= _clock(_ts.dropoffTime) %></strong></div>
-        </div>
-        <details class="sd-bus__more">
-          <summary>More details</summary>
-          <dl>
-            <div><dt>Stop address</dt><dd><%= _ts.stop && _ts.stop.stopAddress ? _ts.stop.stopAddress : '—' %></dd></div>
-            <div><dt>Distance to stop</dt><dd><%= _miles(_ts.distanceKm) %></dd></div>
-            <div><dt>Live status</dt><dd><%= _ts.live && _ts.live.recordedAt ? ('Last bus update ' + new Date(_ts.live.recordedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : 'No trip running now' %></dd></div>
-            <% if (_ts.homeAddress && _ts.homeAddress !== student.address) { %><div><dt>Home address</dt><dd><%= _ts.homeAddress %></dd></div><% } %>
-          </dl>
-        </details>
-      </section>
+      </div>
       <% } %>
-      <section class="sd-card">
-      <h3 class="sd-card__title">Grades</h3>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Subject</th>
-              <% uniqueAssessments.forEach(assessment => { %>
-              <th>
-                <%= assessment.title %> (<%= assessment.weight %>%)<br />
-                <small><%= [assessment.category, assessment.max_score !== null && assessment.max_score !== undefined ? 'out of ' + Number(assessment.max_score) : ''].filter(Boolean).join(' · ') %></small>
-              </th>
-              <% }) %>
-              <th style="white-space:normal;min-width:80px;">Total<br><small>raw score</small></th>
-              <th style="white-space:normal;min-width:80px;">Scaled<br><small>of scale base</small></th>
-              <th style="white-space:normal;min-width:70px;">Percent</th>
-              <th>Grade</th>
-              <th>Position</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% subjects.forEach(subject => { %>
-            <tr>
-              <td><%= subject.subject_name %></td>
-              <% uniqueAssessments.forEach(assessmentTitle => { %> <% const
-              assessment = subject.assessments.find(a => a.title ===
-              assessmentTitle.title); %>
-              <td>
-                <%= assessment && assessment.choice_label ? assessment.choice_label : assessment ? (typeof assessment.score === 'number' ?
-                assessment.score.toFixed(2) : (assessment.score !== null &&
-                assessment.score !== undefined ? assessment.score : '-')) : ''
-                %>
-              </td>
-              <% }) %>
-              <td>
-                <%= subject.totalScore !== null && subject.totalScore !==
-                undefined ? subject.totalScore.toFixed(2) : '-' %>
-              </td>
-              <td>
-                <% if (subject.totalPercentage !== null && subject.totalPercentage !== undefined) { %>
-                  <% const _scaleBase = Number(subject.scaleBase) || 100; %><%= (subject.totalPercentage / 100 * _scaleBase).toFixed(2) %> / <%= _scaleBase %>
-                <% } else { %>-<% } %>
-              </td>
-              <td>
-                <%= subject.totalPercentage !== null && subject.totalPercentage
-                !== undefined ? subject.totalPercentage.toFixed(2) : '-' %> %
-              </td>
-              <td><%= subject.grade ? subject.grade : '-' %></td>
-              <td>
-                <%= subject.position !== '-' ? subject.position +
-                getOrdinalSuffix(subject.position) : '-' %>
-              </td>
-            </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-      </section>
-      <% if (req.session && !req.session.guardianId) { %>
-      <section class="sd-card">
-      <h3 class="sd-card__title">Parents &amp; guardians</h3>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Address</th>
-              <th class="sd-col-action"><span class="sd-sr">Open</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <% guardians.forEach(guardian => { %>
-            <% const _gName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
-            <tr>
-              <td><%= _gName %></td>
-              <td><%= guardian.phone || '—' %></td>
-              <td><%= guardian.email || '—' %></td>
-              <td><%= [guardian.address, guardian.hometown].filter(Boolean).join(' · ') || '—' %></td>
-              <td class="sd-col-action">
-                <a href="/common/person-card/guardian/<%= guardian.guardian_id %>?source=legacy" class="sd-view" data-guardian-view data-guardian-name="<%= _gName %>" data-no-spa aria-label="View <%= _gName %>">View</a>
-              </td>
-            </tr>
-            <% }) %>
-            <% if (!guardians.length) { %>
-            <tr><td colspan="5" class="sd-empty">No parent or guardian linked yet.</td></tr>
-            <% } %>
-          </tbody>
-        </table>
-      </div>
-      </section>
+      <script>
+        // The student's sections are tabs: one clean page, hash-linked (#files, #portfolio, #transport).
+        (function () {
+          var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-sd-tab]'));
+          if (!tabs.length) return;
+          var panels = {};
+          document.querySelectorAll('[data-sd-panel]').forEach(function (p) { panels[p.getAttribute('data-sd-panel')] = p; });
+          var alias = { 'student-portfolio': 'portfolio', 'student-documents': 'files' };
+          function show(key, focus) {
+            if (!panels[key]) key = 'overview';
+            tabs.forEach(function (tab) {
+              var on = tab.getAttribute('data-sd-tab') === key;
+              tab.setAttribute('aria-selected', on ? 'true' : 'false');
+              tab.tabIndex = on ? 0 : -1;
+              if (on && focus) tab.focus();
+            });
+            Object.keys(panels).forEach(function (k) { panels[k].hidden = k !== key; });
+            try { history.replaceState(null, '', key === 'overview' ? location.pathname + location.search : '#' + key); } catch (_) { /* not remembered */ }
+            window.dispatchEvent(new CustomEvent('sd:tab', { detail: key }));
+          }
+          document.getElementById('sd-tabs').addEventListener('click', function (event) {
+            var tab = event.target.closest('[data-sd-tab]');
+            if (tab) show(tab.getAttribute('data-sd-tab'));
+          });
+          document.getElementById('sd-tabs').addEventListener('keydown', function (event) {
+            var i = tabs.findIndex(function (t) { return t.getAttribute('aria-selected') === 'true'; });
+            if (event.key === 'ArrowRight') { event.preventDefault(); show(tabs[(i + 1) % tabs.length].getAttribute('data-sd-tab'), true); }
+            else if (event.key === 'ArrowLeft') { event.preventDefault(); show(tabs[(i - 1 + tabs.length) % tabs.length].getAttribute('data-sd-tab'), true); }
+          });
+          var wanted = String(location.hash || '').replace('#', '');
+          if (wanted) show(alias[wanted] || wanted);
+        })();
+      </script>
+      <% if (_hasAttendance || _hasBills) { %>
+      <script>
+        // Attendance and Bills are read when their tab is first opened, never with the page.
+        (function () {
+          function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+          function stat(label, value, note, warn) { var d = el('div', 'sd-stat' + (warn ? ' sd-stat--warn' : '')); d.appendChild(el('span', null, label)); d.appendChild(el('strong', null, value)); if (note) d.appendChild(el('small', null, note)); return d; }
+          function failed(body, what) { body.textContent = ''; body.appendChild(el('p', 'sd-empty', what + ' could not be loaded. Try again in a moment.')); }
+          var money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+          var once = {};
+          var attOffset = 0, attList = null, attMoreBtn = null;
+          function dayItem(r) {
+            var st = String(r.status || '').toLowerCase();
+            if (st === 'present' && r.late) st = 'late';
+            var li = el('li', st === 'present' ? 'is-present' : st === 'late' ? 'is-late' : st === 'absent' ? 'is-absent' : '');
+            var dt = new Date(r.day + 'T12:00:00');
+            li.appendChild(el('span', null, isNaN(dt) ? r.day : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })));
+            li.appendChild(el('b', null, st ? st.charAt(0).toUpperCase() + st.slice(1) : '—'));
+            if (r.note) { li.classList.add('has-note'); li.title = 'Note: ' + r.note; }
+            return li;
+          }
+          // What the teacher wrote about a day (why they were away, left early…): newest first, under the days.
+          function noteItem(r) {
+            var li = el('li', 'sd-note');
+            var dt = new Date(r.day + 'T12:00:00');
+            var head = el('b', null, (isNaN(dt) ? r.day : dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })) + ' · ' + (r.status === 'Present' && r.late ? 'Late' : String(r.status || '').replace(/^./, function (c) { return c.toUpperCase(); })));
+            li.appendChild(head); li.appendChild(el('span', null, r.note));
+            return li;
+          }
+          var attNotes = null;
+          function addNotes(rows, atEnd) {
+            var withNotes = (rows || []).filter(function (r) { return r.note; }).slice().reverse();
+            if (!withNotes.length) return;
+            if (!attNotes) { attNotes = el('ul', 'sd-notes'); attList.parentNode.insertBefore(attNotes, attMoreBtn || attList.nextSibling); var h = el('p', 'sd-sub', 'Notes'); attNotes.parentNode.insertBefore(h, attNotes); }
+            withNotes.forEach(function (r) { if (atEnd) attNotes.appendChild(noteItem(r)); else attNotes.appendChild(noteItem(r)); });
+          }
+          // The totals and the last 10 days come first; "Show 10 earlier days" adds the next 10 before them.
+          function loadAttendance(more) {
+            var box = document.getElementById('sdAtt'); if (!box) return;
+            var body = document.getElementById('sdAttBody');
+            fetch('/common/student-attendance?studentId=' + box.dataset.student + '&termId=' + box.dataset.term + (more ? '&offset=' + attOffset : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+              .then(function (r) { return r.json(); }).then(function (d) {
+                if (!d.success) throw new Error(d.error);
+                if (more) {
+                  (d.recent || []).forEach(function (r) { attList.insertBefore(dayItem(r), attList.firstChild); });
+                  addNotes(d.recent, true);
+                  attOffset += (d.recent || []).length;
+                  attMoreBtn.disabled = false; attMoreBtn.textContent = 'Show 10 earlier days'; attMoreBtn.hidden = !d.moreDays;
+                  return;
+                }
+                body.textContent = '';
+                if (!d.total && !(d.lunch && d.lunch.taken)) { body.appendChild(el('p', 'sd-empty', 'No attendance has been taken for this term yet.')); return; }
+                var grid = el('div', 'sd-stats');
+                grid.appendChild(stat('Overall attendance', d.rate == null ? '—' : d.rate + '%', d.total ? d.present + ' of ' + d.total + ' days' : ''));
+                if (d.lunch) grid.appendChild(stat('Overall lunch', d.lunch.taken ? d.lunch.days + ' of ' + d.lunch.taken : '—', d.lunch.taken ? 'days with lunch' : 'Lunch not taken yet'));
+                grid.appendChild(stat('Absent', String(d.absent), 'days', d.absent > 0));
+                grid.appendChild(stat('Late', String(d.late), 'days'));
+                body.appendChild(grid);
+                if (d.recent && d.recent.length) {
+                  body.appendChild(el('p', 'sd-sub', 'Recent days'));
+                  attList = el('ul', 'sd-days');
+                  d.recent.forEach(function (r) { attList.appendChild(dayItem(r)); });
+                  body.appendChild(attList);
+                  attOffset = d.recent.length;
+                  attMoreBtn = el('button', 'sd-chip', 'Show 10 earlier days');
+                  attMoreBtn.type = 'button'; attMoreBtn.hidden = !d.moreDays; attMoreBtn.style.marginTop = '10px';
+                  attMoreBtn.addEventListener('click', function () { attMoreBtn.disabled = true; attMoreBtn.textContent = 'Loading…'; loadAttendance(true); });
+                  body.appendChild(attMoreBtn);
+                  addNotes(d.recent, false);
+                }
+              }).catch(function () { if (more && attMoreBtn) { attMoreBtn.disabled = false; attMoreBtn.textContent = 'Show 10 earlier days'; return; } failed(body, 'Attendance'); delete once.attendance; });
+          }
+          function loadBills() {
+            var box = document.getElementById('sdBills'); if (!box) return;
+            var body = document.getElementById('sdBillsBody');
+            fetch('/account/settings/finance/students/' + box.dataset.student + '/detail.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+              .then(function (r) { if (!r.ok) throw new Error('status'); return r.json(); }).then(function (d) {
+                body.textContent = '';
+                var bills = d.bills || [];
+                if (!bills.length) { body.appendChild(el('p', 'sd-empty', 'No bills have been assigned to this student.')); return; }
+                var owed = bills.reduce(function (n, b) { return n + (Number(b.balance) || 0); }, 0);
+                var open = bills.filter(function (b) { return (Number(b.balance) || 0) > 0.004; });
+                var grid = el('div', 'sd-stats');
+                grid.appendChild(stat('Outstanding', money.format(owed), open.length ? open.length + (open.length === 1 ? ' open bill' : ' open bills') : 'Nothing owed', owed > 0.004));
+                if (Number(d.credit) > 0) grid.appendChild(stat('Credit', money.format(Number(d.credit)), 'on account'));
+                var lastPay = (d.payments || [])[0];
+                grid.appendChild(stat('Last payment', lastPay ? money.format(Number(lastPay.amount) || 0) : '—', lastPay ? (lastPay.received_display || '') : 'No payments yet'));
+                body.appendChild(grid);
+                var shown = (open.length ? open : bills).slice(0, 5);
+                body.appendChild(el('p', 'sd-sub', open.length ? 'Open bills' : 'Recent bills'));
+                shown.forEach(function (b) {
+                  var row = el('div', 'sd-billrow');
+                  row.appendChild(el('strong', null, b.title || 'Bill'));
+                  row.appendChild(el('span', null, b.due_display ? 'Due ' + b.due_display : 'No due date'));
+                  row.appendChild(el('div', 'sd-amt', money.format(open.length ? Number(b.balance) || 0 : Number(b.amount) || 0)));
+                  body.appendChild(row);
+                });
+                if (bills.length > shown.length) body.appendChild(el('p', 'sd-sub', 'and ' + (bills.length - shown.length) + ' more in Bills & payments'));
+              }).catch(function () { failed(body, 'Bills'); delete once.bills; });
+          }
+          var loaders = { attendance: loadAttendance, bills: loadBills };
+          function open(key) { if (loaders[key] && !once[key]) { once[key] = true; loaders[key](); } }
+          window.addEventListener('sd:tab', function (e) { open(e.detail); });
+          open(String(location.hash).replace('#', ''));
+        })();
+      </script>
+      <% } %>
+      <% if (_hasMessages) { %>
+      <script>
+        // Messages: the parents' conversations and what the school sent the family, in one list.
+        (function () {
+          var box = document.getElementById('sdMsgs');
+          if (!box) return;
+          var list = document.getElementById('sdMsgList'), badge = document.getElementById('sdMsgBadge');
+          var studentId = box.getAttribute('data-student'), termId = box.getAttribute('data-term');
+          var items = [], filter = 'all', loaded = false, loading = false, hasMore = false, nextCursor = null, PAGE = 5;
+          var ICON = { thread: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', email: '<path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/>', sms: '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/>', whatsapp: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' };
+          var NAME = { email: 'Email', sms: 'Text message', whatsapp: 'WhatsApp' };
+          function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+          function when(v) { var d = new Date(v); if (isNaN(d)) return ''; var now = new Date(); var opts = d.getFullYear() === now.getFullYear() ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }; return d.toLocaleDateString('en-US', opts); }
+          function stamp(v) { var d = new Date(v); return isNaN(d) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+          function icon(kind) { var w = el('span', 'sd-msg__ico'); w.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICON[kind] || ICON.email) + '</svg>'; return w; }
+          function pill(text, cls) { return el('span', 'sd-pill' + (cls ? ' sd-pill--' + cls : ''), text); }
+
+          function bubble(who, text, at, staff) {
+            var b = el('div', 'sd-bubble' + (staff ? ' is-staff' : ''));
+            b.appendChild(el('p', null, text));
+            b.appendChild(el('small', null, (who ? who + ' · ' : '') + stamp(at)));
+            return b;
+          }
+          function openThread(row, c) {
+            var holder = row.querySelector('.sd-thread');
+            var open = row.classList.toggle('is-open');
+            row.querySelector('button.sd-msg__row').setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (!open || holder.dataset.ready) return;
+            holder.dataset.ready = '1';
+            holder.textContent = 'Loading…';
+            fetch('/common/classReportDetail?reportId=' + c.id, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+              holder.textContent = '';
+              if (!d.success) { holder.textContent = 'This conversation is no longer available.'; return; }
+              var rp = d.report, staffStarted = Boolean(rp.filed_by_user_id || rp.filed_by_name);
+              var wrap = el('div');
+              wrap.appendChild(bubble(staffStarted ? (rp.filed_by_name || 'Staff') : rp.guardian_name, rp.message, rp.created_at, staffStarted));
+              (d.replies || []).forEach(function (x) { wrap.appendChild(bubble(x.display_name, x.message, x.created_at, x.sender_type !== 'guardian')); });
+              holder.appendChild(wrap);
+              var form = el('div', 'sd-reply'), ta = el('textarea'), send = el('button', null, 'Send');
+              ta.rows = 1; ta.placeholder = 'Reply to ' + rp.guardian_name; ta.setAttribute('aria-label', 'Reply');
+              send.type = 'button';
+              send.addEventListener('click', function () {
+                var text = ta.value.trim(); if (!text) return;
+                send.disabled = true;
+                fetch('/common/staffReplyToReport', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportId: c.id, message: text }) })
+                  .then(function (r) { return r.json(); }).then(function (res) {
+                    if (!res.success) { alert(res.error || 'The reply was not sent.'); send.disabled = false; return; }
+                    wrap.appendChild(bubble('You', text, new Date().toISOString(), true));
+                    ta.value = ''; send.disabled = false;
+                    c.needsReply = false; c.replies = (c.replies || 0) + 1; c.preview = text;
+                    var warn = row.querySelector('.sd-pill--warn'); if (warn) warn.remove();
+                    countBadge();
+                  }).catch(function () { alert('The reply was not sent.'); send.disabled = false; });
+              });
+              form.appendChild(ta); form.appendChild(send); holder.appendChild(form);
+            }).catch(function () { holder.textContent = 'Could not load this conversation.'; delete holder.dataset.ready; });
+          }
+          function draw() {
+            list.textContent = '';
+            var shown = items.filter(function (i) { return filter === 'all' || i.type === filter; });
+            if (!shown.length && !hasMore) { list.appendChild(el('p', 'sd-empty', filter === 'sent' ? 'Nothing sent to this family this term.' : filter === 'thread' ? 'No conversations with this family this term.' : 'No messages this term.')); return; }
+            shown.forEach(function (i) {
+              var row = el('div', 'sd-msg sd-msg--' + i.type);
+              var head = el(i.type === 'thread' ? 'button' : 'div', 'sd-msg__row');
+              if (i.type === 'thread') { head.type = 'button'; head.setAttribute('aria-expanded', 'false'); }
+              head.appendChild(icon(i.type === 'thread' ? 'thread' : i.channel));
+              var main = el('div', 'sd-msg__main'), top = el('div', 'sd-msg__top');
+              if (i.type === 'thread') {
+                top.appendChild(el('span', 'sd-msg__title', i.subject || 'Conversation'));
+                top.appendChild(el('span', 'sd-msg__who', i.parent + (i.replies ? ' · ' + i.replies + (i.replies === 1 ? ' reply' : ' replies') : '')));
+              } else {
+                top.appendChild(el('span', 'sd-msg__title', i.subject || (NAME[i.channel] || 'Message') + ' to ' + (i.to || 'the family')));
+                top.appendChild(el('span', 'sd-msg__who', (NAME[i.channel] || '') + (i.by ? ' · sent by ' + i.by : '')));
+              }
+              main.appendChild(top);
+              main.appendChild(el('p', 'sd-msg__text', i.type === 'thread' ? i.preview : i.message));
+              head.appendChild(main);
+              var side = el('div', 'sd-msg__side');
+              if (i.type === 'thread') {
+                if (i.needsReply) side.appendChild(pill('Needs reply', 'warn'));
+                else if (i.status === 'resolved') side.appendChild(pill('Resolved', 'ok'));
+              } else if (i.status === 'failed') side.appendChild(pill('Not delivered', 'warn'));
+              else if (i.status === 'pending') side.appendChild(pill('Sending', 'wait'));
+              side.appendChild(el('span', null, when(i.at)));
+              head.appendChild(side);
+              row.appendChild(head);
+              if (i.type === 'thread') { row.appendChild(el('div', 'sd-thread')); head.addEventListener('click', function () { openThread(row, i); }); }
+              list.appendChild(row);
+            });
+            if (hasMore) {
+              var more = el('button', 'sd-more', 'Show more');
+              more.type = 'button';
+              more.addEventListener('click', function () { more.disabled = true; more.textContent = 'Loading…'; load(true); });
+              list.appendChild(more);
+            }
+          }
+          function countBadge() {
+            var n = items.filter(function (i) { return i.type === 'thread' && i.needsReply; }).length;
+            badge.hidden = !n; badge.textContent = n ? String(n) : '';
+          }
+          function load(next) {
+            if ((loaded && !next) || loading) return;
+            loading = true;
+            var url = '/common/student-messages?studentId=' + encodeURIComponent(studentId) + '&termId=' + encodeURIComponent(termId) + '&limit=' + PAGE + (next && nextCursor ? '&before=' + encodeURIComponent(nextCursor) : '');
+            fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+              .then(function (r) { return r.json(); }).then(function (d) {
+                if (!d.success) throw new Error(d.error || 'failed');
+                items = items.concat(d.items);
+                hasMore = d.more; nextCursor = d.next;
+                loaded = true; draw(); countBadge();
+              }).catch(function () { list.textContent = ''; list.appendChild(el('p', 'sd-empty', 'Messages could not be loaded. Try again in a moment.')); })
+              .then(function () { loading = false; });
+          }
+          box.querySelectorAll('[data-msg-filter]').forEach(function (b) {
+            b.addEventListener('click', function () {
+              filter = b.getAttribute('data-msg-filter');
+              box.querySelectorAll('[data-msg-filter]').forEach(function (x) { x.classList.toggle('is-on', x === b); });
+              if (loaded) draw();
+            });
+          });
+          window.addEventListener('sd:tab', function (e) { if (e.detail === 'messages') load(); });
+          if (String(location.hash).replace('#', '') === 'messages') load();
+        })();
+      </script>
       <% } %>
     </div>
 
@@ -1161,40 +1590,6 @@
     <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
     <% } %>
     <script>
-  (function () {
-    const detailsToggle = document.getElementById('student-details-toggle');
-    const studentInfoContainer = document.querySelector('.student-info-container');
-
-    function isSmallScreen() {
-      return window.matchMedia('(max-width: 768px)').matches;
-    }
-
-    function setDetailsOpen(isOpen) {
-      if (!studentInfoContainer || !detailsToggle) return;
-      studentInfoContainer.classList.toggle('open', isOpen);
-      detailsToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      detailsToggle.textContent = isOpen ? 'Hide details' : 'More details';
-    }
-
-    function syncDetailsByViewport() {
-      if (!detailsToggle) return;
-      if (isSmallScreen()) {
-        setDetailsOpen(false);
-      } else {
-        setDetailsOpen(true);
-      }
-    }
-
-    if (detailsToggle && !detailsToggle.dataset.boundDetailsToggle) {
-      detailsToggle.dataset.boundDetailsToggle = '1';
-      detailsToggle.addEventListener('click', () => {
-        const isOpen = detailsToggle.getAttribute('aria-expanded') === 'true';
-        setDetailsOpen(!isOpen);
-      });
-      syncDetailsByViewport();
-      window.addEventListener('resize', syncDetailsByViewport);
-    }
-  })();
 
   function getOrdinalSuffix(i) {
     const j = i % 10,
@@ -1214,16 +1609,23 @@
       const studentName = resetBtn.dataset.studentName || 'this student';
       const portalAction = resetBtn.dataset.portalAction === 'reset' ? 'reset' : 'setup';
       if (!studentId) return;
+      if (!resetBtn.dataset.hasEmail) {
+        if (window.confirm(studentName + " has no email address yet, and the portal invite is sent by email. Open Edit student to add one?") && resetBtn.dataset.editUrl) {
+          (window.top || window).location.assign(resetBtn.dataset.editUrl);
+        }
+        return;
+      }
 
       const promptText = portalAction === 'reset'
-        ? `Reset password for ${studentName}? We are setting a password reset, and the student will receive an email to reset it. This is one student at a time.`
-        : `Send student portal request to ${studentName}?`;
+        ? `Reset the portal password for ${studentName}? They will receive an email to choose a new one.`
+        : `Invite ${studentName} to the student portal? They will receive an email to set up their sign-in.`;
       const proceed = window.confirm(promptText);
       if (!proceed) return;
 
-      const previousText = resetBtn.textContent;
+      const labelEl = resetBtn.querySelector('span') || resetBtn;
+      const previousText = labelEl.textContent;
       resetBtn.disabled = true;
-      resetBtn.textContent = 'Sending...';
+      labelEl.textContent = 'Sending...';
 
       try {
         const response = await fetch('/common/studentRequestPasswordReset', {
@@ -1249,7 +1651,7 @@
         window.alert('Network error while sending student portal request email.');
       } finally {
         resetBtn.disabled = false;
-        resetBtn.textContent = previousText;
+        labelEl.textContent = previousText;
       }
     });
   })();

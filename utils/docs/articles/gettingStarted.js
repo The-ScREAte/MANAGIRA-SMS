@@ -32,7 +32,7 @@ module.exports = [
         table: [
           ["Step", "Where it's done", "Guide"],
           ["Add your school's logo and contact details", "Settings, Customize School", "<a href=\"/legal/user-documentation/customize-your-school\">Customize your school</a>"],
-          ["Create the school year and its current term", "Management, School Years", "<a href=\"/legal/user-documentation/create-school-years-terms-and-set-the-current-term\">School years and terms</a>"],
+          ["Create the school year and its current term", "Management, School years &amp; terms", "<a href=\"/legal/user-documentation/create-school-years-terms-and-set-the-current-term\">School years and terms</a>"],
           ["Add your classes, and subjects to your classes", "Management, Classes, Subjects &amp; Grad Years", "<a href=\"/legal/user-documentation/setting-up-classes-subjects-graduation-year-group\">Classes and subjects</a>"],
           ["Put your classes into the current term", "Management, Enrollment", "<a href=\"/legal/user-documentation/enrolling-classes-and-student-in-aterm-semester\">Enrollment</a>"],
           ["Add your students", "Admissions, Add New Student", "<a href=\"/legal/user-documentation/create-and-add-student\">Add a student</a>"],
@@ -87,7 +87,7 @@ module.exports = [
         text: "Select the menu button (☰) at the top right. The big areas open as workspaces: a list on the left and the page on the right, so you can move between pages without losing your place.",
         table: [
           ["Workspace", "What's in it"],
-          ["<strong>Management</strong>", "School years, classes and subjects, assessments, enrollment, promotion, staff, guardians, transportation, events and activities, the school website, PayGira, integrations and service accounts."],
+          ["<strong>Management</strong>", "School years &amp; terms, classes and subjects, assessments, enrollment, promotion, staff, guardians, transportation, events and activities, the school website, PayGira, integrations and service accounts."],
           ["<strong>Admissions</strong>", "All students, adding students, online applications, graduates and alumni, and Admission Settings."],
           ["<strong>Reports</strong>", "Organization statistics, term report cards, transcripts, report settings and Report Builder."],
           ["<strong>PayGira</strong>", "Bills, payments, overdue balances, paying staff and PayGira settings."],
@@ -96,12 +96,25 @@ module.exports = [
         tip: "Select the arrows icon at the top of a workspace's list to arrange its items in the order you use them. Your order is remembered on every device.",
       },
       {
+        title: "Jump to any page with Ctrl+K",
+        text: "Press <strong>Ctrl+K</strong> (<strong>Cmd+K</strong> on a Mac) anywhere in Managira to open the page finder. Start typing what you want, for example <em>billing</em>, <em>report card</em> or <em>attendance</em>, and press <strong>Enter</strong> to go there. The page opens inside its own workspace, with its menu beside it.",
+        list: [
+          "It lists only the pages <strong>you</strong> can open, so a teacher sees fewer than a principal, and a driver sees only the driver pages. Teachers and supervisors also see each of their own classes.",
+          "Pages you opened lately come first. Use <strong>↑</strong> and <strong>↓</strong> to move, <strong>Ctrl/Cmd+Enter</strong> to open a page in a new tab, and <strong>Esc</strong> to close.",
+          "The last row hands what you typed to <strong>Search anything</strong>, to look for a student, parent, staff member or record instead.",
+        ],
+      },
+      {
         title: "Search, notifications and Mira",
         list: [
-          "<strong>Search anything</strong> at the top finds students, staff, classes and pages.",
+          "<strong>Search anything</strong> at the top finds students, staff, parents and classes. <strong>Search deeper</strong> reads more of your school's records.",
           "The <strong>bell</strong> shows your notifications: tasks, mentions, messages and alerts.",
           "The <strong>Mira</strong> button opens the AI assistant, which can do much of this work for you. See <a href=\"/legal/user-documentation/mira-ai-assistant\">Mira</a>.",
         ],
+      },
+      {
+        title: "Every page opens inside its menu",
+        text: "Pages that belong to Management, Admissions, Reports, PayGira or a class always open with their menu beside them, even from a bookmark, an email link or a student's page. You never land on a page with no way back. Long lists show a page at a time: use <strong>Rows per page</strong> (10, 20, 50, 100 or 200) and the <strong>Prev</strong> and <strong>Next</strong> buttons under the list. Your choice is remembered on that device.",
       },
       {
         title: "On a phone",
@@ -110,6 +123,7 @@ module.exports = [
     ],
     faq: [
       ["Why don't I see a menu a colleague has?", "Menus follow each person's permissions. A manager can give you more in Management, Users / Employees."],
+      ["How do I jump straight to a page?", "Press <strong>Ctrl+K</strong> (<strong>Cmd+K</strong> on a Mac) and type its name."],
       ["How do I get back to the dashboard?", "Select your school's logo or name at the top left."],
     ],
     related: ["register-a-school-and-complete-first-time-setup", "profile-and-appearance", "roles-and-permissions"],

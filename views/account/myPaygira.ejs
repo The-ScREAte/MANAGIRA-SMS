@@ -287,11 +287,13 @@
 <div class="mp-wrap">
   <div class="mp-container">
 
+    <% if (!isEmbedded) { %>
     <div class="mp-head">
       <div>
         <h1>Pay<span class="accent">Gira</span> · My collections</h1>
       </div>
     </div>
+    <% } %>
 
     <% if (messages && messages.success && messages.success.length) { %>
       <div class="mp-flash success"><%= messages.success[0] %></div>

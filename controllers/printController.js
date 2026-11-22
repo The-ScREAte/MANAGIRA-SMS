@@ -7115,7 +7115,8 @@ const printController = (db) => ({
                           'profile' AS source,
                           gp.email,
                           COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name,
-                          TRIM(COALESCE(gp.first_name, '')) AS guardian_first_name
+                          TRIM(COALESCE(gp.first_name, '')) AS guardian_first_name,
+                          TRIM(COALESCE(gp.phone, '')) AS guardian_phone
                    FROM guardian_students gs
                    JOIN guardian_profiles gp
                      ON gp.guardian_id = gs.guardian_id
@@ -7129,7 +7130,8 @@ const printController = (db) => ({
                           'legacy' AS source,
                           g.email,
                           COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name,
-                          TRIM(COALESCE(g.first_name, '')) AS guardian_first_name
+                          TRIM(COALESCE(g.first_name, '')) AS guardian_first_name,
+                          '' AS guardian_phone
                    FROM guardians g
                    WHERE g.organization_id = $1
                      AND g.student_id = ANY($2::int[])`,
@@ -7140,6 +7142,7 @@ const printController = (db) => ({
             const studentNameById = new Map(posted.map((item) => [Number(item.studentId), item.name]));
 
             const guardianNotifications = [];
+            const guardianTextTargets = [];
             const guardianEmailTargets = [];
             const seenGuardianEmailKey = new Set();
             // Class settings › Share with › Report cards · Parents: a class that doesn't share report
@@ -7179,6 +7182,11 @@ const printController = (db) => ({
                   link: `/guardian/academic-details?studentId=${studentId}&termId=${termId}`,
                   refId: studentId,
                 });
+              }
+
+              // A text only goes to a parent who chose it (Settings › Notifications).
+              if (choice && choice.channels.includes('sms') && row.guardian_phone) {
+                guardianTextTargets.push({ phone: String(row.guardian_phone), studentName });
               }
 
               if (guardianEmail && (!choice || choice.channels.includes('email'))) {
@@ -7278,6 +7286,25 @@ const printController = (db) => ({
               }));
 
             await notificationService.createNotifications(db, [...guardianNotifications, ...staffNotifications]);
+
+            // Texts: only to parents who chose them, one short line each, never holding up the post.
+            if (guardianTextTargets.length) {
+              (async () => {
+                try {
+                  const tenantSms = await getTenantSmsCredentials(db, organizationId);
+                  if (!tenantSms || !tenantSms.provider) return;
+                  const seenText = new Set();
+                  for (const target of guardianTextTargets) {
+                    const key = `${target.phone}:${target.studentName}`;
+                    if (seenText.has(key)) continue;
+                    seenText.add(key);
+                    await sendSms(tenantSms, `${target.studentName}'s report card for ${termName} is ready in the parent portal.`.slice(0, 300), [target.phone]);
+                  }
+                } catch (error) {
+                  console.warn('[Alerts] report card texts not sent:', error.message);
+                }
+              })();
+            }
 
             // Report card emails speak for the school: its name on them, replies to it.
             const schoolName = (await db.query(

@@ -1,0 +1,11 @@
+<%# The padlock at the edge of a row. Locals: locked (bool), keys (switch keys it locks together),
+    canLock (management: Every Class), classId (null on "All classes"), isAll. Someone who can't lock
+    sees only a closed padlock on a row management locked. %>
+<% const _svg = (closed) => '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (closed ? '<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>' : '<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.4-2"/>') + '</svg>'; %>
+<span class="cset-lockslot">
+  <% if (canLock) { %>
+  <button type="button" class="cset-lock<%= locked ? ' is-locked' : '' %>" data-cs-lock data-cs-lock-keys="<%= keys.join(',') %>" <%- isAll ? 'data-cs-lock-all' : 'data-cs-lock-class="' + Number(classId) + '"' %> aria-pressed="<%= locked ? 'true' : 'false' %>" aria-label="<%= locked ? 'Locked for the class. Unlock' : 'Lock for the class' %>" title="<%= locked ? 'Locked: the class can\'t change this' : 'Lock so the class can\'t change this' %>"><%- _svg(Boolean(locked)) %></button>
+  <% } else if (locked) { %>
+  <span class="cset-lock is-locked is-static" title="Locked by management" role="img" aria-label="Locked by management"><%- _svg(true) %></span>
+  <% } %>
+</span>

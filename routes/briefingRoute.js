@@ -9,10 +9,10 @@ const { isOn } = require("../utils/shards/features");
 const briefing = require("../utils/weeklyBriefing");
 
 const router = express.Router();
-const FULL_ROLES = new Set(["organization", "admin", "mini admin", "manager", "supervisor", "superviser"]);
+const FULL_ROLES = new Set(["organization", "admin", "mini admin", "manager"]); // management only
 const roleOf = (req) => String(req.session?.userRole || req.session?.user?.account_type || req.session?.accountType || "").trim().toLowerCase();
 
-// Managers and supervisors, where the school has the weekly briefing (mirrored in workspaceAccess).
+// Managers, where the school has the weekly briefing (mirrored in workspaceAccess).
 function allowed(req, res, next) {
   const organizationId = Number(req.session?.organizationId);
   if (!organizationId || !FULL_ROLES.has(roleOf(req)) || !isOn("weekly_briefing", { organizationId })) {
@@ -128,9 +128,12 @@ router.post("/class/:classId(\\d+)", isAuthenticated, allowed, async (req, res) 
     const classRoom = await classOf(req.organizationId, classId);
     if (!classRoom) return res.status(404).send("That class wasn't found.");
     const saved = await briefing.saveClassSettings(db, req.organizationId, classRoom.id, req.body || {}, actorOf(req));
+    // The classroom's Class settings saves each switch as it changes (a script, asking for JSON).
+    if (/application\/json/.test(String(req.get("Accept") || ""))) return res.json({ success: true, own: Boolean(saved) });
     req.flash("success", saved ? `Saved. ${classRoom.name} uses its own choices.` : `Saved. ${classRoom.name} uses the school's choices.`);
   } catch (error) {
     console.error("[Weekly briefing] class save:", error.message);
+    if (/application\/json/.test(String(req.get("Accept") || ""))) return res.status(500).json({ success: false, message: "That didn't save. Try again." });
     req.flash("error", "Your changes weren't saved. Please try again.");
   }
   return res.redirect(`/common/briefing/class/${classId}${req.query.embed ? "?embed=workspace" : ""}`);

@@ -562,6 +562,10 @@
   }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
+<script>
+  // A workspace never opens inside another workspace's panel: a link that lands here from inside a frame takes the whole window.
+  if (window.top !== window.self) { try { window.top.location.replace(window.location.href); } catch (e) { /* a different origin: stay */ } }
+</script>
 <script src="<%= assetUrl('/js/menuArrange.js') %>"></script>
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace-shell.css') %>" />
 

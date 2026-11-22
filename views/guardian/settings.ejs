@@ -944,13 +944,11 @@
           <span class="accordion-badge"><%- navIcon('notifications') %></span>
           <span class="accordion-copy">
             <span class="accordion-title">Notifications</span>
-            <span class="accordion-subtitle">Alerts about your children, and the emails you get.</span>
           </span>
           <span class="accordion-chevron" aria-hidden="true">⌄</span>
         </summary>
         <div class="accordion-body" data-ns-scope>
           <div data-alert-rules-wrap>
-            <h3 class="ns-group__title" style="margin:0 0 8px;">Alerts</h3>
             <%- include('../partials/alertRules', { hideTitle: true, bare: true }) %>
           </div>
           <% if (_hasEmails) { %>

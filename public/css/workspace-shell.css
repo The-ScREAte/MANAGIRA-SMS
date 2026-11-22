@@ -821,7 +821,7 @@ main { padding: 0 !important; max-width: none !important; }
     top: var(--side-menu-top, 120px) !important;
     bottom: 0 !important;
     left: 0 !important;
-    width: min(280px, calc(100vw - 20px)) !important;
+    width: calc(100vw - 20px) !important;
     height: auto !important;
     max-height: none !important;
     margin: 0 !important;
@@ -842,7 +842,7 @@ main { padding: 0 !important; max-width: none !important; }
   }
 
   .management-nav-toggle {
-    width: min(280px, calc(100vw - 20px)) !important;
+    width: calc(100vw - 20px) !important;
     position: relative;
     z-index: 12101;
     transition: border-radius 140ms ease, box-shadow 140ms ease;
@@ -890,7 +890,7 @@ main { padding: 0 !important; max-width: none !important; }
     bottom: 0 !important;
     left: var(--management-nav-left, 10px) !important;
     right: auto !important;
-    width: var(--management-nav-width, min(280px, calc(100vw - 20px))) !important;
+    width: var(--management-nav-width, calc(100vw - 20px)) !important;
     height: auto !important;
     box-sizing: border-box !important;
     max-width: calc(100vw - 20px) !important;
@@ -930,7 +930,7 @@ main { padding: 0 !important; max-width: none !important; }
   }
 
   .hub-nav-toggle {
-    width: min(280px, calc(100vw - 20px)) !important;
+    width: calc(100vw - 20px) !important;
     position: relative;
     z-index: 12101;
     transition: border-radius 140ms ease, box-shadow 140ms ease;
@@ -978,7 +978,7 @@ main { padding: 0 !important; max-width: none !important; }
     bottom: 0 !important;
     left: var(--hub-nav-left, 10px) !important;
     right: auto !important;
-    width: var(--hub-nav-width, min(280px, calc(100vw - 20px))) !important;
+    width: var(--hub-nav-width, calc(100vw - 20px)) !important;
     height: auto !important;
     max-width: calc(100vw - 20px) !important;
     max-height: none !important;
@@ -1008,7 +1008,7 @@ main { padding: 0 !important; max-width: none !important; }
   }
 
   #settings-layout-root .settings-nav-header {
-    width: min(280px, calc(100vw - 20px)) !important;
+    width: calc(100vw - 20px) !important;
     position: relative;
     z-index: 12101;
     border-radius: 8px !important;
@@ -1027,7 +1027,7 @@ main { padding: 0 !important; max-width: none !important; }
     bottom: 0 !important;
     left: var(--settings-nav-left, 10px) !important;
     right: auto !important;
-    width: var(--settings-nav-width, min(280px, calc(100vw - 20px))) !important;
+    width: var(--settings-nav-width, calc(100vw - 20px)) !important;
     height: auto !important;
     max-width: calc(100vw - 20px) !important;
     max-height: none !important;

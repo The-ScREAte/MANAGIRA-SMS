@@ -983,7 +983,7 @@ async function termPromotionSuggestions(organizationId, terms, years, schedules)
       message = "No students are enrolled in this term, so there is nobody to promote from it.";
     } else if (!next) {
       kind = "no-target";
-      message = "There is no later term yet. Create the next term in School years first.";
+      message = "There is no later term yet. Create the next term in School years & terms first.";
     } else if (ran && nextStudents >= students) {
       kind = "applied";
       message = `Already promoted into ${label(next)} (${nextStudents} students there).`;
@@ -996,6 +996,7 @@ async function termPromotionSuggestions(organizationId, terms, years, schedules)
     return {
       fromTermId: Number(term.term_id), fromYearId: Number(term.school_year_id), fromLabel: label(term),
       targetTermId: next ? Number(next.term_id) : null, targetYearId: next ? Number(next.school_year_id) : null, targetLabel: next ? label(next) : "",
+      targetStart: next ? day(next.start_date) : "",
       students, decisions: decisionCount, targetStudents: nextStudents, ended: Boolean(ended), kind, message,
     };
   });
@@ -1092,6 +1093,7 @@ module.exports = {
       res.render("promotion/applyPromotion", {
         title: "Promotion Scheduler",
         termStudentCounts,
+        suggestions,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,

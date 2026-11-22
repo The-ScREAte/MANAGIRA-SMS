@@ -39,6 +39,8 @@
 %>
 
 <style>
+  .od-crow[hidden] { display: none !important; }
+  .od-pager { padding: 8px 0 0; }
   :root {
     --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
   }
@@ -710,7 +712,6 @@
   <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--org" aria-label="Announcements"></div>
   <div class="dashboard-grid">
     <div class="od" data-od>
-
       <!-- Enrolled classes + school year -->
       <div class="od-pair">
         <section class="od-card" data-od-classes data-od-section="classes" data-od-label="Enrolled classes" aria-label="Enrolled classes">
@@ -718,6 +719,7 @@
             <h2 class="od-card__title"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i> Enrolled Classes <span class="od-count"><%= uniqueSortedClasses.length %></span></h2>
           </div>
           <% if (uniqueSortedClasses.length) { %>
+            <% let _crowN = 0; %>
             <% classSections.forEach(function(section, sectionIndex) { %>
               <% classRowGroupsFor(section).forEach(function(group) { %>
                 <div class="od-cols">
@@ -729,7 +731,7 @@
                         const lead = teachers[0];
                         const leadFirst = lead ? (String(lead.first_name || '').trim() || String(lead.name).split(/[ ,]+/).filter(Boolean).pop() || lead.name) : '';
                       %>
-                        <li class="od-crow">
+                        <li class="od-crow"<%= (_crowN++) >= 20 ? ' hidden' : '' %>>
                           <a class="od-crow__name" href="/common/classDashboard?classId=<%= cls.class_id %>" title="Open <%= cls.class_name %>"><%= cls.class_name %></a>
                           <% if (teachers.length) { %>
                             <details class="od-teachers">
@@ -766,6 +768,22 @@
               <% }) %>
               <% if (sectionIndex < classSections.length - 1) { %><hr class="od-divider" /><% } %>
             <% }) %>
+            <% if (uniqueSortedClasses.length > 10) { %>
+            <div class="od-pager" data-od-pager></div>
+            <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+            <script src="<%= assetUrl('/js/listPager.js') %>"></script>
+            <script>
+              // The class list shows a page at a time (Rows per page: 10 to 200), like every long list.
+              (function () {
+                var host = document.querySelector('[data-od-pager]'); if (!host || !window.ManagiraPager) return;
+                var rows = Array.prototype.slice.call(document.querySelectorAll('[data-od-classes] .od-crow'));
+                var pager = ManagiraPager.create({ mount: host, key: 'home-classes', total: rows.length, label: 'Classes', onChange: function (st) {
+                  rows.forEach(function (li, i) { li.hidden = !(i >= st.from - 1 && i < st.to); });
+                } });
+                pager.refresh();
+              })();
+            </script>
+            <% } %>
           <% } else if (['teacher', 'supervisor', 'superviser'].includes(_roleKey)) { %>
             <%# Teachers and supervisors see the classes they are assigned to. %>
             <p class="od-empty">You are not assigned to any classes yet. A manager can add you to your classes.</p>

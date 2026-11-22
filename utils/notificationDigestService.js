@@ -647,6 +647,8 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
   await ensureNotificationSchema(database);
   const policy = await getPolicy(database, organizationId);
   if (!policy.enable_parent_absence_alerts) return { sent: 0 };
+  // Where attendance notices are on, each class's own settings (Class settings › Attendance notices) decide; this school-wide sweep would repeat them.
+  if (require("./shards/features").isOn("attendance_notices", { organizationId: Number(organizationId) })) return { sent: 0 };
 
   const threshold = Math.max(1, toNumber(policy.absence_threshold_weekly, 3));
   const now = options.referenceDate instanceof Date ? options.referenceDate : new Date();

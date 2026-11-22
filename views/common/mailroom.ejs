@@ -489,8 +489,8 @@
     contactLimit: 30,
     verifiedUntil: 0,
   };
-  const CONTACT_PAGE = 30;
-  const HISTORY_PAGE = 25;
+  const CONTACT_PAGE = 20;
+  const HISTORY_PAGE = 20;
 
   const CHANNEL_META = {
     sms: { label: 'Text (SMS)', field: 'phone', missing: 'no phone number' },
@@ -874,6 +874,14 @@
       if (!data.success) { $('mrContactList').innerHTML = '<div class="mr-empty">Failed to load contacts.</div>'; return; }
       state.contacts = data.contacts || [];
       populateClassFilter();
+      // Opened from a student's page ("Message parent"): that student's families are selected and shown.
+      const wantedStudent = new URLSearchParams(window.location.search).get('student');
+      if (wantedStudent) {
+        const key = wantedStudent.trim().toLowerCase();
+        const hits = state.contacts.filter((c) => (c.studentNames || []).some((n) => String(n).toLowerCase() === key));
+        hits.forEach((c) => state.selected.set(c.id, c));
+        if (hits.length) { $('mrSearch').value = wantedStudent.trim(); updateRecipientCount(); }
+      }
       renderContacts();
     } catch (_) {
       $('mrContactList').innerHTML = '<div class="mr-empty">Error loading contacts.</div>';

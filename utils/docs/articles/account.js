@@ -396,7 +396,7 @@ module.exports = [
         title: "Email, password and notifications",
         list: [
           "<strong>Settings, Security</strong>: change your email address or password.",
-          "<strong>Settings, Notifications</strong>: choose which emails you get, such as events and announcements, messages and reminders.",
+          "<strong>Settings, Notifications</strong>: one list for everything you are told about. Choose alerts (scores, absences and the bus), and which emails you get, and how: in Managira, by email, by text or in the weekly briefing. One <strong>Save</strong> saves them all. See <a href=\"/legal/user-documentation/notifications-and-alerts\">Your notifications and alerts</a>.",
         ],
       },
     ],

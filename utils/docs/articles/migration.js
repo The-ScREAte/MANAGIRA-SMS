@@ -148,7 +148,7 @@ module.exports = [
         list: [
           "Make sure each student has one record, with their correct date of birth and grade level.",
           "Make sure each member of staff has their own email address and the right role or access group, and that staff who have left are marked inactive.",
-          "Set up your current school year and term in Managira first (Management, School years). Students are enrolled in it when you go live. See " + link("create-school-years-terms-and-set-the-current-term", "Create school years and terms") + ".",
+          "Set up your current school year and term in Managira first (Management, School years &amp; terms). Students are enrolled in it when you go live. See " + link("create-school-years-terms-and-set-the-current-term", "Create school years and terms") + ".",
         ],
       },
       {

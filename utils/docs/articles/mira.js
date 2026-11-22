@@ -136,4 +136,56 @@ module.exports = [
     ],
     related: ["mira-ai-assistant", "report-builder", "roles-and-permissions"],
   },
+  {
+    slug: "mira-skills",
+    title: "Mira skills: teach Mira how you like things done",
+    topic: "Mira AI assistant",
+    order: 3,
+    summary: "Save a playbook once, such as how you word a family message, and Mira follows it every time it fits. Personal skills, school skills and a ready-made library.",
+    tags: ["mira skills", "playbook", "templates", "family messages", "report card comments", "lesson plans", "school skills", "automatic skills"],
+    who: "Every member of staff who uses Mira can keep personal skills. School skills are made by managers, or by anyone a manager gives <strong>Manage Mira's school skills</strong>. Your school needs Mira skills turned on.",
+    intro: "A skill is a set of instructions Mira follows, like a standing brief: your school's tone for family messages, how you structure a lesson plan, or what a behavior write-up must include. Skills shape <em>how</em> Mira writes and works. They never change what Mira is allowed to see or do, and every change still waits for your confirmation.",
+    sections: [
+      {
+        title: "Two kinds of skill",
+        table: [
+          ["Kind", "Who it applies to", "Who can make it"],
+          ["<strong>Personal</strong>", "Only you. Nobody else sees or changes it.", "Any member of staff who uses Mira."],
+          ["<strong>School</strong>", "Everyone at the school. A school skill wins when it disagrees with a personal one.", "Managers, and anyone a manager gave <strong>Manage Mira's school skills</strong>."],
+        ],
+      },
+      {
+        title: "Choose when a skill is used",
+        list: [
+          "<strong>Automatic</strong>: Mira applies it when your request matches its name, its <em>When should Mira use it?</em> line or its trigger words.",
+          "<strong>In every chat</strong>: always applied.",
+          "<strong>Only when picked</strong>: applied when you choose it with the star in the message box.",
+        ],
+        note: "Mira applies at most 5 skills to a reply and shows <em>Following skills: …</em> above the answer, so you can see what it followed. A follow-up such as <em>make them shorter</em> keeps the skills of the reply before it.",
+      },
+      {
+        title: "Make a skill",
+        steps: [
+          "Open Mira and choose <strong>Skills</strong>.",
+          "Start from the <strong>Library</strong>, or choose <strong>New skill</strong>. The library is written for school work: family messages, attendance follow-up, report card comments, lesson plans, behavior write-ups, IEP and 504 care, missing work, class newsletters, leadership data, bus notices, admissions replies, substitute plans and bilingual messages. A template opens in the editor first, so you can adjust it before saving.",
+          "Give it a name, say when Mira should use it, and write the instructions. Choose <strong>Personal</strong> or, if you may, <strong>School</strong>.",
+          "Save. Changes apply to your next message.",
+        ],
+      },
+      {
+        title: "What a skill can't do",
+        list: [
+          "It can't give Mira access you don't have. Mira always works with your own permissions.",
+          "It can't skip a confirmation. Anything that changes records or reaches people still shows a preview that you confirm.",
+          "It can't change how Mira handles figures: Mira still states only what your school's records show.",
+        ],
+      },
+    ],
+    faq: [
+      ["Why didn't Mira use my skill?", "Check its <em>When should Mira use it?</em> line and trigger words, or set it to <strong>In every chat</strong>. Skills set to <strong>Only when picked</strong> need the star."],
+      ["Who can see my personal skills?", "Only you."],
+      ["Who can make school skills?", "Managers, the school's own account, and anyone a manager gave <strong>Manage Mira's school skills</strong> to on the staff form or the Mira page. Mira Settings alone is not enough."],
+    ],
+    related: ["mira-ai-assistant", "mira-ai-capabilities", "roles-and-permissions"],
+  },
 ];

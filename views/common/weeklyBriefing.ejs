@@ -72,7 +72,7 @@
 
   <form method="post" action="<%= action %><%= isEmbedded ? '?embed=workspace' : '' %>" class="wb-stack" id="wb-form">
     <% if (forClass) { %>
-      <section class="ws-card">
+      <section class="ws-card wb-card--mode">
         <div class="ws-card__head"><h2 class="ws-card__title">This class</h2></div>
         <div class="wb-card-body wb-modes">
           <label class="wb-mode">
@@ -83,6 +83,7 @@
             <input type="radio" name="mode" value="own" <%= followsSchool ? '' : 'checked' %>>
             <span><strong>Choose for this class</strong><span>This class keeps its own choices below.</span></span>
           </label>
+          
         </div>
       </section>
     <% } else { %>
@@ -228,6 +229,7 @@
     open.setAttribute('aria-disabled', id ? 'false' : 'true');
     open.href = id ? '/common/briefing/preview?studentId=' + encodeURIComponent(id) + '&audience=' + encodeURIComponent(audienceSelect.value) : '#';
   }
+  if (!studentSelect || !open) return;
   open.addEventListener('click', function (event) { if (!studentSelect.value) event.preventDefault(); });
   studentSelect.addEventListener('change', paintPreview);
   audienceSelect.addEventListener('change', paintPreview);

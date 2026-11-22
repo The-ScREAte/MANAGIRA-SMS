@@ -61,6 +61,15 @@ module.exports = [
         ],
       },
       {
+        title: "Search from anywhere",
+        list: [
+          "<strong>Search anything</strong> at the top of every page finds students, staff, parents and classes. You see a result only if you could open its page: a teacher sees only their own classes' students.",
+          "Tick <strong>Include past records</strong> to include graduated and archived students, which are left out otherwise.",
+          "Select <strong>Search deeper</strong> to search more of your school's records at once: more fields of people (email, phone, address, ID), student profile fields, notes, files, report card remarks, forms and their answers, messages, applicants, assessments, buses, bills, activities, events and announcements. Results are grouped as <strong>Exact match</strong>, then by kind with a count for each. Use the filters row to narrow by category.",
+          "Press <strong>Ctrl+K</strong> (<strong>Cmd+K</strong> on a Mac) to jump to a page instead. See <a href=\"/legal/user-documentation/navigate-managira\">Find your way around Managira</a>.",
+        ],
+      },
+      {
         title: "Change many students at once",
         text: "Tick the students, then choose <strong>Bulk Edit Students</strong>:",
         list: [
@@ -74,7 +83,57 @@ module.exports = [
     faq: [
       ["Can I export the list?", "Use <a href=\"/legal/user-documentation/report-builder\">Report Builder</a> for exports to CSV, Excel or Word with exactly the columns you want."],
     ],
-    related: ["create-and-add-student", "edit-student-information", "report-builder"],
+    related: ["create-and-add-student", "student-page", "edit-student-information", "report-builder"],
+  },
+  {
+    slug: "student-page",
+    title: "A student's page",
+    topic: "Students & admissions",
+    order: 2.5,
+    summary: "One page for a student: details, grades, attendance, messages, bills, files, portfolio and transport, each in its own tab.",
+    tags: ["student page", "student profile", "student tabs", "student attendance", "student messages", "student bills", "open student", "student details"],
+    who: "Staff who can open the student: managers, and teachers and supervisors for students in their own classes. Each tab shows only to people who can use what's in it.",
+    intro: "Open a student from All Students, their class, or the header search. The header shows their name, their student ID where your school uses custom IDs, <strong>Edit student</strong>, and the portal invite or reset. Below it, everything else is a tab. Each tab loads only when you open it, so the page itself opens quickly.",
+    sections: [
+      {
+        title: "The tabs",
+        table: [
+          ["Tab", "What it shows"],
+          ["<strong>Overview</strong>", "Their details, parents and guardians."],
+          ["<strong>Grades</strong>", "This term's grades, with a <strong>Report card</strong> button (Terminal Reports)."],
+          ["<strong>Attendance</strong>", "Overall attendance and overall lunch, days absent and late, and the last 10 days with each day's note. <strong>Take attendance</strong> opens the class's attendance."],
+          ["<strong>Messages</strong>", "The parents' conversations, replied to in place, and what the school sent the family from the Mail Room. <strong>New message</strong> needs the Mail Room."],
+          ["<strong>Bills</strong>", "The student's PayGira summary. <strong>Bills &amp; payments</strong> opens their ledger."],
+          ["<strong>Files</strong>", "The student's files. See <a href=\"/legal/user-documentation/student-files\">Student files</a>."],
+          ["<strong>Portfolio</strong>", "A folder for each term. See <a href=\"/legal/user-documentation/student-portfolio\">A student's portfolio</a>."],
+          ["<strong>Transport</strong>", "Their bus and stop, with <strong>Track bus</strong>."],
+          ["<strong>Old records</strong>", "Records kept from a previous system, where the school moved to Managira."],
+        ],
+        note: "A tab appears only for people who can use it. A teacher who can't open Bills doesn't see it.",
+      },
+      {
+        title: "Each term is a new slate",
+        text: "Grades, attendance and messages show the <strong>current term</strong> only. When a new term starts, they start fresh. Bills are the exception: money owed carries over, so the Bills tab shows the balance across all terms.",
+      },
+      {
+        title: "Buttons open in a new tab",
+        text: "The buttons inside the tabs (Take attendance, Bills &amp; payments, New message, Report card and Track bus) open in a new browser tab, so you never lose your place on the student's page.",
+      },
+      {
+        title: "Long lists load a little at a time",
+        list: [
+          "Messages show the newest 5, with <strong>Show more</strong>.",
+          "Attendance shows the last 10 days, with <strong>Show more</strong> for earlier ones.",
+          "The tab's data is read only when you open it.",
+        ],
+      },
+    ],
+    faq: [
+      ["Where did Message parent, Attendance and Bill go?", "They are tabs now, each with its own button inside."],
+      ["Why can't I open a student?", "A teacher or supervisor can open only students in their own classes. Managers can open every student."],
+      ["Why doesn't the page show the class and term?", "You open it from the class, which already says which class and term you're in."],
+    ],
+    related: ["find-students", "edit-student-information", "mark-attendance-for-a-class", "student-files", "student-portfolio"],
   },
   {
     slug: "edit-student-information",
@@ -377,9 +436,9 @@ module.exports = [
       {
         title: "2. Plan the promotion",
         steps: [
-          ["Open <strong>Management</strong>, then <strong>Promotion</strong>, and select <strong>Plan a promotion</strong>.", "promotion-plan.webp", "Plan Promotion: from which year and term, to which, and when."],
+          ["Open <strong>Management</strong>, then <strong>Promotion</strong>. <strong>Suggested</strong> lists the promotion Managira thinks you want next, such as <em>Fall Semester → Spring Semester</em>, with how many students can move. Select <strong>Plan this</strong>, or select <strong>Plan a promotion</strong> to choose for yourself.", "promotion-plan.webp", "Plan Promotion: from which year and term, to which, and when."],
           "Choose the school year and term you're promoting <strong>from</strong>, and the <strong>target</strong> school year and term.",
-          "Under <strong>When should this happen?</strong> choose <strong>Schedule Promotion</strong> and a date, or <strong>Apply Now</strong>.",
+          "Under <strong>When should this happen?</strong> choose <strong>Schedule Promotion</strong> and a date (it starts on the target term's first day), or <strong>Apply Now</strong>.",
           "Choose the classes (or <strong>Select All Classes</strong>). <strong>Saved Student Decisions</strong> lists each student, their class, the decision and where they go.",
           "Select <strong>Schedule Promotion</strong> (or <strong>Apply Now</strong>). A scheduled promotion runs by itself on its date.",
         ],
@@ -399,9 +458,12 @@ module.exports = [
         title: "Graduate and withdraw",
         steps: [
           "Open <strong>Admissions</strong>, <strong>Former Students</strong>, then <strong>Graduate &amp; Withdraw</strong>.",
+          "Students are grouped by graduation year. The first group opens at once; select another group to load it. Use <strong>Search</strong> to find a student in any group.",
+          "Tick the students, or choose <strong>Select all</strong> to take every student in the group (not only the ones on this page). Ticked students stay ticked as you move between pages.",
           "Graduate your final-year students, or withdraw students who are leaving.",
           "They move to <strong>Graduates &amp; Alumni</strong>, with their records and transcripts kept.",
         ],
+        note: "Each group shows its students a page at a time. Choose <strong>Rows per page</strong> (10, 20, 50, 100 or 200) and use <strong>Prev</strong> and <strong>Next</strong> under the list.",
       },
     ],
     faq: [

@@ -48,7 +48,7 @@ const KINDS = {
   report_card: {
     group: "Academics",
     audiences: ["guardian"],
-    channels: ["bell", "email"],
+    channels: ["bell", "email", "sms"],
     name: { guardian: "Report card ready" },
     hint: { guardian: "When the school posts your child's report card." },
   },
@@ -140,7 +140,7 @@ async function availability(db, organizationId) {
 // A student has no bell (their app is built when they open it), so they choose email or the briefing.
 async function availableFor(db, organizationId, audience) {
   const available = { ...(await availability(db, organizationId)) };
-  if (audience === "student") available.bell = false;
+  if (audience === "student") { available.bell = false; available.sms = false; } // no number is kept for a student
   if (audience === "driver") { available.digest = false; }
   return available;
 }
@@ -150,7 +150,7 @@ const forgetAvailability = (organizationId) => availabilityCache.delete(organiza
 // that doesn't share something with parents or students takes that alert away, and the bus alerts
 // only exist for someone whose child (or who themselves) rides a bus. A parent is offered an alert
 // when any of their children (or just this child, on a child's page) allows it.
-async function allowedKinds(db, organizationId, { type, id, audience }, studentId = 0) {
+async function allowedKinds(db, organizationId, { type, id, audience }, studentId = 0, { ignoreRides = false } = {}) {
   const available = await availableFor(db, organizationId, audience);
   const all = kindsFor(audience, available);
   if (audience !== "guardian" && audience !== "student") return all;
@@ -171,10 +171,31 @@ async function allowedKinds(db, organizationId, { type, id, audience }, studentI
     if (kind === "report_card") return share.reportCards !== false;
     if (share.alerts === false) return false;
     if (kind === "absent") return share.attendance !== false;
-    if (kind === "bus_near" || kind === "bus_arrived") return share.transport !== false && rides.has(sid);
+    if (kind === "bus_near" || kind === "bus_arrived") return share.transport !== false && (ignoreRides || rides.has(sid));
     return true;
   };
   return all.filter((kind) => ids.some((sid) => ok(kind, sid)));
+}
+
+// ── Emails an alert already covers ───────────────────────────────
+
+// A parent's report card and bus emails are chosen on the alerts (their Email box), so the Emails
+// list doesn't repeat them: the email key follows the alerts (on when any covered alert emails).
+const COVERED_EMAILS = { report_card_email: ["report_card"], bus_arrival: ["bus_near", "bus_arrived"] };
+const withoutCovered = (prefs, organizationId) => (featureOn(organizationId)
+  ? (prefs || []).filter((pref) => !COVERED_EMAILS[pref.key])
+  : (prefs || []));
+async function syncCoveredEmails(db, organizationId, { type, id, audience }, alerts) {
+  if (audience !== "guardian" || type !== "guardian") return;
+  const { rows } = await db.query("SELECT email FROM guardian_profiles WHERE guardian_id = $1 AND organization_id = $2", [id, organizationId]);
+  const email = rows[0] && rows[0].email;
+  if (!email) return;
+  const { setEmailChoice } = require("./emailPreferences");
+  for (const [key, kinds] of Object.entries(COVERED_EMAILS)) {
+    const shown = alerts.filter((alert) => kinds.includes(alert.kind));
+    if (!shown.length) continue; // the school keeps these from this parent: leave the choice as it is
+    await setEmailChoice(db, email, key, shown.some((alert) => alert.enabled && alert.channels.includes("email")));
+  }
 }
 
 // ── A person's rules ─────────────────────────────────────────────
@@ -243,8 +264,14 @@ async function settingsFor(db, organizationId, { type, id, audience }, studentId
   const allowed = await allowedKinds(db, organizationId, { type, id, audience }, studentId);
   const custom = studentId > 0 && entry.byChild.has(Number(studentId));
   const rules = custom ? entry.byChild.get(Number(studentId)) : entry.base;
+  // What the school keeps from this person (Class settings): shown locked, never hidden.
+  // Locked only where the school's own choice withholds it (not an alert that simply doesn't apply,
+  // like the bus for someone who doesn't ride it).
+  const sharedKinds = await allowedKinds(db, organizationId, { type, id, audience }, studentId, { ignoreRides: true });
+  const locked = kindsFor(audience, available).filter((kind) => !sharedKinds.includes(kind))
+    .map((kind) => ({ kind, group: KINDS[kind].group || "Alerts", name: KINDS[kind].name[audience] }));
   return {
-    available, studentId: studentId || 0, custom,
+    available, studentId: studentId || 0, custom, locked,
     alerts: allowed.map((kind) => {
       const def = KINDS[kind];
       const rule = rules.get(kind) || defaultRule(kind, audience);
@@ -617,5 +644,6 @@ async function markDigested(db, ids) {
 
 module.exports = {
   KINDS, DEFAULTS, CHANNELS, featureOn, audienceOf, recipientTypeOf, kindsFor, availability, forgetAvailability,
-  allowedKinds, loadRules, settingsFor, saveRules, choicesFor, ruleFor, onGradesPosted, onAbsent, onRiderNotComing, onBus, digestFor, digestRows, markDigested,
+  COVERED_EMAILS, withoutCovered, syncCoveredEmails, allowedKinds, loadRules, settingsFor, saveRules, choicesFor, ruleFor, onGradesPosted, onAbsent, onRiderNotComing, onBus, digestFor, digestRows, markDigested,
+  deliver, schoolOf,
 };

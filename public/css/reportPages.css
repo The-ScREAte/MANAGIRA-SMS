@@ -43,6 +43,9 @@ html:has(.gp-page), body:has(.gp-page) { background: var(--ap-page, #f8fafc); }
   margin-bottom: 20px;
 }
 .gp-title { margin: 0; font-size: 1.45rem; line-height: 1.25; font-weight: 700; color: var(--gp-ink); text-align: left; }
+/* The same title size as every Management page (a page's own h1 rule made these 32 to 36px). */
+.gp-head .gp-title { font-size: 1.375rem !important; line-height: 1.25 !important; }
+.gp-head .gp-sub { font-size: .9rem; }
 .gp-sub { margin: 6px 0 0; max-width: 680px; color: var(--gp-muted); font-size: 0.93rem; line-height: 1.55; }
 
 /* Buttons (sized to their text) */

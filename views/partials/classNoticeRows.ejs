@@ -1,0 +1,29 @@
+<%# Attendance notices to parents (feature attendance_notices): for absences and for lates, a switch and after how many in a
+    week. Locals: notices ({ absent: { on, count }, late: { on, count }, max }), classId (null for "All classes").
+    public/js/classNotices.js saves each change as it's made. %>
+<% const _scope = classId ? 'data-class-id="' + Number(classId) + '"' : 'data-all="1"'; %>
+<ul class="cset-list" data-notices <%- _scope %> data-notices-url="/common/class-settings/notices">
+  <li class="cset-row cset-colhead"><span class="cset-row__label"></span><span class="cset-cells"><span class="cset-cell">After</span><span class="cset-cell">Tell parents</span></span><span class="cset-lockslot"></span></li>
+  <% [['absent', 'Absent several times', 'times in a week'], ['late', 'Late several times', 'times in a week']].forEach((row) => { const kind = row[0]; const n = notices[kind] || { on: true, count: 3 }; %>
+  <li class="cset-row" data-cs-row data-notice-kind="<%= kind %>" title="When a student is <%= kind === 'absent' ? 'marked absent' : 'marked late' %> this many times in a week, their parents are told.">
+    <span class="cset-row__label"><%= row[1] %></span>
+    <p class="cset-msg" data-cs-msg role="status" aria-live="polite"></p>
+    <span class="cset-cells">
+      <span class="cset-cell">
+        <span class="cset-num">
+          <button type="button" class="cset-num__btn" data-notice-step="-1" aria-label="One fewer">−</button>
+          <input type="number" class="cset-num__input" data-notice-count min="1" max="<%= notices.max || 10 %>" step="1" value="<%= n.count %>" aria-label="<%= row[1] %>: number of times" />
+          <button type="button" class="cset-num__btn" data-notice-step="1" aria-label="One more">+</button>
+        </span>
+      </span>
+      <label class="cset-cell">
+        <span class="cset-switch">
+          <input type="checkbox" role="switch" data-notice-on aria-label="Tell parents when a student is <%= kind %> several times" <%= n.on ? 'checked' : '' %> />
+          <span class="cset-switch__track" aria-hidden="true"></span>
+        </span>
+      </label>
+    </span>
+    <span class="cset-lockslot"></span>
+  </li>
+  <% }) %>
+</ul>

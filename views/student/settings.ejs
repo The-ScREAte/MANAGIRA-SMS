@@ -13,12 +13,10 @@
   <%- include('../partials/portalHead', { title: 'Settings', icon: 'settings', sub: 'Just for you.' }) %>
   <section class="st-card" id="appearance" aria-labelledby="stAppearance">
     <h2 id="stAppearance">Appearance</h2>
-    <p>Choose how your portal looks.</p>
     <%- include('../partials/appearancePicker') %>
   </section>
   <section class="st-card" style="margin-top:14px" id="notifications" data-alert-card data-ns-scope>
     <h2>Notifications</h2>
-    <p>Choose what you want to be told about, and how.</p>
     <%- include('../partials/alertRules', { bare: true }) %>
     <%- include('../partials/notificationSaveBar') %>
   </section>

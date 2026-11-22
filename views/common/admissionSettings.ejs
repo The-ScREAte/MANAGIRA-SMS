@@ -186,6 +186,27 @@
     .as-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .as-type, .as-badges { display: none; }
   }
+
+  /* Quieter fields list: one line per field, actions on hover, sections that fold. */
+  #asRoot .as-filesrow { margin: 0 0 14px; }
+  #asRoot .as-row { gap: 8px; padding: 6px 8px 6px 2px; }
+  #asRoot .as-type { width: 28px; height: 28px; border-radius: 8px; }
+  #asRoot .as-type svg { width: 14px; height: 14px; }
+  #asRoot .as-row__main { gap: 0; }
+  #asRoot .as-row__actions { opacity: 0; transition: opacity .12s; }
+  #asRoot .as-row:hover .as-row__actions, #asRoot .as-row:focus-within .as-row__actions { opacity: 1; }
+  @media (hover: none) { #asRoot .as-row__actions { opacity: 1; } }
+  #asRoot .as-group { padding: 8px; }
+  #asRoot .as-group__head { margin-bottom: 6px; min-height: 30px; }
+  #asRoot .as-group__head[data-fold] { cursor: pointer; border-radius: 8px; }
+  #asRoot .as-group__head[data-fold]:hover h3 { color: var(--as-primary); }
+  #asRoot .as-group__chev { width: 8px; height: 8px; flex: none; margin: 0 4px 0 6px; border-right: 2px solid #64748b; border-bottom: 2px solid #64748b; transform: rotate(45deg); transition: transform .15s; }
+  #asRoot .as-group.is-folded .as-group__chev { transform: rotate(-45deg); }
+  #asRoot .as-group.is-folded .as-group__list, #asRoot .as-group.is-folded .as-group__note { display: none; }
+  #asRoot .as-group.is-folded .as-group__head { margin-bottom: 0; }
+  .as-dragging #asRoot .as-group.is-folded .as-group__list { display: grid; }
+  #asRoot .as-card__head p { max-width: 62ch; }
+  @media (max-width: 560px) { #asRoot .as-tab { font-size: 12px; } #asRoot .as-group__add { white-space: nowrap; } }
 </style>
 
 <div id="asRoot">
@@ -286,19 +307,11 @@
 
     <% if (locals.filesSettings) { %>
     <%# Student files on Add student (feature student_documents, utils/studentDocuments.js settingsFor). %>
-    <div class="as-card" id="asFilesCard">
-      <div class="as-card__head">
-        <div>
-          <h2>Student files</h2>
-          <p>The Files section on Add student.</p>
-        </div>
-      </div>
-      <div class="as-card__body">
-        <label class="as-switch">
-          <span class="as-toggle"><input type="checkbox" id="asFilesRequired" <%= filesSettings.requiredOnAdd ? 'checked' : '' %> /><i></i></span>
-          <span><strong>Require a file for each new student</strong><span id="asFilesState"><%= filesSettings.requiredOnAdd ? 'Required' : 'Optional' %></span></span>
-        </label>
-      </div>
+    <div class="as-filesrow" id="asFilesCard">
+      <label class="as-switch">
+        <span class="as-toggle"><input type="checkbox" id="asFilesRequired" <%= filesSettings.requiredOnAdd ? 'checked' : '' %> /><i></i></span>
+        <span><strong>Require a file for each new student</strong><span id="asFilesState"><%= filesSettings.requiredOnAdd ? 'Required' : 'Optional' %></span></span>
+      </label>
     </div>
     <script>
       (function () {
@@ -325,7 +338,7 @@
       <div class="as-card__head">
         <div>
           <h2>Your fields</h2>
-          <p>Extra details, like medical notes or the previous school. Drag to arrange.<% if (canFamily) { %> About a parent? <button type="button" class="as-link" data-as-tab="family">Add it under Parents &amp; guardians</button>, kept once for all their children.<% } %></p>
+          <p>Extra details such as medical notes or the previous school.<% if (canFamily) { %> Details about a parent go under <button type="button" class="as-link" data-as-tab="family">Parents &amp; guardians</button>.<% } %></p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <% if (hasWebsite) { %>
@@ -416,11 +429,13 @@
   function rowHtml(f) {
     const obsolete = f.status !== 'active';
     const meta = [TYPES[f.type] || 'Short text', f.type === 'choice' ? f.options.join(', ') : '', f.used ? 'In use' : ''].filter(Boolean).join(' · ');
-    const badges = [f.onStudentForm ? 'Add Student' : '', hasWebsite && f.onApplication ? 'Online application' : ''].filter(Boolean);
+    const where = !hasWebsite ? '' : (f.onStudentForm && f.onApplication ? 'On both forms' : f.onApplication ? 'Application only' : 'Add Student only');
+    const meta2 = [meta, where].filter(Boolean).join(' · ');
+    const badges = [];
     return `<div class="as-row ${obsolete ? 'is-obsolete' : ''}" data-field="${f.id}">
       <span class="as-grip" data-grip title="Drag to move" aria-hidden="true">${ICON.grip}</span>
       <span class="as-type" aria-hidden="true">${TYPE_ICON[f.type] || TYPE_ICON.text}</span>
-      <div class="as-row__main"><strong>${esc(f.label)}${f.required ? '<em title="Required">*</em>' : ''}</strong><span>${esc(meta)}</span></div>
+      <div class="as-row__main"><strong>${esc(f.label)}${f.required ? '<em title="Required">*</em>' : ''}</strong><span>${esc(meta2)}</span></div>
       <div class="as-badges">${obsolete ? '<span class="as-badge as-badge--obsolete">Obsolete</span>' : badges.map((b) => `<span class="as-badge">${b}</span>`).join('')}</div>
       <div class="as-row__actions">
         <button type="button" class="as-icon-btn" data-edit title="Edit" aria-label="Edit ${esc(f.label)}">${ICON.edit}</button>
@@ -431,8 +446,15 @@
       </div>
     </div>`;
   }
+  const folded = new Set();
+  let foldedSet = false;
   function render() {
     const visible = fields.filter(shown);
+    // With many fields only the first section starts open; a section opens with a click (and while dragging).
+    if (!foldedSet && fields.length) {
+      foldedSet = true;
+      if (fields.length > 12) { let first = true; Object.keys(SECTIONS).forEach((k) => { if (fields.some((f) => secOf(f) === k)) { if (!first) folded.add(k); first = false; } }); }
+    }
     if (!fields.length) {
       list.innerHTML = '<div class="as-empty"><strong>No extra fields yet</strong><span>Add a field to collect more details about students.</span>'
         + (missingIndicators().length ? '<button type="button" class="as-btn" data-add-indicators style="margin-top:12px">Add the standard indicators</button><span>IEP, Section 504, English learner, gifted, meals and more. Staff only.</span>' : '') + '</div>';
@@ -440,13 +462,25 @@
     }
     list.innerHTML = Object.entries(SECTIONS).map(([key, name]) => {
       const rows = visible.filter((f) => secOf(f) === key);
-      return `<div class="as-group${rows.length ? '' : ' is-empty'}" data-section="${key}">
-        <div class="as-group__head"><h3>${esc(name)}</h3><span>${rows.length || 'No fields yet'}</span>${key === 'programs' && missingIndicators().length ? `<button type="button" class="as-group__add" data-add-indicators title="${esc(missingIndicators().join(', '))}">+ Standard indicators</button>` : ''}<button type="button" class="as-group__add" data-add-in="${key}" aria-label="Add field to ${esc(name)}">+ Add</button></div>
+      return `<div class="as-group${rows.length ? '' : ' is-empty'}${rows.length && folded.has(key) ? ' is-folded' : ''}" data-section="${key}">
+        <div class="as-group__head"${rows.length ? ' data-fold role="button" tabindex="0" aria-expanded="' + (folded.has(key) ? 'false' : 'true') + '"' : ''}>${rows.length ? '<i class="as-group__chev" aria-hidden="true"></i>' : ''}<h3>${esc(name)}</h3><span>${rows.length ? rows.length + (rows.length === 1 ? ' field' : ' fields') : 'No fields yet'}</span>${key === 'programs' && missingIndicators().length ? `<button type="button" class="as-group__add" data-add-indicators title="${esc(missingIndicators().join(', '))}">+ Standard indicators</button>` : ''}<button type="button" class="as-group__add" data-add-in="${key}" aria-label="Add field to ${esc(name)}">+ Add</button></div>
         ${key === 'programs' ? '<p class="as-group__note">IEP, 504, English learner and other indicators. Staff only: never on the application or the parent and student portals.</p>' : ''}
         <div class="as-group__list" data-group-list="${key}">${rows.map(rowHtml).join('') || '<div class="as-group__empty">Drop here</div>'}</div>
       </div>`;
     }).join('');
   }
+
+  function foldClick(e) {
+    const head = e.target.closest && e.target.closest('.as-group__head[data-fold]');
+    if (!head || e.target.closest('button')) return;
+    if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.type === 'keydown') e.preventDefault();
+    const key = head.closest('.as-group').dataset.section;
+    if (folded.has(key)) folded.delete(key); else folded.add(key);
+    render();
+  }
+  list.addEventListener('click', foldClick);
+  list.addEventListener('keydown', foldClick);
 
   let toastTimer = null;
   function toast(text) {

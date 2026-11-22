@@ -1,0 +1,17 @@
+<%# One group's student table (Graduate & Withdraw). Locals: group, students (the rows to draw), _initials.
+    The page draws the first group with it; the others come from /common/closeGraduationYearGroup/rows when opened or searched. %>
+              <table class="gp-table">
+  <thead>
+    <tr>
+      <th class="gp-col-check"><input type="checkbox" class="gp-pick-all" aria-label="Select all active students in <%= group.name %>" /></th>
+      <th>Student</th>
+      <th class="gp-col-class">Class</th>
+    </tr>
+  </thead>
+  <tbody>
+    <%- include('graduationRowItems', { students: students, _initials: _initials }) %>
+  </tbody>
+</table>
+<% if (locals.total && total > 10) { %>
+<div class="gp-pager" data-gp-pager data-gp-total="<%= total %>"></div>
+<% } %>

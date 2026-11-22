@@ -87,7 +87,7 @@ async function resolveTerm(db, organizationId, value) {
        ORDER BY (COALESCE(t.current, FALSE) AND COALESCE(sy.current, FALSE)) DESC, t.start_date DESC LIMIT 1`,
       [organizationId]
     );
-    if (!rows[0]) throw new ReadError("NOT_FOUND", "Your school has no current term. Name a term, or set one as current in Management › School years.");
+    if (!rows[0]) throw new ReadError("NOT_FOUND", "Your school has no current term. Name a term, or set one as current in Management › School years & terms.");
     return rows[0];
   }
   const { rows: all } = await db.query(`${TERM_SQL} ORDER BY t.start_date DESC NULLS LAST, t.term_id DESC LIMIT 300`, [organizationId]);

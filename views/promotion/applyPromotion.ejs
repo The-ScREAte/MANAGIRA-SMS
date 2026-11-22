@@ -821,6 +821,63 @@
   </header>
   <%- include('../partials/flash') %>
 
+  <%
+    const _sug = (typeof suggestions !== 'undefined' && Array.isArray(suggestions)) ? suggestions : [];
+    const _sugKinds = { ready: 'Ready', partial: 'Partly done', applied: 'Done', empty: 'Nobody to move', 'no-target': 'No later term' };
+  %>
+  <% if (_sug.length) { %>
+  <section class="promo-sug" id="promoSuggestions" aria-label="Suggested promotions">
+    <h3 class="promo-sug__title">Suggested</h3>
+    <% _sug.forEach(function (sg) { %>
+    <div class="promo-sug__card promo-sug__card--<%= sg.kind %>">
+      <div class="promo-sug__main">
+        <div class="promo-sug__route"><strong><%= sg.fromLabel %></strong><% if (sg.targetLabel) { %> <span class="promo-sug__arrow" aria-hidden="true">→</span> <strong><%= sg.targetLabel %></strong><% } %> <span class="promo-sug__chip promo-sug__chip--<%= sg.kind %>"><%= _sugKinds[sg.kind] || sg.kind %></span></div>
+        <p class="promo-sug__msg"><%= sg.message %></p>
+      </div>
+      <% if (sg.kind === 'ready' || sg.kind === 'partial') { %>
+      <button type="button" class="ws-btn ws-btn--primary promo-sug__go" data-from-term="<%= sg.fromTermId %>" data-from-year="<%= sg.fromYearId %>" data-target-term="<%= sg.targetTermId %>" data-target-year="<%= sg.targetYearId %>" data-start="<%= sg.targetStart %>">Plan this</button>
+      <% } else if (sg.kind === 'no-target') { %>
+      <a class="ws-btn promo-sug__go" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20years" data-no-spa target="_top">Add a term</a>
+      <% } %>
+    </div>
+    <% }); %>
+  </section>
+  <style>
+    .promo-sug { margin: 0 0 16px; display: grid; gap: 10px; text-align: left; }
+    .promo-sug__title { margin: 0; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .promo-sug__card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+    .promo-sug__card--ready, .promo-sug__card--partial { border-color: color-mix(in srgb, var(--org-primary-color, #01535b) 35%, #e2e8f0); background: color-mix(in srgb, var(--org-primary-color, #01535b) 5%, #fff); }
+    .promo-sug__route { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: .95rem; color: #0f172a; }
+    .promo-sug__arrow { color: #64748b; }
+    .promo-sug__msg { margin: 4px 0 0; color: #475569; font-size: .86rem; line-height: 1.4; }
+    .promo-sug__chip { padding: 2px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: .72rem; font-weight: 700; }
+    .promo-sug__chip--ready, .promo-sug__chip--partial { background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #fff); color: var(--org-primary-color, #01535b); }
+    .promo-sug__chip--applied { background: #dcfce7; color: #15803d; }
+    .promo-sug__go { flex: none; white-space: nowrap; text-decoration: none; }
+    @media (max-width: 640px) { .promo-sug__card { flex-direction: column; align-items: stretch; } .promo-sug__go { justify-content: center; } }
+  </style>
+  <script>
+    // "Plan this" fills the form from a suggestion: from and target term, and a date (the target term's first day, or today).
+    (function () {
+      function setSelect(id, value) { var el = document.getElementById(id); if (!el || value == null || value === '') return; el.value = String(value); el.dispatchEvent(new Event('change', { bubbles: true })); }
+      function use(btn) {
+        if (typeof window.showForm === 'function') window.showForm();
+        setSelect('fromSchoolYearId', btn.dataset.fromYear);
+        setSelect('fromTermId', btn.dataset.fromTerm);
+        setSelect('targetYearId', btn.dataset.targetYear);
+        setSelect('targetTermId', btn.dataset.targetTerm);
+        var today = new Date().toISOString().slice(0, 10), start = btn.dataset.start || '';
+        var date = document.getElementById('scheduledDate'); if (date) date.value = start && start > today ? start : today;
+        var fc = document.getElementById('form-container'); if (fc && fc.scrollIntoView) fc.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+      document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.promo-sug__go[data-target-term]'); if (b) use(b); });
+      // Opening the form with "Plan a promotion" starts from the first suggestion.
+      var plan = document.getElementById('wsPlanBtn');
+      if (plan) plan.addEventListener('click', function () { setTimeout(function () { var first = document.querySelector('.promo-sug__go[data-target-term]'); var t = document.getElementById('targetTermId'); if (first && t && !t.value) use(first); }, 0); });
+    })();
+  </script>
+  <% } %>
+
   <details class="ws-info" id="instructions-container">
     <summary>Before you start</summary>
     <div class="ws-info__body">

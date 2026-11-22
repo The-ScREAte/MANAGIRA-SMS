@@ -1,0 +1,31 @@
+<%# One class's (or "All classes") share rows: who each item is shared with, and the padlocks. Locals: r, isAll, canLock,
+    shareItems, audiences. Management draws the "All classes" one with the page and each class's when its row opens. %>
+<%
+  const _on = (key) => r.on[key]; const _locked = (key) => r.locked[key];
+  const _lockArgs = (keys) => ({ locked: keys.every(_locked), keys: keys, canLock: Boolean(locals.canLock), classId: isAll ? null : r.id, isAll: isAll });
+  const _label = isAll ? 'All classes' : r.name;
+  const _what = (item, audience) => 'shares ' + item.label.toLowerCase() + ' with ' + audience.label.toLowerCase();
+%>
+            <ul class="cset-list">
+  <li class="cset-row cset-colhead"><span class="cset-row__label"></span><span class="cset-cells"><% audiences.forEach((a) => { %><span class="cset-cell"><%= a.label %></span><% }) %></span><span class="cset-lockslot"></span></li>
+  <% shareItems.forEach((item) => { %>
+  <li class="cset-row">
+    <span class="cset-row__label"><%= item.label %></span>
+    <span class="cset-cells">
+      <% audiences.forEach((a) => { const _key = a.key + '.' + item.key; %>
+      <label class="cset-cell">
+        <span class="cset-switch">
+          <input type="checkbox" role="switch" data-cs-key="<%= _key %>" <%- isAll ? 'data-cs-all' : 'data-cs-class="' + Number(r.id) + '"' %> data-cs-what="<%= _what(item, a) %>" aria-label="<%= item.label %> · <%= a.label %>, <%= _label %>" <%= _on(_key) ? 'checked' : '' %> />
+          <span class="cset-switch__track" aria-hidden="true"></span>
+        </span>
+      </label>
+      <% }) %>
+    </span>
+    <%- include('../partials/classSettingsLock', _lockArgs(audiences.map((a) => a.key + '.' + item.key))) %>
+  </li>
+  <% }) %>
+</ul>
+<% if (locals.noticesOn && r.notices) { %>
+<h4 class="cset-subhead">Attendance notices</h4>
+<%- include('classNoticeRows', { notices: Object.assign({ max: 10 }, r.notices), classId: isAll ? null : r.id }) %>
+<% } %>

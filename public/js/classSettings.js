@@ -41,7 +41,24 @@
     var from = root.getAttribute('data-from') || '';
     var queue = Promise.resolve();
 
+    // Management: only the "All classes" row's share rows are on the page (each class's load when it opens),
+    // so what each class has on and locked is kept as data (STATE) and the switches that are drawn follow it.
+    var STATE = null;
+    try {
+      var stateEl = from === 'management' ? document.querySelector('[data-cs-state]') : null;
+      if (stateEl) STATE = JSON.parse(stateEl.textContent);
+    } catch (e) { STATE = null; }
+    function stateIds() { return Object.keys(STATE); }
+    function cellFor(id, key) {
+      var el = root.querySelector('input[data-cs-key="' + key + '"][data-cs-class="' + id + '"]');
+      return {
+        el: el,
+        get checked() { return !!STATE[id].on[key]; },
+        set checked(v) { STATE[id].on[key] = !!v; if (el) el.checked = !!v; }
+      };
+    }
     function classCells(key) {
+      if (STATE) return stateIds().map(function (id) { return cellFor(id, key); });
       return Array.prototype.slice.call(root.querySelectorAll('input[data-cs-key="' + key + '"][data-cs-class]'));
     }
     function allCell(key) {
@@ -84,6 +101,7 @@
         input.indeterminate = false;
         input.setAttribute('data-mixed', '');
       } else {
+        if (STATE) STATE[input.getAttribute('data-cs-class')].on[key] = on;
         syncAll(key);
       }
       var msg = statusFor(input);
@@ -95,6 +113,7 @@
         root.dispatchEvent(new CustomEvent('managira:class-settings-saved', { bubbles: true, detail: { key: key, on: on, all: isAll, classId: body.classId || null } }));
       }, function (error) {
         targets.forEach(function (c, i) { c.checked = before[i]; });
+        if (STATE && !isAll) STATE[input.getAttribute('data-cs-class')].on[key] = before[0];
         if (isAll && allBefore) {
           input.checked = allBefore.checked;
           input.indeterminate = allBefore.indeterminate;
@@ -104,6 +123,18 @@
       }).then(function () { input.removeAttribute('aria-busy'); });
     });
 
+    // Management lists the classes a page at a time (Rows per page: 10 to 200); a search looks at every class.
+    var csRows = Array.prototype.slice.call(root.querySelectorAll('[data-cs-name]'));
+    var pagerHost = root.querySelector('[data-cs-pager]');
+    var csPager = null;
+    if (pagerHost && window.ManagiraPager) {
+      csPager = ManagiraPager.create({ mount: pagerHost, key: 'class-settings', total: csRows.length, label: 'Classes', onChange: function (st) {
+        csRows.forEach(function (tr, i) { tr.hidden = !(i >= st.from - 1 && i < st.to); });
+      } });
+      csPager.refresh();
+    }
+    function refreshMore(q) { if (pagerHost) { pagerHost.hidden = Boolean(q) || (csPager && csPager.state.total <= 10); if (!q && csPager) csPager.refresh(); } }
+
     // Find a class (Management): filters the rows by name, teacher or year group.
     var search = root.querySelector('[data-cs-search]');
     if (search) {
@@ -112,15 +143,78 @@
       search.addEventListener('input', function () {
         var q = search.value.trim().toLowerCase();
         var shown = 0;
-        root.querySelectorAll('tr[data-cs-name]').forEach(function (tr) {
-          var hit = !q || (tr.getAttribute('data-cs-find') || '').indexOf(q) >= 0;
-          tr.hidden = !hit;
-          if (hit) shown += 1;
+        // A search looks at every class; cleared, the page bar's page shows again (or every class, with no bar).
+        csRows.forEach(function (tr) {
+          var hit = (tr.getAttribute('data-cs-find') || '').indexOf(q) >= 0;
+          if (q) { tr.hidden = !hit; if (hit) shown += 1; } else if (!csPager) { tr.hidden = false; }
         });
+        refreshMore(q);
+        if (!q) shown = csRows.filter(function (tr) { return !tr.hidden; }).length;
         if (none) none.hidden = shown > 0;
         if (count) count.textContent = q ? shown + ' of ' + count.getAttribute('data-total') + ' classes' : count.getAttribute('data-total-text');
       });
     }
+
+    // The padlock: management locks (or unlocks) a setting, so the class's own teachers can't change it.
+    root.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('[data-cs-lock]');
+      if (!button || !root.contains(button) || button.getAttribute('aria-busy') === 'true') return;
+      var keys = String(button.getAttribute('data-cs-lock-keys') || '').split(',').filter(Boolean);
+      if (!keys.length) return;
+      var lock = button.getAttribute('aria-pressed') !== 'true';
+      var isAll = button.hasAttribute('data-cs-lock-all');
+      var body = isAll ? { all: true, key: keys[0], keys: keys, lock: lock } : { classId: Number(button.getAttribute('data-cs-lock-class') || root.getAttribute('data-class-id')), key: keys[0], keys: keys, lock: lock, from: from };
+      var msg = statusFor(button);
+      function paint(node, on) {
+        node.setAttribute('aria-pressed', on ? 'true' : 'false');
+        node.classList.toggle('is-locked', on);
+        node.setAttribute('aria-label', on ? 'Locked for the class. Unlock' : 'Lock for the class');
+        node.setAttribute('title', on ? "Locked: the class can't change this" : "Lock so the class can't change this");
+        var shackle = node.querySelector('path');
+        if (shackle) shackle.setAttribute('d', on ? 'M8 11V8a4 4 0 0 1 8 0v3' : 'M8 11V8a4 4 0 0 1 7.4-2');
+      }
+      button.setAttribute('aria-busy', 'true');
+      show(msg, 'Saving…', 'saving');
+      queue = queue.then(function () { return post(url, body); }).then(function () {
+        var same = Array.prototype.slice.call(root.querySelectorAll('[data-cs-lock]')).filter(function (b) { return b.getAttribute('data-cs-lock-keys') === button.getAttribute('data-cs-lock-keys'); });
+        if (STATE) {
+          var lockClass = button.getAttribute('data-cs-lock-class');
+          keys.forEach(function (k) { (isAll ? stateIds() : [lockClass]).forEach(function (id) { STATE[id].locked[k] = lock; }); });
+          var every = stateIds().every(function (id) { return keys.every(function (k) { return STATE[id].locked[k]; }); });
+          same.forEach(function (b) {
+            if (b.hasAttribute('data-cs-lock-all')) paint(b, every);
+            else if (isAll || b === button) paint(b, lock);
+          });
+        } else if (isAll) same.forEach(function (b) { paint(b, lock); }); else {
+          paint(button, lock);
+          var every = same.filter(function (b) { return !b.hasAttribute('data-cs-lock-all'); }).every(function (b) { return b.getAttribute('aria-pressed') === 'true'; });
+          same.filter(function (b) { return b.hasAttribute('data-cs-lock-all'); }).forEach(function (b) { paint(b, every); });
+        }
+        show(msg, lock ? 'Locked: the class can’t change it.' : 'Unlocked.', 'saved');
+      }, function (error) { show(msg, error.message, 'error'); }).then(function () { button.removeAttribute('aria-busy'); });
+    });
+
+    // A class's row opens to show who each item is shared with.
+    root.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('[data-cs-toggle]');
+      if (!button || !root.contains(button)) return;
+      var row = button.closest('.cset-crow');
+      var body = row && row.querySelector('.cset-crow__body');
+      if (!body) return;
+      var open = body.hidden;
+      body.hidden = !open;
+      var lazyId = body.getAttribute('data-cs-lazy');
+      if (open && lazyId && !body.dataset.csLoaded && !body.dataset.csBusy) {
+        body.dataset.csBusy = '1';
+        fetch((root.getAttribute('data-rows-url') || '/common/class-settings/rows') + '?class=' + encodeURIComponent(lazyId), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (!d.success) throw new Error(d.message); body.innerHTML = d.html; body.dataset.csLoaded = '1'; })
+          .catch(function () { var note = body.querySelector('[data-cs-lazy-note]'); if (note) note.textContent = 'These rows could not load. Close and open the class to try again.'; })
+          .then(function () { delete body.dataset.csBusy; });
+      }
+      row.classList.toggle('is-open', open);
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
 
     root.querySelectorAll('input[data-cs-all]').forEach(function (all) { syncAll(all.getAttribute('data-cs-key')); });
   }

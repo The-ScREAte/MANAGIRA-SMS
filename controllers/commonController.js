@@ -3538,6 +3538,80 @@ async function loadGradeLabelResolver(dbClient, organizationId, classId, termId)
 
 const { staffChangeRefusal } = require("../utils/staffChangeGuard");
 const DRIVER_ONLY_KEY = /^driver_/;
+// Graduate & Withdraw: every graduation group (and, for students in none, their class) with its active students.
+async function loadGraduationGroups(db, organizationId) {
+      await ensureStudentArchiveSchema(db);
+      const [groupsResult, studentsResult] = await Promise.all([
+        db.query(
+          "SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
+          [organizationId]
+        ),
+        db.query(
+          `SELECT s.student_id, s.first_name, s.last_name, s.custom_student_id, s.image_url,
+                  s.graduation_year_group_id, s.class_id, c.class_name,
+                  (COALESCE(s.graduated, FALSE) OR a.student_id IS NOT NULL) AS is_archived,
+                  COALESCE(a.archive_kind, CASE WHEN s.graduated THEN 'graduated' END) AS archive_kind
+             FROM students s
+             LEFT JOIN classes c ON c.class_id = s.class_id
+             LEFT JOIN LATERAL (
+               SELECT student_id, archive_kind FROM archived_student_info
+                WHERE student_id = s.student_id AND organization_id = s.organization_id
+                ORDER BY COALESCE(archived_at_ts, archived_at::timestamptz) DESC LIMIT 1
+             ) a ON TRUE
+            WHERE s.organization_id = $1
+            ORDER BY s.first_name, s.last_name`,
+          [organizationId]
+        ),
+      ]);
+
+      // Graduates and students who left move to Graduates & Alumni;
+      // here each group lists only its active students (and says how many moved).
+      const withCounts = (group, students) => {
+        const archivedCount = students.filter((student) => student.is_archived).length;
+        const active = students.filter((student) => !student.is_archived);
+        return { ...group, students: active, archivedCount, activeCount: active.length };
+      };
+      const gradYearGroups = groupsResult.rows.map((group) =>
+        withCounts(group, studentsResult.rows.filter((student) => student.graduation_year_group_id === group.id))
+      );
+      // Students in no graduation group (e.g. someone leaving mid-year), by class.
+      const byClass = new Map();
+      studentsResult.rows
+        .filter((student) => !student.graduation_year_group_id && !student.is_archived)
+        .forEach((student) => {
+          const key = student.class_name || "No class";
+          if (!byClass.has(key)) byClass.set(key, []);
+          byClass.get(key).push(student);
+        });
+      const otherGroups = [...byClass.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+        .map(([name, students]) => withCounts({ id: `class:${name}`, name, isClass: true }, students));
+  return { gradYearGroups, otherGroups, totalArchived: studentsResult.rows.filter((student) => student.is_archived).length };
+}
+
+// A term's dates may not overlap a term of another school year of the same school
+// (each year's own terms are checked against each other where they are saved).
+async function termClashWithOtherYears(db, organizationId, excludeYearId, ranges) {
+  for (const range of ranges || []) {
+    const start = String(range.start || "").slice(0, 10);
+    const end = String(range.end || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) continue;
+    const { rows } = await db.query(
+      `SELECT t.term_name, sy.year_label
+         FROM terms t
+         JOIN school_years sy ON sy.id = t.school_year_id
+        WHERE t.organization_id = $1
+          AND ($2::int IS NULL OR t.school_year_id <> $2::int)
+          AND t.start_date::date <= $4::date
+          AND t.end_date::date >= $3::date
+        LIMIT 1`,
+      [organizationId, excludeYearId || null, start, end]
+    );
+    if (rows.length) return { name: range.name, other: rows[0] };
+  }
+  return null;
+}
+
 const commonController = {
   orgDashboard: async (req, res, db) => {
     // ...removed log for clean background operation...
@@ -8121,72 +8195,62 @@ const commonController = {
         ? requestedClassId
         : student.class_id;
 
-      await ensureStudentPortalSchema(db);
-      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
-      const studentPortalIntegrationActive = Boolean(studentPortalIntegration.activated);
-      const studentPortalAccountResult = await db.query(
-        `SELECT login_email, password_hash
-           FROM student_accounts
-          WHERE organization_id = $1 AND student_id = $2
-          LIMIT 1`,
-        [organizationId, studentId]
-      );
-      const studentPortalAccount = studentPortalAccountResult.rows[0] || null;
-      const studentPortalSetupComplete = Boolean(
-        studentPortalAccount &&
-        studentPortalAccount.password_hash &&
-        String(studentPortalAccount.password_hash).trim()
-      );
-      const canBypassAsAdmin = ["admin"].includes(normalizeRoleKey(userRole)) || ["admin"].includes(normalizeRoleKey(accountType));
-      const canManageStudentsSettings = canBypassAsAdmin || await userHasPermission(
-        db,
-        {
-          userId,
-          userRole,
-          organizationId,
-          accountType,
-          userEmail: req.session?.user?.email || null,
-        },
-        PERMISSIONS.MANAGE_STUDENTS
-      );
-      const canSendStudentPortalRequest = Boolean(
-        req.session &&
-        studentPortalIntegrationActive &&
-        canManageStudentsSettings &&
-        normalizeStudentEmail(student.email)
-      );
+      // The student portal, the bus and "is this the class's main teacher" don't depend on each other:
+      // read side by side (each is its own round trip to the database).
+      const [portal, transportationSnapshot, isMainTeacher] = await Promise.all([
+        (async () => {
+          await ensureStudentPortalSchema(db);
+          const [integration, accountResult, canManage, classAllows] = await Promise.all([
+            getStudentPortalIntegrationStatus(db, organizationId),
+            db.query(
+              `SELECT login_email, password_hash FROM student_accounts WHERE organization_id = $1 AND student_id = $2 LIMIT 1`,
+              [organizationId, studentId]
+            ),
+            (async () => {
+              const canBypassAsAdmin = ["admin"].includes(normalizeRoleKey(userRole)) || ["admin"].includes(normalizeRoleKey(accountType));
+              return canBypassAsAdmin || await userHasPermission(
+                db,
+                { userId, userRole, organizationId, accountType, userEmail: req.session?.user?.email || null },
+                PERMISSIONS.MANAGE_STUDENTS
+              );
+            })(),
+            // Every student has the button while their class has the student portal turned on (Class settings >
+            // Student portal); a student with no email says so when pressed.
+            require("../utils/classSettings").portalOn(db, organizationId, classId || student.class_id).catch(() => false),
+          ]);
+          const account = accountResult.rows[0] || null;
+          const active = Boolean(integration.activated);
+          const setupComplete = Boolean(account && account.password_hash && String(account.password_hash).trim());
+          return {
+            active, setupComplete,
+            hasEmail: Boolean(normalizeStudentEmail(student.email)),
+            canSend: Boolean(req.session && active && canManage && classAllows),
+          };
+        })(),
+        (async () => {
+          await ensureTransportationSchema(db);
+          return getStudentTransportationSnapshot(db, organizationId, Number(studentId), { imageUrl: res.locals.publicImageUrl }).catch(() => null);
+        })(),
+        (async () => {
+          // **Check if user is the main teacher of the class** (an assistant sees every subject too)
+          if (userRole !== "Teacher") return false;
+          const mainTeacherCheck = await db.query(`SELECT user_id FROM user_classes WHERE class_id = $1 AND main = TRUE`, [classId]);
+          const mainTeacherId = mainTeacherCheck.rows.length > 0 ? mainTeacherCheck.rows[0].user_id : null;
+          if (userId === mainTeacherId) return true;
+          if (await require("../utils/mainTeacher").assistantReady(db)) {
+            return (await db.query(`SELECT 1 FROM user_classes WHERE class_id = $1 AND user_id = $2 AND assistant = TRUE`, [classId, userId])).rowCount > 0;
+          }
+          return false;
+        })(),
+      ]);
+      const studentPortalIntegrationActive = portal.active;
+      const studentPortalSetupComplete = portal.setupComplete;
+      const studentPortalHasEmail = portal.hasEmail;
+      const canSendStudentPortalRequest = portal.canSend;
       const studentPortalAction = studentPortalSetupComplete ? "reset" : "setup";
       const studentPortalActionLabel = studentPortalSetupComplete
         ? "Reset Student Portal Password"
         : "Send Student Portal Request";
-      await ensureTransportationSchema(db);
-      const transportationSnapshot = await getStudentTransportationSnapshot(
-        db,
-        organizationId,
-        Number(studentId),
-        { imageUrl: res.locals.publicImageUrl }
-      ).catch(() => null);
-
-      // **Check if user is the main teacher of the class**
-      let isMainTeacher = false;
-
-      if (userRole === "Teacher") {
-        const mainTeacherCheck = await db.query(
-          `SELECT user_id FROM user_classes 
-               WHERE class_id = $1 AND main = TRUE`,
-          [classId]
-        );
-
-        const mainTeacherId =
-          mainTeacherCheck.rows.length > 0
-            ? mainTeacherCheck.rows[0].user_id
-            : null;
-        isMainTeacher = userId === mainTeacherId;
-        // An assistant teacher of the class sees every subject too.
-        if (!isMainTeacher && await require("../utils/mainTeacher").assistantReady(db)) {
-          isMainTeacher = (await db.query(`SELECT 1 FROM user_classes WHERE class_id = $1 AND user_id = $2 AND assistant = TRUE`, [classId, userId])).rowCount > 0;
-        }
-      }
 
       // **Fetch subjects for the student's class**
       let subjectsQuery;
@@ -8437,18 +8501,25 @@ const commonController = {
 
       // The student's documents (feature student_documents): what this person may see.
       const studentDocs = require("../utils/studentDocuments");
-      const documentsOn = studentDocs.isOn(req.session.organizationId) && (await studentDocs.ready(db).catch(() => false));
+      // Everything below is independent: read side by side (each is its own round trip).
+      const [documentsList, oldSystem, archiveStatus, customAnswerRows] = await Promise.all([
+        (async () => (studentDocs.isOn(req.session.organizationId) && (await studentDocs.ready(db).catch(() => false))
+          ? await studentDocs.listFor(db, req.session.organizationId, student.student_id, { req }).catch(() => []) : null))(),
+        require("./dataMigrationController").studentOldSystem(db, req, student.student_id).catch(() => null),
+        getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
+        studentFormFields.answersFor(db, req.session.organizationId, { studentId: student.student_id }, "student").catch(() => []),
+      ]);
+      const documentsOn = documentsList !== null;
       res.render("common/studentDetails", {
         isEmbedded,
         studentDocuments: documentsOn
-          ? { portfolio: require("../utils/portfolio").featureOn(req.session.organizationId), list: await studentDocs.listFor(db, req.session.organizationId, student.student_id, { req }).catch(() => []), types: studentDocs.TYPES, sharing: studentDocs.SHARING, manager: studentDocs.isManagerRole(req), maxMb: studentDocs.MAX_MB }
+          ? { portfolio: require("../utils/portfolio").featureOn(req.session.organizationId), list: documentsList, types: studentDocs.TYPES, sharing: studentDocs.SHARING, manager: studentDocs.isManagerRole(req), maxMb: studentDocs.MAX_MB }
           : null,
         // From a data migration: alerts (custody), extra fields and read-only archives.
-        oldSystem: await require("./dataMigrationController").studentOldSystem(db, req, student.student_id).catch(() => null),
-        archiveStatus: await getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
+        oldSystem,
+        archiveStatus,
         // The school's own fields that have an answer for this student.
-        customAnswers: (await studentFormFields.answersFor(db, req.session.organizationId, { studentId: student.student_id }, "student").catch(() => []))
-          .filter((f) => f.value),
+        customAnswers: customAnswerRows.filter((f) => f.value),
         title: "Student Details",
         student,
         studentIdSettings,
@@ -8467,6 +8538,7 @@ const commonController = {
         studentEnrolledInCurrent,
         studentPortalIntegrationActive,
         studentPortalSetupComplete,
+        studentPortalHasEmail,
         studentPortalAction,
         studentPortalActionLabel,
         canSendStudentPortalRequest,
@@ -9430,10 +9502,48 @@ const commonController = {
       const hiddenDateCount = dates.length - sheetDates.length;
       const dateLimit = isTeacher ? 6 : sheetDates.length;
 
-      const displayDates = [...sheetDates]
+      // Every day the sheet could show (oldest to newest); only the ones the person chose are drawn
+      // (their remembered range, the last 3 days until they pick another) and read from the database. The
+      // rest come when they ask for them (Show, or Earlier days), so a long term opens as fast as a short one.
+      const allDisplayDates = [...sheetDates]
         .sort((a, b) => new Date(b) - new Date(a))
         .slice(0, dateLimit)
         .reverse();
+      const ATT_RANGE_KEYS = ["d1", "d2", "d3", "w1", "w2", "m1", "all"];
+      const cookieRange = decodeURIComponent((String(req.headers.cookie || "").split(/;\s*/).find((c) => c.startsWith("att_range=")) || "").slice(10));
+      const wantedRange = String(req.query.range || cookieRange || "d3");
+      const attendanceRange = ATT_RANGE_KEYS.includes(wantedRange) || /^date:\d{4}-\d{2}-\d{2}$/.test(wantedRange) ? wantedRange : "d3";
+      const dayCalendarKeys = (list) => list.map((d) => new Date(`${d}T00:00:00Z`).getTime());
+      // The weekend (the school's own weekend days, Saturday and Sunday unless it chose others) is drawn as a slim strip
+      // between the weeks, and never counts as one of the "last 3 days".
+      const weekendSet = weekendDays.size ? weekendDays : new Set([0, 6]);
+      const isWeekendKey = (dateKey) => weekendSet.has(new Date(`${dateKey}T00:00:00Z`).getUTCDay());
+      // Days that aren't school days (the weekend, public holidays, days off the school added): each is drawn closed, in a
+      // slim strip with its neighbours, and none counts as one of the "last N school days".
+      const offDays = {};
+      allDisplayDates.forEach((dateKey) => {
+        if (dateKey === termEndKey) return; // the official term end always counts
+        if (isWeekendKey(dateKey)) { offDays[dateKey] = { k: "weekend", l: "Weekend" }; return; }
+        const meta = getDateMeta(dateKey);
+        if (!meta.countable) offDays[dateKey] = { k: meta.marker || "off", l: meta.markerLabel || "Day off" };
+      });
+      const windowOf = (range) => {
+        const upToToday = allDisplayDates.filter((d) => d <= attendanceTodayKey);
+        if (range === "all") return allDisplayDates;
+        if (range.startsWith("date:")) return allDisplayDates.filter((d) => d === range.slice(5));
+        const lastDays = { d1: 1, d2: 2, d3: 3 }[range];
+        if (lastDays) {
+          // The last N school days, with whatever weekend falls between them or after the last (today stays the far right).
+          const schoolDays = upToToday.filter((d) => !offDays[d]);
+          const first = schoolDays.slice(-lastDays)[0];
+          return first ? upToToday.filter((d) => d >= first) : upToToday.slice(-lastDays);
+        }
+        const span = { w1: 7, w2: 14, m1: 30 }[range] || 7;
+        const newest = allDisplayDates.length ? allDisplayDates[allDisplayDates.length - 1] : attendanceTodayKey;
+        const from = new Date(`${newest}T00:00:00Z`).getTime() - (span - 1) * 86400000;
+        return allDisplayDates.filter((d, i) => dayCalendarKeys([d])[0] >= from);
+      };
+      const displayDates = windowOf(attendanceRange);
 
       const dateMetaMap = {};
       displayDates.forEach((dateKey) => {
@@ -9452,6 +9562,8 @@ const commonController = {
       });
 
       const excludedDisplayDateCount = displayDates.filter((dateKey) => !dateMetaMap[dateKey].countable).length;
+      // Days that count toward the overall figures: the whole term, not only the days drawn.
+      const countableDates = allDisplayDates.filter((dateKey) => dateKey === termEndKey || getDateMeta(dateKey).countable);
       const excludedTotalDateCount = dates.filter((dateKey) => !getDateMeta(dateKey).countable).length;
 
       const weekendLabelMap = WEEKDAY_OPTIONS.reduce((acc, item) => {
@@ -9473,44 +9585,84 @@ const commonController = {
           }
         : { enabled: false, hiddenDateCount: 0, excludedDisplayDateCount: 0, excludedTotalDateCount: 0 };
 
-      // Fetch attendance records
-      const attendanceResult = await db.query(
-        `
-                SELECT student_id, date::text AS date, status, updated_at
-                FROM attendance_records
-                WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-            `,
-        [classId, termId, organizationId]
-      );
+      // Attendance: the drawn days' marks, the overall figures for the whole term (one aggregate), and
+      // which of the past week's school days nobody has marked yet. Lunch the same way. All side by side.
+      const lunchOn = require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })
+        && (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
+      const newestDay = allDisplayDates.length ? allDisplayDates[allDisplayDates.length - 1] : attendanceTodayKey;
+      const weekFrom = new Date(new Date(`${newestDay}T00:00:00Z`).getTime() - 6 * 86400000).toISOString().slice(0, 10);
+      const weekDays = countableDates.filter((d) => d >= weekFrom && d !== newestDay && d !== attendanceTodayKey && !offDays[d]);
+      // Notes (why a student was absent) need attendance_records.note (2027-01-08_attendance_notes.sql); without it nothing is offered.
+      const notesOn = await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] });
+      // Late arrivals (feature attendance_notices, attendance_records.late): a present student can be marked late.
+      const lateOn = require("../utils/shards/features").isOn("attendance_notices", { organizationId: Number(organizationId) })
+        && await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "late"]] });
+      const [attendanceResult, overallResult, markedWeekResult, lunchRows, lunchTotalRows, lunchDaysRows] = await Promise.all([
+        displayDates.length
+          ? db.query(
+              `SELECT student_id, date::text AS date, status, updated_at${notesOn ? ", note" : ""}${lateOn ? ", late" : ""} FROM attendance_records
+                WHERE class_id = $1 AND term_id = $2 AND organization_id = $3 AND date = ANY($4::date[])`,
+              [classId, termId, organizationId, displayDates]
+            )
+          : { rows: [] },
+        countableDates.length
+          ? db.query(
+              `SELECT student_id, COUNT(*)::int AS present FROM attendance_records
+                WHERE class_id = $1 AND term_id = $2 AND organization_id = $3 AND status::text = 'Present' AND date = ANY($4::date[])
+                GROUP BY student_id`,
+              [classId, termId, organizationId, countableDates]
+            )
+          : { rows: [] },
+        weekDays.length
+          ? db.query(
+              `SELECT DISTINCT date::text AS day FROM attendance_records
+                WHERE class_id = $1 AND term_id = $2 AND organization_id = $3 AND date = ANY($4::date[])`,
+              [classId, termId, organizationId, weekDays]
+            )
+          : { rows: [] },
+        lunchOn && displayDates.length
+          ? db.query(
+              `SELECT student_id, lunch_date::text AS day, had_lunch FROM class_lunch
+                WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND lunch_date = ANY($4::date[])`,
+              [organizationId, classId, termId, displayDates]
+            ).then((r) => r.rows).catch(() => [])
+          : [],
+        lunchOn
+          ? db.query(
+              `SELECT student_id, COUNT(*) FILTER (WHERE had_lunch)::int AS yes, COUNT(*)::int AS taken FROM class_lunch
+                WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 GROUP BY student_id`,
+              [organizationId, classId, termId]
+            ).then((r) => r.rows).catch(() => [])
+          : [],
+        lunchOn
+          ? db.query(
+              `SELECT COUNT(DISTINCT lunch_date)::int AS days FROM class_lunch WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+              [organizationId, classId, termId]
+            ).then((r) => r.rows).catch(() => [])
+          : [],
+      ]);
 
       const attendanceMap = {};
       const lastEditedMap = {};
-
+      const notesMap = {};
+      const latesMap = {};
       attendanceResult.rows.forEach((record) => {
         const dateKey = String(record.date).slice(0, 10);
-        if (!attendanceMap[record.student_id]) {
-          attendanceMap[record.student_id] = {};
-        }
+        if (!attendanceMap[record.student_id]) attendanceMap[record.student_id] = {};
         attendanceMap[record.student_id][dateKey] = record.status;
-
-        if (record.updated_at) {
-          lastEditedMap[dateKey] = record.updated_at;
-        }
+        if (lateOn && record.late && record.status === "Present") (latesMap[record.student_id] = latesMap[record.student_id] || {})[dateKey] = true;
+        if (notesOn && record.note) (notesMap[record.student_id] = notesMap[record.student_id] || {})[dateKey] = record.note;
+        if (record.updated_at) lastEditedMap[dateKey] = record.updated_at;
       });
+      const overallPresent = Object.fromEntries(overallResult.rows.map((r) => [r.student_id, r.present]));
+      const marked = new Set(markedWeekResult.rows.map((r) => r.day));
+      const missedDays = weekDays.filter((d) => !marked.has(d));
 
-      // Lunch taken each day (feature class_lunch): student -> day -> true / false.
-      // Lunch shows where the school has it (class_lunch) and the class hasn't turned it off (Class settings).
-      const lunchOn = require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })
-        && (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
+      // Lunch taken each day (feature class_lunch): student -> day -> true / false, for the drawn days;
+      // the overall figure comes from the whole term's totals.
       const lunchMap = {};
-      if (lunchOn) {
-        const lunchRows = await db.query(
-          `SELECT student_id, lunch_date::text AS day, had_lunch FROM class_lunch
-           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
-          [organizationId, classId, termId]
-        ).then((r) => r.rows).catch(() => []);
-        lunchRows.forEach((row) => { (lunchMap[row.student_id] = lunchMap[row.student_id] || {})[String(row.day).slice(0, 10)] = row.had_lunch; });
-      }
+      lunchRows.forEach((row) => { (lunchMap[row.student_id] = lunchMap[row.student_id] || {})[String(row.day).slice(0, 10)] = row.had_lunch; });
+      const lunchTotals = { days: (lunchDaysRows[0] && lunchDaysRows[0].days) || 0, byStudent: Object.fromEntries(lunchTotalRows.map((r) => [r.student_id, r.yes])) };
       // Render the attendance collection page
       // Classroom sections collected every day that asked for a column here (a lunch count).
       const attendanceForms = await require("../utils/customForms").attendanceColumns(db, req.session.organizationId, {
@@ -9523,6 +9675,17 @@ const commonController = {
       res.render("common/attendanceCollection", {
         lunchOn,
         lunchMap,
+        notesOn,
+        notesMap,
+        lateOn,
+        latesMap,
+        lunchTotals,
+        overallPresent,
+        overallTotal: countableDates.length,
+        missedDays,
+        offDays,
+        allDisplayDates,
+        attendanceRange,
         attendanceForms: attendanceFormsShown,
         attendanceTodayKey,
         title: "Attendance Records",
@@ -9621,6 +9784,7 @@ const commonController = {
 
   saveSingleAttendance: async (req, res, db) => {
     const { attendance, classId, termId, date } = req.body;
+    const notesGiven = req.body && req.body.notes && typeof req.body.notes === "object";
 
     if (!termId) {
       return res.status(400).send("Term ID is required");
@@ -9702,8 +9866,11 @@ const commonController = {
       }
 
       // One statement writes every student (one array per column), so a big class saves as fast as a small one.
+      const lateColumnPromise = Boolean(req.body && req.body.lates) && require("../utils/shards/features").isOn("attendance_notices", { organizationId: Number(organizationId) })
+        ? require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "late"]] }) : null;
       const touchedStudentIds = [];
       const statuses = [];
+      const noteTexts = [];
       for (const studentId in attendance) {
         // Only "Present" or "Absent" are stored (any letter case is accepted).
         const status = { present: "Present", absent: "Absent" }[String(attendance[studentId] || "").trim().toLowerCase()];
@@ -9713,8 +9880,36 @@ const commonController = {
         }
         touchedStudentIds.push(parsedStudentId);
         statuses.push(status);
+        // A note (up to 300 characters): why someone was absent, or left early or came late.
+        noteTexts.push(notesGiven ? String(req.body.notes[studentId] || "").trim().slice(0, 300) : "");
       }
-      if (touchedStudentIds.length) {
+      const lateIds = new Set(Object.keys((req.body && req.body.lates) || {}).filter((id) => req.body.lates[id] === true).map((id) => Number.parseInt(id, 10)));
+      const lateFlags = touchedStudentIds.map((id, i) => (statuses[i] === "Present" && lateIds.has(id) ? "t" : "f"));
+      const lateColumn = lateColumnPromise && await lateColumnPromise;
+      const notesColumn = notesGiven && await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] });
+      if (touchedStudentIds.length && notesColumn && lateColumn) {
+        await db.query(
+          `INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id, note, late)
+           SELECT u.student_id, $1::date, u.status::attendance_status, $2::int, $3::int, $4::int, $5::int, NULLIF(u.note, ''), u.late = 't'
+           FROM unnest($6::int[], $7::text[], $8::text[], $9::text[]) AS u(student_id, status, note, late)
+           ON CONFLICT (student_id, date, term_id)
+           DO UPDATE SET status = EXCLUDED.status, note = EXCLUDED.note, late = EXCLUDED.late, marked_by = EXCLUDED.marked_by, updated_at = NOW()
+           WHERE attendance_records.organization_id = EXCLUDED.organization_id
+             AND (attendance_records.status IS DISTINCT FROM EXCLUDED.status OR attendance_records.note IS DISTINCT FROM EXCLUDED.note OR attendance_records.late IS DISTINCT FROM EXCLUDED.late)`,
+          [date, classId, termId, req.session.userId, organizationId, touchedStudentIds, statuses, noteTexts, lateFlags]
+        );
+      } else if (touchedStudentIds.length && notesColumn) {
+        await db.query(
+          `INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id, note)
+           SELECT u.student_id, $1::date, u.status::attendance_status, $2::int, $3::int, $4::int, $5::int, NULLIF(u.note, '')
+           FROM unnest($6::int[], $7::text[], $8::text[]) AS u(student_id, status, note)
+           ON CONFLICT (student_id, date, term_id)
+           DO UPDATE SET status = EXCLUDED.status, note = EXCLUDED.note, marked_by = EXCLUDED.marked_by, updated_at = NOW()
+           WHERE attendance_records.organization_id = EXCLUDED.organization_id
+             AND (attendance_records.status IS DISTINCT FROM EXCLUDED.status OR attendance_records.note IS DISTINCT FROM EXCLUDED.note)`,
+          [date, classId, termId, req.session.userId, organizationId, touchedStudentIds, statuses, noteTexts]
+        );
+      } else if (touchedStudentIds.length) {
         await db.query(
           `INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
            SELECT u.student_id, $1::date, u.status::attendance_status, $2::int, $3::int, $4::int, $5::int
@@ -9734,6 +9929,7 @@ const commonController = {
             console.error("[Attendance] Absence-threshold notification trigger failed:", notifyError.message);
           });
           require("../utils/alertRules").onAbsent(db, organizationId, touchedStudentIds, date);
+          require("../utils/attendanceNotices").run(db, organizationId, { studentIds: touchedStudentIds, date });
         });
       }
 
@@ -17009,23 +17205,24 @@ NUMBERING:
       const currentUserRole = req.session.userRole;
       const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
       const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
-      await ensureStudentReportCustomRemarksColumn(db);
-      await ensureGoogleIntegrationSchema(db);
-      const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
-      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const [googleIntegration, studentPortalIntegration, canSetAssessmentQuestions] = await Promise.all([
+        (async () => { await ensureGoogleIntegrationSchema(db); return getGoogleIntegrationStatus(db, organizationId); })(),
+        getStudentPortalIntegrationStatus(db, organizationId),
+        userHasPermission(
+          db,
+          {
+            userId: req.session.user?.user_id || req.session.userId || null,
+            userRole: req.session.userRole || req.session.user?.account_type || null,
+            organizationId: organizationId || null,
+            accountType: req.session.accountType || req.session.user?.account_type || null,
+            userEmail: req.session.user?.email || null,
+          },
+          PERMISSIONS.SET_ASSESSMENT_QUESTIONS
+        ),
+        ensureStudentReportCustomRemarksColumn(db),
+      ]);
       const canUseQuestionSetIntegration =
         Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
-      const canSetAssessmentQuestions = await userHasPermission(
-        db,
-        {
-          userId: req.session.user?.user_id || req.session.userId || null,
-          userRole: req.session.userRole || req.session.user?.account_type || null,
-          organizationId: organizationId || null,
-          accountType: req.session.accountType || req.session.user?.account_type || null,
-          userEmail: req.session.user?.email || null,
-        },
-        PERMISSIONS.SET_ASSESSMENT_QUESTIONS
-      );
       const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
       const canAccessAssessmentQuestions =
         canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
@@ -17357,13 +17554,67 @@ NUMBERING:
       const isAssistantTeacher = !isMainTeacher && Boolean(currentUserId) && await require("../utils/mainTeacher").assistantReady(db)
         && (await db.query("SELECT 1 FROM user_classes WHERE class_id = $1 AND user_id = $2 AND assistant = TRUE", [classId, currentUserId])).rowCount > 0;
       const canEditClassSchedule = buildClassSchedulePermissions(req, isMainTeacher);
-      const scheduleSubjects = await getClassScheduleSubjects(db, {
-        organizationId,
+      // What the page needs beyond the class itself doesn't depend on one another: each read starts here
+      // and is awaited where it's used (each is its own round trip, so they run side by side).
+      const early = (promise) => { promise.catch(() => {}); return promise; };
+      const employeesP = early(getClassEmployeesWithMain(db, classId));
+      const assignedFilesP = early((async () => {
+        if (!(currentUserRole === 'Teacher' && currentUserId)) return 0;
+        const assignedFiles = await db.query(`
+          SELECT COUNT(DISTINCT d.id) AS total
+          FROM documents d
+          JOIN document_class_assignments dca ON d.id = dca.document_id
+          JOIN user_classes uc ON uc.class_id = dca.class_id
+          WHERE d.organization_id = $1
+            AND d.is_deleted = FALSE
+            AND dca.class_id = $2
+            AND uc.user_id = $3
+        `, [organizationId, classId, currentUserId]);
+        return Number(assignedFiles.rows[0]?.total || 0);
+      })());
+      const reportsCountP = early((async () => {
+        if (!currentUserId) return 0;
+        const reportsCountResult = await db.query(
+          `SELECT COUNT(DISTINCT r.report_id) AS total
+           FROM guardian_reports r
+           JOIN students s ON r.student_id = s.student_id
+           LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id
+           LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
+           WHERE r.organization_id = $1
+             AND s.class_id = $2
+             AND r.deleted_at IS NULL
+             AND (grr.user_id = $3 OR uc.user_id IS NOT NULL)`,
+          [organizationId, classId, currentUserId]
+        );
+        return Number(reportsCountResult.rows[0]?.total || 0);
+      })());
+      const orgSwitchP = early(getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false })));
+      const isBillCollectorP = early(Promise.resolve().then(() => (res.locals.userPermissions || []).includes(PERMISSIONS.PAYGIRA_CLASSROOM)
+        ? true
+        : require("../utils/paygiraCollectors").isBillCollector(db, req.session.organizationId, req.session.user?.user_id || req.session.userId)));
+      const classSettingsPanelP = early(require("./classSettingsController").classroomPanel(db, req, {
+        classId: Number(classId),
+        term: realCurrentTerm || currentTerm,
+      }).catch((error) => { console.error("[ClassDashboard] class settings:", error.message); return null; }));
+      const classFormTilesP = early(require("../utils/customForms").tilesFor(db, req.session.organizationId, "staff", {
         classId,
-        currentUserId,
-        currentUserRole,
-      });
-      const scheduleBundle = await getClassScheduleBundle(db, { organizationId, classId, termId: currentTerm.term_id });
+        builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
+      }).catch(() => []));
+      const classBesideP = early(require("../utils/customForms").besideFor(db, req.session.organizationId, {
+        classId: Number(classId),
+        studentIds: classStudentIds,
+        termId: currentTerm.term_id,
+        day: require("../utils/localDate").todayKeyFor(req),
+        builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
+      }).catch((error) => {
+        console.error("[ClassDashboard] forms beside students:", error.message);
+        return { sections: [], done: {}, remarkSlots: [] };
+      }));
+      const classToolsOrderP = early(require("../utils/uiPreferences").getPreference(req.session, "menu-order:classroom").catch(() => null));
+      const [scheduleSubjects, scheduleBundle] = await Promise.all([
+        getClassScheduleSubjects(db, { organizationId, classId, currentUserId, currentUserRole }),
+        getClassScheduleBundle(db, { organizationId, classId, termId: currentTerm.term_id }),
+      ]);
       const initialClassScheduleData = buildClassSchedulePayload({
         canEdit: canEditClassSchedule,
         subjects: scheduleSubjects,
@@ -17378,49 +17629,19 @@ NUMBERING:
       });
 
       // Fetch employees associated with the class
-      const employees = await getClassEmployeesWithMain(db, classId);
+      const employees = await employeesP;
 
-      let assignedFilesCount = 0;
-      if (currentUserRole === 'Teacher' && currentUserId) {
-        const assignedFiles = await db.query(`
-          SELECT COUNT(DISTINCT d.id) AS total
-          FROM documents d
-          JOIN document_class_assignments dca ON d.id = dca.document_id
-          JOIN user_classes uc ON uc.class_id = dca.class_id
-          WHERE d.organization_id = $1
-            AND d.is_deleted = FALSE
-            AND dca.class_id = $2
-            AND uc.user_id = $3
-        `, [organizationId, classId, currentUserId]);
-        assignedFilesCount = Number(assignedFiles.rows[0]?.total || 0);
-      }
+      const assignedFilesCount = await assignedFilesP;
+      // Reports where this user is a CC recipient for students in this class
+      const classReportsCount = await reportsCountP;
 
-      // Count reports where this user is a CC recipient for students in this class
-      let classReportsCount = 0;
-      if (currentUserId) {
-        const reportsCountResult = await db.query(
-          `SELECT COUNT(DISTINCT r.report_id) AS total
-           FROM guardian_reports r
-           JOIN students s ON r.student_id = s.student_id
-           LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id
-           LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
-           WHERE r.organization_id = $1
-             AND s.class_id = $2
-             AND r.deleted_at IS NULL
-             AND (grr.user_id = $3 OR uc.user_id IS NOT NULL)`,
-          [organizationId, classId, currentUserId]
-        );
-        classReportsCount = Number(reportsCountResult.rows[0]?.total || 0);
-      }
-
-      const classDashOrgSwitchRestriction = await getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false }));
+      const classDashOrgSwitchRestriction = await orgSwitchP;
       // PayGira shows only when the school's plan includes it.
       const canOpenPaygiraWorkspace = hasOrgFeature(req, PAYGIRA_FEATURE_NAMES) && (
         !classDashOrgSwitchRestriction.isRestricted
         || classDashOrgSwitchRestriction.flags.canViewBilling
         || classDashOrgSwitchRestriction.flags.canViewPaygira)
-        && ((res.locals.userPermissions || []).includes(PERMISSIONS.PAYGIRA_CLASSROOM)
-          || await require("../utils/paygiraCollectors").isBillCollector(db, req.session.organizationId, req.session.user?.user_id || req.session.userId));
+        && await isBillCollectorP;
 
       const routePanel = String(req.params.panel || '').trim().toLowerCase();
       const routeItemId = req.params.itemId ? String(req.params.itemId).trim() : '';
@@ -17470,33 +17691,18 @@ NUMBERING:
       }
       // Class Tools › Class settings (feature class_settings): only for someone who may manage
       // this class (controllers/classSettingsController.js); null leaves it out of the menu.
-      const classSettingsPanel = await require("./classSettingsController").classroomPanel(db, req, {
-        classId: Number(classId),
-        term: realCurrentTerm || currentTerm,
-      }).catch((error) => { console.error("[ClassDashboard] class settings:", error.message); return null; });
+      const classSettingsPanel = await classSettingsPanelP;
       // Forms the school gave a Class Tools item of their own (the school's cached list).
-      const classFormTiles = await require("../utils/customForms").tilesFor(db, req.session.organizationId, "staff", {
-        classId,
-        builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
-      }).catch(() => []);
+      const classFormTiles = await classFormTilesP;
       // Forms shown beside each student in the Students list (feature report_remarks_forms), and
       // who already has this period's entry: one read for the class. Remarks collected with the
       // Custom editor leave the remark pop-up; with none left, its pencil goes.
-      const classBeside = await require("../utils/customForms").besideFor(db, req.session.organizationId, {
-        classId: Number(classId),
-        studentIds: classStudentIds,
-        termId: currentTerm.term_id,
-        day: require("../utils/localDate").todayKeyFor(req),
-        builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
-      }).catch((error) => {
-        console.error("[ClassDashboard] forms beside students:", error.message);
-        return { sections: [], done: {}, remarkSlots: [] };
-      });
+      const classBeside = await classBesideP;
       const formRemarkSlots = new Set(classBeside.remarkSlots);
       const pencilRemarkTypes = configuredClassroomRemarkTypes.filter((type) => !formRemarkSlots.has(type));
 
       // This person's own order of the Class Tools menu, if they've set one.
-      const classToolsOrder = await require("../utils/uiPreferences").getPreference(req.session, "menu-order:classroom").catch(() => null);
+      const classToolsOrder = await classToolsOrderP;
 
       // Render the classDashboard view with the updated context
       res.render("common/classDashboard", {
@@ -18301,6 +18507,14 @@ NUMBERING:
       }
     }
 
+    {
+      const clash = await termClashWithOtherYears(db, req.session.organizationId, null, termsArr.map((t) => ({ name: t.termName, start: t.startDate, end: t.endDate })));
+      if (clash) {
+        req.flash("error", `"${clash.name}" overlaps ${clash.other.term_name} of ${clash.other.year_label}. Change its dates so terms of different school years don't overlap.`);
+        return res.redirect("/common/registerSchoolYear");
+      }
+    }
+
     const orderedTerms = [...termsArr]
       .map((t) => ({ ...t, _start: String(t.startDate || ""), _end: String(t.endDate || "") }))
       .sort((a, b) => a._start.localeCompare(b._start));
@@ -18514,9 +18728,22 @@ NUMBERING:
       });
 
       // Pass messages to the view
+      // Current and coming terms nobody has been enrolled in yet: the page says what to do next.
+      const termsWithoutEnrollment = await db.query(
+        `SELECT t.term_id, t.term_name, sy.year_label
+           FROM terms t
+           JOIN school_years sy ON sy.id = t.school_year_id
+          WHERE t.organization_id = $1
+            AND t.end_date::date >= CURRENT_DATE
+            AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.term_id = t.term_id)
+          ORDER BY t.start_date
+          LIMIT 4`,
+        [req.session.organizationId]
+      ).then((r) => r.rows).catch(() => []);
       res.render("common/manageRecords", {
         ...(await libraryPickLists(db, req.session.organizationId)),
         termLibrary: await listTermDefinitions(db, req.session.organizationId).catch(() => []),
+        termsWithoutEnrollment,
         title: "Manage Records",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -18630,6 +18857,14 @@ NUMBERING:
             req.flash("error", `Date ranges for "${termNamesArr[i]}" and "${termNamesArr[j]}" overlap.`);
             return res.redirect("/common/manageRecords");
           }
+        }
+      }
+
+      {
+        const clash = await termClashWithOtherYears(db, organizationId, yearIdInt, termNamesArr.map((name, idx) => ({ name, start: startDatesArr[idx], end: endDatesArr[idx] })));
+        if (clash) {
+          req.flash("error", `"${clash.name}" overlaps ${clash.other.term_name} of ${clash.other.year_label}. Change its dates so terms of different school years don't overlap.`);
+          return res.redirect("/common/manageRecords");
         }
       }
 
@@ -19352,15 +19587,19 @@ NUMBERING:
       );
       let nextSortOrder = Number(maxOrderResult.rows[0]?.max_order || 0);
 
+      const madeClassIds = [];
       for (let name of className) {
         if (name.trim() !== "") {
           nextSortOrder += 1;
-          await client.query(
-            "INSERT INTO classes (class_name, organization_id, dashboard_sort_order) VALUES ($1, $2, $3)",
+          const made = await client.query(
+            "INSERT INTO classes (class_name, organization_id, dashboard_sort_order) VALUES ($1, $2, $3) RETURNING class_id",
             [name.trim(), organizationId, nextSortOrder]
           );
+          madeClassIds.push(made.rows[0].class_id);
         }
       }
+      // A new class joins the current term at once.
+      await require("../utils/enrollmentKeeper").enrollNewClasses(client, organizationId, madeClassIds);
 
       await client.query("COMMIT");
       req.flash("success", "Classes added successfully.");
@@ -21063,7 +21302,7 @@ NUMBERING:
         `
                 SELECT sy.id AS school_year_id, sy.year_label, t.term_id, t.term_name
                 FROM school_years sy
-                LEFT JOIN terms t ON sy.id = t.school_year_id
+                LEFT JOIN terms t ON sy.id = t.school_year_id AND t.start_date::date <= CURRENT_DATE
                 WHERE sy.organization_id = $1 AND sy.current = TRUE
                 ORDER BY t.start_date
             `,
@@ -21074,7 +21313,7 @@ NUMBERING:
         currentSchoolYearResult.rows.length > 0
           ? {
               year_label: currentSchoolYearResult.rows[0].year_label,
-              terms: currentSchoolYearResult.rows.map((row) => ({
+              terms: currentSchoolYearResult.rows.filter((row) => row.term_id).map((row) => ({
                 term_id: row.term_id,
                 term_name: row.term_name,
               })),
@@ -21086,7 +21325,7 @@ NUMBERING:
         `
                 SELECT sy.id AS school_year_id, sy.year_label, t.term_id, t.term_name
                 FROM school_years sy
-                LEFT JOIN terms t ON sy.id = t.school_year_id
+                LEFT JOIN terms t ON sy.id = t.school_year_id AND t.start_date::date <= CURRENT_DATE
                 WHERE sy.organization_id = $1 AND sy.current = FALSE
                 ORDER BY sy.year_label DESC, t.start_date
             `,
@@ -21109,6 +21348,9 @@ NUMBERING:
           });
         }
       });
+
+      // A school year that hasn't started has nothing to report yet.
+      for (let i = otherSchoolYears.length - 1; i >= 0; i--) if (!otherSchoolYears[i].terms.length) otherSchoolYears.splice(i, 1);
 
       // Render the page
       res.render("common/closeSchoolYear", {
@@ -21239,52 +21481,7 @@ NUMBERING:
     try {
       const organizationId = req.session.organizationId;
       const isEmbedded = isEmbeddedRequest(req, "closeGraduationYearGroup");
-      await ensureStudentArchiveSchema(db);
-      const [groupsResult, studentsResult] = await Promise.all([
-        db.query(
-          "SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
-          [organizationId]
-        ),
-        db.query(
-          `SELECT s.student_id, s.first_name, s.last_name, s.custom_student_id, s.image_url,
-                  s.graduation_year_group_id, s.class_id, c.class_name,
-                  (COALESCE(s.graduated, FALSE) OR a.student_id IS NOT NULL) AS is_archived,
-                  COALESCE(a.archive_kind, CASE WHEN s.graduated THEN 'graduated' END) AS archive_kind
-             FROM students s
-             LEFT JOIN classes c ON c.class_id = s.class_id
-             LEFT JOIN LATERAL (
-               SELECT student_id, archive_kind FROM archived_student_info
-                WHERE student_id = s.student_id AND organization_id = s.organization_id
-                ORDER BY COALESCE(archived_at_ts, archived_at::timestamptz) DESC LIMIT 1
-             ) a ON TRUE
-            WHERE s.organization_id = $1
-            ORDER BY s.first_name, s.last_name`,
-          [organizationId]
-        ),
-      ]);
-
-      // Graduates and students who left move to Graduates & Alumni;
-      // here each group lists only its active students (and says how many moved).
-      const withCounts = (group, students) => {
-        const archivedCount = students.filter((student) => student.is_archived).length;
-        const active = students.filter((student) => !student.is_archived);
-        return { ...group, students: active, archivedCount, activeCount: active.length };
-      };
-      const gradYearGroups = groupsResult.rows.map((group) =>
-        withCounts(group, studentsResult.rows.filter((student) => student.graduation_year_group_id === group.id))
-      );
-      // Students in no graduation group (e.g. someone leaving mid-year), by class.
-      const byClass = new Map();
-      studentsResult.rows
-        .filter((student) => !student.graduation_year_group_id && !student.is_archived)
-        .forEach((student) => {
-          const key = student.class_name || "No class";
-          if (!byClass.has(key)) byClass.set(key, []);
-          byClass.get(key).push(student);
-        });
-      const otherGroups = [...byClass.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-        .map(([name, students]) => withCounts({ id: `class:${name}`, name, isClass: true }, students));
+      const { gradYearGroups, otherGroups, totalArchived } = await loadGraduationGroups(db, organizationId);
 
       res.render("common/closeGraduationYearGroup", {
         title: "Graduate & Withdraw",
@@ -21296,12 +21493,60 @@ NUMBERING:
         otherGroups,
         leaveReasons: STUDENT_LEAVE_REASONS,
         billingHoldDays: STUDENT_BILLING_HOLD_DAYS,
-        totalArchived: studentsResult.rows.filter((student) => student.is_archived).length,
+        totalArchived,
         messages: req.flash(),
       });
     } catch (error) {
       console.error("[closeGraduationYearGroup]", error.message);
       res.status(500).send("Failed to load close graduation year group page.");
+    }
+  },
+
+  // Graduate & Withdraw: one group's student table (when it's opened), or every group that has someone matching a
+  // search, as HTML ready to put in the page. The page itself draws only the first group.
+  closeGraduationYearGroupRows: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const { gradYearGroups, otherGroups } = await loadGraduationGroups(db, organizationId);
+      const all = gradYearGroups.concat(otherGroups);
+      const key = req.query.group ? String(req.query.group) : null;
+      const q = String(req.query.q || "").trim().toLowerCase().slice(0, 100);
+      const initials = (st) => ((st.first_name || "").charAt(0) + (st.last_name || "").charAt(0)).toUpperCase() || "?";
+      const chosen = key ? all.filter((g) => String(g.id) === key) : all;
+      const render = (group, students, total) => new Promise((resolve, reject) => req.app.render("partials/graduationRows", {
+        group, students, total, _initials: initials, publicImageUrl: res.locals.publicImageUrl, assetUrl: res.locals.assetUrl,
+      }, (error, html) => (error ? reject(error) : resolve(html))));
+      // A group shows one page of its students (Rows per page: 10, 20, 50, 100 or 200; offset is where the page starts).
+      const asked = Number.parseInt(req.query.limit, 10);
+      const PAGE = [10, 20, 50, 100, 200].includes(asked) ? asked : 20;
+      const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
+      const renderRows = (students) => new Promise((resolve, reject) => req.app.render("partials/graduationRowItems", {
+        students, _initials: initials, publicImageUrl: res.locals.publicImageUrl,
+      }, (error, html) => (error ? reject(error) : resolve(html))));
+      const matching = (group) => (q
+        ? group.students.filter((st) => `${[st.first_name, st.last_name].filter(Boolean).join(" ")} ${st.custom_student_id || ""}`.toLowerCase().includes(q))
+        : group.students);
+      if (key && req.query.ids === "1") {
+        const group = chosen[0];
+        return res.json({ success: true, ids: group ? matching(group).filter((st) => !st.is_archived).map((st) => String(st.student_id)) : [] });
+      }
+      if (key && req.query.offset !== undefined) {
+        const group = chosen[0];
+        if (!group) return res.json({ success: true, html: "", left: 0 });
+        const all = matching(group);
+        const slice = all.slice(offset, offset + PAGE);
+        return res.json({ success: true, html: await renderRows(slice), next: offset + slice.length, left: Math.max(0, all.length - offset - slice.length) });
+      }
+      const groups = [];
+      for (const group of chosen) {
+        const students = matching(group);
+        if (q && !students.length) continue;
+        groups.push({ key: String(group.id), count: students.length, html: students.length ? await render(group, students.slice(0, PAGE), students.length) : "" });
+      }
+      return res.json({ success: true, groups });
+    } catch (error) {
+      console.error("[closeGraduationYearGroupRows]", error.message);
+      return res.status(500).json({ success: false, error: "Could not load students." });
     }
   },
 
@@ -22785,6 +23030,191 @@ NUMBERING:
     }
   },
 
+  // The student page's Attendance tab: this term's totals, overall lunch beside them and the last few
+  // days. Read when the tab is opened, never with the page. Same reach as the attendance page: Mark
+  // Attendance, and a teacher or supervisor only for their own classes' students.
+  studentAttendance: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const studentId = Number.parseInt(req.query.studentId, 10);
+      const termId = Number.parseInt(req.query.termId, 10);
+      if (!studentId || !termId) return res.status(400).json({ success: false, error: "Missing student or term." });
+      const perms = Array.isArray(res.locals.userPermissions) ? res.locals.userPermissions : [];
+      if (!perms.includes("mark_attendance")) return res.status(403).json({ success: false, error: "Not available." });
+      const student = (await db.query("SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId])).rows[0];
+      if (!student) return res.status(404).json({ success: false, error: "Student not found." });
+      if (!(await require("../utils/studentDocuments").inScope(db, req, studentId))) return res.status(403).json({ success: false, error: "Not available." });
+      const overallLunch = require("../utils/overallLunch");
+      const dayOffset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
+      const lateReady = await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "late"]] });
+      const [totals, recent, classShare, lunch] = await Promise.all([
+        db.query(
+          `SELECT COUNT(*)::int AS total,
+                  COUNT(*) FILTER (WHERE status::text ILIKE 'present')::int AS present,
+                  ${lateReady ? "COUNT(*) FILTER (WHERE late AND status::text ILIKE 'present')" : "COUNT(*) FILTER (WHERE status::text ILIKE 'late')"}::int AS late,
+                  COUNT(*) FILTER (WHERE status::text ILIKE 'absent')::int AS absent
+             FROM attendance_records WHERE organization_id = $1 AND term_id = $2 AND student_id = $3`,
+          [organizationId, termId, studentId]
+        ),
+        require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] }).then((notesOn) => db.query(
+          `SELECT date::text AS day, status::text AS status${notesOn ? ", note" : ""}${lateReady ? ", late" : ""} FROM attendance_records
+            WHERE organization_id = $1 AND term_id = $2 AND student_id = $3 ORDER BY date DESC LIMIT 11 OFFSET $4`,
+          [organizationId, termId, studentId, dayOffset]
+        )),
+        require("../utils/classSettings").settingsFor(db, organizationId, student.class_id).catch(() => ({ lunch: true })),
+        overallLunch.totalsFor(db, organizationId, termId, [studentId]),
+      ]);
+      const t = totals.rows[0] || { total: 0, present: 0, late: 0, absent: 0 };
+      const lunchTotals = lunch.get(studentId);
+      const lunchShown = overallLunch.isOn(organizationId) && classShare.lunch !== false;
+      return res.json({
+        success: true,
+        // "Present" counts everyone who came (a late arrival is a present student marked late).
+        total: t.total, present: lateReady ? t.present : t.present + t.late, late: t.late, absent: t.absent,
+        other: Math.max(0, t.total - t.present - t.late - t.absent),
+        rate: t.total ? Math.round((1000 * (lateReady ? t.present : t.present + t.late)) / t.total) / 10 : null,
+        lunch: lunchShown ? { days: lunchTotals ? lunchTotals.days : 0, taken: lunchTotals ? lunchTotals.taken : 0, label: overallLunch.label(lunchTotals) } : null,
+        recent: recent.rows.slice(0, 10).reverse(),
+        moreDays: recent.rows.length > 10,
+      });
+    } catch (error) {
+      console.error("studentAttendance error:", error);
+      return res.status(500).json({ success: false, error: "Could not load attendance." });
+    }
+  },
+
+  // Everything said about one student, on the student page's Messages tab: the parents' conversations
+  // (guardian_reports) and what the school sent their families from the Mail Room, newest first.
+  // Same reach as the pages those come from: a teacher or supervisor only for their own classes'
+  // students; conversations as the class's staff or a Mail Room user; sent messages only with the Mail
+  // Room, and for someone limited to some classes only their own sends.
+  studentMessages: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userId = Number(req.session.userId || (req.session.user && req.session.user.user_id)) || null;
+      const studentId = Number.parseInt(req.query.studentId, 10);
+      if (!studentId || !userId) return res.status(400).json({ success: false, error: "Missing student." });
+      const student = (await db.query("SELECT student_id, class_id FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId])).rows[0];
+      if (!student) return res.status(404).json({ success: false, error: "Student not found." });
+      if (!(await require("../utils/studentDocuments").inScope(db, req, studentId))) {
+        return res.status(403).json({ success: false, error: "Not available." });
+      }
+      const perms = Array.isArray(res.locals.userPermissions) ? res.locals.userPermissions : [];
+      const hasMailroom = perms.includes("mailroom");
+      // A new term is a new slate: only what happened in this term (its start to its end; no end while it's the current term).
+      const termId = Number.parseInt(req.query.termId, 10);
+      const term = termId ? (await db.query("SELECT start_date, end_date, COALESCE(current, FALSE) AS current FROM terms WHERE term_id = $1 AND organization_id = $2", [termId, organizationId])).rows[0] : null;
+      // The newest few first; "Show more" asks for the next ones older than the last shown (`before`).
+      const pageSize = Math.min(30, Math.max(1, Number.parseInt(req.query.limit, 10) || 5));
+      const beforeAt = /^\d{9,11}(\.\d{1,6})?$/.test(String(req.query.before || "")) ? String(req.query.before) : null;
+      const from = term && term.start_date ? term.start_date : null;
+      const until = term && term.end_date && !term.current ? new Date(new Date(term.end_date).getTime() + 86400000) : null;
+
+      const [threads, contacts] = await Promise.all([
+        db.query(
+          `SELECT r.report_id, r.subject, r.status, r.created_at, r.filed_by_name,
+                  COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Parent') AS guardian_name,
+                  (SELECT COUNT(*)::int FROM guardian_report_replies x WHERE x.report_id = r.report_id) AS reply_count,
+                  last.sender_type AS last_sender_type,
+                  COALESCE(last.created_at, r.created_at) AS last_at,
+                  to_char(extract(epoch from COALESCE(last.created_at, r.created_at)), 'FM9999999999.000000') AS at_key,
+                  LEFT(COALESCE(last.message, r.message), 220) AS last_message
+             FROM guardian_reports r
+             LEFT JOIN guardian_profiles gp ON gp.guardian_id = r.guardian_id AND gp.organization_id = r.organization_id
+             LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id AND grr.user_id = $3
+             LEFT JOIN user_classes uc ON uc.class_id = $4 AND uc.user_id = $3
+             LEFT JOIN LATERAL (
+               SELECT sender_type, message, created_at FROM guardian_report_replies x
+                WHERE x.report_id = r.report_id ORDER BY created_at DESC, reply_id DESC LIMIT 1
+             ) last ON TRUE
+            WHERE r.organization_id = $1 AND r.student_id = $2 AND r.deleted_at IS NULL
+              AND (grr.user_id IS NOT NULL OR uc.user_id IS NOT NULL OR $5::boolean)
+              AND ($6::timestamptz IS NULL OR COALESCE(last.created_at, r.created_at) >= $6)
+              AND ($7::timestamptz IS NULL OR COALESCE(last.created_at, r.created_at) < $7)
+              AND ($8::numeric IS NULL OR extract(epoch from COALESCE(last.created_at, r.created_at)) < $8::numeric)
+            ORDER BY COALESCE(last.created_at, r.created_at) DESC
+            LIMIT ${pageSize + 1}`,
+          [organizationId, studentId, userId, student.class_id || 0, hasMailroom, from, until, beforeAt]
+        ).catch(() => ({ rows: [] })),
+        hasMailroom
+          ? db.query(
+              `SELECT LOWER(TRIM(gp.email)) AS email, regexp_replace(COALESCE(gp.phone, ''), '\\D', '', 'g') AS phone
+                 FROM guardian_students gs JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $1
+                WHERE gs.student_id = $2
+               UNION
+               SELECT LOWER(TRIM(g.email)), regexp_replace(COALESCE(g.phone, ''), '\\D', '', 'g')
+                 FROM guardians g WHERE g.organization_id = $1 AND g.student_id = $2
+               UNION
+               SELECT CASE WHEN scm.contact_type = 'email' THEN LOWER(TRIM(scm.value)) END,
+                      CASE WHEN scm.contact_type = 'phone' THEN regexp_replace(COALESCE(scm.value, ''), '\\D', '', 'g') END
+                 FROM student_contact_methods scm WHERE scm.organization_id = $1 AND scm.student_id = $2`,
+              [organizationId, studentId]
+            ).catch(() => ({ rows: [] }))
+          : { rows: [] },
+      ]);
+
+      let sent = [];
+      if (hasMailroom) {
+        const emails = [...new Set(contacts.rows.map((r) => r.email).filter(Boolean))];
+        const phones = [...new Set(contacts.rows.map((r) => r.phone).filter((v) => v && v.length >= 6))];
+        const allowed = await require("./guardianMessagingController").getMailroomAllowedClassIdsFor({
+          orgId: organizationId, userId,
+          userRole: req.session.userRole || (req.session.user && req.session.user.account_type) || null,
+          accountType: req.session.accountType || (req.session.user && req.session.user.account_type) || null,
+        });
+        const limited = allowed !== null;
+        const reach = !limited || allowed.includes(Number(student.class_id));
+        if (reach && (emails.length || phones.length)) {
+          const { rows } = await db.query(
+            `SELECT id, event_domain, status, actor_name, metadata, COALESCE(updated_at, created_at) AS at,
+                    to_char(extract(epoch from COALESCE(updated_at, created_at)), 'FM9999999999.000000') AS at_key, recipient_emails
+               FROM delivery_audit_history h
+              WHERE organization_id = $1 AND event_name = 'mailroom_send'
+                AND ($2::int IS NULL OR actor_user_id = $2)
+                AND ($5::timestamptz IS NULL OR COALESCE(updated_at, created_at) >= $5)
+                AND ($6::timestamptz IS NULL OR COALESCE(updated_at, created_at) < $6)
+                AND ($7::numeric IS NULL OR extract(epoch from COALESCE(updated_at, created_at)) < $7::numeric)
+                AND EXISTS (SELECT 1 FROM unnest(h.recipient_emails) AS rcpt
+                             WHERE LOWER(TRIM(rcpt)) = ANY($3::text[]) OR regexp_replace(rcpt, '\\D', '', 'g') = ANY($4::text[]))
+              ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+              LIMIT ${pageSize + 1}`,
+            [organizationId, limited ? userId : null, emails, phones, from, until, beforeAt]
+          ).catch(() => ({ rows: [] }));
+          sent = rows.map((r) => {
+            const meta = r.metadata || {};
+            return {
+              id: Number(r.id), key: r.at_key, channel: r.event_domain, status: r.status, by: r.actor_name || "",
+              to: meta.guardianName || "", subject: meta.emailSubject || "", message: String(meta.message || "").slice(0, 600), at: r.at,
+            };
+          });
+        }
+      }
+
+      const conversations = threads.rows.map((t) => {
+        const startedByStaff = Boolean(t.filed_by_name);
+        const lastFromParent = t.last_sender_type ? t.last_sender_type === "guardian" : !startedByStaff;
+        return {
+          id: Number(t.report_id), subject: t.subject, status: t.status, parent: t.guardian_name, replies: t.reply_count,
+          key: t.at_key, preview: t.last_message, at: t.last_at, needsReply: t.status !== "resolved" && lastFromParent,
+        };
+      });
+      // One list, newest first: this page's items, and whether older ones are waiting.
+      const merged = [
+        ...conversations.map((c) => ({ ...c, type: "thread" })),
+        ...sent.map((m) => ({ ...m, type: "sent" })),
+      ].sort((a, b) => Number(b.key) - Number(a.key));
+      const items = merged.slice(0, pageSize);
+      const more = merged.length > pageSize;
+      return res.json({
+        success: true, items, more, next: items.length ? items[items.length - 1].key : null,
+        canSend: hasMailroom, needsReply: items.filter((c) => c.type === "thread" && c.needsReply).length,
+      });
+    } catch (error) {
+      console.error("studentMessages error:", error);
+      return res.status(500).json({ success: false, error: "Could not load messages." });
+    }
+  },
+
   // Every parent conversation in the school, newest activity first, for Mail Room's inbox.
   mailroomInbox: async (req, res, db) => {
     try {
@@ -23486,6 +23916,13 @@ NUMBERING:
       }
 
       const student = studentResult.rows[0];
+      // Class settings > Student portal: a class's students are invited only once it's turned on.
+      if (!(await require("../utils/classSettings").portalOn(db, organizationId, student.class_id))) {
+        return res.status(403).json({
+          success: false,
+          error: "The student portal isn't turned on for this student's class. Turn it on in the class's Class settings.",
+        });
+      }
       const studentEmail = normalizeStudentEmail(student.email);
       if (!studentEmail) {
         return res.status(400).json({
@@ -23656,11 +24093,21 @@ NUMBERING:
       let skippedNoEmailCount = 0;
       let skippedAlreadyAccessCount = 0;
       let skippedMissingCount = 0;
+      let skippedClassOffCount = 0;
+      // Class settings > Student portal: only classes that turned it on are invited.
+      const classPortal = new Map();
+      for (const classId of new Set([...studentsById.values()].map((s) => s.class_id))) {
+        classPortal.set(classId, await require("../utils/classSettings").portalOn(db, organizationId, classId).catch(() => false));
+      }
 
       for (const studentId of studentIds) {
         const student = studentsById.get(studentId);
         if (!student) {
           skippedMissingCount += 1;
+          continue;
+        }
+        if (!classPortal.get(student.class_id)) {
+          skippedClassOffCount += 1;
           continue;
         }
 
@@ -23749,7 +24196,7 @@ NUMBERING:
 
       return res.json({
         success: true,
-        message: `Sent ${sentCount} student portal setup email(s). Skipped ${skippedAlreadyAccessCount} with existing portal access${skippedNoEmailCount ? `, ${skippedNoEmailCount} without email` : ""}${skippedMissingCount ? `, ${skippedMissingCount} not found` : ""}.`,
+        message: `Sent ${sentCount} student portal setup email(s). Skipped ${skippedAlreadyAccessCount} with existing portal access${skippedNoEmailCount ? `, ${skippedNoEmailCount} without email` : ""}${skippedMissingCount ? `, ${skippedMissingCount} not found` : ""}${skippedClassOffCount ? `, ${skippedClassOffCount} in classes without the student portal turned on` : ""}.`,
         sentCount,
         setupCount,
         resetCount,

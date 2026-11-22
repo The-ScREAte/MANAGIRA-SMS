@@ -3333,6 +3333,7 @@
           <%= _onHoldBannerMessage %>
         </div>
         <% } %>
+        <% if (!_integrationsPage) { %>
         <% if (_canProfileSettings && !_isOnHoldRestricted) { %>
         <section id="customize" class="settings-section <%= _defaultSettingsSectionId === 'customize' ? 'is-default' : '' %>">
           <h1>Customize School</h1>
@@ -4284,7 +4285,9 @@
         </section>
         <% } %>
 
-        <% if (_canIntegrationSettings && !_isOnHoldRestricted) { %>
+        <% } %>
+        <%# Integrations is a page of its own (/account/integrations): Settings never shows it, so it isn't sent with Settings. %>
+        <% if (_canIntegrationSettings && !_isOnHoldRestricted && _integrationsPage) { %>
         <section id="integrations" class="settings-section<%= _integrationsPage ? ' is-default' : '' %>"<%= _integrationsPage ? '' : ' hidden' %>>
           <h1><i class="fa-solid fa-plug settings-h1-icon" aria-hidden="true"></i> Integrations</h1>
           <p class="lead">Connect the services your school uses.</p>
@@ -5105,6 +5108,7 @@
             </div>
         </section>
         <% } %>
+        <% if (!_integrationsPage) { %>
 
         <% if (_canSecuritySettings && !_isOnHoldRestricted) { %>
         <% if (locals.twoStep && twoStep.show) { %>
@@ -5246,31 +5250,22 @@
         <% } %>
         <section id="notifications" class="settings-section" data-ns-scope>
           <h1>Notifications</h1>
-          <p class="lead">Choose what you're told about and which non-essential emails you get. Security, billing and other account emails are always sent.</p>
+          <link rel="stylesheet" href="/css/alertRules.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
+          <div class="card ns-one" data-no-collapse>
+            <% if (typeof alertRulesOn !== 'undefined' && alertRulesOn) { %>
+            <div data-alert-card><%- include('../partials/alertRules', { bare: true }) %></div>
+            <% } %>
 
-          <% if (typeof alertRulesOn !== 'undefined' && alertRulesOn) { %>
-          <div class="card" data-alert-card>
-            <h4>Alerts</h4>
-            <small>Choose what you want to be told about, and how.</small>
-            <div style="margin-top:12px;"><%- include('../partials/alertRules', { bare: true }) %></div>
-          </div>
-          <% } %>
-
-          <% if (_hasOrgNotificationPrefs) { %>
-          <div class="card">
-            <h4>School emails</h4>
-            <small>These apply to the whole school, not just your account.</small>
-            <%- include('../partials/notificationSwitches', { prefs: orgNotificationPrefs, saved: _orgSaved, action: '/account/settings/notifications/organization', name: 'orgPreferences', idPrefix: 'org' }) %>
-          </div>
-          <% } %>
-
-          <% if (_hasUserNotificationPrefs) { %>
-          <div class="card">
-            <h4>Your emails</h4>
-            <small>These options are based on your role. Items that are off will not be emailed to you.</small>
+            <% if (_hasUserNotificationPrefs) { %>
+            <h3 class="ns-group__title ns-section-title">Emails</h3>
             <%- include('../partials/notificationSwitches', { prefs: notificationPrefs, saved: _saved, action: '/account/settings/notifications', name: 'preferences', idPrefix: 'acc' }) %>
+            <% } %>
+
+            <% if (_hasOrgNotificationPrefs) { %>
+            <h3 class="ns-group__title ns-section-title">For the whole school</h3>
+            <%- include('../partials/notificationSwitches', { prefs: orgNotificationPrefs, saved: _orgSaved, action: '/account/settings/notifications/organization', name: 'orgPreferences', idPrefix: 'org' }) %>
+            <% } %>
           </div>
-          <% } %>
 
                   <%- include('../partials/notificationSaveBar') %>
         </section>
@@ -5368,6 +5363,7 @@
             </form>
           </div>
         </section>
+        <% } %>
         <% } %>
       </div>
     </main>

@@ -65,7 +65,7 @@ module.exports = [
       {
         title: "Create a school year",
         steps: [
-          ["Open <strong>Management</strong>, then <strong>School years</strong>, and select <strong>New school year</strong>.", "school-years.webp", "Management, School years: the current year and term are marked with a dot."],
+          ["Open <strong>Management</strong>, then <strong>School years &amp; terms</strong>, and select <strong>New school year</strong>.", "school-years.webp", "Management, School years: the current year and term are marked with a dot."],
           "Enter the <strong>School Year Label</strong> (for example <em>2026 - 2027</em>) with its start and end dates.",
           "Add each term or semester with its <strong>Term Name</strong>, <strong>Start Date</strong> and <strong>End Date</strong>. Terms can't overlap.",
           "Select <strong>Register School Year</strong>.",
@@ -82,7 +82,7 @@ module.exports = [
       },
       {
         title: "When a term ends",
-        text: "When a term's end date passes, your dashboard suggests the next term. Select it to make it current. To carry classes and students into the new term, use <strong>Enroll Classes and Students</strong>, or promote them at the end of the year. See <a href=\"/legal/user-documentation/promote-students-and-manage-graduation\">Promotion and graduation</a>.",
+        text: "A term can't overlap another term of the same school year or of another school year; Managira tells you which one it clashes with. Choosing <strong>Current</strong> on a term also makes its school year current. When a term has no classes or students yet, <strong>School years &amp; terms</strong> shows a <strong>Next step</strong> card with a button to Enrollment. When a term's end date passes, your dashboard suggests the next term. Select it to make it current. To carry classes and students into the new term, use <strong>Enroll Classes and Students</strong>, or promote them at the end of the year. See <a href=\"/legal/user-documentation/promote-students-and-manage-graduation\">Promotion and graduation</a>.",
       },
     ],
     faq: [
@@ -102,20 +102,20 @@ module.exports = [
     intro: "Classes are your grade levels or homerooms (for example <em>7th Grade</em> or <em>3B</em>). Subjects are what's taught in them. A graduation year group (for example <em>Class of 2030</em>) follows a group of students from year to year.",
     sections: [
       {
-        title: "Add classes",
+        title: "Add classes, subjects and graduation years",
         steps: [
-          ["Open <strong>Management</strong>, then <strong>Classes, Subjects &amp; Grad Years</strong>.", "classes-subjects.webp", "Classes, Subjects & Grad Years: classes, subjects and graduation groups in one place."],
-          "Add your classes. You can add several at once.",
-          "Save. New classes appear once they're enrolled in a term (see <a href=\"/legal/user-documentation/enrolling-classes-and-student-in-aterm-semester\">Enrollment</a>).",
+          ["Open <strong>Management</strong>, then <strong>Classes, Subjects &amp; Grad Years</strong>, and select <strong>Add new</strong>.", "classes-subjects.webp", "Classes, Subjects & Grad Years: classes, subjects and graduation groups in one place."],
+          "Choose a tab: <strong>Class</strong>, <strong>Subject</strong> or <strong>Graduation year</strong>. The tab you used last opens again after a save.",
+          "<strong>Class</strong>: type a name, or paste a column of names to add many at once, then <strong>Save classes</strong>.",
+          "<strong>Subject</strong>: type the subject, then pick the classes that have it. Use the search box, <strong>Select all</strong> or <strong>Clear</strong>. <strong>Add another subject</strong> lets you give several subjects their own classes in one save. To give an existing subject to more classes, choose <strong>Add an existing subject to more classes</strong>.",
+          "<strong>Graduation year</strong>: type a year, or tap one of the quick-add years, then <strong>Save graduation years</strong>.",
         ],
+        note: "A class you add joins the current term at once, so it shows on the dashboard right away. For a coming term, use <a href=\"/legal/user-documentation/enrolling-classes-and-student-in-aterm-semester\">Enrollment</a>.",
+        tip: "Use the same subject names in every class. Report Builder and analytics then compare like with like across grades.",
       },
       {
-        title: "Add subjects and assign them",
-        steps: [
-          "Add each subject once (for example <em>English Language Arts</em>, <em>Science</em>, <em>Spanish</em>).",
-          "Tick the classes that take it and select <strong>Assign to Selected Classes</strong>. One subject can belong to many classes.",
-        ],
-        tip: "Use the same subject names in every class. Report Builder and analytics then compare like with like across grades.",
+        title: "Find and rename",
+        text: "The page lists every class and subject, each with a count. With many, use the search box above the list to find one. Edit a name in place and select <strong>Update All Classes</strong> or <strong>Update All Subjects</strong>. The <strong>⋮</strong> menu makes an item obsolete or deletes it. A subject also shows which classes have it and which don't, so you can add it to more.",
       },
       {
         title: "Graduation year groups",
@@ -140,7 +140,7 @@ module.exports = [
     summary: "Put your classes, and the students in them, into the current school year and term, and move a student to another class.",
     tags: ["enrollment", "enroll classes", "term enrollment", "move student", "class roster"],
     who: "Managers, and staff given the <strong>Enrollment</strong> permission.",
-    intro: "A class shows on dashboards, attendance and grade books only once it's enrolled in a term. Students added to a class that's already enrolled are enrolled automatically, so you mostly do this when you create a class or start a new year.",
+    intro: "A class shows on dashboards, attendance and grade books once it's enrolled in a term. A class you add joins the current term by itself, and students added to it are enrolled automatically, so you mostly use Enrollment to prepare a coming term.",
     sections: [
       {
         title: "Enroll classes",
@@ -150,7 +150,7 @@ module.exports = [
           "Each class's students are ticked. Untick anyone who shouldn't be enrolled.",
           "Select <strong>Enroll</strong>. The classes now appear on dashboards, attendance and grade books for that term.",
         ],
-        note: "A term has one enrollment. If it already has one, select <strong>Edit it instead</strong>. From School years, <strong>Enroll Classes and Students</strong> brings the current classes into a new term in one step.",
+        note: "A term has one enrollment. Enroll students opens on the first term that has none; for a term that already has one, select <strong>Open this term's enrollment</strong>. From School years &amp; terms, <strong>Enroll Classes and Students</strong> brings the current classes into a new term in one step.",
       },
       {
         title: "Move a student to another class",
@@ -164,7 +164,7 @@ module.exports = [
     ],
     faq: [
       ["Do I have to enroll every term?", "Promotion carries classes and students into the next school year for you. Within a year, enroll classes into each new term from School years."],
-      ["Why isn't a class on the dashboard?", "It isn't enrolled in the current term yet, or the term you're looking at isn't the current one."],
+      ["Why isn't a class on the dashboard?", "A class you add joins the current term automatically. If one is missing, it may have been taken out of the term in Enrollment, or the term you're looking at isn't the current one."],
     ],
     related: ["create-school-years-terms-and-set-the-current-term", "transfer-a-student-between-classes-and-subject-matching", "promote-students-and-manage-graduation"],
   },

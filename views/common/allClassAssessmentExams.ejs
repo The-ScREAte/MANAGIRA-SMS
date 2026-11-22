@@ -2836,11 +2836,28 @@
     .subject-group { margin-bottom: 10px; }
   </style>
 <% } %>
+<style>
+  .qh { flex: 1 1 auto; min-width: 0; text-align: left; }
+  .qh, .qh__title, .qh__sub { text-align: left !important; }
+  .qh__title { margin: 0; font-size: 1.35rem; font-weight: 700; color: #0f172a; letter-spacing: -.01em; }
+  .qh__sub { margin: 4px 0 0; color: #64748b; font-size: .92rem; line-height: 1.45; max-width: 60ch; }
+  .top-bar:has(.qh) { align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+  .top-bar:has(.qh) .btn { display: inline-flex; align-items: center; justify-content: center; width: auto; height: 38px; margin: 0; padding: 0 18px; border: 1px solid var(--org-primary-color, #01535b); border-radius: 9px; background: var(--org-primary-color, #01535b); color: #fff; font: inherit; font-size: .9rem; font-weight: 600; box-shadow: none; }
+  .top-bar:has(.qh) .btn:hover { filter: brightness(1.08); }
+  @media (max-width: 640px) { .qh__title { font-size: 1.2rem; } .top-bar:has(.qh) .top-bar-actions { width: 100%; } .top-bar:has(.qh) .btn { flex: 1; } }
+</style>
 </head>
 <body>
   <div class="page-wrap">
-    <div class="top-bar">
-      <h1>Assessment Question Sets</h1>
+    <%# In Management the page has no frame of its own, so it names itself; inside a class workspace the class already says where you are. %>
+    <% const _inHub = isEmbedded && !Number(selectedClassId || 0); %>
+    <div class="top-bar"<%- (isEmbedded && !_inHub) ? ' style="justify-content:flex-end"' : '' %>>
+      <% if (_inHub) { %>
+        <div class="qh">
+          <h1 class="qh__title">Assessment questions</h1>
+          <p class="qh__sub">The questions for online tests, by class and subject. Open a set to edit it, or choose Set Questions to write a new one.</p>
+        </div>
+      <% } else if (!isEmbedded) { %><h1>Assessment Question Sets</h1><% } %>
       <div class="top-bar-actions">
         <button type="button" class="btn btn-outline" id="all-class-set-questions">Set Questions</button>
         <% if (canUseGoogleClassroom) { %>
@@ -2856,7 +2873,7 @@
         <div class="workspace-filters-main">
           <h2 class="section-title workspace-filters-title">Filters</h2>
           <div class="filter-summary-line workspace-filter-summary-line">
-            <span class="current-pill">Current Term: <%= selectedTermName || ('Term ' + termId) %></span>
+            <% if (!isEmbedded) { %><span class="current-pill">Current Term: <%= selectedTermName || ('Term ' + termId) %></span><% } %>
           </div>
         </div>
         <span class="collapsible-hint" id="workspace-filters-hint">Expand</span>
@@ -2946,7 +2963,7 @@
       </div>
     </details>
 
-    <h2 class="section-title" style="margin-bottom:6px;">Created Question Sets</h2>
+    <% if (!isEmbedded) { %><h2 class="section-title" style="margin-bottom:6px;">Created Question Sets</h2><% } %>
 
     <% const reviewRole = String((session && (session.userRole || (session.user && session.user.account_type))) || '').trim().toLowerCase(); %>
     <% const canReviewQuestionSets = reviewRole === 'manager' || reviewRole === 'supervisor'; %>
@@ -2993,7 +3010,7 @@
       <div id="question-set-groups">
         <% classGroups.forEach(function(classGroup) { %>
           <section class="class-group js-class-group" data-class-id="<%= classGroup.classId %>" data-class-name="<%= String(classGroup.className || '').toLowerCase() %>">
-            <div class="class-group-head">
+            <div class="class-group-head"<%- (isEmbedded && classGroups.length === 1 && Number(selectedClassId || 0)) ? ' style="display:none"' : '' %>>
               <h3 class="class-group-title"><%= classGroup.className %></h3>
               <span class="class-group-meta"><%= classGroup.sets.length %> set<%= classGroup.sets.length === 1 ? '' : 's' %></span>
             </div>
@@ -3511,7 +3528,8 @@
       var schoolYears = <%- JSON.stringify(schoolYears || []) %>;
       var termClassSubjects = <%- JSON.stringify(termClassSubjects || []) %>;
       var assessmentsForOrg = <%- JSON.stringify(assessmentsForOrg || []) %>;
-      var assessmentsForTermData = <%- JSON.stringify(assessmentsForTerm || []) %>;
+      // Only the five fields the page reads (each test used to carry all of its marks and students: megabytes).
+      var assessmentsForTermData = <%- JSON.stringify((assessmentsForTerm || []).map(function (a) { return { term_id: a.term_id, class_id: a.class_id, subject_id: a.subject_id, assessment_id: a.assessment_id !== undefined ? a.assessment_id : a.assessmentId, max_score: a.max_score !== undefined ? a.max_score : a.maxScore }; })) %>;
       var questionSetsData = <%- JSON.stringify(questionSets || []) %>;
       var selectedSchoolYearId = Number("<%= selectedSchoolYearId || 0 %>");
       var selectedTermId = Number("<%= termId %>");
@@ -6627,6 +6645,52 @@
 
         var visibleCount = 0;
 
+        // The most recently changed sets first; the rest wait behind "Show more". Any filter or search looks at all of them.
+        var limited = !(classIdFilter || subjectIdFilter || assessmentIdFilter || reviewStatusFilter || searchText
+          || Number.isFinite(minPoints) || Number.isFinite(maxPoints) || Number.isFinite(minPercent) || Number.isFinite(maxPercent));
+        var recentOrder = questionSetDetails.slice().sort(function (a, b) { return Number(b.getAttribute('data-updated-at') || 0) - Number(a.getAttribute('data-updated-at') || 0); });
+        var allowedRecent = new Set(recentOrder.slice(0, window.__qsShown || 6));
+        var moreButton = document.getElementById('qsMore');
+        if (!moreButton) {
+          if (!document.getElementById('qsMoreCss')) {
+            var moreCss = document.createElement('style');
+            moreCss.id = 'qsMoreCss';
+            moreCss.textContent = ''
+              + '#qsMoreWrap{margin:18px 0 6px;text-align:center}'
+              + '#qsMoreWrap[hidden],#qsMoreWrap [hidden]{display:none!important}'
+              + '#qsMoreWrap .qs-more__row{display:flex;align-items:center;gap:14px}'
+              + '#qsMoreWrap .qs-more__line{flex:1;height:1px;background:#e2e8f0}'
+              + '#qsMoreWrap .qs-more__btn{display:inline-flex;align-items:center;gap:8px;width:auto;height:38px;margin:0;padding:0 18px;border:1px solid color-mix(in srgb,var(--org-primary-color,#01535b) 35%,#e2e8f0);border-radius:999px;background:#fff;color:var(--org-primary-color,#01535b);font:inherit;font-size:.88rem;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.05);transition:background .15s,border-color .15s}'
+              + '#qsMoreWrap .qs-more__btn:hover{background:color-mix(in srgb,var(--org-primary-color,#01535b) 8%,#fff);border-color:var(--org-primary-color,#01535b)}'
+              + '#qsMoreWrap .qs-more__btn:focus-visible{outline:2px solid var(--org-primary-color,#01535b);outline-offset:2px}'
+              + '#qsMoreWrap .qs-more__btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}'
+              + '#qsMoreWrap .qs-more__meta{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:9px;color:#64748b;font-size:.78rem}'
+              + '#qsMoreWrap .qs-more__all{width:auto;height:auto;margin:0;padding:0;border:0;background:none;color:var(--org-primary-color,#01535b);font:inherit;font-size:.78rem;font-weight:600;text-decoration:underline;cursor:pointer;box-shadow:none}';
+            document.head.appendChild(moreCss);
+          }
+          var holder = document.createElement('div');
+          holder.id = 'qsMoreWrap';
+          holder.innerHTML = '<div class="qs-more__row"><span class="qs-more__line"></span>'
+            + '<button type="button" id="qsMore" class="qs-more__btn"><span class="qs-more__label"></span>'
+            + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>'
+            + '<span class="qs-more__line"></span></div>'
+            + '<div class="qs-more__meta"><span class="qs-more__count"></span><button type="button" class="qs-more__all">Show all</button></div>';
+          var groupsRoot = document.getElementById('question-set-groups');
+          groupsRoot.parentNode.insertBefore(holder, groupsRoot.nextSibling);
+          moreButton = holder.querySelector('#qsMore');
+          moreButton.addEventListener('click', function () { window.__qsShown = (window.__qsShown || 6) + 12; applyQuestionSetFilters(); });
+          holder.querySelector('.qs-more__all').addEventListener('click', function () { window.__qsShown = 100000; applyQuestionSetFilters(); });
+        }
+        var moreWrap = moreButton.closest('#qsMoreWrap');
+        var hiddenByRecent = limited ? Math.max(0, recentOrder.length - allowedRecent.size) : 0;
+        moreWrap.hidden = hiddenByRecent === 0;
+        var nextBatch = Math.min(12, hiddenByRecent);
+        moreButton.querySelector('.qs-more__label').textContent = nextBatch === hiddenByRecent
+          ? 'Show ' + (hiddenByRecent === 1 ? '1 older set' : 'the ' + hiddenByRecent + ' older sets')
+          : 'Show ' + nextBatch + ' more';
+        moreWrap.querySelector('.qs-more__count').textContent = 'Showing ' + allowedRecent.size + ' of ' + recentOrder.length + ' question sets';
+        moreWrap.querySelector('.qs-more__all').hidden = hiddenByRecent <= 12;
+
         classGroups.forEach(function (groupSection) {
           var subjectSections = Array.prototype.slice.call(groupSection.querySelectorAll('.js-subject-group'));
 
@@ -6662,6 +6726,7 @@
                 if (Number.isFinite(minPercent) && (!Number.isFinite(cardPercent) || cardPercent < minPercent)) matches = false;
                 if (Number.isFinite(maxPercent) && (!Number.isFinite(cardPercent) || cardPercent > maxPercent)) matches = false;
                 if (searchText && searchBlob.indexOf(searchText) === -1) matches = false;
+                if (limited && !allowedRecent.has(card)) matches = false;
 
                 card.hidden = !matches;
                 if (matches) visibleCount += 1;

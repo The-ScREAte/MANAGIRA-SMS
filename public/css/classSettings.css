@@ -170,3 +170,80 @@ label.cset-row__label { cursor: pointer; }
   .cset-legend dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .cset-legend dd { margin-bottom: 8px; }
 }
+
+/* ---------- The classroom's Class settings page: full width, one row per setting ---------- */
+.cset.cset--wide { max-width: none; width: 100%; gap: 16px; }
+.cset-page { max-width: none; }
+.cset-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cset-top__title { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.2; }
+.cset-status { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--cs-muted); }
+.cset-status:empty { display: none; }
+.cset-layout, .cset-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.cset--wide .cset-card { box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+.cset--wide .cset-card__head { padding: 16px 20px 8px; }
+.cset--wide .cset-card__title { font-size: 15px; }
+.cset--wide .cset-list--first .cset-row:first-child { border-top: 0; }
+.cset--wide .cset-row, .cset-crow__body .cset-row { display: flex; align-items: center; gap: 12px; padding: 13px 20px; }
+.cset--wide .cset-row:hover { background: color-mix(in srgb, var(--cs-brand) 4%, var(--cs-surface)); }
+.cset--wide .cset-row__label, .cset-crow__body .cset-row__label { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
+/* Every switch sits in a fixed cell, so the switches line up down the page whatever the words beside them. */
+.cset-cells { display: flex; flex: none; gap: 0; width: 280px; }
+.cset-cell { display: flex; align-items: center; justify-content: flex-start; width: 140px; margin: 0; cursor: pointer; }
+.cset-cell--end { justify-content: flex-start; }
+/* The column headings, once, above the switches (PARENTS, STUDENTS). */
+.cset-colhead { min-height: 0 !important; padding-top: 10px !important; padding-bottom: 6px !important; border-top: 1px solid var(--cs-line); border-bottom: 0; }
+.cset-colhead .cset-cell { cursor: default; color: var(--cs-text); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cset-colhead:hover { background: transparent !important; }
+.cset-msg { flex: none; }
+/* The padlock at the row's right edge: management's lock on a setting. */
+.cset-lockslot { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 30px; }
+.cset-lock { display: inline-grid; place-items: center; width: 30px; height: 30px; margin: 0; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--cs-muted); cursor: pointer; box-shadow: none; opacity: .55; transition: opacity .12s ease, background-color .12s ease; }
+.cset-lock:hover, .cset-lock:focus-visible { opacity: 1; border-color: var(--cs-line); background: var(--cs-soft); outline: none; }
+.cset-lock.is-locked { opacity: 1; color: var(--cs-brand); background: color-mix(in srgb, var(--cs-brand) 10%, var(--cs-surface)); }
+.cset-lock.is-static { cursor: default; border-color: transparent; }
+.cset-lock[aria-busy="true"] { opacity: .5; }
+@media (max-width: 640px) {
+  .cset-cells { width: 148px; }
+  .cset-cell { width: 74px; }
+  .cset-colhead .cset-cell { font-size: 10.5px; letter-spacing: .03em; }
+  .cset--wide .cset-row, .cset-crow__body .cset-row { padding: 12px 14px; gap: 8px; }
+  .cset-crow__body .cset-row { padding-left: 18px; padding-right: 14px; }
+  .cset-top { padding: 0 4px; }
+  .cset-lockslot { width: 30px; }
+}
+
+/* ---------- Management › Class settings: one row per class, opened for its sharing ---------- */
+.cset-classes { display: grid; }
+.cset-crow { border-top: 1px solid var(--cs-line); }
+.cset-crow__head { display: flex; align-items: center; gap: 12px; padding: 12px 20px; }
+.cset-crow__head:hover { background: color-mix(in srgb, var(--cs-brand) 4%, var(--cs-surface)); }
+.cset-crow__name { flex: 1; min-width: 0; display: grid; }
+.cset-crow__name strong { font-size: 14px; font-weight: 600; }
+.cset-crow__name small { color: var(--cs-muted); font-size: 12px; }
+.cset-hcell { display: flex; flex: none; align-items: center; gap: 10px; width: 240px; }
+.cset-hcell__label { flex: 1; margin: 0; font-size: 13px; font-weight: 500; color: var(--cs-muted); cursor: pointer; }
+.cset-crow__toggle { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin: 0 0 0 6px; padding: 0; border: 1px solid var(--cs-line); border-radius: 8px; background: var(--cs-surface); color: var(--cs-muted); cursor: pointer; }
+.cset-crow__toggle:hover { border-color: var(--cs-brand); color: var(--cs-brand); }
+.cset-crow__chev { width: 15px; height: 15px; transition: transform .15s ease; }
+.cset-crow.is-open .cset-crow__chev { transform: rotate(90deg); }
+.cset-crow__body { padding: 4px 0 8px; background: var(--cs-soft); }
+.cset-crow__body[hidden] { display: none; }
+.cset-crow__body .cset-row { padding-left: 40px; padding-right: 72px; border-top-color: transparent; }
+@media (max-width: 900px) {
+  .cset-crow__head { flex-wrap: wrap; gap: 10px 12px; padding: 12px 14px; }
+  .cset-crow__name { order: 1; flex: 1 1 0; }
+  .cset-crow__toggle { order: 2; margin: 0; }
+  .cset-hcell { order: 3; width: 100%; flex: 1 1 100%; }
+}
+
+/* The class's weekly briefing follows the school's choices until it's given its own: rows show them, quietly. */
+.cset-list.is-readonly .cset-switch { opacity: .5; }
+.cset-cell--na { color: #cbd5e1; justify-content: center; }
+
+/* A small number stepper (the attendance notices: after how many in a week). */
+.cset-num { display: inline-flex; align-items: center; gap: 4px; }
+.cset-num__btn { display: inline-grid; place-items: center; width: 28px; height: 28px; margin: 0; padding: 0; border: 1px solid var(--cs-line, #dbe3e7); border-radius: 8px; background: #fff; color: #334155; font: inherit; font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: none; }
+.cset-num__btn:hover { border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); }
+.cset-num__input { width: 44px; height: 28px; margin: 0; padding: 0; border: 1px solid var(--cs-line, #dbe3e7); border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-weight: 700; text-align: center; -moz-appearance: textfield; box-shadow: none; }
+.cset-num__input::-webkit-outer-spin-button, .cset-num__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cset-subhead { margin: 14px 0 4px; padding: 0 20px; color: #64748b; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }

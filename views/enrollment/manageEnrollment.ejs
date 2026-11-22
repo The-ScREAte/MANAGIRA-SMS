@@ -128,9 +128,15 @@
   .me-p-none { margin: 0 0 12px 24px; color: var(--ws-muted, #64748b); font-size: .88rem; }
   .ux-panel.is-editing { width: min(760px, 100vw); }
   @media (max-width: 640px) {
-    .me .me-row { gap: 10px; padding: 12px; }
+    /* The name gets the whole line; the counts sit under it. */
+    .me .me-row { display: grid; grid-template-columns: 38px auto 1fr auto; grid-template-areas: "icon main main go" ". a b ."; align-items: center; gap: 6px 12px; padding: 12px; text-align: left; }
+    .me-row__icon { grid-area: icon; }
+    .me-row__main { grid-area: main; }
+    .me-row__main strong { flex-wrap: wrap; }
+    .me-row__go { grid-area: go; }
     .me-stat { min-width: 0; }
-    .me-stat:nth-of-type(1) { display: none; }
+    .me-stat:nth-of-type(3) { grid-area: a; }
+    .me-stat:nth-of-type(4) { grid-area: b; }
     .me-p-class ol { columns: 1; }
   }
 </style>

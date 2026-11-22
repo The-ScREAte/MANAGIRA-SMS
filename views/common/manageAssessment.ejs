@@ -587,6 +587,8 @@
   .ma-term-pick select { margin: 0; padding: 8px 30px 8px 10px; border: 1px solid var(--ws-line, #e2e8f0); border-radius: 8px; background-color: transparent; color: inherit; font: inherit; font-size: 13.5px; max-width: 260px; }
   @media (max-width: 640px) { .ma-term-pick select { max-width: 100%; } }
 </style>
+<style>@media (max-width: 900px) { body .ws-root table.ws-cards tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ux-filter-toggle { margin: 0 0 10px; } body .ws-btn.ux-filter-toggle[hidden] { display: none; }</style>
 <script src="/js/manage.js" defer></script>
 <% if (locals.assessmentFlow) { %><link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><% } %>
 <div class="page-wrap ws-root">
@@ -624,6 +626,7 @@
     const _day = (v) => (v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
     const _cats = Array.from(new Set(_list.map((a) => a.category).filter(Boolean))).sort();
     const _classNames = Array.from(new Set(_list.flatMap((a) => (a.assigned_classes || []).map((c) => c.class_name)).filter(Boolean))).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+    const _subjectNames = Array.from(new Set(_list.flatMap((a) => (a.assigned_classes || []).flatMap((c) => (c.subjects || []))).filter(Boolean))).sort((x, y) => String(x).localeCompare(String(y)));
     const _panelData = _list.map((a) => ({
       id: String(a.group_id),
       title: a.title,
@@ -640,11 +643,18 @@
       obsolete: Boolean(a.is_obsolete),
       results: a.is_choice ? ('Choice: ' + a.choice_summary + (a.choice_counts ? ' (with points)' : ' (not in totals)')) : 'Score',
       classes: (a.assigned_classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).filter(Boolean) })),
+      // What the list's row shows (the table is drawn in the browser, 50 at a time).
+      isChoice: Boolean(a.is_choice),
+      choiceSummary: a.choice_summary || '',
+      choiceCounts: Boolean(a.choice_counts),
+      shownWeight: a.weight,
+      shownMax: a.is_choice ? null : Number(a.max_score),
     }));
   %>
   <% if (!_list.length) { %>
     <div class="ws-card ws-empty"><strong>No assessments yet</strong>Choose New test to add one for this term.</div>
   <% } else { %>
+  <button type="button" class="ws-btn ux-filter-toggle" id="uxFilterToggle" aria-expanded="false" hidden><i class="fa-solid fa-sliders" aria-hidden="true"></i> Filters</button>
   <div class="ux-layout">
     <aside class="ux-filters" id="uxFilters" aria-label="Filter assessments">
       <div class="ux-filters__head"><strong>Filters</strong><button type="button" class="ux-link" id="uxClear">Clear</button></div>
@@ -658,6 +668,9 @@
       <label class="ux-field"><span>Class</span>
         <select id="uxClass"><option value="">Any class</option><% _classNames.forEach((c) => { %><option><%= c %></option><% }) %></select>
       </label>
+      <label class="ux-field"><span>Subject</span>
+        <select id="uxSubject"><option value="">Any subject</option><% _subjectNames.forEach((c) => { %><option><%= c %></option><% }) %></select>
+      </label>
       <p class="ux-shown" id="uxShown" aria-live="polite"></p>
     </aside>
 
@@ -666,29 +679,18 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Status</th>
+            <th>Class</th>
+            <th>Subject</th>
+            <th>Category</th>
             <th>Weight</th>
             <th>Out of</th>
-            <th>Category</th>
-            <th>Classes</th>
+            <th>Status</th>
           </tr>
         </thead>
-        <tbody id="uxBody">
-          <% _list.forEach(function (a) { const st = _status(a); %>
-            <tr class="ux-row" tabindex="0" data-group-id="<%= a.group_id %>"
-                data-name="<%= String(a.title || '').toLowerCase() %>" data-status="<%= st %>" data-category="<%= a.category %>"
-                data-classes="<%= (a.assigned_classes || []).map((c) => c.class_name).join('|') %>">
-              <td class="ws-card-title"><% if (a.is_obsolete) { %><s class="ux-struck" title="Obsolete: kept on report cards, closed to new scores"><strong><%= a.title %></strong></s><% } else { %><strong><%= a.title %></strong><% } %></td>
-              <td><span class="ws-pill <%= st === 'Open' ? 'ws-pill--green' : st === 'Locked' || st === 'Closed' ? 'ws-pill--amber' : '' %>"><%= st %></span></td>
-              <td><%= a.is_choice && !a.choice_counts ? '—' : a.weight + '%' %></td>
-              <td><% if (a.is_choice) { %><span class="ws-pill" title="Results are recorded as a choice"><%= a.choice_summary %></span><% } else { %><%= Number(a.max_score) %><% } %></td>
-              <td><%= a.category %></td>
-              <td><span class="ws-pill"><%= (a.assigned_classes || []).length %></span></td>
-            </tr>
-          <% }); %>
-        </tbody>
+        <tbody id="uxBody"><tr class="ux-skeleton"><td colspan="7" style="padding:28px 12px;text-align:center;color:#64748b;">Loading…</td></tr></tbody>
       </table>
       <p class="ux-empty" id="uxEmpty" hidden>No assessments match these filters.</p>
+      <div id="uxPager"></div>
     </div>
   </div>
   <% } %>
@@ -706,6 +708,8 @@
       <iframe id="uxEditFrame" title="Edit assessment"></iframe>
     </div>
   </aside>
+  <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+  <script src="<%= assetUrl('/js/listPager.js') %>"></script>
   <script type="application/json" id="uxAssessments"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
 </div>
@@ -778,28 +782,68 @@
   /* ---- Filters and side panel ---- */
   (function () {
     var get = function (id) { return document.getElementById(id); };
-    var rows = Array.prototype.slice.call(document.querySelectorAll('tr.ux-row'));
     var items = [];
     try { items = JSON.parse(get('uxAssessments').textContent) || []; } catch (e) { items = []; }
-    var fields = ['uxName', 'uxStatus', 'uxCategory', 'uxClass'];
+    // The table is drawn here, a page at a time (Rows per page: 10 to 200): the term's assessments are sent once as compact data.
+    var matches = items.slice(), selectedId = '';
+    function escH(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+    // One class: its name. Several: how many, with the first names on hover. Same for subjects.
+    function classText(a) {
+      var cs = a.classes || [];
+      if (!cs.length) return '—';
+      if (cs.length === 1) return escH(cs[0].name);
+      return '<span title="' + escH(cs.map(function (c) { return c.name; }).join(', ')) + '">' + escH(cs[0].name) + ' <span class="ws-pill">+' + (cs.length - 1) + '</span></span>';
+    }
+    function subjectText(a) {
+      var seen = {}, list = [];
+      (a.classes || []).forEach(function (c) { (c.subjects || []).forEach(function (n) { if (!seen[n]) { seen[n] = 1; list.push(n); } }); });
+      if (!list.length) return '—';
+      if (list.length <= 2) return escH(list.join(', '));
+      return '<span title="' + escH(list.join(', ')) + '">' + escH(list[0]) + ', ' + escH(list[1]) + ' <span class="ws-pill">+' + (list.length - 2) + '</span></span>';
+    }
+    function rowHtml(a) {
+      var pill = a.status === 'Open' ? 'ws-pill--green' : (a.status === 'Locked' || a.status === 'Closed') ? 'ws-pill--amber' : '';
+      var title = a.obsolete ? '<s class="ux-struck" title="Obsolete: kept on report cards, closed to new scores"><strong>' + escH(a.title) + '</strong></s>' : '<strong>' + escH(a.title) + '</strong>';
+      return '<tr class="ux-row' + (String(a.id) === selectedId ? ' is-selected' : '') + '" tabindex="0" data-group-id="' + escH(a.id) + '">'
+        + '<td class="ws-card-title">' + title + '</td>'
+        + '<td class="ws-card-wide" data-label="Class">' + classText(a) + '</td>'
+        + '<td class="ws-card-wide" data-label="Subject">' + subjectText(a) + '</td>'
+        + '<td data-label="Category">' + escH(a.category) + '</td>'
+        + '<td data-label="Weight">' + (a.isChoice && !a.choiceCounts ? '—' : escH(a.shownWeight) + '%') + '</td>'
+        + '<td data-label="Out of">' + (a.isChoice ? '<span class="ws-pill" title="Results are recorded as a choice">' + escH(a.choiceSummary) + '</span>' : escH(a.shownMax)) + '</td>'
+        + '<td data-label="Status"><span class="ws-pill ' + pill + '">' + escH(a.status) + '</span></td></tr>';
+    }
+    var pager = get('uxPager') ? ManagiraPager.create({ mount: get('uxPager'), key: 'assessments', total: items.length, onChange: function (st) {
+      var tb = get('uxBody'); if (!tb) return;
+      tb.innerHTML = matches.slice(Math.max(0, st.from - 1), st.to).map(rowHtml).join('');
+    } }) : null;
+    function redraw() { if (pager) pager.setTotal(matches.length); }
+    var fields = ['uxName', 'uxStatus', 'uxCategory', 'uxClass', 'uxSubject'];
     function apply() {
       if (!get('uxName')) return;
-      var name = get('uxName').value.trim().toLowerCase(), st = get('uxStatus').value, cat = get('uxCategory').value, cls = get('uxClass').value;
-      var shown = 0;
-      rows.forEach(function (row) {
-        var d = row.dataset;
-        var ok = (!name || d.name.indexOf(name) !== -1) && (!st || d.status === st) && (!cat || d.category === cat)
-          && (!cls || ('|' + d.classes + '|').indexOf('|' + cls + '|') !== -1);
-        row.hidden = !ok;
-        if (ok) shown += 1;
+      var name = get('uxName').value.trim().toLowerCase(), st = get('uxStatus').value, cat = get('uxCategory').value, cls = get('uxClass').value, sub = get('uxSubject').value;
+      matches = items.filter(function (a) {
+        return (!name || String(a.title || '').toLowerCase().indexOf(name) !== -1) && (!st || a.status === st) && (!cat || a.category === cat)
+          && (!cls || (a.classes || []).some(function (c) { return c.name === cls; }))
+          && (!sub || (a.classes || []).some(function (c) { return (c.subjects || []).indexOf(sub) !== -1; }));
       });
-      get('uxShown').textContent = 'Showing ' + shown + ' of ' + rows.length;
+      var shown = matches.length;
+      redraw();
+      get('uxShown').textContent = 'Showing ' + shown + ' of ' + items.length;
       get('uxEmpty').hidden = shown !== 0;
     }
     if (get('uxName')) {
       fields.forEach(function (id) { var el = get(id); el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', apply); });
       get('uxClear').addEventListener('click', function () { fields.forEach(function (id) { get(id).value = ''; }); apply(); });
-      if (window.matchMedia('(max-width: 900px)').matches) document.querySelector('.ux-layout').classList.add('ux-filters-off');
+      // Filters sit beside the list on a wide screen and open from a Filters button on a narrow one (checked again whenever the width changes: a panel loaded while hidden was measured narrow and lost its filters).
+      var layout = document.querySelector('.ux-layout'), toggle = get('uxFilterToggle'), mq = window.matchMedia('(max-width: 900px)'), openNarrow = false;
+      function syncFilters() {
+        layout.classList.toggle('ux-filters-off', mq.matches && !openNarrow);
+        if (toggle) { toggle.hidden = !mq.matches; toggle.setAttribute('aria-expanded', openNarrow ? 'true' : 'false'); }
+      }
+      if (toggle) toggle.addEventListener('click', function () { openNarrow = !openNarrow; syncFilters(); });
+      if (mq.addEventListener) mq.addEventListener('change', syncFilters); else if (mq.addListener) mq.addListener(syncFilters);
+      syncFilters();
       apply();
     }
     function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -864,14 +908,16 @@
       get('uxBackdrop').hidden = false;
       get('uxPanel').classList.add('is-open');
       get('uxPanel').setAttribute('aria-hidden', 'false');
-      rows.forEach(function (r) { r.classList.toggle('is-selected', r.dataset.groupId === String(id)); });
+      selectedId = String(id);
+      Array.prototype.forEach.call(document.querySelectorAll('tr.ux-row'), function (r) { r.classList.toggle('is-selected', r.dataset.groupId === String(id)); });
     }
     function close() {
       get('uxPanel').classList.remove('is-open', 'is-editing');
       get('uxPanel').setAttribute('aria-hidden', 'true');
       get('uxBackdrop').hidden = true;
       get('uxEditFrame').removeAttribute('src');
-      rows.forEach(function (r) { r.classList.remove('is-selected'); });
+      selectedId = '';
+      Array.prototype.forEach.call(document.querySelectorAll('tr.ux-row'), function (r) { r.classList.remove('is-selected'); });
     }
     window.openAssessmentPanel = open;
     get('uxClose').addEventListener('click', close);

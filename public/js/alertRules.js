@@ -36,6 +36,13 @@
     clearTimeout(note._t);
     if (!bad && text) note._t = setTimeout(function () { note.textContent = ""; }, 2000);
   }
+  // The columns of a Notifications section: the fixed channel columns the alerts use, and the one the
+  // emails list below them sits in (Email).
+  function setColumns(scope, cols) {
+    scope.style.setProperty("--ns-n", String(Math.max(1, cols.length)));
+    var at = cols.indexOf("email");
+    scope.querySelectorAll("form[data-ns-form] .ns-switch").forEach(function (sw) { sw.style.gridColumn = String((at === -1 ? 0 : at) + 2); });
+  }
   function query(root) { return root.dataset.studentId ? "?studentId=" + encodeURIComponent(root.dataset.studentId) : ""; }
 
   function draw(root, data) {
@@ -45,74 +52,80 @@
     var same = null;
     if (data.studentId) {
       var top = el("div", "ns-row ns-same");
-      var copy = el("div", "ns-copy");
-      copy.appendChild(el("strong", "", "Use my alerts for all my children"));
-      copy.appendChild(el("span", "", "Turn off to choose alerts for this child alone."));
+      var main = el("div", "ns-main");
+      main.appendChild(el("strong", "ns-name", "Use my alerts for all my children"));
       var s = makeSwitch(!data.custom, "Use my alerts for all my children");
       same = s.input;
-      var main = el("div", "ns-main");
-      main.appendChild(copy);
       main.appendChild(s.wrap);
       top.appendChild(main);
       form.appendChild(top);
     }
     var list = el("div", "ns-list");
+    var locked = data.locked || [];
+    // The columns: every way any of these alerts can reach someone, in one fixed order (the Emails
+    // below line up under their Email column). Headings once, at the top.
+    var scope = root.closest("[data-ns-scope]");
+    var order = ["bell", "email", "sms", "digest"];
+    var cols = order.filter(function (c) { return data.alerts.some(function (a) { return a.offered.indexOf(c) !== -1; }); });
+    if (scope && scope.querySelector("form[data-ns-form]") && cols.indexOf("email") === -1) { cols.push("email"); cols.sort(function (x, y) { return order.indexOf(x) - order.indexOf(y); }); }
+    setColumns(scope || form, cols);
+    var head = el("div", "ns-row ns-colhead");
+    var headMain = el("div", "ns-main");
+    headMain.appendChild(el("span", "ns-name"));
+    cols.forEach(function (c) { headMain.appendChild(el("span", "ns-cell", CHANNEL_NAMES[c])); });
+    head.appendChild(headMain);
+    list.appendChild(head);
     var groups = [];
-    data.alerts.forEach(function (alert) { if (groups.indexOf(alert.group) === -1) groups.push(alert.group); });
+    data.alerts.concat(locked).forEach(function (alert) { if (groups.indexOf(alert.group) === -1) groups.push(alert.group); });
     groups.forEach(function (group) {
       var section = el("section", "ns-group");
       section.appendChild(el("h3", "ns-group__title", group));
       var rows = el("div", "ns-rows");
-      data.alerts.filter(function (a) { return a.group === group; }).forEach(function (alert, index) {
+      data.alerts.filter(function (a) { return a.group === group; }).forEach(function (alert) {
+        // One line: the name (and its percentage), then a switch under each way to be told. Nothing on = off.
         var row = el("div", "ns-row ns-" + alert.tone);
         row.dataset.kind = alert.kind;
         var main = el("div", "ns-main");
-        var copy = el("div", "ns-copy");
-        copy.appendChild(el("strong", "", alert.name));
-        copy.appendChild(el("span", "", alert.hint));
-        var sw = makeSwitch(alert.enabled, alert.name);
-        sw.input.className = "ns-on";
-        main.appendChild(copy);
-        main.appendChild(sw.wrap);
-        row.appendChild(main);
-
-        var more = el("div", "ns-more");
+        var name = el("div", "ns-name");
+        name.appendChild(el("strong", "", alert.name));
         if (alert.unit) {
           var field = el("label", "ns-threshold");
-          field.appendChild(el("span", "", alert.tone === "improve" ? "Below" : "At or above"));
+          field.appendChild(el("span", "", alert.tone === "improve" ? "below" : "at or above"));
           var number = el("input", "ns-number");
           number.type = "number"; number.min = alert.min; number.max = alert.max; number.step = "1"; number.inputMode = "numeric";
           number.value = alert.threshold;
+          number.setAttribute("aria-label", alert.name + " percentage");
           field.appendChild(number);
           field.appendChild(el("span", "", alert.unit));
-          more.appendChild(field);
+          name.appendChild(field);
         }
-        var chips = el("div", "ns-chips");
-        chips.setAttribute("role", "group");
-        chips.setAttribute("aria-label", "How to tell you");
-        alert.offered.forEach(function (channel) {
-          var chip = el("label", "ns-chip");
-          var box = el("input");
-          box.type = "checkbox"; box.value = channel; box.checked = alert.channels.indexOf(channel) !== -1;
-          chip.appendChild(box);
-          chip.appendChild(el("span", "", CHANNEL_NAMES[channel]));
-          chips.appendChild(chip);
+        main.appendChild(name);
+        cols.forEach(function (channel) {
+          if (alert.offered.indexOf(channel) === -1) { main.appendChild(el("span", "ns-cell ns-na", "—")); return; }
+          var cell = el("span", "ns-cell");
+          cell.setAttribute("data-label", CHANNEL_NAMES[channel]);
+          var sw = makeSwitch(alert.enabled && alert.channels.indexOf(channel) !== -1, alert.name + ": " + CHANNEL_NAMES[channel]);
+          sw.input.value = channel;
+          sw.input.className = "ns-ch";
+          cell.appendChild(sw.wrap);
+          main.appendChild(cell);
         });
-        more.appendChild(chips);
-        row.appendChild(more);
-        var sync = function () { row.classList.toggle("is-off", !sw.input.checked); more.hidden = !sw.input.checked; };
-        sw.input.addEventListener("change", sync);
-        sync();
+        row.appendChild(main);
+        rows.appendChild(row);
+      });
+      // What the school decides for this person: shown, not hidden, and not theirs to change.
+      locked.filter(function (a) { return a.group === group; }).forEach(function (alert) {
+        var row = el("div", "ns-row ns-locked");
+        var main = el("div", "ns-main");
+        main.appendChild(el("strong", "ns-name", alert.name));
+        main.appendChild(el("span", "ns-lock", "Set by your school"));
+        row.appendChild(main);
         rows.appendChild(row);
       });
       section.appendChild(rows);
       list.appendChild(section);
     });
     form.appendChild(list);
-
-    var notes = [];
-    if (!data.available.sms) notes.push("Text messages appear once your school sets them up.");
-    if (notes.length) form.appendChild(el("p", "ns-note", notes.join(" ")));
     root.appendChild(form);
 
     var syncSame = function () {
@@ -125,10 +138,12 @@
     root._nsSave = function () {
       var payload = { alerts: {}, same: Boolean(same && same.checked) };
       list.querySelectorAll(".ns-row").forEach(function (row) {
-        var entry = { enabled: row.querySelector(".ns-on").checked, channels: [] };
+        if (!row.dataset.kind) return;
+        var entry = { enabled: false, channels: [] };
         var number = row.querySelector(".ns-number");
         if (number) entry.threshold = number.value;
-        row.querySelectorAll(".ns-chip input:checked").forEach(function (box) { entry.channels.push(box.value); });
+        row.querySelectorAll(".ns-ch:checked").forEach(function (box) { entry.channels.push(box.value); });
+        entry.enabled = entry.channels.length > 0;
         payload.alerts[row.dataset.kind] = entry;
       });
       return fetch("/alerts/save" + query(root), {
@@ -204,6 +219,7 @@
   function start() {
     document.querySelectorAll("[data-alert-rules]").forEach(function (root) { if (!root.dataset.ready) { root.dataset.ready = "1"; mount(root); } });
     document.querySelectorAll("form[data-ns-form]").forEach(function (form) { if (!form.dataset.ready) { form.dataset.ready = "1"; emailForm(form); } });
+    document.querySelectorAll("[data-ns-scope]").forEach(function (scope) { if (!scope.querySelector("[data-alert-rules]")) setColumns(scope, ["email"]); });
     document.querySelectorAll("[data-ns-savebar]").forEach(function (bar) { if (!bar.dataset.ready) { bar.dataset.ready = "1"; saveBar(bar); } });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
