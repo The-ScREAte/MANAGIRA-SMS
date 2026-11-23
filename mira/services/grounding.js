@@ -24,18 +24,68 @@ function toNumber(figure) {
   return Number(String(figure).replace(/,/g, ""));
 }
 
+// Dates and times in a reply are checked by unsupportedDates/wrongWeekdays, not as figures: the
+// 12 in "October 12" or the 30 in "9:30" isn't a count.
+const ISO_DATE = /\b(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/g;
+const SLASH_DATE = /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g;
+const TIME = /\b\d{1,2}:\d{2}(?::\d{2})?(?:\s?[ap]\.?m\.?)?/gi;
+
+// Numbers joined by hyphens are codes, not figures: a phone number (555-0319), a student number
+// (S146-10), a school year (2026-2027).
+const CODE = /[\p{L}\d]*\d[\p{L}\d]*(?:[-–][\p{L}\d]+)+/gu;
+
+function withoutDates(text) {
+  return String(text || "")
+    .replace(MONTH_RANGE, " ")
+    .replace(ISO_DATE, " ")
+    .replace(SLASH_DATE, " ")
+    .replace(TIME, " ")
+    .replace(SAID_MONTH_FIRST, " ")
+    .replace(SAID_DAY_FIRST, " ")
+    .replace(CODE, " ");
+}
+
+// The whole values evidence holds. A figure is backed only by a whole value, never by a piece of
+// something else: not the day or month inside a date (2026-10-12 backs no "12 students"), not an
+// id ("class_id":1004 backs no "1004 students"), not digits inside a word or code ("v12",
+// "room_12", a UUID). A date's year does count: "the 2026 school year".
+const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const ID_VALUE = /\\?"[A-Za-z_]*(?:_id|Id|ID|_ids|Ids)\\?"\s*:\s*(?:\[[\d,\s]*\]|-?\d+)/g;
+const BARE_ID = /\\?"id\\?"\s*:\s*-?\d+/g;
+const WHOLE_VALUE = /(?<![\w.,-])\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\w])|(?<![\w.-])\d+(?:\.\d+)?(?![\w-])/g;
+
+// Ids are kept apart: a reply may quote one exactly (a student number in a table), but no count
+// is ever rounded from one. Returns { values, ids }.
+function evidenceIds(pool) {
+  const ids = [];
+  for (const m of pool.matchAll(ID_VALUE)) ids.push(...(m[0].split(":").pop().match(/-?\d+/g) || []));
+  for (const m of pool.matchAll(BARE_ID)) ids.push(...(m[0].split(":").pop().match(/-?\d+/g) || []));
+  return ids;
+}
+
+function evidenceValues(pool) {
+  const years = (pool.match(ISO_DATE) || []).map((d) => d.slice(0, 4));
+  const cleaned = pool
+    .replace(UUID, " ")
+    .replace(ID_VALUE, " ")
+    .replace(BARE_ID, " ")
+    .replace(ISO_DATE, " ")
+    .replace(SLASH_DATE, " ")
+    .replace(TIME, " ");
+  return [...years, ...(cleaned.match(WHOLE_VALUE) || [])];
+}
+
 function unsupportedFigures(reply, evidence) {
-  const found = figuresIn(reply).filter((figure) => toNumber(figure) >= 10);
+  const found = figuresIn(withoutDates(reply)).filter((figure) => toNumber(figure) >= 10);
   if (!found.length) return [];
   const pool = (Array.isArray(evidence) ? evidence : [evidence]).map((part) => String(part || "")).join("\n");
   const known = new Set();
   const values = [];
-  // Evidence is read loosely: every run of digits counts, so the day in a
-  // timestamp like 2026-10-12T00:00:00Z backs up "October 12".
-  (pool.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g) || []).forEach((figure) => {
+  evidenceValues(pool).forEach((figure) => {
     known.add(String(figure).replace(/,/g, ""));
     values.push(toNumber(figure));
   });
+  evidenceIds(pool).forEach((id) => known.add(id));
   const supported = (figure) => {
     const plain = String(figure).replace(/,/g, "");
     if (known.has(plain)) return true;
@@ -52,6 +102,8 @@ const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "frida
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const DAY = "(sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?";
 const MONTH = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+// "November 1–18", "Nov 3 - 7": a range of days in a month.
+const MONTH_RANGE = new RegExp(`\\b${MONTH}\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\s*[–—-]\\s*\\d{1,2}(?:st|nd|rd|th)?\\b`, "gi");
 const MONTH_FIRST = new RegExp(`\\b${DAY}\\.?,?\\s+${MONTH}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`, "gi");
 const DAY_FIRST = new RegExp(`\\b${DAY}\\.?,?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${MONTH}\\b\\.?(?:,?\\s+(\\d{4}))?`, "gi");
 
@@ -125,4 +177,125 @@ function unsupportedDates(reply, evidence) {
     .map((d) => d.said))];
 }
 
-module.exports = { unsupportedFigures, figuresIn, wrongWeekdays, unsupportedDates };
+// ── Names ──
+// Every person, class or place named in a reply must be named somewhere it could have come from:
+// a tool result, the context, or the person's own words. A name is a run of two to four
+// Capitalised words ("Emma Carter", "Ama Owusu-Mensah"). Words that are ordinary English - ones
+// written in lower case somewhere in Mira's instructions, the tools' descriptions or the reply
+// itself ("Attendance Summary", "Next Steps") - prove nothing either way, so only the other
+// words of a name are looked for; a run made only of ordinary words is no name. Every word that
+// remains must appear, whole and in any case, in the evidence. Headings are skipped.
+const NAME_RUN = /(?<![\p{L}\p{N}])(?:\p{Lu}[\p{Ll}'’-]+|\p{Lu}\.)(?:[ \t]+(?:\p{Lu}[\p{Ll}'’-]+|\p{Lu}\.|de|da|del|van|von|la|le|bin|al)){1,3}(?![\p{L}\p{N}])/gu;
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "mx", "dr", "prof", "sir", "madam", "mr.", "mrs.", "ms.", "dr."]);
+// Product and feature names written capitalised everywhere, and calendar words.
+const ALWAYS_COMMON = new Set([
+  "managira", "mira", "paygira", "hub", "january", "february", "march", "april", "may", "june", "july", "august", "september",
+  "october", "november", "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "i", "i'm", "i've", "i'll", "i'd", "ok", "okay",
+  // Greetings and openers that start a sentence before a name ("Hi Henry", "Thanks Ama").
+  "hi", "hello", "hey", "dear", "thanks", "thank", "congratulations", "welcome", "great", "sure", "yes", "no", "good", "morning",
+  "afternoon", "evening", "note", "update", "reminder", "re", "fyi",
+  // Everyday words, so a capitalised one ("About Us", "Here Is") never needs a record.
+  "a", "an", "the", "and", "or", "but", "if", "of", "in", "on", "at", "to", "for", "from", "by", "with", "about", "as", "into", "over",
+  "under", "after", "before", "up", "down", "out", "off", "all", "any", "each", "every", "some", "no", "not", "our", "us", "we", "you",
+  "your", "my", "me", "it", "its", "this", "that", "these", "those", "here", "there", "what", "which", "who", "how", "why", "when",
+  "where", "is", "are", "was", "were", "be", "has", "have", "had", "do", "does", "can", "will", "new", "next", "first", "last", "more",
+  "most", "other", "own", "same", "so", "than", "too", "very", "just", "also", "now", "then", "only", "both", "per",
+]);
+
+const fold = (word) => word.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[’]/g, "'").replace(/^'+|'+$/g, "").replace(/'s$/, "");
+
+// Words written in lower case in these texts: ordinary words.
+function commonWords(texts) {
+  const words = new Set(ALWAYS_COMMON);
+  for (const text of texts) {
+    for (const m of String(text || "").matchAll(/(?<![\p{L}])[\p{Ll}][\p{L}'’-]*/gu)) words.add(fold(m[0]));
+  }
+  return words;
+}
+
+function evidenceWords(pool) {
+  const words = new Set();
+  for (const m of pool.matchAll(/[\p{L}][\p{L}'’]*/gu)) {
+    words.add(fold(m[0]));
+    // Hyphenated names are found whole and in parts ("Owusu-Mensah").
+  }
+  for (const m of pool.matchAll(/[\p{L}][\p{L}'’]*(?:-[\p{L}][\p{L}'’]*)+/gu)) words.add(fold(m[0]));
+  return words;
+}
+
+function namesIn(reply) {
+  const text = String(reply || "")
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n")
+    .replace(/\]\([^)]*\)/g, "]")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/`[^`]*`/g, " ")
+    // Table cells and lines are separate: a name never runs across them.
+    .replace(/\|/g, "\n")
+    .replace(/[*_]/g, " ");
+  return [...new Set(text.match(NAME_RUN) || [])].map((name) => name.trim());
+}
+
+/**
+ * unsupportedNames(reply, evidence, ordinaryTexts) -> names in the reply with a word that no
+ * evidence holds. `ordinaryTexts` are texts whose lower-case words count as ordinary (Mira's
+ * instructions, the tools' descriptions); the reply's own lower-case words always do.
+ */
+function unsupportedNames(reply, evidence, ordinaryTexts = []) {
+  const names = namesIn(reply);
+  if (!names.length) return [];
+  const pool = (Array.isArray(evidence) ? evidence : [evidence]).map((part) => String(part || "")).join("\n");
+  const known = evidenceWords(pool);
+  const ordinary = commonWords([...ordinaryTexts, reply]);
+  const missing = [];
+  for (const name of names) {
+    const words = name.split(/\s+/).map(fold).filter((w) => w && !TITLES.has(w));
+    const telling = words.filter((w) => !ordinary.has(w) && w.length > 1);
+    if (!telling.length) continue;
+    const absent = telling.filter((w) => !known.has(w) && !w.split("-").every((part) => known.has(part)));
+    if (absent.length) missing.push(name);
+  }
+  return missing;
+}
+
+// ── "All" and "none" claims ──
+// "All fees are paid", "no one is absent", "everyone returned the form": a claim about every
+// student needs a lookup that found none outstanding - a zero total or an empty list in a tool
+// result. Without one, the reply can't say it (a list of 3 who owe never backs "all paid").
+const NEGATIVE = "(?:owe|owes|owing|owed|unpaid|outstanding|overdue|missing|absent|late|behind|below|incomplete|not (?:yet )?(?:paid|returned|submitted|signed|completed|done)|hasn'?t|haven'?t|didn'?t|did not|has not|have not)";
+const POSITIVE = "(?:paid|paid up|returned|submitted|signed|completed|attended|present|up to date|cleared)";
+const CLAIMS = [
+  new RegExp(`\\b(?:no one|nobody|no students?|no pupils?|no learners?|no families|no parents|no guardians|none of (?:the|them|these|your)\\b[^.\\n]{0,30}?|not a single (?:student|one|family|parent))\\b[^.\\n]{0,50}?\\b${NEGATIVE}\\b`, "gi"),
+  new RegExp(`\\b(?:all|every|everyone|everybody|each)\\b[^.\\n]{0,40}?\\b(?:ha(?:ve|s)\\s+(?:all\\s+)?(?:been\\s+)?|are\\s+(?:all\\s+)?|is\\s+|were\\s+|was\\s+)?${POSITIVE}\\b`, "gi"),
+  /\b(?:fully paid|all paid|100% (?:attendance|paid|complete)|perfect attendance|no (?:outstanding|unpaid|overdue|missing) (?:fees|balances|forms|payments|requests|work))\b/gi,
+];
+// A zero count or an empty list in a tool result: a lookup that found none.
+const FOUND_NONE = /\\?"[A-Za-z_]*(?:total|count|outstanding|owing|owe|absent|missing|matched|with|below|overdue|unpaid|students|rows|results|not_|pending|declined|failed|incomplete|no_)[A-Za-z_]*\\?"\s*:\s*(?:0(?![\d.])|\[\s*\])|^\s*\[\s*\]\s*$/im;
+
+// "Each of these 3 has not paid" and "not all have returned it" say some haven't: no "all" claim.
+const NEGATED = /\b(?:not|never|yet to|still)\b|n'?t\b/i;
+
+function claimsIn(reply) {
+  const text = String(reply || "").replace(/[*_]/g, "");
+  const found = [];
+  CLAIMS.forEach((re, i) => {
+    for (const m of text.matchAll(re)) {
+      if (i === 1 && (NEGATED.test(m[0]) || /\bnot\s+$/i.test(text.slice(Math.max(0, m.index - 5), m.index)))) continue;
+      found.push(m[0].trim());
+    }
+  });
+  return [...new Set(found)];
+}
+
+/** unsupportedClaims(reply, toolResults) -> "all"/"none" claims no tool result found zero for. */
+function unsupportedClaims(reply, toolResults) {
+  const claims = claimsIn(reply);
+  if (!claims.length) return [];
+  const results = (Array.isArray(toolResults) ? toolResults : [toolResults]).map((part) => String(part || ""));
+  if (results.some((part) => FOUND_NONE.test(part))) return [];
+  return claims;
+}
+
+module.exports = { unsupportedFigures, figuresIn, wrongWeekdays, unsupportedDates, unsupportedNames, namesIn, unsupportedClaims, claimsIn, evidenceValues };

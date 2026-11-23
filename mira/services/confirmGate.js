@@ -135,8 +135,78 @@ function waiting(tenant, chatId, now = Date.now()) {
   return [...store.values()].filter((p) => mine(p, tenant, chatId) && p.state === "waiting" && p.expiresAt >= now).sort((a, b) => a.createdAt - b.createdAt);
 }
 
-function mark(p, state) {
-  if (p) p.state = state;
+// ── Kept in the database too (mira_previews), so a restart doesn't lose a waiting preview ──
+// The memory store stays the one the checks read (they're synchronous); the database is the
+// lasting copy: written when a preview is made, read back into memory at the start of each
+// turn (load), and the single-use claim is one UPDATE ... WHERE state = 'waiting', so two
+// servers or a restart can never run the same preview twice. Without a database (useDb not
+// called, as in the unit tests) everything works from memory as before.
+let database = null;
+function useDb(db) { database = db; }
+
+async function save(p) {
+  if (!database || !p) return;
+  await database.query(
+    `INSERT INTO mira_previews (id, organization_id, user_id, chat_id, turn, tool, args, details_key, level, label, key_detail, state, created_at, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, to_timestamp($13 / 1000.0), to_timestamp($14 / 1000.0))
+     ON CONFLICT (id) DO NOTHING`,
+    [p.id, p.organizationId, p.userId, p.chatId, p.turn, p.tool, JSON.stringify(p.args || {}), p.key, p.level, p.label, p.keyDetail || "", p.state, p.createdAt, p.expiresAt]
+  ).catch((error) => console.error("[mira/confirmGate] couldn't save a preview:", error.message));
+}
+
+// This chat's previews from the database, into memory (a restart, or another server made them).
+async function load(tenant, chatId) {
+  if (!database) return;
+  try {
+    const { rows } = await database.query(
+      `SELECT id, organization_id, user_id, chat_id, turn, tool, args, details_key, level, label, key_detail, state,
+              (extract(epoch FROM created_at) * 1000)::bigint AS created_ms, (extract(epoch FROM expires_at) * 1000)::bigint AS expires_ms
+         FROM mira_previews
+        WHERE organization_id = $1 AND user_id = $2 AND chat_id = $3 AND expires_at > now() - make_interval(secs => $4 / 1000.0)`,
+      [Number(tenant.organizationId), Number(tenant.userId), Number(chatId), PREVIEW_TTL_MS]
+    );
+    for (const row of rows) {
+      const known = store.get(row.id);
+      if (known) { if (row.state !== "waiting") known.state = row.state; continue; }
+      store.set(row.id, {
+        id: row.id, nonce: String(row.id).split(".")[0], organizationId: Number(row.organization_id), userId: Number(row.user_id), chatId: Number(row.chat_id),
+        turn: Number(row.turn) || 0, tool: row.tool, args: row.args || {}, key: row.details_key, level: Number(row.level), label: row.label,
+        keyDetail: row.key_detail || "", createdAt: Number(row.created_ms), expiresAt: Number(row.expires_ms), state: row.state,
+      });
+    }
+    // Old previews are cleared away (a day after they expired).
+    await database.query(`DELETE FROM mira_previews WHERE organization_id = $1 AND expires_at < now() - interval '1 day'`, [Number(tenant.organizationId)]);
+  } catch (error) {
+    console.error("[mira/confirmGate] couldn't load previews:", error.message);
+  }
+}
+
+async function mark(p, state) {
+  if (!p) return;
+  p.state = state;
+  if (database) {
+    await database.query(`UPDATE mira_previews SET state = $2 WHERE id = $1`, [p.id, state])
+      .catch((error) => console.error("[mira/confirmGate] couldn't update a preview:", error.message));
+  }
+}
+
+// Takes a preview for running, once: true only for the one caller that moved it from waiting
+// to done. With the database, that's decided there (a preview made before the database copy
+// existed, with no row, is claimed from memory).
+async function claim(p) {
+  if (!p || p.state !== "waiting") return false;
+  p.state = "done";
+  if (!database) return true;
+  try {
+    const { rows } = await database.query(`UPDATE mira_previews SET state = 'done' WHERE id = $1 AND state = 'waiting' RETURNING id`, [p.id]);
+    if (rows.length) return true;
+    const { rows: any } = await database.query(`SELECT state FROM mira_previews WHERE id = $1`, [p.id]);
+    return any.length === 0;
+  } catch (error) {
+    // The database is down: memory still guarantees single use on this server.
+    console.error("[mira/confirmGate] couldn't claim a preview in the database:", error.message);
+    return true;
+  }
 }
 
 // What the person's message (or button) confirms or cancels. Returns
@@ -200,6 +270,6 @@ function looksLikePreview(result) {
 module.exports = {
   PREVIEW_TTL_MS, NATIVE_PREVIEW, MODEL_CONFIRM_REFUSAL,
   isYes, isNo, detailsKey, detailsOf, keyDetail, typedDetail,
-  create, verify, waiting, mark, decide, looksLikePreview,
+  create, verify, waiting, mark, claim, decide, looksLikePreview, useDb, save, load,
   _store: store,
 };

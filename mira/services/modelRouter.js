@@ -13,15 +13,52 @@ require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env"
 // OpenAI/Anthropic keys still work standalone/as further fallbacks if
 // configured.
 //
-// Note: the account's current OpenRouter tier caps prompt tokens at ~10,696
-// ("Prompt tokens limit exceeded"), while Mira's real system prompt + tool
-// schema is ~30,000 tokens, so OpenRouter currently fails on every real turn
-// before falling through to Telnyx. It's kept first anyway because that
-// failure is fast (~1s, a fast 402) - the real hang risk was Telnyx itself
-// having no request timeout (fixed via PROVIDER_TIMEOUT_MS below), not the
-// order providers are tried in.
+// (An OpenRouter prompt-size limit of ~10,700 tokens once failed every real turn; it no longer
+// applies - OpenRouter served all of Mira's turns in Nov 2026, prompts of 18,000+ tokens
+// included - so nothing is sent to Telnyx first any more.)
 const MIRA_TEMPERATURE = Math.min(1, Math.max(0, Number(process.env.MIRA_TEMPERATURE ?? 0.2) || 0));
 const PROVIDER_PRIORITY = ["openrouter", "telnyx", "openai", "anthropic"];
+
+// Claude 4.6 and later reject temperature (OpenRouter doesn't list it for them, and the direct
+// API answers 400), so it's sent only to models that take it; low temperature still applies to
+// the others (gpt-4o-mini, Telnyx's Kimi). Claude 5.x think before answering instead: how much is
+// set per task (reasoning effort) - low for lookups and plain turns, which need speed, medium for
+// drafting and changes.
+const NO_TEMPERATURE = /claude-(?:haiku|sonnet|opus|fable|mythos)-(?:5|4[.-][6-9])/;
+const takesTemperature = (model) => !NO_TEMPERATURE.test(String(model || ""));
+const THINKS = /claude-(?:haiku|sonnet|opus|fable|mythos)-5/;
+const EFFORT_BY_TASK = { classify: "low", lookup: "low", default: "low", draft: "medium", reasoning: "medium" };
+const effortFor = (model, task) => (THINKS.test(String(model || "")) ? EFFORT_BY_TASK[task] || "low" : null);
+// Room for the thinking as well as the reply: a Claude 5.x answer's thinking counts toward its
+// max_tokens, and a cut-off reply's tool calls are never run (readAnthropicStream).
+const maxTokensFor = (model) => (THINKS.test(String(model || "")) ? 4096 : 2048);
+
+// Strict tool schemas (Claude's `strict: true`: the model can only send details that fit the
+// schema). Off unless MIRA_STRICT_TOOLS=true, until a live call confirms the provider accepts
+// them; the orchestrator checks every call's details in code either way (services/argCheck.js).
+const STRICT_TOOLS = String(process.env.MIRA_STRICT_TOOLS || "").toLowerCase() === "true";
+
+// The tool's schema in the form strict mode needs (additionalProperties: false on every object),
+// or null when the schema can't be strict without changing what it accepts: a free-form object
+// (no listed fields, e.g. report filters) or a keyword strict mode doesn't take.
+const STRICT_UNSUPPORTED = new Set(["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "maxItems", "oneOf", "allOf", "not"]);
+function strictSchema(schema) {
+  let ok = true;
+  const walk = (node) => {
+    if (!ok || !node || typeof node !== "object" || Array.isArray(node)) return node;
+    if (Object.keys(node).some((key) => STRICT_UNSUPPORTED.has(key))) { ok = false; return node; }
+    const out = { ...node };
+    if (out.type === "object") {
+      if (!out.properties || !Object.keys(out.properties).length) { ok = false; return node; }
+      out.properties = Object.fromEntries(Object.entries(out.properties).map(([key, value]) => [key, walk(value)]));
+      out.additionalProperties = false;
+    }
+    if (out.items) out.items = walk(out.items);
+    return out;
+  };
+  const result = walk(schema);
+  return ok ? result : null;
+}
 
 function isProviderConfigured(provider) {
   if (provider === "openrouter") return !!process.env.OPENROUTER_API_KEY;
@@ -46,18 +83,17 @@ const MOCK_MODE = String(process.env.MIRA_MOCK_LLM || "").toLowerCase() === "tru
 // with {} instead of filling in values right there in the conversation).
 // Bumped to the same tier as draft/reasoning.
 const TASK_MODEL_MAPS = {
+  // 2026-11-22: every chat turn moved off gpt-4o-mini, which dropped tool details and misread
+  // long results. Claude Haiku 5.5 (OpenRouter $0.10 / $0.50 per million tokens, cheaper than
+  // gpt-4o-mini's $0.15 / $0.60) answers lookups, plain turns and the classifying; Claude
+  // Sonnet 5.5 ($2 / $10, cheaper than Sonnet 4.5's $3 / $15) drafts and works through changes
+  // and compound questions. IDs as OpenRouter's /api/v1/models lists them.
   openrouter: {
-    classify: "openai/gpt-4o-mini",
-    lookup: "openai/gpt-4o-mini",
-    draft: "anthropic/claude-sonnet-4.5",
-    reasoning: "anthropic/claude-sonnet-4.5",
-    // Root cause of the reliability problem was a parser bug (see
-    // toOpenAIMessages/toAnthropicMessages and the tool-call buffering
-    // below), not this model's capability - it was corrupting every
-    // parallel tool call except the first regardless of which model was
-    // used. With that fixed, gpt-4o-mini is what's affordable given the
-    // account's current credit balance.
-    default: "openai/gpt-4o-mini",
+    classify: "anthropic/claude-haiku-5.5",
+    lookup: "anthropic/claude-haiku-5.5",
+    draft: "anthropic/claude-sonnet-5.5",
+    reasoning: "anthropic/claude-sonnet-5.5",
+    default: "anthropic/claude-haiku-5.5",
   },
   openai: {
     classify: "gpt-4o-mini",
@@ -67,11 +103,11 @@ const TASK_MODEL_MAPS = {
     default: "gpt-4o",
   },
   anthropic: {
-    classify: "claude-sonnet-4-5",
-    lookup: "claude-sonnet-4-5",
-    draft: "claude-sonnet-4-5",
-    reasoning: "claude-sonnet-4-5",
-    default: "claude-sonnet-4-5",
+    classify: "claude-haiku-5-5",
+    lookup: "claude-haiku-5-5",
+    draft: "claude-sonnet-5-5",
+    reasoning: "claude-sonnet-5-5",
+    default: "claude-haiku-5-5",
   },
   // Telnyx's open-model catalog (https://developers.telnyx.com/docs/inference/models)
   // doesn't have an established "cheap/small" tier the way OpenAI does, so
@@ -199,6 +235,11 @@ function mockPhraseToolResult(messages) {
     result = null;
   }
 
+  // Managira's own summary of the lookup (services/facts.js), used as written.
+  if (result && typeof result === "object" && !Array.isArray(result) && result.summary_text) {
+    return [result.summary_text, result.table].filter(Boolean).join("\n\n");
+  }
+
   const calledMessage = [...messages].reverse().find((m) => m.role === "assistant" && m.toolCalls?.length);
   const toolName = calledMessage?.toolCalls?.[0]?.name || null;
 
@@ -261,6 +302,21 @@ function mockDecide({ messages, tools }) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const rawText = extractText(lastUser?.content);
   const text = rawText.toLowerCase();
+
+  // Tests only: "[mira-test-reply]" always answers with the text in MIRA_TEST_REPLY, and
+  // "[mira-test-lookup] tool {json}" calls that tool once, then answers with it - so a test can
+  // prove that an unbacked reply never reaches the person (orchestrator.js). The reply is kept
+  // out of the message itself: the person's own words count as evidence.
+  if (/^\s*\[mira-test-reply\]\s*$/.test(rawText)) return { type: "text", content: String(process.env.MIRA_TEST_REPLY || "") };
+  const lookupThenReply = rawText.match(/^\s*\[mira-test-lookup\]\s+([a-z_]+)\s+(\{[\s\S]*\})\s*$/);
+  if (lookupThenReply) {
+    if (messages.some((m) => m.role === "tool_results")) return { type: "text", content: String(process.env.MIRA_TEST_REPLY || "") };
+    try {
+      return { type: "tool_call", toolName: lookupThenReply[1], arguments: JSON.parse(lookupThenReply[2]) };
+    } catch (_) {
+      return { type: "text", content: "That test lookup's details aren't valid JSON." };
+    }
+  }
 
   const toolResultReply = mockPhraseToolResult(messages);
   if (toolResultReply) return { type: "text", content: toolResultReply };
@@ -350,11 +406,19 @@ async function mockStreamCompletion({ messages, tools, onToken, onToolCall }) {
 // Shared by OpenAI and OpenRouter - both speak the same chat-completions
 // wire format (OpenRouter is deliberately OpenAI-API-compatible), so only
 // the client construction (base URL / key / headers) differs between them.
-async function runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall }) {
+async function runOpenAICompatibleStream(client, { model, task, messages, tools, onToken, onToolCall }) {
+  // Strict schemas only for Claude models (OpenAI's strict mode needs every field required, which
+  // Mira's tools aren't), and only when MIRA_STRICT_TOOLS is on.
+  const strict = STRICT_TOOLS && /^anthropic\//.test(model);
   const stream = await client.chat.completions.create({
     model,
     messages: messages.flatMap(toOpenAIMessages),
-    tools: tools?.length ? tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })) : undefined,
+    tools: tools?.length
+      ? tools.map((t) => {
+        const strictParams = strict ? strictSchema(t.parameters) : null;
+        return { type: "function", function: { name: t.name, description: t.description, parameters: strictParams || t.parameters, ...(strictParams ? { strict: true } : {}) } };
+      })
+      : undefined,
     // Without a cap, some providers (via OpenRouter) reserve credits against
     // the model's full max output (tens of thousands of tokens) just to
     // start a request, even for an ordinary chat reply - this was failing
@@ -362,10 +426,11 @@ async function runOpenAICompatibleStream(client, { model, messages, tools, onTok
     // tokens") on an account with a modest balance. A real chat reply or
     // tool call never needs anywhere near this; matches the cap the direct
     // Anthropic path below already sets.
-    max_tokens: 2048,
-    // Low temperature: Mira reports facts from tool results; creative
+    max_tokens: maxTokensFor(model),
+    // Low temperature where the model takes it: Mira reports facts from tool results; creative
     // variation is where invented names and numbers come from.
-    temperature: MIRA_TEMPERATURE,
+    ...(takesTemperature(model) ? { temperature: MIRA_TEMPERATURE } : {}),
+    ...(effortFor(model, task) ? { reasoning: { effort: effortFor(model, task) } } : {}),
     stream: true,
   });
 
@@ -395,13 +460,16 @@ async function runOpenAICompatibleStream(client, { model, messages, tools, onTok
   }
   if (toolCallBuffers.size) {
     for (const buffer of toolCallBuffers.values()) {
+      // Details that aren't valid JSON are never turned into {} and run: the call is flagged
+      // and the orchestrator sends it back to the model to make again (services/argCheck.js).
       let parsedArgs = {};
+      let unreadable = false;
       try {
         parsedArgs = JSON.parse(buffer.args || "{}");
       } catch {
-        /* leave empty */
+        unreadable = true;
       }
-      onToolCall(buffer.name, parsedArgs, buffer.id);
+      onToolCall(buffer.name, parsedArgs, buffer.id, unreadable ? { unreadable: true } : undefined);
     }
     return { finishReason: "tool_call", usage };
   }
@@ -416,13 +484,13 @@ async function runOpenAICompatibleStream(client, { model, messages, tools, onTok
 // try/catch loop below moves on to the next configured provider instead.
 const PROVIDER_TIMEOUT_MS = 25000;
 
-async function openaiStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+async function openaiStreamCompletion({ model, task, messages, tools, onToken, onToolCall }) {
   const OpenAI = require("openai");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: PROVIDER_TIMEOUT_MS });
-  return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
+  return runOpenAICompatibleStream(client, { model, task, messages, tools, onToken, onToolCall });
 }
 
-async function openrouterStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+async function openrouterStreamCompletion({ model, task, messages, tools, onToken, onToolCall }) {
   const OpenAI = require("openai");
   const client = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
@@ -433,23 +501,23 @@ async function openrouterStreamCompletion({ model, messages, tools, onToken, onT
       "X-Title": "Mira",
     },
   });
-  return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
+  return runOpenAICompatibleStream(client, { model, task, messages, tools, onToken, onToolCall });
 }
 
 // Telnyx's chat completions endpoint is deliberately OpenAI-compatible
 // (https://developers.telnyx.com/docs/inference/ai-assistants/custom-llm) -
 // same wire format as OpenRouter/OpenAI, just a different base URL and key.
-async function telnyxStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+async function telnyxStreamCompletion({ model, task, messages, tools, onToken, onToolCall }) {
   const OpenAI = require("openai");
   const client = new OpenAI({
     apiKey: process.env.TELNYX_API_KEY,
     baseURL: "https://api.telnyx.com/v2/ai",
     timeout: PROVIDER_TIMEOUT_MS,
   });
-  return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
+  return runOpenAICompatibleStream(client, { model, task, messages, tools, onToken, onToolCall });
 }
 
-async function anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+async function anthropicStreamCompletion({ model, task, messages, tools, onToken, onToolCall }) {
   const Anthropic = require("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: PROVIDER_TIMEOUT_MS });
 
@@ -463,43 +531,80 @@ async function anthropicStreamCompletion({ model, messages, tools, onToken, onTo
 
   const stream = client.messages.stream({
     model,
-    max_tokens: 1024,
-    temperature: MIRA_TEMPERATURE,
+    max_tokens: maxTokensFor(model),
+    ...(takesTemperature(model) ? { temperature: MIRA_TEMPERATURE } : {}),
+    ...(effortFor(model, task) ? { output_config: { effort: effortFor(model, task) } } : {}),
     system: systemMessages.map((m) => extractText(m.content)).filter(Boolean).join("\n\n"),
     messages: conversational.flatMap(toAnthropicMessages),
-    tools: tools?.length ? tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) : undefined,
+    tools: tools?.length
+      ? tools.map((t) => {
+        const strictParams = STRICT_TOOLS ? strictSchema(t.parameters) : null;
+        return { name: t.name, description: t.description, input_schema: strictParams || t.parameters, ...(strictParams ? { strict: true } : {}) };
+      })
+      : undefined,
   });
 
-  stream.on("text", (text) => onToken(text));
+  return readAnthropicStream(stream, { onToken, onToolCall });
+}
 
-  const finalMessage = await stream.finalMessage();
+// The SDK (1.8) reads a tool call's streamed JSON leniently: cut-off JSON ({"studentId": 5) comes
+// back as {} with no error, and malformed JSON throws a SyntaxError inside the stream, which the
+// SDK wraps as a plain AnthropicError and finalMessage() rejects with - so the whole provider
+// looked down. Here each call's id, name and raw JSON are recorded from the stream's own events
+// and parsed strictly; a call that doesn't parse is flagged { unreadable: true } (the
+// orchestrator sends it back to the model), never run as {}. Only that parse error is caught:
+// API errors (APIError: rate limits, auth, overload, timeouts) still fail the provider as before.
+function isToolJsonError(error) {
+  const { AnthropicError, APIError } = require("@anthropic-ai/sdk");
+  return error instanceof AnthropicError && !(error instanceof APIError) && /JSON/i.test(String(error.message || ""));
+}
+
+async function readAnthropicStream(stream, { onToken, onToolCall }) {
+  // index -> { id, name, json, startInput }
+  const calls = new Map();
+  stream.on("text", (text) => onToken(text));
+  stream.on("streamEvent", (event) => {
+    if (event.type === "content_block_start" && event.content_block && event.content_block.type === "tool_use") {
+      calls.set(event.index, { id: event.content_block.id, name: event.content_block.name, json: "", startInput: event.content_block.input });
+    } else if (event.type === "content_block_delta" && event.delta && event.delta.type === "input_json_delta" && calls.has(event.index)) {
+      calls.get(event.index).json += event.delta.partial_json || "";
+    }
+  });
+
+  let finalMessage = null;
+  try {
+    finalMessage = await stream.finalMessage();
+  } catch (error) {
+    if (!calls.size || !isToolJsonError(error)) throw error;
+  }
+
   // Anthropic natively supports multiple tool_use blocks in one response
   // (parallel tool calls) - only using the first silently dropped every
   // other one the model tried to make in the same turn.
-  const toolUses = finalMessage.content.filter((block) => block.type === "tool_use");
-  if (toolUses.length) {
-    for (const toolUse of toolUses) onToolCall(toolUse.name, toolUse.input, toolUse.id);
-    return { finishReason: "tool_call", usage: finalMessage.usage };
+  if (calls.size) {
+    // A reply that broke off (malformed JSON), was cut off at max_tokens or stopped by a refusal
+    // can leave any of its calls incomplete though they still parse: none of them are run.
+    const brokeOff = !finalMessage || finalMessage.stop_reason === "max_tokens" || finalMessage.stop_reason === "refusal";
+    for (const [, call] of [...calls.entries()].sort((a, b) => a[0] - b[0])) {
+      let args = {};
+      let unreadable = brokeOff;
+      try {
+        args = call.json.trim() ? JSON.parse(call.json) : (call.startInput || {});
+      } catch (_) {
+        unreadable = true;
+      }
+      onToolCall(call.name, unreadable ? {} : args, call.id, unreadable ? { unreadable: true } : undefined);
+    }
+    return { finishReason: "tool_call", usage: finalMessage ? finalMessage.usage : null };
   }
   return { finishReason: "stop", usage: finalMessage.usage };
 }
 
-async function callProvider(provider, { model, messages, tools, onToken, onToolCall }) {
-  if (provider === "openrouter") return openrouterStreamCompletion({ model, messages, tools, onToken, onToolCall });
-  if (provider === "telnyx") return telnyxStreamCompletion({ model, messages, tools, onToken, onToolCall });
-  if (provider === "openai") return openaiStreamCompletion({ model, messages, tools, onToken, onToolCall });
-  return anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall });
-}
-
-// Rough chars/4 token estimate - not a real tokenizer, just precise enough
-// to tell "this prompt is way over the known OpenRouter cap" from "it's
-// probably fine", which is all the skip-ahead check below needs. Override
-// via env var once the OpenRouter account is funded/verified and the real
-// cap changes - the ~10,696-token ceiling logged in every 402 so far is
-// this account's current tier, not a fixed platform limit.
-const OPENROUTER_PROMPT_TOKEN_CAP = Number(process.env.OPENROUTER_PROMPT_TOKEN_CAP) || 10500;
-function estimateTokens(messages, tools) {
-  return Math.ceil((JSON.stringify(messages).length + JSON.stringify(tools).length) / 4);
+async function callProvider(provider, { model, task, messages, tools, onToken, onToolCall }) {
+  if (provider === "openrouter") return openrouterStreamCompletion({ model, task, messages, tools, onToken, onToolCall });
+  if (provider === "telnyx") return telnyxStreamCompletion({ model, task, messages, tools, onToken, onToolCall });
+  if (provider === "openai") return openaiStreamCompletion({ model, task, messages, tools, onToken, onToolCall });
+  return anthropicStreamCompletion({ model, task, messages, tools, onToken, onToolCall });
 }
 
 /**
@@ -525,19 +630,10 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
     return mockStreamCompletion({ messages, tools, onToken, onToolCall });
   }
 
-  let configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
-
-  // A prompt that looks bigger than the OpenRouter account's prompt-token
-  // cap tries the other providers first, but OpenRouter stays as the last
-  // resort rather than being dropped: if every other provider is down (e.g.
-  // an account issue), one more fast attempt is better than no answer.
-  if (
-    configuredProviders.length > 1 &&
-    configuredProviders.includes("openrouter") &&
-    estimateTokens(messages, tools) > OPENROUTER_PROMPT_TOKEN_CAP
-  ) {
-    configuredProviders = [...configuredProviders.filter((p) => p !== "openrouter"), "openrouter"];
-  }
+  // Every request tries OpenRouter first. (A check that sent prompts over ~10,500 tokens to
+  // Telnyx first was removed 2026-11-22: that OpenRouter limit no longer applies - it serves
+  // 18,000-token prompts - so large requests were waiting on Telnyx for nothing.)
+  const configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
 
   // One that just failed waits at the back of the queue for a while, so nobody sits through
   // the same failure on every step of every reply. It's still tried if nothing else answers.
@@ -552,7 +648,7 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
       const taskMap = TASK_MODEL_MAPS[provider];
       const model = taskMap[task] || taskMap.default;
       const result = await callProvider(provider, {
-        model, messages, tools, onToolCall,
+        model, task, messages, tools, onToolCall,
         onToken: (text) => { started = true; onToken(text); },
       });
       restingUntil.delete(provider);
@@ -568,4 +664,4 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
   throw lastError || new Error("No LLM provider is configured (set OPENROUTER_API_KEY, TELNYX_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).");
 }
 
-module.exports = { streamCompletion, MOCK_MODE, TASK_MODEL_MAPS, PROVIDER_PRIORITY };
+module.exports = { streamCompletion, MOCK_MODE, TASK_MODEL_MAPS, PROVIDER_PRIORITY, takesTemperature, effortFor, maxTokensFor, strictSchema, runOpenAICompatibleStream, readAnthropicStream };

@@ -5,12 +5,15 @@ const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 const { streamCompletion } = require("./modelRouter");
 const { listToolSchemas, runTool, REGISTRY } = require("../tools");
+const argCheck = require("./argCheck");
+const { withFacts } = require("./facts");
+const readBack = require("./readBack");
 const REGISTRY_NAMES = new Set(Object.keys(REGISTRY));
 const { retrieveContext } = require("./ragService");
 const { checkBudget, recordUsage } = require("./usageLedger");
 const { callInternalApi } = require("../internalApiClient");
 const { loadAccess, checkTool, describeAccess } = require("./access");
-const { unsupportedFigures, wrongWeekdays, unsupportedDates } = require("./grounding");
+const { unsupportedFigures, wrongWeekdays, unsupportedDates, unsupportedNames, unsupportedClaims } = require("./grounding");
 const { needsPlan, planTurn, planForModel, toolStepLabel } = require("./planner");
 const {
   LOAD_TOOLS_NAME,
@@ -27,6 +30,9 @@ const {
 
 const skills = require("./skills");
 const confirmGate = require("./confirmGate");
+// Previews are kept in the database too, so a restart doesn't lose one waiting for a Confirm.
+// Not under `node --test`: unit tests never touch a database.
+if (!process.env.NODE_TEST_CONTEXT) confirmGate.useDb(db);
 const { levelOf } = require("./levels");
 const requestSense = require("./requestSense");
 
@@ -71,7 +77,7 @@ Steps for every question:
    - Time: the current term unless the person gives dates. Dates like "next Friday" come from "Coming days".
 2. Choose the tool. First the area's own tool, then a Report Builder view (report_builder_catalog first, then run_report: never invent a report, column, filter or value), then search to locate a single item.
 3. Get the complete result. If it is truncated, say the answer covers the first ones and give the total the tool gives.
-4. Use the totals the tool returns. Never count rows yourself when a total exists. No extra maths unless asked, and then show the working in one line.
+4. Use the totals the tool returns. Never count rows yourself when a total exists. No extra maths unless asked, and then show the working in one line. When a result has summary_text, it is Managira's own answer with the exact totals: lead with it as written (you may add the scope and one next step), use its table for the list, and never recount, re-add or reword its figures.
 5. Answer in this order: the result, then the scope (classes, term or dates, as-of time), then a short breakdown, then one useful next step you can actually do.
 
 By question type:
@@ -396,6 +402,28 @@ async function saveMessage(chatId, role, content, toolCalls, classScope) {
   return { id: result.rows[0].id, createdAt: result.rows[0].created_at };
 }
 
+// Every reply the check sent back (pass 1) or replaced with the records (pass 2), for review:
+//   SELECT created_at, arguments->>'question', arguments->'problems', result_summary
+//     FROM mira_tool_call_log WHERE tool_name = 'reply_check' ORDER BY created_at DESC;
+// Kept in the tool-call log (status 'denied': the draft was refused) so no new table is needed.
+function logReplyCheck(tenant, chatId, userText, pass, problems) {
+  const question = stripAttachmentBlocks(String(userText || "")).slice(0, 500);
+  const summary = `${pass === 1 ? "Sent back for correction" : "Still unbacked after correction - showed the records instead"}: ${problems.join("; ")}`.slice(0, 500);
+  return logToolCall({ tenant, chatId, toolName: "reply_check", args: { question, pass, problems }, status: "denied", resultSummary: summary })
+    .catch((error) => console.error("[mira/orchestrator] couldn't log the reply check:", error.message));
+}
+
+// What earlier turns give the check: the person's own messages and the lookups replayed with them -
+// never Mira's earlier replies (a name or figure it made up once mustn't back the next reply), nor
+// the details it chose for its earlier calls.
+function historyEvidence(forModel) {
+  return (forModel || []).flatMap((m) => {
+    if (m.role === "user") return [typeof m.content === "string" ? m.content : JSON.stringify(m.content || "")];
+    if (m.role === "tool_results") return (m.results || []).map((r) => (typeof r.content === "string" ? r.content : JSON.stringify(r.content || "")));
+    return [];
+  });
+}
+
 async function logToolCall({ tenant, chatId, toolName, args, status, resultSummary }) {
   await db.query(
     `INSERT INTO mira_tool_call_log (tenant_id, user_id, chat_id, tool_name, arguments, result_summary, status)
@@ -625,6 +653,95 @@ function previewTitle(name, args) {
 
 // What the model sees of a tool: no confirm switch (only the person confirms), and no
 // instructions to call again with confirm=true.
+const MAX_TOOL_CALLS_PER_TURN = 12;
+
+// ── When a corrected reply still states something no record backs ──
+// The person gets what Managira itself returned (the latest lookup's own rows and totals, as a
+// table) and a plain line saying what couldn't be confirmed - never the unbacked reply.
+const HIDDEN_COLUMN = /(^id$|_id$|Id$|^ids?$|url|link|token|secret|password|how_to|next_step|instruction)/i;
+const TABLE_ROWS = 25;
+const TABLE_COLUMNS = 6;
+
+function cellText(value) {
+  if (value === null || value === undefined) return "";
+  const text = Array.isArray(value) ? value.join(", ") : String(value);
+  return text.replace(/\|/g, "/").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+// The first list of records in a result (the result itself, or a field of it), with its totals.
+function recordsIn(result) {
+  if (Array.isArray(result) && result.length && result.every((r) => r && typeof r === "object" && !Array.isArray(r))) return { rows: result, totals: [] };
+  if (!result || typeof result !== "object") return null;
+  const totals = Object.entries(result).filter(([key, value]) => typeof value === "number" && !HIDDEN_COLUMN.test(key));
+  for (const value of Object.values(result)) {
+    const inner = recordsIn(value);
+    if (inner && inner.rows.length) return { rows: inner.rows, totals: [...totals, ...inner.totals] };
+  }
+  return totals.length ? { rows: [], totals } : null;
+}
+
+function recordsTable(result) {
+  const found = recordsIn(result);
+  if (!found) return "";
+  const lines = [];
+  if (found.totals.length) lines.push(found.totals.map(([key, value]) => `**${key.replace(/_/g, " ")}:** ${value}`).join(" · "));
+  if (found.rows.length) {
+    const columns = [...new Set(found.rows.flatMap((row) => Object.keys(row)))]
+      .filter((key) => !HIDDEN_COLUMN.test(key) && found.rows.some((row) => row[key] !== null && typeof row[key] !== "object" || Array.isArray(row[key])))
+      .slice(0, TABLE_COLUMNS);
+    if (columns.length) {
+      lines.push(`| ${columns.map((c) => c.replace(/_/g, " ")).join(" | ")} |`, `| ${columns.map(() => "---").join(" | ")} |`);
+      found.rows.slice(0, TABLE_ROWS).forEach((row) => lines.push(`| ${columns.map((c) => cellText(row[c])).join(" | ")} |`));
+      if (found.rows.length > TABLE_ROWS) lines.push(`\n_Showing ${TABLE_ROWS} of the ${found.rows.length} rows returned._`);
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * unconfirmedReply(problems, lookups) -> the reply given instead of one whose facts still fail.
+ * `lookups` are this turn's successful read results, oldest first: { label, result }.
+ */
+function unconfirmedReply(problems, lookups) {
+  const list = problems.join("; ");
+  for (const lookup of [...(lookups || [])].reverse()) {
+    const own = lookup.result && typeof lookup.result === "object" && lookup.result.summary_text;
+    const table = own ? [lookup.result.summary_text, lookup.result.table].filter(Boolean).join("\n\n") : recordsTable(lookup.result);
+    if (table) return `Here is exactly what Managira returned for **${lookup.label}**:\n\n${table}\n\n_Left out because your school's records don't confirm ${problems.length === 1 ? "it" : "them"}: ${list}._`;
+  }
+  return `I couldn't confirm my answer against your school's records, so I haven't given it (not confirmed: ${list}). Please ask again, or check the page in Managira.`;
+}
+
+// Before a call goes any further: its details are readable and fit the tool's schema (required
+// fields, types, choices, real dates - services/argCheck.js), it isn't a repeat of a call already
+// made in this message, and the message hasn't reached its ceiling of calls. A refused call is
+// never recorded as made, so a retry is checked afresh and gets the real reason, and it doesn't
+// count toward the ceiling. `parameters` is the tool's schema as the model was shown it (null to
+// skip the detail check). `notAllowed` is the refusal for a tool this person can't use: it comes
+// first, and that call isn't recorded or counted either.
+// Returns { args } (the details to use) or { refuse, logSummary? }.
+function screenToolCall(call, callsThisTurn, parameters, notAllowed = null) {
+  if (notAllowed) return { refuse: notAllowed };
+  if (call.unreadable) return { refuse: argCheck.unreadable(call.name), logSummary: "Not run: the details weren't valid JSON." };
+  let args = call.args;
+  if (parameters) {
+    const checked = argCheck.checkArgs(args, parameters);
+    if (!checked.ok) return { refuse: argCheck.refusal(call.name, checked.problems), logSummary: `Not run: ${checked.problems.join("; ")}`.slice(0, 500) };
+    args = checked.args;
+  }
+  // The same call twice in one message is answered from the first, and
+  // a message has a ceiling on tool calls: Mira never keeps trying.
+  const callKey = `${call.name}:${JSON.stringify(args || {})}`;
+  if (callsThisTurn.has(callKey)) {
+    return { refuse: `You already called ${call.name} with exactly these details in this message - use that result and don't call it again.` };
+  }
+  callsThisTurn.add(callKey);
+  if (call.name !== LOAD_TOOLS_NAME && callsThisTurn.size > MAX_TOOL_CALLS_PER_TURN) {
+    return { refuse: "That's enough lookups for one message. Answer now with what you have, and say what you couldn't check." };
+  }
+  return { args };
+}
+
 function forModelSchema(schema) {
   const props = schema.parameters && schema.parameters.properties;
   if (!props || !props.confirm) return schema;
@@ -760,7 +877,6 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   const changing = asksForAction(userText, history.summary) || confirmGate.waiting(tenant, chat.id).length > 0;
   const modelTask = compound ? (process.env.MIRA_COMPOUND_TASK || "reasoning") : changing ? (process.env.MIRA_ACTION_TASK || "reasoning") : "default";
   const MAX_TOOL_ROUNDS = 8;
-  const MAX_TOOL_CALLS_PER_TURN = 12;
   // Skills sit right before the person's message, so they shape this answer however long the chat.
   let workingMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history.forModel, ...(skillMessage ? [skillMessage] : []), { role: "user", content: currentUserContent }];
   let assistantText = "";
@@ -769,7 +885,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   let toolResultChars = 0;
   // Everything a reply may rest on: this turn's tool results, the history
   // (with its replayed results), the context and the person's own words.
-  const evidence = [userText, ...contextMessages.map((m) => String(m.content || "")), JSON.stringify(history.forModel)];
+  const evidence = [userText, ...contextMessages.map((m) => String(m.content || "")), ...historyEvidence(history.forModel)];
+  // The details Mira itself sent to a tool (the dates it chose, the class): they back a figure or
+  // a date in the reply, never a name or a claim - a name Mira searched for and didn't find
+  // isn't a name the records gave.
+  const argsEvidence = [];
   let revised = false;
   let uncheckedBefore = [];
   let previewsThisTurn = 0;
@@ -778,6 +898,10 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   // What tools returned this turn (not Mira's own context): with the person's words, the only
   // sources of a detail in a change.
   const toolTexts = [];
+  // This turn's successful lookups as returned, for the records shown when a reply can't be confirmed.
+  const readLookups = [];
+  // Texts whose lower-case words are ordinary English to the name check (grounding.js).
+  const ordinaryTexts = [SYSTEM_PROMPT, allSchemas.map((s) => `${s.description || ""} ${JSON.stringify(s.parameters || {})}`).join("\n")];
   let roundStartCalls = [];
   const knownText = () => [...(history.summary || []).filter((m) => m.role === "user").map((m) => m.content), stripAttachmentBlocks(userText), ...toolTexts].join("\n");
   const senseOf = (name, args) => {
@@ -794,6 +918,8 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
 
   // ── What the person confirmed or cancelled (confirmGate.js): run here, before the model answers,
   // with exactly the previewed details. The model reports the result; it can't confirm anything.
+  await ensureMiraSchema(db);
+  await confirmGate.load(tenant, chat.id);
   const decision = confirmGate.decide({ tenant, chatId: chat.id, userText: stripAttachmentBlocks(userText), confirmId: confirmPreview, typed, cancelId: cancelPreview });
   decision.cancelled.forEach((p) => sse.send("preview_done", { id: p.id, state: "cancelled" }));
   if (decision.cancelled.length) {
@@ -802,6 +928,8 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   if (decision.refusal) {
     workingMessages.push({ role: "system", content: `${decision.refusal} Tell the person this plainly; don't call any change.` });
   }
+  // How each confirmed change ended, from the records (readBack.js): done | not_checked | failed | missing | skipped.
+  const changeOutcomes = [];
   if (decision.run.length) {
     const sendsToday = decision.run.some((p) => p.level >= 2) ? await confirmedSendsToday(tenant) : 0;
     const confirmedCalls = [];
@@ -810,11 +938,18 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     for (const p of decision.run) {
       if (p.level >= 2 && sendsToday + confirmedCalls.length >= DAILY_CONFIRMED_SENDS) {
         notes.push(`Not done: ${p.label} - you've reached today's limit of ${DAILY_CONFIRMED_SENDS} confirmed changes that reach people from Mira. It can be done on its page in Managira.`);
-        confirmGate.mark(p, "cancelled");
+        changeOutcomes.push({ label: p.label, state: "skipped", why: `today's limit of ${DAILY_CONFIRMED_SENDS} confirmed changes that reach people from Mira is reached; it can be done on its page in Managira` });
+        await confirmGate.mark(p, "cancelled");
         sse.send("preview_done", { id: p.id, state: "failed" });
         break;
       }
-      confirmGate.mark(p, "done"); // single use, before it runs
+      // Single use, claimed before it runs: in the database too, so a restart or a second
+      // server can't run the same preview twice.
+      if (!(await confirmGate.claim(p))) {
+        changeOutcomes.push({ label: p.label, state: "skipped", why: "it was already confirmed" });
+        sse.send("preview_done", { id: p.id, state: "done" });
+        continue;
+      }
       const tool = REGISTRY[p.tool];
       const takesConfirm = Boolean(tool && tool.parameters && tool.parameters.properties && tool.parameters.properties.confirm);
       const args = takesConfirm ? { ...p.args, confirm: true } : { ...p.args };
@@ -823,8 +958,16 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       const { status, result } = await runTool(p.tool, args, tenant, { images: toolImages, classScope, access, timeZone });
       await logToolCall({ tenant, chatId: chat.id, toolName: p.tool, args, status, resultSummary: `Confirmed: ${summarizeToolResult(p.tool, result)}`.slice(0, 500) });
       sse.send("tool_result", { name: p.tool, status, result });
-      const failed = status !== "ok" || (result && typeof result === "object" && /^(error|blocked|failed|needs_info|not_found)$/.test(String(result.status || "")));
-      sse.send("preview_done", { id: p.id, state: failed ? "failed" : "done" });
+      const failed = status !== "ok" || (result && typeof result === "object" && /^(error|blocked|failed|needs_info|not_found|ambiguous)$/.test(String(result.status || "")));
+      // Read back: the record must show the change before Mira says it's done (readBack.js).
+      const check = failed ? null : await readBack.verify(p.tool, p.args, (name, lookupArgs) => runTool(name, lookupArgs, tenant, { classScope, access, timeZone }));
+      const why = failed ? String((result && (result.message || result.error_message || result.reason)) || (typeof result === "string" ? result : "") || "Managira couldn't make the change").slice(0, 300) : "";
+      changeOutcomes.push(failed
+        ? { label: p.label, state: "failed", why }
+        : check.state === "missing"
+          ? { label: p.label, state: "missing", why: `Managira said it worked, but the records don't show it (${check.missing.join("; ")}). Check it on its page.` }
+          : { label: p.label, state: check.state === "confirmed" ? "done" : "not_checked" });
+      sse.send("preview_done", { id: p.id, state: failed || (check && check.state === "missing") ? "failed" : "done" });
       const id = `confirmed_${confirmedCalls.length}`;
       const content = compactToolResult(result, 24000);
       confirmedCalls.push({ id, name: p.tool, args });
@@ -834,7 +977,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       callsThisTurn.add(`${p.tool}:${JSON.stringify(args)}`);
       if (failed) {
         const rest = decision.run.slice(decision.run.indexOf(p) + 1);
-        rest.forEach((q) => { confirmGate.mark(q, "cancelled"); sse.send("preview_done", { id: q.id, state: "cancelled" }); });
+        for (const q of rest) {
+          await confirmGate.mark(q, "cancelled");
+          sse.send("preview_done", { id: q.id, state: "cancelled" });
+          changeOutcomes.push({ label: q.label, state: "skipped", why: "stopped because the change before it went wrong" });
+        }
         if (rest.length) notes.push(`Stopped after this one went wrong; not done: ${rest.map((q) => q.label).join("; ")}.`);
         break;
       }
@@ -844,7 +991,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     }
     workingMessages.push({
       role: "system",
-      content: `The person confirmed, and Managira carried out the confirmed change${confirmedCalls.length === 1 ? "" : "s"} above with the previewed details. Report exactly what happened from the result${confirmedCalls.length === 1 ? "" : "s"}: what was done, how many, where to see it, and how to undo it if that's possible. If something failed, say exactly what worked and what didn't. Don't call these changes again.${notes.length ? ` ${notes.join(" ")}` : ""}`,
+      content: `The person confirmed, and Managira carried out the confirmed change${confirmedCalls.length === 1 ? "" : "s"} above with the previewed details, then looked the records up again. What the records show (use exactly this; say "done" only for what's done):\n${changeOutcomes.map((o) => `- ${o.label}: ${o.state === "done" ? "done - the records show it" : o.state === "not_checked" ? "Managira reported it done" : `NOT done - ${o.why}`}`).join("\n")}\nReport what happened: what was done, how many, where to see it, and how to undo it if that's possible. Don't call these changes again.${notes.length ? ` ${notes.join(" ")}` : ""}`,
     });
   }
 
@@ -867,11 +1014,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
             step(`write-${round}`, "Composing the answer", "active");
           }
         },
-        onToolCall: (name, args, id) => {
+        onToolCall: (name, args, id, flags) => {
           // Ids are kept to letters, digits, _ and - (some providers use
           // ids like "functions.get_term:0", which others reject).
           const safeId = String(id || "").replace(/[^a-zA-Z0-9_-]/g, "_") || `call_${round}_${toolCallsInfo.length}`;
-          toolCallsInfo.push({ name, args, id: safeId });
+          toolCallsInfo.push({ name, args, id: safeId, unreadable: Boolean(flags && flags.unreadable) });
         },
       });
     } catch (error) {
@@ -886,31 +1033,65 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     await usageOf(tenant, pass);
 
     if (!toolCallsInfo.length) {
-      // Grounding check: a figure that appears in no tool result and no
-      // message is sent back once for correction before the reply stands.
+      // Grounding check: every figure, date, weekday, name and "all"/"none" claim in a reply must
+      // come from a tool result, the context or the person's words. A first draft that fails is
+      // sent back once for correction. The corrected reply is checked again; if its facts still
+      // fail, the person gets the records themselves and what couldn't be confirmed
+      // (unconfirmedReply) - an unbacked fact never reaches them. Every send-back and block is
+      // logged (tool_name "reply_check" in mira_tool_call_log) for review.
       const checking = !revised && round < MAX_TOOL_ROUNDS;
-      const unsupported = checking ? unsupportedFigures(assistantText, evidence) : [];
-      const wrongDays = checking ? wrongWeekdays(assistantText) : [];
-      const unsupportedDays = checking ? unsupportedDates(assistantText, evidence) : [];
-      const shortListed = checking ? countsFromShortLists(assistantText, shortListCounts) : [];
+      const unsupported = unsupportedFigures(assistantText, [...evidence, ...argsEvidence]);
+      const wrongDays = wrongWeekdays(assistantText);
+      const unsupportedDays = unsupportedDates(assistantText, [...evidence, ...argsEvidence]);
+      const shortListed = countsFromShortLists(assistantText, shortListCounts);
+      // Names (not for how-to answers, whose capitalised words are screen labels: "Enter Details").
+      const madeUpNames = HOW_TO.test(stripAttachmentBlocks(userText)) ? [] : unsupportedNames(assistantText, evidence, ordinaryTexts);
+      // "All paid" / "no one absent" needs a lookup that found none (not for reports of a change).
+      // Only real lookups count: this turn's, and the earlier ones replayed in the history.
+      const lookedUp = [...toolTexts, ...(history.forModel || []).filter((m) => m.role === "tool_results").map((m) => JSON.stringify(m.results || []))];
+      const claims = !changing && !decision.run.length ? unsupportedClaims(assistantText, lookedUp) : [];
       // Every part of a question must have been looked up (a question, not a request or a how-to).
       const partsChecked = checking && !asksForAction(userText, history.summary) && !HOW_TO.test(stripAttachmentBlocks(userText)) && !decision.run.length;
       const lastCalls = followUp(userText) ? [...(history.summary || [])].reverse().find((m) => m.role === "assistant" && (m.toolCalls || []).length)?.toolCalls || [] : [];
       const unchecked = partsChecked ? uncheckedTopics(userText, assistantText, [...toolCallsThisTurn, ...lastCalls]) : [];
       const triedChange = previewsThisTurn > 0 || changeAttempts.length > 0;
-      const saidDone = checking && triedChange && !decision.run.length && requestSense.claimsDone(assistantText);
+      const saidDone = triedChange && !decision.run.length && requestSense.claimsDone(assistantText);
       // A preview written by Mira when Managira made none (the change still needs something).
       const notPrepared = changeAttempts.filter((a) => a.outcome !== "preview");
       const fakePreview = checking && !saidDone && previewsThisTurn === 0 && (notPrepared.length > 0 || changing) && requestSense.presentsPreview(assistantText);
       const namedDates = checking ? requestSense.unresolvedNamedDates(userText, history.summary || [], toolTexts, assistantText) : [];
       if (shortListed.length) unsupported.push(...shortListed.map((n) => `${n} (only the rows shown from a list that was cut short: give the total from the tool's totals instead)`));
       if (writing) step(`write-${round}`, revised ? "Rebuilt the answer from verified school records" : "Composed the answer", "done");
-      if (!unsupported.length && !wrongDays.length && !unsupportedDays.length && !unchecked.length && !saidDone && !fakePreview && !namedDates.length) {
-        if (checking) step("check", "Verified every figure against your school's records", "done");
+      // The facts, checked on every draft; the rest (parts looked up, previews, calendar names)
+      // only on the first, as before.
+      const factProblems = [
+        ...unsupported.map((f) => `the figure ${f}`),
+        ...unsupportedDays.map((d) => `the date ${d}`),
+        ...wrongDays.map((d) => `the weekday in ${d}`),
+        ...madeUpNames.map((n) => `the name ${n}`),
+        ...claims.map((c) => `"${c}"`),
+        ...(saidDone ? ["that it's done (only a preview exists, waiting for your Confirm)"] : []),
+      ];
+      const processProblems = checking ? [...unchecked, ...(fakePreview ? ["preview"] : []), ...namedDates] : [];
+      if (!factProblems.length && !processProblems.length) {
+        step("check", "Verified every figure and name against your school's records", "done");
+        break;
+      }
+      if (!checking) {
+        // The corrected reply (or the last round's) still fails: give the records instead.
+        if (factProblems.length) {
+          console.warn(`[mira/orchestrator] corrected reply still unbacked, showing the records: ${factProblems.join(", ")}`);
+          await logReplyCheck(tenant, chat.id, userText, 2, factProblems);
+          step("check", "Showed the school's records instead of an answer that couldn't be confirmed", "done");
+          assistantText = saidDone && factProblems.length === 1
+            ? "Nothing has been done yet: the preview above is waiting for your Confirm."
+            : unconfirmedReply(factProblems, readLookups);
+        }
         break;
       }
       revised = true;
-      console.warn(`[mira/orchestrator] reply needs a correction: ${[...unsupported, ...unsupportedDays, ...wrongDays, ...unchecked.map((t) => `not looked up: ${t}`)].join(", ")}`);
+      await logReplyCheck(tenant, chat.id, userText, 1, [...factProblems, ...unchecked.map((t) => `not looked up: ${t}`), ...(fakePreview ? ["a preview Managira didn't make"] : []), ...namedDates.map((d) => `the calendar name "${d}"`)]);
+      console.warn(`[mira/orchestrator] reply needs a correction: ${[...unsupported, ...unsupportedDays, ...wrongDays, ...madeUpNames, ...claims, ...unchecked.map((t) => `not looked up: ${t}`)].join(", ")}`);
       // Mira's own accuracy check caught something in its draft (a figure or date no record gave,
       // or a wrong weekday): it is rebuilt from the records before anyone sees it.
       step("check", unchecked.length ? "Looking up every part of the question" : namedDates.length ? "Checking the calendar names that date" : (saidDone || fakePreview) ? "Keeping it a preview until you confirm" : unsupported.length ? "Cross-checking figures against school records" : "Cross-checking dates against the school calendar", "done");
@@ -921,6 +1102,8 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
         fakePreview ? `no preview exists: ${notPrepared.length ? `Managira didn't prepare the change yet (${notPrepared.map((a) => `${a.name}: ${a.outcome}`).join("; ")})` : "you haven't called the tool that makes the change"}. Do what that answer asked, or call the change tool now with only the details the person gave, so Managira makes the preview and its Confirm button. Otherwise: ask the person the question, or, now that you've seen the lookups, call the tool again with the corrected details so Managira makes the preview. Don't write a preview yourself.` : "",
         namedDates.length ? `"${namedDates.join('", "')}" isn't named on the school's calendar and the person didn't say which date they mean. Don't work it out yourself (a term's end isn't its midterm): say what you found (for example the term's dates) and ask which date they mean.` : "",
         saidDone ? "nothing has been done yet: only a preview exists, waiting for the person's Confirm. Present it as a preview (\"Here's the preview\") and ask them to confirm; never say it's scheduled, created, sent or done." : "",
+        madeUpNames.length ? `these names in your reply appear in no tool result or message: ${madeUpNames.join(", ")}. Use only names exactly as the tool results give them, or leave them out.` : "",
+        claims.length ? `you said ${claims.map((c) => `"${c}"`).join(", ")}, but no lookup in this conversation found none outstanding (a zero total or an empty list). Call the tool that checks it, or say only what the results show.` : "",
         unchecked.length ? `the question asks about ${unchecked.join(" and ")}, but no tool looked ${unchecked.length === 1 ? "it" : "them"} up, so your reply can't say anything about ${unchecked.length === 1 ? "it" : "them"}. Call the tool now (find_students checks class, bus, fees, absences and forms together, as ALL of the conditions), or say plainly that you couldn't check ${unchecked.join(" or ")}.` : "",
       ].filter(Boolean).join(" Also, ");
       // The draft is quoted inside the note, never left as the last message: some models
@@ -944,23 +1127,21 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     const results = [];
     roundStartCalls = toolCallsThisTurn.slice();
     for (const toolCallInfo of toolCallsInfo) {
-      // The same call twice in one message is answered from the first, and
-      // a message has a ceiling on tool calls: Mira never keeps trying.
-      const callKey = `${toolCallInfo.name}:${JSON.stringify(toolCallInfo.args || {})}`;
-      if (callsThisTurn.has(callKey)) {
-        results.push({ toolCallId: toolCallInfo.id, content: `You already called ${toolCallInfo.name} with exactly these details in this message - use that result and don't call it again.` });
-        continue;
-      }
-      callsThisTurn.add(callKey);
-      if (toolCallInfo.name !== LOAD_TOOLS_NAME && callsThisTurn.size > MAX_TOOL_CALLS_PER_TURN) {
-        results.push({ toolCallId: toolCallInfo.id, content: "That's enough lookups for one message. Answer now with what you have, and say what you couldn't check." });
-        continue;
-      }
-      if (toolCallInfo.name !== LOAD_TOOLS_NAME && REGISTRY_NAMES.has(toolCallInfo.name) && !allowed(toolCallInfo.name)) {
+      // Allowed for this person, readable details that fit the tool, not a repeat, under the
+      // ceiling (screenToolCall). A refused call isn't recorded as made or counted.
+      const known = toolCallInfo.name !== LOAD_TOOLS_NAME && REGISTRY_NAMES.has(toolCallInfo.name);
+      let notAllowed = null;
+      if (known && !allowed(toolCallInfo.name)) {
         const gate = checkTool(toolCallInfo.name, tenant, access);
-        results.push({ toolCallId: toolCallInfo.id, content: gate.allowed ? `${toolCallInfo.name} wasn't offered because the person didn't ask to delete, remove or undo anything. Don't call it.` : gate.reason });
+        notAllowed = gate.allowed ? `${toolCallInfo.name} wasn't offered because the person didn't ask to delete, remove or undo anything. Don't call it.` : gate.reason;
+      }
+      const screen = screenToolCall(toolCallInfo, callsThisTurn, known && !notAllowed ? forModelSchema({ parameters: REGISTRY[toolCallInfo.name].parameters }).parameters : null, notAllowed);
+      if (screen.refuse) {
+        if (screen.logSummary) await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args || {}, status: "denied", resultSummary: screen.logSummary });
+        results.push({ toolCallId: toolCallInfo.id, content: screen.refuse });
         continue;
       }
+      toolCallInfo.args = screen.args;
       // load_tools is handled here: it widens this turn's tool list.
       if (toolCallInfo.name === LOAD_TOOLS_NAME) {
         const requested = normalizeRequestedAreas(toolCallInfo.args);
@@ -1011,6 +1192,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       if (level >= 1) changeAttempts.push({ name: toolCallInfo.name, outcome: status === "ok" && confirmGate.looksLikePreview(result) && !sense ? "preview" : (result && result.status) || status });
       if (level >= 1 && status === "ok" && !sense && confirmGate.looksLikePreview(result)) {
         const preview = confirmGate.create({ tenant, chatId: chat.id, turn: userMessage.id, tool: toolCallInfo.name, args: toolCallInfo.args, level, label: previewTitle(toolCallInfo.name, toolCallInfo.args) });
+        await confirmGate.save(preview);
         result = {
           ...result,
           preview_id: preview.id,
@@ -1025,16 +1207,21 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       const summary = summarizeToolResult(toolCallInfo.name, result);
       await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
       sse.send("tool_result", { name: toolCallInfo.name, status, result });
+      // What the model sees: for the most-used lookups, code's own summary_text and table first
+      // (services/facts.js), so it never counts or adds up a list itself.
+      const seen = level === 0 && status === "ok" ? withFacts(toolCallInfo.name, result, toolCallInfo.args) : result;
 
       // Kept with the reply so later turns can see what was found.
       const budgetLeft = TOOL_RESULTS_PER_TURN_MAX_CHARS - toolResultChars;
-      const stored = compactToolResult(result, Math.max(400, Math.min(TOOL_RESULT_MAX_CHARS, budgetLeft)));
+      const stored = compactToolResult(seen, Math.max(400, Math.min(TOOL_RESULT_MAX_CHARS, budgetLeft)));
       toolResultChars += stored.length;
       toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status, result: stored, label });
-      const content = compactToolResult(result, 24000);
+      const content = compactToolResult(seen, 24000);
       // What Mira asked a tool for (the dates it chose, the class) is known too.
-      evidence.push(content, JSON.stringify(toolCallInfo.args || {}));
+      evidence.push(content);
+      argsEvidence.push(JSON.stringify(toolCallInfo.args || {}));
       if (level === 0) toolTexts.push(content);
+      if (level === 0 && status === "ok") readLookups.push({ label, result: seen });
       noteShortLists(result, shortListCounts);
       results.push({ toolCallId: toolCallInfo.id, content });
     }
@@ -1082,6 +1269,12 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     }
   }
 
+  // A confirmed change that failed or isn't in the records is never reported as done: the
+  // reply is what code wrote from the records - what's done and what's not.
+  if (changeOutcomes.some((o) => ["failed", "missing", "skipped"].includes(o.state))) {
+    assistantText = readBack.outcomeReply(changeOutcomes);
+  }
+
   // The checked answer is given in quick pieces, so it still reads as it arrives.
   await releaseAnswer(sse, assistantText);
 
@@ -1091,4 +1284,4 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
-module.exports = { runTurn, loadHistory, deriveTitle, buildDigest, helpGuideFor, comingDays, forModelSchema, previewTitle, localToday, noteShortLists, countsFromShortLists, uncheckedTopics, topicsAsked };
+module.exports = { runTurn, historyEvidence, screenToolCall, MAX_TOOL_CALLS_PER_TURN, unconfirmedReply, recordsTable, loadHistory, deriveTitle, buildDigest, helpGuideFor, comingDays, forModelSchema, previewTitle, localToday, noteShortLists, countsFromShortLists, uncheckedTopics, topicsAsked };

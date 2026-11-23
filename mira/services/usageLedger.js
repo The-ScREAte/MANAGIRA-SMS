@@ -13,6 +13,13 @@ const PRICING_PER_MILLION = {
   "claude-sonnet-4-5": { prompt: 3, completion: 15 },
   "openai/gpt-4o-mini": { prompt: 0.15, completion: 0.6 },
   "anthropic/claude-3.5-sonnet": { prompt: 3, completion: 15 },
+  // The models Mira runs on (OpenRouter's /api/v1/models prices, 2026-11-22); Sonnet 4.5 was
+  // missing here, so its turns were costed at nothing.
+  "anthropic/claude-haiku-5.5": { prompt: 0.1, completion: 0.5 },
+  "anthropic/claude-sonnet-5.5": { prompt: 2, completion: 10 },
+  "anthropic/claude-sonnet-4.5": { prompt: 3, completion: 15 },
+  "claude-haiku-5-5": { prompt: 0.1, completion: 0.5 },
+  "claude-sonnet-5-5": { prompt: 2, completion: 10 },
   mock: { prompt: 0, completion: 0 },
 };
 

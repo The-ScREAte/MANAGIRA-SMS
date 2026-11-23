@@ -91,6 +91,29 @@ async function ensureMiraSchema(db) {
     )
   `);
 
+  // Previews waiting for the person's Confirm (services/confirmGate.js): kept here so a restart
+  // doesn't lose them, and so each is run once only, even across servers. Rows clear away a day
+  // after they expire. organization_id ties them to the school (utils/shards/schoolTables.js).
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS mira_previews (
+      id              TEXT PRIMARY KEY,
+      organization_id INTEGER NOT NULL,
+      user_id         INTEGER NOT NULL,
+      chat_id         INTEGER NOT NULL,
+      turn            INTEGER NOT NULL DEFAULT 0,
+      tool            VARCHAR(64) NOT NULL,
+      args            JSONB NOT NULL DEFAULT '{}'::jsonb,
+      details_key     TEXT NOT NULL DEFAULT '',
+      level           SMALLINT NOT NULL,
+      label           TEXT NOT NULL DEFAULT '',
+      key_detail      TEXT NOT NULL DEFAULT '',
+      state           VARCHAR(16) NOT NULL DEFAULT 'waiting' CHECK (state IN ('waiting','done','cancelled')),
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at      TIMESTAMPTZ NOT NULL
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS mira_previews_chat_idx ON mira_previews(organization_id, user_id, chat_id, expires_at)`);
+
   // Vector store. Without it Mira still works and answers from the school's
   // data; only the documentation search is skipped.
   try {
